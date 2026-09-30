@@ -1,0 +1,7 @@
+{{- if .Values.debeziumServer.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "kaiten-infra.debeziumServiceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

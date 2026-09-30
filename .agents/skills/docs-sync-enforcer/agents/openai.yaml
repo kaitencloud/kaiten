@@ -1,0 +1,4 @@
+interface:
+  display_name: "Docs Sync Enforcer"
+  short_description: "Keep frontend docs aligned with behavior"
+  default_prompt: "Use $docs-sync-enforcer to map my code changes to required app/docs updates and draft them."

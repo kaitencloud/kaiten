@@ -1,0 +1,266 @@
+import { Badge } from '@/components/ui/badge';
+import { EntityIcon } from '@/components/ui/icon';
+import { CheckCircle, XCircle } from 'lucide-react';
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+  getHighestAcceptedUsage,
+  getUsageStatus,
+  isSoftLimit,
+  isUnlimitedThreshold,
+  UsageMeter,
+  UsageStatusBadge,
+} from '@/domains/entitlement-usage';
+import type { ColumnDef } from '@/functionals/table';
+import { formatUsageWindowBound } from '@/lib/detail';
+import type { useInstanceDetail } from '../../instance-detail-context';
+
+export type InstanceEntitlementRow = ReturnType<
+  typeof useInstanceDetail
+>['entitlementsRows'][number];
+
+type EntitlementColumn = ColumnDef<InstanceEntitlementRow>;
+type TranslateFn = ReturnType<typeof useTranslation>['t'];
+
+function buildNameColumn(t: TranslateFn): EntitlementColumn {
+  return {
+    accessorKey: 'entitlementName',
+    header: t(
+      'Pages.Customers.Instances.Detail.entitlements.table.headers.entitlement',
+    ),
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2">
+        <EntityIcon
+          token={row.original.entitlementIcon}
+          className="size-4 shrink-0 text-muted-foreground"
+        />
+        <span className="font-medium">{row.original.entitlementName}</span>
+      </div>
+    ),
+  };
+}
+
+function buildTypeColumn(t: TranslateFn): EntitlementColumn {
+  return {
+    accessorKey: 'entitlementType',
+    header: t(
+      'Pages.Customers.Instances.Detail.entitlements.table.headers.type',
+    ),
+    cell: ({ row }) => (
+      <Badge
+        variant={
+          row.original.entitlementType === 'NUMBER' ? 'outline' : 'secondary'
+        }
+      >
+        {t(
+          `Pages.Entitlements.EntitlementTypes.${
+            row.original.catalogueEntitlementType ??
+            row.original.entitlementType
+          }`,
+        )}
+      </Badge>
+    ),
+  };
+}
+
+function buildUsageColumn(t: TranslateFn, locale: string): EntitlementColumn {
+  return {
+    accessorKey: 'value',
+    header: t(
+      'Pages.Customers.Instances.Detail.entitlements.table.headers.usage',
+    ),
+    cell: ({ row }) => {
+      if (row.original.entitlementType === 'BOOLEAN') {
+        return row.original.value > 0 ? (
+          <CheckCircle className="size-4 text-success-subtle-foreground" />
+        ) : (
+          <XCircle className="size-4 text-muted-foreground" />
+        );
+      }
+
+      if (row.original.entitlementType === 'CONFIG') {
+        return <span className="text-sm text-muted-foreground">-</span>;
+      }
+
+      return (
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">
+            {row.original.value.toLocaleString(locale)}
+          </span>
+          <UsageMeter
+            className="w-16"
+            limitCapExceededOveragePercent={
+              row.original.limitCapExceededOveragePercent
+            }
+            size="sm"
+            threshold={row.original.threshold}
+            value={row.original.value}
+          />
+        </div>
+      );
+    },
+  };
+}
+
+// A soft limit still grants `threshold`; the percentage is how far past it the
+// API keeps accepting usage. Showing only the granted figure would read as a
+// hard cap, which is what the usage bar used to imply. Renders nothing for a
+// grant that has no overage to announce, so no caller has to remember to ask.
+export function SoftLimitHint({
+  locale,
+  row,
+  t,
+}: {
+  locale: string;
+  row: Pick<
+    InstanceEntitlementRow,
+    'limitCapExceededOveragePercent' | 'threshold'
+  >;
+  t: TranslateFn;
+}) {
+  const highestAcceptedUsage = getHighestAcceptedUsage(
+    row.threshold,
+    row.limitCapExceededOveragePercent,
+  );
+
+  if (
+    highestAcceptedUsage === null ||
+    !isSoftLimit(row.threshold, row.limitCapExceededOveragePercent)
+  ) {
+    return null;
+  }
+
+  return (
+    <span
+      className="text-xs text-muted-foreground"
+      title={t(
+        'Pages.Customers.Instances.Detail.entitlements.softLimitDescription',
+        { max: highestAcceptedUsage.toLocaleString(locale) },
+      )}
+    >
+      {t('Pages.Customers.Instances.Detail.entitlements.softLimitHint', {
+        percent: row.limitCapExceededOveragePercent,
+      })}
+    </span>
+  );
+}
+
+function buildThresholdColumn(
+  t: TranslateFn,
+  locale: string,
+): EntitlementColumn {
+  return {
+    accessorKey: 'threshold',
+    header: t(
+      'Pages.Customers.Instances.Detail.entitlements.table.headers.threshold',
+    ),
+    cell: ({ row }) => (
+      <span className="flex items-baseline gap-1 text-sm text-muted-foreground">
+        <span>
+          {row.original.entitlementType === 'BOOLEAN' ||
+          row.original.entitlementType === 'CONFIG' ||
+          row.original.threshold === null
+            ? '-'
+            : isUnlimitedThreshold(row.original.threshold)
+              ? t('Pages.Customers.Instances.Detail.entitlements.unlimited')
+              : row.original.threshold.toLocaleString(locale)}
+        </span>
+        <SoftLimitHint locale={locale} row={row.original} t={t} />
+      </span>
+    ),
+  };
+}
+
+// The window is phased per instance when the entitlement anchors on
+// LICENSE_START, so these bounds only mean anything next to a given instance's
+// usage -- which is exactly where this column sits. Absent bounds mean a
+// lifetime counter, not missing data.
+function buildCurrentPeriodColumn(
+  t: TranslateFn,
+  locale: string,
+): EntitlementColumn {
+  return {
+    accessorKey: 'currentPeriodStart',
+    header: t(
+      'Pages.Customers.Instances.Detail.entitlements.table.headers.currentPeriod',
+    ),
+    cell: ({ row }) => {
+      const { currentPeriodStart, currentPeriodEnd, entitlementType } =
+        row.original;
+
+      // A window is a counter notion; BOOLEAN and CONFIG have no counter, so
+      // they get the same dash the threshold column gives them rather than
+      // being labelled lifetime counters.
+      if (entitlementType !== 'NUMBER') {
+        return <span className="text-sm text-muted-foreground">-</span>;
+      }
+
+      if (!currentPeriodStart || !currentPeriodEnd) {
+        return (
+          <span className="text-sm text-muted-foreground">
+            {t('Pages.Customers.Instances.Detail.entitlements.lifetime')}
+          </span>
+        );
+      }
+
+      return (
+        <span className="whitespace-nowrap text-muted-foreground text-xs">
+          {t('Pages.Customers.Instances.Detail.entitlements.periodRange', {
+            start: formatUsageWindowBound(currentPeriodStart, locale),
+            end: formatUsageWindowBound(currentPeriodEnd, locale),
+          })}
+        </span>
+      );
+    },
+  };
+}
+
+function buildStatusColumn(t: TranslateFn): EntitlementColumn {
+  return {
+    accessorKey: 'enabled',
+    header: t(
+      'Pages.Customers.Instances.Detail.entitlements.table.headers.status',
+    ),
+    cell: ({ row }) =>
+      // A counter's status is where its usage stands against the grant; only
+      // the on/off grants have an enabled flag to show instead.
+      row.original.entitlementType === 'NUMBER' &&
+      row.original.threshold !== null ? (
+        <UsageStatusBadge
+          status={getUsageStatus(
+            row.original.value,
+            row.original.threshold,
+            row.original.limitCapExceededOveragePercent,
+          )}
+        />
+      ) : row.original.enabled === true ? (
+        <Badge variant="success">
+          {t('Pages.Customers.Instances.Detail.entitlements.status.enabled')}
+        </Badge>
+      ) : row.original.enabled === false ? (
+        <Badge variant="outline">
+          {t('Pages.Customers.Instances.Detail.entitlements.status.disabled')}
+        </Badge>
+      ) : (
+        <Badge variant="secondary">
+          {t('Pages.Customers.Instances.Detail.entitlements.status.unknown')}
+        </Badge>
+      ),
+  };
+}
+
+export const useEntitlementsColumns = (locale: string) => {
+  const { t } = useTranslation();
+
+  return useMemo<EntitlementColumn[]>(
+    () => [
+      buildNameColumn(t),
+      buildTypeColumn(t),
+      buildUsageColumn(t, locale),
+      buildThresholdColumn(t, locale),
+      buildCurrentPeriodColumn(t, locale),
+      buildStatusColumn(t),
+    ],
+    [locale, t],
+  );
+};

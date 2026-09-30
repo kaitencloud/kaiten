@@ -1,0 +1,41 @@
+{{- if .Values.api.enabled }}
+{{/*
+The API's configuration file, as a ConfigMap the pod mounts.
+
+Why a file and not the env list this used to be: a config file is the only channel
+that can carry the shape of the API's own settings. `retention.interval` is one
+setting under one section; as an env list it is a flat name that has to be spelled
+right, and an operator reading `kubectl get cm` sees no structure and no sections
+they might have meant to fill in. api/config.example.yaml is the document this
+renders a subset of, so the thing an operator reads in the repo and the thing the
+pod reads are the same format.
+
+Env is not gone -- it is the override channel, which is what it was always best at.
+os.Environ is layered on top of this file inside the process (api/config), so
+any KAITEN_* variable still beats the same setting here, property by property, with
+no merge semantics to reason about. api.env is that channel; secrets come the same
+way, from a Secret this chart does not create.
+
+A credential's VALUE never appears in here, and neither does its NAME: this is a
+ConfigMap, readable by anything with get on the namespace, and
+kaiten.validateApiConfig refuses to render one where a credential-bearing key is
+set at all. The credential itself reaches the pod as an ordinary environment
+variable, from api.secret / api.secret.existingSecret / api.extraEnv -- the same
+channel every other setting can already be overridden through.
+
+The guarded list is the `secret` column of the settings table in
+api/config/config.go, and api/config/chart_test.go's TestChartGuardsEverySecretKey
+keeps the two in step: it reads kaiten.apiSecretKeys back out of _helpers.tpl and
+compares it with the table.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kaiten.apiFullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.apiLabels" . | nindent 4 }}
+data:
+  config.yaml: |
+{{ include "kaiten.apiConfig" . | indent 4 }}
+{{- end }}

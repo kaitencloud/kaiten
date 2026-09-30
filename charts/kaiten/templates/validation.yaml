@@ -1,0 +1,26 @@
+{{/*
+Every guard this chart has, in one file that renders nothing.
+
+Guards used to be `include`d from the templates they happened to be relevant to,
+which meant each one only fired when that template rendered. Two of them sat
+inside `{{- if .Values.api.enabled }}`, so `--set api.enabled=false` switched off
+the checks on the api's own configuration -- and a values file that would have
+been refused rendered cleanly instead. A guard that can be switched off by an
+unrelated flag is not a guard; it is a comment that costs CPU.
+
+A template that emits no document is not an error to Helm, which is what makes
+this the natural home for them: the guards fire on every render of every values
+file, and nothing about which workloads are enabled can reach them.
+
+Placed here rather than in _helpers.tpl on purpose -- a define in _helpers is only
+code, and code nobody calls is exactly the failure this file fixes.
+*/}}
+{{- include "kaiten.validatePlatformCredential" . }}
+{{- include "kaiten.validateApiConfig" . }}
+{{- include "kaiten.validateApiSecret" . }}
+{{- if and .Values.ingress.enabled (not .Values.api.middlewares.jwt.enabled) }}
+{{- fail "api.middlewares.jwt.enabled must be true when ingress is enabled — the ingress publishes this API on a hostname, and the JWT SecurityPolicy is what makes the published routes ask for an identity" }}
+{{- end }}
+{{- if and .Values.ingress.enabled (not (and .Values.ingress.host .Values.ingress.gatewayName .Values.ingress.gatewayNamespace)) }}
+{{- fail "ingress.enabled=true requires ingress.host, ingress.gatewayName and ingress.gatewayNamespace — SecurityPolicy and BackendTrafficPolicy gate on host alone, while the HTTPRoutes they target also need the gateway, so a blank gateway renders policies pointing at routes that do not exist and publishes nothing on the hostname" }}
+{{- end }}

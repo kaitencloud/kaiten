@@ -1,0 +1,56 @@
+# gitleaks configuration.
+#
+# The point of this file is that `gitleaks` can be a required check rather than
+# something a human eyeballs. Every entry below is a finding that was triaged and
+# understood -- not silenced to make the build green. A new finding should fail,
+# and the fix is either to remove the secret or to add an entry here with the
+# reason it is not one.
+#
+# Keep it minimal on purpose. An allowlist entry for a finding that no longer
+# exists is worse than no entry: it is a standing permission nobody reviews, and
+# it can mask a real finding that appears in the same place later.
+#
+# Run it two ways, because they answer different questions:
+#   gitleaks dir .                    # what ships in the tree
+#   gitleaks git --log-opts="--all"   # what is recoverable from history
+
+[extend]
+useDefault = true
+
+# --- False positives: not credentials at all -----------------------------------
+
+[[rules]]
+id = "generic-api-key"
+[rules.allowlist]
+regexTarget = "line"
+regexes = [
+  # An OpenFeature targeting key identifies the evaluation subject -- a user or
+  # instance id. It is high-entropy and shaped like a key, but it is an
+  # identifier: it grants nothing and authenticates no one.
+  '''targetingKey:\s*['"][^'"]+['"]''',
+]
+
+# --- Triaged, deliberate values ------------------------------------------------
+
+[allowlist]
+description = "Paths triaged as non-secrets or local-development-only"
+
+paths = [
+  # Storybook fixtures for the token-creation dialog. The value is the literal
+  # string ksh_EXAMPLE_TOKEN_NOT_A_REAL_CREDENTIAL -- the `ksh_` prefix is kept
+  # so the dialog still renders at a realistic width, and the rest says plainly
+  # what it is.
+  #
+  # It was a realistic-looking 32-character token until it was replaced. That was
+  # not a judgement that the old value was real: from the outside a typed fake and
+  # a pasted credential are indistinguishable, so the only safe move is to make
+  # fixtures unmistakably fake rather than to decide which ones to trust.
+  '''app/src/features/service-accounts/components/stories/.*\.stories\.tsx''',
+
+  # RabbitMQ definitions loaded by the local docker-compose broker, and nothing
+  # else -- referenced only from compose.yml and docker/rabbitmq/rabbitmq.conf.
+  # The password_hash is for a throwaway `admin` user on a broker that is never
+  # exposed outside the compose network, so there is no reuse path to a real one.
+  # Production brokers are configured by the charts, which do not read this file.
+  '''docker/rabbitmq/rabbitmq-defs\.json''',
+]

@@ -1,0 +1,4 @@
+interface:
+  display_name: "I18n Hardcoded Text Scanner"
+  short_description: "Replace hardcoded UI text with i18n"
+  default_prompt: "Use $i18n-hardcoded-text-scanner to find hardcoded visible strings and convert them to project i18n keys."

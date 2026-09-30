@@ -1,0 +1,247 @@
+rabbitmq:
+  replicas: 1
+  additionalPlugins:
+    - rabbitmq_stream
+    - rabbitmq_stream_management
+  additionalConfig: |
+    loopback_users = none
+  # Requires the RabbitMQ Messaging Topology Operator to be installed.
+  # Pre-declares the exchange and Dapr subscriber queues so Debezium can
+  # publish on first startup without racing Dapr sidecar initialization.
+  # Queue names must be what Dapr's RabbitMQ pubsub actually creates, which is
+  # "{consumerID}-{topic}" -- consumerID defaults to the subscribing app's Dapr
+  # app-id. NOT the app-id alone: a queue named for the app only is a queue Dapr
+  # never looks at, so it declares its own and the startup race this block exists
+  # to prevent happens anyway, silently. See templates/rabbitmq-topology.yaml.
+  topology:
+    enabled: false
+    # queues:
+    #   - name: kaiten-api-kaiten.events    # app-id kaiten-api, topic kaiten.events
+    queues: []
+  persistence:
+    storage: 2Gi
+    # Empty means "this cluster's default StorageClass": the field is omitted
+    # from the PVC rather than rendered empty, so the default applies. It used to
+    # default to local-path, which exists on k3s and Rancher Desktop and nowhere
+    # else -- on EKS, GKE, AKS or kind the claim stayed Pending and RabbitMQ
+    # never started, with nothing saying why. Name a class here when this cluster
+    # has no default, or when the default is not the one RabbitMQ should use.
+    storageClassName: ""
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+  nodeSelector: {}
+  affinity: {}
+
+debeziumServer:
+  enabled: true
+  snapshotMode: "no_data"
+  # ABSOLUTE PATHS, UNDER /debezium/data. Both of these are written into the
+  # generated config verbatim:
+  #
+  #   debezium.source.offset.storage.file.filename=<offsetFileName>
+  #   debezium.source.schema.history.internal.file.filename=<schemaHistoryFileName>
+  #
+  # and Debezium resolves a relative one against its working directory, which is
+  # /debezium -- a read-only directory inside the image, not the volume. These
+  # were bare filenames ("offsets.dat"), so the offsets file was being written to
+  # /debezium/offsets.dat and failing with AccessDeniedException while the
+  # PersistentVolumeClaim mounted at /debezium/data stayed empty. Making the
+  # volume writable (podSecurityContext.fsGroup, above) was necessary and did not
+  # help on its own: a writable volume nothing points at is still an offset that
+  # is never persisted, and therefore still a replication slot that pins WAL
+  # until the disk fills.
+  #
+  # /debezium/data is not configurable. The operator mounts storage there for
+  # both ephemeral and persistent types -- runtime.storage.data takes `type` and
+  # `claimName`, and no path -- so anywhere else is either the read-only image or
+  # a container layer that disappears with the pod. validation.yaml refuses paths
+  # outside it.
+  offsetFileName: "/debezium/data/offsets.dat"
+  schemaHistoryFileName: "/debezium/data/schema-history.dat"
+  database:
+    port: "5432"
+    serverName: "kaiten_db"
+    # The Postgres Debezium replicates from. Two ways in, and existingSecret
+    # wins -- see the Credentials block in templates/_helpers.tpl.
+    #
+    # Filled in here, this chart renders the Secret
+    # (<release>-debezium-db) that debezium-server.yaml reads its DB_-prefixed
+    # environment from. The five keys are the ones that template interpolates;
+    # there is no sixth.
+    credentials:
+      hostname: ""
+      dbname: ""
+      username: ""
+      password: ""
+      sslmode: "require"
+    # Or the name of a Secret you created yourself, holding those same five
+    # keys unprefixed (hostname, dbname, username, password, sslmode). Set,
+    # this chart renders no Secret and points Debezium at yours. This is how a
+    # deployment that keeps its secrets in an external store feeds it: a Secret
+    # created there by External Secrets, consumed here by name.
+    existingSecret: ""
+  storage:
+    type: "persistent"
+    size: "1Gi"
+    storageClassName: ""
+    existingClaim: ""
+    accessModes:
+      - "ReadWriteOnce"
+  replication:
+    slotName: "debezium_slot"
+    publicationName: "debezium_publication"
+    publicationAutocreateMode: "filtered"
+    tableInclude: "public.outbox_events"
+    schemaInclude: "public"
+    topicPrefix: "kaiten"
+    tombstonesOnDelete: false
+    # Retention deletes are storage maintenance, not domain events. Keep both
+    # delete and truncate operations out of the outbox CDC stream.
+    skippedOperations: "d,t"
+  sink:
+    exchange: "kaiten.events"
+  # WITHOUT A HEARTBEAT, AN IDLE DATABASE RETAINS WAL WITHOUT BOUND.
+  #
+  # A replication slot advances only when Debezium confirms an LSN, and Debezium
+  # confirms only what it has received and published. It captures outbox_events
+  # alone, so a fleet with no customers receives nothing -- while the server
+  # keeps writing WAL for autovacuum, checkpoints and the managed service's own
+  # databases. The slot pins all of it: several GB a day on an idle deployment,
+  # with Debezium connected and error-free throughout. A deployment with outbox
+  # traffic of its own is exempt.
+  #
+  # heartbeat.interval.ms on its own does NOT fix this, measured rather than
+  # assumed (Debezium 3.6.0, Postgres 18, WAL written in another database):
+  #
+  #   no heartbeat                      retained WAL grows linearly
+  #   interval only                     grows identically, and publishes a
+  #                                     heartbeat record to kaiten.events
+  #   interval + action query           bounded, tens of MB
+  #   interval + action query, with     grows linearly again -- Debezium Server
+  #     heartbeat records filtered        commits an offset only for a record
+  #     out before the sink               that reaches the sink
+  #
+  # So the action query generates something in this database for Debezium to
+  # receive, and the heartbeat record is published, not filtered. The api
+  # recognises it and acknowledges it silently (see sink null.value in
+  # templates/debezium-server.yaml).
+  #
+  # Retained WAL is then bounded by roughly what the server writes in one
+  # interval plus the operator's 60s offset flush. Every interval also costs one
+  # tiny WAL record, one RabbitMQ message and one request to each subscriber.
+  heartbeat:
+    intervalMs: 60000
+  # WITHOUT AN fsGroup THIS WORKLOAD FAILS SILENTLY, AND EXPENSIVELY.
+  #
+  # The debezium-server image runs as uid 185 (jboss) with gid 0. A freshly
+  # provisioned PVC mounts as root:root 755, so the process has r-x and no write
+  # bit on its own data directory and cannot create offsets.dat. fsGroup is what
+  # makes the kubelet chown the volume at mount time so the running user can
+  # write to it.
+  #
+  # The reason this is a default and not an exercise for the operator: nothing
+  # about the failure is visible from outside. The pod goes Running and Ready and
+  # stays there -- Quarkus health reports UP, because "can I persist my offsets"
+  # is not one of the checks behind /q/health/ready -- while every flush fails.
+  # An offset that is never committed is a replication slot whose restart_lsn
+  # never advances, and Postgres then keeps every WAL segment written since the
+  # slot was created. That is a database disk filling up at the speed of write
+  # traffic, with a healthy-looking CDC pod next to it.
+  #
+  # 185 rather than 0: the process is already gid 0, so fsGroup: 0 would also
+  # work, but it grants the volume to a group every container shares. Setting
+  # {} disables it and is refused by templates/validation.yaml for persistent
+  # storage -- the failure it produces is too quiet to leave to a typo.
+  podSecurityContext:
+    fsGroup: 185
+  # Watches what the pod's own health check cannot see.
+  #
+  # The failure this exists for is not "Debezium is down" -- Debezium was up,
+  # Ready, and streaming throughout the 2026-09-03 outage. It is "Debezium is
+  # running and its replication slot is not advancing", which has no symptom
+  # inside the pod and one very clear symptom in Postgres: WAL that cannot be
+  # recycled because a slot still claims it.
+  #
+  # Checked in Postgres rather than in Debezium on purpose. A stuck consumer, a
+  # consumer that is simply gone, and a slot nobody deleted after
+  # decommissioning one all pin WAL identically, and only the first would show
+  # up in Debezium's metrics. See templates/debezium-slot-monitor.yaml for why
+  # this is a CronJob rather than a probe or a sidecar (short answer: the
+  # operator's CRD permits neither).
+  slotMonitor:
+    enabled: true
+    # Every 15 minutes. WAL accumulates at the speed of write traffic, so the
+    # useful resolution is minutes-to-hours: one production database took
+    # roughly 18 days to fill 32 GB. Cheap enough to run often, and the
+    # threshold below is what decides how much warning you get, not this.
+    schedule: "*/15 * * * *"
+    # Alert above this much WAL pinned by a single slot. Comfortably above
+    # max_wal_size (2Gi on the Azure servers) so that ordinary checkpoint churn
+    # is quiet, and far below a data disk, so there are days of warning rather
+    # than minutes. Accepts anything pg_size_bytes() parses.
+    retainedThreshold: "5GB"
+    # A breach is also a failed Job. Keep more of those than successes: the
+    # question after an incident is how long it had been failing.
+    successfulJobsHistoryLimit: 1
+    failedJobsHistoryLimit: 5
+    # psql, and nothing else, is all this needs.
+    image:
+      repository: postgres
+      tag: "16-alpine"
+      pullPolicy: IfNotPresent
+    runAsUser: 70 # postgres, in the alpine image
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 64Mi
+  nodeSelector: {}
+  affinity: {}
+
+# Runs database migrations (goose, fix-forward on failure - see
+# api/internal/infrastructure/database/migrator.go) via kaiten-admin-tools,
+# as a pre-install/pre-upgrade hook, before DebeziumServer is created.
+# Without this, DebeziumServer can't go Ready until outbox_events exists, but
+# that table is only created by api's own migrations - and api (a different
+# release, kaiten, which dependsOn this one) can't deploy until this release
+# reports Ready. Running migrations here, first, breaks that cycle instead
+# of just working around it (see debeziumServer below for the other half:
+# disableWait on the HelmRelease itself, kept as defense-in-depth).
+migrate:
+  enabled: true
+  image:
+    repository: ghcr.io/kaitencloud/admin-tools
+    tag: latest
+    pullPolicy: IfNotPresent
+  # The database goose migrates. Two ways in, and existingSecret wins -- see
+  # the Credentials block in templates/_helpers.tpl. One of them is required:
+  # rendering is refused rather than producing a Job that waits forever on a
+  # Secret nothing creates.
+  database:
+    # Filled in here, this chart renders the Secret holding it
+    # (<release>-migrate-db, key KAITEN_DATABASE_CONNECTION_STRING) as a
+    # pre-install hook ordered ahead of the Job.
+    connectionString: ""
+    # Or the name of a Secret you created yourself, by whatever means. Set,
+    # this chart renders no Secret and reads yours. This is how a deployment
+    # that keeps its secrets in an external store feeds it.
+    existingSecret: ""
+    existingSecretKey: KAITEN_DATABASE_CONNECTION_STRING
+
+# This chart used to render ExternalSecret objects for both credentials above,
+# plus a Vault ACL policy, a Kubernetes auth role, a ServiceAccount and a
+# namespaced SecretStore through the Vault Config Operator's CRDs -- with an
+# `externalSecrets.provider: aws|vault` switch on top of it. All of it is gone.
+# A stock install needed CRDs from a vendor's cluster to render at all, and an
+# OSS operator had to understand somebody else's secret backend before they
+# could run a database migration.
+#
+# What replaced it is above: values, or a Secret you name. Which machinery
+# created that Secret is nobody's business but yours -- sealed secrets, a CSI
+# driver, an operator syncing from a store, `kubectl create secret`. A deployment
+# that keeps its secrets in an external store creates them with External
+# Secrets, in its own charts, and hands the names in through the existingSecret
+# values.

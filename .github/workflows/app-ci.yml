@@ -1,0 +1,297 @@
+name: App CI
+
+on:
+  pull_request:
+    branches: ['main', 'feat/**', 'fix/**', 'chore/**']
+    paths:
+      - 'app/**'
+      - 'packages/theme/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.npmrc'
+      - '.github/workflows/app-ci.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# Fast feedback only: lint, app + E2E typecheck, unit tests, Storybook tests
+# (with `play`), and a production build. Playwright E2E jobs live in a
+# separate workflow (`app-e2e.yml`) that runs on app-affecting PRs, tag
+# releases, and a nightly schedule.
+
+jobs:
+  lint_typecheck:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Setup Node
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Setup Vite+ Toolchain
+        uses: voidzero-dev/setup-vp@v1.21.1
+        with:
+          node-version: '24'
+          working-directory: app
+          cache: true
+          run-install: false
+
+      - name: Install dependencies
+        run: vp install
+
+      - name: Generate API SDK & GraphQL Client
+        run: vp run generate
+
+      - name: Lint
+        run: vp run lint
+
+      - name: Typecheck
+        run: ./node_modules/.bin/tsc --noEmit
+
+      - name: Typecheck E2E
+        run: vp run typecheck:e2e
+
+      - name: Check architecture boundaries
+        run: vp run check:architecture
+
+      - name: Check E2E scenario contracts
+        run: vp run check:e2e-contracts
+
+      - name: Check i18n locale parity
+        run: vp run check:i18n-parity
+
+      - name: Check i18n keys exist
+        run: vp run check:i18n-keys
+
+      - name: Check API error code translations
+        run: vp run check:api-error-i18n
+
+      - name: Check source file sizes
+        run: vp run check:file-sizes
+
+      # Runs from the repo root, not app/: the checker reads the installed
+      # @kaitencloud/theme dist AND the app's own tokens (app/src/tokens.css), so
+      # it straddles the two halves of the cascade. It was in `pnpm check` only, which is why six
+      # pairs drifted below AA unnoticed.
+      - name: Check token contrast
+        working-directory: .
+        run: node scripts/check-token-contrast.mjs
+
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Setup Node
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Setup Vite+ Toolchain
+        uses: voidzero-dev/setup-vp@v1.21.1
+        with:
+          node-version: '24'
+          working-directory: app
+          cache: true
+          run-install: false
+
+      - name: Install dependencies
+        run: vp install
+
+      - name: Generate API SDK & GraphQL Client
+        run: vp run generate
+
+      - name: Run unit tests
+        run: vp run test
+
+  stories:
+    name: Storybook Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Setup Node
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Setup Vite+ Toolchain
+        uses: voidzero-dev/setup-vp@v1.21.1
+        with:
+          node-version: '24'
+          working-directory: app
+          cache: true
+          run-install: false
+
+      - name: Install dependencies
+        run: vp install
+
+      - name: Generate API SDK & GraphQL Client
+        run: vp run generate
+
+      - name: Determine Playwright version
+        id: playwright-version
+        run: echo "version=$(./node_modules/.bin/playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: ./node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Install Playwright OS dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: ./node_modules/.bin/playwright install-deps chromium
+
+      - name: Run Storybook tests (play functions + render smoke)
+        # Root cause (storybookjs/storybook#33347): CI runners start with a COLD
+        # Vite optimizer cache, so the addon-vitest browser runner discovers a
+        # dep mid-run and hard-reloads the browser — aborting a random story
+        # import ("Failed to fetch dynamically imported module") and dropping the
+        # iframe ("Cannot connect to the iframe"). It only reproduces on the first
+        # cold run; the warm cache is exactly why it passes locally and why
+        # neither retrying nor sharding (still cold each time) fixes it.
+        # Fix: warm the optimizer cache once (throwaway pass, result ignored),
+        # then run the real suite in 3 shards against the now-warm cache, so no
+        # shard re-optimizes mid-run. Small per-shard retry covers residual flake.
+        run: |
+          echo "::group::Warm the Vite optimizer cache (result ignored)"
+          vp run test:stories || true
+          echo "::endgroup::"
+          total=3
+          for shard in $(seq 1 "$total"); do
+            ok=0
+            for attempt in 1 2; do
+              echo "::group::Storybook shard ${shard}/${total} — attempt ${attempt}"
+              if vp test run --project=storybook --shard="${shard}/${total}"; then
+                ok=1
+                echo "::endgroup::"
+                break
+              fi
+              echo "::endgroup::"
+              echo "::warning::Storybook shard ${shard}/${total} attempt ${attempt} failed (browser-runner flake); retrying…"
+            done
+            if [ "$ok" != 1 ]; then
+              echo "::error::Storybook shard ${shard}/${total} failed after retries"
+              exit 1
+            fi
+          done
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: lint_typecheck
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Setup Node
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Setup Vite+ Toolchain
+        uses: voidzero-dev/setup-vp@v1.21.1
+        with:
+          node-version: '24'
+          working-directory: app
+          cache: true
+          run-install: false
+
+      # `stable` is a BRANCH on this action, not a tag, so every upstream push to
+      # it executed here unreviewed. Pinned to that branch's commit instead.
+      # The branch name was also what selected the Rust toolchain (action.yml
+      # defaults `toolchain` to the branch it lives on), so `toolchain` is now
+      # passed explicitly -- a bare SHA does not carry that meaning to a reader.
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable branch, 2026-08-05
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - name: Setup wasm-pack
+        uses: taiki-e/install-action@b6ff580856c41316412a0b9b60540fbc6f8c82cc # v2.86.7
+        with:
+          tool: wasm-pack
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: 'app/cel-engine -> target'
+
+      - name: Install dependencies
+        run: vp install
+
+      - name: Generate API SDK & GraphQL Client
+        run: vp run generate
+
+      # The crate's own tests, native. They come before the build on purpose:
+      # `--locked` only fails on a stale Cargo.lock if cargo is the first to
+      # resolve it, and wasm-pack's resolution (in the build below) rewrites one.
+      # A crate bump that brings back a parser panic on half-typed rules fails
+      # the second test here.
+      - name: Test CEL engine crate
+        run: vp run test:cel-engine
+
+      # No Vite env here on purpose: this step runs wasm-pack via
+      # cel-engine/build.sh, which reads none of it. The `vp build` step below
+      # is the one that bakes VITE_* into the bundle.
+      - name: Build Rust Wasm
+        run: ./cel-engine/build.sh
+
+      # The module itself: a parser panic is an abort there (`RuntimeError:
+      # unreachable`, which takes the CEL editor's page down), and only the built
+      # module can show it.
+      - name: Smoke test CEL engine module
+        run: vp run test:cel-engine:smoke
+
+      - name: Build app
+        run: vp build

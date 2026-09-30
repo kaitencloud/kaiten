@@ -1,0 +1,36 @@
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: {{ include "kaiten-infra.rabbitmqName" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.rabbitmq.replicas }}
+  persistence:
+    storage: {{ .Values.rabbitmq.persistence.storage | quote }}
+{{- /*
+Omitted when unset, not rendered empty. `storageClassName: ""` is not "whatever
+this cluster defaults to" -- to Kubernetes it means "no class at all", which
+binds only to a PersistentVolume that also has none, so a PVC written that way
+stays Pending on a cluster with a perfectly good default StorageClass. Absent is
+the field that means default. Same guard as debezium-server.yaml's volumeClaim,
+for the same reason -- and a template comment rather than a YAML one, because a
+comment about a field that is not there does not belong in the manifest.
+*/}}
+    {{- with .Values.rabbitmq.persistence.storageClassName }}
+    storageClassName: {{ . | quote }}
+    {{- end }}
+  resources:
+    {{- toYaml .Values.rabbitmq.resources | nindent 4 }}
+  {{- with .Values.rabbitmq.nodeSelector }}
+  nodeSelector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.rabbitmq.affinity }}
+  affinity:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rabbitmq:
+    additionalPlugins:
+      {{- toYaml .Values.rabbitmq.additionalPlugins | nindent 6 }}
+    additionalConfig: |
+{{ .Values.rabbitmq.additionalConfig | indent 6 }}

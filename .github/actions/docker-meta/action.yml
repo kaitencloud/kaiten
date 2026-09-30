@@ -1,0 +1,159 @@
+name: Docker meta
+description: Log in to GHCR via GITHUB_TOKEN, compute version tag and Docker metadata
+
+# A RELEASE TAG REBUILDS EVERY COMPONENT, ON PURPOSE
+#
+# The `paths:` filter on each release workflow scopes the MAIN-PUSH trigger only.
+# A tag push runs them all regardless -- 26.09.3 changed nothing but .github/ and
+# still rebuilt api, app, seeder and admin-tools. That is deliberate: a
+# release re-pulls base layers, so an emergency patch to one component still
+# ships the rest with current OS fixes.
+#
+# The cost is that a version no longer implies a code change, and the digests
+# prove it: api 26.09.2 and 26.09.3 have identical source and different digests,
+# because container builds are not reproducible. Left alone, nothing in the
+# catalogue can answer "did api actually change in this release?".
+#
+# `source-paths` is what answers it. The image carries the revision of its OWN
+# source tree, so two releases of an unchanged component share a component
+# revision while differing in digest -- the rebuild stays visible, the code
+# change stays legible, and the two stop being confused for each other.
+
+inputs:
+  image-name:
+    description: GHCR repository name (under ghcr-registry)
+    required: true
+  source-paths:
+    description: >-
+      Space-separated paths whose newest commit identifies this component's
+      source, e.g. `api` or `app packages/theme`. Mirror the workflow's
+      own `paths:` filter. Omit to skip the label.
+    required: false
+    default: ''
+  ghcr-registry:
+    description: GHCR registry/namespace to publish under
+    required: false
+    default: ghcr.io/kaitencloud
+
+outputs:
+  tags:
+    description: Docker image tags
+    value: ${{ steps.meta.outputs.tags }}
+  labels:
+    description: Docker image labels
+    value: ${{ steps.meta.outputs.labels }}
+  version:
+    description: CalVer version (YY.MM.patch or YY.MM.patch-pre_release)
+    value: ${{ steps.version.outputs.value }}
+  registry:
+    description: GHCR registry/namespace (use for build cache refs)
+    value: ${{ inputs.ghcr-registry }}
+  component-revision:
+    description: >-
+      Newest commit touching source-paths. Two releases sharing this built the
+      same code, whatever their digests say. Empty when source-paths is unset.
+    value: ${{ steps.source.outputs.revision }}
+
+runs:
+  using: composite
+  steps:
+    - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+    - name: Log in to GHCR
+      uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+
+    - name: Validate release tag
+      if: startsWith(github.ref, 'refs/tags/')
+      shell: bash
+      run: |
+        TAG="${GITHUB_REF_NAME}"
+        if [[ ! "$TAG" =~ ^[0-9]{2}\.[0-9]{2}\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+          echo "Invalid tag: ${GITHUB_REF_NAME}"
+          echo "Expected CalVer: YY.MM.patch (e.g. 26.06.0) or pre-release like 26.06.1-rc.1"
+          exit 1
+        fi
+
+    - name: Extract version from ref
+      id: version
+      shell: bash
+      run: |
+        if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+          echo "value=latest"       >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          echo "yymm="             >> "$GITHUB_OUTPUT"
+        else
+          V="${GITHUB_REF_NAME}"
+          echo "value=$V" >> "$GITHUB_OUTPUT"
+          if [[ "$V" == *-* ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "yymm="             >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false"    >> "$GITHUB_OUTPUT"
+            echo "yymm=${V%.*}"           >> "$GITHUB_OUTPUT"
+          fi
+        fi
+
+    - name: Resolve component revision
+      id: source
+      shell: bash
+      env:
+        SOURCE_PATHS: ${{ inputs.source-paths }}
+        GH_TOKEN: ${{ github.token }}
+        AT_REF: ${{ github.sha }}
+      run: |
+        set -euo pipefail
+
+        if [[ -z "$SOURCE_PATHS" ]]; then
+          echo "revision=" >> "$GITHUB_OUTPUT"
+          echo "No source-paths given; skipping the component revision label."
+          exit 0
+        fi
+
+        # Asked of the API rather than `git log`, because the release checkout is
+        # shallow. At depth 1 the only commit present is the tag's own, so every
+        # component would report that same revision and the label would say
+        # "everything changed" on every release -- the exact confusion it exists
+        # to remove.
+        NEWEST_SHA=""
+        NEWEST_DATE=""
+        for p in $SOURCE_PATHS; do
+          OUT=$(gh api "repos/${GITHUB_REPOSITORY}/commits?sha=${AT_REF}&path=${p}&per_page=1" \
+                  --jq '.[0] | select(.) | "\(.sha) \(.commit.committer.date)"' 2>/dev/null || true)
+          [[ -n "$OUT" ]] || continue
+          SHA="${OUT%% *}"
+          DATE="${OUT##* }"
+          # ISO-8601 in UTC, so a lexical comparison is a chronological one.
+          if [[ -z "$NEWEST_DATE" || "$DATE" > "$NEWEST_DATE" ]]; then
+            NEWEST_DATE="$DATE"
+            NEWEST_SHA="$SHA"
+          fi
+        done
+
+        if [[ -z "$NEWEST_SHA" ]]; then
+          # Not fatal: a wrong or renamed path should not stop a release, but it
+          # must not silently label the image with the build commit either, which
+          # would read as "this component changed" forever after.
+          echo "::warning::No commit found for source-paths '${SOURCE_PATHS}'; the component revision label will be omitted. Check the paths match the workflow's own filter."
+          echo "revision=" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "revision=$NEWEST_SHA" >> "$GITHUB_OUTPUT"
+        echo "Component source last changed in ${NEWEST_SHA} (${NEWEST_DATE})"
+
+    - name: Docker metadata
+      id: meta
+      uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+      with:
+        images: ${{ inputs.ghcr-registry }}/${{ inputs.image-name }}
+        labels: |
+          sh.kaiten.component.revision=${{ steps.source.outputs.revision }}
+          sh.kaiten.component.paths=${{ inputs.source-paths }}
+        tags: |
+          type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+          type=raw,value=${{ steps.version.outputs.value }},enable=${{ github.ref != 'refs/heads/main' }}
+          type=raw,value=${{ steps.version.outputs.yymm }},enable=${{ steps.version.outputs.is_prerelease == 'false' }}

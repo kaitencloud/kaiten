@@ -1,0 +1,149 @@
+/* THE FILLS THAT CARRY TEXT ARE THE LIGHT THEME'S. THE SURFACES ARE NOT.
+
+   Primary, destructive, success and warning hold one value in both themes: the brand
+   color, darkened until it carries white text (see tokens.partial.css). What differs
+   per theme is the ramp of surfaces.
+
+   The black brand gradient (#070708 → #242239) is DECORATIVE: it dresses a call to
+   action, a hero, a brand surface. It is not a ramp of interface surfaces. Putting
+   `--background` on its first stop, with `--card` and `--popover` stacked on it, fails:
+   a brand gradient has neither the range nor the neutrality that four UI levels need.
+   Its two ends are only 1.31:1 apart, and it is violet at 40 % saturation where a
+   surface ramp must be grey. Measured, the card would be three times darker
+   (L 0.0056 instead of 0.0169), its saturation would rise from 13 % to 36 %, and the
+   card/background gap would fall from 1.176:1 to 1.066:1.
+
+   The surfaces are therefore near-neutral greys (8 to 18 % saturation), #10141b /
+   #1a1b1e / #222327 / #2a2c33, spread over a wide range. The hierarchy is carried by
+   the SURFACES — 1.18:1 between the application background and a card — and not by
+   the borders, which stay a discreet hairline. */
+--background: #1a1b1e;
+--foreground: #f3f4f6;
+/* A card stands out from the application background at 1.176:1 and from the content
+   background at 1.097:1. `--popover` shares its value: a floating layer is told apart
+   by its ELEVATION — the drop shadow — not by its tint, which is how a popover laid on
+   a card normally behaves. */
+--card: #222327;
+--card-foreground: #f3f4f6;
+--popover: #222327;
+--popover-foreground: #f3f4f6;
+/* The brand purple, lowered to the first point where it carries white text. Found as
+   the nearest neighbour in CIEDE2000 under a contrast constraint, the same method as
+   the green below: #8f52ea is at ΔE 5.18 from the brand VIOLET #9f5ffa and reaches
+   4.60:1 under white.
+   IDENTICAL in both themes, by choice: white on a strong fill is an identity rule, and
+   the raw brand violet cannot carry it (3.82:1). The raw #9f5ffa stays where nothing
+   rests on it: `ring` and `chart-2`. */
+--primary: #8f52ea;
+/* See the light partial. On a dark page a hover normally lightens, but white text
+   on a lighter purple falls to 3.42:1 — this one darkens instead. */
+--primary-hover: #7e48ce;
+--primary-foreground: #ffffff;
+--secondary: #2a2c33;
+--secondary-hover: #41444f;
+--secondary-foreground: #f3f4f6;
+--muted: #2a2c33;
+--muted-foreground: #a0a0a0;
+--accent: #3f2b6e;
+--accent-hover: #4e3588;
+--accent-foreground: #c9a9f9;
+/* Same shape as the light theme: a dark fill under white text. Red text on a tinted
+   surface is the role of `--destructive-subtle-foreground` below, which leaves the
+   solid free to stay consistent with `--primary` and with light mode. */
+--destructive: #c91d21;
+--destructive-hover: #9c171a;
+--destructive-foreground: #ffffff;
+--destructive-subtle: #2b1718;
+--destructive-subtle-foreground: #ea7073;
+/* An opaque hairline, not an alpha. One opaque value serves every level: the four
+   levels are close enough in luminance for it to read on all of them (1.14 to 1.50:1
+   depending on the level), and far enough apart for the separation not to rely on the
+   hairline.
+   `--input` shares the value: on this ramp a field reads by its BACKGROUND
+   (`dark:bg-input/30` gives #27282d on a #222327 card), not by its outline.
+   ⚠ This leaves a control's outline under the 3:1 that WCAG 2.1 SC 1.4.11 asks for.
+   The gap is accepted and tracked in the contrast checker (`KNOWN_BELOW_STRUCTURE` in
+   `scripts/check-token-contrast.mjs`), not ignored. */
+--border: #33353a;
+--input: #33353a;
+--ring: #9f5ffa;
+--chart-1: #068854;
+--chart-2: #9f5ffa;
+--chart-3: #fc6b27;
+--chart-4: #5c44fc;
+--chart-5: #a0a0a0;
+--sidebar: #161618;
+--sidebar-foreground: #f3f4f6;
+/* AA-darkened brand purple — carries white text, so same 4.5:1 rule as --primary. */
+--sidebar-primary: #8f52ea;
+--sidebar-primary-foreground: #ffffff;
+--sidebar-accent: #2a2c33;
+--sidebar-accent-foreground: #f3f4f6;
+--sidebar-border: #33353a;
+--sidebar-ring: #9f5ffa;
+/* The shell background, darker than the content background: it carries the 1.176:1
+   gap under the dashboard cards. */
+--app-background: #10141b;
+/* ONE GREEN, in both themes — same rule as --primary and --destructive.
+   Constraint: it must carry white (the `success` badge) AND stand out from the light
+   card AND from the dark card. An exhaustive search shows that every green meeting all
+   three is at ΔE2000 ≥ 21 from the MINT GREEN #09cf8d; #068854 is at 21.09, the nearest
+   one that exists, so there is no better choice.
+   Consequence: mint is not a status color. It is a BRAND color, and belongs on brand
+   surfaces, not in the semantic palette: two greens on one card read as an error. */
+--success: #068854;
+--success-hover: #057045;
+--success-foreground: #ffffff;
+/* ONE ORANGE, in both themes — same rule as primary, destructive and success. Same
+   three constraints: carry white, and stand out from the light card AND from the dark
+   card. #cf4a03 is at ΔE2000 12.19 from the brand ORANGE #fc6b27; the strict optimum
+   (#d14902, ΔE 12.00) sits exactly at 4.502:1, this one keeps a real margin at 4.53:1
+   for an equivalent perceptual gap.
+   Note: white ink drives this value, not the hue. A lighter amber such as #d97706 does
+   not carry white (3.19:1). */
+--warning: #cf4a03;
+--warning-hover: #b64103;
+--warning-foreground: #ffffff;
+/* See the light partial. Dark inverts the pair the way `--destructive-subtle` does:
+   a dark tint under a foreground LIGHTER than the solid `--warning`. 7.34:1. */
+--warning-subtle: #2a1610;
+--warning-subtle-foreground: #fc8b52;
+/* Angle and stops follow the design of the call-to-action button: the gradient dresses
+   a wide, short button, where 90deg reads the transition across the full width and
+   135deg squeezes it into the corners. */
+--primary-gradient: linear-gradient(90deg, #5c44fc 0%, #7640d1 33%, #c32ab1 66%, #fc6b27 100%);
+
+/* Fonts */
+/* The brand families, as DESIGN.md already specifies them for its typographic roles.
+   The package loads NO FONT: forcing a web font on a host page is intrusive, costs
+   requests the host did not ask for, and breaks under a strict CSP. Each stack
+   therefore names the intended font, then falls back to a system family, and the host
+   loads the font.
+   ⚠ The app does not load DM Sans either: it declares it and falls back to the
+   system font. Declaring is not enough. */
+--font-sans: DM Sans, ui-sans-serif, sans-serif, system-ui;
+/* Same family as --font-sans: the brand sets no display family against body text. The
+   token names the "heading" role and keeps the seam, in case a second family is
+   introduced. */
+--font-display: DM Sans, ui-sans-serif, sans-serif, system-ui;
+--font-serif: Inria Serif, ui-serif, serif;
+--font-mono: Source Code Pro, ui-monospace, monospace;
+
+/* Radius */
+--radius: 0.625rem;
+
+/* Shadows */
+--shadow-x: 0px;
+--shadow-y: 2px;
+--shadow-blur: 3px;
+--shadow-spread: 0px;
+--shadow-opacity: 0.16;
+--shadow-color: hsl(0 0% 0%);
+--shadow-2xs: 0px 2px 3px 0px hsl(0 0% 0% / 0.08);
+--shadow-xs: 0px 2px 3px 0px hsl(0 0% 0% / 0.08);
+--shadow-sm: 0px 2px 3px 0px hsl(0 0% 0% / 0.16), 0px 1px 2px -1px hsl(0 0% 0% / 0.16);
+--shadow: 0px 2px 3px 0px hsl(0 0% 0% / 0.16), 0px 1px 2px -1px hsl(0 0% 0% / 0.16);
+--shadow-md: 0px 2px 3px 0px hsl(0 0% 0% / 0.16), 0px 2px 4px -1px hsl(0 0% 0% / 0.16);
+--shadow-lg: 0px 2px 3px 0px hsl(0 0% 0% / 0.16), 0px 4px 6px -1px hsl(0 0% 0% / 0.16);
+--shadow-xl: 0px 2px 3px 0px hsl(0 0% 0% / 0.16), 0px 8px 10px -1px hsl(0 0% 0% / 0.16);
+--shadow-2xl: 0px 2px 3px 0px hsl(0 0% 0% / 0.4);

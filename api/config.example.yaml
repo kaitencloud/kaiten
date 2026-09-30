@@ -1,0 +1,123 @@
+# kaiten API — example configuration file.
+#
+# A CONFIGURATION FILE IS OPTIONAL.
+#
+#   * The API starts with no file at all, on environment variables alone. Every
+#     deployment that predates this file keeps working unchanged.
+#   * An environment variable ALWAYS overrides the same setting in this file.
+#   * Precedence, lowest to highest: built-in default -> this file -> environment.
+#
+# Discovery, when KAITEN_CONFIG_FILE is not set, looks in KAITEN_CONFIG_DIR (the
+# working directory by default) for the first of:
+#
+#     config.yaml   config.yml   config.toml   config.json
+#
+# The first one found is the only one read; files are never merged. Finding none
+# is normal and is not an error. KAITEN_CONFIG_FILE names a file explicitly, and
+# a file named there MUST exist.
+#
+# Every key below is shown with its environment variable. Copy this to
+# config.yaml and delete everything you do not need — an omitted key falls back
+# to its default, and a key an environment variable also sets is ignored.
+#
+# NO REAL SECRETS BELONG IN THIS FILE, and none may be NAMED here either: a value
+# is taken literally, with no ${VARIABLE} expansion, so a credential-bearing
+# setting (database.connection_string, otel.authorization) has no place in this
+# document at all -- leave the key out and set the real environment variable
+# directly. Tokens are still fine here: a *path* to a mounted token file
+# discloses nothing, so metered.token_file stays an ordinary setting.
+
+server:
+  # KAITEN_API_PORT — required. The PUBLIC listener: the Core API, and nothing
+  # else. Everything in front of this service routes /api here.
+  port: 3000
+
+  # KAITEN_PLATFORM_API_PORT — the INTERNAL listener, /api/platform/**. A
+  # separate port rather than a path prefix because it is a trust boundary:
+  # expose `port` through the gateway and leave this one on the pod network.
+  # Must differ from `port`.
+  platform_port: 3001
+
+database:
+  # KAITEN_DATABASE_CONNECTION_STRING — required. A credential: a deployed
+  # environment leaves this key out entirely and sets the variable directly (the
+  # chart refuses to render a values.yaml that sets it here). A literal is fine
+  # in a local file that is not committed, which is what this one is.
+  connection_string: postgres://kaiten:kaiten@localhost:5432/kaiten?sslmode=disable
+
+logging:
+  level: warn   # LOG_LEVEL  — debug | info | warn | error. Default: warn
+  format: json  # LOG_FORMAT — json | text. Default: json
+
+graphql:
+  # Both off unless a deployment opts in. The playground is an interactive
+  # console over the whole API and introspection is what makes one usable, so
+  # neither may arrive by accident.
+  playground_enabled: false     # KAITEN_GRAPHQL_PLAYGROUND_ENABLED
+  introspection_enabled: false  # KAITEN_GRAPHQL_INTROSPECTION_ENABLED
+
+otel:
+  enabled: false                  # OTEL_ENABLED
+  endpoint: localhost:4318        # OTEL_EXPORTER_OTLP_ENDPOINT
+  # OTEL_METRICS_ENDPOINT — deliberately unset by default. `endpoint` is Jaeger
+  # in every environment we run and Jaeger accepts /v1/traces only, so pointing
+  # the metric reader at it discards every collection cycle. Set a collector
+  # that accepts OTLP metrics, or leave it empty and get no metrics.
+  metrics_endpoint: ""
+  service_name: kaiten-api        # OTEL_SERVICE_NAME
+  insecure: false                 # OTEL_INSECURE
+  # OTEL_TRACES_SAMPLING_RATIO — head sampling for traces started here; traces
+  # continued from an upstream decision are unaffected.
+  traces_sampling_ratio: 1
+  # OTEL_EXPORTER_OTLP_AUTHORIZATION — a credential: leave this key out of a
+  # deployed file entirely and set the variable directly (the chart refuses to
+  # render a values.yaml that sets it here).
+  authorization: ""
+
+retention:
+  enabled: true            # KAITEN_RETENTION_ENABLED
+  initial_delay: 5m        # KAITEN_RETENTION_INITIAL_DELAY
+  interval: 12h            # KAITEN_RETENTION_INTERVAL
+  batch_size: 1000         # KAITEN_RETENTION_BATCH_SIZE
+  # Transport buffers Debezium drains within seconds; 7 days is a replay/debug
+  # window, not a storage guarantee.
+  outbox_events: 168h      # KAITEN_RETENTION_OUTBOX_EVENTS
+  inbox_events: 168h       # KAITEN_RETENTION_INBOX_EVENTS
+  # 90 days rather than the transports' 7: a retired credential's row is the
+  # audit evidence that it existed and when it stopped working. Zero or less
+  # disables the sweep and keeps every row forever.
+  retired_tokens: 2160h    # KAITEN_RETENTION_RETIRED_TOKENS
+
+# Whether this deployment's usage is counted, and by whom. Was `dogfooding:`,
+# which named the practice rather than the setting; the old KAITEN_DOGFOODING_*
+# variables are refused at startup by name rather than ignored.
+#
+# `enabled` and `organization_external_id` answer different questions and neither
+# implies the other. Off with nothing set — the shape below — is the ordinary
+# standalone case and a complete no-op.
+metered:
+  # Report this deployment's usage to api_url. Off means nothing is reported and
+  # no credential is read.
+  enabled: false                    # KAITEN_METERED_ENABLED
+  # KAITEN_METERED_ORGANIZATION_EXTERNAL_ID — the platform organization: the
+  # one that sells Kaiten, against which every other organization is a customer.
+  # Naming it here is what exempts it from being metered, so a deployment that
+  # holds other people's tenants sets this whether or not `enabled` is on.
+  # The EXTERNAL id is the identifier of record; the internal UUID is derived
+  # from it, which is how the runtime and the seeder agree on the same row.
+  # Unset is the ordinary case for a standalone instance.
+  organization_external_id: ""
+  # KAITEN_METERED_ORGANIZATION_ID — pins the derived UUID. Leave empty:
+  # deriving is what every deployment should do.
+  organization_id: ""
+  # Required whenever enabled is true, and it must not be this deployment's own
+  # address: a Kaiten that meters itself meters its own tenants against its own
+  # entitlements.
+  api_url: ""                       # KAITEN_METERED_API_URL
+  # KAITEN_METERED_TOKEN_FILE — path to the service token. Watched and
+  # hot-reloaded; put the path here, never the token. Required when enabled.
+  token_file: ""
+
+connectors:
+  # VAULT_CONNECTORS_BASE_PATH — where connector settings live in Vault.
+  vault_base_path: kaiten/connectors

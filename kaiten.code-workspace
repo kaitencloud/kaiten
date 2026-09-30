@@ -1,0 +1,21 @@
+{
+  "folders": [
+    {
+      "path": "app"
+    },
+    {
+      "path": "api"
+    },
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "i18n-ally.localesPaths": [
+      "src/lib/i18n",
+      "src/lib/i18n/locales",
+      "coverage/src/lib/i18n",
+      "coverage/src/lib/i18n/locales"
+    ]
+  }
+}

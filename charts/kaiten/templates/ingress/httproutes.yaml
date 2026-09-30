@@ -1,0 +1,189 @@
+{{- if and .Values.ingress.enabled .Values.ingress.host .Values.ingress.gatewayName .Values.ingress.gatewayNamespace }}
+{{- $gw := .Values.ingress }}
+{{- $api := .Values.api }}
+# ---- API: public routes (openapi spec + docs) ----
+# CORS on both rules comes from the SecurityPolicy attached to this whole
+# HTTPRoute (see policies.yaml) — Envoy's CORS filter answers OPTIONS
+# preflight requests itself, before jwt_authn/ext_authz ever run, so no
+# separate unauthenticated preflight-only route is needed here (unlike
+# Traefik, which needed one per protected router).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "kaiten.apiFullname" . }}-public
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.apiLabels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gw.gatewayName }}
+      namespace: {{ $gw.gatewayNamespace }}
+      sectionName: {{ $gw.listenerName }}
+  hostnames:
+    - {{ $gw.host | quote }}
+  rules:
+    - matches:
+        - path:
+            type: Exact
+            value: /api/openapi.json
+        - path:
+            type: Exact
+            value: /api/openapi.yaml
+        # The Platform API's document is deliberately NOT here. It moved to the
+        # internal listener with the operations it describes (api.service.platformPort),
+        # so /api/platform-openapi.* is a 404 on the public port — routing to it
+        # would publish a spec nothing here serves. Read it from inside the
+        # cluster: http://<api-service>:<platformPort>/api/docs.
+      backendRefs:
+        - name: {{ include "kaiten.apiFullname" . }}
+          port: {{ $api.service.port }}
+    # No Content-Security-Policy filter here, deliberately. The API serves the
+    # reference page itself (kaitenhuma.RegisterDocs) and sets the policy with it,
+    # and two CSP headers on one response are enforced as their INTERSECTION -- so
+    # a filter here could only ever narrow the app's policy, silently, into a page
+    # that renders blank with console errors. One owner: internal/infrastructure/
+    # http/huma/docs.go. It is also what makes the docs behave identically behind
+    # this gateway and on a local stack that has none.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/docs
+      backendRefs:
+        - name: {{ include "kaiten.apiFullname" . }}
+          port: {{ $api.service.port }}
+---
+# ---- API: organization credentials (ksh_*) — SecurityPolicy handles CORS + ExtAuthZ ----
+# ksh_ ONLY. /api/tokens/validate is the Core API's ext_authz hook and exchanges
+# organization credentials; it is not a general credential-exchange service.
+#
+# This regex used to be ks[hm]_, because the Platform API had no authentication
+# of its own: a ksm_ was exchanged HERE, through the public gateway, for a signed
+# JWT the caller then presented to the platform port. That port authenticates the
+# raw ksm_ against the database itself now, so there is nothing left for this
+# gateway to do with one, and the code that authenticates platform credentials is
+# no longer reachable from the internet at all.
+#
+# A ksm_ presented here matches no credential route, falls through to the JWT
+# route below, is not a JWT, and is refused by the gateway. It never reaches the
+# API.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "kaiten.apiFullname" . }}-pat
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.apiLabels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gw.gatewayName }}
+      namespace: {{ $gw.gatewayNamespace }}
+      sectionName: {{ $gw.listenerName }}
+  hostnames:
+    - {{ $gw.host | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+          headers:
+            - name: Authorization
+              type: RegularExpression
+              value: "^Bearer ksh_.*"
+      backendRefs:
+        - name: {{ include "kaiten.apiFullname" . }}
+          port: {{ $api.service.port }}
+---
+# ---- API: the notification stream — its own route, for two reasons ----
+#
+# 1. TIMEOUT. Envoy applies a 15s route timeout when none is set, which is a
+#    correct default for a request/response API and fatal for an SSE stream: the
+#    connection is cut mid-stream, every 15 seconds, forever. `timeouts.request:
+#    0s` disables it for this path and this path only.
+#
+# 2. AUTHENTICATION. EventSource cannot send an Authorization header, so the
+#    SecurityPolicy on this route extracts the same Clerk JWT from the session
+#    cookie instead (see policies.yaml). That is deliberately NOT done on the
+#    /api route: cookie-authenticated mutations are a CSRF surface, and this
+#    route is a GET that only ever reads the caller's own feed.
+#
+# It is listed first because Gateway API matches the most specific path, but an
+# Exact match beats the /api PathPrefix regardless of order -- the order here is
+# for the reader.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "kaiten.apiFullname" . }}-notifications-stream
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.apiLabels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gw.gatewayName }}
+      namespace: {{ $gw.gatewayNamespace }}
+      sectionName: {{ $gw.listenerName }}
+  hostnames:
+    - {{ $gw.host | quote }}
+  rules:
+    - matches:
+        - path:
+            type: Exact
+            value: /api/v1/notifications/stream
+      timeouts:
+        # No deadline on the response: the stream ends when the client goes away
+        # or when the server closes it at its own maximum lifetime (15 minutes,
+        # in the handler). backendRequest is left unset so it follows request.
+        request: 0s
+      backendRefs:
+        - name: {{ include "kaiten.apiFullname" . }}
+          port: {{ $api.service.port }}
+---
+# ---- API: Clerk JWT-authenticated routes — SecurityPolicy handles CORS + jwt ----
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "kaiten.apiFullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.apiLabels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gw.gatewayName }}
+      namespace: {{ $gw.gatewayNamespace }}
+      sectionName: {{ $gw.listenerName }}
+  hostnames:
+    - {{ $gw.host | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+      backendRefs:
+        - name: {{ include "kaiten.apiFullname" . }}
+          port: {{ $api.service.port }}
+---
+{{- if .Values.app.enabled }}
+# ---- App: frontend (catch-all, lowest precedence) ----
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "kaiten.appFullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.appLabels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gw.gatewayName }}
+      namespace: {{ $gw.gatewayNamespace }}
+      sectionName: {{ $gw.listenerName }}
+  hostnames:
+    - {{ $gw.host | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ include "kaiten.appFullname" . }}
+          port: {{ .Values.app.service.port }}
+{{- end }}
+{{- end }}

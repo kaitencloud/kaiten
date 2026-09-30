@@ -1,0 +1,68 @@
+{{/*
+Refusals, gathered in one file so they are a list an operator can read rather
+than conditions buried in the templates they guard.
+
+Both say the same thing about the same class of mistake: a workload whose
+credential arrives from neither values nor a Secret you named will install
+happily and then never work, and the place that failure surfaces (a Job in
+CreateContainerConfigError, a DebeziumServer that stays not-Ready) does not
+name the value that would have fixed it.
+*/}}
+{{- if and .Values.migrate.enabled (not .Values.migrate.database.connectionString) (not .Values.migrate.database.existingSecret) }}
+{{- fail "migrate.enabled=true needs the database connection string from one of two places: set migrate.database.connectionString and this chart renders the Secret holding it, or set migrate.database.existingSecret to the name of a Secret you created yourself (with migrate.database.existingSecretKey if the key is not KAITEN_DATABASE_CONNECTION_STRING). Or set migrate.enabled=false and run the migrations another way." }}
+{{- end }}
+{{- if and .Values.debeziumServer.enabled (not (include "kaiten-infra.debeziumCredentialsFromValues" .)) (not .Values.debeziumServer.database.existingSecret) }}
+{{- fail "debeziumServer.enabled=true needs database credentials from one of two places: fill in debeziumServer.database.credentials (hostname, dbname, username, password, sslmode) and this chart renders the Secret, or set debeziumServer.database.existingSecret to the name of a Secret you created yourself holding those same keys. Or set debeziumServer.enabled=false." }}
+{{- end }}
+{{- if and .Values.migrate.database.connectionString .Values.migrate.database.existingSecret }}
+{{- fail "migrate.database.connectionString and migrate.database.existingSecret are mutually exclusive: either this chart renders the Secret from your value, or it reads the one you named and renders nothing. Both set, one of them would have to be silently discarded -- and the discarded one is a connection string pointing at a database nobody would look at again." }}
+{{- end }}
+{{- if and (include "kaiten-infra.debeziumCredentialsFromValues" .) .Values.debeziumServer.database.existingSecret }}
+{{- fail "debeziumServer.database.credentials and debeziumServer.database.existingSecret are mutually exclusive: either this chart renders the Secret from your values, or it points Debezium at the one you named and renders nothing." }}
+{{- end }}
+{{/*
+Unlike the four above, this one does not guard a workload that fails to start.
+It guards one that starts, passes its probes, and quietly stops doing its job.
+
+debezium-server runs as uid 185; a persistent volume mounts root-owned; without
+an fsGroup the process cannot create its offsets file. Nothing surfaces that:
+Quarkus health answers UP because persisting offsets is not one of its checks,
+so the pod is Running and Ready while its replication slot pins every WAL
+segment written since it was created, until the database disk is full. That
+outage is the reason this refuses to render instead of warning.
+*/}}
+{{/*
+The other half of the same outage, and the half that survived the first fix.
+
+Debezium resolves a relative filename against its working directory, /debezium,
+which is a read-only directory in the image rather than the mounted volume. The
+defaults used to be bare filenames, so the offsets file was written nowhere the
+volume could see, the flush failed, no offset was ever confirmed to Postgres, and
+the replication slot pinned WAL until the database disk filled.
+
+/debezium/data is where the operator mounts storage, for both ephemeral and
+persistent types -- runtime.storage.data takes a type and a claimName and no
+path -- so it is the only directory that both exists and survives. A path
+outside it fails exactly as quietly as the original bug did.
+*/}}
+{{- if .Values.debeziumServer.enabled }}
+{{- $dataDir := "/debezium/data/" }}
+{{- range $setting, $path := dict "offsetFileName" .Values.debeziumServer.offsetFileName "schemaHistoryFileName" .Values.debeziumServer.schemaHistoryFileName }}
+{{- if not (hasPrefix $dataDir $path) }}
+{{- fail (printf "debeziumServer.%s must be an absolute path under %s (got %q). Debezium resolves a relative name against its working directory /debezium, which is read-only image content, not the mounted volume -- the write fails, no offset is ever confirmed to Postgres, and the replication slot retains WAL until the database disk fills. The operator mounts storage at %s and offers no way to change it." $setting $dataDir $path $dataDir) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{/*
+The third way to pin WAL with a healthy-looking pod, and the one that needs no
+bug at all: a database whose captured table is simply idle. See
+debeziumServer.heartbeat in values.yaml. Zero is Debezium's own "disabled".
+*/}}
+{{- if and .Values.debeziumServer.enabled (le (int64 .Values.debeziumServer.heartbeat.intervalMs) 0) }}
+{{- fail (printf "debeziumServer.heartbeat.intervalMs must be a positive number of milliseconds (got %v). Without a heartbeat, a database whose outbox is idle never confirms an LSN, and its replication slot retains every WAL segment the server writes until the disk fills -- with Debezium connected and reporting no error." .Values.debeziumServer.heartbeat.intervalMs) }}
+{{- end }}
+{{- if and .Values.debeziumServer.enabled (eq .Values.debeziumServer.storage.type "persistent") }}
+{{- if not (dig "fsGroup" nil (.Values.debeziumServer.podSecurityContext | default dict)) }}
+{{- fail "debeziumServer.storage.type=persistent needs debeziumServer.podSecurityContext.fsGroup: the image runs as uid 185 and a fresh PVC mounts root-owned 755, so without it the container cannot create its offsets file. It will still start and still report Ready -- and its replication slot will retain WAL until the database disk fills. Keep the default (fsGroup: 185), or set one that the image's user belongs to. Ephemeral storage (storage.type=ephemeral) does not need it." }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,46 @@
+name: Feature request
+description: Propose a change or an addition
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Please search the existing issues first. For a larger
+        change, an issue is the place to agree on the direction before writing code.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of Kaiten?
+      options:
+        - API (api/)
+        - Console (app/)
+        - Helm charts (charts/)
+        - Docker Compose stack (compose.yml, docker/)
+        - Theme package (packages/theme)
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does it solve?
+      description: The situation you are in, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to see?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to work on this myself.

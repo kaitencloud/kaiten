@@ -1,0 +1,45 @@
+"""
+An entitlement granted by a license, with its contractual value and the full
+entitlement definition (presentation metadata included).
+"""
+type LicenseEntitlement {
+  entitlementSlug: String!
+  entitlementName: String!
+  entitlementType: String!
+  licenseId: UUID!
+  licenseSlug: String!
+
+  """
+  Typed entitlement value. Shapes: {type:"number",value:N},
+  {type:"boolean",value:B}, {type:"object",value:{...}}
+  """
+  value: Map!
+
+  """
+  True when this grant carries the unlimited sentinel (no cap enforced), with
+  the exact semantics of the usage reporter. Clients must use this flag instead
+  of interpreting raw numeric values.
+  """
+  unlimited: Boolean!
+
+  """
+  Derives this grant's enforcement from its own numeric value, with no
+  separate hard/soft/unlimited flag: -1 when the value is unlimited (no cap,
+  no overage); otherwise 0 rejects usage above the value (hard limit) and a
+  positive percentage allows usage to exceed it by that much before being
+  rejected (soft limit). Null for non-numeric (BOOLEAN/CONFIG) grants.
+  """
+  limitCapExceededOveragePercent: Int
+
+  """
+  Full entitlement definition (icon, units, userFacing, displayOrder, groups).
+  """
+  entitlement: Entitlement!
+}
+
+extend type License {
+  """
+  Entitlements granted by this license
+  """
+  entitlements: [LicenseEntitlement!]!
+}

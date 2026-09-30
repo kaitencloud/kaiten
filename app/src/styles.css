@@ -1,0 +1,126 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* Tailwind scans every file under app/ that .gitignore leaves in, Markdown
+   included, so a class name quoted in the prose of app/docs or of a feature
+   README became a utility in the production CSS even though no code used it.
+   Utilities come from code only. Paths are relative to this file. */
+@source not "../docs";
+@source not "../**/*.md";
+
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
+/* A viewport tall enough for a page to keep a long list inline, scrolling
+   inside its card, instead of moving it into a dialog (the new-token scope
+   table). Height, not width: a laptop is wide and still too short for it. */
+@custom-variant tall (@media (min-height: 64rem));
+
+body {
+  @apply m-0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: var(--tracking-normal);
+}
+
+code {
+  font-family: var(--font-mono);
+}
+
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
+  }
+}
+
+/* Monaco Editor - Global container for overflow widgets (outside transformed dialogs) */
+#monaco-overflow-widgets {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 100;
+}
+
+/* Monaco Editor - Ensure widgets display above dialogs (z-50) */
+.monaco-editor .suggest-widget,
+.monaco-editor .monaco-hover,
+.monaco-editor .parameter-hints-widget,
+.monaco-editor .editor-widget {
+  z-index: 100 !important;
+}
+
+.monaco-editor .monaco-hover-content {
+  max-width: 500px;
+}
+
+/* Fix tooltip flickering - make tooltips pass-through for mouse events */
+/* See: https://github.com/microsoft/monaco-editor/issues/5137 */
+.monaco-editor .monaco-hover,
+.monaco-editor .monaco-hover *,
+.monaco-hover,
+.monaco-hover * {
+  pointer-events: none !important;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/*
+ * A horizontally scrolling container fades out at the edge it can still scroll
+ * toward. The fade masks the content itself, so it works on any surface and
+ * paints nothing below the last row. A scroll-driven animation moves it, and
+ * it stays off while nothing overflows. Browsers without scroll-driven
+ * animations get no fade.
+ */
+@property --scroll-fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes scroll-fade-x {
+  0% {
+    --scroll-fade-start: 0px;
+    --scroll-fade-end: 24px;
+  }
+  8%,
+  92% {
+    --scroll-fade-start: 24px;
+    --scroll-fade-end: 24px;
+  }
+  100% {
+    --scroll-fade-start: 24px;
+    --scroll-fade-end: 0px;
+  }
+}
+@utility scroll-fade-x {
+  @supports (animation-timeline: scroll()) {
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 var(--scroll-fade-start),
+      #000 calc(100% - var(--scroll-fade-end)),
+      transparent
+    );
+    animation: scroll-fade-x linear both;
+    animation-timeline: scroll(self inline);
+  }
+}

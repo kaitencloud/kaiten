@@ -1,0 +1,73 @@
+name: gitleaks
+
+# Secret scanning as a required check rather than a habit.
+#
+# Findings are triaged in .gitleaks.toml, where each allowed one carries the
+# reason it is not a secret. A new finding fails this workflow, and the fix is
+# either to remove the secret or to add an entry there with its reason.
+#
+# Two jobs, because they answer different questions.
+#
+# `tree` is what ships. It is cheap, it is green today, and it runs on every push
+# and pull request.
+#
+# `history` is what anyone who clones the repository can recover, which is the
+# question that matters once a repository is public. It is deliberately NOT
+# scheduled here, because on this repository it is **expected to be red**: the
+# history holds 15 dev JWTs in dev/tokens.json, reachable only from the stale
+# branch feat/ai-control-plan. Those never reach the public repository -- the
+# public release is a fresh squashed tree, so this history is discarded rather
+# than published -- and a check that is permanently red is a check people learn
+# to ignore, which costs more than it finds.
+#
+# So it stays available on demand, for whoever wants the current answer, and the
+# real home for a scheduled history scan is the public repository, from its first
+# commit, where green is achievable and a regression means something.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tree:
+    name: working tree
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gitleaks
+        run: |
+          VERSION=8.30.1
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - name: Scan the tree
+        run: gitleaks dir . --config .gitleaks.toml --redact --verbose
+
+  history:
+    name: full history (on demand)
+    # Manual only -- see the header. Expected red until the squash.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # A shallow clone makes a history scan silently meaningless: it would
+          # report "no leaks" having read almost no history.
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        run: |
+          VERSION=8.30.1
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - name: Scan all refs
+        run: gitleaks git --log-opts="--all" --config .gitleaks.toml --redact --verbose

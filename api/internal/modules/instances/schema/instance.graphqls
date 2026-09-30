@@ -1,0 +1,71 @@
+"""
+Instance represents a deployed environment of the SaaS product for a customer.
+"""
+enum InstanceStatus {
+  HEALTHY
+  DEGRADED
+  INCIDENT
+  MAINTENANCE
+}
+
+type Instance {
+  id: UUID!
+  name: String!
+  slug: String!
+  description: String!
+  status: InstanceStatus!
+  lifecycleStage: String
+  createdBy: User!
+  createdAt: Time!
+  updatedBy: User!
+  updatedAt: Time!
+  customerId: UUID!
+  customerSlug: String!
+  licenseId: UUID!
+  licenseSlug: String!
+  startLicenseDate: Time!
+  endLicenseDate: Time!
+  metadata: Map
+  integrations: Map!
+  deploymentZoneId: UUID
+  deploymentZoneSlug: String
+
+  """
+  The customer that owns this instance
+  """
+  customer: Customer!
+
+  """
+  The license associated with this instance
+  """
+  license: License!
+
+  """
+  The deployment zone associated with this instance
+  """
+  deploymentZone: DeploymentZone
+}
+
+"""
+A cursor-paginated page of instances.
+"""
+type InstancePage {
+  items: [Instance!]!
+  """Opaque cursor for the next page. Null when hasMore is false."""
+  nextCursor: String
+  hasMore: Boolean!
+}
+
+extend type Query {
+  """
+  Get instances for the current organization, cursor-paginated. When
+  hasIntegration is set, only instances synced with that integration
+  adapter are returned; the page is cursor-paginated either way.
+  """
+  instances(hasIntegration: String, limit: Int, cursor: String): InstancePage!
+
+  """
+  Get a specific instance by ID or slug (at least one required)
+  """
+  instance(id: UUID, slug: String): Instance
+}

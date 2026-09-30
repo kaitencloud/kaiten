@@ -1,0 +1,35 @@
+"""
+Component represents a software component, optionally included in releases.
+"""
+type Component {
+  id: UUID!
+  previousComponentId: UUID
+  name: String!
+  version: String!
+  slug: String!
+  description: String
+  createdBy: User!
+  createdAt: Time!
+}
+
+"""
+A cursor-paginated page of components.
+"""
+type ComponentPage {
+  items: [Component!]!
+  """Opaque cursor for the next page. Null when hasMore is false."""
+  nextCursor: String
+  hasMore: Boolean!
+}
+
+extend type Query {
+  """
+  Get components for the current organization, cursor-paginated.
+  """
+  components(limit: Int, cursor: String): ComponentPage!
+
+  """
+  Get a specific component by ID or slug (at least one required)
+  """
+  component(id: UUID, slug: String): Component
+}

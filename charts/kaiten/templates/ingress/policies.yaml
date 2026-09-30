@@ -1,0 +1,179 @@
+{{/*
+Envoy Gateway only applies ONE SecurityPolicy per targeted route — a
+second SecurityPolicy object targeting a route that already has one
+conflicts, and only the first one attached takes effect (see
+envoyproxy/gateway's securitypolicy.go: "first SecurityPolicy attached to
+each ... pair. Subsequent conflicting attachments are reported
+elsewhere"). So every route below that needs more than one of
+jwt/cors/extAuth gets exactly ONE SecurityPolicy object combining all of
+them as sibling fields, never multiple objects targeting the same route.
+*/}}
+{{- if and .Values.ingress.enabled .Values.ingress.host }}
+{{- $api := .Values.api }}
+{{- $mw := $api.middlewares }}
+{{- if $mw.cors.enabled }}
+# ---- API: public routes — CORS only ----
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: {{ include "kaiten.apiFullname" . }}-public
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.apiLabels" . | nindent 4 }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ include "kaiten.apiFullname" . }}-public
+  cors:
+    allowOrigins:
+      {{- toYaml $mw.cors.allowOrigins | nindent 6 }}
+    allowMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+    allowHeaders: [Content-Type, Authorization]
+    exposeHeaders: [Content-Type, Authorization]
+    allowCredentials: true
+    maxAge: 100s
+---
+{{- end }}
+{{- if or $mw.cors.enabled $mw.forwardAuth.enabled }}
+# ---- API: PAT tokens (ksh_*) — CORS + ExtAuthZ combined in one policy ----
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: {{ include "kaiten.apiFullname" . }}-pat
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.apiLabels" . | nindent 4 }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ include "kaiten.apiFullname" . }}-pat
+  {{- if $mw.cors.enabled }}
+  cors:
+    allowOrigins:
+      {{- toYaml $mw.cors.allowOrigins | nindent 6 }}
+    allowMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+    allowHeaders: [Content-Type, Authorization]
+    exposeHeaders: [Content-Type, Authorization]
+    allowCredentials: true
+    maxAge: 100s
+  {{- end }}
+  {{- if $mw.forwardAuth.enabled }}
+  extAuth:
+    failOpen: false
+    http:
+      backendRefs:
+        - name: {{ include "kaiten.apiFullname" . }}
+          port: {{ $api.service.port }}
+      path: /api/tokens/validate
+      # Authorization is forwarded to the ext_authz backend automatically
+      # (always included for HTTP ext_authz, regardless of
+      # headersToExtAuth). headersToBackend copies the AUTHORIZATION
+      # header from /api/tokens/validate's own RESPONSE onto the request
+      # actually forwarded to the api backend — this is what carries a
+      # resolved identity forward, mirroring Traefik's forwardAuth
+      # authResponseHeaders.
+      headersToBackend: [Authorization]
+  {{- end }}
+---
+{{- end }}
+{{- if or $mw.cors.enabled $mw.jwt.enabled }}
+# ---- API: the notification stream — CORS + jwt from the session cookie ----
+#
+# Same provider, same JWKS, same claim mapping as the policy below: one identity
+# model, read from a different place. EventSource cannot set an Authorization
+# header, and this is the alternative to inventing a second credential (a
+# single-use stream token) with its own table, its own expiry and its own way to
+# be wrong.
+#
+# extractFrom REPLACES Envoy's default, which is the Authorization header, so the
+# header is listed here as well -- without it, a curl against this path with a
+# bearer token would stop working while the browser kept succeeding, which is the
+# kind of difference nobody notices until it is a production incident.
+#
+# Scoped to this route on purpose. Cookie authentication on a mutating endpoint
+# is a CSRF surface (a cross-origin POST carries cookies whether or not CORS lets
+# the caller read the answer); on a GET that streams the caller's own feed, the
+# worst a forged request achieves is opening a stream for its own user.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: {{ include "kaiten.apiFullname" . }}-notifications-stream
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.apiLabels" . | nindent 4 }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ include "kaiten.apiFullname" . }}-notifications-stream
+  {{- if $mw.cors.enabled }}
+  cors:
+    allowOrigins:
+      {{- toYaml $mw.cors.allowOrigins | nindent 6 }}
+    allowMethods: [GET, OPTIONS]
+    allowHeaders: [Content-Type, Authorization]
+    exposeHeaders: [Content-Type]
+    allowCredentials: true
+    maxAge: 100s
+  {{- end }}
+  {{- if $mw.jwt.enabled }}
+  jwt:
+    providers:
+      - name: clerk
+        remoteJWKS:
+          uri: {{ $mw.jwt.jwksUrl | quote }}
+        extractFrom:
+          cookies:
+            - {{ $mw.jwt.sessionCookie | quote }}
+          headers:
+            - name: Authorization
+              valuePrefix: "Bearer "
+        claimToHeaders:
+          - claim: sub
+            header: x-auth-request-user
+          - claim: kaiten_external_org_id
+            header: x-kaiten-external-org-id
+  {{- end }}
+---
+{{- end }}
+{{- if or $mw.cors.enabled $mw.jwt.enabled }}
+# ---- API: Clerk JWT-authenticated routes — CORS + jwt combined ----
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: {{ include "kaiten.apiFullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.apiLabels" . | nindent 4 }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ include "kaiten.apiFullname" . }}
+  {{- if $mw.cors.enabled }}
+  cors:
+    allowOrigins:
+      {{- toYaml $mw.cors.allowOrigins | nindent 6 }}
+    allowMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+    allowHeaders: [Content-Type, Authorization]
+    exposeHeaders: [Content-Type, Authorization]
+    allowCredentials: true
+    maxAge: 100s
+  {{- end }}
+  {{- if $mw.jwt.enabled }}
+  jwt:
+    providers:
+      - name: clerk
+        remoteJWKS:
+          uri: {{ $mw.jwt.jwksUrl | quote }}
+        claimToHeaders:
+          - claim: sub
+            header: x-auth-request-user
+          - claim: kaiten_external_org_id
+            header: x-kaiten-external-org-id
+  {{- end }}
+---
+{{- end }}
+{{- end }}

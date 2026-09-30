@@ -1,0 +1,4 @@
+interface:
+  display_name: "Feature Template Scaffolder"
+  short_description: "Scaffold consistent feature modules"
+  default_prompt: "Use $feature-template-scaffolder to scaffold or refactor this feature to match project conventions."

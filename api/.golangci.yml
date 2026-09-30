@@ -1,0 +1,136 @@
+version: "2"
+
+# The linter set is the one shared by the Go repositories of the Kaiten
+# organization, so a contributor moving between them gets the same
+# diagnostics. `exhaustruct` and the path excludes
+# below are this repository's own additions.
+#
+# Unlike sdk-go, this config does NOT set `default: none`: golangci's
+# default set (errcheck, govet, ineffassign, staticcheck, unused) is already on
+# here and dropping it to re-add the same names by hand would only invite drift.
+linters:
+  enable:
+    - copyloopvar
+    - dupword
+    - exhaustruct
+    - gosec
+    - intrange
+    - misspell
+    - nolintlint
+    - revive
+
+  settings:
+    exhaustruct:
+      include:
+        - .*Params$
+
+    nolintlint:
+      # A suppression nobody can justify is a suppression nobody can review.
+      require-explanation: true
+      require-specific: true
+      allow-unused: false
+
+    revive:
+      rules:
+        # revive's default rule set, minus `exported`. Listed explicitly so
+        # that a revive upgrade cannot silently widen or narrow what CI
+        # enforces.
+        - name: blank-imports
+        - name: context-as-argument
+          arguments:
+            # `func helper(t *testing.T, ctx context.Context, ...)` is the
+            # shape every test helper in this tree uses, and `t` first is the
+            # stronger convention there. revive ships this allowance for
+            # exactly that case.
+            - allowTypesBefore: "*testing.T"
+        - name: context-keys-type
+        - name: dot-imports
+        - name: empty-block
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unexported-return
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: var-declaration
+        - name: var-naming
+        # `exported` is deliberately absent. Its stutter check would ask for
+        # ~40 renames of the form updatelicense.UpdateLicenseBody -> Body, and
+        # huma derives OpenAPI component names from the Go type name: those
+        # types are the published `UpdateLicenseBody` schemas in
+        # app/openapi.yaml that sdk-go and the JS SDK are generated from, and
+        # openapi_contract_test.go pins them by name. The package-per-usecase
+        # layout makes the prefix redundant inside Go and load-bearing outside
+        # it; the contract wins.
+
+  exclusions:
+    generated: strict
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - internal/infrastructure/http/graphql/generated
+    rules:
+      # gqlgen writes the *.resolvers.go signatures from the .graphqls schema
+      # and rewrites them on every `task generate:gqlgen`; renaming an unused
+      # `ctx` there would be reverted by the next regeneration and fail the
+      # codegen-freshness job. The bodies are ours and are linted normally --
+      # these files carry gqlgen's "Code generated" banner *after* the package
+      # clause, which is why `generated: strict` does not catch them.
+      - path: internal/infrastructure/http/graphql/resolver/.*\.resolvers\.go
+        linters:
+          - revive
+        text: "unused-parameter"
+
+      # Test fixtures name their sample secrets in the clear on purpose --
+      # that is what makes the expectation readable. Nothing here is a
+      # credential for anything that exists.
+      - path: _test\.go
+        linters:
+          - gosec
+        text: "G101|G306"
+
+formatters:
+  # gofumpt + gci is the workspace formatting standard. There is deliberately
+  # no line-length formatter (golines): reflowing the tree would be a large
+  # diff with no readability gain, and gofumpt already normalises everything
+  # that has one right answer.
+  enable:
+    - gofumpt
+    - gci
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/kaitencloud/kaiten/api)
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      # gqlgen writes these files' import blocks in its own order and rewrites
+      # them on every regeneration, so gci and the codegen-freshness job would
+      # take turns undoing each other. The bodies are still linted.
+      - internal/infrastructure/http/graphql/resolver
+
+issues:
+  # Report every occurrence. A truncated report is one where the issue you
+  # need is the one that got cut.
+  max-issues-per-linter: 0
+  max-same-issues: 0

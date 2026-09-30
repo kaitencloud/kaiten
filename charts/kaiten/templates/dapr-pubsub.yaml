@@ -1,0 +1,57 @@
+{{- if .Values.dapr.enabled }}
+{{- $rmqSecret := .Values.dapr.rabbitmqSecretName | default (printf "%s-infra-rabbitmq-default-user" .Release.Name) }}
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: rabbitmq-pubsub
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.labels" . | nindent 4 }}
+spec:
+  type: pubsub.rabbitmq
+  version: v1
+  metadata:
+    - name: protocol
+      value: "amqp"
+    - name: hostname
+      secretKeyRef:
+        name: {{ $rmqSecret }}
+        key: host
+    - name: username
+      secretKeyRef:
+        name: {{ $rmqSecret }}
+        key: username
+    - name: password
+      secretKeyRef:
+        name: {{ $rmqSecret }}
+        key: password
+    - name: durable
+      value: "true"
+    - name: deletedWhenUnused
+      value: "false"
+    - name: deliveryMode
+      value: "2"
+    - name: prefetchCount
+      value: "100"
+    - name: exchangeKind
+      value: "fanout"
+# This release's api, plus whatever dapr.extraScopes names.
+#
+# It was one scope and a comment saying "there is one subscriber". That stopped
+# being true when a second consumer of this topic moved into its own chart: it
+# subscribes under its own app-id, and Dapr component scoping is a hard gate. A
+# sidecar whose app-id is not listed does not load the component and never
+# subscribes, and nothing reports it -- the app advertises the subscription, the
+# queue exists because kaiten-infra declared it, and the consumer count simply
+# stays at zero while messages pile up.
+#
+# The previous version of this list also carried a <release>-webhooks entry for a
+# workload the chart had stopped deploying. A Component scoped to an app id that
+# does not exist is not an error either, which is why that survived unnoticed --
+# the same blind spot in the other direction.
+scopes:
+  - {{ printf "%s-api" .Release.Name | quote }}
+  {{- range .Values.dapr.extraScopes }}
+  - {{ . | quote }}
+  {{- end }}
+{{- end }}

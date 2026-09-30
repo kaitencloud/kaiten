@@ -1,0 +1,84 @@
+{{- if .Values.app.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kaiten.appFullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.appLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.app.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "kaiten.appSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kaiten.appSelectorLabels" . | nindent 8 }}
+        {{- with .Values.app.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- if .Values.app.configMap }}
+        checksum/env-config: {{ toYaml .Values.app.configMap | sha256sum }}
+        {{- end }}
+        {{- with .Values.app.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      # Same reason as api/deployment.yaml: refuse the per-Service Docker-link
+      # variables rather than rely on nothing here happening to collide with
+      # one. This container serves static assets and reads its configuration
+      # from a ConfigMap, so it consumes none of them.
+      enableServiceLinks: false
+      {{- if .Values.app.serviceAccount.create }}
+      serviceAccountName: {{ include "kaiten.appFullname" . }}
+      {{- end }}
+      {{- with (default .Values.global.imagePullSecrets list) }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- include "kaiten.scheduling" .Values.app | nindent 6 }}
+      {{- with .Values.app.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: app
+          image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
+          imagePullPolicy: {{ .Values.app.image.pullPolicy }}
+          {{- if .Values.app.configMap }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "kaiten.appFullname" . }}-env
+          {{- end }}
+          {{- with .Values.app.extraEnv }}
+          # Verbatim container env entries, for what app.configMap cannot carry:
+          # a value referenced from a Secret. Read once, by the entrypoint's
+          # envsubst at container start -- a changed Secret needs a rollout.
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.app.resources | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.app.service.port }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false  # nginx writes tmp files
+            capabilities:
+              drop: ["ALL"]
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+{{- end }}

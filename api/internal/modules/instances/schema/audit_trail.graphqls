@@ -1,0 +1,102 @@
+"""
+AuditTrail records a single domain event captured from the outbox CDC pipeline.
+"""
+type AuditTrail {
+  id: UUID!
+  instanceId: UUID
+  instanceSlug: String!
+  eventName: String!
+  """Versioned event type identifier (e.g. com.kaiten.instance.entitlement.v1.value_get)"""
+  eventType: String!
+  timestamp: Time!
+  """Event payload as a JSON object. Event-specific data such as status lives here."""
+  payload: Map
+}
+
+"""
+A cursor-paginated page of instance-scoped audit trail entries.
+"""
+type AuditTrailPage {
+  items: [AuditTrail!]!
+  """Opaque cursor for the next page. Null when hasMore is false."""
+  nextCursor: String
+  hasMore: Boolean!
+}
+
+extend type Instance {
+  """
+  Cursor-paginated audit trail entries for this instance.
+  """
+  auditTrails(
+    eventName: String
+    after: Time
+    before: Time
+    """Maximum number of entries to return (default 50, max 200)"""
+    limit: Int
+    """Opaque cursor from a previous response's nextCursor"""
+    cursor: String
+  ): AuditTrailPage!
+}
+
+extend type Query {
+  """
+  List audit trail entries for a given instance slug.
+  """
+  auditTrails(
+    instanceSlug: String!
+    eventName: String
+    after: Time
+    before: Time
+    """Maximum number of entries to return (default 50, max 200)"""
+    limit: Int
+    """Opaque cursor from a previous response's nextCursor"""
+    cursor: String
+  ): AuditTrailPage!
+}
+
+"""
+OrganizationAuditTrail is an organization-wide audit trail entry. Instance and
+customer context is only present for instance-scoped events; organization-level
+events (e.g. customer or entitlement lifecycle) carry null instance fields.
+"""
+type OrganizationAuditTrail {
+  id: UUID!
+  instanceId: UUID
+  instanceSlug: String
+  instanceName: String
+  customerId: UUID
+  customerSlug: String
+  customerName: String
+  eventName: String!
+  """Versioned event type identifier (e.g. com.kaiten.instance.entitlement.v1.value_get)"""
+  eventType: String!
+  timestamp: Time!
+  """Event payload as a JSON object. Event-specific data such as status lives here."""
+  payload: Map
+}
+
+"""
+A cursor-paginated page of organization-wide audit trail entries.
+"""
+type OrganizationAuditTrailPage {
+  items: [OrganizationAuditTrail!]!
+  """Opaque cursor for the next page. Null when hasMore is false."""
+  nextCursor: String
+  hasMore: Boolean!
+}
+
+extend type Query {
+  """
+  List every audit trail entry of the current organization, newest first,
+  including events not attached to an instance (e.g. CUSTOMER_CREATED).
+  """
+  organizationAuditTrails(
+    eventName: String
+    after: Time
+    before: Time
+    """Maximum number of entries to return (default 200, max 1000)"""
+    limit: Int
+    """Opaque cursor from a previous response's nextCursor"""
+    cursor: String
+  ): OrganizationAuditTrailPage!
+}

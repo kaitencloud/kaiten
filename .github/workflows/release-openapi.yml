@@ -1,0 +1,215 @@
+name: Release openapi
+
+# Publishes the API contract as a versioned npm artifact (@kaitencloud/openapi)
+# to the public npm registry, so downstream SDKs consume one published source of
+# truth instead of copying the spec across repos.
+#
+# This is the ONLY published contract artifact. `app/openapi.yaml` — the
+# committed OpenAPI 3.1 spec produced by `task generate:oas` — is the only spec
+# this repo emits; the downgraded 3.0 variant that sdk-go used to be fed through
+# a /tmp handoff is gone (oapi-codegen v2.8.0 reads 3.1 directly).
+#
+# sdk-js reads what this job publishes: `contract-drift` compares its snapshot
+# with `latest`, and `contract-sync` opens the pull request that resyncs it.
+# sdk-go has no drift gate yet; `task generate:sdk-go` regenerates it from
+# app/openapi.yaml.
+# Stable coordinates, do not change them without updating sdk-js:
+#   package    @kaitencloud/openapi
+#   registry   https://registry.npmjs.org (public)
+#   dist-tag   latest            (version is semver, decided by oasdiff)
+#
+# THE VERSION IS SEMVER, AND OASDIFF DECIDES IT
+#
+# The contract is generated from the Go handlers, so the diff between two specs
+# is machine-truth in a way a commit message is not. oasdiff compares the new
+# spec against the one currently published and the bump follows from what it
+# finds -- no `!` marker is trusted, and none is needed.
+#
+#   any change at WARN or above   major
+#   any other change              minor
+#   same API, different files     patch   (a description or an example moved,
+#                                          or the README, LICENSE or NOTICE changed)
+#   identical files               nothing published
+#
+# WARN counts, not just ERR. oasdiff files a removed request property as WARN,
+# which is precisely what dropping `platform` was -- 5 errors and 8 warnings --
+# and the warnings are what forced sdk-go's `fix(instances)!: stop sending
+# platform, which the API no longer accepts`. Counting only errors would have
+# shipped a consumer-breaking change as a minor.
+#
+# Consumers on `latest` are unaffected by the switch: the dist-tag still points
+# at the newest publish. The gain is that they CAN now pin -- `^2` gets told
+# when 3.0.0 lands instead of finding out by breaking.
+#
+# EXPECT THE MAJOR TO MOVE OFTEN, AT LEAST AT FIRST
+#
+# Replayed over the last seven changes to this spec, the rule above produces five
+# majors. That is not the rule being twitchy -- it is what those changes were:
+# required response properties removed, request properties removed, a maxLength
+# introduced on a field that had none. Each of them can reject a client that
+# worked the day before.
+#
+# So a fast-climbing major is the contract telling the truth about how young it
+# is, and the number settling down later is the signal that it has stabilised.
+# If a specific class of change turns out never to matter in practice,
+# oasdiff takes `--err-ignore`/`--warn-ignore` files to reclassify it by id --
+# `request-property-max-length-set` being the obvious first candidate. Curate
+# that list deliberately; do not soften the rule wholesale.
+#   file       openapi.yaml      (tarball path: package/openapi.yaml)
+# Fetch recipe for a consumer workflow:
+#   npm pack @kaitencloud/openapi@latest
+#   tar -xzOf kaitencloud-openapi-*.tgz package/openapi.yaml > openapi.yaml
+#
+# Authentication is npm trusted publishing, as in release-theme.yml: `id-token:
+# write` lets npm trade this job's OIDC token for a short-lived one, so there is
+# no token secret. The trusted publisher is set once, in the package's settings
+# on npmjs.com: GitHub Actions, organization `kaitencloud`, repository `kaiten`,
+# workflow `release-openapi.yml`, no environment, `npm publish` allowed. A fork's
+# copy of this job could not publish, so it is skipped there rather than left to
+# fail. npm adds provenance on its own once the repository is public.
+#
+# npm only accepts a trusted publisher on a package that exists, so the first
+# version, 1.0.0, is published by hand: the package the publish step below
+# assembles, with `npm publish <dir> --tag latest` and the one-time code npm
+# asks for. Where a user-level config maps @kaitencloud to GitHub Packages, add
+# `--@kaitencloud:registry=https://registry.npmjs.org/`: that mapping outranks
+# publishConfig.
+#
+# The package is public: consumers fetch it anonymously, with no token and no
+# access to grant. It is under the Apache License 2.0, like the rest of this
+# repository, and carries .github/contracts/LICENSE and
+# .github/contracts/NOTICE, with .github/contracts/openapi/README.md as its
+# README.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/openapi.yaml'
+      - '.github/contracts/LICENSE'
+      - '.github/contracts/NOTICE'
+      - '.github/contracts/openapi/**'
+      - '.github/workflows/release-openapi.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write # npm trusted publishing
+
+jobs:
+  publish:
+    if: github.repository == 'kaitencloud/kaiten'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: "1.27.x"
+          cache: false
+
+      # Pinned, like every other tool here. oasdiff decides what the version is,
+      # so an unpinned one silently changes the meaning of the numbers.
+      - name: Install oasdiff
+        run: go install github.com/oasdiff/oasdiff@v1.31.0
+
+      - name: Decide the next contract version
+        id: version
+        run: |
+          set -euo pipefail
+
+          # Highest stable semver already published. The 0.0.0-<sha> builds this
+          # replaces are prereleases of 0.0.0 and sort below everything, so they
+          # are filtered out rather than special-cased.
+          PUBLISHED=$(npm view "@kaitencloud/openapi" versions --json 2>/dev/null \
+            | jq -r '(if type == "array" then .[] else . end) // empty' \
+            | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
+
+          if [[ -z "$PUBLISHED" ]]; then
+            # Nothing to diff against, and trusted publishing cannot create the
+            # package: its first version is published by hand (see the header).
+            # That version is 1.0.0 rather than 0.1.0 because this contract has
+            # been serving production traffic for months; calling it unstable
+            # now would be a fiction, and 0.x semver gives consumers no major to
+            # pin to, which is the entire point of the exercise.
+            echo "::error::@kaitencloud/openapi is not on npm yet: publish 1.0.0 by hand, then name this workflow its trusted publisher (see the header of release-openapi.yml)."
+            exit 1
+          fi
+
+          echo "Comparing against published ${PUBLISHED}"
+          WORK="$(mktemp -d)"
+          ( cd "$WORK" && npm pack "@kaitencloud/openapi@${PUBLISHED}" >/dev/null )
+          tar -xzOf "$WORK"/*.tgz package/openapi.yaml > "$WORK/previous.yaml"
+          # The README, the license and the notice ship with the contract. A
+          # version without one of them, or with another text, differs from this
+          # commit.
+          docs_unchanged() {
+            tar -xzOf "$WORK"/*.tgz package/README.md 2>/dev/null \
+              | cmp -s - .github/contracts/openapi/README.md \
+              && tar -xzOf "$WORK"/*.tgz package/LICENSE 2>/dev/null \
+              | cmp -s - .github/contracts/LICENSE \
+              && tar -xzOf "$WORK"/*.tgz package/NOTICE 2>/dev/null \
+              | cmp -s - .github/contracts/NOTICE
+          }
+
+          # WARN counts as breaking, not just ERR. oasdiff files a removed
+          # request property as WARN, and that is exactly what happened when
+          # `platform` was dropped: 5 errors, 8 warnings -- and the warnings are
+          # what forced sdk-go's `fix(instances)!: stop sending platform, which
+          # the API no longer accepts`. A rule that only counted errors would
+          # have shipped that break as a minor.
+          BREAKING=$(oasdiff breaking "$WORK/previous.yaml" app/openapi.yaml -f json \
+            | jq '[.[] | select(.level >= 2)] | length')
+          CHANGES=$(oasdiff changelog "$WORK/previous.yaml" app/openapi.yaml -f json | jq 'length')
+
+          echo "oasdiff: ${CHANGES} change(s), ${BREAKING} of them breaking"
+          oasdiff changelog "$WORK/previous.yaml" app/openapi.yaml | head -40 || true
+
+          IFS=. read -r MA MI PA <<<"$PUBLISHED"
+          if (( CHANGES == 0 )); then
+            if cmp -s "$WORK/previous.yaml" app/openapi.yaml && docs_unchanged; then
+              # Also the idempotency guard: a re-run, or a revert that lands back
+              # on the published file, publishes nothing.
+              echo "Contract is unchanged from ${PUBLISHED} — nothing to publish."
+              echo "changed=false" >>"$GITHUB_OUTPUT"
+              exit 0
+            fi
+            # Same API, different files: a description or an example moved, which
+            # oasdiff does not report, or the README, the license or the notice
+            # changed. Consumers that mirror the file byte for byte, like the SDK's
+            # snapshot, still need it, and no client can observe it, so it ships
+            # as a patch.
+            NEXT="${MA}.${MI}.$((PA + 1))"
+          elif (( BREAKING > 0 )); then
+            NEXT="$((MA + 1)).0.0"
+          else
+            NEXT="${MA}.$((MI + 1)).0"
+          fi
+
+          echo "Next: ${NEXT}"
+          echo "version=$NEXT" >>"$GITHUB_OUTPUT"
+          echo "changed=true"  >>"$GITHUB_OUTPUT"
+
+      - name: Assemble and publish @kaitencloud/openapi
+        env:
+          CONTRACT_VERSION: ${{ steps.version.outputs.version }}
+          CONTRACT_CHANGED: ${{ steps.version.outputs.changed }}
+        run: |
+          set -euo pipefail
+          VERSION="${CONTRACT_VERSION}"
+          if [[ "$CONTRACT_CHANGED" != "true" ]]; then
+            exit 0
+          fi
+          STAGE="$(mktemp -d)"
+          cp app/openapi.yaml "$STAGE/openapi.yaml"
+          cp .github/contracts/LICENSE "$STAGE/LICENSE"
+          cp .github/contracts/NOTICE "$STAGE/NOTICE"
+          cp .github/contracts/openapi/README.md "$STAGE/README.md"
+          VERSION="$VERSION" STAGE="$STAGE" node -e 'const fs=require("fs");fs.writeFileSync(`${process.env.STAGE}/package.json`,JSON.stringify({name:"@kaitencloud/openapi",version:process.env.VERSION,description:"Kaiten API OpenAPI 3.1 contract — generated from the Go API, published for downstream SDKs.",license:"Apache-2.0",repository:{type:"git",url:"git+https://github.com/kaitencloud/kaiten.git",directory:"app"},files:["openapi.yaml","NOTICE"],publishConfig:{registry:"https://registry.npmjs.org/",access:"public"}},null,2)+"\n")'
+          cd "$STAGE"
+          npm publish --tag latest
+          echo "Published @kaitencloud/openapi@${VERSION} (dist-tag: latest)."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Table Pattern Enforcer"
+  short_description: "Enforce shared table implementation patterns"
+  default_prompt: "Use $table-pattern-enforcer to align this table implementation with project shared table patterns."

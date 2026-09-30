@@ -1,0 +1,118 @@
+{{/*
+The alarm that was missing on 2026-09-03.
+
+WHY THIS IS A CRONJOB AND NOT A PROBE
+
+It cannot be a probe. The Debezium operator hardcodes the pod's probes to
+Quarkus /q/health/live and /q/health/ready, and the CRD exposes only their
+timing (failureThreshold, initialDelaySeconds, periodSeconds, timeoutSeconds) --
+not the handler. There is no way to ask the pod a different question. And the
+question the built-in health check answers is the wrong one: during the outage
+it returned {"status":"UP"} continuously while offsets.dat had never existed.
+
+It cannot be a sidecar either: spec.runtime.templates.pod takes affinity,
+imagePullSecrets, metadata, nodeSelector, securityContext and tolerations. No
+containers.
+
+WHY IT WATCHES POSTGRES RATHER THAN DEBEZIUM
+
+Debezium being unable to write its offsets file was one cause. A consumer that
+is simply down, a slot nobody removed after decommissioning a consumer, or a
+bug nobody has hit yet pin WAL exactly the same way and are invisible in
+Debezium's own metrics. The slot's retained WAL is the symptom every cause
+shares, so that is what this measures.
+
+WHY IT SHOUTS ON STDOUT
+
+Because a log line needs no infrastructure to be collected. DebeziumServer's own
+runtime.metrics.openTelemetry export needs an OTLP receiver, and its Prometheus
+jmxExporter needs a scraper; a structured line on stdout is alertable wherever
+this chart is installed, with neither.
+
+The Job also exits non-zero on breach, so a breach is visible as a failed Job to
+anyone reading the namespace rather than only to whoever queries the logs.
+*/}}
+{{- if and .Values.debeziumServer.enabled .Values.debeziumServer.slotMonitor.enabled }}
+{{- $monitor := .Values.debeziumServer.slotMonitor }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "kaiten-infra.debeziumServerName" . }}-slot-monitor
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ $monitor.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ $monitor.successfulJobsHistoryLimit }}
+  # Kept deliberately higher than the successful history: a failed run is the
+  # artifact worth having around when someone asks how long this has been going.
+  failedJobsHistoryLimit: {{ $monitor.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: {{ $monitor.runAsUser }}
+          containers:
+            - name: slot-monitor
+              image: "{{ $monitor.image.repository }}:{{ $monitor.image.tag }}"
+              imagePullPolicy: {{ $monitor.image.pullPolicy }}
+              # The same credentials Debezium itself uses. Reading
+              # pg_replication_slots needs no privilege the replication role
+              # does not already hold.
+              envFrom:
+                - secretRef:
+                    name: {{ include "kaiten-infra.debeziumSecretName" . }}
+              env:
+                - name: SLOT_NAME
+                  value: {{ .Values.debeziumServer.replication.slotName | quote }}
+                - name: RETAINED_THRESHOLD
+                  value: {{ $monitor.retainedThreshold | quote }}
+              resources:
+                {{- toYaml $monitor.resources | nindent 16 }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  export PGHOST="$hostname" PGUSER="$username" PGPASSWORD="$password"
+                  export PGDATABASE="$dbname" PGSSLMODE="${sslmode:-require}"
+
+                  # One row per slot in trouble, or no rows. Two conditions,
+                  # because they fail at different times: retained WAL crosses
+                  # the threshold first and is the early warning, while
+                  # wal_status leaving 'reserved' means Postgres is already
+                  # keeping segments past max_wal_size to satisfy the slot.
+                  #
+                  # Every slot is checked, not just this release's: a forgotten
+                  # slot left behind by a decommissioned consumer fills a disk
+                  # exactly as effectively as a broken one.
+                  breaches=$(psql -X -At -F'|' --no-psqlrc -v ON_ERROR_STOP=1 -c "
+                    SELECT slot_name, coalesce(wal_status,'unknown'), active::text,
+                           pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)::bigint,
+                           pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn))
+                    FROM pg_replication_slots
+                    WHERE restart_lsn IS NOT NULL
+                      AND (pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)
+                             > pg_size_bytes('${RETAINED_THRESHOLD}')
+                           OR wal_status <> 'reserved')
+                    ORDER BY slot_name;")
+
+                  if [ -z "$breaches" ]; then
+                    echo "{\"level\":\"INFO\",\"event\":\"debezium.slot.ok\",\"threshold\":\"${RETAINED_THRESHOLD}\",\"message\":\"all replication slots within WAL retention threshold\"}"
+                    exit 0
+                  fi
+
+                  # One line per breaching slot, JSON, so the log backend can
+                  # match on `event` and alert without parsing prose. The event
+                  # name is the stable thing to alert on.
+                  echo "$breaches" | while IFS='|' read -r slot status active bytes pretty; do
+                    echo "{\"level\":\"ERROR\",\"event\":\"debezium.slot.wal_retention_exceeded\",\"slot\":\"${slot}\",\"wal_status\":\"${status}\",\"slot_active\":${active},\"retained_bytes\":${bytes},\"retained\":\"${pretty}\",\"threshold\":\"${RETAINED_THRESHOLD}\",\"message\":\"replication slot ${slot} is pinning ${pretty} of WAL (wal_status=${status}); Postgres cannot recycle it and the data disk will fill\"}"
+                  done
+
+                  # Non-zero so the breach is also a failed Job, not only a log
+                  # line somebody has to be looking for.
+                  exit 1
+{{- end }}

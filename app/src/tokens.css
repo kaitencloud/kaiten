@@ -1,0 +1,105 @@
+@import "@kaitencloud/theme/global.css";
+@import "@kaitencloud/theme/theme-inline.css";
+
+/*
+ * Tinted state surfaces, declared here rather than in `@kaitencloud/theme`.
+ *
+ * A semantic colour has two roles that need different values. The solid token is a
+ * FILL carrying its `-foreground` on top. The subtle pair is TEXT on a tinted
+ * surface, and it also has to stay readable against the page. One value cannot do
+ * both — `--success` is 4.51:1 on the light page but 3.82:1 on the dark one, and
+ * `--warning` has the same gap (4.53:1 light, 3.80:1 dark).
+ *
+ * The theme owns `--destructive-subtle` and `--warning-subtle`. The success, primary
+ * and info tints are the console's own vocabulary, so those pairs stay here:
+ * shipping them from a published package would be API with no consumer behind it. If
+ * a consumer of the theme ever needs one, it moves up to the theme, not the other
+ * way round.
+ *
+ * A pair that is on its way up to the theme is mirrored exactly or not at all. This
+ * file is imported after the theme, so a value "improved" here silently wins over the
+ * theme's, and the divergence survives the theme's next release.
+ *
+ * Selectors mirror the theme's own `:root` / `.dark` split so both sets resolve the
+ * same way. Values are chosen so each pair clears WCAG AA on its own tile AND on the
+ * page it sits on, in both themes; `scripts/check-token-contrast.mjs` enforces that
+ * and reads these declarations alongside the theme's.
+ */
+:root {
+  --primary-subtle: #efe9fb;
+  --primary-subtle-foreground: #7239e6;
+  --success-subtle: #e9fbf4;
+  --success-subtle-foreground: #057045;
+  /* The fifth state: neither good nor bad, just in progress — an instance in
+     MAINTENANCE and the 50-80% saturation band. The subtle pair is Tailwind's sky-50 /
+     sky-700. The solid `--info` has no consumer yet; it is 3.21:1 on the white page,
+     above the 3:1 non-text floor (sky-500 is 2.71:1). */
+  --info: #0097e3;
+  --info-subtle: #f0f9ff;
+  --info-subtle-foreground: #0069a8;
+
+  /* The stacked distribution bar's ramp: five slices of one whole, ordered by size.
+     The values are fixed, not alpha composites of a base colour: an alpha fill
+     washes toward the page while its label does not (white on #e5dafa is 1.33:1),
+     and the ramp would then depend on which surface hosts the bar. Here the light
+     steps are `--distribution-1` at 80/60/40/20% over white, written out as solid
+     colours.
+     Each step carries its own foreground, because a ramp this wide cannot take one:
+     a fill pale enough to read as "smallest slice" is far too pale for white text. */
+  --distribution-1: #7c47e8;
+  --distribution-1-foreground: #ffffff;
+  --distribution-2: #966ced;
+  --distribution-2-foreground: #1a1b1e;
+  --distribution-3: #b091f1;
+  --distribution-3-foreground: #1a1b1e;
+  --distribution-4: #cbb5f6;
+  --distribution-4-foreground: #1a1b1e;
+  --distribution-5: #e5dafa;
+  --distribution-5-foreground: #1a1b1e;
+}
+
+.dark {
+  --primary-subtle: #1d1729;
+  --primary-subtle-foreground: #a986f0;
+  --success-subtle: #172922;
+  /* The brand mint green. It cannot be a fill — white on it is 2.03:1 — but as
+     success text on a dark page it reads at 8.46:1. */
+  --success-subtle-foreground: #09cf8d;
+  /* Dark needs no darkening: sky-500 already reads at 6.36:1 on the page. */
+  --info: #00a6f4;
+  --info-subtle: #052f4a;
+  --info-subtle-foreground: #74d4ff;
+
+  /* See the `:root` block. Here the ramp darkens toward the page instead of paling
+     toward it, so every step stays dark enough for white (5.35:1 to 13.23:1). */
+  --distribution-1: #7c47e8;
+  --distribution-1-foreground: #ffffff;
+  --distribution-2: #6a40c1;
+  --distribution-2-foreground: #ffffff;
+  --distribution-3: #58399b;
+  --distribution-3-foreground: #ffffff;
+  --distribution-4: #463174;
+  --distribution-4-foreground: #ffffff;
+  --distribution-5: #342a4e;
+  --distribution-5-foreground: #ffffff;
+}
+
+@theme inline {
+  --color-primary-subtle: var(--primary-subtle);
+  --color-primary-subtle-foreground: var(--primary-subtle-foreground);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-subtle-foreground: var(--success-subtle-foreground);
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-subtle-foreground: var(--info-subtle-foreground);
+  --color-distribution-1: var(--distribution-1);
+  --color-distribution-1-foreground: var(--distribution-1-foreground);
+  --color-distribution-2: var(--distribution-2);
+  --color-distribution-2-foreground: var(--distribution-2-foreground);
+  --color-distribution-3: var(--distribution-3);
+  --color-distribution-3-foreground: var(--distribution-3-foreground);
+  --color-distribution-4: var(--distribution-4);
+  --color-distribution-4-foreground: var(--distribution-4-foreground);
+  --color-distribution-5: var(--distribution-5);
+  --color-distribution-5-foreground: var(--distribution-5-foreground);
+}

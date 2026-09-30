@@ -1,0 +1,17 @@
+[package]
+name = "cel-engine"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# Not `cel-interpreter`, which stopped at 0.10.0: its parser panics on an
+# incomplete expression, and a panic aborts the WebAssembly instance.
+cel = "0.14.5"
+js-sys = "0.3.82"
+serde = { version = "1.0.228", features = ["derive"] }
+serde-wasm-bindgen = "0.6.5"
+wasm-bindgen = "0.2.105"

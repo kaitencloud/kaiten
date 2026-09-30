@@ -1,0 +1,4 @@
+interface:
+  display_name: "Detail View Duplication Watch"
+  short_description: "Reduce duplication across detail views"
+  default_prompt: "Use $detail-view-duplication-watch to find duplication in detail pages and propose focused extractions."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "State Layer Separation Check"
+  short_description: "Enforce Query Store state separation"
+  default_prompt: "Use $state-layer-separation-check to audit this feature and enforce correct state ownership boundaries."

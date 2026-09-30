@@ -1,0 +1,217 @@
+name: Go CI
+
+on:
+  pull_request:
+    branches: [ "main", "feat/**", "fix/**", "chore/**" ]
+    paths:
+      - 'api/**'
+      # The console's GraphQL documents: the API holds a copy of each and pins
+      # what it costs, and a test fails when the two part ways.
+      - 'app/src/**/*.queries.ts'
+
+concurrency:
+  group: go-ci-api-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint & Build /api
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      # 1.27.x, not `stable`. Two reasons, and they compound:
+      #
+      #  - `stable` moves on Go's release schedule and the linter is pinned on
+      #    the other axis (golangci-lint v2.13.1 below), so a Go release breaks
+      #    this build on a PR that changed nothing -- the same drift pinning the
+      #    linter was meant to remove. It has happened once already: `stable`
+      #    reaching 1.27 handed golangci-lint v2.12.2 a standard library its
+      #    bundled go/types could not typecheck.
+      #  - go-version-file names ONE go.mod and this repository has two
+      #    (api/go.mod, api/cmd/schema-docs/go.mod). They agree on 1.27.0 today,
+      #    and the version CI runs should not silently become whichever one
+      #    somebody bumps first. 1.27.x satisfies both, newest patch.
+      #
+      # Same convention as the other Go repositories of the organization.
+      - name: Set up Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: "1.27.x"
+          cache-dependency-path: api/go.sum
+
+      - name: Build
+        run: go build -v ./...
+
+      # Whole-tree, every operation — the pre-commit hook runs the same command,
+      # this is the copy a --no-verify commit cannot skip.
+      - name: API endpoints declare all returnable error statuses
+        run: go run ./cmd/checkapierrors
+
+      # Pinned, not `latest`: an unpinned action turns an upstream release into
+      # a red build on an unrelated PR. Must match Taskfile.yml's
+      # GOLANGCI_LINT_VERSION and .pre-commit-config.yaml's rev.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9.3.0
+        with:
+          version: v2.13.1
+          args: --timeout=10m ./...
+          working-directory: api
+
+      - name: golangci-lint (schema-docs module)
+        uses: golangci/golangci-lint-action@v9.3.0
+        with:
+          version: v2.13.1
+          args: --timeout=5m ./...
+          working-directory: api/cmd/schema-docs
+
+      # `go ... ./...` stops at a nested module, so both are named explicitly.
+      - name: go.mod and go.sum are tidy
+        run: |
+          set -eu
+          for module in . cmd/schema-docs; do
+            (cd "$module" && go mod tidy)
+          done
+          if ! git diff --exit-code -- go.mod go.sum cmd/schema-docs/go.mod cmd/schema-docs/go.sum; then
+            echo "::error::go.mod/go.sum are not tidy — run 'go mod tidy' in api/ and api/cmd/schema-docs/, then commit."
+            exit 1
+          fi
+
+      - name: govulncheck
+        run: |
+          set -eu
+          for module in . cmd/schema-docs; do
+            (cd "$module" && go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...)
+          done
+
+      # kaiten is depended on; it never depends back. An import in the other
+      # direction would be a cycle between two independently released services,
+      # and it would arrive as an ordinary-looking `go get` rather than as a
+      # decision anyone reviewed.
+      #
+      # The module GRAPH rather than the import list, so a `replace` left behind
+      # after a local experiment fails the same way a real import does. `set -e`
+      # is what makes an unresolvable graph a failure instead of a clean pass.
+      # What is allowed under github.com/kaitencloud/: this repository's own
+      # modules and the public Go SDK.
+      - name: Dependency direction
+        run: |
+          set -eu
+          for module in . cmd/schema-docs; do
+            graph=$(cd "$module" && go list -m all)
+            if printf '%s\n' "$graph" | grep -E '^github\.com/kaitencloud/' | grep -v -E '^github\.com/kaitencloud/(kaiten/|sdk-go( |$))'; then
+              echo "::error::$module depends on a Kaiten module other than the Go SDK — kaiten is depended on, it never depends back"
+              exit 1
+            fi
+          done
+
+  codegen:
+    name: Codegen up to date /api
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      # 1.27.x, not `stable`. Two reasons, and they compound:
+      #
+      #  - `stable` moves on Go's release schedule and the linter is pinned on
+      #    the other axis (golangci-lint v2.13.1 below), so a Go release breaks
+      #    this build on a PR that changed nothing -- the same drift pinning the
+      #    linter was meant to remove. It has happened once already: `stable`
+      #    reaching 1.27 handed golangci-lint v2.12.2 a standard library its
+      #    bundled go/types could not typecheck.
+      #  - go-version-file names ONE go.mod and this repository has two
+      #    (api/go.mod, api/cmd/schema-docs/go.mod). They agree on 1.27.0 today,
+      #    and the version CI runs should not silently become whichever one
+      #    somebody bumps first. 1.27.x satisfies both, newest patch.
+      #
+      # Same convention as the other Go repositories of the organization.
+      - name: Set up Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: "1.27.x"
+          cache-dependency-path: api/go.sum
+
+      # Same loop as `task generate:sqlc`; `go tool sqlc` is version-pinned by
+      # go.mod, so the output here is the output every developer gets.
+      - name: Regenerate sqlc query helpers
+        run: |
+          set -eu
+          find internal -name sqlc.yaml | sort | while read -r config; do
+            go tool sqlc generate -f "$config"
+          done
+
+      # Same command as `task generate:gqlgen`. The only //go:generate directive
+      # in the module is the gqlgen one in the resolver package, and `go tool
+      # gqlgen` is version-pinned by go.mod, so this reproduces the committed
+      # execution layer exactly.
+      - name: Regenerate GraphQL execution layer
+        run: go generate ./...
+
+      - name: Fail if the generated tree is stale
+        run: |
+          git add --intent-to-add --all
+          if ! git diff --exit-code; then
+            echo "::error::Generated code is out of date — run 'task generate:sqlc' and 'task generate:gqlgen', then commit the result."
+            exit 1
+          fi
+
+  test:
+    name: ${{ matrix.mode.label }} (${{ matrix.shard.name }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - name: unit
+            packages: "./cmd/... ./config/... ./internal/... ./pkg/..."
+          - name: integration
+            packages: "./tests/..."
+        mode:
+          - label: Test
+            flag: -v
+          - label: Race test
+            flag: -race
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      # 1.27.x, not `stable`. Two reasons, and they compound:
+      #
+      #  - `stable` moves on Go's release schedule and the linter is pinned on
+      #    the other axis (golangci-lint v2.13.1 below), so a Go release breaks
+      #    this build on a PR that changed nothing -- the same drift pinning the
+      #    linter was meant to remove. It has happened once already: `stable`
+      #    reaching 1.27 handed golangci-lint v2.12.2 a standard library its
+      #    bundled go/types could not typecheck.
+      #  - go-version-file names ONE go.mod and this repository has two
+      #    (api/go.mod, api/cmd/schema-docs/go.mod). They agree on 1.27.0 today,
+      #    and the version CI runs should not silently become whichever one
+      #    somebody bumps first. 1.27.x satisfies both, newest patch.
+      #
+      # Same convention as the other Go repositories of the organization.
+      - name: Set up Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: "1.27.x"
+          cache-dependency-path: api/go.sum
+
+      # -shuffle=on is the guard against a test that only passes because an
+      # earlier one in the same package left state behind. `task test:api`
+      # runs the same flag.
+      - name: ${{ matrix.mode.label }}
+        run: go test -shuffle=on ${{ matrix.mode.flag }} ${{ matrix.shard.packages }}

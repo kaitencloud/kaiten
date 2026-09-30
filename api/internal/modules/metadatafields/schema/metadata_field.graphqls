@@ -1,0 +1,68 @@
+"""
+Resource types that can carry typed metadata managed by a MetadataField.
+Mirrors the sqlc enum `metadata_field_resource_type`.
+"""
+enum MetadataFieldResourceType {
+  DEPLOYMENT_ZONE
+  INSTANCE
+}
+
+"""
+MetadataField defines the typed schema for one key of a resource's `metadata`
+jsonb column. Org-scoped, soft-deletable via `archivedAt`.
+
+Mutations (create / update / archive / reorder) are exposed via the REST API,
+under `/api/metadata-fields`. The GraphQL surface is intentionally
+read-only, consistent with the rest of the Kaiten GraphQL aggregator.
+"""
+type MetadataField {
+  id: UUID!
+  resourceType: MetadataFieldResourceType!
+  key: String!
+  label: String!
+  """
+  JSON Schema 2020-12 document describing the value space (e.g. {"type":"string","enum":["a","b"]}).
+  """
+  jsonSchema: Map!
+  displayOrder: Int!
+  """
+  Soft-delete marker. Absent if the field is active.
+  Archived fields stay readable so the admin UI can surface legacy values.
+  """
+  archivedAt: Time
+  createdBy: User!
+  createdAt: Time!
+  updatedBy: User!
+  updatedAt: Time!
+}
+
+"""
+A cursor-paginated page of metadata fields.
+"""
+type MetadataFieldPage {
+  items: [MetadataField!]!
+  """Opaque cursor for the next page. Null when hasMore is false."""
+  nextCursor: String
+  hasMore: Boolean!
+}
+
+extend type Query {
+  """
+  List MetadataField rows for the current organization and the given resource
+  type, cursor-paginated. By default only active fields are returned; pass
+  `includeArchived: true` to also return soft-deleted ones (useful for the
+  admin UI surfacing legacy values stored on resources).
+
+  Fields come back in the admin-controlled display order, so paging through
+  them yields the same sequence as `GET /metadata-fields`; the two surfaces
+  share a cursor format, and a token from either resumes on the other.
+  """
+  metadataFields(
+    resourceType: MetadataFieldResourceType!
+    includeArchived: Boolean = false
+    """Maximum number of entries to return (default 50, max 200)"""
+    limit: Int
+    """Opaque cursor from a previous response's nextCursor"""
+    cursor: String
+  ): MetadataFieldPage!
+}

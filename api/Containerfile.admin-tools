@@ -1,0 +1,58 @@
+# syntax=docker/dockerfile:1
+FROM --platform=$BUILDPLATFORM golang:1.27.0-alpine AS builder
+
+RUN apk add --no-cache git tzdata
+WORKDIR /go/kaiten
+
+COPY api/go.mod api/go.sum ./api/
+WORKDIR /go/kaiten/api
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+WORKDIR /go/kaiten
+COPY api ./api
+WORKDIR /go/kaiten/api
+ARG TARGETOS
+ARG TARGETARCH
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    # ./cmd/admin-tools, not cmd/admin-tools/main.go: the credential commands live
+    # in sibling files of the same package, and a single-file build silently omits
+    # them -- it fails on the undefined builders rather than shipping a partial
+    # binary, but only at image-build time, long after `go build ./...` passed.
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-s -w" -o /go/bin/kaiten-admin-tools ./cmd/admin-tools
+
+# The shell target, for the local stack only. It exists because composing the
+# primitive commands into "the credentials a development machine needs" is a policy
+# decision that belongs in a script (see scripts/local-credentials.sh), and a script
+# needs an interpreter. compose builds this with `target: shell`; nothing else does.
+#
+# It is a separate stage rather than a change to the shipped image on purpose: the
+# runtime stage below stays FROM scratch, so what a Helm hook Job pulls still has no
+# shell, no package manager and no libc to attack.
+FROM alpine:3.22 AS shell
+
+RUN apk add --no-cache ca-certificates tzdata
+
+COPY --from=builder /go/bin/kaiten-admin-tools /usr/local/bin/kaiten-admin-tools
+
+USER 65532
+
+ENTRYPOINT ["/bin/sh"]
+
+# The shipped image: the binary, the certificates it needs to reach a TLS Postgres,
+# and nothing else.
+FROM scratch AS runtime
+
+WORKDIR /go/bin
+
+COPY --from=builder /go/bin/kaiten-admin-tools kaiten-admin-tools
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+
+# scratch has no /etc/passwd - a numeric UID needs no user-database entry,
+# unlike a username. Charts set runAsNonRoot: true with no runAsUser
+# override, which only works if the image itself declares a non-root user.
+USER 65532
+
+ENTRYPOINT ["/go/bin/kaiten-admin-tools"]

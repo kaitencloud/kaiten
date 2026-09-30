@@ -1,0 +1,57 @@
+name: Theme CI
+
+# Checks @kaitencloud/theme on every pull request that touches it: formatting,
+# lint and types, the comment-free stylesheets, the tarball, and the drift gate
+# against the version published on npm. App CI covers what the tokens do to the
+# console.
+
+on:
+  pull_request:
+    branches: ['main', 'feat/**', 'fix/**', 'chore/**']
+    paths:
+      - 'packages/theme/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/theme-ci.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Theme checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/theme
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: pnpm/action-setup@v6.1.0
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      # The package's prepare script builds dist/ during the install.
+      - name: Install the theme and its tooling
+        run: pnpm install --frozen-lockfile --filter @kaitencloud/theme
+
+      - name: Check formatting, lint and types
+        run: pnpm run check
+
+      - name: Check the built CSS has no comment and unchanged declarations
+        run: pnpm run check:stripped-css
+
+      - name: Check the tarball contents
+        run: pnpm run check:pack
+
+      - name: Check source tokens against the published package
+        env:
+          KAITEN_REQUIRE_PUBLISHED_THEME: '1'
+        run: pnpm run check:theme-drift

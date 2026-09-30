@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kaiten-infra
+description: Kaiten infrastructure — RabbitMQ cluster and Debezium CDC server. Install once; changes rarely.
+type: application
+version: 0.1.0
+appVersion: "latest"

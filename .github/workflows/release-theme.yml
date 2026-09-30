@@ -1,0 +1,96 @@
+name: Release theme
+
+# Publishes @kaitencloud/theme to the public npm registry, which is where its
+# other consumers install it from: the Kaiten docs and integrators. The console
+# reads the workspace package and never waits for a release.
+#
+# On every push to main that touches the package, this job publishes the
+# version in packages/theme/package.json if npm does not have it yet, then tags
+# the commit theme/<version>. A version already on npm publishes nothing. The
+# drift gate in theme-ci.yml refuses a token change that comes without a bump.
+#
+# Authentication is npm trusted publishing: `id-token: write` lets npm trade
+# this job's OIDC token for a short-lived one, so there is no NPM_TOKEN secret.
+# The trusted publisher on npmjs.com names this repository and this workflow
+# file, so a fork's copy of this job could not publish: it is skipped there
+# rather than left to fail. npm adds provenance on its own once the repository
+# is public; forcing it before then makes the publish fail.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/theme/**'
+      - '.github/workflows/release-theme.yml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: release-theme
+  cancel-in-progress: false
+
+permissions:
+  contents: write # the theme/<version> tag
+  id-token: write # npm trusted publishing
+
+jobs:
+  publish:
+    if: github.repository == 'kaitencloud/kaiten'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/theme
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: pnpm/action-setup@v6.1.0
+
+      # No dependency cache in a job that can publish: a poisoned cache entry
+      # would be built into the tarball.
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Install the theme and its tooling
+        run: pnpm install --frozen-lockfile --filter @kaitencloud/theme
+
+      - name: Check the built CSS has no comment and unchanged declarations
+        run: pnpm run check:stripped-css
+
+      - name: Check the tarball contents
+        run: pnpm run check:pack
+
+      - name: Find out whether npm has this version
+        id: version
+        run: |
+          VERSION=$(node -p 'require("./package.json").version')
+          STATUS=$(node -e '
+            fetch("https://registry.npmjs.org/@kaitencloud%2ftheme")
+              .then((response) => response.json())
+              .then((packument) =>
+                console.log(packument.versions?.[process.argv[1]] ? "published" : "new"),
+              )
+          ' "$VERSION")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "@kaitencloud/theme@$VERSION: $STATUS"
+
+      # pnpm packs, npm publishes. pnpm writes the catalog's real version ranges
+      # into the packed package.json, where `npm publish` would ship `catalog:`
+      # as is; npm carries the trusted-publishing token exchange.
+      # packages/theme/.npmrc sends the scope to registry.npmjs.org, whatever a
+      # user-level config maps it to.
+      - name: Publish to npm
+        if: steps.version.outputs.status == 'new'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          pnpm pack --pack-destination "$RUNNER_TEMP"
+          npm publish "$RUNNER_TEMP/kaitencloud-theme-$VERSION.tgz"
+
+      - name: Tag the release
+        if: steps.version.outputs.status == 'new'
+        env:
+          TAG: theme/${{ steps.version.outputs.version }}
+        run: |
+          git tag "$TAG"
+          git push origin "$TAG"

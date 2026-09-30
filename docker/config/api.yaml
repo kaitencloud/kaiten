@@ -1,0 +1,26 @@
+# Local-dev configuration for the `api` service in compose.yml, mounted
+# read-only and pointed at via KAITEN_CONFIG_FILE.
+#
+# Only settings whose LOCAL-DEV value differs from config.Config's own
+# built-in default belong here — see config.example.yaml at the repo root for
+# the full settings table and what each key's default already is. Ports,
+# database credentials and anything secret are NOT here: they're templated
+# from other compose variables or are credentials, so they stay in
+# compose.yml's environment: block, sourced from .env. See that file's own
+# header comment for why.
+graphql:
+  # Both off by default in the API itself. On here because this compose file
+  # IS the local dev stack — a deployment leaves this file out entirely and
+  # gets the safe default back.
+  playground_enabled: true
+  introspection_enabled: true
+
+otel:
+  enabled: true
+  # jaeger:4318 is this stack's own Jaeger container, reachable by service
+  # name on the compose network — not the "localhost:4318" default, which
+  # only makes sense for a process running on the host itself. Still
+  # overridable: compose passes OTEL_EXPORTER_OTLP_ENDPOINT through if set in
+  # .env, and an environment variable always wins over this file.
+  endpoint: jaeger:4318
+  insecure: true

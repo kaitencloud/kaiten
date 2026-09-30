@@ -1,0 +1,52 @@
+{{- if .Values.dapr.enabled }}
+# What happens when the API answers RETRY to a CDC delivery.
+#
+# Without this resource the answer is "nothing". The RabbitMQ component's
+# requeueInFailure defaults to false, so the sidecar nacks and the broker discards
+# the message: one attempt, no redelivery, and the only trace is a log line. A
+# consumer failing on something transient -- a third party returning 503, a
+# credential that has not been mounted yet, a network blip -- loses the event it was
+# called for, permanently and quietly.
+#
+# So: bounded redelivery with exponential backoff, then the dead-letter topic the
+# subscription names (cdc.DeadLetterTopic, advertised on GET /dapr/subscribe). The
+# bound is the point. requeueInFailure: true on its own retries forever with no
+# delay, so one deterministically failing message -- a malformed payload, a revoked
+# API key -- spins as fast as the broker can move it and starves every other
+# delivery on the queue.
+#
+# docker/dapr/resiliency.yaml is the same policy for the local stack, and the two
+# are meant to agree. Rendered only when dapr.enabled, like the Component it
+# targets: a Resiliency naming a component that does not exist is not an error, and
+# an inert resource nobody can see is worse than no resource.
+apiVersion: dapr.io/v1alpha1
+kind: Resiliency
+metadata:
+  name: {{ printf "%s-cdc" .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.labels" . | nindent 4 }}
+# Scoped to the api, not left to apply to everything in the namespace. Same app id
+# the Component is scoped to, and for the same reason.
+scopes:
+  - {{ printf "%s-api" .Release.Name | quote }}
+spec:
+  policies:
+    retries:
+      cdcRedelivery:
+        # Dapr counts REDELIVERIES, not attempts: maxRetries 5 is six chances in
+        # total. Backoff runs 500ms, 750ms, ~1.1s, ~1.7s, ~2.5s (x1.5 with jitter),
+        # capped at maxInterval -- long enough for a restarting dependency to come
+        # back, short enough that the delivery is not still in flight minutes later.
+        policy: exponential
+        maxInterval: {{ .Values.dapr.cdc.retry.maxInterval | quote }}
+        maxRetries: {{ .Values.dapr.cdc.retry.maxRetries }}
+  targets:
+    components:
+      rabbitmq-pubsub:
+        # inbound, not outbound: this bounds delivery INTO the api. The publish side
+        # belongs to Debezium, which writes to the exchange directly and does not go
+        # through Dapr at all.
+        inbound:
+          retry: cdcRedelivery
+{{- end }}

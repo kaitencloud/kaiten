@@ -1,0 +1,1 @@
+export { DashboardPageContent } from './components';

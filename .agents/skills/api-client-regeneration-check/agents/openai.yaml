@@ -1,0 +1,4 @@
+interface:
+  display_name: "API Client Regeneration Check"
+  short_description: "Verify generated API client consistency"
+  default_prompt: "Use $api-client-regeneration-check to verify generated client consistency and run the right regeneration workflow."

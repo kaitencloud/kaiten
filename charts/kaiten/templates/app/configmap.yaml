@@ -1,0 +1,13 @@
+{{- if and .Values.app.enabled .Values.app.configMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kaiten.appFullname" . }}-env
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.appLabels" . | nindent 4 }}
+data:
+  {{- range $key, $value := .Values.app.configMap }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+{{- end }}

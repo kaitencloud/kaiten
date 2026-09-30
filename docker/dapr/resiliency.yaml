@@ -1,0 +1,47 @@
+# What happens when the API answers RETRY to a CDC delivery.
+#
+# Without this file the answer is "nothing": the RabbitMQ component's
+# requeueInFailure defaults to false, so the sidecar nacks and the broker throws the
+# message away. One attempt, no redelivery, and the only trace is a log line -- which
+# means a connector failing on a transient error (an API key not set yet, a third
+# party returning 503, a network blip) silently loses the event it was called for.
+#
+# Five attempts with exponential backoff, then the dead-letter topic named by the
+# subscription (cdc.DeadLetterTopic). Bounded on purpose: requeueInFailure: true on
+# its own would retry forever with no delay, so one deterministically failing message
+# -- a malformed payload, a revoked credential -- would spin as fast as the broker
+# can move it and starve every other delivery. The point of a policy is that giving
+# up is a decision somebody wrote down.
+#
+# Self-hosted Dapr loads every resource in --resources-path, so this is picked up
+# beside the component it names. The cluster equivalent is rendered by
+# charts/kaiten/templates/dapr-resiliency.yaml, and the two are meant to agree.
+apiVersion: dapr.io/v1alpha1
+kind: Resiliency
+metadata:
+  name: kaiten-cdc
+# The app this applies to. Unscoped, a Resiliency applies to every app that loads
+# it, which locally is only this one -- but the chart has to scope it and the two
+# files are read side by side, so it is stated here too.
+scopes:
+  - kaiten-api
+spec:
+  policies:
+    retries:
+      cdcRedelivery:
+        # 500ms, 750ms, ~1.1s, ~1.7s, ~2.5s (x1.5, with jitter), capped at
+        # maxInterval. Long enough that a restarting dependency can come back,
+        # short enough that the delivery is not still in flight minutes later.
+        policy: exponential
+        maxInterval: 10s
+        # Five REDELIVERIES after the first attempt: six chances in total. Dapr
+        # counts retries, not attempts, and conflating the two is how a "max 5"
+        # becomes a 4.
+        maxRetries: 5
+  targets:
+    components:
+      rabbitmq-pubsub:
+        # inbound, not outbound: this bounds delivery INTO the app. The publish
+        # side is Debezium's, and it does not go through Dapr at all.
+        inbound:
+          retry: cdcRedelivery

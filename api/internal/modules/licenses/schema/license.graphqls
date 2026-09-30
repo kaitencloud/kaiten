@@ -1,0 +1,126 @@
+"""
+License type enumeration
+"""
+enum LicenseType {
+  DEVELOPMENT
+  TRIAL
+  PAID
+  COMMUNITY
+}
+
+"""
+LicenseFamily is the product a license is a version of. It carries identity and
+nothing else: no display name, because the display name is the current version's
+own name. Renaming a version or publishing a new one never changes it, which is
+what makes its slug safe to put in a public pricing URL -- for as long as the
+family has a version: deleting its last version deletes the family and frees the
+slug.
+"""
+type LicenseFamily {
+  id: UUID!
+  slug: String!
+}
+
+"""
+Whether a version of a license may be served.
+
+Several versions of one family can be PUBLISHED at once, so this is not a
+"current version" marker: which version a family resolves to is decided on top
+of it, by taking the family's default version, or its highest-numbered published
+one. DRAFT and ARCHIVED are both unservable and resolution treats them alike,
+but one has never been offered and the other has been withdrawn.
+"""
+enum LicenseLifecycleState {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+"""
+LicenseFamilyView is a family together with the version it currently resolves
+to -- the answer to "the current version of this product", which addressing a
+version slug cannot give.
+
+Distinct from LicenseFamily, which License.family returns: that one is identity
+alone, this one is a resolved view of the product.
+"""
+type LicenseFamilyView {
+  id: UUID!
+  slug: String!
+
+  """
+  The version this family currently serves: its default version, or its
+  highest-numbered PUBLISHED version. Null when every version is a draft or has
+  been archived.
+  """
+  currentVersion: License
+
+  """
+  Number of versions in this family, whatever their lifecycle state.
+  """
+  versionCount: Int!
+
+  """
+  Every version of the family, oldest first.
+  """
+  versions: [License!]!
+}
+
+"""
+License defines the commercial and functional rules for one or more instances.
+"""
+type License {
+  id: UUID!
+  name: String!
+  slug: String!
+  description: String!
+  type: LicenseType!
+  version: String!
+  versionName: String
+  isDefault: Boolean!
+
+  """
+  Whether this version may be served.
+  """
+  lifecycleState: LicenseLifecycleState!
+
+  """
+  The family this license is a version of. Two licenses sharing it are the same
+  product, whatever their names say.
+  """
+  family: LicenseFamily!
+
+  """
+  Instances using this license
+  """
+  instances: [Instance!]!
+}
+
+"""
+A cursor-paginated page of licenses.
+"""
+type LicensePage {
+  items: [License!]!
+  """Opaque cursor for the next page. Null when hasMore is false."""
+  nextCursor: String
+  hasMore: Boolean!
+}
+
+extend type Query {
+  """
+  Get licenses for the current organization, cursor-paginated.
+  """
+  licenses(limit: Int, cursor: String): LicensePage!
+
+  """
+  Get a specific license by ID or slug (at least one required)
+  """
+  license(id: UUID, slug: String): License
+
+  """
+  Resolve a license family to the version it currently serves. Null when no
+  family carries this slug; a family with nothing published resolves with a null
+  currentVersion rather than being reported as missing.
+  """
+  licenseFamily(slug: String!): LicenseFamilyView
+}

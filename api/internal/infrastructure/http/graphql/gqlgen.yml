@@ -1,0 +1,196 @@
+# gqlgen configuration
+# https://gqlgen.com/config/
+
+schema:
+  - "schema.graphqls"
+  - "../../../modules/components/schema/*.graphqls"
+  - "../../../modules/customers/schema/*.graphqls"
+  - "../../../modules/deploymentzones/schema/*.graphqls"
+  - "../../../modules/entitlements/schema/*.graphqls"
+  - "../../../modules/instances/schema/*.graphqls"
+  - "../../../modules/licenses/schema/*.graphqls"
+  - "../../../modules/metadatafields/schema/*.graphqls"
+  - "../../../modules/releases/schema/*.graphqls"
+
+exec:
+  filename: generated/generated.go
+  package: generated
+
+model:
+  filename: generated/models_gen.go
+  package: generated
+
+resolver:
+  layout: follow-schema
+  dir: resolver
+  package: resolver
+  filename_template: "{name}.resolvers.go"
+
+# Map GraphQL types and scalars to existing domain model types (reuse existing Go schemas)
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.ID
+  UUID:
+    model:
+      - github.com/99designs/gqlgen/graphql.UUID
+  Time:
+    model:
+      - github.com/99designs/gqlgen/graphql.Time
+  Map:
+    model:
+      - github.com/99designs/gqlgen/graphql.Map
+
+  # Reuse existing domain models from each module
+  AuditTrail:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.AuditTrail
+  AuditTrailPage:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.AuditTrailPage
+  OrganizationAuditTrail:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.OrganizationAuditTrail
+  OrganizationAuditTrailPage:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.OrganizationAuditTrailPage
+  Customer:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/customers/schema.Customer
+    fields:
+      instances:
+        resolver: true
+      integrations:
+        resolver: true
+  CustomerPage:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/customers/schema.CustomerPage
+  Instance:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.Instance
+    fields:
+      customer:
+        resolver: true
+      license:
+        resolver: true
+      integrations:
+        resolver: true
+      entitlementUsage:
+        resolver: true
+  InstancePage:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.InstancePage
+  EntitlementUsage:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.EntitlementUsage
+    fields:
+      value:
+        resolver: true
+      limit:
+        resolver: true
+  InstanceStatus:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.InstanceStatus
+  License:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.License
+    fields:
+      entitlements:
+        resolver: true
+      family:
+        resolver: true
+  LicenseFamily:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.LicenseFamily
+  LicenseFamilyView:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.LicenseFamilyView
+    fields:
+      # Read only when a query selects it, like License.entitlements: the
+      # history is the one part of the view a caller may not want.
+      versions:
+        resolver: true
+  LicenseLifecycleState:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.LifecycleState
+  LicensePage:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.LicensePage
+  LicenseType:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.Type
+  LicenseEntitlement:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.LicenseEntitlement
+    fields:
+      value:
+        resolver: true
+      unlimited:
+        resolver: true
+      entitlement:
+        resolver: true
+  Entitlement:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema.Entitlement
+  EntitlementPage:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema.EntitlementPage
+  EntitlementType:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema.Type
+  EntitlementResetPeriod:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period.ResetPeriod
+  EntitlementResetAnchor:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period.ResetAnchor
+  EntitlementGroupSummary:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema.EntitlementGroupSummary
+  MetadataField:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/schema.MetadataField
+  MetadataFieldPage:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/schema.MetadataFieldPage
+  MetadataFieldResourceType:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db.MetadataFieldResourceType
+  Deployment:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/schema.Deployment
+  DeploymentZone:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/schema.DeploymentZone
+  DeploymentZonePage:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/schema.DeploymentZonePage
+  Release:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/releases/schema.Release
+    fields:
+      components:
+        resolver: true
+      deploymentZones:
+        resolver: true
+      instances:
+        resolver: true
+      deployments:
+        resolver: true
+  ReleasePage:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/releases/schema.ReleasePage
+  Component:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/components/schema.Component
+  ComponentPage:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/components/schema.ComponentPage
+  User:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/shared/user.User
+
+# Keep autobind empty; explicit mapping above ensures 1:1
+autobind: [ ]
+
+omit_slice_element_pointers: true

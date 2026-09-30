@@ -1,0 +1,139 @@
+import { Button } from '@/components/ui/button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Plus, RotateCcw, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  FILTER_OPERATOR_LABELS,
+  getDefaultOperatorForFieldType,
+} from '../../logic/filter-logic';
+import type { FilterToolbarFiltersRowProps } from '../../types/toolbar.types';
+import { AdvancedFiltersPopover } from '../advanced';
+import {
+  FilterPickerMenu,
+  getFilterBadgeLabel,
+  NormalFilterPopover,
+} from '../shared';
+import { useFilterToolbarContext } from './filter-toolbar-provider';
+
+export function FilterToolbarFiltersRow({
+  className,
+}: FilterToolbarFiltersRowProps) {
+  const {
+    controller,
+    labels: copy,
+    showAdvancedOption,
+    addFilterOpen,
+    setAddFilterOpen,
+    showFilterRow,
+    showAddFilterButton,
+    openNormalFilterId,
+    setOpenNormalFilterId,
+  } = useFilterToolbarContext<unknown>();
+
+  if (!showFilterRow) {
+    return null;
+  }
+
+  function renderActiveField(
+    field: (typeof controller.normal.activeFields)[number],
+  ) {
+    const value = controller.normal.values[field.id] ?? '';
+    const operatorLabel =
+      FILTER_OPERATOR_LABELS[getDefaultOperatorForFieldType(field.type)];
+    const removeAriaLabel = copy.removeFilterForField.replace(
+      '{{field}}',
+      field.label,
+    );
+
+    return (
+      <div
+        key={field.id}
+        className="bg-secondary text-secondary-foreground inline-flex h-9 items-center gap-1 rounded-full px-3"
+      >
+        <NormalFilterPopover
+          field={field}
+          labels={copy}
+          open={openNormalFilterId === field.id}
+          onOpenChange={(open) => setOpenNormalFilterId(open ? field.id : null)}
+          onValueChange={(nextValue) => {
+            controller.normal.setValue(field.id, nextValue);
+          }}
+          onClear={() => controller.normal.setValue(field.id, '')}
+          operatorLabel={operatorLabel}
+          value={value}
+          trigger={
+            <button
+              type="button"
+              className="max-w-[240px] truncate text-sm"
+              title={getFilterBadgeLabel(field, value, copy)}
+            >
+              {getFilterBadgeLabel(field, value, copy)}
+            </button>
+          }
+        />
+        <button
+          type="button"
+          className="text-muted-foreground hover:text-foreground"
+          onClick={() => {
+            controller.normal.removeFilter(field.id);
+            if (openNormalFilterId === field.id) {
+              setOpenNormalFilterId(null);
+            }
+          }}
+          aria-label={removeAriaLabel}
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn('space-y-3', className)}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-muted-foreground text-sm font-medium">
+          {copy.filterBy}
+        </span>
+
+        {controller.normal.activeFields.map(renderActiveField)}
+
+        {showAddFilterButton ? (
+          <Popover open={addFilterOpen} onOpenChange={setAddFilterOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-full border-dashed px-4"
+              >
+                <Plus className="size-4" />
+                {copy.addFilter}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[280px] p-0">
+              <FilterPickerMenu />
+            </PopoverContent>
+          </Popover>
+        ) : null}
+
+        {showAdvancedOption ? <AdvancedFiltersPopover /> : null}
+
+        {controller.hasActiveFilters ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-9"
+            onClick={controller.resetAll}
+          >
+            <RotateCcw className="size-4" />
+            {copy.reset}
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}

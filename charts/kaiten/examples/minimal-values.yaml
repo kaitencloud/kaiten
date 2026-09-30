@@ -1,0 +1,47 @@
+# The smallest values file that deploys a working Kaiten.
+#
+#   helm install kaiten oci://ghcr.io/kaitencloud/charts/kaiten \
+#     -n kaiten --create-namespace -f minimal-values.yaml
+#
+# Everything not here keeps the chart's default -- see values.yaml, which
+# documents every one of them. What is here is the set with no sane default,
+# because it is site data: your domain, your database, your identity provider.
+#
+# This assumes a Gateway already exists and Postgres is reachable. Neither is
+# this chart's to create. charts/kaiten-infra, next to this chart, installs the
+# RabbitMQ and Debezium half and runs the migrations; it expects the same
+# Postgres and does not create one either.
+
+ingress:
+  enabled: true
+  host: kaiten.example.com
+  # The Gateway to attach these routes to. It has to exist already: a
+  # HTTPRoute naming an absent Gateway is accepted by the API server and
+  # routes nothing, which is the failure that looks like a working install.
+  gatewayName: kaiten-gateway
+  gatewayNamespace: kaiten
+
+api:
+  secret:
+    # Rendered into a Secret this release owns, and exported to the pod as
+    # KAITEN_DATABASE_CONNECTION_STRING -- which is the variable the default
+    # api.config already references. Use api.secret.existingSecret instead if
+    # something else in this cluster owns the credential.
+    databaseConnectionString: "postgres://kaiten:CHANGEME@postgres.kaiten.svc.cluster.local:5432/kaiten?sslmode=require"
+
+  middlewares:
+    jwt:
+      enabled: true
+      # Whoever issues your end users' tokens. Every authenticated request is
+      # verified against this, so an install without it serves nothing but
+      # 401s.
+      jwksUrl: https://clerk.example.com/.well-known/jwks.json
+    cors:
+      allowOrigins: ["https://kaiten.example.com"]
+
+app:
+  configMap:
+    # Baked into the browser bundle at request time, so both are public by
+    # construction -- VITE_* is not a channel for anything that is not.
+    VITE_API_URL: "https://kaiten.example.com"
+    VITE_CLERK_PUBLISHABLE_KEY: "pk_live_replace_me"

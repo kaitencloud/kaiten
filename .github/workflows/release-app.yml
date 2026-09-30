@@ -1,0 +1,112 @@
+name: Release app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'packages/theme/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.npmrc'
+      - '.github/workflows/release-app.yml'
+    tags:
+      - '[0-9][0-9].[0-9][0-9].[0-9]*'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # Builds each platform on its own native runner instead of emulating arm64
+  # via QEMU on an amd64 runner - pnpm/esbuild under QEMU user-mode emulation
+  # segfaults unpredictably (V8/native-addon instructions QEMU doesn't
+  # emulate correctly), and tends to hang rather than fail cleanly. Each job
+  # pushes its image by digest only (no tags yet); the merge job assembles
+  # the final multi-arch manifest from both digests.
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+    runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Docker meta
+        id: meta
+        uses: ./.github/actions/docker-meta
+        with:
+          image-name: app
+          source-paths: app packages/theme package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc
+
+      - name: Set platform pair
+        run: echo "PLATFORM_PAIR=${PLATFORM//\//-}" >> "$GITHUB_ENV"
+        env:
+          PLATFORM: ${{ matrix.platform }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          file: ./app/Dockerfile
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ steps.meta.outputs.registry }}/app,push-by-digest=true,name-canonical=true,push=true
+          # Scoped per platform. Both matrix jobs previously read and wrote
+          # one `app:buildcache` ref concurrently, so each arch could import
+          # layers the other had just published and last-writer-wins decided
+          # what survived. That is what let a single commit build clean on
+          # amd64 and fail on arm64 in the same run (26.08.1), which sent the
+          # investigation looking for an arch-specific bug that did not exist.
+          cache-from: type=registry,ref=${{ steps.meta.outputs.registry }}/app:buildcache-${{ env.PLATFORM_PAIR }}
+          cache-to: type=registry,ref=${{ steps.meta.outputs.registry }}/app:buildcache-${{ env.PLATFORM_PAIR }},mode=max
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Docker meta
+        id: meta
+        uses: ./.github/actions/docker-meta
+        with:
+          image-name: app
+          source-paths: app packages/theme package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          tag_args=$(echo "${{ steps.meta.outputs.tags }}" | sed 's/^/-t /' | tr '\n' ' ')
+          # shellcheck disable=SC2046
+          docker buildx imagetools create $tag_args \
+            $(printf '${{ steps.meta.outputs.registry }}/app@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          first_tag=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          docker buildx imagetools inspect "$first_tag"

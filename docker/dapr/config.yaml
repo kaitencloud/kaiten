@@ -1,0 +1,11 @@
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: config
+spec:
+  tracing:
+    samplingRate: "1"
+    otel:
+      endpointAddress: "http://jaeger:4318"
+      isSecure: false
+      protocol: http

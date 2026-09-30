@@ -1,0 +1,62 @@
+"""
+One place a customer of this Kaiten runs a release: a target they name and
+classify themselves ("AWS us-west-2", "on-prem staging"), carrying typed
+metadata, the instances in it and the release currently on it.
+
+Not an installation of Kaiten. Kaiten's own operations vocabulary uses the same
+two words for one -- a Kubernetes namespace plus a Clerk application plus a DNS
+name plus a reporting credential plus the organizations inside it -- and that
+kind of zone is not reachable through this API at all.
+"""
+type DeploymentZone {
+  id: UUID!
+  name: String!
+  slug: String!
+  description: String!
+  """
+  Environment class of the zone -- production, staging or development are the
+  values the console labels, but the field is free-form.
+  """
+  type: String!
+  metadata: Map
+  releaseId: UUID
+  createdBy: User!
+  createdAt: Time!
+  updatedBy: User!
+  updatedAt: Time!
+}
+
+"""
+A cursor-paginated page of deployment zones.
+"""
+type DeploymentZonePage {
+  items: [DeploymentZone!]!
+  """Opaque cursor for the next page. Null when hasMore is false."""
+  nextCursor: String
+  hasMore: Boolean!
+}
+
+extend type Query {
+  """
+  Get deployment zones for the current organization, cursor-paginated.
+  """
+  deploymentZones(limit: Int, cursor: String): DeploymentZonePage!
+
+  """
+  Get a specific deployment zone by ID or slug (at least one required)
+  """
+  deploymentZone(id: UUID, slug: String): DeploymentZone
+}
+
+"""
+Deployment is one entry in a zone's deployment log: a release was put on a zone
+at a moment in time. The same release can appear against the same zone more
+than once -- that is a rollback.
+"""
+type Deployment {
+  id: UUID!
+  deploymentZoneId: UUID!
+  releaseId: UUID!
+  createdBy: User!
+  createdAt: Time!
+}

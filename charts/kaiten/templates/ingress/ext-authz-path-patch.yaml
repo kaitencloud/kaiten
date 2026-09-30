@@ -1,0 +1,168 @@
+{{/*
+  ext_authz check-request path pinning, Envoy Gateway edition.
+
+  WHY THIS EXISTS
+  ---------------
+  SecurityPolicy.extAuth.http.path is translated by Envoy Gateway into the
+  ext_authz filter's `path_prefix`, which PREPENDS to the original client
+  request's path rather than replacing it. Left alone, a PAT-authenticated
+  request for /api/instances makes Envoy call
+  /api/tokens/validate/api/instances, and the API would have to publish a
+  wildcard route under /api/tokens/validate/ that bypasses its own auth
+  middleware for every path beneath it.
+
+  The API publishes exactly ONE path instead (see
+  api/internal/modules/identity/validatetoken/endpoint.go), so the check
+  request has to arrive there unchanged. This patch does for Envoy Gateway
+  what docker/envoy/kaiten.yaml.tmpl's token_validate_internal listener does
+  for the compose stack: it routes the check through an internal listener
+  that rewrites any path to the constant /api/tokens/validate.
+
+  BEFORE YOU ENABLE THIS
+  ----------------------
+  Disabled by default, and deliberately so. EnvoyPatchPolicy patches
+  GENERATED xDS by resource name, and those names are an Envoy Gateway
+  implementation detail that varies by version. Two things must be true:
+
+    1. The Envoy Gateway install has extension APIs turned on:
+         extensionApis:
+           enableEnvoyPatchPolicy: true
+       Without it the resource is accepted but never applied.
+
+    2. The PROXY has the InternalListener bootstrap extension. This patch adds
+       an internal listener, and Envoy refuses to create one without it:
+
+         error adding listener named '<internalListenerName>':
+         InternalListener bootstrap extension is mandatory
+
+       An EnvoyPatchPolicy patches xDS, and the bootstrap is not xDS, so this
+       chart cannot supply it. Add it to the EnvoyProxy that backs the Gateway:
+
+         spec:
+           bootstrap:
+             type: JSONPatch
+             jsonPatches:
+               - op: add
+                 path: /bootstrap_extensions
+                 value:
+                   - name: envoy.bootstrap.internal_listener
+                     typed_config:
+                       "@type": type.googleapis.com/envoy.extensions.bootstrap.internal_listener.v3.InternalListener
+
+    3. The names below match what your EG version actually generates.
+       Check them, do not assume:
+         egctl x translate --from gateway-api --to xds -f <your manifests>
+       and read the real listener/cluster names out of the output. Override
+       whatever differs through ingress.extAuthPathPinning.*.
+
+  VERIFYING IT WORKED. Programmed=True on the policy is NOT sufficient, and
+  this is worth knowing before you trust one: it means the patches were applied
+  to the configuration Envoy was SENT, not that Envoy accepted them. A listener
+  Envoy rejects still leaves the policy Programmed. Read the proxy's own config
+  dump and check the internal listener has an active_state and no error_state:
+
+    kubectl port-forward -n <gw-ns> <envoy-pod> 19000:19000
+    curl -s localhost:19000/config_dump | \
+      jq '.configs[] | select(.["@type"]|test("Listener")) | .dynamic_listeners[]'
+
+  Because extAuth runs with failOpen: false, a half-applied patch does not
+  degrade: it fails every route on the listener closed. Until this is verified
+  in a cluster, leave it disabled.
+*/}}
+{{- if and .Values.ingress.enabled .Values.ingress.host .Values.ingress.extAuthPathPinning.enabled }}
+{{- $pin := .Values.ingress.extAuthPathPinning }}
+{{- $gwNs := .Values.ingress.gatewayNamespace | default .Release.Namespace }}
+{{- $listener := printf "%s/%s/%s" $gwNs .Values.ingress.gatewayName .Values.ingress.listenerName }}
+{{- $apiCluster := $pin.apiClusterName | required "ingress.extAuthPathPinning.apiClusterName is required: read the generated cluster name for the api backend out of `egctl x translate`" }}
+{{- $filterPath := $pin.extAuthFilterPath | required "ingress.extAuthPathPinning.extAuthFilterPath is required: a wrong pointer applies to the wrong filter silently, so there is no default -- read the index out of the running proxy's config_dump, see values.yaml" }}
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyPatchPolicy
+metadata:
+  name: {{ include "kaiten.apiFullname" . }}-extauth-path
+  # The GATEWAY's namespace, not the release's. targetRef below is a
+  # LocalPolicyTargetReference: Gateway API policy attachment does not cross
+  # namespaces, so a policy sitting beside this release could never bind a
+  # Gateway that lives somewhere else -- which is the ordinary case, since the
+  # Gateway is usually shared and owned by the platform team.
+  namespace: {{ $gwNs }}
+  labels:
+    {{- include "kaiten.apiLabels" . | nindent 4 }}
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: {{ .Values.ingress.gatewayName }}
+    # No namespace here. EnvoyPatchPolicy.spec.targetRef is a
+    # LocalPolicyTargetReference -- group, kind, name -- and the API server
+    # rejects the whole object with ".spec.targetRef.namespace: field not
+    # declared in schema". The namespace is expressed by where the policy
+    # lives, above.
+  type: JSONPatch
+  jsonPatches:
+    # 1. An internal listener whose only route rewrites every path to the one
+    #    constant the API answers on, then forwards to the api cluster.
+    - type: "type.googleapis.com/envoy.config.listener.v3.Listener"
+      name: {{ $pin.internalListenerName | quote }}
+      operation:
+        op: add
+        path: ""
+        value:
+          name: {{ $pin.internalListenerName }}
+          internal_listener: {}
+          filter_chains:
+            - filters:
+                - name: envoy.filters.network.http_connection_manager
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                    stat_prefix: token_validate
+                    route_config:
+                      name: token_validate_routes
+                      virtual_hosts:
+                        - name: token_validate
+                          domains: ["*"]
+                          routes:
+                            - match: { prefix: "/" }
+                              route:
+                                cluster: {{ $apiCluster }}
+                                regex_rewrite:
+                                  pattern: { regex: "^.*$" }
+                                  substitution: {{ $pin.checkPath | quote }}
+                    http_filters:
+                      - name: envoy.filters.http.router
+                        typed_config:
+                          "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+    # 2. A cluster whose single endpoint is that internal listener. This is
+    #    what the ext_authz filter is repointed at below.
+    - type: "type.googleapis.com/envoy.config.cluster.v3.Cluster"
+      name: {{ $pin.clusterName | quote }}
+      operation:
+        op: add
+        path: ""
+        value:
+          name: {{ $pin.clusterName }}
+          load_assignment:
+            cluster_name: {{ $pin.clusterName }}
+            endpoints:
+              - lb_endpoints:
+                  - endpoint:
+                      address:
+                        envoy_internal_address:
+                          server_listener_name: {{ $pin.internalListenerName }}
+
+    # 3. Send the check through that cluster and drop the prepending
+    #    path_prefix. extAuthFilterPath indexes the ext_authz filter inside
+    #    the listener's HCM filter chain — the part most likely to differ
+    #    between EG versions, hence the override.
+    - type: "type.googleapis.com/envoy.config.listener.v3.Listener"
+      name: {{ $listener | quote }}
+      operation:
+        op: replace
+        path: {{ printf "%s/typed_config/http_service/server_uri/cluster" $filterPath | quote }}
+        value: {{ $pin.clusterName }}
+    - type: "type.googleapis.com/envoy.config.listener.v3.Listener"
+      name: {{ $listener | quote }}
+      operation:
+        op: remove
+        path: {{ printf "%s/typed_config/http_service/path_prefix" $filterPath | quote }}
+{{- end }}

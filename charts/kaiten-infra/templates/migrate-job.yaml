@@ -1,0 +1,69 @@
+{{- if .Values.migrate.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kaiten-infra.fullname" . }}-migrate
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    # Runs before the main manifests (including debezium-server.yaml) are
+    # applied, on both install and upgrade - see values.yaml's migrate
+    # comment for why this has to happen before DebeziumServer exists, not
+    # just before it's Ready.
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+    # After the connection-string Secret, if this chart is the one rendering it
+    # (weight -1, see secrets/credentials.yaml) - the Job needs it to exist
+    # first. Explicit even though it'd also be the default (0) relative to -1,
+    # for clarity.
+    "helm.sh/hook-weight": "0"
+    kaiten.cloud/bootstrap: "true"
+  labels:
+    app.kubernetes.io/name: kaiten-migrate
+    app.kubernetes.io/component: bootstrap
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kaiten-migrate
+        app.kubernetes.io/component: bootstrap
+    spec:
+      # Same reason as the kaiten chart's api Deployment: the kubelet injects a
+      # Docker-link variable per Service in the namespace, and goose reads its
+      # connection string from the environment. A Service whose generated name
+      # collides with one of these settings would be read in preference to the
+      # Secret this Job mounts.
+      enableServiceLinks: false
+      restartPolicy: Never
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: "{{ .Values.migrate.image.repository }}:{{ .Values.migrate.image.tag }}"
+          imagePullPolicy: {{ .Values.migrate.image.pullPolicy }}
+          args: ["migrate", "up"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          env:
+            - name: KAITEN_DATABASE_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef:
+                  {{- /* Either the Secret this chart rendered from
+                  migrate.database.connectionString, or the one the operator
+                  created and named in migrate.database.existingSecret -- which
+                  wins. There is no third source, and rendering is refused
+                  outright when neither is configured (templates/validation.yaml)
+                  rather than leaving this Job to sit in
+                  CreateContainerConfigError against a Secret that was never
+                  going to appear. */}}
+                  name: {{ include "kaiten-infra.migrateSecretName" . | quote }}
+                  key: {{ include "kaiten-infra.migrateSecretKey" . | quote }}
+{{- end }}

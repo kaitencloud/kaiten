@@ -1,0 +1,56 @@
+"""
+Release represents a software release with its components. A release is
+immutable: it is created with its component list and can only be deleted
+afterwards -- there is no update, so it carries no updated_* fields.
+"""
+type Release {
+  id: UUID!
+  version: String!
+  slug: String!
+  description: String
+  createdBy: User!
+  createdAt: Time!
+
+  """
+  Components included in this release, fixed at creation
+  """
+  components: [Component!]!
+
+  """
+  Deployment zones this release has been deployed to at least once, each listed once
+  """
+  deploymentZones: [DeploymentZone!]!
+
+  """
+  Instances linked to deployment zones where this release has been deployed historically
+  """
+  instances: [Instance!]!
+
+  """
+  Every deployment of this release, newest first -- one entry per deployment,
+  so a zone it was rolled back to appears more than once
+  """
+  deployments: [Deployment!]!
+}
+
+"""
+A cursor-paginated page of releases.
+"""
+type ReleasePage {
+  items: [Release!]!
+  """Opaque cursor for the next page. Null when hasMore is false."""
+  nextCursor: String
+  hasMore: Boolean!
+}
+
+extend type Query {
+  """
+  Get releases for the current organization, cursor-paginated.
+  """
+  releases(limit: Int, cursor: String): ReleasePage!
+
+  """
+  Get a specific release by ID or slug (at least one required)
+  """
+  release(id: UUID, slug: String): Release
+}

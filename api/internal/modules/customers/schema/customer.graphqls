@@ -1,0 +1,50 @@
+"""
+Customer represents a client organization of a organization.
+"""
+type Customer {
+  id: UUID!
+  name: String!
+  slug: String!
+  externalCustomerId: String
+  domain: String
+  integrations: Map!
+  createdBy: User!
+  createdAt: Time!
+  updatedBy: User!
+  updatedAt: Time!
+
+  """
+  Instances associated with this customer
+  """
+  instances: [Instance!]!
+}
+
+"""
+A cursor-paginated page of customers.
+"""
+type CustomerPage {
+  items: [Customer!]!
+  """Opaque cursor for the next page. Null when hasMore is false."""
+  nextCursor: String
+  hasMore: Boolean!
+}
+
+extend type Query {
+  """
+  Get customers for the current organization, cursor-paginated. When
+  hasIntegration is set, only customers synced with that integration
+  adapter are returned; the page is cursor-paginated either way.
+  """
+  customers(hasIntegration: String, limit: Int, cursor: String): CustomerPage!
+
+  """
+  Get a specific customer by ID, slug, or the external ID you assigned it
+  (at least one required; they are tried in that order).
+
+  `externalCustomerId` is the id your own system uses for the tenant, so an
+  embedded client can ask for "my" customer without first learning Kaiten's
+  slug. It carries no uniqueness constraint, so a value matching more than one
+  customer is an error rather than an arbitrary pick.
+  """
+  customer(id: UUID, slug: String, externalCustomerId: String): Customer
+}

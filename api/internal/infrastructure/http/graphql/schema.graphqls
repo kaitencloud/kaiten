@@ -1,0 +1,30 @@
+"""
+Custom scalar for UUIDs
+"""
+scalar UUID
+
+"""
+Custom scalar for timestamps
+"""
+scalar Time
+
+"""
+Custom scalar for JSON maps
+"""
+scalar Map
+
+"""
+A user reference (id + name)
+"""
+type User {
+  id: UUID!
+  name: String!
+}
+
+"""
+Health check endpoint
+"""
+
+type Query {
+  _health: String!
+}

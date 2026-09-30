@@ -1,0 +1,24 @@
+app/src/features/<name>/
+├── components/
+│   ├── <name>-page-content.tsx
+│   ├── <name>-table.tsx
+│   ├── <name>-form-dialog.tsx
+│   ├── __tests__/
+│   ├── stories/
+│   └── index.ts
+├── hooks/
+├── queries/
+│   ├── <name>-query-options.ts
+│   └── index.ts
+├── schemas/
+│   ├── <name>.schema.ts
+│   └── index.ts
+├── store/
+│   ├── <name>-store.ts
+│   └── index.ts
+├── types/
+│   └── index.ts
+├── utils/
+├── <name>.api.ts
+├── index.ts
+└── README.md

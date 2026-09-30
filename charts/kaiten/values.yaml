@@ -1,0 +1,531 @@
+global:
+  imagePullSecrets: []
+
+# OpenTelemetry used to live here, as global.observability.{otelEnabled,
+# otlpEndpoint,otelInsecure}. It is api.config.otel now, spelled the way the API's
+# own config file spells it, and the old keys are refused at render rather than
+# ignored: a telemetry setting that stops applying without saying so is worse.
+
+# Bootstrap credentials this release issues for itself, once, at install time.
+#
+# Generic, and deliberately so: a Kaiten deployment that has anything to call
+# /api/platform/** with needs a platform credential (ksm_), and minting one
+# needs the database rather than the API -- the value exists for exactly the
+# length of one command, and only its bcrypt hash is stored.
+#
+# Nothing here names a consumer, a control plane or an identity provider. What
+# the credential is FOR is the consumer's business; this chart only issues it
+# and puts it somewhere a consumer can mount.
+bootstrap:
+  platformCredential:
+    # Off by default, because an OSS install needs no platform credential:
+    # nothing in this chart calls the Platform API. Turn it on when something
+    # will, and say what scopes it may use when you do.
+    enabled: false
+
+    # Operator-chosen, and unique among ACTIVE credentials -- `platform-token
+    # create` fails on a name that is already live rather than minting a second
+    # one, so this doubles as the identity you revoke and rotate by.
+    name: ""
+    # Comma-separated, required, no default. A credential whose blast radius
+    # was chosen by a chart default is a credential nobody decided the blast
+    # radius of. `write:X` implies `read:X`; see api/pkg/scope for the modules.
+    scopes: ""
+    # Exactly one of ttl / noExpiry is required. How long a platform credential
+    # lives is a decision, not a fallback, so there is no default here either.
+    ttl: ""            # e.g. "720h"
+    noExpiry: false
+    # Revoke the active credential of this name -- AND EVERY TOKEN IT ISSUED,
+    # through the revocation cascade -- before minting the replacement. It is
+    # what makes a re-install into a namespace whose database already holds this
+    # credential converge instead of failing, and it is a live outage for
+    # anything still holding a child token. Off, and it should stay off outside
+    # a deliberate rotation.
+    replace: false
+
+    # Where the minted value lands, and by what mechanism. Nothing in this
+    # chart reads it; it exists for a consumer elsewhere to mount or replicate.
+    #
+    #   secret (default) -- mint into a file on an emptyDir only this Job's own
+    #                       containers can see, then publish it as an ordinary
+    #                       Kubernetes Secret. Needs kubectl and the RBAC to
+    #                       create one, both of which this chart renders.
+    #   file             -- mint straight onto a volume the operator supplies,
+    #                       and stop. No Secret, no kubectl containers, no RBAC.
+    #                       For a cluster where a credential may not become an
+    #                       API object, and for the non-Kubernetes case.
+    #
+    # There is no third option. In particular there is nothing here about
+    # replicating the value into a secret store: that is a consumer reading the
+    # Secret this Job wrote, in its own release, and this Job stays unaware of it.
+    sink:
+      type: secret
+
+      file:
+        # Absolute path inside the container. Required with type=file.
+        path: ""
+        # A Kubernetes volume spec, verbatim and minus its name -- a PVC claim,
+        # a hostPath, a CSI ephemeral, whatever this cluster has. The chart
+        # mounts it at the directory part of `path`. Required with type=file:
+        # the Job cannot invent somewhere durable to put a credential, and an
+        # emptyDir here would mean minting a credential and deleting it in the
+        # same breath.
+        volume: {}
+
+    # The Secret published when sink.type=secret; ignored otherwise.
+    secret:
+      name: ""
+      key: platform-token
+
+    # The database the credential is minted into. Empty defaults to api.secret
+    # (see the api block), which is the reason this Job is a post-install hook
+    # rather than a pre-install one: whoever creates that Secret creates it
+    # around install time, and the api Deployment cannot serve without it, so a
+    # post-install hook is the first point in the release where it is certainly
+    # there.
+    # Override both when api.enabled=false, or when the credential belongs to a
+    # database this release does not own.
+    databaseSecret:
+      name: ""
+      key: KAITEN_DATABASE_CONNECTION_STRING
+
+    image:
+      repository: ghcr.io/kaitencloud/admin-tools
+      tag: latest
+      pullPolicy: IfNotPresent
+
+    # Publishes the Secret. Any image whose ENTRYPOINT is kubectl itself works:
+    # every command this Job runs is a single argv vector with no shell, no
+    # pipe and no redirection, so a distroless kubectl image is enough and the
+    # Job carries no interpreter.
+    kubectl:
+      image:
+        repository: registry.k8s.io/kubectl
+        tag: v1.32.0
+        pullPolicy: IfNotPresent
+
+    serviceAccount:
+      create: true
+      name: ""           # defaults to <release>-platform-credential
+      annotations: {}
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+# Set true if deploying without Flux (bare helm install) to add readiness init containers
+initContainers:
+  enabled: false
+  rabbitmqHost: ""   # defaults to <Release.Name>-rabbitmq; override if infra release name differs
+  rabbitmqPort: 5672
+
+# Dapr sidecar injection (requires Dapr control plane in cluster).
+# When enabled, also deploys the rabbitmq-pubsub Component, scoped to
+# <Release.Name>-api -- the one subscriber. It named a second, -webhooks, long
+# after that workload stopped being deployed from here; see templates/
+# dapr-pubsub.yaml, where a Component scoped to an app id that does not exist is
+# not an error, which is exactly why nobody noticed.
+dapr:
+  enabled: false
+  # Name of the K8s Secret holding RabbitMQ credentials (host/username/password).
+  # Defaults to <Release.Name>-infra-rabbitmq-default-user, which matches the
+  # secret created by the companion kaiten-infra release (Release.Name=<ns>-infra
+  # or kaiten-infra by convention).
+  rabbitmqSecretName: ""
+
+  # Additional Dapr app-ids allowed to use the pubsub Component, appended to
+  # this release's own <release>-api.
+  #
+  # Dapr component scoping is a hard gate, not a hint: a sidecar whose app-id is
+  # not listed does not load the component, so it never subscribes -- and NOTHING
+  # reports that. The subscription is advertised by the app, the queue exists
+  # because kaiten-infra declared it, and the only symptom is a queue whose
+  # consumer count stays at zero while messages accumulate.
+  #
+  # Empty is right when this release is the only subscriber. An install with a
+  # second consumer of the topic -- a delivery service deployed from its own
+  # chart, under its own app-id -- has to name it here or its deliveries
+  # silently never happen.
+  extraScopes: []
+  #   - my-consumer
+  # How hard the sidecar tries before a CDC delivery is dead-lettered. Exposed
+  # because it is the one knob whose right value is a property of the deployment
+  # rather than of the code: how long a third party this install talks to takes to
+  # come back is not something the chart can know.
+  #
+  # Leaving retry off entirely is not an option the chart offers. Zero retries is
+  # the behaviour this resource exists to fix -- see templates/dapr-resiliency.yaml
+  # -- so the way to not have it is dapr.enabled: false, which is also how to not
+  # have the CDC pipeline.
+  cdc:
+    retry:
+      # Redeliveries after the first attempt, so 5 is six chances in total.
+      maxRetries: 5
+      # Ceiling on the exponential backoff between them.
+      maxInterval: 10s
+
+# Secrets. This chart requires no secret-management operator and no CRDs. Every
+# credential it consumes is an ordinary Kubernetes Secret, and there are exactly
+# two ways one arrives:
+#
+#   * install-time credentials -- the database connection string and the OTLP
+#     authorization header. Either give them to the chart as values and it
+#     renders the Secret (api.secret), or name a Secret you created yourself
+#     (api.secret.existingSecret) and it renders none.
+#   * runtime-minted credentials -- the ksm_ this chart's own bootstrap Job
+#     mints (bootstrap.platformCredential.secret), and anything a consumer
+#     mounts through api.extraVolumes. Neither exists when the chart installs,
+#     so neither can be a value: they are named, mounted optional, and picked up
+#     when they appear.
+#
+# This chart used to render ExternalSecret / SecretStore / Vault policy objects
+# itself, so a stock install needed CRDs it had no way to know about and failed on
+# a plain cluster. None of that is here, or anywhere else in this repository, now.
+# A deployment that keeps its secrets in an external store creates those Secrets
+# with External Secrets, in charts of its own, and passes the names in through
+# the existingSecret values -- which is the entire interface between the two
+# halves.
+
+# Ingress via Kubernetes Gateway API, fronted by Envoy Gateway (the
+# controller/CRDs/Gateway itself are provisioned out-of-band by the
+# platform team — this chart only renders HTTPRoute/SecurityPolicy/
+# BackendTrafficPolicy/EnvoyExtensionPolicy CRDs against an existing one).
+ingress:
+  enabled: false
+  host: ""              # e.g. kaiten.example.com — shared hostname for all routes
+  gatewayName: ""
+  gatewayNamespace: ""
+  listenerName: web
+  # Echo the OTel trace id back to callers via a Lua EnvoyExtensionPolicy.
+  # Requires Lua to be ENABLED on the Gateway — Envoy Gateway disables it by
+  # default (GHSA-xrwg-mqj6-6m22), and a rejected policy makes every route it
+  # targets return 500. Leave false unless the Gateway explicitly allows Lua.
+  traceIdPolicy:
+    enabled: false
+
+  # Pins Envoy's ext_authz check request to one exact path, so the API can
+  # publish a single public /api/tokens/validate route instead of a wildcard
+  # prefix that bypasses auth. See templates/ingress/ext-authz-path-patch.yaml
+  # for the full rationale AND for why this is off by default -- it patches
+  # generated xDS by resource name, which must be verified against your Envoy
+  # Gateway version with `egctl x translate` first, and needs
+  # extensionApis.enableEnvoyPatchPolicy on the EG install.
+  extAuthPathPinning:
+    enabled: false
+    # The one path the API answers ext_authz checks on.
+    checkPath: /api/tokens/validate
+    # Generated name of the cluster fronting the api Service. REQUIRED when
+    # enabled -- read it out of `egctl x translate`, it is EG-version-specific.
+    apiClusterName: ""
+    # JSON pointer to the ext_authz filter inside the target listener's HCM
+    # filter chain. REQUIRED when enabled, and deliberately without a default.
+    #
+    # There was one, and it was wrong for the ordinary case. It read
+    #
+    #   /default_filter_chain/filters/0/typed_config/http_filters/0
+    #
+    # which holds on a plain HTTP listener carrying one policy and nothing else.
+    # A TLS listener has no default_filter_chain -- its chain is
+    # filter_chains[0] -- and index 0 is whichever filter EG put first, which is
+    # `cors` as soon as any route on the listener configures CORS. So the
+    # default pointed at the wrong filter on exactly the listeners this feature
+    # is for, and the failure is silent: the patch applies to a filter that is
+    # not ext_authz, the policy still reports Programmed, and every credential
+    # request is refused.
+    #
+    # A wrong pointer is worse than an absent one, so there is no default to
+    # inherit by accident. Read yours out of the running proxy:
+    #
+    #   curl -s localhost:19000/config_dump | jq '
+    #     .configs[] | select(.["@type"]|test("Listener")).dynamic_listeners[]
+    #     | select(.name=="<gw-ns>/<gateway>/<listener>")
+    #     | .active_state.listener.filter_chains[0].filters[0]
+    #       .typed_config.http_filters | to_entries[] | {key,name:.value.name}'
+    #
+    # and take the index whose name is
+    # envoy.filters.http.ext_authz/securitypolicy/<ns>/<release>-api-pat.
+    #
+    # It also SHIFTS: every SecurityPolicy on the listener adds a filter, so a
+    # second release attaching to the same Gateway renumbers this one. Re-read
+    # it after any policy change on that Gateway.
+    extAuthFilterPath: ""
+    # Names for the resources this patch creates. Only change them on a clash.
+    internalListenerName: kaiten-token-validate-internal
+    clusterName: kaiten-token-validate
+
+# ---- Services ----
+
+api:
+  enabled: true
+  image:
+    repository: ghcr.io/kaitencloud/api
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+
+  # ServiceAccount. IRSA annotations belong here when the api itself needs AWS
+  # access.
+  serviceAccount:
+    create: true
+    annotations: {}    # e.g. eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/kaiten-api
+
+  # Workload scheduling / placement.
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  terminationGracePeriodSeconds: 30
+
+  # Pod-level metadata and security context.
+  podAnnotations: {}
+  podLabels: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+
+  # Both requests and limits are set so the pod lands in the Guaranteed/Burstable QoS class
+  # predictably. Set requests == limits for Guaranteed QoS.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    # port is the PUBLIC surface: the Core API, and the only port the Gateway API
+    # HTTPRoutes in templates/ingress reference.
+    port: 3000
+    # platformPort is the INTERNAL surface: /api/platform/** and its OpenAPI
+    # document, served by a second listener inside the same container.
+    #
+    # It is on the Service so other workloads in the cluster can address it
+    # (cluster DNS, or Dapr service invocation), and it is deliberately NOT on any
+    # HTTPRoute: nothing in templates/ingress routes to it, which is what keeps the
+    # Platform API off the internet. Restrict it further with a NetworkPolicy if
+    # the namespace is shared.
+    platformPort: 3001
+  # ── Configuration ──────────────────────────────────────────────────────────
+  #
+  # The API reads one config file, and the chart writes it: everything under
+  # api.config is rendered verbatim into a ConfigMap as config.yaml, under the
+  # dotted keys the settings table in api/config/config.go declares, and mounted
+  # at configMountPath. api/config.example.yaml is the whole set, with a comment
+  # on each; anything left out here keeps the API's own default.
+  #
+  # A credential — database.connection_string, otel.authorization — may not be
+  # set here at all: the loader does not expand placeholders in this file, so a
+  # ${VARIABLE} left in it would just be a literal string the API tries to use as
+  # the thing itself. kaiten.validateApiConfig refuses the render if either is
+  # set. Source the credential as an environment variable instead: api.secret
+  # below, a Secret you name in api.secret.existingSecret, or api.extraEnv.
+  #
+  # Env still wins over the file, key by key, so api.env is an override channel
+  # rather than a second place for settings to live.
+
+  # Where the ConfigMap is mounted. The container is pointed at
+  # <configMountPath>/config.yaml through KAITEN_CONFIG_FILE.
+  configMountPath: /etc/kaiten
+
+  config:
+    logging:
+      level: warn
+      format: json
+    otel:
+      enabled: false
+      # Empty rather than the API's own localhost:4318 default: a collector
+      # nobody named is not a collector on this pod.
+      endpoint: ""
+      insecure: false
+
+  # Two things are refused here rather than accepted, both at render time:
+  #
+  #   - database.connection_string and otel.authorization, at all -- see above.
+  #     The guarded list is the `secret` column of the settings table itself,
+  #     asserted equal by api/config/chart_test.go, so a credential added later
+  #     is guarded without anyone remembering to add it here.
+  #   - server.port / server.platform_port. Those are api.service's ports. A
+  #     second copy here is not a setting, it is a drift class -- it is exactly
+  #     how a Service and its container came to disagree about the port before.
+
+  # Credentials. Two ways in, and `existingSecret` wins.
+  #
+  #   values         -- fill these in and this chart renders the Secret holding
+  #                     them, named <release>-api-secrets. One `helm install`, no
+  #                     operator, no CRDs, nothing to create first.
+  #   existingSecret -- name a Secret you made yourself and this chart renders NO
+  #                     Secret at all, mounting yours. How it came to exist is
+  #                     your business: sealed secrets, a CSI driver, an operator
+  #                     syncing from a store, `kubectl create secret`.
+  #
+  # That second form is the seam between this chart and whatever manages secrets
+  # around it. A deployment that keeps them in an external store creates these
+  # Secrets with External Secrets over Vault or a cloud secrets manager, from
+  # charts of its own, and hands the name in here. This chart never learns that
+  # machinery exists.
+  #
+  # Setting both is refused rather than resolved. Precedence would mean a
+  # connection string an operator wrote and the chart silently did not use.
+  #
+  # The keys, either way:
+  #
+  #   KAITEN_DATABASE_CONNECTION_STRING   required; nothing starts without it
+  #   OTEL_EXPORTER_OTLP_AUTHORIZATION    only if the collector wants one
+  #
+  # Both are fixed at process start -- the pool and the exporter are built once
+  # from them -- which is why they are env and not files. A credential that is
+  # re-read while the process runs cannot come this way at all: it has to be a
+  # path to a mounted file, which is api.extraVolumes plus api.extraEnv, and the
+  # ksm_ the bootstrap Job mints is the same story. Neither exists at install
+  # time, so neither can be a value.
+  #
+  # Mounted with envFrom + optional: true whichever way it arrives, so an absent
+  # Secret is a process that refuses to start naming the setting it is missing,
+  # rather than a container the kubelet will not create at all.
+  secret:
+    databaseConnectionString: ""
+    otelAuthorization: ""
+    existingSecret: ""
+
+  # Environment overrides, passed through to the container as-is. Empty by
+  # default: with settings in api.config and credentials in api.secret, an
+  # override is a deliberate exception rather than the mechanism.
+  env: {}
+
+  # The three generic seams: extra env, extra volumes, extra mounts. Each is a
+  # list of Kubernetes objects spliced verbatim into the api container's own,
+  # and each defaults to empty, so a chart that renders nothing extra is the
+  # default and an addition is always somebody's deliberate line in a values
+  # file.
+  #
+  # Why these exist at all: a consumer wiring this deployment into something
+  # this chart has never heard of -- a credential minted by a later release, a
+  # sidecar's socket, a service it reports to -- used to need a named block per
+  # integration, added here, with the chart learning that consumer's domain in
+  # order to render four lines of Kubernetes. That is backwards. The chart owns
+  # what it deploys; anything beyond it is a pod-spec fragment the consumer
+  # already knows how to write, and these are where it goes.
+  #
+  # Spliced AFTER the entries the chart renders itself, so a rendered manifest
+  # reads top-down as "what the chart owns, then what the operator added".
+  # Nothing merges or de-duplicates: an env name the chart already sets appears
+  # twice, and which one the kubelet honours is not defined -- read the render.
+
+  # Verbatim container env entries. This is what api.env above cannot be: a
+  # name/value map can only carry a literal, so a reference has to come through
+  # here. valueFrom.secretKeyRef, valueFrom.configMapKeyRef and
+  # valueFrom.fieldRef all pass through untouched, `optional` included.
+  extraEnv: []
+  #   - name: SOME_TOKEN_FILE
+  #     value: /var/run/some-credential/token
+  #   - name: SOME_API_KEY
+  #     valueFrom:
+  #       secretKeyRef:
+  #         name: some-secret
+  #         key: api-key
+  #         optional: true
+
+  # Verbatim pod volumes. Free-form rather than a set of narrow sub-fields on
+  # purpose: `optional: true` on a secret volume is the difference between a pod
+  # that starts before its credential exists and a pod the kubelet will not
+  # create at all, and only the consumer knows which of those it wants. A shape
+  # that could not say `optional` would not be a seam.
+  extraVolumes: []
+  #   - name: some-credential
+  #     secret:
+  #       secretName: some-credential
+  #       optional: true
+
+  # Verbatim volumeMounts on the api container -- where the volumes above land.
+  # Separate from extraVolumes because a volume and its mount are two different
+  # objects in two different places in a pod spec, and pretending otherwise is
+  # what makes a "simplified" wrapper unable to express half of them.
+  extraVolumeMounts: []
+  #   - name: some-credential
+  #     mountPath: /var/run/some-credential
+  #     readOnly: true
+
+  # ── Platform API (/api/platform/**, reachable only with a ksm_ credential) ──
+  #
+  # Envoy SecurityPolicy configuration for api's own HTTPRoutes.
+  middlewares:
+    cors:
+      enabled: true
+      allowOrigins:
+        - "*"
+    # PAT (ksh_*) validation via Envoy's ext_authz, calling api's own
+    # /api/tokens/validate.
+    forwardAuth:
+      enabled: true
+    jwt:
+      enabled: false
+      jwksUrl: ""   # e.g. https://<clerk-frontend-api>/.well-known/jwks.json
+      # The cookie the notification stream's JWT is read from, and only that
+      # route -- EventSource cannot send an Authorization header. Clerk's
+      # session cookie is __session; another identity provider's is whatever it
+      # sets. Nothing else authenticates from a cookie, deliberately: see
+      # templates/ingress/policies.yaml.
+      sessionCookie: "__session"
+
+app:
+  enabled: true
+  image:
+    repository: ghcr.io/kaitencloud/app
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+
+  serviceAccount:
+    create: false       # static nginx frontend; no API server access needed by default
+    annotations: {}
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  terminationGracePeriodSeconds: 30
+
+  podAnnotations: {}
+  podLabels: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 101       # nginx
+    runAsGroup: 101
+    seccompProfile:
+      type: RuntimeDefault
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  service:
+    port: 8080
+  configMap:
+    VITE_API_URL: ""
+    VITE_CLERK_PUBLISHABLE_KEY: ""
+    # Optional: the API (ending in /api) of the Kaiten deployment that hosts the
+    # platform flags this app gates its own features on, such as the demo banner
+    # and the webhooks pages. Left unset, every platform flag is off, so the
+    # console shows neither.
+    # VITE_KAITEN_PLATFORM_API_URL: ""
+  # Verbatim container env entries, substituted into the bundle at start like
+  # configMap. For VITE_KAITEN_PLATFORM_FLAGS_TOKEN -- a read:feature_flags token
+  # for the platform flag deployment above -- from a Secret. Public once served
+  # (every browser gets it), so it must never carry another scope.
+  extraEnv: []
+  #   - name: VITE_KAITEN_PLATFORM_FLAGS_TOKEN
+  #     valueFrom: {secretKeyRef: {name: platform-feature-flags, key: token}}

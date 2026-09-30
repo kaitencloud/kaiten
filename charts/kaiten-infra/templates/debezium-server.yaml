@@ -1,0 +1,130 @@
+{{- if .Values.debeziumServer.enabled }}
+{{- $storage := .Values.debeziumServer.storage }}
+{{- $podSecurityContext := .Values.debeziumServer.podSecurityContext }}
+{{- $nodeSelector := .Values.debeziumServer.nodeSelector }}
+{{- $affinity := .Values.debeziumServer.affinity }}
+{{- $hasVolumeClaim := and (eq $storage.type "persistent") (not $storage.existingClaim) }}
+{{- $hasPodTemplate := or $podSecurityContext $nodeSelector $affinity }}
+apiVersion: debezium.io/v1alpha1
+kind: DebeziumServer
+metadata:
+  name: {{ include "kaiten-infra.debeziumServerName" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  source:
+    class: io.debezium.connector.postgresql.PostgresConnector
+    config:
+      database.hostname: "${DB_hostname}"
+      database.port: ${DB_PORT:{{ .Values.debeziumServer.database.port }}}
+      database.user: "${DB_username}"
+      database.password: "${DB_password}"
+      database.dbname: "${DB_dbname}"
+      database.server.name: {{ .Values.debeziumServer.database.serverName | quote }}
+      database.sslmode: "${DB_sslmode}"
+      topic.prefix: {{ .Values.debeziumServer.replication.topicPrefix | quote }}
+      plugin.name: pgoutput
+      slot.name: {{ .Values.debeziumServer.replication.slotName | quote }}
+      publication.name: {{ .Values.debeziumServer.replication.publicationName | quote }}
+      publication.autocreate.mode: {{ .Values.debeziumServer.replication.publicationAutocreateMode | quote }}
+      table.include.list: {{ .Values.debeziumServer.replication.tableInclude | quote }}
+      schema.include.list: {{ .Values.debeziumServer.replication.schemaInclude | quote }}
+      tombstones.on.delete: {{ .Values.debeziumServer.replication.tombstonesOnDelete | quote }}
+      skipped.operations: {{ .Values.debeziumServer.replication.skippedOperations | quote }}
+      snapshot.mode: {{ .Values.debeziumServer.snapshotMode | quote }}
+      # The heartbeat. See debeziumServer.heartbeat in values.yaml for why all
+      # three keys are needed and the interval alone does nothing.
+      #
+      # The action query writes a non-transactional logical decoding message: it
+      # needs no table, no grant beyond the REPLICATION attribute the role already
+      # holds, and pgoutput forwards it whatever the publication covers. The
+      # exclude list keeps it from becoming a change event of its own; the prefix
+      # in both must be the same string.
+      heartbeat.interval.ms: {{ .Values.debeziumServer.heartbeat.intervalMs | quote }}
+      heartbeat.action.query: "SELECT pg_logical_emit_message(false, 'debezium_heartbeat', '')"
+      message.prefix.exclude.list: "debezium_heartbeat"
+    offset:
+      file:
+        fileName: {{ .Values.debeziumServer.offsetFileName | quote }}
+    schemaHistory:
+      file:
+        fileName: {{ .Values.debeziumServer.schemaHistoryFileName | quote }}
+
+  sink:
+    type: rabbitmq
+    config:
+      connection.host: "${RABBITMQ_host}"
+      connection.port: "${RABBITMQ_port}"
+      connection.username: "${RABBITMQ_username}"
+      connection.password: "${RABBITMQ_password}"
+      exchange: {{ .Values.debeziumServer.sink.exchange | quote }}
+      # What the sink publishes for a record with no value. With tombstones off
+      # and deletes skipped, that is only ever a heartbeat -- the cloudevents
+      # converter has no envelope to wrap one in. The default is the bare string
+      # "default", which Dapr cannot parse as a CloudEvent: two ERROR lines in
+      # every subscriber's sidecar per heartbeat. A CloudEvent of its own type
+      # instead reaches the api, which acknowledges it without a log line.
+      #
+      # The type must equal debezium.HeartbeatType in api/pkg/debezium; a test
+      # there reads this file to hold the two together.
+      null.value: '{"specversion":"1.0","type":"cloud.kaiten.cdc.heartbeat","source":"/debezium/heartbeat","id":"heartbeat","datacontenttype":"application/json","data":{}}'
+
+  format:
+    key:
+      type: json
+    value:
+      type: cloudevents
+
+  runtime:
+    serviceAccount: {{ include "kaiten-infra.debeziumServiceAccountName" . | quote }}
+    environment:
+      from:
+        - prefix: DB_
+          secretRef:
+            name: {{ include "kaiten-infra.debeziumSecretName" . | quote }}
+        - prefix: RABBITMQ_
+          secretRef:
+            name: {{ include "kaiten-infra.rabbitmqDefaultUserSecretName" . | quote }}
+      vars:
+        - name: DB_PORT
+          value: {{ .Values.debeziumServer.database.port | quote }}
+    storage:
+      data:
+        type: {{ $storage.type | quote }}
+        {{- if and (eq $storage.type "persistent") $storage.existingClaim }}
+        claimName: {{ $storage.existingClaim | quote }}
+        {{- end }}
+    {{- if or $hasVolumeClaim $hasPodTemplate }}
+    templates:
+      {{- if $hasVolumeClaim }}
+      volumeClaim:
+        accessModes:
+          {{- range $storage.accessModes }}
+          - {{ . | quote }}
+          {{- end }}
+        resources:
+          requests:
+            storage: {{ $storage.size | quote }}
+        {{- with $storage.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+      {{- end }}
+      {{- if $hasPodTemplate }}
+      pod:
+        {{- with $podSecurityContext }}
+        # fsGroup here is what lets uid 185 write offsets.dat. See the long note
+        # in values.yaml: without it the pod runs, reports Ready, and pins WAL
+        # until the database disk fills.
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with $nodeSelector }}
+        nodeSelector:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with $affinity }}
+        affinity:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+{{- end }}

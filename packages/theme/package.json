@@ -1,0 +1,54 @@
+{
+  "name": "@kaitencloud/theme",
+  "version": "1.0.3",
+  "description": "Kaiten's design tokens, as CSS custom properties with a matching Tailwind CSS v4 theme",
+  "homepage": "https://github.com/kaitencloud/kaiten/tree/main/packages/theme#readme",
+  "bugs": {
+    "url": "https://github.com/kaitencloud/kaiten/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaitencloud/kaiten.git",
+    "directory": "packages/theme"
+  },
+  "license": "Apache-2.0",
+  "author": "Kaiten",
+  "files": [
+    "dist",
+    "NOTICE"
+  ],
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json",
+    "./global.css": "./dist/global.css",
+    "./theme-inline.css": "./dist/theme-inline.css",
+    "./scoped.css": "./dist/scoped.css",
+    "./theme-inline-scoped.css": "./dist/theme-inline-scoped.css"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "prepare": "vp pack",
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "check": "vp check",
+    "check:stripped-css": "node scripts/check-stripped-css.mjs",
+    "check:pack": "node scripts/check-pack.mjs",
+    "check:theme-drift": "node scripts/check-theme-drift.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

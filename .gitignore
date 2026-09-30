@@ -1,0 +1,51 @@
+.env
+# The local credential mount: dev JWTs and the platform credential, written by
+# compose. Nothing in here has ever been committed.
+dev/
+.vault-root-token
+.vault-unseal-key
+.DS_Store
+.idea
+.pnpm-store
+.claude/settings.local.json
+.claude/.cc-writes
+.claude/worktrees/
+.claude/scheduled_tasks.lock
+.vite
+
+node_modules/
+
+# Coverage reports
+coverage/
+*.lcov
+
+# Claude Code instructions: the root CLAUDE.md is tracked (it only imports
+# AGENTS.md, so both agents read the same text); a CLAUDE.md anywhere else is a
+# developer's own notes.
+CLAUDE.md
+!/CLAUDE.md
+
+charts/**/*.tgz
+
+# Compiled Go binaries
+api/seeder
+api/checkapierrors
+
+# Ephemeral test and coverage output: regenerate with `task coverage:api`,
+# never commit.
+coverage.out
+test-report.json
+api/bin/
+
+# An operator's own configuration file for the API, which discovery looks for in
+# the directory the process runs from. It is optional (see
+# api/config.example.yaml) and it is theirs -- it may well hold a connection
+# string. Anchored, because docker/dapr/config.yaml is a tracked file.
+/api/config.yaml
+/api/config.yml
+/api/config.toml
+/api/config.json
+
+# `helm dependency build` output: a packaged copy of a chart that lives in this
+# same repository. Source is charts/<name>, never charts/<other>/charts/*.tgz.
+charts/*/charts/

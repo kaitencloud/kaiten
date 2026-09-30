@@ -1,0 +1,120 @@
+name: OSS hygiene
+
+# Keeps the tree publishable while work continues in it.
+#
+# Preparing this repository for release was a one-off pass. This check is what
+# stops the next merge from undoing it -- which matters here more than usual,
+# because the public release is a squash of this tree taken at some later date,
+# and every merge between now and then is an opportunity to put something back.
+#
+# Everything below was found in the tree once and removed deliberately, so a
+# reappearance is a regression rather than a new decision. Each rule fails with
+# the reason and what to do instead, because whoever trips it will be meeting the
+# constraint for the first time and needs more than a red X.
+#
+# Scope is the working tree, which is what gets published. Not history, which is
+# discarded by the squash. Secret scanning is a separate concern and lives in
+# gitleaks.yml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    name: tree is publishable
+    runs-on: ubuntu-latest
+    env:
+      # This workflow has to spell out the patterns it forbids, so every rule
+      # excludes it. Without that, each rule matches its own definition and the
+      # check fails on a clean tree.
+      SELF: .github/workflows/oss-hygiene.yml
+    steps:
+      - uses: actions/checkout@v4
+
+      # `git grep -I` skips binary files, and searches tracked files only -- so an
+      # untracked local scratch file cannot fail CI.
+      - name: No internal security-ticket references
+        run: |
+          # These described past vulnerabilities AND their mechanisms, which is the
+          # one class of internal reference that is genuinely unsafe to publish.
+          # The invariant each one protected is documented in the code; the ticket
+          # ID, the exploitation narrative and the "we shipped this" framing are
+          # what must not come back.
+          if git grep -nIE 'SEC-[0-9]{3}' -- . ':(exclude)node_modules' ":(exclude)$SELF"; then
+            echo "::error::Found internal security-ticket references (SEC-nnn). Describe the invariant and why it holds, not the ticket or the vulnerability it tracked."
+            exit 1
+          fi
+
+      - name: No internal issue-tracker URLs
+        run: |
+          # Bare ticket IDs are deliberately allowed: they are opaque, and they are
+          # load-bearing in prose across the codebase. A clickable link to a tracker
+          # nobody outside the company can open is different -- it is a dead end for
+          # every reader.
+          if git grep -nI 'atlassian.net' -- . ':(exclude)node_modules' ":(exclude)$SELF"; then
+            echo "::error::Found an internal issue-tracker URL. Keep the ticket ID as plain text if it adds context, but do not link to a tracker an outside reader cannot open."
+            exit 1
+          fi
+
+      - name: Releasing needs nothing but GITHUB_TOKEN
+        run: |
+          if git grep -nIE '^[[:space:]]*(environment:|secrets:[[:space:]]*inherit)' \
+               -- '.github/workflows/release-*.yml'; then
+            echo "::error::Release workflows must not bind an environment or inherit secrets."
+            exit 1
+          fi
+
+      - name: No private-repository Go dependencies
+        run: |
+          # A public repository whose dependencies are private does not build for
+          # anyone who clones it, and the credential injected to work around that is
+          # standing risk on a public repo. The Go SDK is the public
+          # github.com/kaitencloud/sdk-go; nothing here should need a token.
+          if git grep -nI 'PRIVATE_REPO_AUTH_TOKEN\|GOPRIVATE' -- . ':(exclude)node_modules' ":(exclude)$SELF"; then
+            echo "::error::Found private-Go-module credential machinery. Dependencies of this repository must be publicly fetchable; see sdk-go."
+            exit 1
+          fi
+          if git grep -nI 'kaitencloud/go-sdk' -- . ':(exclude)node_modules' ":(exclude)$SELF"; then
+            echo "::error::The Go SDK is github.com/kaitencloud/sdk-go (public). github.com/kaitencloud/go-sdk is the old private path and no longer resolves."
+            exit 1
+          fi
+
+      - name: No committed build artifacts
+        run: |
+          # 24 MB of compiled binaries were committed here once. They are
+          # gitignored now, but `git add -f` still gets through.
+          hits=$(git ls-files -- api | while read -r f; do
+            case "$f" in *.go|*.md|*.sql|*.yaml|*.yml|*.json|*.txt|*.tmpl) continue ;; esac
+            if [ -f "$f" ] && file --mime-type -b "$f" | grep -q 'application/x-\(executable\|mach-binary\|sharedlib\)'; then
+              echo "$f"
+            fi
+          done)
+          if [ -n "$hits" ]; then
+            echo "$hits"
+            echo "::error::Compiled binaries are committed. Build outputs belong in .gitignore, not in the tree."
+            exit 1
+          fi
+
+      - name: Governance files are present
+        run: |
+          # A public repository missing any of these is one nobody can contribute
+          # to, report a vulnerability against, or legally reuse.
+          #
+          # CODEOWNERS is deliberately not required here: this repository does not
+          # have one yet. It is worth adding -- ownership on the paths where a wrong
+          # change is a tenant-isolation or credential bug -- and this list is where
+          # to enforce it once it exists.
+          missing=''
+          for f in LICENSE NOTICE SECURITY.md CODE_OF_CONDUCT.md CONTRIBUTING.md README.md; do
+            [ -f "$f" ] || missing="$missing $f"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required governance files:$missing"
+            exit 1
+          fi

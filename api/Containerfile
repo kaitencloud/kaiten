@@ -1,0 +1,39 @@
+# syntax=docker/dockerfile:1
+FROM --platform=$BUILDPLATFORM golang:1.27.0-alpine AS builder
+
+# Used for JWT validation using timezone
+RUN apk add --no-cache git tzdata
+WORKDIR /go/kaiten
+
+COPY api/go.mod api/go.sum ./api/
+WORKDIR /go/kaiten/api
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+WORKDIR /go/kaiten
+COPY api ./api
+WORKDIR /go/kaiten/api
+ARG TARGETOS
+ARG TARGETARCH
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-s -w" -o /go/bin/kaiten-api cmd/server/main.go
+
+FROM scratch
+
+ARG KAITEN_API_PORT
+
+WORKDIR /go/bin
+
+COPY --from=builder /go/bin/kaiten-api kaiten-api
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+
+EXPOSE ${KAITEN_API_PORT}
+
+# scratch has no /etc/passwd - a numeric UID needs no user-database entry,
+# unlike a username. Charts set runAsNonRoot: true with no runAsUser
+# override, which only works if the image itself declares a non-root user.
+USER 65532
+
+ENTRYPOINT ["/go/bin/kaiten-api"]

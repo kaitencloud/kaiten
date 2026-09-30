@@ -1,0 +1,510 @@
+# The complete local Kaiten stack. One file, one mode — start it with a task,
+# not with an overlay:
+#
+#   task quickstart   infra + accounts + fake product data
+#   task up           infra + accounts, no product data
+#   task up:bare      infra only: schema and the platform credential
+#
+# The difference between them is which compose profiles they enable, which is
+# why they are three lines in the Taskfile and no branching here. Raw
+# `docker compose up -d` is `up:bare`.
+#
+# Identity is a local HS256 dev JWT or a Kaiten PAT; there is no external
+# identity provider, webhook vendor, or hosted-only service anywhere in here.
+# A deployment that wants one layers it on top with its own compose file and
+# its own Envoy config -- nothing in this repo needs it.
+x-seeder: &seeder
+  build:
+    context: .
+    dockerfile: api/Containerfile.seeder
+  # Named, because three services merge this anchor and Compose names an
+  # unnamed built image after the SERVICE: without this the one build spec
+  # became kaiten-seed-accounts, kaiten-tokens and kaiten-seed-data -- three
+  # tags of identical bits, three builds, 44 MB each.
+  #
+  # The cost is not the disk. `docker compose build seed-accounts` left the
+  # other two on whatever binary they were last built with, so a stack could
+  # run a fresh seeder and a stale token minter from the same commit. One name
+  # means whichever service builds it, all three then run the same bits.
+  image: ${KAITEN_CONTAINER_PREFIX:-kaiten}-seeder
+  environment:
+    KAITEN_DATABASE_CONNECTION_STRING: "postgres://${KAITEN_DATABASE_USER}:${KAITEN_DATABASE_PASSWORD}@db:5432/${KAITEN_DATABASE}?sslmode=disable"
+    KAITEN_API_PORT: ${KAITEN_PORT}
+    # Signs the dev tokens the `dev` profile writes and the frontend's
+    # user switcher reads -- same secret local-jwks publishes as a JWKS.
+    KAITEN_DEV_JWT_SECRET: ${KAITEN_DEV_JWT_SECRET}
+    LOG_LEVEL: ${KAITEN_SEEDER_LOG_LEVEL:-error}
+    # Everything else this binary reads (OTEL enablement, endpoint, service
+    # name) is file-based -- see docker/config/seeder.yaml. These two stay
+    # env vars because they are either advanced overrides (a remote OTEL
+    # collector) or a credential; both are blank unless .env sets them, which
+    # leaves the file's own values in effect (an empty env var is treated as
+    # unset -- see config.go's use of viper.BindEnv).
+    OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    OTEL_EXPORTER_OTLP_AUTHORIZATION: ${OTEL_EXPORTER_OTLP_AUTHORIZATION:-}
+    KAITEN_CONFIG_FILE: /etc/kaiten/config.yaml
+  volumes:
+    - ./docker/config/seeder.yaml:/etc/kaiten/config.yaml:ro
+    # KAITEN_DEV_DIR is set by Taskfile.yml to <repo>/dev, absolute, and exists
+    # so a second stack can have a second one. The credentials in here belong to
+    # ONE database -- the platform token is stored as a bcrypt hash in it -- so
+    # two stacks sharing this directory means the second `bootstrap` to run
+    # overwrites the first's token with one the first's database has never heard
+    # of, and every call the first stack makes with it comes back 401. Compose
+    # resolves the fallback against the project directory, which is this one.
+    - ${KAITEN_DEV_DIR:-./dev}:/credentials
+  # Runs as whoever owns KAITEN_DEV_DIR on the host, because /credentials is a BIND mount and
+  # the credentials in it are written atomically: internal/shared/atomicfile
+  # creates ".<name>.tmp-*" beside the target and renames it, which needs write
+  # permission on the DIRECTORY, not on the file. The images declare USER 65532
+  # (see api/Containerfile.seeder), and a bind-mounted host directory keeps its
+  # host ownership -- so on Linux, where that is enforced, uid 65532 could not
+  # create the temp file and every credential write failed with EACCES. macOS
+  # Docker Desktop maps bind-mount ownership to the mounting user, which is why
+  # this only ever showed up on a Linux runner.
+  #
+  # KAITEN_DEV_UID/GID are set by Taskfile.yml (`id -u` / `id -g`). The fallback
+  # is the image's own uid, so a bare `docker compose up` still works -- on
+  # Linux, set them.
+  user: "${KAITEN_DEV_UID:-65532}:${KAITEN_DEV_GID:-65532}"
+  # No container_name: `docker compose run` mints its own, and a fixed one
+  # would collide the moment two of these ran.
+
+services:
+
+  # ─── Infrastructure ──────────────────────────────────────────────────────────
+  # Always starts. No profiles needed.
+
+  # Serves KAITEN_DEV_JWT_SECRET as a one-key HS256 JWKS, which is what
+  # Envoy's jwt_authn filter verifies dev tokens against. This is the whole
+  # of local identity: no account anywhere, no external issuer. The `tokens`
+  # service below mints tokens signed with the same secret for the frontend's
+  # user switcher, which is why it sits in the same profile as the accounts
+  # they identify.
+  local-jwks:
+    image: busybox:1.37.0
+    container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-local-jwks
+    environment:
+      KAITEN_DEV_JWT_SECRET: "${KAITEN_DEV_JWT_SECRET:?KAITEN_DEV_JWT_SECRET is required — set it in .env to any non-empty string}"
+    command:
+      - sh
+      - -ec
+      - |
+        key="$$(printf '%s' "$$KAITEN_DEV_JWT_SECRET" | base64 | tr '+/' '-_' | tr -d '=\n')"
+        printf '{"keys":[{"kty":"oct","kid":"local-dev","alg":"HS256","k":"%s"}]}' "$$key" > /tmp/jwks.json
+        httpd -f -p 8080 -h /tmp
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/jwks.json"]
+      interval: 1s
+      timeout: 1s
+      retries: 10
+
+  envoy:
+    image: "envoyproxy/envoy:v1.33-latest"
+    container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-envoy
+    restart: unless-stopped
+    # Envoy's static bootstrap has no built-in env-var substitution -- render
+    # the template with `sed` before starting envoy. `$$` escapes a literal
+    # `$` past compose's own interpolation pass, so these refer to THIS
+    # CONTAINER's environment (set below), not the host's.
+    #
+    # ENVOY_CONFIG is a full PATH with a default, not a filename, so a stack
+    # layered on top of this one can point it at a template mounted from its
+    # own repo without colliding with the mount below (two bind mounts on the
+    # same container path is an error). Nothing in this repo sets it.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        sed \
+          -e "s|__KAITEN_APP_URL__|$$KAITEN_APP_URL|g" \
+          -e "s|__KAITEN_PORT__|$$KAITEN_PORT|g" \
+          "$${ENVOY_CONFIG:-/etc/envoy/dynamic/kaiten.yaml.tmpl}" > /etc/envoy/envoy.yaml
+        exec envoy -c /etc/envoy/envoy.yaml --service-cluster envoy
+    environment:
+      ENVOY_CONFIG: ${ENVOY_CONFIG:-}
+      KAITEN_PORT: ${KAITEN_PORT}
+      # The single origin CORS allows credentialed requests from -- see
+      # docker/envoy/kaiten.yaml.tmpl's own CORS policy comment for why
+      # this can no longer be "*".
+      KAITEN_APP_URL: ${KAITEN_APP_URL}
+    ports:
+      - "${KAITEN_PORT}:80"
+      - "${ENVOY_ADMIN_PORT:-8080}:8080"  # Envoy admin interface
+    volumes:
+      - ./docker/envoy:/etc/envoy/dynamic:ro
+    depends_on:
+      local-jwks:
+        condition: service_healthy
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.75.0
+    container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-jaeger
+    restart: unless-stopped
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "${JAEGER_UI_PORT:-16686}:16686"            # Jaeger UI
+      - "${JAEGER_OTLP_GRPC_PORT:-4317}:4317"       # OTLP gRPC
+      - "${JAEGER_OTLP_HTTP_PORT:-4318}:4318"       # OTLP HTTP
+
+  db:
+    image: postgres:17.4
+    container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-db
+    restart: unless-stopped
+    ports:
+      - "${KAITEN_DATABASE_PORT:-5452}:5432"
+    environment:
+      POSTGRES_USER: ${KAITEN_DATABASE_USER}
+      POSTGRES_PASSWORD: ${KAITEN_DATABASE_PASSWORD}
+      POSTGRES_DB: ${KAITEN_DATABASE}
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"       # required for Debezium CDC
+      - "-c"
+      - "max_wal_senders=10"
+      - "-c"
+      - "max_replication_slots=10"
+      - "-c"
+      - "max_connections=200"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KAITEN_DATABASE_USER} -d ${KAITEN_DATABASE}"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+
+  # ─── Application ─────────────────────────────────────────────────────────────
+
+  # Runs database migrations and exits — a one-shot service, not a long-lived
+  # container. Mirrors the Helm pre-install/pre-upgrade hook Job in
+  # charts/kaiten-infra (see migrate-job.yaml): schema migrations run here,
+  # once, before anything else touches the database.
+  migrate:
+    build:
+      context: .
+      dockerfile: api/Containerfile.admin-tools
+    container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-migrate
+    environment:
+      KAITEN_DATABASE_CONNECTION_STRING: "postgres://${KAITEN_DATABASE_USER}:${KAITEN_DATABASE_PASSWORD}@db:5432/${KAITEN_DATABASE}?sslmode=disable"
+    command: ["migrate", "up"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ─── Bootstrap ───────────────────────────────────────────────────────────────
+  # Everything below is part of "a working stack", not optional test data:
+  # fast, idempotent, and finished BEFORE the API starts. That ordering is
+  # load-bearing, not cosmetic -- see the api service's depends_on.
+
+  # One-shot credential bootstrap, on the same image as the migrator and
+  # deliberately after it: every credential command refuses to run against a
+  # schema that is behind, and system:kaiten itself comes from a migration.
+  #
+  # It runs scripts/local-credentials.sh. The composition is a script and not a
+  # subcommand because WHICH credential a development machine gets, with what
+  # scopes, and WHERE the value is written is policy -- and in Kubernetes none of
+  # it applies: there the platform credential is minted once by an operator and
+  # mounted per-pod from a Secret, never written to a shared file by a job. That
+  # is why this service builds the image's `shell` target: the shipped runtime
+  # target is FROM scratch and has no interpreter, which is worth keeping.
+  #
+  # One credential, and only one: the platform credential the local stack's own
+  # tooling authenticates with. Nothing here meters anything.
+  #
+  # It goes to a file at 0600 under ./dev, which api already mounts. Nothing
+  # reaches stdout — only the path is logged — so a
+  # `docker compose logs bootstrap` never contains a secret.
+  #
+  # Re-running is the normal case (`task up` twice): it is created with
+  # --replace, so the previous run's is revoked and the file rewritten. Anything
+  # still holding an old value gets a 401, which is the honest outcome — there is
+  # no way to recover a plaintext once written.
+  bootstrap:
+    build:
+      context: .
+      dockerfile: api/Containerfile.admin-tools
+      target: shell
+    container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-bootstrap
+    # Same reason as the seeder anchor above: this is the service that WRITES
+    # /credentials/platform-token, atomically, into a bind mount.
+    user: "${KAITEN_DEV_UID:-65532}:${KAITEN_DEV_GID:-65532}"
+    environment:
+      KAITEN_DATABASE_CONNECTION_STRING: "postgres://${KAITEN_DATABASE_USER}:${KAITEN_DATABASE_PASSWORD}@db:5432/${KAITEN_DATABASE}?sslmode=disable"
+      KAITEN_PLATFORM_TOKEN_FILE: /credentials/platform-token
+      LOG_LEVEL: "info"
+    volumes:
+      - ${KAITEN_DEV_DIR:-./dev}:/credentials
+      # Read-only, and mounted rather than baked in: editing the local credential
+      # policy is editing a file in the repo, with no image rebuild in between.
+      - ./scripts/local-credentials.sh:/usr/local/bin/local-credentials.sh:ro
+    command: ["/usr/local/bin/local-credentials.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # Organizations and users. No product data.
+  #
+  # Profiled, because four organizations and five users are seed data and
+  # "empty" has to be able to mean empty. It was unprofiled, so every path into
+  # this stack -- including the one whose comment promised "a working empty
+  # stack" -- created them, and there was no way to reach a database with no
+  # tenants in it short of dropping to raw compose. `task up:bare` is that way
+  # now, and JIT provisioning on a first login is what it exists to exercise.
+  seed-accounts:
+    <<: *seeder
+    profiles: [accounts]
+    command: ["--profile", "dev"]
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # Signed dev JWTs for the frontend's user switcher, written to
+  # dev/tokens.json. In the seeder image rather than `go run` on the host, so
+  # bringing the stack up needs Docker and nothing else.
+  tokens:
+    <<: *seeder
+    # The same profile as the accounts: a switcher listing users who do not
+    # exist is worse than no switcher.
+    profiles: [accounts]
+    command: ["tokens", "--out", "/credentials/tokens.json"]
+    depends_on:
+      seed-accounts:
+        condition: service_completed_successfully
+
+  # Blocks until the API actually answers through Envoy. `up --wait` only
+  # waits for containers to be RUNNING, and the API image is FROM scratch --
+  # no shell, so it cannot carry a healthcheck of its own, and neither can
+  # the Envoy image (no curl or wget in either). Without this gate the stack
+  # reports itself ready a second or two before it can serve, and whatever
+  # runs next fails against a half-started API.
+  #
+  # Depends on envoy alone rather than on `api`. `docker compose run` re-runs an
+  # exited dependency, so anything that names `api` drags along whatever `api`
+  # waits on -- which is how a `run --rm seed` used to re-run the credential
+  # bootstrap and revoke the token the running API was holding. Polling through
+  # envoy proves the API is serving without ever naming it, and keeps this
+  # service inert as a dependency.
+  api-ready:
+    image: busybox:1.37.0
+    container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-api-ready
+    command:
+      - sh
+      - -ec
+      - |
+        i=0
+        until wget -qO- http://envoy/api/healthz >/dev/null 2>&1; do
+          i=$$((i+1))
+          [ "$$i" -gt 300 ] && echo "API did not become ready in 60s" >&2 && exit 1
+          sleep 0.2
+        done
+        echo "API is serving"
+    depends_on:
+      envoy:
+        condition: service_started
+
+  # ─── Fake product data ───────────────────────────────────────────────────────
+  # The only genuinely optional part, and the only slow one, so it is the
+  # only thing behind a profile: `docker compose up -d` gives a working empty
+  # stack, `docker compose run --rm seed` fills it.
+
+  # The Kaiten Sushi Shop demo dataset, written through the same use cases
+  # the product uses. `stress-test` (a high-volume, multi-org load-testing
+  # profile) is still available via `docker compose run --rm seeder
+  # --profile stress-test` -- it's just no longer what a plain local stack
+  # boots with.
+  seed-data:
+    <<: *seeder
+    profiles: [seed]
+    command: ["--profile", "demo"]
+    # Gated on api-ready, not on `api`: `docker compose run` re-runs an exited
+    # dependency, so naming the API here would drag its one-shot dependencies
+    # along on every seed. api-ready only polls envoy, so it is inert.
+    #
+    # What actually guarantees the API is up is the caller: `task up` runs
+    # `compose up --wait` before this. Running it by hand against a stopped
+    # stack is on you.
+    depends_on:
+      api-ready:
+        condition: service_completed_successfully
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Containerfile
+      args:
+        KAITEN_API_PORT: ${KAITEN_PORT}
+    container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-api
+    # Same uid as every other service on this mount, and here for both reasons at
+    # once: the credential files bootstrap wrote are mode 0600, so a reader on a
+    # different uid cannot open them -- and this service WRITES into the directory
+    # too, since the fake Vault store lives there (VAULT_FAKE_FILE_PATH below).
+    # One uid across every service that touches the mount is the whole invariant.
+    user: "${KAITEN_DEV_UID:-65532}:${KAITEN_DEV_GID:-65532}"
+    # The Platform API's internal listener, published to the host for local work
+    # only. Envoy fronts the core port and deliberately does not front this one,
+    # which is the whole point of the second listener -- see
+    # api/internal/infrastructure/http/server. Nothing in the stack routes here;
+    # curl it directly, or reach it as api:${KAITEN_PLATFORM_PORT:-6001} from
+    # another container.
+    ports:
+      - "${KAITEN_PLATFORM_PORT:-6001}:${KAITEN_PLATFORM_PORT:-6001}"
+    environment:
+      KAITEN_API_PORT: ${KAITEN_PORT}
+      KAITEN_PLATFORM_API_PORT: ${KAITEN_PLATFORM_PORT:-6001}
+      KAITEN_DATABASE_CONNECTION_STRING: "postgres://${KAITEN_DATABASE_USER}:${KAITEN_DATABASE_PASSWORD}@db:5432/${KAITEN_DATABASE}?sslmode=disable"
+      # GraphQL playground/introspection, OTEL enablement/endpoint/insecure --
+      # every development affordance that is a static, non-secret setting --
+      # come from docker/config/api.yaml now, not from here. See that file's
+      # header comment. Both default OFF in the API itself (see
+      # config.Config); the file turns them on because this compose file IS
+      # the local dev stack -- deployments use charts/, which mounts no such
+      # file and leaves them off.
+      # Usage reporting is not wired here and is not meant to be: this stack has
+      # nothing to meter into, so every entitlement check short-circuits through
+      # services.NoopUsageReporter. Pointing the client at this stack's own
+      # entry point -- which is the only endpoint reachable here -- would make it
+      # meter its own tenants against its own entitlements, a deployment shape
+      # production would not accept.
+      # Fake Vault backend for local dev: where connector settings -- an Attio
+      # API key, for one -- are actually stored. Auto-created on first write.
+      #
+      # In /credentials, the bind mount, and NOT in a named volume. It was a
+      # named volume (vault-fake-data:/data/vault) and that made every connector
+      # unconfigurable: docker creates a named volume owned by root, this service
+      # runs as KAITEN_DEV_UID, and the store is written the way every credential
+      # here is written -- temp file beside the target, then rename -- which needs
+      # write permission on the DIRECTORY. So `PUT /connectors/{name}/settings`
+      # answered 500 with "permission denied" on a path no response body named,
+      # and the connector stayed inert with the console showing it activated.
+      #
+      # /credentials already solves exactly this, for exactly this reason (see the
+      # anchor above): it is a bind mount, so it belongs to the host user whose
+      # uid these containers run as. A connector's API key is a credential; this
+      # is where this stack's credentials live. Being readable on the host is the
+      # second reason -- "did my API key actually land" is otherwise a question
+      # about a volume nothing can open.
+      VAULT_FAKE_FILE_PATH: ${VAULT_FAKE_FILE_PATH:-/credentials/fake-vault.json}
+      # These two stay env vars rather than moving into the file: an advanced
+      # override (a remote OTEL collector) and a credential, respectively.
+      # Both blank unless .env sets them, which leaves docker/config/api.yaml's
+      # own jaeger:4318 default in effect -- an empty env var is treated as
+      # unset (see config.go's use of viper.BindEnv). OTEL_METRICS_ENDPOINT is
+      # deliberately not wired at all: the endpoint above is Jaeger, which
+      # serves /v1/traces only, so there is nothing here to point it at yet.
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_AUTHORIZATION: ${OTEL_EXPORTER_OTLP_AUTHORIZATION:-}
+      KAITEN_CONFIG_FILE: /etc/kaiten/config.yaml
+    volumes:
+      - ${KAITEN_DEV_DIR:-./dev}:/credentials
+      - ./docker/config/api.yaml:/etc/kaiten/config.yaml:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      # Named explicitly. It used to arrive transitively through `bootstrap`,
+      # which the API no longer waits on -- and the API against a schema one
+      # migration behind fails in ways that look like anything but that.
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+
+  # ─── Events Pipeline ─────────────────────────────────────────────────────────
+  # Postgres CDC → RabbitMQ (via Dapr pub/sub) → api's own subscribers
+  # (audittrail). Anything outside this repo that consumes these events
+  # attaches its own Dapr sidecar to the same rabbitmq.
+  #
+  # Not behind a profile. It used to be, but every entry point turned it on
+  # anyway, so the only thing the profile achieved was making `--profile
+  # events` (or `--profile '*'`) mandatory on every other compose command.
+
+  rabbitmq:
+    image: rabbitmq:4.2.1-management-alpine
+    container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "${RABBITMQ_AMQP_PORT:-5672}:5672"              # AMQP
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"      # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./docker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      # rabbitmq-defs.json declares the user, the vhost and the kaiten.events
+      # exchange -- the things that must exist before Debezium's first publish,
+      # which does not go through Dapr and so cannot declare them itself.
+      #
+      # Its `queues` and `bindings` are deliberately empty, and JSON has nowhere to
+      # say so. Every queue here is Dapr's: it declares "<app-id>-<topic>" when the
+      # api subscribes, which is the only way the name stays in step with the
+      # subscription. A queue declared here instead is bound to the fanout and fed
+      # forever whether anything reads it or not -- `worker-kaiten.events` was one,
+      # left behind by a workload removed long ago, and it had quietly accumulated
+      # 1244 messages that nothing would ever consume.
+      - ./docker/rabbitmq/rabbitmq-defs.json:/etc/rabbitmq/rabbitmq-defs.json:ro
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 5s
+      timeout: 10s
+      retries: 5
+
+  debezium:
+    image: debezium/server:3.0.0.Final
+    container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-debezium
+    restart: unless-stopped
+    environment:
+      KAITEN_DATABASE_USER: ${KAITEN_DATABASE_USER}
+      KAITEN_DATABASE_PASSWORD: ${KAITEN_DATABASE_PASSWORD}
+      KAITEN_DATABASE: ${KAITEN_DATABASE}
+      OTEL_SERVICE_NAME: kaiten-debezium
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+    volumes:
+      - debezium-data:/debezium/data
+      - ./docker/rabbitmq/rabbitmq-debezium-application.properties:/debezium/config/application.properties:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+
+  api-dapr-sidecar:
+    image: "daprio/daprd:1.16.9"
+    container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-api-dapr-sidecar
+    command:
+      - "/daprd"
+      - "--app-id"
+      - "kaiten-api"
+      - "--app-port"
+      - "${KAITEN_PORT}"
+      - "--dapr-http-port"
+      - "3500"
+      - "--dapr-grpc-port"
+      - "50001"
+      - "--resources-path"
+      - "/components"
+      - "--config"
+      - "/components/config.yaml"
+      - "--log-level"
+      - "debug"
+    volumes:
+      - ./docker/dapr:/components:ro
+    depends_on:
+      api:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    network_mode: "service:api"
+
+volumes:
+  rabbitmq_data:
+  debezium-data:

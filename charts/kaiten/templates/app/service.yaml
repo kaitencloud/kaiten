@@ -1,0 +1,16 @@
+{{- if .Values.app.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kaiten.appFullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.appLabels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "kaiten.appSelectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.app.service.port }}
+      targetPort: http
+{{- end }}

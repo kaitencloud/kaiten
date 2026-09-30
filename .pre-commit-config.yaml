@@ -1,0 +1,77 @@
+default_install_hook_types:
+  - commit-msg
+  - pre-commit
+  - pre-push
+  - post-checkout
+  - post-rewrite
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+    - id: trailing-whitespace
+    - id: end-of-file-fixer
+    - id: check-yaml
+      # pnpm 12 writes pnpm-lock.yaml as two YAML documents: the first pins the
+      # package manager itself (`packageManagerDependencies`, from the
+      # `packageManager` field in package.json), the second is the project
+      # lockfile. Multiple documents are valid YAML; check-yaml just refuses
+      # them unless told otherwise, and refusing would mean skipping the
+      # lockfile entirely rather than still catching real corruption in it.
+      args: [ --allow-multiple-documents ]
+      exclude: ^charts/.*/templates/
+    - id: check-added-large-files
+  - repo: local
+    hooks:
+      - id: forbid-generated-secrets
+        name: forbid tracked generated secret files
+        entry: bash -c 'test -z "$(git ls-files -- dev/tokens.json dev/platform-token)"'
+        language: system
+        pass_filenames: false
+      # Every operation under internal/modules is checked, not just the packages
+      # of the changed files: an endpoint nobody has touched is exactly the one
+      # whose contract has drifted. There is no backlog to ratchet around — the
+      # tree is clean, and go-ci.yml runs the same command so a commit made with
+      # --no-verify does not get through either. Needs Go on PATH.
+      - id: api-error-declarations
+        name: API endpoints declare all returnable error statuses
+        entry: bash -c 'cd api && go run ./cmd/checkapierrors'
+        language: system
+        files: ^api/internal/modules/.*\.go$
+        pass_filenames: false
+      # Pre-push (needs Node + app deps); the CI gate is the check:api-error-i18n
+      # step of app-ci.yml (`pnpm run check:api-error-i18n` in app/ locally),
+      # mirroring the golangci-lint split.
+      - id: api-error-i18n
+        name: API error codes have en/fr translations
+        entry: bash -c 'cd app && pnpm exec tsx scripts/check-api-error-i18n.ts'
+        language: system
+        files: ^app/src/lib/(errors/types\.ts|i18n/locales/(en|fr)\.ts)$
+        pass_filenames: false
+        stages: [ pre-push ]
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.19.0
+    hooks:
+      - id: commitlint
+        stages: [ commit-msg ]
+        additional_dependencies: [ '@commitlint/config-conventional' ]
+
+  - repo: https://github.com/Bahjat/pre-commit-golang
+    rev: v1.0.5
+    hooks:
+      - id: gofumpt
+        args: [ '-w', 'api/' ]
+        # Directory-only, no filenames appended. gofumpt skips files carrying a
+        # `Code generated ... DO NOT EDIT.` header when it walks a directory,
+        # but applies its extra rules when handed one explicitly — which is how
+        # sqlc's output drifted away from what `task generate:sqlc` produces.
+        pass_filenames: false
+
+  - repo: https://github.com/golangci/golangci-lint
+    # Kept in step with Taskfile.yml's GOLANGCI_LINT_VERSION and go-ci.yml, so a
+    # pre-push run and the CI run cannot disagree about what is an issue.
+    rev: v2.13.1
+    hooks:
+      - id: golangci-lint-full
+        stages: [ pre-push ]
+        entry: bash -c 'cd api && golangci-lint run'
+        pass_filenames: false

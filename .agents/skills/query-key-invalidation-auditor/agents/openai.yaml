@@ -1,0 +1,4 @@
+interface:
+  display_name: "Query Key Invalidation Auditor"
+  short_description: "Audit mutation invalidation behavior"
+  default_prompt: "Use $query-key-invalidation-auditor to check my mutations and fix stale cache invalidation issues."

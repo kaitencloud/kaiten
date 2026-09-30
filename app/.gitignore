@@ -1,0 +1,26 @@
+node_modules
+# Generated REST and GraphQL clients: `pnpm run generate`, from app/
+api-client
+.env
+# Local overrides: copy .env.example to .env.local and uncomment what you need.
+# .env.example lists every VITE_* variable the app reads.
+.env.local
+.env.*.local
+dist
+.coverage
+playwright-report
+test-results
+test-results.json
+app-test-results.json
+
+*storybook.log
+storybook-static
+cel-engine/target/
+
+# TanStack Router codegen scratch space
+.tanstack
+
+# The CEL engine that wasm-pack writes here: cel-engine.js, cel-engine_bg.wasm,
+# their typings and a package.json (rebuild with: pnpm run build:wasm, from app/)
+public/wasm/
+.vitest/

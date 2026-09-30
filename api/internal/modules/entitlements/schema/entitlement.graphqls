@@ -1,0 +1,139 @@
+"""
+Entitlement type enumeration
+"""
+enum EntitlementType {
+  BOOLEAN
+  NUMBER
+  CONFIG
+  NUMBER_AI_CREDIT
+}
+
+"""
+Cadence at which usage automatically resets for a NUMBER entitlement.
+"""
+enum EntitlementResetPeriod {
+  HOUR
+  DAY
+  WEEK
+  MONTH
+  YEAR
+}
+
+"""
+Phase of a periodic usage window: CALENDAR (UTC calendar-aligned) or
+LICENSE_START (phased off the instance's license start date).
+"""
+enum EntitlementResetAnchor {
+  CALENDAR
+  LICENSE_START
+}
+
+"""
+Lightweight reference to an entitlement group (category axis for presentation).
+"""
+type EntitlementGroupSummary {
+  id: UUID!
+  name: String!
+  slug: String!
+}
+
+"""
+An entitlement definition: a usage right or quota, with its customer-facing
+presentation metadata (icon, units, visibility, display order).
+"""
+type Entitlement {
+  id: UUID!
+  name: String!
+  slug: String!
+  description: String
+  type: EntitlementType
+
+  """
+  Optional icon, stored as a provider-namespaced token (provider:name).
+  Decoupled from any specific icon library.
+  """
+  icon: String
+
+  """
+  Singular label of the base unit this entitlement is measured in (NUMBER only).
+  """
+  unitSingular: String
+
+  """
+  Plural label of the base unit this entitlement is measured in (NUMBER only).
+  """
+  unitPlural: String
+
+  """
+  Singular label of the unit this entitlement is sold in, when it differs from
+  the base unit.
+  """
+  saleUnitSingular: String
+
+  """
+  Plural label of the unit this entitlement is sold in.
+  """
+  saleUnitPlural: String
+
+  """
+  Number of base units one sale unit represents (1 sale unit = N base units).
+  """
+  saleUnitFactor: Float
+
+  """
+  Whether this entitlement is displayed in customer-facing components
+  (e.g. plan and pricing pages). Defaults to false.
+  """
+  userFacing: Boolean
+
+  """
+  Sort order of this entitlement in customer-facing components (ascending).
+  """
+  displayOrder: Int
+
+  """
+  Percentage of the cap at which an early-warning event fires before the cap
+  is reached. 0 disables the warning (default).
+  """
+  warningThresholdPercent: Int
+
+  """
+  Cadence at which usage automatically resets (NUMBER only). Null means a
+  lifetime counter. Immutable once set.
+  """
+  resetPeriod: EntitlementResetPeriod
+
+  """
+  Phase of the periodic usage window. Required exactly when resetPeriod is
+  set; defaults to CALENDAR when omitted. Immutable once set.
+  """
+  resetAnchor: EntitlementResetAnchor
+
+  """
+  Groups associated with this entitlement
+  """
+  entitlementGroups: [EntitlementGroupSummary!]
+}
+
+"""
+A cursor-paginated page of entitlements.
+"""
+type EntitlementPage {
+  items: [Entitlement!]!
+  """
+  Opaque cursor for the next page. Absent when hasMore is false.
+  """
+  nextCursor: String
+  """
+  Whether more rows exist beyond this page.
+  """
+  hasMore: Boolean!
+}
+
+extend type Query {
+  """
+  Get a cursor-paginated page of entitlement definitions for the current
+  organization
+  """
+  entitlements(limit: Int, cursor: String): EntitlementPage!
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@kaiten/api-codegen",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "generate": "openapi-ts && node generate-scopes.js"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
+    "typescript": "catalog:codegen",
+    "yaml": "^2.9.1"
+  }
+}

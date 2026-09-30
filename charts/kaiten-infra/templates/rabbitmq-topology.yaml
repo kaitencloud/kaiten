@@ -1,0 +1,46 @@
+{{- if .Values.rabbitmq.topology.enabled }}
+{{- $rmqRef := dict "name" (include "kaiten-infra.rabbitmqName" .) "namespace" .Release.Namespace }}
+# Pre-declare the exchange and Dapr subscriber queues so Debezium can publish
+# on first startup without racing Dapr sidecar initialization.
+# Queue names must match what Dapr's RabbitMQ pubsub actually creates:
+# "{consumerID}-{topic}" where consumerID defaults to the app-id.
+# Example: app-id=kaiten-api, topic=kaiten.events → "kaiten-api-kaiten.events"
+# Dapr reuses pre-declared queues rather than creating new ones.
+apiVersion: rabbitmq.com/v1beta1
+kind: Exchange
+metadata:
+  name: {{ include "kaiten-infra.rabbitmqName" . }}-events
+  namespace: {{ .Release.Namespace }}
+spec:
+  name: {{ .Values.debeziumServer.sink.exchange | quote }}
+  type: fanout
+  durable: true
+  rabbitmqClusterReference:
+    {{- toYaml $rmqRef | nindent 4 }}
+{{- range .Values.rabbitmq.topology.queues }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Queue
+metadata:
+  name: {{ include "kaiten-infra.rabbitmqName" $ }}-{{ .name | replace "." "-" | replace "_" "-" }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  name: {{ .name | quote }}
+  durable: true
+  autoDelete: false
+  rabbitmqClusterReference:
+    {{- toYaml $rmqRef | nindent 4 }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Binding
+metadata:
+  name: {{ include "kaiten-infra.rabbitmqName" $ }}-{{ .name | replace "." "-" | replace "_" "-" }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  source: {{ $.Values.debeziumServer.sink.exchange | quote }}
+  destination: {{ .name | quote }}
+  destinationType: queue
+  rabbitmqClusterReference:
+    {{- toYaml $rmqRef | nindent 4 }}
+{{- end }}
+{{- end }}

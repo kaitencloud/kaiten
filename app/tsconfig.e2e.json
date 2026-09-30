@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "e2e/**/*.ts",
+    "e2e/**/*.tsx",
+    "playwright.config.ts",
+    "playwright.app.config.ts"
+  ],
+  "exclude": [],
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  }
+}

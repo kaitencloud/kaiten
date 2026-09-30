@@ -1,0 +1,42 @@
+"""
+Current usage of an entitlement on an instance. One row per license grant:
+NUMBER entitlements carry the accumulated usage (zeroed when nothing has been
+reported yet); other types carry the license value.
+"""
+type EntitlementUsage {
+  entitlementId: UUID!
+  entitlementSlug: String!
+  licenseId: UUID!
+  licenseSlug: String!
+
+  """
+  Typed usage value. Shapes: {type:"number",value:N,event_count:C},
+  {type:"boolean",value:B}, {type:"object",value:{...}}
+  """
+  value: Map!
+
+  """
+  License grant this usage is measured against, same shape as value. Null when
+  the license grants no value; -1 means unlimited for a NUMBER entitlement.
+  """
+  limit: Map
+
+  """
+  Start of the current usage window (inclusive). Null for a lifetime
+  entitlement (no configured reset period).
+  """
+  currentPeriodStart: Time
+
+  """
+  End of the current usage window (exclusive). Null for a lifetime
+  entitlement (no configured reset period).
+  """
+  currentPeriodEnd: Time
+}
+
+extend type Instance {
+  """
+  Current entitlement usage for this instance (one row per license grant)
+  """
+  entitlementUsage: [EntitlementUsage!]!
+}

@@ -1,0 +1,21 @@
+{
+  "name": "kaiten-core",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "check": "vp check && pnpm --dir app check:architecture && node scripts/check-token-contrast.mjs",
+    "check:fix": "vp check --fix && pnpm --dir app check:architecture",
+    "fmt": "vp fmt",
+    "fmt:check": "vp fmt --check",
+    "lint": "vp lint",
+    "lint:fix": "vp lint --fix",
+    "test:e2e:visual:update:linux": "pnpm --dir app run test:e2e:visual:update:linux",
+    "check:contrast": "node scripts/check-token-contrast.mjs"
+  },
+  "devDependencies": {
+    "vite-plus": "catalog:"
+  },
+  "packageManager": "pnpm@12.4.1"
+}

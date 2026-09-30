@@ -1,0 +1,13 @@
+# Local-dev configuration for the seeder binary (the x-seeder anchor in
+# compose.yml: seed-accounts, tokens, seed-data), mounted read-only and
+# pointed at via KAITEN_CONFIG_FILE.
+#
+# Same file, same settings as docker/config/api.yaml, except otel.service_name
+# — the seeder is a separate process from the API and needs its own name in
+# Jaeger, so it can't share that file. See api.yaml's own header for why only
+# non-default, non-secret settings live here at all.
+otel:
+  enabled: true
+  endpoint: jaeger:4318
+  service_name: kaiten-seeder
+  insecure: true

@@ -1,0 +1,132 @@
+--background: #ffffff;
+/* THE LIGHT THEME IS THE BRAND PALETTE, DARKENED TO CARRY WHITE.
+   The neutrals are the brand's own — BLACK #070708, LIGHT GREY #f7f7f7, WHITE — on a
+   strictly neutral ramp, with no bluish drift.
+
+   The brand colors are too light for a white background: on a light page a fill must
+   be dark enough to carry white text, and #9f5ffa cannot (3.82:1). Each value below
+   is therefore the brand color, lowered to the first point where white becomes
+   legible. The dark theme uses the same fill values: see tokens.dark.partial.css. */
+--foreground: #070708;
+--card: #ffffff;
+--card-foreground: #070708;
+--popover: #fcfcfc;
+--popover-foreground: #070708;
+/* The brand purple, lowered to the first point where it carries white text. Found as
+   the nearest neighbour in CIEDE2000 under a contrast constraint, the same method as
+   the green below: #8f52ea is at ΔE 5.18 from the brand VIOLET #9f5ffa and reaches
+   4.60:1 under white.
+   IDENTICAL in both themes, by choice: white on a strong fill is an identity rule, and
+   the raw brand violet cannot carry it (3.82:1). The raw #9f5ffa stays where nothing
+   rests on it: `chart-2`. */
+--primary: #8f52ea;
+/* Hover fills are authored tokens, not `bg-primary/80`-style alpha. Compositing a
+   fill toward the page washes it out and drops its own label below AA — that is
+   what made every hover state on badges and buttons fail. Each value below moves
+   away from its foreground so the state reads AND the pair stays legible. */
+--primary-hover: #7e48ce;
+--primary-foreground: #ffffff;
+--secondary: #f7f7f7;
+--secondary-hover: #ebebeb;
+--secondary-foreground: #070708;
+--muted: #f7f7f7;
+--muted-foreground: #525252;
+--accent: #ded2f9;
+--accent-hover: #cab7f5;
+/* Darkened from the raw #7b0fff: on the light lavender accent that only reached
+   4.38:1, under the 4.5:1 floor, and left no room for a visible hover. */
+--accent-foreground: #5e00d1;
+/* The solid destructive pair: a fill dark enough to carry white text, matching how
+   `--primary` behaves so the two read as one system in both themes. */
+--destructive: #c91d21;
+--destructive-hover: #9c171a;
+--destructive-foreground: #ffffff;
+/* Tinted destructive surfaces are their own pair rather than `bg-destructive/10` +
+   `text-destructive`. One token cannot serve both roles: a fill that carries white
+   text is too dark to read red text against. Authoring the tint separately lets the
+   solid stay conventional and removes the last alpha composite in this family. */
+--destructive-subtle: #fbecec;
+--destructive-subtle-foreground: #c91d21;
+--border: #e2e2e2;
+--input: #e2e2e2;
+--ring: #000000;
+--chart-1: #068854;
+--chart-2: #9f5ffa;
+--chart-3: #fc6b27;
+--chart-4: #5c44fc;
+--chart-5: #747474;
+--app-background: #f7f7f7;
+--sidebar: #efefef;
+--sidebar-foreground: #070708;
+--sidebar-primary: #000000;
+--sidebar-primary-foreground: #ffffff;
+--sidebar-accent: #f7f7f7;
+--sidebar-accent-foreground: #070708;
+--sidebar-border: #dddddd;
+--sidebar-ring: #000000;
+/* ONE GREEN, in both themes — same rule as --primary and --destructive.
+   Constraint: it must carry white (the `success` badge) AND stand out from the light
+   card AND from the dark card. An exhaustive search shows that every green meeting all
+   three is at ΔE2000 ≥ 21 from the MINT GREEN #09cf8d; #068854 is at 21.09, the nearest
+   one that exists, so there is no better choice.
+   Consequence: mint is not a status color. It is a BRAND color, and belongs on brand
+   surfaces, not in the semantic palette: two greens on one card read as an error. */
+--success: #068854;
+--success-hover: #057045;
+--success-foreground: #ffffff;
+/* ONE ORANGE, in both themes — same rule as primary, destructive and success. Same
+   three constraints: carry white, and stand out from the light card AND from the dark
+   card. #cf4a03 is at ΔE2000 12.19 from the brand ORANGE #fc6b27; the strict optimum
+   (#d14902, ΔE 12.00) sits exactly at 4.502:1, this one keeps a real margin at 4.53:1
+   for an equivalent perceptual gap.
+   Note: white ink drives this value, not the hue. A lighter amber such as #d97706 does
+   not carry white (3.19:1). */
+--warning: #cf4a03;
+--warning-hover: #b64103;
+--warning-foreground: #ffffff;
+/* Warning tint, matched to the hue of --warning above. 6.36:1. */
+--warning-subtle: #fdf0e9;
+--warning-subtle-foreground: #9c3702;
+/* Angle and stops follow the design of the call-to-action button: the gradient dresses
+   a wide, short button, where 90deg reads the transition across the full width and
+   135deg squeezes it into the corners. */
+--primary-gradient: linear-gradient(90deg, #5c44fc 0%, #7640d1 33%, #c32ab1 66%, #fc6b27 100%);
+
+/* Fonts */
+/* The brand families, as DESIGN.md already specifies them for its typographic roles.
+   The package loads NO FONT: forcing a web font on a host page is intrusive, costs
+   requests the host did not ask for, and breaks under a strict CSP. Each stack
+   therefore names the intended font, then falls back to a system family, and the host
+   loads the font.
+   ⚠ The app does not load DM Sans either: it declares it and falls back to the
+   system font. Declaring is not enough. */
+--font-sans: DM Sans, ui-sans-serif, sans-serif, system-ui;
+/* Same family as --font-sans: the brand sets no display family against body text. The
+   token names the "heading" role and keeps the seam, in case a second family is
+   introduced. */
+--font-display: DM Sans, ui-sans-serif, sans-serif, system-ui;
+--font-serif: Inria Serif, ui-serif, serif;
+--font-mono: Source Code Pro, ui-monospace, monospace;
+
+/* Radius */
+--radius: 0.625rem;
+
+/* Shadows */
+--shadow-x: 0;
+--shadow-y: 1px;
+--shadow-blur: 3px;
+--shadow-spread: 0px;
+--shadow-opacity: 0.1;
+--shadow-color: oklch(0 0 0);
+--shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+--shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+--shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+--shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 1px 2px -1px hsl(0 0% 0% / 0.1);
+--shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 2px 4px -1px hsl(0 0% 0% / 0.1);
+--shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+--shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
+--shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+
+/* Tracking & spacing */
+--tracking-normal: 0em;
+--spacing: 0.25rem;

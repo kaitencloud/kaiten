@@ -1,0 +1,467 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: "3"
+
+# Install: brew install go-task
+# Usage:   task --list
+#
+#   task dev          everything, plus the frontend        ← start here
+#   task quickstart   the same stack, no frontend
+#   task up           no fake product data
+#   task up:bare      no organization, no user either
+#
+# Three entry points because "empty" is a real thing to want and used to be
+# unreachable: every path ran the account seeder, so the emptiest stack
+# available still had four organizations and five users in it, and JIT
+# provisioning -- what actually happens on a real first login -- could not be
+# exercised locally at all. The three differ only in which compose profiles
+# they enable.
+#
+# Sequencing lives in compose.yml, not here. Everything else -- migrations
+# before seeding, accounts before the API, the API answering before the bulk
+# seed -- is a depends_on edge there, where it can be read as a graph instead
+# of reverse-engineered from the order of lines in a shell script.
+
+dotenv: [".env"]
+
+env:
+  # The uid every container that touches ./dev runs as. ./dev is a bind mount
+  # holding credentials that are written atomically (temp file beside the target,
+  # then rename), so the container needs write permission on the DIRECTORY -- and
+  # a bind-mounted directory keeps its host ownership on Linux, where that is
+  # enforced. The images declare uid 65532, ./dev belongs to whoever ran `task`,
+  # and those two being different is why every credential write failed with
+  # EACCES on a Linux runner while passing on macOS, whose Docker maps
+  # bind-mount ownership to the mounting user. Matching them is the fix; the
+  # alternative was making ./dev world-writable.
+  KAITEN_DEV_UID:
+    sh: id -u
+  KAITEN_DEV_GID:
+    sh: id -g
+  # compose's project name isolates containers, networks and volumes. It does
+  # NOT reach `container_name:`, which is a literal -- so two projects would
+  # still fight over the name `kaiten-api`, and the second one to start would
+  # fail. Deriving the prefix from PROJECT is what keeps them apart, and why
+  # this is here rather than in .env: the two must never disagree.
+  KAITEN_CONTAINER_PREFIX: "{{.PROJECT}}"
+  # The host side of the /credentials bind mount, absolute so that neither
+  # compose's project-directory resolution nor the mkdir below can disagree
+  # about which directory this is. compose.yml falls back to ./dev for anyone
+  # driving it without task.
+  #
+  # Wrapped in `default` (not a bare template) so a caller can override it --
+  # this is a plain env var, and without `default` it would recompute from
+  # this Taskfile's own TASKFILE_DIR on every invocation and clobber any
+  # value already set in the environment or passed on the CLI, CLI-style
+  # overrides included. A second stack relies on the override: it runs
+  # `task app` with its OWN dev dir so the frontend reads that stack's
+  # tokens.json instead of this checkout's.
+  KAITEN_DEV_DIR: '{{default (printf "%s/dev" .TASKFILE_DIR) .KAITEN_DEV_DIR}}'
+
+vars:
+  # The compose project name, and with it the isolation boundary: its own
+  # containers, network and volumes. Named rather than left to compose's
+  # directory-name default, because the name is the thing being chosen: a
+  # second stack can layer this very compose file under a project of its own,
+  # and the two run side by side.
+  #
+  # `task up PROJECT=kaiten-wip` gives a third. What that does not give is
+  # different HOST PORTS: published ports are the one thing a project name does
+  # not isolate, so a second stack needs the port block .env.example describes.
+  PROJECT: '{{default "kaiten-oss" .PROJECT}}'
+  COMPOSE: >-
+    docker compose --progress quiet
+    --project-name "{{.PROJECT}}"
+    -f "{{.TASKFILE_DIR}}/compose.yml"
+  # Tool versions live here and are run with `go run ...@{{.VERSION}}`, so a
+  # contributor needs nothing installed and gets the same version CI does.
+  # GOLANGCI_LINT_VERSION must match .github/workflows/go-ci.yml and
+  # .pre-commit-config.yaml.
+  GOLANGCI_LINT_VERSION: v2.13.1
+  DEADCODE_VERSION: v0.49.0
+  # Pinned like every other tool here. The vulnerability database is fetched
+  # at run time regardless, so pinning the scanner costs no freshness.
+  GOVULNCHECK_VERSION: v1.7.0
+  # `go ... ./...` does not descend into a nested module, so every quality
+  # target has to name both of them.
+  MODULES: ". cmd/schema-docs"
+  NVM: |
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+tasks:
+  default:
+    desc: List all available tasks
+    silent: true
+    cmds:
+      - task --list
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Start here
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  dev:
+    desc: "Everything: stack + accounts + fake product data + frontend"
+    cmds:
+      - task: quickstart
+      - task: generate
+      - task: app
+
+  quickstart:
+    desc: "The whole backend stack with accounts and fake product data — no frontend"
+    cmds:
+      - task: stack
+        vars: { PROFILES: "--profile accounts" }
+      # Fake product data. Behind compose's `seed` profile, so it stays opt-in
+      # for anyone driving compose directly, and always on here. Written through
+      # the same reporting-enabled use cases the product uses, which is also why
+      # it is the slow one.
+      - "{{.COMPOSE}} run --rm --build seed-data"
+      - task: ready
+        vars: { CONTAINS: "the Kaiten Sushi Shop org, its 5 TMNT users, and the demo dataset" }
+
+  up:
+    desc: "The stack with an organization and users, but no product data"
+    cmds:
+      - task: stack
+        vars: { PROFILES: "--profile accounts" }
+      - task: ready
+        vars: { CONTAINS: "the Kaiten Sushi Shop org and its 5 TMNT users; no product data" }
+
+  up:bare:
+    desc: "Infrastructure only: schema and the platform credential. No organization, no user"
+    cmds:
+      - task: stack
+      - task: ready
+        vars: { CONTAINS: "no organization and no user — the first login creates both (JIT provisioning)" }
+
+  # The body all three share. Internal, because which profiles are on IS the
+  # decision, and a target that took it as an argument would be a fourth way to
+  # start the stack whose name said nothing about what it starts.
+  stack:
+    internal: true
+    silent: true
+    cmds:
+      # Before compose, always. ./dev is gitignored, so a fresh clone does not
+      # have it --
+      # and a bind mount whose source is missing is created by the DAEMON, as
+      # root. Nothing the containers run as can then write the credentials into
+      # it. Creating it here means it belongs to the user whose uid they run as.
+      - mkdir -p "$KAITEN_DEV_DIR"
+      # Infrastructure, migrations, the platform credential, the API -- and the
+      # accounts, if this caller asked for that profile. Ordering among them is
+      # compose's job (depends_on), not this file's.
+      #
+      # No --wait: it treats a one-shot container exiting 0 as a failure, and
+      # half of this graph is one-shots. Readiness is not lost -- api-ready
+      # polls until the API actually answers through Envoy.
+      - "{{.COMPOSE}} {{.PROFILES}} up -d --build"
+
+  ready:
+    internal: true
+    silent: true
+    cmds:
+      - |
+        echo "Ready — API http://localhost:${KAITEN_PORT}  Jaeger http://localhost:${JAEGER_UI_PORT:-16686}"
+        echo "Compose project {{.PROJECT}}; \`task app\` serves the frontend on http://localhost:${KAITEN_APP_PORT:-3000}."
+        echo "This stack has {{.CONTAINS}}."
+        echo "Sign in through the frontend's dev switcher; no account anywhere is needed."
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Stack
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  down:
+    desc: "Stop everything (keeps data)"
+    cmds:
+      - "{{.COMPOSE}} --profile '*' down"
+
+  down:clean:
+    desc: "Stop everything and delete all data (volumes)"
+    cmds:
+      - "{{.COMPOSE}} --profile '*' down -v --remove-orphans"
+
+  reset:
+    desc: "Throw the database away and rebuild from scratch"
+    cmds:
+      - task: down:clean
+      - task: quickstart
+
+  restart:
+    desc: "Rebuild and restart the API alone, keeping data"
+    cmds:
+      - "{{.COMPOSE}} up -d --build --no-deps api"
+      # The sidecar too, and not because anything about it changed. It runs
+      # inside the api container's network namespace (network_mode:
+      # "service:api" in compose.yml), so recreating the api leaves it holding a
+      # namespace whose container is gone: Dapr's RabbitMQ subscriber loses its
+      # channel, loops "ensureSubscription: channel not initialized" every three
+      # seconds forever, and EVERY CDC delivery stops -- silently, with the api
+      # itself healthy and answering. That is the whole outbox pipeline down
+      # after a command whose description says it restarts the API alone.
+      #
+      # --force-recreate, not `restart`: `docker compose restart` fails outright
+      # here ("joining network namespace of container: No such container"),
+      # because rejoining a dead namespace is not a thing. A new container is
+      # the only recovery, which is why this is a line in the task rather than
+      # something to rediscover from an empty inbox_events table.
+      - "{{.COMPOSE}} up -d --force-recreate --no-deps api-dapr-sidecar"
+
+  ps:
+    desc: "What is running"
+    cmds:
+      - "{{.COMPOSE}} --profile '*' ps -a"
+
+  logs:
+    desc: "Tail logs — all services, or one: task logs -- api"
+    cmds:
+      - "{{.COMPOSE}} logs -f {{.CLI_ARGS}}"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Frontend
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  app:
+    desc: "Frontend dev server"
+    dir: app
+    vars:
+      # On by default: the dev user-switcher is the only way in to this
+      # stack. A caller fronting the app with a real identity provider passes
+      # LOCAL_AUTH=false.
+      LOCAL_AUTH: '{{default "true" .LOCAL_AUTH}}'
+    cmds:
+      # VITE_API_URL is derived from KAITEN_PORT rather than left unset. Unset,
+      # app/src/env.ts falls back to its DEFAULT_LOCAL_API_URL, which can only
+      # ever name one port -- so it names KAITEN_PORT's default, and a stack that
+      # moved the port off the default had a frontend pointing at nothing. That
+      # is a connection error on every request with no mention of the port
+      # anywhere in it. Deriving it here is one source of truth, and it is what
+      # lets a second stack on a second port get a frontend that talks to its own
+      # API rather than to the first one's.
+      - |
+        {{.NVM}}
+        nvm use
+        pnpm install
+        VITE_LOCAL_AUTH={{.LOCAL_AUTH}} \
+        VITE_API_URL="${VITE_API_URL:-http://localhost:${KAITEN_PORT}/api}" \
+          pnpm exec vp dev --port "${KAITEN_APP_PORT:-3000}"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Code generation
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  generate:
+    desc: "Go source → openapi.yaml → TypeScript SDK + GraphQL types"
+    cmds:
+      - task: generate:oas
+      - |
+        {{.NVM}}
+        cd "{{.TASKFILE_DIR}}/app"
+        nvm use
+        pnpm install
+        pnpm generate
+
+  generate:oas:
+    desc: "The Core and Platform OpenAPI specs from Go source"
+    dir: api
+    cmds:
+      - go run cmd/docs/main.go openapi | tee openapi.yaml ../app/openapi.yaml > /dev/null
+      # The Platform API is a second document, not a section of the first. Only
+      # app/ carries it: nothing generates a client from it inside api/, and the
+      # committed copy is what sdk-go's platform package is generated from.
+      - go run cmd/docs/main.go platform-openapi | tee ../app/platform-openapi.yaml > /dev/null
+
+  generate:sqlc:
+    desc: "sqlc query helpers from SQL"
+    dir: api
+    cmds:
+      # One sqlc.yaml per module / infrastructure package — sqlc resolves the
+      # `schema` and `queries` paths relative to the config it is handed, so
+      # each one has to be generated on its own. `go tool sqlc` pins the
+      # version through go.mod, like gqlgen; a bare `sqlc` off PATH does not.
+      - |
+        set -eu
+        find internal -name sqlc.yaml | sort | while read -r config; do
+          go tool sqlc generate -f "$config"
+        done
+
+  generate:gqlgen:
+    desc: "GraphQL resolvers and models"
+    dir: api
+    cmds:
+      - go generate ./...
+
+  generate:sdk-go:
+    # Feeds the sdk-go generator the same committed 3.1 spec that
+    # .github/workflows/release-openapi.yml publishes. CI does not run this, and
+    # sdk-go has no drift gate yet: run it after a contract change.
+    desc: "Regenerate the standalone Go SDK from app/openapi.yaml"
+    vars:
+      SDK_GO_DIR: '{{default (printf "%s/../sdk-go" .TASKFILE_DIR) .SDK_GO_DIR}}'
+    preconditions:
+      - sh: test -f "{{.SDK_GO_DIR}}/Taskfile.yml"
+        msg: "Standalone sdk-go checkout not found at {{.SDK_GO_DIR}}; set SDK_GO_DIR"
+    cmds:
+      - task: generate:oas
+      - task --dir "{{.SDK_GO_DIR}}" generate OPENAPI_SPEC="{{.TASKFILE_DIR}}/app/openapi.yaml"
+
+  schema-docs:
+    desc: "Regenerate schema documentation"
+    dir: api/cmd/schema-docs
+    env:
+      PROJECT_ROOT: "{{.TASKFILE_DIR}}"
+    cmds:
+      - go run .
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Tests and linting
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  test:
+    desc: "Every test, backend, frontend and charts"
+    cmds:
+      - task: deps:check
+      - task: test:api
+      - task: test:app
+      - task: test:charts
+
+  test:api:
+    desc: "Backend tests — extra go test flags pass through: task test:api -- -v -run Usage"
+    dir: api
+    cmds:
+      # -shuffle=on is the only guard in the repo against a test that passes
+      # only because an earlier one left state behind. CI runs the same flag.
+      - go test -shuffle=on {{.CLI_ARGS}} ./...
+
+  test:app:
+    desc: "Frontend unit tests"
+    dir: app
+    cmds:
+      - pnpm test
+
+  test:charts:
+    desc: "Lint and render the Helm charts (needs helm, no cluster)"
+    cmds:
+      # helm's own two commands. charts/kaiten renders from stock values;
+      # charts/kaiten-infra will not render until it has been told where the
+      # database credential comes from, and naming a Secret is the shorter of
+      # the two ways to answer that.
+      #
+      # examples/minimal-values.yaml gets both commands too. An example nobody
+      # renders is an example that rots, and this one is the first-install path.
+      - helm lint charts/kaiten
+      - helm template kaiten charts/kaiten >/dev/null
+      - helm lint charts/kaiten -f charts/kaiten/examples/minimal-values.yaml
+      - >-
+        helm template kaiten charts/kaiten
+        -f charts/kaiten/examples/minimal-values.yaml >/dev/null
+      - >-
+        helm lint charts/kaiten-infra
+        --set migrate.database.existingSecret=example-db
+        --set debeziumServer.database.existingSecret=example-db
+      - >-
+        helm template kaiten-infra charts/kaiten-infra
+        --set migrate.database.existingSecret=example-db
+        --set debeziumServer.database.existingSecret=example-db >/dev/null
+
+  deps:check:
+    desc: "Refuse a dependency on any other Kaiten module but the Go SDK (kaiten is depended on; it never depends back)"
+    cmds:
+      # The module GRAPH rather than the import list, so a `replace` left behind
+      # after a local experiment fails the same way a real import does. Both
+      # modules by name: `go ... ./...` stops at a nested one. What is allowed
+      # under github.com/kaitencloud/: this repository's own modules and the
+      # public Go SDK; anything else is a decision to make, not a `go get`.
+      - |
+        set -eu
+        for module in api api/cmd/schema-docs; do
+          if (cd "$module" && go list -m all) | grep -E '^github\.com/kaitencloud/' | grep -v -E '^github\.com/kaitencloud/(kaiten/|sdk-go( |$))'; then
+            echo "$module depends on a Kaiten module other than the Go SDK — kaiten is depended on, it never depends back" >&2
+            exit 1
+          fi
+        done
+
+  lint:
+    desc: "Lint and auto-fix, backend and frontend"
+    cmds:
+      - task: lint:api
+      - task: lint:app
+
+  # Bare names that forward to the backend task. Each job has a language suffix
+  # because there are two languages here, but the word you type should not
+  # depend on that, so the bare name exists and forwards.
+  fmt:
+    desc: "Format, backend"
+    cmds:
+      - task: fmt:api
+
+  vuln:
+    desc: "Known vulnerabilities, backend"
+    cmds:
+      - task: vuln:api
+
+  deadcode:
+    desc: "Unreachable functions, backend"
+    cmds:
+      - task: deadcode:api
+
+  coverage:
+    desc: "Coverage profile, backend"
+    cmds:
+      - task: coverage:api
+
+  lint:api:
+    desc: "golangci-lint over both Go modules, with --fix"
+    dir: api
+    cmds:
+      - for: { var: MODULES }
+        cmd: >-
+          cd "{{.ITEM}}" &&
+          go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}}
+          run --timeout=10m --fix ./...
+
+  build:api:
+    desc: "Build the API server binary into api/bin/"
+    dir: api
+    cmds:
+      - go build -o bin/api ./cmd/server
+
+  fmt:api:
+    desc: "gofumpt + gci over both Go modules"
+    dir: api
+    cmds:
+      - for: { var: MODULES }
+        cmd: >-
+          cd "{{.ITEM}}" &&
+          go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}}
+          fmt ./...
+
+  vuln:api:
+    desc: "govulncheck over both Go modules"
+    dir: api
+    cmds:
+      - for: { var: MODULES }
+        cmd: >-
+          cd "{{.ITEM}}" &&
+          go run golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}} ./...
+
+  deadcode:api:
+    desc: "Unreachable functions, both Go modules (findings need triage, not blind deletion)"
+    dir: api
+    cmds:
+      - for: { var: MODULES }
+        cmd: >-
+          cd "{{.ITEM}}" &&
+          go run golang.org/x/tools/cmd/deadcode@{{.DEADCODE_VERSION}} -test ./...
+
+  coverage:api:
+    desc: "Write api/coverage.out"
+    dir: api
+    cmds:
+      # Unit and integration shards together: ./... is both, and the
+      # integration half needs Docker for testcontainers.
+      - go test ./... -coverprofile=coverage.out -covermode=atomic
+
+  lint:app:
+    dir: app
+    cmds:
+      - pnpm lint:fix

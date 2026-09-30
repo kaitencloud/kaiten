@@ -1,0 +1,224 @@
+name: Release graphql-schema
+
+# Publishes the API's GraphQL schema as a versioned npm artifact
+# (@kaitencloud/graphql-schema) to the public npm registry, so the SDK can check
+# its committed snapshot against what the API serves without a checkout of this
+# repository. The GraphQL counterpart of release-openapi.yml.
+#
+# The consumer is sdk-js's `contract-drift` workflow, job `graphql`. Until this
+# workflow existed, the package it fetches had never been published: that check
+# skipped with a warning and compared nothing.
+#
+# Stable coordinates, fixed by that consumer; do not change them without it:
+#   package    @kaitencloud/graphql-schema
+#   registry   https://registry.npmjs.org (public)
+#   dist-tag   latest            (version is semver, decided by the schema diff)
+#   file       schema.graphqls   (tarball path: package/schema.graphqls)
+#
+# THE FILE IS THE FRAGMENTS, CONCATENATED
+#
+# gqlgen builds the schema from the fragments listed under `schema:` in
+# api/internal/infrastructure/http/graphql/gqlgen.yml, so that list decides what
+# goes in: a fragment gqlgen does not read is not served. They are concatenated
+# in that order, each glob sorted, and never printed into one SDL. The consumer
+# prints the canonical form itself (printCanonicalSchema in sdk-js); a second
+# printer here could only disagree with it.
+#
+# THE VERSION IS SEMVER, AND THE SCHEMA DIFF DECIDES IT
+#
+# As for @kaitencloud/openapi, the bump follows from comparing the new schema
+# with the one on the registry, never from a commit message. graphql-js, the
+# reference implementation, names each change (findSchemaChanges):
+#
+#   a breaking change, or a dangerous one     major
+#   any other change to the schema            minor
+#   same schema, different files              patch   (a description, a comment, the fragment order,
+#                                                      the README, LICENSE or NOTICE)
+#   identical files                           nothing published
+#
+# Dangerous counts, as WARN does for the OpenAPI contract: a value added to an
+# enum, a type added to a union or a changed default can break a client that
+# handled every case the day before. graphql-js also files an added optional
+# argument or input field as dangerous, while listing it among the safe changes
+# too; an existing operation keeps working when one appears, so those count as
+# minor here.
+#
+# Authentication is npm trusted publishing, as in release-openapi.yml: no token
+# secret, and a fork's copy of this job is skipped. The trusted publisher names
+# organization `kaitencloud`, repository `kaiten`, workflow
+# `release-graphql-schema.yml`, no environment, `npm publish` allowed. npm only
+# accepts it on a package that exists, so the first version, 1.0.0, is published
+# by hand: the package the publish step below writes, with
+# `npm publish <dir> --tag latest` (plus
+# `--@kaitencloud:registry=https://registry.npmjs.org/` where a user-level config
+# maps the scope to GitHub Packages). The 0.0.0-<commit> versions this workflow
+# published before only ever reached GitHub Packages. The package is public: its
+# consumer fetches it anonymously, with no token and no access to grant. Like the
+# OpenAPI contract, it is under the Apache License 2.0 and carries
+# .github/contracts/LICENSE and .github/contracts/NOTICE, with
+# .github/contracts/graphql-schema/README.md as its README.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/internal/infrastructure/http/graphql/gqlgen.yml'
+      - 'api/internal/infrastructure/http/graphql/schema.graphqls'
+      - 'api/internal/modules/*/schema/*.graphqls'
+      - '.github/contracts/LICENSE'
+      - '.github/contracts/NOTICE'
+      - '.github/contracts/graphql-schema/**'
+      - '.github/workflows/release-graphql-schema.yml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: release-graphql-schema
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # npm trusted publishing
+
+jobs:
+  publish:
+    if: github.repository == 'kaitencloud/kaiten'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Assemble the schema from gqlgen's fragment list
+        id: assemble
+        working-directory: api/internal/infrastructure/http/graphql
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          export LC_ALL=C
+          STAGE="$RUNNER_TEMP/graphql-schema"
+          mkdir -p "$STAGE"
+          : > "$STAGE/schema.graphqls"
+          # yq ships on the GitHub-hosted runners. Each entry is a path or a glob
+          # relative to gqlgen.yml. One that matches nothing fails the job rather
+          # than publishing a schema with a hole in it.
+          count=0
+          while IFS= read -r pattern; do
+            matches=( $pattern )
+            if (( ${#matches[@]} == 0 )); then
+              echo "::error::gqlgen.yml lists '$pattern', which matches no file"
+              exit 1
+            fi
+            for file in "${matches[@]}"; do
+              cat "$file" >> "$STAGE/schema.graphqls"
+              printf '\n' >> "$STAGE/schema.graphqls"
+              count=$((count + 1))
+            done
+          done < <(yq -r '.schema[]' gqlgen.yml)
+          echo "Concatenated ${count} fragments."
+          cp "$GITHUB_WORKSPACE/.github/contracts/LICENSE" "$STAGE/LICENSE"
+          cp "$GITHUB_WORKSPACE/.github/contracts/NOTICE" "$STAGE/NOTICE"
+          cp "$GITHUB_WORKSPACE/.github/contracts/graphql-schema/README.md" "$STAGE/README.md"
+          echo "stage=$STAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Decide the next schema version
+        id: version
+        env:
+          STAGE: ${{ steps.assemble.outputs.stage }}
+        run: |
+          set -euo pipefail
+
+          # Highest stable semver on the registry.
+          PUBLISHED=$(npm view "@kaitencloud/graphql-schema" versions --json 2>/dev/null \
+            | jq -r '(if type == "array" then .[] else . end) // empty' \
+            | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
+
+          if [[ -z "$PUBLISHED" ]]; then
+            # Trusted publishing cannot create the package: its first version is
+            # published by hand (see the header).
+            echo "::error::@kaitencloud/graphql-schema is not on npm yet: publish 1.0.0 by hand, then name this workflow its trusted publisher (see the header of release-graphql-schema.yml)."
+            exit 1
+          fi
+
+          WORK="$(mktemp -d)"
+          ( cd "$WORK" && npm pack "@kaitencloud/graphql-schema@${PUBLISHED}" >/dev/null )
+          tar -xzOf "$WORK"/*.tgz package/schema.graphqls > "$WORK/previous.graphqls"
+          # The README, the license and the notice ship with the schema. A version
+          # without one of them, or with another text, differs from this commit.
+          docs_unchanged() {
+            tar -xzOf "$WORK"/*.tgz package/README.md 2>/dev/null | cmp -s - "$STAGE/README.md" \
+              && tar -xzOf "$WORK"/*.tgz package/LICENSE 2>/dev/null | cmp -s - "$STAGE/LICENSE" \
+              && tar -xzOf "$WORK"/*.tgz package/NOTICE 2>/dev/null | cmp -s - "$STAGE/NOTICE"
+          }
+          # graphql-js names each change between the two schemas; this script
+          # turns the names into a bump.
+          cat > "$WORK/classify.mjs" <<'CLASSIFY'
+          import { readFileSync } from "node:fs";
+          import {
+            BreakingChangeType,
+            DangerousChangeType,
+            SafeChangeType,
+            buildSchema,
+            findSchemaChanges,
+          } from "graphql";
+
+          const [previousPath, nextPath] = process.argv.slice(2);
+          const changes = findSchemaChanges(
+            buildSchema(readFileSync(previousPath, "utf8")),
+            buildSchema(readFileSync(nextPath, "utf8")),
+          );
+          // Listed among both the dangerous and the safe changes, reported as
+          // dangerous: an existing operation keeps working, so they count as minor.
+          const optional = new Set(["OPTIONAL_ARG_ADDED", "OPTIONAL_INPUT_FIELD_ADDED"]);
+          const major = ({ type }) =>
+            type in BreakingChangeType || (type in DangerousChangeType && !optional.has(type));
+          for (const { type, description } of changes) console.error(`  ${type}: ${description}`);
+          console.log(
+            changes.some(major)
+              ? "major"
+              : changes.some(({ type }) => type !== SafeChangeType.DESCRIPTION_CHANGED)
+                ? "minor"
+                : "patch",
+          );
+          CLASSIFY
+
+          if cmp -s "$WORK/previous.graphqls" "$STAGE/schema.graphqls"; then
+            if docs_unchanged; then
+              # Also the idempotency guard: a re-run publishes nothing.
+              echo "Schema unchanged from ${PUBLISHED}: nothing to publish."
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Schema unchanged from ${PUBLISHED}, but the README, the license or the notice changed."
+            BUMP=patch
+          else
+            echo "Schema differs from ${PUBLISHED}:"
+            diff -u "$WORK/previous.graphqls" "$STAGE/schema.graphqls" | head -80 || true
+            # Pinned, like oasdiff for the OpenAPI contract: graphql-js decides
+            # what the version is. It has no dependency, and no install script runs.
+            echo '{"private": true}' > "$WORK/package.json"
+            ( cd "$WORK" && npm install --no-save --ignore-scripts --no-audit --no-fund graphql@17.0.2 >/dev/null )
+            BUMP=$(node "$WORK/classify.mjs" "$WORK/previous.graphqls" "$STAGE/schema.graphqls")
+          fi
+
+          IFS=. read -r MA MI PA <<<"$PUBLISHED"
+          case "$BUMP" in
+            major) NEXT="$((MA + 1)).0.0" ;;
+            minor) NEXT="${MA}.$((MI + 1)).0" ;;
+            *)     NEXT="${MA}.${MI}.$((PA + 1))" ;;
+          esac
+          echo "Next: ${NEXT} (${BUMP})"
+          echo "version=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Publish @kaitencloud/graphql-schema
+        if: steps.version.outputs.changed == 'true'
+        working-directory: ${{ steps.assemble.outputs.stage }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          node -e 'const fs=require("fs");fs.writeFileSync("package.json",JSON.stringify({name:"@kaitencloud/graphql-schema",version:process.env.VERSION,description:"Kaiten API GraphQL schema: the gqlgen fragments, concatenated, published for downstream SDKs.",license:"Apache-2.0",repository:{type:"git",url:"git+https://github.com/kaitencloud/kaiten.git",directory:"api/internal/infrastructure/http/graphql"},files:["schema.graphqls","NOTICE"],publishConfig:{registry:"https://registry.npmjs.org/",access:"public"}},null,2)+"\n")'
+          npm publish --tag latest
+          echo "Published @kaitencloud/graphql-schema@${VERSION} (dist-tag: latest)."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "App Architecture Guardian"
+  short_description: "Audit frontend ownership and boundaries"
+  default_prompt: "Use $app-architecture-guardian to audit these changes, run the architecture check, and propose precise ownership or import fixes."

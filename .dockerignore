@@ -1,0 +1,30 @@
+# Not needed for any Docker build
+.git/
+.pnpm-store/
+.github/
+.idea/
+.vscode/
+
+# Other services/dirs not needed for app build
+infra/
+terraform/
+docker/
+scripts/
+
+# App build artifacts and ephemeral files
+app/node_modules/
+app/dist/
+app/.env*
+app/playwright-report/
+app/test-results*/
+app/storybook-static/
+
+# The CEL engine is built in its own image stage, from the pinned toolchain:
+# a local `pnpm run build:wasm` (app/public/wasm) and its cargo target must not
+# reach the context, or the image would depend on the machine that built it.
+app/public/wasm/
+app/cel-engine/target/
+
+# Workspace package installs and builds: the image installs and builds its own.
+packages/*/node_modules/
+packages/*/dist/

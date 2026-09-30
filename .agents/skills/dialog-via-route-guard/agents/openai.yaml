@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dialog Via Route Guard"
+  short_description: "Guard URL-driven dialog route pattern"
+  default_prompt: "Use $dialog-via-route-guard to implement a route-driven dialog flow without navigation flash."

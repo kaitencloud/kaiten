@@ -1,0 +1,168 @@
+package huma
+
+import (
+	"context"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/kaitencloud/kaiten/api/pkg/scope"
+)
+
+// BearerAuth is the name of the Core API's security scheme.
+const BearerAuth = "bearerAuth"
+
+// PlatformAuth is the Platform API's security scheme. Deliberately a DIFFERENT
+// scheme rather than an extra scope on BearerAuth, so a generated client cannot
+// cross the two credential classes by accident: the distinction survives out of
+// the OpenAPI document and into every SDK.
+const PlatformAuth = "platformAuth"
+
+// ScopesExtension is the vendor extension under which the Core document's
+// security scheme lists every scope an organization credential can carry
+// (scope.OrganizationScopes). The operations' own `security:` blocks cannot stand
+// in for it: they name only what this API enforces, so a scope enforced by a
+// service in front of the same credentials -- the outbound webhooks one -- is
+// missing from any token picker built on them. The console's was, until it read
+// this.
+const ScopesExtension = "x-kaiten-scopes"
+
+// bearerScheme describes how a caller authenticates to the Core API. Every route
+// under /api except the token-validation endpoint and the docs is behind
+// auth.Middleware, which accepts either a proxy-verified JWT or a Kaiten
+// personal access token (`ksh_...`) exchanged for one.
+var bearerScheme = &huma.SecurityScheme{
+	Type:         "http",
+	Scheme:       "bearer",
+	BearerFormat: "JWT",
+	Description: "A JWT verified by the proxy in front of this API, or a Kaiten access token (`ksh_...`) — " +
+		"send either as `Authorization: Bearer <token>`. The scopes listed " +
+		"on each operation are the ones the token must carry; " +
+		"`write:<module>` implies `read:<module>`, and `read:*` / `write:*` " +
+		"are wildcards over every module. `" + ScopesExtension + "` lists every " +
+		"scope such a token can carry, including those enforced by a service " +
+		"in front of this API rather than by one of its operations.",
+	Extensions: map[string]any{ScopesExtension: scope.OrganizationScopes()},
+}
+
+// platformScheme describes how a caller authenticates to the Platform API.
+var platformScheme = &huma.SecurityScheme{
+	Type:         "http",
+	Scheme:       "bearer",
+	BearerFormat: "Platform token",
+	Description: "A Kaiten platform token (`ksm_...`), which authenticates the " +
+		"platform identity `system:kaiten` and carries no organization context. " +
+		"Organization credentials — JWTs from the configured OIDC issuer and " +
+		"`ksh_...` access tokens — are rejected on this surface, and a platform " +
+		"token is rejected on the Core API. The scopes listed on each operation " +
+		"are the ones the token must carry.",
+}
+
+// ConfigureSecurity declares the bearer scheme and makes it the
+// document-level default, so a generated client is born authenticated
+// instead of every SDK re-inventing the plumbing by hand.
+// Per-operation scope requirements are added by RegisterScoped.
+func ConfigureSecurity(config huma.Config) huma.Config {
+	if config.Components == nil {
+		config.Components = &huma.Components{}
+	}
+	if config.Components.SecuritySchemes == nil {
+		config.Components.SecuritySchemes = map[string]*huma.SecurityScheme{}
+	}
+	config.Components.SecuritySchemes[BearerAuth] = bearerScheme
+	config.Security = []map[string][]string{{BearerAuth: {}}}
+	return config
+}
+
+// ConfigurePlatformSecurity is ConfigureSecurity for the Platform API document.
+// It declares platformScheme and makes it the document-level default, so the
+// Platform document never mentions bearerAuth -- the contract-level statement of
+// the Core/Platform partition, and what a generated platform client is born with.
+// Per-operation scope requirements are added by RegisterPlatform.
+func ConfigurePlatformSecurity(config huma.Config) huma.Config {
+	if config.Components == nil {
+		config.Components = &huma.Components{}
+	}
+	if config.Components.SecuritySchemes == nil {
+		config.Components.SecuritySchemes = map[string]*huma.SecurityScheme{}
+	}
+	config.Components.SecuritySchemes[PlatformAuth] = platformScheme
+	config.Security = []map[string][]string{{PlatformAuth: {}}}
+	return config
+}
+
+// RegisterScoped registers a Huma operation on the Core API.
+//
+// It declares two things and enforces neither: that the operation accepts an
+// organization credential and nothing else (bearerAuth in `security`), and the
+// scope a caller must hold (projected onto that same entry). An integrator
+// reads both out of the document rather than out of Go source.
+//
+// Enforcement happens once, in the facade: the scope is required by the facade
+// method the handler calls, and the credential class is settled by the
+// caller.Organization that produces its argument. Neither is a fact about HTTP.
+//
+// Enforcing nothing here is deliberate. A middleware would be a floor under a
+// handler that forgets to take a caller -- but such a handler skips the scope
+// check too, so it covers half the mistake by restating a rule the facade
+// already makes unrepresentable. What covers the whole mistake is
+// tests/architecture/entry_point_scope_test.go, which asserts every registered
+// operation's handler resolves a caller of the class this registrar declares.
+//
+// Published and enforced cannot drift: both name the same per-package
+// RequiredScope const, and facade_boundary_test.go asserts each direction.
+func RegisterScoped[I, O any](
+	api huma.API,
+	op huma.Operation,
+	requiredScope string,
+	handler func(context.Context, *I) (*O, error),
+) {
+	op.Security = append(op.Security, ScopeRequirement(requiredScope))
+	huma.Register(api, op, handler)
+}
+
+// RegisterPlatform is RegisterScoped for the Platform API: same declaration of a
+// credential class and a published scope, but the class is platform and the scheme
+// is platformAuth instead of bearerAuth. The class is enforced by the
+// caller.Platform each handler resolves, for the reason RegisterScoped states.
+//
+// Every operation registered through this function must have a path under
+// /platform/, and no operation registered through RegisterScoped may -- asserted
+// in tests/architecture/entry_point_scope_test.go, which is what makes the two
+// surfaces a provable partition rather than a convention.
+//
+// It panics for a path declaring {orgId}: that operation targets an organization
+// and must go through RegisterPlatformForOrganization, which declares the 404 that
+// naming a non-existent one produces. Registering it here would publish an
+// operation whose contract omits an answer it can give.
+func RegisterPlatform[I, O any](
+	api huma.API,
+	op huma.Operation,
+	requiredScope string,
+	handler func(context.Context, *I) (*O, error),
+) {
+	assertTargetOrganizationPath(op)
+
+	// The audit middleware is the only one left, and it decides nothing: it reads
+	// the status after the chain returns, so a refusal is recorded wherever it was
+	// decided -- the caller.Platform at the top of the handler, or the facade method
+	// the handler calls. See its doc comment for why attribution on this surface is a
+	// log record rather than an audit_trail row.
+	op.Middlewares = append(op.Middlewares, AuditPlatformAction())
+	op.Security = append(op.Security, PlatformScopeRequirement(requiredScope))
+	huma.Register(api, op, handler)
+}
+
+// ScopeRequirement is the operation-level `security` entry for a scope. It
+// exists for the two OFREP endpoints, which are Fiber routes whose
+// huma.Operation is written by hand and so cannot go through
+// RegisterScoped.
+func ScopeRequirement(scopes ...string) map[string][]string {
+	return map[string][]string{BearerAuth: scopes}
+}
+
+// PlatformScopeRequirement is ScopeRequirement for the Platform API. It names a
+// different scheme, which is the whole point: an operation cannot accidentally
+// publish a platform scope requirement under the Core API's credential.
+func PlatformScopeRequirement(scopes ...string) map[string][]string {
+	return map[string][]string{PlatformAuth: scopes}
+}

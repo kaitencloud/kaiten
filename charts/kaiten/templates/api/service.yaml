@@ -1,0 +1,23 @@
+{{- if .Values.api.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kaiten.apiFullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.apiLabels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "kaiten.apiSelectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.api.service.port }}
+      targetPort: http
+    # The Platform API's internal listener. Present on the Service so other
+    # workloads in the cluster can reach /api/platform/** by name; absent from
+    # every HTTPRoute in templates/ingress, which is what keeps it off the
+    # internet. See api.service.platformPort in values.yaml.
+    - name: platform
+      port: {{ .Values.api.service.platformPort }}
+      targetPort: platform
+{{- end }}

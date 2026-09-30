@@ -1,0 +1,129 @@
+packages:
+  - 'packages/*'
+  - 'app'
+
+# Single source of truth for dependency versions. A package goes in here when it
+# is used by more than one workspace package, or when it belongs to a family that
+# has to move as one unit (the vitest trio, the playwright pair) -- those are the
+# two ways versions drift in practice. Consumers reference it as "catalog:".
+catalog:
+  # @playwright/test and playwright are published in lockstep; a half-bump gives
+  # you a runner and a browser build that disagree on the protocol.
+  '@playwright/test': ^1.63.0
+  playwright: ^1.63.0
+  '@tailwindcss/vite': ^4.3.3
+  tailwindcss: ^4.3.3
+  tailwindcss-animate: ^1.0.7
+  '@tanstack/react-router': ^1.170.36
+  '@tanstack/react-router-devtools': ^1.167.2
+  '@tanstack/router-plugin': ^1.168.38
+  '@types/node': ^26.5.1
+  '@types/react': ^19.3.0
+  '@types/react-dom': ^19.3.0
+  '@vitejs/plugin-react': ^6.1.1
+  # The runner, the coverage provider and the browser provider must be the exact
+  # same version -- mismatched copies split expect/mock state and desync reporters.
+  # The version is NOT ours to pick: `vp test` runs the vitest bundled with
+  # vite-plus (1.0.0 pins the whole @vitest/* family to 5.0.1), so these three
+  # anchor to that, not to the latest release. Check `vp --version` before
+  # bumping, and move them in the same commit as vite-plus. A provider ahead of
+  # the runner fails at browser spawn (`_parentBrowser.spawn is not a function`);
+  # behind it, at import (`does not provide an export named 'Traces'`).
+  vitest: 5.0.1
+  '@vitest/browser-playwright': 5.0.1
+  '@vitest/coverage-v8': 5.0.1
+  class-variance-authority: ^0.7.1
+  clsx: ^2.1.1
+  lucide-react: ^1.46.0
+  radix-ui: ^1.6.7
+  react: ^19.3.0
+  react-dom: ^19.3.0
+  tailwind-merge: ^3.7.0
+  # Tilde, not caret: TypeScript ships breaking changes in minor releases, so a
+  # floating minor would break `tsc` on an unrelated install.
+  typescript: ~7.0.2
+  # Keep the plugin-facing 'vite' aliased to the SAME vite-plus-core version
+  # that the vite-plus CLI itself runs, or storybook/plugins crash on plugin
+  # name enums ("builtin:vite-wasm-fallback does not match any variant").
+  vite: npm:@voidzero-dev/vite-plus-core@1.0.0
+  vite-plus: 1.0.0
+  '@openfeature/ofrep-web-provider': ^0.4.3
+  '@openfeature/web-sdk': ^1.10.0
+
+# packages/api-codegen cannot use the default catalog's TypeScript: openapi-ts
+# drives the TypeScript compiler JS API (ts.SyntaxKind ...), which the Go-based
+# typescript@7 no longer exposes, so `pnpm run generate` crashes at import. It stays
+# on the last JS-based line while the rest of the tree runs TS 7.
+catalogs:
+  codegen:
+    typescript: ~6.0.3
+
+# Prefer catalog entries when adding deps, so `pnpm add` reuses a pinned version
+# instead of quietly introducing a second one.
+catalogMode: prefer
+# Both keys as `vp migrate` writes them: `@*` pins the ranges that transitive and
+# peer declarations use, and leaves `catalog:` references to the catalog. The
+# vitest one points at the catalog's exact pin, so vite-plus's own dependency runs
+# the same Vitest as the app. (Not the 0.1-era @voidzero-dev/vite-plus-test alias,
+# which had no vitest bin and broke `vp test`.)
+overrides:
+  vite@*: 'catalog:'
+  vitest@*: 'catalog:'
+allowBuilds:
+  '@clerk/shared': true
+  bufferutil: true
+  core-js: true
+  esbuild: true
+  msw: true
+  utf-8-validate: true
+minimumReleaseAgeExclude:
+  - '@tanstack/router-plugin@1.168.23'
+  - '@tanstack/react-table@9.2.3'
+  - '@tanstack/table-core@9.2.3'
+  - web-vitals@6.2.1 || 6.2.2
+  - '@tanstack/query-core@5.102.7'
+  - '@tanstack/query-devtools@5.102.7'
+  - '@tanstack/react-query-devtools@5.102.7'
+  - '@tanstack/react-query@5.102.7'
+  - '@oxc-parser/binding-android-arm-eabi@0.150.0'
+  - '@oxc-parser/binding-android-arm64@0.150.0'
+  - '@oxc-parser/binding-darwin-arm64@0.150.0'
+  - '@oxc-parser/binding-darwin-x64@0.150.0'
+  - '@oxc-parser/binding-freebsd-x64@0.150.0'
+  - '@oxc-parser/binding-linux-arm-gnueabihf@0.150.0'
+  - '@oxc-parser/binding-linux-arm-musleabihf@0.150.0'
+  - '@oxc-parser/binding-linux-arm64-gnu@0.150.0'
+  - '@oxc-parser/binding-linux-arm64-musl@0.150.0'
+  - '@oxc-parser/binding-linux-ppc64-gnu@0.150.0'
+  - '@oxc-parser/binding-linux-riscv64-gnu@0.150.0'
+  - '@oxc-parser/binding-linux-riscv64-musl@0.150.0'
+  - '@oxc-parser/binding-linux-s390x-gnu@0.150.0'
+  - '@oxc-parser/binding-linux-x64-gnu@0.150.0'
+  - '@oxc-parser/binding-linux-x64-musl@0.150.0'
+  - '@oxc-parser/binding-openharmony-arm64@0.150.0'
+  - '@oxc-parser/binding-win32-arm64-msvc@0.150.0'
+  - '@oxc-parser/binding-win32-ia32-msvc@0.150.0'
+  - '@oxc-parser/binding-win32-x64-msvc@0.150.0'
+  - '@oxc-project/types@0.150.0'
+  - '@tanstack/db-ivm@0.1.22'
+  - '@tanstack/db@0.9.2'
+  - '@tanstack/react-db@0.4.1'
+  - '@voidzero-dev/vite-plus-core@1.0.0'
+  - '@voidzero-dev/vite-plus-darwin-arm64@1.0.0'
+  - '@voidzero-dev/vite-plus-darwin-x64@1.0.0'
+  - '@voidzero-dev/vite-plus-linux-arm64-gnu@1.0.0'
+  - '@voidzero-dev/vite-plus-linux-arm64-musl@1.0.0'
+  - '@voidzero-dev/vite-plus-linux-x64-gnu@1.0.0'
+  - '@voidzero-dev/vite-plus-linux-x64-musl@1.0.0'
+  - '@voidzero-dev/vite-plus-win32-arm64-msvc@1.0.0'
+  - '@voidzero-dev/vite-plus-win32-x64-msvc@1.0.0'
+  - oxc-parser@0.150.0
+  - vite-plus@1.0.0
+  - lucide-react@1.46.0
+peerDependencyRules:
+  allowAny:
+    - vite
+    - vitest
+  allowedVersions:
+    vite: '*'
+    vitest: '*'

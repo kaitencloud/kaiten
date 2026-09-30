@@ -1,0 +1,314 @@
+name: App E2E
+
+# Triggers:
+#   - pull_request → every app-affecting PR, sharded for fast feedback
+#   - push to main → post-merge regression check. A red run shows up as a failed
+#                    commit status and nothing else: the issue-filing alert in
+#                    `notify_nightly_failure` is gated on `schedule` only.
+#   - workflow_dispatch → manual re-run
+#   - schedule     → nightly safety net at 03:00 UTC (auto-files an issue on red)
+
+on:
+  pull_request:
+    branches: ['main', 'feat/**', 'fix/**', 'chore/**']
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'app/**'
+      - 'packages/theme/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.npmrc'
+      - '.github/workflows/app-e2e.yml'
+      - '.github/actions/setup-app-e2e/**'
+  push:
+    branches: ['main']
+    paths:
+      - 'app/**'
+      - 'packages/theme/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.npmrc'
+      - '.github/workflows/app-e2e.yml'
+      - '.github/actions/setup-app-e2e/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+jobs:
+  e2e_storybook:
+    name: E2E Storybook (Chromium, shard ${{ matrix.shard }}/${{ strategy.job-total }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup app E2E toolchain
+        id: setup-e2e
+        uses: ./.github/actions/setup-app-e2e
+
+      - name: Run Storybook E2E (shard ${{ matrix.shard }}/${{ strategy.job-total }})
+        run: |
+          docker run --rm --ipc=host \
+            -v "$GITHUB_WORKSPACE:/work" \
+            -v kaiten-app-playwright-node-modules:/work/node_modules \
+            -w /work \
+            -e CI=true \
+            -e PLAYWRIGHT_STORYBOOK_STATIC=true \
+            "mcr.microsoft.com/playwright:v${{ steps.setup-e2e.outputs.playwright-version }}-noble" \
+            /bin/bash -lc 'set -euo pipefail
+          corepack enable pnpm
+          pnpm install --frozen-lockfile --filter kaiten-app...
+          cd app
+          pnpm exec playwright test -c playwright.config.ts e2e/tests --project=chromium --shard=${{ matrix.shard }}/${{ strategy.job-total }}'
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-storybook-report-shard-${{ matrix.shard }}
+          path: app/playwright-report
+          retention-days: 14
+
+      - name: Upload Playwright JSON results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-storybook-results-shard-${{ matrix.shard }}
+          path: app/test-results.json
+          if-no-files-found: error
+          retention-days: 30
+
+  e2e_app:
+    name: E2E App (Chromium, shard ${{ matrix.shard }}/${{ strategy.job-total }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup app E2E toolchain
+        uses: ./.github/actions/setup-app-e2e
+
+      - name: Run app E2E (shard ${{ matrix.shard }}/${{ strategy.job-total }})
+        run: ./node_modules/.bin/playwright test -c playwright.app.config.ts e2e/app --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-app-report-shard-${{ matrix.shard }}
+          path: app/playwright-report
+          retention-days: 14
+
+      - name: Upload Playwright JSON results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-app-results-shard-${{ matrix.shard }}
+          path: app/app-test-results.json
+          if-no-files-found: error
+          retention-days: 30
+
+  publish_trace_preview:
+    name: Publish E2E trace preview
+    runs-on: ubuntu-latest
+    needs: [e2e_storybook, e2e_app]
+    if: |
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (needs.e2e_storybook.result == 'failure' || needs.e2e_app.result == 'failure')
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      issues: write
+      pages: write
+      pull-requests: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      - name: Download failed Playwright reports
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          pattern: playwright-*-report-shard-*
+          path: playwright-trace-preview/raw
+
+      - name: Build trace preview site
+        run: bash app/scripts/build-playwright-trace-preview.sh playwright-trace-preview/raw playwright-trace-preview/site
+        env:
+          E2E_TRACE_PREVIEW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          E2E_TRACE_PREVIEW_TITLE: App E2E trace preview
+
+      - name: Upload trace preview artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-trace-preview
+          path: playwright-trace-preview/site
+          retention-days: 14
+
+      - name: Upload trace preview pages artifact
+        continue-on-error: true
+        id: pages-upload
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: playwright-trace-preview/site
+
+      - name: Deploy trace preview to GitHub Pages
+        continue-on-error: true
+        id: deployment
+        uses: actions/deploy-pages@v5
+
+      - name: Comment trace preview link on PR
+        uses: actions/github-script@v9.0.0
+        env:
+          DEPLOY_OUTCOME: ${{ steps.deployment.outcome }}
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+        with:
+          script: |
+            const marker = '<!-- kaiten-e2e-trace-preview -->';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const pagesUrl = process.env.PAGES_URL;
+            const pagesDeployed =
+              process.env.DEPLOY_OUTCOME === 'success' && pagesUrl;
+
+            const previewSection = pagesDeployed
+              ? `Playwright published the failed-shard HTML reports here: ${pagesUrl}`
+              : [
+                  'Download the **playwright-trace-preview** artifact from this run,',
+                  'extract it, and open `index.html` locally.',
+                  '',
+                  'To enable the hosted preview instead, configure GitHub Pages',
+                  'with the **GitHub Actions** source:',
+                  `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/settings/pages`,
+                ].join('\n');
+
+            const body = [
+              marker,
+              '## E2E trace preview',
+              '',
+              previewSection,
+              '',
+              `Run: ${runUrl}`,
+              '',
+              'Open a report, then use the trace attachment from any failed test.',
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const previous = comments.find((comment) =>
+              comment.user?.type === 'Bot' && comment.body?.includes(marker)
+            );
+
+            if (previous) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: previous.id,
+                body,
+              });
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body,
+            });
+
+  # Nightly safety net: file a GitHub issue when the scheduled run is red so
+  # the team is alerted instead of having to inspect the Actions tab. Only
+  # runs on `schedule` to avoid spamming on PR / push failures (those already
+  # surface inline via the `github` reporter).
+  notify_nightly_failure:
+    name: Notify nightly failure
+    runs-on: ubuntu-latest
+    needs: [e2e_storybook, e2e_app]
+    if: |
+      always() &&
+      github.event_name == 'schedule' &&
+      (needs.e2e_storybook.result == 'failure' || needs.e2e_app.result == 'failure')
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: File or update tracking issue
+        uses: actions/github-script@v9.0.0
+        with:
+          script: |
+            const today = new Date().toISOString().slice(0, 10);
+            const title = `Nightly E2E run failed — ${today}`;
+            const body = [
+              '## Nightly E2E failure',
+              '',
+              `- Workflow: \`${context.workflow}\``,
+              `- Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              `- Storybook job: \`${{ needs.e2e_storybook.result }}\``,
+              `- App job: \`${{ needs.e2e_app.result }}\``,
+              '',
+              'Inspect the Playwright HTML reports uploaded as run artifacts.',
+              'When fixed, close the issue. Auto-deduplicated by title (one issue per day).',
+            ].join('\n');
+
+            const { data: existing } = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open in:title "${title}"`,
+            });
+
+            if (existing.total_count > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.items[0].number,
+                body: `New failure on run ${context.runId}.`,
+              });
+              core.info(`Updated existing issue #${existing.items[0].number}`);
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ['e2e', 'nightly-failure'],
+            });

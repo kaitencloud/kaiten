@@ -1,0 +1,4 @@
+interface:
+  display_name: "Forms Zod Source of Truth"
+  short_description: "Build forms from generated Zod schemas"
+  default_prompt: "Use $forms-zod-source-of-truth to implement this form using generated schemas and project form patterns."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frontend Quality Gate"
+  short_description: "Run lint tests types e2e quality gate"
+  default_prompt: "Use $frontend-quality-gate to run the right frontend checks for this diff and summarize blockers first."

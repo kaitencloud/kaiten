@@ -1,0 +1,43 @@
+-- +goose Up
+-- +goose StatementBegin
+-- organization.deleted_at was a soft delete that deleted nothing, and
+-- it was the only thing in the schema pretending organization deletion was
+-- reversible.
+--
+-- Nothing downstream ever believed in it. All twenty-three tables that carry an
+-- organization_id -- customer, license, feature_flags, entitlement,
+-- license_entitlement, entitlement_usage, entitlement_group(+membership),
+-- instance, deployment_zone, deployment, release, component,
+-- component_release, metadata_field, token, "user", user_on_organization,
+-- customer_integrations, instance_integrations, audit_trail, outbox_events,
+-- inbox_events -- declare that column REFERENCES "organization" ("id")
+-- ON DELETE CASCADE. Not one of them has a deleted_at of its own, and every
+-- tenant-owned resource is hard-deleted by its own endpoint. Flagging the
+-- parent row therefore purged nothing: a "deleted" organization's customers,
+-- licenses and feature flags stayed live, and the sole barrier between them
+-- and a caller was the JIT resolver declining to hand the organization id
+-- back out. The schema already said what deletion means here; the column said
+-- otherwise, and the column was the half-implemented one.
+--
+-- deleted_at stays on "user" and user_on_organization for two reasons an
+-- organization has neither of. A user row is the target of a dozen
+-- created_by_id/updated_by_id foreign keys declared ON DELETE RESTRICT, so it
+-- cannot be removed without destroying attribution on rows that outlive it in
+-- other organizations. And both rows are upserted by JIT on every single
+-- request, so the flag is what stops authenticating from silently
+-- resurrecting an identity that was deliberately removed. An organization is
+-- upserted by JIT too, but it owns no cross-tenant references and deleting it
+-- takes its whole subtree with it, so there is nothing left to resurrect: a
+-- claim arriving afterwards recreates it empty.
+--
+-- Irrecoverable, knowingly: there is no usage_ledger, so an organization's
+-- usage history cannot be replayed from events once its rows are gone.
+ALTER TABLE "organization" DROP COLUMN "deleted_at";
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+-- Restores the column, not the data. Rows deleted while it was absent are
+-- gone; this only brings back the ability to flag one.
+ALTER TABLE "organization" ADD COLUMN "deleted_at" TIMESTAMP(3);
+-- +goose StatementEnd
