@@ -9,7 +9,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { AuditTrail } from '@/api-client/types.gen';
 import { getEventCategory } from '@/domains/audit-trail';
-import { StatsCardsRow } from '@/functionals/stats-cards-row';
+import { StatCard } from '@/functionals/stat-card';
 import { isToday } from './audit-trail.utils';
 
 export const AuditTrailStatsCards = ({
@@ -35,63 +35,69 @@ export const AuditTrailStatsCards = ({
   const todayCount = entries.filter((e) => isToday(e.timestamp)).length;
 
   return (
-    <StatsCardsRow
-      columnsClassName="md:grid-cols-3 xl:grid-cols-6"
-      items={[
-        {
-          id: 'audit-total',
-          label: t(
-            'Pages.Customers.Instances.Detail.auditTrail.stats.totalEvents',
-          ),
-          value: totalEvents,
-          Icon: Activity,
-        },
-        {
-          id: 'audit-read',
-          label: t('Pages.Customers.Instances.Detail.auditTrail.stats.read'),
-          value: readCount,
-          Icon: Eye,
-          iconClassName: 'text-primary-subtle-foreground',
-          valueClassName: 'text-primary-subtle-foreground',
-        },
-        {
-          id: 'audit-accepted',
-          label: t(
-            'Pages.Customers.Instances.Detail.auditTrail.stats.accepted',
-          ),
-          value: acceptedCount,
-          Icon: CheckCircle,
-          iconClassName: 'text-success-subtle-foreground',
-          valueClassName: 'text-success-subtle-foreground',
-        },
-        {
-          id: 'audit-rejected',
-          label: t(
-            'Pages.Customers.Instances.Detail.auditTrail.stats.rejected',
-          ),
-          value: rejectedCount,
-          Icon: XCircle,
-          iconClassName: 'text-destructive-subtle-foreground',
-          valueClassName: 'text-destructive-subtle-foreground',
-        },
-        {
-          id: 'audit-warnings',
-          label: t(
-            'Pages.Customers.Instances.Detail.auditTrail.stats.warnings',
-          ),
-          value: warningCount,
-          Icon: AlertTriangle,
-          iconClassName: 'text-warning-subtle-foreground',
-          valueClassName: 'text-warning-subtle-foreground',
-        },
-        {
-          id: 'audit-today',
-          label: t('Pages.Customers.Instances.Detail.auditTrail.stats.today'),
-          value: todayCount,
-          Icon: Calendar,
-          iconClassName: 'text-primary-subtle-foreground',
-        },
-      ]}
-    />
+    <StatCard.Row columnsClassName="md:grid-cols-3 xl:grid-cols-6">
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Customers.Instances.Detail.auditTrail.stats.totalEvents')}
+        </StatCard.Label>
+        <StatCard.Icon>
+          <Activity />
+        </StatCard.Icon>
+        <StatCard.Value>{totalEvents}</StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Customers.Instances.Detail.auditTrail.stats.read')}
+        </StatCard.Label>
+        <StatCard.Icon className="text-primary-subtle-foreground">
+          <Eye />
+        </StatCard.Icon>
+        <StatCard.Value className="text-primary-subtle-foreground">
+          {readCount}
+        </StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Customers.Instances.Detail.auditTrail.stats.accepted')}
+        </StatCard.Label>
+        <StatCard.Icon className="text-success-subtle-foreground">
+          <CheckCircle />
+        </StatCard.Icon>
+        <StatCard.Value className="text-success-subtle-foreground">
+          {acceptedCount}
+        </StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Customers.Instances.Detail.auditTrail.stats.rejected')}
+        </StatCard.Label>
+        <StatCard.Icon className="text-destructive-subtle-foreground">
+          <XCircle />
+        </StatCard.Icon>
+        <StatCard.Value className="text-destructive-subtle-foreground">
+          {rejectedCount}
+        </StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Customers.Instances.Detail.auditTrail.stats.warnings')}
+        </StatCard.Label>
+        <StatCard.Icon className="text-warning-subtle-foreground">
+          <AlertTriangle />
+        </StatCard.Icon>
+        <StatCard.Value className="text-warning-subtle-foreground">
+          {warningCount}
+        </StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Customers.Instances.Detail.auditTrail.stats.today')}
+        </StatCard.Label>
+        <StatCard.Icon className="text-primary-subtle-foreground">
+          <Calendar />
+        </StatCard.Icon>
+        <StatCard.Value>{todayCount}</StatCard.Value>
+      </StatCard>
+    </StatCard.Row>
   );
 };

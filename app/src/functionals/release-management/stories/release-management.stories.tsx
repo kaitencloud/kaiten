@@ -3,10 +3,7 @@ import { CalendarDays, Gauge, PackageCheck, Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  StatsCardsRow,
-  type StatsCardsRowItem,
-} from '@/functionals/stats-cards-row';
+import { StatCard } from '@/functionals/stat-card';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { ReleaseManagementPageShell } from '../release-management-page-shell';
 import { ReleaseManagementTabs } from '../release-management-tabs';
@@ -23,29 +20,34 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof ReleaseManagementPageShell>;
 
-const releaseStats: StatsCardsRowItem[] = [
-  {
-    id: 'releases',
-    label: 'Releases',
-    value: '18',
-    helper: '4 promoted this month',
-    Icon: CalendarDays,
-  },
-  {
-    id: 'components',
-    label: 'Components',
-    value: '42',
-    helper: '31 deployed',
-    Icon: PackageCheck,
-  },
-  {
-    id: 'zones',
-    label: 'Zones',
-    value: '6',
-    helper: '5 production-ready',
-    Icon: Gauge,
-  },
-];
+const releaseStats = (
+  <StatCard.Row columnsClassName="md:grid-cols-3">
+    <StatCard>
+      <StatCard.Label>Releases</StatCard.Label>
+      <StatCard.Icon>
+        <CalendarDays />
+      </StatCard.Icon>
+      <StatCard.Value>18</StatCard.Value>
+      <StatCard.Helper>4 promoted this month</StatCard.Helper>
+    </StatCard>
+    <StatCard>
+      <StatCard.Label>Components</StatCard.Label>
+      <StatCard.Icon>
+        <PackageCheck />
+      </StatCard.Icon>
+      <StatCard.Value>42</StatCard.Value>
+      <StatCard.Helper>31 deployed</StatCard.Helper>
+    </StatCard>
+    <StatCard>
+      <StatCard.Label>Zones</StatCard.Label>
+      <StatCard.Icon>
+        <Gauge />
+      </StatCard.Icon>
+      <StatCard.Value>6</StatCard.Value>
+      <StatCard.Helper>5 production-ready</StatCard.Helper>
+    </StatCard>
+  </StatCard.Row>
+);
 
 function ReleaseManagementStoryFrame({
   children,
@@ -102,12 +104,7 @@ export const PageShell: Story = {
         iconKey="release"
         title="Releases"
         subtitle="Promote versions through deployment zones and linked components."
-        stats={
-          <StatsCardsRow
-            items={releaseStats}
-            columnsClassName="md:grid-cols-3"
-          />
-        }
+        stats={releaseStats}
         content={releaseContent}
       >
         <Button className="fixed right-6 bottom-6 gap-2">

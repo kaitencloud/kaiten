@@ -240,7 +240,7 @@ describe('ReleaseDetailPageContent', () => {
 
     const deploymentZonesStatCard = screen
       .getByText('Deployment zones')
-      .closest('[data-slot="card"]');
+      .closest('[data-slot="stat-card"]');
     const deploymentZonesStatCardElement = asHTMLElement(
       deploymentZonesStatCard,
     );
@@ -302,7 +302,7 @@ describe('ReleaseDetailPageContent', () => {
 
     const deploymentZonesStatCard = screen
       .getByText('Deployment zones')
-      .closest('[data-slot="card"]');
+      .closest('[data-slot="stat-card"]');
     const deploymentZonesStatCardElement = asHTMLElement(
       deploymentZonesStatCard,
     );

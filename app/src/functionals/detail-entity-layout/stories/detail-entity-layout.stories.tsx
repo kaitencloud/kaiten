@@ -6,10 +6,7 @@ import { Button } from '@/components/ui/button';
 import { DetailCard } from '@/functionals/detail-card';
 import type { DetailTabsNavItem } from '@/functionals/detail-tabs-layout';
 import { Page } from '@/functionals/page';
-import {
-  StatsCardsRow,
-  type StatsCardsRowItem,
-} from '@/functionals/stats-cards-row';
+import { StatCard } from '@/functionals/stat-card';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { DetailEntityLayout } from '../detail-entity-layout';
 
@@ -43,30 +40,34 @@ const detailTabs: DetailTabsNavItem[] = [
   },
 ];
 
-const entityHeaderStats: StatsCardsRowItem[] = [
-  {
-    id: 'usage',
-    label: 'Usage',
-    value: '82%',
-    helper: 'Stable over 7 days',
-    Icon: Activity,
-  },
-  {
-    id: 'customers',
-    label: 'Customers',
-    value: '24',
-    helper: '8 enterprise plans',
-    Icon: Users,
-  },
-  {
-    id: 'risk',
-    label: 'Risk',
-    value: 'Low',
-    helper: 'No blocker',
-    Icon: Shield,
-    valueClassName: 'text-success-subtle-foreground',
-  },
-];
+const EntityHeaderStats = ({ dense = false }: { dense?: boolean }) => (
+  <StatCard.Row dense={dense} columnsClassName="md:grid-cols-3">
+    <StatCard>
+      <StatCard.Label>Usage</StatCard.Label>
+      <StatCard.Icon>
+        <Activity />
+      </StatCard.Icon>
+      <StatCard.Value>82%</StatCard.Value>
+      <StatCard.Helper>Stable over 7 days</StatCard.Helper>
+    </StatCard>
+    <StatCard>
+      <StatCard.Label>Customers</StatCard.Label>
+      <StatCard.Icon>
+        <Users />
+      </StatCard.Icon>
+      <StatCard.Value>24</StatCard.Value>
+      <StatCard.Helper>8 enterprise plans</StatCard.Helper>
+    </StatCard>
+    <StatCard>
+      <StatCard.Label>Risk</StatCard.Label>
+      <StatCard.Icon>
+        <Shield />
+      </StatCard.Icon>
+      <StatCard.Value className="text-success-subtle-foreground">Low</StatCard.Value>
+      <StatCard.Helper>No blocker</StatCard.Helper>
+    </StatCard>
+  </StatCard.Row>
+);
 
 const header = (
   <Page.Header>
@@ -155,13 +156,16 @@ function EntityLayoutStoryFrame({
 export const WithStats: Story = {
   render: () => (
     <EntityLayoutStoryFrame
-      stats={
-        <StatsCardsRow
-          items={entityHeaderStats}
-          columnsClassName="md:grid-cols-3"
-        />
-      }
+      stats={<EntityHeaderStats />}
     >
+      {overviewCards}
+    </EntityLayoutStoryFrame>
+  ),
+};
+
+export const WithDenseStats: Story = {
+  render: () => (
+    <EntityLayoutStoryFrame stats={<EntityHeaderStats dense />}>
       {overviewCards}
     </EntityLayoutStoryFrame>
   ),

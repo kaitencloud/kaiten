@@ -102,8 +102,8 @@ const statusOf = (version: string) => {
 const statValue = (label: string) => {
   const card = screen
     .getAllByText(label)
-    .find((element) => element.matches('[data-slot="card-description"]'))
-    ?.closest('[data-slot="card"]');
+    .find((element) => element.matches('[data-slot="stat-card-label"]'))
+    ?.closest('[data-slot="stat-card"]');
 
   if (!(card instanceof HTMLElement)) {
     throw new Error(`Expected the "${label}" card`);

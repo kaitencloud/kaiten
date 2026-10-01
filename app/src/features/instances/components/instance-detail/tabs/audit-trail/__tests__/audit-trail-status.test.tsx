@@ -159,8 +159,8 @@ describe('audit trail status in the instance tab', () => {
     const valueOf = (labelKey: string) =>
       screen
         .getByText(`Pages.Customers.Instances.Detail.auditTrail.stats.${labelKey}`)
-        .closest('[data-slot="card"]')
-        ?.querySelector('[data-slot="card-title"]')?.textContent;
+        .closest('[data-slot="stat-card"]')
+        ?.querySelector('[data-slot="stat-card-value"]')?.textContent;
 
     expect(valueOf('warnings')).toBe('3');
     expect(valueOf('read')).toBe('1');

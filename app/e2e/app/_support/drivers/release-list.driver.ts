@@ -48,8 +48,8 @@ export class ReleaseListDriver {
   /** The card that counts the releases in one status: its label, then a number. */
   async expectStatCount(label: string, count: number) {
     await expect(
-      this.page.locator('[data-slot="card"]').filter({
-        has: this.page.locator('[data-slot="card-description"]', {
+      this.page.locator('[data-slot="stat-card"]').filter({
+        has: this.page.locator('[data-slot="stat-card-label"]', {
           hasText: new RegExp(`^${label}$`),
         }),
       }),

@@ -12,7 +12,7 @@ import {
 } from '@/domains/release-management';
 import { DetailEntityLayout } from '@/functionals/detail-entity-layout';
 import { Page } from '@/functionals/page';
-import { StatsCardsRow } from '@/functionals/stats-cards-row';
+import { StatCard } from '@/functionals/stat-card';
 import { formatDetailDateTime, getActiveTabFromPathname } from '@/lib/detail';
 import { useDeleteReleaseMutation } from '../../hooks';
 import {
@@ -106,43 +106,49 @@ function ReleaseDetailLayout({ children }: PropsWithChildren) {
         </Page.Header>
       }
       stats={
-        <StatsCardsRow
-          className="gap-4 lg:gap-6"
-          // The status already sits beside the title as a badge.
-          columnsClassName="md:grid-cols-3"
-          items={[
-            {
-              id: 'release-zones',
-              label: t(
+        // The status already sits beside the title as a badge.
+        <StatCard.Row columnsClassName="md:grid-cols-3">
+          <StatCard>
+            <StatCard.Label>
+              {t(
                 'Pages.Releases.Detail.stats.deploymentZones',
                 'Deployment zones',
-              ),
-              value: String(linkedDeploymentZones.length),
-              Icon: Server,
-            },
-            {
-              id: 'release-production-zones',
-              label: t(
+              )}
+            </StatCard.Label>
+            <StatCard.Icon>
+              <Server />
+            </StatCard.Icon>
+            <StatCard.Value>{linkedDeploymentZones.length}</StatCard.Value>
+          </StatCard>
+          <StatCard>
+            <StatCard.Label>
+              {t(
                 'Pages.Releases.Detail.stats.productionZones',
                 'Production zones',
-              ),
-              value: String(productionZonesCount),
-              Icon: Rocket,
-              iconClassName: 'text-destructive-subtle-foreground',
-            },
-            {
-              id: 'release-last-deployment',
-              label: t(
+              )}
+            </StatCard.Label>
+            <StatCard.Icon className="text-destructive-subtle-foreground">
+              <Rocket />
+            </StatCard.Icon>
+            <StatCard.Value>{productionZonesCount}</StatCard.Value>
+          </StatCard>
+          <StatCard>
+            <StatCard.Label>
+              {t(
                 'Pages.Releases.Detail.stats.lastDeployment',
                 'Last deployment update',
-              ),
-              value: lastDeploymentAt
+              )}
+            </StatCard.Label>
+            <StatCard.Icon>
+              <CalendarClock />
+            </StatCard.Icon>
+            <StatCard.Value>
+              {lastDeploymentAt
                 ? formatDetailDateTime(lastDeploymentAt, locale)
-                : t('Pages.Releases.Detail.stats.never', 'Never'),
-              Icon: CalendarClock,
-            },
-          ]}
-        />
+                : t('Pages.Releases.Detail.stats.never', 'Never')}
+            </StatCard.Value>
+          </StatCard>
+        </StatCard.Row>
       }
       tabs={[
         {

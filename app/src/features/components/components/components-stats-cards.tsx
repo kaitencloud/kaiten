@@ -1,6 +1,6 @@
 import { GitBranch, Rocket, Share2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { StatsCardsRow } from '@/functionals/stats-cards-row';
+import { StatCard } from '@/functionals/stat-card';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import type { ComponentCatalogStats } from '../types';
 
@@ -13,33 +13,43 @@ export function ComponentsStatsCards({
   const ComponentIcon = dataModelIcons.component;
 
   return (
-    <StatsCardsRow
-      items={[
-        {
-          id: 'total-components',
-          label: t('Pages.Releases.Components.Stats.totalComponents'),
-          value: stats.totalComponents,
-          Icon: ComponentIcon,
-        },
-        {
-          id: 'releases-using-components',
-          label: t('Pages.Releases.Components.Stats.releasesUsingComponents'),
-          value: stats.releasesUsingComponents,
-          Icon: Rocket,
-        },
-        {
-          id: 'shared-across-releases',
-          label: t('Pages.Releases.Components.Stats.sharedAcrossReleases'),
-          value: stats.sharedAcrossReleases,
-          Icon: Share2,
-        },
-        {
-          id: 'versioned-components',
-          label: t('Pages.Releases.Components.Stats.versionedComponents'),
-          value: stats.versionedComponents,
-          Icon: GitBranch,
-        },
-      ]}
-    />
+    <StatCard.Row>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Releases.Components.Stats.totalComponents')}
+        </StatCard.Label>
+        <StatCard.Icon>
+          <ComponentIcon />
+        </StatCard.Icon>
+        <StatCard.Value>{stats.totalComponents}</StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Releases.Components.Stats.releasesUsingComponents')}
+        </StatCard.Label>
+        <StatCard.Icon>
+          <Rocket />
+        </StatCard.Icon>
+        <StatCard.Value>{stats.releasesUsingComponents}</StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Releases.Components.Stats.sharedAcrossReleases')}
+        </StatCard.Label>
+        <StatCard.Icon>
+          <Share2 />
+        </StatCard.Icon>
+        <StatCard.Value>{stats.sharedAcrossReleases}</StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Releases.Components.Stats.versionedComponents')}
+        </StatCard.Label>
+        <StatCard.Icon>
+          <GitBranch />
+        </StatCard.Icon>
+        <StatCard.Value>{stats.versionedComponents}</StatCard.Value>
+      </StatCard>
+    </StatCard.Row>
   );
 }

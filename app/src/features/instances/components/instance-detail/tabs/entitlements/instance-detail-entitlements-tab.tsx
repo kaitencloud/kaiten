@@ -10,10 +10,7 @@ import { useRouter } from '@tanstack/react-router';
 import { AlertTriangle, CheckCircle, KeyRound } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  StatsCardsRow,
-  type StatsCardsRowItem,
-} from '@/functionals/stats-cards-row';
+import { StatCard } from '@/functionals/stat-card';
 import { TableCard } from '@/functionals/table';
 import {
   getMaximumAllowedUsage,
@@ -44,46 +41,62 @@ type InstanceEntitlementsMetrics = ReturnType<
   typeof useInstanceDetail
 >['entitlementsMetrics'];
 
-const getEntitlementStatsItems = (
-  entitlementsMetrics: InstanceEntitlementsMetrics,
-  t: ReturnType<typeof useTranslation>['t'],
-): StatsCardsRowItem[] => {
-  return [
-    {
-      id: 'entitlements-total',
-      label: t('Pages.Customers.Instances.Detail.entitlements.stats.total'),
-      value: entitlementsMetrics.total,
-      Icon: KeyRound,
-    },
-    {
-      id: 'entitlements-enabled',
-      label: t('Pages.Customers.Instances.Detail.entitlements.stats.enabled'),
-      value: entitlementsMetrics.enabled,
-      Icon: CheckCircle,
-      iconClassName: 'text-success-subtle-foreground',
-      valueClassName: 'text-success-subtle-foreground',
-    },
-    {
-      id: 'entitlements-near-threshold',
-      label: t(
-        'Pages.Customers.Instances.Detail.entitlements.stats.nearThreshold',
-      ),
-      value: entitlementsMetrics.nearThreshold,
-      // The "Current window" table column carries the scope per row; the stat
-      // would otherwise merge counters that reset with ones that never do.
-      helper:
-        entitlementsMetrics.nearThresholdCurrentPeriod > 0
-          ? t(
+function EntitlementStatsRow({
+  entitlementsMetrics,
+}: {
+  entitlementsMetrics: InstanceEntitlementsMetrics;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <StatCard.Row columnsClassName="md:grid-cols-3">
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Customers.Instances.Detail.entitlements.stats.total')}
+        </StatCard.Label>
+        <StatCard.Icon>
+          <KeyRound />
+        </StatCard.Icon>
+        <StatCard.Value>{entitlementsMetrics.total}</StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Customers.Instances.Detail.entitlements.stats.enabled')}
+        </StatCard.Label>
+        <StatCard.Icon className="text-success-subtle-foreground">
+          <CheckCircle />
+        </StatCard.Icon>
+        <StatCard.Value className="text-success-subtle-foreground">
+          {entitlementsMetrics.enabled}
+        </StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>
+          {t(
+            'Pages.Customers.Instances.Detail.entitlements.stats.nearThreshold',
+          )}
+        </StatCard.Label>
+        <StatCard.Icon className="text-warning-subtle-foreground">
+          <AlertTriangle />
+        </StatCard.Icon>
+        <StatCard.Value className="text-warning-subtle-foreground">
+          {entitlementsMetrics.nearThreshold}
+        </StatCard.Value>
+        {/* The "Current window" table column carries the scope per row; the
+            stat would otherwise merge counters that reset with ones that
+            never do. */}
+        {entitlementsMetrics.nearThresholdCurrentPeriod > 0 ? (
+          <StatCard.Helper>
+            {t(
               'Pages.Customers.Instances.Detail.entitlements.stats.nearThresholdCurrentPeriod',
               { count: entitlementsMetrics.nearThresholdCurrentPeriod },
-            )
-          : undefined,
-      Icon: AlertTriangle,
-      iconClassName: 'text-warning-subtle-foreground',
-      valueClassName: 'text-warning-subtle-foreground',
-    },
-  ];
-};
+            )}
+          </StatCard.Helper>
+        ) : null}
+      </StatCard>
+    </StatCard.Row>
+  );
+}
 
 type NumberEntitlement =
   InstanceEntitlementsMetrics['numberEntitlements'][number];
@@ -274,10 +287,7 @@ export const InstanceDetailEntitlementsTab = () => {
           </Button>
         ) : null}
       </div>
-      <StatsCardsRow
-        columnsClassName="md:grid-cols-3"
-        items={getEntitlementStatsItems(filteredEntitlementsMetrics, t)}
-      />
+      <EntitlementStatsRow entitlementsMetrics={filteredEntitlementsMetrics} />
 
       <EntitlementsUsageCard
         entitlementsMetrics={filteredEntitlementsMetrics}

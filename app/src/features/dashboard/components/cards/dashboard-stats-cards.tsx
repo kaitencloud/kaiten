@@ -7,7 +7,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { StatsCardsRow } from '@/functionals/stats-cards-row';
+import { StatCard } from '@/functionals/stat-card';
 import type { DashboardMetrics } from '../../hooks/use-dashboard-metrics';
 
 type DashboardStatsCardsProps = {
@@ -16,84 +16,98 @@ type DashboardStatsCardsProps = {
 
 export const DashboardStatsCards = ({ summary }: DashboardStatsCardsProps) => {
   const { t } = useTranslation();
+  const expiringTone =
+    summary.expiringIn30Days > 0 ? 'text-warning-subtle-foreground' : undefined;
+  const tokensTone =
+    summary.tokensExpiringSoon > 0
+      ? 'text-destructive-subtle-foreground'
+      : undefined;
 
   return (
     // Six figures: three columns up to 2xl, so the labels keep to a line or
     // two instead of three, and the row stays two cards tall at most.
-    <StatsCardsRow
-      className="lg:gap-4"
-      columnsClassName="md:grid-cols-3 xl:grid-cols-6"
-      items={[
-        {
-          id: 'customers',
-          label: t('Pages.Dashboard.stats.customers'),
-          value: summary.customers,
-          Icon: Users,
-        },
-        {
-          id: 'active-instances',
-          label: t('Pages.Dashboard.stats.activeInstances'),
-          value: summary.activeInstances,
-          Icon: Server,
-        },
-        {
-          // The two expiry windows are one figure at two horizons: the wider
-          // one reads as the helper of the nearer one, rather than as a second
-          // card nested in the instances one.
-          id: 'expiring-30-days',
-          label: t('Pages.Dashboard.stats.expiringIn30Days'),
-          value: summary.expiringIn30Days,
-          helper: t('Pages.Dashboard.stats.expiringIn60DaysHelper', {
-            count: summary.expiringIn60Days,
-          }),
-          helperClassName:
+    <StatCard.Row columnsClassName="md:grid-cols-3 xl:grid-cols-6">
+      <StatCard>
+        <StatCard.Label>{t('Pages.Dashboard.stats.customers')}</StatCard.Label>
+        <StatCard.Icon>
+          <Users />
+        </StatCard.Icon>
+        <StatCard.Value>{summary.customers}</StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Dashboard.stats.activeInstances')}
+        </StatCard.Label>
+        <StatCard.Icon>
+          <Server />
+        </StatCard.Icon>
+        <StatCard.Value>{summary.activeInstances}</StatCard.Value>
+      </StatCard>
+      {/* The two expiry windows are one figure at two horizons: the wider one
+          reads as the helper of the nearer one, rather than as a second card
+          nested in the instances one. */}
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Dashboard.stats.expiringIn30Days')}
+        </StatCard.Label>
+        <StatCard.Icon className={expiringTone}>
+          <AlertTriangle />
+        </StatCard.Icon>
+        <StatCard.Value className={expiringTone}>
+          {summary.expiringIn30Days}
+        </StatCard.Value>
+        <StatCard.Helper
+          className={
             summary.expiringIn60Days > 0
               ? 'text-warning-subtle-foreground'
-              : undefined,
-          Icon: AlertTriangle,
-          iconClassName:
-            summary.expiringIn30Days > 0
-              ? 'text-warning-subtle-foreground'
-              : 'text-muted-foreground',
-          valueClassName:
-            summary.expiringIn30Days > 0
-              ? 'text-warning-subtle-foreground'
-              : undefined,
-        },
-        {
-          id: 'licenses',
-          label: t('Pages.Dashboard.stats.licenses'),
-          value: summary.licenses,
-          Icon: ShieldCheck,
-        },
-        {
-          id: 'feature-flags',
-          label: t('Pages.Dashboard.stats.featureFlagsEnabled'),
-          value: `${summary.featureFlagsEnabled}/${summary.featureFlagsTotal}`,
-          Icon: Flag,
-          iconClassName:
+              : undefined
+          }
+        >
+          {t('Pages.Dashboard.stats.expiringIn60DaysHelper', {
+            count: summary.expiringIn60Days,
+          })}
+        </StatCard.Helper>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>{t('Pages.Dashboard.stats.licenses')}</StatCard.Label>
+        <StatCard.Icon>
+          <ShieldCheck />
+        </StatCard.Icon>
+        <StatCard.Value>{summary.licenses}</StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Dashboard.stats.featureFlagsEnabled')}
+        </StatCard.Label>
+        <StatCard.Icon
+          className={
             summary.featureFlagsEnabled > 0
               ? 'text-success-subtle-foreground'
-              : undefined,
-        },
-        {
-          id: 'token-risk',
-          label: t('Pages.Dashboard.stats.tokensExpiringSoon'),
-          value: summary.tokensExpiringSoon,
-          helper: t('Pages.Dashboard.stats.activeTokens', {
+              : undefined
+          }
+        >
+          <Flag />
+        </StatCard.Icon>
+        <StatCard.Value>
+          {summary.featureFlagsEnabled}/{summary.featureFlagsTotal}
+        </StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.Dashboard.stats.tokensExpiringSoon')}
+        </StatCard.Label>
+        <StatCard.Icon className={tokensTone}>
+          <KeyRound />
+        </StatCard.Icon>
+        <StatCard.Value className={tokensTone}>
+          {summary.tokensExpiringSoon}
+        </StatCard.Value>
+        <StatCard.Helper>
+          {t('Pages.Dashboard.stats.activeTokens', {
             count: summary.tokensActive,
-          }),
-          Icon: KeyRound,
-          iconClassName:
-            summary.tokensExpiringSoon > 0
-              ? 'text-destructive-subtle-foreground'
-              : 'text-muted-foreground',
-          valueClassName:
-            summary.tokensExpiringSoon > 0
-              ? 'text-destructive-subtle-foreground'
-              : undefined,
-        },
-      ]}
-    />
+          })}
+        </StatCard.Helper>
+      </StatCard>
+    </StatCard.Row>
   );
 };

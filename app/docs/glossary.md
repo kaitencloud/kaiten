@@ -140,7 +140,7 @@ A product area in `app/src/features/`, such as `licenses` or `feature-flags`. It
 
 ### Functional
 
-A generic widget or layout in `app/src/functionals/` with non-trivial logic and several independent consumers, and no business contract. Examples: `table`, `filters`, `page`, `stats-cards-row`, `cel-editor`, `route-tabs`. Import it as `@/functionals/<name>`. See [functionals](./01-architecture/functionals.md).
+A generic widget or layout in `app/src/functionals/` with non-trivial logic and several independent consumers, and no business contract. Examples: `table`, `filters`, `page`, `stat-card`, `cel-editor`, `route-tabs`. Import it as `@/functionals/<name>`. See [functionals](./01-architecture/functionals.md).
 
 ### Shared component
 

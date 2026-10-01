@@ -36,7 +36,7 @@ Only `use-dashboard-metrics.ts` in `hooks/` is a React hook. The other files are
 - Each chart is wrapped in `ChartShell` (`@/components/ui/chart-shell`, re-exported by `app/src/features/dashboard/components/charts/chart-shell.tsx`) and renders `ChartEmptyState` (`@/components/chart-empty-state`) when its series is empty.
 - The Recharts charts use `ChartContainer`, `ChartTooltip` and `ChartTooltipContent` from `@/components/ui/chart`, and `ChartLegend` and `ChartLegendContent` when they show a legend. The entitlement saturation chart is an HTML grid, not a Recharts chart.
 - Series labels and colours come from `app/src/features/dashboard/utils/chart-configs.ts`, and the line strokes read them as `var(--color-<seriesKey>)`. Bar and slice fills are computed by the metric builders from the theme's `--chart-1` to `--chart-5` tokens, and from `TOKEN_STATE_FILLS` for the token states.
-- The six figures use `StatsCardsRow` ([stats cards](../../../docs/03-patterns/stats-cards.md)).
+- The six figures and the three insight cards under them use `StatCard` ([stats cards](../../../docs/03-patterns/stats-cards.md)).
 
 ## Data
 
