@@ -14,11 +14,18 @@ const createQueryClient = () => new QueryClient({
 		queries: {
 			retry: false,
 			staleTime: Number.POSITIVE_INFINITY,
-			// Stories have no backend. A seeded query whose own staleTime runs
-			// out (the metadata fields keep 30 s) must not refetch when the tab
-			// regains focus or the network comes back.
+			// Stories have no backend: a seeded query must stay cached and never
+			// refetch. Its own staleTime outlives the Infinity above (the
+			// metadata fields keep 30 s, the targeting context 5 min), after
+			// which focus, reconnect or a component that mounts later, such as a
+			// dialog opened by hand, would refetch it. A seeded query nothing
+			// reads yet would also be dropped after the default 5 min gcTime and
+			// load again on the next mount. A query nothing seeded still fetches
+			// on its first mount, so a missing seed still shows up as a request.
+			gcTime: Number.POSITIVE_INFINITY,
 			refetchOnWindowFocus: false,
 			refetchOnReconnect: false,
+			refetchOnMount: false,
 		},
 	},
 });
