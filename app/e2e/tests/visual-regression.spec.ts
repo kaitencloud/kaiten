@@ -203,3 +203,35 @@ test.describe('Visual regression — StatCard', () => {
     await expect(page).toHaveScreenshot('stat-card-two-values.png');
   });
 });
+
+test.describe('Visual regression — Tabs', () => {
+  test.skip(skipLocally, 'VISUAL_TESTS=true required locally');
+
+  // Guards the trigger sizing: tabs hug their content instead of stretching
+  // across the list, which a primitive swap can silently change.
+  test('default renders compact triggers', async ({ page }) => {
+    await openStory(page, 'components-ui-tabs--default');
+    await expect(page.getByRole('tab', { name: 'Account' })).toBeVisible();
+    await expect(page).toHaveScreenshot('tabs-default.png');
+  });
+
+  test('line renders an underlined list', async ({ page }) => {
+    await openStory(page, 'components-ui-tabs--line');
+    await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible();
+    await expect(page).toHaveScreenshot('tabs-line.png');
+  });
+});
+
+test.describe('Visual regression — Select', () => {
+  test.skip(skipLocally, 'VISUAL_TESTS=true required locally');
+
+  // Guards the trigger sitting flush on its container: Base UI's Select appends
+  // a hidden input, which `space-y-*` would turn into a margin under the trigger.
+  test('stacked field keeps the trigger flush with the container', async ({
+    page,
+  }) => {
+    await openStory(page, 'components-ui-select--stacked-field');
+    await expect(page.getByRole('combobox')).toBeVisible();
+    await expect(page).toHaveScreenshot('select-stacked-field.png');
+  });
+});
