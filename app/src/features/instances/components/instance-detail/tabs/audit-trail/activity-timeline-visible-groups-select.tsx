@@ -8,13 +8,12 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getComboboxTriggerClassName } from '@/components/combobox';
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxPanel,
+  ComboboxSearch,
+} from '@/components/ui/combobox';
 import type { InstanceEntitlementGroupOption } from '../../../../utils/instance-detail-entitlements.utils';
 import { cn } from '@/lib/utils';
 
@@ -124,46 +123,52 @@ export function ActivityTimelineVisibleGroupsSelect({
         className={cn('popover-content-full-width p-0', className)}
         align="start"
       >
-        <Command shouldFilter={false}>
-          <CommandInput
+        <ComboboxPanel<InstanceEntitlementGroupOption>
+          items={filteredOptions}
+          value={null}
+          filter={null}
+          itemToStringLabel={(option) => option.label}
+          inputValue={searchQuery}
+          onInputValueChange={(nextSearchQuery, details) => {
+            if (details.reason === 'input-change') {
+              setSearchQuery(nextSearchQuery);
+            }
+          }}
+          onValueChange={(option) => {
+            if (option) {
+              onChange(toggleSelectedGroup(value, option.value));
+            }
+          }}
+        >
+          <ComboboxSearch
             autoFocus={isOpen}
-            value={searchQuery}
-            onValueChange={setSearchQuery}
             placeholder={t(
               'Pages.Customers.Instances.Detail.auditTrail.charts.activityTimeline.visibleGroupsSearchPlaceholder',
             )}
           />
-          <CommandList>
-            <CommandEmpty>
-              {t(
-                'Pages.Customers.Instances.Detail.auditTrail.charts.activityTimeline.visibleGroupsEmpty',
-              )}
-            </CommandEmpty>
-            <CommandGroup>
-              {filteredOptions.map((option) => {
-                const isSelected = value.includes(option.value);
+          <ComboboxEmpty>
+            {t(
+              'Pages.Customers.Instances.Detail.auditTrail.charts.activityTimeline.visibleGroupsEmpty',
+            )}
+          </ComboboxEmpty>
+          <ComboboxList className="p-1 empty:p-0">
+            {(option: InstanceEntitlementGroupOption) => {
+              const isSelected = value.includes(option.value);
 
-                return (
-                  <CommandItem
-                    key={option.value}
-                    value={option.value}
-                    onSelect={() =>
-                      onChange(toggleSelectedGroup(value, option.value))
-                    }
-                  >
-                    <Check
-                      className={cn(
-                        'mr-2 size-4',
-                        isSelected ? 'opacity-100' : 'opacity-0',
-                      )}
-                    />
-                    <span className="truncate">{option.label}</span>
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+              return (
+                <ComboboxItem key={option.value} value={option}>
+                  <Check
+                    className={cn(
+                      'mr-2 size-4',
+                      isSelected ? 'opacity-100' : 'opacity-0',
+                    )}
+                  />
+                  <span className="truncate">{option.label}</span>
+                </ComboboxItem>
+              );
+            }}
+          </ComboboxList>
+        </ComboboxPanel>
       </PopoverContent>
     </Popover>
   );

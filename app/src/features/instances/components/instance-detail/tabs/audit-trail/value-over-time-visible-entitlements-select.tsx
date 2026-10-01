@@ -9,13 +9,12 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getComboboxTriggerClassName } from '@/components/combobox';
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxPanel,
+  ComboboxSearch,
+} from '@/components/ui/combobox';
 import { cn } from '@/lib/utils';
 import type { AuditTrailEntitlementOption } from './audit-trail.utils';
 
@@ -115,11 +114,25 @@ export function ValueOverTimeVisibleEntitlementsSelect({
         }
       />
       <PopoverContent className="popover-content-full-width p-0" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput
+        <ComboboxPanel<AuditTrailEntitlementOption>
+          items={filteredOptions}
+          value={null}
+          filter={null}
+          itemToStringLabel={(option) => option.label}
+          inputValue={searchQuery}
+          onInputValueChange={(nextSearchQuery, details) => {
+            if (details.reason === 'input-change') {
+              setSearchQuery(nextSearchQuery);
+            }
+          }}
+          onValueChange={(option) => {
+            if (option) {
+              onChange(toggleSelectedEntitlement(value, option.slug));
+            }
+          }}
+        >
+          <ComboboxSearch
             autoFocus={isOpen}
-            value={searchQuery}
-            onValueChange={setSearchQuery}
             placeholder={t(
               'Pages.Customers.Instances.Detail.auditTrail.charts.valueOverTime.visibleEntitlementsSearchPlaceholder',
             )}
@@ -148,37 +161,29 @@ export function ValueOverTimeVisibleEntitlementsSelect({
               )}
             </Button>
           </div>
-          <CommandList>
-            <CommandEmpty>
-              {t(
-                'Pages.Customers.Instances.Detail.auditTrail.charts.valueOverTime.visibleEntitlementsEmpty',
-              )}
-            </CommandEmpty>
-            <CommandGroup>
-              {filteredOptions.map((option) => {
-                const isSelected = value.includes(option.slug);
+          <ComboboxEmpty>
+            {t(
+              'Pages.Customers.Instances.Detail.auditTrail.charts.valueOverTime.visibleEntitlementsEmpty',
+            )}
+          </ComboboxEmpty>
+          <ComboboxList className="p-1 empty:p-0">
+            {(option: AuditTrailEntitlementOption) => {
+              const isSelected = value.includes(option.slug);
 
-                return (
-                  <CommandItem
-                    key={option.slug}
-                    value={option.slug}
-                    onSelect={() =>
-                      onChange(toggleSelectedEntitlement(value, option.slug))
-                    }
-                  >
-                    <Check
-                      className={cn(
-                        'mr-2 size-4',
-                        isSelected ? 'opacity-100' : 'opacity-0',
-                      )}
-                    />
-                    <span className="truncate">{option.label}</span>
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+              return (
+                <ComboboxItem key={option.slug} value={option}>
+                  <Check
+                    className={cn(
+                      'mr-2 size-4',
+                      isSelected ? 'opacity-100' : 'opacity-0',
+                    )}
+                  />
+                  <span className="truncate">{option.label}</span>
+                </ComboboxItem>
+              );
+            }}
+          </ComboboxList>
+        </ComboboxPanel>
       </PopoverContent>
     </Popover>
   );

@@ -84,7 +84,7 @@ export class InstanceFormDriver {
   async chooseCustomer(customerName: string) {
     await this.customerField().click();
     await this.page
-      .locator('[data-slot="command-item"]')
+      .locator('[data-slot="combobox-item"]')
       .filter({ hasText: customerName })
       .first()
       .click();
@@ -93,7 +93,7 @@ export class InstanceFormDriver {
   async chooseDeploymentZone(zoneLabel: string) {
     await this.deploymentZoneField().click();
     await this.page
-      .locator('[data-slot="command-item"]')
+      .locator('[data-slot="combobox-item"]')
       .filter({ hasText: zoneLabel })
       .first()
       .click();
@@ -111,7 +111,7 @@ export class InstanceFormDriver {
   async chooseLifecycleStage(stageLabel: string) {
     await this.lifecycleStageField().click();
     await this.page
-      .locator('[data-slot="command-item"]')
+      .locator('[data-slot="combobox-item"]')
       .filter({ hasText: stageLabel })
       .first()
       .click();

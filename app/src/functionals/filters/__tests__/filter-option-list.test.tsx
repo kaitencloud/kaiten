@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeAll, describe, expect, it, vi } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { FilterOptionList } from '../components/shared/filter-option-list';
 import { FILTER_MULTI_SELECT_SEPARATOR } from '../constants';
 import type { FilterFieldDefinition } from '../types/filter.types';
@@ -56,11 +56,6 @@ function renderList(
 
   return { onChosen, onValueChange };
 }
-
-// cmdk scrolls the active item into view, which jsdom does not implement.
-beforeAll(() => {
-  Element.prototype.scrollIntoView = vi.fn();
-});
 
 describe('FilterOptionList', () => {
   it('opens straight onto the options, with no search box unless the field asks for one', () => {

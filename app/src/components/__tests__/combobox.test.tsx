@@ -8,11 +8,6 @@ const customerOptions = [
   { id: 'customer-2', name: 'Globex' },
 ];
 
-Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
-  configurable: true,
-  value: () => undefined,
-});
-
 describe('Combobox', () => {
   it('filters options by their visible label', async () => {
     const user = userEvent.setup();

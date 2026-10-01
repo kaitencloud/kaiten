@@ -44,7 +44,7 @@ Three inputs sit at the top of `app/src/components/`, outside `ui/`: they compos
 
 | Component | What it is | Story |
 | --- | --- | --- |
-| `Combobox` (`combobox.tsx`) | A searchable single choice on `Popover` and `Command`. `allowCustomValue` lets the user commit a typed value, `clearable` adds a clear action. | [combobox](../../src/components/stories/combobox.stories.tsx) |
+| `Combobox` (`combobox.tsx`) | A searchable single choice on `Popover` and `ComboboxPanel`. `allowCustomValue` lets the user commit a typed value, `clearable` adds a clear action. | [combobox](../../src/components/stories/combobox.stories.tsx) |
 | `DatePicker` (`date-picker.tsx`) | A date chosen from a `Calendar` in a popover. | [date-picker](../../src/components/stories/date-picker.stories.tsx) |
 | `DateRangePicker` (`date-range-picker.tsx`) | A range of dates from a `Calendar`. | [date-range-picker](../../src/components/stories/date-range-picker.stories.tsx) |
 

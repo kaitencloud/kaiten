@@ -10,13 +10,13 @@ import { useTranslation } from 'react-i18next';
 import { useModal } from '@/hooks/use-modal';
 import { cn } from '@/lib/utils';
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from './ui/command';
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxPanel,
+  ComboboxSearch,
+  useComboboxFilter,
+} from './ui/combobox';
 
 export type ComboboxProps<TOption = unknown> = {
   disabled?: boolean;
@@ -63,6 +63,16 @@ export const getComboboxTriggerClassName = ({
       'h-auto min-h-9 flex-wrap justify-start whitespace-normal px-3 py-1.5 text-left',
   );
 
+/**
+ * What the list offers: the options, plus the "none" entry of a clearable field and the entry that
+ * commits what was typed.
+ */
+type ComboboxEntry = {
+  kind: 'option' | 'clear' | 'create';
+  value: string;
+  label: string;
+};
+
 export const Combobox = <TOption,>({
   disabled = false,
   placeholder,
@@ -103,6 +113,58 @@ export const Combobox = <TOption,>({
     trimmedSearch !== '' &&
     !options.some((option) => getOptionValue(option) === trimmedSearch);
 
+  const { contains } = useComboboxFilter();
+  const entries: ComboboxEntry[] = [
+    ...(showClearOption
+      ? [
+          {
+            kind: 'clear' as const,
+            value: '__clear__',
+            label: clearLabel ?? t('Common.none', 'None'),
+          },
+        ]
+      : []),
+    ...options.map((option) => ({
+      kind: 'option' as const,
+      value: getOptionValue(option),
+      label: getOptionLabel(option),
+    })),
+    ...(showCreateOption
+      ? [
+          {
+            kind: 'create' as const,
+            value: trimmedSearch,
+            label: t('Common.useValue', { value: trimmedSearch }),
+          },
+        ]
+      : []),
+  ];
+
+  const handleEntrySelect = (entry: ComboboxEntry | null) => {
+    if (entry) {
+      handleSelect(entry.kind === 'clear' ? '' : entry.value);
+    }
+  };
+
+  const renderEntryIcon = (entry: ComboboxEntry) => {
+    if (entry.kind === 'clear') {
+      return <X className="mr-2 h-4 w-4" />;
+    }
+
+    if (entry.kind === 'create') {
+      return <Plus className="mr-2 h-4 w-4" />;
+    }
+
+    return (
+      <Check
+        className={cn(
+          'mr-2 h-4 w-4',
+          entry.value === value ? 'opacity-100' : 'opacity-0',
+        )}
+      />
+    );
+  };
+
   const handleOpenChange = (nextOpen: boolean) => {
     if (disabled) {
       close();
@@ -136,60 +198,32 @@ export const Combobox = <TOption,>({
         }
       />
       <PopoverContent className="p-0 popover-content-full-width" align="start">
-        <Command>
-          <CommandInput
-            placeholder={searchPlaceholder}
-            value={search}
-            onValueChange={setSearch}
-          />
-          <CommandEmpty>{t('Common.noResults')}</CommandEmpty>
-          <CommandGroup>
-            <CommandList>
-              {showClearOption && (
-                <CommandItem
-                  key="__clear__"
-                  value="__clear__"
-                  keywords={[clearLabel ?? t('Common.none', 'None')]}
-                  onSelect={() => handleSelect('')}
-                >
-                  <X className="mr-2 h-4 w-4" />
-                  {clearLabel ?? t('Common.none', 'None')}
-                </CommandItem>
-              )}
-              {options.map((option) => {
-                const optionLabel = getOptionLabel(option);
-                const optionValue = getOptionValue(option);
-
-                return (
-                  <CommandItem
-                    key={optionValue}
-                    value={optionValue}
-                    keywords={[optionLabel]}
-                    onSelect={handleSelect}
-                  >
-                    <Check
-                      className={cn(
-                        'mr-2 h-4 w-4',
-                        optionValue === value ? 'opacity-100' : 'opacity-0',
-                      )}
-                    />
-                    {optionLabel}
-                  </CommandItem>
-                );
-              })}
-              {showCreateOption && (
-                <CommandItem
-                  key={`__create__${trimmedSearch}`}
-                  value={trimmedSearch}
-                  onSelect={() => handleSelect(trimmedSearch)}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  {t('Common.useValue', { value: trimmedSearch })}
-                </CommandItem>
-              )}
-            </CommandList>
-          </CommandGroup>
-        </Command>
+        <ComboboxPanel<ComboboxEntry>
+          items={entries}
+          value={null}
+          filter={(entry, query, itemToString) =>
+            entry.kind === 'create' || contains(entry, query, itemToString)
+          }
+          itemToStringLabel={(entry) => entry.label}
+          inputValue={search}
+          onInputValueChange={(nextSearch, details) => {
+            if (details.reason === 'input-change') {
+              setSearch(nextSearch);
+            }
+          }}
+          onValueChange={handleEntrySelect}
+        >
+          <ComboboxSearch placeholder={searchPlaceholder} />
+          <ComboboxEmpty>{t('Common.noResults')}</ComboboxEmpty>
+          <ComboboxList className="p-1 empty:p-0">
+            {(entry: ComboboxEntry) => (
+              <ComboboxItem key={`${entry.kind}:${entry.value}`} value={entry}>
+                {renderEntryIcon(entry)}
+                {entry.label}
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+        </ComboboxPanel>
       </PopoverContent>
     </Popover>
   );
