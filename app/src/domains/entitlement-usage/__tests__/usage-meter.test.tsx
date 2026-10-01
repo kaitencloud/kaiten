@@ -7,17 +7,17 @@ const segment = (container: HTMLElement, name: string) =>
 const percent = (value: string | undefined) => Number.parseFloat(value ?? '');
 
 describe('UsageMeter', () => {
-  it('ends the track at a hard limit and marks the grant there', () => {
+  it('ends the track at a hard limit, with no tick for the grant', () => {
     const { container } = render(<UsageMeter threshold={250} value={250} />);
 
     expect(container.firstElementChild).toHaveAttribute(
       'data-status',
-      'NEAR_LIMIT',
+      'AT_LIMIT',
     );
     expect(segment(container, 'band')).toBeNull();
     expect(percent(segment(container, 'contract')?.style.width)).toBe(100);
-    expect(segment(container, 'contract')).toHaveClass('bg-warning');
-    expect(segment(container, 'grant')?.style.left).toBe('calc(100% - 0.5px)');
+    expect(segment(container, 'contract')).toHaveClass('bg-destructive');
+    expect(segment(container, 'grant')).toBeNull();
   });
 
   it('draws the tolerated overage after the grant, even while unused', () => {
@@ -37,6 +37,7 @@ describe('UsageMeter', () => {
       83.33,
       1,
     );
+    expect(segment(container, 'grant')?.style.left).toMatch(/^calc\(83\.33/);
     expect(percent(segment(container, 'contract')?.style.width)).toBeCloseTo(
       33.33,
       1,
@@ -116,6 +117,21 @@ describe('UsageMeter', () => {
       'data-status',
       'OVER_LIMIT',
     );
+    expect(percent(segment(container, 'contract')?.style.width)).toBe(100);
+  });
+
+  it('draws no allowance on a grant of nothing, whatever its percentage', () => {
+    const { container } = render(
+      <UsageMeter limitCapExceededOveragePercent={20} threshold={0} value={1} />,
+    );
+
+    expect(container.firstElementChild).toHaveAttribute(
+      'data-status',
+      'OVER_LIMIT',
+    );
+    expect(segment(container, 'band')).toBeNull();
+    expect(segment(container, 'grant')).toBeNull();
+    expect(segment(container, 'allowance')).toBeNull();
     expect(percent(segment(container, 'contract')?.style.width)).toBe(100);
   });
 });

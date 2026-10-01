@@ -565,9 +565,12 @@ export default {
             licenseExpires: 'Expiration licence',
             instanceStatus: "Statut de l'instance",
             entitlements: 'Droits',
+            entitlementsUnderLimit: 'sous leur limite',
             licenseType: 'Type de licence',
             usageAlerts: "Alertes d'utilisation",
             nearLimit: 'proches de la limite',
+            limitReached_one: 'limite atteinte',
+            limitReached_other: 'limites atteintes',
             nearLimitCurrentPeriod_one:
               '{{count}} se réinitialise avec sa fenêtre en cours',
             nearLimitCurrentPeriod_other:
@@ -650,15 +653,6 @@ export default {
               allGroups: 'Tous les groupes',
               clear: 'Effacer le filtre',
               groupLabel: 'Filtrer les droits par groupe',
-            },
-            stats: {
-              total: 'Total des droits',
-              enabled: 'Activés',
-              nearThreshold: 'Proche du seuil',
-              nearThresholdCurrentPeriod_one:
-                '{{count}} se réinitialise avec sa fenêtre en cours',
-              nearThresholdCurrentPeriod_other:
-                '{{count}} se réinitialisent avec leur fenêtre en cours',
             },
             usage: {
               title: "Vue d'ensemble de l'utilisation",
@@ -3151,6 +3145,7 @@ export default {
         watch: 'À surveiller',
         nearLimit: 'Proche de la limite',
         inAllowance: 'Dépassement toléré',
+        atLimit: 'Limite atteinte',
         overLimit: 'Au-delà de la limite',
         unlimited: 'Illimité',
       },

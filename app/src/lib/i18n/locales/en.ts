@@ -552,9 +552,12 @@ export default {
             licenseExpires: 'License Expires',
             instanceStatus: 'Instance Status',
             entitlements: 'Entitlements',
+            entitlementsUnderLimit: 'under their limit',
             licenseType: 'License Type',
             usageAlerts: 'Usage Alerts',
             nearLimit: 'near limit',
+            limitReached_one: 'limit reached',
+            limitReached_other: 'limits reached',
             nearLimitCurrentPeriod_one:
               '{{count}} resets with its current usage window',
             nearLimitCurrentPeriod_other:
@@ -636,15 +639,6 @@ export default {
               allGroups: 'All groups',
               clear: 'Clear filter',
               groupLabel: 'Filter entitlements by group',
-            },
-            stats: {
-              total: 'Total Entitlements',
-              enabled: 'Enabled',
-              nearThreshold: 'Near Threshold',
-              nearThresholdCurrentPeriod_one:
-                '{{count}} resets with its current usage window',
-              nearThresholdCurrentPeriod_other:
-                '{{count}} reset with their current usage window',
             },
             usage: {
               title: 'Usage Overview',
@@ -3088,6 +3082,7 @@ export default {
         watch: 'Watch',
         nearLimit: 'Near limit',
         inAllowance: 'In allowance',
+        atLimit: 'Limit reached',
         overLimit: 'Over limit',
         unlimited: 'Unlimited',
       },

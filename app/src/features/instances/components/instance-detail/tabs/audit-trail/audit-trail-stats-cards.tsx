@@ -35,7 +35,7 @@ export const AuditTrailStatsCards = ({
   const todayCount = entries.filter((e) => isToday(e.timestamp)).length;
 
   return (
-    <StatCard.Row columnsClassName="md:grid-cols-3 xl:grid-cols-6">
+    <StatCard.Row dense columnsClassName="md:grid-cols-3 xl:grid-cols-6">
       <StatCard>
         <StatCard.Label>
           {t('Pages.Customers.Instances.Detail.auditTrail.stats.totalEvents')}

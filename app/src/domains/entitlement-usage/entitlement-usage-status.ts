@@ -5,6 +5,7 @@ export type UsageStatus =
   | 'WATCH'
   | 'NEAR_LIMIT'
   | 'IN_ALLOWANCE'
+  | 'AT_LIMIT'
   | 'OVER_LIMIT'
   | 'UNBOUNDED';
 
@@ -35,6 +36,11 @@ export const getUsageStatus = (
   if (ratio > 1) {
     return 'OVER_LIMIT';
   }
+  // On the ceiling itself the grant is spent: the next report is refused,
+  // whether the wall is the grant or the end of its allowance.
+  if (ratio === 1) {
+    return 'AT_LIMIT';
+  }
   if (
     threshold !== null &&
     threshold !== undefined &&
@@ -53,10 +59,11 @@ export const getUsageStatus = (
   return 'HEALTHY';
 };
 
-/** The states that call for a look: at the wall, past the grant, or past the wall. */
+/** The states that call for a look: near the wall, past the grant, on the wall or past it. */
 export const isUsageAtRisk = (status: UsageStatus): boolean =>
   status === 'NEAR_LIMIT' ||
   status === 'IN_ALLOWANCE' ||
+  status === 'AT_LIMIT' ||
   status === 'OVER_LIMIT';
 
 /**
@@ -68,6 +75,8 @@ export const getUsageStatusTone = (
   status: UsageStatus,
 ): { fill: string; text: string } => {
   switch (status) {
+    // Red from the wall on: a spent grant blocks as surely as a breached one.
+    case 'AT_LIMIT':
     case 'OVER_LIMIT':
       return {
         fill: 'bg-destructive',
