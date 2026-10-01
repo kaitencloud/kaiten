@@ -4,9 +4,12 @@ import { useState } from 'react';
 import {
   getLicensesOptions,
   listCustomersOptions,
+  listDeploymentZonesOptions,
 } from '@/api-client/@tanstack/react-query.gen';
+import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
 import {
   storyCustomers,
+  storyDeploymentZones,
   storyLicenses,
 } from '@/test-fixtures/p0-storybook-fixtures';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
@@ -21,6 +24,15 @@ const seedInstanceFormQueries = (queryClient: QueryClient) => {
     hasMore: false,
     items: storyLicenses,
   });
+  queryClient.setQueryData(listDeploymentZonesOptions().queryKey, {
+    hasMore: false,
+    items: storyDeploymentZones,
+  });
+  // No instance metadata field declared: the form keeps its three steps.
+  queryClient.setQueryData(
+    metadataFieldsActiveQueryOptions('INSTANCE').queryKey,
+    [],
+  );
 };
 
 const meta = {

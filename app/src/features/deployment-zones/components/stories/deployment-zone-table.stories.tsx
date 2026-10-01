@@ -1,20 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
-import { useQueryClient } from '@tanstack/react-query';
-import {
-  createMemoryHistory,
-  createRootRoute,
-  createRouter,
-  RouterProvider,
-} from '@tanstack/react-router';
-import { type FC, useState } from 'react';
-import { I18nextProvider } from 'react-i18next';
+import type { QueryClient } from '@tanstack/react-query';
+import type { FC } from 'react';
 import type { DeploymentZone, Release } from '@/api-client';
+import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
 import type {
   DeploymentZoneRelations,
   ReleaseManagementOverviewRelease,
 } from '@/domains/release-management';
-import i18n from '@/lib/i18n/config';
+import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import {
   findVisibleByRole,
   findVisibleByText,
@@ -93,6 +87,15 @@ const mockDeploymentZones: DeploymentZone[] = [
   },
 ];
 
+// No metadata field declared: the table keeps its raw-JSON metadata column,
+// the one InteractiveFeaturesDialog opens.
+const seedDeploymentZoneTableQueries = (queryClient: QueryClient) => {
+  queryClient.setQueryData(
+    metadataFieldsActiveQueryOptions('DEPLOYMENT_ZONE').queryKey,
+    [],
+  );
+};
+
 // --- Router Wrapper (needed for TableActions with useRouteContext) ---
 
 function TableWrapper({
@@ -102,7 +105,6 @@ function TableWrapper({
   deploymentZones: DeploymentZone[];
   releases: Release[];
 }) {
-  const queryClient = useQueryClient();
   const releaseById = new Map<string, ReleaseManagementOverviewRelease>(
     releases.map((release) => [
       release.id,
@@ -139,36 +141,20 @@ function TableWrapper({
     ]),
   );
 
-  const rootRoute = createRootRoute({
-    component: () => (
-      <I18nextProvider i18n={i18n}>
-        <div className="p-6">
-          <DeploymentZoneTable
-            deploymentZones={deploymentZones}
-            releaseById={releaseById}
-            releases={releases}
-            relationsByZoneId={relationsByZoneId}
-            onEdit={() => {}}
-            onDeploy={() => {}}
-          />
-        </div>
-      </I18nextProvider>
-    ),
-  });
-
-  const [history] = useState(() =>
-    createMemoryHistory({ initialEntries: ['/'] }),
+  return (
+    <StorybookRouter seed={seedDeploymentZoneTableQueries}>
+      <div className="p-6">
+        <DeploymentZoneTable
+          deploymentZones={deploymentZones}
+          releaseById={releaseById}
+          releases={releases}
+          relationsByZoneId={relationsByZoneId}
+          onEdit={() => {}}
+          onDeploy={() => {}}
+        />
+      </div>
+    </StorybookRouter>
   );
-
-  const [router] = useState(() =>
-    createRouter({
-      routeTree: rootRoute,
-      history,
-      context: { queryClient },
-    }),
-  );
-
-  return <RouterProvider router={router} />;
 }
 
 // --- Meta ---
