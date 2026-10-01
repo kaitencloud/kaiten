@@ -11,17 +11,17 @@ import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
 import { playwright } from 'vite-plus/test/browser-playwright';
 import { visualizer } from 'rollup-plugin-visualizer';
 
-// Radix UI and Base UI are private to `src/components/ui`: every other file
-// consumes the wrappers that live there, so a primitive can be swapped or
-// restyled in one place. `pnpm run lint` and CI run from inside app/, which
-// makes this the config that applies; keep it in step with the same rule in
-// the root vite.config.ts, which `vp check` and a bare `vp lint` use.
+// Base UI is private to `src/components/ui`: every other file consumes the
+// wrappers that live there, so a primitive can be swapped or restyled in one
+// place. `pnpm run lint` and CI run from inside app/, which makes this the
+// config that applies; keep it in step with the same rule in the root
+// vite.config.ts, which `vp check` and a bare `vp lint` use.
 const headlessUiImports = {
   patterns: [
     {
-      group: ['radix-ui', 'radix-ui/**', '@radix-ui/**', '@base-ui/**'],
+      group: ['@base-ui/**'],
       message:
-        'Only src/components/ui may import Radix UI or Base UI. Use the wrapper from @/components/ui instead, or add one there.',
+        'Only src/components/ui may import Base UI. Use the wrapper from @/components/ui instead, or add one there.',
     },
   ],
 };

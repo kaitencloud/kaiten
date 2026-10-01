@@ -4,7 +4,7 @@
 
 Most files follow the shadcn/ui shape (`components.json` at `app/`, style `base-vega`): each part of a component is a separate named export (`Card`, `CardHeader`, `CardContent`), and the shadcn CLI adds and updates them. Class names merge with `cn` from `@/lib/utils`. Variants are `cva` variants, exported next to the component (`buttonVariants`, `badgeVariants`, `toggleVariants`). The shared stylesheet imports `shadcn/tailwind.css` for the state and orientation variants and accordion animations.
 
-This folder is the only place that imports `radix-ui`, `@radix-ui/*` or `@base-ui/*`. `pnpm run lint` refuses those imports in the rest of `src`, except in tests and stories, which lint does not scan; the folder itself is not linted either. To use a primitive that has no wrapper yet, add one here: see [import rules](../AI_CONTEXT.md#import-rules). `pnpm run check:file-sizes` does not apply to this folder.
+This folder is the only place that imports `@base-ui/*`. `pnpm run lint` refuses that import in the rest of `src`, except in tests and stories, which lint does not scan; the folder itself is not linted either. To use a primitive that has no wrapper yet, add one here: see [import rules](../AI_CONTEXT.md#import-rules). `pnpm run check:file-sizes` does not apply to this folder.
 
 Paths of the stories are `app/src/components/ui/stories/<name>.stories.tsx`.
 

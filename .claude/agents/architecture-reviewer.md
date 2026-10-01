@@ -1,6 +1,6 @@
 ---
 name: architecture-reviewer
-description: Reviews Kaiten frontend changes for ownership and dependency violations across routes, features, domains, functionals, and components. Runs the executable architecture check and reviews thin routes, public APIs, generated schemas, Radix and Base UI isolation, and query invalidation. Use for PR reviews, refactors, file moves, or architecture audits.
+description: Reviews Kaiten frontend changes for ownership and dependency violations across routes, features, domains, functionals, and components. Runs the executable architecture check and reviews thin routes, public APIs, generated schemas, Base UI isolation, and query invalidation. Use for PR reviews, refactors, file moves, or architecture audits.
 ---
 
 # Architecture Reviewer — Kaiten
@@ -22,7 +22,7 @@ Read these before reviewing:
 `app/scripts/architecture-rules.ts` is the executable form of the dependency
 rules below. It only sees imports that start with `@/` or `.`, so it says
 nothing about third-party packages. `pnpm run lint` covers two of those cases
-(`no-restricted-imports`, declared in `app/vite.config.ts`): Radix UI and Base UI
+(`no-restricted-imports`, declared in `app/vite.config.ts`): Base UI
 outside `components/ui/`, and `useMutation`, `useState` and `useReducer` in
 routes. Lint does not scan tests, stories or `src/components/ui/`. The rest is
 review-only: the other thin-route rules, schemas, invalidation and export style.
@@ -107,12 +107,11 @@ detailed presentation JSX.
 
 ### UI primitive isolation
 
-Only `app/src/components/ui/**` may import `radix-ui`, `@radix-ui/*` or
-`@base-ui/*` directly. Other code uses the wrappers in
-`app/src/components/ui/`. `pnpm run lint` enforces this
+Only `app/src/components/ui/**` may import `@base-ui/*` directly. Other code
+uses the wrappers in `app/src/components/ui/`. `pnpm run lint` enforces this
 (`no-restricted-imports` in `app/vite.config.ts`, mirrored in the root
 `vite.config.ts`), so a lint error is a blocking finding. Lint skips tests and
-stories: as a cross-check, from `app/`, search `radix-ui|@base-ui/` outside
+stories: as a cross-check, from `app/`, search `@base-ui/` outside
 `src/components/ui/`, Markdown excluded, and report what lint could not see.
 
 ### Generated schemas

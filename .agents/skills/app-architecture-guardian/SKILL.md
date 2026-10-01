@@ -12,7 +12,7 @@ require engineering judgment.
 `app/scripts/architecture-rules.ts` is the executable form of the dependency
 rules. It only sees imports that start with `@/` or `.`, so it says nothing
 about third-party packages. `pnpm run lint` covers two of those cases
-(`no-restricted-imports`, declared in `app/vite.config.ts`): Radix UI and Base UI
+(`no-restricted-imports`, declared in `app/vite.config.ts`): Base UI
 outside `components/ui/`, and `useMutation`, `useState` and `useReducer` in
 routes. Lint does not scan tests, stories or `src/components/ui/`. The rest of
 the thin-route rule, generated schemas, query invalidation and export style are
@@ -61,9 +61,8 @@ review-only, listed in step 8.
      `variants`) are not cross-feature APIs.
 8. Check adjacent architecture conventions (the script does not see them; lint
    covers the first two in part):
-   - only `components/ui/**` imports `radix-ui`, `@radix-ui/*` or `@base-ui/*`
-     directly: lint enforces it, and the `rg` below is a cross-check for the
-     tests and stories lint skips;
+   - only `components/ui/**` imports `@base-ui/*` directly: lint enforces it,
+     and the `rg` below is a cross-check for the tests and stories lint skips;
    - routes contain no mutation, form or substantial presentation logic: lint
      refuses the `useMutation`, `useState` and `useReducer` imports (only
      `useMutation` under `routes/-components/`, the app shell), the rest is
@@ -97,7 +96,7 @@ feature READMEs quote import lines that the rules would forbid.
 cd app
 pnpm run check:architecture
 pnpm run lint
-rg -n "from ['\"](radix-ui|@radix-ui/|@base-ui/)" src --glob '!src/components/ui/**' --glob '!*.md'
+rg -n "from ['\"]@base-ui/" src --glob '!src/components/ui/**' --glob '!*.md'
 rg -n 'useMutation|useState|useEffect|<form|toast\.' src/routes --glob '!*.md'
 rg -n "from ['\"]@/features/" src/features src/domains src/functionals src/components --glob '!*.md'
 rg -n "from ['\"]@/functionals/[^/'\"]+/" src --glob '!*.md'

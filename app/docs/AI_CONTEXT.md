@@ -32,7 +32,7 @@ Where new code goes:
 
 ## Import rules
 
-`pnpm run check:architecture` enforces the dependency direction in the table above. It is `app/scripts/architecture-rules.ts`, run by `app/scripts/check-architecture.ts`. It reads every TypeScript and JavaScript source file under `app/src` (`.d.ts` files excluded), tests and stories included, and follows `import`, `import type`, `export ... from` and dynamic `import()`, so a type-only import counts like any other. It resolves `@/` and relative specifiers only: npm packages are invisible to it, which is why the restriction on Radix UI and Base UI lives in lint.
+`pnpm run check:architecture` enforces the dependency direction in the table above. It is `app/scripts/architecture-rules.ts`, run by `app/scripts/check-architecture.ts`. It reads every TypeScript and JavaScript source file under `app/src` (`.d.ts` files excluded), tests and stories included, and follows `import`, `import type`, `export ... from` and dynamic `import()`, so a type-only import counts like any other. It resolves `@/` and relative specifiers only: npm packages are invisible to it, which is why the restriction on Base UI lives in lint.
 
 Errors fail the command. Warnings are printed and do not; the code has none today, so treat a new one as a mistake.
 
@@ -62,7 +62,7 @@ The public entry points that follow from these rules:
 
 | Rule | Where | Forbids |
 | --- | --- | --- |
-| `no-restricted-imports` | `src` and `e2e`, except `src/components/ui/` | importing `radix-ui`, `radix-ui/**`, `@radix-ui/**` or `@base-ui/**`. Every other file uses the wrappers of `@/components/ui/`, or adds one there. |
+| `no-restricted-imports` | `src` and `e2e`, except `src/components/ui/` | importing `@base-ui/**`. Every other file uses the wrappers of `@/components/ui/`, or adds one there. |
 | `no-restricted-imports` | `src/routes/**` | importing `useMutation` from `@tanstack/react-query`, or `useState` or `useReducer` from `react`. Under `src/routes/-components/` only `useMutation` is refused: the app shell keeps local state. |
 | `unicorn/filename-case` | `src` and `e2e` | file names that are not kebab-case. A leading `_` (`__root.tsx`) and `$param` route files are accepted; directory names are not checked. |
 

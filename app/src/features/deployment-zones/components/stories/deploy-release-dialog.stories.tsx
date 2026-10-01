@@ -256,10 +256,8 @@ export const InteractiveChangeRelease: Story = {
     );
 
     await expect(select).toHaveTextContent(/v1\.1\.0/);
-    // Opening the Radix Select marks the parent dialog `aria-hidden`; its
-    // accessibility is restored asynchronously once the listbox closes, so
-    // wait for the Deploy button to become reachable again instead of
-    // querying synchronously.
+    // Wait for the Deploy button to be reachable again once the listbox has
+    // closed instead of querying synchronously.
     const deployButton = await findVisibleByRole(dialog, 'button', {
       name: 'Deploy',
     });
