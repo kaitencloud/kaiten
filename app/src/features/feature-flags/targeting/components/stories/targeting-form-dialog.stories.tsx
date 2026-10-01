@@ -280,9 +280,11 @@ export const EditBasicTargeting: StoryObj<typeof TargetingFormDialog> = {
     await expect(
       dialogScope.queryByRole('combobox', { name: /Targeting Type/i }),
     ).toBeNull();
-    await expect(
-      await dialogScope.findByRole('textbox', { name: /Name \*/ }),
-    ).toHaveValue('Enterprise Customers');
+    // The required mark sits beside the label, hidden from assistive
+    // technology: the field is named "Name" and carries aria-required.
+    const nameField = await dialogScope.findByRole('textbox', { name: 'Name' });
+    await expect(nameField).toHaveValue('Enterprise Customers');
+    await expect(nameField).toBeRequired();
   },
 };
 
