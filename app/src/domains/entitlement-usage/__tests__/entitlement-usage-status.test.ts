@@ -10,9 +10,10 @@ describe('getUsageStatus', () => {
     expect(getUsageStatus(10, 100)).toBe('HEALTHY');
     expect(getUsageStatus(50, 100)).toBe('WATCH');
     expect(getUsageStatus(80, 100)).toBe('NEAR_LIMIT');
+    expect(getUsageStatus(99, 100)).toBe('NEAR_LIMIT');
     // The API accepts a report that lands exactly on the ceiling and rejects
-    // the next one, so that is where over-limit starts.
-    expect(getUsageStatus(100, 100)).toBe('NEAR_LIMIT');
+    // the next one: the grant is spent there, and breached past it.
+    expect(getUsageStatus(100, 100)).toBe('AT_LIMIT');
     expect(getUsageStatus(101, 100)).toBe('OVER_LIMIT');
   });
 
@@ -29,8 +30,9 @@ describe('getUsageStatus', () => {
 
   it('names usage past the grant but under the wall an allowance, whatever the saturation', () => {
     expect(getUsageStatus(101, 100, 25)).toBe('IN_ALLOWANCE');
-    // The wall itself is still accepted.
-    expect(getUsageStatus(125, 100, 25)).toBe('IN_ALLOWANCE');
+    expect(getUsageStatus(124, 100, 25)).toBe('IN_ALLOWANCE');
+    // The wall itself is still accepted, and spends the allowance.
+    expect(getUsageStatus(125, 100, 25)).toBe('AT_LIMIT');
     expect(getUsageStatus(126, 100, 25)).toBe('OVER_LIMIT');
     // A wide allowance can leave the saturation in the watch band; the grant
     // is spent all the same.
@@ -46,7 +48,8 @@ describe('getUsageStatus', () => {
   });
 
   it('reports any usage on a grant of nothing as over its limit', () => {
-    expect(getUsageStatus(0, 0)).toBe('NEAR_LIMIT');
+    // Spent before the first report: there was nothing to spend.
+    expect(getUsageStatus(0, 0)).toBe('AT_LIMIT');
     expect(getUsageStatus(1, 0)).toBe('OVER_LIMIT');
     expect(getUsageStatus(1, 0, 20)).toBe('OVER_LIMIT');
   });
@@ -56,6 +59,7 @@ describe('isUsageAtRisk', () => {
   it('flags the states that call for a look', () => {
     expect(isUsageAtRisk('NEAR_LIMIT')).toBe(true);
     expect(isUsageAtRisk('IN_ALLOWANCE')).toBe(true);
+    expect(isUsageAtRisk('AT_LIMIT')).toBe(true);
     expect(isUsageAtRisk('OVER_LIMIT')).toBe(true);
     expect(isUsageAtRisk('WATCH')).toBe(false);
     expect(isUsageAtRisk('HEALTHY')).toBe(false);
@@ -69,6 +73,9 @@ describe('getUsageStatusTone', () => {
       fill: 'bg-destructive',
       text: 'text-destructive-subtle-foreground',
     });
+    expect(getUsageStatusTone('AT_LIMIT')).toEqual(
+      getUsageStatusTone('OVER_LIMIT'),
+    );
     expect(getUsageStatusTone('IN_ALLOWANCE').fill).toBe('bg-warning');
     expect(getUsageStatusTone('NEAR_LIMIT').fill).toBe('bg-warning');
     expect(getUsageStatusTone('WATCH').fill).toBe('bg-success');

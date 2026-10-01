@@ -1,8 +1,5 @@
 import { cn } from '@/lib/utils';
-import {
-  getMaximumAllowedUsage,
-  isSoftLimit,
-} from '../entitlement-enforcement';
+import { getMaximumAllowedUsage } from '../entitlement-enforcement';
 import {
   getUsageStatus,
   getUsageStatusTone,
@@ -34,11 +31,13 @@ const share = (part: number, whole: number) =>
 
 /**
  * A usage counter against its grant, the way the grant enforces it. The track
- * runs from nothing to the most the API accepts. A tick marks the granted
- * value; on a hard limit that is the end of the track, on a soft limit the
- * hatched band after it is the overage the grant tolerates. Usage past the
- * grant fills that band in the alert colour, and usage past the wall — a
- * threshold lowered after the fact — turns the whole fill red.
+ * runs from nothing to the most the API accepts. When the grant tolerates an
+ * overage, a tick marks the granted value and the hatched band after it is
+ * that overage. When it tolerates none, as on a hard limit or on a soft one
+ * over a grant of nothing (any share of zero is zero), the granted value is
+ * the end of the track and needs no mark of its own. Usage past the grant
+ * fills the band in the alert colour; once it reaches the wall, or passes it
+ * after a threshold was lowered, the whole fill turns red.
  *
  * Renders nothing when nothing caps the counter: with no wall there is
  * nothing to measure against, and a half-full bar would be a lie. The figures
@@ -65,8 +64,9 @@ export function UsageMeter({
     threshold,
     limitCapExceededOveragePercent,
   );
-  const soft = isSoftLimit(threshold, limitCapExceededOveragePercent);
-  const grant = soft ? share(threshold ?? 0, ceiling) : 100;
+  // Room past the grant, which isSoftLimit alone misses on a grant of nothing.
+  const hasAllowance = ceiling > (threshold ?? 0);
+  const grant = hasAllowance ? share(threshold ?? 0, ceiling) : 100;
   const used = share(value, ceiling);
   const contract = Math.min(used, grant);
   const allowance = Math.max(0, used - grant);
@@ -86,7 +86,7 @@ export function UsageMeter({
           TRACK_HEIGHT[size],
         )}
       >
-        {soft ? (
+        {hasAllowance ? (
           <div
             className="absolute inset-y-0 right-0"
             data-segment="band"
@@ -107,11 +107,13 @@ export function UsageMeter({
         ) : null}
       </div>
       {/* The granted value: where what was bought runs out. */}
-      <div
-        className="absolute -inset-y-0.5 w-px bg-foreground/70"
-        data-segment="grant"
-        style={{ left: `calc(${grant}% - 0.5px)` }}
-      />
+      {hasAllowance ? (
+        <div
+          className="absolute -inset-y-0.5 w-px bg-foreground/70"
+          data-segment="grant"
+          style={{ left: `calc(${grant}% - 0.5px)` }}
+        />
+      ) : null}
     </div>
   );
 }

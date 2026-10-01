@@ -100,19 +100,47 @@ describe('instance-detail-entitlements utils', () => {
     ).toBe(true);
   });
 
-  it('uses 25% usage as near-threshold lower bound', () => {
-    expect(
-      isEntitlementNearThreshold(
-        createEntitlement({ value: 24, threshold: 100 }),
-        25,
-      ),
-    ).toBe(false);
-    expect(
-      isEntitlementNearThreshold(
-        createEntitlement({ value: 25, threshold: 100 }),
-        25,
-      ),
-    ).toBe(true);
+  // The cards used to count anything past 25%, so a row badged Healthy or
+  // Watch still raised a usage alert. They now count what the badge flags.
+  it('counts as near threshold what the status badges near the limit', () => {
+    expect(isEntitlementNearThreshold(createEntitlement({ value: 30 }))).toBe(
+      false,
+    );
+    expect(isEntitlementNearThreshold(createEntitlement({ value: 79 }))).toBe(
+      false,
+    );
+    expect(isEntitlementNearThreshold(createEntitlement({ value: 80 }))).toBe(
+      true,
+    );
+    expect(isEntitlementNearThreshold(createEntitlement({ value: 99 }))).toBe(
+      true,
+    );
+    // On the wall the grant is spent, badged as reached rather than near.
+    expect(isEntitlementNearThreshold(createEntitlement({ value: 100 }))).toBe(
+      false,
+    );
+    expect(isEntitlementNearThreshold(createEntitlement({ value: 101 }))).toBe(
+      false,
+    );
+  });
+
+  it('counts the counters on their wall or past it as limit reached', () => {
+    const metrics = getEntitlementsMetrics([
+      createEntitlement({ entitlementId: 'near', value: 90 }),
+      createEntitlement({ entitlementId: 'on-wall', value: 100 }),
+      createEntitlement({ entitlementId: 'past-wall', value: 101 }),
+      createSoftLimitEntitlement({ entitlementId: 'allowance', value: 110 }),
+      createSoftLimitEntitlement({ entitlementId: 'soft-wall', value: 120 }),
+      createEntitlement({
+        entitlementId: 'flag',
+        entitlementType: 'BOOLEAN',
+        threshold: null,
+        value: 1,
+      }),
+    ]);
+
+    expect(metrics.nearThreshold).toBe(2);
+    expect(metrics.limitReached).toBe(3);
   });
 
   describe('near-threshold scope split', () => {
@@ -193,18 +221,15 @@ describe('instance-detail-entitlements utils', () => {
       ).toBe(true);
     });
 
-    it('still flags the granted value as near threshold, not past it', () => {
+    it('flags the grant and its overage as near, not the wall', () => {
       expect(
-        isEntitlementNearThreshold(
-          createSoftLimitEntitlement({ value: 100 }),
-          25,
-        ),
+        isEntitlementNearThreshold(createSoftLimitEntitlement({ value: 100 })),
       ).toBe(true);
       expect(
-        isEntitlementNearThreshold(
-          createSoftLimitEntitlement({ value: 120 }),
-          25,
-        ),
+        isEntitlementNearThreshold(createSoftLimitEntitlement({ value: 110 })),
+      ).toBe(true);
+      expect(
+        isEntitlementNearThreshold(createSoftLimitEntitlement({ value: 120 })),
       ).toBe(false);
     });
 

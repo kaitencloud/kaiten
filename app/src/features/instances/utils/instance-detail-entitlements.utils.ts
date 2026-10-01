@@ -6,7 +6,7 @@ import type {
 import {
   getLicenseEntitlementOveragePercent,
   getMaximumAllowedUsage,
-  getUsagePercentage,
+  getUsageStatus,
   isPeriodicEntitlement,
   isSoftLimit,
 } from '@/domains/entitlement-usage';
@@ -235,13 +235,6 @@ export const filterEntitlementsRowsByGroup = (
   );
 };
 
-const getUsagePercentageFor = (entitlement: InstanceEntitlementRow) =>
-  getUsagePercentage(
-    entitlement.value,
-    entitlement.threshold ?? null,
-    entitlement.limitCapExceededOveragePercent,
-  );
-
 // Null for anything the API would never reject on a count: the non-numeric
 // types, and the unlimited or unset thresholds.
 const getEntitlementCeiling = (entitlement: InstanceEntitlementRow) =>
@@ -261,22 +254,28 @@ export const isEntitlementExhausted = (entitlement: InstanceEntitlementRow) => {
 export const isEntitlementEnabled = (entitlement: InstanceEntitlementRow) =>
   !isEntitlementExhausted(entitlement);
 
+// What the status column badges in the warning colour, so the cards count the
+// rows a reader sees flagged: near the most the grant permits, or into the
+// overage a soft limit tolerates. A counter on its wall or past it is spent,
+// not near, and the enabled count already takes it out.
 export const isEntitlementNearThreshold = (
   entitlement: InstanceEntitlementRow,
-  minUsagePercent = 25,
 ) => {
   if (getEntitlementCeiling(entitlement) === null) {
     return false;
   }
 
-  const usagePercent = getUsagePercentageFor(entitlement);
+  const status = getUsageStatus(
+    entitlement.value,
+    entitlement.threshold,
+    entitlement.limitCapExceededOveragePercent,
+  );
 
-  return usagePercent >= minUsagePercent && usagePercent < 100;
+  return status === 'NEAR_LIMIT' || status === 'IN_ALLOWANCE';
 };
 
 export const getEntitlementsMetrics = (
   entitlements: InstanceEntitlementRow[],
-  nearThresholdPercent = 25,
 ) => {
   const total = entitlements.length;
   const enabled = entitlements.filter(isEntitlementEnabled).length;
@@ -284,8 +283,8 @@ export const getEntitlementsMetrics = (
   // a period-scoped one clears at the next reset, so it may mean "wait". Both
   // deserve the alert, but they call for different action -- the split travels
   // alongside the union figure rather than replacing it.
-  const nearThresholdEntitlements = entitlements.filter((entitlement) =>
-    isEntitlementNearThreshold(entitlement, nearThresholdPercent),
+  const nearThresholdEntitlements = entitlements.filter(
+    isEntitlementNearThreshold,
   );
   const nearThresholdCurrentPeriod = nearThresholdEntitlements.filter(
     isPeriodicEntitlement,
@@ -297,6 +296,9 @@ export const getEntitlementsMetrics = (
   return {
     total,
     enabled,
+    // The counters badged red: on their wall or past it, nothing more is
+    // accepted.
+    limitReached: entitlements.filter(isEntitlementExhausted).length,
     nearThreshold: nearThresholdEntitlements.length,
     nearThresholdCurrentPeriod,
     nearThresholdLifetime:

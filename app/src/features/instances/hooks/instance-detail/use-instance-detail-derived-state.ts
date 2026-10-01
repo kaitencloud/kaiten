@@ -117,7 +117,7 @@ export const useInstanceDetailDerivedState = ({
     [entitlements, entitlementUsages, licenseEntitlements, t],
   );
   const entitlementsMetrics = useMemo(
-    () => getEntitlementsMetrics(entitlementsRows, 25),
+    () => getEntitlementsMetrics(entitlementsRows),
     [entitlementsRows],
   );
 

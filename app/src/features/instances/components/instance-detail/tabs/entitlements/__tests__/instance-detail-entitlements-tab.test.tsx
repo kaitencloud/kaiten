@@ -1,13 +1,7 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { InstanceDetailEntitlementsTab } from '../instance-detail-entitlements-tab';
-
-// The figure of the stat card whose label is `label`.
-const statValue = (label: string) => {
-  const card = screen.getByText(label).closest('[data-slot="stat-card"]');
-  return within(card as HTMLElement).getByText(/^\d+$/).textContent;
-};
 
 const { useInstanceDetailMock } = vi.hoisted(() => ({
   useInstanceDetailMock: vi.fn(),
@@ -26,11 +20,6 @@ vi.mock('react-i18next', () => ({
           'Clear filter',
         'Pages.Customers.Instances.Detail.entitlements.filters.groupLabel':
           'Filter entitlements by group',
-        'Pages.Customers.Instances.Detail.entitlements.stats.total': 'Total',
-        'Pages.Customers.Instances.Detail.entitlements.stats.enabled':
-          'Enabled',
-        'Pages.Customers.Instances.Detail.entitlements.stats.nearThreshold':
-          'Near threshold',
         'Pages.Customers.Instances.Detail.entitlements.table.title':
           'All entitlements',
         'Pages.Customers.Instances.Detail.entitlements.table.description':
@@ -161,12 +150,11 @@ describe('InstanceDetailEntitlementsTab', () => {
     });
   });
 
-  it('filters the entitlement list and stats by selected group', () => {
+  it('filters the entitlement list by selected group', () => {
     render(<InstanceDetailEntitlementsTab />);
 
     expect(screen.getAllByText('API Calls').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Storage').length).toBeGreaterThan(0);
-    expect(statValue('Total')).toBe('2');
 
     fireEvent.change(screen.getByRole('combobox'), {
       target: { value: 'billing' },
@@ -174,7 +162,6 @@ describe('InstanceDetailEntitlementsTab', () => {
 
     expect(screen.queryAllByText('API Calls')).toHaveLength(0);
     expect(screen.getAllByText('Storage').length).toBeGreaterThan(0);
-    expect(statValue('Total')).toBe('1');
   });
 
   // The two bars on this instance do not share a window -- one resets monthly,

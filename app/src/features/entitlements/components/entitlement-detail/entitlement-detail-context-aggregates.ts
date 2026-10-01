@@ -17,6 +17,11 @@ import {
 const countsAsNearLimit = (status: UsageStatus) =>
   status === 'NEAR_LIMIT' || status === 'IN_ALLOWANCE';
 
+// One on the wall takes nothing more: the "over" column counts it with the
+// ones past it, red like them.
+const countsAsOverLimit = (status: UsageStatus) =>
+  status === 'AT_LIMIT' || status === 'OVER_LIMIT';
+
 export function buildLicenseAggregates(
   linkedLicenseMappings: LinkedLicenseMapping[],
   usageRows: EnrichedUsage[],
@@ -57,7 +62,7 @@ export function buildLicenseAggregates(
     if (countsAsNearLimit(usage.status)) {
       aggregate.nearLimitCount += 1;
     }
-    if (usage.status === 'OVER_LIMIT') {
+    if (countsAsOverLimit(usage.status)) {
       aggregate.overLimitCount += 1;
     }
     if (
@@ -90,7 +95,7 @@ export function buildCustomerAggregates(
         maxRatio: usage.ratio,
         mostExposedLicense: usage.licenseName,
         nearLimitCount: countsAsNearLimit(usage.status) ? 1 : 0,
-        overLimitCount: usage.status === 'OVER_LIMIT' ? 1 : 0,
+        overLimitCount: countsAsOverLimit(usage.status) ? 1 : 0,
       });
       continue;
     }
@@ -99,7 +104,7 @@ export function buildCustomerAggregates(
     if (countsAsNearLimit(usage.status)) {
       current.nearLimitCount += 1;
     }
-    if (usage.status === 'OVER_LIMIT') {
+    if (countsAsOverLimit(usage.status)) {
       current.overLimitCount += 1;
     }
     if (

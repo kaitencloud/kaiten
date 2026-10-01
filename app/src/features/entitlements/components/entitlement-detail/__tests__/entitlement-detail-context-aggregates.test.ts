@@ -37,6 +37,15 @@ describe('buildCustomerAggregates', () => {
     expect(acme?.nearLimitCount).toBe(1);
     expect(acme?.overLimitCount).toBe(0);
   });
+
+  it('counts an instance on its wall with the over-limit ones', () => {
+    const [acme] = buildCustomerAggregates([
+      usage({ ratio: 1, status: 'AT_LIMIT', value: 300 }),
+    ]);
+
+    expect(acme?.nearLimitCount).toBe(0);
+    expect(acme?.overLimitCount).toBe(1);
+  });
 });
 
 describe('buildAtRiskInstances', () => {

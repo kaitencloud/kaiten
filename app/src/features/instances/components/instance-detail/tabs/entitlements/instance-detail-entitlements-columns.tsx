@@ -69,12 +69,15 @@ function buildUsageColumn(t: TranslateFn, locale: string): EntitlementColumn {
     header: t(
       'Pages.Customers.Instances.Detail.entitlements.table.headers.usage',
     ),
+    // A figure column, so flush right: the meters share one width and line up
+    // whatever the length of the number beside them.
+    meta: { cellClassName: 'text-right', headerClassName: 'text-right' },
     cell: ({ row }) => {
       if (row.original.entitlementType === 'BOOLEAN') {
         return row.original.value > 0 ? (
-          <CheckCircle className="size-4 text-success-subtle-foreground" />
+          <CheckCircle className="ml-auto size-4 text-success-subtle-foreground" />
         ) : (
-          <XCircle className="size-4 text-muted-foreground" />
+          <XCircle className="ml-auto size-4 text-muted-foreground" />
         );
       }
 
@@ -83,8 +86,8 @@ function buildUsageColumn(t: TranslateFn, locale: string): EntitlementColumn {
       }
 
       return (
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">
+        <div className="flex items-center justify-end gap-2">
+          <span className="text-sm font-medium tabular-nums">
             {row.original.value.toLocaleString(locale)}
           </span>
           <UsageMeter

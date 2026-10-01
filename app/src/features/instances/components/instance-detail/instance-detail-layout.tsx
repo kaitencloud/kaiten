@@ -1,19 +1,15 @@
 import { Button } from '@/components/ui/button';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
-import {
-  AlertTriangle,
-  Calendar,
-  KeyRound,
-  Pencil,
-  Server,
-} from 'lucide-react';
+import { AlertTriangle, Calendar, Pencil } from 'lucide-react';
 import type { PropsWithChildren } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DestructiveActionButton } from '@/components/destructive-action-button';
 import { DetailEntityLayout } from '@/functionals/detail-entity-layout';
 import { EditableTitle, Page } from '@/functionals/page';
 import { StatCard } from '@/functionals/stat-card';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { getActiveTabFromPathname } from '@/lib/detail';
+import { cn } from '@/lib/utils';
 import { formatDate } from '../../utils/instance-detail-overview.utils';
 import { formatTimeUntil } from '../../utils/instance-detail.utils';
 import { instanceDetailsFormValuesToInstanceInput } from '../../utils/instance-form.shared';
@@ -23,6 +19,9 @@ import { useInstanceDetail } from './instance-detail-context';
 type InstanceDetailLayoutProps = PropsWithChildren<{
   instanceId: string;
 }>;
+
+const InstanceIcon = dataModelIcons.instance;
+const EntitlementIcon = dataModelIcons.entitlement;
 
 export const InstanceDetailLayout = ({
   instanceId,
@@ -75,12 +74,25 @@ export const InstanceDetailLayout = ({
       : entitlementsMetrics.enabled === entitlementsMetrics.total
         ? 'text-success-subtle-foreground'
         : 'text-warning-subtle-foreground';
-  // The warning tint belongs to an alert, not to the card: "0 near limit"
-  // stays neutral so nothing draws the eye to a count of nothing.
-  const usageAlertsToneClassName =
+  // The tints belong to the alerts, not to the card: "0 near limit" stays
+  // neutral so nothing draws the eye to a count of nothing. The icon takes the
+  // gravest of the two.
+  const nearLimitToneClassName =
     entitlementsMetrics.nearThreshold > 0
       ? 'text-warning-subtle-foreground'
       : undefined;
+  const limitReachedToneClassName =
+    entitlementsMetrics.limitReached > 0
+      ? 'text-destructive-subtle-foreground'
+      : undefined;
+  // The cards' lines share the row's tracks. Each first line starts at the top
+  // of its track, level with its neighbours whatever their type size, or a
+  // date that wraps on a narrow screen. Each second line (a helper in two
+  // cards, a second figure in the third) sits on one baseline at the bottom.
+  const firstLineClassName = 'self-start';
+  const secondLineClassName = 'self-baseline-last';
+  // Two figures a size below the row's single ones, so the card holds both.
+  const usageAlertsValueClassName = 'text-xl md:text-2xl';
 
   return (
     <DetailEntityLayout
@@ -89,7 +101,7 @@ export const InstanceDetailLayout = ({
         <Page.Header>
           <Page.Leading>
             <Page.Icon>
-              <Server className="size-8 text-primary-subtle-foreground" />
+              <InstanceIcon className="size-8 text-primary-subtle-foreground" />
             </Page.Icon>
             <Page.Heading>
               <Page.TitleRow>
@@ -177,12 +189,14 @@ export const InstanceDetailLayout = ({
             <StatCard.Icon>
               <Calendar />
             </StatCard.Icon>
-            <StatCard.Value className={urgencyTextClassName}>
+            <StatCard.Value
+              className={cn(firstLineClassName, urgencyTextClassName)}
+            >
               {daysLeft > 0
                 ? formatDate(instance.endLicenseDate)
                 : t('Pages.Customers.Instances.Detail.quickStats.expired')}
             </StatCard.Value>
-            <StatCard.Helper>
+            <StatCard.Helper className={secondLineClassName}>
               {daysLeft > 0
                 ? formatTimeUntil(daysLeft, i18n.resolvedLanguage)
                 : formatDate(instance.endLicenseDate)}
@@ -193,23 +207,58 @@ export const InstanceDetailLayout = ({
               {t('Pages.Customers.Instances.Detail.quickStats.entitlements')}
             </StatCard.Label>
             <StatCard.Icon>
-              <KeyRound />
+              <EntitlementIcon />
             </StatCard.Icon>
-            <StatCard.Value className={entitlementsValueClassName}>
+            <StatCard.Value
+              className={cn(firstLineClassName, entitlementsValueClassName)}
+            >
               {entitlementsMetrics.enabled}/{entitlementsMetrics.total}
             </StatCard.Value>
+            {/* What the fraction counts: the grants whose counter is not
+                spent. A flag has no counter, so it counts as under its limit,
+                even switched off. */}
+            <StatCard.Helper className={secondLineClassName}>
+              {t(
+                'Pages.Customers.Instances.Detail.quickStats.entitlementsUnderLimit',
+              )}
+            </StatCard.Helper>
           </StatCard>
           <StatCard>
             <StatCard.Label>
               {t('Pages.Customers.Instances.Detail.quickStats.usageAlerts')}
             </StatCard.Label>
-            <StatCard.Icon className={usageAlertsToneClassName}>
+            <StatCard.Icon
+              className={limitReachedToneClassName ?? nearLimitToneClassName}
+            >
               <AlertTriangle />
             </StatCard.Icon>
-            <StatCard.Value className={usageAlertsToneClassName}>
+            <StatCard.Value
+              className={cn(
+                firstLineClassName,
+                usageAlertsValueClassName,
+                nearLimitToneClassName,
+              )}
+            >
               {entitlementsMetrics.nearThreshold}
               <StatCard.Unit>
                 {t('Pages.Customers.Instances.Detail.quickStats.nearLimit')}
+              </StatCard.Unit>
+            </StatCard.Value>
+            <StatCard.Value
+              className={cn(
+                usageAlertsValueClassName,
+                // The first line, held at the top of a track sized for larger
+                // figures, already leaves the room this padding would add.
+                '[[data-slot=stat-card-value]+&]:pt-0',
+                secondLineClassName,
+                limitReachedToneClassName,
+              )}
+            >
+              {entitlementsMetrics.limitReached}
+              <StatCard.Unit>
+                {t('Pages.Customers.Instances.Detail.quickStats.limitReached', {
+                  count: entitlementsMetrics.limitReached,
+                })}
               </StatCard.Unit>
             </StatCard.Value>
             {/* Both scopes are worth an alert, but a period-scoped counter clears

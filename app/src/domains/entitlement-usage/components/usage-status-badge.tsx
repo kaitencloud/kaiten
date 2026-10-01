@@ -23,6 +23,7 @@ const BADGES: Record<
     key: 'nearLimit',
     variant: 'secondary',
   },
+  AT_LIMIT: { key: 'atLimit', variant: 'destructive' },
   OVER_LIMIT: { key: 'overLimit', variant: 'destructive' },
   UNBOUNDED: { key: 'unlimited', variant: 'outline' },
   WATCH: { key: 'watch', variant: 'outline' },

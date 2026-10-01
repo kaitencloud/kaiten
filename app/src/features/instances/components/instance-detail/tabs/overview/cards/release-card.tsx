@@ -1,5 +1,4 @@
 import { Badge } from '@/components/ui/badge';
-import { Rocket } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -8,8 +7,11 @@ import {
   type ReleaseStatus,
 } from '@/domains/release-management';
 import { DetailCard } from '@/functionals/detail-card';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { formatDateTime } from '../../../../../utils/instance-detail-overview.utils';
 import { InstanceRelatedLink } from './instance-related-link';
+
+const ReleaseIcon = dataModelIcons.release;
 
 type InstanceReleaseCardProps = {
   /**
@@ -53,7 +55,7 @@ export const InstanceReleaseCard = ({
       <DetailCard.Header>
         <div>
           <DetailCard.Title className="text-base flex items-center gap-2">
-            <Rocket className="size-4 text-primary-subtle-foreground" />
+            <ReleaseIcon className="size-4 text-primary-subtle-foreground" />
             {t('Pages.Customers.Instances.Detail.release.title')}
           </DetailCard.Title>
           <DetailCard.Description>
@@ -80,7 +82,7 @@ export const InstanceReleaseCard = ({
           // Nothing to report on an orphan instance: every row would read
           // "Unknown". Offer the one action that changes that instead.
           <div className="flex flex-col items-center justify-center gap-3 rounded-md border border-dashed p-6 text-center">
-            <Rocket className="size-6 text-muted-foreground" />
+            <ReleaseIcon className="size-6 text-muted-foreground" />
             <div className="space-y-1">
               <p className="text-sm font-medium">
                 {t('Pages.Customers.Instances.Detail.release.empty.title')}
