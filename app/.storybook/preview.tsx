@@ -14,6 +14,11 @@ const createQueryClient = () => new QueryClient({
 		queries: {
 			retry: false,
 			staleTime: Number.POSITIVE_INFINITY,
+			// Stories have no backend. A seeded query whose own staleTime runs
+			// out (the metadata fields keep 30 s) must not refetch when the tab
+			// regains focus or the network comes back.
+			refetchOnWindowFocus: false,
+			refetchOnReconnect: false,
 		},
 	},
 });
