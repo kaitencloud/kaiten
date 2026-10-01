@@ -5,6 +5,7 @@ import type { Variant } from '@/api-client';
 import { findVisibleByRole } from '@/test-fixtures/storybook-test-utils';
 import type { Targeting } from '../../types';
 import { TargetingList } from '../targeting-list';
+import { SeedTargetingContext } from './seed-targeting-context';
 
 const meta = {
   title: 'Functionals/Targeting/TargetingList',
@@ -13,10 +14,13 @@ const meta = {
     disableCelValidation: true,
   },
   decorators: [
+    // Add Rule and Edit open the rule editor, which reads the targeting context.
     (Story: FC) => (
-      <div className="max-w-4xl mx-auto p-6">
-        <Story />
-      </div>
+      <SeedTargetingContext>
+        <div className="max-w-4xl mx-auto p-6">
+          <Story />
+        </div>
+      </SeedTargetingContext>
     ),
   ],
   parameters: {
