@@ -254,22 +254,29 @@ This creates a trailer such as:
 Signed-off-by: Jane Doe <jane@example.com>
 ```
 
-The `-s` flag is a DCO sign-off. It is different from cryptographically signing
-a commit with `git commit -S`.
+`git commit -s` is a **DCO sign-off**: it certifies the contribution under
+[DCO.md](./DCO.md). `git commit -S`, with a capital S, is a **cryptographic
+commit signature** made with a GPG or SSH key. They are not the same thing, and
+the sign-off is what Kaiten requires. There is nothing to install.
 
 ### Fixing a missing sign-off
 
-If the most recent commit is missing a sign-off:
+A check named **DCO** verifies every commit of every pull request, and it is the
+final word. If it fails, it names the commits to fix.
+
+For the latest commit:
 
 ```bash
 git commit --amend --signoff --no-edit
 git push --force-with-lease
 ```
 
-For several commits, `git rebase --signoff <base>` adds the trailer to every
-commit of the branch after `<base>`; push the result with `--force-with-lease`.
-An interactive rebase that amends the affected commits works too, as do the
-remediation instructions supplied by the repository's DCO check.
+For several commits, sign off every commit of your branch at once:
+
+```bash
+git rebase --signoff origin/main
+git push --force-with-lease
+```
 
 Do not add another person's sign-off unless you are authorized to certify the
 contribution on their behalf under the DCO.
