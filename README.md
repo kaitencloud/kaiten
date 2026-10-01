@@ -9,6 +9,11 @@ engine — the Go API, the React console, the event pipeline and the Helm
 charts — under Apache 2.0. Self-host it, or join the private beta of Kaiten
 Cloud, which runs it for you.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/control-plane-dark.png">
+  <img alt="Diagram: the Kaiten control plane — licenses and entitlements, an OpenFeature engine, transactional orchestration, and the console and admin API — wired to billing and CRM systems on one side, and to deployment pipelines and customer instances on the other." src=".github/assets/control-plane-light.png">
+</picture>
+
 [Website](https://kaiten.sh) · [Documentation](https://docs.kaiten.sh) ·
 [Self-hosting guide](https://docs.kaiten.sh/docs/self-hosting) ·
 [API reference](https://docs.kaiten.sh/docs/api)
