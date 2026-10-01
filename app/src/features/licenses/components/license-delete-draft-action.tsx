@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { License } from '@/api-client';
 import {
   AlertDialog,
+  AlertDialogClose,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -70,19 +71,21 @@ export function LicenseDeleteDraftAction({
         );
       }}
     >
-      <AlertDialogTrigger asChild>
-        <Button
-          type="button"
-          variant={look.variant}
-          size="sm"
-          className={look.className}
-          disabled={isPending || !license.slug}
-          onClick={keepClickOffTheRow}
-        >
-          <Trash2 className="size-3" />
-          {t('Pages.Licenses.DeleteDraft.label')}
-        </Button>
-      </AlertDialogTrigger>
+      <AlertDialogTrigger
+        render={
+          <Button
+            type="button"
+            variant={look.variant}
+            size="sm"
+            className={look.className}
+            disabled={isPending || !license.slug}
+            onClick={keepClickOffTheRow}
+          >
+            <Trash2 className="size-3" />
+            {t('Pages.Licenses.DeleteDraft.label')}
+          </Button>
+        }
+      />
       <AlertDialogContent size="sm">
         <AlertDialogHeader>
           <AlertDialogTitle>
@@ -99,16 +102,20 @@ export function LicenseDeleteDraftAction({
           <AlertDialogCancel variant="outline">
             {t('Common.cancel')}
           </AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            onClick={() => {
-              if (target) {
-                deleteDraft({ licenseSlug: target.licenseSlug });
-              }
-            }}
-          >
-            {t('Pages.Licenses.DeleteDraft.confirm')}
-          </AlertDialogAction>
+          <AlertDialogClose
+            render={
+              <AlertDialogAction
+                variant="destructive"
+                onClick={() => {
+                  if (target) {
+                    deleteDraft({ licenseSlug: target.licenseSlug });
+                  }
+                }}
+              >
+                {t('Pages.Licenses.DeleteDraft.confirm')}
+              </AlertDialogAction>
+            }
+          />
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

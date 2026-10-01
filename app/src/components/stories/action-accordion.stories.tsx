@@ -24,7 +24,7 @@ type Story = StoryObj<typeof ActionAccordion>;
 
 export const Default: Story = {
   render: () => (
-    <ActionAccordion type="single" collapsible className="w-full">
+    <ActionAccordion className="w-full">
       <ActionAccordionItem value="item-1">
         <ActionAccordionHeader>
           <ActionAccordionTrigger>
@@ -56,7 +56,7 @@ export const Default: Story = {
 
 export const Multiple: Story = {
   render: () => (
-    <ActionAccordion type="single" collapsible className="w-full">
+    <ActionAccordion className="w-full">
       <ActionAccordionItem value="item-1">
         <ActionAccordionHeader>
           <ActionAccordionTrigger>

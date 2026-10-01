@@ -52,11 +52,13 @@ export function DestructiveActionButton({
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <span tabIndex={0} className="inline-flex">
-              {button}
-            </span>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <span tabIndex={0} className="inline-flex">
+                {button}
+              </span>
+            }
+          />
           <TooltipContent className="max-w-64 whitespace-pre-line">
             {disabledReason}
           </TooltipContent>

@@ -103,16 +103,18 @@ export function FilterToolbarFiltersRow({
 
         {showAddFilterButton ? (
           <Popover open={addFilterOpen} onOpenChange={setAddFilterOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 rounded-full border-dashed px-4"
-              >
-                <Plus className="size-4" />
-                {copy.addFilter}
-              </Button>
-            </PopoverTrigger>
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-full border-dashed px-4"
+                >
+                  <Plus className="size-4" />
+                  {copy.addFilter}
+                </Button>
+              }
+            />
             <PopoverContent align="start" className="w-[280px] p-0">
               <FilterPickerMenu />
             </PopoverContent>

@@ -9,6 +9,7 @@ import { FlaskConical, LoaderCircle, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertDialog,
+  AlertDialogClose,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -65,20 +66,22 @@ export function DemoSettingsCard() {
 
           {data.seeded ? (
             <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="gap-2 self-start"
-                  disabled={isSeeding}
-                >
-                  {isSeeding ? (
-                    <LoaderCircle className="size-4 animate-spin" />
-                  ) : (
-                    <RotateCcw className="size-4" />
-                  )}
-                  {t('Pages.Settings.Demo.resetButton')}
-                </Button>
-              </AlertDialogTrigger>
+              <AlertDialogTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    className="gap-2 self-start"
+                    disabled={isSeeding}
+                  >
+                    {isSeeding ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : (
+                      <RotateCcw className="size-4" />
+                    )}
+                    {t('Pages.Settings.Demo.resetButton')}
+                  </Button>
+                }
+              />
               <AlertDialogContent size="sm">
                 <AlertDialogHeader>
                   <AlertDialogMedia className="bg-destructive/10 text-destructive-subtle-foreground dark:bg-destructive/20 dark:text-destructive-subtle-foreground">
@@ -95,12 +98,16 @@ export function DemoSettingsCard() {
                   <AlertDialogCancel variant="outline">
                     {t('Common.cancel')}
                   </AlertDialogCancel>
-                  <AlertDialogAction
-                    variant="destructive"
-                    onClick={() => resetDemoData.mutate()}
-                  >
-                    {t('Pages.Settings.Demo.ResetDialog.confirmButton')}
-                  </AlertDialogAction>
+                  <AlertDialogClose
+                    render={
+                      <AlertDialogAction
+                        variant="destructive"
+                        onClick={() => resetDemoData.mutate()}
+                      >
+                        {t('Pages.Settings.Demo.ResetDialog.confirmButton')}
+                      </AlertDialogAction>
+                    }
+                  />
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>

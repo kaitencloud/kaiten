@@ -119,20 +119,22 @@ export const Combobox = <TOption,>({
 
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          disabled={disabled}
-          aria-expanded={isOpen}
-          aria-haspopup="listbox"
-          className={getComboboxTriggerClassName({
-            hasValue: Boolean(value),
-          })}
-        >
-          {displayValue}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="outline"
+            disabled={disabled}
+            aria-expanded={isOpen}
+            aria-haspopup="listbox"
+            className={getComboboxTriggerClassName({
+              hasValue: Boolean(value),
+            })}
+          >
+            {displayValue}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        }
+      />
       <PopoverContent className="p-0 popover-content-full-width" align="start">
         <Command>
           <CommandInput

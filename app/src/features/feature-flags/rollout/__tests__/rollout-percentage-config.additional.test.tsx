@@ -250,7 +250,7 @@ describe('RolloutPercentageConfig - Additional Coverage', () => {
       expect(slider).toBeInTheDocument();
     });
 
-    it('should render single slider for two variants', () => {
+    it('should render single slider for two variants', async () => {
       const onChange = vi.fn();
       const distribution = { 'variant-a': 60, 'variant-b': 40 };
 
@@ -264,7 +264,7 @@ describe('RolloutPercentageConfig - Additional Coverage', () => {
 
       // This tests lines 117-120 and 180-187
       // In two-variant mode, there's only one slider
-      const sliders = screen.getAllByRole('slider');
+      const sliders = await screen.findAllByRole('slider');
       expect(sliders).toHaveLength(1);
     });
   });
@@ -292,7 +292,7 @@ describe('RolloutPercentageConfig - Additional Coverage', () => {
       expect(screen.getByText('variant-c')).toBeInTheDocument();
     });
 
-    it('should render sliders for each variant in multi-variant mode', () => {
+    it('should render sliders for each variant in multi-variant mode', async () => {
       const onChange = vi.fn();
       const distribution = {
         'variant-a': 30,
@@ -310,7 +310,7 @@ describe('RolloutPercentageConfig - Additional Coverage', () => {
 
       // This tests lines 111-115 and 228-237
       // Each variant should have a slider
-      const sliders = screen.getAllByRole('slider');
+      const sliders = await screen.findAllByRole('slider');
       expect(sliders).toHaveLength(3);
     });
   });

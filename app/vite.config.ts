@@ -357,6 +357,8 @@ export default defineConfig({
     // editor re-fetches them all, which saturates the dev server on 2-core
     // CI runners and times out the e2e app suite.
     include: [
+      '@base-ui/react/input',
+      '@base-ui/react/merge-props',
       '@monaco-editor/react',
       'monaco-editor/esm/vs/editor/editor.api',
       'monaco-editor/esm/vs/language/json/monaco.contribution',
@@ -409,9 +411,9 @@ export default defineConfig({
           if (id.includes('@tanstack')) {
             return 'tanstack';
           }
-          // Radix UI components
-          if (id.includes('@radix-ui')) {
-            return 'radix-ui';
+          // Base UI primitives
+          if (id.includes('@base-ui')) {
+            return 'base-ui';
           }
           // Chart libraries
           if (id.includes('recharts') || id.includes('d3-')) {

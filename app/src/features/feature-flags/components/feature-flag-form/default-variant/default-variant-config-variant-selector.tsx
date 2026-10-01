@@ -35,7 +35,15 @@ export function VariantSelector({
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium">{label}</label>
-      <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+      <Select
+        items={variants.map((variant) => ({
+          value: variant.name,
+          label: variant.name,
+        }))}
+        value={value || null}
+        onValueChange={(value) => onValueChange(value ?? '')}
+        disabled={disabled}
+      >
         <SelectTrigger className="w-full">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>

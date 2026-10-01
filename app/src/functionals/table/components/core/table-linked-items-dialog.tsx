@@ -35,15 +35,17 @@ export function TableLinkedItemsDialog<TData extends RowData>({
 }: TableLinkedItemsDialogProps<TData>) {
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button
-          variant="link"
-          className="h-auto p-0 text-foreground underline-offset-4 hover:text-primary-subtle-foreground hover:underline"
-          onClick={(event) => event.stopPropagation()}
-        >
-          {triggerLabel}
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button
+            variant="link"
+            className="h-auto p-0 text-foreground underline-offset-4 hover:text-primary-subtle-foreground hover:underline"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {triggerLabel}
+          </Button>
+        }
+      />
       <DialogContent
         className={cn(dialogWidth, 'sm:max-w-2xl')}
         onClick={(event) => event.stopPropagation()}

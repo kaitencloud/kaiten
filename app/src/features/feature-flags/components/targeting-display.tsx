@@ -102,15 +102,17 @@ export function TargetingDisplay({ targeting }: TargetingDisplayProps) {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Badge variant="secondary" className="cursor-help gap-1">
-            {getIcon()}
-            <span>{targeting.name}</span>
-            <span className="text-xs text-muted-foreground">
-              → {getVariantText()}
-            </span>
-          </Badge>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <Badge variant="secondary" className="cursor-help gap-1">
+              {getIcon()}
+              <span>{targeting.name}</span>
+              <span className="text-xs text-muted-foreground">
+                → {getVariantText()}
+              </span>
+            </Badge>
+          }
+        />
         <TooltipContent className="max-w-xs">
           {getTooltipContent()}
         </TooltipContent>

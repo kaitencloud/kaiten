@@ -49,8 +49,17 @@ function AuditTrailEventFilterSelect({
 }) {
   const { t } = useTranslation();
 
+  const allLabel = t(
+    'Pages.Customers.Instances.Detail.auditTrail.table.filters.allEvents',
+  );
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select
+      items={[{ value: 'all', label: allLabel }, ...options]}
+      value={value}
+      onValueChange={(value) => {
+        if (value !== null) onChange(value);
+      }}
+    >
       <SelectTrigger
         className="w-full md:w-55"
         aria-label={t(
@@ -60,11 +69,7 @@ function AuditTrailEventFilterSelect({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="all">
-          {t(
-            'Pages.Customers.Instances.Detail.auditTrail.table.filters.allEvents',
-          )}
-        </SelectItem>
+        <SelectItem value="all">{allLabel}</SelectItem>
         {options.map(renderOption)}
       </SelectContent>
     </Select>
@@ -80,8 +85,22 @@ function AuditTrailStatusFilterSelect({
 }) {
   const { t } = useTranslation();
 
+  const options = ['all', 'read', 'accepted', 'rejected', 'warning'].map(
+    (status) => ({
+      value: status,
+      label: t(
+        `Pages.Customers.Instances.Detail.auditTrail.table.filters.${status === 'all' ? 'allStatuses' : status}`,
+      ),
+    }),
+  );
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select
+      items={options}
+      value={value}
+      onValueChange={(value) => {
+        if (value !== null) onChange(value);
+      }}
+    >
       <SelectTrigger
         className="w-full md:w-45"
         aria-label={t(
@@ -90,31 +109,7 @@ function AuditTrailStatusFilterSelect({
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">
-          {t(
-            'Pages.Customers.Instances.Detail.auditTrail.table.filters.allStatuses',
-          )}
-        </SelectItem>
-        <SelectItem value="read">
-          {t('Pages.Customers.Instances.Detail.auditTrail.table.filters.read')}
-        </SelectItem>
-        <SelectItem value="accepted">
-          {t(
-            'Pages.Customers.Instances.Detail.auditTrail.table.filters.accepted',
-          )}
-        </SelectItem>
-        <SelectItem value="rejected">
-          {t(
-            'Pages.Customers.Instances.Detail.auditTrail.table.filters.rejected',
-          )}
-        </SelectItem>
-        <SelectItem value="warning">
-          {t(
-            'Pages.Customers.Instances.Detail.auditTrail.table.filters.warning',
-          )}
-        </SelectItem>
-      </SelectContent>
+      <SelectContent>{options.map(renderOption)}</SelectContent>
     </Select>
   );
 }

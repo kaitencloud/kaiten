@@ -16,7 +16,7 @@ type Story = StoryObj<typeof ToggleGroup>;
 
 export const Single: Story = {
   render: () => (
-    <ToggleGroup type="single">
+    <ToggleGroup>
       <ToggleGroupItem value="left" aria-label="Align left">
         <AlignLeft className="h-4 w-4" />
       </ToggleGroupItem>
@@ -32,7 +32,7 @@ export const Single: Story = {
 
 export const Multiple: Story = {
   render: () => (
-    <ToggleGroup type="multiple">
+    <ToggleGroup multiple>
       <ToggleGroupItem value="bold" aria-label="Toggle bold">
         <Bold className="h-4 w-4" />
       </ToggleGroupItem>
@@ -49,7 +49,7 @@ export const Multiple: Story = {
 export const Variants: Story = {
   render: () => (
     <div className="space-y-4">
-      <ToggleGroup type="single" variant="default">
+      <ToggleGroup variant="default">
         <ToggleGroupItem value="left">
           <AlignLeft className="h-4 w-4" />
         </ToggleGroupItem>
@@ -61,7 +61,7 @@ export const Variants: Story = {
         </ToggleGroupItem>
       </ToggleGroup>
 
-      <ToggleGroup type="single" variant="outline">
+      <ToggleGroup variant="outline">
         <ToggleGroupItem value="left">
           <AlignLeft className="h-4 w-4" />
         </ToggleGroupItem>
@@ -79,7 +79,7 @@ export const Variants: Story = {
 export const Sizes: Story = {
   render: () => (
     <div className="space-y-4">
-      <ToggleGroup type="single" size="sm">
+      <ToggleGroup size="sm">
         <ToggleGroupItem value="left">
           <AlignLeft className="h-3 w-3" />
         </ToggleGroupItem>
@@ -91,7 +91,7 @@ export const Sizes: Story = {
         </ToggleGroupItem>
       </ToggleGroup>
 
-      <ToggleGroup type="single" size="default">
+      <ToggleGroup size="default">
         <ToggleGroupItem value="left">
           <AlignLeft className="h-4 w-4" />
         </ToggleGroupItem>
@@ -103,7 +103,7 @@ export const Sizes: Story = {
         </ToggleGroupItem>
       </ToggleGroup>
 
-      <ToggleGroup type="single" size="lg">
+      <ToggleGroup size="lg">
         <ToggleGroupItem value="left">
           <AlignLeft className="h-5 w-5" />
         </ToggleGroupItem>

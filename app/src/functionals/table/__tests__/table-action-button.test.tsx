@@ -80,7 +80,7 @@ describe('TableActionButton', () => {
     const handleClick = vi.fn();
 
     render(
-      <TableActionButton tooltip="Click me" onClick={handleClick} asChild>
+      <TableActionButton tooltip="Click me" onClick={handleClick} asChild nativeButton role="button">
         <button type="button">Custom Button</button>
       </TableActionButton>,
     );

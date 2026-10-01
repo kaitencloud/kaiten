@@ -18,11 +18,10 @@ export function ValueOverTimeModeToggle({
 
   return (
     <ToggleGroup
-      type="single"
-      value={value}
+      value={[value]}
       variant="outline"
       size="sm"
-      onValueChange={(nextValue) => {
+      onValueChange={([nextValue]) => {
         if (nextValue === 'entitlement' || nextValue === 'group') {
           onChange(nextValue);
         }

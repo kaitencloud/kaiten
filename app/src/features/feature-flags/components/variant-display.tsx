@@ -26,11 +26,13 @@ export function VariantDisplay({ variant, type }: VariantDisplayProps) {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Badge variant="outline" className="cursor-help">
-            {variant.name}: {displayValue()}
-          </Badge>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <Badge variant="outline" className="cursor-help">
+              {variant.name}: {displayValue()}
+            </Badge>
+          }
+        />
         <TooltipContent>
           <div className="space-y-1">
             <p className="font-semibold">{variant.name}</p>

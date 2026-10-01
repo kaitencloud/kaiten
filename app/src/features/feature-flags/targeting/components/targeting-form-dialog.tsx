@@ -25,10 +25,6 @@ import {
   type RolloutPercentageTargetingFormRef,
 } from './rollout-percentage-targeting-form';
 
-function handleInteractOutside(e: Event) {
-  e.preventDefault();
-}
-
 export function TargetingFormDialog({
   open,
   onOpenChange,
@@ -76,11 +72,7 @@ export function TargetingFormDialog({
   };
 
   return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      onInteractOutside={handleInteractOutside}
-    >
+    <FormDialog open={open} onOpenChange={onOpenChange} disablePointerDismissal>
       <FormDialog.Header>
         <FormDialog.Title>
           {mode === 'create'
@@ -103,6 +95,14 @@ export function TargetingFormDialog({
               <RequiredMark />
             </div>
             <Select
+              items={['basic', 'rollout_date', 'rollout_percentage'].map(
+                (value) => ({
+                  value,
+                  label: t(
+                    `Features.Targeting.Types.${value === 'basic' ? 'basic' : value === 'rollout_date' ? 'rolloutDate' : 'rolloutPercentage'}`,
+                  ),
+                }),
+              )}
               value={selectedType}
               onValueChange={(value) =>
                 setSelectedType(

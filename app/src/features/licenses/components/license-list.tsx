@@ -130,7 +130,7 @@ export const LicenseList = ({ families, licenses }: LicenseListProps) => {
             </div>
           ) : (
             <ActionAccordion
-              type="multiple"
+              multiple
               defaultValue={defaultExpandedGroup ? [defaultExpandedGroup] : []}
               className="w-full space-y-4"
             >

@@ -140,13 +140,15 @@ export function NotificationPanel({ onClose }: NotificationPanelProps) {
           variant="outline"
           size="sm"
           className="w-full"
-          asChild
           onClick={onClose}
-        >
-          <Link to="/notifications">
-            {t('Pages.Notifications.bell.viewAll', 'View all notifications')}
-          </Link>
-        </Button>
+          nativeButton={false}
+          role="link"
+          render={
+            <Link to="/notifications">
+              {t('Pages.Notifications.bell.viewAll', 'View all notifications')}
+            </Link>
+          }
+        />
       </div>
     </div>
   );

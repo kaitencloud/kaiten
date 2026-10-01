@@ -134,7 +134,11 @@ export function LicenseVersionFieldsCard({
                 {t('Pages.Licenses.Version.Form.Labels.licenseName')}
               </Label>
               <Select
-                value={field.state.value}
+                items={familyOptions.map((option) => ({
+                  value: option.familyId,
+                  label: option.label,
+                }))}
+                value={field.state.value || null}
                 onValueChange={(value) => {
                   field.handleChange(value);
                   syncVersionFormFromBaseLicense({
@@ -171,7 +175,11 @@ export function LicenseVersionFieldsCard({
                 {t('Pages.Licenses.Version.Form.Labels.baseVersion')}
               </Label>
               <Select
-                value={field.state.value}
+                items={selectedLicenseVersionsWithSlug.map((license) => ({
+                  value: license.slug,
+                  label: `${license.versionName?.trim() || unknownVersionLabel} - ${license.version}`,
+                }))}
+                value={field.state.value || null}
                 onValueChange={(value) => {
                   field.handleChange(value);
                   syncVersionFormFromBaseLicense({

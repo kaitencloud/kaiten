@@ -159,7 +159,7 @@ export function NotificationPreferencesContent() {
       <Page.Scroll className="mt-4">
         {/* Every group starts open; each folds away on its own. */}
         <ActionAccordion
-          type="multiple"
+          multiple
           defaultValue={groups.map((group) => group.def.id)}
           className="space-y-4"
         >

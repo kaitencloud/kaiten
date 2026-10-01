@@ -30,16 +30,16 @@ export function SideNavLinkItem({
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
-        asChild
         isActive={isRouteActive(pathname, path)}
         tooltip={title}
         className={topLevelButtonClassName}
-      >
-        <Link to={path}>
-          <Icon />
-          <span>{title}</span>
-        </Link>
-      </SidebarMenuButton>
+        render={
+          <Link to={path}>
+            <Icon />
+            <span>{title}</span>
+          </Link>
+        }
+      />
     </SidebarMenuItem>
   );
 }
@@ -53,14 +53,14 @@ function SideNavSubRouteItem({ item, pathname }: SideNavSubRouteItemProps) {
   return (
     <SidebarMenuSubItem>
       <SidebarMenuSubButton
-        asChild
         isActive={isRouteActive(pathname, item.path)}
         className={childButtonClassName}
-      >
-        <Link to={item.path}>
-          <span>{item.label}</span>
-        </Link>
-      </SidebarMenuSubButton>
+        render={
+          <Link to={item.path}>
+            <span>{item.label}</span>
+          </Link>
+        }
+      />
     </SidebarMenuSubItem>
   );
 }

@@ -228,8 +228,8 @@ vi.mock('@/components/ui/select', () => ({
 
 vi.mock('@/components/ui/toggle-group', () => {
   const ToggleGroupContext = createContext<{
-    onValueChange?: (value: string) => void;
-    value?: string;
+    onValueChange?: (value: string[]) => void;
+    value?: string[];
   }>({});
 
   return {
@@ -239,8 +239,8 @@ vi.mock('@/components/ui/toggle-group', () => {
       value,
     }: {
       children: ReactNode;
-      onValueChange?: (value: string) => void;
-      value?: string;
+      onValueChange?: (value: string[]) => void;
+      value?: string[];
     }) => (
       <ToggleGroupContext.Provider value={{ onValueChange, value }}>
         <div>{children}</div>
@@ -258,8 +258,8 @@ vi.mock('@/components/ui/toggle-group', () => {
       return (
         <button
           type="button"
-          aria-pressed={context.value === value}
-          onClick={() => context.onValueChange?.(value)}
+          aria-pressed={context.value?.includes(value)}
+          onClick={() => context.onValueChange?.([value])}
         >
           {children}
         </button>
@@ -273,8 +273,8 @@ vi.mock('@/components/ui/popover', () => ({
   PopoverContent: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),
-  PopoverTrigger: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
+  PopoverTrigger: ({ render }: { render: ReactNode }) => (
+    <div>{render}</div>
   ),
 }));
 

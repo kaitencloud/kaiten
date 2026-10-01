@@ -24,9 +24,7 @@ type Story = StoryObj<typeof Tooltip>;
 export const Default: Story = {
   render: () => (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="outline">Hover me</Button>
-      </TooltipTrigger>
+      <TooltipTrigger render={<Button variant="outline">Hover me</Button>} />
       <TooltipContent>
         <p>This is a tooltip</p>
       </TooltipContent>
@@ -37,9 +35,7 @@ export const Default: Story = {
 export const WithLongText: Story = {
   render: () => (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="outline">Hover for details</Button>
-      </TooltipTrigger>
+      <TooltipTrigger render={<Button variant="outline">Hover for details</Button>} />
       <TooltipContent className="max-w-xs">
         <p>
           This is a longer tooltip with more detailed information that wraps to multiple lines.
@@ -53,27 +49,21 @@ export const Multiple: Story = {
   render: () => (
     <div className="flex gap-4">
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Button>Save</Button>
-        </TooltipTrigger>
+        <TooltipTrigger render={<Button>Save</Button>} />
         <TooltipContent>
           <p>Save your changes</p>
         </TooltipContent>
       </Tooltip>
 
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="outline">Cancel</Button>
-        </TooltipTrigger>
+        <TooltipTrigger render={<Button variant="outline">Cancel</Button>} />
         <TooltipContent>
           <p>Discard changes</p>
         </TooltipContent>
       </Tooltip>
 
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="destructive">Delete</Button>
-        </TooltipTrigger>
+        <TooltipTrigger render={<Button variant="destructive">Delete</Button>} />
         <TooltipContent>
           <p>Permanently delete this item</p>
         </TooltipContent>

@@ -57,19 +57,21 @@ export function CelEditorStatus({
         // dialogs: the dialog's scroll lock eats wheel events on anything
         // portaled outside its subtree.
         <Popover open={open} onOpenChange={setOpen} modal>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-destructive-subtle-foreground hover:text-destructive-subtle-foreground h-6 gap-1 px-1.5 text-xs"
-            >
-              <TriangleAlert className="h-3.5 w-3.5" />
-              {t('Functionals.CelEditor.issueCount', {
-                count: issues.length,
-              })}
-            </Button>
-          </PopoverTrigger>
+          <PopoverTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive-subtle-foreground hover:text-destructive-subtle-foreground h-6 gap-1 px-1.5 text-xs"
+              >
+                <TriangleAlert className="h-3.5 w-3.5" />
+                {t('Functionals.CelEditor.issueCount', {
+                  count: issues.length,
+                })}
+              </Button>
+            }
+          />
           <PopoverContent
             align="end"
             className="max-h-72 w-96 overflow-y-auto p-1.5"

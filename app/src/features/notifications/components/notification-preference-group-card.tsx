@@ -100,7 +100,7 @@ export function NotificationPreferenceGroupCard({
     // the group's count and switch stay outside it, in reach either way.
     <ActionAccordionItem value={def.id} className="border-b-0">
       <Card className="gap-0 py-0">
-        <ActionAccordionHeader className="px-6 py-4 data-[state=open]:border-b">
+        <ActionAccordionHeader className="px-6 py-4 group-data-panel-open:border-b">
           <ActionAccordionTrigger className="items-start gap-3 py-0 hover:no-underline">
             <def.Icon
               className="mt-0.5 size-5 shrink-0 text-primary-subtle-foreground"

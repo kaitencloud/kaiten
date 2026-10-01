@@ -1,46 +1,32 @@
 import { ChevronDownIcon } from 'lucide-react';
-import { Accordion as AccordionPrimitive } from 'radix-ui';
+import { Accordion as AccordionPrimitive } from '@base-ui/react/accordion';
 import type * as React from 'react';
 
 import { cn } from '@/lib/utils';
+import { Accordion, AccordionContent, AccordionItem } from './accordion';
+import { useTranslation } from 'react-i18next';
 
-// Re-export Root and Content from the base accordion
-function ActionAccordion({
-  ...props
-}: React.ComponentProps<typeof AccordionPrimitive.Root>) {
-  return <AccordionPrimitive.Root data-slot="accordion" {...props} />;
-}
-
-function ActionAccordionItem({
-  className,
-  ...props
-}: React.ComponentProps<typeof AccordionPrimitive.Item>) {
-  return (
-    <AccordionPrimitive.Item
-      data-slot="accordion-item"
-      className={cn('border-b last:border-b-0', className)}
-      {...props}
-    />
-  );
-}
+const ActionAccordion = Accordion;
+const ActionAccordionItem = AccordionItem;
+const ActionAccordionContent = AccordionContent;
 
 // Header row that lays out the trigger and the actions side by side
 function ActionAccordionHeader({
   className,
   children,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+}: React.ComponentProps<typeof AccordionPrimitive.Header> & { className?: string }) {
+  const { t } = useTranslation();
   return (
-    <AccordionPrimitive.Header asChild>
-      <div className={cn('flex items-center', className)} {...props}>
+    <AccordionPrimitive.Header className={cn('flex items-center', className)} {...props}>
         {children}
         <AccordionPrimitive.Trigger
           data-slot="accordion-chevron"
-          className="ml-4 p-1 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&[data-state=open]>svg]:rotate-180"
+          aria-label={t('Common.toggleSection')}
+          className="ml-4 p-1 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&[data-panel-open]>svg]:rotate-180"
         >
           <ChevronDownIcon className="text-muted-foreground size-4 shrink-0 translate-y-0.5 transition-transform duration-200" />
         </AccordionPrimitive.Trigger>
-      </div>
     </AccordionPrimitive.Header>
   );
 }
@@ -50,7 +36,7 @@ function ActionAccordionTrigger({
   className,
   children,
   ...props
-}: React.ComponentProps<typeof AccordionPrimitive.Trigger>) {
+}: React.ComponentProps<typeof AccordionPrimitive.Trigger> & { className?: string }) {
   return (
     <AccordionPrimitive.Trigger
       data-slot="accordion-trigger"
@@ -79,22 +65,6 @@ function ActionAccordionActions({
     >
       {children}
     </div>
-  );
-}
-
-function ActionAccordionContent({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof AccordionPrimitive.Content>) {
-  return (
-    <AccordionPrimitive.Content
-      data-slot="accordion-content"
-      className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden text-sm"
-      {...props}
-    >
-      <div className={cn('pt-0 pb-4', className)}>{children}</div>
-    </AccordionPrimitive.Content>
   );
 }
 

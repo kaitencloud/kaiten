@@ -94,24 +94,26 @@ export function ValueOverTimeVisibleEntitlementsSelect({
 
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            getComboboxTriggerClassName({
-              hasValue: selectedOptions.length > 0,
-            }),
-            'min-w-0',
-          )}
-          aria-label={ariaLabel}
-          aria-expanded={isOpen}
-          aria-haspopup="listbox"
-          disabled={options.length === 0}
-        >
-          <span className="truncate">{triggerLabel}</span>
-          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className={cn(
+              getComboboxTriggerClassName({
+                hasValue: selectedOptions.length > 0,
+              }),
+              'min-w-0',
+            )}
+            aria-label={ariaLabel}
+            aria-expanded={isOpen}
+            aria-haspopup="listbox"
+            disabled={options.length === 0}
+          >
+            <span className="truncate">{triggerLabel}</span>
+            <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+          </button>
+        }
+      />
       <PopoverContent className="popover-content-full-width p-0" align="start">
         <Command shouldFilter={false}>
           <CommandInput

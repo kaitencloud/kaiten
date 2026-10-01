@@ -57,7 +57,7 @@ export function CelEditorDialog({
   ...content
 }: CelEditorDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} disablePointerDismissal>
       {/* Mounted per opening, so the draft and its lint state start fresh
           from the current value each time instead of surviving from the
           previous session. */}
@@ -108,10 +108,7 @@ function CelEditorDialogContent({
   };
 
   return (
-    <DialogContent
-      className="sm:max-w-3xl"
-      onInteractOutside={(event) => event.preventDefault()}
-    >
+    <DialogContent className="sm:max-w-3xl">
       <DialogHeader>
         <DialogTitle>{t('Functionals.CelEditor.dialogTitle')}</DialogTitle>
         <DialogDescription>

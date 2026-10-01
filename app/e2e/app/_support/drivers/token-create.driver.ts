@@ -28,6 +28,6 @@ export class TokenCreateDriver {
   }
 
   scopeRow(table: Locator, resource: string): Locator {
-    return table.getByRole('radiogroup', { name: `Access to ${resource}` });
+    return table.getByRole('group', { name: `Access to ${resource}` });
   }
 }

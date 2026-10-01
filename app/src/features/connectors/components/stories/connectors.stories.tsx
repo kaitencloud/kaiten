@@ -135,7 +135,7 @@ export const Detail: Story = {
     );
     await expect(
       within(document.body).getByRole('alertdialog'),
-    ).toHaveAttribute('data-state', 'open');
+    ).toHaveAttribute('data-open');
   },
 };
 

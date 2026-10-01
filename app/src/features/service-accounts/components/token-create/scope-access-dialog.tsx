@@ -37,12 +37,19 @@ export function ScopeAccessDialog({
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className={className}>
-          <SlidersHorizontal aria-hidden />
-          {t(`${I18N}.adjust`)}
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={className}
+          >
+            <SlidersHorizontal aria-hidden />
+            {t(`${I18N}.adjust`)}
+          </Button>
+        }
+      />
       <DialogContent variant="form" className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{t(`${I18N}.dialogTitle`)}</DialogTitle>
@@ -63,9 +70,9 @@ export function ScopeAccessDialog({
           />
         </DialogBody>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button">{t(`${I18N}.done`)}</Button>
-          </DialogClose>
+          <DialogClose
+            render={<Button type="button">{t(`${I18N}.done`)}</Button>}
+          />
         </DialogFooter>
       </DialogContent>
     </Dialog>

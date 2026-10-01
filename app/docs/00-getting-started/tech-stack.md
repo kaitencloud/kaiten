@@ -26,7 +26,7 @@ exact ones. When a version here and the manifest disagree, the manifest is right
 | Piece | Version | Role |
 | --- | --- | --- |
 | Tailwind CSS | 4 | Styling, through `@tailwindcss/vite`. The design tokens come from the workspace package `@kaitencloud/theme` (`packages/theme`). |
-| Radix UI and Base UI | `radix-ui` 1, `@base-ui/react` 1 | Headless primitives. Imported only from `src/components/ui/`, which `pnpm run lint` enforces. |
+| Base UI | `@base-ui/react` 1 | Headless primitives through shadcn/ui's `base-vega` components. Imported only from `src/components/ui/`, which `pnpm run lint` enforces. |
 | shadcn | 4 (CLI) | Adds and updates the components of `src/components/ui/` (`components.json`). |
 | cmdk, Sonner, react-day-picker | 1, 2, 10 | Command lists, toasts, date pickers. |
 | Lucide | 1 | Icons. |

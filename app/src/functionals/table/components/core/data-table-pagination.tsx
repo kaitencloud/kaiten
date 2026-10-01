@@ -103,6 +103,10 @@ export function DataTablePagination<TData extends RowData>({
             <div className="flex items-center gap-2">
               <span>{t('Common.rowsPerPage', 'Rows per page')}</span>
               <Select
+                items={paginationConfig.pageSizeOptions.map((value) => ({
+                  value: String(value),
+                  label: String(value),
+                }))}
                 value={String(activePageSize)}
                 onValueChange={(value) => {
                   table.setPageSize(Number(value));

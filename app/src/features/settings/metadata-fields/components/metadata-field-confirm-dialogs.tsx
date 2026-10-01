@@ -2,6 +2,7 @@ import { TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertDialog,
+  AlertDialogClose,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -72,13 +73,17 @@ export function ArchiveDialog({
           <AlertDialogCancel disabled={isPending}>
             {t('Common.cancel', 'Cancel')}
           </AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            disabled={isPending}
-            onClick={onConfirm}
-          >
-            {t('Pages.Settings.Metadata.Archive.confirmButton', 'Archive')}
-          </AlertDialogAction>
+          <AlertDialogClose
+            render={
+              <AlertDialogAction
+                variant="destructive"
+                disabled={isPending}
+                onClick={onConfirm}
+              >
+                {t('Pages.Settings.Metadata.Archive.confirmButton', 'Archive')}
+              </AlertDialogAction>
+            }
+          />
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -151,9 +156,16 @@ export function DryRunDialog({
           <AlertDialogCancel disabled={isPending}>
             {t('Common.cancel', 'Cancel')}
           </AlertDialogCancel>
-          <AlertDialogAction disabled={isPending} onClick={onConfirm}>
-            {t('Pages.Settings.Metadata.DryRun.confirmButton', 'Save anyway')}
-          </AlertDialogAction>
+          <AlertDialogClose
+            render={
+              <AlertDialogAction disabled={isPending} onClick={onConfirm}>
+                {t(
+                  'Pages.Settings.Metadata.DryRun.confirmButton',
+                  'Save anyway',
+                )}
+              </AlertDialogAction>
+            }
+          />
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

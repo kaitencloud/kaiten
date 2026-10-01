@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactElement } from 'react';
 import {
   Tooltip,
   TooltipContent,
@@ -232,13 +232,13 @@ export function SubmitBlockersTooltip({
   reasons,
   title,
 }: {
-  children: ReactNode;
+  children: ReactElement;
   reasons: string[];
   title: string;
 }) {
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipTrigger render={children} />
       <TooltipContent align="end" side="bottom" className="max-w-sm px-3 py-2">
         <div className="space-y-2">
           <p className="font-medium">{title}</p>

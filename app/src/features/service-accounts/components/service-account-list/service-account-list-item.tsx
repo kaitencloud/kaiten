@@ -43,7 +43,7 @@ export function ServiceAccountListItem({
   return (
     <Card className="p-0">
       <CardContent className="p-0">
-        <ActionAccordion type="single" collapsible className="w-full">
+        <ActionAccordion className="w-full">
           <ActionAccordionItem value={sa.slug!} className="border-0">
             <ActionAccordionHeader className="px-6">
               <ActionAccordionTrigger className="hover:no-underline">

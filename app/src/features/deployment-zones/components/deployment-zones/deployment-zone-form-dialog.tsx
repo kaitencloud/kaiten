@@ -259,17 +259,23 @@ export function DeploymentZoneFormDialog({
                         )}
                       </p>
                       <div className="mt-3 flex flex-wrap justify-center gap-2">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link
-                            to="/settings/metadata"
-                            search={{ resourceType: 'DEPLOYMENT_ZONE' }}
-                          >
-                            {t(
-                              'Features.Releases.Form.configureMetadataFields',
-                              'Configure metadata fields',
-                            )}
-                          </Link>
-                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          nativeButton={false}
+                          role="link"
+                          render={
+                            <Link
+                              to="/settings/metadata"
+                              search={{ resourceType: 'DEPLOYMENT_ZONE' }}
+                            >
+                              {t(
+                                'Features.Releases.Form.configureMetadataFields',
+                                'Configure metadata fields',
+                              )}
+                            </Link>
+                          }
+                        />
                         <Button
                           type="button"
                           variant="ghost"

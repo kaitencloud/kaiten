@@ -25,7 +25,7 @@ function renderTableWith(webhooksEnabled: boolean | undefined) {
 }
 
 const rowFor = (resource: string) =>
-  screen.queryByRole('radiogroup', { name: `Access to ${resource}` });
+  screen.queryByRole('group', { name: `Access to ${resource}` });
 
 describe('ScopeAccessTable', () => {
   it('offers the webhooks scope where the webhooks flag is on', () => {

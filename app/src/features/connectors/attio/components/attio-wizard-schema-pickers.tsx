@@ -74,28 +74,30 @@ export function SourceFieldPicker({
     // modal: the picker also opens inside the mapping editor dialog, whose
     // scroll lock would otherwise swallow wheel events in the portaled list.
     <Popover open={open} onOpenChange={setOpen} modal>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex w-full items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent"
-          aria-haspopup="listbox"
-          aria-expanded={open}
-        >
-          {selected ? (
-            <SourceFieldSummary field={selected} compact subline="table" />
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              {t(
-                'Pages.Integrations.Connectors.Wizard.Schema.selectSourceField',
-              )}
-            </span>
-          )}
-          <ChevronsUpDown
-            className="size-3.5 shrink-0 text-muted-foreground"
-            aria-hidden
-          />
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className="inline-flex w-full items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+            aria-haspopup="listbox"
+            aria-expanded={open}
+          >
+            {selected ? (
+              <SourceFieldSummary field={selected} compact subline="table" />
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                {t(
+                  'Pages.Integrations.Connectors.Wizard.Schema.selectSourceField',
+                )}
+              </span>
+            )}
+            <ChevronsUpDown
+              className="size-3.5 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
+          </button>
+        }
+      />
       <PopoverContent align="start" className="w-[320px] p-0" sideOffset={4}>
         <SourceFieldList
           options={options}

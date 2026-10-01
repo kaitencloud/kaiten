@@ -48,19 +48,23 @@ export const InstanceStatusEditor = ({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label={t('Pages.Customers.Instances.Detail.statusEditor.title')}
-          disabled={isUpdating}
-          className={cn(
-            'rounded-md outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-ring',
-            isUpdating ? 'opacity-60' : 'cursor-pointer hover:opacity-80',
-          )}
-        >
-          <InstanceStatusBadge status={current} />
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            aria-label={t(
+              'Pages.Customers.Instances.Detail.statusEditor.title',
+            )}
+            disabled={isUpdating}
+            className={cn(
+              'rounded-md outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-ring',
+              isUpdating ? 'opacity-60' : 'cursor-pointer hover:opacity-80',
+            )}
+          >
+            <InstanceStatusBadge status={current} />
+          </button>
+        }
+      />
       <PopoverContent align="start" className="w-52 p-1">
         <div className="flex flex-col gap-0.5">
           {INSTANCE_STATUS_VALUES.map((option) => (

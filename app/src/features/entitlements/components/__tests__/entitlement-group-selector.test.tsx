@@ -118,15 +118,12 @@ vi.mock('@/components/ui/command', () => ({
 }));
 
 vi.mock('@/components/ui/popover', () => ({
-  PopoverAnchor: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
   Popover: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   PopoverContent: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),
-  PopoverTrigger: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
+  PopoverTrigger: ({ render }: { render: ReactNode }) => (
+    <div>{render}</div>
   ),
 }));
 

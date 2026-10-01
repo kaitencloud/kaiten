@@ -87,25 +87,36 @@ function DeploymentZoneDetailLayout({ children }: PropsWithChildren) {
 
           <Page.Actions>
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" className="gap-2" asChild>
-                <Link
-                  to="/releases/deployment-zones/$zoneSlug/edit"
-                  params={{ zoneSlug }}
-                >
-                  <GitBranch className="size-4" />
-                  {t('Features.Releases.Actions.edit')}
-                </Link>
-              </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                nativeButton={false}
+                role="link"
+                render={
+                  <Link
+                    to="/releases/deployment-zones/$zoneSlug/edit"
+                    params={{ zoneSlug }}
+                  >
+                    <GitBranch className="size-4" />
+                    {t('Features.Releases.Actions.edit')}
+                  </Link>
+                }
+              />
               {/* The page's main action: solid, like Deploy on the instance page. */}
-              <Button className="gap-2" asChild>
-                <Link
-                  to="/releases/deployment-zones/$zoneSlug/deploy"
-                  params={{ zoneSlug }}
-                >
-                  <Rocket className="size-4" />
-                  {t('Features.Releases.Actions.deploy')}
-                </Link>
-              </Button>
+              <Button
+                className="gap-2"
+                nativeButton={false}
+                role="link"
+                render={
+                  <Link
+                    to="/releases/deployment-zones/$zoneSlug/deploy"
+                    params={{ zoneSlug }}
+                  >
+                    <Rocket className="size-4" />
+                    {t('Features.Releases.Actions.deploy')}
+                  </Link>
+                }
+              />
               <DestructiveActionButton
                 label={t('Common.delete')}
                 title={t('Common.confirmDeleteTitle')}

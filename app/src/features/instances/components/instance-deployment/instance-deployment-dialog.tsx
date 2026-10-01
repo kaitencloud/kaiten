@@ -141,13 +141,17 @@ const InstanceDeploymentForm = ({
           </div>
         ) : null}
 
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 gap-2">
           <Label htmlFor={zoneSelectId}>
             {t('Pages.Customers.Instances.Deployment.targetZone')}
           </Label>
           <Select
-            value={selectedZoneId}
-            onValueChange={setSelectedZoneId}
+            items={availableZones.map((zone) => ({
+              value: zone.id,
+              label: getZoneLabel(zone),
+            }))}
+            value={selectedZoneId || null}
+            onValueChange={(value) => setSelectedZoneId(value ?? '')}
             disabled={isLoading || hasNoZoneAvailable || isDeploying}
           >
             <SelectTrigger id={zoneSelectId} className="w-full">

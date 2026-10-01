@@ -58,16 +58,22 @@ export function FeatureFlagDetailHeader({
             <FlaskConical className="size-4" />
             {t('Pages.FeatureFlags.Detail.buttons.tryIt')}
           </Button>
-          <Button variant="outline" className="gap-2" asChild>
-            <Link
-              to="/feature-flags/$featureFlagSlug"
-              params={{ featureFlagSlug }}
-              search={{ mode: 'configure' }}
-            >
-              <Settings className="size-4" />
-              {t('Pages.FeatureFlags.Detail.buttons.configure')}
-            </Link>
-          </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            nativeButton={false}
+            role="link"
+            render={
+              <Link
+                to="/feature-flags/$featureFlagSlug"
+                params={{ featureFlagSlug }}
+                search={{ mode: 'configure' }}
+              >
+                <Settings className="size-4" />
+                {t('Pages.FeatureFlags.Detail.buttons.configure')}
+              </Link>
+            }
+          />
         </div>
       </Page.Actions>
     </Page.Header>

@@ -75,8 +75,11 @@ export function RuleRow<T>({
       </span>
 
       <Select
+        items={fields.map((field) => ({ value: field.id, label: field.label }))}
         value={rule.fieldId}
-        onValueChange={(fieldId) => onUpdate({ fieldId })}
+        onValueChange={(fieldId) => {
+          if (fieldId !== null) onUpdate({ fieldId });
+        }}
       >
         <SelectTrigger className="w-full">
           <SelectValue />
@@ -85,6 +88,10 @@ export function RuleRow<T>({
       </Select>
 
       <Select
+        items={operators.map((operator) => ({
+          value: operator,
+          label: FILTER_OPERATOR_LABELS[operator],
+        }))}
         value={rule.operator}
         onValueChange={(operator) =>
           onUpdate({ operator: operator as FilterOperator })

@@ -66,7 +66,7 @@ The public entry points that follow from these rules:
 | `no-restricted-imports` | `src/routes/**` | importing `useMutation` from `@tanstack/react-query`, or `useState` or `useReducer` from `react`. Under `src/routes/-components/` only `useMutation` is refused: the app shell keeps local state. |
 | `unicorn/filename-case` | `src` and `e2e` | file names that are not kebab-case. A leading `_` (`__root.tsx`) and `$param` route files are accepted; directory names are not checked. |
 
-For example, `src/components/ui/slider.tsx` imports `Slider` from `radix-ui` and wraps it; `src/features/feature-flags/rollout/components/rollout-percentage-config-sliders.tsx` imports `Slider` from `@/components/ui/slider`.
+For example, `src/components/ui/slider.tsx` imports `Slider` from `@base-ui/react/slider` and wraps it; `src/features/feature-flags/rollout/components/rollout-percentage-config-sliders.tsx` imports `Slider` from `@/components/ui/slider`.
 
 ## Generated code
 

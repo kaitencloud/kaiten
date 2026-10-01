@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "shadcn/tailwind.css";
 @import "./tokens.css";
 
 /* Tailwind scans every file under app/ that .gitignore leaves in, Markdown
@@ -11,6 +12,10 @@
 @plugin "tailwindcss-animate";
 
 @custom-variant dark (&:is(.dark *));
+
+.popover-content-full-width {
+  width: var(--anchor-width);
+}
 
 /* A viewport tall enough for a page to keep a long list inline, scrolling
    inside its card, instead of moving it into a dialog (the new-token scope

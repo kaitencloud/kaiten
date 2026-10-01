@@ -30,18 +30,20 @@ export function FilterToolbarFilterButton({
   if (activeFilterCount === 0) {
     return (
       <Popover open={filterMenuOpen} onOpenChange={setFilterMenuOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className={cn('h-9 gap-2', className)}
-          >
-            <Filter className="size-4" />
-            {copy.filtersButton}
-            <ChevronDown className="size-4 opacity-60" />
-          </Button>
-        </PopoverTrigger>
+        <PopoverTrigger
+          render={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn('h-9 gap-2', className)}
+            >
+              <Filter className="size-4" />
+              {copy.filtersButton}
+              <ChevronDown className="size-4 opacity-60" />
+            </Button>
+          }
+        />
         <PopoverContent align="end" className="w-[280px] p-0">
           <FilterPickerMenu />
         </PopoverContent>

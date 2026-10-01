@@ -100,24 +100,26 @@ export function ActivityTimelineVisibleGroupsSelect({
 
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            getComboboxTriggerClassName({
-              hasValue: selectedOptions.length > 0,
-            }),
-            triggerClassName,
-          )}
-          aria-label={ariaLabel}
-          aria-expanded={isOpen}
-          aria-haspopup="listbox"
-          disabled={options.length === 0}
-        >
-          <span className="truncate">{triggerLabel}</span>
-          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className={cn(
+              getComboboxTriggerClassName({
+                hasValue: selectedOptions.length > 0,
+              }),
+              triggerClassName,
+            )}
+            aria-label={ariaLabel}
+            aria-expanded={isOpen}
+            aria-haspopup="listbox"
+            disabled={options.length === 0}
+          >
+            <span className="truncate">{triggerLabel}</span>
+            <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+          </button>
+        }
+      />
       <PopoverContent
         className={cn('popover-content-full-width p-0', className)}
         align="start"

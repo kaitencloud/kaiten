@@ -77,13 +77,22 @@ export function DeployReleaseDialog({
           </DialogDescription>
         </DialogHeader>
         <DialogBody className="space-y-6">
-          <div className="space-y-2">
+          {/* `gap`, not `space-y`: Base UI's Select appends a hidden input after
+              the trigger, so `space-y-2` would add a margin below the trigger.
+              `grid-cols-1` keeps a long selected value from widening the column. */}
+          <div className="grid grid-cols-1 gap-2">
             <Label htmlFor="release">
               {t('Features.Releases.Form.selectRelease')}
             </Label>
             <Select
-              value={selectedReleaseId}
-              onValueChange={setSelectedReleaseId}
+              items={releases.map((release) => ({
+                value: release.id,
+                label: `${release.version}${release.description ? ` - ${release.description}` : ''}`,
+              }))}
+              value={selectedReleaseId || null}
+              onValueChange={(value) => {
+                if (value !== null) setSelectedReleaseId(value);
+              }}
             >
               <SelectTrigger id="release" className="w-full">
                 <SelectValue

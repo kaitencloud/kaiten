@@ -22,7 +22,7 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-// Radix Select relies on pointer capture and scrollIntoView, which jsdom lacks.
+// Select relies on pointer capture and scrollIntoView, which jsdom lacks.
 Object.defineProperty(HTMLElement.prototype, 'hasPointerCapture', {
   configurable: true,
   value: () => false,
@@ -76,8 +76,9 @@ describe('DeployReleaseDialog', () => {
     });
     expect(deployButton).toBeDisabled();
 
-    await user.click(screen.getByRole('combobox'));
-    await user.click(screen.getByRole('option', { name: 'v1.5.0' }));
+    screen.getByRole('combobox').focus();
+    await user.keyboard('{ArrowDown}');
+    await user.click(await screen.findByRole('option', { name: 'v1.5.0' }));
 
     expect(deployButton).toBeEnabled();
     await user.click(deployButton);

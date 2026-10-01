@@ -877,9 +877,9 @@ describe('RolloutDateConfig', () => {
   });
 
   describe('slider interactions', () => {
-    it('should call onChange when start percentage slider changes', () => {
+    it('should call onChange when start percentage slider changes', async () => {
       const onChange = vi.fn();
-      const { container } = render(
+      render(
         <RolloutDateConfig
           value={{
             start: {
@@ -901,7 +901,7 @@ describe('RolloutDateConfig', () => {
       );
 
       // Verify sliders are rendered
-      const sliders = container.querySelectorAll('[role="slider"]');
+      const sliders = await screen.findAllByRole('slider');
       expect(sliders.length).toBeGreaterThan(0);
 
       // Simulate start percentage change to 50

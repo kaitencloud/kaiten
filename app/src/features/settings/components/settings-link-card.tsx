@@ -37,11 +37,16 @@ export function SettingsLinkCard({
               <CardDescription>{description}</CardDescription>
             </div>
           </div>
-          <Button variant="outline" asChild>
-            <Link to={to} search={search}>
-              {buttonLabel}
-            </Link>
-          </Button>
+          <Button
+            variant="outline"
+            nativeButton={false}
+            role="link"
+            render={
+              <Link to={to} search={search}>
+                {buttonLabel}
+              </Link>
+            }
+          />
         </div>
       </CardHeader>
     </Card>

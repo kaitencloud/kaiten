@@ -29,12 +29,12 @@ function renderForm() {
 }
 
 const accessOf = (resource: string) =>
-  screen.getByRole('radiogroup', { name: `Access to ${resource}` });
+  screen.getByRole('group', { name: `Access to ${resource}` });
 
 const levelOf = (resource: string) =>
   within(accessOf(resource))
-    .getAllByRole('radio')
-    .find((radio) => radio.getAttribute('aria-checked') === 'true')
+    .getAllByRole('button')
+    .find((button) => button.getAttribute('aria-pressed') === 'true')
     ?.textContent;
 
 describe('TokenCreateForm', () => {
@@ -43,7 +43,7 @@ describe('TokenCreateForm', () => {
 
     // The form's fields are code-split: wait for the first one to land.
     expect(
-      await screen.findByRole('radiogroup', { name: 'Access to Webhooks' }),
+      await screen.findByRole('group', { name: 'Access to Webhooks' }),
     ).toBeInTheDocument();
     expect(accessOf('Metadata Fields')).toBeInTheDocument();
     expect(levelOf('Webhooks')).toBe('No access');
@@ -101,7 +101,7 @@ describe('TokenCreateForm', () => {
       await screen.findByRole('button', { name: 'Control plane' }),
     );
     await user.click(
-      within(accessOf('Webhooks')).getByRole('radio', { name: 'Read' }),
+      within(accessOf('Webhooks')).getByRole('button', { name: 'Read' }),
     );
     expect(screen.getByText('17 scopes')).toBeInTheDocument();
 
@@ -128,8 +128,8 @@ describe('TokenCreateForm', () => {
     });
     await user.click(
       within(
-        within(dialog).getByRole('radiogroup', { name: 'Access to Webhooks' }),
-      ).getByRole('radio', { name: 'Read & write' }),
+        within(dialog).getByRole('group', { name: 'Access to Webhooks' }),
+      ).getByRole('button', { name: 'Read & write' }),
     );
     await user.click(within(dialog).getByRole('button', { name: 'Done' }));
 
@@ -148,7 +148,7 @@ describe('TokenCreateForm', () => {
       'Empty',
     );
     await user.click(
-      within(accessOf('Licenses')).getByRole('radio', { name: 'Read' }),
+      within(accessOf('Licenses')).getByRole('button', { name: 'Read' }),
     );
     await user.click(screen.getByRole('button', { name: 'Clear' }));
 

@@ -375,8 +375,8 @@ describe('DataTable', () => {
       throw new Error('Expected the dialog overlay to be rendered');
     }
 
-    fireEvent.click(overlay);
     fireEvent.click(screen.getByText(/"tier": "gold"/));
+    fireEvent.click(overlay);
 
     expect(onClickRow).toHaveBeenCalledTimes(1);
   });

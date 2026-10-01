@@ -55,16 +55,22 @@ export const CustomerDetailHeader = ({
 
       <Page.Actions>
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2" asChild>
-            <Link
-              to="/customers/$customerSlug"
-              params={{ customerSlug: customer.slug! }}
-              search={{ mode: 'configure' }}
-            >
-              <Pencil className="size-4" />
-              {t('Common.edit')}
-            </Link>
-          </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            nativeButton={false}
+            role="link"
+            render={
+              <Link
+                to="/customers/$customerSlug"
+                params={{ customerSlug: customer.slug! }}
+                search={{ mode: 'configure' }}
+              >
+                <Pencil className="size-4" />
+                {t('Common.edit')}
+              </Link>
+            }
+          />
           <DestructiveActionButton
             label={t('Common.delete')}
             title={t('Common.confirmDeleteTitle')}

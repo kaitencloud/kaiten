@@ -3,6 +3,7 @@ import { RotateCcw, Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertDialog,
+  AlertDialogClose,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -70,7 +71,16 @@ export function ApplicationSettingsSection() {
           <Label htmlFor="app-language">
             {t('Pages.Settings.App.language')}
           </Label>
-          <Select value={language} onValueChange={handleLanguageChange}>
+          <Select
+            items={APP_LANGUAGES.map((code) => ({
+              value: code,
+              label: t(`Pages.Settings.App.languages.${code}`),
+            }))}
+            value={language}
+            onValueChange={(value) => {
+              if (value !== null) handleLanguageChange(value);
+            }}
+          >
             <SelectTrigger id="app-language" className="w-44">
               <SelectValue />
             </SelectTrigger>
@@ -82,12 +92,14 @@ export function ApplicationSettingsSection() {
       </div>
 
       <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button variant="outline" className="gap-2 self-start sm:self-auto">
-            <RotateCcw className="size-4" />
-            {t('Pages.Settings.App.resetButton')}
-          </Button>
-        </AlertDialogTrigger>
+        <AlertDialogTrigger
+          render={
+            <Button variant="outline" className="gap-2 self-start sm:self-auto">
+              <RotateCcw className="size-4" />
+              {t('Pages.Settings.App.resetButton')}
+            </Button>
+          }
+        />
         <AlertDialogContent size="sm">
           <AlertDialogHeader>
             <AlertDialogMedia className="bg-destructive-subtle text-destructive-subtle-foreground">
@@ -104,9 +116,16 @@ export function ApplicationSettingsSection() {
             <AlertDialogCancel variant="outline">
               {t('Common.cancel')}
             </AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={resetAppSettings}>
-              {t('Pages.Settings.App.ResetDialog.confirmButton')}
-            </AlertDialogAction>
+            <AlertDialogClose
+              render={
+                <AlertDialogAction
+                  variant="destructive"
+                  onClick={resetAppSettings}
+                >
+                  {t('Pages.Settings.App.ResetDialog.confirmButton')}
+                </AlertDialogAction>
+              }
+            />
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

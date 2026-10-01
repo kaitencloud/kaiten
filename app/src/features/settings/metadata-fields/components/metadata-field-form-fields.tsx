@@ -150,6 +150,10 @@ export function SchemaFields({
               {t('Pages.Settings.Metadata.Dialog.typeLabel', 'Primary type')}
             </Label>
             <Select
+              items={metadataPrimaryTypes.map((type) => ({
+                value: type,
+                label: primaryTypeLabel(type),
+              }))}
               value={field.state.value}
               onValueChange={(value) =>
                 field.handleChange(value as MetadataPrimaryType)
@@ -250,18 +254,20 @@ export function RawSchemaField({
       <div className="flex items-center gap-1.5">
         <Label>{editorLabel}</Label>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex size-4 items-center justify-center text-muted-foreground hover:text-foreground"
-              aria-label={t(
-                'Pages.Settings.Metadata.Dialog.rawSchemaDraftTooltip',
-                'Authored as JSON Schema draft 2020-12 — the dialect that determines which keywords (type, enum, items, format, …) are valid.',
-              )}
-            >
-              <Info className="size-3.5" />
-            </button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                className="inline-flex size-4 items-center justify-center text-muted-foreground hover:text-foreground"
+                aria-label={t(
+                  'Pages.Settings.Metadata.Dialog.rawSchemaDraftTooltip',
+                  'Authored as JSON Schema draft 2020-12 — the dialect that determines which keywords (type, enum, items, format, …) are valid.',
+                )}
+              >
+                <Info className="size-3.5" />
+              </button>
+            }
+          />
           <TooltipContent className="max-w-xs">
             {t(
               'Pages.Settings.Metadata.Dialog.rawSchemaDraftTooltip',

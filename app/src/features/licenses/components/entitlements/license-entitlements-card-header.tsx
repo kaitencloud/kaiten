@@ -55,11 +55,13 @@ function AddEntitlementButton({
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span tabIndex={0} className="inline-flex">
-            {button}
-          </span>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <span tabIndex={0} className="inline-flex">
+              {button}
+            </span>
+          }
+        />
         <TooltipContent>{disabledHint}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -91,17 +93,22 @@ export function LicenseEntitlementsHeader({
             <span>{cardDescriptionSummary}</span>
             {cardDescriptionDetails ? (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    className="size-5 text-muted-foreground hover:text-foreground"
-                    aria-label={t('Common.moreInformation', 'More information')}
-                  >
-                    <Info className="size-3.5" />
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      className="size-5 text-muted-foreground hover:text-foreground"
+                      aria-label={t(
+                        'Common.moreInformation',
+                        'More information',
+                      )}
+                    >
+                      <Info className="size-3.5" />
+                    </Button>
+                  }
+                />
                 <TooltipContent className="max-w-xs">
                   {cardDescriptionDetails}
                 </TooltipContent>

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import type { Variant } from '@/api-client';
 import {
   AlertDialog,
+  AlertDialogClose,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -99,9 +100,13 @@ export function TargetingDeleteDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{t('Common.cancel')}</AlertDialogCancel>
-          <AlertDialogAction onClick={handleConfirm}>
-            {t('Common.delete')}
-          </AlertDialogAction>
+          <AlertDialogClose
+            render={
+              <AlertDialogAction onClick={handleConfirm}>
+                {t('Common.delete')}
+              </AlertDialogAction>
+            }
+          />
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

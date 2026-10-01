@@ -77,9 +77,9 @@ const thresholdInput = () =>
 const overageInput = () =>
   screen.queryByLabelText(
     'Pages.Licenses.Entitlements.Dialog.overagePercentLabel',
-    { selector: 'input' },
+    { selector: 'input:not([type="range"])' },
   );
-const overageSlider = () => screen.getByRole('slider');
+const overageSlider = () => screen.findByRole('slider');
 const unlimitedSwitch = () => screen.getByRole('switch', { name: 'Unlimited' });
 
 describe('AddEntitlementDialog', () => {
@@ -109,7 +109,7 @@ describe('AddEntitlementDialog', () => {
 
     await user.click(unlimitedSwitch());
 
-    expect(onNewThresholdUnlimitedChange).toHaveBeenCalledWith(true);
+    expect(onNewThresholdUnlimitedChange).toHaveBeenCalledWith(true, expect.any(Object));
   });
 
   it('reports the allowance as a number, not typed text', async () => {
@@ -136,11 +136,11 @@ describe('AddEntitlementDialog', () => {
       onNewOveragePercentChange,
     });
 
-    const slider = overageSlider();
+    const slider = await overageSlider();
 
-    expect(slider).toHaveAttribute('aria-valuenow', '25');
-    expect(slider).toHaveAttribute('aria-valuemin', '0');
-    expect(slider).toHaveAttribute('aria-valuemax', '100');
+    expect(slider).toHaveValue('25');
+    expect(slider).toHaveAttribute('min', '0');
+    expect(slider).toHaveAttribute('max', '100');
     expect(overageInput()).toHaveValue('25');
 
     slider.focus();
@@ -180,8 +180,9 @@ describe('AddEntitlementDialog', () => {
     const input = overageInput() as HTMLInputElement;
     expect(input).toHaveValue('100');
 
-    await user.clear(input);
-    await user.type(input, '100');
+    await user.click(input);
+    input.select();
+    await user.keyboard('100');
 
     expect(input).toHaveValue('100');
   });

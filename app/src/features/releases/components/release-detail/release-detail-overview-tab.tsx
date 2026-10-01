@@ -210,14 +210,20 @@ function ReleaseDeploymentFootprintCard({
                   </Badge>
                 </div>
                 {deploymentZone.slug ? (
-                  <Button variant="ghost" size="icon" asChild>
-                    <Link
-                      to="/releases/deployment-zones/$zoneSlug"
-                      params={{ zoneSlug: deploymentZone.slug }}
-                    >
-                      <ArrowRight className="size-4" />
-                    </Link>
-                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    nativeButton={false}
+                    role="link"
+                    render={
+                      <Link
+                        to="/releases/deployment-zones/$zoneSlug"
+                        params={{ zoneSlug: deploymentZone.slug }}
+                      >
+                        <ArrowRight className="size-4" />
+                      </Link>
+                    }
+                  />
                 ) : null}
               </div>
             ))

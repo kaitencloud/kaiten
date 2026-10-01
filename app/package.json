@@ -91,7 +91,6 @@
     "lucide-react": "catalog:",
     "monaco-editor": "^0.55.1",
     "papaparse": "^5.7.0",
-    "radix-ui": "catalog:",
     "react": "catalog:",
     "react-day-picker": "10.0.1",
     "react-dom": "catalog:",

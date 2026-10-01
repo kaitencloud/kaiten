@@ -47,12 +47,14 @@ export function DemoBanner() {
             variant="link"
             size="sm"
             className="text-warning-subtle-foreground h-auto p-0 underline"
-            asChild
-          >
-            <Link to="/settings">
-              {t('Features.DemoSandbox.Banner.manageLink')}
-            </Link>
-          </Button>
+            nativeButton={false}
+            role="link"
+            render={
+              <Link to="/settings">
+                {t('Features.DemoSandbox.Banner.manageLink')}
+              </Link>
+            }
+          />
         )}
       </div>
     </div>

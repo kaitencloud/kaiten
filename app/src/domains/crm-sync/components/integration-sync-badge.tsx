@@ -79,20 +79,24 @@ export function IntegrationSyncBadge({
     return (
       <Dialog>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <DialogTrigger asChild>
-              <button
-                type="button"
-                className="flex w-fit cursor-pointer items-center gap-1.5 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                aria-label={t(
-                  'Pages.Integrations.Connectors.EntitySync.errorDialog.openLabel',
-                )}
-                onClick={(event) => event.stopPropagation()}
-              >
-                {badgeContent}
-              </button>
-            </DialogTrigger>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <DialogTrigger
+                render={
+                  <button
+                    type="button"
+                    className="flex w-fit cursor-pointer items-center gap-1.5 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    aria-label={t(
+                      'Pages.Integrations.Connectors.EntitySync.errorDialog.openLabel',
+                    )}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    {badgeContent}
+                  </button>
+                }
+              />
+            }
+          />
           {tooltipContent}
         </Tooltip>
         <SyncErrorDialogContent
@@ -106,17 +110,16 @@ export function IntegrationSyncBadge({
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        {/* Focusable so keyboard/SR users can reach the status tooltip (the
-            focus-visible ring backs this intent). react-doctor flags the
-            tabIndex but removing it would drop keyboard access to the tooltip. */}
-        <span
-          tabIndex={0}
-          className="flex w-fit items-center gap-1.5 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        >
-          {badgeContent}
-        </span>
-      </TooltipTrigger>
+      <TooltipTrigger
+        render={
+          <span
+            tabIndex={0}
+            className="flex w-fit items-center gap-1.5 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {badgeContent}
+          </span>
+        }
+      />
       {tooltipContent}
     </Tooltip>
   );

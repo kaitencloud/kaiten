@@ -77,17 +77,19 @@ function CollapsedIntegrationsMenu({
 
   return (
     <Popover open={isOpen} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <SidebarMenuButton
-          isActive={isRouteActive(pathname, '/integrations')}
-          tooltip={isTooltipEnabled ? title : undefined}
-          className={topLevelButtonClassName}
-          onPointerLeave={onTriggerPointerLeave}
-        >
-          <Zap />
-          <span>{title}</span>
-        </SidebarMenuButton>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <SidebarMenuButton
+            isActive={isRouteActive(pathname, '/integrations')}
+            tooltip={isTooltipEnabled ? title : undefined}
+            className={topLevelButtonClassName}
+            onPointerLeave={onTriggerPointerLeave}
+          >
+            <Zap />
+            <span>{title}</span>
+          </SidebarMenuButton>
+        }
+      />
       <PopoverContent
         side="right"
         align="start"
