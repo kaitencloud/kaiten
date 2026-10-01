@@ -1,0 +1,113 @@
+name: DCO
+
+# Every commit of a pull request must be signed off by its author, as DCO.md and
+# CONTRIBUTING.md ask: a `Signed-off-by: Name <email>` trailer naming the commit's author.
+# Require the `DCO` check on main; this workflow is the source of truth.
+#
+# pull_request_target runs the workflow as it is on main, never as a pull request edits it,
+# so a contributor cannot change the check that judges their own commits. It is safe because
+# nothing here checks out or runs the pull request's code: the check below reads the commits'
+# metadata from the API, and it needs no other file, so it can be copied to any repository.
+on:
+  pull_request_target:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  dco:
+    name: DCO
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every commit is signed off by its author
+        shell: python
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          """Fail when a commit of the pull request is not signed off by its author (DCO 1.1)."""
+
+          import json
+          import os
+          import re
+          import sys
+          import urllib.request
+
+          SIGN_OFF = re.compile(
+              r"^Signed-off-by:[ \t]*(?P<name>.+?)[ \t]*<(?P<email>[^<>]+)>[ \t]*$", re.M
+          )
+          FIX = (
+              "Sign commits off with `git commit -s`. To fix this pull request:\n\n"
+              "    git commit --amend --signoff --no-edit    # the latest commit\n"
+              "    git rebase --signoff origin/main          # every commit of the branch\n"
+              "    git push --force-with-lease\n\n"
+              "See CONTRIBUTING.md and DCO.md."
+          )
+
+
+          def problem(commit):
+              """Why a commit, as the API lists a pull request's commits, fails; None if it passes.
+
+              A commit passes when one of its Signed-off-by trailers names its author, by name and
+              by email, ignoring case. A merge commit adds no work of its own, and a bot account
+              certifies nothing, so neither is checked.
+              """
+              if len(commit.get("parents") or []) > 1:
+                  return None
+              if (commit.get("author") or {}).get("type") == "Bot":
+                  return None
+              author = commit["commit"]["author"]
+              signoffs = [(m["name"], m["email"]) for m in SIGN_OFF.finditer(commit["commit"]["message"])]
+              if any(
+                  name.lower() == author["name"].lower() and email.lower() == author["email"].lower()
+                  for name, email in signoffs
+              ):
+                  return None
+              expected = f"{author['name']} <{author['email']}>"
+              if not signoffs:
+                  return f"no Signed-off-by; expected {expected}"
+              found = ", ".join(f"{name} <{email}>" for name, email in signoffs)
+              return f"signed off by {found}, not by its author: expected {expected}"
+
+
+          def commits():
+              """Every commit of the pull request, page by page."""
+              api = os.environ.get("GITHUB_API_URL", "https://api.github.com")
+              repository, number = os.environ["GITHUB_REPOSITORY"], os.environ["PR_NUMBER"]
+              page = 1
+              while True:
+                  request = urllib.request.Request(
+                      f"{api}/repos/{repository}/pulls/{number}/commits?per_page=100&page={page}",
+                      headers={
+                          "Accept": "application/vnd.github+json",
+                          "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                          "X-GitHub-Api-Version": "2022-11-28",
+                      },
+                  )
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      batch = json.load(response)
+                  yield from batch
+                  if len(batch) < 100:
+                      return
+                  page += 1
+
+
+          def main():
+              listed = list(commits())
+              failed = [(commit, why) for commit in listed if (why := problem(commit)) is not None]
+              for commit, why in failed:
+                  subject = commit["commit"]["message"].splitlines()[0]
+                  print(f"::error title=DCO::{commit['sha']} {subject}: {why}")
+              if failed:
+                  print(f"\n{len(failed)} of {len(listed)} commits are not signed off by their author.")
+                  print(f"\n{FIX}")
+                  return 1
+              print(f"All {len(listed)} commits are signed off by their author.")
+              return 0
+
+
+          if __name__ == "__main__":
+              sys.exit(main())

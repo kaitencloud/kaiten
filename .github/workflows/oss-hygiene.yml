@@ -111,7 +111,7 @@ jobs:
           # change is a tenant-isolation or credential bug -- and this list is where
           # to enforce it once it exists.
           missing=''
-          for f in LICENSE NOTICE SECURITY.md CODE_OF_CONDUCT.md CONTRIBUTING.md README.md; do
+          for f in LICENSE NOTICE DCO.md SECURITY.md CODE_OF_CONDUCT.md CONTRIBUTING.md README.md; do
             [ -f "$f" ] || missing="$missing $f"
           done
           if [ -n "$missing" ]; then
