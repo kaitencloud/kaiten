@@ -1,6 +1,17 @@
 # Kaiten
 
-An open-source SaaS management tool.
+**The open-source control plane for B2B SaaS.** Kaiten keeps one model of what
+each customer bought, what they can use and what runs for them: licenses,
+entitlements and usage, feature flags and releases. Your product reads it over
+REST, read-only GraphQL or OpenFeature (OFREP), with SDKs for Go, TypeScript and
+Python; your team works in the console or the CLI. This repository is the
+engine — the Go API, the React console, the event pipeline and the Helm
+charts — under Apache 2.0. Self-host it, or join the private beta of Kaiten
+Cloud, which runs it for you.
+
+[Website](https://kaiten.sh) · [Documentation](https://docs.kaiten.sh) ·
+[Self-hosting guide](https://docs.kaiten.sh/docs/self-hosting) ·
+[API reference](https://docs.kaiten.sh/docs/api)
 
 ## Repository layout
 
@@ -12,8 +23,11 @@ An open-source SaaS management tool.
 | [charts](./charts/)           | Helm charts for Kubernetes deployment                        |
 | [docker](./docker/)           | Docker Compose configuration (Envoy, RabbitMQ, Dapr, etc.) |
 
-The standalone Go SDK lives in its own repository,
-[kaitencloud/sdk-go](https://github.com/kaitencloud/sdk-go).
+The SDKs and the CLI live in their own repositories:
+[sdk-go](https://github.com/kaitencloud/sdk-go),
+[sdk-js](https://github.com/kaitencloud/sdk-js),
+[sdk-python](https://github.com/kaitencloud/sdk-python) and
+[cli](https://github.com/kaitencloud/cli).
 
 Delivery of webhooks, onboarding of new instances, a third-party identity provider
 and the Envoy configuration that wires them in are not part of this repository: a
