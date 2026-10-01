@@ -1,7 +1,7 @@
 import { CheckCircle, Flag, Target, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { FeatureFlag } from '@/api-client';
-import { StatsCardsRow } from '@/functionals/stats-cards-row';
+import { StatCard } from '@/functionals/stat-card';
 
 export function FeatureFlagStatsCards({
   featureFlags,
@@ -17,37 +17,45 @@ export function FeatureFlagStatsCards({
   ).length;
 
   return (
-    <StatsCardsRow
-      items={[
-        {
-          id: 'total-flags',
-          label: t('Pages.FeatureFlags.Stats.totalFlags'),
-          value: featureFlags.length,
-          Icon: Flag,
-        },
-        {
-          id: 'enabled',
-          label: t('Pages.FeatureFlags.Stats.enabled'),
-          value: enabled,
-          Icon: CheckCircle,
-          iconClassName: 'text-success-subtle-foreground',
-          valueClassName: 'text-success-subtle-foreground',
-        },
-        {
-          id: 'disabled',
-          label: t('Pages.FeatureFlags.Stats.disabled'),
-          value: disabled,
-          Icon: XCircle,
-        },
-        {
-          id: 'with-targeting',
-          label: t('Pages.FeatureFlags.Stats.withTargeting'),
-          value: withTargeting,
-          Icon: Target,
-          iconClassName: 'text-primary-subtle-foreground',
-          valueClassName: 'text-primary-subtle-foreground',
-        },
-      ]}
-    />
+    <StatCard.Row>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.FeatureFlags.Stats.totalFlags')}
+        </StatCard.Label>
+        <StatCard.Icon>
+          <Flag />
+        </StatCard.Icon>
+        <StatCard.Value>{featureFlags.length}</StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>{t('Pages.FeatureFlags.Stats.enabled')}</StatCard.Label>
+        <StatCard.Icon className="text-success-subtle-foreground">
+          <CheckCircle />
+        </StatCard.Icon>
+        <StatCard.Value className="text-success-subtle-foreground">
+          {enabled}
+        </StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.FeatureFlags.Stats.disabled')}
+        </StatCard.Label>
+        <StatCard.Icon>
+          <XCircle />
+        </StatCard.Icon>
+        <StatCard.Value>{disabled}</StatCard.Value>
+      </StatCard>
+      <StatCard>
+        <StatCard.Label>
+          {t('Pages.FeatureFlags.Stats.withTargeting')}
+        </StatCard.Label>
+        <StatCard.Icon className="text-primary-subtle-foreground">
+          <Target />
+        </StatCard.Icon>
+        <StatCard.Value className="text-primary-subtle-foreground">
+          {withTargeting}
+        </StatCard.Value>
+      </StatCard>
+    </StatCard.Row>
   );
 }

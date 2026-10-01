@@ -253,7 +253,7 @@ const mockQueries = (releases: unknown[], components = componentsData) =>
   });
 
 const getStatValue = (label: string) => {
-  const card = screen.getByText(label).closest('[data-slot="card"]');
+  const card = screen.getByText(label).closest('[data-slot="stat-card"]');
 
   if (!(card instanceof HTMLElement)) {
     throw new Error(`Expected the "${label}" stat card`);

@@ -41,7 +41,7 @@ app/src/features/entitlements/
 
 In this page, a file inside the feature is written relative to `app/src/features/entitlements/`. Any other path starts at the repository root.
 
-Shared pieces come from elsewhere: `Page`, `DetailCard`, `DetailEntityLayout`, `StatsCardsRow` and `TableCard` from `@/functionals/*`, the table and filters from `@/functionals/table` and `@/functionals/filters`, and the usage meter, status and ceiling rules from the `entitlement-usage` domain (`app/src/domains/entitlement-usage/`).
+Shared pieces come from elsewhere: `Page`, `DetailCard`, `DetailEntityLayout`, `StatCard` and `TableCard` from `@/functionals/*`, the table and filters from `@/functionals/table` and `@/functionals/filters`, and the usage meter, status and ceiling rules from the `entitlement-usage` domain (`app/src/domains/entitlement-usage/`).
 
 ## Data
 

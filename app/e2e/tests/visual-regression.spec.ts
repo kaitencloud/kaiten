@@ -173,3 +173,33 @@ test.describe('Visual regression — Chart', () => {
     });
   });
 });
+
+// The row lays its cards on a shared subgrid: these catch a label, a value or
+// a helper falling off its line, and a dense row that stops being denser.
+test.describe('Visual regression — StatCard', () => {
+  test.skip(skipLocally, 'VISUAL_TESTS=true required locally');
+
+  test('default row renders', async ({ page }) => {
+    await openStory(page, 'functionals-statcard--default');
+    await expect(page.getByText('License Expires')).toBeVisible();
+    await expect(page).toHaveScreenshot('stat-card-default.png');
+  });
+
+  test('dense row renders', async ({ page }) => {
+    await openStory(page, 'functionals-statcard--dense');
+    await expect(page.getByText('License Expires')).toBeVisible();
+    await expect(page).toHaveScreenshot('stat-card-dense.png');
+  });
+
+  test('uneven content keeps its lines', async ({ page }) => {
+    await openStory(page, 'functionals-statcard--uneven-content');
+    await expect(page.getByText('Total zones')).toBeVisible();
+    await expect(page).toHaveScreenshot('stat-card-uneven-content.png');
+  });
+
+  test('two values render at one size', async ({ page }) => {
+    await openStory(page, 'functionals-statcard--two-values');
+    await expect(page.getByText('limit reached')).toBeVisible();
+    await expect(page).toHaveScreenshot('stat-card-two-values.png');
+  });
+});

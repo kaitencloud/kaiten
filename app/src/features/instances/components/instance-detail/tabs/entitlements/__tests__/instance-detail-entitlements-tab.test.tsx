@@ -1,7 +1,13 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { InstanceDetailEntitlementsTab } from '../instance-detail-entitlements-tab';
+
+// The figure of the stat card whose label is `label`.
+const statValue = (label: string) => {
+  const card = screen.getByText(label).closest('[data-slot="stat-card"]');
+  return within(card as HTMLElement).getByText(/^\d+$/).textContent;
+};
 
 const { useInstanceDetailMock } = vi.hoisted(() => ({
   useInstanceDetailMock: vi.fn(),
@@ -95,18 +101,6 @@ vi.mock('@/components/ui/select', () => ({
   SelectValue: () => null,
 }));
 
-vi.mock('@/functionals/stats-cards-row', () => ({
-  StatsCardsRow: ({ items }: { items: Array<{ id: string; label: string; value: number }> }) => (
-    <div>
-      {items.map((item) => (
-        <div key={item.id}>
-          {item.label}: {item.value}
-        </div>
-      ))}
-    </div>
-  ),
-}));
-
 vi.mock('@/functionals/table', () => {
   const Table = ({ data }: { data: Array<{ entitlementId: string; entitlementName: string }> }) => (
     <div>
@@ -172,7 +166,7 @@ describe('InstanceDetailEntitlementsTab', () => {
 
     expect(screen.getAllByText('API Calls').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Storage').length).toBeGreaterThan(0);
-    expect(screen.getByText('Total: 2')).toBeInTheDocument();
+    expect(statValue('Total')).toBe('2');
 
     fireEvent.change(screen.getByRole('combobox'), {
       target: { value: 'billing' },
@@ -180,7 +174,7 @@ describe('InstanceDetailEntitlementsTab', () => {
 
     expect(screen.queryAllByText('API Calls')).toHaveLength(0);
     expect(screen.getAllByText('Storage').length).toBeGreaterThan(0);
-    expect(screen.getByText('Total: 1')).toBeInTheDocument();
+    expect(statValue('Total')).toBe('1');
   });
 
   // The two bars on this instance do not share a window -- one resets monthly,

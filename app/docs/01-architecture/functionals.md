@@ -108,7 +108,7 @@ shared component-catalog flow.
 | `route-tabs` | Tab strip whose active tab follows the current route | |
 | `slug` | `generateSlug(name)`: a slug in the alphabet the API accepts | |
 | `stacked-form-dialog` | Form dialog shell: one panel, or stacked wizard cards on `step-stack`, with a prompt before unsaved changes are discarded | |
-| `stats-cards-row` | Row of KPI cards whose values line up | [stats-cards.md](../03-patterns/stats-cards.md) |
+| `stat-card` | KPI card, alone or in a row whose labels, values and helpers line up | [stats-cards.md](../03-patterns/stats-cards.md) |
 | `step-stack` | Multi-step navigation where earlier steps stack behind the active one | |
 | `table` | `DataTable`, `FilterTableLayout`, `TableCard`, row actions and dialogs | [README](../../src/functionals/table/README.md) |
 

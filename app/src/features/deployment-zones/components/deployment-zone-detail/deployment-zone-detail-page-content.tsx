@@ -8,7 +8,7 @@ import type { DeploymentZone } from '@/api-client';
 import { DestructiveActionButton } from '@/components/destructive-action-button';
 import { DetailEntityLayout } from '@/functionals/detail-entity-layout';
 import { Page } from '@/functionals/page';
-import { StatBadgeValue, StatsCardsRow } from '@/functionals/stats-cards-row';
+import { StatBadgeValue, StatCard } from '@/functionals/stat-card';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { getActiveTabFromPathname } from '@/lib/detail';
 import { useDeleteDeploymentZoneMutation } from '../../hooks';
@@ -127,56 +127,63 @@ function DeploymentZoneDetailLayout({ children }: PropsWithChildren) {
         </Page.Header>
       }
       stats={
-        <StatsCardsRow
-          className="gap-4 lg:gap-6"
-          columnsClassName="md:grid-cols-2 xl:grid-cols-4"
-          items={[
-            {
-              id: 'zone-type',
-              label: t(
-                'Pages.Releases.DeploymentZones.Detail.stats.type',
-                'Type',
-              ),
-              value: (
-                <StatBadgeValue>
-                  {formatZoneType(deploymentZone.type, t)}
-                </StatBadgeValue>
-              ),
-              Icon: DeploymentZoneIcon,
-            },
-            {
-              id: 'zone-current-release',
-              label: t(
+        <StatCard.Row>
+          <StatCard>
+            <StatCard.Label>
+              {t('Pages.Releases.DeploymentZones.Detail.stats.type', 'Type')}
+            </StatCard.Label>
+            <StatCard.Icon>
+              <DeploymentZoneIcon />
+            </StatCard.Icon>
+            <StatCard.Value>
+              <StatBadgeValue>
+                {formatZoneType(deploymentZone.type, t)}
+              </StatBadgeValue>
+            </StatCard.Value>
+          </StatCard>
+          <StatCard>
+            <StatCard.Label>
+              {t(
                 'Pages.Releases.DeploymentZones.Detail.stats.currentRelease',
                 'Current release',
-              ),
-              value: currentRelease?.version ?? (
+              )}
+            </StatCard.Label>
+            <StatCard.Icon>
+              <Rocket />
+            </StatCard.Icon>
+            <StatCard.Value>
+              {currentRelease?.version ?? (
                 <StatBadgeValue variant="secondary">
                   {t('Features.Releases.Table.notDeployed')}
                 </StatBadgeValue>
-              ),
-              Icon: Rocket,
-            },
-            {
-              id: 'zone-metadata-keys',
-              label: t(
+              )}
+            </StatCard.Value>
+          </StatCard>
+          <StatCard>
+            <StatCard.Label>
+              {t(
                 'Pages.Releases.DeploymentZones.Detail.stats.metadataKeys',
                 'Metadata keys',
-              ),
-              value: String(metadataKeysCount),
-              Icon: Boxes,
-            },
-            {
-              id: 'zone-shared-release',
-              label: t(
+              )}
+            </StatCard.Label>
+            <StatCard.Icon>
+              <Boxes />
+            </StatCard.Icon>
+            <StatCard.Value>{metadataKeysCount}</StatCard.Value>
+          </StatCard>
+          <StatCard>
+            <StatCard.Label>
+              {t(
                 'Pages.Releases.DeploymentZones.Detail.stats.sharedReleaseZones',
                 'Zones sharing current release',
-              ),
-              value: String(sameReleaseZonesCount),
-              Icon: GitBranch,
-            },
-          ]}
-        />
+              )}
+            </StatCard.Label>
+            <StatCard.Icon>
+              <GitBranch />
+            </StatCard.Icon>
+            <StatCard.Value>{sameReleaseZonesCount}</StatCard.Value>
+          </StatCard>
+        </StatCard.Row>
       }
       tabs={[
         {

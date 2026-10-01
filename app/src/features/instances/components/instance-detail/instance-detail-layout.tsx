@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { DestructiveActionButton } from '@/components/destructive-action-button';
 import { DetailEntityLayout } from '@/functionals/detail-entity-layout';
 import { EditableTitle, Page } from '@/functionals/page';
-import { StatsCardsRow } from '@/functionals/stats-cards-row';
+import { StatCard } from '@/functionals/stat-card';
 import { getActiveTabFromPathname } from '@/lib/detail';
 import { formatDate } from '../../utils/instance-detail-overview.utils';
 import { formatTimeUntil } from '../../utils/instance-detail.utils';
@@ -163,66 +163,61 @@ export const InstanceDetailLayout = ({
         </Page.Header>
       }
       stats={
-        <StatsCardsRow
-          className="gap-4 lg:gap-6"
-          columnsClassName="md:grid-cols-3"
-          items={[
-            {
-              id: 'license-expires',
-              label: t(
-                'Pages.Customers.Instances.Detail.quickStats.licenseExpires',
-              ),
-              value:
-                daysLeft > 0
-                  ? formatDate(instance.endLicenseDate)
-                  : t('Pages.Customers.Instances.Detail.quickStats.expired'),
-              helper:
-                daysLeft > 0
-                  ? formatTimeUntil(daysLeft, i18n.resolvedLanguage)
-                  : formatDate(instance.endLicenseDate),
-              Icon: Calendar,
-              valueClassName: urgencyTextClassName,
-            },
-            {
-              id: 'entitlements',
-              label: t(
-                'Pages.Customers.Instances.Detail.quickStats.entitlements',
-              ),
-              value: `${entitlementsMetrics.enabled}/${entitlementsMetrics.total}`,
-              Icon: KeyRound,
-              valueClassName: entitlementsValueClassName,
-            },
-            {
-              id: 'usage-alerts',
-              label: t(
-                'Pages.Customers.Instances.Detail.quickStats.usageAlerts',
-              ),
-              value: (
-                <div className="flex items-baseline gap-1.5">
-                  <span className={usageAlertsToneClassName}>
-                    {entitlementsMetrics.nearThreshold}
-                  </span>
-                  <span className="text-xl text-muted-foreground">
-                    {t('Pages.Customers.Instances.Detail.quickStats.nearLimit')}
-                  </span>
-                </div>
-              ),
-              // Both scopes are worth an alert, but a period-scoped counter
-              // clears at the next reset while a lifetime one never does.
-              helper:
-                entitlementsMetrics.nearThresholdCurrentPeriod > 0
-                  ? t(
-                      'Pages.Customers.Instances.Detail.quickStats.nearLimitCurrentPeriod',
-                      {
-                        count: entitlementsMetrics.nearThresholdCurrentPeriod,
-                      },
-                    )
-                  : undefined,
-              Icon: AlertTriangle,
-              iconClassName: usageAlertsToneClassName,
-            },
-          ]}
-        />
+        <StatCard.Row columnsClassName="md:grid-cols-3">
+          <StatCard>
+            <StatCard.Label>
+              {t('Pages.Customers.Instances.Detail.quickStats.licenseExpires')}
+            </StatCard.Label>
+            <StatCard.Icon>
+              <Calendar />
+            </StatCard.Icon>
+            <StatCard.Value className={urgencyTextClassName}>
+              {daysLeft > 0
+                ? formatDate(instance.endLicenseDate)
+                : t('Pages.Customers.Instances.Detail.quickStats.expired')}
+            </StatCard.Value>
+            <StatCard.Helper>
+              {daysLeft > 0
+                ? formatTimeUntil(daysLeft, i18n.resolvedLanguage)
+                : formatDate(instance.endLicenseDate)}
+            </StatCard.Helper>
+          </StatCard>
+          <StatCard>
+            <StatCard.Label>
+              {t('Pages.Customers.Instances.Detail.quickStats.entitlements')}
+            </StatCard.Label>
+            <StatCard.Icon>
+              <KeyRound />
+            </StatCard.Icon>
+            <StatCard.Value className={entitlementsValueClassName}>
+              {entitlementsMetrics.enabled}/{entitlementsMetrics.total}
+            </StatCard.Value>
+          </StatCard>
+          <StatCard>
+            <StatCard.Label>
+              {t('Pages.Customers.Instances.Detail.quickStats.usageAlerts')}
+            </StatCard.Label>
+            <StatCard.Icon className={usageAlertsToneClassName}>
+              <AlertTriangle />
+            </StatCard.Icon>
+            <StatCard.Value className={usageAlertsToneClassName}>
+              {entitlementsMetrics.nearThreshold}
+              <StatCard.Unit>
+                {t('Pages.Customers.Instances.Detail.quickStats.nearLimit')}
+              </StatCard.Unit>
+            </StatCard.Value>
+            {/* Both scopes are worth an alert, but a period-scoped counter clears
+                at the next reset while a lifetime one never does. */}
+            {entitlementsMetrics.nearThresholdCurrentPeriod > 0 ? (
+              <StatCard.Helper>
+                {t(
+                  'Pages.Customers.Instances.Detail.quickStats.nearLimitCurrentPeriod',
+                  { count: entitlementsMetrics.nearThresholdCurrentPeriod },
+                )}
+              </StatCard.Helper>
+            ) : null}
+          </StatCard>
+        </StatCard.Row>
       }
       tabs={[
         {
