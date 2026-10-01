@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Link } from '@tanstack/react-router';
-import { FlaskConical, LoaderCircle } from 'lucide-react';
+import { ArrowRight, FlaskConical, LoaderCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useDemoStatus } from '../hooks/use-demo-status';
 import { useSeedDemoData } from '../hooks/use-seed-demo';
@@ -20,15 +20,22 @@ export function DemoBanner() {
   const isSeeding = data.seeding || seedDemoData.isPending;
 
   return (
-    <div className="flex w-full flex-wrap items-center justify-between gap-3 border-warning/30 bg-warning-subtle text-warning-subtle-foreground border-b px-4 py-2 text-sm sm:px-6">
-      <div className="flex items-center gap-2">
-        <FlaskConical className="size-4 shrink-0" />
-        <span>{t('Features.DemoSandbox.Banner.warning')}</span>
-      </div>
+    <div className="px-4 sm:px-6">
+      <div
+        role="status"
+        className="border-warning/30 bg-warning-subtle text-warning-subtle-foreground flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-b-md border-x border-b px-2 py-1 text-sm"
+      >
+        <div className="flex items-center gap-2.5">
+          <span className="bg-warning/15 flex size-6 shrink-0 items-center justify-center rounded-full">
+            <FlaskConical className="size-3.5" />
+          </span>
+          <span className="font-medium">
+            {t('Features.DemoSandbox.Banner.warning')}
+          </span>
+        </div>
 
-      <div className="flex shrink-0 items-center gap-3">
         {isSeeding && (
-          <span className="text-warning-subtle-foreground flex items-center gap-2">
+          <span className="flex items-center gap-2">
             <LoaderCircle className="size-4 animate-spin" />
             {t('Features.DemoSandbox.Banner.seedingProgress')}
           </span>
@@ -46,12 +53,13 @@ export function DemoBanner() {
           <Button
             variant="link"
             size="sm"
-            className="text-warning-subtle-foreground h-auto p-0 underline"
+            className="text-warning-subtle-foreground group h-auto gap-1 p-0 font-medium underline-offset-4"
             nativeButton={false}
             role="link"
             render={
               <Link to="/settings">
                 {t('Features.DemoSandbox.Banner.manageLink')}
+                <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
               </Link>
             }
           />
