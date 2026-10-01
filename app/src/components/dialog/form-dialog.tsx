@@ -16,7 +16,7 @@ export interface FormDialogProps {
   children: ReactNode;
   /** Width/layout overrides for the dialog panel (defaults to `sm:max-w-lg`). */
   className?: string;
-  onInteractOutside?: (e: Event) => void;
+  disablePointerDismissal?: boolean;
 }
 
 /**
@@ -45,13 +45,16 @@ function Root({
   onOpenChange,
   children,
   className,
-  onInteractOutside,
+  disablePointerDismissal,
 }: FormDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      disablePointerDismissal={disablePointerDismissal}
+    >
       <DialogContent
         className={cn('flex max-h-[90vh] flex-col sm:max-w-lg', className)}
-        onInteractOutside={onInteractOutside}
       >
         {children}
       </DialogContent>

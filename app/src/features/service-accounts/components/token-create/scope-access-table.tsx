@@ -41,9 +41,9 @@ const GROUP_ICONS: Record<ScopeGroupId, LucideIcon> = {
 // theme's accent is a purple, which reads as access granted. The label keeps
 // the foreground colour when selected, as on every toggle.
 const LEVEL_ON_CLASSES: Record<AccessLevel, string> = {
-  none: 'data-[state=on]:bg-foreground/10 data-[state=on]:text-foreground',
-  read: 'data-[state=on]:bg-primary/20 data-[state=on]:text-foreground',
-  write: 'data-[state=on]:bg-primary data-[state=on]:text-primary-foreground',
+  none: 'data-pressed:bg-foreground/10 data-pressed:text-foreground',
+  read: 'data-pressed:bg-primary/20 data-pressed:text-foreground',
+  write: 'data-pressed:bg-primary data-pressed:text-primary-foreground',
 };
 
 type ScopeAccessTableProps = {
@@ -77,14 +77,13 @@ function ScopeAccessRow({
         </p>
       </div>
       <ToggleGroup
-        type="single"
         variant="outline"
         size="sm"
         className="shrink-0"
-        value={level}
-        // Radix empties a single group when its item is pressed again; a
+        value={[level]}
+        // A single group empties when its item is pressed again; a
         // resource always has a level, so that press changes nothing.
-        onValueChange={(value) => {
+        onValueChange={([value]) => {
           if (value) onLevelChange(resource.id, value as AccessLevel);
         }}
         aria-label={t(`${SCOPES_I18N_PREFIX}.levelsLabel`, { resource: label })}

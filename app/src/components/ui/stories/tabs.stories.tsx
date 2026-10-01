@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { expect, userEvent, within } from 'storybook/test';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -30,6 +31,33 @@ export const Default: Story = {
         <p className="text-sm text-muted-foreground">
           Change your password here.
         </p>
+      </TabsContent>
+    </Tabs>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('tab', { name: 'Password' }));
+    await expect(canvas.getByRole('tabpanel', { name: 'Password' })).toHaveTextContent('Change your password here.');
+    await expect(canvas.getByRole('tab', { name: 'Password' })).toHaveAttribute('aria-selected', 'true');
+  },
+};
+
+export const Line: Story = {
+  render: () => (
+    <Tabs defaultValue="overview" className="w-[500px]">
+      <TabsList variant="line">
+        <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="variants">Variants</TabsTrigger>
+        <TabsTrigger value="targeting">Targeting</TabsTrigger>
+      </TabsList>
+      <TabsContent value="overview">
+        <p className="text-sm text-muted-foreground">Overview content.</p>
+      </TabsContent>
+      <TabsContent value="variants">
+        <p className="text-sm text-muted-foreground">Variants content.</p>
+      </TabsContent>
+      <TabsContent value="targeting">
+        <p className="text-sm text-muted-foreground">Targeting content.</p>
       </TabsContent>
     </Tabs>
   ),

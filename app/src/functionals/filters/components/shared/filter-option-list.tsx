@@ -1,14 +1,16 @@
 import { Check } from 'lucide-react';
+import { Fragment, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from '@/components/ui/command';
+  ComboboxCollection,
+  ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxPanel,
+  ComboboxSearch,
+  ComboboxSeparator,
+} from '@/components/ui/combobox';
 import { cn } from '@/lib/utils';
 import { FILTER_MULTI_SELECT_SEPARATOR } from '../../constants';
 import type { FilterFieldDefinition } from '../../types/filter.types';
@@ -34,16 +36,24 @@ type FilterOptionListProps<T> = {
 
 /**
  * The search box's matcher: an option matches when it contains every word
- * typed, in any order. cmdk's default is fuzzy -- it keeps any option holding
- * the typed letters in order -- which on URLs and event names keeps nearly all
- * of them.
+ * typed, in any order. A fuzzy matcher keeps any option holding the typed
+ * letters in order, which on URLs and event names keeps nearly all of them.
  */
-function containsEveryWord(value: string, search: string): number {
+function containsEveryWord(value: string, search: string): boolean {
   const option = value.toLowerCase();
   const words = search.toLowerCase().split(/\s+/).filter(Boolean);
 
-  return words.every((word) => option.includes(word)) ? 1 : 0;
+  return words.every((word) => option.includes(word));
 }
+
+/** A row of the list: an option, "All", or the "Clear filter" entry of the foot. */
+type FilterEntry = {
+  kind: 'option' | 'all' | 'clear';
+  value: string;
+  label: string;
+};
+
+type FilterEntryGroup = { value: string; items: FilterEntry[] };
 
 /**
  * The editor of a field filtered by picking from a list (see hasOptionList):
@@ -54,7 +64,7 @@ function containsEveryWord(value: string, search: string): number {
  * - boolean: true or false, and no "All" -- a yes/no filter is either set or
  *   not. Picking the set value again clears it, and so does "Clear filter".
  *
- * Built on the same Command as the "Filter" button's field picker, so both
+ * Built on the same combobox as the "Filter" button's field picker, so both
  * menus look and navigate alike. The search box is the field's opt-in
  * (`searchable`): a handful of options reads faster without one.
  */
@@ -65,6 +75,7 @@ export function FilterOptionList<T>({
   onValueChange,
   onChosen,
 }: FilterOptionListProps<T>) {
+  const [search, setSearch] = useState('');
   const multiple = field.type === 'enum_list';
   const offersAll = field.type === 'enum';
   const options = getFieldOptions(field, labels);
@@ -114,71 +125,117 @@ export function FilterOptionList<T>({
     );
   }
 
-  function renderOption(option: (typeof options)[number]) {
-    const checked = selected.has(option.value.toLowerCase());
+  const showClear = !offersAll && selected.size > 0;
+  const groups: FilterEntryGroup[] = [
+    {
+      value: 'options',
+      items: [
+        ...(offersAll
+          ? [{ kind: 'all' as const, value: '', label: labels.all }]
+          : []),
+        ...options.map((option) => ({
+          kind: 'option' as const,
+          value: option.value,
+          label: option.label,
+        })),
+      ],
+    },
+    ...(showClear
+      ? [
+          {
+            value: 'foot',
+            items: [
+              {
+                kind: 'clear' as const,
+                value: '',
+                label: labels.clearFilter,
+              },
+            ],
+          },
+        ]
+      : []),
+  ];
+
+  function handleSelect(entry: FilterEntry | null) {
+    if (!entry) {
+      return;
+    }
+
+    if (entry.kind === 'clear') {
+      onValueChange('');
+    } else if (entry.kind === 'all' || !multiple) {
+      choose(entry.value);
+    } else {
+      toggle(entry.value);
+    }
+  }
+
+  function renderEntry(entry: FilterEntry) {
+    if (entry.kind === 'clear') {
+      return (
+        <ComboboxItem key="clear" value={entry}>
+          <span>{entry.label}</span>
+        </ComboboxItem>
+      );
+    }
+
+    const checked =
+      entry.kind === 'all'
+        ? selected.size === 0
+        : selected.has(entry.value.toLowerCase());
 
     return (
-      <CommandItem
-        key={option.value}
-        value={option.label}
+      <ComboboxItem
+        key={entry.kind + entry.value}
+        value={entry}
         aria-checked={checked}
-        onSelect={() =>
-          multiple ? toggle(option.value) : choose(option.value)
-        }
       >
         {renderIndicator(checked)}
         {/* Wraps anywhere: a URL or an id has no space to break at, and would
             otherwise run past the edge of the list and be cut off. */}
-        <span className="wrap-anywhere">{option.label}</span>
-      </CommandItem>
+        <span className="wrap-anywhere">{entry.label}</span>
+      </ComboboxItem>
     );
   }
 
   return (
-    // Without a search box nothing in the list takes focus, so the list itself
-    // does: that is what keeps arrow keys and Enter working.
-    <Command
-      filter={containsEveryWord}
-      tabIndex={field.searchable ? undefined : 0}
-      className="outline-none"
+    <ComboboxPanel<FilterEntry>
+      items={groups}
+      value={null}
+      filter={(entry, query) => containsEveryWord(entry.label, query)}
+      itemToStringLabel={(entry) => entry.label}
+      inputValue={search}
+      onInputValueChange={(nextSearch, details) => {
+        if (details.reason === 'input-change') {
+          setSearch(nextSearch);
+        }
+      }}
+      onValueChange={handleSelect}
     >
       {field.searchable ? (
-        <CommandInput
+        <ComboboxSearch
           placeholder={labels.filterFieldPlaceholder.replace(
             '{{field}}',
             field.label,
           )}
         />
       ) : null}
-      <CommandList>
-        <CommandEmpty>{labels.noResult}</CommandEmpty>
-        <CommandGroup>
-          {offersAll ? (
-            <CommandItem
-              value={labels.all}
-              aria-checked={selected.size === 0}
-              onSelect={() => choose('')}
-            >
-              {renderIndicator(selected.size === 0)}
-              <span>{labels.all}</span>
-            </CommandItem>
-          ) : null}
-          {options.map(renderOption)}
-        </CommandGroup>
-        {!offersAll && selected.size > 0 ? (
-          <>
-            <CommandSeparator />
-            <CommandGroup>
-              <CommandItem
-                value={labels.clearFilter}
-                onSelect={() => onValueChange('')}
-              >
-                <span>{labels.clearFilter}</span>
-              </CommandItem>
-            </CommandGroup>
-          </>
-        ) : null}
-      </CommandList>
-    </Command>
+      <ComboboxEmpty>{labels.noResult}</ComboboxEmpty>
+      {/* Without a search box nothing in the list takes focus, so the list
+          itself does: that is what keeps arrow keys and Enter working. */}
+      <ComboboxList
+        tabIndex={field.searchable ? undefined : 0}
+        className="outline-none"
+      >
+        {(group: FilterEntryGroup, index: number) => (
+          <Fragment key={group.value}>
+            {index > 0 && search === '' ? <ComboboxSeparator /> : null}
+            <ComboboxGroup items={group.items}>
+              <ComboboxCollection>{renderEntry}</ComboboxCollection>
+            </ComboboxGroup>
+          </Fragment>
+        )}
+      </ComboboxList>
+    </ComboboxPanel>
   );
 }

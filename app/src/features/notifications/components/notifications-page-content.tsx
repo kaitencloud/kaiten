@@ -77,12 +77,17 @@ export function NotificationsPageContent({
               <CheckCheck />
               {t('Pages.Notifications.markAllRead', 'Mark all as read')}
             </Button>
-            <Button variant="ghost" asChild>
-              <Link to="/settings/notifications">
-                <Settings2 />
-                {t('Pages.Notifications.preferences', 'Preferences')}
-              </Link>
-            </Button>
+            <Button
+              variant="ghost"
+              nativeButton={false}
+              role="link"
+              render={
+                <Link to="/settings/notifications">
+                  <Settings2 />
+                  {t('Pages.Notifications.preferences', 'Preferences')}
+                </Link>
+              }
+            />
           </Page.Actions>
         </Page.Header>
 

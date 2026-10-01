@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import {
   Dialog,
   DialogBody,
@@ -28,9 +29,7 @@ type Story = StoryObj<typeof Dialog>;
 export const Default: Story = {
   render: () => (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline">Open Dialog</Button>
-      </DialogTrigger>
+      <DialogTrigger render={<Button variant="outline">Open Dialog</Button>} />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Are you absolutely sure?</DialogTitle>
@@ -57,9 +56,7 @@ export const Default: Story = {
 export const WithForm: Story = {
   render: () => (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button>Edit Profile</Button>
-      </DialogTrigger>
+      <DialogTrigger render={<Button>Edit Profile</Button>} />
       <DialogContent className="sm:max-w-[425px]" variant="form">
         <DialogHeader>
           <DialogTitle>Edit profile</DialogTitle>
@@ -87,6 +84,15 @@ export const WithForm: Story = {
       </DialogContent>
     </Dialog>
   ),
+  play: async ({ canvasElement }) => {
+    const trigger = within(canvasElement).getByRole('button', { name: 'Edit Profile' });
+    await userEvent.click(trigger);
+    const dialog = await within(document.body).findByRole('dialog');
+    await waitFor(() => expect(within(dialog).getByRole('textbox', { name: 'Name' })).toHaveFocus());
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(trigger).toHaveFocus());
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  },
 };
 
 const longContentFields = Array.from({ length: 20 }, (_, index) => ({
@@ -106,9 +112,7 @@ function LongContentField({ id, label }: { id: string; label: string }) {
 export const LongContent: Story = {
   render: () => (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline">Open long dialog</Button>
-      </DialogTrigger>
+      <DialogTrigger render={<Button variant="outline">Open long dialog</Button>} />
       <DialogContent className="sm:max-w-lg" variant="form">
         <DialogHeader>
           <DialogTitle>Long form</DialogTitle>

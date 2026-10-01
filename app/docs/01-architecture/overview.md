@@ -10,7 +10,7 @@ Exact versions are in `app/package.json` and in the `catalog` of `pnpm-workspace
 | --- | --- |
 | Language | TypeScript 7, the native compiler. `packages/api-codegen` uses TypeScript 6 instead (catalog `codegen`), because `@hey-api/openapi-ts` needs the JavaScript compiler API that TypeScript 7 does not expose. |
 | UI | React 19, Tailwind CSS 4. Design tokens come from `@kaitencloud/theme` (`packages/theme`); `src/tokens.css` adds the app's own. |
-| Primitives | Radix UI (the `radix-ui` package) and Base UI (`@base-ui/react`). Both are imported only under `src/components/ui/`, which wraps them. |
+| Primitives | shadcn/ui's Base UI components (`@base-ui/react`), installed with the `base-vega` style. Headless primitives are imported only under `src/components/ui/`. |
 | Routing | TanStack Router 1: file-based routes, automatic code splitting. |
 | Server state | TanStack Query 5. |
 | Tables | TanStack Table 9. |

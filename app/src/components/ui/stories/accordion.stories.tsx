@@ -20,7 +20,7 @@ type Story = StoryObj<typeof Accordion>;
 
 export const Single: Story = {
   render: () => (
-    <Accordion type="single" collapsible className="w-[450px]">
+    <Accordion className="w-[450px]">
       <AccordionItem value="item-1">
         <AccordionTrigger>Is it accessible?</AccordionTrigger>
         <AccordionContent>
@@ -45,7 +45,7 @@ export const Single: Story = {
 
 export const Multiple: Story = {
   render: () => (
-    <Accordion type="multiple" className="w-[450px]">
+    <Accordion multiple className="w-[450px]">
       <AccordionItem value="item-1">
         <AccordionTrigger>Can I open multiple items?</AccordionTrigger>
         <AccordionContent>

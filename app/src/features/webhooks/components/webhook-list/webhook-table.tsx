@@ -158,18 +158,20 @@ function WebhookEventsCell({ webhook }: { webhook: Webhook }) {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            className="block w-full min-w-0 cursor-help text-left"
-          >
-            <WebhookEventsSummaryText
-              className={ellipsis.className}
-              eventTypes={webhook.eventTypes}
-              summaryRef={ellipsis.ref}
-            />
-          </button>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              className="block w-full min-w-0 cursor-help text-left"
+            >
+              <WebhookEventsSummaryText
+                className={ellipsis.className}
+                eventTypes={webhook.eventTypes}
+                summaryRef={ellipsis.ref}
+              />
+            </button>
+          }
+        />
         <TooltipContent align="start" side="top" className="max-w-md px-3 py-2">
           <WebhookEventsTooltipContent eventTypes={webhook.eventTypes} />
         </TooltipContent>

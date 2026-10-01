@@ -46,23 +46,22 @@ function DefaultRowAction({ license }: LicenseVersionsTableActionsProps) {
   if (!canBecomeDefault(license)) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild>
-          {/* A disabled button emits no pointer events, so the wrapper is
-              what the tooltip listens to; focusable so keyboard users get
-              the reason too. */}
-          <span tabIndex={0} className="inline-flex rounded-sm">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="gap-1 px-0"
-              disabled
-            >
-              <Star className="size-3" />
-              {t('Pages.Licenses.VersionsTable.setAsDefault')}
-            </Button>
-          </span>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <span tabIndex={0} className="inline-flex rounded-sm">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-1 px-0"
+                disabled
+              >
+                <Star className="size-3" />
+                {t('Pages.Licenses.VersionsTable.setAsDefault')}
+              </Button>
+            </span>
+          }
+        />
         <TooltipContent>
           {t('Pages.Licenses.VersionsTable.setDefaultUnavailable')}
         </TooltipContent>

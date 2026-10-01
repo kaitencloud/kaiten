@@ -106,11 +106,18 @@ function DeployToZoneForm({
         </DialogDescription>
       </DialogHeader>
       <DialogBody className="space-y-6">
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 gap-2">
           <Label htmlFor="deployment-zone">
             {t('Features.Releases.Form.selectZone')}
           </Label>
-          <Select value={selectedZoneSlug} onValueChange={setSelectedZoneSlug}>
+          <Select
+            items={deploymentZones.map((zone) => ({
+              value: zone.slug ?? '',
+              label: zone.name,
+            }))}
+            value={selectedZoneSlug || null}
+            onValueChange={(value) => setSelectedZoneSlug(value ?? '')}
+          >
             <SelectTrigger id="deployment-zone" className="w-full">
               <SelectValue
                 placeholder={t('Features.Releases.Form.selectZonePlaceholder')}

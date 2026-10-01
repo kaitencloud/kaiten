@@ -98,7 +98,7 @@ The REST client is configured in `src/lib/api/`, not in the generated `client.ge
 
 | Folder | What it holds |
 | --- | --- |
-| `ui/` | The primitives (`Button`, `Input`, `Badge`, `Card`, `Popover`, `Separator`, `Table`) and the wrappers of Radix UI and Base UI (`Dialog`, `Select`, `Tabs`, `Tooltip`, `NumberInput`, ...). The only folder allowed to import `radix-ui` or `@base-ui/*`. |
+| `ui/` | The primitives (`Button`, `Input`, `Badge`, `Card`, `Popover`, `Separator`, `Table`) and shadcn/ui's Base UI components (`Dialog`, `Select`, `Tabs`, `Tooltip`, `NumberInput`, ...). The only folder allowed to import `@base-ui/*`. |
 | `form/` | The form system: field components in `fields/`, `FormItem`, `FormLabel`, `FormMessage`, `SubmitButton`. The `useAppForm` hook that assembles them is in `src/hooks/form.ts`. |
 | `dialog/` | Shared dialogs: the form dialog and the delete confirmation. |
 | `route/` | `RouteError`, `RoutePending`, `NotFound`, `RestrictedAccess`. |

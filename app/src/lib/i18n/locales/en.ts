@@ -11,6 +11,7 @@ export default {
     continue: 'Continue',
     search: 'Search',
     close: 'Close',
+    toggleSection: 'Toggle section',
     save: 'Save',
     apply: 'Apply',
     format: 'Format',

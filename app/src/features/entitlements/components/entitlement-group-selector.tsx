@@ -1,6 +1,5 @@
 import {
   Popover,
-  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
@@ -66,57 +65,56 @@ export function EntitlementGroupSelector({
 
   return (
     <div>
-      <Popover open={state.isOpen} onOpenChange={state.handleOpenChange}>
+      <Popover
+        open={state.isOpen}
+        onOpenChange={(nextOpen, details) => {
+          const target = details.event.target;
+          if (
+            !nextOpen &&
+            isInlineInteraction &&
+            target instanceof Node &&
+            anchorRef.current?.contains(target)
+          ) {
+            details.cancel();
+            searchInputRef.current?.focus();
+            return;
+          }
+          state.handleOpenChange(nextOpen);
+        }}
+      >
         {isInlineInteraction ? (
-          <PopoverAnchor asChild>
-            <SelectedGroupsValue
-              ref={anchorRef}
-              aria-controls={listboxId}
-              disabled={disabled}
-              isCreatingGroup={state.isCreatingGroup}
-              isInlineInteraction
-              isOpen={state.isOpen}
-              onRemoveGroup={state.handleRemoveGroup}
-              selectedGroups={state.selectedGroups}
-            />
-          </PopoverAnchor>
+          <SelectedGroupsValue
+            ref={anchorRef}
+            aria-controls={listboxId}
+            disabled={disabled}
+            isCreatingGroup={state.isCreatingGroup}
+            isInlineInteraction
+            isOpen={state.isOpen}
+            onRemoveGroup={state.handleRemoveGroup}
+            selectedGroups={state.selectedGroups}
+          />
         ) : (
-          <PopoverTrigger asChild>
-            <SelectedGroupsValue
-              ref={anchorRef}
-              aria-controls={listboxId}
-              disabled={disabled}
-              isCreatingGroup={state.isCreatingGroup}
-              isInlineInteraction={false}
-              isOpen={state.isOpen}
-              onRemoveGroup={state.handleRemoveGroup}
-              selectedGroups={state.selectedGroups}
-            />
-          </PopoverTrigger>
+          <PopoverTrigger
+            nativeButton={false}
+            render={
+              <SelectedGroupsValue
+                ref={anchorRef}
+                aria-controls={listboxId}
+                disabled={disabled}
+                isCreatingGroup={state.isCreatingGroup}
+                isInlineInteraction={false}
+                isOpen={state.isOpen}
+                onRemoveGroup={state.handleRemoveGroup}
+                selectedGroups={state.selectedGroups}
+              />
+            }
+          />
         )}
         <PopoverContent
           className="popover-content-full-width p-0"
           align="start"
-          onInteractOutside={(event) => {
-            const target = event.target as Node | null;
-
-            if (
-              isInlineInteraction &&
-              target &&
-              anchorRef.current?.contains(target)
-            ) {
-              event.preventDefault();
-              searchInputRef.current?.focus();
-            }
-          }}
-          onOpenAutoFocus={(event) => {
-            if (!autoFocusSearch) {
-              return;
-            }
-
-            event.preventDefault();
-            searchInputRef.current?.focus();
-          }}
+          anchor={anchorRef}
+          initialFocus={autoFocusSearch ? searchInputRef : undefined}
         >
           <EntitlementGroupCommandList
             listboxId={listboxId}

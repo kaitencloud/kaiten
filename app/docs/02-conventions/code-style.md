@@ -21,7 +21,7 @@ for each rule whether a tool checks it. Run the commands from `app/`.
 - **Linting.** Oxlint runs its `correctness` rules as errors (plugins `typescript`,
   `react`, `unicorn` and `oxc`, a few rules switched off in `vite.config.ts`), plus
   the three project rules of [Import rules](../AI_CONTEXT.md#import-rules): restricted
-  imports of Radix UI and Base UI, the restrictions on routes, and kebab-case file
+  imports of Base UI, the restrictions on routes, and kebab-case file
   names. It skips tests, stories, `src/components/ui/`, `src/api-client/` and
   `routeTree.gen.ts`.
 - **TypeScript.** `tsconfig.json` sets `strict`, `noUnusedLocals`,

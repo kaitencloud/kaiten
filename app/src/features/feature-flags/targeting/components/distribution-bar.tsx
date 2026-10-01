@@ -38,21 +38,23 @@ export function DistributionBar({ distribution }: DistributionBarProps) {
 
           return (
             <Tooltip key={variant}>
-              <TooltipTrigger asChild>
-                <div
-                  className={cn(
-                    'h-full flex items-center justify-center text-[10px] font-medium transition-all hover:brightness-95 cursor-default truncate px-1 border-r border-background/20 last:border-r-0',
-                    colorClass,
-                  )}
-                  style={{ width }}
-                >
-                  {percentage >= 10 && (
-                    <span className="truncate">
-                      {variant}: {percentage}%
-                    </span>
-                  )}
-                </div>
-              </TooltipTrigger>
+              <TooltipTrigger
+                render={
+                  <div
+                    className={cn(
+                      'h-full flex items-center justify-center text-[10px] font-medium transition-all hover:brightness-95 cursor-default truncate px-1 border-r border-background/20 last:border-r-0',
+                      colorClass,
+                    )}
+                    style={{ width }}
+                  >
+                    {percentage >= 10 && (
+                      <span className="truncate">
+                        {variant}: {percentage}%
+                      </span>
+                    )}
+                  </div>
+                }
+              />
               <TooltipContent>
                 <div className="font-medium">{variant}</div>
                 {/* A tooltip inverts the page (`bg-foreground`), so the usual

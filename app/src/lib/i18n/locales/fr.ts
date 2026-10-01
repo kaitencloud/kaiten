@@ -11,6 +11,7 @@ export default {
     continue: 'Continuer',
     search: 'Rechercher',
     close: 'Fermer',
+    toggleSection: 'Afficher ou masquer la section',
     save: 'Enregistrer',
     apply: 'Appliquer',
     format: 'Formater',

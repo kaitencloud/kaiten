@@ -67,9 +67,10 @@ export function FilterValueInput<T>({
   if (field.type === 'enum' && enumOptions?.length) {
     return (
       <Select
+        items={[{ value: FILTER_VALUE_ALL, label: labels.all }, ...enumOptions]}
         value={value || FILTER_VALUE_ALL}
         onValueChange={(nextValue) =>
-          onValueChange(nextValue === FILTER_VALUE_ALL ? '' : nextValue)
+          onValueChange(nextValue === FILTER_VALUE_ALL ? '' : (nextValue ?? ''))
         }
       >
         <SelectTrigger className="w-full" aria-label={controlLabel}>
@@ -86,9 +87,14 @@ export function FilterValueInput<T>({
   if (field.type === 'boolean') {
     return (
       <Select
+        items={[
+          { value: FILTER_VALUE_ALL, label: labels.all },
+          { value: 'true', label: labels.trueValue },
+          { value: 'false', label: labels.falseValue },
+        ]}
         value={value || FILTER_VALUE_ALL}
         onValueChange={(nextValue) =>
-          onValueChange(nextValue === FILTER_VALUE_ALL ? '' : nextValue)
+          onValueChange(nextValue === FILTER_VALUE_ALL ? '' : (nextValue ?? ''))
         }
       >
         <SelectTrigger className="w-full" aria-label={controlLabel}>

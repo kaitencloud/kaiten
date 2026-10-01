@@ -9,13 +9,14 @@ import {
 import { useTranslation } from 'react-i18next';
 import { getComboboxTriggerClassName } from '@/components/combobox';
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
+  ComboboxCollection,
+  ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxPanel,
+  ComboboxSearch,
+} from '@/components/ui/combobox';
 import { cn } from '@/lib/utils';
 import type { ResolvedEntitlementGroup } from './use-entitlement-group-selector-state';
 
@@ -110,6 +111,15 @@ export function SelectedGroupsValue({
   );
 }
 
+/** A row of the list: an existing group, or the entry that creates the one being typed. */
+type GroupEntry = {
+  kind: 'group' | 'create';
+  value: string;
+  label: string;
+};
+
+type GroupEntryGroup = { value: string; items: GroupEntry[] };
+
 export function EntitlementGroupCommandList({
   listboxId,
   autoFocusSearch,
@@ -139,85 +149,130 @@ export function EntitlementGroupCommandList({
 }) {
   const { t } = useTranslation();
 
-  return (
-    <Command
-      shouldFilter={false}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' && canCreateGroup && !isCreatingGroup) {
-          event.preventDefault();
-          event.stopPropagation();
-          void handleCreateGroup();
-        }
-      }}
-    >
-      <div className="relative">
-        <CommandInput
-          ref={searchInputRef}
-          autoFocus={autoFocusSearch && isOpen}
-          value={searchQuery}
-          onValueChange={setSearchQuery}
-          disabled={isCreatingGroup}
-          aria-busy={isCreatingGroup}
-          className={cn(isCreatingGroup && 'pr-8')}
-          placeholder={t(
-            'Pages.Entitlements.Mutation.Form.Placeholders.groupSearch',
+  // The groups arrive already filtered by the search, so the list does not filter again.
+  const groups: GroupEntryGroup[] = [
+    ...(filteredGroups.length > 0
+      ? [
+          {
+            value: 'groups',
+            items: filteredGroups.map((group) => ({
+              kind: 'group' as const,
+              value: group.slug,
+              label: group.name,
+            })),
+          },
+        ]
+      : []),
+    ...(canCreateGroup
+      ? [
+          {
+            value: 'create',
+            items: [
+              {
+                kind: 'create' as const,
+                value: searchQuery.trim(),
+                label: t(
+                  isCreatingGroup
+                    ? 'Pages.Entitlements.Mutation.Form.Actions.creatingGroup'
+                    : 'Pages.Entitlements.Mutation.Form.Actions.createGroup',
+                  {
+                    name: searchQuery.trim(),
+                  },
+                ),
+              },
+            ],
+          },
+        ]
+      : []),
+  ];
+
+  function handleSelect(entry: GroupEntry | null) {
+    if (entry?.kind === 'group') {
+      handleToggleGroup(entry.value);
+    } else if (entry?.kind === 'create') {
+      void handleCreateGroup();
+    }
+  }
+
+  function renderEntry(entry: GroupEntry) {
+    if (entry.kind === 'create') {
+      return (
+        <ComboboxItem key="create" value={entry} disabled={isCreatingGroup}>
+          {isCreatingGroup ? (
+            <Loader2 className="mr-2 size-4 animate-spin" />
+          ) : (
+            <Plus className="mr-2 size-4" />
+          )}
+          {entry.label}
+        </ComboboxItem>
+      );
+    }
+
+    const isSelected = value.includes(entry.value);
+
+    return (
+      <ComboboxItem key={entry.value} value={entry} disabled={isCreatingGroup}>
+        <Check
+          className={cn(
+            'mr-2 size-4',
+            isSelected ? 'opacity-100' : 'opacity-0',
           )}
         />
-        {isCreatingGroup ? (
-          <Loader2 className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-        ) : null}
-      </div>
-      <CommandList id={listboxId}>
-        <CommandEmpty>
-          {t('Pages.Entitlements.Mutation.Form.Empty.noGroupResults')}
-        </CommandEmpty>
-        {filteredGroups.length > 0 ? (
-          <CommandGroup>
-            {filteredGroups.map((group) => {
-              const isSelected = value.includes(group.slug);
+        <span className="truncate">{entry.label}</span>
+      </ComboboxItem>
+    );
+  }
 
-              return (
-                <CommandItem
-                  key={group.slug}
-                  value={group.slug}
-                  onSelect={() => handleToggleGroup(group.slug)}
-                  disabled={isCreatingGroup}
-                >
-                  <Check
-                    className={cn(
-                      'mr-2 size-4',
-                      isSelected ? 'opacity-100' : 'opacity-0',
-                    )}
-                  />
-                  <span className="truncate">{group.name}</span>
-                </CommandItem>
-              );
-            })}
-          </CommandGroup>
-        ) : null}
-        {canCreateGroup ? (
-          <CommandGroup>
-            <CommandItem
-              onSelect={() => void handleCreateGroup()}
-              disabled={isCreatingGroup}
-            >
-              {isCreatingGroup ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              ) : (
-                <Plus className="mr-2 size-4" />
-              )}
-              {t(
-                isCreatingGroup
-                  ? 'Pages.Entitlements.Mutation.Form.Actions.creatingGroup'
-                  : 'Pages.Entitlements.Mutation.Form.Actions.createGroup',
-                {
-                  name: searchQuery.trim(),
-                },
-              )}
-            </CommandItem>
-          </CommandGroup>
-        ) : null}
-      </CommandList>
-    </Command>
+  return (
+    <ComboboxPanel<GroupEntry>
+      items={groups}
+      value={null}
+      filter={null}
+      itemToStringLabel={(entry) => entry.label}
+      inputValue={searchQuery}
+      onInputValueChange={(nextSearch, details) => {
+        if (details.reason === 'input-change') {
+          setSearchQuery(nextSearch);
+        }
+      }}
+      onValueChange={handleSelect}
+    >
+      {/* Capture: Enter creates the group before the list takes it for a pick. */}
+      <div
+        onKeyDownCapture={(event) => {
+          if (event.key === 'Enter' && canCreateGroup && !isCreatingGroup) {
+            event.preventDefault();
+            event.stopPropagation();
+            void handleCreateGroup();
+          }
+        }}
+      >
+        <div className="relative">
+          <ComboboxSearch
+            ref={searchInputRef}
+            autoFocus={autoFocusSearch && isOpen}
+            disabled={isCreatingGroup}
+            aria-busy={isCreatingGroup}
+            className={cn(isCreatingGroup && 'pr-8')}
+            placeholder={t(
+              'Pages.Entitlements.Mutation.Form.Placeholders.groupSearch',
+            )}
+          />
+          {isCreatingGroup ? (
+            <Loader2 className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+          ) : null}
+        </div>
+        <ComboboxEmpty>
+          {t('Pages.Entitlements.Mutation.Form.Empty.noGroupResults')}
+        </ComboboxEmpty>
+        <ComboboxList id={listboxId}>
+          {(group: GroupEntryGroup) => (
+            <ComboboxGroup key={group.value} items={group.items}>
+              <ComboboxCollection>{renderEntry}</ComboboxCollection>
+            </ComboboxGroup>
+          )}
+        </ComboboxList>
+      </div>
+    </ComboboxPanel>
   );
 }

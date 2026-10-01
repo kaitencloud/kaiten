@@ -81,28 +81,35 @@ export function AuditFilterDropdown({
       <TooltipProvider>
         <Tooltip>
           {/* The popover's trigger wraps the tooltip's, so the button's
-              data-state stays the popover's open/closed. */}
-          <PopoverTrigger asChild>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className={cn('gap-1.5', active && 'border-primary/50')}
-              >
-                <Icon className="size-4 text-muted-foreground" aria-hidden />
-                <span
-                  ref={labelRef as RefObject<HTMLSpanElement>}
-                  className={cn('max-w-[150px]', ellipsisClassName)}
-                >
-                  {display}
-                </span>
-                <ChevronDown
-                  className="size-3.5 text-muted-foreground"
-                  aria-hidden
-                />
-              </Button>
-            </TooltipTrigger>
-          </PopoverTrigger>
+              data-popup-open stays the popover's state. */}
+          <PopoverTrigger
+            render={
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn('gap-1.5', active && 'border-primary/50')}
+                  >
+                    <Icon
+                      className="size-4 text-muted-foreground"
+                      aria-hidden
+                    />
+                    <span
+                      ref={labelRef as RefObject<HTMLSpanElement>}
+                      className={cn('max-w-[150px]', ellipsisClassName)}
+                    >
+                      {display}
+                    </span>
+                    <ChevronDown
+                      className="size-3.5 text-muted-foreground"
+                      aria-hidden
+                    />
+                  </Button>
+                }
+              />
+            }
+          />
           {isEllipsis && (
             <TooltipContent align="start" side="top" className="max-w-sm">
               {display}

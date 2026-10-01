@@ -37,14 +37,19 @@ export function NotFound() {
           </CardDescription>
         </CardHeader>
         <CardFooter>
-          <Button asChild variant="outline">
-            <Link to={section?.href ?? '/'}>
-              <ArrowLeft className="size-4" />
-              {section
-                ? t('Errors.backTo', { section: section.label })
-                : t('Errors.goHome', 'Go Home')}
-            </Link>
-          </Button>
+          <Button
+            nativeButton={false}
+            role="link"
+            variant="outline"
+            render={
+              <Link to={section?.href ?? '/'}>
+                <ArrowLeft className="size-4" />
+                {section
+                  ? t('Errors.backTo', { section: section.label })
+                  : t('Errors.goHome', 'Go Home')}
+              </Link>
+            }
+          />
         </CardFooter>
       </Card>
     </div>

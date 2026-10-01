@@ -27,7 +27,7 @@ describe('Slider', () => {
 
     render(<ControlledSlider />);
 
-    const thumb = screen.getByRole('slider');
+    const thumb = await screen.findByRole('slider');
     thumb.focus();
 
     await user.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}');
@@ -36,9 +36,9 @@ describe('Slider', () => {
     expect(screen.getByRole('slider')).toHaveFocus();
   });
 
-  it('names the thumb of a single-value slider', () => {
+  it('names the thumb of a single-value slider', async () => {
     render(<ControlledSlider />);
 
-    expect(screen.getByRole('slider', { name: 'Allowance' })).toBeVisible();
+    expect(await screen.findByRole('slider', { name: 'Allowance' })).toBeVisible();
   });
 });

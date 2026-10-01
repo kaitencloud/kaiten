@@ -1,4 +1,3 @@
-import type { Label as LabelPrimitive } from 'radix-ui';
 import { Slot } from './slot';
 import { useField } from '@tanstack/react-form';
 import * as React from 'react';
@@ -93,7 +92,7 @@ export function FormItem({ className, ...props }: React.ComponentProps<'div'>) {
 export function FormLabel({
   className,
   ...props
-}: React.ComponentProps<typeof LabelPrimitive.Root>) {
+}: React.ComponentProps<typeof Label>) {
   const { error, formItemId } = useFormField();
 
   return (

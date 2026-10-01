@@ -76,6 +76,10 @@ export function AttioWizardStepConnect({
       >
         {t('Pages.Integrations.Connectors.Wizard.Connect.syncPolicyLabel')}
         <Select
+          items={ATTIO_SYNC_POLICIES.map((policy) => ({
+            value: policy,
+            label: t(SYNC_POLICY_LABEL_KEYS[policy]),
+          }))}
           value={syncPolicy}
           onValueChange={(value) =>
             onSyncPolicyChange(value as AttioSyncPolicy)

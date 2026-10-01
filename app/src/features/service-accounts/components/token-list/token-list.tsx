@@ -47,9 +47,8 @@ export function TokenList({ tokens, onRevokeToken }: TokenListProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <ToggleGroup
-          type="single"
-          value={tokenFilter}
-          onValueChange={(value) => {
+          value={[tokenFilter]}
+          onValueChange={([value]) => {
             if (value) setTokenFilter(value as TokenFilter);
           }}
           variant="outline"

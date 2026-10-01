@@ -39,12 +39,17 @@ export function RestrictedAccess({ reason }: RestrictedAccessProps) {
           </CardContent>
         )}
         <CardFooter>
-          <Button asChild variant="outline">
-            <Link to="/">
-              <Home className="size-4" />
-              {t('Errors.goHome')}
-            </Link>
-          </Button>
+          <Button
+            nativeButton={false}
+            role="link"
+            variant="outline"
+            render={
+              <Link to="/">
+                <Home className="size-4" />
+                {t('Errors.goHome')}
+              </Link>
+            }
+          />
         </CardFooter>
       </Card>
     </div>

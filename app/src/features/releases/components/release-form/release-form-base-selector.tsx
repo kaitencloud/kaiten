@@ -90,8 +90,11 @@ export function ReleaseFormBaseSelector({
             {t('Pages.Releases.Deployments.Form.previousRelease')}
           </p>
           <Select
-            value={values.previousReleaseId}
-            onValueChange={onPreviousReleaseChange}
+            items={releaseOptions}
+            value={values.previousReleaseId || null}
+            onValueChange={(value) => {
+              if (value !== null) onPreviousReleaseChange(value);
+            }}
           >
             <SelectTrigger className="w-full">
               <SelectValue

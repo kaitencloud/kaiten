@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { type ReactNode, type Ref } from 'react';
+import { type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { EntitlementGroupSelector } from '../entitlement-group-selector';
 
@@ -74,59 +74,13 @@ vi.mock('@/components/dialog', () => ({
     open ? <div data-testid="form-dialog">{children}</div> : null,
 }));
 
-vi.mock('@/components/ui/command', () => ({
-  Command: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  CommandEmpty: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CommandGroup: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CommandInput: ({
-    autoFocus,
-    onValueChange,
-    placeholder,
-    value,
-    ref,
-  }: {
-    autoFocus?: boolean;
-    onValueChange: (value: string) => void;
-    placeholder: string;
-    value: string;
-    ref?: Ref<HTMLInputElement>;
-  }) => (
-    <input
-      ref={ref}
-      autoFocus={autoFocus}
-      placeholder={placeholder}
-      value={value}
-      onChange={(event) => onValueChange(event.target.value)}
-    />
-  ),
-  CommandItem: ({
-    children,
-    onSelect,
-  }: {
-    children: ReactNode;
-    onSelect?: () => void;
-  }) => (
-    <button type="button" onClick={() => onSelect?.()}>
-      {children}
-    </button>
-  ),
-  CommandList: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-}));
-
 vi.mock('@/components/ui/popover', () => ({
-  PopoverAnchor: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
   Popover: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   PopoverContent: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),
-  PopoverTrigger: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
+  PopoverTrigger: ({ render }: { render: ReactNode }) => (
+    <div>{render}</div>
   ),
 }));
 
@@ -161,7 +115,7 @@ describe('EntitlementGroupSelector', () => {
       target: { value: 'New Group' },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create "New Group"' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Create "New Group"' }));
 
     await waitFor(() => {
       expect(createGroupMutateAsyncMock).toHaveBeenCalledWith({

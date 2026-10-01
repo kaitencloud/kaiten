@@ -1,7 +1,11 @@
-/**
- * Re-export Slot from Radix UI
- * This centralizes the Radix UI dependency in the ui/ folder
- */
-import { Slot as SlotPrimitive } from 'radix-ui';
+import { useRender } from '@base-ui/react/use-render';
+import { Children, type HTMLAttributes, type ReactElement, type Ref } from 'react';
 
-export const Slot = SlotPrimitive.Slot;
+// Existing composition consumers share Base UI's prop and ref merging.
+export function Slot({ children, ref, ...props }: HTMLAttributes<HTMLElement> & { ref?: Ref<HTMLElement> }) {
+  return useRender({
+    render: Children.only(children) as ReactElement,
+    ref,
+    props,
+  });
+}

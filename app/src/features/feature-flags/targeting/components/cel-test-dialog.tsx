@@ -107,18 +107,20 @@ export function CelTestDialog({ rule }: { rule: string }) {
             : undefined
         }
       >
-        <DialogTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-foreground h-6 gap-1 px-1.5 text-xs"
-            disabled={rule.trim() === ''}
-          >
-            <FlaskConical className="h-3.5 w-3.5" />
-            {t('Features.Targeting.Editor.test')}
-          </Button>
-        </DialogTrigger>
+        <DialogTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground h-6 gap-1 px-1.5 text-xs"
+              disabled={rule.trim() === ''}
+            >
+              <FlaskConical className="h-3.5 w-3.5" />
+              {t('Features.Targeting.Editor.test')}
+            </Button>
+          }
+        />
       </span>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
@@ -132,9 +134,29 @@ export function CelTestDialog({ rule }: { rule: string }) {
             {rule}
           </code>
 
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-2">
             <Label>{t('Features.Targeting.Editor.testInstance')}</Label>
-            <Select value={instanceSlug} onValueChange={setInstanceSlug}>
+            <Select
+              items={[
+                {
+                  value: NO_INSTANCE,
+                  label: t('Features.Targeting.Editor.testInstanceNone'),
+                },
+                ...instances
+                  .filter(
+                    (instance) =>
+                      typeof instance.slug === 'string' && instance.slug !== '',
+                  )
+                  .map((instance) => ({
+                    value: instance.slug!,
+                    label: instance.name,
+                  })),
+              ]}
+              value={instanceSlug}
+              onValueChange={(value) => {
+                if (value !== null) setInstanceSlug(value);
+              }}
+            >
               <SelectTrigger>
                 <SelectValue
                   placeholder={t(

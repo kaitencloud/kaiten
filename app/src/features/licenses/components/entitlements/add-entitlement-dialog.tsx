@@ -97,13 +97,19 @@ export function AddEntitlementDialog({
         </DialogHeader>
 
         <DialogBody className="space-y-6">
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 gap-2">
             <Label htmlFor="entitlement-select">
               {t('Pages.Licenses.Entitlements.Dialog.entitlementLabel')}
             </Label>
             <Select
-              value={selectedEntitlementId}
-              onValueChange={onSelectedEntitlementIdChange}
+              items={availableEntitlements.map((entitlement) => ({
+                value: entitlement.id,
+                label: entitlement.name,
+              }))}
+              value={selectedEntitlementId || null}
+              onValueChange={(value) =>
+                onSelectedEntitlementIdChange(value ?? '')
+              }
             >
               <SelectTrigger id="entitlement-select" className="w-full">
                 <SelectValue
@@ -210,11 +216,27 @@ export function AddEntitlementDialog({
           ) : null}
 
           {selectedEntitlement?.type === 'BOOLEAN' ? (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-2">
               <Label htmlFor="boolean-select">
                 {t('Pages.Licenses.Entitlements.Dialog.booleanLabel', 'Value')}
               </Label>
               <Select
+                items={[
+                  {
+                    value: 'true',
+                    label: t(
+                      'Pages.Licenses.Entitlements.Dialog.booleanEnabled',
+                      'Enabled',
+                    ),
+                  },
+                  {
+                    value: 'false',
+                    label: t(
+                      'Pages.Licenses.Entitlements.Dialog.booleanDisabled',
+                      'Disabled',
+                    ),
+                  },
+                ]}
                 value={newBooleanValue ? 'true' : 'false'}
                 onValueChange={(v) => onNewBooleanValueChange(v === 'true')}
               >

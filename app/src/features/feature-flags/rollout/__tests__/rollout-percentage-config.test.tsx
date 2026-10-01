@@ -113,7 +113,7 @@ describe('RolloutPercentageConfig', () => {
   });
 
   describe('two-variant mode', () => {
-    it('should render a single slider for exactly 2 variants', () => {
+    it('should render a single slider for exactly 2 variants', async () => {
       const onChange = vi.fn();
       render(
         <RolloutPercentageConfig
@@ -125,7 +125,7 @@ describe('RolloutPercentageConfig', () => {
 
       expect(screen.getByTestId('two-variant-slider')).toBeInTheDocument();
       // Single slider = single thumb
-      const sliders = screen.getAllByRole('slider');
+      const sliders = await screen.findAllByRole('slider');
       expect(sliders).toHaveLength(1);
     });
 
@@ -522,9 +522,9 @@ describe('RolloutPercentageConfig', () => {
       expect(percentages.length).toBeGreaterThan(0);
     });
 
-    it('should render single slider in two-variant mode', () => {
+    it('should render single slider in two-variant mode', async () => {
       const onChange = vi.fn();
-      const { container } = render(
+      render(
         <RolloutPercentageConfig
           distribution={{ variant_a: 30, variant_b: 70 }}
           onChange={onChange}
@@ -533,14 +533,14 @@ describe('RolloutPercentageConfig', () => {
       );
 
       // Two-variant mode uses a single slider
-      const sliders = container.querySelectorAll('[role="slider"]');
+      const sliders = await screen.findAllByRole('slider');
       expect(sliders).toHaveLength(1);
       expect(screen.getByTestId('two-variant-slider')).toBeInTheDocument();
     });
 
-    it('should render multiple sliders in multi-variant mode', () => {
+    it('should render multiple sliders in multi-variant mode', async () => {
       const onChange = vi.fn();
-      const { container } = render(
+      render(
         <RolloutPercentageConfig
           distribution={{ variant_a: 30, variant_b: 30, variant_c: 40 }}
           onChange={onChange}
@@ -549,7 +549,7 @@ describe('RolloutPercentageConfig', () => {
       );
 
       // Multi-variant mode uses one slider per variant
-      const sliders = container.querySelectorAll('[role="slider"]');
+      const sliders = await screen.findAllByRole('slider');
       expect(sliders).toHaveLength(3);
     });
 
@@ -569,7 +569,7 @@ describe('RolloutPercentageConfig', () => {
 
     it('should call onChange when slider value changes', async () => {
       const onChange = vi.fn();
-      const { container } = render(
+      render(
         <RolloutPercentageConfig
           distribution={{ variant_a: 50 }}
           onChange={onChange}
@@ -577,15 +577,13 @@ describe('RolloutPercentageConfig', () => {
         />,
       );
 
-      const slider = container.querySelector('[role="slider"]');
+      const slider = await screen.findByRole('slider');
       expect(slider).toBeInTheDocument();
 
-      // Simulate slider interaction by calling onChange directly
-      // (Radix UI sliders are hard to interact with in tests)
-      const newDistribution = { variant_a: 75 };
-      onChange(newDistribution);
-
-      expect(onChange).toHaveBeenCalledWith(newDistribution);
+      slider.focus();
+      await userEvent.keyboard('{ArrowRight}');
+      // A lone variant owns the entire distribution after rebalancing.
+      expect(onChange).toHaveBeenCalledWith({ variant_a: 100 });
     });
   });
 

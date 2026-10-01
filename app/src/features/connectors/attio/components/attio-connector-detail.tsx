@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertDialog,
+  AlertDialogClose,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -89,12 +90,18 @@ function DetailPageHeader({
 
       <Page.Actions>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <a href={ATTIO_APP_URL} target="_blank" rel="noreferrer">
-              <ExternalLink />
-              {t('Pages.Integrations.Connectors.Detail.openInAttio')}
-            </a>
-          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            nativeButton={false}
+            role="link"
+            render={
+              <a href={ATTIO_APP_URL} target="_blank" rel="noreferrer">
+                <ExternalLink />
+                {t('Pages.Integrations.Connectors.Detail.openInAttio')}
+              </a>
+            }
+          />
           <DisconnectConfirmDialog
             onDisconnect={onDisconnect}
             isDisconnecting={isDisconnecting}
@@ -115,17 +122,23 @@ function DisconnectConfirmDialog({
   const { t } = useTranslation();
   return (
     <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-destructive-subtle-foreground hover:bg-destructive-subtle hover:text-destructive-subtle-foreground"
-          disabled={isDisconnecting}
-        >
-          {isDisconnecting ? <Loader2 className="animate-spin" /> : <Trash2 />}
-          {t('Pages.Integrations.Connectors.Detail.disconnect')}
-        </Button>
-      </AlertDialogTrigger>
+      <AlertDialogTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-destructive-subtle-foreground hover:bg-destructive-subtle hover:text-destructive-subtle-foreground"
+            disabled={isDisconnecting}
+          >
+            {isDisconnecting ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <Trash2 />
+            )}
+            {t('Pages.Integrations.Connectors.Detail.disconnect')}
+          </Button>
+        }
+      />
       <AlertDialogContent size="sm">
         <AlertDialogHeader>
           <AlertDialogMedia className="bg-destructive-subtle text-destructive-subtle-foreground">
@@ -144,11 +157,15 @@ function DisconnectConfirmDialog({
           <AlertDialogCancel variant="outline">
             {t('Common.cancel')}
           </AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={onDisconnect}>
-            {t(
-              'Pages.Integrations.Connectors.Detail.DisconnectDialog.confirmButton',
-            )}
-          </AlertDialogAction>
+          <AlertDialogClose
+            render={
+              <AlertDialogAction variant="destructive" onClick={onDisconnect}>
+                {t(
+                  'Pages.Integrations.Connectors.Detail.DisconnectDialog.confirmButton',
+                )}
+              </AlertDialogAction>
+            }
+          />
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

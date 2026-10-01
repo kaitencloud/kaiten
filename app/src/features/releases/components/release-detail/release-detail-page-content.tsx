@@ -76,15 +76,20 @@ function ReleaseDetailLayout({ children }: PropsWithChildren) {
           <Page.Actions>
             <div className="flex items-center gap-2">
               {/* The page's main action: solid, like Deploy on the instance page. */}
-              <Button className="gap-2" asChild>
-                <Link
-                  to="/releases/$releaseSlug/deploy"
-                  params={{ releaseSlug }}
-                >
-                  <Rocket className="size-4" />
-                  {t('Pages.Releases.Detail.actions.deploy', 'Deploy')}
-                </Link>
-              </Button>
+              <Button
+                className="gap-2"
+                nativeButton={false}
+                role="link"
+                render={
+                  <Link
+                    to="/releases/$releaseSlug/deploy"
+                    params={{ releaseSlug }}
+                  >
+                    <Rocket className="size-4" />
+                    {t('Pages.Releases.Detail.actions.deploy', 'Deploy')}
+                  </Link>
+                }
+              />
               <DestructiveActionButton
                 label={t('Common.delete')}
                 title={t('Common.confirmDeleteTitle')}

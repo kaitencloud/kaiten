@@ -33,18 +33,20 @@ export function SyncErrorDialog({
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <button
-          type="button"
-          className="cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          aria-label={t(
-            'Pages.Integrations.Connectors.EntitySync.errorDialog.openLabel',
-          )}
-          onClick={onTriggerClick}
-        >
-          {children}
-        </button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <button
+            type="button"
+            className="cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            aria-label={t(
+              'Pages.Integrations.Connectors.EntitySync.errorDialog.openLabel',
+            )}
+            onClick={onTriggerClick}
+          >
+            {children}
+          </button>
+        }
+      />
       <SyncErrorDialogContent
         error={error}
         externalId={externalId}

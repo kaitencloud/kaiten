@@ -53,18 +53,20 @@ export function ReleaseComponentName({
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            className="block min-w-0 max-w-full cursor-help text-left"
-          >
-            <ReleaseComponentNameText
-              className={cn(ellipsis.className, className)}
-              name={name}
-              textRef={ellipsis.ref}
-            />
-          </button>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              className="block min-w-0 max-w-full cursor-help text-left"
+            >
+              <ReleaseComponentNameText
+                className={cn(ellipsis.className, className)}
+                name={name}
+                textRef={ellipsis.ref}
+              />
+            </button>
+          }
+        />
         <TooltipContent align="start" side="top" className="max-w-sm px-3 py-2">
           <span className="break-all text-sm">{name}</span>
         </TooltipContent>

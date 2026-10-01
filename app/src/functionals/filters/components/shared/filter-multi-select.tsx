@@ -77,16 +77,18 @@ export function FilterMultiSelect({
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className="w-full justify-between font-normal"
-          type="button"
-        >
-          <span className="truncate">{label}</span>
-          <ChevronDown className="text-muted-foreground ml-2 size-4 shrink-0" />
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="outline"
+            className="w-full justify-between font-normal"
+            type="button"
+          >
+            <span className="truncate">{label}</span>
+            <ChevronDown className="text-muted-foreground ml-2 size-4 shrink-0" />
+          </Button>
+        }
+      />
       <PopoverContent
         align="start"
         className="max-h-72 w-56 overflow-y-auto p-1"

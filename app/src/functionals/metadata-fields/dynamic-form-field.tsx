@@ -72,6 +72,11 @@ function BooleanInput({ field, value, onChange }: FieldInputProps) {
     value === true ? TRI_TRUE : value === false ? TRI_FALSE : TRI_NOT_SET;
   return (
     <Select
+      items={[
+        { value: TRI_NOT_SET, label: 'Not set' },
+        { value: TRI_TRUE, label: 'Yes' },
+        { value: TRI_FALSE, label: 'No' },
+      ]}
       value={current}
       onValueChange={(next) => {
         if (next === TRI_TRUE) onChange(true);
@@ -106,7 +111,8 @@ function EnumInput({ field, value, onChange }: FieldInputProps) {
   const options = field.options ?? [];
   return (
     <Select
-      value={typeof value === 'string' ? value : ''}
+      items={options}
+      value={typeof value === 'string' ? value : null}
       onValueChange={(v) => onChange(v || undefined)}
     >
       <SelectTrigger id={field.id} className="w-full">

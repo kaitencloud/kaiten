@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import type { FeatureFlag } from '@/api-client';
 import {
   AlertDialog,
+  AlertDialogClose,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -114,25 +115,39 @@ export function FeatureFlagCard({ flag }: FeatureFlagCardProps) {
                 <FlaskConical className="size-3.5" />
                 {t('Pages.FeatureFlags.Card.tryIt')}
               </Button>
-              <Button variant="outline" size="sm" className="gap-1.5" asChild>
-                <Link
-                  to="/feature-flags/$featureFlagSlug"
-                  params={{ featureFlagSlug: flag.slug! }}
-                >
-                  <Eye className="size-3.5" />
-                  {t('Pages.FeatureFlags.Card.view')}
-                </Link>
-              </Button>
-              <Button variant="outline" size="sm" className="gap-1.5" asChild>
-                <Link
-                  to="/feature-flags/$featureFlagSlug"
-                  params={{ featureFlagSlug: flag.slug! }}
-                  search={{ mode: 'configure' }}
-                >
-                  <Settings className="size-3.5" />
-                  {t('Pages.FeatureFlags.Card.configure')}
-                </Link>
-              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                nativeButton={false}
+                role="link"
+                render={
+                  <Link
+                    to="/feature-flags/$featureFlagSlug"
+                    params={{ featureFlagSlug: flag.slug! }}
+                  >
+                    <Eye className="size-3.5" />
+                    {t('Pages.FeatureFlags.Card.view')}
+                  </Link>
+                }
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                nativeButton={false}
+                role="link"
+                render={
+                  <Link
+                    to="/feature-flags/$featureFlagSlug"
+                    params={{ featureFlagSlug: flag.slug! }}
+                    search={{ mode: 'configure' }}
+                  >
+                    <Settings className="size-3.5" />
+                    {t('Pages.FeatureFlags.Card.configure')}
+                  </Link>
+                }
+              />
             </div>
           </div>
         </CardHeader>
@@ -166,14 +181,18 @@ export function FeatureFlagCard({ flag }: FeatureFlagCardProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('Common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              variant={flag.enabled ? 'destructive' : 'default'}
-              onClick={() => toggle(flag)}
-            >
-              {flag.enabled
-                ? t('Pages.FeatureFlags.Card.disableAction')
-                : t('Pages.FeatureFlags.Card.enableAction')}
-            </AlertDialogAction>
+            <AlertDialogClose
+              render={
+                <AlertDialogAction
+                  variant={flag.enabled ? 'destructive' : 'default'}
+                  onClick={() => toggle(flag)}
+                >
+                  {flag.enabled
+                    ? t('Pages.FeatureFlags.Card.disableAction')
+                    : t('Pages.FeatureFlags.Card.enableAction')}
+                </AlertDialogAction>
+              }
+            />
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

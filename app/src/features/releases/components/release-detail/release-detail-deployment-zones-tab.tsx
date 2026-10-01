@@ -136,15 +136,22 @@ export function ReleaseDetailDeploymentZonesTab() {
                 )}
               </p>
             </div>
-            <Button asChild>
-              <Link to="/releases/$releaseSlug/deploy" params={{ releaseSlug }}>
-                <Rocket className="size-4" />
-                {t(
-                  'Pages.Releases.Detail.DeploymentZones.emptyCta',
-                  'Deploy to a zone',
-                )}
-              </Link>
-            </Button>
+            <Button
+              nativeButton={false}
+              role="link"
+              render={
+                <Link
+                  to="/releases/$releaseSlug/deploy"
+                  params={{ releaseSlug }}
+                >
+                  <Rocket className="size-4" />
+                  {t(
+                    'Pages.Releases.Detail.DeploymentZones.emptyCta',
+                    'Deploy to a zone',
+                  )}
+                </Link>
+              }
+            />
           </div>
         ) : (
           <DataTable

@@ -81,7 +81,16 @@ export function DefaultVariantTypeSelector({
       <label className="text-sm font-medium">
         {t('Pages.FeatureFlags.Mutation.Form.Step3.DefaultVariant.typeLabel')}
       </label>
-      <Select value={type} onValueChange={onTypeChange}>
+      <Select
+        items={['basic', 'rollout_date', 'rollout_percentage'].map((value) => ({
+          value,
+          label: t(
+            `Pages.FeatureFlags.Mutation.Form.Step3.DefaultVariant.Types.${value === 'basic' ? 'simple' : value === 'rollout_date' ? 'rolloutDate' : 'rolloutPercentage'}`,
+          ),
+        }))}
+        value={type}
+        onValueChange={(value) => onTypeChange(value as DefaultVariantType)}
+      >
         <SelectTrigger className="w-full">
           <SelectValue />
         </SelectTrigger>

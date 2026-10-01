@@ -30,7 +30,18 @@ export function OptionSelect({
   value: string;
 }) {
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select
+      items={[
+        ...(includeAllOption && allLabel
+          ? [{ value: 'all', label: allLabel }]
+          : []),
+        ...options,
+      ]}
+      value={value}
+      onValueChange={(next) => {
+        if (next !== null) onChange(next);
+      }}
+    >
       <SelectTrigger
         className={cn('w-full min-w-[220px] md:w-[220px]', triggerClassName)}
         aria-label={ariaLabel}

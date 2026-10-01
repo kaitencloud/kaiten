@@ -94,16 +94,18 @@ export function JsonContextDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 min-w-9 px-2 font-mono text-xs"
-          onClick={(event) => event.stopPropagation()}
-        >
-          {t('Pages.FeatureFlags.Detail.Evaluation.contextDialog.trigger')}
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 min-w-9 px-2 font-mono text-xs"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {t('Pages.FeatureFlags.Detail.Evaluation.contextDialog.trigger')}
+          </Button>
+        }
+      />
       <DialogContent
         className="max-w-2xl"
         onClick={(event) => event.stopPropagation()}

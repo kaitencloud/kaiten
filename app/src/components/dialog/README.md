@@ -83,7 +83,7 @@ Cancel and confirm both close the dialog, and confirm calls `onConfirm`.
 
 | Prop | Type | Role |
 | --- | --- | --- |
-| `trigger` | `ReactNode` | The element that opens the dialog. It is wrapped in `AlertDialogTrigger asChild`. |
+| `trigger` | `ReactNode` | The element that opens the dialog. It is rendered as the `AlertDialogTrigger`, through its `render` prop. |
 | `title` | `string` | The dialog title. |
 | `description` | `ReactNode` | The body. Long unbroken text, such as a URL, wraps. |
 | `cancelLabel`, `confirmLabel` | `string` | The button labels. |

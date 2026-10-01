@@ -39,21 +39,23 @@ export function TableJsonDialog({
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button
-          aria-label={triggerAriaLabel}
-          variant={triggerLabel ? 'link' : 'outline'}
-          size="sm"
-          className={cn(
-            triggerLabel
-              ? 'h-auto p-0 text-foreground underline-offset-4 hover:text-primary-subtle-foreground hover:underline'
-              : 'h-7 gap-1.5',
-          )}
-          onClick={(event) => event.stopPropagation()}
-        >
-          {triggerLabel ?? <Code2 className="size-3" />}
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <Button
+            aria-label={triggerAriaLabel}
+            variant={triggerLabel ? 'link' : 'outline'}
+            size="sm"
+            className={cn(
+              triggerLabel
+                ? 'h-auto p-0 text-foreground underline-offset-4 hover:text-primary-subtle-foreground hover:underline'
+                : 'h-7 gap-1.5',
+            )}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {triggerLabel ?? <Code2 className="size-3" />}
+          </Button>
+        }
+      />
       <DialogContent
         className={dialogWidth}
         onClick={(event) => event.stopPropagation()}

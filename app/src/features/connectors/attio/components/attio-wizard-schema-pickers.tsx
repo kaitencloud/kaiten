@@ -9,13 +9,16 @@ import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
+  ComboboxCollection,
+  ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxItem,
+  ComboboxLabel,
+  ComboboxList,
+  ComboboxPanel,
+  ComboboxSearch,
+  useComboboxFilter,
+} from '@/components/ui/combobox';
 import type { AttioSourceField } from '../types';
 
 export function SourceFieldSummary({
@@ -74,28 +77,30 @@ export function SourceFieldPicker({
     // modal: the picker also opens inside the mapping editor dialog, whose
     // scroll lock would otherwise swallow wheel events in the portaled list.
     <Popover open={open} onOpenChange={setOpen} modal>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex w-full items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent"
-          aria-haspopup="listbox"
-          aria-expanded={open}
-        >
-          {selected ? (
-            <SourceFieldSummary field={selected} compact subline="table" />
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              {t(
-                'Pages.Integrations.Connectors.Wizard.Schema.selectSourceField',
-              )}
-            </span>
-          )}
-          <ChevronsUpDown
-            className="size-3.5 shrink-0 text-muted-foreground"
-            aria-hidden
-          />
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className="inline-flex w-full items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+            aria-haspopup="listbox"
+            aria-expanded={open}
+          >
+            {selected ? (
+              <SourceFieldSummary field={selected} compact subline="table" />
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                {t(
+                  'Pages.Integrations.Connectors.Wizard.Schema.selectSourceField',
+                )}
+              </span>
+            )}
+            <ChevronsUpDown
+              className="size-3.5 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
+          </button>
+        }
+      />
       <PopoverContent align="start" className="w-[320px] p-0" sideOffset={4}>
         <SourceFieldList
           options={options}
@@ -110,51 +115,11 @@ export function SourceFieldPicker({
   );
 }
 
-function SourceFieldGroup({
-  labelKey,
-  fields,
-  selectedKey,
-  onSelect,
-}: {
+type SourceFieldGroupData = {
+  value: string;
   labelKey: string;
-  fields: AttioSourceField[];
-  selectedKey?: string;
-  onSelect: (key: string) => void;
-}) {
-  const { t } = useTranslation();
-
-  if (fields.length === 0) {
-    return null;
-  }
-
-  return (
-    <CommandGroup
-      heading={
-        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-          {t(labelKey)}
-        </span>
-      }
-    >
-      {fields.map((field) => (
-        <CommandItem
-          key={field.key}
-          value={field.key}
-          keywords={[field.label, field.kaitenTable, field.kaitenType]}
-          onSelect={onSelect}
-          className="items-start justify-between gap-2"
-        >
-          <SourceFieldSummary field={field} compact />
-          {selectedKey === field.key && (
-            <Check
-              className="size-3.5 shrink-0 text-primary-subtle-foreground"
-              aria-hidden
-            />
-          )}
-        </CommandItem>
-      ))}
-    </CommandGroup>
-  );
-}
+  items: AttioSourceField[];
+};
 
 function SourceFieldList({
   options,
@@ -166,31 +131,72 @@ function SourceFieldList({
   onSelect: (key: string) => void;
 }) {
   const { t } = useTranslation();
-  const company = options.filter((field) => field.object === 'Company');
-  const workspace = options.filter((field) => field.object === 'Workspace');
+  const { contains } = useComboboxFilter();
+  const groups: SourceFieldGroupData[] = [
+    {
+      value: 'company',
+      labelKey:
+        'Pages.Integrations.Connectors.Wizard.Schema.SourceFieldGroup.company',
+      items: options.filter((field) => field.object === 'Company'),
+    },
+    {
+      value: 'workspace',
+      labelKey:
+        'Pages.Integrations.Connectors.Wizard.Schema.SourceFieldGroup.workspace',
+      items: options.filter((field) => field.object === 'Workspace'),
+    },
+  ].filter((group) => group.items.length > 0);
 
   return (
-    <Command>
-      <CommandInput
+    <ComboboxPanel<AttioSourceField>
+      items={groups}
+      value={null}
+      filter={(field, query) =>
+        [field.key, field.label, field.kaitenTable, field.kaitenType].some(
+          (searchable) => contains(searchable, query),
+        )
+      }
+      itemToStringLabel={(field) => field.label}
+      onValueChange={(field) => {
+        if (field) {
+          onSelect(field.key);
+        }
+      }}
+    >
+      <ComboboxSearch
         placeholder={t(
           'Pages.Integrations.Connectors.Wizard.Schema.searchSourceField',
         )}
       />
-      <CommandList className="max-h-72">
-        <CommandEmpty>{t('Common.noResults')}</CommandEmpty>
-        <SourceFieldGroup
-          labelKey="Pages.Integrations.Connectors.Wizard.Schema.SourceFieldGroup.company"
-          fields={company}
-          selectedKey={selectedKey}
-          onSelect={onSelect}
-        />
-        <SourceFieldGroup
-          labelKey="Pages.Integrations.Connectors.Wizard.Schema.SourceFieldGroup.workspace"
-          fields={workspace}
-          selectedKey={selectedKey}
-          onSelect={onSelect}
-        />
-      </CommandList>
-    </Command>
+      <ComboboxEmpty>{t('Common.noResults')}</ComboboxEmpty>
+      <ComboboxList className="max-h-72">
+        {(group: SourceFieldGroupData) => (
+          <ComboboxGroup key={group.value} items={group.items}>
+            <ComboboxLabel>
+              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                {t(group.labelKey)}
+              </span>
+            </ComboboxLabel>
+            <ComboboxCollection>
+              {(field: AttioSourceField) => (
+                <ComboboxItem
+                  key={field.key}
+                  value={field}
+                  className="items-start justify-between gap-2"
+                >
+                  <SourceFieldSummary field={field} compact />
+                  {selectedKey === field.key && (
+                    <Check
+                      className="size-3.5 shrink-0 text-primary-subtle-foreground"
+                      aria-hidden
+                    />
+                  )}
+                </ComboboxItem>
+              )}
+            </ComboboxCollection>
+          </ComboboxGroup>
+        )}
+      </ComboboxList>
+    </ComboboxPanel>
   );
 }

@@ -228,8 +228,8 @@ vi.mock('@/components/ui/select', () => ({
 
 vi.mock('@/components/ui/toggle-group', () => {
   const ToggleGroupContext = createContext<{
-    onValueChange?: (value: string) => void;
-    value?: string;
+    onValueChange?: (value: string[]) => void;
+    value?: string[];
   }>({});
 
   return {
@@ -239,8 +239,8 @@ vi.mock('@/components/ui/toggle-group', () => {
       value,
     }: {
       children: ReactNode;
-      onValueChange?: (value: string) => void;
-      value?: string;
+      onValueChange?: (value: string[]) => void;
+      value?: string[];
     }) => (
       <ToggleGroupContext.Provider value={{ onValueChange, value }}>
         <div>{children}</div>
@@ -258,8 +258,8 @@ vi.mock('@/components/ui/toggle-group', () => {
       return (
         <button
           type="button"
-          aria-pressed={context.value === value}
-          onClick={() => context.onValueChange?.(value)}
+          aria-pressed={context.value?.includes(value)}
+          onClick={() => context.onValueChange?.([value])}
         >
           {children}
         </button>
@@ -273,47 +273,75 @@ vi.mock('@/components/ui/popover', () => ({
   PopoverContent: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),
-  PopoverTrigger: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
+  PopoverTrigger: ({ render }: { render: ReactNode }) => (
+    <div>{render}</div>
   ),
 }));
 
-vi.mock('@/components/ui/command', () => ({
-  Command: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  CommandEmpty: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CommandGroup: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CommandInput: ({
-    onValueChange,
-    placeholder,
-    value,
-  }: {
-    onValueChange: (value: string) => void;
-    placeholder: string;
-    value: string;
-  }) => (
-    <input
-      placeholder={placeholder}
-      value={value}
-      onChange={(event) => onValueChange(event.target.value)}
-    />
-  ),
-  CommandItem: ({
-    children,
-    onSelect,
-  }: {
-    children: ReactNode;
-    onSelect?: () => void;
-  }) => (
-    <button type="button" onClick={() => onSelect?.()}>
-      {children}
-    </button>
-  ),
-  CommandList: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-}));
+// The lists are reduced to plain elements: the real inputs carry the `combobox`
+// role, which the native selects of this file are looked up by.
+vi.mock('@/components/ui/combobox', async () => {
+  const { createContext, use } = await import('react');
+  type PanelState = {
+    inputValue?: string;
+    items: unknown[];
+    onInputValueChange?: (
+      value: string,
+      details: { reason: string },
+    ) => void;
+    onValueChange?: (item: unknown) => void;
+  };
+  const PanelContext = createContext<PanelState>({ items: [] });
+
+  return {
+    ComboboxPanel: ({
+      children,
+      ...state
+    }: PanelState & { children: ReactNode }) => (
+      <PanelContext value={state}>
+        <div>{children}</div>
+      </PanelContext>
+    ),
+    ComboboxSearch: ({ placeholder }: { placeholder: string }) => {
+      const panel = use(PanelContext);
+
+      return (
+        <input
+          placeholder={placeholder}
+          value={panel.inputValue ?? ''}
+          onChange={(event) =>
+            panel.onInputValueChange?.(event.target.value, {
+              reason: 'input-change',
+            })
+          }
+        />
+      );
+    },
+    ComboboxEmpty: ({ children }: { children: ReactNode }) => (
+      <div>{children}</div>
+    ),
+    ComboboxList: ({
+      children,
+    }: {
+      children: (item: unknown, index: number) => ReactNode;
+    }) => <div>{use(PanelContext).items.map(children)}</div>,
+    ComboboxItem: ({
+      children,
+      value,
+    }: {
+      children: ReactNode;
+      value: unknown;
+    }) => {
+      const panel = use(PanelContext);
+
+      return (
+        <button type="button" onClick={() => panel.onValueChange?.(value)}>
+          {children}
+        </button>
+      );
+    },
+  };
+});
 
 const entitlementsRows = [
   {

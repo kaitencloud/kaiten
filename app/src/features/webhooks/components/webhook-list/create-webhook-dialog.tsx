@@ -69,6 +69,7 @@ function WebhookEventOption({
         className="mt-0.5"
       />
       <Label
+        id={`${checkboxId}-label`}
         htmlFor={checkboxId}
         className="min-w-0 cursor-pointer items-start"
       >

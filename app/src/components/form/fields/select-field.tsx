@@ -50,8 +50,12 @@ function SelectField({
     >
       {(field) => (
         <Select
-          onValueChange={field.handleChange}
-          value={field.value}
+          items={options.map((option) => ({
+            value: getOptionValue(option),
+            label: getOptionLabel(option),
+          }))}
+          onValueChange={(value) => field.handleChange(value ?? '')}
+          value={field.value || null}
           disabled={disabled}
         >
           <FormControl>

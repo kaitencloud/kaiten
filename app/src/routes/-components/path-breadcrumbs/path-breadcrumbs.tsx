@@ -39,11 +39,7 @@ function BreadcrumbCrumb({
     return <span>{item.label}</span>;
   }
 
-  return (
-    <BreadcrumbLink asChild>
-      <Link to={item.href}>{item.label}</Link>
-    </BreadcrumbLink>
-  );
+  return <BreadcrumbLink render={<Link to={item.href}>{item.label}</Link>} />;
 }
 
 export const PathBreadcrumbs = () => {

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import {
   AlertDialog,
+  AlertDialogClose,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -43,9 +44,13 @@ export function DiscardChangesDialog({
           <AlertDialogCancel variant="outline">
             {t('Common.cancel')}
           </AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={onConfirm}>
-            {t('Common.discardFormChangesConfirm')}
-          </AlertDialogAction>
+          <AlertDialogClose
+            render={
+              <AlertDialogAction variant="destructive" onClick={onConfirm}>
+                {t('Common.discardFormChangesConfirm')}
+              </AlertDialogAction>
+            }
+          />
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

@@ -1,5 +1,6 @@
 import {
   AlertDialog,
+  AlertDialogClose,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -40,9 +41,13 @@ export function ReleaseBaseChangeConfirmationDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel variant="outline">{cancelLabel}</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>
-            {confirmLabel}
-          </AlertDialogAction>
+          <AlertDialogClose
+            render={
+              <AlertDialogAction onClick={onConfirm}>
+                {confirmLabel}
+              </AlertDialogAction>
+            }
+          />
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

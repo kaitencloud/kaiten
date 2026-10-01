@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { License } from '@/api-client';
 import {
   AlertDialog,
+  AlertDialogClose,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -103,23 +104,22 @@ export function LicenseLifecycleAction({
   if (!open && isLifecycleTransitionBlocked(license)) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild>
-          {/* A disabled button emits no pointer events, so the wrapper is
-              what the tooltip listens to; focusable so keyboard users get
-              the reason too. */}
-          <span tabIndex={0} className={look.wrapperClassName}>
-            <Button
-              type="button"
-              variant={look.variant}
-              size="sm"
-              className={look.disabledClassName}
-              disabled
-            >
-              <Icon className="size-3" />
-              {label}
-            </Button>
-          </span>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <span tabIndex={0} className={look.wrapperClassName}>
+              <Button
+                type="button"
+                variant={look.variant}
+                size="sm"
+                className={look.disabledClassName}
+                disabled
+              >
+                <Icon className="size-3" />
+                {label}
+              </Button>
+            </span>
+          }
+        />
         <TooltipContent>
           {t('Pages.Licenses.LifecycleActions.archiveDefaultUnavailable')}
         </TooltipContent>
@@ -142,19 +142,21 @@ export function LicenseLifecycleAction({
         setOpen(nextOpen);
       }}
     >
-      <AlertDialogTrigger asChild>
-        <Button
-          type="button"
-          variant={look.variant}
-          size="sm"
-          className={look.className}
-          disabled={isPending || !license.slug}
-          onClick={keepClickOffTheRow}
-        >
-          <Icon className="size-3" />
-          {label}
-        </Button>
-      </AlertDialogTrigger>
+      <AlertDialogTrigger
+        render={
+          <Button
+            type="button"
+            variant={look.variant}
+            size="sm"
+            className={look.className}
+            disabled={isPending || !license.slug}
+            onClick={keepClickOffTheRow}
+          >
+            <Icon className="size-3" />
+            {label}
+          </Button>
+        }
+      />
       <AlertDialogContent size="sm">
         <AlertDialogHeader>
           <AlertDialogTitle>
@@ -173,17 +175,25 @@ export function LicenseLifecycleAction({
           <AlertDialogCancel variant="outline">
             {t('Common.cancel')}
           </AlertDialogCancel>
-          <AlertDialogAction
-            variant={asked.transition === 'archive' ? 'destructive' : 'default'}
-            onClick={() =>
-              run({
-                licenseSlug: asked.licenseSlug,
-                transition: asked.transition,
-              })
+          <AlertDialogClose
+            render={
+              <AlertDialogAction
+                variant={
+                  asked.transition === 'archive' ? 'destructive' : 'default'
+                }
+                onClick={() =>
+                  run({
+                    licenseSlug: asked.licenseSlug,
+                    transition: asked.transition,
+                  })
+                }
+              >
+                {t(
+                  `Pages.Licenses.LifecycleActions.${asked.transition}.confirm`,
+                )}
+              </AlertDialogAction>
             }
-          >
-            {t(`Pages.Licenses.LifecycleActions.${asked.transition}.confirm`)}
-          </AlertDialogAction>
+          />
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

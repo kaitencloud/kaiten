@@ -35,17 +35,19 @@ export function DistributionHeader({
       </h4>
       {canEqualize ? (
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={onEqualize}
-            >
-              <Equal className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onEqualize}
+              >
+                <Equal className="h-4 w-4" />
+              </Button>
+            }
+          />
           <TooltipContent>
             <p>
               {t('Features.Targeting.RolloutPercentageForm.equalDistribution')}
@@ -80,7 +82,16 @@ export function AddVariantSelect({
   t,
 }: AddVariantSelectProps) {
   return (
-    <Select onValueChange={onAddVariant}>
+    <Select
+      items={availableVariants.map((variant) => ({
+        value: variant.name,
+        label: variant.name,
+      }))}
+      value={null}
+      onValueChange={(value) => {
+        if (value !== null) onAddVariant(value);
+      }}
+    >
       <SelectTrigger className="w-full">
         <SelectValue
           placeholder={t('Features.Targeting.RolloutPercentageForm.addVariant')}

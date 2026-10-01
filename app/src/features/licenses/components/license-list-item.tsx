@@ -54,15 +54,21 @@ export const LicenseListItem = ({ group }: LicenseListItemProps) => {
         </ActionAccordionTrigger>
         <ActionAccordionActions>
           {newVersionLicenseSlug ? (
-            <Button variant="outline" size="sm" asChild>
-              <Link
-                to="/licenses/versions/$licenseSlug"
-                params={{ licenseSlug: newVersionLicenseSlug }}
-              >
-                <CirclePlus className="size-4" />
-                {t('Pages.Licenses.Version.newVersionButton')}
-              </Link>
-            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              nativeButton={false}
+              role="link"
+              render={
+                <Link
+                  to="/licenses/versions/$licenseSlug"
+                  params={{ licenseSlug: newVersionLicenseSlug }}
+                >
+                  <CirclePlus className="size-4" />
+                  {t('Pages.Licenses.Version.newVersionButton')}
+                </Link>
+              }
+            />
           ) : (
             <Button variant="outline" size="sm" disabled>
               <CirclePlus className="size-4" />

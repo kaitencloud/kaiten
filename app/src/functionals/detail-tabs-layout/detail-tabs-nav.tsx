@@ -32,15 +32,20 @@ export const DetailTabsNav = ({
     >
       {items.map((item) => {
         return (
-          <TabsTrigger key={item.value} value={item.value} asChild>
-            <Link
-              to={item.to as never}
-              params={item.params as never}
-              search={item.search as never}
-              activeOptions={{ exact: true }}
-            >
-              {item.label}
-            </Link>
+          <TabsTrigger
+            key={item.value}
+            value={item.value}
+            nativeButton={false}
+            render={
+              <Link
+                to={item.to as never}
+                params={item.params as never}
+                search={item.search as never}
+                activeOptions={{ exact: true }}
+              />
+            }
+          >
+            {item.label}
           </TabsTrigger>
         );
       })}

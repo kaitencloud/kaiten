@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import {
   AlertDialog,
+  AlertDialogClose,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -27,9 +28,7 @@ type Story = StoryObj<typeof AlertDialog>;
 export const Default: Story = {
   render: () => (
     <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button variant="outline">Show Dialog</Button>
-      </AlertDialogTrigger>
+      <AlertDialogTrigger render={<Button variant="outline">Show Dialog</Button>} />
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -40,7 +39,7 @@ export const Default: Story = {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel variant="outline" size="default">Cancel</AlertDialogCancel>
-          <AlertDialogAction variant="default" size="default">Continue</AlertDialogAction>
+          <AlertDialogClose render={<AlertDialogAction variant="default" size="default">Continue</AlertDialogAction>} />
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
@@ -50,9 +49,7 @@ export const Default: Story = {
 export const Destructive: Story = {
   render: () => (
     <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button variant="destructive">Delete Account</Button>
-      </AlertDialogTrigger>
+      <AlertDialogTrigger render={<Button variant="destructive">Delete Account</Button>} />
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Account</AlertDialogTitle>
@@ -63,9 +60,9 @@ export const Destructive: Story = {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel variant="outline" size="default">Cancel</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" size="default">
+          <AlertDialogClose render={<AlertDialogAction variant="destructive" size="default">
             Delete Account
-          </AlertDialogAction>
+          </AlertDialogAction>} />
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

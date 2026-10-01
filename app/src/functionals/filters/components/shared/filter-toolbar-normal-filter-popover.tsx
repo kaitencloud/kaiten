@@ -57,7 +57,7 @@ export function NormalFilterPopover<T>({
   if (hasOptionList(field)) {
     return (
       <Popover open={open} onOpenChange={onOpenChange}>
-        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverTrigger render={trigger} />
         <PopoverContent
           align="start"
           className={cn(
@@ -81,7 +81,7 @@ export function NormalFilterPopover<T>({
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverTrigger render={trigger} />
       <PopoverContent align="start" className="w-[min(92vw,360px)] p-3">
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">

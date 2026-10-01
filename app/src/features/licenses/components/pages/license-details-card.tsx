@@ -68,23 +68,22 @@ function SetDefaultControl({ license, t }: { license: License; t: Translate }) {
   if (!canBecomeDefault(license)) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild>
-          {/* A disabled button emits no pointer events, so the wrapper is what
-              the tooltip listens to; focusable so keyboard users get the
-              reason too. */}
-          <span tabIndex={0} className="inline-flex rounded-md">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1"
-              disabled
-            >
-              <Star className="size-3" />
-              {t('Pages.Licenses.Detail.setDefaultButton')}
-            </Button>
-          </span>
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            <span tabIndex={0} className="inline-flex rounded-md">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                disabled
+              >
+                <Star className="size-3" />
+                {t('Pages.Licenses.Detail.setDefaultButton')}
+              </Button>
+            </span>
+          }
+        />
         <TooltipContent>
           {t('Pages.Licenses.Detail.setDefaultUnavailable')}
         </TooltipContent>

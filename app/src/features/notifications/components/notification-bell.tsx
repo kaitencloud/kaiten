@@ -30,26 +30,28 @@ export function NotificationBell() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative"
-          aria-label={ariaLabel}
-        >
-          <Bell />
-          {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-destructive-foreground">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
-          )}
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative"
+            aria-label={ariaLabel}
+          >
+            <Bell />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-destructive-foreground">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </Button>
+        }
+      />
       <PopoverContent
         align="end"
         sideOffset={8}
         collisionPadding={16}
-        className="flex w-[420px] max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 max-h-[var(--radix-popover-content-available-height)]"
+        className="flex w-[420px] max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 max-h-[var(--available-height)]"
       >
         <NotificationPanel onClose={handleClose} />
       </PopoverContent>

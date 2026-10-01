@@ -23,7 +23,13 @@ export function EntitlementGroupFilterSelect({
   value,
 }: EntitlementGroupFilterSelectProps) {
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select
+      items={[{ value: 'all', label: allGroupsLabel }, ...options]}
+      value={value}
+      onValueChange={(next) => {
+        if (next !== null) onChange(next);
+      }}
+    >
       <SelectTrigger className="w-full md:w-55" aria-label={ariaLabel}>
         <SelectValue />
       </SelectTrigger>

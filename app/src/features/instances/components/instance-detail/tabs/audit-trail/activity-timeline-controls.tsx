@@ -62,11 +62,10 @@ export function ActivityTimelineModeToggle({
 
   return (
     <ToggleGroup
-      type="single"
-      value={value}
+      value={[value]}
       variant="outline"
       size="sm"
-      onValueChange={(nextValue) => {
+      onValueChange={([nextValue]) => {
         if (nextValue === 'status' || nextValue === 'group') {
           onChange(nextValue);
         }

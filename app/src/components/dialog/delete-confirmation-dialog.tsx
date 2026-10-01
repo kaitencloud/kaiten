@@ -1,7 +1,8 @@
 import { Trash2Icon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ReactNode, ReactElement } from 'react';
 import {
   AlertDialog,
+  AlertDialogClose,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export interface DeleteConfirmationDialogProps {
-  trigger: ReactNode;
+  trigger: ReactElement;
   title: string;
   description: ReactNode;
   cancelLabel: string;
@@ -38,7 +39,7 @@ export function DeleteConfirmationDialog({
 }: DeleteConfirmationDialogProps) {
   return (
     <AlertDialog onOpenChange={onOpenChange}>
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+      <AlertDialogTrigger render={trigger} />
       <AlertDialogContent size="sm">
         <AlertDialogHeader className="w-full min-w-0">
           <AlertDialogMedia className="bg-destructive-subtle text-destructive-subtle-foreground">
@@ -51,13 +52,17 @@ export function DeleteConfirmationDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel variant="outline">{cancelLabel}</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            onClick={onConfirm}
-            disabled={confirmDisabled}
-          >
-            {confirmLabel}
-          </AlertDialogAction>
+          <AlertDialogClose
+            render={
+              <AlertDialogAction
+                variant="destructive"
+                onClick={onConfirm}
+                disabled={confirmDisabled}
+              >
+                {confirmLabel}
+              </AlertDialogAction>
+            }
+          />
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

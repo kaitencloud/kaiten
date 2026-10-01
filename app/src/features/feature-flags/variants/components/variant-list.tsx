@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Accordion } from '@/components/ui/accordion';
 import {
   AlertDialog,
+  AlertDialogClose,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -179,7 +180,7 @@ export function VariantList({
       )}
 
       <Accordion
-        type="multiple"
+        multiple
         className="space-y-3"
         defaultValue={variants.map((_, i) => `variant-${i}`)}
       >
@@ -214,13 +215,17 @@ export function VariantList({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('Common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() =>
-                deletingIndex !== null && handleDelete(deletingIndex)
+            <AlertDialogClose
+              render={
+                <AlertDialogAction
+                  onClick={() =>
+                    deletingIndex !== null && handleDelete(deletingIndex)
+                  }
+                >
+                  {t('Common.delete')}
+                </AlertDialogAction>
               }
-            >
-              {t('Common.delete')}
-            </AlertDialogAction>
+            />
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

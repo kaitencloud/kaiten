@@ -284,32 +284,34 @@ export function DevAuthSwitcher() {
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="relative flex items-center gap-2 rounded-md px-2 py-1 text-xs hover:bg-accent transition-colors cursor-pointer"
-        >
-          <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-warning ring-1 ring-background" />
-          {active ? (
-            <>
-              <UserAvatar
-                name={active.user_name}
-                userId={active.user_id}
-                size="sm"
-              />
-              <div className="hidden sm:block text-left leading-tight">
-                <div className="font-medium">{active.user_name}</div>
-                <div className="text-muted-foreground text-[10px]">
-                  {active.org_name}
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className="relative flex items-center gap-2 rounded-md px-2 py-1 text-xs hover:bg-accent transition-colors cursor-pointer"
+          >
+            <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-warning ring-1 ring-background" />
+            {active ? (
+              <>
+                <UserAvatar
+                  name={active.user_name}
+                  userId={active.user_id}
+                  size="sm"
+                />
+                <div className="hidden sm:block text-left leading-tight">
+                  <div className="font-medium">{active.user_name}</div>
+                  <div className="text-muted-foreground text-[10px]">
+                    {active.org_name}
+                  </div>
                 </div>
-              </div>
-            </>
-          ) : (
-            <span className="text-muted-foreground">Select account…</span>
-          )}
-          <ChevronDownIcon className="size-3 text-muted-foreground hidden sm:block" />
-        </button>
-      </PopoverTrigger>
+              </>
+            ) : (
+              <span className="text-muted-foreground">Select account…</span>
+            )}
+            <ChevronDownIcon className="size-3 text-muted-foreground hidden sm:block" />
+          </button>
+        }
+      />
       <PopoverContent
         align="end"
         sideOffset={8}

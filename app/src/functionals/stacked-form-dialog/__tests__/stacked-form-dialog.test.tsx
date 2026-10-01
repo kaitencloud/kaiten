@@ -90,6 +90,7 @@ vi.mock('@/components/ui/dialog', () => ({
 }));
 
 vi.mock('@/components/ui/alert-dialog', () => ({
+  AlertDialogClose: ({ render }: { render: React.ReactNode }) => render,
   AlertDialog: ({
     children,
     open,

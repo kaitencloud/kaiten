@@ -41,18 +41,23 @@ export function InstancesPageContent({ children }: { children?: ReactNode }) {
             </Page.Heading>
           </Page.Leading>
           <Page.Actions>
-            <Button variant="outline" asChild>
-              <Link
-                to="/settings/metadata"
-                search={{ resourceType: 'INSTANCE' }}
-              >
-                <DatabaseZap className="size-4" />
-                {t(
-                  'Pages.Settings.Metadata.configureFieldsButton',
-                  'Configure metadata fields',
-                )}
-              </Link>
-            </Button>
+            <Button
+              variant="outline"
+              nativeButton={false}
+              role="link"
+              render={
+                <Link
+                  to="/settings/metadata"
+                  search={{ resourceType: 'INSTANCE' }}
+                >
+                  <DatabaseZap className="size-4" />
+                  {t(
+                    'Pages.Settings.Metadata.configureFieldsButton',
+                    'Configure metadata fields',
+                  )}
+                </Link>
+              }
+            />
           </Page.Actions>
         </Page.Header>
         <RouteTabs tabs={tabs} />

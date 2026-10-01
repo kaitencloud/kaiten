@@ -80,17 +80,19 @@ export function CelRuleTemplates({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground hover:text-foreground h-6 gap-1 px-1.5 text-xs"
-        >
-          <SquarePlus className="h-3.5 w-3.5" />
-          {t('Functionals.CelEditor.templates')}
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground h-6 gap-1 px-1.5 text-xs"
+          >
+            <SquarePlus className="h-3.5 w-3.5" />
+            {t('Functionals.CelEditor.templates')}
+          </Button>
+        }
+      />
       <PopoverContent align="end" className="w-80 p-1">
         <ul>
           {templates.map((template) => (

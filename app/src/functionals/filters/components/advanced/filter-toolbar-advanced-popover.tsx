@@ -45,18 +45,20 @@ export function AdvancedFiltersPopover() {
 
   return (
     <Popover open={advancedOpen} onOpenChange={setAdvancedOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          className="h-9 rounded-full px-3"
-        >
-          {t('Common.rulesCount', {
-            count: controller.advanced.ruleCount,
-          })}
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="h-9 rounded-full px-3"
+          >
+            {t('Common.rulesCount', {
+              count: controller.advanced.ruleCount,
+            })}
+          </Button>
+        }
+      />
       <PopoverContent
         align="start"
         className="w-[min(92vw,760px)] space-y-3 p-3"
@@ -64,6 +66,10 @@ export function AdvancedFiltersPopover() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm font-semibold">{copy.advancedFilterTitle}</p>
           <Select
+            items={[
+              { value: 'and', label: copy.and },
+              { value: 'or', label: copy.or },
+            ]}
             value={controller.advanced.combinator}
             onValueChange={(value) =>
               controller.advanced.setCombinator(value as 'and' | 'or')

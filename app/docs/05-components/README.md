@@ -43,6 +43,6 @@ Stories sit in a `stories/` folder next to the components they show, and their t
 ## Adding a component
 
 - Look for it in these pages and in the folder first.
-- A primitive that comes from shadcn/ui or wraps Radix UI or Base UI goes in `ui/`: see [UI components](./ui-components.md).
+- A primitive that comes from shadcn/ui or wraps Base UI goes in `ui/`: see [UI components](./ui-components.md).
 - A new form field goes in `form/fields/`: see [Form components](./form-components.md#adding-a-field).
 - Give a shared component a story when it has states worth seeing, and add the keys of any text it shows to both locales: see [i18n](../02-conventions/i18n.md).

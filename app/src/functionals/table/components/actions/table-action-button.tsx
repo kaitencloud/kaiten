@@ -33,7 +33,13 @@ export function TableActionButton({
       disabled={disabled}
       className={cn(className, 'h-8 w-8 p-0')}
       variant="ghost"
-      asChild={asChild}
+      nativeButton={props.nativeButton ?? !asChild}
+      role={props.role ?? (asChild ? 'link' : undefined)}
+      render={
+        asChild
+          ? (React.Children.only(children) as React.ReactElement)
+          : props.render
+      }
       onClick={(e) => {
         e.stopPropagation();
         if (!asChild) {
@@ -41,22 +47,24 @@ export function TableActionButton({
         }
       }}
     >
-      {children}
+      {asChild ? undefined : children}
     </Button>
   );
 
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>
-          {disabled ? (
-            <span className="inline-flex" tabIndex={0}>
-              {button}
-            </span>
-          ) : (
-            button
-          )}
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={
+            disabled ? (
+              <span className="inline-flex" tabIndex={0}>
+                {button}
+              </span>
+            ) : (
+              button
+            )
+          }
+        />
         <TooltipContent className="max-w-64 whitespace-pre-line">
           {tooltip}
         </TooltipContent>

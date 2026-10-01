@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertDialog,
+  AlertDialogClose,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
@@ -253,9 +254,15 @@ export const FeatureFlagForm = ({ featureFlag }: FeatureFlagFormProps) => {
             <AlertDialogCancel onClick={dialog.onCancel}>
               {t('Pages.FeatureFlags.Mutation.Form.TypeChangeDialog.cancel')}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={dialog.onConfirm}>
-              {t('Pages.FeatureFlags.Mutation.Form.TypeChangeDialog.confirm')}
-            </AlertDialogAction>
+            <AlertDialogClose
+              render={
+                <AlertDialogAction onClick={dialog.onConfirm}>
+                  {t(
+                    'Pages.FeatureFlags.Mutation.Form.TypeChangeDialog.confirm',
+                  )}
+                </AlertDialogAction>
+              }
+            />
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -149,20 +149,22 @@ export function IconPicker({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          className={cn('justify-start gap-2', className)}
-        >
-          <EntityIcon token={value} className="size-4 shrink-0" />
-          <span className="truncate">
-            {parsed?.name ?? labels?.trigger ?? 'Choose icon'}
-          </span>
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled}
+            className={cn('justify-start gap-2', className)}
+          >
+            <EntityIcon token={value} className="size-4 shrink-0" />
+            <span className="truncate">
+              {parsed?.name ?? labels?.trigger ?? 'Choose icon'}
+            </span>
+          </Button>
+        }
+      />
       <PopoverContent align="start" className="w-72">
         <IconPickerGrid value={value} onSelect={handleSelect} labels={labels} />
       </PopoverContent>

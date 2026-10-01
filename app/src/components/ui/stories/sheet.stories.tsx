@@ -41,9 +41,7 @@ const profileFields = (
 export const Default: Story = {
   render: () => (
     <Sheet>
-      <SheetTrigger asChild>
-        <Button variant="outline">Open sheet</Button>
-      </SheetTrigger>
+      <SheetTrigger render={<Button variant="outline">Open sheet</Button>} />
       <SheetContent>
         <SheetHeader>
           <SheetTitle>Edit customer</SheetTitle>
@@ -53,9 +51,7 @@ export const Default: Story = {
         </SheetHeader>
         {profileFields}
         <SheetFooter>
-          <SheetClose asChild>
-            <Button variant="outline">Cancel</Button>
-          </SheetClose>
+          <SheetClose render={<Button variant="outline">Cancel</Button>} />
           <Button>Save changes</Button>
         </SheetFooter>
       </SheetContent>

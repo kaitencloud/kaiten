@@ -180,7 +180,7 @@ export class FeatureFlagFormDriver {
   }
 
   private activeTabPanel() {
-    return this.page.locator('[role="tabpanel"][data-state="active"]').last();
+    return this.page.getByRole('tabpanel').last();
   }
 
   private labelledTrigger(scope: Locator, label: string) {

@@ -29,17 +29,19 @@ export function CelContextPopover({ roots }: { roots: CelContextNode[] }) {
     // modal popover takes the lock over while open and allowlists its own
     // scrollables.
     <Popover modal>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground hover:text-foreground h-6 gap-1 px-1.5 text-xs"
-        >
-          <Braces className="h-3.5 w-3.5" />
-          {t('Functionals.CelEditor.context')}
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground h-6 gap-1 px-1.5 text-xs"
+          >
+            <Braces className="h-3.5 w-3.5" />
+            {t('Functionals.CelEditor.context')}
+          </Button>
+        }
+      />
       <PopoverContent align="end" className="w-96 p-0">
         <div className="border-b px-3 py-2">
           <p className="text-sm font-medium">
