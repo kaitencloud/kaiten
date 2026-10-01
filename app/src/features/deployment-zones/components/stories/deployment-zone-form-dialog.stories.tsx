@@ -165,8 +165,11 @@ export const InteractiveJsonValidation: Story = {
     const dialog = await findVisibleByRole(document.body, 'dialog');
     const dialogScope = within(dialog);
     // The typed-metadata work renamed the raw-JSON field's label from "Features" to
-    // "Metadata". With no active schema declared the dialog still falls
-    // back to this raw-JSON textarea, so the validation smoke holds.
+    // "Metadata". With no active schema declared, a new zone shows an empty
+    // state that opens this raw-JSON textarea on demand.
+    await userEvent.click(
+      await dialogScope.findByRole('button', { name: 'Edit as JSON' }),
+    );
     const metadata = await dialogScope.findByLabelText(/^Metadata/);
 
     metadata.focus();
