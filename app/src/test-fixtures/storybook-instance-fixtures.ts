@@ -7,6 +7,7 @@ import type { GetInstancesWithRelationsQuery } from '@/api-client/graphql/graphq
 import type { ReleaseManagementOverviewRelease } from '@/domains/release-management';
 import { ATTIO_CONNECTOR_NAME } from '@/domains/crm-sync';
 import type { Customer as CustomerTableRow } from '@/domains/customer-management';
+import type { MetadataSettingsField } from '@/domains/metadata-fields';
 import {
   storyActor,
   storyCustomers,
@@ -70,6 +71,29 @@ export const storyLegacyInstance = {
   name: 'Nova Legacy',
   slug: 'nova-legacy',
 } satisfies ApiInstance;
+
+// Declares the metadata keys storyInstances report, so a metadata card renders
+// them as typed fields rather than as undeclared extras.
+export const storyInstanceMetadataFields = [
+  {
+    archivedAt: null,
+    displayOrder: 0,
+    id: 'metadata-field-region',
+    jsonSchema: { type: 'string', enum: ['eu-west-1', 'us-east-1'] },
+    key: 'region',
+    label: 'Region',
+    resourceType: 'INSTANCE',
+  },
+  {
+    archivedAt: null,
+    displayOrder: 1,
+    id: 'metadata-field-tier',
+    jsonSchema: { type: 'string', enum: ['enterprise', 'trial'] },
+    key: 'tier',
+    label: 'Tier',
+    resourceType: 'INSTANCE',
+  },
+] satisfies MetadataSettingsField[];
 
 export const storyInstanceRows = [
   {
