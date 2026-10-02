@@ -20,7 +20,8 @@ async function installEntitlementPageRouteMocks(
   model: EntitlementAppModel,
 ) {
   await page.route(
-    '**/api/entitlements',
+    // A list read carries its paging query (?limit=…&cursor=…).
+    /\/api\/entitlements(\?.*)?$/,
     makeRestRouter(
       [
         {
@@ -72,7 +73,8 @@ async function installEntitlementPageRouteMocks(
   );
 
   await page.route(
-    '**/api/entitlement-groups',
+    // A list read carries its paging query (?limit=…&cursor=…).
+    /\/api\/entitlement-groups(\?.*)?$/,
     makeRestRouter(
       [
         {

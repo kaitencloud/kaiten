@@ -24,7 +24,8 @@ async function installCustomerPageRouteMocks(
   await installGraphQLOperationMocks(page, customerOperations(model));
 
   await page.route(
-    '**/api/customers',
+    // A list read carries its paging query (?limit=…&cursor=…).
+    /\/api\/customers(\?.*)?$/,
     makeRestRouter(
       [
         {

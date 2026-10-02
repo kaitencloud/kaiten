@@ -125,8 +125,9 @@ The mechanism is in [network mocks](../docs/06-testing/integration-tests.md#netw
 5. Its scenario factories in `e2e/app/_support/scenario-registry.ts`, the canonical browser-free inventory. `scripts/check-e2e-contracts.ts` executes it through `pnpm run check:e2e-contracts`. Register explicit variants for factories with parameters; do not maintain a second list in another check.
 
 MSW is the default adapter. The legacy `E2E_MOCKS=page-route` mode stays available
-for diagnostics using the existing installers, except notifications' stream;
-full protocol/persistence parity is not guaranteed. Shared error mapping is in
+for diagnostics using the existing installers, except notifications' stream,
+whose specs skip themselves in that mode;
+full protocol/persistence parity is not guaranteed, and no workflow runs it. Shared error mapping is in
 `_support/contracts/mock-http.ts` and shared GraphQL operations in
 `_support/model/graphql-operations.ts`. Models stay stateful and transport-neutral.
 Handler order, fallbacks, statuses and reload persistence are preserved by the

@@ -1,6 +1,9 @@
 import { expect, test } from '../_support/app-test';
 import { NotificationsDriver } from '../_support/drivers/notifications.driver';
-import { installFlagEvaluations } from '../_support/mocks/install-app-mocks';
+import {
+  installFlagEvaluations,
+  isMswMockingEnabled,
+} from '../_support/mocks/install-app-mocks';
 import { installEmptyWebhooksStub } from '../_support/mocks/install-integration-stubs';
 import { installNotificationAppMocks } from '../_support/mocks/install-notification-app-mocks';
 import { WEBHOOKS_ON } from '../integrations/integrations.scenarios';
@@ -10,6 +13,13 @@ import {
 } from './notifications.scenarios';
 
 test.describe('notifications read', () => {
+  // The notification stream is an EventSource held open, which page.route
+  // cannot serve, so the notifications have no page.route mocks.
+  test.skip(
+    !isMswMockingEnabled(),
+    'Notifications need MSW: page.route cannot hold their stream open.',
+  );
+
   test('bell shows the unread count and the panel lists notifications', async ({
     page,
   }) => {

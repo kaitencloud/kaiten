@@ -20,7 +20,7 @@ import { fulfillJson } from './rest-route-helpers';
  * Set `E2E_MOCKS=page-route` to keep the legacy Playwright-side mocks (useful
  * to debug an MSW-related regression without rolling back the architecture).
  */
-const isMswMockingEnabled = () => process.env.E2E_MOCKS !== 'page-route';
+export const isMswMockingEnabled = () => process.env.E2E_MOCKS !== 'page-route';
 
 /**
  * Push the model's serialized state onto `window.__KAITEN_E2E_MSW__[slot]`

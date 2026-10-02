@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Page, Route } from '@playwright/test';
 import {
   extractOperationName,
   type GraphQLRequestBody,
@@ -8,11 +8,57 @@ import {
 export type GraphQLOperationHandler = (variables: GraphQLVariables) => unknown;
 export type GraphQLOperations = Record<string, GraphQLOperationHandler>;
 
+const GRAPHQL_ROUTE = '**/api/graphql';
+
+const operationNameOf = (body: GraphQLRequestBody) =>
+  body.operationName ?? extractOperationName(body.query ?? '') ?? 'unknown';
+
+// The pages that already have the last-resort route below: one per page.
+const pagesWithUnmockedOperationRoute = new WeakSet<Page>();
+
+/**
+ * Answers an operation that no installed router mocks, naming it. Installed
+ * before the first router of a page, so that Playwright, which tries the
+ * routes of a page from the last one installed, reaches it only once every
+ * router has handed the request on.
+ */
+async function installUnmockedOperationRoute(page: Page) {
+  if (pagesWithUnmockedOperationRoute.has(page)) {
+    return;
+  }
+  pagesWithUnmockedOperationRoute.add(page);
+
+  await page.route(GRAPHQL_ROUTE, async (route: Route) => {
+    const body = JSON.parse(
+      route.request().postData() ?? '{}',
+    ) as GraphQLRequestBody;
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        errors: [
+          {
+            message: `No mock configured for GraphQL operation "${operationNameOf(body)}"`,
+          },
+        ],
+      }),
+    });
+  });
+}
+
+/**
+ * Routes the GraphQL operations of one area. Each area installs its own
+ * router, and an operation this one does not know goes on to the routers
+ * installed before it, so that two areas installed together each answer for
+ * their own operations, rather than the last one answering for all.
+ */
 export async function installGraphQLOperationMocks(
   page: Page,
   operations: GraphQLOperations,
 ) {
-  await page.route('**/api/graphql', async (route) => {
+  await installUnmockedOperationRoute(page);
+
+  await page.route(GRAPHQL_ROUTE, async (route) => {
     if (route.request().method() !== 'POST') {
       await route.fulfill({ status: 405 });
       return;
@@ -44,22 +90,11 @@ export async function installGraphQLOperationMocks(
       });
       return;
     }
-    const operationName =
-      body.operationName ?? extractOperationName(body.query ?? '') ?? 'unknown';
+    const operationName = operationNameOf(body);
     const operationHandler = operations[operationName];
 
     if (!operationHandler) {
-      await route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          errors: [
-            {
-              message: `No mock configured for GraphQL operation "${operationName}"`,
-            },
-          ],
-        }),
-      });
+      await route.fallback();
       return;
     }
 
