@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
-import { Boxes, GitBranch, Rocket } from 'lucide-react';
+import { DatabaseZap, GitBranch, Rocket } from 'lucide-react';
 import type { PropsWithChildren } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { DeploymentZone } from '@/api-client';
@@ -30,6 +30,7 @@ function DeploymentZoneDetailLayout({ children }: PropsWithChildren) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const DeploymentZoneIcon = dataModelIcons.deploymentZone;
+  const ReleaseIcon = dataModelIcons.release;
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
@@ -160,7 +161,7 @@ function DeploymentZoneDetailLayout({ children }: PropsWithChildren) {
               )}
             </StatCard.Label>
             <StatCard.Icon>
-              <Rocket />
+              <ReleaseIcon />
             </StatCard.Icon>
             <StatCard.Value>
               {currentRelease?.version ?? (
@@ -178,7 +179,7 @@ function DeploymentZoneDetailLayout({ children }: PropsWithChildren) {
               )}
             </StatCard.Label>
             <StatCard.Icon>
-              <Boxes />
+              <DatabaseZap />
             </StatCard.Icon>
             <StatCard.Value>{metadataKeysCount}</StatCard.Value>
           </StatCard>

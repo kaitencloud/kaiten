@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
-import { CalendarClock, Rocket, Server } from 'lucide-react';
+import { CalendarClock, Rocket } from 'lucide-react';
 import type { PropsWithChildren } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Release } from '@/api-client';
@@ -13,6 +13,7 @@ import {
 import { DetailEntityLayout } from '@/functionals/detail-entity-layout';
 import { Page } from '@/functionals/page';
 import { StatCard } from '@/functionals/stat-card';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { formatDetailDateTime, getActiveTabFromPathname } from '@/lib/detail';
 import { useDeleteReleaseMutation } from '../../hooks';
 import {
@@ -28,6 +29,8 @@ type ReleaseDetailPageContentProps = PropsWithChildren<{
 function ReleaseDetailLayout({ children }: PropsWithChildren) {
   const { i18n, t } = useTranslation();
   const navigate = useNavigate();
+  const ReleaseIcon = dataModelIcons.release;
+  const DeploymentZoneIcon = dataModelIcons.deploymentZone;
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
@@ -54,7 +57,7 @@ function ReleaseDetailLayout({ children }: PropsWithChildren) {
         <Page.Header>
           <Page.Leading>
             <Page.Icon>
-              <Rocket className="size-8 text-primary-subtle-foreground" />
+              <ReleaseIcon className="size-8 text-primary-subtle-foreground" />
             </Page.Icon>
             <Page.Heading>
               <Page.TitleRow>
@@ -121,7 +124,7 @@ function ReleaseDetailLayout({ children }: PropsWithChildren) {
               )}
             </StatCard.Label>
             <StatCard.Icon>
-              <Server />
+              <DeploymentZoneIcon />
             </StatCard.Icon>
             <StatCard.Value>{linkedDeploymentZones.length}</StatCard.Value>
           </StatCard>
@@ -133,7 +136,7 @@ function ReleaseDetailLayout({ children }: PropsWithChildren) {
               )}
             </StatCard.Label>
             <StatCard.Icon className="text-destructive-subtle-foreground">
-              <Rocket />
+              <DeploymentZoneIcon />
             </StatCard.Icon>
             <StatCard.Value>{productionZonesCount}</StatCard.Value>
           </StatCard>

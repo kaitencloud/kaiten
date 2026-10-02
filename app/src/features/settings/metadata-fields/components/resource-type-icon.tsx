@@ -1,5 +1,8 @@
-import { Layers3, Server } from 'lucide-react';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import type { MetadataResourceType } from '../types';
+
+const DeploymentZoneIcon = dataModelIcons.deploymentZone;
+const InstanceIcon = dataModelIcons.instance;
 
 type ResourceTypeIconProps = {
   className?: string;
@@ -14,8 +17,8 @@ export function ResourceTypeIcon({
   resourceType,
 }: ResourceTypeIconProps) {
   return resourceType === 'DEPLOYMENT_ZONE' ? (
-    <Layers3 className={className} />
+    <DeploymentZoneIcon className={className} />
   ) : (
-    <Server className={className} />
+    <InstanceIcon className={className} />
   );
 }

@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link } from '@tanstack/react-router';
-import { CirclePlus, FileText, Star } from 'lucide-react';
+import { CirclePlus, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   ActionAccordionActions,
@@ -10,6 +10,7 @@ import {
   ActionAccordionItem,
   ActionAccordionTrigger,
 } from '@/components/ui/action-accordion';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import type { LicenseGroup } from '../types';
 import { LicenseVersionsTable } from './license-versions-table';
 
@@ -19,6 +20,7 @@ type LicenseListItemProps = {
 
 export const LicenseListItem = ({ group }: LicenseListItemProps) => {
   const { t } = useTranslation();
+  const LicenseIcon = dataModelIcons.license;
 
   // A new version starts from the one the family is shown under -- the version
   // it resolves to -- rather than from the highest version whatever its state,
@@ -33,7 +35,7 @@ export const LicenseListItem = ({ group }: LicenseListItemProps) => {
       <ActionAccordionHeader className="py-2">
         <ActionAccordionTrigger className="py-4 hover:no-underline">
           <div className="flex flex-wrap items-center gap-3 text-left">
-            <FileText className="size-5 text-primary-subtle-foreground" />
+            <LicenseIcon className="size-5 text-primary-subtle-foreground" />
             <span className="text-lg font-semibold">{group.licenseName}</span>
             <Badge variant="secondary">
               {t('Pages.Licenses.List.versionCount', {

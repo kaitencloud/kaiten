@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Building2, ListFilter, Search, Server, X } from 'lucide-react';
+import { ListFilter, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import type { AuditFilters, AuditTrailOption } from '../audit-trail.types';
 import { AuditFilterDropdown } from './audit-trail-filter-dropdown';
 import {
@@ -70,7 +71,7 @@ export function AuditTrailToolbar({
           onChange={(eventType) => onChange({ eventType })}
         />
         <AuditFilterDropdown
-          icon={Server}
+          icon={dataModelIcons.instance}
           label={t('Pages.AuditTrail.table.headers.instance')}
           allLabel={t('Pages.AuditTrail.table.filters.allInstances')}
           value={filters.instance}
@@ -78,7 +79,7 @@ export function AuditTrailToolbar({
           onChange={(instance) => onChange({ instance })}
         />
         <AuditFilterDropdown
-          icon={Building2}
+          icon={dataModelIcons.customer}
           label={t('Pages.AuditTrail.table.headers.customer')}
           allLabel={t('Pages.AuditTrail.table.filters.allCustomers')}
           value={filters.customer}

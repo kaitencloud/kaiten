@@ -1,7 +1,8 @@
-import { CheckCircle, Flag, Target, XCircle } from 'lucide-react';
+import { CheckCircle, Target, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { FeatureFlag } from '@/api-client';
 import { StatCard } from '@/functionals/stat-card';
+import { dataModelIcons } from '@/lib/data-model-icons';
 
 export function FeatureFlagStatsCards({
   featureFlags,
@@ -9,6 +10,7 @@ export function FeatureFlagStatsCards({
   featureFlags: FeatureFlag[];
 }) {
   const { t } = useTranslation();
+  const FeatureFlagIcon = dataModelIcons.featureFlag;
 
   const enabled = featureFlags.filter((f) => f.enabled).length;
   const disabled = featureFlags.filter((f) => !f.enabled).length;
@@ -23,7 +25,7 @@ export function FeatureFlagStatsCards({
           {t('Pages.FeatureFlags.Stats.totalFlags')}
         </StatCard.Label>
         <StatCard.Icon>
-          <Flag />
+          <FeatureFlagIcon />
         </StatCard.Icon>
         <StatCard.Value>{featureFlags.length}</StatCard.Value>
       </StatCard>

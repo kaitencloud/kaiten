@@ -1,7 +1,8 @@
-import { Calendar, CheckCircle, Clock, History, Package } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, History } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getReleaseOverviewStats } from '@/domains/release-management';
 import { StatCard } from '@/functionals/stat-card';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import type { ReleaseManagementOverviewRelease } from '../../../types';
 
 export function ReleaseOverviewStatsCards({
@@ -10,6 +11,7 @@ export function ReleaseOverviewStatsCards({
   releases: ReleaseManagementOverviewRelease[];
 }) {
   const { t } = useTranslation();
+  const ReleaseIcon = dataModelIcons.release;
   const stats = getReleaseOverviewStats(releases);
 
   return (
@@ -20,7 +22,7 @@ export function ReleaseOverviewStatsCards({
           {t('Features.Releases.Stats.totalReleases')}
         </StatCard.Label>
         <StatCard.Icon>
-          <Package />
+          <ReleaseIcon />
         </StatCard.Icon>
         <StatCard.Value>{stats.total}</StatCard.Value>
       </StatCard>

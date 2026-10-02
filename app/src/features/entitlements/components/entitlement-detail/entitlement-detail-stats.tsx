@@ -1,6 +1,7 @@
-import { AlertTriangle, CheckCircle2, Layers, Users } from 'lucide-react';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { StatCard } from '@/functionals/stat-card';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { cn } from '@/lib/utils';
 import {
   formatMetricCount,
@@ -24,6 +25,8 @@ export function EntitlementDetailStats({
   metrics,
 }: EntitlementDetailStatsProps) {
   const { t } = useTranslation();
+  const LicenseIcon = dataModelIcons.license;
+  const InstanceIcon = dataModelIcons.instance;
   const alertsCount = metrics.nearLimitLicenses + metrics.overLimitLicenses;
 
   return (
@@ -36,7 +39,7 @@ export function EntitlementDetailStats({
           )}
         </StatCard.Label>
         <StatCard.Icon>
-          <Layers />
+          <LicenseIcon />
         </StatCard.Icon>
         <StatCard.Value>
           {formatMetricCount(metrics.linkedLicenses, isLoading, locale)}
@@ -140,8 +143,10 @@ export function EntitlementDetailStats({
             'Impact scope',
           )}
         </StatCard.Label>
+        {/* The figure counts instances, so it takes their icon: the customer
+            one would read it as a count of customers, which the helper gives. */}
         <StatCard.Icon>
-          <Users />
+          <InstanceIcon />
         </StatCard.Icon>
         <StatCard.Value>
           {formatMetricCount(metrics.impactedInstances, isLoading, locale)}

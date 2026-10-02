@@ -1,6 +1,5 @@
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from '@tanstack/react-router';
-import { Tag } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GradientButton } from '@/components/gradient-button';
@@ -21,6 +20,7 @@ import {
   dataTableSortableHeader,
   FilterTableLayout,
 } from '@/functionals/table';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { formatDate } from '@/lib/detail';
 import type { ReleaseManagementOverviewRelease } from '../../../types';
 import { ReleaseComponentsDisplay } from '../displays/release-components-display';
@@ -29,6 +29,8 @@ import {
   type LinkedDeploymentZone,
   ReleaseLinkedDeploymentZonesDisplay,
 } from '../displays/release-linked-deployment-zones-display';
+
+const VersionIcon = dataModelIcons.version;
 
 const createColumns = (
   t: any,
@@ -40,7 +42,7 @@ const createColumns = (
     header: t('Features.Releases.Table.Columns.version'),
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
-        <Tag className="size-4 text-primary-subtle-foreground" />
+        <VersionIcon className="size-4 text-primary-subtle-foreground" />
         <span className="font-medium">{row.original.version}</span>
       </div>
     ),

@@ -50,7 +50,7 @@ A header with an editable title, from a detail page:
 // app/src/features/customers/components/customer-detail/customer-detail-header.tsx (abridged)
 <Page.Header>
   <Page.IconHeading
-    icon={Users}
+    icon={dataModelIcons.customer}
     title={
       <EditableTitle
         value={customer.name}

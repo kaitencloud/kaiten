@@ -3,15 +3,11 @@ import {
   AlertCircle,
   AlertTriangle,
   Bell,
-  Building2,
-  KeyRound,
   type LucideIcon,
-  Plug,
-  Rocket,
-  Server,
   ShieldAlert,
   XCircle,
 } from 'lucide-react';
+import { dataModelIcons } from '@/lib/data-model-icons';
 
 export type NotificationTone = 'default' | 'warning' | 'destructive';
 
@@ -28,29 +24,39 @@ export interface NotificationEventMeta {
 // module existed, and the fallback hid it: every notification rendered as a
 // plain bell, which looks like a design choice rather than a broken lookup.
 const eventMeta: EventNameMap<NotificationEventMeta> = {
-  INSTANCE_CREATED: { Icon: Server, tone: 'default' },
-  INSTANCE_DEPLOYED: { Icon: Rocket, tone: 'default' },
-  INSTANCE_DELETED: { Icon: Server, tone: 'destructive' },
+  INSTANCE_CREATED: { Icon: dataModelIcons.instance, tone: 'default' },
+  // An instance event, but what it reports is a release that landed on it.
+  INSTANCE_DEPLOYED: { Icon: dataModelIcons.release, tone: 'default' },
+  INSTANCE_DELETED: { Icon: dataModelIcons.instance, tone: 'destructive' },
   INSTANCE_STATUS_CHANGED: { Icon: AlertCircle, tone: 'warning' },
   INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED: {
     Icon: AlertTriangle,
     tone: 'warning',
   },
   INSTANCE_ENTITLEMENT_CAP_EXCEEDED: { Icon: XCircle, tone: 'destructive' },
-  INSTANCE_MIGRATED: { Icon: Server, tone: 'default' },
-  INSTANCE_LIFECYCLE_STAGE_CHANGED: { Icon: Server, tone: 'default' },
-  INSTANCE_UPDATED: { Icon: Server, tone: 'default' },
-  CUSTOMER_CREATED: { Icon: Building2, tone: 'default' },
-  CUSTOMER_UPDATED: { Icon: Building2, tone: 'default' },
-  CUSTOMER_DELETED: { Icon: Building2, tone: 'destructive' },
+  INSTANCE_MIGRATED: { Icon: dataModelIcons.instance, tone: 'default' },
+  INSTANCE_LIFECYCLE_STAGE_CHANGED: {
+    Icon: dataModelIcons.instance,
+    tone: 'default',
+  },
+  INSTANCE_UPDATED: { Icon: dataModelIcons.instance, tone: 'default' },
+  CUSTOMER_CREATED: { Icon: dataModelIcons.customer, tone: 'default' },
+  CUSTOMER_UPDATED: { Icon: dataModelIcons.customer, tone: 'default' },
+  CUSTOMER_DELETED: { Icon: dataModelIcons.customer, tone: 'destructive' },
   CUSTOMER_CREATION_REJECTED: { Icon: AlertCircle, tone: 'destructive' },
-  RELEASE_CREATED: { Icon: Rocket, tone: 'default' },
-  RELEASE_DEPLOYED: { Icon: Rocket, tone: 'default' },
-  RELEASE_DELETED: { Icon: Rocket, tone: 'destructive' },
-  DEPLOYMENT_ZONE_CREATED: { Icon: Server, tone: 'default' },
-  DEPLOYMENT_ZONE_DELETED: { Icon: Server, tone: 'destructive' },
-  COMPONENT_CREATED: { Icon: Plug, tone: 'default' },
-  COMPONENT_UPDATED: { Icon: Plug, tone: 'default' },
+  RELEASE_CREATED: { Icon: dataModelIcons.release, tone: 'default' },
+  RELEASE_DEPLOYED: { Icon: dataModelIcons.release, tone: 'default' },
+  RELEASE_DELETED: { Icon: dataModelIcons.release, tone: 'destructive' },
+  DEPLOYMENT_ZONE_CREATED: {
+    Icon: dataModelIcons.deploymentZone,
+    tone: 'default',
+  },
+  DEPLOYMENT_ZONE_DELETED: {
+    Icon: dataModelIcons.deploymentZone,
+    tone: 'destructive',
+  },
+  COMPONENT_CREATED: { Icon: dataModelIcons.component, tone: 'default' },
+  COMPONENT_UPDATED: { Icon: dataModelIcons.component, tone: 'default' },
   INSTANCE_ENTITLEMENT_USAGE_REACHED: { Icon: AlertTriangle, tone: 'warning' },
   ENTITLEMENT_USAGE_REPORT_REJECTED: {
     Icon: AlertCircle,
@@ -60,11 +66,17 @@ const eventMeta: EventNameMap<NotificationEventMeta> = {
     Icon: AlertTriangle,
     tone: 'default',
   },
-  LICENSE_CREATED: { Icon: KeyRound, tone: 'default' },
-  LICENSE_UPDATED: { Icon: KeyRound, tone: 'default' },
-  LICENSE_DELETED: { Icon: KeyRound, tone: 'destructive' },
-  LICENSE_ENTITLEMENT_ASSIGNED: { Icon: KeyRound, tone: 'default' },
-  LICENSE_ENTITLEMENT_UNASSIGNED: { Icon: KeyRound, tone: 'default' },
+  LICENSE_CREATED: { Icon: dataModelIcons.license, tone: 'default' },
+  LICENSE_UPDATED: { Icon: dataModelIcons.license, tone: 'default' },
+  LICENSE_DELETED: { Icon: dataModelIcons.license, tone: 'destructive' },
+  LICENSE_ENTITLEMENT_ASSIGNED: {
+    Icon: dataModelIcons.license,
+    tone: 'default',
+  },
+  LICENSE_ENTITLEMENT_UNASSIGNED: {
+    Icon: dataModelIcons.license,
+    tone: 'default',
+  },
   SYSTEM_ORGANIZATION_TOKEN_ISSUED: { Icon: ShieldAlert, tone: 'warning' },
 };
 

@@ -1,4 +1,3 @@
-import { CheckCircle, Rocket } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { DeploymentZone } from '@/api-client';
 import { countsAsProduction } from '@/domains/release-management';
@@ -16,6 +15,8 @@ export function DeploymentZoneStatsCards({
 }) {
   const { t } = useTranslation();
   const DeploymentZoneIcon = dataModelIcons.deploymentZone;
+  const InstanceIcon = dataModelIcons.instance;
+  const ReleaseIcon = dataModelIcons.release;
 
   // An organization's own types (`shared`, `dedicated`) count as production,
   // by the same rule as a release's Deployed status.
@@ -48,7 +49,7 @@ export function DeploymentZoneStatsCards({
           {t('Features.Releases.Stats.totalInstances')}
         </StatCard.Label>
         <StatCard.Icon>
-          <CheckCircle />
+          <InstanceIcon />
         </StatCard.Icon>
         <StatCard.Value>{totalInstances}</StatCard.Value>
       </StatCard>
@@ -57,7 +58,7 @@ export function DeploymentZoneStatsCards({
           {t('Features.Releases.Stats.totalDeployments')}
         </StatCard.Label>
         <StatCard.Icon>
-          <Rocket />
+          <ReleaseIcon />
         </StatCard.Icon>
         <StatCard.Value>{totalDeployments}</StatCard.Value>
       </StatCard>

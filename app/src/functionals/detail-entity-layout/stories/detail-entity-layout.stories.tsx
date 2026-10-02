@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Activity, Server, Shield, Trash2, Users } from 'lucide-react';
+import { Activity, Shield, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { DetailCard } from '@/functionals/detail-card';
 import type { DetailTabsNavItem } from '@/functionals/detail-tabs-layout';
 import { Page } from '@/functionals/page';
 import { StatCard } from '@/functionals/stat-card';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { DetailEntityLayout } from '../detail-entity-layout';
 
@@ -21,6 +22,9 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof DetailEntityLayout>;
+
+const CustomerIcon = dataModelIcons.customer;
+const InstanceIcon = dataModelIcons.instance;
 
 const detailTabs: DetailTabsNavItem[] = [
   {
@@ -53,7 +57,7 @@ const EntityHeaderStats = ({ dense = false }: { dense?: boolean }) => (
     <StatCard>
       <StatCard.Label>Customers</StatCard.Label>
       <StatCard.Icon>
-        <Users />
+        <CustomerIcon />
       </StatCard.Icon>
       <StatCard.Value>24</StatCard.Value>
       <StatCard.Helper>8 enterprise plans</StatCard.Helper>
@@ -73,7 +77,7 @@ const header = (
   <Page.Header>
     <Page.Leading>
       <Page.Icon>
-        <Server className="size-8 text-primary-subtle-foreground" />
+        <InstanceIcon className="size-8 text-primary-subtle-foreground" />
       </Page.Icon>
       <Page.Heading>
         <Page.TitleRow>

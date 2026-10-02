@@ -1,10 +1,11 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link } from '@tanstack/react-router';
-import { Flag, FlaskConical, Settings } from 'lucide-react';
+import { FlaskConical, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { FeatureFlag } from '@/api-client';
 import { EditableTitle, Page } from '@/functionals/page';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { useFeatureFlagRename } from '../../hooks';
 
 type FeatureFlagDetailHeaderProps = {
@@ -19,13 +20,14 @@ export function FeatureFlagDetailHeader({
   onOpenTryIt,
 }: FeatureFlagDetailHeaderProps) {
   const { t } = useTranslation();
+  const FeatureFlagIcon = dataModelIcons.featureFlag;
   const handleRename = useFeatureFlagRename(featureFlag);
 
   return (
     <Page.Header>
       <Page.Leading>
         <Page.Icon>
-          <Flag className="size-8 text-primary-subtle-foreground" />
+          <FeatureFlagIcon className="size-8 text-primary-subtle-foreground" />
         </Page.Icon>
         <Page.Heading>
           <Page.TitleRow>

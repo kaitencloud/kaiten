@@ -1,5 +1,4 @@
 import { Badge } from '@/components/ui/badge';
-import { Tag } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -12,7 +11,10 @@ import type {
   ReleaseManagementOverviewRelease,
 } from '@/domains/release-management';
 import { type ColumnDef, TableLinkedItemsDialog } from '@/functionals/table';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { formatDate } from '../../utils/deployment-zone-helpers';
+
+const VersionIcon = dataModelIcons.version;
 
 export function DeploymentZoneReleasesDisplay({
   releaseById,
@@ -29,7 +31,7 @@ export function DeploymentZoneReleasesDisplay({
         header: t('Pages.Releases.Components.Dialog.Columns.release'),
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            <Tag className="size-4 text-primary-subtle-foreground" />
+            <VersionIcon className="size-4 text-primary-subtle-foreground" />
             <span className="font-medium">{row.original.version}</span>
           </div>
         ),

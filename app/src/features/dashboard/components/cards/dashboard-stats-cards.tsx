@@ -1,14 +1,14 @@
-import {
-  AlertTriangle,
-  Flag,
-  KeyRound,
-  Server,
-  ShieldCheck,
-  Users,
-} from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { StatCard } from '@/functionals/stat-card';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import type { DashboardMetrics } from '../../hooks/use-dashboard-metrics';
+
+const CustomerIcon = dataModelIcons.customer;
+const InstanceIcon = dataModelIcons.instance;
+const LicenseIcon = dataModelIcons.license;
+const FeatureFlagIcon = dataModelIcons.featureFlag;
+const TokenIcon = dataModelIcons.token;
 
 type DashboardStatsCardsProps = {
   summary: DashboardMetrics['summary'];
@@ -30,7 +30,7 @@ export const DashboardStatsCards = ({ summary }: DashboardStatsCardsProps) => {
       <StatCard>
         <StatCard.Label>{t('Pages.Dashboard.stats.customers')}</StatCard.Label>
         <StatCard.Icon>
-          <Users />
+          <CustomerIcon />
         </StatCard.Icon>
         <StatCard.Value>{summary.customers}</StatCard.Value>
       </StatCard>
@@ -39,7 +39,7 @@ export const DashboardStatsCards = ({ summary }: DashboardStatsCardsProps) => {
           {t('Pages.Dashboard.stats.activeInstances')}
         </StatCard.Label>
         <StatCard.Icon>
-          <Server />
+          <InstanceIcon />
         </StatCard.Icon>
         <StatCard.Value>{summary.activeInstances}</StatCard.Value>
       </StatCard>
@@ -71,7 +71,7 @@ export const DashboardStatsCards = ({ summary }: DashboardStatsCardsProps) => {
       <StatCard>
         <StatCard.Label>{t('Pages.Dashboard.stats.licenses')}</StatCard.Label>
         <StatCard.Icon>
-          <ShieldCheck />
+          <LicenseIcon />
         </StatCard.Icon>
         <StatCard.Value>{summary.licenses}</StatCard.Value>
       </StatCard>
@@ -86,7 +86,7 @@ export const DashboardStatsCards = ({ summary }: DashboardStatsCardsProps) => {
               : undefined
           }
         >
-          <Flag />
+          <FeatureFlagIcon />
         </StatCard.Icon>
         <StatCard.Value>
           {summary.featureFlagsEnabled}/{summary.featureFlagsTotal}
@@ -97,7 +97,7 @@ export const DashboardStatsCards = ({ summary }: DashboardStatsCardsProps) => {
           {t('Pages.Dashboard.stats.tokensExpiringSoon')}
         </StatCard.Label>
         <StatCard.Icon className={tokensTone}>
-          <KeyRound />
+          <TokenIcon />
         </StatCard.Icon>
         <StatCard.Value className={tokensTone}>
           {summary.tokensExpiringSoon}
