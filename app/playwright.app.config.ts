@@ -44,7 +44,8 @@ export default defineConfig({
     // into: nothing would be evaluated, every flag would read as off whatever
     // a spec installs, and the specs that turn `webhooks` on would fail.
     command: [
-      'VITE_API_URL=/api VITE_E2E_BYPASS_AUTH=true VITE_E2E_MSW=true',
+      'VITE_API_URL=/api VITE_LOCAL_AUTH=false VITE_E2E_BYPASS_AUTH=true VITE_E2E_MSW=true',
+      'VITE_MOCK_API=false VITE_MOCK_NOTIFICATIONS=false',
       'VITE_KAITEN_PLATFORM_API_URL= VITE_KAITEN_PLATFORM_FLAGS_TOKEN=',
       'vp dev --host 127.0.0.1 --port 3100',
     ].join(' '),

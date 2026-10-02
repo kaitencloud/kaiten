@@ -25,6 +25,11 @@ Every command on this page runs from `app/`. Install Chromium once with `pnpm ex
 
 [Scripts](../docs/00-getting-started/scripts.md) lists the rest.
 
+The application web server explicitly disables local auth and the dev mock
+switches, enables E2E bypass/MSW, and clears the platform flag service settings.
+The standard command works even when the shell or `.env.local` enables local
+auth. It starts a fresh server every time.
+
 To run part of the application suite, or to debug it, call Playwright with the app config:
 
 ```bash
@@ -151,7 +156,7 @@ pnpm run test:e2e:codegen:storybook    # in a second terminal
 For the application, `test:e2e:codegen:app` opens `http://127.0.0.1:3100` and starts no server. The dev server of the application suite has the sign-in bypass but no mocks, because a spec installs them from the test: the page shows no data.
 
 ```bash
-VITE_API_URL=/api VITE_E2E_BYPASS_AUTH=true VITE_E2E_MSW=true \
+VITE_API_URL=/api VITE_LOCAL_AUTH=false VITE_E2E_BYPASS_AUTH=true VITE_E2E_MSW=true \
   pnpm exec vp dev --host 127.0.0.1 --port 3100
 pnpm run test:e2e:codegen:app          # in a second terminal
 ```

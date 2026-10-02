@@ -33,6 +33,14 @@ Test files are exempt from lint, from formatting and from the file-size limit, b
 
 ## What the environment gives you
 
+The `unit` project pins auth and mock switches to `false`, clears the Clerk
+and platform settings, and uses `http://api.test/api` before setup files import
+modules. Shell exports and `.env.local` cannot change those defaults. The test
+virtual dev-token module is empty, so a run never reads a local credential file.
+Tests of a specific mode use `vi.stubEnv`, dynamically import modules after
+`vi.resetModules`, and restore with `vi.unstubAllEnvs` and `vi.resetModules`.
+In particular, feature-flag auth switches are captured at module load.
+
 The `unit` project runs every test in jsdom, with a timeout of 10 seconds per test, after `src/__tests__/setup.ts`. That file:
 
 - registers the `@testing-library/jest-dom` matchers, such as `toBeDisabled` and `toHaveTextContent`;
@@ -40,7 +48,8 @@ The `unit` project runs every test in jsdom, with a timeout of 10 seconds per te
 - initialises i18next with one resource (`src/__tests__/test-i18n.ts`), so `t('Some.key')` returns `Some.key`: assert on the key, or mock `react-i18next` when a test needs real wording;
 - stubs `ResizeObserver`.
 
-The `unit` project alone then runs `src/__tests__/msw-setup.ts`, which:
+The `unit` project alone then runs `src/__tests__/msw-setup.ts` (setup files run
+in list order), which:
 
 - points the generated REST client at `env.API_URL`, an absolute URL, which fetch needs outside a page;
 - starts Mock Service Worker's Node server (`src/__tests__/msw-server.ts`) before the tests and closes it after them. It answers nothing by default: a request that no test declared fails with a network error and an `[MSW]` error, and never reaches a real API. The handlers a test declares are dropped after it. See [mock the network](#mock-the-network).

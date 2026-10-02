@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 const {
   envMock,
   getAuthTokenMock,
   getBooleanValueMock,
   setProviderAndWaitMock,
+  getStoredDevTokenMock,
 } = vi.hoisted(() => ({
     envMock: {
       API_URL: 'http://api.test/api',
@@ -12,6 +13,7 @@ const {
       PLATFORM_FLAGS_TOKEN: '',
     },
     getAuthTokenMock: vi.fn(async () => 'token' as string | undefined),
+    getStoredDevTokenMock: vi.fn<() => string | null>(() => null),
     getBooleanValueMock: vi.fn(() => true),
     setProviderAndWaitMock: vi.fn(
       async (_provider: unknown, _context: unknown) => undefined,
@@ -39,11 +41,27 @@ vi.mock('@openfeature/web-sdk', () => ({
 
 vi.mock('../auth-token', () => ({ getAuthToken: getAuthTokenMock }));
 
-vi.mock('virtual:dev-tokens', () => ({ default: [] }));
+vi.mock('virtual:dev-tokens', () => ({ default: [
+  { token: 'dev-token', user_id: 'local-user', org_id: 'local-org' },
+] }));
 
-vi.mock('../local-auth', () => ({ getStoredDevToken: () => null }));
+vi.mock('../local-auth', () => ({ getStoredDevToken: getStoredDevTokenMock }));
 
 vi.mock('@/env', () => ({ default: envMock }));
+
+let originalClerk: unknown;
+beforeEach(() => {
+  originalClerk = (window as unknown as { Clerk?: unknown }).Clerk;
+  vi.stubEnv('VITE_LOCAL_AUTH', 'false');
+  vi.stubEnv('VITE_E2E_BYPASS_AUTH', 'false');
+  vi.stubEnv('DEV', true);
+  getStoredDevTokenMock.mockReset().mockReturnValue(null);
+});
+afterEach(() => {
+  (window as unknown as { Clerk?: unknown }).Clerk = originalClerk;
+  vi.unstubAllEnvs();
+  vi.resetModules();
+});
 
 type ProviderOptions = {
   baseUrl: string;
@@ -230,6 +248,44 @@ describe('platform flags against the local API', () => {
     expect(await run()).toBe(true);
     expect(setProviderAndWaitMock).toHaveBeenCalledTimes(2);
   });
+
+  it('evaluates for the selected local user without a Clerk identity', async () => {
+    vi.stubEnv('VITE_LOCAL_AUTH', 'true');
+    getStoredDevTokenMock.mockReturnValue('dev-token');
+    signIn(null);
+
+    expect(await evaluate()).toBe(true);
+    expect(setProviderAndWaitMock).toHaveBeenCalledWith(expect.anything(), {
+      targetingKey: 'local-user',
+    });
+  });
+
+  it('stays off when the local token has no seeded identity', async () => {
+    vi.stubEnv('VITE_LOCAL_AUTH', 'true');
+    getStoredDevTokenMock.mockReturnValue('unknown-token');
+
+    expect(await evaluate()).toBe(false);
+    expect(setProviderAndWaitMock).not.toHaveBeenCalled();
+  });
+
+  it('evaluates as the E2E actor only when bypass is explicitly enabled', async () => {
+    vi.stubEnv('VITE_E2E_BYPASS_AUTH', 'true');
+    signIn(null);
+    getAuthTokenMock.mockResolvedValue(undefined);
+
+    expect(await evaluate()).toBe(true);
+    expect(setProviderAndWaitMock).toHaveBeenCalledWith(expect.anything(), {
+      targetingKey: 'e2e',
+    });
+    expect(await registeredProviderOptions().headersFactory()).toEqual([]);
+  });
+
+  it('does not evaluate against the tenant API in a self-hosted production build', async () => {
+    vi.stubEnv('DEV', false);
+
+    expect(await evaluate()).toBe(false);
+    expect(setProviderAndWaitMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('platform flags against the platform flag service', () => {
@@ -297,5 +353,21 @@ describe('platform flags against the platform flag service', () => {
     } as never);
 
     expect(subscribe).not.toHaveBeenCalled();
+  });
+
+  it('uses the seeded organization for local-auth platform evaluation', async () => {
+    vi.stubEnv('VITE_LOCAL_AUTH', 'true');
+    getStoredDevTokenMock.mockReturnValue('dev-token');
+    signIn(null);
+
+    expect(await evaluate()).toBe(true);
+    expect(setProviderAndWaitMock).toHaveBeenCalledWith(expect.anything(), {
+      targetingKey: 'local-org',
+      organizationId: 'local-org',
+      kaiten: { instanceSlug: 'local-org' },
+    });
+    expect(await registeredProviderOptions().headersFactory()).toEqual([
+      ['Authorization', 'Bearer reader-token'],
+    ]);
   });
 });

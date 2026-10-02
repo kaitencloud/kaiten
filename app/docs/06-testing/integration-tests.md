@@ -100,10 +100,10 @@ The application suite runs the real console in Chromium with the sign-in bypasse
 `pnpm run test:e2e:app` reads `playwright.app.config.ts`, which starts its own dev server:
 
 ```bash
-VITE_API_URL=/api VITE_E2E_BYPASS_AUTH=true VITE_E2E_MSW=true pnpm exec vp dev --host 127.0.0.1 --port 3100
+VITE_API_URL=/api VITE_LOCAL_AUTH=false VITE_E2E_BYPASS_AUTH=true VITE_E2E_MSW=true pnpm exec vp dev --host 127.0.0.1 --port 3100
 ```
 
-Locally, the suite needs the installed dependencies, the generated client, Chromium and a free port 3100. It refuses to reuse a server that already runs there (`reuseExistingServer: false`). It needs no backend, no Docker and no Clerk key: `VITE_E2E_BYPASS_AUTH=true` renders the console without signing in, and `VITE_E2E_MSW=true` serves the API from the mocks below. A test has 60 seconds, because the dev server transforms modules on demand.
+Locally, the suite needs the installed dependencies, the generated client, Chromium and a free port 3100. It refuses to reuse a server that already runs there (`reuseExistingServer: false`). It needs no backend, no Docker and no Clerk key: `VITE_LOCAL_AUTH=false` prevents a local setting from selecting the sign-in gate, `VITE_E2E_BYPASS_AUTH=true` renders the console without signing in, and `VITE_E2E_MSW=true` serves the API from the mocks below. The server also disables dev mocks and clears the platform flag service settings. A test has 60 seconds, because the dev server transforms modules on demand.
 
 Run one folder or file with the app config:
 
