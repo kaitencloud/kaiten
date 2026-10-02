@@ -281,7 +281,7 @@ export function DataTableContent<TData extends RowData>({
         containerClassName={cn(
           // Wide tables scroll sideways on narrow screens; a fading edge
           // says so.
-          'scroll-fade-x',
+          'edge-fade-x',
           hasScrollableBody && 'overflow-y-auto',
           bodyScrollable && 'h-full',
         )}
