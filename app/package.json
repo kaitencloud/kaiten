@@ -11,7 +11,7 @@
     "lint": "vp lint src e2e",
     "lint:fix": "vp lint --fix src e2e",
     "dev": "vp dev --port 3000",
-    "dev:mock": "VITE_API_URL=/api VITE_E2E_BYPASS_AUTH=true VITE_MOCK_API=true VITE_KAITEN_PLATFORM_API_URL= VITE_KAITEN_PLATFORM_FLAGS_TOKEN= vp dev --port 3000",
+    "dev:mock": "VITE_API_URL=/api VITE_E2E_BYPASS_AUTH=true VITE_LOCAL_AUTH=false VITE_MOCK_API=true VITE_KAITEN_PLATFORM_API_URL= VITE_KAITEN_PLATFORM_FLAGS_TOKEN= vp dev --port 3000",
     "start": "vp dev --port 3000",
     "build": "vp build && tsc",
     "build:ci": "./cel-engine/build.sh && vp build",

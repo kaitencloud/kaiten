@@ -132,7 +132,8 @@ pnpm run generate
 pnpm run dev:mock
 ```
 
-The console is on <http://localhost:3000> with no sign-in, and Mock Service
+The console is on <http://localhost:3000> with no sign-in, even when
+`app/.env.local` turns `VITE_LOCAL_AUTH` on for the stack, and Mock Service
 Worker answers every API request in the page. Every area starts from the same
 sample records, declared once in `app/src/e2e/msw/dev-world/`, so a link from
 one page to another leads to a record that exists. A change stays in its own
