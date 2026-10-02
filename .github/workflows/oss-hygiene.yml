@@ -35,7 +35,7 @@ jobs:
       # check fails on a clean tree.
       SELF: .github/workflows/oss-hygiene.yml
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
 
       # `git grep -I` skips binary files, and searches tracked files only -- so an
       # untracked local scratch file cannot fail CI.
