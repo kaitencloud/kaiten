@@ -4,6 +4,9 @@ A Monaco-based editor for [CEL](https://cel.dev) expressions, plus the pieces
 around it: a coloured read-only view of a rule, a full-size editing dialog and a
 formatter. The feature-flag targeting screens use it for targeting rules.
 
+It is shared early as a generic editor: context trees and a cancellable lint
+callback define its boundary, without a targeting contract or business URL.
+
 Import from `@/functionals/cel-editor`. The rules that apply to every functional
 are in [functionals.md](../../../docs/01-architecture/functionals.md).
 
@@ -93,3 +96,6 @@ cel-editor/
 
 The editor itself is built on [`code-editor`](../code-editor/code-editor.tsx),
 the shared Monaco wrapper.
+
+The formatter owns its CST types in `logic/format-cel.types.ts`. The editor's
+context/engine types are separate; there is no legacy rule-builder AST API.

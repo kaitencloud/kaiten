@@ -4,7 +4,7 @@
  *
  * The fetch client (`@hey-api/client-fetch`) throws the raw parsed response
  * body on a non-2xx response and discards the HTTP status. An error interceptor
- * (see `@/lib/api`) wraps every failure in an `ApiError` so downstream handlers
+ * (see `@/lib/api/configure-api-client`) wraps every failure in an `ApiError` so downstream handlers
  * keep access to the status code, the parsed body, and the raw `Response`.
  *
  * The GraphQL client (`@/lib/graphql-client`) throws one for a non-2xx

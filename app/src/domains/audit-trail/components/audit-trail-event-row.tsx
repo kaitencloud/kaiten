@@ -6,11 +6,8 @@ import { formatDateTime } from '@/lib/detail';
 import { cn } from '@/lib/utils';
 import { resolveEventLabel } from '../audit-trail-events';
 import type { GlobalAuditEntry } from '../audit-trail.types';
-import {
-  formatRelativeTimeToNow,
-  formatTimeOfDay,
-  getEventCategory,
-} from '../audit-trail.utils';
+import { formatRelativeTimeToNow, formatTimeOfDay } from '@/lib/feed-time';
+import { getEventCategory } from '../audit-trail.utils';
 import { AuditStatusBadge, getEventIcon } from './audit-trail-event-visuals';
 
 // Shared grid template so the feed column header and every row stay aligned:

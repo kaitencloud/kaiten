@@ -28,7 +28,7 @@ app/src/features/demo-sandbox/
 
 ## Data
 
-Three endpoints, called by hand through the shared `client` (`@/api-client/client.gen`), with local types. `app/openapi.yaml` does not describe them, and no module under `api/` serves them; the header of `docker/envoy/kaiten.yaml.tmpl` lists `/api/demo` among the paths the stack in this repository does not route. The shared client still gives the calls the base URL, the bearer token and the `ApiError` wrapping of `@/lib/api`. See [Generated code](../../../docs/AI_CONTEXT.md#generated-code).
+Three endpoints, called by hand through the shared `client` (`@/api-client/client.gen`), with local types. `app/openapi.yaml` does not describe them, and no module under `api/` serves them; the header of `docker/envoy/kaiten.yaml.tmpl` lists `/api/demo` among the paths the stack in this repository does not route. `lib/api/bootstrap.ts` initializes the shared transport before routes, including its base URL, current bearer token and `ApiError` wrapping. See [Generated code](../../../docs/AI_CONTEXT.md#generated-code).
 
 | Call | Request | Used by |
 | --- | --- | --- |

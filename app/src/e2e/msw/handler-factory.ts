@@ -12,6 +12,18 @@ import {
   type PathParams,
   type RequestHandler,
 } from 'msw';
+import {
+  extractOperationName,
+  messageForError,
+  statusForError,
+  type GraphQLRequestBody,
+  type GraphQLVariables,
+} from '../../../e2e/app/_support/contracts/mock-http';
+export {
+  getPathSegments,
+  messageForError,
+  statusForError,
+} from '../../../e2e/app/_support/contracts/mock-http';
 
 // Stubs a slot registers for resources another slot owns -- empty or
 // placeholder answers that keep the slot's own pages rendering on their own.
@@ -32,44 +44,10 @@ export const withFallbacksLast = <T extends RequestHandler>(
   ...handlers.filter((handler) => fallbackHandlers.has(handler)),
 ];
 
-export type GraphQLVariables = Record<string, unknown> | undefined;
-
-export type GraphQLRequestBody = {
-  operationName?: string;
-  query?: string;
-  variables?: GraphQLVariables;
-};
-
-export const extractOperationName = (query: string): string | null => {
-  const match = query.match(/\b(query|mutation)\s+([a-zA-Z0-9_]+)/);
-  return match?.[2] ?? null;
-};
-
-export const statusForError = (error: unknown, fallback = 400): number => {
-  const explicitStatus = (error as { httpStatus?: number } | undefined)
-    ?.httpStatus;
-
-  if (typeof explicitStatus === 'number') {
-    return explicitStatus;
-  }
-
-  if (error instanceof Error && error.message.includes('not found')) {
-    return 404;
-  }
-
-  return fallback;
-};
-
-export const messageForError = (error: unknown, fallback: string): string =>
-  error instanceof Error ? error.message : fallback;
-
 export const decodeLastPathSegment = (url: string) => {
   const segments = new URL(url).pathname.split('/').filter(Boolean);
   return decodeURIComponent(segments.at(-1) ?? '');
 };
-
-export const getPathSegments = (url: string): string[] =>
-  new URL(url).pathname.split('/').filter(Boolean);
 
 export const parseRequestJson = async <T>(request: Request): Promise<T> => {
   const body = await request.json();

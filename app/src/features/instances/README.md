@@ -1,5 +1,9 @@
 # Instances
 
+The detail screen composes `DetailEntityLayout.Top`, Body, Tabs and Content from
+`@/functionals/detail-entity-layout`; it owns business labels/URLs and mutations,
+while the functional owns fixed/scrollable regions.
+
 An instance is a customer's use of a license: it belongs to one customer, is pinned to one license version for a period, and can be placed on a deployment zone. This feature lists the instances, creates, edits and deletes them, deploys or migrates one to a zone, and shows one instance with its details, its entitlements and usage, and its audit trail. The list is the Instances tab of the customers section, next to [customers](../customers/README.md).
 
 ## Routes

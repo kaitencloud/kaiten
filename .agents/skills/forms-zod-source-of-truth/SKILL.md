@@ -13,6 +13,9 @@ Build forms from generated schemas and keep validation synchronized with API con
    - `app/docs/03-patterns/forms.md`
    - `app/docs/01-architecture/api-generation.md`
    - `app/docs/02-conventions/error-handling.md`
+   - The dense-feature example in `app/docs/04-features/_template/FEATURE_TEMPLATE.md`:
+     private form types/defaults stay colocated; complete PUT builders shared
+     by inline edits and forms have a named feature-local owner.
 2. Locate generated schema in `app/src/api-client/zod.gen.ts`.
 3. Build form schema by composing generated schema:
    - Prefer `.pick()`, `.extend()`, `.refine()` over manual full redefinition.

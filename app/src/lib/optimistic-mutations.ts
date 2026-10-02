@@ -59,19 +59,3 @@ export function optimisticDeleteCallbacks<T extends { id: string }>(
     },
   };
 }
-
-/**
- * Returns TanStack Query mutation callbacks that invalidate queries on success.
- */
-export function invalidateOnSuccessCallbacks(
-  queryClient: QueryClient,
-  ...queryKeys: QueryKey[]
-) {
-  return {
-    onSuccess: () => {
-      for (const queryKey of queryKeys) {
-        queryClient.invalidateQueries({ queryKey });
-      }
-    },
-  };
-}

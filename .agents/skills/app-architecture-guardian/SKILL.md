@@ -25,6 +25,7 @@ export style are review-only, listed in step 8.
    - `app/docs/01-architecture/folder-structure.md`
    - `app/docs/01-architecture/functionals.md`
    - `app/docs/03-patterns/routes-as-assemblers.md`
+   - `app/docs/04-features/_template/FEATURE_TEMPLATE.md` (dense-feature grouping)
 2. Inspect the changed files and their import graph.
 3. Run from `app/`:
 
@@ -43,7 +44,9 @@ export style are review-only, listed in step 8.
    - `features/<name>/`: route-facing ownership and business code used by one
      feature.
    - `domains/<name>/`: business contracts, queries, forms, logic or React UI
-     shared by sibling features; never page or route ownership.
+     shared by sibling features; never page or route ownership. The release
+     workspace shell belongs here because features consume its business UI
+     directly; generic Page/RouteTabs remain functionals.
    - `functionals/<name>/`: generic complex UI with at least two independent
      consumers; no business contracts or API-client dependency.
    - `components/`: generic presentation and form primitives only.

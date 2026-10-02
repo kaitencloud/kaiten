@@ -1,31 +1,17 @@
 import type { Page } from '@playwright/test';
 import {
+  E2E_MSW_STORAGE_KEY,
+  type E2EMswConfig,
+  type ModelSlotKey,
+  type MswSlotKey,
+  type SerializableModel,
+} from '../contracts/msw-slots';
+export type { MswSlotKey } from '../contracts/msw-slots';
+import {
   bulkFlagEvaluation,
   PLATFORM_FLAGS_EVALUATION_URL,
 } from '../model/platform-flags';
 import { fulfillJson } from './rest-route-helpers';
-
-/**
- * MSW slot keys mirror the `E2EMswConfig` shape declared in
- * `src/e2e/msw/browser.ts`. Keep them in sync — adding a slot here without
- * a matching handler set there is a no-op (the slot will be ignored).
- */
-export type MswSlotKey =
-  | 'auditTrail'
-  | 'connectors'
-  | 'customers'
-  | 'dashboard'
-  | 'entitlements'
-  | 'featureFlags'
-  | 'flagEvaluations'
-  | 'instances'
-  | 'licenses'
-  | 'notifications'
-  | 'releaseManagement';
-
-type SerializableModel = {
-  serializeForMsw(): unknown;
-};
 
 /**
  * Should we route through MSW (default) or fall back to Playwright
@@ -36,8 +22,6 @@ type SerializableModel = {
  */
 const isMswMockingEnabled = () => process.env.E2E_MOCKS !== 'page-route';
 
-const E2E_MSW_STORAGE_KEY = '__KAITEN_E2E_MSW__';
-
 /**
  * Push the model's serialized state onto `window.__KAITEN_E2E_MSW__[slot]`
  * before the page navigates. The dev server's `main.tsx` reads this object
@@ -46,10 +30,10 @@ const E2E_MSW_STORAGE_KEY = '__KAITEN_E2E_MSW__';
  * Returns `true` if the MSW path was taken, `false` if the caller should
  * fall back to its `page.route()` installer.
  */
-export async function tryInstallMswMocks(
+export async function tryInstallMswMocks<K extends ModelSlotKey>(
   page: Page,
-  slot: MswSlotKey,
-  model: SerializableModel,
+  slot: K,
+  model: SerializableModel<K>,
 ): Promise<boolean> {
   if (!isMswMockingEnabled()) {
     return false;
@@ -81,10 +65,10 @@ export async function installFlagEvaluations(
   );
 }
 
-async function installSlot(
+async function installSlot<K extends MswSlotKey>(
   page: Page,
-  slot: MswSlotKey,
-  payload: unknown,
+  slot: K,
+  payload: E2EMswConfig[K],
 ): Promise<boolean> {
   await page.addInitScript(
     ({ storageKey, slotKey, slotValue }) => {

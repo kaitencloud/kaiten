@@ -5,7 +5,7 @@ import { DetailCard } from '@/functionals/detail-card';
 import {
   ResetAnchorDisplay,
   ResetPeriodDisplay,
-} from '../reset-period-display';
+} from '../display/reset-period-display';
 
 // Extra General card rows for the customer-facing presentation attributes
 // (visibility flag + measurement units) and the usage-window cadence. Kept out

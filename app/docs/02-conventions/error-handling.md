@@ -8,7 +8,7 @@ responsible for showing the error of a mutation.
 ## From a failed request to a message
 
 **REST.** The generated fetch client throws the parsed response body and drops the
-HTTP status. An interceptor in `app/src/lib/api/index.ts` wraps every failure in an
+HTTP status. An interceptor in `app/src/lib/api/configure-api-client.ts` wraps every failure in an
 `ApiError` (`app/src/lib/errors/api-error.ts`), which keeps:
 
 - `status`: the HTTP status, `undefined` when there was no response (a network

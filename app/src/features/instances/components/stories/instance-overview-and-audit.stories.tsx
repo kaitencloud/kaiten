@@ -22,7 +22,7 @@ import {
   storyLicenses,
   storyOverviewReleases,
   storyReleases,
-} from '@/test-fixtures/p0-storybook-fixtures';
+} from '@/test-fixtures/storybook-fixtures';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { buildEntitlementsRows } from '../../utils/instance-detail-entitlements.utils';
 import {

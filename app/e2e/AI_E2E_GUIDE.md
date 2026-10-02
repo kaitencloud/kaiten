@@ -109,7 +109,7 @@ Its installer is `e2e/app/_support/mocks/install-release-management-app-mocks.ts
 
 The stories for `ReleaseForm`, `ReleaseTable`, `DeploymentZoneTable`, `DeployReleaseDialog` and `DeploymentZoneFormDialog` are in `storybookTestExclude`. The pack checks the same surfaces in the real screens: navigation, creating a release, creating a component, editing a zone and deploying a release to a zone. A story cannot prove that a mutation refreshes another screen, so do not ask Storybook to.
 
-The assistant reads, in this order: `app/src/routes/releases/**`, `app/src/domains/release-management/**`, `app/src/functionals/release-management/**`, then `app/src/features/releases/**`, `app/src/features/components/**` and `app/src/features/deployment-zones/**`.
+The assistant reads, in this order: `app/src/routes/releases/**`, `app/src/domains/release-management/**` (including the shared workspace UI), then `app/src/features/releases/**`, `app/src/features/components/**` and `app/src/features/deployment-zones/**`.
 
 ### Prompt
 

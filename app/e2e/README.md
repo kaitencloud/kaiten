@@ -119,10 +119,18 @@ Most models keep the pending errors in an `ErrorInjector` (`e2e/app/_support/mod
 The mechanism is in [network mocks](../docs/06-testing/integration-tests.md#network-mocks-msw). A new area that specs must mock needs, in order:
 
 1. A model class in `e2e/app/_support/model/<area>-app-model.ts`, with `static fromSerialized(...)` and `serializeForMsw()`. It imports nothing from Playwright, because `src/e2e/msw/` imports it too.
-2. The handlers, in `src/e2e/msw/`, registered in `startE2EMockServiceWorker` (`src/e2e/msw/browser.ts`), with a key for the slot in `E2EMswConfig`.
-3. The same key in `MswSlotKey` (`e2e/app/_support/mocks/install-app-mocks.ts`).
+2. A `*-handlers.ts` set in `src/e2e/msw/`, registered by `browser.ts`. The bootstrap owns assembly, not object logic; `persistence.ts` owns sessionStorage updates.
+3. The slot's serialized payload in `e2e/app/_support/contracts/msw-slots.ts`. `MswSlotKey` derives from this canonical shape; installers are typed against each slot's model serialization.
 4. An installer, `e2e/app/_support/mocks/install-<area>-app-mocks.ts`, that calls `tryInstallMswMocks(page, '<slot>', model)` and keeps a `page.route` fallback for `E2E_MOCKS=page-route`.
-5. Its scenario factories in `scripts/check-e2e-contracts.ts`, so that `pnpm run check:e2e-contracts` instantiates them.
+5. Its scenario factories in `e2e/app/_support/scenario-registry.ts`, the canonical browser-free inventory. `scripts/check-e2e-contracts.ts` executes it through `pnpm run check:e2e-contracts`. Register explicit variants for factories with parameters; do not maintain a second list in another check.
+
+MSW is the default adapter. The legacy `E2E_MOCKS=page-route` mode stays available
+for diagnostics using the existing installers, except notifications' stream;
+full protocol/persistence parity is not guaranteed. Shared error mapping is in
+`_support/contracts/mock-http.ts` and shared GraphQL operations in
+`_support/model/graphql-operations.ts`. Models stay stateful and transport-neutral.
+Handler order, fallbacks, statuses and reload persistence are preserved by the
+structural split. See [browser mock adapter](../src/e2e/msw/README.md).
 
 ## Visual regression
 

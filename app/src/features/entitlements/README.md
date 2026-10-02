@@ -21,27 +21,22 @@ app/src/features/entitlements/
 ├── index.ts
 ├── queries/                  # entitlements and groups query options
 ├── hooks/                    # mutation hooks, useEntitlementLicenseLinks
+├── utils/entitlement-writable.ts # complete PUT and unit normalization
 └── components/
     ├── entitlements-page-content.tsx    # page header and table
-    ├── entitlement-table*.tsx           # table, columns, row actions
-    ├── use-entitlement-table-filters.ts # filter facets of the table
-    ├── entitlement-create-page.tsx      # creation, as a page with two steps
-    ├── entitlement-form-dialog.tsx      # edition, as a dialog around entitlement-form.tsx
-    ├── entitlement-form*.ts(x)          # form, its fields, its zod schema and payload helpers
-    ├── use-entitlement-mutation-form.ts # form state and submit for create and update
-    ├── entitlement-unit-fields.tsx      # unit labels and sale unit
-    ├── entitlement-reset-period*.ts(x)  # usage window: fields and payload rules
-    ├── entitlement-group*.tsx           # group selector, badges, inline editor cell
-    ├── use-entitlement-group-selector-state.ts
-    ├── *-display.tsx                    # type, aggregation method, reset period labels
-    ├── entitlement-detail/              # detail page: layout, cards, tabs, data hook
-    ├── stories/
-    └── __tests__/
+    ├── form/                 # create page, configure dialog, fields, local hook and schemas
+    ├── table/                # table, columns, row actions and local filter hook
+    ├── groups/               # selector, badges, inline editing and local state hook
+    ├── display/              # type, aggregation method and reset period labels
+    └── entitlement-detail/   # detail layout, cards, tabs and data hook
 ```
 
 In this page, a file inside the feature is written relative to `app/src/features/entitlements/`. Any other path starts at the repository root.
 
 Shared pieces come from elsewhere: `Page`, `DetailCard`, `DetailEntityLayout`, `StatCard` and `TableCard` from `@/functionals/*`, the table and filters from `@/functionals/table` and `@/functionals/filters`, and the usage meter, status and ceiling rules from the `entitlement-usage` domain (`app/src/domains/entitlement-usage/`).
+
+The detail composes `DetailEntityLayout.Top`, Body, Tabs and Content. It supplies
+business labels/URLs while the functional owns fixed/scrolling regions.
 
 ## Data
 
@@ -64,7 +59,7 @@ Invalidation:
 - Updating one invalidates the list, that entitlement, and the license entitlement queries (`getLicenseEntitlements`).
 - Creating a group inserts it in the cached groups list, then invalidates it.
 
-`entitlementToUpdateBody` (`components/entitlement-form.shared.ts`) rebuilds a complete `EntitlementWritable` from a stored entitlement. Every partial edit uses it (rename in the detail header, icon dialog, inline groups), because the PUT replaces the whole entitlement and would otherwise wipe the other fields.
+`utils/entitlement-writable.ts` owns `conditionUnitFields` and `entitlementToUpdateBody`. The latter rebuilds a complete `EntitlementWritable` from a stored entitlement. Every partial edit uses it (rename in the detail header, icon dialog, inline groups), because the PUT replaces the whole entitlement and would otherwise wipe the other fields. Form schemas, inferred types, defaults and options stay in `components/form/entitlement-form.shared.ts`.
 
 Scopes: listing and reading entitlements and groups needs `read:entitlements`; creating, updating or deleting an entitlement, and creating a group, needs `write:entitlements`. The other reads have their own scopes. The delete check reads licenses and their entitlements (`read:licenses`). The detail page reads licenses and their entitlements (`read:licenses`), instances (`read:instances`), customers (`read:customers`) and the usage metrics (`read:instances`). The screens do not check scopes themselves.
 
@@ -101,8 +96,8 @@ The table shows the shared `DataTable` empty row ("No results") and keeps the cr
 
 ## Tests
 
-- Unit tests, run with `pnpm run test` from `app/`: `components/__tests__/` covers the form (`entitlement-form.test.tsx`, `entitlement-form-shared.test.ts`, `entitlement-reset-period-shared.test.ts`), the groups (`entitlement-group-selector.test.tsx`, `entitlement-group-badges.test.tsx`, `entitlement-groups-inline-editor-cell.test.tsx`) and the detail cards (`entitlement-detail-general-card.test.tsx`, `entitlement-detail-licenses-card.test.tsx`). `components/entitlement-detail/__tests__/` covers the aggregates and the summary of the detail data.
-- Stories, in `components/stories/`, open in Storybook (`pnpm run storybook` from `app/`): `Features/Entitlements/EntitlementTable` (`Default`, `Empty`), `Features/Entitlements/EntitlementFormDialog` (`CreateNumberEntitlement`, `EditBooleanEntitlement`, `EditNumberEntitlementWithUnits`) and `Features/Entitlements/EntitlementDetailPageContent` (`Overview`). None has a `play` function. `pnpm run test:stories` renders the table stories only: `app/vite.config.ts` excludes the form dialog and detail stories, because the end-to-end pack covers them.
+- Unit tests live in `__tests__/` inside `components/form/`, `components/groups/` and `components/entitlement-detail/`. They cover form/schema/reset rules, complete PUT builders, group editing, detail cards and detail aggregates. Stories are colocated in each component group's `stories/` folder.
+- Stories open in Storybook (`pnpm run storybook` from `app/`): `Features/Entitlements/EntitlementTable` (`Default`, `Empty`), `Features/Entitlements/EntitlementFormDialog` (`CreateNumberEntitlement`, `EditBooleanEntitlement`, `EditNumberEntitlementWithUnits`) and `Features/Entitlements/EntitlementDetailPageContent` (`Overview`). None has a `play` function. `pnpm run test:stories` renders the table stories only: `app/vite.config.ts` excludes the form dialog and detail stories, because the end-to-end pack covers them.
 - End to end, run with `pnpm run test:e2e:app` from `app/`: the pack `app/e2e/app/entitlements/` has one spec per intention (`create`, `delete`, `display-order`, `errors`, `icon`, `read`, `reset-period`, `units`, `user-facing`) and its test data in `entitlements.scenarios.ts`. It runs on `app/e2e/app/_support/model/entitlement-app-model.ts` and the mocks in `app/e2e/app/_support/mocks/install-entitlement-app-mocks.ts`. The accessibility spec also visits the list.
 
 ## Public API
@@ -118,3 +113,6 @@ Routes import the following from `@/features/entitlements` (the root `index.ts`)
 | `EntitlementDetailUsageTab` | `app/src/routes/entitlements/$entitlementSlug/usage.tsx` |
 
 The licenses feature does not import this one; it declares its own `entitlementsQueryOptions` over the same generated operation.
+
+Only route-consumed symbols are exposed. The form, displays, table internals and
+overview story alias are private to their component modules.

@@ -11,7 +11,7 @@ import {
   storyCustomers,
   storyDeploymentZones,
   storyLicenses,
-} from '@/test-fixtures/p0-storybook-fixtures';
+} from '@/test-fixtures/storybook-fixtures';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { InstanceFormDialog } from '../instance-form/instance-form-dialog';
 

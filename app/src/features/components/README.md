@@ -9,7 +9,7 @@ The catalog of the components an organization ships. A component is a named, ver
 | `/releases/components` | `app/src/routes/releases/components/route.tsx` | `ComponentsPageContent`. The loader preloads the component list and the release overview. The route is a layout: its `<Outlet />` renders after the page. |
 | `/releases/components/new` | `app/src/routes/releases/components/new/index.tsx` | `ComponentFormDialog`, opened over the catalog. Closing the dialog, or creating the component, navigates back to `/releases/components`. |
 
-The page shell and the tabs come from `app/src/functionals/release-management`. The creation dialog is not part of this feature: the release form of `features/releases` opens it as well, so it lives in `app/src/domains/release-management/component-catalog`. See [dialog via route](../../../docs/03-patterns/dialog-via-route.md) for the pattern.
+The workspace shell and its internal tabs come from `app/src/domains/release-management/components`. The creation dialog is not part of this feature: the release form of `features/releases` opens it as well, so it lives in `app/src/domains/release-management/component-catalog`. See [dialog via route](../../../docs/03-patterns/dialog-via-route.md) for the pattern.
 
 A component has no detail page.
 
@@ -96,4 +96,4 @@ import {
 } from '@/features/components';
 ```
 
-The feature imports no other feature. It shares code through the public entry points of `@/domains/release-management` (the overview query, the release status rules and the types) and `@/functionals/release-management` (the shell and the tabs).
+The feature imports no other feature. It shares code through `@/domains/release-management` (the overview query, release status rules, types and workspace shell).

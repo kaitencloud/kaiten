@@ -120,8 +120,8 @@ export function createNotificationsDevSeed(): SerializedNotificationAppModel {
 }
 
 /**
- * Local-dev mode for the notifications UI while the backend module does not
- * exist yet (VITE_MOCK_NOTIFICATIONS=true): starts the shared MSW worker with
+ * Local-dev mode for notifications without a running backend stack
+ * (VITE_MOCK_NOTIFICATIONS=true): starts the shared MSW worker with
  * only the notifications slot seeded. Every other request passes through to
  * the real API (onUnhandledRequest: 'bypass').
  */

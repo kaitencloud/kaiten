@@ -4,7 +4,7 @@ A release is an immutable bundle of component versions that is deployed to deplo
 
 ## Routes
 
-The layout route `app/src/routes/releases/route.tsx` preloads the release list and the deployment zones for every page below it. The release-management workspace has three tabs, Releases, Components and Deployment Zones, drawn by `app/src/functionals/release-management`.
+The layout route `app/src/routes/releases/route.tsx` preloads the release list and the deployment zones for every page below it. The release-management workspace has three tabs, Releases, Components and Deployment Zones, drawn by `app/src/domains/release-management/components`.
 
 | URL | Route file | What it renders |
 | --- | --- | --- |
@@ -132,10 +132,10 @@ import {
 } from '@/features/releases';
 ```
 
-The feature imports no other feature. It shares code through the public entry points of `@/domains/release-management` (the overview query, the status rules, the types and `ComponentFormDialog`) and `@/functionals/release-management` (the shell and the tabs):
+The feature imports no other feature. It shares code through `@/domains/release-management` (the overview query, status rules, types, `ComponentFormDialog` and workspace shell). Detail pages compose Top, Body, Tabs and Content from `DetailEntityLayout`:
 
 ```tsx
 // app/src/features/releases/components/releases-page-content.tsx
 import { releaseManagementOverviewQueryOptions } from '@/domains/release-management';
-import { ReleaseManagementPageShell } from '@/functionals/release-management';
+import { ReleaseManagementPageShell } from '@/domains/release-management';
 ```

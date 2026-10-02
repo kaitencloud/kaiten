@@ -4,7 +4,8 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import type { AuditDayGroup, GlobalAuditEntry } from '../audit-trail.types';
-import { formatDayHeading, groupEntriesByDay } from '../audit-trail.utils';
+import { formatDayHeading } from '@/lib/feed-time';
+import { groupEntriesByDay } from '../audit-trail.utils';
 import { AUDIT_GRID, AuditEventRow } from './audit-trail-event-row';
 
 function renderRow(entry: GlobalAuditEntry) {

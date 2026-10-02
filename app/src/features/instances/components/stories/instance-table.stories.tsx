@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { QueryClient } from '@tanstack/react-query';
 import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
-import { storyInstanceRows } from '@/test-fixtures/p0-storybook-fixtures';
+import { storyInstanceRows } from '@/test-fixtures/storybook-fixtures';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { InstancesTable } from '../instance-table';
 

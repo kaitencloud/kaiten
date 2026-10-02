@@ -2,10 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode, useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
-import type { E2EMswConfig } from './e2e/msw/browser';
+import type { E2EMswConfig } from '../e2e/app/_support/contracts/msw-slots';
 
 import '@/lib/i18n/config';
-import '@/lib/api';
+import '@/lib/api/bootstrap';
 
 // Import the generated route tree after API setup so route-level query
 // options capture the configured REST base URL.

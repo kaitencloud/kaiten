@@ -40,7 +40,7 @@ app/src/features/notifications/
 
 In this page, a path inside the feature is relative to `app/src/features/notifications/`. Any other path starts at the repository root.
 
-The feature reuses `@/domains/audit-trail` for the day grouping and the relative times of the feed, and the `filters` and `page` functionals.
+The feature reuses `@/lib/feed-time` for local-calendar day grouping and localized relative times, and the `filters` and `page` functionals. Audit event categories remain in the audit domain.
 
 ## Data
 

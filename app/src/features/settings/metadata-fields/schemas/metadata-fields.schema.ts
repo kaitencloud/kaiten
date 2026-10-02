@@ -1,19 +1,9 @@
 import { z } from 'zod';
 import { extractEnumOptions, inferUiType } from '@/functionals/metadata-fields';
-import type { MetadataResourceType } from '@/domains/metadata-fields';
-import type { MetadataSettingsField } from '../types';
-
-// Schema-diff, sorting and reorder helpers live in a sibling module to keep
-// this file under the size limit; re-exported so the public surface of
-// `./metadata-fields.schema` is unchanged.
-export {
-  getNextDisplayOrder,
-  getReorderedActiveFieldIds,
-  getVisibleMetadataFields,
-  hasJsonSchemaChanged,
-  hasStructuralJsonSchemaChanged,
-  sortMetadataFields,
-} from '../metadata-fields.diff';
+import type {
+  MetadataResourceType,
+  MetadataSettingsField,
+} from '@/domains/metadata-fields';
 
 // Zod is the source of truth for the metadata-field form (app convention:
 // validate with Zod, derive the value types via `z.infer`). The primary-type

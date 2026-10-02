@@ -1,5 +1,10 @@
 # Scripts
 
+`pnpm run check:lint-parity` compares root/app lint rule settings while preserving
+their different source scopes; it is part of `check:ci`. The optional
+`bash scripts/diagnose-file-sizes.sh` lists candidates over 200 lines for review.
+It is a diagnostic, while `check:file-sizes` owns the official 350-line gate.
+
 Every script is defined in [`app/package.json`](../../package.json). Run them from
 `app/` with `pnpm run <script>`, after `pnpm install` at the repository root.
 

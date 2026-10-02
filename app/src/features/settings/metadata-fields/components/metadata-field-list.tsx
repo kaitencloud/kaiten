@@ -9,7 +9,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { isArchivedField } from '../metadata-field-helpers';
-import { sortMetadataFields } from '../schemas/metadata-fields.schema';
+import { sortMetadataFields } from '@/domains/metadata-fields';
 import type { MetadataSettingsField } from '../types';
 import { MetadataFieldRow } from './metadata-field-row';
 

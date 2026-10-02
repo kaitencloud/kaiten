@@ -1,4 +1,14 @@
 import type { Route } from '@playwright/test';
+import {
+  getPathSegments,
+  messageForError,
+  statusForError,
+} from '../contracts/mock-http';
+export {
+  getPathSegments,
+  messageForError,
+  statusForError,
+} from '../contracts/mock-http';
 
 export async function fulfillJson(route: Route, status: number, body: unknown) {
   await route.fulfill({
@@ -11,41 +21,6 @@ export async function fulfillJson(route: Route, status: number, body: unknown) {
 export function parseJsonBody<T>(route: Route) {
   const postData = route.request().postData();
   return JSON.parse(postData ?? '{}') as T;
-}
-
-/**
- * Splits the URL pathname into its non-empty segments.
- * Used by REST mock installers to distinguish list (`/api/foo`) from
- * detail (`/api/foo/:slug`) and nested resources (`/api/foo/:slug/bar`).
- */
-export function getPathSegments(url: string): string[] {
-  return new URL(url).pathname.split('/').filter(Boolean);
-}
-
-/**
- * Status code returned to the client when a model handler throws.
- * Centralised so every mock installer maps errors the same way.
- */
-export function statusForError(error: unknown, fallback = 400): number {
-  const explicitStatus = (error as { httpStatus?: number } | undefined)
-    ?.httpStatus;
-
-  if (typeof explicitStatus === 'number') {
-    return explicitStatus;
-  }
-
-  if (error instanceof Error && error.message.includes('not found')) {
-    return 404;
-  }
-
-  return fallback;
-}
-
-/**
- * Extracts the human-readable message from an unknown thrown value.
- */
-export function messageForError(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
 }
 
 type RouteCallback = (context: {

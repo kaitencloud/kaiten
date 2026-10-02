@@ -140,4 +140,4 @@ The table row and the detail header both ask for confirmation. The mutation remo
 
 Routes are the only importers (see [import rules](../../../docs/AI_CONTEXT.md#import-rules)): the routes under `app/src/routes/releases/` use the pages, dialogs and tabs, and `deploymentZonesQueryOptions` is also preloaded by `app/src/routes/customers/instances/$instanceSlug/route.tsx`. `DeploymentZoneStatsCards`, `DeploymentZoneTable` and the type `DeploymentZone` have no importer outside the feature.
 
-The feature imports no other feature. It shares code through `@/domains/release-management` (the overview, the relations, the zone type and release status rules), `@/domains/metadata-fields` and `@/functionals/release-management` (the page shell, which carries the workspace tabs).
+The feature imports no other feature. It shares code through `@/domains/release-management` (overview, relations, zone/release rules and workspace shell) and `@/domains/metadata-fields`. Its detail shell composes `DetailEntityLayout.Top`, Body, Tabs and Content.

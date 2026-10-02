@@ -7,7 +7,7 @@ import { Bell, CheckCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { DayGroup } from '@/domains/audit-trail';
+import type { DayGroup } from '@/lib/feed-time';
 import { useMarkNotificationsRead } from '../hooks/use-mark-notifications-read';
 import { useNotificationDayGroups } from '../hooks/use-notification-day-groups';
 import { useOpenNotification } from '../hooks/use-open-notification';

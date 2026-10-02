@@ -3,7 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { releaseManagementOverviewQueryOptions } from '@/domains/release-management';
-import { ReleaseManagementPageShell } from '@/functionals/release-management';
+import { ReleaseManagementPageShell } from '@/domains/release-management';
 import { componentsQueryOptions } from '../queries';
 import {
   buildComponentCatalogRows,

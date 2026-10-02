@@ -1,4 +1,4 @@
-import type { MetadataFieldFormValues } from '../schemas';
+import type { MetadataFieldFormValues } from '../schemas/metadata-fields.schema';
 
 // The form value types are derived from the Zod schemas (the source of truth
 // for validation) and re-exported here so the public `./metadata-fields.types`
@@ -7,7 +7,7 @@ export type {
   MetadataFieldFormState,
   MetadataFieldFormValues,
   MetadataPrimaryType,
-} from '../schemas';
+} from '../schemas/metadata-fields.schema';
 export type {
   MetadataResourceType,
   MetadataSettingsField,

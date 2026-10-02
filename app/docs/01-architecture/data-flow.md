@@ -4,6 +4,11 @@ The console talks to one backend, the Go API, at `env.API_URL` (`VITE_API_URL`, 
 URL ending in `/api`). It writes through REST, with the generated client, and
 reads through REST or GraphQL. TanStack Query holds every piece of server state.
 
+Before routes are evaluated, `main.tsx` imports `lib/api/bootstrap.ts`, which
+calls `configureApiClient` once through ESM. The generated query keys capture the
+configured base URL; auth is resolved separately for each request. Transports
+and list adapters are documented in [lib/api](../../src/lib/api/README.md).
+
 ## Read path
 
 1. The route's `loader` calls `context.queryClient.ensureQueryData(queryOptions)`.
@@ -84,7 +89,7 @@ forms that trigger mutations in [forms.md](../03-patterns/forms.md).
 ## Errors
 
 - REST: the fetch client throws the parsed response body and drops the HTTP
-  status. An interceptor in `src/lib/api/index.ts` wraps every failure in an
+  status. An interceptor in `src/lib/api/configure-api-client.ts` wraps every failure in an
   `ApiError` that keeps the `status`, the parsed body (the API's `Problem`) and the
   raw `Response`.
 - GraphQL: `graphqlClient` throws a `GraphQLRequestError` when the response

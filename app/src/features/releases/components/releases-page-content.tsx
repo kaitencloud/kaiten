@@ -2,7 +2,7 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { releaseManagementOverviewQueryOptions } from '@/domains/release-management';
-import { ReleaseManagementPageShell } from '@/functionals/release-management';
+import { ReleaseManagementPageShell } from '@/domains/release-management';
 import { ReleaseOverviewStatsCards } from './release-overview';
 import { ReleaseOverviewTable } from './release-overview/tables/release-overview-table';
 

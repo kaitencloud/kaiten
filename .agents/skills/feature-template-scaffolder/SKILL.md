@@ -17,6 +17,9 @@ Create or refactor feature modules to match project structure and export rules.
    are always present; add `hooks/`, `types/`, `queries/`, `schemas/`, `store/` and
    `utils/` only when the feature needs them (`audit-trail` has none of them).
 3. Build barrel exports:
+   - Use the template's dense-feature example to group files by responsibility,
+     not quotas. Keep private hooks/schema/types with their UI; do not scaffold
+     optional folders without consumers.
    - Add explicit exports in each subfolder `index.ts` that is a real module boundary.
    - Keep feature root `index.ts` reserved for route-level API only.
 4. Enforce import boundaries (`pnpm run check:architecture` checks them):

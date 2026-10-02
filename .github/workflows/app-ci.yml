@@ -59,6 +59,9 @@ jobs:
       - name: Generate API SDK & GraphQL Client
         run: vp run generate
 
+      - name: Root/app lint rule parity
+        run: vp run check:lint-parity
+
       - name: Lint
         run: vp run lint
 

@@ -1,10 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import {
-  formatRelativeTimeToNow,
-  formatTimeOfDay,
-} from '@/domains/audit-trail';
+import { formatRelativeTimeToNow, formatTimeOfDay } from '@/lib/feed-time';
 import { formatDateTime } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { Notification } from '../types';

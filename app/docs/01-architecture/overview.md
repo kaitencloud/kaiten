@@ -128,7 +128,7 @@ api-client/
 └── graphql/                      # GraphQL types and the graphql() document function
 ```
 
-The generated client is only created; `src/lib/api/index.ts` configures it. Importing that module, which `main.tsx` does before the route tree, sets the base URL from `env.API_URL`, adds a request interceptor that sends `Authorization: Bearer <token>`, and wraps every failure in an `ApiError`. The token comes from `getAuthToken()` in `src/lib/auth-token.ts`: the stored dev token when `VITE_LOCAL_AUTH=true`, otherwise the Clerk session token, with the `__session` cookie as a fallback.
+The generated client is only created; `src/lib/api/configure-api-client.ts` configures it. `main.tsx` imports `lib/api/bootstrap.ts` once before the route tree, setting the base URL from `env.API_URL`, a request interceptor that sends the current bearer token, and an error interceptor that wraps failures in `ApiError`. The token comes from `getAuthToken()` in `src/lib/auth-token.ts`: the stored dev token when `VITE_LOCAL_AUTH=true`, otherwise the Clerk session token, with the `__session` cookie as a fallback.
 
 ### GraphQL
 

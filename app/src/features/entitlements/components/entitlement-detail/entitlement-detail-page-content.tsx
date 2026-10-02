@@ -8,7 +8,7 @@ import { EditableTitle, Page } from '@/functionals/page';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { getActiveTabFromPathname } from '@/lib/detail';
 import { useEntitlementFormMutations } from '../../hooks';
-import { entitlementToUpdateBody } from '../entitlement-form.shared';
+import { entitlementToUpdateBody } from '../../utils/entitlement-writable';
 import {
   EntitlementDetailProvider,
   useEntitlementDetailContext,
@@ -138,20 +138,23 @@ function EntitlementDetailLayout({
     useEntitlementDetailContext();
 
   return (
-    <DetailEntityLayout
-      activeTab={activeTab}
-      header={<EntitlementDetailHeader entitlement={entitlement} />}
-      stats={
+    <DetailEntityLayout>
+      <DetailEntityLayout.Top>
+        <EntitlementDetailHeader entitlement={entitlement} />
         <EntitlementDetailStats
           isLoading={isLoading}
           isUsageLoading={isUsageLoading}
           locale={locale}
           metrics={metrics}
         />
-      }
-      tabs={getEntitlementTabs(entitlementSlug, t)}
-    >
-      {children}
+      </DetailEntityLayout.Top>
+      <DetailEntityLayout.Body>
+        <DetailEntityLayout.Tabs
+          activeTab={activeTab}
+          items={getEntitlementTabs(entitlementSlug, t)}
+        />
+        <DetailEntityLayout.Content>{children}</DetailEntityLayout.Content>
+      </DetailEntityLayout.Body>
     </DetailEntityLayout>
   );
 }

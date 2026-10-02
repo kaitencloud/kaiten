@@ -1,5 +1,8 @@
 # Feature flags
 
+Detail pages compose `DetailEntityLayout.Top`, Body, Tabs and Content from the
+generic functional; business tab URLs and labels remain feature-local.
+
 The feature flags screens manage the flags that products evaluate through Kaiten. A user lists the flags of the organization, filters them, switches one on or off, creates a flag, and edits its variants, its default strategy and its targeting rules. The detail page shows a flag as configured and previews an evaluation against a context the user writes.
 
 A flag has a type (`boolean`, `string`, `number` or `object`), a list of variants (named values of that type), a default strategy and an ordered list of targeting rules written in CEL. The API evaluates flags for products through its OFREP endpoints (`/ofrep/v1/evaluate/flags`); this feature only edits flags and previews the result.
