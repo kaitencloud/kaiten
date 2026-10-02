@@ -28,6 +28,7 @@ const bypassAuthForE2E = import.meta.env.VITE_E2E_BYPASS_AUTH === 'true';
 const useMswForE2E = import.meta.env.VITE_E2E_MSW === 'true';
 const useLocalAuth = import.meta.env.VITE_LOCAL_AUTH === 'true';
 const useNotificationsMock = import.meta.env.VITE_MOCK_NOTIFICATIONS === 'true';
+const useApiMocks = import.meta.env.VITE_MOCK_API === 'true';
 
 type E2EWindow = Window & {
   __KAITEN_E2E_MSW__?: E2EMswConfig;
@@ -103,11 +104,22 @@ async function prepareE2EMockServiceWorker() {
   await startE2EMockServiceWorker(config);
 }
 
+// Serves the whole API from MSW, for front-end work without a stack
+// (`pnpm run dev:mock`).
+async function prepareApiDevMocks() {
+  if (!useApiMocks || useMswForE2E) {
+    return;
+  }
+
+  const { startDevMocks } = await import('./e2e/msw/dev');
+  await startDevMocks();
+}
+
 // Serves the notifications contract from MSW while everything else hits the real
 // API. The backend exists now (api/internal/modules/notifications), so this is
 // for working on the UI without a stack rather than for want of a server.
 async function prepareNotificationsDevMocks() {
-  if (!useNotificationsMock || useMswForE2E) {
+  if (!useNotificationsMock || useMswForE2E || useApiMocks) {
     return;
   }
 
@@ -126,6 +138,7 @@ async function bootstrapApp() {
   }
 
   await prepareE2EMockServiceWorker();
+  await prepareApiDevMocks();
   await prepareNotificationsDevMocks();
 
   const rootElement = document.getElementById('app');

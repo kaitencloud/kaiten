@@ -120,10 +120,11 @@ export function createNotificationsDevSeed(): SerializedNotificationAppModel {
 }
 
 /**
- * Local-dev mode for notifications without a running backend stack
- * (VITE_MOCK_NOTIFICATIONS=true): starts the shared MSW worker with
- * only the notifications slot seeded. Every other request passes through to
- * the real API (onUnhandledRequest: 'bypass').
+ * The notifications UI over a running stack (VITE_MOCK_NOTIFICATIONS=true):
+ * starts the shared MSW worker with only the notifications slot seeded, and its
+ * demo stream. Every other request passes through to the real API
+ * (onUnhandledFrame: 'bypass'). `pnpm run dev:mock` serves notifications of its
+ * own, about the records of its world (./dev-world).
  */
 export async function startNotificationsDevMocks() {
   await startE2EMockServiceWorker(

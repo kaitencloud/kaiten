@@ -1,12 +1,17 @@
-import { HttpResponse, http } from 'msw';
-import type { CustomerWritable } from '@/api-client';
+import { HttpResponse } from 'msw/http';
+import {
+  handleCreateCustomer,
+  handleDeleteCustomer,
+  handleGetCustomer,
+  handleGetCustomerIntegration,
+  handleListCustomers,
+  handleUpdateCustomer,
+} from '@/api-client/msw.gen';
 import type { CustomerAppModel } from '../../../e2e/app/_support/model/customer-app-model';
 import { customerOperations } from '../../../e2e/app/_support/model/graphql-operations';
 import {
-  decodeLastPathSegment,
-  getPathSegments,
+  asFallback,
   graphqlOperationHandler,
-  parseRequestJson,
   withErrorHandling,
 } from './handler-factory';
 import { noop, type PersistMswState } from './persistence';
@@ -14,58 +19,61 @@ import { noop, type PersistMswState } from './persistence';
 export const customerHandlers = (
   model: CustomerAppModel,
   persist: PersistMswState = noop,
-) => [
-  graphqlOperationHandler(customerOperations(model)),
-  http.get(/\/api\/customers$/, () =>
-    HttpResponse.json({ hasMore: false, items: model.listCustomers() }),
-  ),
-  http.post(
-    /\/api\/customers$/,
-    withErrorHandling('Unexpected customer mock error', async ({ request }) => {
-      const customer = model.createCustomer(
-        await parseRequestJson<CustomerWritable>(request),
-      );
-      persist();
-      return HttpResponse.json(customer, { status: 201 });
-    }),
-  ),
-  http.get(
-    /\/api\/customers\/[^/]+$/,
-    withErrorHandling('Unexpected customer mock error', ({ request }) =>
-      HttpResponse.json(model.getCustomer(decodeLastPathSegment(request.url))),
+) => {
+  const { GetInstancesWithRelations, ...ownOperations } =
+    customerOperations(model);
+  return [
+    graphqlOperationHandler(ownOperations),
+    // The instances of the customer detail: the instances slot owns the list
+    // when it is installed.
+    asFallback(graphqlOperationHandler({ GetInstancesWithRelations })),
+    handleListCustomers(() =>
+      HttpResponse.json({ hasMore: false, items: model.listCustomers() }),
     ),
-  ),
-  http.get(
-    /\/api\/customers\/[^/]+\/integrations\/[^/]+$/,
-    withErrorHandling(
-      'Unexpected customer integration mock error',
-      ({ request }) => {
-        const segments = getPathSegments(request.url);
-        const integration = model.getCustomerIntegration(
-          decodeURIComponent(segments[2] ?? ''),
-        );
+    handleCreateCustomer(
+      withErrorHandling(
+        'Unexpected customer mock error',
+        async ({ request }) => {
+          const customer = model.createCustomer(await request.json());
+          persist();
+          return HttpResponse.json(customer, { status: 201 });
+        },
+      ),
+    ),
+    handleGetCustomer(
+      withErrorHandling('Unexpected customer mock error', ({ params }) =>
+        HttpResponse.json(model.getCustomer(params.customerSlug)),
+      ),
+    ),
+    handleGetCustomerIntegration(
+      withErrorHandling(
+        'Unexpected customer integration mock error',
+        ({ params }) => {
+          const integration = model.getCustomerIntegration(params.customerSlug);
+          persist();
+          return HttpResponse.json(integration);
+        },
+      ),
+    ),
+    handleUpdateCustomer(
+      withErrorHandling(
+        'Unexpected customer mock error',
+        async ({ params, request }) => {
+          const customer = model.updateCustomer(
+            params.customerSlug,
+            await request.json(),
+          );
+          persist();
+          return HttpResponse.json(customer);
+        },
+      ),
+    ),
+    handleDeleteCustomer(
+      withErrorHandling('Unexpected customer mock error', ({ params }) => {
+        model.deleteCustomer(params.customerSlug);
         persist();
-        return HttpResponse.json(integration);
-      },
+        return new HttpResponse(null, { status: 204 });
+      }),
     ),
-  ),
-  http.put(
-    /\/api\/customers\/[^/]+$/,
-    withErrorHandling('Unexpected customer mock error', async ({ request }) => {
-      const customer = model.updateCustomer(
-        decodeLastPathSegment(request.url),
-        await parseRequestJson<CustomerWritable>(request),
-      );
-      persist();
-      return HttpResponse.json(customer);
-    }),
-  ),
-  http.delete(
-    /\/api\/customers\/[^/]+$/,
-    withErrorHandling('Unexpected customer mock error', ({ request }) => {
-      model.deleteCustomer(decodeLastPathSegment(request.url));
-      persist();
-      return new HttpResponse(null, { status: 204 });
-    }),
-  ),
-];
+  ];
+};

@@ -18,6 +18,12 @@ import {
 type StorybookRouterProps = PropsWithChildren<{
   initialEntries?: string[];
   routePath?: string;
+  /**
+   * Fills the cache for a query that no request answers in Storybook, such as
+   * a platform flag (`lib/feature-flags`), whose source needs a signed-in user.
+   * What the API answers goes in the story's handlers instead
+   * (`parameters.msw`, see `.storybook/msw.ts`).
+   */
   seed?: (queryClient: QueryClient) => void;
 }>;
 

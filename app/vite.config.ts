@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import viteReact from '@vitejs/plugin-react';
+import { msw } from 'msw/vite';
 import { defineConfig } from 'vite-plus';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -239,6 +240,11 @@ export default defineConfig({
   plugins: [
     devTokensPlugin(),
     tailwindThemePlugin(),
+    // Serves /mockServiceWorker.js from the installed msw, to the dev server,
+    // Storybook and the Storybook tests, and writes it next to a build, as the
+    // copy committed under public/ was: msw 3 no longer refreshes such a copy
+    // on install. Worker only: the code that mocks starts its worker itself.
+    msw({ mode: 'worker-only' }),
     tanstackRouter({
       target: 'react',
       autoCodeSplitting: true,
@@ -295,6 +301,9 @@ export default defineConfig({
             'src/**/*.test.{ts,tsx}',
             'scripts/**/*.test.ts',
           ],
+          // After the shared setup: the Node mock server, which the browser
+          // project cannot load.
+          setupFiles: ['./src/__tests__/msw-setup.ts'],
         },
       },
       // Storybook tests project
@@ -362,6 +371,15 @@ export default defineConfig({
       '@monaco-editor/react',
       'monaco-editor/esm/vs/editor/editor.api',
       'monaco-editor/esm/vs/language/json/monaco.contribution',
+      // Imported by the mocks, behind the switches of main.tsx, and by the
+      // stories that declare handlers: found late, they make the optimizer
+      // reload the E2E pages or the Storybook tests in the middle of a run.
+      '@mswjs/interceptors/XMLHttpRequest',
+      '@mswjs/interceptors/fetch',
+      'msw',
+      'msw/browser',
+      'msw/experimental',
+      'msw/http',
       'recharts',
     ],
   },

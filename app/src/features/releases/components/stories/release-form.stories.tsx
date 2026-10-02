@@ -7,13 +7,14 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { I18nextProvider } from 'react-i18next';
-import { listComponentsOptions } from '@/api-client/@tanstack/react-query.gen';
 import type { Component } from '@/api-client';
-import { releaseManagementOverviewQueryOptions } from '@/domains/release-management';
+import { handleListComponents } from '@/api-client/msw.gen';
 import type { ReleaseManagementOverviewRelease } from '@/domains/release-management';
 import i18n from '@/lib/i18n/config';
+import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
+import { onePage } from '@/test-fixtures/storybook-handlers';
 import { findVisibleByRole } from '@/test-fixtures/storybook-test-utils';
 import { ReleaseForm } from '../release-form';
 
@@ -154,29 +155,27 @@ const mockReleases: ReleaseManagementOverviewRelease[] = [
   },
 ];
 
-type FormWrapperProps = {
-  availableComponents?: Component[];
-  releases?: ReleaseManagementOverviewRelease[];
-};
-
-function FormWrapper({
+/**
+ * The component catalog and the previous releases the form reads, the second
+ * over GraphQL.
+ */
+const releaseFormHandlers = ({
   availableComponents = mockComponents,
   releases = mockReleases,
-}: FormWrapperProps) {
-  const queryClient = useQueryClient();
-  const hasSeededQueriesRef = useRef(false);
+}: {
+  availableComponents?: Component[];
+  releases?: ReleaseManagementOverviewRelease[];
+} = {}) => [
+  handleListComponents(onePage(availableComponents)),
+  graphqlOperationHandler({
+    GetReleaseManagementOverview: () => ({
+      releases: { hasMore: false, items: releases, nextCursor: null },
+    }),
+  }),
+];
 
-  if (!hasSeededQueriesRef.current) {
-    queryClient.setQueryData(listComponentsOptions().queryKey, {
-      hasMore: false,
-      items: availableComponents,
-    });
-    queryClient.setQueryData(
-      releaseManagementOverviewQueryOptions.queryKey,
-      releases,
-    );
-    hasSeededQueriesRef.current = true;
-  }
+function FormWrapper() {
+  const queryClient = useQueryClient();
 
   const rootRoute = createRootRoute({
     component: () => (
@@ -206,6 +205,7 @@ const meta = {
   component: ReleaseForm,
   parameters: {
     layout: 'fullscreen',
+    msw: { handlers: releaseFormHandlers() },
   },
   tags: ['autodocs'],
 } satisfies Meta<typeof ReleaseForm>;
@@ -219,7 +219,7 @@ export const Default: Story = {
     docs: {
       description: {
         story:
-          'Seeded two-phase release creation flow with catalog data and previous releases available for inheritance.',
+          'Two-phase release creation flow with catalog data and previous releases available for inheritance.',
       },
     },
   },
@@ -326,10 +326,9 @@ export const InteractiveExistingReleaseMode: Story = {
 };
 
 export const EmptyCatalog: Story = {
-  render: () => (
-    <FormWrapper availableComponents={[]} releases={mockReleases} />
-  ),
+  render: () => <FormWrapper />,
   parameters: {
+    msw: { handlers: releaseFormHandlers({ availableComponents: [] }) },
     docs: {
       description: {
         story:
@@ -381,8 +380,9 @@ export const EmptyCatalog: Story = {
  * the stepper opens directly on the information step in scratch mode.
  */
 export const NoExistingReleases: Story = {
-  render: () => <FormWrapper releases={[]} />,
+  render: () => <FormWrapper />,
   parameters: {
+    msw: { handlers: releaseFormHandlers({ releases: [] }) },
     docs: {
       description: {
         story:

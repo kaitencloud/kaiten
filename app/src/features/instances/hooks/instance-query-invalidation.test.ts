@@ -1,91 +1,165 @@
-import { describe, expect, it, vi } from 'vite-plus/test';
 import {
+  QueryClient,
+  QueryClientProvider,
+  type QueryKey,
+} from '@tanstack/react-query';
+import { renderHook, waitFor } from '@testing-library/react';
+import { HttpResponse } from 'msw/http';
+import { createElement, type ReactNode } from 'react';
+import { describe, expect, it } from 'vite-plus/test';
+import { server } from '@/__tests__/msw-server';
+import type { Customer, Instance } from '@/api-client';
+import {
+  handleGetInstance,
+  handleGetInstances,
+  handleListCustomers,
+} from '@/api-client/msw.gen';
+import {
+  customersWithInstancesQueryOptions,
   forgetDeletedInstanceQueries,
+  instancesWithRelationsQueryKey,
   invalidateInstanceQueries,
   invalidateInstancesListQueries,
+  useInstancesWithRelations,
 } from '@/domains/customer-management';
+import {
+  allCustomersOptions,
+  allInstancesOptions,
+} from '@/lib/api/all-pages-query-options';
+import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
+import { instanceQueryOptions } from './instance-detail';
 
-const invalidateCustomerQueriesSpy = vi.fn();
-const getInstanceQueryKeySpy = vi.fn(({ path: { instanceSlug } }) => [
-  'instance',
-  instanceSlug,
-]);
-const getInstancesQueryKeySpy = vi.fn(() => ['instances']);
+const instance = (slug: string) => ({ name: slug, slug }) as Instance;
 
-vi.mock('@/api-client/@tanstack/react-query.gen', () => ({
-  getInstanceQueryKey: (options: { path: { instanceSlug: string } }) =>
-    getInstanceQueryKeySpy(options),
-  getInstancesQueryKey: () => getInstancesQueryKeySpy(),
-}));
+/**
+ * Fills the cache as the screens do, through the query options and the hook
+ * they read with, answered over the network: the instance lists (REST and
+ * GraphQL with relations), the customer lists the instances count in, and the
+ * details of instance-a and instance-b. Returns how many times the API was
+ * asked for each detail.
+ */
+async function cacheInstanceReads(queryClient: QueryClient) {
+  const detailReads: Record<string, number> = {};
+  server.use(
+    handleGetInstances({
+      body: {
+        hasMore: false,
+        items: [instance('instance-a'), instance('instance-b')],
+      },
+    }),
+    handleGetInstance(({ params }) => {
+      detailReads[params.instanceSlug] =
+        (detailReads[params.instanceSlug] ?? 0) + 1;
+      return HttpResponse.json(instance(params.instanceSlug));
+    }),
+    handleListCustomers({
+      body: { hasMore: false, items: [{ name: 'Acme' } as Customer] },
+    }),
+    graphqlOperationHandler({
+      GetCustomersWithInstances: () => ({
+        customers: { hasMore: false, items: [], nextCursor: null },
+      }),
+      GetInstancesWithRelations: () => ({
+        instances: { hasMore: false, items: [], nextCursor: null },
+      }),
+    }),
+  );
 
-vi.mock(
-  '@/domains/customer-management/queries/customer-query-invalidation',
-  () => ({
-    invalidateCustomerQueries: (queryClient: unknown) =>
-      invalidateCustomerQueriesSpy(queryClient),
-  }),
-);
+  await Promise.all([
+    queryClient.fetchQuery(allInstancesOptions()),
+    queryClient.fetchQuery(allCustomersOptions()),
+    queryClient.fetchQuery(customersWithInstancesQueryOptions),
+    queryClient.fetchQuery(instanceQueryOptions('instance-a')),
+    queryClient.fetchQuery(instanceQueryOptions('instance-b')),
+  ]);
 
-vi.mock(
-  '@/domains/customer-management/queries/use-instances-with-relations',
-  () => ({
-    instancesWithRelationsBaseQueryKey: ['instances', 'with-relations'],
-  }),
-);
+  // The instances page reads its list through a hook, which owns the query
+  // function: mount it until the list is cached, then leave the page.
+  const { result, unmount } = renderHook(() => useInstancesWithRelations(), {
+    wrapper: ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children),
+  });
+  await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  unmount();
+
+  return detailReads;
+}
+
+/**
+ * Whether each read is invalidated, looked up under the key its query options
+ * or its hook cached it with; `undefined` for a read no longer in the cache.
+ */
+function invalidatedReads(queryClient: QueryClient) {
+  const isInvalidated = (queryKey: QueryKey) =>
+    queryClient.getQueryState(queryKey)?.isInvalidated;
+
+  return {
+    instances: isInvalidated(allInstancesOptions().queryKey),
+    instancesWithRelations: isInvalidated(instancesWithRelationsQueryKey()),
+    customers: isInvalidated(allCustomersOptions().queryKey),
+    customersWithInstances: isInvalidated(
+      customersWithInstancesQueryOptions.queryKey,
+    ),
+    instanceA: isInvalidated(instanceQueryOptions('instance-a').queryKey),
+    instanceB: isInvalidated(instanceQueryOptions('instance-b').queryKey),
+  };
+}
+
+const createQueryClient = () =>
+  new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 describe('instance-query-invalidation', () => {
   it('invalidates instance list queries and customer projections together', async () => {
-    const queryClient = {
-      invalidateQueries: vi.fn().mockResolvedValue(undefined),
-    };
+    const queryClient = createQueryClient();
+    await cacheInstanceReads(queryClient);
 
-    await invalidateInstancesListQueries(queryClient as never);
+    await invalidateInstancesListQueries(queryClient);
 
-    expect(invalidateCustomerQueriesSpy).toHaveBeenCalledWith(queryClient);
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['instances'],
-    });
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['instances', 'with-relations'],
+    expect(invalidatedReads(queryClient)).toEqual({
+      instances: true,
+      instancesWithRelations: true,
+      customers: true,
+      customersWithInstances: true,
+      instanceA: false,
+      instanceB: false,
     });
   });
 
   it('also invalidates the instance detail query for a specific instance', async () => {
-    const queryClient = {
-      invalidateQueries: vi.fn().mockResolvedValue(undefined),
-    };
+    const queryClient = createQueryClient();
+    await cacheInstanceReads(queryClient);
 
-    await invalidateInstanceQueries(queryClient as never, 'instance-a');
+    await invalidateInstanceQueries(queryClient, 'instance-a');
 
-    expect(getInstanceQueryKeySpy).toHaveBeenCalledWith({
-      path: { instanceSlug: 'instance-a' },
-    });
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['instance', 'instance-a'],
+    expect(invalidatedReads(queryClient)).toEqual({
+      instances: true,
+      instancesWithRelations: true,
+      customers: true,
+      customersWithInstances: true,
+      instanceA: true,
+      instanceB: false,
     });
   });
 
   it('drops the detail query of a deleted instance instead of revalidating it', async () => {
-    const queryClient = {
-      invalidateQueries: vi.fn().mockResolvedValue(undefined),
-      removeQueries: vi.fn(),
-    };
+    const queryClient = createQueryClient();
+    const detailReads = await cacheInstanceReads(queryClient);
 
-    await forgetDeletedInstanceQueries(queryClient as never, 'instance-a');
+    await forgetDeletedInstanceQueries(queryClient, 'instance-a');
 
-    expect(queryClient.removeQueries).toHaveBeenCalledWith({
-      queryKey: ['instance', 'instance-a'],
-    });
+    expect(
+      queryClient.getQueryState(instanceQueryOptions('instance-a').queryKey),
+    ).toBeUndefined();
     // A hard-deleted row has nothing to refetch: revalidating it is what leaves
     // a mounted detail route retrying a 404.
-    expect(queryClient.invalidateQueries).not.toHaveBeenCalledWith({
-      queryKey: ['instance', 'instance-a'],
-    });
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['instances'],
-    });
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['instances', 'with-relations'],
+    expect(detailReads).toEqual({ 'instance-a': 1, 'instance-b': 1 });
+    expect(invalidatedReads(queryClient)).toStrictEqual({
+      instances: true,
+      instancesWithRelations: true,
+      customers: true,
+      customersWithInstances: true,
+      instanceA: undefined,
+      instanceB: false,
     });
   });
 });

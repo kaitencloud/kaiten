@@ -1,3 +1,4 @@
+import type { RequestHandler, UnhandledFrameHandle } from 'msw';
 import { setupWorker } from 'msw/browser';
 import type { E2EMswConfig } from '../../../e2e/app/_support/contracts/msw-slots';
 import { AuditTrailAppModel } from '../../../e2e/app/_support/model/audit-trail-app-model';
@@ -22,6 +23,7 @@ import { withFallbacksLast } from './handler-factory';
 import { instanceHandlers } from './instance-handlers';
 import { licenseHandlers } from './license-handlers';
 import { notificationHandlers } from './notification-handlers';
+import { createPageNetwork } from './page-network';
 import {
   persistSlot,
   readStoredConfig,
@@ -32,13 +34,55 @@ import { releaseManagementHandlers } from './release-management-handlers';
 type StartE2EMockServiceWorkerOptions = {
   // E2E defaults closed; partial dev mocks keep the running stack's flags.
   unmockedFlags?: 'off' | 'passthrough';
+  /**
+   * Whether an API request no handler answers prints an `[MSW]` warning that
+   * names it before it reaches the network: for the dev mocks, which have no
+   * API behind them, so that what they do not serve shows.
+   */
+  warnUnhandledApiRequests?: boolean;
 };
 
+type MockWindow = Window & {
+  /** The mocks this page started: the worker, or the network in the page. */
+  __KAITEN_MSW_RUNNING__?: {
+    resetHandlers: (...handlers: RequestHandler[]) => void;
+  };
+};
+
+// The frame of an unhandled HTTP request carries it as `data.request`
+// (HttpNetworkFrame); msw types the frames of every protocol as one.
+const isApiRequest = (frame: { protocol: string; data: unknown }) =>
+  frame.protocol === 'http' &&
+  new URL((frame.data as { request: Request }).request.url).pathname.startsWith(
+    '/api/',
+  );
+
+/**
+ * Starts the mocks of `config` in this page, merged under the state an earlier
+ * page of the tab left in `sessionStorage`. A browser that refuses the service
+ * worker (an embedded browser, a private window) still gets them, in the page:
+ * `fetch` and `XMLHttpRequest` are patched there, but an `EventSource` is not,
+ * so the notification stream is then left unserved.
+ *
+ * Vite runs main.tsx again in the same page when a module only it imports
+ * changes, the code of these mocks or of their seeds among them, and then
+ * reloads the page. That second start begins from `config` alone, dropping
+ * the stored state, so that the reload shows the edited seeds; and it hands
+ * its handlers to the mocks already running rather than starting others,
+ * since Mock Service Worker cannot patch the globals of a page twice.
+ */
 export async function startE2EMockServiceWorker(
   config: E2EMswConfig,
-  { unmockedFlags = 'off' }: StartE2EMockServiceWorkerOptions = {},
+  {
+    unmockedFlags = 'off',
+    warnUnhandledApiRequests = false,
+  }: StartE2EMockServiceWorkerOptions = {},
 ) {
-  const effectiveConfig = { ...config, ...readStoredConfig() };
+  const page = window as MockWindow;
+  const running = page.__KAITEN_MSW_RUNNING__;
+  const effectiveConfig = running
+    ? config
+    : { ...config, ...readStoredConfig() };
   writeStoredConfig(effectiveConfig);
 
   const auditTrail = effectiveConfig.auditTrail
@@ -126,9 +170,38 @@ export async function startE2EMockServiceWorker(
   ];
   if (handlers.length === 0) return;
 
-  await setupWorker(...withFallbacksLast(handlers)).start({
-    onUnhandledRequest: 'bypass',
-    quiet: true,
-    serviceWorker: { url: '/mockServiceWorker.js' },
-  });
+  const orderedHandlers = withFallbacksLast(handlers);
+  if (running) {
+    running.resetHandlers(...orderedHandlers);
+    return;
+  }
+
+  const onUnhandledFrame: UnhandledFrameHandle = warnUnhandledApiRequests
+    ? ({ frame, defaults }) => {
+        if (isApiRequest(frame)) {
+          defaults.warn();
+        }
+      }
+    : 'bypass';
+
+  try {
+    const worker = setupWorker(...orderedHandlers);
+    await worker.start({
+      onUnhandledFrame,
+      quiet: true,
+      serviceWorker: { url: '/mockServiceWorker.js' },
+    });
+    page.__KAITEN_MSW_RUNNING__ = worker;
+  } catch (error) {
+    console.warn(
+      '[MSW] The mock service worker could not start; mocking in the page instead, without the notification stream.',
+      error,
+    );
+    const network = createPageNetwork({
+      handlers: orderedHandlers,
+      onUnhandledFrame,
+    });
+    network.enable();
+    page.__KAITEN_MSW_RUNNING__ = network;
+  }
 }

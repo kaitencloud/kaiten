@@ -1,26 +1,22 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { QueryClient } from '@tanstack/react-query';
-import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
 import { storyInstanceRows } from '@/test-fixtures/storybook-fixtures';
+import { metadataFieldsHandler } from '@/test-fixtures/storybook-handlers';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { InstancesTable } from '../instance-table';
-
-// InstancesTable soft-fetches the active INSTANCE metadata fields over GraphQL.
-// Seed none: the story stays off the network and keeps the raw-JSON metadata
-// column, whose dialog the Default story shows. Declared fields would turn the
-// rows' region and tier into typed columns and drop that dialog.
-const seedInstanceTableQueries = (queryClient: QueryClient) => {
-	queryClient.setQueryData(
-		metadataFieldsActiveQueryOptions('INSTANCE').queryKey,
-		[],
-	);
-};
 
 const meta = {
 	title: 'Features/Instances/InstanceTable',
 	component: InstancesTable,
 	parameters: {
 		layout: 'fullscreen',
+		msw: {
+			// InstancesTable soft-fetches the active INSTANCE metadata fields over
+			// GraphQL. None is declared: the story keeps the raw-JSON metadata
+			// column, whose dialog the Default story shows. Declared fields would
+			// turn the rows' region and tier into typed columns and drop that
+			// dialog.
+			handlers: [metadataFieldsHandler()],
+		},
 	},
 	tags: ['autodocs'],
 } satisfies Meta<typeof InstancesTable>;
@@ -29,7 +25,7 @@ export default meta;
 type Story = StoryObj<typeof InstancesTable>;
 
 const renderTable = (instances = storyInstanceRows) => (
-	<StorybookRouter seed={seedInstanceTableQueries}>
+	<StorybookRouter>
 		<div className="min-h-screen p-6">
 			<InstancesTable instances={instances} />
 		</div>

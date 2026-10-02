@@ -1,85 +1,126 @@
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { QueryClient, type QueryKey } from '@tanstack/react-query';
+import { HttpResponse } from 'msw/http';
+import { describe, expect, it } from 'vite-plus/test';
+import { server } from '@/__tests__/msw-server';
+import type { Customer } from '@/api-client';
+import { getCustomerOptions } from '@/api-client/@tanstack/react-query.gen';
+import { handleGetCustomer, handleListCustomers } from '@/api-client/msw.gen';
+import { allCustomersOptions } from '@/lib/api/all-pages-query-options';
+import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
 import {
   forgetDeletedCustomerQueries,
   invalidateCustomerQueries,
 } from './customer-query-invalidation';
+import { customersWithInstancesQueryOptions } from './use-customers-with-instances';
 
-const getCustomerQueryKeySpy = vi.fn(({ path: { customerSlug } }) => [
-  'customer',
-  customerSlug,
-]);
-const listCustomersQueryKeySpy = vi.fn(() => ['customers']);
+const customer = (slug: string) => ({ name: slug, slug }) as Customer;
 
-vi.mock('@/api-client/@tanstack/react-query.gen', () => ({
-  getCustomerQueryKey: (options: { path: { customerSlug: string } }) =>
-    getCustomerQueryKeySpy(options),
-  listCustomersQueryKey: () => listCustomersQueryKeySpy(),
-}));
+// What the customer and the instance detail routes read, each through its own
+// customerQueryOptions.
+const customerOptions = (customerSlug: string) =>
+  getCustomerOptions({ path: { customerSlug } });
 
-vi.mock('./use-customers-with-instances', () => ({
-  customersWithInstancesQueryOptions: {
-    queryKey: ['customers', 'with-instances'],
-  },
-}));
+/**
+ * Fills the cache as the screens do, through the query options they read
+ * customers with, answered over the network: the REST list, the GraphQL list
+ * with instances, and the details of acme and globex. Returns how many times
+ * the API was asked for each detail.
+ */
+async function cacheCustomerReads(queryClient: QueryClient) {
+  const detailReads: Record<string, number> = {};
+  server.use(
+    handleListCustomers({
+      body: { hasMore: false, items: [customer('acme'), customer('globex')] },
+    }),
+    graphqlOperationHandler({
+      GetCustomersWithInstances: () => ({
+        customers: { hasMore: false, items: [], nextCursor: null },
+      }),
+    }),
+    handleGetCustomer(({ params }) => {
+      detailReads[params.customerSlug] =
+        (detailReads[params.customerSlug] ?? 0) + 1;
+      return HttpResponse.json(customer(params.customerSlug));
+    }),
+  );
+
+  await Promise.all([
+    queryClient.fetchQuery(allCustomersOptions()),
+    queryClient.fetchQuery(customersWithInstancesQueryOptions),
+    queryClient.fetchQuery(customerOptions('acme')),
+    queryClient.fetchQuery(customerOptions('globex')),
+  ]);
+
+  return detailReads;
+}
+
+/**
+ * Whether each read is invalidated, looked up under the key its query options
+ * cached it with; `undefined` for a read no longer in the cache.
+ */
+function invalidatedReads(queryClient: QueryClient) {
+  const isInvalidated = (queryKey: QueryKey) =>
+    queryClient.getQueryState(queryKey)?.isInvalidated;
+
+  return {
+    customers: isInvalidated(allCustomersOptions().queryKey),
+    customersWithInstances: isInvalidated(
+      customersWithInstancesQueryOptions.queryKey,
+    ),
+    acme: isInvalidated(customerOptions('acme').queryKey),
+    globex: isInvalidated(customerOptions('globex').queryKey),
+  };
+}
+
+const createQueryClient = () =>
+  new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 describe('customer-query-invalidation', () => {
-  beforeEach(() => {
-    getCustomerQueryKeySpy.mockClear();
-    listCustomersQueryKeySpy.mockClear();
-  });
-
   it('invalidates the customer list projections when no slug is given', async () => {
-    const queryClient = {
-      invalidateQueries: vi.fn().mockResolvedValue(undefined),
-    };
+    const queryClient = createQueryClient();
+    await cacheCustomerReads(queryClient);
 
-    await invalidateCustomerQueries(queryClient as never);
+    await invalidateCustomerQueries(queryClient);
 
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['customers'],
+    expect(invalidatedReads(queryClient)).toEqual({
+      customers: true,
+      customersWithInstances: true,
+      acme: false,
+      globex: false,
     });
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['customers', 'with-instances'],
-    });
-    expect(getCustomerQueryKeySpy).not.toHaveBeenCalled();
   });
 
   it('also invalidates the customer detail query for a specific customer', async () => {
-    const queryClient = {
-      invalidateQueries: vi.fn().mockResolvedValue(undefined),
-    };
+    const queryClient = createQueryClient();
+    await cacheCustomerReads(queryClient);
 
-    await invalidateCustomerQueries(queryClient as never, 'acme');
+    await invalidateCustomerQueries(queryClient, 'acme');
 
-    expect(getCustomerQueryKeySpy).toHaveBeenCalledWith({
-      path: { customerSlug: 'acme' },
-    });
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['customer', 'acme'],
+    expect(invalidatedReads(queryClient)).toEqual({
+      customers: true,
+      customersWithInstances: true,
+      acme: true,
+      globex: false,
     });
   });
 
   it('drops the detail query of a deleted customer instead of revalidating it', async () => {
-    const queryClient = {
-      invalidateQueries: vi.fn().mockResolvedValue(undefined),
-      removeQueries: vi.fn(),
-    };
+    const queryClient = createQueryClient();
+    const detailReads = await cacheCustomerReads(queryClient);
 
-    await forgetDeletedCustomerQueries(queryClient as never, 'acme');
+    await forgetDeletedCustomerQueries(queryClient, 'acme');
 
-    expect(queryClient.removeQueries).toHaveBeenCalledWith({
-      queryKey: ['customer', 'acme'],
-    });
+    expect(
+      queryClient.getQueryState(customerOptions('acme').queryKey),
+    ).toBeUndefined();
     // A hard-deleted row has nothing to refetch: revalidating it is what leaves
     // a mounted detail route retrying a dead request before it can navigate.
-    expect(queryClient.invalidateQueries).not.toHaveBeenCalledWith({
-      queryKey: ['customer', 'acme'],
-    });
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['customers'],
-    });
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['customers', 'with-instances'],
+    expect(detailReads).toEqual({ acme: 1, globex: 1 });
+    expect(invalidatedReads(queryClient)).toStrictEqual({
+      customers: true,
+      customersWithInstances: true,
+      acme: undefined,
+      globex: false,
     });
   });
 });

@@ -11,6 +11,7 @@
     "lint": "vp lint src e2e",
     "lint:fix": "vp lint --fix src e2e",
     "dev": "vp dev --port 3000",
+    "dev:mock": "VITE_API_URL=/api VITE_E2E_BYPASS_AUTH=true VITE_LOCAL_AUTH=false VITE_MOCK_API=true VITE_KAITEN_PLATFORM_API_URL= VITE_KAITEN_PLATFORM_FLAGS_TOKEN= vp dev --port 3000",
     "start": "vp dev --port 3000",
     "build": "vp build && tsc",
     "build:ci": "./cel-engine/build.sh && vp build",
@@ -111,6 +112,7 @@
     "@graphql-codegen/client-preset": "^6.1.3",
     "@graphql-codegen/schema-ast": "^6.1.0",
     "@graphql-typed-document-node/core": "^3.2.0",
+    "@mswjs/interceptors": "^0.45.6",
     "@playwright/test": "catalog:",
     "@storybook/addon-a11y": "^10.6.0",
     "@storybook/addon-docs": "^10.6.0",
@@ -132,7 +134,7 @@
     "@vitest/browser-playwright": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "jsdom": "^30.0.1",
-    "msw": "^2.15.0",
+    "msw": "^3.0.1",
     "oxc-parser": "^0.150.0",
     "playwright": "catalog:",
     "react-doctor": "^0.9.14",
@@ -146,10 +148,5 @@
     "vitest": "catalog:",
     "web-vitals": "^6.2.2"
   },
-  "packageManager": "pnpm@12.4.1",
-  "msw": {
-    "workerDirectory": [
-      "public"
-    ]
-  }
+  "packageManager": "pnpm@12.4.1"
 }

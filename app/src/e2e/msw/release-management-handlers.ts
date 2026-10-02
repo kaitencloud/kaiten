@@ -1,16 +1,21 @@
-import { HttpResponse, http } from 'msw';
-import type {
-  ComponentWritable,
-  DeploymentZoneWritable,
-  ReleaseWritable,
-} from '@/api-client';
-import type { ReleaseManagementAppModel } from '../../../e2e/app/_support/model/release-management-app-model';
+import { HttpResponse } from 'msw/http';
 import {
-  decodeLastPathSegment,
-  graphqlOperationHandler,
-  parseRequestJson,
-  withErrorHandling,
-} from './handler-factory';
+  handleCreateComponent,
+  handleCreateDeploymentZone,
+  handleCreateRelease,
+  handleDeleteDeploymentZone,
+  handleDeleteRelease,
+  handleGetComponent,
+  handleGetDeploymentZoneBySlug,
+  handleGetReleaseBySlug,
+  handleListComponents,
+  handleListDeploymentZones,
+  handleListReleases,
+  handleUpdateComponent,
+  handleUpdateDeploymentZone,
+} from '@/api-client/msw.gen';
+import type { ReleaseManagementAppModel } from '../../../e2e/app/_support/model/release-management-app-model';
+import { graphqlOperationHandler, withErrorHandling } from './handler-factory';
 import { noop, type PersistMswState } from './persistence';
 
 export const releaseManagementHandlers = (
@@ -21,116 +26,95 @@ export const releaseManagementHandlers = (
     GetReleaseManagementOverview: () =>
       model.getReleaseManagementOverviewData(),
   }),
-  http.get(/\/api\/components$/, () =>
+  handleListComponents(() =>
     HttpResponse.json({ hasMore: false, items: model.listComponents() }),
   ),
-  http.post(
-    /\/api\/components$/,
+  handleCreateComponent(
     withErrorHandling(
       'Unexpected component mock error',
       async ({ request }) => {
-        const component = model.createComponent(
-          await parseRequestJson<ComponentWritable>(request),
-        );
+        const component = model.createComponent(await request.json());
         persist();
         return HttpResponse.json(component, { status: 201 });
       },
     ),
   ),
-  http.get(
-    /\/api\/components\/[^/]+$/,
-    withErrorHandling('Unexpected component mock error', ({ request }) =>
-      HttpResponse.json(model.getComponent(decodeLastPathSegment(request.url))),
+  handleGetComponent(
+    withErrorHandling('Unexpected component mock error', ({ params }) =>
+      HttpResponse.json(model.getComponent(params.componentSlug)),
     ),
   ),
-  http.put(
-    /\/api\/components\/[^/]+$/,
+  handleUpdateComponent(
     withErrorHandling(
       'Unexpected component mock error',
-      async ({ request }) => {
+      async ({ params, request }) => {
         const component = model.updateComponent(
-          decodeLastPathSegment(request.url),
-          await parseRequestJson<ComponentWritable>(request),
+          params.componentSlug,
+          await request.json(),
         );
         persist();
         return HttpResponse.json(component);
       },
     ),
   ),
-  http.get(/\/api\/releases$/, () =>
+  handleListReleases(() =>
     HttpResponse.json({ hasMore: false, items: model.listReleases() }),
   ),
-  http.post(
-    /\/api\/releases$/,
+  handleCreateRelease(
     withErrorHandling('Unexpected release mock error', async ({ request }) => {
-      const release = model.createRelease(
-        await parseRequestJson<ReleaseWritable>(request),
-      );
+      const release = model.createRelease(await request.json());
       persist();
       return HttpResponse.json(release, { status: 201 });
     }),
   ),
-  http.get(
-    /\/api\/releases\/[^/]+$/,
-    withErrorHandling('Unexpected release mock error', ({ request }) =>
-      HttpResponse.json(model.getRelease(decodeLastPathSegment(request.url))),
+  handleGetReleaseBySlug(
+    withErrorHandling('Unexpected release mock error', ({ params }) =>
+      HttpResponse.json(model.getRelease(params.releaseSlug)),
     ),
   ),
-  http.delete(
-    /\/api\/releases\/[^/]+$/,
-    withErrorHandling('Unexpected release mock error', ({ request }) => {
-      model.deleteRelease(decodeLastPathSegment(request.url));
+  handleDeleteRelease(
+    withErrorHandling('Unexpected release mock error', ({ params }) => {
+      model.deleteRelease(params.releaseSlug);
       persist();
       return new HttpResponse(null, { status: 204 });
     }),
   ),
-  http.get(/\/api\/deployment-zones$/, () =>
+  handleListDeploymentZones(() =>
     HttpResponse.json({ hasMore: false, items: model.listDeploymentZones() }),
   ),
-  http.post(
-    /\/api\/deployment-zones$/,
+  handleCreateDeploymentZone(
     withErrorHandling(
       'Unexpected deployment zone mock error',
       async ({ request }) => {
-        const zone = model.createDeploymentZone(
-          await parseRequestJson<DeploymentZoneWritable>(request),
-        );
+        const zone = model.createDeploymentZone(await request.json());
         persist();
         return HttpResponse.json(zone, { status: 201 });
       },
     ),
   ),
-  http.get(
-    /\/api\/deployment-zones\/[^/]+$/,
-    withErrorHandling('Unexpected deployment zone mock error', ({ request }) =>
-      HttpResponse.json(
-        model.getDeploymentZone(decodeLastPathSegment(request.url)),
-      ),
+  handleGetDeploymentZoneBySlug(
+    withErrorHandling('Unexpected deployment zone mock error', ({ params }) =>
+      HttpResponse.json(model.getDeploymentZone(params.deploymentZoneSlug)),
     ),
   ),
-  http.put(
-    /\/api\/deployment-zones\/[^/]+$/,
+  handleUpdateDeploymentZone(
     withErrorHandling(
       'Unexpected deployment zone mock error',
-      async ({ request }) => {
+      async ({ params, request }) => {
         const zone = model.updateDeploymentZone(
-          decodeLastPathSegment(request.url),
-          await parseRequestJson<DeploymentZoneWritable>(request),
+          params.deploymentZoneSlug,
+          await request.json(),
         );
         persist();
         return HttpResponse.json(zone);
       },
     ),
   ),
-  http.delete(
-    /\/api\/deployment-zones\/[^/]+$/,
-    withErrorHandling(
-      'Unexpected deployment zone mock error',
-      ({ request }) => {
-        model.deleteDeploymentZone(decodeLastPathSegment(request.url));
-        persist();
-        return new HttpResponse(null, { status: 204 });
-      },
-    ),
+  handleDeleteDeploymentZone(
+    withErrorHandling('Unexpected deployment zone mock error', ({ params }) => {
+      model.deleteDeploymentZone(params.deploymentZoneSlug);
+      persist();
+      return new HttpResponse(null, { status: 204 });
+    }),
   ),
 ];

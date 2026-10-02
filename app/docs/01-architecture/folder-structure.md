@@ -48,7 +48,7 @@ app/src/
 └── styles.css, tokens.css   # Tailwind entry point, the app's own design tokens
 ```
 
-`src/e2e/` is test infrastructure, not a layer: `main.tsx` loads it dynamically, only when a `VITE_E2E_MSW` or `VITE_MOCK_NOTIFICATIONS` variable asks for it. Its handlers build their seeds from the Playwright models in `app/e2e/app/_support/model/`, a dependency that `check:architecture` cannot judge, because its target lies outside `src/` and no rule covers it.
+`src/e2e/` is test infrastructure, not a layer: `main.tsx` loads it dynamically, only when a `VITE_E2E_MSW`, `VITE_MOCK_API` or `VITE_MOCK_NOTIFICATIONS` variable asks for it, and the production build leaves it out. Its handlers build their seeds from the Playwright models in `app/e2e/app/_support/model/`, and the dev world (`src/e2e/msw/dev-world/`) its records with the fixture builders of `app/e2e/app/_support/fixtures/`, a dependency that `check:architecture` cannot judge, because its target lies outside `src/` and no rule covers it.
 
 ## Dependency matrix
 
@@ -88,6 +88,7 @@ The client has several entry points; the `@/api-client` barrel exports only the 
 | `@/api-client` | The SDK functions (`listCustomers`) and the types (`Customer`) |
 | `@/api-client/@tanstack/react-query.gen` | The query options (`getFeatureFlagOptions()`), the mutations (`createFeatureFlagMutation()`) and the query keys (`listCustomersQueryKey()`) |
 | `@/api-client/zod.gen` | The Zod schemas (`zCustomer`) |
+| `@/api-client/msw.gen` | One Mock Service Worker handler per operation (`handleListCustomers()`), for the mocks, the tests and the stories only |
 | `@/api-client/graphql`, `@/api-client/graphql/graphql` | The `graphql()` document function; the types generated for each document |
 
 The REST client is configured by `src/lib/api/bootstrap.ts`, imported before the route tree. It calls `configureApiClient` once before query keys capture the base URL; importing adapters has no initialization side effect. See the [API infrastructure README](../../src/lib/api/README.md).

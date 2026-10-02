@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { InstanceStatus } from '@/domains/customer-management';
 import { InstancesTable } from '../instance-table';
@@ -7,14 +8,20 @@ import { InstancesTable } from '../instance-table';
 // The table reads the active MetadataField list to decide
 // between typed columns/filters and the legacy raw-JSON column. Tests
 // drive the underlying query result by mutating `metadataFieldsStub`
-// before render.
+// before render; `gate` holds the answer back until a test releases it.
 const metadataFieldsStub = vi.hoisted(() => ({
+  gate: Promise.resolve(),
   rows: [] as Array<Record<string, unknown>>,
 }));
 
+const metadataFieldsQueryKey = ['stub', 'metadata-fields', 'INSTANCE'];
+
 vi.mock('@/domains/metadata-fields', () => ({
   metadataFieldsActiveQueryOptions: () => ({
-    queryFn: async () => metadataFieldsStub.rows,
+    queryFn: async () => {
+      await metadataFieldsStub.gate;
+      return metadataFieldsStub.rows;
+    },
     queryKey: ['stub', 'metadata-fields', 'INSTANCE'],
   }),
 }));
@@ -30,10 +37,14 @@ vi.mock('@tanstack/react-router', () => ({
   }),
 }));
 
+// One `t` for every render, as react-i18next gives: a new one per render
+// would rebuild the columns on any render and hide what rebuilds them.
+const { t } = vi.hoisted(() => ({
+  t: (key: string, fallback?: string) => fallback ?? key,
+}));
+
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, fallback?: string) => fallback ?? key,
-  }),
+  useTranslation: () => ({ t }),
 }));
 
 // `<GradientButton>` renders a styled link; for the unit test a stub
@@ -75,7 +86,9 @@ function renderTable(instances: FakeInstance[] = [baseInstance]) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
+  return {
+    queryClient,
+    ...render(
     <QueryClientProvider client={queryClient}>
       <InstancesTable
         instances={
@@ -85,12 +98,43 @@ function renderTable(instances: FakeInstance[] = [baseInstance]) {
         }
       />
     </QueryClientProvider>,
-  );
+    ),
+  };
 }
 
 describe('InstancesTable', () => {
   beforeEach(() => {
+    metadataFieldsStub.gate = Promise.resolve();
     metadataFieldsStub.rows = [];
+  });
+
+  // A row's metadata can be opened before the field list has loaded. When the
+  // list then turns out to be empty, the table must not rebuild its columns
+  // and filters under the open dialog, which closed it.
+  it('keeps a metadata dialog open when an empty field list arrives', async () => {
+    let releaseFields = () => {};
+    metadataFieldsStub.gate = new Promise<void>((resolve) => {
+      releaseFields = resolve;
+    });
+    const user = userEvent.setup();
+    const { queryClient } = renderTable();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Pages.Customers.Instances.Table.Dialogs.metadataTrigger',
+      }),
+    );
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+
+    releaseFields();
+    await waitFor(() =>
+      expect(queryClient.getQueryState(metadataFieldsQueryKey)?.status).toBe(
+        'success',
+      ),
+    );
+    await act(async () => {});
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
   // Schema absent keeps the legacy "Metadata" column.

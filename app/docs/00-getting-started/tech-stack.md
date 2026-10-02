@@ -41,7 +41,7 @@ exact ones. When a version here and the manifest disagree, the manifest is right
 
 | Piece | Version | Role |
 | --- | --- | --- |
-| Hey API (`@hey-api/openapi-ts`) | 0.99 | Generates the REST client, types, Zod schemas and TanStack Query options from `app/openapi.yaml` into `src/api-client`, through `packages/api-codegen`. |
+| Hey API (`@hey-api/openapi-ts`) | 0.99 | Generates the REST client, types, Zod schemas, TanStack Query options and Mock Service Worker handlers from `app/openapi.yaml` into `src/api-client`, through `packages/api-codegen`. |
 | GraphQL Code Generator | 7 (CLI), 6 (client preset) | Generates the typed GraphQL client into `src/api-client/graphql`. |
 
 See [API generation](../01-architecture/api-generation.md) for the flow.
@@ -56,7 +56,7 @@ See [API generation](../01-architecture/api-generation.md) for the flow.
 | Testing Library | react 16, user-event 14 | Component tests. |
 | Storybook | 10 | Component workshop and story tests (`@storybook/addon-vitest`). |
 | Playwright | 1 | End-to-end and visual-regression suites. |
-| MSW | 2 | Mocked network for the application E2E suite (`src/e2e/msw`). |
+| MSW | 3 | Mocked network: the unit tests (`msw/node`), the stories (`.storybook/msw.ts`), the application E2E suite and `pnpm run dev:mock` (`src/e2e/msw`). Its worker script is served by the `msw/vite` plugin. |
 | tsx | 4 | Runs the TypeScript check scripts of `app/scripts/`. |
 
 ## Packaging

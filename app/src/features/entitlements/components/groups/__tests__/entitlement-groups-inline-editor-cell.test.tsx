@@ -1,12 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { HttpResponse } from 'msw/http';
 import { describe, expect, it, vi } from 'vite-plus/test';
+import { server } from '@/__tests__/msw-server';
 import type { Entitlement } from '@/api-client';
+import { handleUpdateEntitlement } from '@/api-client/msw.gen';
 import { EntitlementGroupsInlineEditorCell } from '../entitlement-groups-inline-editor-cell';
-
-const { updateEntitlementMutateAsyncMock } = vi.hoisted(() => ({
-  updateEntitlementMutateAsyncMock: vi.fn(),
-}));
 
 vi.mock('../entitlement-group-selector', () => ({
   EntitlementGroupSelector: ({
@@ -47,15 +46,6 @@ vi.mock('../entitlement-group-selector', () => ({
   ),
 }));
 
-vi.mock('@/api-client/@tanstack/react-query.gen', () => ({
-  createEntitlementMutation: vi.fn(),
-  getEntitlementQueryKey: vi.fn(),
-  listEntitlementsQueryKey: vi.fn(() => ['entitlements']),
-  updateEntitlementMutation: vi.fn(() => ({
-    mutationFn: updateEntitlementMutateAsyncMock,
-  })),
-}));
-
 describe('EntitlementGroupsInlineEditorCell', () => {
   it('updates entitlement groups inline with the entitlement writable payload', async () => {
     const entitlement: Entitlement = {
@@ -78,7 +68,16 @@ describe('EntitlementGroupsInlineEditorCell', () => {
       saleUnitFactor: 100,
     };
 
-    updateEntitlementMutateAsyncMock.mockResolvedValue(undefined);
+    const updates: Array<{ entitlementSlug: string; body: unknown }> = [];
+    server.use(
+      handleUpdateEntitlement(async ({ params, request }) => {
+        updates.push({
+          entitlementSlug: params.entitlementSlug,
+          body: await request.json(),
+        });
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
 
     const queryClient = new QueryClient({
       defaultOptions: {
@@ -113,29 +112,28 @@ describe('EntitlementGroupsInlineEditorCell', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit groups' }));
 
     await waitFor(() => {
-      expect(updateEntitlementMutateAsyncMock).toHaveBeenCalled();
       // PUT is full-replace: the inline group edit must resend every writable
       // field, otherwise icon/units/userFacing/displayOrder would be wiped.
-      expect(updateEntitlementMutateAsyncMock.mock.calls[0]?.[0]).toEqual({
-        body: {
-          aggregationMethod: 'COUNT',
-          description: 'Track API calls',
-          groupSlugs: ['usage', 'billing'],
-          icon: 'lucide:zap',
-          name: 'API Calls',
-          type: 'NUMBER',
-          userFacing: true,
-          displayOrder: 7,
-          unitSingular: 'call',
-          unitPlural: 'calls',
-          saleUnitSingular: 'pack',
-          saleUnitPlural: 'packs',
-          saleUnitFactor: 100,
-        },
-        path: {
+      expect(updates).toEqual([
+        {
           entitlementSlug: 'api-calls',
+          body: {
+            aggregationMethod: 'COUNT',
+            description: 'Track API calls',
+            groupSlugs: ['usage', 'billing'],
+            icon: 'lucide:zap',
+            name: 'API Calls',
+            type: 'NUMBER',
+            userFacing: true,
+            displayOrder: 7,
+            unitSingular: 'call',
+            unitPlural: 'calls',
+            saleUnitSingular: 'pack',
+            saleUnitPlural: 'packs',
+            saleUnitFactor: 100,
+          },
         },
-      });
+      ]);
     });
 
     await waitFor(() => {

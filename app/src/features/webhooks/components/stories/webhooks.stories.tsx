@@ -1,11 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, within } from 'storybook/test';
-import type { QueryClient } from '@tanstack/react-query';
+import { HttpResponse, http } from 'msw/http';
 import { useState } from 'react';
-import {
-	webhookHistoryQueryOptions,
-	webhooksQueryOptions,
-} from '../../queries';
 import {
 	storyApiWebhooks,
 	storyWebhookHistory,
@@ -22,18 +18,21 @@ import { WebhookListContent } from '../webhook-list/webhook-list-content';
 import { WebhookTable } from '../webhook-list/webhook-table';
 import { WebhooksPageContent } from '../webhooks-page-content';
 
-const seedWebhookQueries = (queryClient: QueryClient) => {
-	queryClient.setQueryData(webhooksQueryOptions.queryKey, storyApiWebhooks);
-	queryClient.setQueryData(webhookHistoryQueryOptions.queryKey, {
-		history: storyWebhookHistory,
-	});
-};
-
 const meta = {
 	title: 'Features/Webhooks/P0WebhooksStories',
 	component: WebhookList,
 	parameters: {
 		layout: 'fullscreen',
+		msw: {
+			// The webhooks API is outside the OpenAPI contract
+			// (webhooks.api.ts), so it has no generated handlers.
+			handlers: [
+				http.get('*/api/webhooks', () => HttpResponse.json(storyApiWebhooks)),
+				http.get('*/api/webhooks/history', () =>
+					HttpResponse.json({ history: storyWebhookHistory }),
+				),
+			],
+		},
 	},
 	tags: ['autodocs'],
 } satisfies Meta<typeof WebhookList>;
@@ -52,7 +51,6 @@ function WebhookFrame({
 		<StorybookRouter
 			initialEntries={[initialEntry]}
 			routePath="/integrations/webhooks"
-			seed={seedWebhookQueries}
 		>
 			<div className="min-h-screen p-6">{children}</div>
 		</StorybookRouter>

@@ -1,59 +1,20 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { HttpResponse, http } from 'msw/http';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { server } from '@/__tests__/msw-server';
+import {
+  handleArchiveMetadataField,
+  handleCreateMetadataField,
+  handleDryRunMetadataField,
+  handleUpdateMetadataField,
+} from '@/api-client/msw.gen';
+import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
 import { MetadataFieldsPageContent } from '../metadata-fields-page-content';
 import { metadataFieldsSettingsQueryKey } from '../metadata-fields.queries';
 import { metadataFieldsActiveQueryKey } from '@/domains/metadata-fields';
 import type { MetadataSettingsField } from '../types';
-
-const {
-  archiveMetadataFieldMock,
-  createMetadataFieldMock,
-  dryRunMetadataFieldMock,
-  graphqlRequestMock,
-  reorderMetadataFieldsMock,
-  unarchiveMetadataFieldMock,
-  updateMetadataFieldMock,
-} = vi.hoisted(() => ({
-  archiveMetadataFieldMock: vi.fn(),
-  createMetadataFieldMock: vi.fn(),
-  dryRunMetadataFieldMock: vi.fn(),
-  graphqlRequestMock: vi.fn(),
-  reorderMetadataFieldsMock: vi.fn(),
-  unarchiveMetadataFieldMock: vi.fn(),
-  updateMetadataFieldMock: vi.fn(),
-}));
-
-vi.mock('@/lib/graphql-client', () => ({
-  graphqlClient: {
-    request: graphqlRequestMock,
-  },
-}));
-
-// The server-side dry-run goes through the generated REST SDK, not
-// GraphQL — the page hook calls `dryRunMetadataField` directly.
-vi.mock('@/api-client/sdk.gen', () => ({
-  dryRunMetadataField: dryRunMetadataFieldMock,
-}));
-
-vi.mock('@/api-client/@tanstack/react-query.gen', () => ({
-  archiveMetadataFieldMutation: () => ({
-    mutationFn: archiveMetadataFieldMock,
-  }),
-  createMetadataFieldMutation: () => ({
-    mutationFn: createMetadataFieldMock,
-  }),
-  reorderMetadataFieldsMutation: () => ({
-    mutationFn: reorderMetadataFieldsMock,
-  }),
-  unarchiveMetadataFieldMutation: () => ({
-    mutationFn: unarchiveMetadataFieldMock,
-  }),
-  updateMetadataFieldMutation: () => ({
-    mutationFn: updateMetadataFieldMock,
-  }),
-}));
 
 vi.mock('react-i18next', () => ({
   initReactI18next: {
@@ -103,6 +64,65 @@ const metadataFieldsPage = (...items: MetadataSettingsField[]) => ({
   metadataFields: { hasMore: false, items, nextCursor: null },
 });
 
+type ApiCall =
+  | { op: 'archive'; id: string }
+  | { op: 'create'; body: unknown }
+  | { op: 'dryRun'; id: string; body: unknown }
+  | { op: 'update'; id: string; body: unknown };
+
+/**
+ * Serves the page's read (the GraphQL metadataFields query, answered with
+ * `fields`) and the REST writes the tests drive, and records the writes in the
+ * order the API received them, with the id and the body each one carried.
+ */
+function serveMetadataFields(
+  fields: MetadataSettingsField[] = [activeField, archivedField],
+) {
+  const calls: ApiCall[] = [];
+
+  server.use(
+    graphqlOperationHandler({
+      MetadataFields: () => metadataFieldsPage(...fields),
+    }),
+    handleArchiveMetadataField(({ params }) => {
+      calls.push({ op: 'archive', id: params.id });
+      return HttpResponse.json(archivedField);
+    }),
+    handleCreateMetadataField(async ({ request }) => {
+      calls.push({ op: 'create', body: await request.json() });
+      return HttpResponse.json(activeField, { status: 201 });
+    }),
+    // The server-side dry-run goes through the generated REST SDK, not
+    // GraphQL — the page hook calls `dryRunMetadataField` directly.
+    handleDryRunMetadataField(async ({ params, request }) => {
+      calls.push({ op: 'dryRun', id: params.id, body: await request.json() });
+      return HttpResponse.json({ count: 0, samples: [] });
+    }),
+    handleUpdateMetadataField(async ({ params, request }) => {
+      calls.push({ op: 'update', id: params.id, body: await request.json() });
+      return HttpResponse.json(activeField);
+    }),
+  );
+
+  return calls;
+}
+
+// The problem the API answers a caller that lacks the scope a request needs.
+const missingScope = (scope: string, instance: string) =>
+  HttpResponse.json(
+    {
+      title: 'Forbidden',
+      status: 403,
+      detail: `missing required scope: ${scope}`,
+      instance,
+      code: 'Auth.MissingScope',
+    },
+    {
+      status: 403,
+      headers: { 'Content-Type': 'application/problem+json' },
+    },
+  );
+
 function createTestQueryClient() {
   return new QueryClient({
     defaultOptions: {
@@ -125,28 +145,10 @@ function renderPage(queryClient = createTestQueryClient()) {
 }
 
 describe('MetadataFieldsPageContent', () => {
+  let calls: ApiCall[];
+
   beforeEach(() => {
-    graphqlRequestMock.mockReset();
-    archiveMetadataFieldMock.mockReset();
-    createMetadataFieldMock.mockReset();
-    dryRunMetadataFieldMock.mockReset();
-    reorderMetadataFieldsMock.mockReset();
-    unarchiveMetadataFieldMock.mockReset();
-    updateMetadataFieldMock.mockReset();
-
-    graphqlRequestMock.mockResolvedValue(
-      metadataFieldsPage(activeField, archivedField),
-    );
-    archiveMetadataFieldMock.mockResolvedValue(archivedField);
-    createMetadataFieldMock.mockResolvedValue(activeField);
-    dryRunMetadataFieldMock.mockResolvedValue({ data: { count: 0, samples: [] } });
-    reorderMetadataFieldsMock.mockResolvedValue(undefined);
-    unarchiveMetadataFieldMock.mockResolvedValue(activeField);
-    updateMetadataFieldMock.mockResolvedValue(activeField);
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
+    calls = serveMetadataFields();
   });
 
   it('shows resource tabs and active fields by default', async () => {
@@ -193,51 +195,28 @@ describe('MetadataFieldsPageContent', () => {
     );
 
     await waitFor(() => {
-      expect(archiveMetadataFieldMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          path: { id: 'field-region' },
-        }),
-        expect.any(Object),
-      );
+      expect(calls).toEqual([{ op: 'archive', id: 'field-region' }]);
     });
   });
 
   it('shows the restricted state when the metadata fields query is forbidden', async () => {
-    graphqlRequestMock.mockRejectedValueOnce(new Error('403 forbidden'));
+    // A bare 403, with no body to say why.
+    server.use(
+      http.post('*/api/graphql', () => new HttpResponse(null, { status: 403 })),
+    );
 
     renderPage();
 
     expect(await screen.findByText('Restricted access')).toBeInTheDocument();
   });
 
-  // The real client answers this read, so the page is given what a missing
-  // scope actually throws rather than a hand-built error.
+  // The page is given what the client throws for the problem a missing scope
+  // actually answers, rather than a hand-built error.
   it('shows the restricted state when the API refuses the read for a missing scope', async () => {
-    const { GraphQLClient } = await vi.importActual<
-      typeof import('@/lib/graphql-client')
-    >('@/lib/graphql-client');
-    const client = new GraphQLClient('http://api.test');
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({
-              title: 'Forbidden',
-              status: 403,
-              detail: 'missing required scope: read:metadata_fields',
-              instance: '/api/graphql',
-              code: 'Auth.MissingScope',
-            }),
-            {
-              status: 403,
-              headers: { 'Content-Type': 'application/problem+json' },
-            },
-          ),
+    server.use(
+      http.post('*/api/graphql', () =>
+        missingScope('read:metadata_fields', '/api/graphql'),
       ),
-    );
-    graphqlRequestMock.mockImplementationOnce((query, variables) =>
-      client.request(query, variables),
     );
 
     renderPage();
@@ -250,7 +229,14 @@ describe('MetadataFieldsPageContent', () => {
 
   it('shows a restricted banner and disables mutations after a forbidden mutation', async () => {
     const user = userEvent.setup();
-    archiveMetadataFieldMock.mockRejectedValueOnce(new Error('403 forbidden'));
+    server.use(
+      handleArchiveMetadataField(({ params }) =>
+        missingScope(
+          'write:metadata_fields',
+          `/api/metadata-fields/${params.id}/archive`,
+        ),
+      ),
+    );
     renderPage();
 
     await screen.findByText('Region');
@@ -283,21 +269,26 @@ describe('MetadataFieldsPageContent', () => {
     await user.click(screen.getByRole('button', { name: /^Save$/i }));
 
     await waitFor(() => {
-      expect(updateMetadataFieldMock).toHaveBeenCalled();
+      expect(calls.map(({ op }) => op)).toContain('update');
     });
-    const [[args]] = updateMetadataFieldMock.mock.calls;
     // key and resourceType are echoed back from the record being edited --
     // both are immutable, so there is no staleness risk (see
     // schema.MetadataField's doc comment); displayOrder is the one field
     // that must never be echoed back, since it can change from underneath
     // a long-running edit dialog.
-    expect(args.body).toEqual({
-      jsonSchema: expect.any(Object),
-      key: 'region',
-      label: 'Cloud Region',
-      resourceType: 'DEPLOYMENT_ZONE',
-    });
-    expect(args.body).not.toHaveProperty('displayOrder');
+    expect(calls).toEqual([
+      {
+        op: 'update',
+        id: 'field-region',
+        body: {
+          jsonSchema: expect.any(Object),
+          key: 'region',
+          label: 'Cloud Region',
+          resourceType: 'DEPLOYMENT_ZONE',
+        },
+      },
+    ]);
+    expect(calls[0]).not.toHaveProperty('body.displayOrder');
   });
 
   it('invalidates settings and active metadata queries after create', async () => {
@@ -312,15 +303,26 @@ describe('MetadataFieldsPageContent', () => {
     await user.type(screen.getByLabelText('Label'), 'Tier');
     await user.click(screen.getByRole('button', { name: /^Create$/i }));
 
+    // The invalidations run once the API has answered the create, a round
+    // trip after it received it.
     await waitFor(() => {
-      expect(createMetadataFieldMock).toHaveBeenCalled();
-    });
-    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-      queryKey: metadataFieldsSettingsQueryKey('DEPLOYMENT_ZONE'),
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: metadataFieldsSettingsQueryKey('DEPLOYMENT_ZONE'),
+      });
     });
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({
       queryKey: metadataFieldsActiveQueryKey('DEPLOYMENT_ZONE'),
     });
+    expect(calls).toEqual([
+      {
+        op: 'create',
+        body: expect.objectContaining({
+          key: 'tier',
+          label: 'Tier',
+          resourceType: 'DEPLOYMENT_ZONE',
+        }),
+      },
+    ]);
   });
 
   // Required-field errors must not flash on open: they appear only after a
@@ -360,11 +362,11 @@ describe('MetadataFieldsPageContent', () => {
     await user.click(screen.getByRole('button', { name: /^Save$/i }));
 
     await waitFor(() => {
-      expect(updateMetadataFieldMock).toHaveBeenCalled();
+      expect(calls.map(({ op }) => op)).toContain('update');
     });
     // The server-side dry-run endpoint would have been called if the diff had
     // been picked up as structural — a description-only edit must skip it.
-    expect(dryRunMetadataFieldMock).not.toHaveBeenCalled();
+    expect(calls.map(({ op }) => op)).not.toContain('dryRun');
   });
 
   it('opens a duplicate dialog pre-filled with the source field, sans key', async () => {
@@ -389,7 +391,7 @@ describe('MetadataFieldsPageContent', () => {
     const user = userEvent.setup();
     // Only one active field, no archived ones — so archiving leaves the
     // resource type with zero schema-bound metadata.
-    graphqlRequestMock.mockResolvedValue(metadataFieldsPage(activeField));
+    serveMetadataFields([activeField]);
     renderPage();
 
     await screen.findByText('Region');

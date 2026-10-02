@@ -1,12 +1,12 @@
-import { HttpResponse, http } from 'msw';
-import type { ConnectorSettingsWritable } from '@/api-client';
+import { HttpResponse } from 'msw/http';
+import {
+  handleDeleteConnectorSettings,
+  handleGetConnectorSettings,
+  handleUpdateConnectorSettings,
+} from '@/api-client/msw.gen';
 import type { ConnectorAppModel } from '../../../e2e/app/_support/model/connector-app-model';
 import { connectorOperations } from '../../../e2e/app/_support/model/graphql-operations';
-import {
-  graphqlOperationHandler,
-  parseRequestJson,
-  withErrorHandling,
-} from './handler-factory';
+import { graphqlOperationHandler, withErrorHandling } from './handler-factory';
 import { noop, type PersistMswState } from './persistence';
 
 export const connectorHandlers = (
@@ -14,27 +14,22 @@ export const connectorHandlers = (
   persist: PersistMswState = noop,
 ) => [
   graphqlOperationHandler(connectorOperations(model)),
-  http.get(
-    /\/api\/connectors\/[^/]+\/settings$/,
+  handleGetConnectorSettings(
     withErrorHandling('Unexpected connector mock error', () =>
       HttpResponse.json(model.getSettings()),
     ),
   ),
-  http.put(
-    /\/api\/connectors\/[^/]+\/settings$/,
+  handleUpdateConnectorSettings(
     withErrorHandling(
       'Unexpected connector mock error',
       async ({ request }) => {
-        const settings = model.updateSettings(
-          await parseRequestJson<ConnectorSettingsWritable>(request),
-        );
+        const settings = model.updateSettings(await request.json());
         persist();
         return HttpResponse.json(settings);
       },
     ),
   ),
-  http.delete(
-    /\/api\/connectors\/[^/]+\/settings$/,
+  handleDeleteConnectorSettings(
     withErrorHandling('Unexpected connector mock error', () => {
       model.deleteSettings();
       persist();

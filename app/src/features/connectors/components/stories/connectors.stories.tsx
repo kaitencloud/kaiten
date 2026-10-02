@@ -1,13 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { QueryClient } from '@tanstack/react-query';
 import { expect, userEvent, within } from 'storybook/test';
+import type { GetAttioSyncedRecordsQuery } from '@/api-client/graphql/graphql';
 import { ATTIO_CONNECTOR_NAME } from '@/domains/crm-sync';
+import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
-import {
-  AttioConnectorDetail,
-  attioSyncedRecordsQueryOptions,
-  type ConnectorSettings,
-} from '../../attio';
+import { AttioConnectorDetail, type ConnectorSettings } from '../../attio';
 import { ConnectorsPageContent } from '../connectors-page-content';
 import { ConnectorsPageShell } from '../connectors-page-shell';
 
@@ -21,28 +18,43 @@ const connectedSettings: ConnectorSettings = {
   },
 };
 
-const syncedRecords = [
-  {
-    externalId: 'record-customer-1',
-    id: 'customer-1',
-    kind: 'customer' as const,
-    lastError: null,
-    name: 'Acme Corp',
-    object: 'Company' as const,
-    slug: 'acme-corp',
-    syncedAt: '2026-06-11T12:00:00Z',
+const attio = (fields: Record<string, unknown>) => ({
+  [ATTIO_CONNECTOR_NAME]: fields,
+});
+
+// What GetAttioSyncedRecords answers for the detail: two companies synced to
+// Attio, the second one with the error its last sync failed on.
+const syncedRecords: GetAttioSyncedRecordsQuery = {
+  customers: {
+    items: [
+      {
+        id: 'customer-1',
+        integrations: attio({
+          external_id: 'record-customer-1',
+          last_error: null,
+          synced_at: '2026-06-11T12:00:00Z',
+        }),
+        name: 'Acme Corp',
+        slug: 'acme-corp',
+      },
+      {
+        id: 'customer-2',
+        integrations: attio({
+          external_id: 'record-customer-2',
+          last_error:
+            'attio companies request failed with 400: Cannot find attribute with slug/ID "customer_id".',
+          synced_at: '2026-06-12T09:30:00Z',
+        }),
+        name: 'Globex Inc',
+        slug: 'globex-inc',
+      },
+    ],
   },
-  {
-    externalId: 'record-customer-2',
-    id: 'customer-2',
-    kind: 'customer' as const,
-    lastError:
-      'attio companies request failed with 400: Cannot find attribute with slug/ID "customer_id".',
-    name: 'Globex Inc',
-    object: 'Company' as const,
-    slug: 'globex-inc',
-    syncedAt: '2026-06-12T09:30:00Z',
-  },
+  instances: { items: [] },
+};
+
+const syncedRecordsHandlers = [
+  graphqlOperationHandler({ GetAttioSyncedRecords: () => syncedRecords }),
 ];
 
 const meta = {
@@ -109,16 +121,10 @@ export const SetupWizard: Story = {
   },
 };
 
-function seedDetail(queryClient: QueryClient) {
-  queryClient.setQueryData(
-    attioSyncedRecordsQueryOptions.queryKey,
-    syncedRecords,
-  );
-}
-
 export const Detail: Story = {
+  parameters: { msw: { handlers: syncedRecordsHandlers } },
   render: () => (
-    <StorybookRouter seed={seedDetail}>
+    <StorybookRouter>
       <div className="min-h-screen p-6">
         <AttioConnectorDetail
           attioSettings={connectedSettings}
@@ -129,7 +135,7 @@ export const Detail: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText('Acme Corp')).toBeVisible();
+    await expect(await canvas.findByText('Acme Corp')).toBeVisible();
     await userEvent.click(
       canvas.getByRole('button', { name: 'Disconnect' }),
     );
@@ -140,8 +146,9 @@ export const Detail: Story = {
 };
 
 export const DetailSyncError: Story = {
+  parameters: { msw: { handlers: syncedRecordsHandlers } },
   render: () => (
-    <StorybookRouter seed={seedDetail}>
+    <StorybookRouter>
       <div className="min-h-screen p-6">
         <AttioConnectorDetail
           attioSettings={connectedSettings}
@@ -155,7 +162,7 @@ export const DetailSyncError: Story = {
     // A failed record surfaces the worker's last_error: opening the row reveals
     // the full Attio message instead of hiding it in a hover tooltip.
     await userEvent.click(
-      canvas.getByRole('button', {
+      await canvas.findByRole('button', {
         name: 'View Attio synchronization error details',
       }),
     );

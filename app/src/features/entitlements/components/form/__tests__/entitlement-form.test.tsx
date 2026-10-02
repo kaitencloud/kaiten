@@ -115,12 +115,6 @@ vi.mock('@/components/form/fields/form-field', () => ({
   ),
 }));
 
-// Mock API calls
-vi.mock('@/api-client', () => ({
-  createEntitlement: vi.fn().mockResolvedValue({}),
-  updateEntitlement: vi.fn().mockResolvedValue({}),
-}));
-
 // Mock Zod schema
 vi.mock('@/api-client/zod.gen', () => {
   const schema: {

@@ -1,20 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { QueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { entitlementGroupsQueryOptions } from '../../../queries';
+import { handleListEntitlementGroups } from '@/api-client/msw.gen';
 import {
   storyEntitlementGroups,
   storyEntitlements,
 } from '@/test-fixtures/storybook-fixtures';
+import { onePage } from '@/test-fixtures/storybook-handlers';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { EntitlementFormDialog } from '../entitlement-form-dialog';
-
-const seedEntitlementGroups = (queryClient: QueryClient) => {
-  queryClient.setQueryData(entitlementGroupsQueryOptions.queryKey, {
-    hasMore: false,
-    items: storyEntitlementGroups,
-  });
-};
 
 const meta = {
   title: 'Features/Entitlements/EntitlementFormDialog',
@@ -23,6 +16,9 @@ const meta = {
     layout: 'fullscreen',
     docs: {
       story: { inline: false, iframeHeight: 760 },
+    },
+    msw: {
+      handlers: [handleListEntitlementGroups(onePage(storyEntitlementGroups))],
     },
   },
   tags: ['autodocs'],
@@ -39,7 +35,7 @@ function EntitlementFormDialogStory({
   const [open, setOpen] = useState(true);
 
   return (
-    <StorybookRouter seed={seedEntitlementGroups}>
+    <StorybookRouter>
       <div className="flex min-h-screen items-center justify-center p-6">
         <EntitlementFormDialog
           open={open}
@@ -58,7 +54,7 @@ export const CreateNumberEntitlement: Story = {
     docs: {
       description: {
         story:
-          'Create entitlement dialog seeded with available entitlement groups.',
+          'Create entitlement dialog with the available entitlement groups.',
       },
     },
   },

@@ -4,14 +4,8 @@
  * Mirrors `e2e/app/_support/mocks/rest-route-helpers.ts` (Playwright side)
  * so that browser-side mocks share the same status / message conventions.
  */
-import {
-  type DefaultBodyType,
-  HttpResponse,
-  type HttpResponseResolver,
-  http,
-  type PathParams,
-  type RequestHandler,
-} from 'msw';
+import type { DefaultBodyType, PathParams, RequestHandler } from 'msw';
+import { HttpResponse, type HttpResponseResolver, http } from 'msw/http';
 import {
   extractOperationName,
   messageForError,
@@ -20,7 +14,6 @@ import {
   type GraphQLVariables,
 } from '../../../e2e/app/_support/contracts/mock-http';
 export {
-  getPathSegments,
   messageForError,
   statusForError,
 } from '../../../e2e/app/_support/contracts/mock-http';
@@ -44,11 +37,6 @@ export const withFallbacksLast = <T extends RequestHandler>(
   ...handlers.filter((handler) => fallbackHandlers.has(handler)),
 ];
 
-export const decodeLastPathSegment = (url: string) => {
-  const segments = new URL(url).pathname.split('/').filter(Boolean);
-  return decodeURIComponent(segments.at(-1) ?? '');
-};
-
 export const parseRequestJson = async <T>(request: Request): Promise<T> => {
   const body = await request.json();
   return body as T;
@@ -58,13 +46,17 @@ export const parseRequestJson = async <T>(request: Request): Promise<T> => {
  * Wrap an MSW resolver with the standard error → JSON-with-status mapping.
  * Removes the try/catch boilerplate from each route definition.
  *
- * Typed against `HttpResponseResolver<PathParams, DefaultBodyType>` so the
- * returned function plugs directly into `http.get` / `http.post` / etc.
+ * Generic over the path params and the request body, so that inside a
+ * generated handler (`handleGetCustomer(withErrorHandling(...))`) the resolver
+ * reads them with the types of the operation.
  */
-export const withErrorHandling = (
+export const withErrorHandling = <
+  Params extends PathParams<keyof Params>,
+  Body extends DefaultBodyType,
+>(
   errorMessage: string,
-  handler: HttpResponseResolver<PathParams, DefaultBodyType>,
-): HttpResponseResolver<PathParams, DefaultBodyType> => {
+  handler: HttpResponseResolver<Params, Body>,
+): HttpResponseResolver<Params, Body> => {
   return async (info) => {
     try {
       const result = await handler(info);

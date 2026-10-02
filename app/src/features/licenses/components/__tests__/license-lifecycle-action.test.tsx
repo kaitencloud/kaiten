@@ -1,26 +1,28 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { HttpResponse } from 'msw/http';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { server } from '@/__tests__/msw-server';
 import type { License } from '@/api-client';
+import {
+  handleArchiveLicense,
+  handlePublishLicense,
+  handleUnarchiveLicense,
+} from '@/api-client/msw.gen';
 import { TooltipProvider } from '@/components/ui/tooltip';
+// For its side effect: the REST client then throws an `ApiError`, the status
+// and the problem of a refusal, whose detail is what the action reports.
+import '@/lib/api/bootstrap';
+import type { LicenseLifecycleTransition } from '../../utils/license-lifecycle.utils';
 import { LicenseLifecycleAction } from '../license-lifecycle-action';
 
 const mocks = vi.hoisted(() => ({
-  archiveLicense: vi.fn(),
   invalidateLicenseLists: vi.fn(),
-  publishLicense: vi.fn(),
   queryClient: { invalidateQueries: vi.fn(), setQueryData: vi.fn() },
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
-  unarchiveLicense: vi.fn(),
-}));
-
-vi.mock('@/api-client', () => ({
-  archiveLicense: mocks.archiveLicense,
-  publishLicense: mocks.publishLicense,
-  unarchiveLicense: mocks.unarchiveLicense,
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -33,11 +35,6 @@ vi.mock('../../queries', () => ({
 
 vi.mock('sonner', () => ({
   toast: { error: mocks.toastError, success: mocks.toastSuccess },
-}));
-
-vi.mock('@/lib/errors', () => ({
-  // Stands for the problem detail the API sends with its refusal.
-  getApiErrorMessage: () => 'License "starter-v2" is already archived',
 }));
 
 vi.mock('react-i18next', () => ({
@@ -75,33 +72,50 @@ const renderAction = (license: License) =>
     ),
   );
 
-const requests = [
-  mocks.publishLicense,
-  mocks.archiveLicense,
-  mocks.unarchiveLicense,
-];
+type TransitionCall = {
+  licenseSlug: string;
+  transition: LicenseLifecycleTransition;
+};
+
+/**
+ * Serves the three transition operations, each answering with the moved
+ * version, and records the ones the API received, with the slug each named.
+ */
+function serveTransitions() {
+  const calls: TransitionCall[] = [];
+  const moved = (transition: LicenseLifecycleTransition, licenseSlug: string) => {
+    calls.push({ licenseSlug, transition });
+    return HttpResponse.json(makeLicense({ slug: licenseSlug }));
+  };
+
+  server.use(
+    handlePublishLicense(({ params }) => moved('publish', params.licenseSlug)),
+    handleArchiveLicense(({ params }) => moved('archive', params.licenseSlug)),
+    handleUnarchiveLicense(({ params }) =>
+      moved('unarchive', params.licenseSlug),
+    ),
+  );
+
+  return calls;
+}
 
 describe('LicenseLifecycleAction', () => {
+  let calls: TransitionCall[];
+
   beforeEach(() => {
     vi.clearAllMocks();
-    for (const request of requests) {
-      request.mockImplementation(
-        async ({ path }: { path: { licenseSlug: string } }) => ({
-          data: makeLicense({ slug: path.licenseSlug }),
-        }),
-      );
-    }
+    calls = serveTransitions();
   });
 
   // Each state accepts one transition, and each transition is its own API
   // operation: an update cannot move the state any more.
   it.each([
-    ['DRAFT', 'publish', mocks.publishLicense],
-    ['PUBLISHED', 'archive', mocks.archiveLicense],
-    ['ARCHIVED', 'unarchive', mocks.unarchiveLicense],
+    ['DRAFT', 'publish'],
+    ['PUBLISHED', 'archive'],
+    ['ARCHIVED', 'unarchive'],
   ] as const)(
     'moves a %s version through %s once confirmed',
-    async (lifecycleState, transition, request) => {
+    async (lifecycleState, transition) => {
       const user = userEvent.setup();
       renderAction(makeLicense({ lifecycleState }));
 
@@ -118,7 +132,7 @@ describe('LicenseLifecycleAction', () => {
       expect(dialog).toHaveTextContent(
         `Pages.Licenses.LifecycleActions.${transition}.description`,
       );
-      expect(request).not.toHaveBeenCalled();
+      expect(calls).toEqual([]);
 
       await user.click(
         within(dialog).getByRole('button', {
@@ -131,14 +145,8 @@ describe('LicenseLifecycleAction', () => {
           `Pages.Licenses.LifecycleActions.${transition}.success`,
         ),
       );
-      expect(request).toHaveBeenCalledTimes(1);
-      expect(request).toHaveBeenCalledWith({
-        path: { licenseSlug: 'starter-v2' },
-        throwOnError: true,
-      });
-      for (const other of requests.filter((r) => r !== request)) {
-        expect(other).not.toHaveBeenCalled();
-      }
+      // One request, to this transition's own operation and none other.
+      expect(calls).toEqual([{ licenseSlug: 'starter-v2', transition }]);
       // The moved version is the detail as the API returned it; only the
       // lists are refetched.
       expect(mocks.queryClient.setQueryData).toHaveBeenCalledWith(
@@ -186,8 +194,11 @@ describe('LicenseLifecycleAction', () => {
       }),
     );
 
-    await waitFor(() => expect(mocks.publishLicense).toHaveBeenCalledTimes(1));
-    expect(mocks.archiveLicense).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(calls).toEqual([
+        { licenseSlug: 'starter-v2', transition: 'publish' },
+      ]),
+    );
   });
 
   it('changes nothing when the confirmation is dismissed', async () => {
@@ -208,7 +219,7 @@ describe('LicenseLifecycleAction', () => {
     await waitFor(() =>
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
     );
-    expect(mocks.archiveLicense).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
     expect(mocks.invalidateLicenseLists).not.toHaveBeenCalled();
   });
 
@@ -231,7 +242,7 @@ describe('LicenseLifecycleAction', () => {
       'Pages.Licenses.LifecycleActions.archiveDefaultUnavailable',
     );
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    expect(mocks.archiveLicense).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
   });
 
   // A default can only be PUBLISHED, so publishing or unarchiving is never
@@ -247,10 +258,22 @@ describe('LicenseLifecycleAction', () => {
   });
 
   it("reports the API's reason when it refuses the transition", async () => {
-    mocks.archiveLicense.mockRejectedValue({
-      code: 'ArchiveLicense.NotPublished',
-      status: 409,
-    });
+    server.use(
+      handleArchiveLicense(({ params }) =>
+        HttpResponse.json(
+          {
+            code: 'ArchiveLicense.NotPublished',
+            detail: `License "${params.licenseSlug}" is already archived`,
+            status: 409,
+            title: 'Conflict',
+          },
+          {
+            status: 409,
+            headers: { 'Content-Type': 'application/problem+json' },
+          },
+        ),
+      ),
+    );
     const user = userEvent.setup();
     renderAction(makeLicense({ lifecycleState: 'PUBLISHED' }));
 

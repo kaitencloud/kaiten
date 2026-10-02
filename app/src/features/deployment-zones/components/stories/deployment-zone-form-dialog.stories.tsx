@@ -1,10 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, userEvent, within } from 'storybook/test';
-import type { QueryClient } from '@tanstack/react-query';
 import type { DeploymentZone } from '@/api-client';
-import { listDeploymentZonesOptions } from '@/api-client/@tanstack/react-query.gen';
-import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
+import { handleListDeploymentZones } from '@/api-client/msw.gen';
 import { storyDeploymentZones } from '@/test-fixtures/storybook-fixtures';
+import {
+  metadataFieldsHandler,
+  onePage,
+} from '@/test-fixtures/storybook-handlers';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import {
   findVisibleByRole,
@@ -27,25 +29,11 @@ const mockDeploymentZone: DeploymentZone = {
   updatedBy: { id: 'user-1', name: 'User 1' },
 };
 
-const seedDeploymentZoneFormQueries = (queryClient: QueryClient) => {
-  // The type field suggests the types the existing zones already use.
-  queryClient.setQueryData(listDeploymentZonesOptions().queryKey, {
-    hasMore: false,
-    items: storyDeploymentZones,
-  });
-  // No metadata field declared: the dialog offers raw JSON for the metadata
-  // instead of typed fields.
-  queryClient.setQueryData(
-    metadataFieldsActiveQueryOptions('DEPLOYMENT_ZONE').queryKey,
-    [],
-  );
-};
-
 // --- Router Wrapper (needed for useRouteContext in form hook) ---
 
 function FormWrapper({ deploymentZone }: { deploymentZone?: DeploymentZone }) {
   return (
-    <StorybookRouter seed={seedDeploymentZoneFormQueries}>
+    <StorybookRouter>
       <div className="p-6">
         <DeploymentZoneFormDialog
           deploymentZone={deploymentZone}
@@ -64,6 +52,15 @@ const meta = {
   component: DeploymentZoneFormDialog,
   parameters: {
     layout: 'fullscreen',
+    msw: {
+      handlers: [
+        // The type field suggests the types the existing zones already use.
+        handleListDeploymentZones(onePage(storyDeploymentZones)),
+        // No metadata field declared: the dialog offers raw JSON for the
+        // metadata instead of typed fields.
+        metadataFieldsHandler(),
+      ],
+    },
   },
   tags: ['autodocs'],
 } satisfies Meta<typeof DeploymentZoneFormDialog>;

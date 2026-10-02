@@ -125,6 +125,7 @@ api-client/
 ├── types.gen.ts                  # TypeScript types
 ├── zod.gen.ts                    # Zod schemas
 ├── @tanstack/react-query.gen.ts  # query options, mutations and query keys
+├── msw.gen.ts                    # Mock Service Worker handlers, for mocks and tests
 └── graphql/                      # GraphQL types and the graphql() document function
 ```
 

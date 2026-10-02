@@ -15,7 +15,7 @@ The contract files themselves, and where each one comes from, are listed in
 
 | Contract | Source | Tool | Output |
 | --- | --- | --- | --- |
-| REST (Core API) | `app/openapi.yaml` | `@hey-api/openapi-ts` | `src/api-client/` (`types.gen.ts`, `zod.gen.ts`, `sdk.gen.ts`, `@tanstack/react-query.gen.ts`, the fetch client in `client/` and `core/`) |
+| REST (Core API) | `app/openapi.yaml` | `@hey-api/openapi-ts` | `src/api-client/` (`types.gen.ts`, `zod.gen.ts`, `sdk.gen.ts`, `@tanstack/react-query.gen.ts`, `msw.gen.ts`, the fetch client in `client/` and `core/`) |
 | REST scopes | `app/openapi.yaml` (`x-kaiten-scopes`) | `packages/api-codegen/generate-scopes.js` | `src/lib/api/scopes.gen.ts` (tracked) |
 | GraphQL | the `.graphqls` files in `api/` | GraphQL Code Generator | `src/api-client/graphql/` |
 
@@ -115,9 +115,24 @@ Under `src/api-client/`:
   `@/lib/api/bootstrap` once before the route tree so query keys capture the
   configured URL. Adapters have no initialization side effect. See [data-flow.md](./data-flow.md).
 - `index.ts`: re-exports the SDK functions and the types.
+- `msw.gen.ts`: one Mock Service Worker handler per operation, for the mocks and
+  the tests only (`handleListCustomers`, `handleCreateCustomer`, …). The path, the
+  path params and the request body come from the operation, and so does the
+  response body when the handler is given one rather than a resolver. Each
+  matches `*/api/<path>`, whatever origin the client calls.
+
+  ```typescript
+  // a story's handlers: the body must be a ListCustomersResponses[200]
+  handleListCustomers({ body: { hasMore: false, items: storyCustomers } });
+  // the E2E mocks: params.customerSlug is typed, request.json() too
+  handleGetCustomer(({ params }) =>
+    HttpResponse.json(model.getCustomer(params.customerSlug)),
+  );
+  ```
 
 Features and domains import the generated code from `@/api-client`,
-`@/api-client/@tanstack/react-query.gen` and `@/api-client/zod.gen`.
+`@/api-client/@tanstack/react-query.gen` and `@/api-client/zod.gen`. Only the
+mocks, the tests and the stories import `@/api-client/msw.gen`.
 
 List endpoints are cursor-paginated. Screens that need a whole list read it
 through `@/lib/api/all-pages-query-options`, which keeps the generated query key

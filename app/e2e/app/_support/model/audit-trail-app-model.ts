@@ -1,6 +1,8 @@
-import type { Webhooks } from '@/api-client';
+import type { PageAuditTrail, Webhooks } from '@/api-client';
 import type { GetGlobalAuditTrailQuery } from '@/api-client/graphql/graphql';
+import { zPageAuditTrail } from '@/api-client/zod.gen';
 import { parseAuditEventContract } from '../contracts/audit-event-contract';
+import { parseContract } from '../contracts/openapi-contract';
 
 type AuditTrailRow =
   GetGlobalAuditTrailQuery['organizationAuditTrails']['items'][number];
@@ -71,14 +73,50 @@ export class AuditTrailAppModel {
 
     return {
       organizationAuditTrails: {
-        items: [...this.entries]
-          .sort(
-            (left, right) =>
-              Date.parse(right.timestamp) - Date.parse(left.timestamp),
-          )
-          .slice(0, limit)
-          .map(toRow),
+        items: this.newestFirst().slice(0, limit).map(toRow),
       },
     };
+  }
+
+  /**
+   * Answers `GET /instances/{instanceSlug}/audit-trails`, the tab of an
+   * instance: the events of that instance, newest first, and only those of one
+   * event name when the query names one.
+   */
+  getInstanceAuditTrail(
+    instanceSlug: string,
+    {
+      eventName,
+      limit = DEFAULT_LIMIT,
+    }: { eventName?: string; limit?: number } = {},
+  ): PageAuditTrail {
+    const events = this.newestFirst().filter(
+      (entry) =>
+        entry.instanceSlug === instanceSlug &&
+        (eventName === undefined || entry.eventName === eventName),
+    );
+
+    return parseContract(
+      zPageAuditTrail,
+      {
+        hasMore: events.length > limit,
+        items: events.slice(0, limit).map((entry) => ({
+          eventName: entry.eventName,
+          eventType: entry.eventType,
+          id: entry.id,
+          ...(entry.instanceId ? { instanceId: entry.instanceId } : {}),
+          instanceSlug,
+          payload: entry.payload,
+          timestamp: entry.timestamp,
+        })),
+      },
+      'AuditTrailAppModel.getInstanceAuditTrail result',
+    );
+  }
+
+  private newestFirst() {
+    return [...this.entries].sort(
+      (left, right) => Date.parse(right.timestamp) - Date.parse(left.timestamp),
+    );
   }
 }

@@ -1,74 +1,65 @@
-import { HttpResponse, http } from 'msw';
-import type { EvaluationRequest, FeatureFlagWritable } from '@/api-client';
-import type { FeatureFlagAppModel } from '../../../e2e/app/_support/model/feature-flag-app-model';
+import { HttpResponse } from 'msw/http';
 import {
-  decodeLastPathSegment,
-  parseRequestJson,
-  withErrorHandling,
-} from './handler-factory';
+  handleCreateFeatureFlag,
+  handleDeleteFeatureFlag,
+  handleEvaluateFlag,
+  handleGetFeatureFlag,
+  handleGetFeatureFlags,
+  handleUpdateFeatureFlag,
+} from '@/api-client/msw.gen';
+import type { FeatureFlagAppModel } from '../../../e2e/app/_support/model/feature-flag-app-model';
+import { withErrorHandling } from './handler-factory';
 import { noop, type PersistMswState } from './persistence';
 
 export const featureFlagHandlers = (
   model: FeatureFlagAppModel,
   persist: PersistMswState = noop,
 ) => [
-  http.get(/\/api\/feature-flags$/, () =>
+  handleGetFeatureFlags(() =>
     HttpResponse.json({ hasMore: false, items: model.listFeatureFlags() }),
   ),
-  http.post(
-    /\/api\/feature-flags$/,
+  handleCreateFeatureFlag(
     withErrorHandling(
       'Unexpected feature flag mock error',
       async ({ request }) => {
-        const flag = model.createFeatureFlag(
-          await parseRequestJson<FeatureFlagWritable>(request),
-        );
+        const flag = model.createFeatureFlag(await request.json());
         persist();
         return HttpResponse.json(flag, { status: 201 });
       },
     ),
   ),
-  http.get(
-    /\/api\/feature-flags\/[^/]+$/,
-    withErrorHandling('Unexpected feature flag mock error', ({ request }) =>
-      HttpResponse.json(
-        model.getFeatureFlag(decodeLastPathSegment(request.url)),
-      ),
+  handleGetFeatureFlag(
+    withErrorHandling('Unexpected feature flag mock error', ({ params }) =>
+      HttpResponse.json(model.getFeatureFlag(params.featureFlagSlug)),
     ),
   ),
-  http.put(
-    /\/api\/feature-flags\/[^/]+$/,
+  handleUpdateFeatureFlag(
     withErrorHandling(
       'Unexpected feature flag mock error',
-      async ({ request }) => {
+      async ({ params, request }) => {
         const flag = model.updateFeatureFlag(
-          decodeLastPathSegment(request.url),
-          await parseRequestJson<FeatureFlagWritable>(request),
+          params.featureFlagSlug,
+          await request.json(),
         );
         persist();
         return HttpResponse.json(flag);
       },
     ),
   ),
-  http.delete(
-    /\/api\/feature-flags\/[^/]+$/,
-    withErrorHandling('Unexpected feature flag mock error', ({ request }) => {
-      model.deleteFeatureFlag(decodeLastPathSegment(request.url));
+  handleDeleteFeatureFlag(
+    withErrorHandling('Unexpected feature flag mock error', ({ params }) => {
+      model.deleteFeatureFlag(params.featureFlagSlug);
       persist();
       return new HttpResponse(null, { status: 204 });
     }),
   ),
-  http.post(
-    /\/api\/ofrep\/v1\/evaluate\/flags\/[^/]+$/,
+  handleEvaluateFlag(
     withErrorHandling(
       'Unexpected feature flag evaluation mock error',
-      async ({ request }) => {
-        const body = await parseRequestJson<EvaluationRequest>(request);
+      async ({ params, request }) => {
+        const body = await request.json();
         return HttpResponse.json(
-          model.evaluateFlag(
-            decodeLastPathSegment(request.url),
-            body.context ?? {},
-          ),
+          model.evaluateFlag(params.key, body.context ?? {}),
         );
       },
     ),

@@ -1,86 +1,68 @@
-import { HttpResponse, http } from 'msw';
-import type { Entitlement } from '@/api-client';
-import type { EntitlementAppModel } from '../../../e2e/app/_support/model/entitlement-app-model';
+import { HttpResponse } from 'msw/http';
 import {
-  asFallback,
-  decodeLastPathSegment,
-  parseRequestJson,
-  withErrorHandling,
-} from './handler-factory';
+  handleCreateEntitlement,
+  handleDeleteEntitlement,
+  handleGetEntitlement,
+  handleGetInstances,
+  handleGetLicenseEntitlements,
+  handleGetLicenses,
+  handleListCustomers,
+  handleListEntitlementGroups,
+  handleListEntitlements,
+  handleUpdateEntitlement,
+} from '@/api-client/msw.gen';
+import type { EntitlementAppModel } from '../../../e2e/app/_support/model/entitlement-app-model';
+import { asFallback, withErrorHandling } from './handler-factory';
 import { noop, type PersistMswState } from './persistence';
+
+const emptyPage = { body: { hasMore: false, items: [] } };
 
 export const entitlementHandlers = (
   model: EntitlementAppModel,
   persist: PersistMswState = noop,
 ) => [
-  http.get(/\/api\/entitlements$/, () =>
+  handleListEntitlements(() =>
     HttpResponse.json({ hasMore: false, items: model.listEntitlements() }),
   ),
-  http.post(
-    /\/api\/entitlements$/,
+  handleCreateEntitlement(
     withErrorHandling(
       'Unexpected entitlement mock error',
       async ({ request }) => {
-        const entitlement = model.createEntitlement(
-          await parseRequestJson<Partial<Entitlement>>(request),
-        );
+        const entitlement = model.createEntitlement(await request.json());
         persist();
         return HttpResponse.json(entitlement, { status: 201 });
       },
     ),
   ),
-  http.get(
-    /\/api\/entitlements\/[^/]+$/,
-    withErrorHandling('Unexpected entitlement mock error', ({ request }) =>
-      HttpResponse.json(
-        model.getEntitlement(decodeLastPathSegment(request.url)),
-      ),
+  handleGetEntitlement(
+    withErrorHandling('Unexpected entitlement mock error', ({ params }) =>
+      HttpResponse.json(model.getEntitlement(params.entitlementSlug)),
     ),
   ),
-  http.put(
-    /\/api\/entitlements\/[^/]+$/,
+  handleUpdateEntitlement(
     withErrorHandling(
       'Unexpected entitlement mock error',
-      async ({ request }) => {
+      async ({ params, request }) => {
         const entitlement = model.updateEntitlement(
-          decodeLastPathSegment(request.url),
-          await parseRequestJson<Partial<Entitlement>>(request),
+          params.entitlementSlug,
+          await request.json(),
         );
         persist();
         return HttpResponse.json(entitlement);
       },
     ),
   ),
-  http.delete(
-    /\/api\/entitlements\/[^/]+$/,
-    withErrorHandling('Unexpected entitlement mock error', ({ request }) => {
-      model.deleteEntitlement(decodeLastPathSegment(request.url));
+  handleDeleteEntitlement(
+    withErrorHandling('Unexpected entitlement mock error', ({ params }) => {
+      model.deleteEntitlement(params.entitlementSlug);
       persist();
       return new HttpResponse(null, { status: 204 });
     }),
   ),
-  http.get(/\/api\/entitlement-groups$/, () =>
-    HttpResponse.json({ hasMore: false, items: [] }),
-  ),
+  handleListEntitlementGroups(emptyPage),
   // Keep this slot self-contained, after the handlers of installed owners.
-  asFallback(
-    http.get(/\/api\/customers$/, () =>
-      HttpResponse.json({ hasMore: false, items: [] }),
-    ),
-  ),
-  asFallback(
-    http.get(/\/api\/instances$/, () =>
-      HttpResponse.json({ hasMore: false, items: [] }),
-    ),
-  ),
-  asFallback(
-    http.get(/\/api\/licenses$/, () =>
-      HttpResponse.json({ hasMore: false, items: [] }),
-    ),
-  ),
-  asFallback(
-    http.get(/\/api\/licenses\/[^/]+\/entitlements$/, () =>
-      HttpResponse.json({ hasMore: false, items: [] }),
-    ),
-  ),
+  asFallback(handleListCustomers(emptyPage)),
+  asFallback(handleGetInstances(emptyPage)),
+  asFallback(handleGetLicenses(emptyPage)),
+  asFallback(handleGetLicenseEntitlements(emptyPage)),
 ];

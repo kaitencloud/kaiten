@@ -40,6 +40,11 @@ The `unit` project runs every test in jsdom, with a timeout of 10 seconds per te
 - initialises i18next with one resource (`src/__tests__/test-i18n.ts`), so `t('Some.key')` returns `Some.key`: assert on the key, or mock `react-i18next` when a test needs real wording;
 - stubs `ResizeObserver`.
 
+The `unit` project alone then runs `src/__tests__/msw-setup.ts`, which:
+
+- points the generated REST client at `env.API_URL`, an absolute URL, which fetch needs outside a page;
+- starts Mock Service Worker's Node server (`src/__tests__/msw-server.ts`) before the tests and closes it after them. It answers nothing by default: a request that no test declared fails with a network error and an `[MSW]` error, and never reaches a real API. The handlers a test declares are dropped after it. See [mock the network](#mock-the-network).
+
 Import `describe`, `it`, `expect` and `vi` from `vite-plus/test`, as the existing tests do.
 
 ## Write a test
@@ -93,9 +98,39 @@ describe('DestructiveActionButton', () => {
 Guidelines:
 
 - Query by role, label or visible text, and assert on what the user sees. Interact with `@testing-library/user-event`.
-- Mock the edges, not the unit: `vi.mock('@tanstack/react-router', ...)` for navigation hooks, `vi.mock('sonner', ...)` for toasts, `vi.mock('@/api-client', ...)` for network calls. `src/components/route/__tests__/route-error.test.tsx` mocks the router and `react-i18next`.
+- Mock the edges, not the unit: `vi.mock('@tanstack/react-router', ...)` for navigation hooks, `vi.mock('sonner', ...)` for toasts, and the network with Mock Service Worker rather than `vi.mock('@/api-client', ...)`: see [mock the network](#mock-the-network). `src/components/route/__tests__/route-error.test.tsx` mocks the router and `react-i18next`.
 - A component that reads TanStack Query needs a `QueryClientProvider` with a fresh `QueryClient` per test, as in `src/features/customers/components/__tests__/customer-form.test.tsx`.
 - Name a test after the behaviour it protects, so a failure reads as a sentence.
+
+## Mock the network
+
+A test that reaches the API keeps the generated client, its query options and its mutations, and declares what the API answers with `server.use(...)`. The handlers last until the end of the test.
+
+```ts
+// src/lib/api/__tests__/all-pages-query-options.test.ts (excerpt)
+import { HttpResponse } from 'msw/http';
+import { server } from '@/__tests__/msw-server';
+import { handleListEntitlements } from '@/api-client/msw.gen';
+
+const pageQueries: Array<Record<string, string>> = [];
+server.use(
+  handleListEntitlements(({ request }) => {
+    const query = Object.fromEntries(new URL(request.url).searchParams);
+    pageQueries.push(query);
+    return HttpResponse.json(
+      query.cursor === 'c1'
+        ? { hasMore: false, items: [entitlement('e2')] }
+        : { hasMore: true, items: [entitlement('e1')], nextCursor: 'c1' },
+    );
+  }),
+);
+```
+
+- A REST endpoint takes its generated handler from `@/api-client/msw.gen`, one per operation of the OpenAPI contract. `handleGetCustomer({ body: customer })` answers with a body typed by the operation. `handleCreateCustomer(async ({ params, request }) => ...)` reads the path params and `await request.json()` with their types, so the test can record what was sent.
+- GraphQL is outside the contract: `graphqlOperationHandler({ GetCustomersWithInstances: (variables) => data })` from `@/e2e/msw/handler-factory`, the router of the E2E mocks, or `http.post('*/api/graphql', ...)` from `msw/http` for a raw answer, such as a 403.
+- Assert on what reached the API, as `src/features/licenses/hooks/__tests__/use-license-save.test.tsx` does, rather than on the arguments of a mocked function. `JSON.stringify` drops `undefined` fields: an expected body leaves them out, as the request does.
+- A failed request throws the parsed error body. `@/lib/api` wraps it in an `ApiError`, as in the app: a test whose subject reads the error's status or detail through `getApiErrorMessage` imports `@/lib/api` for that side effect, as `src/features/licenses/components/__tests__/license-lifecycle-action.test.tsx` does.
+- Under fake timers, a request is answered over a few turns of the event loop and a few fake milliseconds, because jsdom's fetch, undici, waits on timers before it reuses a connection: `src/domains/crm-sync/queries/attio-sync-coordinator.test.ts` advances the clock by a few milliseconds where a mocked function resolved within microtasks.
 
 ## What belongs elsewhere
 

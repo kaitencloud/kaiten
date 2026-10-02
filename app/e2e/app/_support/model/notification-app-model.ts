@@ -86,12 +86,12 @@ const CATALOG = [
 
 const CHANNELS = ['in_app'] as const;
 
-const DEMO_TEMPLATES: Array<
-  Pick<
-    Notification,
-    'eventName' | 'eventType' | 'objectType' | 'title' | 'body' | 'actionUrl'
-  >
-> = [
+export type NotificationDemoTemplate = Pick<
+  Notification,
+  'eventName' | 'eventType' | 'objectType' | 'title' | 'body' | 'actionUrl'
+>;
+
+const DEMO_TEMPLATES: NotificationDemoTemplate[] = [
   {
     eventName: 'INSTANCE_DEPLOYED',
     eventType: 'com.kaiten.instance.v1.deployed',
@@ -132,6 +132,8 @@ export type NotificationAppModelSeed = {
   preferenceOverrides?: Record<string, Record<string, boolean>>;
   /** When set, connected mock SSE streams emit a demo notification on this interval. */
   streamDemoIntervalMs?: number;
+  /** What the demo notifications say, in turn. Left out, generic templates. */
+  streamDemoTemplates?: NotificationDemoTemplate[];
 };
 
 export type SerializedNotificationAppModel = NotificationAppModelSeed & {
@@ -146,6 +148,7 @@ const byNewestFirst = (a: Notification, b: Notification) =>
 
 export class NotificationAppModel {
   readonly streamDemoIntervalMs?: number;
+  private readonly streamDemoTemplates?: NotificationDemoTemplate[];
   private notifications: Notification[];
   private preferenceOverrides: Record<string, Record<string, boolean>>;
   private sequence: number;
@@ -155,6 +158,7 @@ export class NotificationAppModel {
     this.notifications = clone(seed.notifications ?? []).sort(byNewestFirst);
     this.preferenceOverrides = clone(seed.preferenceOverrides ?? {});
     this.streamDemoIntervalMs = seed.streamDemoIntervalMs;
+    this.streamDemoTemplates = clone(seed.streamDemoTemplates);
     this.sequence = this.notifications.length + 1;
   }
 
@@ -163,6 +167,7 @@ export class NotificationAppModel {
       notifications: state.notifications,
       preferenceOverrides: state.preferenceOverrides,
       streamDemoIntervalMs: state.streamDemoIntervalMs,
+      streamDemoTemplates: state.streamDemoTemplates,
     });
 
     model.sequence = state.sequence;
@@ -176,6 +181,7 @@ export class NotificationAppModel {
       notifications: clone(this.notifications),
       preferenceOverrides: clone(this.preferenceOverrides),
       streamDemoIntervalMs: this.streamDemoIntervalMs,
+      streamDemoTemplates: clone(this.streamDemoTemplates),
       pendingErrors: this.errors.snapshot(),
       sequence: this.sequence,
     };
@@ -327,7 +333,10 @@ export class NotificationAppModel {
 
   /** Create one notification from the rotating demo templates (mock SSE). */
   emitDemoNotification(): Notification {
-    const template = DEMO_TEMPLATES[this.sequence % DEMO_TEMPLATES.length];
+    const templates = this.streamDemoTemplates?.length
+      ? this.streamDemoTemplates
+      : DEMO_TEMPLATES;
+    const template = templates[this.sequence % templates.length];
     this.sequence += 1;
     const notification: Notification = {
       id: `ntf-live-${this.sequence}`,

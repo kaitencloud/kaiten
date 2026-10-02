@@ -15,6 +15,13 @@ export default defineConfig({
 			readableNameBuilder: "{{name}}",
 		},
 		"zod",
-    "@tanstack/react-query"
+    "@tanstack/react-query",
+		{
+			// One typed Mock Service Worker handler per operation (msw.gen.ts), for
+			// the mocks of app/src/mocks, the stories and the unit tests. Matched on
+			// /api whatever the origin, as the client reaches the API.
+			name: "msw",
+			baseUrl: "*/api",
+		},
 	],
 });

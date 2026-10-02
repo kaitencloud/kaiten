@@ -1,22 +1,23 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
+import { HttpResponse } from 'msw/http';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { server } from '@/__tests__/msw-server';
 import type { Customer } from '@/api-client';
+import {
+  handleCreateCustomer,
+  handleUpdateCustomer,
+} from '@/api-client/msw.gen';
 import { ATTIO_CONNECTOR_NAME } from '@/domains/crm-sync';
 import { useCustomerFormMutations } from './customer-form.mutations';
 
-const {
-  createCustomerMock,
-  invalidateCustomerQueriesMock,
-  startAttioSyncWatcherMock,
-  updateCustomerMock,
-} = vi.hoisted(() => ({
-  createCustomerMock: vi.fn(),
-  invalidateCustomerQueriesMock: vi.fn(),
-  startAttioSyncWatcherMock: vi.fn(),
-  updateCustomerMock: vi.fn(),
-}));
+const { invalidateCustomerQueriesMock, startAttioSyncWatcherMock } = vi.hoisted(
+  () => ({
+    invalidateCustomerQueriesMock: vi.fn(),
+    startAttioSyncWatcherMock: vi.fn(),
+  }),
+);
 
 let queryClient: QueryClient;
 
@@ -30,11 +31,6 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn() },
-}));
-
-vi.mock('@/api-client/@tanstack/react-query.gen', () => ({
-  createCustomerMutation: () => ({ mutationFn: createCustomerMock }),
-  updateCustomerMutation: () => ({ mutationFn: updateCustomerMock }),
 }));
 
 vi.mock('@/domains/customer-management/queries', () => ({
@@ -72,8 +68,6 @@ describe('useCustomerFormMutations', () => {
         queries: { retry: false },
       },
     });
-    createCustomerMock.mockReset();
-    updateCustomerMock.mockReset();
     invalidateCustomerQueriesMock.mockReset();
     startAttioSyncWatcherMock.mockReset();
     invalidateCustomerQueriesMock.mockResolvedValue(undefined);
@@ -81,7 +75,13 @@ describe('useCustomerFormMutations', () => {
   });
 
   it('starts the Attio watcher after creating an unlinked customer', async () => {
-    createCustomerMock.mockResolvedValue(baseCustomer);
+    const bodies: unknown[] = [];
+    server.use(
+      handleCreateCustomer(async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json(baseCustomer, { status: 201 });
+      }),
+    );
     const { result } = renderHook(() => useCustomerFormMutations(), {
       wrapper,
     });
@@ -92,6 +92,7 @@ describe('useCustomerFormMutations', () => {
       });
     });
 
+    expect(bodies).toEqual([{ name: 'Acme' }]);
     expect(startAttioSyncWatcherMock).toHaveBeenCalledWith({
       queryClient,
       entityKind: 'customer',
@@ -101,7 +102,17 @@ describe('useCustomerFormMutations', () => {
   });
 
   it('uses the existing entity state after a 204 customer update', async () => {
-    updateCustomerMock.mockResolvedValue(undefined);
+    const updates: Array<{ customerSlug: string; body: unknown }> = [];
+    server.use(
+      handleUpdateCustomer(async ({ params, request }) => {
+        updates.push({
+          customerSlug: params.customerSlug,
+          body: await request.json(),
+        });
+        // No Content: the answer carries no customer to read the state from.
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
     const customer = {
       ...baseCustomer,
       integrations: {
@@ -123,6 +134,9 @@ describe('useCustomerFormMutations', () => {
       });
     });
 
+    expect(updates).toEqual([
+      { customerSlug: 'acme', body: { name: 'Acme updated' } },
+    ]);
     expect(invalidateCustomerQueriesMock).toHaveBeenCalledWith(
       queryClient,
       'acme',

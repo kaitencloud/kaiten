@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { QueryClient } from '@tanstack/react-query';
-import { customerQueryOptions } from '../../queries/customer-query-options';
-import { instancesWithRelationsQueryKey } from '@/domains/customer-management';
+import { handleGetCustomer } from '@/api-client/msw.gen';
+import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
 import {
   storyCustomers,
   storyInstanceRows,
@@ -11,21 +10,21 @@ import { CustomerDetailPageContent } from '../customer-detail/customer-detail-pa
 
 const customer = storyCustomers[0];
 
-const seedCustomerDetailQueries = (queryClient: QueryClient) => {
-  queryClient.setQueryData(
-    customerQueryOptions(customer.slug!).queryKey,
-    customer,
-  );
-  queryClient.setQueryData(instancesWithRelationsQueryKey(), {
-    instances: { items: storyInstanceRows },
-  });
-};
-
 const meta = {
   title: 'Features/Customers/CustomerDetailPageContent',
   component: CustomerDetailPageContent,
   parameters: {
     layout: 'fullscreen',
+    msw: {
+      handlers: [
+        handleGetCustomer({ body: customer }),
+        graphqlOperationHandler({
+          GetInstancesWithRelations: () => ({
+            instances: { hasMore: false, items: storyInstanceRows, nextCursor: null },
+          }),
+        }),
+      ],
+    },
   },
   tags: ['autodocs'],
 } satisfies Meta<typeof CustomerDetailPageContent>;
@@ -38,7 +37,6 @@ export const Overview: Story = {
     <StorybookRouter
       initialEntries={[`/customers/${customer.slug}`]}
       routePath="/customers/$customerSlug"
-      seed={seedCustomerDetailQueries}
     >
       <CustomerDetailPageContent customerSlug={customer.slug!} />
     </StorybookRouter>

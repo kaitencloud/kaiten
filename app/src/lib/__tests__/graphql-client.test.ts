@@ -1,4 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { HttpResponse, http } from 'msw/http';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { server } from '@/__tests__/msw-server';
 import { getAuthToken } from '../auth-token';
 import { ApiError } from '../errors';
 import { GraphQLClient } from '../graphql-client';
@@ -7,21 +9,30 @@ vi.mock('../auth-token', () => ({
   getAuthToken: vi.fn(async () => undefined),
 }));
 
-// Mock fetch globally
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+const baseURL = 'http://localhost:3001';
+
+/**
+ * Answers the client's requests with `respond`, and returns the requests it
+ * received, as they went over the wire.
+ */
+function serveGraphQL(respond: () => Response) {
+  const requests: Request[] = [];
+  server.use(
+    http.post(`${baseURL}/graphql`, ({ request }) => {
+      requests.push(request.clone());
+      return respond();
+    }),
+  );
+  return requests;
+}
 
 describe('GraphQLClient', () => {
   let client: GraphQLClient;
-  const baseURL = 'http://localhost:3001';
 
   beforeEach(() => {
     client = new GraphQLClient(baseURL);
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    vi.resetAllMocks();
+    vi.mocked(getAuthToken).mockReset();
+    vi.mocked(getAuthToken).mockResolvedValue(undefined);
   });
 
   describe('constructor', () => {
@@ -37,97 +48,50 @@ describe('GraphQLClient', () => {
     const mockData = { users: [{ id: '1', name: 'John' }] };
 
     it('should make a POST request to /graphql endpoint', async () => {
-      vi.mocked(getAuthToken).mockResolvedValue(undefined);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: mockData }),
-      });
+      const requests = serveGraphQL(() => HttpResponse.json({ data: mockData }));
 
       await client.request(mockQuery);
 
-      expect(mockFetch).toHaveBeenCalledWith(`${baseURL}/graphql`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: mockQuery,
-          variables: undefined,
-        }),
-      });
+      expect(requests).toHaveLength(1);
+      expect(requests[0].method).toBe('POST');
+      expect(requests[0].headers.get('Content-Type')).toBe('application/json');
+      // `variables: undefined` does not survive JSON.stringify.
+      expect(await requests[0].json()).toEqual({ query: mockQuery });
     });
 
     it('should include Authorization header when token is present', async () => {
       const mockToken = 'test-token-123';
       vi.mocked(getAuthToken).mockResolvedValue(mockToken);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: mockData }),
-      });
+      const requests = serveGraphQL(() => HttpResponse.json({ data: mockData }));
 
       await client.request(mockQuery);
 
-      expect(mockFetch).toHaveBeenCalledWith(`${baseURL}/graphql`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${mockToken}`,
-        },
-        body: JSON.stringify({
-          query: mockQuery,
-          variables: undefined,
-        }),
-      });
+      expect(requests[0].headers.get('Authorization')).toBe(
+        `Bearer ${mockToken}`,
+      );
     });
 
     it('should not include Authorization header when token is not present', async () => {
-      vi.mocked(getAuthToken).mockResolvedValue(undefined);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: mockData }),
-      });
+      const requests = serveGraphQL(() => HttpResponse.json({ data: mockData }));
 
       await client.request(mockQuery);
 
-      const callArgs = mockFetch.mock.calls[0][1] as RequestInit;
-      expect(callArgs.headers).toEqual({
-        'Content-Type': 'application/json',
-      });
-      expect(callArgs.headers).not.toHaveProperty('Authorization');
+      expect(requests[0].headers.has('Authorization')).toBe(false);
     });
 
     it('should send variables in the request body', async () => {
-      vi.mocked(getAuthToken).mockResolvedValue(undefined);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: mockData }),
-      });
+      const requests = serveGraphQL(() => HttpResponse.json({ data: mockData }));
 
       await client.request(mockQuery, mockVariables);
 
-      expect(mockFetch).toHaveBeenCalledWith(`${baseURL}/graphql`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: mockQuery,
-          variables: mockVariables,
-        }),
+      expect(await requests[0].json()).toEqual({
+        query: mockQuery,
+        variables: mockVariables,
       });
     });
 
     it('should return data when request is successful', async () => {
-      vi.mocked(getAuthToken).mockResolvedValue(undefined);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: mockData }),
-      });
+      serveGraphQL(() => HttpResponse.json({ data: mockData }));
 
       const result = await client.request(mockQuery);
 
@@ -136,34 +100,19 @@ describe('GraphQLClient', () => {
 
     it('should throw error when GraphQL errors are present', async () => {
       const mockError = { message: 'Field not found', path: ['user', 'email'] };
-      vi.mocked(getAuthToken).mockResolvedValue(undefined);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ errors: [mockError] }),
-      });
+      serveGraphQL(() => HttpResponse.json({ errors: [mockError] }));
 
       await expect(client.request(mockQuery)).rejects.toThrow('Field not found');
     });
 
     it('should throw error with default message when error has no message', async () => {
-      vi.mocked(getAuthToken).mockResolvedValue(undefined);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ errors: [{}] }),
-      });
+      serveGraphQL(() => HttpResponse.json({ errors: [{}] }));
 
       await expect(client.request(mockQuery)).rejects.toThrow('GraphQL Error');
     });
 
     it('should throw error when no data is returned', async () => {
-      vi.mocked(getAuthToken).mockResolvedValue(undefined);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({}),
-      });
+      serveGraphQL(() => HttpResponse.json({}));
 
       await expect(client.request(mockQuery)).rejects.toThrow(
         'No data returned from GraphQL',
@@ -171,12 +120,7 @@ describe('GraphQLClient', () => {
     });
 
     it('should throw error when data is null', async () => {
-      vi.mocked(getAuthToken).mockResolvedValue(undefined);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: null }),
-      });
+      serveGraphQL(() => HttpResponse.json({ data: null }));
 
       await expect(client.request(mockQuery)).rejects.toThrow(
         'No data returned from GraphQL',
@@ -184,16 +128,11 @@ describe('GraphQLClient', () => {
     });
 
     it('should preserve all GraphQL errors', async () => {
-      const mockErrors = [
-        { message: 'First error' },
-        { message: 'Second error' },
-      ];
-      vi.mocked(getAuthToken).mockResolvedValue(undefined);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ errors: mockErrors }),
-      });
+      serveGraphQL(() =>
+        HttpResponse.json({
+          errors: [{ message: 'First error' }, { message: 'Second error' }],
+        }),
+      );
 
       await expect(client.request(mockQuery)).rejects.toThrow(
         'First error; Second error',
@@ -212,13 +151,7 @@ describe('GraphQLClient', () => {
       const typedData: UsersResponse = {
         users: [{ id: '1', name: 'John' }],
       };
-
-      vi.mocked(getAuthToken).mockResolvedValue(undefined);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: typedData }),
-      });
+      serveGraphQL(() => HttpResponse.json({ data: typedData }));
 
       const result = await client.request<UsersResponse>(mockQuery);
 
@@ -227,13 +160,8 @@ describe('GraphQLClient', () => {
     });
 
     it('should ask the shared auth provider for the latest token', async () => {
-      const mockToken = 'session-token-456';
-      vi.mocked(getAuthToken).mockResolvedValue(mockToken);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: mockData }),
-      });
+      vi.mocked(getAuthToken).mockResolvedValue('session-token-456');
+      serveGraphQL(() => HttpResponse.json({ data: mockData }));
 
       await client.request(mockQuery);
 
@@ -243,22 +171,22 @@ describe('GraphQLClient', () => {
 
   describe('error handling', () => {
     it('should handle network errors', async () => {
-      vi.mocked(getAuthToken).mockResolvedValue(undefined);
-      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+      serveGraphQL(() => HttpResponse.error());
 
-      await expect(client.request('query { test }')).rejects.toThrow(
-        'Network error',
+      await expect(client.request('query { test }')).rejects.toBeInstanceOf(
+        TypeError,
       );
     });
 
     it('should surface the HTTP status when the response is not ok', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 502,
-        json: async () => {
-          throw new SyntaxError('Unexpected token <');
-        },
-      });
+      // A failing gateway answers with an HTML page, which is not JSON.
+      serveGraphQL(
+        () =>
+          new HttpResponse('<html>Bad Gateway</html>', {
+            status: 502,
+            headers: { 'Content-Type': 'text/html' },
+          }),
+      );
 
       await expect(client.request('query { test }')).rejects.toThrow(
         'GraphQL request failed with status 502',
@@ -296,11 +224,12 @@ describe('GraphQLClient', () => {
     ])(
       'should throw an ApiError with the status and the problem of a $code refusal',
       async (problem) => {
-        const response = new Response(JSON.stringify(problem), {
-          status: problem.status,
-          headers: { 'Content-Type': 'application/problem+json' },
-        });
-        mockFetch.mockResolvedValueOnce(response);
+        serveGraphQL(() =>
+          HttpResponse.json(problem, {
+            status: problem.status,
+            headers: { 'Content-Type': 'application/problem+json' },
+          }),
+        );
 
         const error: unknown = await client
           .request('query { test }')
@@ -308,17 +237,18 @@ describe('GraphQLClient', () => {
 
         expect(error).toBeInstanceOf(ApiError);
         expect(error).toMatchObject({ status: problem.status, data: problem });
-        expect((error as ApiError).response).toBe(response);
+        expect((error as ApiError).response?.status).toBe(problem.status);
       },
     );
 
     it('should keep the status fallback for an error body that is not JSON', async () => {
       // The gateway's own answer to a request without a token.
-      mockFetch.mockResolvedValueOnce(
-        new Response('Jwt is missing', {
-          status: 401,
-          headers: { 'Content-Type': 'text/plain' },
-        }),
+      serveGraphQL(
+        () =>
+          new HttpResponse('Jwt is missing', {
+            status: 401,
+            headers: { 'Content-Type': 'text/plain' },
+          }),
       );
 
       const error: unknown = await client
@@ -333,9 +263,9 @@ describe('GraphQLClient', () => {
 
     it('should keep the status fallback for a JSON error body that is not a problem', async () => {
       // gqlgen's own answer to a document the schema rejects.
-      mockFetch.mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
+      serveGraphQL(() =>
+        HttpResponse.json(
+          {
             errors: [
               {
                 message: 'Cannot query field "nope" on type "Query".',
@@ -343,8 +273,8 @@ describe('GraphQLClient', () => {
               },
             ],
             data: null,
-          }),
-          { status: 422, headers: { 'Content-Type': 'application/json' } },
+          },
+          { status: 422 },
         ),
       );
 
@@ -359,17 +289,16 @@ describe('GraphQLClient', () => {
     });
 
     it('should handle JSON parse errors', async () => {
-      vi.mocked(getAuthToken).mockResolvedValue(undefined);
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => {
-          throw new Error('Invalid JSON');
-        },
-      });
+      serveGraphQL(
+        () =>
+          new HttpResponse('{ not json', {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      );
 
-      await expect(client.request('query { test }')).rejects.toThrow(
-        'Invalid JSON',
+      await expect(client.request('query { test }')).rejects.toBeInstanceOf(
+        SyntaxError,
       );
     });
   });

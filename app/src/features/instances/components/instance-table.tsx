@@ -28,6 +28,11 @@ type InstancesTableProps = {
   instances: InstanceRow[];
 };
 
+// One array stands for "no field declared", while the list loads and once it
+// has loaded empty: a second empty array would rebuild the columns and the
+// filters, and close a metadata dialog opened in the meantime.
+const NO_METADATA_FIELDS: MetadataFieldDescriptor[] = [];
+
 export const InstancesTable = ({ instances }: InstancesTableProps) => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -40,7 +45,8 @@ export const InstancesTable = ({ instances }: InstancesTableProps) => {
     metadataFieldsActiveQueryOptions('INSTANCE'),
   );
   const metadataFields = useMemo<MetadataFieldDescriptor[]>(
-    () => metadataFieldsData ?? [],
+    () =>
+      metadataFieldsData?.length ? metadataFieldsData : NO_METADATA_FIELDS,
     [metadataFieldsData],
   );
 

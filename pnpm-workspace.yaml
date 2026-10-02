@@ -73,7 +73,10 @@ allowBuilds:
   bufferutil: true
   core-js: true
   esbuild: true
-  msw: true
+  # Not the app's MSW, which has no install script since version 3: the msw 2
+  # that @vitest/mocker resolves as its peer, whose postinstall only copies a
+  # worker script into a directory that no package.json here configures.
+  msw: false
   utf-8-validate: true
 minimumReleaseAgeExclude:
   - '@tanstack/router-plugin@1.168.23'
