@@ -126,7 +126,7 @@ The mechanism is in [network mocks](../docs/06-testing/integration-tests.md#netw
 
 MSW is the default adapter. The legacy `E2E_MOCKS=page-route` mode stays available
 for diagnostics using the existing installers, except notifications' stream;
-full protocol/persistence parity is not guaranteed. Shared error mapping is in
+full protocol/persistence parity is not guaranteed, and no workflow runs it. Shared error mapping is in
 `_support/contracts/mock-http.ts` and shared GraphQL operations in
 `_support/model/graphql-operations.ts`. Models stay stateful and transport-neutral.
 Handler order, fallbacks, statuses and reload persistence are preserved by the

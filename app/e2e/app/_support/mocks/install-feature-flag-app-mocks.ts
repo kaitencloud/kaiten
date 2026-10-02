@@ -20,7 +20,8 @@ async function installFeatureFlagPageRouteMocks(
   model: FeatureFlagAppModel,
 ) {
   await page.route(
-    '**/api/feature-flags',
+    // A list read carries its paging query (?limit=…&cursor=…).
+    /\/api\/feature-flags(\?.*)?$/,
     makeRestRouter(
       [
         {
