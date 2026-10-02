@@ -123,8 +123,8 @@ export function createNotificationsDevSeed(): SerializedNotificationAppModel {
  * The notifications UI over a running stack (VITE_MOCK_NOTIFICATIONS=true):
  * starts the shared MSW worker with only the notifications slot seeded, and its
  * demo stream. Every other request passes through to the real API
- * (onUnhandledFrame: 'bypass'). `pnpm run dev:mock` serves this seed too, with
- * every other area (./dev.ts).
+ * (onUnhandledFrame: 'bypass'). `pnpm run dev:mock` serves notifications of its
+ * own, about the records of its world (./dev-world).
  */
 export async function startNotificationsDevMocks() {
   await startE2EMockServiceWorker(

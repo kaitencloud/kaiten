@@ -133,11 +133,12 @@ pnpm run dev:mock
 ```
 
 The console is on <http://localhost:3000> with no sign-in, and Mock Service
-Worker answers every API request in the page, from the scenarios of the E2E
-suite (`app/src/e2e/msw/dev.ts`). The areas do not share their data, so a link
-from one to another may lead to a record that does not exist. What you change
-lasts until the tab closes. The browser console warns about each API request the
-mocks do not serve.
+Worker answers every API request in the page. Every area starts from the same
+sample records, declared once in `app/src/e2e/msw/dev-world/`, so a link from
+one page to another leads to a record that exists. A change stays in its own
+area, though: a customer renamed on its page keeps its old name in the list of
+instances. What you change lasts until the tab closes. The browser console warns
+about each API request the mocks do not serve.
 
 The mocks run in a service worker. A browser that refuses one, such as the
 browser embedded in an editor, or a private window, gets them in the page

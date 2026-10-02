@@ -48,7 +48,7 @@ app/src/
 └── styles.css, tokens.css   # Tailwind entry point, the app's own design tokens
 ```
 
-`src/e2e/` is test infrastructure, not a layer: `main.tsx` loads it dynamically, only when a `VITE_E2E_MSW`, `VITE_MOCK_API` or `VITE_MOCK_NOTIFICATIONS` variable asks for it, and the production build leaves it out. Its handlers build their seeds from the Playwright models in `app/e2e/app/_support/model/`, and the dev mocks from the scenarios beside the specs, a dependency that `check:architecture` cannot judge, because its target lies outside `src/` and no rule covers it.
+`src/e2e/` is test infrastructure, not a layer: `main.tsx` loads it dynamically, only when a `VITE_E2E_MSW`, `VITE_MOCK_API` or `VITE_MOCK_NOTIFICATIONS` variable asks for it, and the production build leaves it out. Its handlers build their seeds from the Playwright models in `app/e2e/app/_support/model/`, and the dev world (`src/e2e/msw/dev-world/`) its records with the fixture builders of `app/e2e/app/_support/fixtures/`, a dependency that `check:architecture` cannot judge, because its target lies outside `src/` and no rule covers it.
 
 ## Dependency matrix
 

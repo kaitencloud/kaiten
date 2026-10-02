@@ -25,6 +25,7 @@ their stream. Full parity is not claimed. REST transport-specific dispatch,
 unknown-operation handling and persistence remain separate. Contract/parity
 strengthening belongs to the next test phase. Dev notifications use the same
 worker with unmocked flags passed through, and `pnpm run dev:mock`
-(`VITE_MOCK_API`, `dev.ts`) installs every slot in it, with a warning for each
-API request no slot answers. E2E defaults unmocked platform flags off; other
+(`VITE_MOCK_API`, `dev.ts`) installs every slot in it, seeded from one world of
+records the areas share (`dev-world/`), with a warning for each API request no
+slot answers. E2E defaults unmocked platform flags off; other
 unhandled requests retain bypass.

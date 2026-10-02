@@ -35,8 +35,8 @@ variables; [`.env.example`](./.env.example) lists them.
 
 To work on the interface without the stack, `pnpm run dev:mock` serves the console
 on the same port with no sign-in, and Mock Service Worker answers the whole API in
-the page, from the scenarios of the E2E suite. What a page changes lasts until the
-tab closes.
+the page, from one set of sample records that every page shares. What a page
+changes lasts until the tab closes.
 
 ## Scripts
 
