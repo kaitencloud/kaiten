@@ -1,4 +1,4 @@
-import type { UnhandledFrameHandle } from 'msw';
+import type { RequestHandler, UnhandledFrameHandle } from 'msw';
 import { setupWorker } from 'msw/browser';
 import type { E2EMswConfig } from '../../../e2e/app/_support/contracts/msw-slots';
 import { AuditTrailAppModel } from '../../../e2e/app/_support/model/audit-trail-app-model';
@@ -42,6 +42,13 @@ type StartE2EMockServiceWorkerOptions = {
   warnUnhandledApiRequests?: boolean;
 };
 
+type MockWindow = Window & {
+  /** The mocks this page started: the worker, or the network in the page. */
+  __KAITEN_MSW_RUNNING__?: {
+    resetHandlers: (...handlers: RequestHandler[]) => void;
+  };
+};
+
 // The frame of an unhandled HTTP request carries it as `data.request`
 // (HttpNetworkFrame); msw types the frames of every protocol as one.
 const isApiRequest = (frame: { protocol: string; data: unknown }) =>
@@ -56,6 +63,13 @@ const isApiRequest = (frame: { protocol: string; data: unknown }) =>
  * worker (an embedded browser, a private window) still gets them, in the page:
  * `fetch` and `XMLHttpRequest` are patched there, but an `EventSource` is not,
  * so the notification stream is then left unserved.
+ *
+ * Vite runs main.tsx again in the same page when a module only it imports
+ * changes, the code of these mocks or of their seeds among them, and then
+ * reloads the page. That second start begins from `config` alone, dropping
+ * the stored state, so that the reload shows the edited seeds; and it hands
+ * its handlers to the mocks already running rather than starting others,
+ * since Mock Service Worker cannot patch the globals of a page twice.
  */
 export async function startE2EMockServiceWorker(
   config: E2EMswConfig,
@@ -64,7 +78,11 @@ export async function startE2EMockServiceWorker(
     warnUnhandledApiRequests = false,
   }: StartE2EMockServiceWorkerOptions = {},
 ) {
-  const effectiveConfig = { ...config, ...readStoredConfig() };
+  const page = window as MockWindow;
+  const running = page.__KAITEN_MSW_RUNNING__;
+  const effectiveConfig = running
+    ? config
+    : { ...config, ...readStoredConfig() };
   writeStoredConfig(effectiveConfig);
 
   const auditTrail = effectiveConfig.auditTrail
@@ -153,6 +171,11 @@ export async function startE2EMockServiceWorker(
   if (handlers.length === 0) return;
 
   const orderedHandlers = withFallbacksLast(handlers);
+  if (running) {
+    running.resetHandlers(...orderedHandlers);
+    return;
+  }
+
   const onUnhandledFrame: UnhandledFrameHandle = warnUnhandledApiRequests
     ? ({ frame, defaults }) => {
         if (isApiRequest(frame)) {
@@ -162,16 +185,23 @@ export async function startE2EMockServiceWorker(
     : 'bypass';
 
   try {
-    await setupWorker(...orderedHandlers).start({
+    const worker = setupWorker(...orderedHandlers);
+    await worker.start({
       onUnhandledFrame,
       quiet: true,
       serviceWorker: { url: '/mockServiceWorker.js' },
     });
+    page.__KAITEN_MSW_RUNNING__ = worker;
   } catch (error) {
     console.warn(
       '[MSW] The mock service worker could not start; mocking in the page instead, without the notification stream.',
       error,
     );
-    createPageNetwork({ handlers: orderedHandlers, onUnhandledFrame }).enable();
+    const network = createPageNetwork({
+      handlers: orderedHandlers,
+      onUnhandledFrame,
+    });
+    network.enable();
+    page.__KAITEN_MSW_RUNNING__ = network;
   }
 }

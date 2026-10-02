@@ -137,8 +137,9 @@ Worker answers every API request in the page. Every area starts from the same
 sample records, declared once in `app/src/e2e/msw/dev-world/`, so a link from
 one page to another leads to a record that exists. A change stays in its own
 area, though: a customer renamed on its page keeps its old name in the list of
-instances. What you change lasts until the tab closes. The browser console warns
-about each API request the mocks do not serve.
+instances. What you change lasts until the tab closes, or until you save a file
+of the mocks: the page then reloads from the edited records. The browser console
+warns about each API request the mocks do not serve.
 
 The mocks run in a service worker. A browser that refuses one, such as the
 browser embedded in an editor, or a private window, gets them in the page

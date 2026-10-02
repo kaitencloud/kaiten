@@ -6,7 +6,8 @@ import { createDevMockConfig } from './dev-world';
  * API answered by Mock Service Worker in the page, every area seeded from one
  * world (./dev-world). A request no area serves prints an `[MSW]` warning that
  * names it. What a page changes lives in `sessionStorage`, so it survives a
- * reload and a new tab starts over.
+ * reload and a new tab starts over; so does a change to the mocks' own code
+ * (./browser.ts).
  */
 export async function startDevMocks() {
   await startE2EMockServiceWorker(createDevMockConfig(), {
