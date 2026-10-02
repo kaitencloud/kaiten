@@ -1,5 +1,5 @@
 import { HttpResponse, http } from 'msw/http';
-import type { InstanceWritable } from '@/api-client';
+import type { InstanceWritable, PatchInstanceBody } from '@/api-client';
 import type { InstanceAppModel } from '../../../e2e/app/_support/model/instance-app-model';
 import {
   decodeLastPathSegment,
@@ -109,6 +109,22 @@ export const instanceHandlers = (
           );
           persist();
           return HttpResponse.json(instance);
+        },
+      ),
+    ),
+    // The lifecycle stage and the status, which the edit form and the detail
+    // page save apart from the PUT.
+    http.patch(
+      /\/api\/instances\/[^/]+$/,
+      withErrorHandling(
+        'Unexpected instance mock error',
+        async ({ request }) => {
+          model.patchInstance(
+            decodeLastPathSegment(request.url),
+            await parseRequestJson<PatchInstanceBody>(request),
+          );
+          persist();
+          return new HttpResponse(null, { status: 204 });
         },
       ),
     ),

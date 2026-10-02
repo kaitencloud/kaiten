@@ -153,6 +153,8 @@ async function installInstancePageRouteMocks(
         {
           method: 'PATCH',
           segments: 3,
+          // No body, as the API answers.
+          successStatus: 204,
           handle: ({ route, segments }) => {
             model.patchInstance(
               decodeURIComponent(segments[2] ?? ''),
