@@ -17,7 +17,11 @@ import {
   handleUpdateInstance,
 } from '@/api-client/msw.gen';
 import type { InstanceAppModel } from '../../../e2e/app/_support/model/instance-app-model';
-import { graphqlOperationHandler, withErrorHandling } from './handler-factory';
+import {
+  asFallback,
+  graphqlOperationHandler,
+  withErrorHandling,
+} from './handler-factory';
 import { noop, type PersistMswState } from './persistence';
 
 export const instanceHandlers = (
@@ -25,11 +29,24 @@ export const instanceHandlers = (
   persist: PersistMswState = noop,
 ) => [
   graphqlOperationHandler({
-    GetCustomersWithInstances: () => model.getCustomersWithInstances(),
     GetInstancesWithRelations: () => model.getInstancesWithRelations(),
-    MetadataFields: () => model.getMetadataFields(),
-    GetReleaseManagementOverview: () => ({ releases: { items: [] } }),
+    // The fields the model declares are instance fields: another resource type
+    // declares none.
+    MetadataFields: (variables) =>
+      variables?.resourceType === 'INSTANCE'
+        ? model.getMetadataFields()
+        : { metadataFields: { hasMore: false, nextCursor: null, items: [] } },
   }),
+  // Lists other slots own, as fallbacks: the customer list, built from this
+  // slot's instances, and the release-management overview, which the instance
+  // detail overview pulls eagerly and gets empty, to keep the slot
+  // self-contained.
+  asFallback(
+    graphqlOperationHandler({
+      GetCustomersWithInstances: () => model.getCustomersWithInstances(),
+      GetReleaseManagementOverview: () => ({ releases: { items: [] } }),
+    }),
+  ),
   // Relations keep this slot self-contained, as before the extraction.
   handleListCustomers(() =>
     HttpResponse.json({ hasMore: false, items: model.listCustomers() }),
@@ -61,13 +78,17 @@ export const instanceHandlers = (
       HttpResponse.json(model.getLicense(params.licenseSlug)),
     ),
   ),
-  handleListDeploymentZones(() =>
-    HttpResponse.json({
-      hasMore: false,
-      items: model.listDeploymentZones(),
-    }),
+  // Offered as targets by the deploy / migrate action. Fallbacks: the
+  // release-management slot owns them when it is installed.
+  asFallback(
+    handleListDeploymentZones(() =>
+      HttpResponse.json({
+        hasMore: false,
+        items: model.listDeploymentZones(),
+      }),
+    ),
   ),
-  handleListReleases({ body: { hasMore: false, items: [] } }),
+  asFallback(handleListReleases({ body: { hasMore: false, items: [] } })),
   handleGetInstances(() =>
     HttpResponse.json({ hasMore: false, items: model.listInstances() }),
   ),

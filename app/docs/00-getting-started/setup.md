@@ -8,7 +8,7 @@ This page gets the console running on your machine. There are two paths:
   against a stack that is already running.
 
 Both end with the console on <http://localhost:3000>, signed in through the dev
-account switcher.
+account switcher. A third path needs no stack at all: [mocked API](#mocked-api).
 
 ## Prerequisites
 
@@ -119,6 +119,25 @@ To avoid typing the variable, copy `app/.env.example` to `app/.env.local`
 (git-ignored) and uncomment what you need. `task app` already sets
 `VITE_LOCAL_AUTH` and `VITE_API_URL`, so that file matters only when you run the
 dev server yourself.
+
+## Mocked API
+
+To work on the interface with no stack, neither Docker nor Go, install the
+workspace, generate the client and start the dev server with the API mocked:
+
+```bash
+pnpm install                   # repository root
+cd app
+pnpm run generate
+pnpm run dev:mock
+```
+
+The console is on <http://localhost:3000> with no sign-in, and Mock Service
+Worker answers every API request in the page, from the scenarios of the E2E
+suite (`app/src/e2e/msw/dev.ts`). The areas do not share their data, so a link
+from one to another may lead to a record that does not exist. What you change
+lasts until the tab closes. The browser console warns about each API request the
+mocks do not serve.
 
 ## Environment variables
 

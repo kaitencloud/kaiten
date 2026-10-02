@@ -33,12 +33,18 @@ from the repository root instead. [Setup](./docs/00-getting-started/setup.md) co
 both paths, the prerequisites (Node 24, pnpm through Corepack) and the environment
 variables; [`.env.example`](./.env.example) lists them.
 
+To work on the interface without the stack, `pnpm run dev:mock` serves the console
+on the same port with no sign-in, and Mock Service Worker answers the whole API in
+the page, from the scenarios of the E2E suite. What a page changes lasts until the
+tab closes.
+
 ## Scripts
 
 Run scripts from `app/` with `pnpm run <script>`:
 
 ```bash
 pnpm run dev             # Dev server on port 3000
+pnpm run dev:mock        # The same, without the stack: the API is mocked in the page
 pnpm run build           # Production build
 pnpm run test            # Unit tests (Vitest)
 pnpm run test:e2e:app    # Application E2E suite (Playwright)

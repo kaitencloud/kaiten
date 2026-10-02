@@ -68,9 +68,10 @@ them.
 | Variable | What it does |
 | --- | --- |
 | `VITE_LOCAL_AUTH` | `true` replaces Clerk with the dev account switcher, which signs in with the tokens of `dev/tokens.json`. The `tokens` service of the compose stack writes that file (`task up`, `task dev` and `task quickstart` start it). Local stacks only: a production build replaces the tokens module with an empty list. |
-| `VITE_E2E_BYPASS_AUTH` | `true` skips sign-in: the app renders without Clerk and without tokens. For the Playwright app suite. |
+| `VITE_E2E_BYPASS_AUTH` | `true` skips sign-in: the app renders without Clerk and without tokens. For the Playwright app suite and `pnpm run dev:mock`. |
 | `VITE_E2E_MSW` | `true` lets the Playwright app suite start Mock Service Worker in the browser and serve the API from mocks (`app/src/e2e/msw/`). |
-| `VITE_MOCK_NOTIFICATIONS` | `true` serves only the notifications endpoints from mocks (`app/src/e2e/msw/notifications-dev-seed.ts`); every other request reaches the real API. Ignored when `VITE_E2E_MSW` is `true`. |
+| `VITE_MOCK_API` | `true` serves the whole API from mocks in the browser (`app/src/e2e/msw/dev.ts`), with no backend behind the dev server. `pnpm run dev:mock` sets it, with `VITE_E2E_BYPASS_AUTH`. Ignored when `VITE_E2E_MSW` is `true`. |
+| `VITE_MOCK_NOTIFICATIONS` | `true` serves only the notifications endpoints from mocks (`app/src/e2e/msw/notifications-dev-seed.ts`); every other request reaches the real API. Ignored when `VITE_E2E_MSW` or `VITE_MOCK_API` is `true`. |
 
 ### Read by the build tooling
 

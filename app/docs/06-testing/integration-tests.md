@@ -130,7 +130,9 @@ The model classes in `e2e/app/_support/model/` are plain TypeScript with no Play
 
 `E2E_MOCKS=page-route pnpm run test:e2e:app` switches every installer to Playwright's `page.route` interception instead. It is a way to tell an MSW problem from an app problem. The notifications slot has no such fallback, because Playwright's `page.route` cannot serve its event stream: its installer throws.
 
-`VITE_MOCK_NOTIFICATIONS=true` is a separate switch. It serves only the notifications endpoints from mocks while everything else reaches the real API: see [environments](../07-deployment/environments.md).
+Two other switches start the same worker outside the suite, see [environments](../07-deployment/environments.md). `VITE_MOCK_API=true` (`pnpm run dev:mock`) installs every slot, each from the scenario its specs read it with (`src/e2e/msw/dev.ts`), for work on the interface without the stack. `VITE_MOCK_NOTIFICATIONS=true` serves only the notifications endpoints from mocks while everything else reaches the real API.
+
+Installed together, the slots answer for what they own: a slot's stubs for another area's resources are fallbacks, which answer only when no installed slot owns the resource.
 
 ## Related pages
 

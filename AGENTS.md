@@ -26,6 +26,8 @@ Codex; `CLAUDE.md` imports it for Claude Code. Human contributors: start with
   fake product data, the generated API client and the frontend dev server.
   `task up` starts the stack without the frontend; `task down` stops it;
   `task --list` shows every task.
+- `pnpm run dev:mock` in `app/`, after `pnpm run generate`: the console alone,
+  with no sign-in and the whole API answered by Mock Service Worker in the page.
 - Run package scripts with `pnpm run <script>`, from the directory that owns
   them (`app/` for the console).
 

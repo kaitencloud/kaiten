@@ -32,11 +32,28 @@ import { releaseManagementHandlers } from './release-management-handlers';
 type StartE2EMockServiceWorkerOptions = {
   // E2E defaults closed; partial dev mocks keep the running stack's flags.
   unmockedFlags?: 'off' | 'passthrough';
+  /**
+   * Whether an API request no handler answers prints an `[MSW]` warning that
+   * names it before it reaches the network: for the dev mocks, which have no
+   * API behind them, so that what they do not serve shows.
+   */
+  warnUnhandledApiRequests?: boolean;
 };
+
+// The frame of an unhandled HTTP request carries it as `data.request`
+// (HttpNetworkFrame); msw types the frames of every protocol as one.
+const isApiRequest = (frame: { protocol: string; data: unknown }) =>
+  frame.protocol === 'http' &&
+  new URL((frame.data as { request: Request }).request.url).pathname.startsWith(
+    '/api/',
+  );
 
 export async function startE2EMockServiceWorker(
   config: E2EMswConfig,
-  { unmockedFlags = 'off' }: StartE2EMockServiceWorkerOptions = {},
+  {
+    unmockedFlags = 'off',
+    warnUnhandledApiRequests = false,
+  }: StartE2EMockServiceWorkerOptions = {},
 ) {
   const effectiveConfig = { ...config, ...readStoredConfig() };
   writeStoredConfig(effectiveConfig);
@@ -127,7 +144,13 @@ export async function startE2EMockServiceWorker(
   if (handlers.length === 0) return;
 
   await setupWorker(...withFallbacksLast(handlers)).start({
-    onUnhandledFrame: 'bypass',
+    onUnhandledFrame: warnUnhandledApiRequests
+      ? ({ frame, defaults }) => {
+          if (isApiRequest(frame)) {
+            defaults.warn();
+          }
+        }
+      : 'bypass',
     quiet: true,
     serviceWorker: { url: '/mockServiceWorker.js' },
   });
