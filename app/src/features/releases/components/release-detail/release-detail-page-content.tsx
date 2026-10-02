@@ -51,9 +51,8 @@ function ReleaseDetailLayout({ children }: PropsWithChildren) {
   const deleteMutation = useDeleteReleaseMutation(release);
 
   return (
-    <DetailEntityLayout
-      activeTab={activeTab}
-      header={
+    <DetailEntityLayout>
+      <DetailEntityLayout.Top>
         <Page.Header>
           <Page.Leading>
             <Page.Icon>
@@ -112,9 +111,7 @@ function ReleaseDetailLayout({ children }: PropsWithChildren) {
             </div>
           </Page.Actions>
         </Page.Header>
-      }
-      stats={
-        // The status already sits beside the title as a badge.
+        {/* The status already sits beside the title as a badge. */}
         <StatCard.Row columnsClassName="md:grid-cols-3">
           <StatCard>
             <StatCard.Label>
@@ -157,26 +154,30 @@ function ReleaseDetailLayout({ children }: PropsWithChildren) {
             </StatCard.Value>
           </StatCard>
         </StatCard.Row>
-      }
-      tabs={[
-        {
-          label: t('Pages.Releases.Detail.tabs.overview', 'Overview'),
-          params: { releaseSlug },
-          to: '/releases/$releaseSlug',
-          value: 'overview',
-        },
-        {
-          label: t(
-            'Pages.Releases.Detail.tabs.deploymentZones',
-            'Deployment Zones',
-          ),
-          params: { releaseSlug },
-          to: '/releases/$releaseSlug/deployment-zones',
-          value: 'deployment-zones',
-        },
-      ]}
-    >
-      {children}
+      </DetailEntityLayout.Top>
+      <DetailEntityLayout.Body>
+        <DetailEntityLayout.Tabs
+          activeTab={activeTab}
+          items={[
+            {
+              label: t('Pages.Releases.Detail.tabs.overview', 'Overview'),
+              params: { releaseSlug },
+              to: '/releases/$releaseSlug',
+              value: 'overview',
+            },
+            {
+              label: t(
+                'Pages.Releases.Detail.tabs.deploymentZones',
+                'Deployment Zones',
+              ),
+              params: { releaseSlug },
+              to: '/releases/$releaseSlug/deployment-zones',
+              value: 'deployment-zones',
+            },
+          ]}
+        />
+        <DetailEntityLayout.Content>{children}</DetailEntityLayout.Content>
+      </DetailEntityLayout.Body>
     </DetailEntityLayout>
   );
 }

@@ -58,6 +58,7 @@ Export the component from the `index.ts` of its folder, so that callers import i
 | --- | --- |
 | `Page` (`app/src/functionals/page/`) | `Header`, `Leading`, `Icon`, `Heading`, `TitleRow`, `Title`, `Subtitle`, `Actions`, `Divider`, `IconHeading`, `Fixed`, `Scroll` |
 | `DetailCard` (`app/src/functionals/detail-card/`) | `Action`, `Header`, `Title`, `Description`, `Content`, `Rows`, `Row`, `Divider` |
+| `DetailEntityLayout` (`app/src/functionals/detail-entity-layout/`) | `Top`, `Body`, `Tabs`, `Content` |
 | `TableCard` (`app/src/functionals/table/`) | `Header`, `HeaderLeading`, `HeaderIcon`, `HeaderHeading`, `HeaderTitle`, `HeaderSubtitle`, `HeaderActions`, `Toolbar`, `Content`, `Table` |
 | `FilterTableLayout` (`app/src/functionals/table/`) | `Toolbar`, `ToolbarRow`, `Search`, `Actions`, `Filters`, `Content` |
 | `FormDialog` (`app/src/components/dialog/`) | `Header`, `Title`, `Description`, `Content`, `Footer` |

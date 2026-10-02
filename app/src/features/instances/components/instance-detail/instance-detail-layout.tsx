@@ -95,9 +95,8 @@ export const InstanceDetailLayout = ({
   const usageAlertsValueClassName = 'text-xl md:text-2xl';
 
   return (
-    <DetailEntityLayout
-      activeTab={activeTab}
-      header={
+    <DetailEntityLayout>
+      <DetailEntityLayout.Top>
         <Page.Header>
           <Page.Leading>
             <Page.Icon>
@@ -179,8 +178,6 @@ export const InstanceDetailLayout = ({
             </div>
           </Page.Actions>
         </Page.Header>
-      }
-      stats={
         <StatCard.Row columnsClassName="md:grid-cols-3">
           <StatCard>
             <StatCard.Label>
@@ -273,29 +270,33 @@ export const InstanceDetailLayout = ({
             ) : null}
           </StatCard>
         </StatCard.Row>
-      }
-      tabs={[
-        {
-          label: t('Pages.Customers.Instances.Detail.tabs.overview'),
-          params: { instanceSlug: instanceId },
-          to: '/customers/instances/$instanceSlug',
-          value: 'overview',
-        },
-        {
-          label: t('Pages.Customers.Instances.Detail.tabs.entitlements'),
-          params: { instanceSlug: instanceId },
-          to: '/customers/instances/$instanceSlug/entitlements',
-          value: 'entitlements',
-        },
-        {
-          label: t('Pages.Customers.Instances.Detail.tabs.auditTrail'),
-          params: { instanceSlug: instanceId },
-          to: '/customers/instances/$instanceSlug/audit-trail',
-          value: 'audit-trail',
-        },
-      ]}
-    >
-      {children}
+      </DetailEntityLayout.Top>
+      <DetailEntityLayout.Body>
+        <DetailEntityLayout.Tabs
+          activeTab={activeTab}
+          items={[
+            {
+              label: t('Pages.Customers.Instances.Detail.tabs.overview'),
+              params: { instanceSlug: instanceId },
+              to: '/customers/instances/$instanceSlug',
+              value: 'overview',
+            },
+            {
+              label: t('Pages.Customers.Instances.Detail.tabs.entitlements'),
+              params: { instanceSlug: instanceId },
+              to: '/customers/instances/$instanceSlug/entitlements',
+              value: 'entitlements',
+            },
+            {
+              label: t('Pages.Customers.Instances.Detail.tabs.auditTrail'),
+              params: { instanceSlug: instanceId },
+              to: '/customers/instances/$instanceSlug/audit-trail',
+              value: 'audit-trail',
+            },
+          ]}
+        />
+        <DetailEntityLayout.Content>{children}</DetailEntityLayout.Content>
+      </DetailEntityLayout.Body>
     </DetailEntityLayout>
   );
 };

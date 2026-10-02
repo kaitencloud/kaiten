@@ -55,16 +55,13 @@ export function FeatureFlagDetailPageContent({
 
   return (
     <FeatureFlagDetailContext.Provider value={contextValue}>
-      <DetailEntityLayout
-        activeTab={activeTab}
-        header={
+      <DetailEntityLayout>
+        <DetailEntityLayout.Top>
           <FeatureFlagDetailHeader
             featureFlag={featureFlag}
             featureFlagSlug={featureFlagSlug}
             onOpenTryIt={handleOpenTryIt}
           />
-        }
-        stats={
           <FeatureFlagDetailStats
             defaultDistributionTotal={contextValue.defaultDistributionTotal}
             featureFlag={featureFlag}
@@ -72,11 +69,15 @@ export function FeatureFlagDetailPageContent({
             sampleEvaluationsCount={sampleEvaluations.length}
             targetingsCount={contextValue.targetings.length}
           />
-        }
-        tabs={tabs}
-        tabContentClassName={activeTab === 'overview' ? 'pt-4' : 'pt-3'}
-      >
-        {children}
+        </DetailEntityLayout.Top>
+        <DetailEntityLayout.Body>
+          <DetailEntityLayout.Tabs activeTab={activeTab} items={tabs} />
+          <DetailEntityLayout.Content
+            className={activeTab === 'overview' ? 'pt-4' : 'pt-3'}
+          >
+            {children}
+          </DetailEntityLayout.Content>
+        </DetailEntityLayout.Body>
       </DetailEntityLayout>
 
       <TryItDialog

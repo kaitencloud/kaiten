@@ -24,7 +24,7 @@ A test file is named `<name>.test.ts` or `<name>.test.tsx`, and sits either next
 | --- | --- |
 | `src/functionals/slug/__tests__/slug.test.ts` | `src/functionals/slug/index.ts`, a pure function |
 | `src/components/__tests__/destructive-action-button.test.tsx` | `src/components/destructive-action-button.tsx`, a component |
-| `src/hooks/__tests__/use-sidenav-lock.test.ts` | `src/hooks/use-sidenav-lock.ts`, a hook, through `renderHook` |
+| `src/routes/-components/side-nav/__tests__/use-sidenav-lock.test.ts` | The shell-local viewport lock hook, through `renderHook` |
 | `scripts/check-architecture.test.ts` | the architecture rules, run against virtual file lists |
 
 When you change a rule in `scripts/architecture-rules.ts`, add a case to `scripts/check-architecture.test.ts`.

@@ -1,11 +1,6 @@
 export {
   createMetadataFieldFormState,
   createMetadataFieldFormValues,
-  getNextDisplayOrder,
-  getReorderedActiveFieldIds,
-  getVisibleMetadataFields,
-  hasJsonSchemaChanged,
-  hasStructuralJsonSchemaChanged,
   metadataFieldFormValuesFromField,
   metadataFieldFormValuesToJsonSchema,
   metadataFieldFormValuesSchema,
@@ -17,8 +12,15 @@ export {
   normalizeMetadataFieldFormValues,
   parseEnumOptions,
   primaryTypeByUiType,
-  sortMetadataFields,
 } from './metadata-fields.schema';
+export {
+  getNextDisplayOrder,
+  getReorderedActiveFieldIds,
+  getVisibleMetadataFields,
+  hasJsonSchemaChanged,
+  hasStructuralJsonSchemaChanged,
+  sortMetadataFields,
+} from '../metadata-fields.diff';
 export {
   computeMetadataFieldFormWarnings,
   createMetadataFieldFormValidationSchema,

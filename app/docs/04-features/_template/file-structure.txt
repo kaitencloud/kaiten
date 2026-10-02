@@ -1,4 +1,7 @@
 app/src/features/<name>/
+# Create only the folders the feature needs. Dense features group components
+# by responsibility (form/, table/, groups/, <name>-detail/); private hooks,
+# schemas, tests and stories stay with their owner. See FEATURE_TEMPLATE.md.
 ├── components/
 │   ├── <name>-page-content.tsx
 │   ├── <name>-table.tsx

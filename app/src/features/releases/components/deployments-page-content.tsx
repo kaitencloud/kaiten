@@ -2,7 +2,7 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { releaseManagementOverviewQueryOptions } from '@/domains/release-management';
-import { ReleaseManagementPageShell } from '@/functionals/release-management';
+import { ReleaseManagementPageShell } from '@/domains/release-management';
 import { ReleaseOverviewStatsCards, ReleaseTable } from './release-overview';
 
 type DeploymentsPageContentProps = {

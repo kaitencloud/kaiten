@@ -3,7 +3,7 @@ import { useSuspenseInfiniteQuery } from '@tanstack/react-query';
 import { BellOff, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { DayGroup } from '@/domains/audit-trail';
+import type { DayGroup } from '@/lib/feed-time';
 import { Page } from '@/functionals/page';
 import { cn } from '@/lib/utils';
 import { useNotificationDayGroups } from '../hooks/use-notification-day-groups';

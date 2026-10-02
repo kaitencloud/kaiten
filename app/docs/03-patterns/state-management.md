@@ -169,7 +169,7 @@ In the code:
 
 - the view mode of the feature flag list (`?view=list`);
 - the status filter of the notifications;
-- the active tab of a page, which is a child route (`RouteTabs`, `DetailTabsNav`);
+- the active tab of a page, which is a child route (`RouteTabs`, `DetailEntityLayout.Tabs`);
 - the edit mode of a detail page (`?mode=configure`, see [dialog via route](./dialog-via-route.md#the-modeconfigure-edit-mode)).
 
 The sort and the page of a table live in the state of `DataTable`, not in the URL. Transient state, such as which dialog is open, stays in a store or in `useState`, unless a route renders the dialog.

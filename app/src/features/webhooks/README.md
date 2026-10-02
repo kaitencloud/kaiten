@@ -37,7 +37,7 @@ There is no `store/`: everything the feature holds is server state in TanStack Q
 
 ## Data
 
-The webhook endpoints are not described by `app/openapi.yaml`, whose `webhooks` section declares the events, not these paths. There is nothing to generate, so `webhooks.api.ts` calls the shared `client` (`@/api-client/client.gen`) by hand, with the local types of `types/index.ts`. The shared client still gives these calls the base URL, the bearer token and the `ApiError` wrapping of `@/lib/api`. See [Generated code](../../../docs/AI_CONTEXT.md#generated-code).
+The webhook endpoints are not described by `app/openapi.yaml`, whose `webhooks` section declares the events, not these paths. There is nothing to generate, so `webhooks.api.ts` calls the shared `client` (`@/api-client/client.gen`) by hand, with the local types of `types/index.ts`. `lib/api/bootstrap.ts` initializes that shared transport before routes, including the base URL, current bearer token and `ApiError` wrapping. See [Generated code](../../../docs/AI_CONTEXT.md#generated-code).
 
 The response shapes below are the types the client declares for each call. Nothing in this repository serves these paths.
 

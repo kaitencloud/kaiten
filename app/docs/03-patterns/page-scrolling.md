@@ -50,7 +50,7 @@ Reasons for the `scroll` layout:
 
 ## Where it is used
 
-Two pages use `layout="scroll"`: the notifications feed and the notification preferences (`app/src/features/notifications/components/`). Most list pages use `<Page className="h-full min-h-0 overflow-hidden">` around a table that scrolls its own body (see [Tables](#tables)) or a native `overflow-auto` container. Detail and form pages vary. Some use a plain `<Page>`, often with `space-y-*`. `DetailTabsLayout` (`app/src/functionals/detail-tabs-layout/`) uses `h-full overflow-hidden` and scrolls the tab content itself.
+Two pages use `layout="scroll"`: the notifications feed and the notification preferences (`app/src/features/notifications/components/`). Most list pages use `<Page className="h-full min-h-0 overflow-hidden">` around a table that scrolls its own body (see [Tables](#tables)) or a native `overflow-auto` container. Detail and form pages vary. Some use a plain `<Page>`, often with `space-y-*`. `DetailEntityLayout` (`app/src/functionals/detail-entity-layout/`) uses `h-full overflow-hidden`; its Content region scrolls while Top and Tabs stay fixed.
 
 Use `layout="scroll"` for a new page with a scrolling body that is not a table.
 

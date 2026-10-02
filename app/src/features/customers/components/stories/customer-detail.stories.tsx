@@ -5,7 +5,7 @@ import { instancesWithRelationsQueryKey } from '@/domains/customer-management';
 import {
   storyCustomers,
   storyInstanceRows,
-} from '@/test-fixtures/p0-storybook-fixtures';
+} from '@/test-fixtures/storybook-fixtures';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { CustomerDetailPageContent } from '../customer-detail/customer-detail-page-content';
 

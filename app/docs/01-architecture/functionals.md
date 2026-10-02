@@ -84,11 +84,11 @@ slugs written as strings. Reviews check those.
 
 ### Example: `release-management`
 
-`functionals/release-management/` exposes `ReleaseManagementPageShell` and
-`ReleaseManagementTabs`, the shell and the tabs the releases, components and
-deployment zones screens share. `domains/release-management/` holds the rest: the
-overview query, the release status logic, the deployment zone presentation and the
-shared component-catalog flow.
+`domains/release-management/components/` owns the shared business shell and its
+internal tabs, consumed directly by releases, components and deployment zones.
+URLs, translations and entity icon choices move together with that UI. The
+generic `Page` and `RouteTabs` primitives remain in functionals; the domain owns
+no route or page.
 
 ## The functionals
 
@@ -97,13 +97,11 @@ shared component-catalog flow.
 | `cel-editor` | Monaco editor for CEL rules: highlighting, completion, syntax check, lint verdict, with a read-only rule view and a dialog | [README](../../src/functionals/cel-editor/README.md) |
 | `code-editor` | Lazy-loaded Monaco wrapper that follows the app theme; `cel-editor` is built on it | |
 | `detail-card` | `DetailCard`, the card of an entity detail page: header, action, title, rows | [detail-cards.md](../03-patterns/detail-cards.md) |
-| `detail-entity-layout` | Layout of an entity detail page: header, optional stats, tab navigation, tab content | |
-| `detail-tabs-layout` | Page layout with fixed top content, a strip of route-linked tabs (`DetailTabsNav`) and a scrolling tab body | |
+| `detail-entity-layout` | Composed detail shell: Top, Body, Tabs and scrollable Content; tab implementation is internal | [README](../../src/functionals/detail-entity-layout/README.md) |
 | `filters` | Client-side filters: state hook and toolbar (pinned, quick-access, normal and advanced filters) | [README](../../src/functionals/filters/README.md) |
 | `metadata-fields` | Turns JSON Schema metadata field descriptors into columns, filters and form inputs, with `DynamicForm` | [README](../../src/functionals/metadata-fields/README.md) |
 | `page` | `Page` compound component for headers and layouts, and `EditableTitle` | [README](../../src/functionals/page/README.md) |
 | `progress-stepper` | Numbered step strip and progress bar for full-page create wizards | |
-| `release-management` | Page shell and tabs shared by the releases, components and deployment zones screens | |
 | `risk-ranking-list-card` | Card that ranks items by a ratio with proportional bars, with loading and empty states | |
 | `route-tabs` | Tab strip whose active tab follows the current route | |
 | `slug` | `generateSlug(name)`: a slug in the alphabet the API accepts | |

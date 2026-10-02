@@ -1,19 +1,12 @@
 import type { Page } from '@playwright/test';
-
-type GraphQLVariables = Record<string, unknown> | undefined;
-type GraphQLRequestBody = {
-  operationName?: string;
-  query?: string;
-  variables?: GraphQLVariables;
-};
+import {
+  extractOperationName,
+  type GraphQLRequestBody,
+  type GraphQLVariables,
+} from '../contracts/mock-http';
 
 export type GraphQLOperationHandler = (variables: GraphQLVariables) => unknown;
 export type GraphQLOperations = Record<string, GraphQLOperationHandler>;
-
-const extractOperationName = (query: string): string | null => {
-  const match = query.match(/\b(query|mutation)\s+([a-zA-Z0-9_]+)/);
-  return match?.[2] ?? null;
-};
 
 export async function installGraphQLOperationMocks(
   page: Page,

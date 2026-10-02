@@ -58,7 +58,7 @@ The public entry points that follow from these rules:
 - A domain is imported as `@/domains/<name>`, its `index.ts`. Routes may use a domain's query options in a loader.
 - The three `feature-flags` submodules are private because the check hard-codes them in `FEATURE_LOCAL_MODULES` (`app/scripts/architecture-rules.ts`). To make another submodule private, add it to that list; nothing else declares it.
 
-`pnpm run lint` enforces three more rules, declared in `app/vite.config.ts` and mirrored in the root `vite.config.ts`. Lint does not scan tests, stories, `src/components/ui/`, the generated `src/api-client/` or `routeTree.gen.ts`.
+`pnpm run lint` enforces three more rules, declared in `app/vite.config.ts` and mirrored in the root `vite.config.ts`. `check:lint-parity` compares their rule ASTs while preserving explicit scope differences. Lint does not scan tests, stories, `src/components/ui/`, the generated `src/api-client/` or `routeTree.gen.ts`.
 
 | Rule | Where | Forbids |
 | --- | --- | --- |
@@ -104,6 +104,7 @@ Run from `app/`.
 | Command | What it verifies |
 | --- | --- |
 | `pnpm run check:architecture` | The 12 rules of [Import rules](#import-rules): 10 errors and 2 warnings. |
+| `pnpm run check:lint-parity` | Root/app lint rule ASTs match; ignored source scopes intentionally differ. |
 | `pnpm run lint` | Oxlint on `src` and `e2e`, type-aware: correctness rules, the restricted imports and the file names of [Import rules](#import-rules). |
 | `pnpm run check:file-sizes` | Every `.ts` and `.tsx` file under `src` has at most 350 lines. Exempt: tests, stories, `__tests__/`, `components/ui/`, `lib/i18n/locales/`, `api-client/`, `routeTree.gen.ts` and `src/e2e/`. |
 | `pnpm run typecheck`, `pnpm run typecheck:e2e` | `tsc` for `src` and for `e2e`. |

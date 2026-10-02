@@ -117,7 +117,7 @@ export function mapGraphQLError(
  *
  * @example
  * try {
- *   await api.rest.createCustomer({ body: data });
+ *   await createCustomer({ body: data, throwOnError: true });
  * } catch (error) {
  *   toast.error(getApiErrorMessage(error));
  * }

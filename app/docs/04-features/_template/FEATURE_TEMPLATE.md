@@ -39,12 +39,41 @@ app/src/features/<name>/
 - `components/`, `index.ts` and `README.md` are in every feature.
 - A screen lives in `components/`. A feature that has several screens groups each one in a subfolder, such as `components/customer-detail/`.
 - Stories go in a `stories/` folder and unit tests in a `__tests__/` folder, both inside the folder of the code they cover. A test may also sit next to its file.
-- A subfolder's `index.ts` lists the symbols that the rest of the feature imports from it, as `components/index.ts` and `queries/index.ts` do. Add one when other folders import from the subfolder.
+- A subfolder's `index.ts` lists the symbols at a useful module boundary. Add one when several callers benefit from that API; a private folder may use direct relative imports without a relay barrel.
 - `schemas/` holds the Zod schemas of the feature's forms. Some features keep the schema of a form next to the form instead, in a `*.shared.ts` file: `customers`, `entitlements` and `instances` do.
 - A feature that owns an endpoint the OpenAPI contract does not describe keeps the calls in a `<name>.api.ts` module with local types. See [Generated code](../../AI_CONTEXT.md#generated-code).
 - Code stays in the feature until a second feature needs it, then it moves to `app/src/domains/<name>/`. See [Layers](../../AI_CONTEXT.md#layers).
 
 [`file-structure.txt`](./file-structure.txt) is the same tree, short enough to copy.
+
+### Dense features: group by responsibility
+
+Entitlements is a reference for a dense feature:
+
+```txt
+features/entitlements/
+├── components/
+│   ├── form/                 # fields, local mutation-form hook, schema/defaults
+│   ├── table/                # columns, actions, local filter hook
+│   ├── groups/               # badges, selector, inline edits and local state
+│   ├── display/              # shared feature-local presentation
+│   ├── entitlement-detail/   # layout, cards, tabs and read model
+│   └── entitlements-page-content.tsx
+├── hooks/                    # mutations shared by the feature's UI groups
+├── queries/
+├── utils/entitlement-writable.ts # complete PUT and unit normalization
+├── index.ts                  # route-facing API
+└── README.md
+```
+
+Group files that change together and share an owner; do not impose a count quota
+on independent primitives. Keep tests/stories inside the group they cover and
+preserve story titles/exports on moves. Keep private hooks/types near their UI.
+Extract a schema folder only when independent consumers actually share validation;
+several callers of one form do not justify a domain. Complete payload builders
+shared by form, inline editing and detail actions have a feature-local owner
+outside the private form schema. Optional folders in the general tree are a menu,
+not a scaffold to create wholesale.
 
 ## Key files
 

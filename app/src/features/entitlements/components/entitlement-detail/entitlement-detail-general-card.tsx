@@ -5,9 +5,9 @@ import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
 import { DetailCard } from '@/functionals/detail-card';
 import { formatDetailDateTime } from '@/lib/detail';
-import { AggregationMethodDisplay } from '../aggregation-method-display';
-import { EntitlementGroupBadges } from '../entitlement-group-badges';
-import { EntitlementTypeDisplay } from '../entitlement-type-display';
+import { AggregationMethodDisplay } from '../display/aggregation-method-display';
+import { EntitlementGroupBadges } from '../groups/entitlement-group-badges';
+import { EntitlementTypeDisplay } from '../display/entitlement-type-display';
 import {
   ResetPeriodRows,
   UnitRows,

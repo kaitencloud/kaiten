@@ -109,10 +109,11 @@ Under `src/api-client/`:
   which the generated query and mutation options call. Call them directly, with
   `throwOnError: true`, when a `queryFn` or `mutationFn` chains several requests.
 - `client.gen.ts`, `client/` and `core/`: the `@hey-api/client-fetch` client.
-  `src/lib/api/index.ts` configures it once: the base URL (`env.API_URL`), a
+  `src/lib/api/configure-api-client.ts` configures it: the base URL (`env.API_URL`), a
   request interceptor that adds the `Authorization` header, and an error
-  interceptor that wraps every failure in an `ApiError`. Importing `@/lib/api`
-  applies that setup, and `main.tsx` does so. See [data-flow.md](./data-flow.md).
+  interceptor that wraps every failure in an `ApiError`. `main.tsx` imports
+  `@/lib/api/bootstrap` once before the route tree so query keys capture the
+  configured URL. Adapters have no initialization side effect. See [data-flow.md](./data-flow.md).
 - `index.ts`: re-exports the SDK functions and the types.
 
 Features and domains import the generated code from `@/api-client`,

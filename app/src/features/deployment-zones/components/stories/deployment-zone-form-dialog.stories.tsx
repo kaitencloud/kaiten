@@ -4,7 +4,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import type { DeploymentZone } from '@/api-client';
 import { listDeploymentZonesOptions } from '@/api-client/@tanstack/react-query.gen';
 import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
-import { storyDeploymentZones } from '@/test-fixtures/p0-storybook-fixtures';
+import { storyDeploymentZones } from '@/test-fixtures/storybook-fixtures';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import {
   findVisibleByRole,

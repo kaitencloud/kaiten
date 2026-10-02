@@ -1,17 +1,8 @@
 // Shared audit-trail UI + data layer. Consumed by the global audit trail page,
-// an instance's audit tab (event labels and status) and the notifications feed
-// (day grouping). Keep imports to this module going through this barrel (module
-// public API), never via subpaths.
+// an instance's audit tab (event labels and status). Generic feed time helpers
+// live in lib/feed-time. Use this public barrel for cross-module consumers.
 export { type AuditEventName, resolveEventLabel } from './audit-trail-events';
-export {
-  type DayGroup,
-  type DayHeadingLabels,
-  formatDayHeading,
-  formatRelativeTimeToNow,
-  formatTimeOfDay,
-  getEventCategory,
-  groupItemsByDay,
-} from './audit-trail.utils';
+export { getEventCategory } from './audit-trail.utils';
 export { AuditTrailExportButton } from './components/audit-trail-export-button';
 export { AuditTrailList } from './components/audit-trail-list';
 export { AuditTrailStatsCards } from './components/audit-trail-stats-cards';

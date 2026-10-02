@@ -9,7 +9,7 @@ import {
   buildDeploymentZoneRelations,
   releaseManagementOverviewQueryOptions,
 } from '@/domains/release-management';
-import { ReleaseManagementPageShell } from '@/functionals/release-management';
+import { ReleaseManagementPageShell } from '@/domains/release-management';
 import { deploymentZonesQueryOptions } from '../queries';
 import type { DeploymentZone } from '../types';
 import { DeploymentZoneStatsCards } from './deployment-zones/deployment-zone-stats-cards';

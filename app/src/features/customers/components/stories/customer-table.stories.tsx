@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, within } from 'storybook/test';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
-import { storyCustomerRows } from '@/test-fixtures/p0-storybook-fixtures';
+import { storyCustomerRows } from '@/test-fixtures/storybook-fixtures';
 import { CustomersTable } from '../customer-table';
 
 const meta = {

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { formatRelativeTimeToNow } from '@/domains/audit-trail';
+import { formatRelativeTimeToNow } from '@/lib/feed-time';
 import { formatDateTime } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { Notification } from '../types';

@@ -45,6 +45,10 @@ app/src/features/settings/
 
 The read model shared with other screens lives outside this feature. `app/src/domains/metadata-fields/` holds the list query and its types, which the `deployment-zones` and `instances` features read too. `app/src/functionals/metadata-fields/` turns a field list into table columns, filters and form inputs; see [`functionals/metadata-fields`](../../functionals/metadata-fields/README.md).
 
+Base form schemas import the domain contracts directly. Inferred form types
+reference `schemas/metadata-fields.schema.ts`, not the schema barrel that also
+exports context validation and diff helpers; dependency direction stays acyclic.
+
 ## Data
 
 The `/settings` page has no server data. Its browser settings come from `useAppSettings` (`app/src/hooks/use-app-settings.ts`), a live query over `app/src/lib/settings/`: a TanStack DB collection persisted in `localStorage` under `kaiten:app-settings`, holding `language`, `theme` and `sideNavExpanded`.

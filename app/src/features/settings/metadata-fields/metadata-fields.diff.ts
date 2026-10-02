@@ -1,5 +1,5 @@
 import { sortMetadataFields } from '@/domains/metadata-fields';
-import type { MetadataSettingsField } from './types';
+import type { MetadataSettingsField } from '@/domains/metadata-fields';
 
 // Re-exported so the feature's public surface (`./schemas`) keeps offering
 // `sortMetadataFields` while the single implementation lives in the domain.

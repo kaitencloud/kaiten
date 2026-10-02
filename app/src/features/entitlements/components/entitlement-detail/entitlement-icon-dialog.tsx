@@ -13,7 +13,7 @@ import {
 import { getApiErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import { useEntitlementFormMutations } from '../../hooks';
-import { entitlementToUpdateBody } from '../entitlement-form.shared';
+import { entitlementToUpdateBody } from '../../utils/entitlement-writable';
 
 type EntitlementIconDialogProps = {
   entitlement: Entitlement;

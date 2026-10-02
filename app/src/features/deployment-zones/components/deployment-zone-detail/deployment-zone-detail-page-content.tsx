@@ -50,9 +50,8 @@ function DeploymentZoneDetailLayout({ children }: PropsWithChildren) {
   const deleteMutation = useDeleteDeploymentZoneMutation(deploymentZone);
 
   return (
-    <DetailEntityLayout
-      activeTab={activeTab}
-      header={
+    <DetailEntityLayout>
+      <DetailEntityLayout.Top>
         <Page.Header>
           <Page.Leading>
             <Page.Icon>
@@ -137,8 +136,6 @@ function DeploymentZoneDetailLayout({ children }: PropsWithChildren) {
             </div>
           </Page.Actions>
         </Page.Header>
-      }
-      stats={
         <StatCard.Row>
           <StatCard>
             <StatCard.Label>
@@ -196,26 +193,33 @@ function DeploymentZoneDetailLayout({ children }: PropsWithChildren) {
             <StatCard.Value>{sameReleaseZonesCount}</StatCard.Value>
           </StatCard>
         </StatCard.Row>
-      }
-      tabs={[
-        {
-          label: t(
-            'Pages.Releases.DeploymentZones.Detail.tabs.overview',
-            'Overview',
-          ),
-          params: { zoneSlug },
-          to: '/releases/deployment-zones/$zoneSlug',
-          value: 'overview',
-        },
-        {
-          label: t('Pages.Releases.DeploymentZones.Detail.tabs.peers', 'Peers'),
-          params: { zoneSlug },
-          to: '/releases/deployment-zones/$zoneSlug/peers',
-          value: 'peers',
-        },
-      ]}
-    >
-      {children}
+      </DetailEntityLayout.Top>
+      <DetailEntityLayout.Body>
+        <DetailEntityLayout.Tabs
+          activeTab={activeTab}
+          items={[
+            {
+              label: t(
+                'Pages.Releases.DeploymentZones.Detail.tabs.overview',
+                'Overview',
+              ),
+              params: { zoneSlug },
+              to: '/releases/deployment-zones/$zoneSlug',
+              value: 'overview',
+            },
+            {
+              label: t(
+                'Pages.Releases.DeploymentZones.Detail.tabs.peers',
+                'Peers',
+              ),
+              params: { zoneSlug },
+              to: '/releases/deployment-zones/$zoneSlug/peers',
+              value: 'peers',
+            },
+          ]}
+        />
+        <DetailEntityLayout.Content>{children}</DetailEntityLayout.Content>
+      </DetailEntityLayout.Body>
     </DetailEntityLayout>
   );
 }

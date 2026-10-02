@@ -13,7 +13,7 @@ import {
 import { Toaster } from '@/components/ui/sonner';
 import { useAppSettings } from '@/hooks/use-app-settings';
 import { useDemoSandboxEnabled } from '@/hooks/use-feature-flag';
-import { useIsSideNavLocked } from '@/hooks/use-sidenav-lock';
+import { useIsSideNavLocked } from './-components/side-nav/use-sidenav-lock';
 import { PathBreadcrumbs } from './-components/path-breadcrumbs';
 import { SideNav } from './-components/side-nav/side-nav';
 

@@ -19,7 +19,7 @@ A story file lives in a `stories/` folder beside the component it shows, for exa
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, within } from 'storybook/test';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
-import { storyCustomerRows } from '@/test-fixtures/p0-storybook-fixtures';
+import { storyCustomerRows } from '@/test-fixtures/storybook-fixtures';
 import { CustomersTable } from '../customer-table';
 
 const meta = {
@@ -93,8 +93,8 @@ The application suite serves the API with [Mock Service Worker](https://mswjs.io
 
 1. A spec builds a model from a scenario factory, for example `createCustomersListModel()` in `e2e/app/customers/customers.scenarios.ts`, and calls the installer of its area, `installCustomerAppMocks(page, model)`.
 2. The installer calls `tryInstallMswMocks(page, 'customers', model)` (`e2e/app/_support/mocks/install-app-mocks.ts`). It adds an init script that stores the model's serialised state under a slot of `window.__KAITEN_E2E_MSW__` and in `sessionStorage`, before the page's own scripts run.
-3. `src/main.tsx` sees `VITE_E2E_MSW=true` and that object, imports `src/e2e/msw/browser.ts` and starts the worker (`public/mockServiceWorker.js`) before it renders. The `E2EMswConfig` type in that file lists the slots. Each model slot rebuilds its model with `fromSerialized` and gets REST and GraphQL handlers from it.
-4. A mutation changes the model in the browser and writes it back to `sessionStorage`, so a reload in the same tab keeps the change. The next test gets a fresh browser context, hence fresh state.
+3. `src/main.tsx` sees `VITE_E2E_MSW=true` and that object, imports `src/e2e/msw/browser.ts` and starts the worker (`public/mockServiceWorker.js`) before it renders. The canonical `E2EMswConfig` in `e2e/app/_support/contracts/msw-slots.ts` lists serialized slots for both adapters. Each slot rebuilds its model with `fromSerialized`; its object-specific `*-handlers.ts` set handles transport. The bootstrap owns registration order and puts explicit fallbacks after installed owners.
+4. A mutation changes the model in the browser; `src/e2e/msw/persistence.ts` writes it back to `sessionStorage`, so a reload in the same tab keeps the change. The next test gets a fresh browser context, hence fresh state.
 5. A request that no handler matches is bypassed (`onUnhandledRequest: 'bypass'`). The dev server has no API behind it, so an unmocked call gets no usable answer: install the slot the page needs.
 
 The model classes in `e2e/app/_support/model/` are plain TypeScript with no Playwright import, because both the specs and `src/e2e/msw/` import them. Most of them validate their seed against the generated Zod schemas (`e2e/app/_support/contracts/openapi-contract.ts`), and `pnpm run check:e2e-contracts` instantiates the scenario factories to catch a seed that no longer matches the API contract.

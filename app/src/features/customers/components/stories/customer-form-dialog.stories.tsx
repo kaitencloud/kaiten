@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
-import { storyCustomers } from '@/test-fixtures/p0-storybook-fixtures';
+import { storyCustomers } from '@/test-fixtures/storybook-fixtures';
 import { CustomerFormDialog } from '../customer-form-dialog';
 
 const meta = {

@@ -8,7 +8,7 @@ import {
 	storyActor,
 	storyLastWeek,
 	storyNow,
-} from '@/test-fixtures/p0-storybook-fixtures';
+} from '@/test-fixtures/storybook-fixtures';
 import { ComponentsStatsCards } from '../components-stats-cards';
 import { ComponentsTable } from '../components-table';
 

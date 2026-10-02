@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Page } from '@/functionals/page';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { entitlementsQueryOptions } from '../queries';
-import { EntitlementsTable } from './entitlement-table';
+import { EntitlementsTable } from './table/entitlement-table';
 
 export function EntitlementsPageContent({
   children,

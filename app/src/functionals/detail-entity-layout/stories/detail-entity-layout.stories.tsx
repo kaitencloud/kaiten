@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DetailCard } from '@/functionals/detail-card';
-import type { DetailTabsNavItem } from '@/functionals/detail-tabs-layout';
+import type { DetailTabsNavItem } from '../detail-tabs-nav';
 import { Page } from '@/functionals/page';
 import { StatCard } from '@/functionals/stat-card';
 import { dataModelIcons } from '@/lib/data-model-icons';
@@ -145,13 +145,12 @@ function EntityLayoutStoryFrame({
       initialEntries={['/customers/acme-corp']}
       routePath="/customers/$customerSlug"
     >
-      <DetailEntityLayout
-        activeTab="overview"
-        header={header}
-        stats={stats}
-        tabs={detailTabs}
-      >
-        {children}
+      <DetailEntityLayout>
+        <DetailEntityLayout.Top>{header}{stats}</DetailEntityLayout.Top>
+        <DetailEntityLayout.Body>
+          <DetailEntityLayout.Tabs activeTab="overview" items={detailTabs} />
+          <DetailEntityLayout.Content>{children}</DetailEntityLayout.Content>
+        </DetailEntityLayout.Body>
       </DetailEntityLayout>
     </StorybookRouter>
   );

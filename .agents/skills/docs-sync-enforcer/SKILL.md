@@ -15,6 +15,7 @@ Enforce documentation updates whenever frontend behavior changes.
    - route flow, UI content, mutation behavior, state model, architecture boundaries.
 3. Map each change to the page that owns it:
    - architecture: `app/docs/01-architecture/`
+   - feature grouping: `app/docs/04-features/_template/FEATURE_TEMPLATE.md`
    - conventions: `app/docs/02-conventions/`
    - patterns: `app/docs/03-patterns/`
    - shared components: `app/docs/05-components/`

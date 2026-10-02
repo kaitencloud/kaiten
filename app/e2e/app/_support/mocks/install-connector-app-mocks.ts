@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import type { ConnectorSettingsWritable } from '@/api-client';
 import type { ConnectorAppModel } from '../model/connector-app-model';
+import { connectorOperations } from '../model/graphql-operations';
 import { installGraphQLOperationMocks } from './graphql-operation-router';
 import { tryInstallMswMocks } from './install-app-mocks';
 import { makeRestRouter, parseJsonBody } from './rest-route-helpers';
@@ -40,7 +41,5 @@ export async function installConnectorAppMocks(
     ),
   );
 
-  await installGraphQLOperationMocks(page, {
-    GetAttioSyncedRecords: () => model.getSyncedRecords(),
-  });
+  await installGraphQLOperationMocks(page, connectorOperations(model));
 }

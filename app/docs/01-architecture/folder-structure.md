@@ -90,7 +90,7 @@ The client has several entry points; the `@/api-client` barrel exports only the 
 | `@/api-client/zod.gen` | The Zod schemas (`zCustomer`) |
 | `@/api-client/graphql`, `@/api-client/graphql/graphql` | The `graphql()` document function; the types generated for each document |
 
-The REST client is configured in `src/lib/api/`, not in the generated `client.gen.ts`.
+The REST client is configured by `src/lib/api/bootstrap.ts`, imported before the route tree. It calls `configureApiClient` once before query keys capture the base URL; importing adapters has no initialization side effect. See the [API infrastructure README](../../src/lib/api/README.md).
 
 ## `components/`: generic UI
 
@@ -146,7 +146,7 @@ Put in a domain:
 - business components shared by several features;
 - modules that talk to an external service (an SDK, a network client) and carry its business vocabulary, even when they expose widgets.
 
-Do not put in a domain: pages, shell or layout components, purely technical helpers (`lib/`, `hooks/`, `components/`, `functionals/`).
+Do not put in a domain: pages, route ownership or purely technical layouts/helpers (`lib/`, `hooks/`, `components/`, `functionals/`). A shared business shell consumed directly by sibling features may live in a domain: the release-management shell groups its business URLs, labels and entity icons there, while each feature still owns its page.
 
 A shared module that looks like UI orchestration but carries business slugs or a network client belongs in `domains/`, not in `functionals/`. Splitting it is not an option: `functionals/` cannot import `domains/`, so the whole module moves. `domains/crm-sync/` is the reference case.
 
@@ -166,7 +166,7 @@ Where things go:
 | Shared page layout | `functionals/page/` |
 | Data table, table card, actions column, delete and linked-items dialogs | `functionals/table/` |
 | Route tabs, active tab by path prefix | `functionals/route-tabs/` |
-| Shared shell of `/releases/**` | `functionals/release-management/` |
+| Shared business shell of `/releases/**` | `domains/release-management/components/` |
 | Large form dialog with a discard confirmation | `functionals/stacked-form-dialog/` |
 | CEL editor with Monaco completion | `functionals/cel-editor/` |
 | Targeting rules list and editor | `features/feature-flags/targeting/` |

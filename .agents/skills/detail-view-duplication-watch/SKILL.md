@@ -15,7 +15,10 @@ Reduce repeated detail-page code by extracting shared detail patterns.
 2. Inspect detail pages and tabs for repeated structures:
    - shell layouts, tabs navigation, card+table blocks, audit/date helpers.
 3. Prefer shared abstractions where available:
-   - `DetailEntityLayout`, `DetailTabsNav`, `TableCard`, `lib/detail/*`, `RiskRankingListCard`.
+   - `DetailEntityLayout.Top/Body/Tabs/Content`, `TableCard`, `lib/detail/*`, `RiskRankingListCard`.
+   - The dense-feature template in `app/docs/04-features/_template/FEATURE_TEMPLATE.md`
+     keeps detail-specific helpers local. Tab implementation is private to
+     DetailEntityLayout; compose regions instead of forwarding structural props.
 4. Extract only when duplication is meaningful:
    - prioritize 2+ concrete repetitions with compatible semantics.
 5. Preserve feature boundaries:

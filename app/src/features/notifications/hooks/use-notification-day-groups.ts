@@ -4,7 +4,7 @@ import {
   type DayGroup,
   formatDayHeading,
   groupItemsByDay,
-} from '@/domains/audit-trail';
+} from '@/lib/feed-time';
 import type { Notification } from '../types';
 
 /**

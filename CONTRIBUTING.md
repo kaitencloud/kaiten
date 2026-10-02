@@ -25,7 +25,7 @@ the pull request template and the `pr-check` skill point here.
   pnpm run check:ci
   ```
 
-  It runs the checks of `.github/workflows/app-ci.yml` in the same order: lint, type
+  It runs the checks of `.github/workflows/app-ci.yml` in the same order: root/app lint rule parity, lint, type
   check of the app and of the E2E suite, architecture boundaries, E2E scenario
   contracts, i18n parity and keys, API error translations, source file sizes, token contrast,
   unit tests and a production build. Two things stay outside it:

@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import type { CustomerWritable } from '@/api-client';
 import type { CustomerAppModel } from '../model/customer-app-model';
+import { customerOperations } from '../model/graphql-operations';
 import { installGraphQLOperationMocks } from './graphql-operation-router';
 import { tryInstallMswMocks } from './install-app-mocks';
 import { makeRestRouter, parseJsonBody } from './rest-route-helpers';
@@ -20,10 +21,7 @@ async function installCustomerPageRouteMocks(
   page: Page,
   model: CustomerAppModel,
 ) {
-  await installGraphQLOperationMocks(page, {
-    GetCustomersWithInstances: () => model.getCustomersWithInstances(),
-    GetInstancesWithRelations: () => model.getInstancesWithRelations(),
-  });
+  await installGraphQLOperationMocks(page, customerOperations(model));
 
   await page.route(
     '**/api/customers',
