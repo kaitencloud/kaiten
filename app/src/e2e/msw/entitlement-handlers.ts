@@ -1,4 +1,4 @@
-import { HttpResponse, http } from 'msw';
+import { HttpResponse, http } from 'msw/http';
 import type { Entitlement } from '@/api-client';
 import type { EntitlementAppModel } from '../../../e2e/app/_support/model/entitlement-app-model';
 import {

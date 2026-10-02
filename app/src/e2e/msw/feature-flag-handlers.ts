@@ -1,4 +1,4 @@
-import { HttpResponse, http } from 'msw';
+import { HttpResponse, http } from 'msw/http';
 import type { EvaluationRequest, FeatureFlagWritable } from '@/api-client';
 import type { FeatureFlagAppModel } from '../../../e2e/app/_support/model/feature-flag-app-model';
 import {

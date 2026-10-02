@@ -127,7 +127,7 @@ export async function startE2EMockServiceWorker(
   if (handlers.length === 0) return;
 
   await setupWorker(...withFallbacksLast(handlers)).start({
-    onUnhandledRequest: 'bypass',
+    onUnhandledFrame: 'bypass',
     quiet: true,
     serviceWorker: { url: '/mockServiceWorker.js' },
   });

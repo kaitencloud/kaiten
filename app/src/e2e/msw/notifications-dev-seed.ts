@@ -123,7 +123,7 @@ export function createNotificationsDevSeed(): SerializedNotificationAppModel {
  * Local-dev mode for notifications without a running backend stack
  * (VITE_MOCK_NOTIFICATIONS=true): starts the shared MSW worker with
  * only the notifications slot seeded. Every other request passes through to
- * the real API (onUnhandledRequest: 'bypass').
+ * the real API (onUnhandledFrame: 'bypass').
  */
 export async function startNotificationsDevMocks() {
   await startE2EMockServiceWorker(

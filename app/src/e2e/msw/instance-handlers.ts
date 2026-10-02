@@ -1,4 +1,4 @@
-import { HttpResponse, http } from 'msw';
+import { HttpResponse, http } from 'msw/http';
 import type { InstanceWritable } from '@/api-client';
 import type { InstanceAppModel } from '../../../e2e/app/_support/model/instance-app-model';
 import {

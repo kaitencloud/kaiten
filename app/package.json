@@ -132,7 +132,7 @@
     "@vitest/browser-playwright": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "jsdom": "^30.0.1",
-    "msw": "^2.15.0",
+    "msw": "^3.0.1",
     "oxc-parser": "^0.150.0",
     "playwright": "catalog:",
     "react-doctor": "^0.9.14",
@@ -146,10 +146,5 @@
     "vitest": "catalog:",
     "web-vitals": "^6.2.2"
   },
-  "packageManager": "pnpm@12.4.1",
-  "msw": {
-    "workerDirectory": [
-      "public"
-    ]
-  }
+  "packageManager": "pnpm@12.4.1"
 }

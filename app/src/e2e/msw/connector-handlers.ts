@@ -1,4 +1,4 @@
-import { HttpResponse, http } from 'msw';
+import { HttpResponse, http } from 'msw/http';
 import type { ConnectorSettingsWritable } from '@/api-client';
 import type { ConnectorAppModel } from '../../../e2e/app/_support/model/connector-app-model';
 import { connectorOperations } from '../../../e2e/app/_support/model/graphql-operations';

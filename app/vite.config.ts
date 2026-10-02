@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import viteReact from '@vitejs/plugin-react';
+import { msw } from 'msw/vite';
 import { defineConfig } from 'vite-plus';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -239,6 +240,11 @@ export default defineConfig({
   plugins: [
     devTokensPlugin(),
     tailwindThemePlugin(),
+    // Serves /mockServiceWorker.js from the installed msw, to the dev server,
+    // Storybook and the Storybook tests, and writes it next to a build, as the
+    // copy committed under public/ was: msw 3 no longer refreshes such a copy
+    // on install. Worker only: the code that mocks starts its worker itself.
+    msw({ mode: 'worker-only' }),
     tanstackRouter({
       target: 'react',
       autoCodeSplitting: true,

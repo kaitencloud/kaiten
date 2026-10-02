@@ -1,10 +1,5 @@
-import {
-  type DefaultBodyType,
-  HttpResponse,
-  type HttpResponseResolver,
-  http,
-  type PathParams,
-} from 'msw';
+import type { DefaultBodyType, PathParams } from 'msw';
+import { HttpResponse, type HttpResponseResolver, http } from 'msw/http';
 import type { LicenseWritable } from '@/api-client';
 import {
   type LicenseAppModel,

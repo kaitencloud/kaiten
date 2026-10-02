@@ -1,4 +1,4 @@
-import { HttpResponse, http } from 'msw';
+import { HttpResponse, http } from 'msw/http';
 import type { CustomerWritable } from '@/api-client';
 import type { CustomerAppModel } from '../../../e2e/app/_support/model/customer-app-model';
 import { customerOperations } from '../../../e2e/app/_support/model/graphql-operations';
