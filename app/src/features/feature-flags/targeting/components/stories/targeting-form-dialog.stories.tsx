@@ -1,125 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useQueryClient } from '@tanstack/react-query';
 import { expect, userEvent, within } from 'storybook/test';
-import type { FC, ReactNode } from 'react';
+import type { FC } from 'react';
 import { useState } from 'react';
-import type { TargetingContext, Variant } from '@/api-client';
-import { getTargetingContextQueryKey } from '@/api-client/@tanstack/react-query.gen';
+import type { Variant } from '@/api-client';
 import { findVisibleByRole } from '@/test-fixtures/storybook-test-utils';
 import type { Targeting } from '../../types';
 import { TargetingFormDialog } from '../targeting-form-dialog';
-
-/**
- * The schema the editor's Context popover and Templates menu are driven by,
- * as the server would serve it — abbreviated but shape-faithful. Seeded into
- * the query cache so the stories show the toolbar the way the app does; a
- * story without it renders the degraded no-API toolbar, which has its own
- * value but hides most of the surface.
- */
-const SERVED_TARGETING_CONTEXT: TargetingContext = {
-  roots: [
-    {
-      name: '__kaiten',
-      type: 'object',
-      description: 'Facts the server computes for every evaluation.',
-      fields: [
-        {
-          name: 'license',
-          type: 'object',
-          description: 'The license the organization holds.',
-          fields: [
-            {
-              name: 'slug',
-              type: 'string',
-              description: "Slug of the license, e.g. 'scale'",
-            },
-            {
-              name: 'type',
-              type: 'string',
-              description: "Whether the license is paid, e.g. 'PAID'",
-            },
-          ],
-        },
-        {
-          name: 'entitlements',
-          type: 'map',
-          description: 'Entitlement usage, keyed by slug.',
-          knownKeys: ['seats', 'customers', 'instances'],
-          values: {
-            name: '',
-            type: 'object',
-            fields: [
-              {
-                name: 'remaining',
-                type: 'number',
-                description: 'Ceiling minus usage.',
-              },
-              {
-                name: 'percentage',
-                type: 'number',
-                description: 'Share of the ceiling consumed, between 0 and 1.',
-              },
-              {
-                name: 'unlimited',
-                type: 'boolean',
-                description: 'True when the entitlement has no ceiling.',
-              },
-            ],
-          },
-        },
-        {
-          name: 'instance',
-          type: 'object',
-          description: 'The instance being evaluated.',
-          fields: [
-            { name: 'id', type: 'string', description: 'Identifier.' },
-            { name: 'slug', type: 'string', description: 'Instance slug.' },
-            { name: 'name', type: 'string', description: 'Display name.' },
-            {
-              name: 'status',
-              type: 'string',
-              description: "Operational status, e.g. 'HEALTHY'.",
-            },
-            {
-              name: 'metadata',
-              type: 'map',
-              description: 'Free-form metadata.',
-              values: { name: '', type: 'dyn' },
-            },
-          ],
-        },
-        {
-          name: 'deploymentZone',
-          type: 'object',
-          description: 'The deployment zone the instance runs in.',
-          fields: [
-            { name: 'slug', type: 'string', description: 'Zone slug.' },
-            {
-              name: 'type',
-              type: 'string',
-              description: "Environment class, e.g. 'production'.",
-            },
-          ],
-        },
-      ],
-    },
-    {
-      name: 'targetingKey',
-      type: 'string',
-      description: 'The key this evaluation is bucketed on. Always present.',
-    },
-  ],
-};
-
-function SeedTargetingContext({ children }: { children: ReactNode }) {
-  const queryClient = useQueryClient();
-  queryClient.setQueryData(
-    getTargetingContextQueryKey(),
-    SERVED_TARGETING_CONTEXT,
-  );
-
-  return children;
-}
+import { SeedTargetingContext } from './seed-targeting-context';
 
 // Wrapper component to control dialog state
 function DialogWrapper({
@@ -393,9 +280,11 @@ export const EditBasicTargeting: StoryObj<typeof TargetingFormDialog> = {
     await expect(
       dialogScope.queryByRole('combobox', { name: /Targeting Type/i }),
     ).toBeNull();
-    await expect(
-      await dialogScope.findByRole('textbox', { name: /Name \*/ }),
-    ).toHaveValue('Enterprise Customers');
+    // The required mark sits beside the label, hidden from assistive
+    // technology: the field is named "Name" and carries aria-required.
+    const nameField = await dialogScope.findByRole('textbox', { name: 'Name' });
+    await expect(nameField).toHaveValue('Enterprise Customers');
+    await expect(nameField).toBeRequired();
   },
 };
 

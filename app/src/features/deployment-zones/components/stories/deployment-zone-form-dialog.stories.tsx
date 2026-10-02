@@ -1,16 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, userEvent, within } from 'storybook/test';
-import { useQueryClient } from '@tanstack/react-query';
-import {
-  createMemoryHistory,
-  createRootRoute,
-  createRouter,
-  RouterProvider,
-} from '@tanstack/react-router';
-import { useState } from 'react';
-import { I18nextProvider } from 'react-i18next';
+import type { QueryClient } from '@tanstack/react-query';
 import type { DeploymentZone } from '@/api-client';
-import i18n from '@/lib/i18n/config';
+import { listDeploymentZonesOptions } from '@/api-client/@tanstack/react-query.gen';
+import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
+import { storyDeploymentZones } from '@/test-fixtures/p0-storybook-fixtures';
+import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import {
   findVisibleByRole,
   findVisibleByText,
@@ -32,38 +27,34 @@ const mockDeploymentZone: DeploymentZone = {
   updatedBy: { id: 'user-1', name: 'User 1' },
 };
 
+const seedDeploymentZoneFormQueries = (queryClient: QueryClient) => {
+  // The type field suggests the types the existing zones already use.
+  queryClient.setQueryData(listDeploymentZonesOptions().queryKey, {
+    hasMore: false,
+    items: storyDeploymentZones,
+  });
+  // No metadata field declared: the dialog offers raw JSON for the metadata
+  // instead of typed fields.
+  queryClient.setQueryData(
+    metadataFieldsActiveQueryOptions('DEPLOYMENT_ZONE').queryKey,
+    [],
+  );
+};
+
 // --- Router Wrapper (needed for useRouteContext in form hook) ---
 
 function FormWrapper({ deploymentZone }: { deploymentZone?: DeploymentZone }) {
-  const queryClient = useQueryClient();
-
-  const rootRoute = createRootRoute({
-    component: () => (
-      <I18nextProvider i18n={i18n}>
-        <div className="p-6">
-          <DeploymentZoneFormDialog
-            deploymentZone={deploymentZone}
-            open
-            onOpenChange={() => {}}
-          />
-        </div>
-      </I18nextProvider>
-    ),
-  });
-
-  const [history] = useState(() =>
-    createMemoryHistory({ initialEntries: ['/'] }),
+  return (
+    <StorybookRouter seed={seedDeploymentZoneFormQueries}>
+      <div className="p-6">
+        <DeploymentZoneFormDialog
+          deploymentZone={deploymentZone}
+          open
+          onOpenChange={() => {}}
+        />
+      </div>
+    </StorybookRouter>
   );
-
-  const [router] = useState(() =>
-    createRouter({
-      routeTree: rootRoute,
-      history,
-      context: { queryClient },
-    }),
-  );
-
-  return <RouterProvider router={router} />;
 }
 
 // --- Meta ---
@@ -174,8 +165,11 @@ export const InteractiveJsonValidation: Story = {
     const dialog = await findVisibleByRole(document.body, 'dialog');
     const dialogScope = within(dialog);
     // The typed-metadata work renamed the raw-JSON field's label from "Features" to
-    // "Metadata". With no active schema declared the dialog still falls
-    // back to this raw-JSON textarea, so the validation smoke holds.
+    // "Metadata". With no active schema declared, a new zone shows an empty
+    // state that opens this raw-JSON textarea on demand.
+    await userEvent.click(
+      await dialogScope.findByRole('button', { name: 'Edit as JSON' }),
+    );
     const metadata = await dialogScope.findByLabelText(/^Metadata/);
 
     metadata.focus();

@@ -222,6 +222,8 @@ export const FailureDialog: Story = {
 			name: 'Failed delivery details',
 		});
 		await expect(dialog).toBeVisible();
-		await expect(within(dialog).getByText(/release\.created/)).toBeVisible();
+		// The dialog names the event by its audit trail label, not by its type:
+		// com.kaiten.release.v1.created reads "Release published".
+		await expect(within(dialog).getByText(/Release published/)).toBeVisible();
 	},
 };

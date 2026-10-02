@@ -4,6 +4,7 @@ import {
   getLicensesOptions,
   listCustomersOptions,
 } from '@/api-client/@tanstack/react-query.gen';
+import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
 import { releaseManagementOverviewQueryOptions } from '@/domains/release-management';
 import {
   listDeploymentZonesOptions,
@@ -13,7 +14,9 @@ import {
   storyAuditEntries,
   storyCustomers,
   storyDeploymentZones,
+  storyEntitlements,
   storyEntitlementUsages,
+  storyInstanceMetadataFields,
   storyInstances,
   storyLicenseEntitlements,
   storyLicenses,
@@ -24,6 +27,7 @@ import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { buildEntitlementsRows } from '../../utils/instance-detail-entitlements.utils';
 import {
   customerQueryOptions,
+  entitlementsCatalogQueryOptions,
   instanceLicenseEntitlementsQueryOptions,
   instanceQueryOptions,
   instanceUsageQueryOptions,
@@ -63,6 +67,10 @@ const seedInstanceDetailQueries = (queryClient: QueryClient) => {
     instanceLicenseEntitlementsQueryOptions(instance.licenseSlug).queryKey,
     { hasMore: false, items: storyLicenseEntitlements },
   );
+  queryClient.setQueryData(entitlementsCatalogQueryOptions.queryKey, {
+    hasMore: false,
+    items: storyEntitlements,
+  });
   queryClient.setQueryData(listDeploymentZonesOptions().queryKey, {
     hasMore: false,
     items: storyDeploymentZones,
@@ -83,6 +91,10 @@ const seedInstanceDetailQueries = (queryClient: QueryClient) => {
     hasMore: false,
     items: storyLicenses,
   });
+  queryClient.setQueryData(
+    metadataFieldsActiveQueryOptions('INSTANCE').queryKey,
+    storyInstanceMetadataFields,
+  );
 };
 
 function InstanceDetailStoryFrame({ children }: { children: React.ReactNode }) {
