@@ -1,11 +1,13 @@
 import { Badge } from '@/components/ui/badge';
-import { Shield } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Instance, License } from '@/api-client';
 import { DetailCard } from '@/functionals/detail-card';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { capitalizeFromUpperCase } from '@/lib/utils';
 import { formatDate } from '../../../../../utils/instance-detail-overview.utils';
 import { InstanceRelatedLink } from './instance-related-link';
+
+const LicenseIcon = dataModelIcons.license;
 
 type InstanceLicenseCardProps = {
   instance: Instance;
@@ -29,7 +31,7 @@ export const InstanceLicenseCard = ({
     <DetailCard>
       <DetailCard.Header>
         <DetailCard.Title className="text-base flex items-center gap-2">
-          <Shield className="size-4 text-primary-subtle-foreground" />
+          <LicenseIcon className="size-4 text-primary-subtle-foreground" />
           {t('Pages.Customers.Instances.Detail.license.title')}
         </DetailCard.Title>
       </DetailCard.Header>

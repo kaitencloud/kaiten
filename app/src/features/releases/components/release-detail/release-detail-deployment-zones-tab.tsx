@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link, useRouter } from '@tanstack/react-router';
-import { ArrowRight, Rocket, Server } from 'lucide-react';
+import { ArrowRight, Rocket } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -16,9 +16,12 @@ import {
   TableActionButton,
   TableCard,
 } from '@/functionals/table';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { formatDate } from '@/lib/detail';
 import type { ReleaseDetailLinkedDeploymentZone } from '../../utils';
 import { useReleaseDetailContext } from './release-detail-context';
+
+const DeploymentZoneIcon = dataModelIcons.deploymentZone;
 
 export function ReleaseDetailDeploymentZonesTab() {
   const { i18n, t } = useTranslation();
@@ -35,7 +38,7 @@ export function ReleaseDetailDeploymentZonesTab() {
         ),
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            <Server className="size-4 text-primary-subtle-foreground" />
+            <DeploymentZoneIcon className="size-4 text-primary-subtle-foreground" />
             <span className="font-medium">{row.original.name}</span>
           </div>
         ),

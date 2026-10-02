@@ -1,5 +1,4 @@
 import { Badge } from '@/components/ui/badge';
-import { Server } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -7,6 +6,9 @@ import {
   getZoneTypeBadgeVariant,
 } from '@/domains/release-management';
 import { type ColumnDef, TableLinkedItemsDialog } from '@/functionals/table';
+import { dataModelIcons } from '@/lib/data-model-icons';
+
+const DeploymentZoneIcon = dataModelIcons.deploymentZone;
 
 export type LinkedDeploymentZone = {
   description?: string | null;
@@ -31,7 +33,7 @@ export function ReleaseLinkedDeploymentZonesDisplay({
         header: t('Features.Releases.Table.Columns.name'),
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            <Server className="size-4 text-primary-subtle-foreground" />
+            <DeploymentZoneIcon className="size-4 text-primary-subtle-foreground" />
             <span className="font-medium">{row.original.name}</span>
           </div>
         ),

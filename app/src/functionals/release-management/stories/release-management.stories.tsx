@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { CalendarDays, Gauge, PackageCheck, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatCard } from '@/functionals/stat-card';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { ReleaseManagementPageShell } from '../release-management-page-shell';
 import { ReleaseManagementTabs } from '../release-management-tabs';
@@ -20,12 +21,16 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof ReleaseManagementPageShell>;
 
+const ReleaseIcon = dataModelIcons.release;
+const ComponentIcon = dataModelIcons.component;
+const DeploymentZoneIcon = dataModelIcons.deploymentZone;
+
 const releaseStats = (
   <StatCard.Row columnsClassName="md:grid-cols-3">
     <StatCard>
       <StatCard.Label>Releases</StatCard.Label>
       <StatCard.Icon>
-        <CalendarDays />
+        <ReleaseIcon />
       </StatCard.Icon>
       <StatCard.Value>18</StatCard.Value>
       <StatCard.Helper>4 promoted this month</StatCard.Helper>
@@ -33,7 +38,7 @@ const releaseStats = (
     <StatCard>
       <StatCard.Label>Components</StatCard.Label>
       <StatCard.Icon>
-        <PackageCheck />
+        <ComponentIcon />
       </StatCard.Icon>
       <StatCard.Value>42</StatCard.Value>
       <StatCard.Helper>31 deployed</StatCard.Helper>
@@ -41,7 +46,7 @@ const releaseStats = (
     <StatCard>
       <StatCard.Label>Zones</StatCard.Label>
       <StatCard.Icon>
-        <Gauge />
+        <DeploymentZoneIcon />
       </StatCard.Icon>
       <StatCard.Value>6</StatCard.Value>
       <StatCard.Helper>5 production-ready</StatCard.Helper>

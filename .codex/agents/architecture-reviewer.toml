@@ -23,7 +23,8 @@ nothing about third-party packages. `pnpm run lint` covers two of those cases
 (`no-restricted-imports`, declared in `app/vite.config.ts`): Base UI
 outside `components/ui/`, and `useMutation`, `useState` and `useReducer` in
 routes. Lint does not scan tests, stories or `src/components/ui/`. The rest is
-review-only: the other thin-route rules, schemas, invalidation and export style.
+review-only: the other thin-route rules, schemas, invalidation, export style and
+data-model icons.
 
 Run from `app/`:
 
@@ -112,6 +113,28 @@ uses the wrappers in `app/src/components/ui/`. `pnpm run lint` enforces this
 stories: as a cross-check, from `app/`, search `@base-ui/` outside
 `src/components/ui/`, Markdown excluded, and report what lint could not see.
 
+### Data-model icons
+
+The `One icon per entity` principle of `app/docs/AI_CONTEXT.md`: an icon that
+stands for an entity of `dataModelIcons` (`app/src/lib/data-model-icons.ts`) is
+taken from there. Where the diff adds or changes an icon, flag:
+
+- the entity's glyph imported from `lucide-react` to stand for the entity;
+- an entity drawn with another glyph, such as a licenses stat, title or
+  notification type drawn with `ShieldCheck` or `KeyRound`;
+- one entity's glyph standing for another, such as `Server` on a list of
+  deployment zones.
+
+Do not flag the same glyph with another meaning (`Rocket` on a Deploy button,
+`Braces` in the CEL editor) or an icon for a state or a property (an alert, a
+date, a check). No command checks this rule. As a cross-check, from `app/`,
+list the `lucide-react` imports of the glyphs of `data-model-icons.ts` and judge
+each hit:
+
+```bash
+rg -nU "import [{][^}]*[^A-Za-z](Boxes|Braces|FileText|Flag|MapPinned|Package|Rocket|Server|Tag|UserKey|Users)[^A-Za-z][^}]*[}] from .lucide-react." src --glob '!src/lib/data-model-icons.ts' --glob '!*.md'
+```
+
 ### Generated schemas
 
 API-backed form schemas must derive from generated schemas in
@@ -146,9 +169,10 @@ or domain keys need not come from the generated REST client.
 1. Inspect the diff and changed-file import graph.
 2. Run `pnpm run check:architecture` and `pnpm run lint`.
 3. Validate ownership decisions that static analysis cannot judge.
-4. Check thin routes, UI primitive isolation, generated-schema reuse,
-   invalidation, exports, naming and spacing only where the diff touches those
-   concerns. Report a pre-existing issue only when the diff touches it.
+4. Check thin routes, UI primitive isolation, data-model icons,
+   generated-schema reuse, invalidation, exports, naming and spacing only where
+   the diff touches those concerns. Report a pre-existing issue only when the
+   diff touches it.
 5. Confirm active docs are updated when ownership or public boundaries change.
 6. Report only actionable findings.
 

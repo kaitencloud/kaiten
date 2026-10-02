@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Server, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { Page } from '../page';
 
 const meta = {
@@ -16,13 +17,15 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof Page.Header>;
 
+const InstanceIcon = dataModelIcons.instance;
+
 export const Default: Story = {
   render: () => (
     <Page>
       <Page.Header>
         <Page.Leading>
           <Page.Icon>
-            <Server className="size-8 text-primary-subtle-foreground" />
+            <InstanceIcon className="size-8 text-primary-subtle-foreground" />
           </Page.Icon>
           <Page.Heading>
             <Page.TitleRow>

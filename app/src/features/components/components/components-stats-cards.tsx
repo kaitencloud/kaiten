@@ -1,4 +1,4 @@
-import { GitBranch, Rocket, Share2 } from 'lucide-react';
+import { GitBranch, Share2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { StatCard } from '@/functionals/stat-card';
 import { dataModelIcons } from '@/lib/data-model-icons';
@@ -11,6 +11,7 @@ export function ComponentsStatsCards({
 }) {
   const { t } = useTranslation();
   const ComponentIcon = dataModelIcons.component;
+  const ReleaseIcon = dataModelIcons.release;
 
   return (
     <StatCard.Row>
@@ -28,7 +29,7 @@ export function ComponentsStatsCards({
           {t('Pages.Releases.Components.Stats.releasesUsingComponents')}
         </StatCard.Label>
         <StatCard.Icon>
-          <Rocket />
+          <ReleaseIcon />
         </StatCard.Icon>
         <StatCard.Value>{stats.releasesUsingComponents}</StatCard.Value>
       </StatCard>

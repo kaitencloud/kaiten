@@ -41,6 +41,10 @@ A state ("Planned", "Development", "Not deployed") is a badge in the page title,
 
 Three words at most for the label, one line for each helper, two values and two helpers at most. In a `StatCard.Row`, each card spans five tracks of the row's grid (label, two values, two helpers) and lays its parts on them as a CSS subgrid: the labels, the values and each helper line sit on one line across the row, whatever the height of the labels and whichever cards leave a helper out. A third helper or value, or a helper that wraps, pushes the card's own content off those lines.
 
+## The icon says what the figure counts
+
+An icon that stands for an entity is that entity's icon from `dataModelIcons` (`@/lib/data-model-icons`), never another glyph: the licenses card draws the license icon, the tokens card the token icon. When the figure counts one entity and a helper another, the icon follows the figure. An icon for a state or a property keeps its own glyph: an alert, a date, a check. The rule is the "One icon per entity" principle in [AI_CONTEXT.md](../AI_CONTEXT.md#principles): it is reviewed in pull requests and no command checks it.
+
 ## Dense
 
 `dense` makes a card smaller: tighter padding, smaller label and value. Set it on the row, and every card in it follows; set it on a card only when the card stands alone. A row mixes no dense and regular cards.

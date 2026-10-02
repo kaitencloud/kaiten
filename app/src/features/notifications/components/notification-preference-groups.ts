@@ -1,14 +1,11 @@
 import {
   AlertTriangle,
   Bell,
-  Building2,
-  KeyRound,
   type LucideIcon,
   Plug,
-  Rocket,
-  Server,
   ShieldAlert,
 } from 'lucide-react';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import type { EventNameMap, KaitenEventName, PreferenceEvent } from '../types';
 
 // Frontend presentation over the flat PreferenceMatrix event list: the server
@@ -29,7 +26,7 @@ export interface PreferenceGroupDef {
 const GROUP_DEFS: PreferenceGroupDef[] = [
   {
     id: 'deployments',
-    Icon: Rocket,
+    Icon: dataModelIcons.release,
     labelKey: 'Pages.Settings.Notifications.Groups.deployments.label',
     labelFallback: 'Deployments & releases',
     descriptionKey:
@@ -38,7 +35,7 @@ const GROUP_DEFS: PreferenceGroupDef[] = [
   },
   {
     id: 'instances',
-    Icon: Server,
+    Icon: dataModelIcons.instance,
     labelKey: 'Pages.Settings.Notifications.Groups.instances.label',
     labelFallback: 'Instances',
     descriptionKey: 'Pages.Settings.Notifications.Groups.instances.description',
@@ -63,7 +60,7 @@ const GROUP_DEFS: PreferenceGroupDef[] = [
   },
   {
     id: 'customers',
-    Icon: Building2,
+    Icon: dataModelIcons.customer,
     labelKey: 'Pages.Settings.Notifications.Groups.customers.label',
     labelFallback: 'Customers',
     descriptionKey: 'Pages.Settings.Notifications.Groups.customers.description',
@@ -71,7 +68,7 @@ const GROUP_DEFS: PreferenceGroupDef[] = [
   },
   {
     id: 'licensing',
-    Icon: KeyRound,
+    Icon: dataModelIcons.license,
     labelKey: 'Pages.Settings.Notifications.Groups.licensing.label',
     labelFallback: 'Licensing',
     descriptionKey: 'Pages.Settings.Notifications.Groups.licensing.description',

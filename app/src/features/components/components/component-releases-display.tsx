@@ -1,6 +1,5 @@
 import { Badge } from '@/components/ui/badge';
 import { Link } from '@tanstack/react-router';
-import { Tag } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -8,8 +7,11 @@ import {
   getReleaseStatusBadgeVariant,
 } from '@/domains/release-management';
 import { type ColumnDef, TableLinkedItemsDialog } from '@/functionals/table';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { formatDate } from '@/lib/detail';
 import type { ComponentCatalogRelease } from '../types';
+
+const VersionIcon = dataModelIcons.version;
 
 type ComponentReleasesDisplayProps = {
   componentName: string;
@@ -33,7 +35,7 @@ export function ComponentReleasesDisplay({
         ),
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
-            <Tag className="size-4 text-primary-subtle-foreground" />
+            <VersionIcon className="size-4 text-primary-subtle-foreground" />
             {row.original.slug ? (
               <Link
                 to="/releases/$releaseSlug"

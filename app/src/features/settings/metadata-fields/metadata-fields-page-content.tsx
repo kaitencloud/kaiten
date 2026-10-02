@@ -1,4 +1,4 @@
-import { Layers3, Server, Settings2, ShieldAlert } from 'lucide-react';
+import { Settings2, ShieldAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { GradientButton } from '@/components/gradient-button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,6 +13,7 @@ import {
   RestrictedState,
 } from './components/metadata-field-states';
 import { MetadataFieldsBody } from './components/metadata-fields-body';
+import { ResourceTypeIcon } from './components/resource-type-icon';
 import { resourceTypeLabel } from './metadata-field-helpers';
 import type { MetadataResourceType } from './types';
 import {
@@ -39,11 +40,11 @@ function ResourceTabs({
     >
       <TabsList>
         <TabsTrigger value="DEPLOYMENT_ZONE" className="gap-1.5">
-          <Layers3 className="size-4" />
+          <ResourceTypeIcon resourceType="DEPLOYMENT_ZONE" className="size-4" />
           {resourceTypeLabel('DEPLOYMENT_ZONE')}
         </TabsTrigger>
         <TabsTrigger value="INSTANCE" className="gap-1.5">
-          <Server className="size-4" />
+          <ResourceTypeIcon resourceType="INSTANCE" className="size-4" />
           {resourceTypeLabel('INSTANCE')}
         </TabsTrigger>
       </TabsList>

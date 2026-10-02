@@ -1,10 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { Link } from '@tanstack/react-router';
-import { Pencil, Users } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Customer } from '@/api-client';
 import { DestructiveActionButton } from '@/components/destructive-action-button';
 import { EditableTitle, Page } from '@/functionals/page';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { useCustomerFormMutations } from '../customer-form.mutations';
 import {
   customerFormValuesToUpdateBody,
@@ -42,7 +43,7 @@ export const CustomerDetailHeader = ({
   return (
     <Page.Header>
       <Page.IconHeading
-        icon={Users}
+        icon={dataModelIcons.customer}
         title={
           <EditableTitle
             value={customer.name}

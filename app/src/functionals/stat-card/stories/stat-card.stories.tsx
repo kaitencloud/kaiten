@@ -1,13 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import {
-  AlertTriangle,
-  Calendar,
-  Flag,
-  KeyRound,
-  Server,
-  ShieldCheck,
-  Users,
-} from 'lucide-react';
+import { AlertTriangle, Calendar, GitBranch } from 'lucide-react';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { StatCard } from '../stat-card';
 
 const meta = {
@@ -21,6 +14,13 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof StatCard>;
+
+const CustomerIcon = dataModelIcons.customer;
+const InstanceIcon = dataModelIcons.instance;
+const EntitlementIcon = dataModelIcons.entitlement;
+const LicenseIcon = dataModelIcons.license;
+const FeatureFlagIcon = dataModelIcons.featureFlag;
+const TokenIcon = dataModelIcons.token;
 
 const InstanceCards = () => (
   <>
@@ -37,7 +37,7 @@ const InstanceCards = () => (
     <StatCard>
       <StatCard.Label>Entitlements</StatCard.Label>
       <StatCard.Icon>
-        <KeyRound />
+        <EntitlementIcon />
       </StatCard.Icon>
       <StatCard.Value className="text-warning-subtle-foreground">
         5/6
@@ -96,7 +96,7 @@ export const Standalone: Story = {
       <StatCard className="w-64">
         <StatCard.Label>Customers</StatCard.Label>
         <StatCard.Icon>
-          <Users />
+          <CustomerIcon />
         </StatCard.Icon>
         <StatCard.Value>4</StatCard.Value>
       </StatCard>
@@ -112,7 +112,7 @@ export const Standalone: Story = {
       <StatCard dense className="w-56">
         <StatCard.Label>Licenses</StatCard.Label>
         <StatCard.Icon>
-          <ShieldCheck />
+          <LicenseIcon />
         </StatCard.Icon>
         <StatCard.Value>6</StatCard.Value>
         <StatCard.Helper>dense, on its own</StatCard.Helper>
@@ -134,7 +134,7 @@ export const UnevenContent: Story = {
         <StatCard>
           <StatCard.Label>Zones sharing current release</StatCard.Label>
           <StatCard.Icon>
-            <Server />
+            <GitBranch />
           </StatCard.Icon>
           <StatCard.Value>0</StatCard.Value>
           <StatCard.Helper>of 3 zones</StatCard.Helper>
@@ -142,7 +142,7 @@ export const UnevenContent: Story = {
         <StatCard>
           <StatCard.Label>Tokens expiring soon</StatCard.Label>
           <StatCard.Icon className="text-destructive-subtle-foreground">
-            <KeyRound />
+            <TokenIcon />
           </StatCard.Icon>
           <StatCard.Value className="text-destructive-subtle-foreground">
             2
@@ -153,7 +153,7 @@ export const UnevenContent: Story = {
         <StatCard>
           <StatCard.Label>Feature flags enabled</StatCard.Label>
           <StatCard.Icon className="text-success-subtle-foreground">
-            <Flag />
+            <FeatureFlagIcon />
           </StatCard.Icon>
           <StatCard.Value>2/2</StatCard.Value>
         </StatCard>
@@ -169,14 +169,14 @@ export const SixColumns: Story = {
       <StatCard>
         <StatCard.Label>Customers</StatCard.Label>
         <StatCard.Icon>
-          <Users />
+          <CustomerIcon />
         </StatCard.Icon>
         <StatCard.Value>4</StatCard.Value>
       </StatCard>
       <StatCard>
         <StatCard.Label>Active Instances</StatCard.Label>
         <StatCard.Icon>
-          <Server />
+          <InstanceIcon />
         </StatCard.Icon>
         <StatCard.Value>6</StatCard.Value>
       </StatCard>
@@ -191,21 +191,21 @@ export const SixColumns: Story = {
       <StatCard>
         <StatCard.Label>Licenses</StatCard.Label>
         <StatCard.Icon>
-          <ShieldCheck />
+          <LicenseIcon />
         </StatCard.Icon>
         <StatCard.Value>6</StatCard.Value>
       </StatCard>
       <StatCard>
         <StatCard.Label>Feature Flags Enabled</StatCard.Label>
         <StatCard.Icon className="text-success-subtle-foreground">
-          <Flag />
+          <FeatureFlagIcon />
         </StatCard.Icon>
         <StatCard.Value>7/7</StatCard.Value>
       </StatCard>
       <StatCard>
         <StatCard.Label>Tokens Expiring Soon</StatCard.Label>
         <StatCard.Icon>
-          <KeyRound />
+          <TokenIcon />
         </StatCard.Icon>
         <StatCard.Value>0</StatCard.Value>
         <StatCard.Helper>1 active token</StatCard.Helper>
@@ -232,7 +232,7 @@ export const TwoValues: Story = {
       <StatCard>
         <StatCard.Label>Entitlements</StatCard.Label>
         <StatCard.Icon>
-          <KeyRound />
+          <EntitlementIcon />
         </StatCard.Icon>
         <StatCard.Value>5/6</StatCard.Value>
       </StatCard>
@@ -269,7 +269,7 @@ export const TwoValuesDense: Story = {
       <StatCard>
         <StatCard.Label>Entitlements</StatCard.Label>
         <StatCard.Icon>
-          <KeyRound />
+          <EntitlementIcon />
         </StatCard.Icon>
         <StatCard.Value>5/6</StatCard.Value>
       </StatCard>

@@ -15,8 +15,8 @@ about third-party packages. `pnpm run lint` covers two of those cases
 (`no-restricted-imports`, declared in `app/vite.config.ts`): Base UI
 outside `components/ui/`, and `useMutation`, `useState` and `useReducer` in
 routes. Lint does not scan tests, stories or `src/components/ui/`. The rest of
-the thin-route rule, generated schemas, query invalidation and export style are
-review-only, listed in step 8.
+the thin-route rule, data-model icons, generated schemas, query invalidation and
+export style are review-only, listed in step 8.
 
 ## Workflow
 
@@ -67,6 +67,12 @@ review-only, listed in step 8.
      refuses the `useMutation`, `useState` and `useReducer` imports (only
      `useMutation` under `routes/-components/`, the app shell), the rest is
      review;
+   - an icon that stands for an entity of `dataModelIcons` comes from
+     `@/lib/data-model-icons`, never from `lucide-react` and never another
+     glyph; the same glyph with another meaning (`Rocket` on a Deploy button)
+     and the icon of a state or a property stay `lucide-react` imports (the
+     `One icon per entity` principle). The `rg -nU` below lists the imports to
+     judge;
    - API-backed Zod schemas derive from generated schemas;
    - mutation invalidation uses canonical query-key helpers;
    - type-only exports use `export type`, and no new `export *` is added.
@@ -101,6 +107,7 @@ rg -n 'useMutation|useState|useEffect|<form|toast\.' src/routes --glob '!*.md'
 rg -n "from ['\"]@/features/" src/features src/domains src/functionals src/components --glob '!*.md'
 rg -n "from ['\"]@/functionals/[^/'\"]+/" src --glob '!*.md'
 rg -n '^export \* from' src --glob '!src/api-client/**' --glob '!*.md'
+rg -nU "import [{][^}]*[^A-Za-z](Boxes|Braces|FileText|Flag|MapPinned|Package|Rocket|Server|Tag|UserKey|Users)[^A-Za-z][^}]*[}] from .lucide-react." src --glob '!src/lib/data-model-icons.ts' --glob '!*.md'
 ```
 
 ## Output
