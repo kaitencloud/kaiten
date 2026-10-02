@@ -1,15 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { QueryClient } from '@tanstack/react-query';
 import {
-  getLicensesOptions,
-  listCustomersOptions,
-} from '@/api-client/@tanstack/react-query.gen';
-import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
-import { releaseManagementOverviewQueryOptions } from '@/domains/release-management';
-import {
-  listDeploymentZonesOptions,
-  listReleasesOptions,
-} from '@/api-client/@tanstack/react-query.gen';
+  handleGetCustomer,
+  handleGetEntitlementsUsageMetrics,
+  handleGetInstance,
+  handleGetLicense,
+  handleGetLicenseEntitlements,
+  handleGetLicenses,
+  handleListCustomers,
+  handleListDeploymentZones,
+  handleListEntitlements,
+  handleListReleases,
+} from '@/api-client/msw.gen';
+import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
 import {
   storyAuditEntries,
   storyCustomers,
@@ -23,16 +25,12 @@ import {
   storyOverviewReleases,
   storyReleases,
 } from '@/test-fixtures/storybook-fixtures';
+import {
+  metadataFieldsHandler,
+  onePage,
+} from '@/test-fixtures/storybook-handlers';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { buildEntitlementsRows } from '../../utils/instance-detail-entitlements.utils';
-import {
-  customerQueryOptions,
-  entitlementsCatalogQueryOptions,
-  instanceLicenseEntitlementsQueryOptions,
-  instanceQueryOptions,
-  instanceUsageQueryOptions,
-  licenseQueryOptions,
-} from '../../hooks/instance-detail/instance-detail-query-options';
 import { InstanceDetailProvider } from '../instance-detail/instance-detail-context';
 import { AuditTrailStatsCards } from '../instance-detail/tabs/audit-trail/audit-trail-stats-cards';
 import { AuditTrailChartsSection } from '../instance-detail/tabs/audit-trail/audit-trail-charts-section';
@@ -46,63 +44,37 @@ const entitlementsRows = buildEntitlementsRows(
   'Unknown entitlement',
 );
 
-const seedInstanceDetailQueries = (queryClient: QueryClient) => {
-  queryClient.setQueryData(
-    instanceQueryOptions(instance.slug!).queryKey,
-    instance,
-  );
-  queryClient.setQueryData(
-    customerQueryOptions(instance.customerSlug).queryKey,
-    storyCustomers[0],
-  );
-  queryClient.setQueryData(
-    licenseQueryOptions(instance.licenseSlug).queryKey,
-    storyLicenses[0],
-  );
-  queryClient.setQueryData(
-    instanceUsageQueryOptions(instance.slug!).queryKey,
-    storyEntitlementUsages,
-  );
-  queryClient.setQueryData(
-    instanceLicenseEntitlementsQueryOptions(instance.licenseSlug).queryKey,
-    { hasMore: false, items: storyLicenseEntitlements },
-  );
-  queryClient.setQueryData(entitlementsCatalogQueryOptions.queryKey, {
-    hasMore: false,
-    items: storyEntitlements,
-  });
-  queryClient.setQueryData(listDeploymentZonesOptions().queryKey, {
-    hasMore: false,
-    items: storyDeploymentZones,
-  });
-  queryClient.setQueryData(
-    releaseManagementOverviewQueryOptions.queryKey,
-    storyOverviewReleases,
-  );
-  queryClient.setQueryData(listReleasesOptions().queryKey, {
-    hasMore: false,
-    items: storyReleases,
-  });
-  queryClient.setQueryData(listCustomersOptions().queryKey, {
-    hasMore: false,
-    items: storyCustomers,
-  });
-  queryClient.setQueryData(getLicensesOptions().queryKey, {
-    hasMore: false,
-    items: storyLicenses,
-  });
-  queryClient.setQueryData(
-    metadataFieldsActiveQueryOptions('INSTANCE').queryKey,
-    storyInstanceMetadataFields,
-  );
-};
+// Everything the instance detail reads: the instance with its customer and
+// license, the usage and the grants, the catalogues, the zones and releases,
+// and the instance metadata fields.
+const instanceDetailHandlers = [
+  handleGetInstance({ body: instance }),
+  handleGetCustomer({ body: storyCustomers[0] }),
+  handleGetLicense({ body: storyLicenses[0] }),
+  handleGetEntitlementsUsageMetrics({ body: storyEntitlementUsages }),
+  handleGetLicenseEntitlements(onePage(storyLicenseEntitlements)),
+  handleListEntitlements(onePage(storyEntitlements)),
+  handleListDeploymentZones(onePage(storyDeploymentZones)),
+  handleListReleases(onePage(storyReleases)),
+  handleListCustomers(onePage(storyCustomers)),
+  handleGetLicenses(onePage(storyLicenses)),
+  graphqlOperationHandler({
+    GetReleaseManagementOverview: () => ({
+      releases: {
+        hasMore: false,
+        items: storyOverviewReleases,
+        nextCursor: null,
+      },
+    }),
+  }),
+  metadataFieldsHandler({ INSTANCE: storyInstanceMetadataFields }),
+];
 
 function InstanceDetailStoryFrame({ children }: { children: React.ReactNode }) {
   return (
     <StorybookRouter
       initialEntries={[`/customers/instances/${instance.slug}`]}
       routePath="/customers/instances/$instanceSlug"
-      seed={seedInstanceDetailQueries}
     >
       <div className="min-h-screen p-6">{children}</div>
     </StorybookRouter>
@@ -114,6 +86,7 @@ const meta = {
   component: InstanceDetailOverviewTab,
   parameters: {
     layout: 'fullscreen',
+    msw: { handlers: instanceDetailHandlers },
   },
   tags: ['autodocs'],
 } satisfies Meta<typeof InstanceDetailOverviewTab>;
@@ -133,7 +106,7 @@ export const OverviewCards: Story = {
     docs: {
       description: {
         story:
-          'Instance overview tab with instance, license, release and metadata cards, all backed by seeded query data.',
+          'Instance overview tab with instance, license, release and metadata cards, all read from the mocked API.',
       },
     },
   },

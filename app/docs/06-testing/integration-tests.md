@@ -49,9 +49,38 @@ export const Default: Story = {
 What a story gets:
 
 - `.storybook/preview.tsx` wraps every story in a fresh `QueryClient` (no retries, data never stale), an `I18nextProvider`, the `ThemeProvider` and a `TooltipProvider`, and adds a light and dark switch. A component that needs another context provides it in the story or in a local decorator.
-- `src/test-fixtures/` holds what stories share: `StorybookRouter` (a router on a memory history, which can seed the query cache), fixture data and the finders of visible elements in `storybook-test-utils.ts`.
+- The API is answered by Mock Service Worker in the page, which the preview's loader enables (`.storybook/msw.ts`). See [the API of a story](#the-api-of-a-story).
+- `src/test-fixtures/` holds what stories share: `StorybookRouter` (a router on a memory history), the shared handlers of `storybook-handlers.ts`, fixture data and the finders of visible elements in `storybook-test-utils.ts`.
 - A story you add is a test at once. The stories coupled to the router, to forms, to queries or to the API, and those that pull heavy dependencies (charts, the CEL editor), are listed in `storybookTestExclude` in `app/vite.config.ts`. The runner never imports them and Storybook still shows them; their behaviour is left to the [application suite](#application-e2e-e2eapp).
 - Accessibility checks from `@storybook/addon-a11y` are set to `todo` in `.storybook/preview.tsx`: violations show in the Storybook UI and do not fail a test. `e2e/app/accessibility/accessibility.spec.ts` checks the main screens with axe in the application suite.
+
+### The API of a story
+
+A component reads its data as in the app, through its queries, and the story declares what the API answers in `parameters.msw.handlers`, for the whole file in `meta` or for one story:
+
+```tsx
+// src/features/entitlements/components/stories/entitlement-form-dialog.stories.tsx (trimmed)
+import { handleListEntitlementGroups } from '@/api-client/msw.gen';
+import { onePage } from '@/test-fixtures/storybook-handlers';
+
+const meta = {
+  title: 'Features/Entitlements/EntitlementFormDialog',
+  component: EntitlementFormDialog,
+  parameters: {
+    msw: {
+      handlers: [handleListEntitlementGroups(onePage(storyEntitlementGroups))],
+    },
+  },
+} satisfies Meta<typeof EntitlementFormDialog>;
+```
+
+- A REST endpoint takes its generated handler from `@/api-client/msw.gen`, whose body has the type of the operation's response. `onePage(items)` is the body of a list that fits on one page.
+- GraphQL goes through `graphqlOperationHandler` from `@/e2e/msw/handler-factory`, keyed by operation name; `metadataFieldsHandler(...)` (`src/test-fixtures/storybook-handlers.ts`) serves the active metadata fields of each resource type, none by default.
+- A request to `/api/` that no handler answers fails with a network error, and a console error names it: the story shows the error state its component has for an API that is down. It never reaches the Storybook server or a running stack.
+- The data arrives after the first render: a `play` function waits for it with `findBy*`, as it would for any data loaded over the network.
+- The handlers belong to the page, not to a story: a docs page that renders several stories at once serves them all with the last one's.
+- Mock Service Worker patches `fetch` and `XMLHttpRequest` in the page (`InterceptorSource`, from `msw/experimental`), with no service worker: a service worker would also route every module the Storybook tests import through a round trip to the page, and some of those imports failed under that load.
+- `StorybookRouter`'s `seed` fills the cache with what no request answers in Storybook: a platform flag, whose source needs a signed-in user (`side-nav.stories.tsx`).
 
 In App CI, the `stories` job runs the suite after a throwaway pass that fills Vite's dependency-optimizer cache: on a cold cache the browser runner reloads in the middle of a run and drops stories. It then runs the project in three shards, each retried once. A local run has a warm cache after its first pass; if the first one fails with "Cannot connect to the iframe" or "Failed to fetch dynamically imported module", run it again.
 

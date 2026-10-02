@@ -1,14 +1,12 @@
-import { useQueryClient } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
 import type { TargetingContext } from '@/api-client';
-import { getTargetingContextQueryKey } from '@/api-client/@tanstack/react-query.gen';
+import { handleGetTargetingContext } from '@/api-client/msw.gen';
 
 /**
  * The schema the editor's Context popover and Templates menu are driven by,
- * as the server would serve it — abbreviated but shape-faithful. Seeded into
- * the query cache so the stories show the toolbar the way the app does; a
- * story without it renders the degraded no-API toolbar, which has its own
- * value but hides most of the surface.
+ * as the server would serve it — abbreviated but shape-faithful. Served to the
+ * stories so they show the toolbar the way the app does; a story without it
+ * renders the degraded no-API toolbar, which has its own value but hides most
+ * of the surface.
  */
 const SERVED_TARGETING_CONTEXT: TargetingContext = {
   roots: [
@@ -105,15 +103,8 @@ const SERVED_TARGETING_CONTEXT: TargetingContext = {
   ],
 };
 
-// The rule editor reads this context through useQuery, and Storybook never
-// points the REST client at an API: an editor rendered without it asks the
-// Storybook server for /api/feature-flags/targeting/context and logs the 404.
-export function SeedTargetingContext({ children }: { children: ReactNode }) {
-  const queryClient = useQueryClient();
-  queryClient.setQueryData(
-    getTargetingContextQueryKey(),
-    SERVED_TARGETING_CONTEXT,
-  );
-
-  return children;
-}
+// The rule editor reads this context through useQuery once Add Rule or Edit
+// opens it: the stories that render the editor declare this handler.
+export const targetingContextHandler = handleGetTargetingContext({
+  body: SERVED_TARGETING_CONTEXT,
+});

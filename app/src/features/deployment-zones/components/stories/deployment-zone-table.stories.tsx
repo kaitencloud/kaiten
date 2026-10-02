@@ -1,13 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
-import type { QueryClient } from '@tanstack/react-query';
 import type { FC } from 'react';
 import type { DeploymentZone, Release } from '@/api-client';
-import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
 import type {
   DeploymentZoneRelations,
   ReleaseManagementOverviewRelease,
 } from '@/domains/release-management';
+import { metadataFieldsHandler } from '@/test-fixtures/storybook-handlers';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import {
   findVisibleByRole,
@@ -87,15 +86,6 @@ const mockDeploymentZones: DeploymentZone[] = [
   },
 ];
 
-// No metadata field declared: the table keeps its raw-JSON metadata column,
-// the one InteractiveFeaturesDialog opens.
-const seedDeploymentZoneTableQueries = (queryClient: QueryClient) => {
-  queryClient.setQueryData(
-    metadataFieldsActiveQueryOptions('DEPLOYMENT_ZONE').queryKey,
-    [],
-  );
-};
-
 // --- Router Wrapper (needed for TableActions with useRouteContext) ---
 
 function TableWrapper({
@@ -142,7 +132,7 @@ function TableWrapper({
   );
 
   return (
-    <StorybookRouter seed={seedDeploymentZoneTableQueries}>
+    <StorybookRouter>
       <div className="p-6">
         <DeploymentZoneTable
           deploymentZones={deploymentZones}
@@ -171,6 +161,11 @@ const meta = {
   ],
   parameters: {
     layout: 'fullscreen',
+    msw: {
+      // No metadata field declared: the table keeps its raw-JSON metadata
+      // column, the one InteractiveFeaturesDialog opens.
+      handlers: [metadataFieldsHandler()],
+    },
   },
   tags: ['autodocs'],
 } satisfies Meta<typeof DeploymentZoneTable>;

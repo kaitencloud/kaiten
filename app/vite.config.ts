@@ -371,6 +371,15 @@ export default defineConfig({
       '@monaco-editor/react',
       'monaco-editor/esm/vs/editor/editor.api',
       'monaco-editor/esm/vs/language/json/monaco.contribution',
+      // Imported by the mocks, behind the switches of main.tsx, and by the
+      // stories that declare handlers: found late, they make the optimizer
+      // reload the E2E pages or the Storybook tests in the middle of a run.
+      '@mswjs/interceptors/XMLHttpRequest',
+      '@mswjs/interceptors/fetch',
+      'msw',
+      'msw/browser',
+      'msw/experimental',
+      'msw/http',
       'recharts',
     ],
   },

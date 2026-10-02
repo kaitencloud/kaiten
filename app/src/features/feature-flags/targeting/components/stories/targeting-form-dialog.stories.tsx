@@ -6,7 +6,7 @@ import type { Variant } from '@/api-client';
 import { findVisibleByRole } from '@/test-fixtures/storybook-test-utils';
 import type { Targeting } from '../../types';
 import { TargetingFormDialog } from '../targeting-form-dialog';
-import { SeedTargetingContext } from './seed-targeting-context';
+import { targetingContextHandler } from './targeting-context-handler';
 
 // Wrapper component to control dialog state
 function DialogWrapper({
@@ -57,22 +57,22 @@ const meta = {
   component: TargetingFormDialog,
   decorators: [
     (Story: FC) => (
-      <SeedTargetingContext>
-        <div
-          style={{
-            minHeight: '100vh',
-            height: '100vh',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <Story />
-        </div>
-      </SeedTargetingContext>
+      <div
+        style={{
+          minHeight: '100vh',
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <Story />
+      </div>
     ),
   ],
   parameters: {
     layout: 'fullscreen',
+    // The rule editor reads the targeting context.
+    msw: { handlers: [targetingContextHandler] },
     viewport: {
       defaultViewport: 'responsive',
     },

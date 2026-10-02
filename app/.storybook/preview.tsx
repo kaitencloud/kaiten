@@ -5,6 +5,7 @@ import { withThemeByClassName } from '@storybook/addon-themes';
 import { ThemeProvider } from '../src/components/theme-provider';
 import { TooltipProvider } from '../src/components/ui/tooltip';
 import i18n from '../src/lib/i18n/config';
+import { mswLoader } from './msw';
 import { darkTheme } from './theme';
 import '../src/styles.css';
 
@@ -14,14 +15,13 @@ const createQueryClient = () => new QueryClient({
 		queries: {
 			retry: false,
 			staleTime: Number.POSITIVE_INFINITY,
-			// Stories have no backend: a seeded query must stay cached and never
-			// refetch. Its own staleTime outlives the Infinity above (the
-			// metadata fields keep 30 s, the targeting context 5 min), after
-			// which focus, reconnect or a component that mounts later, such as a
-			// dialog opened by hand, would refetch it. A seeded query nothing
-			// reads yet would also be dropped after the default 5 min gcTime and
-			// load again on the next mount. A query nothing seeded still fetches
-			// on its first mount, so a missing seed still shows up as a request.
+			// A story reads its data once, from the handlers it declares
+			// (parameters.msw, see ./msw.ts), and keeps it: no refetch on focus,
+			// on reconnect or when a component mounts later, such as a dialog
+			// opened by hand, whose query may set a staleTime of its own (the
+			// metadata fields keep 30 s, the targeting context 5 min). A query
+			// nothing reads yet is not dropped after the default 5 min gcTime
+			// either. A request the story declares no handler for fails.
 			gcTime: Number.POSITIVE_INFINITY,
 			refetchOnWindowFocus: false,
 			refetchOnReconnect: false,
@@ -31,6 +31,7 @@ const createQueryClient = () => new QueryClient({
 });
 
 const preview: Preview = {
+	loaders: [mswLoader],
 	decorators: [
 		// Theme decorator must be first to apply theme classes to the root
 		withThemeByClassName({

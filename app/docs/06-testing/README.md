@@ -1,6 +1,6 @@
 # 06 - Testing
 
-The console has four kinds of automated tests. They all run from `app/`, and none of them needs the backend stack: Mock Service Worker answers the API, in Node for the unit tests and inside the browser for the end-to-end suite.
+The console has four kinds of automated tests. They all run from `app/`, and none of them needs the backend stack: Mock Service Worker answers the API, in Node for the unit tests, and inside the browser for the stories and the end-to-end suite.
 
 | Kind | What it checks | Where it lives | Run it with |
 | --- | --- | --- | --- |

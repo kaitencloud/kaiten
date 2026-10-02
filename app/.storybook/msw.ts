@@ -1,0 +1,63 @@
+import { FetchInterceptor } from '@mswjs/interceptors/fetch';
+import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest';
+import type { RequestHandler } from 'msw';
+import { defineNetwork, InterceptorSource } from 'msw/experimental';
+import { HttpResponse, http } from 'msw/http';
+
+/**
+ * What a story's API answers: `parameters: { msw: { handlers: [...] } }`, built
+ * from the handlers generated per operation (`@/api-client/msw.gen`), or with
+ * `graphqlOperationHandler` (`@/e2e/msw/handler-factory`) for GraphQL. A component
+ * fetches its data as it does in the app, from whatever the story declares.
+ */
+export type MswParameters = {
+	msw?: { handlers?: RequestHandler[] };
+};
+
+// Answers last, so only a request to the API that the story declares no
+// handler for: a network error, as from an API that is down, and a console
+// error that names the request. The story shows its error state rather than
+// whatever the Storybook server, or a running stack, would have answered.
+const undeclaredApiRequest = http.all('*/api/*', ({ request }) => {
+	console.error(
+		`[MSW] ${request.method} ${request.url}: the story declares no handler for this request (parameters.msw.handlers).`,
+	);
+	return HttpResponse.error();
+});
+
+// Mock Service Worker in the page, patching fetch and XMLHttpRequest, rather
+// than in a service worker. A service worker sends every request of the page
+// through a round trip to it, the modules the Storybook tests import included,
+// and under that load some of those imports failed. In the page, only the
+// requests of the stories' own code are seen.
+const network = defineNetwork({
+	sources: [
+		new InterceptorSource({
+			interceptors: [new FetchInterceptor(), new XMLHttpRequestInterceptor()],
+		}),
+	],
+	onUnhandledFrame: 'bypass',
+});
+let enabled: Promise<void> | undefined;
+
+/**
+ * Enables the mocked network once, then gives it the handlers of the story
+ * about to render, in place of the previous story's. Every request outside the
+ * API goes to the network.
+ *
+ * The handlers are the network's, not the story's: a docs page that renders
+ * several stories at once serves all of them with the last one's handlers.
+ */
+export async function mswLoader({
+	parameters,
+}: {
+	parameters: MswParameters;
+}) {
+	enabled ??= Promise.resolve(network.enable());
+	await enabled;
+	network.resetHandlers(
+		...(parameters.msw?.handlers ?? []),
+		undeclaredApiRequest,
+	);
+	return {};
+}

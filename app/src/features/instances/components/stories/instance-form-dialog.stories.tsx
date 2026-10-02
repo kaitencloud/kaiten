@@ -1,39 +1,21 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { QueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
-  getLicensesOptions,
-  listCustomersOptions,
-  listDeploymentZonesOptions,
-} from '@/api-client/@tanstack/react-query.gen';
-import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
+  handleGetLicenses,
+  handleListCustomers,
+  handleListDeploymentZones,
+} from '@/api-client/msw.gen';
 import {
   storyCustomers,
   storyDeploymentZones,
   storyLicenses,
 } from '@/test-fixtures/storybook-fixtures';
+import {
+  metadataFieldsHandler,
+  onePage,
+} from '@/test-fixtures/storybook-handlers';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { InstanceFormDialog } from '../instance-form/instance-form-dialog';
-
-const seedInstanceFormQueries = (queryClient: QueryClient) => {
-  queryClient.setQueryData(listCustomersOptions().queryKey, {
-    hasMore: false,
-    items: storyCustomers,
-  });
-  queryClient.setQueryData(getLicensesOptions().queryKey, {
-    hasMore: false,
-    items: storyLicenses,
-  });
-  queryClient.setQueryData(listDeploymentZonesOptions().queryKey, {
-    hasMore: false,
-    items: storyDeploymentZones,
-  });
-  // No instance metadata field declared: the form keeps its three steps.
-  queryClient.setQueryData(
-    metadataFieldsActiveQueryOptions('INSTANCE').queryKey,
-    [],
-  );
-};
 
 const meta = {
   title: 'Features/Instances/InstanceFormDialog',
@@ -42,6 +24,15 @@ const meta = {
     layout: 'fullscreen',
     docs: {
       story: { inline: false, iframeHeight: 820 },
+    },
+    msw: {
+      handlers: [
+        handleListCustomers(onePage(storyCustomers)),
+        handleGetLicenses(onePage(storyLicenses)),
+        handleListDeploymentZones(onePage(storyDeploymentZones)),
+        // No instance metadata field declared: the form keeps its three steps.
+        metadataFieldsHandler(),
+      ],
     },
   },
   tags: ['autodocs'],
@@ -54,7 +45,7 @@ function InstanceFormDialogStory({ locked }: { locked?: boolean }) {
   const [open, setOpen] = useState(true);
 
   return (
-    <StorybookRouter seed={seedInstanceFormQueries}>
+    <StorybookRouter>
       <div className="flex min-h-screen items-center justify-center p-6">
         <InstanceFormDialog
           open={open}
