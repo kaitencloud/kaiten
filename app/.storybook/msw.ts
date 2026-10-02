@@ -1,8 +1,6 @@
-import { FetchInterceptor } from '@mswjs/interceptors/fetch';
-import { XMLHttpRequestInterceptor } from '@mswjs/interceptors/XMLHttpRequest';
 import type { RequestHandler } from 'msw';
-import { defineNetwork, InterceptorSource } from 'msw/experimental';
 import { HttpResponse, http } from 'msw/http';
+import { createPageNetwork } from '../src/e2e/msw/page-network';
 
 /**
  * What a story's API answers: `parameters: { msw: { handlers: [...] } }`, built
@@ -25,19 +23,12 @@ const undeclaredApiRequest = http.all('*/api/*', ({ request }) => {
 	return HttpResponse.error();
 });
 
-// Mock Service Worker in the page, patching fetch and XMLHttpRequest, rather
-// than in a service worker. A service worker sends every request of the page
-// through a round trip to it, the modules the Storybook tests import included,
-// and under that load some of those imports failed. In the page, only the
-// requests of the stories' own code are seen.
-const network = defineNetwork({
-	sources: [
-		new InterceptorSource({
-			interceptors: [new FetchInterceptor(), new XMLHttpRequestInterceptor()],
-		}),
-	],
-	onUnhandledFrame: 'bypass',
-});
+// Mock Service Worker in the page, rather than in a service worker. A service
+// worker sends every request of the page through a round trip to it, the
+// modules the Storybook tests import included, and under that load some of
+// those imports failed. In the page, only the requests of the stories' own code
+// are seen.
+const network = createPageNetwork();
 let enabled: Promise<void> | undefined;
 
 /**

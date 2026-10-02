@@ -1,3 +1,4 @@
+import type { UnhandledFrameHandle } from 'msw';
 import { setupWorker } from 'msw/browser';
 import type { E2EMswConfig } from '../../../e2e/app/_support/contracts/msw-slots';
 import { AuditTrailAppModel } from '../../../e2e/app/_support/model/audit-trail-app-model';
@@ -22,6 +23,7 @@ import { withFallbacksLast } from './handler-factory';
 import { instanceHandlers } from './instance-handlers';
 import { licenseHandlers } from './license-handlers';
 import { notificationHandlers } from './notification-handlers';
+import { createPageNetwork } from './page-network';
 import {
   persistSlot,
   readStoredConfig,
@@ -48,6 +50,13 @@ const isApiRequest = (frame: { protocol: string; data: unknown }) =>
     '/api/',
   );
 
+/**
+ * Starts the mocks of `config` in this page, merged under the state an earlier
+ * page of the tab left in `sessionStorage`. A browser that refuses the service
+ * worker (an embedded browser, a private window) still gets them, in the page:
+ * `fetch` and `XMLHttpRequest` are patched there, but an `EventSource` is not,
+ * so the notification stream is then left unserved.
+ */
 export async function startE2EMockServiceWorker(
   config: E2EMswConfig,
   {
@@ -143,15 +152,26 @@ export async function startE2EMockServiceWorker(
   ];
   if (handlers.length === 0) return;
 
-  await setupWorker(...withFallbacksLast(handlers)).start({
-    onUnhandledFrame: warnUnhandledApiRequests
-      ? ({ frame, defaults }) => {
-          if (isApiRequest(frame)) {
-            defaults.warn();
-          }
+  const orderedHandlers = withFallbacksLast(handlers);
+  const onUnhandledFrame: UnhandledFrameHandle = warnUnhandledApiRequests
+    ? ({ frame, defaults }) => {
+        if (isApiRequest(frame)) {
+          defaults.warn();
         }
-      : 'bypass',
-    quiet: true,
-    serviceWorker: { url: '/mockServiceWorker.js' },
-  });
+      }
+    : 'bypass';
+
+  try {
+    await setupWorker(...orderedHandlers).start({
+      onUnhandledFrame,
+      quiet: true,
+      serviceWorker: { url: '/mockServiceWorker.js' },
+    });
+  } catch (error) {
+    console.warn(
+      '[MSW] The mock service worker could not start; mocking in the page instead, without the notification stream.',
+      error,
+    );
+    createPageNetwork({ handlers: orderedHandlers, onUnhandledFrame }).enable();
+  }
 }

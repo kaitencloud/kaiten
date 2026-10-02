@@ -79,7 +79,7 @@ const meta = {
 - A request to `/api/` that no handler answers fails with a network error, and a console error names it: the story shows the error state its component has for an API that is down. It never reaches the Storybook server or a running stack.
 - The data arrives after the first render: a `play` function waits for it with `findBy*`, as it would for any data loaded over the network.
 - The handlers belong to the page, not to a story: a docs page that renders several stories at once serves them all with the last one's.
-- Mock Service Worker patches `fetch` and `XMLHttpRequest` in the page (`InterceptorSource`, from `msw/experimental`), with no service worker: a service worker would also route every module the Storybook tests import through a round trip to the page, and some of those imports failed under that load.
+- Mock Service Worker patches `fetch` and `XMLHttpRequest` in the page (`createPageNetwork`, `src/e2e/msw/page-network.ts`, over `msw/experimental`), with no service worker: a service worker would also route every module the Storybook tests import through a round trip to the page, and some of those imports failed under that load.
 - `StorybookRouter`'s `seed` fills the cache with what no request answers in Storybook: a platform flag, whose source needs a signed-in user (`side-nav.stories.tsx`).
 
 In App CI, the `stories` job runs the suite after a throwaway pass that fills Vite's dependency-optimizer cache: on a cold cache the browser runner reloads in the middle of a run and drops stories. It then runs the project in three shards, each retried once. A local run has a warm cache after its first pass; if the first one fails with "Cannot connect to the iframe" or "Failed to fetch dynamically imported module", run it again.

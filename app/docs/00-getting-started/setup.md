@@ -139,6 +139,12 @@ from one to another may lead to a record that does not exist. What you change
 lasts until the tab closes. The browser console warns about each API request the
 mocks do not serve.
 
+The mocks run in a service worker. A browser that refuses one, such as the
+browser embedded in an editor, or a private window, gets them in the page
+instead (`app/src/e2e/msw/page-network.ts`), with a warning in the console:
+every request is still answered but the notification stream, which no longer
+updates the bell.
+
 ## Environment variables
 
 The console reads `VITE_*` variables. Vite exposes only those to the browser.

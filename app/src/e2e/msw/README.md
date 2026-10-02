@@ -8,6 +8,11 @@ operation's handler generated from the OpenAPI contract (`@/api-client/msw.gen`)
 so its path, params and body are typed; GraphQL and the notification stream,
 which the contract does not describe, are written by hand.
 
+`page-network.ts` runs the same handlers in the page, patching `fetch` and
+`XMLHttpRequest`: the stories use it, and the bootstrap when a browser refuses
+the service worker (the notification stream, an `EventSource`, is then left
+unserved).
+
 `persistence.ts` updates serialized slots in sessionStorage after mutations and
 integration reads, preserving state on navigation/reload. The canonical slot
 types and storage key live in `e2e/app/_support/contracts/msw-slots.ts`, with no
