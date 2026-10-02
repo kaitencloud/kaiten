@@ -29,6 +29,11 @@ type DeploymentZoneTableProps = {
   onClickNew?: () => void;
 };
 
+// One array stands for "no field declared", while the list loads and once it
+// has loaded empty: a second empty array would rebuild the columns and the
+// filters, and close a metadata dialog opened in the meantime.
+const NO_METADATA_FIELDS: MetadataFieldDescriptor[] = [];
+
 export function DeploymentZoneTable({
   deploymentZones,
   releaseById,
@@ -48,7 +53,8 @@ export function DeploymentZoneTable({
     metadataFieldsActiveQueryOptions('DEPLOYMENT_ZONE'),
   );
   const metadataFields = useMemo<MetadataFieldDescriptor[]>(
-    () => metadataFieldsData ?? [],
+    () =>
+      metadataFieldsData?.length ? metadataFieldsData : NO_METADATA_FIELDS,
     [metadataFieldsData],
   );
   // Only surface the "Extra metadata" column when at least one zone carries
