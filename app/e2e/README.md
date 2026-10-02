@@ -130,13 +130,33 @@ The mechanism is in [network mocks](../docs/06-testing/integration-tests.md#netw
 5. Its scenario factories in `e2e/app/_support/scenario-registry.ts`, the canonical browser-free inventory. `scripts/check-e2e-contracts.ts` executes it through `pnpm run check:e2e-contracts`. Register explicit variants for factories with parameters; do not maintain a second list in another check.
 
 MSW is the default adapter. The legacy `E2E_MOCKS=page-route` mode stays available
-for diagnostics using the existing installers, except notifications' stream,
-whose specs skip themselves in that mode;
-full protocol/persistence parity is not guaranteed, and no workflow runs it. Shared error mapping is in
+using the existing installers, except notifications' stream,
+whose specs skip themselves in that mode. `contracts/mock-transport.spec.ts`
+checks wire statuses, bodies, one-shot failures and reload state in both modes.
+Shared error mapping is in
 `_support/contracts/mock-http.ts` and shared GraphQL operations in
 `_support/model/graphql-operations.ts`. Models stay stateful and transport-neutral.
 Handler order, fallbacks, statuses and reload persistence are preserved by the
 structural split. See [browser mock adapter](../src/e2e/msw/README.md).
+
+### Mock policy
+
+- **Full E2E:** strict. `handlers.ts` assembles the same handlers in the browser
+  and Node contract tests, with installed owners before sibling fallbacks.
+  `shell-handlers.ts` declares empty sidebar preloads and notifications only
+  after those owners. An undeclared `/api` call ends in a network error naming
+  its method, URL and GraphQL operation; `app-test.ts` fails the test on it.
+- **Dev world:** `dev:mock` installs its shared model seeds, warns on an
+  undeclared API call, and passes it through. Its inventory and cross-record
+  consistency run under Vitest because its domain imports need Vite's env.
+- **Partial notifications on a real stack:** only notifications are mocked;
+  business API and platform flags pass through.
+
+Integration read-only stubs use the `integrationStubs` slot in strict MSW, and
+explicit context routes in legacy. The dashboard error case is carried by the
+dashboard model. A new scenario factory exported from any `*.scenarios.ts`
+must appear in the registry: `check:e2e-contracts` discovers omitted factories
+and new packs. The platform flags and read-only stubs are not business models.
 
 ## Visual regression
 

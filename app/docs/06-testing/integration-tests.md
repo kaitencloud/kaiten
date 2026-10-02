@@ -132,6 +132,13 @@ The model classes in `e2e/app/_support/model/` are plain TypeScript with no Play
 
 Two other switches start the same worker outside the suite, see [environments](../07-deployment/environments.md). `VITE_MOCK_API=true` (`pnpm run dev:mock`) installs every slot, for work on the interface without the stack. Its slots come from the same models, but not from the scenarios: each is seeded from one world of records that all the areas share (`src/e2e/msw/dev-world/`), so that a link from one area leads to a record the other one serves. A unit test, `src/__tests__/dev-world.test.ts`, builds the world through the models, which check each seed against the contract, and checks that every reference between areas resolves. `VITE_MOCK_NOTIFICATIONS=true` serves only the notifications endpoints from mocks while everything else reaches the real API.
 
+Full application E2E is strict: an API request without a declared model or
+explicit shell fallback produces a named network error and fails the test.
+Dev-world requests warn and pass through; partial notifications preserve the
+real API and flags. Read-only integration stubs are explicit MSW slots in E2E.
+The [mock policy](../../e2e/README.md#mock-policy) and transport contract specs
+describe the owners, fallbacks, reload checks and legacy adapter coverage.
+
 Installed together, the slots answer for what they own: a slot's stubs for another area's resources are fallbacks, which answer only when no installed slot owns the resource.
 
 ## Related pages

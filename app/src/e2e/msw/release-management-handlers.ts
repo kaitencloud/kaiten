@@ -15,7 +15,11 @@ import {
   handleUpdateDeploymentZone,
 } from '@/api-client/msw.gen';
 import type { ReleaseManagementAppModel } from '../../../e2e/app/_support/model/release-management-app-model';
-import { graphqlOperationHandler, withErrorHandling } from './handler-factory';
+import {
+  asFallback,
+  graphqlOperationHandler,
+  withErrorHandling,
+} from './handler-factory';
 import { noop, type PersistMswState } from './persistence';
 
 export const releaseManagementHandlers = (
@@ -26,6 +30,13 @@ export const releaseManagementHandlers = (
     GetReleaseManagementOverview: () =>
       model.getReleaseManagementOverviewData(),
   }),
+  asFallback(
+    graphqlOperationHandler({
+      MetadataFields: () => ({
+        metadataFields: { hasMore: false, nextCursor: null, items: [] },
+      }),
+    }),
+  ),
   handleListComponents(() =>
     HttpResponse.json({ hasMore: false, items: model.listComponents() }),
   ),

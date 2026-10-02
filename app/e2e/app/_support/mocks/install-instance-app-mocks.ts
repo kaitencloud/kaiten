@@ -27,7 +27,10 @@ async function installInstancePageRouteMocks(
   await installGraphQLOperationMocks(page, {
     GetCustomersWithInstances: () => model.getCustomersWithInstances(),
     GetInstancesWithRelations: () => model.getInstancesWithRelations(),
-    MetadataFields: () => model.getMetadataFields(),
+    MetadataFields: (variables) =>
+      variables?.resourceType === 'INSTANCE'
+        ? model.getMetadataFields()
+        : { metadataFields: { hasMore: false, nextCursor: null, items: [] } },
     GetReleaseManagementOverview: () => ({ releases: { items: [] } }),
   });
 

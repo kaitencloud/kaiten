@@ -27,6 +27,9 @@ async function installReleaseManagementPageRouteMocks(
   await installGraphQLOperationMocks(page, {
     GetReleaseManagementOverview: () =>
       model.getReleaseManagementOverviewData(),
+    MetadataFields: () => ({
+      metadataFields: { hasMore: false, nextCursor: null, items: [] },
+    }),
   });
 
   await page.route(

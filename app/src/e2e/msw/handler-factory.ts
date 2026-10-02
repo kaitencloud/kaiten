@@ -56,6 +56,7 @@ export const withErrorHandling = <
 >(
   errorMessage: string,
   handler: HttpResponseResolver<Params, Body>,
+  persistError?: () => void,
 ): HttpResponseResolver<Params, Body> => {
   return async (info) => {
     try {
@@ -67,6 +68,7 @@ export const withErrorHandling = <
       }
       return result;
     } catch (error) {
+      persistError?.();
       return HttpResponse.json(
         { message: messageForError(error, errorMessage) },
         { status: statusForError(error) },

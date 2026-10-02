@@ -1,7 +1,7 @@
 # Browser mock adapter
 
-`browser.ts` rehydrates models, assembles handlers in their existing first-match
-order, puts explicit sibling fallbacks last and starts MSW. Each object owns a
+`handlers.ts` rehydrates models and assembles handlers in their first-match
+order, with explicit sibling fallbacks last. `browser.ts` starts MSW. Each object owns a
 `*-handlers.ts` set; stateful business logic remains in
 `e2e/app/_support/model/<area>-app-model.ts`. A REST handler starts from the
 operation's handler generated from the OpenAPI contract (`@/api-client/msw.gen`),
@@ -20,14 +20,17 @@ browser or Playwright dependency. Error mapping and GraphQL descriptions share
 neutral support modules with the legacy page.route adapter.
 
 MSW is the application suite's default. `E2E_MOCKS=page-route` retains the legacy
-diagnostic adapter for the existing installers; notifications require MSW for
-their stream. Full parity is not claimed. REST transport-specific dispatch,
-unknown-operation handling and persistence remain separate. Contract/parity
-strengthening belongs to the next test phase. Dev notifications use the same
+adapter; notifications require MSW for their stream. The transport contract
+spec verifies CRUD, injected errors, reloads, PATCH 204, metadata filtering and
+instance audit responses in both modes. REST dispatch and persistence remain
+transport-specific. Dev notifications use the same
 worker with unmocked flags passed through, and `pnpm run dev:mock`
 (`VITE_MOCK_API`, `dev.ts`) installs every slot in it, seeded from one world of
 records the areas share (`dev-world/`), with a warning for each API request no
 slot answers. `src/__tests__/dev-world.test.ts` builds that world through the
 models, which check it against the contract, and checks that its references
-resolve. E2E defaults unmocked platform flags off; other
-unhandled requests retain bypass.
+resolve. E2E defaults unmocked platform flags off and fails undeclared API
+requests with a network error; the shared Playwright fixture fails on the
+named console error. Explicit shell fallbacks run after model owners.
+Dev-world mocks warn and pass through, and partial notification mocks pass
+through the business API and flags. See the [mock policy](../../../e2e/README.md#mock-policy).

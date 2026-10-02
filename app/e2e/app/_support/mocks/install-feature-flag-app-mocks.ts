@@ -2,7 +2,11 @@ import type { Page } from '@playwright/test';
 import type { EvaluationRequest, FeatureFlagWritable } from '@/api-client';
 import type { FeatureFlagAppModel } from '../model/feature-flag-app-model';
 import { tryInstallMswMocks } from './install-app-mocks';
-import { makeRestRouter, parseJsonBody } from './rest-route-helpers';
+import {
+  fulfillJson,
+  makeRestRouter,
+  parseJsonBody,
+} from './rest-route-helpers';
 
 export async function installFeatureFlagAppMocks(
   page: Page,
@@ -91,5 +95,11 @@ async function installFeatureFlagPageRouteMocks(
       ],
       { errorMessage: 'Unexpected feature flag evaluation mock error' },
     ),
+  );
+  await page.route('**/api/feature-flags/targeting/context', (route) =>
+    fulfillJson(route, 200, { roots: [] }),
+  );
+  await page.route('**/api/feature-flags/targeting/lint', (route) =>
+    fulfillJson(route, 200, { valid: true, issues: [] }),
   );
 }
