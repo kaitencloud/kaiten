@@ -88,6 +88,7 @@ The client has several entry points; the `@/api-client` barrel exports only the 
 | `@/api-client` | The SDK functions (`listCustomers`) and the types (`Customer`) |
 | `@/api-client/@tanstack/react-query.gen` | The query options (`getFeatureFlagOptions()`), the mutations (`createFeatureFlagMutation()`) and the query keys (`listCustomersQueryKey()`) |
 | `@/api-client/zod.gen` | The Zod schemas (`zCustomer`) |
+| `@/api-client/msw.gen` | One Mock Service Worker handler per operation (`handleListCustomers()`), for the mocks, the tests and the stories only |
 | `@/api-client/graphql`, `@/api-client/graphql/graphql` | The `graphql()` document function; the types generated for each document |
 
 The REST client is configured by `src/lib/api/bootstrap.ts`, imported before the route tree. It calls `configureApiClient` once before query keys capture the base URL; importing adapters has no initialization side effect. See the [API infrastructure README](../../src/lib/api/README.md).

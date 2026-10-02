@@ -41,7 +41,7 @@ exact ones. When a version here and the manifest disagree, the manifest is right
 
 | Piece | Version | Role |
 | --- | --- | --- |
-| Hey API (`@hey-api/openapi-ts`) | 0.99 | Generates the REST client, types, Zod schemas and TanStack Query options from `app/openapi.yaml` into `src/api-client`, through `packages/api-codegen`. |
+| Hey API (`@hey-api/openapi-ts`) | 0.99 | Generates the REST client, types, Zod schemas, TanStack Query options and Mock Service Worker handlers from `app/openapi.yaml` into `src/api-client`, through `packages/api-codegen`. |
 | GraphQL Code Generator | 7 (CLI), 6 (client preset) | Generates the typed GraphQL client into `src/api-client/graphql`. |
 
 See [API generation](../01-architecture/api-generation.md) for the flow.

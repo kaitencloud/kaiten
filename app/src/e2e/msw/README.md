@@ -3,7 +3,10 @@
 `browser.ts` rehydrates models, assembles handlers in their existing first-match
 order, puts explicit sibling fallbacks last and starts MSW. Each object owns a
 `*-handlers.ts` set; stateful business logic remains in
-`e2e/app/_support/model/<area>-app-model.ts`.
+`e2e/app/_support/model/<area>-app-model.ts`. A REST handler starts from the
+operation's handler generated from the OpenAPI contract (`@/api-client/msw.gen`),
+so its path, params and body are typed; GraphQL and the notification stream,
+which the contract does not describe, are written by hand.
 
 `persistence.ts` updates serialized slots in sessionStorage after mutations and
 integration reads, preserving state on navigation/reload. The canonical slot

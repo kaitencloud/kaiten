@@ -81,7 +81,7 @@ Never edit these files by hand; regenerate them.
 
 After a fresh clone, run `pnpm run generate` before the type check or the tests. [api-generation.md](01-architecture/api-generation.md) explains the chain.
 
-- Types, SDK functions, Zod schemas, query options, mutations and query keys come from the generated client under `@/api-client/`: the SDK functions and types from `@/api-client`, the query options, mutations and query keys from `@/api-client/@tanstack/react-query.gen`, the Zod schemas from `@/api-client/zod.gen`. Do not redefine what it generates.
+- Types, SDK functions, Zod schemas, query options, mutations and query keys come from the generated client under `@/api-client/`: the SDK functions and types from `@/api-client`, the query options, mutations and query keys from `@/api-client/@tanstack/react-query.gen`, the Zod schemas from `@/api-client/zod.gen`, and, for mocks, tests and stories only, the Mock Service Worker handlers from `@/api-client/msw.gen`. Do not redefine what it generates.
 - A form schema starts from the generated Zod schema and extends it, so the two cannot drift.
 - An endpoint that the OpenAPI contract does not describe is the one reason to write a client call by hand. Keep it in a `*.api.ts` module of the feature, with local types.
 

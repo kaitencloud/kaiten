@@ -1,23 +1,19 @@
 import type { DefaultBodyType, PathParams } from 'msw';
 import { HttpResponse, type HttpResponseResolver, http } from 'msw/http';
-import type { NotificationAppModel } from '../../../e2e/app/_support/model/notification-app-model';
 import {
-  messageForError,
-  parseRequestJson,
-  statusForError,
-} from './handler-factory';
+  handleGetNotificationPreferences,
+  handleListNotifications,
+  handleMarkNotificationsRead,
+  handlePutNotificationPreferences,
+} from '@/api-client/msw.gen';
+import type { NotificationAppModel } from '../../../e2e/app/_support/model/notification-app-model';
+import { messageForError, statusForError } from './handler-factory';
+import { noop, type PersistMswState } from './persistence';
 
 type ListNotificationsParams = NonNullable<
   Parameters<NotificationAppModel['listNotifications']>[0]
 >;
-type MarkNotificationsReadInput = Parameters<
-  NotificationAppModel['markRead']
->[0];
-type PutNotificationPreferencesInput = Parameters<
-  NotificationAppModel['putPreferences']
->[0];
 
-type PersistMswState = () => void;
 type SendFrame = (frame: string) => void;
 
 const HEARTBEAT_INTERVAL_MS = 20_000;
@@ -34,10 +30,13 @@ const problemJson = (status: number, detail: string) =>
     { status, headers: { 'Content-Type': 'application/problem+json' } },
   );
 
-const withProblemJson = (
+const withProblemJson = <
+  Params extends PathParams<keyof Params>,
+  Body extends DefaultBodyType,
+>(
   fallbackDetail: string,
-  handler: HttpResponseResolver<PathParams, DefaultBodyType>,
-): HttpResponseResolver<PathParams, DefaultBodyType> => {
+  handler: HttpResponseResolver<Params, Body>,
+): HttpResponseResolver<Params, Body> => {
   return async (info) => {
     try {
       return await handler(info);
@@ -58,7 +57,7 @@ const withProblemJson = (
  */
 export const notificationHandlers = (
   model: NotificationAppModel,
-  persist: PersistMswState = () => {},
+  persist: PersistMswState = noop,
 ) => {
   const streams = new Set<SendFrame>();
   let demoTimer: ReturnType<typeof setInterval> | undefined;
@@ -132,7 +131,7 @@ export const notificationHandlers = (
   };
 
   return [
-    http.get(/\/api\/v1\/notifications$/, ({ request }) => {
+    handleListNotifications(({ request }) => {
       const url = new URL(request.url);
       const limitParam = url.searchParams.get('limit');
       return HttpResponse.json(
@@ -148,14 +147,11 @@ export const notificationHandlers = (
         }),
       );
     }),
-    http.post(
-      /\/api\/v1\/notifications\/mark-read$/,
+    handleMarkNotificationsRead(
       withProblemJson(
         'Unexpected notification mock error',
         async ({ request }) => {
-          const result = model.markRead(
-            await parseRequestJson<MarkNotificationsReadInput>(request),
-          );
+          const result = model.markRead(await request.json());
           persist();
           broadcast(sseFrame('read', { unreadCount: result.unreadCount }));
           return HttpResponse.json(result);
@@ -164,19 +160,17 @@ export const notificationHandlers = (
     ),
     // Authenticated by the session cookie at the gateway, so there is nothing
     // for the mock to check here: a request that reached this handler is one the
-    // real deployment would have authenticated already.
+    // real deployment would have authenticated already. The OpenAPI document
+    // does not describe the stream, so it has no generated handler.
     http.get(/\/api\/v1\/notifications\/stream$/, () => createStreamResponse()),
-    http.get(/\/api\/v1\/notification-preferences$/, () =>
+    handleGetNotificationPreferences(() =>
       HttpResponse.json(model.getPreferences()),
     ),
-    http.put(
-      /\/api\/v1\/notification-preferences$/,
+    handlePutNotificationPreferences(
       withProblemJson(
         'Unexpected notification preferences mock error',
         async ({ request }) => {
-          const matrix = model.putPreferences(
-            await parseRequestJson<PutNotificationPreferencesInput>(request),
-          );
+          const matrix = model.putPreferences(await request.json());
           persist();
           return HttpResponse.json(matrix);
         },

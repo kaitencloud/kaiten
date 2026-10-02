@@ -1,23 +1,25 @@
 import type { DefaultBodyType, PathParams } from 'msw';
-import { HttpResponse, type HttpResponseResolver, http } from 'msw/http';
-import type { LicenseWritable } from '@/api-client';
+import { HttpResponse, type HttpResponseResolver } from 'msw/http';
+import {
+  handleArchiveLicense,
+  handleCreateLicense,
+  handleGetInstances,
+  handleGetLicense,
+  handleGetLicenseEntitlements,
+  handleGetLicenses,
+  handleListEntitlements,
+  handleListLicenseFamilies,
+  handlePublishLicense,
+  handleUnarchiveLicense,
+  handleUpdateLicense,
+} from '@/api-client/msw.gen';
 import {
   type LicenseAppModel,
   LicenseProblem,
   type LicenseTransition,
 } from '../../../e2e/app/_support/model/license-app-model';
-import {
-  asFallback,
-  decodeLastPathSegment,
-  getPathSegments,
-  messageForError,
-  parseRequestJson,
-  statusForError,
-} from './handler-factory';
-
-type PersistMswState = () => void;
-
-const noop = () => {};
+import { asFallback, messageForError, statusForError } from './handler-factory';
+import { noop, type PersistMswState } from './persistence';
 
 // The Core API refuses a write with a problem document; rendering it the same
 // way lets the console show the API's own reason, as against the real backend.
@@ -28,9 +30,9 @@ const problemJson = (status: number, detail: string, code?: string) =>
   );
 
 const withProblems =
-  (
-    handler: HttpResponseResolver<PathParams, DefaultBodyType>,
-  ): HttpResponseResolver<PathParams, DefaultBodyType> =>
+  <Params extends PathParams<keyof Params>, Body extends DefaultBodyType>(
+    handler: HttpResponseResolver<Params, Body>,
+  ): HttpResponseResolver<Params, Body> =>
   async (info) => {
     try {
       return await handler(info);
@@ -45,8 +47,6 @@ const withProblems =
     }
   };
 
-const transitionPath = /\/api\/licenses\/[^/]+\/(publish|archive|unarchive)$/;
-
 /**
  * The license pages: the catalogue and its families, one version, the version
  * form's create, set-as-default, and the three lifecycle transitions. The
@@ -56,67 +56,56 @@ const transitionPath = /\/api\/licenses\/[^/]+\/(publish|archive|unarchive)$/;
 export const licenseHandlers = (
   model: LicenseAppModel,
   persist: PersistMswState = noop,
-) => [
-  http.get(/\/api\/licenses$/, () =>
-    HttpResponse.json({ hasMore: false, items: model.listLicenses() }),
-  ),
-  http.get(/\/api\/license-families$/, () =>
-    HttpResponse.json({ hasMore: false, items: model.listLicenseFamilies() }),
-  ),
-  http.post(
-    /\/api\/licenses$/,
-    withProblems(async ({ request }) => {
-      const license = model.createLicense(
-        await parseRequestJson<LicenseWritable>(request),
-      );
-      persist();
-      return HttpResponse.json(license, { status: 201 });
-    }),
-  ),
-  http.post(
-    transitionPath,
-    withProblems(({ request }) => {
-      const [, , slug = '', transition] = getPathSegments(request.url);
-      const license = model.transition(
-        decodeURIComponent(slug),
-        transition as LicenseTransition,
-      );
+) => {
+  const transition = (op: LicenseTransition) =>
+    withProblems<{ licenseSlug: string }, never>(({ params }) => {
+      const license = model.transition(params.licenseSlug, op);
       persist();
       return HttpResponse.json(license);
-    }),
-  ),
-  asFallback(
-    http.get(/\/api\/licenses\/[^/]+\/entitlements$/, () =>
-      HttpResponse.json({ hasMore: false, items: [] }),
+    });
+
+  return [
+    handleGetLicenses(() =>
+      HttpResponse.json({ hasMore: false, items: model.listLicenses() }),
     ),
-  ),
-  http.get(
-    /\/api\/licenses\/[^/]+$/,
-    withProblems(({ request }) =>
-      HttpResponse.json(model.getLicense(decodeLastPathSegment(request.url))),
+    handleListLicenseFamilies(() =>
+      HttpResponse.json({
+        hasMore: false,
+        items: model.listLicenseFamilies(),
+      }),
     ),
-  ),
-  http.put(
-    /\/api\/licenses\/[^/]+$/,
-    withProblems(async ({ request }) => {
-      model.updateLicense(
-        decodeLastPathSegment(request.url),
-        await parseRequestJson<LicenseWritable>(request),
-      );
-      persist();
-      return new HttpResponse(null, { status: 204 });
-    }),
-  ),
-  // Read by the version form and the license pages; owned by the entitlements
-  // and instances slots when those are installed.
-  asFallback(
-    http.get(/\/api\/entitlements$/, () =>
-      HttpResponse.json({ hasMore: false, items: model.listEntitlements() }),
+    handleCreateLicense(
+      withProblems(async ({ request }) => {
+        const license = model.createLicense(await request.json());
+        persist();
+        return HttpResponse.json(license, { status: 201 });
+      }),
     ),
-  ),
-  asFallback(
-    http.get(/\/api\/instances$/, () =>
-      HttpResponse.json({ hasMore: false, items: [] }),
+    handlePublishLicense(transition('publish')),
+    handleArchiveLicense(transition('archive')),
+    handleUnarchiveLicense(transition('unarchive')),
+    asFallback(
+      handleGetLicenseEntitlements({ body: { hasMore: false, items: [] } }),
     ),
-  ),
-];
+    handleGetLicense(
+      withProblems(({ params }) =>
+        HttpResponse.json(model.getLicense(params.licenseSlug)),
+      ),
+    ),
+    handleUpdateLicense(
+      withProblems(async ({ params, request }) => {
+        model.updateLicense(params.licenseSlug, await request.json());
+        persist();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    ),
+    // Read by the version form and the license pages; owned by the
+    // entitlements and instances slots when those are installed.
+    asFallback(
+      handleListEntitlements(() =>
+        HttpResponse.json({ hasMore: false, items: model.listEntitlements() }),
+      ),
+    ),
+    asFallback(handleGetInstances({ body: { hasMore: false, items: [] } })),
+  ];
+};
