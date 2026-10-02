@@ -51,12 +51,6 @@ vi.mock('sonner', () => ({
   },
 }));
 
-// Mock API calls
-vi.mock('@/api-client', () => ({
-  postCustomers: vi.fn().mockResolvedValue({}),
-  putCustomersById: vi.fn().mockResolvedValue({}),
-}));
-
 // Mock form hook (complex abstraction with internal state)
 vi.mock('@/hooks/form', () => ({
   createFormSubmitHandler: (handleSubmit: () => void) => () => handleSubmit(),

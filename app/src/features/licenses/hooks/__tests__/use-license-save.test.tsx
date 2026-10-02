@@ -1,24 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook } from '@testing-library/react';
+import { HttpResponse } from 'msw/http';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import type { Entitlement } from '@/api-client';
+import { beforeEach, describe, expect, it } from 'vite-plus/test';
+import { server } from '@/__tests__/msw-server';
+import type { Entitlement, License } from '@/api-client';
+import {
+  handleAssociateEntitlementWithLicense,
+  handleCreateLicense,
+  handlePublishLicense,
+} from '@/api-client/msw.gen';
 import type { EditableLicenseEntitlement } from '../../utils';
 import { useLicenseSave } from '../use-license-save';
-
-const { associateMock, createMock, publishMock } = vi.hoisted(() => ({
-  associateMock: vi.fn(),
-  createMock: vi.fn(),
-  publishMock: vi.fn(),
-}));
-
-vi.mock('@/api-client/@tanstack/react-query.gen', () => ({
-  associateEntitlementWithLicenseMutation: () => ({
-    mutationFn: associateMock,
-  }),
-  createLicenseMutation: () => ({ mutationFn: createMock }),
-  publishLicenseMutation: () => ({ mutationFn: publishMock }),
-}));
 
 const entitlements = [
   { id: 'ent-seats', name: 'Seats', slug: 'seats', type: 'NUMBER' },
@@ -64,6 +57,53 @@ const drafts: EditableLicenseEntitlement[] = [
   },
 ];
 
+type ApiCall =
+  | { op: 'associate'; licenseSlug: string; body: unknown }
+  | { op: 'create'; body: unknown }
+  | { op: 'publish'; licenseSlug: string };
+
+/**
+ * Serves the three writes the hook chains, and records them in the order the
+ * API received them, with the slug and the body each one carried.
+ */
+function serveLicenseWrites({
+  failAssociate = false,
+}: { failAssociate?: boolean } = {}) {
+  const calls: ApiCall[] = [];
+
+  server.use(
+    handleAssociateEntitlementWithLicense(async ({ params, request }) => {
+      calls.push({
+        op: 'associate',
+        licenseSlug: params.licenseSlug,
+        body: await request.json(),
+      });
+      return failAssociate && calls.filter(({ op }) => op === 'associate').length === 1
+        ? HttpResponse.json(
+            { title: 'Conflict', status: 409, detail: 'grant refused' },
+            { status: 409 },
+          )
+        : HttpResponse.json({}, { status: 201 });
+    }),
+    handleCreateLicense(async ({ request }) => {
+      calls.push({ op: 'create', body: await request.json() });
+      return HttpResponse.json(
+        { lifecycleState: 'DRAFT', slug: 'enterprise-v2' } as License,
+        { status: 201 },
+      );
+    }),
+    handlePublishLicense(({ params }) => {
+      calls.push({ op: 'publish', licenseSlug: params.licenseSlug });
+      return HttpResponse.json({
+        lifecycleState: 'PUBLISHED',
+        slug: params.licenseSlug,
+      } as License);
+    }),
+  );
+
+  return calls;
+}
+
 function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false } },
@@ -77,55 +117,56 @@ function createWrapper() {
 }
 
 describe('useLicenseSave', () => {
-  beforeEach(() => {
-    associateMock.mockReset();
-    associateMock.mockResolvedValue({});
-  });
-
   it('sends the threshold and overage percent together for every NUMBER draft', async () => {
+    const calls = serveLicenseWrites();
     const { result } = renderHook(() => useLicenseSave(entitlements), {
       wrapper: createWrapper(),
     });
 
     await result.current.attachDraftEntitlements('enterprise-v1', drafts);
 
-    const bodies = associateMock.mock.calls.map(
-      ([variables]) => (variables as { body: unknown }).body,
-    );
-
-    expect(bodies).toEqual(
+    expect(calls).toHaveLength(4);
+    expect(calls).toEqual(
       expect.arrayContaining([
         {
-          entitlementSlug: 'seats',
-          limitCapExceededOveragePercent: 20,
-          value: { type: 'number', value: 100 },
+          op: 'associate',
+          licenseSlug: 'enterprise-v1',
+          body: {
+            entitlementSlug: 'seats',
+            limitCapExceededOveragePercent: 20,
+            value: { type: 'number', value: 100 },
+          },
         },
         {
-          entitlementSlug: 'storage',
-          limitCapExceededOveragePercent: -1,
-          value: { type: 'number', value: -1 },
+          op: 'associate',
+          licenseSlug: 'enterprise-v1',
+          body: {
+            entitlementSlug: 'storage',
+            limitCapExceededOveragePercent: -1,
+            value: { type: 'number', value: -1 },
+          },
+        },
+        // No percent at all for the other types: an undefined field is left
+        // out of the JSON the API receives.
+        {
+          op: 'associate',
+          licenseSlug: 'enterprise-v1',
+          body: { entitlementSlug: 'sso', value: { type: 'boolean', value: false } },
         },
         {
-          entitlementSlug: 'sso',
-          limitCapExceededOveragePercent: undefined,
-          value: { type: 'boolean', value: false },
-        },
-        {
-          entitlementSlug: 'branding',
-          limitCapExceededOveragePercent: undefined,
-          value: { type: 'object', value: { theme: 'dark' } },
+          op: 'associate',
+          licenseSlug: 'enterprise-v1',
+          body: {
+            entitlementSlug: 'branding',
+            value: { type: 'object', value: { theme: 'dark' } },
+          },
         },
       ]),
     );
-    expect(associateMock).toHaveBeenCalledTimes(4);
-    for (const [variables] of associateMock.mock.calls) {
-      expect((variables as { path: unknown }).path).toEqual({
-        licenseSlug: 'enterprise-v1',
-      });
-    }
   });
 
   it('skips drafts whose entitlement is unknown in the catalogue', async () => {
+    const calls = serveLicenseWrites();
     const { result } = renderHook(() => useLicenseSave(entitlements), {
       wrapper: createWrapper(),
     });
@@ -135,7 +176,7 @@ describe('useLicenseSave', () => {
       { ...drafts[0], entitlementId: null },
     ]);
 
-    expect(associateMock).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
   });
 
   describe('createLicenseWithGrants', () => {
@@ -146,25 +187,10 @@ describe('useLicenseSave', () => {
       name: 'Enterprise',
       type: 'PAID',
     } as const;
-    let callOrder: string[] = [];
+    let calls: ApiCall[];
 
     beforeEach(() => {
-      const order: string[] = [];
-      createMock.mockReset();
-      publishMock.mockReset();
-      associateMock.mockImplementation(async () => {
-        order.push('associate');
-        return {};
-      });
-      createMock.mockImplementation(async () => {
-        order.push('create');
-        return { lifecycleState: 'DRAFT', slug: 'enterprise-v2' };
-      });
-      publishMock.mockImplementation(async () => {
-        order.push('publish');
-        return { lifecycleState: 'PUBLISHED', slug: 'enterprise-v2' };
-      });
-      callOrder = order;
+      calls = serveLicenseWrites();
     });
 
     // Published first, a family with no default would serve the version
@@ -179,14 +205,16 @@ describe('useLicenseSave', () => {
         draftEntitlements: drafts,
       });
 
-      expect(
-        (createMock.mock.calls[0]?.[0] as { body: unknown }).body,
-      ).toMatchObject({ lifecycleState: 'DRAFT' });
-      expect(callOrder[0]).toBe('create');
-      expect(callOrder.at(-1)).toBe('publish');
-      expect(callOrder.filter((call) => call === 'associate')).toHaveLength(4);
-      expect(publishMock.mock.calls[0]?.[0]).toEqual({
-        path: { licenseSlug: 'enterprise-v2' },
+      const ops = calls.map(({ op }) => op);
+      expect(calls[0]).toMatchObject({
+        op: 'create',
+        body: { lifecycleState: 'DRAFT' },
+      });
+      expect(ops.at(-1)).toBe('publish');
+      expect(ops.filter((op) => op === 'associate')).toHaveLength(4);
+      expect(calls.at(-1)).toEqual({
+        op: 'publish',
+        licenseSlug: 'enterprise-v2',
       });
       expect(saved).toEqual({
         license: { lifecycleState: 'PUBLISHED', slug: 'enterprise-v2' },
@@ -203,14 +231,13 @@ describe('useLicenseSave', () => {
         draftEntitlements: drafts,
       });
 
-      expect(publishMock).not.toHaveBeenCalled();
+      expect(calls.map(({ op }) => op)).not.toContain('publish');
       expect(saved.error).toBeUndefined();
       expect(saved.license.lifecycleState).toBe('DRAFT');
     });
 
     it('keeps the draft unpublished and reports why when a grant fails', async () => {
-      const failure = new Error('grant refused');
-      associateMock.mockRejectedValueOnce(failure);
+      calls = serveLicenseWrites({ failAssociate: true });
       const { result } = renderHook(() => useLicenseSave(entitlements), {
         wrapper: createWrapper(),
       });
@@ -220,8 +247,8 @@ describe('useLicenseSave', () => {
         draftEntitlements: drafts,
       });
 
-      expect(publishMock).not.toHaveBeenCalled();
-      expect(saved.error).toBe(failure);
+      expect(calls.map(({ op }) => op)).not.toContain('publish');
+      expect(saved.error).toMatchObject({ detail: 'grant refused' });
       expect(saved.license).toEqual({
         lifecycleState: 'DRAFT',
         slug: 'enterprise-v2',

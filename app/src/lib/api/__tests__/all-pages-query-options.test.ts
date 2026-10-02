@@ -1,25 +1,28 @@
-import { describe, expect, it, vi } from 'vite-plus/test';
+import { HttpResponse } from 'msw/http';
+import { describe, expect, it } from 'vite-plus/test';
+import { server } from '@/__tests__/msw-server';
+import type { Entitlement } from '@/api-client';
 import { listEntitlementsOptions } from '@/api-client/@tanstack/react-query.gen';
+import { handleListEntitlements } from '@/api-client/msw.gen';
 import { allEntitlementsOptions } from '../all-pages-query-options';
 
-const { listEntitlementsMock } = vi.hoisted(() => ({
-  listEntitlementsMock: vi.fn(),
-}));
-
-vi.mock('@/api-client', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/api-client')>()),
-  listEntitlements: listEntitlementsMock,
-}));
+const entitlement = (id: string) => ({ id }) as Entitlement;
 
 describe('allEntitlementsOptions', () => {
   it('reads every page under the generated first-page query key', async () => {
-    listEntitlementsMock
-      .mockResolvedValueOnce({
-        data: { hasMore: true, items: [{ id: 'e1' }], nextCursor: 'c1' },
-      })
-      .mockResolvedValueOnce({
-        data: { hasMore: false, items: [{ id: 'e2' }] },
-      });
+    const pageQueries: Array<Record<string, string>> = [];
+    server.use(
+      handleListEntitlements(({ request }) => {
+        const query = Object.fromEntries(new URL(request.url).searchParams);
+        pageQueries.push(query);
+
+        return HttpResponse.json(
+          query.cursor === 'c1'
+            ? { hasMore: false, items: [entitlement('e2')] }
+            : { hasMore: true, items: [entitlement('e1')], nextCursor: 'c1' },
+        );
+      }),
+    );
 
     const options = allEntitlementsOptions();
 
@@ -30,14 +33,13 @@ describe('allEntitlementsOptions', () => {
       signal: new AbortController().signal,
     } as never);
 
-    expect(result).toEqual({ hasMore: false, items: [{ id: 'e1' }, { id: 'e2' }] });
-    expect(listEntitlementsMock).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ query: { cursor: undefined, limit: 200 } }),
-    );
-    expect(listEntitlementsMock).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ query: { cursor: 'c1', limit: 200 } }),
-    );
+    expect(result).toEqual({
+      hasMore: false,
+      items: [entitlement('e1'), entitlement('e2')],
+    });
+    expect(pageQueries).toEqual([
+      { limit: '200' },
+      { cursor: 'c1', limit: '200' },
+    ]);
   });
 });

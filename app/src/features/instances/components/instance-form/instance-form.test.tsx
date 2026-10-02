@@ -1,9 +1,22 @@
-import { render } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, render, screen } from '@testing-library/react';
+import { HttpResponse } from 'msw/http';
+import { type ReactElement, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { server } from '@/__tests__/msw-server';
+import type { Customer, License } from '@/api-client';
+import { getInstanceQueryKey } from '@/api-client/@tanstack/react-query.gen';
+import {
+  handleCreateInstance,
+  handleGetLicenses,
+  handleListCustomers,
+  handleListDeploymentZones,
+  handlePatchInstance,
+  handleUpdateInstance,
+} from '@/api-client/msw.gen';
+import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
 import { InstanceForm } from './instance-form';
 
-const createMutationSpy = vi.fn();
-const listCustomersOptionsSpy = vi.fn();
 const invalidateInstancesListQueriesSpy = vi.fn();
 const mockRouterNavigate = vi.fn();
 const instanceInformationFieldsSpy = vi.fn();
@@ -25,38 +38,6 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('@tanstack/react-query', () => ({
-  useMutation: (config: {
-    onSuccess?: (_data: unknown, variables: unknown) => Promise<void> | void;
-  }) => ({
-    isPending: false,
-    mutateAsync: async (variables: unknown) => {
-      createMutationSpy(variables);
-      const createdInstance = {
-        integrations: {},
-        slug: 'acme-instance',
-      };
-      await config.onSuccess?.(createdInstance, variables);
-      return createdInstance;
-    },
-  }),
-  useSuspenseQuery: () => ({
-    data: {
-      items: [
-        {
-          id: 'license-1',
-          name: 'Starter',
-          slug: 'starter',
-        },
-      ],
-    },
-  }),
-  // The form soft-fetches the active MetadataField list to decide whether the
-  // metadata step exists. Empty here: this suite covers the locked-customer
-  // seeding, not the step list.
-  useQuery: () => ({ data: [] }),
-}));
-
 vi.mock('sonner', () => ({
   toast: {
     error: vi.fn(),
@@ -69,26 +50,6 @@ vi.mock('@tanstack/react-router', () => ({
   useRouter: () => ({
     navigate: mockRouterNavigate,
   }),
-}));
-
-vi.mock('@/domains/metadata-fields', () => ({
-  metadataFieldsActiveQueryOptions: () => ({
-    queryFn: async () => [],
-    queryKey: ['stub', 'metadata-fields', 'INSTANCE'],
-  }),
-}));
-
-vi.mock('@/api-client/@tanstack/react-query.gen', () => ({
-  createInstanceMutation: () => ({}),
-  getInstanceQueryKey: (options: unknown) => ['getInstance', options],
-  getLicensesOptions: () => ({}),
-  listCustomersOptions: () => {
-    listCustomersOptionsSpy();
-    return {};
-  },
-  listDeploymentZonesOptions: () => ({}),
-  patchInstanceMutation: () => ({}),
-  updateInstanceMutation: () => ({}),
 }));
 
 vi.mock('@/hooks/form', () => ({
@@ -180,14 +141,93 @@ vi.mock('../../hooks/instance-query-invalidation', () => ({
     invalidateInstancesListQueriesSpy(...args),
 }));
 
+const customer = { id: 'customer-1', name: 'Acme Corp' } as Customer;
+const license = { id: 'license-1', name: 'Starter', slug: 'starter' } as License;
+
+type Write =
+  | { op: 'create'; body: unknown }
+  | { op: 'patch' | 'update'; instanceSlug: string; body: unknown };
+
+/**
+ * Serves what the form reads -- the customers, licenses and deployment zones
+ * it offers, and the instance metadata fields -- and the writes it sends,
+ * which it records in the order the API received them, with the slug and the
+ * body each one carried. Counts the reads of the customer list as well.
+ */
+function serveInstanceApi() {
+  const api = { customerListReads: 0, writes: [] as Write[] };
+
+  server.use(
+    handleListCustomers(() => {
+      api.customerListReads += 1;
+      return HttpResponse.json({ hasMore: false, items: [customer] });
+    }),
+    handleGetLicenses({ body: { hasMore: false, items: [license] } }),
+    handleListDeploymentZones({ body: { hasMore: false, items: [] } }),
+    // The form soft-fetches the active MetadataField list to decide whether
+    // the metadata step exists. Empty here: this suite covers the
+    // locked-customer seeding, not the step list.
+    graphqlOperationHandler({
+      MetadataFields: () => ({
+        metadataFields: { hasMore: false, items: [], nextCursor: null },
+      }),
+    }),
+    handleCreateInstance(async ({ request }) => {
+      api.writes.push({ op: 'create', body: await request.json() });
+      return HttpResponse.json(
+        { integrations: {}, slug: 'acme-instance' },
+        { status: 201 },
+      );
+    }),
+    handleUpdateInstance(async ({ params, request }) => {
+      api.writes.push({
+        op: 'update',
+        instanceSlug: params.instanceSlug,
+        body: await request.json(),
+      });
+      return new HttpResponse(null, { status: 204 });
+    }),
+    handlePatchInstance(async ({ params, request }) => {
+      api.writes.push({
+        op: 'patch',
+        instanceSlug: params.instanceSlug,
+        body: await request.json(),
+      });
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+
+  return api;
+}
+
+let queryClient: QueryClient;
+
+// The form suspends until the lists it offers have loaded: the mocked
+// information section appears once they have.
+const renderForm = async (form: ReactElement) => {
+  render(
+    <QueryClientProvider client={queryClient}>
+      <Suspense fallback={null}>{form}</Suspense>
+    </QueryClientProvider>,
+  );
+  await screen.findByText('info');
+};
+
 describe('InstanceForm', () => {
+  let api: ReturnType<typeof serveInstanceApi>;
+
   beforeEach(() => {
     capturedFormOptions = undefined as never;
-    createMutationSpy.mockReset();
+    queryClient = new QueryClient({
+      defaultOptions: {
+        mutations: { retry: false },
+        queries: { retry: false },
+      },
+    });
+    api = serveInstanceApi();
     setQueryDataSpy.mockReset();
     invalidateInstancesListQueriesSpy.mockReset();
     instanceInformationFieldsSpy.mockReset();
-    listCustomersOptionsSpy.mockReset();
     mockRouterNavigate.mockReset();
     startAttioSyncWatcherSpy.mockReset();
     toastSuccessSpy.mockReset();
@@ -195,8 +235,8 @@ describe('InstanceForm', () => {
 
   // PATCH /instances rejects an empty lifecycleStage (minLength 1) and reads an
   // omitted one as "keep the current", so an emptied field must not
-  // reach it. Both mutations go through the same mocked useMutation, so the
-  // call count is what says whether the PATCH was emitted.
+  // reach it. The API records every write it receives, so the list of writes
+  // is what says whether the PATCH was emitted.
   describe('lifecycle stage on update', () => {
     const existingInstance = {
       createdAt: '2026-01-01T00:00:00.000Z',
@@ -219,39 +259,45 @@ describe('InstanceForm', () => {
     } as never;
 
     const submitWithStage = async (lifecycleStage: string) => {
-      render(<InstanceForm instance={existingInstance} onSuccess={vi.fn()} />);
+      await renderForm(
+        <InstanceForm instance={existingInstance} onSuccess={vi.fn()} />,
+      );
 
-      await capturedFormOptions.onSubmit({
-        value: {
-          customerId: 'customer-1',
-          deploymentZoneId: '',
-          description: 'Acme production',
-          licenseDate: {
-            from: new Date('2026-01-01T00:00:00.000Z'),
-            to: new Date('2026-12-31T00:00:00.000Z'),
+      await act(() =>
+        capturedFormOptions.onSubmit({
+          value: {
+            customerId: 'customer-1',
+            deploymentZoneId: '',
+            description: 'Acme production',
+            licenseDate: {
+              from: new Date('2026-01-01T00:00:00.000Z'),
+              to: new Date('2026-12-31T00:00:00.000Z'),
+            },
+            licenseSlug: 'starter',
+            lifecycleStage,
+            metadata: {},
+            name: 'Acme Instance',
           },
-          licenseSlug: 'starter',
-          lifecycleStage,
-          metadata: {},
-          name: 'Acme Instance',
-        },
-      });
+        }),
+      );
     };
 
     it('does not patch when the stage has been emptied', async () => {
       await submitWithStage('');
 
       // The PUT alone: no follow-up PATCH carrying an empty stage.
-      expect(createMutationSpy).toHaveBeenCalledTimes(1);
+      expect(api.writes.map(({ op }) => op)).toEqual(['update']);
     });
 
     it('patches when the stage changed to a real value', async () => {
       await submitWithStage('CHURNED');
 
-      expect(createMutationSpy).toHaveBeenCalledTimes(2);
-      expect(createMutationSpy).toHaveBeenLastCalledWith(
-        expect.objectContaining({ body: { lifecycleStage: 'CHURNED' } }),
-      );
+      expect(api.writes.map(({ op }) => op)).toEqual(['update', 'patch']);
+      expect(api.writes.at(-1)).toEqual({
+        op: 'patch',
+        instanceSlug: 'acme-instance',
+        body: { lifecycleStage: 'CHURNED' },
+      });
       // Confirmed once, after the PATCH as well.
       expect(toastSuccessSpy).toHaveBeenCalledTimes(1);
       expect(toastSuccessSpy).toHaveBeenCalledWith(
@@ -261,7 +307,7 @@ describe('InstanceForm', () => {
   });
 
   it('prefills and locks the customer in the customer-scoped create flow', async () => {
-    render(
+    await renderForm(
       <InstanceForm
         lockedCustomer={{ id: 'customer-1', name: 'Acme Corp' }}
         onSuccess={vi.fn()}
@@ -269,43 +315,48 @@ describe('InstanceForm', () => {
     );
 
     expect(capturedFormOptions.defaultValues.customerId).toBe('customer-1');
-    expect(listCustomersOptionsSpy).not.toHaveBeenCalled();
+    expect(api.customerListReads).toBe(0);
     expect(instanceInformationFieldsSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         customerFieldDisabled: true,
       }),
     );
 
-    await capturedFormOptions.onSubmit({
-      value: {
-        customerId: 'customer-1',
-        description: 'Acme production',
-        licenseDate: {
-          from: new Date('2026-01-01T00:00:00.000Z'),
-          to: new Date('2026-12-31T00:00:00.000Z'),
+    await act(() =>
+      capturedFormOptions.onSubmit({
+        value: {
+          customerId: 'customer-1',
+          description: 'Acme production',
+          licenseDate: {
+            from: new Date('2026-01-01T00:00:00.000Z'),
+            to: new Date('2026-12-31T00:00:00.000Z'),
+          },
+          licenseSlug: 'starter',
+          metadata: { tier: 'gold' },
+          name: 'Acme Instance',
         },
-        licenseSlug: 'starter',
-        metadata: { tier: 'gold' },
-        name: 'Acme Instance',
-      },
-    });
+      }),
+    );
 
-    expect(createMutationSpy).toHaveBeenCalledWith({
-      body: {
-        customerId: 'customer-1',
-        deploymentZoneId: undefined,
-        description: 'Acme production',
-        endLicenseDate: '2026-12-31T00:00:00.000Z',
-        licenseId: 'license-1',
-        metadata: { tier: 'gold' },
-        name: 'Acme Instance',
-        slug: undefined,
-        startLicenseDate: '2026-01-01T00:00:00.000Z',
+    // No deployment zone and no slug: the undefined fields are left out of
+    // the JSON the API receives.
+    expect(api.writes).toEqual([
+      {
+        op: 'create',
+        body: {
+          customerId: 'customer-1',
+          description: 'Acme production',
+          endLicenseDate: '2026-12-31T00:00:00.000Z',
+          licenseId: 'license-1',
+          metadata: { tier: 'gold' },
+          name: 'Acme Instance',
+          startLicenseDate: '2026-01-01T00:00:00.000Z',
+        },
       },
-    });
+    ]);
     // Cached for the page creation lands on, so its route does not fetch it.
     expect(setQueryDataSpy).toHaveBeenCalledWith(
-      ['getInstance', { path: { instanceSlug: 'acme-instance' } }],
+      getInstanceQueryKey({ path: { instanceSlug: 'acme-instance' } }),
       { integrations: {}, slug: 'acme-instance' },
     );
     expect(invalidateInstancesListQueriesSpy).toHaveBeenCalled();

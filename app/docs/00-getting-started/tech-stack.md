@@ -56,7 +56,7 @@ See [API generation](../01-architecture/api-generation.md) for the flow.
 | Testing Library | react 16, user-event 14 | Component tests. |
 | Storybook | 10 | Component workshop and story tests (`@storybook/addon-vitest`). |
 | Playwright | 1 | End-to-end and visual-regression suites. |
-| MSW | 3 | Mocked network for the application E2E suite (`src/e2e/msw`). Its worker script is served by the `msw/vite` plugin. |
+| MSW | 3 | Mocked network: the unit tests (`msw/node`) and the application E2E suite (`src/e2e/msw`). Its worker script is served by the `msw/vite` plugin. |
 | tsx | 4 | Runs the TypeScript check scripts of `app/scripts/`. |
 
 ## Packaging

@@ -1,29 +1,33 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
+import { HttpResponse } from 'msw/http';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { server } from '@/__tests__/msw-server';
+import {
+  handleCreateFeatureFlag,
+  handleUpdateFeatureFlag,
+} from '@/api-client/msw.gen';
 import { featureFlagFormOpts } from '../utils/shared-form';
 import { useFeatureFlagForm } from './use-feature-flag-form';
 
 const {
   cacheFeatureFlagMock,
   captured,
-  createMutateAsyncMock,
   invalidateQueriesMock,
   removeQueriesMock,
   revalidateFeatureFlagsListQueryMock,
   mockForm,
-  mutationHookState,
   navigateMock,
   setQueryDataMock,
   toastErrorMock,
   toastSuccessMock,
-  updateMutateAsyncMock,
   useAppFormMock,
 } = vi.hoisted(() => ({
   cacheFeatureFlagMock: vi.fn(),
   captured: {
     options: null as any,
   },
-  createMutateAsyncMock: vi.fn(),
   invalidateQueriesMock: vi.fn(),
   removeQueriesMock: vi.fn(),
   revalidateFeatureFlagsListQueryMock: vi.fn(),
@@ -36,42 +40,11 @@ const {
       },
     },
   },
-  mutationHookState: {
-    callIndex: 0,
-  },
   navigateMock: vi.fn(),
   setQueryDataMock: vi.fn(),
   toastErrorMock: vi.fn(),
   toastSuccessMock: vi.fn(),
-  updateMutateAsyncMock: vi.fn(),
   useAppFormMock: vi.fn(),
-}));
-
-vi.mock('@tanstack/react-query', () => ({
-  useMutation: (config: any) => {
-    const isCreateMutation = mutationHookState.callIndex === 0;
-    mutationHookState.callIndex += 1;
-
-    if (isCreateMutation) {
-      return {
-        isPending: false,
-        mutateAsync: async (payload: unknown) => {
-          createMutateAsyncMock(payload);
-          await config.onSuccess?.(undefined, payload);
-
-          return { slug: 'created-flag' };
-        },
-      };
-    }
-
-    return {
-      isPending: false,
-      mutateAsync: async (payload: unknown) => {
-        updateMutateAsyncMock(payload);
-        await config.onSuccess?.(undefined, payload);
-      },
-    };
-  },
 }));
 
 vi.mock('@tanstack/react-router', () => ({
@@ -98,11 +71,6 @@ vi.mock('sonner', () => ({
     error: toastErrorMock,
     success: toastSuccessMock,
   },
-}));
-
-vi.mock('@/api-client/@tanstack/react-query.gen', () => ({
-  createFeatureFlagMutation: vi.fn(() => ({})),
-  updateFeatureFlagMutation: vi.fn(() => ({})),
 }));
 
 vi.mock('../queries', () => ({
@@ -158,37 +126,81 @@ const baseFormValues = {
   ],
 };
 
+type ApiCall =
+  | { op: 'create'; body: unknown }
+  | { op: 'update'; featureFlagSlug: string; body: unknown };
+
+/**
+ * Serves the creation and the update of a flag, and records them with the
+ * slug and the body each one carried.
+ */
+function serveFeatureFlagWrites() {
+  const calls: ApiCall[] = [];
+
+  server.use(
+    handleCreateFeatureFlag(async ({ request }) => {
+      const body = await request.json();
+      calls.push({ op: 'create', body });
+      return HttpResponse.json(
+        { ...body, id: 'feature-flag-id' },
+        { status: 201 },
+      );
+    }),
+    handleUpdateFeatureFlag(async ({ params, request }) => {
+      calls.push({
+        op: 'update',
+        featureFlagSlug: params.featureFlagSlug,
+        body: await request.json(),
+      });
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+
+  return calls;
+}
+
+let queryClient: QueryClient;
+
+function wrapper({ children }: { children: ReactNode }) {
+  return (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+}
+
 describe('useFeatureFlagForm', () => {
+  let calls: ApiCall[];
+
   beforeEach(() => {
+    queryClient = new QueryClient({
+      defaultOptions: {
+        mutations: { retry: false },
+        queries: { retry: false },
+      },
+    });
+    calls = serveFeatureFlagWrites();
     cacheFeatureFlagMock.mockReset();
     captured.options = null;
-    createMutateAsyncMock.mockReset();
     invalidateQueriesMock.mockReset();
     mockForm.handleSubmit.mockReset();
     mockForm.setFieldValue.mockReset();
     mockForm.state.values.metadata = {};
-    mutationHookState.callIndex = 0;
     navigateMock.mockReset();
     removeQueriesMock.mockReset();
     revalidateFeatureFlagsListQueryMock.mockReset();
     setQueryDataMock.mockReset();
     toastErrorMock.mockReset();
     toastSuccessMock.mockReset();
-    updateMutateAsyncMock.mockReset();
     useAppFormMock.mockReset();
   });
 
   it('submits creation through the create mutation and navigates back to the list', async () => {
-    renderHook(() => useFeatureFlagForm({}));
+    renderHook(() => useFeatureFlagForm({}), { wrapper });
 
     await act(async () => {
       await captured.options.onSubmit({ value: baseFormValues });
     });
 
-    expect(createMutateAsyncMock).toHaveBeenCalledWith({
-      body: baseFormValues,
-    });
-    expect(updateMutateAsyncMock).not.toHaveBeenCalled();
+    expect(calls).toEqual([{ op: 'create', body: baseFormValues }]);
     expect(cacheFeatureFlagMock).not.toHaveBeenCalled();
     expect(revalidateFeatureFlagsListQueryMock).toHaveBeenCalledWith(
       expect.anything(),
@@ -211,16 +223,19 @@ describe('useFeatureFlagForm', () => {
       slug: 'new-feature-flag',
     };
 
-    renderHook(() => useFeatureFlagForm({ featureFlag } as any));
+    renderHook(() => useFeatureFlagForm({ featureFlag } as any), { wrapper });
 
     await act(async () => {
       await captured.options.onSubmit({ value: updatedValues });
     });
 
-    expect(updateMutateAsyncMock).toHaveBeenCalledWith({
-      body: updatedValues,
-      path: { featureFlagSlug: 'old-feature-flag' },
-    });
+    expect(calls).toEqual([
+      {
+        op: 'update',
+        featureFlagSlug: 'old-feature-flag',
+        body: updatedValues,
+      },
+    ]);
     expect(cacheFeatureFlagMock).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ slug: 'new-feature-flag' }),
@@ -246,8 +261,9 @@ describe('useFeatureFlagForm', () => {
       id: 'feature-flag-id',
       slug: 'existing-feature-flag',
     };
-    const { result } = renderHook(() =>
-      useFeatureFlagForm({ featureFlag } as any),
+    const { result } = renderHook(
+      () => useFeatureFlagForm({ featureFlag } as any),
+      { wrapper },
     );
 
     act(() => {
@@ -262,7 +278,7 @@ describe('useFeatureFlagForm', () => {
   });
 
   it('opens the type change dialog and restores the previous type when cancelling', () => {
-    const { result } = renderHook(() => useFeatureFlagForm({}));
+    const { result } = renderHook(() => useFeatureFlagForm({}), { wrapper });
 
     act(() => {
       captured.options.listeners.onChange({
@@ -289,7 +305,7 @@ describe('useFeatureFlagForm', () => {
   });
 
   it('resets type-dependent fields and preserves unrelated metadata when confirming a type change', () => {
-    const { result } = renderHook(() => useFeatureFlagForm({}));
+    const { result } = renderHook(() => useFeatureFlagForm({}), { wrapper });
     mockForm.state.values.metadata = {
       fallback_value: true,
       owner: 'team-platform',

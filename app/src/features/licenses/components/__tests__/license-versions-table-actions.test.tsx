@@ -1,28 +1,22 @@
-import { render, screen, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { HttpResponse } from 'msw/http';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { server } from '@/__tests__/msw-server';
+import {
+  handleDeleteLicense,
+  handleGetLicenseEntitlements,
+  handleUpdateLicense,
+} from '@/api-client/msw.gen';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { LicenseWithInstances } from '../../types';
 import { LicenseVersionsTableActions } from '../license-versions-table-actions';
 
-const mutate = vi.fn();
-
-vi.mock('@tanstack/react-query', () => ({
-  useMutation: () => ({ isPending: false, mutate }),
-}));
+let queryClient: QueryClient;
 
 vi.mock('@tanstack/react-router', () => ({
-  useRouteContext: () => ({ queryClient: {} }),
-}));
-
-vi.mock('@/api-client/@tanstack/react-query.gen', () => ({
-  updateLicenseMutation: () => ({}),
-}));
-
-vi.mock('../../queries', () => ({
-  invalidateLicenseDetails: vi.fn(),
-  invalidateLicenseLists: vi.fn(),
-  licenseEntitlementsQueryOptions: vi.fn(),
+  useRouteContext: () => ({ queryClient }),
 }));
 
 // Covered by its own test: here it only has to be there.
@@ -57,16 +51,54 @@ const makeLicense = (
     ...overrides,
   }) as LicenseWithInstances;
 
+type ApiCall =
+  | { op: 'delete'; licenseSlug: string }
+  | { op: 'update'; licenseSlug: string; body: unknown };
+
+/**
+ * Serves the writes the row's actions send, and records them with the slug
+ * and the body each one carried. A draft to delete grants nothing, so its
+ * deletion is the one write it takes.
+ */
+function serveLicenseWrites() {
+  const calls: ApiCall[] = [];
+
+  server.use(
+    handleUpdateLicense(async ({ params, request }) => {
+      calls.push({
+        op: 'update',
+        licenseSlug: params.licenseSlug,
+        body: await request.json(),
+      });
+      return new HttpResponse(null, { status: 204 });
+    }),
+    handleGetLicenseEntitlements({ body: { hasMore: false, items: [] } }),
+    handleDeleteLicense(({ params }) => {
+      calls.push({ op: 'delete', licenseSlug: params.licenseSlug });
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+
+  return calls;
+}
+
 const renderActions = (license: LicenseWithInstances) =>
   render(
-    <TooltipProvider>
-      <LicenseVersionsTableActions license={license} />
-    </TooltipProvider>,
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <LicenseVersionsTableActions license={license} />
+      </TooltipProvider>
+    </QueryClientProvider>,
   );
 
 describe('LicenseVersionsTableActions', () => {
+  let calls: ApiCall[];
+
   beforeEach(() => {
-    vi.clearAllMocks();
+    queryClient = new QueryClient({
+      defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+    });
+    calls = serveLicenseWrites();
   });
 
   // The default column already marks the default. What is left to do with it
@@ -90,12 +122,15 @@ describe('LicenseVersionsTableActions', () => {
       screen.getByRole('button', { name: 'Pages.Licenses.DefaultActions.unset' }),
     );
 
-    expect(mutate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({ isDefault: false }),
-        path: { licenseSlug: 'community-v2' },
-      }),
-    );
+    await waitFor(() => {
+      expect(calls).toEqual([
+        {
+          op: 'update',
+          licenseSlug: 'community-v2',
+          body: expect.objectContaining({ isDefault: false }),
+        },
+      ]);
+    });
   });
 
   // The row opens its version when clicked; the table leaves alone any click
@@ -119,7 +154,7 @@ describe('LicenseVersionsTableActions', () => {
     await user.click(
       screen.getByRole('button', { name: 'Pages.Licenses.DeleteDraft.label' }),
     );
-    expect(mutate).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
 
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', {
@@ -127,7 +162,9 @@ describe('LicenseVersionsTableActions', () => {
       }),
     );
 
-    expect(mutate).toHaveBeenCalledWith({ licenseSlug: 'community-v2' });
+    await waitFor(() => {
+      expect(calls).toEqual([{ op: 'delete', licenseSlug: 'community-v2' }]);
+    });
   });
 
   it.each(['PUBLISHED', 'ARCHIVED'] as const)(
@@ -165,16 +202,18 @@ describe('LicenseVersionsTableActions', () => {
 
     await user.click(button);
 
-    expect(mutate).toHaveBeenCalledTimes(1);
-    expect(mutate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({ isDefault: true }),
-        path: { licenseSlug: 'community-v2' },
-      }),
-    );
+    await waitFor(() => {
+      expect(calls).toEqual([
+        {
+          op: 'update',
+          licenseSlug: 'community-v2',
+          body: expect.objectContaining({ isDefault: true }),
+        },
+      ]);
+    });
     // The version is assigned by the API and never changes: leaving it out is
     // how the update changes nothing about it.
-    expect(mutate.mock.calls[0]?.[0].body).not.toHaveProperty('version');
+    expect(calls[0]).not.toHaveProperty('body.version');
   });
 
   // The API would refuse with UpdateLicense.DefaultMustBePublished; the
@@ -198,7 +237,7 @@ describe('LicenseVersionsTableActions', () => {
       expect(await screen.findByRole('tooltip')).toHaveTextContent(
         'Pages.Licenses.VersionsTable.setDefaultUnavailable',
       );
-      expect(mutate).not.toHaveBeenCalled();
+      expect(calls).toEqual([]);
     },
   );
 });

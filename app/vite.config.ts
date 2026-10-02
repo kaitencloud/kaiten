@@ -301,6 +301,9 @@ export default defineConfig({
             'src/**/*.test.{ts,tsx}',
             'scripts/**/*.test.ts',
           ],
+          // After the shared setup: the Node mock server, which the browser
+          // project cannot load.
+          setupFiles: ['./src/__tests__/msw-setup.ts'],
         },
       },
       // Storybook tests project
