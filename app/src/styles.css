@@ -90,42 +90,46 @@ code {
  * paints nothing below the last row. A scroll-driven animation moves it, and
  * it stays off while nothing overflows. Browsers without scroll-driven
  * animations get no fade.
+ *
+ * Not called `scroll-fade-x`: shadcn/tailwind.css defines utilities of that
+ * name, and Tailwind merges two definitions of one name. In a browser without
+ * scroll-driven animations, shadcn's fallback then fades both edges for good.
  */
-@property --scroll-fade-start {
+@property --edge-fade-start {
   syntax: "<length>";
   inherits: false;
   initial-value: 0px;
 }
-@property --scroll-fade-end {
+@property --edge-fade-end {
   syntax: "<length>";
   inherits: false;
   initial-value: 0px;
 }
-@keyframes scroll-fade-x {
+@keyframes edge-fade-x {
   0% {
-    --scroll-fade-start: 0px;
-    --scroll-fade-end: 24px;
+    --edge-fade-start: 0px;
+    --edge-fade-end: 24px;
   }
   8%,
   92% {
-    --scroll-fade-start: 24px;
-    --scroll-fade-end: 24px;
+    --edge-fade-start: 24px;
+    --edge-fade-end: 24px;
   }
   100% {
-    --scroll-fade-start: 24px;
-    --scroll-fade-end: 0px;
+    --edge-fade-start: 24px;
+    --edge-fade-end: 0px;
   }
 }
-@utility scroll-fade-x {
+@utility edge-fade-x {
   @supports (animation-timeline: scroll()) {
     mask-image: linear-gradient(
       to right,
       transparent,
-      #000 var(--scroll-fade-start),
-      #000 calc(100% - var(--scroll-fade-end)),
+      #000 var(--edge-fade-start),
+      #000 calc(100% - var(--edge-fade-end)),
       transparent
     );
-    animation: scroll-fade-x linear both;
+    animation: edge-fade-x linear both;
     animation-timeline: scroll(self inline);
   }
 }
