@@ -1,9 +1,4 @@
-/**
- * Shared HTTP helpers for MSW handlers.
- *
- * Mirrors `e2e/app/_support/mocks/rest-route-helpers.ts` (Playwright side)
- * so that browser-side mocks share the same status / message conventions.
- */
+/** Shared HTTP helpers for MSW handlers. */
 import type { DefaultBodyType, PathParams, RequestHandler } from 'msw';
 import { HttpResponse, type HttpResponseResolver, http } from 'msw/http';
 import {

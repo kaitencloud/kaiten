@@ -22,7 +22,11 @@ changes.
 `pnpm-workspace.yaml`, `.npmrc` or the workflow itself. `app-e2e.yml` also
 watches `.github/actions/setup-app-e2e/**`. A new push cancels the previous run
 of the same workflow on the same ref.
-App CI also watches the root lint configuration and token contrast script.
+Both workflows watch the root `vite.config.ts` and the GraphQL schema inputs
+listed in `app/codegen.ts`. App CI also watches `.oxlintrc.json` and the token
+contrast script. The authenticated-stack workflow watches all `app/src/**`,
+its shared drivers, app configuration and workspace dependencies, as well as
+the API/gateway/identity files, so a frontend flow change also exercises it.
 
 ## App CI (`app-ci.yml`)
 
@@ -30,13 +34,18 @@ App CI also watches the root lint configuration and token contrast script.
 | --- | --- |
 | `lint_typecheck` | `generate`, then `lint`, the app type check (`tsc --noEmit`), `typecheck:e2e`, `check:architecture`, `check:e2e-contracts`, `check:i18n-parity`, `check:i18n-keys`, `check:api-error-i18n`, `check:file-sizes`, and `scripts/check-token-contrast.mjs` from the repo root |
 | `unit` | `generate`, then `test:coverage`; SHA-named artifact and sensitive-file branch summary |
-| `stories` | `generate`, then the Storybook tests (`test:stories`) in 3 shards, after a throwaway warm-up pass that fills the Vite optimizer cache |
-| `build` | After `lint_typecheck`: native CEL tests (`cargo test --locked`), Wasm compilation, Node runtime smoke, Chromium app-loader smoke, then production build |
+| `stories` | `generate`, then Storybook in 3 sequential shards after optimizer warmup; JSON and logs retained per invocation, including failed attempts |
+| `build` | `generate`, then the production bundle; independent of static checks and Rust |
+| `cel_wasm` | Native CEL tests (`cargo test --locked`), Wasm compilation, Node runtime smoke and Chromium app-loader smoke; independent of the bundle |
 
 The names in the table are `app/package.json` scripts. What each architecture
 check enforces is in [AI_CONTEXT](../AI_CONTEXT.md#checks).
 `lint_typecheck` also runs the scope generator's Node tests from `packages/api-codegen`.
 Storybook records warmup and each failed/successful shard attempt in its summary.
+The `storybook-attempts-<SHA>` artifact includes each JSON report and console log;
+summaries distinguish failed assertions from collection/import/setup failures.
+Whole-shard retries remain temporary runner workarounds, not evidence that a
+failed first attempt never happened.
 
 To run the same checks locally, from `app/`:
 
@@ -58,12 +67,12 @@ so the bundle builds without it.
 
 | Job | What it runs |
 | --- | --- |
-| `e2e_storybook` | The Storybook suite (`e2e/tests`, `playwright.config.ts`) against a static Storybook build, in 2 shards, inside the Playwright Docker image |
-| `e2e_app` | Full Chromium application suite in 3 shards per transport: MSW and `page-route`; only legacy notifications skip |
+| `e2e_storybook` | One Linux Playwright Docker job: install/generate once, build static Storybook once, then run all visual tests in Chromium |
+| `e2e_app` | Full Chromium application suite with MSW in 3 shards, including notifications |
 | `browser_smoke` | Focused Firefox/WebKit read, keyboard, navigation and dialog smoke |
 | `dev_mock_smoke` | Starts the actual `dev:mock` command and reads/reloads its seeded world, without a stack |
 | `publish_trace_preview` | When a pull request from this repository fails: builds a preview site from the failed shards' Playwright reports, publishes it to GitHub Pages when Pages is configured (otherwise it stays a run artifact), and comments on the pull request |
-| `notify_nightly_failure` | When the nightly run fails: opens a GitHub issue labelled `e2e` and `nightly-failure`, or comments on today's |
+| `notify_nightly_failure` | Watches visual, app, Firefox/WebKit and dev bootstrap results; opens an `e2e`/`nightly-failure` issue on failure, or comments on today's |
 
 The suites also run on every push to `main` that touches the same paths, on
 manual dispatch, and every night at 03:00 UTC. Locally, from `app/`:
@@ -78,6 +87,8 @@ Playwright JSON artifacts retain first attempts and retries. Bootstrap suites
 use separate trace/report folders; a local run of one cannot clear app results.
 Docker visual runs install the entire workspace, then generate both clients:
 filtering only the app omits `packages/api-codegen`.
+The visual job resolves the image version from the committed lockfile and does
+not install Node dependencies or browsers on the host before running Docker.
 
 ## Release (`release-app.yml`)
 

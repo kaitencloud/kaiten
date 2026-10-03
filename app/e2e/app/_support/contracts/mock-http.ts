@@ -1,4 +1,4 @@
-/** Error mapping and GraphQL descriptions shared by the transport adapters. */
+/** Error mapping and GraphQL descriptions used by MSW handlers. */
 export type GraphQLVariables = Record<string, unknown> | undefined;
 export type GraphQLRequestBody = {
   operationName?: string;
@@ -18,6 +18,3 @@ export const statusForError = (error: unknown, fallback = 400): number => {
 
 export const messageForError = (error: unknown, fallback: string): string =>
   error instanceof Error ? error.message : fallback;
-
-export const getPathSegments = (url: string): string[] =>
-  new URL(url).pathname.split('/').filter(Boolean);

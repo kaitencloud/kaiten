@@ -4,9 +4,11 @@ on:
   pull_request:
     paths:
       - 'api/**'
-      - 'app/src/lib/**'
-      - 'app/src/main.tsx'
-      - 'app/src/components/dev-auth-switcher.tsx'
+      - 'app/src/**'
+      - 'app/e2e/app/_support/drivers/**'
+      - 'app/codegen.ts'
+      - 'app/vite.config.ts'
+      - 'app/tsconfig*.json'
       - 'app/e2e/stack/**'
       - 'app/playwright.stack.config.ts'
       - 'app/scripts/test-stack.mjs'
@@ -17,6 +19,10 @@ on:
       - 'docker/**'
       - 'scripts/local-credentials.sh'
       - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+      - '.npmrc'
+      - 'packages/theme/**'
       - '.github/actions/setup-app-e2e/**'
       - '.github/workflows/app-stack.yml'
   workflow_dispatch:

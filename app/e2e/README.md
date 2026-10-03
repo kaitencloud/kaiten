@@ -139,16 +139,15 @@ The mechanism is in [network mocks](../docs/06-testing/integration-tests.md#netw
 1. A model class in `e2e/app/_support/model/<area>-app-model.ts`, with `static fromSerialized(...)` and `serializeForMsw()`. It imports nothing from Playwright, because `src/e2e/msw/` imports it too.
 2. A `*-handlers.ts` set in `src/e2e/msw/`, registered by `browser.ts`. The bootstrap owns assembly, not object logic; `persistence.ts` owns sessionStorage updates. Build a REST handler from the operation's generated handler in `@/api-client/msw.gen` (`handleGetCustomer(...)`) rather than `http.get` and a path.
 3. The slot's serialized payload in `e2e/app/_support/contracts/msw-slots.ts`. `MswSlotKey` derives from this canonical shape; installers are typed against each slot's model serialization.
-4. An installer, `e2e/app/_support/mocks/install-<area>-app-mocks.ts`, that calls `tryInstallMswMocks(page, '<slot>', model)` and keeps a `page.route` fallback for `E2E_MOCKS=page-route`.
+4. An installer, `e2e/app/_support/mocks/install-<area>-app-mocks.ts`, that calls `installMswMocks(page, '<slot>', model)`.
 5. Its scenario factories in `e2e/app/_support/scenario-registry.ts`, the canonical browser-free inventory. `scripts/check-e2e-contracts.ts` executes it through `pnpm run check:e2e-contracts`. Register explicit variants for factories with parameters; do not maintain a second list in another check.
 
-MSW is the default adapter. The legacy `E2E_MOCKS=page-route` mode stays available
-using the existing installers, except notifications' stream,
-whose specs skip themselves in that mode. `contracts/mock-transport.spec.ts`
-checks wire statuses, bodies, one-shot failures and reload state in both modes.
-CI runs the full Chromium suite in both modes, with notifications skipped only
-in `page-route`. Bootstrap results use separate output folders so concurrent
-local runs cannot delete each other's trace artifacts.
+MSW is the only mock implementation. `contracts/mock-transport.spec.ts` checks
+wire statuses, bodies, one-shot failures and reload state. CI runs the full
+Chromium suite, including notifications, in three shards. Firefox/WebKit use
+the same handlers through MSW's in-page fallback when service workers are blocked.
+Bootstrap results use separate output folders so concurrent local runs cannot
+delete each other's trace artifacts.
 Shared error mapping is in
 `_support/contracts/mock-http.ts` and shared GraphQL operations in
 `_support/model/graphql-operations.ts`. Models stay stateful and transport-neutral.
@@ -168,8 +167,8 @@ structural split. See [browser mock adapter](../src/e2e/msw/README.md).
 - **Partial notifications on a real stack:** only notifications are mocked;
   business API and platform flags pass through.
 
-Integration read-only stubs use the `integrationStubs` slot in strict MSW, and
-explicit context routes in legacy. The dashboard error case is carried by the
+Integration read-only stubs use the `integrationStubs` slot in strict MSW.
+The dashboard error case is carried by the
 dashboard model. A new scenario factory exported from any `*.scenarios.ts`
 must appear in the registry: `check:e2e-contracts` discovers omitted factories
 and new packs. The platform flags and read-only stubs are not business models.

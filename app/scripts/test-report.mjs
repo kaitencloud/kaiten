@@ -30,11 +30,23 @@ for (const path of process.argv.slice(2)) {
   else {
     // Vitest JSON represents the result of one invocation; shard reruns are
     // recorded separately by the workflow, not counted as first-attempt passes.
-    for (const file of result.testResults ?? []) for (const test of file.assertionResults ?? []) {
-      if (test.status === 'pending' || test.status === 'skipped') skipped++;
-      else if (test.status === 'passed') first++;
-      else if (test.status === 'failed') failed++;
+    let collectionFailures = 0;
+    for (const file of result.testResults ?? []) {
+      const assertions = file.assertionResults ?? [];
+      const failedAssertions = assertions.filter((test) => test.status === 'failed');
+      if (file.status === 'failed' && failedAssertions.length === 0) collectionFailures++;
+      for (const test of assertions) {
+        if (test.status === 'pending' || test.status === 'skipped') skipped++;
+        else if (test.status === 'passed') first++;
+        else if (test.status === 'failed') failed++;
+      }
+      if (failedAssertions.length || file.status === 'failed') {
+        report += `\nFailure in \`${file.name}\`: ${failedAssertions.length ? 'assertion' : 'collection/import/setup'}.\n`;
+        for (const test of failedAssertions) report += `- ${test.fullName ?? test.title}\n`;
+      }
     }
+    report += `\n${path}: ${collectionFailures} collection/import/setup failures, ${failed} failed assertions.\n`;
+    if (result.numTotalTests === 0) report += 'No tests collected; this invocation is not a successful test pass.\n';
   }
   report += `\n${path}: ${first} passed without retry in this invocation, ${retried} retried, ${failed} unexpected, ${skipped} skipped.\n`;
 }

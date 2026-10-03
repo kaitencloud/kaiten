@@ -1,52 +1,22 @@
 import type { Page } from '@playwright/test';
 import type { ServiceAccount } from '@/api-client';
-import { fulfillJson } from './rest-route-helpers';
-import { isMswMockingEnabled } from './install-app-mocks';
 import { E2E_MSW_STORAGE_KEY } from '../contracts/msw-slots';
 
 // Read-only answers for the integration pages a spec opens to see what the
 // platform flags show there. Those pages have no stateful model yet, and such a
 // spec needs them to render, not to be edited.
-//
-// Strict MSW declares these through a slot; legacy uses context routes.
-
-const apiPath = (path: string) => (url: URL) => url.pathname === `/api${path}`;
 
 /** The service account whose token page opens, and the list around it. */
-export async function installServiceAccountStub(
+export function installServiceAccountStub(
   page: Page,
   serviceAccount: ServiceAccount,
 ) {
-  if (isMswMockingEnabled()) {
-    await installIntegrationStub(page, { serviceAccount });
-    return;
-  }
-  await page
-    .context()
-    .route(apiPath('/service-accounts'), (route) =>
-      fulfillJson(route, 200, { hasMore: false, items: [serviceAccount] }),
-    );
-  await page
-    .context()
-    .route(apiPath(`/service-accounts/${serviceAccount.slug}`), (route) =>
-      fulfillJson(route, 200, serviceAccount),
-    );
+  return installIntegrationStub(page, { serviceAccount });
 }
 
 /** No webhook and no delivery yet: the webhooks pages render empty. */
-export async function installEmptyWebhooksStub(page: Page) {
-  if (isMswMockingEnabled()) {
-    await installIntegrationStub(page, { emptyWebhooks: true });
-    return;
-  }
-  await page
-    .context()
-    .route(apiPath('/webhooks'), (route) => fulfillJson(route, 200, []));
-  await page
-    .context()
-    .route(apiPath('/webhooks/history'), (route) =>
-      fulfillJson(route, 200, { history: [] }),
-    );
+export function installEmptyWebhooksStub(page: Page) {
+  return installIntegrationStub(page, { emptyWebhooks: true });
 }
 
 async function installIntegrationStub(

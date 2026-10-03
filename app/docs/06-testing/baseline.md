@@ -5,6 +5,11 @@ Measured on `7a4bdb02475b10b9753c758e93921d93ec0801ae`, after PRs #11,
 Commands below run from `app/`, after `pnpm install --frozen-lockfile` at the
 repository root and `pnpm run generate`.
 
+This is a historical measurement. The `E2E_MOCKS` switch and Playwright
+`page-route` adapter were subsequently removed; use `pnpm run test:e2e:app`
+for the current MSW-only suite. The original commands/results below are retained
+to keep the baseline attributable to its revision.
+
 ## Environment
 
 macOS, Node 24.21.0, pnpm 12.4.1, Vite+ 1.0.0, Vitest 5.0.1,

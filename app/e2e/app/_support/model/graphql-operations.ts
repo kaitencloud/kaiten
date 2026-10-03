@@ -4,7 +4,7 @@ import type { CustomerAppModel } from './customer-app-model';
 import type { DashboardAppModel } from './dashboard-app-model';
 import type { GraphQLVariables } from '../contracts/mock-http';
 
-// Operation descriptions shared by MSW and the legacy page.route adapter.
+// Operation descriptions used by MSW handlers over the stateful models.
 export const auditTrailOperations = (model: AuditTrailAppModel) => ({
   GetGlobalAuditTrail: (variables: GraphQLVariables) =>
     model.getGlobalAuditTrail(variables),

@@ -17,6 +17,10 @@ in CI, the job summary. Playwright JSON retains individual attempts. Storybook
 CI records warmup, failed shard attempts and successful attempt numbers separately;
 a successful rerun never erases a failed first attempt. Local interrupted runs
 are recorded separately from completed passes.
+Every Storybook invocation writes a distinct JSON and console log under
+`storybook-results/`, uploaded as a SHA-named artifact even when the job fails.
+The summary lists failed assertions and collection/import/setup failures
+separately; a zero-test invocation is never presented as a successful pass.
 
 What the project asks of a change is enforced by review, not by a tool:
 

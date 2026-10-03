@@ -6,7 +6,7 @@ import { installAuditTrailAppMocks } from '../_support/mocks/install-audit-trail
 import { createTypedMetadataInstanceModel } from '../instances/instances.scenarios';
 import { createUsageEventsAuditTrailModel } from '../audit-trail/audit-trail.scenarios';
 
-// Executed in both MSW and page-route CI jobs: the same wire contract and
+// Executed against MSW: the wire contract and
 // stateful workflow, with no client stub and no assertion on implementation.
 test('customer transport preserves CRUD, errors and state across reloads', async ({
   page,

@@ -16,14 +16,14 @@ unserved).
 `persistence.ts` updates serialized slots in sessionStorage after mutations and
 integration reads, preserving state on navigation/reload. The canonical slot
 types and storage key live in `e2e/app/_support/contracts/msw-slots.ts`, with no
-browser or Playwright dependency. Error mapping and GraphQL descriptions share
-neutral support modules with the legacy page.route adapter.
+browser or Playwright dependency. Error mapping and GraphQL descriptions live
+in browser-free support modules used by MSW handlers.
 
-MSW is the application suite's default. `E2E_MOCKS=page-route` retains the legacy
-adapter; notifications require MSW for their stream. The transport contract
+MSW is the application suite's only mock implementation. Notifications require
+the service worker for their stream. The transport contract
 spec verifies CRUD, injected errors, reloads, PATCH 204, metadata filtering and
-instance audit responses in both modes. REST dispatch and persistence remain
-transport-specific. Dev notifications use the same
+instance audit responses. The service worker and in-page fallback execute the
+same handlers and persistence. Dev notifications use the same
 worker with unmocked flags passed through, and `pnpm run dev:mock`
 (`VITE_MOCK_API`, `dev.ts`) installs every slot in it, seeded from one world of
 records the areas share (`dev-world/`), with a warning for each API request no
