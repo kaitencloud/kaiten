@@ -32,6 +32,15 @@ switches, enables E2E bypass/MSW, and clears the platform flag service settings.
 The standard command works even when the shell or `.env.local` enables local
 auth. It starts a fresh server every time.
 
+The default app project is Chromium. `ALL_BROWSERS=true pnpm run test:e2e:app
+--project=firefox --project=webkit` runs the focused browser smoke (read,
+navigation, form, initial focus and focus return). These projects block service
+workers and use MSW's in-page fallback; notification SSE is tested on the real
+stack. App E2E CI explicitly selects Chromium for its full shards and both
+other engines for a separate smoke job. Storybook's collected reference stories
+have blocking Axe checks; the Linux Chromium visual suite keeps its existing
+baselines.
+
 To run part of the application suite, or to debug it, call Playwright with the app config:
 
 ```bash

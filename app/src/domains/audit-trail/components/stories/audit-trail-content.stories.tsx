@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import type { GlobalAuditEntry } from '../../audit-trail.types';
 import { useAuditTrailFilters } from '../../use-audit-trail-filters';
 import { AuditTrailExportButton } from '../audit-trail-export-button';
@@ -257,6 +257,7 @@ export const LongEventFilter: Story = {
 
     await userEvent.click(canvas.getByRole('button', { name: 'Event type' }));
     await userEvent.click(await page.findByRole('button', { name: label }));
+    await waitFor(() => expect(page.queryByRole('dialog')).not.toBeInTheDocument());
     await userEvent.hover(canvas.getByRole('button', { name: label }));
 
     await expect(await page.findByRole('tooltip')).toHaveTextContent(label);

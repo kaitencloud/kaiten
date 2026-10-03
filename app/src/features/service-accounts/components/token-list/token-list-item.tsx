@@ -156,7 +156,7 @@ export function TokenListItem({ token, onRevoke }: TokenListItemProps) {
   const isDisabled = isExpired || isRevoked;
 
   return (
-    <Card className={isDisabled ? 'opacity-60' : ''}>
+    <Card>
       <CardContent className="px-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">

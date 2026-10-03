@@ -20,7 +20,7 @@ export const Default: Story = {
     const [value, setValue] = useState([50]);
     return (
       <div className="w-[300px]">
-        <Slider value={value} onValueChange={setValue} max={100} step={1} />
+        <Slider aria-label="Value" value={value} onValueChange={setValue} max={100} step={1} />
       </div>
     );
   },
@@ -35,7 +35,7 @@ export const WithLabel: Story = {
           <Label>Volume</Label>
           <span className="text-sm text-muted-foreground">{value[0]}%</span>
         </div>
-        <Slider value={value} onValueChange={setValue} max={100} step={1} />
+        <Slider aria-label="Volume" value={value} onValueChange={setValue} max={100} step={1} />
       </div>
     );
   },
@@ -52,7 +52,7 @@ export const Range: Story = {
             ${value[0]} - ${value[1]}
           </span>
         </div>
-        <Slider value={value} onValueChange={setValue} max={100} step={1} />
+        <Slider aria-label="Price range" value={value} onValueChange={setValue} max={100} step={1} />
       </div>
     );
   },
@@ -61,7 +61,7 @@ export const Range: Story = {
 export const Disabled: Story = {
   render: () => (
     <div className="w-[300px]">
-      <Slider defaultValue={[50]} max={100} step={1} disabled />
+      <Slider aria-label="Value" defaultValue={[50]} max={100} step={1} disabled />
     </div>
   ),
 };
@@ -75,7 +75,7 @@ export const CustomStep: Story = {
           <Label>Value (step: 10)</Label>
           <span className="text-sm text-muted-foreground">{value[0]}</span>
         </div>
-        <Slider value={value} onValueChange={setValue} max={100} step={10} />
+        <Slider aria-label="Value" value={value} onValueChange={setValue} max={100} step={10} />
       </div>
     );
   },

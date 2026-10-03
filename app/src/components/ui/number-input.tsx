@@ -20,6 +20,7 @@ type NumberInputProps = {
   onValueCommitted?: (value: number | null) => void;
   'aria-describedby'?: string;
   'aria-invalid'?: React.AriaAttributes['aria-invalid'];
+  'aria-label'?: string;
 };
 
 export function NumberInput({
@@ -39,10 +40,13 @@ export function NumberInput({
   onValueCommitted,
   'aria-describedby': ariaDescribedBy,
   'aria-invalid': ariaInvalid,
+  'aria-label': ariaLabel,
 }: NumberInputProps) {
+  const inputId = React.useId();
   return (
     <NumberField.Root
       className="w-full"
+      id={id ?? inputId}
       value={value}
       defaultValue={defaultValue}
       min={min}
@@ -62,7 +66,7 @@ export function NumberInput({
       >
         <NumberField.Input
           ref={ref}
-          id={id}
+          id={id ?? inputId}
           className={cn(
             'placeholder:text-muted-foreground h-full min-w-0 flex-1 bg-transparent px-2 text-base tabular-nums outline-none md:text-sm',
             className,
@@ -71,6 +75,7 @@ export function NumberInput({
           onBlur={onBlur}
           aria-invalid={ariaInvalid}
           aria-describedby={ariaDescribedBy}
+          aria-label={ariaLabel}
         />
 
         <div className="border-input ml-1 flex items-center border-l pl-1">

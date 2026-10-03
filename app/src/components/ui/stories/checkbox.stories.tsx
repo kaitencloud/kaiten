@@ -20,6 +20,7 @@ export const Default: Story = {
     const [checked, setChecked] = useState(false);
     return (
       <Checkbox
+        aria-label="Accept terms"
         checked={checked}
         onCheckedChange={(value) => setChecked(value === true)}
       />

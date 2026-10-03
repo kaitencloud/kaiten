@@ -139,7 +139,7 @@ function AuditEventRowDesktop({
         <p className="text-xs text-muted-foreground">
           {formatRelativeTimeToNow(entry.timestamp, locale)}
         </p>
-        <p className="font-mono text-[11px] text-muted-foreground/70">
+        <p className="font-mono text-[11px] text-muted-foreground">
           {formatTimeOfDay(entry.timestamp, locale)}
         </p>
       </div>

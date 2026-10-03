@@ -36,6 +36,11 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    ...(process.env.ALL_BROWSERS === 'true' ? (['firefox', 'webkit'] as const).map((browserName) => ({
+      name: browserName,
+      testMatch: '**/browser-smoke/*.spec.ts',
+      use: { ...devices[browserName === 'firefox' ? 'Desktop Firefox' : 'Desktop Safari'], serviceWorkers: 'block' as const },
+    })) : []),
   ],
   webServer: {
     // The KbK pair is pinned EMPTY, not left out: an inline value outranks a

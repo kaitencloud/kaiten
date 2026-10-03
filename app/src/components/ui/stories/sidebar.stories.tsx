@@ -160,7 +160,7 @@ function SidebarFrame({
       <SidebarInset className="min-h-[640px] p-6">
         <div className="flex items-center gap-2 border-b pb-4">
           <SidebarTrigger />
-          <Button variant="outline" size="icon">
+          <Button aria-label="Search" variant="outline" size="icon">
             <Search />
           </Button>
         </div>
@@ -203,9 +203,9 @@ export const LoadingMenu: Story = {
     <div className="w-72 rounded-lg border bg-sidebar p-3 text-sidebar-foreground">
       <SidebarProvider>
         <SidebarMenu>
-          <SidebarMenuSkeleton showIcon />
-          <SidebarMenuSkeleton showIcon />
-          <SidebarMenuSkeleton showIcon />
+          <SidebarMenuItem><SidebarMenuSkeleton showIcon /></SidebarMenuItem>
+          <SidebarMenuItem><SidebarMenuSkeleton showIcon /></SidebarMenuItem>
+          <SidebarMenuItem><SidebarMenuSkeleton showIcon /></SidebarMenuItem>
         </SidebarMenu>
       </SidebarProvider>
     </div>

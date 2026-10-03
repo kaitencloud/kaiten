@@ -50,25 +50,25 @@ export const Variants: Story = {
   render: () => (
     <div className="space-y-4">
       <ToggleGroup variant="default">
-        <ToggleGroupItem value="left">
+        <ToggleGroupItem value="left" aria-label="Align left">
           <AlignLeft className="h-4 w-4" />
         </ToggleGroupItem>
-        <ToggleGroupItem value="center">
+        <ToggleGroupItem value="center" aria-label="Align center">
           <AlignCenter className="h-4 w-4" />
         </ToggleGroupItem>
-        <ToggleGroupItem value="right">
+        <ToggleGroupItem value="right" aria-label="Align right">
           <AlignRight className="h-4 w-4" />
         </ToggleGroupItem>
       </ToggleGroup>
 
       <ToggleGroup variant="outline">
-        <ToggleGroupItem value="left">
+        <ToggleGroupItem value="left" aria-label="Align left">
           <AlignLeft className="h-4 w-4" />
         </ToggleGroupItem>
-        <ToggleGroupItem value="center">
+        <ToggleGroupItem value="center" aria-label="Align center">
           <AlignCenter className="h-4 w-4" />
         </ToggleGroupItem>
-        <ToggleGroupItem value="right">
+        <ToggleGroupItem value="right" aria-label="Align right">
           <AlignRight className="h-4 w-4" />
         </ToggleGroupItem>
       </ToggleGroup>
@@ -80,37 +80,37 @@ export const Sizes: Story = {
   render: () => (
     <div className="space-y-4">
       <ToggleGroup size="sm">
-        <ToggleGroupItem value="left">
+        <ToggleGroupItem value="left" aria-label="Align left">
           <AlignLeft className="h-3 w-3" />
         </ToggleGroupItem>
-        <ToggleGroupItem value="center">
+        <ToggleGroupItem value="center" aria-label="Align center">
           <AlignCenter className="h-3 w-3" />
         </ToggleGroupItem>
-        <ToggleGroupItem value="right">
+        <ToggleGroupItem value="right" aria-label="Align right">
           <AlignRight className="h-3 w-3" />
         </ToggleGroupItem>
       </ToggleGroup>
 
       <ToggleGroup size="default">
-        <ToggleGroupItem value="left">
+        <ToggleGroupItem value="left" aria-label="Align left">
           <AlignLeft className="h-4 w-4" />
         </ToggleGroupItem>
-        <ToggleGroupItem value="center">
+        <ToggleGroupItem value="center" aria-label="Align center">
           <AlignCenter className="h-4 w-4" />
         </ToggleGroupItem>
-        <ToggleGroupItem value="right">
+        <ToggleGroupItem value="right" aria-label="Align right">
           <AlignRight className="h-4 w-4" />
         </ToggleGroupItem>
       </ToggleGroup>
 
       <ToggleGroup size="lg">
-        <ToggleGroupItem value="left">
+        <ToggleGroupItem value="left" aria-label="Align left">
           <AlignLeft className="h-5 w-5" />
         </ToggleGroupItem>
-        <ToggleGroupItem value="center">
+        <ToggleGroupItem value="center" aria-label="Align center">
           <AlignCenter className="h-5 w-5" />
         </ToggleGroupItem>
-        <ToggleGroupItem value="right">
+        <ToggleGroupItem value="right" aria-label="Align right">
           <AlignRight className="h-5 w-5" />
         </ToggleGroupItem>
       </ToggleGroup>

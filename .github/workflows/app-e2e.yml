@@ -118,7 +118,7 @@ jobs:
         uses: ./.github/actions/setup-app-e2e
 
       - name: Run app E2E (shard ${{ matrix.shard }}/${{ strategy.job-total }})
-        run: ./node_modules/.bin/playwright test -c playwright.app.config.ts e2e/app --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+        run: ./node_modules/.bin/playwright test -c playwright.app.config.ts e2e/app --project=chromium --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
       - name: Upload Playwright report
         if: failure()
@@ -136,6 +136,26 @@ jobs:
           path: app/app-test-results.json
           if-no-files-found: error
           retention-days: 30
+
+  browser_smoke:
+    name: App Firefox and WebKit smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/setup-app-e2e
+        with:
+          install-browsers: firefox webkit
+      - name: Run browser smoke
+        working-directory: app
+        run: pnpm run test:e2e:app --project=firefox --project=webkit
+        env:
+          ALL_BROWSERS: 'true'
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: browser-smoke-report
+          path: app/playwright-report
 
   publish_trace_preview:
     name: Publish E2E trace preview

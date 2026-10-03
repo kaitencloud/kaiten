@@ -43,6 +43,7 @@ export function DistributionHeader({
                 size="icon"
                 className="h-8 w-8"
                 onClick={onEqualize}
+                aria-label={t('Features.Targeting.RolloutPercentageForm.equalDistribution')}
               >
                 <Equal className="h-4 w-4" />
               </Button>
@@ -92,7 +93,7 @@ export function AddVariantSelect({
         if (value !== null) onAddVariant(value);
       }}
     >
-      <SelectTrigger className="w-full">
+      <SelectTrigger aria-label={t('Features.Targeting.RolloutPercentageForm.addVariant')} className="w-full">
         <SelectValue
           placeholder={t('Features.Targeting.RolloutPercentageForm.addVariant')}
         />
