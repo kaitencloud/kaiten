@@ -15,6 +15,7 @@ on:
     paths:
       - 'app/**'
       - 'packages/theme/**'
+      - 'packages/api-codegen/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -26,6 +27,7 @@ on:
     paths:
       - 'app/**'
       - 'packages/theme/**'
+      - 'packages/api-codegen/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -77,8 +79,9 @@ jobs:
             "mcr.microsoft.com/playwright:v${{ steps.setup-e2e.outputs.playwright-version }}-noble" \
             /bin/bash -lc 'set -euo pipefail
           corepack enable pnpm
-          pnpm install --frozen-lockfile --filter kaiten-app...
+          pnpm install --frozen-lockfile
           cd app
+          pnpm run generate
           pnpm exec playwright test -c playwright.config.ts e2e/tests --project=chromium --shard=${{ matrix.shard }}/${{ strategy.job-total }}'
 
       - name: Upload Playwright report
@@ -103,13 +106,14 @@ jobs:
         run: node scripts/test-report.mjs test-results.json
 
   e2e_app:
-    name: E2E App (Chromium, shard ${{ matrix.shard }}/${{ strategy.job-total }})
+    name: E2E App (${{ matrix.transport }}, Chromium, shard ${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         shard: [1, 2, 3]
+        transport: [msw, page-route]
     defaults:
       run:
         working-directory: app
@@ -121,14 +125,16 @@ jobs:
       - name: Setup app E2E toolchain
         uses: ./.github/actions/setup-app-e2e
 
-      - name: Run app E2E (shard ${{ matrix.shard }}/${{ strategy.job-total }})
-        run: ./node_modules/.bin/playwright test -c playwright.app.config.ts e2e/app --project=chromium --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+      - name: Run app E2E (shard ${{ matrix.shard }}/3)
+        run: ./node_modules/.bin/playwright test -c playwright.app.config.ts e2e/app --project=chromium --shard=${{ matrix.shard }}/3
+        env:
+          E2E_MOCKS: ${{ matrix.transport }}
 
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-app-report-shard-${{ matrix.shard }}
+          name: playwright-app-report-${{ matrix.transport }}-shard-${{ matrix.shard }}
           path: app/playwright-report
           retention-days: 14
 
@@ -136,7 +142,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-app-results-shard-${{ matrix.shard }}
+          name: playwright-app-results-${{ matrix.transport }}-shard-${{ matrix.shard }}
           path: app/app-test-results.json
           if-no-files-found: error
           retention-days: 30
@@ -165,6 +171,22 @@ jobs:
           name: browser-smoke-report
           path: app/playwright-report
 
+  dev_mock_smoke:
+    name: Dev mock bootstrap
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/setup-app-e2e
+      - name: Run dev bootstrap smoke
+        working-directory: app
+        run: pnpm run test:e2e:dev-mock
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: dev-mock-report
+          path: app/bootstrap-playwright-report
+
   publish_trace_preview:
     name: Publish E2E trace preview
     runs-on: ubuntu-latest
@@ -192,7 +214,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@v8
         with:
-          pattern: playwright-*-report-shard-*
+          pattern: playwright-*-report-*
           path: playwright-trace-preview/raw
 
       - name: Build trace preview site

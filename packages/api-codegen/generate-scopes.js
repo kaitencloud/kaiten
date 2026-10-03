@@ -24,8 +24,8 @@ import { parse } from "yaml";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../..");
-const INPUT = resolve(repoRoot, "app/openapi.yaml");
-const OUTPUT = resolve(repoRoot, "app/src/lib/api/scopes.gen.ts");
+const INPUT = process.argv[2] ? resolve(process.argv[2]) : resolve(repoRoot, "app/openapi.yaml");
+const OUTPUT = process.argv[3] ? resolve(process.argv[3]) : resolve(repoRoot, "app/src/lib/api/scopes.gen.ts");
 
 const SCHEME = "bearerAuth";
 const EXTENSION = "x-kaiten-scopes";

@@ -28,6 +28,8 @@
     "test:all:coverage": "vp test run --coverage",
     "test:cel-engine": "cargo test --locked --manifest-path cel-engine/Cargo.toml",
     "test:cel-engine:smoke": "node cel-engine/smoke.mjs",
+    "test:cel-engine:browser": "CEL_WASM_SMOKE=true playwright test -c playwright.bootstrap.config.ts --project=cel-wasm",
+    "test:e2e:dev-mock": "playwright test -c playwright.bootstrap.config.ts --project=dev-mock",
     "test:e2e": "playwright test",
     "test:e2e:all": "ALL_BROWSERS=true playwright test",
     "test:e2e:ui": "playwright test --ui",

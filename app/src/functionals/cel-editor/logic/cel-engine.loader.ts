@@ -27,7 +27,11 @@ let enginePromise: Promise<CelEngineInstance> | null = null;
 
 async function loadWasmModule(): Promise<CelWasmModule> {
   if (!moduleLoadPromise) {
-    moduleLoadPromise = import(/* @vite-ignore */ CEL_ENGINE_MODULE_PATH).catch(
+    // An absolute runtime URL keeps Vite from appending ?import to public
+    // assets, which are served as-is rather than transformed source modules.
+    const moduleUrl = new URL(CEL_ENGINE_MODULE_PATH, window.location.href)
+      .href;
+    moduleLoadPromise = import(/* @vite-ignore */ moduleUrl).catch(
       (error: unknown) => {
         moduleLoadPromise = null;
         throw error;

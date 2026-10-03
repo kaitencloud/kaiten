@@ -1,11 +1,12 @@
 # CI/CD
 
-The workflows live in `.github/workflows/`. Three of them concern the app.
+The workflows live in `.github/workflows/`.
 
 | Workflow | Runs on | Purpose |
 | --- | --- | --- |
 | `app-ci.yml` | Pull requests | Static checks, unit tests, Storybook tests, production build |
 | `app-e2e.yml` | Pull requests, pushes to `main`, nightly, manual | Playwright end-to-end suites |
+| `app-stack.yml` | Boundary-affecting pull requests, manual | Isolated authenticated API/gateway/database/SSE smoke |
 | `release-app.yml` | Pushes to `main`, version tags | Publishes the Docker image |
 
 Two more run on pull requests: `theme-ci.yml` checks `@kaitencloud/theme` when
@@ -17,22 +18,25 @@ changes.
 
 `app-ci.yml` and `app-e2e.yml` run on a pull request whose base branch is
 `main`, `feat/**`, `fix/**` or `chore/**`, and only when it touches `app/**`,
-`packages/theme/**`, the root `package.json`, `pnpm-lock.yaml`,
+`packages/theme/**`, `packages/api-codegen/**`, the root `package.json`, `pnpm-lock.yaml`,
 `pnpm-workspace.yaml`, `.npmrc` or the workflow itself. `app-e2e.yml` also
 watches `.github/actions/setup-app-e2e/**`. A new push cancels the previous run
 of the same workflow on the same ref.
+App CI also watches the root lint configuration and token contrast script.
 
 ## App CI (`app-ci.yml`)
 
 | Job | What it runs |
 | --- | --- |
 | `lint_typecheck` | `generate`, then `lint`, the app type check (`tsc --noEmit`), `typecheck:e2e`, `check:architecture`, `check:e2e-contracts`, `check:i18n-parity`, `check:i18n-keys`, `check:api-error-i18n`, `check:file-sizes`, and `scripts/check-token-contrast.mjs` from the repo root |
-| `unit` | `generate`, then `test` (the unit tests) |
+| `unit` | `generate`, then `test:coverage`; SHA-named artifact and sensitive-file branch summary |
 | `stories` | `generate`, then the Storybook tests (`test:stories`) in 3 shards, after a throwaway warm-up pass that fills the Vite optimizer cache |
-| `build` | After `lint_typecheck`: runs the CEL engine crate's tests (`test:cel-engine`, `cargo test --locked`), compiles the engine to WebAssembly (`app/cel-engine/build.sh`, Rust and `wasm-pack`), loads the built module in Node and feeds it half-typed rules (`test:cel-engine:smoke`), then runs the production build |
+| `build` | After `lint_typecheck`: native CEL tests (`cargo test --locked`), Wasm compilation, Node runtime smoke, Chromium app-loader smoke, then production build |
 
 The names in the table are `app/package.json` scripts. What each architecture
 check enforces is in [AI_CONTEXT](../AI_CONTEXT.md#checks).
+`lint_typecheck` also runs the scope generator's Node tests from `packages/api-codegen`.
+Storybook records warmup and each failed/successful shard attempt in its summary.
 
 To run the same checks locally, from `app/`:
 
@@ -43,6 +47,8 @@ pnpm run test:stories    # needs Chromium: pnpm exec playwright install chromium
 pnpm run test:cel-engine # the CEL engine crate's tests; needs Rust
 pnpm run build:wasm      # needs Rust and wasm-pack
 pnpm run test:cel-engine:smoke  # after build:wasm: loads the built module in Node
+pnpm run test:cel-engine:browser # compiled module through the app loader in Chromium
+pnpm --filter @kaiten/api-codegen run test
 ```
 
 `check:ci` builds without the WebAssembly module: the app loads it at run time,
@@ -53,7 +59,9 @@ so the bundle builds without it.
 | Job | What it runs |
 | --- | --- |
 | `e2e_storybook` | The Storybook suite (`e2e/tests`, `playwright.config.ts`) against a static Storybook build, in 2 shards, inside the Playwright Docker image |
-| `e2e_app` | The application suite (`e2e/app`, `playwright.app.config.ts`) against the dev server with mocks, in 3 shards |
+| `e2e_app` | Full Chromium application suite in 3 shards per transport: MSW and `page-route`; only legacy notifications skip |
+| `browser_smoke` | Focused Firefox/WebKit read, keyboard, navigation and dialog smoke |
+| `dev_mock_smoke` | Starts the actual `dev:mock` command and reads/reloads its seeded world, without a stack |
 | `publish_trace_preview` | When a pull request from this repository fails: builds a preview site from the failed shards' Playwright reports, publishes it to GitHub Pages when Pages is configured (otherwise it stays a run artifact), and comments on the pull request |
 | `notify_nightly_failure` | When the nightly run fails: opens a GitHub issue labelled `e2e` and `nightly-failure`, or comments on today's |
 
@@ -66,6 +74,10 @@ pnpm run test:e2e:app                 # application suite
 ```
 
 See [testing](../06-testing/README.md) for how the suites work.
+Playwright JSON artifacts retain first attempts and retries. Bootstrap suites
+use separate trace/report folders; a local run of one cannot clear app results.
+Docker visual runs install the entire workspace, then generate both clients:
+filtering only the app omits `packages/api-codegen`.
 
 ## Release (`release-app.yml`)
 

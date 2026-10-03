@@ -6,6 +6,9 @@ on:
     paths:
       - 'app/**'
       - 'packages/theme/**'
+      - 'packages/api-codegen/**'
+      - 'scripts/check-token-contrast.mjs'
+      - '.oxlintrc.json'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -58,6 +61,9 @@ jobs:
 
       - name: Generate API SDK & GraphQL Client
         run: vp run generate
+
+      - name: Test scope generator
+        run: pnpm --filter @kaiten/api-codegen run test
 
       - name: Root/app lint rule parity
         run: vp run check:lint-parity
@@ -310,6 +316,19 @@ jobs:
       # module can show it.
       - name: Smoke test CEL engine module
         run: vp run test:cel-engine:smoke
+
+      - name: Install Chromium for Wasm runtime smoke
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Smoke test Wasm through the browser loader
+        run: pnpm run test:cel-engine:browser
+
+      - name: Upload Wasm browser failure
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: wasm-bootstrap-report
+          path: app/bootstrap-playwright-report
 
       - name: Build app
         run: vp build

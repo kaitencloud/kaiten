@@ -52,3 +52,5 @@ charts/*/charts/
 app/stack-test-results/
 app/stack-playwright-report/
 app/storybook-test-results.json
+app/bootstrap-test-results/
+app/bootstrap-playwright-report/

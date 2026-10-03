@@ -18,6 +18,8 @@ Every command on this page runs from `app/`. Install Chromium once with `pnpm ex
 | --- | --- |
 | `pnpm run test:e2e:app` | Runs the application suite. Playwright starts the dev server itself on port 3100, which must be free. |
 | `pnpm run test:e2e:stack` | Builds an isolated Compose stack, runs five authenticated smokes, and removes its data. Needs Docker. |
+| `pnpm run test:e2e:dev-mock` | Runs the real dev mock command and verifies its seeded world after reload. No stack. |
+| `pnpm run test:cel-engine:browser` | After `build:wasm`, tests the app's loader and half-typed CEL rules in Chromium. |
 | `pnpm run test:e2e` | Runs the Storybook suite. Every test is skipped unless `CI` or `VISUAL_TESTS=true` is set. |
 | `VISUAL_TESTS=true pnpm run test:e2e` | Builds a static Storybook, serves it on port 6006 with `python3` and runs the visual tests. |
 | `pnpm run test:e2e:visual:update:linux` | Rewrites the visual baselines in the Linux Playwright Docker image. Needs a running Docker daemon, and also runs from the repository root. |
@@ -144,6 +146,9 @@ MSW is the default adapter. The legacy `E2E_MOCKS=page-route` mode stays availab
 using the existing installers, except notifications' stream,
 whose specs skip themselves in that mode. `contracts/mock-transport.spec.ts`
 checks wire statuses, bodies, one-shot failures and reload state in both modes.
+CI runs the full Chromium suite in both modes, with notifications skipped only
+in `page-route`. Bootstrap results use separate output folders so concurrent
+local runs cannot delete each other's trace artifacts.
 Shared error mapping is in
 `_support/contracts/mock-http.ts` and shared GraphQL operations in
 `_support/model/graphql-operations.ts`. Models stay stateful and transport-neutral.

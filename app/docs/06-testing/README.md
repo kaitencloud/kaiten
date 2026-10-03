@@ -12,7 +12,10 @@ smoke builds a real ephemeral backend with Docker.
 | Application E2E | The real console in Chromium, signed in by bypass, with the API mocked: routes, CRUD, cache refresh, errors | `e2e/app/` | `pnpm run test:e2e:app` |
 | Authenticated stack | Signed local identity, gateway, real API/database and SSE; isolated per run | `e2e/stack/` | `pnpm run test:e2e:stack` |
 
-Unit and Storybook tests are two projects of one Vitest configuration (`test` in `app/vite.config.ts`). The other two are Playwright suites, each with its own config: `app/playwright.config.ts` (Storybook) and `app/playwright.app.config.ts` (application).
+Unit and Storybook tests are two projects of one Vitest configuration (`test` in
+`app/vite.config.ts`). Playwright configs own visual, app, authenticated stack and
+bootstrap suites separately. `playwright.bootstrap.config.ts` checks `dev:mock`
+startup and, after a Rust build, the real Wasm loader in Chromium.
 
 ## Which test to write
 
@@ -34,7 +37,9 @@ pnpm exec playwright install chromium     # Storybook tests and both Playwright 
 
 - Much of the code under test imports the generated client, so `pnpm run generate` comes before `test`. CI does the same before every test job.
 - `test:e2e:app` starts its own dev server on port 3100 and fails if something already listens there. `test:e2e` uses port 6006 for Storybook, and reuses a Storybook that is already running when it does not build a static one.
-- Docker is needed by one script only, `test:e2e:visual:update:linux`, which rewrites the visual baselines.
+- Docker is needed by the authenticated stack smoke and the Linux visual-baseline
+  update script, which rewrites snapshots. The unit and dev bootstrap suites need
+  no running backend.
 
 ## Scripts
 
@@ -49,6 +54,12 @@ pnpm exec playwright install chromium     # Storybook tests and both Playwright 
 | `pnpm run test:coverage` | Unit tests with coverage. |
 | `pnpm run test:coverage:combined` | Unit coverage, then E2E coverage, merged. |
 | `pnpm run check:ci` | The App CI checks, with the unit tests. It does not run the Storybook tests or the Playwright suites. |
+| `pnpm run test:e2e:dev-mock` | Starts the actual dev mock command, reads seeded customers and reloads. |
+| `pnpm run test:cel-engine:browser` | After `build:wasm`, initializes the compiled module through the app loader in Chromium. |
+
+`check:ci` also omits native Rust, Wasm compilation/runtime, generator package
+tests and the four theme checks. Run those from their owners when relevant;
+`pnpm --filter @kaiten/api-codegen run test` validates scope generation.
 
 ## In this section
 

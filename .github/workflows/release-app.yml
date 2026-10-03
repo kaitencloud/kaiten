@@ -6,6 +6,7 @@ on:
     paths:
       - 'app/**'
       - 'packages/theme/**'
+      - 'packages/api-codegen/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -39,7 +40,7 @@ jobs:
         uses: ./.github/actions/docker-meta
         with:
           image-name: app
-          source-paths: app packages/theme package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc
+          source-paths: app packages/theme packages/api-codegen package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc
 
       - name: Set platform pair
         run: echo "PLATFORM_PAIR=${PLATFORM//\//-}" >> "$GITHUB_ENV"
