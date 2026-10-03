@@ -46,8 +46,14 @@ export const licensesWithInstancesQueryOptions = queryOptions({
       throwOnError: true as const,
     });
     const [licenses, instances] = await Promise.all([
-      fetchAllPages(async (cursor) => (await getLicenses(page(cursor))).data),
-      fetchAllPages(async (cursor) => (await getInstances(page(cursor))).data),
+      fetchAllPages(
+        async (cursor) => (await getLicenses(page(cursor))).data,
+        signal,
+      ),
+      fetchAllPages(
+        async (cursor) => (await getInstances(page(cursor))).data,
+        signal,
+      ),
     ]);
 
     return buildLicensesWithInstancesRows(licenses, instances);

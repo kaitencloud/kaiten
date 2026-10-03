@@ -99,7 +99,7 @@ Scopes: the API requires `read:notifications` to list the feed, read the prefere
 ## Tests
 
 - Unit and component tests: none in the feature. No story either.
-- E2E: `app/e2e/app/notifications/notifications.read.spec.ts`, with its scenarios in `notifications.scenarios.ts`, the `NotificationsDriver` (`app/e2e/app/_support/drivers/notifications.driver.ts`) and the mocks of `installNotificationAppMocks`. It covers the bell and the panel, opening a notification (it is marked read and its action URL opens), the object filter, "Mark all as read", saving a preference across a reload and folding a preference group. The mocks are MSW only, because the page-route interception cannot serve the stream. Run it with `pnpm run test:e2e:app` from `app/`.
+- E2E: `app/e2e/app/notifications/notifications.read.spec.ts`, with its scenarios in `notifications.scenarios.ts`, the `NotificationsDriver` (`app/e2e/app/_support/drivers/notifications.driver.ts`) and the mocks of `installNotificationAppMocks`. It covers the bell and the panel, opening a notification (it is marked read and its action URL opens), the object filter, "Mark all as read", saving a preference across a reload and folding a preference group. The mocks use MSW's service worker for the stream; the fetch/XHR-only in-page fallback does not serve EventSource. Run it with `pnpm run test:e2e:app` from `app/`.
 - UI work without the API: `VITE_MOCK_NOTIFICATIONS=true` serves only the notifications endpoints, and a mock stream that emits a demo notification every 45 seconds, from Mock Service Worker (`app/src/e2e/msw/notifications-dev-seed.ts`); every other request reaches the real API. See [environments](../../../docs/07-deployment/environments.md).
 
 ## Public API

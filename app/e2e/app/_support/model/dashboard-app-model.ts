@@ -32,24 +32,36 @@ type DashboardData = {
 
 export type SerializedDashboardAppModel = {
   data: DashboardData;
+  readError?: number;
 };
 
 export class DashboardAppModel {
   private readonly data: DashboardData;
+  private readError?: number;
+
+  setReadError(status: number) {
+    this.readError = status;
+  }
 
   constructor(data: DashboardData) {
     this.data = data;
   }
 
   static fromSerialized(state: SerializedDashboardAppModel) {
-    return new DashboardAppModel(state.data);
+    const model = new DashboardAppModel(state.data);
+    model.readError = state.readError;
+    return model;
   }
 
   serializeForMsw(): SerializedDashboardAppModel {
-    return { data: this.data };
+    return { data: this.data, readError: this.readError };
   }
 
   getDashboardData() {
+    if (this.readError)
+      throw Object.assign(new Error('Dashboard unavailable'), {
+        httpStatus: this.readError,
+      });
     return {
       customers: { items: this.data.customers },
       instances: { items: this.data.instances },

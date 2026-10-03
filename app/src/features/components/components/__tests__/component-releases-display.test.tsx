@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vite-plus/test';
@@ -56,12 +56,13 @@ describe('ComponentReleasesDisplay', () => {
   });
 
   afterEach(async () => {
+    cleanup();
     await testI18n.changeLanguage('en');
   });
 
   describe.each(['en', 'fr'] as const)('in %s', (language) => {
     it('reads the status of each release in the active language', async () => {
-      await testI18n.changeLanguage(language);
+      await act(() => testI18n.changeLanguage(language));
       const user = userEvent.setup();
 
       render(

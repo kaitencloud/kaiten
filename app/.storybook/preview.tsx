@@ -70,10 +70,8 @@ const preview: Preview = {
 		},
 
 		a11y: {
-			// 'todo' - show a11y violations in the test UI only
-			// 'error' - fail CI on a11y violations
-			// 'off' - skip a11y checks entirely
-			test: "todo",
+			// Every collected reference story has a blocking Axe check.
+			test: "error",
 		},
 
 		// Configure backgrounds to match your theme

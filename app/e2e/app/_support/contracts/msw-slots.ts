@@ -8,6 +8,7 @@ import type { SerializedInstanceAppModel } from '../model/instance-app-model';
 import type { SerializedLicenseAppModel } from '../model/license-app-model';
 import type { SerializedNotificationAppModel } from '../model/notification-app-model';
 import type { SerializedReleaseManagementAppModel } from '../model/release-management-app-model';
+import type { ServiceAccount } from '@/api-client';
 
 /** Transport-neutral serialized state installed before app navigation. */
 export type E2EMswConfig = {
@@ -24,10 +25,17 @@ export type E2EMswConfig = {
   licenses?: SerializedLicenseAppModel;
   notifications?: SerializedNotificationAppModel;
   releaseManagement?: SerializedReleaseManagementAppModel;
+  integrationStubs?: {
+    serviceAccount?: ServiceAccount;
+    emptyWebhooks?: boolean;
+  };
 };
 
 export type MswSlotKey = keyof E2EMswConfig;
-export type ModelSlotKey = Exclude<MswSlotKey, 'flagEvaluations'>;
+export type ModelSlotKey = Exclude<
+  MswSlotKey,
+  'flagEvaluations' | 'integrationStubs'
+>;
 export type SerializableModel<K extends ModelSlotKey> = {
   serializeForMsw(): NonNullable<E2EMswConfig[K]>;
 };

@@ -10,8 +10,8 @@ Run the checks the CI runs and return a merge-readiness summary.
 ## What `check:ci` covers
 
 `pnpm run check:ci` (in `app/`) is the local twin of the `lint_typecheck`,
-`unit` and `build` jobs of `.github/workflows/app-ci.yml`: it runs their steps
-in order, so a green run locally means those jobs are green. It covers:
+`unit` and bundle portions of `.github/workflows/app-ci.yml`; the CI also runs
+coverage, package codegen tests and Rust/Wasm/browser checks separately. It covers:
 
 - lint (`pnpm run lint`)
 - typecheck of the app and of the E2E code (`pnpm run typecheck`,
@@ -30,9 +30,21 @@ disagrees with this list, the script wins.
 It does not cover what the CI runs in other jobs: Storybook tests and the
 Playwright end-to-end suites. Nor does it test or compile the CEL engine
 (`pnpm run test:cel-engine`, `pnpm run build:wasm` and
-`pnpm run test:cel-engine:smoke`, which need Rust and `wasm-pack`), the steps the
-CI Build job runs before `vp build`: the app loads that module at run time, so the
-bundle builds without it.
+`pnpm run test:cel-engine:smoke`, which need Rust and `wasm-pack`). CI runs them
+in the independent `cel_wasm` job; `build` produces only the frontend bundle.
+The app loads the module at run time, so the bundle builds without it.
+
+Run `pnpm --filter @kaiten/api-codegen run test` for generator changes. After
+building Wasm, `pnpm run test:cel-engine:browser` exercises the actual app loader.
+`pnpm run test:e2e:dev-mock` checks the dev command's bootstrap without a stack.
+Application E2E uses MSW only; Firefox/WebKit execute the same handlers through
+the in-page fallback with service workers blocked.
+None of these are included in `check:ci`; report them separately.
+
+For Storybook CI failures, inspect the `storybook-attempts-<SHA>` JSON/log
+artifact: warmup and each shard attempt are separate. A retry must not hide a
+failed assertion or collection error. The visual suite runs in one Linux Docker
+job; the app suite keeps three Chromium shards plus Firefox/WebKit smoke.
 
 ## Workflow
 

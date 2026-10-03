@@ -1,0 +1,52 @@
+name: App authenticated stack
+
+on:
+  pull_request:
+    paths:
+      - 'api/**'
+      - 'app/src/**'
+      - 'app/e2e/app/_support/drivers/**'
+      - 'app/codegen.ts'
+      - 'app/vite.config.ts'
+      - 'app/tsconfig*.json'
+      - 'app/e2e/stack/**'
+      - 'app/playwright.stack.config.ts'
+      - 'app/scripts/test-stack.mjs'
+      - 'app/package.json'
+      - 'app/openapi.yaml'
+      - 'packages/api-codegen/**'
+      - 'compose.yml'
+      - 'docker/**'
+      - 'scripts/local-credentials.sh'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+      - '.npmrc'
+      - 'packages/theme/**'
+      - '.github/actions/setup-app-e2e/**'
+      - '.github/workflows/app-stack.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: app-stack-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/setup-app-e2e
+      - name: Run authenticated stack smoke
+        working-directory: app
+        run: pnpm run test:e2e:stack
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: authenticated-stack-report
+          path: |
+            app/stack-playwright-report
+            app/stack-test-results
+          retention-days: 7

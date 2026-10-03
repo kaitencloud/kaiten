@@ -3,6 +3,7 @@ import { XIcon } from 'lucide-react';
 import {
   createContext,
   type ReactNode,
+  type ComponentProps,
   Suspense,
   use,
   useCallback,
@@ -85,6 +86,7 @@ export interface StackedFormDialogProps {
    */
   stacked?: boolean;
   title: string;
+  finalFocus?: ComponentProps<typeof DialogContent>['finalFocus'];
 }
 
 export interface StackedFormDialogPanelProps {
@@ -206,6 +208,7 @@ export function StackedFormDialog({
   open,
   stacked = false,
   title,
+  finalFocus,
 }: StackedFormDialogProps) {
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   // Reported by the form inside (StackedFormDialogDirtyState). Unknown means
@@ -275,6 +278,7 @@ export function StackedFormDialog({
       <Dialog open={open} onOpenChange={handleDialogOpenChange}>
         {stacked ? (
           <DialogContent
+            finalFocus={finalFocus}
             {...contentProps}
             showCloseButton={false}
             overlayClassName="bg-black/60"
@@ -300,6 +304,7 @@ export function StackedFormDialog({
           </DialogContent>
         ) : (
           <DialogContent
+            finalFocus={finalFocus}
             {...contentProps}
             className={cn('sm:max-w-lg', className)}
             variant="form"

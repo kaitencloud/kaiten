@@ -38,6 +38,7 @@ export const customerHandlers = (
           persist();
           return HttpResponse.json(customer, { status: 201 });
         },
+        persist,
       ),
     ),
     handleGetCustomer(
@@ -66,14 +67,19 @@ export const customerHandlers = (
           persist();
           return HttpResponse.json(customer);
         },
+        persist,
       ),
     ),
     handleDeleteCustomer(
-      withErrorHandling('Unexpected customer mock error', ({ params }) => {
-        model.deleteCustomer(params.customerSlug);
-        persist();
-        return new HttpResponse(null, { status: 204 });
-      }),
+      withErrorHandling(
+        'Unexpected customer mock error',
+        ({ params }) => {
+          model.deleteCustomer(params.customerSlug);
+          persist();
+          return new HttpResponse(null, { status: 204 });
+        },
+        persist,
+      ),
     ),
   ];
 };

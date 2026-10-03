@@ -39,6 +39,7 @@ docker run --rm --ipc=host \
   /bin/bash -lc \
   'set -euo pipefail
 corepack enable pnpm
-pnpm install --frozen-lockfile --filter kaiten-app...
+pnpm install --frozen-lockfile
 cd app
+pnpm run generate
 pnpm exec playwright test -c playwright.config.ts e2e/tests/visual-regression.spec.ts --project=chromium --update-snapshots'

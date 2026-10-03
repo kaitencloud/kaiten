@@ -5,6 +5,7 @@ import { NumberInput } from '../number-input';
 const meta = {
   title: 'Components/UI/NumberInput',
   component: NumberInput,
+  args: { 'aria-label': 'Quantity' },
   parameters: {
     layout: 'centered',
   },

@@ -4,7 +4,9 @@
     "e2e/**/*.ts",
     "e2e/**/*.tsx",
     "playwright.config.ts",
-    "playwright.app.config.ts"
+    "playwright.app.config.ts",
+    "playwright.stack.config.ts",
+    "playwright.bootstrap.config.ts"
   ],
   "exclude": [],
   "compilerOptions": {

@@ -11,15 +11,19 @@ export const releaseManagementOverviewBaseQueryKey = [
 
 export const releaseManagementOverviewQueryOptions = queryOptions({
   queryKey: releaseManagementOverviewBaseQueryKey,
-  queryFn: async () => {
+  queryFn: async ({ signal }) => {
     const query = GET_RELEASE_MANAGEMENT_OVERVIEW.toString();
     return fetchAllPages(async (cursor) => {
       const data =
-        await graphqlClient.request<GetReleaseManagementOverviewQuery>(query, {
-          cursor,
-          limit: MAX_PAGE_SIZE,
-        });
+        await graphqlClient.request<GetReleaseManagementOverviewQuery>(
+          query,
+          {
+            cursor,
+            limit: MAX_PAGE_SIZE,
+          },
+          signal,
+        );
       return data.releases;
-    });
+    }, signal);
   },
 });

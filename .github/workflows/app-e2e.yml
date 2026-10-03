@@ -15,6 +15,10 @@ on:
     paths:
       - 'app/**'
       - 'packages/theme/**'
+      - 'packages/api-codegen/**'
+      - 'api/internal/infrastructure/http/graphql/schema.graphqls'
+      - 'api/internal/modules/**/schema/*.graphqls'
+      - 'vite.config.ts'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -26,6 +30,10 @@ on:
     paths:
       - 'app/**'
       - 'packages/theme/**'
+      - 'packages/api-codegen/**'
+      - 'api/internal/infrastructure/http/graphql/schema.graphqls'
+      - 'api/internal/modules/**/schema/*.graphqls'
+      - 'vite.config.ts'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -47,13 +55,9 @@ permissions:
 
 jobs:
   e2e_storybook:
-    name: E2E Storybook (Chromium, shard ${{ matrix.shard }}/${{ strategy.job-total }})
+    name: Visual Storybook (Linux Chromium)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2]
     defaults:
       run:
         working-directory: app
@@ -62,11 +66,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
 
-      - name: Setup app E2E toolchain
-        id: setup-e2e
-        uses: ./.github/actions/setup-app-e2e
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
 
-      - name: Run Storybook E2E (shard ${{ matrix.shard }}/${{ strategy.job-total }})
+      - name: Determine Playwright Docker version from lockfile
+        id: playwright-version
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const lock = readFileSync('../pnpm-lock.yaml', 'utf8');
+          const app = lock.split(/^  app:\n/m)[1]?.split(/^  [^ \t]/m)[0] ?? '';
+          const version = app.match(/'@playwright\/test':\s*\n\s+specifier:[^\n]+\n\s+version: (\S+)/)?.[1];
+          if (!version || !/^\d+\.\d+\.\d+$/.test(version)) throw new Error('Cannot resolve Playwright version');
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          NODE
+
+      - name: Run visual Storybook suite once in Linux
         run: |
           docker run --rm --ipc=host \
             -v "$GITHUB_WORKSPACE:/work" \
@@ -74,18 +90,19 @@ jobs:
             -w /work \
             -e CI=true \
             -e PLAYWRIGHT_STORYBOOK_STATIC=true \
-            "mcr.microsoft.com/playwright:v${{ steps.setup-e2e.outputs.playwright-version }}-noble" \
+            "mcr.microsoft.com/playwright:v${{ steps.playwright-version.outputs.version }}-noble" \
             /bin/bash -lc 'set -euo pipefail
           corepack enable pnpm
-          pnpm install --frozen-lockfile --filter kaiten-app...
+          pnpm install --frozen-lockfile
           cd app
-          pnpm exec playwright test -c playwright.config.ts e2e/tests --project=chromium --shard=${{ matrix.shard }}/${{ strategy.job-total }}'
+          pnpm run generate
+          pnpm exec playwright test -c playwright.config.ts e2e/tests --project=chromium'
 
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-storybook-report-shard-${{ matrix.shard }}
+          name: playwright-storybook-report
           path: app/playwright-report
           retention-days: 14
 
@@ -93,10 +110,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-storybook-results-shard-${{ matrix.shard }}
+          name: playwright-storybook-results
           path: app/test-results.json
           if-no-files-found: error
           retention-days: 30
+
+      - name: Summarize first attempts and retries
+        if: always()
+        run: node scripts/test-report.mjs test-results.json
 
   e2e_app:
     name: E2E App (Chromium, shard ${{ matrix.shard }}/${{ strategy.job-total }})
@@ -118,7 +139,7 @@ jobs:
         uses: ./.github/actions/setup-app-e2e
 
       - name: Run app E2E (shard ${{ matrix.shard }}/${{ strategy.job-total }})
-        run: ./node_modules/.bin/playwright test -c playwright.app.config.ts e2e/app --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+        run: ./node_modules/.bin/playwright test -c playwright.app.config.ts e2e/app --project=chromium --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
       - name: Upload Playwright report
         if: failure()
@@ -136,6 +157,46 @@ jobs:
           path: app/app-test-results.json
           if-no-files-found: error
           retention-days: 30
+
+      - name: Summarize first attempts and retries
+        if: always()
+        run: node scripts/test-report.mjs app-test-results.json
+
+  browser_smoke:
+    name: App Firefox and WebKit smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/setup-app-e2e
+        with:
+          install-browsers: firefox webkit
+      - name: Run browser smoke
+        working-directory: app
+        run: pnpm run test:e2e:app --project=firefox --project=webkit
+        env:
+          ALL_BROWSERS: 'true'
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: browser-smoke-report
+          path: app/playwright-report
+
+  dev_mock_smoke:
+    name: Dev mock bootstrap
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: ./.github/actions/setup-app-e2e
+      - name: Run dev bootstrap smoke
+        working-directory: app
+        run: pnpm run test:e2e:dev-mock
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: dev-mock-report
+          path: app/bootstrap-playwright-report
 
   publish_trace_preview:
     name: Publish E2E trace preview
@@ -164,7 +225,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@v8
         with:
-          pattern: playwright-*-report-shard-*
+          pattern: playwright-*-report*
           path: playwright-trace-preview/raw
 
       - name: Build trace preview site
@@ -263,11 +324,11 @@ jobs:
   notify_nightly_failure:
     name: Notify nightly failure
     runs-on: ubuntu-latest
-    needs: [e2e_storybook, e2e_app]
+    needs: [e2e_storybook, e2e_app, browser_smoke, dev_mock_smoke]
     if: |
       always() &&
       github.event_name == 'schedule' &&
-      (needs.e2e_storybook.result == 'failure' || needs.e2e_app.result == 'failure')
+      contains(needs.*.result, 'failure')
     permissions:
       contents: read
       issues: write
@@ -285,6 +346,8 @@ jobs:
               `- Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               `- Storybook job: \`${{ needs.e2e_storybook.result }}\``,
               `- App job: \`${{ needs.e2e_app.result }}\``,
+              `- Firefox/WebKit job: \`${{ needs.browser_smoke.result }}\``,
+              `- Dev mock bootstrap: \`${{ needs.dev_mock_smoke.result }}\``,
               '',
               'Inspect the Playwright HTML reports uploaded as run artifacts.',
               'When fixed, close the issue. Auto-deduplicated by title (one issue per day).',

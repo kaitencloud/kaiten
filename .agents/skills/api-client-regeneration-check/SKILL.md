@@ -28,6 +28,9 @@ Keep generated API client artifacts synchronized with backend contracts.
 5. Update feature schemas/forms that extend generated Zod contracts.
 6. Report contract deltas and required follow-up refactors.
 
+When `packages/api-codegen` changes, run `pnpm --filter @kaiten/api-codegen run
+test`. App CI/E2E watch that package because it generates the mock handlers too.
+
 ## Useful commands
 
 ```bash

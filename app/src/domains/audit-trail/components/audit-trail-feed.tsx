@@ -43,7 +43,7 @@ function DayGroup({ group, t }: { group: AuditDayGroup; t: TFunction }) {
         <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           {group.heading}
         </h3>
-        <span className="text-xs text-muted-foreground/50">
+        <span className="text-xs text-muted-foreground">
           {t('Pages.AuditTrail.feed.eventsCount', {
             count: group.entries.length,
           })}

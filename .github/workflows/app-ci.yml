@@ -6,6 +6,12 @@ on:
     paths:
       - 'app/**'
       - 'packages/theme/**'
+      - 'packages/api-codegen/**'
+      - 'api/internal/infrastructure/http/graphql/schema.graphqls'
+      - 'api/internal/modules/**/schema/*.graphqls'
+      - 'vite.config.ts'
+      - 'scripts/check-token-contrast.mjs'
+      - '.oxlintrc.json'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -20,10 +26,8 @@ permissions:
   contents: read
   pull-requests: read
 
-# Fast feedback only: lint, app + E2E typecheck, unit tests, Storybook tests
-# (with `play`), and a production build. Playwright E2E jobs live in a
-# separate workflow (`app-e2e.yml`) that runs on app-affecting PRs, tag
-# releases, and a nightly schedule.
+# Static checks, unit coverage, Storybook, bundle and CEL/Wasm validation.
+# Playwright UI E2E jobs live in app-e2e.yml (PR, main, nightly and manual).
 
 jobs:
   lint_typecheck:
@@ -58,6 +62,9 @@ jobs:
 
       - name: Generate API SDK & GraphQL Client
         run: vp run generate
+
+      - name: Test scope generator
+        run: pnpm --filter @kaiten/api-codegen run test
 
       - name: Root/app lint rule parity
         run: vp run check:lint-parity
@@ -131,7 +138,16 @@ jobs:
         run: vp run generate
 
       - name: Run unit tests
-        run: vp run test
+        run: vp run test:coverage --coverage.reportOnFailure
+      - name: Publish coverage and sensitive branches
+        if: always()
+        run: node scripts/test-report.mjs
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: unit-coverage-${{ github.sha }}
+          path: app/coverage
+          retention-days: 14
 
   stories:
     name: Storybook Tests
@@ -188,6 +204,7 @@ jobs:
         run: ./node_modules/.bin/playwright install-deps chromium
 
       - name: Run Storybook tests (play functions + render smoke)
+        shell: bash
         # Root cause (storybookjs/storybook#33347): CI runners start with a COLD
         # Vite optimizer cache, so the addon-vitest browser runner discovers a
         # dep mid-run and hard-reloads the browser — aborting a random story
@@ -195,25 +212,49 @@ jobs:
         # iframe ("Cannot connect to the iframe"). It only reproduces on the first
         # cold run; the warm cache is exactly why it passes locally and why
         # neither retrying nor sharding (still cold each time) fixes it.
-        # Fix: warm the optimizer cache once (throwaway pass, result ignored),
+        # Warm the optimizer once; retain its result separately from real shards,
         # then run the real suite in 3 shards against the now-warm cache, so no
         # shard re-optimizes mid-run. Small per-shard retry covers residual flake.
         run: |
+          mkdir -p storybook-results
+          run_attempt() {
+            report="storybook-results/$1.json"
+            log="storybook-results/$1.log"
+            shift
+            if pnpm exec vp test run --project=storybook --reporter=default --reporter=json --outputFile="$report" "$@" 2>&1 | tee "$log"; then
+              result=0
+            else
+              result=$?
+            fi
+            echo "Storybook invocation $report: exit $result." >> "$GITHUB_STEP_SUMMARY"
+            if [ -f "$report" ]; then
+              node scripts/test-report.mjs "$report"
+            else
+              echo "No JSON report produced: runner/setup failure. See $log." >> "$GITHUB_STEP_SUMMARY"
+            fi
+            return "$result"
+          }
           echo "::group::Warm the Vite optimizer cache (result ignored)"
-          vp run test:stories || true
+          if run_attempt warmup; then
+            echo 'Storybook optimizer warmup passed.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Storybook optimizer warmup failed; this is a separate first-pass result.' >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "::endgroup::"
           total=3
           for shard in $(seq 1 "$total"); do
             ok=0
             for attempt in 1 2; do
               echo "::group::Storybook shard ${shard}/${total} — attempt ${attempt}"
-              if vp test run --project=storybook --shard="${shard}/${total}"; then
+              if run_attempt "shard-${shard}-attempt-${attempt}" --shard="${shard}/${total}"; then
+                echo "Storybook shard ${shard}/${total}: passed on attempt ${attempt}." >> "$GITHUB_STEP_SUMMARY"
                 ok=1
                 echo "::endgroup::"
                 break
               fi
               echo "::endgroup::"
-              echo "::warning::Storybook shard ${shard}/${total} attempt ${attempt} failed (browser-runner flake); retrying…"
+              echo "Storybook shard ${shard}/${total}: failed attempt ${attempt}." >> "$GITHUB_STEP_SUMMARY"
+              echo "::warning::Storybook shard ${shard}/${total} attempt ${attempt} failed; retrying…"
             done
             if [ "$ok" != 1 ]; then
               echo "::error::Storybook shard ${shard}/${total} failed after retries"
@@ -221,10 +262,41 @@ jobs:
             fi
           done
 
+      - name: Upload every Storybook attempt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: storybook-attempts-${{ github.sha }}
+          path: app/storybook-results
+          retention-days: 14
+
   build:
-    name: Build
+    name: Build app
     runs-on: ubuntu-latest
-    needs: lint_typecheck
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: voidzero-dev/setup-vp@v1.21.1
+        with:
+          node-version: '24'
+          working-directory: app
+          cache: true
+          run-install: false
+      - name: Install dependencies
+        run: vp install
+      - name: Generate API SDK & GraphQL Client
+        run: vp run generate
+      - name: Build app
+        run: vp build
+
+  cel_wasm:
+    name: CEL / Wasm runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: app
@@ -284,9 +356,8 @@ jobs:
       - name: Test CEL engine crate
         run: vp run test:cel-engine
 
-      # No Vite env here on purpose: this step runs wasm-pack via
-      # cel-engine/build.sh, which reads none of it. The `vp build` step below
-      # is the one that bakes VITE_* into the bundle.
+      # wasm-pack reads no Vite environment; the independent build job produces
+      # the frontend bundle.
       - name: Build Rust Wasm
         run: ./cel-engine/build.sh
 
@@ -296,5 +367,15 @@ jobs:
       - name: Smoke test CEL engine module
         run: vp run test:cel-engine:smoke
 
-      - name: Build app
-        run: vp build
+      - name: Install Chromium for Wasm runtime smoke
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Smoke test Wasm through the browser loader
+        run: pnpm run test:cel-engine:browser
+
+      - name: Upload Wasm browser failure
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: wasm-bootstrap-report
+          path: app/bootstrap-playwright-report

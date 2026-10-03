@@ -1,24 +1,26 @@
 import { expect, test } from '../_support/app-test';
 import { NotificationsDriver } from '../_support/drivers/notifications.driver';
-import {
-  installFlagEvaluations,
-  isMswMockingEnabled,
-} from '../_support/mocks/install-app-mocks';
+import { installFlagEvaluations } from '../_support/mocks/install-app-mocks';
 import { installEmptyWebhooksStub } from '../_support/mocks/install-integration-stubs';
 import { installNotificationAppMocks } from '../_support/mocks/install-notification-app-mocks';
 import { WEBHOOKS_ON } from '../integrations/integrations.scenarios';
+import { installCustomerAppMocks } from '../_support/mocks/install-customer-app-mocks';
+import { installInstanceAppMocks } from '../_support/mocks/install-instance-app-mocks';
+import { installDashboardAppMocks } from '../_support/mocks/install-dashboard-app-mocks';
+import { createCustomersListModel } from '../customers/customers.scenarios';
+import { createInstancesListModel } from '../instances/instances.scenarios';
+import { createDashboardReadModel } from '../dashboard/dashboard.scenarios';
 import {
   createMixedObjectsFeedModel,
   createNotificationsFeedModel,
 } from './notifications.scenarios';
 
 test.describe('notifications read', () => {
-  // The notification stream is an EventSource held open, which page.route
-  // cannot serve, so the notifications have no page.route mocks.
-  test.skip(
-    !isMswMockingEnabled(),
-    'Notifications need MSW: page.route cannot hold their stream open.',
-  );
+  test.beforeEach(async ({ page }) => {
+    await installDashboardAppMocks(page, createDashboardReadModel());
+    await installCustomerAppMocks(page, createCustomersListModel());
+    await installInstanceAppMocks(page, createInstancesListModel());
+  });
 
   test('bell shows the unread count and the panel lists notifications', async ({
     page,
@@ -78,8 +80,14 @@ test.describe('notifications read', () => {
       .click();
 
     await expect(page).toHaveURL(
-      /\/customers\/instances\/acme-prod\/entitlements$/,
+      /\/customers\/instances\/acme-production\/entitlements$/,
     );
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Acme Production',
+    );
+    await expect(
+      page.getByRole('tab', { name: 'Entitlements & Usage' }),
+    ).toHaveAttribute('aria-selected', 'true');
   });
 
   test('a notification opened from the feed opens the object it is about', async ({
@@ -93,7 +101,10 @@ test.describe('notifications read', () => {
 
     await notifications.feedItem('Deployment of acme-prod succeeded').click();
 
-    await expect(page).toHaveURL(/\/customers\/instances\/acme-prod$/);
+    await expect(page).toHaveURL(/\/customers\/instances\/acme-production$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Acme Production',
+    );
   });
 
   test('the object filter narrows the feed to one kind of object', async ({

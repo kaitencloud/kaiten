@@ -40,6 +40,10 @@ the pull request template and the `pr-check` skill point here.
   test:cel-engine`, then `app/cel-engine/build.sh`, then `pnpm run
   test:cel-engine:smoke`; they need Rust and `wasm-pack`). `check:ci` skips those
   steps: the app loads the module at run time, so the bundle builds without it.
+  `pnpm run test:cel-engine:browser` then checks the compiled module through the
+  app loader in Chromium. Generator changes also require
+  `pnpm --filter @kaiten/api-codegen run test`; dev mock bootstrap has its own
+  `pnpm run test:e2e:dev-mock` smoke. These remain separate from `check:ci`.
 
   Formatting is not part of `check:ci`, and no workflow checks it: `pnpm run fmt`
   applies the formatter to `src` and `e2e`, and `pnpm run fmt:check` only reports.

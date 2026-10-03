@@ -5,6 +5,8 @@ import {
   handleEvaluateFlag,
   handleGetFeatureFlag,
   handleGetFeatureFlags,
+  handleGetTargetingContext,
+  handleLintTargetingRule,
   handleUpdateFeatureFlag,
 } from '@/api-client/msw.gen';
 import type { FeatureFlagAppModel } from '../../../e2e/app/_support/model/feature-flag-app-model';
@@ -15,6 +17,9 @@ export const featureFlagHandlers = (
   model: FeatureFlagAppModel,
   persist: PersistMswState = noop,
 ) => [
+  handleGetTargetingContext({ body: { roots: [] } }),
+  // This UI suite exercises editing, not the real CEL linter (stack smoke).
+  handleLintTargetingRule({ body: { valid: true, issues: [] } }),
   handleGetFeatureFlags(() =>
     HttpResponse.json({ hasMore: false, items: model.listFeatureFlags() }),
   ),

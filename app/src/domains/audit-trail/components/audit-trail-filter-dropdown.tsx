@@ -120,6 +120,7 @@ export function AuditFilterDropdown({
       {/* Sized to its options, as the shared filter lists are: a label wraps
           past 420px rather than being cut. */}
       <PopoverContent
+        aria-label={label}
         align="start"
         className="w-auto min-w-56 max-w-[min(92vw,420px)] p-1"
       >

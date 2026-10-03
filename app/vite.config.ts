@@ -107,7 +107,7 @@ const storybookTestExclude = [
 ];
 
 // Serves <dev dir>/tokens.json as a virtual ESM module in dev mode.
-// In production the module resolves to an empty array — fully tree-shaken.
+// In production and tests it resolves to an empty array: no local credentials.
 //
 // <dev dir> is KAITEN_DEV_DIR when set, ../dev (this app's own sibling
 // directory) otherwise. The override matters when this app runs against
@@ -126,7 +126,8 @@ function devTokensPlugin() {
     },
     load(id: string) {
       if (id !== resolvedId) return;
-      if (process.env.NODE_ENV === 'production') return 'export default []';
+      if (['production', 'test'].includes(process.env.NODE_ENV ?? ''))
+        return 'export default []';
       try {
         const devDir = process.env.KAITEN_DEV_DIR ?? resolve(dirname, '../dev');
         const tokensPath = resolve(devDir, 'tokens.json');
@@ -278,7 +279,7 @@ export default defineConfig({
     ],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'json-summary', 'html'],
       exclude: [
         '**/node_modules/**',
         '**/dist/**',
@@ -297,10 +298,23 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'unit',
-          include: [
-            'src/**/*.test.{ts,tsx}',
-            'scripts/**/*.test.ts',
-          ],
+          // Applied before setup imports (including @/env in msw-setup), and
+          // independent of shell exports and .env.local. Mode-specific tests
+          // opt in with vi.stubEnv and resetModules, never a local credential.
+          env: {
+            RTL_SKIP_AUTO_CLEANUP: 'true',
+            VITE_API_URL: 'http://api.test/api',
+            VITE_CLERK_PUBLISHABLE_KEY: '',
+            VITE_KAITEN_PLATFORM_API_URL: '',
+            VITE_KAITEN_PLATFORM_FLAGS_TOKEN: '',
+            VITE_LOCAL_AUTH: 'false',
+            VITE_E2E_BYPASS_AUTH: 'false',
+            VITE_E2E_MSW: 'false',
+            VITE_MOCK_API: 'false',
+            VITE_MOCK_NOTIFICATIONS: 'false',
+          },
+          sequence: { setupFiles: 'list' },
+          include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.ts'],
           // After the shared setup: the Node mock server, which the browser
           // project cannot load.
           setupFiles: ['./src/__tests__/msw-setup.ts'],

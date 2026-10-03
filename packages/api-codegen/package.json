@@ -5,7 +5,8 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "generate": "openapi-ts && node generate-scopes.js"
+    "generate": "openapi-ts && node generate-scopes.js",
+    "test": "node --test generate-scopes.test.js"
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "0.99.0",

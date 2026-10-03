@@ -12,6 +12,7 @@ function Table({
   return (
     <div
       data-slot="table-container"
+      tabIndex={0}
       className={cn('relative w-full overflow-x-auto', containerClassName)}
     >
       <table

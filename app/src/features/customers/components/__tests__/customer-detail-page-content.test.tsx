@@ -1,4 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { HttpResponse } from 'msw/http';
+import { server } from '@/__tests__/msw-server';
+import { handleDeleteCustomer, handleGetCustomer } from '@/api-client/msw.gen';
+import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
+import { customerQueryOptions } from '../../queries/customer-query-options';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
@@ -7,45 +13,20 @@ import { CustomerDetailPageContent } from '../customer-detail-page-content';
 let crmSyncCardVisible = false;
 const mockNavigate = vi.fn();
 
-const mockDeleteMutate = vi.fn();
 const mockRouterNavigate = vi.fn();
-const mockForgetDeletedCustomerQueries = vi.fn();
+let queryClient: QueryClient;
+let instances: unknown[];
+let deleted = false;
+let detailReads = 0;
 
-type DeleteMutationOptions = {
-  mutationKey?: string[];
-  onSuccess?: () => Promise<void> | void;
-};
+const customer = { createdAt: '2026-02-24T00:00:00.000Z', externalCustomerId: 'ext-1',
+  id: 'customer-1', name: 'Acme Corp', slug: 'acme', updatedAt: '2026-02-25T00:00:00.000Z' };
 
-let capturedDeleteOptions: DeleteMutationOptions | undefined;
-
-vi.mock('@tanstack/react-query', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-query')>();
-
-  return {
-    ...actual,
-    useMutation: (options?: DeleteMutationOptions) => {
-      if (options?.mutationKey?.[0] === 'deleteCustomer') {
-        capturedDeleteOptions = options;
-      }
-
-      return {
-        isPending: false,
-        mutate: mockDeleteMutate,
-        mutateAsync: vi.fn(),
-      };
-    },
-    useSuspenseQuery: () => ({
-      data: {
-        createdAt: '2026-02-24T00:00:00.000Z',
-        externalCustomerId: 'ext-1',
-        id: 'customer-1',
-        name: 'Acme Corp',
-        slug: 'acme',
-        updatedAt: '2026-02-25T00:00:00.000Z',
-      },
-    }),
-  };
-});
+function renderDetail() {
+  return render(<QueryClientProvider client={queryClient}>
+    <CustomerDetailPageContent customerSlug="acme" />
+  </QueryClientProvider>);
+}
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
@@ -76,9 +57,7 @@ vi.mock('@tanstack/react-router', () => ({
     navigate: mockRouterNavigate,
   }),
   useRouteContext: () => ({
-    queryClient: {
-      invalidateQueries: vi.fn(),
-    },
+    queryClient,
   }),
   useSearch: () => ({}),
 }));
@@ -88,62 +67,23 @@ vi.mock('@/components/destructive-action-button', () => ({
     disabled,
     disabledReason,
     label,
+    onConfirm,
   }: {
     disabled?: boolean;
     disabledReason?: string;
     label: string;
+    onConfirm: () => void;
   }) => (
-    <button type="button" disabled={disabled} title={disabledReason}>
+    <button type="button" disabled={disabled} title={disabledReason} onClick={onConfirm}>
       {label}
     </button>
   ),
-}));
-
-vi.mock('@/api-client/@tanstack/react-query.gen', () => ({
-  createCustomerMutation: () => ({}),
-  deleteCustomerMutation: () => ({ mutationKey: ['deleteCustomer'] }),
-  getCustomerOptions: () => ({}),
-  updateCustomerMutation: () => ({}),
 }));
 
 vi.mock('@/domains/crm-sync', () => ({
   AttioSyncCard: () => null,
   startAttioSyncWatcher: vi.fn(),
   useAttioSyncCardVisible: () => crmSyncCardVisible,
-}));
-
-vi.mock('@/domains/customer-management/queries', () => ({
-  forgetDeletedCustomerQueries: (...args: unknown[]) =>
-    mockForgetDeletedCustomerQueries(...args),
-  invalidateCustomerQueries: vi.fn(),
-  useInstancesWithRelations: () => ({
-    data: {
-      instances: {
-        items: [
-          {
-            customer: { slug: 'acme' },
-            endLicenseDate: '2026-12-31T00:00:00.000Z',
-            license: { name: 'Community', type: 'TRIAL' },
-            lifecycleStage: 'AT_RISK',
-            name: 'Instance A',
-            slug: 'instance-a',
-            startLicenseDate: '2026-01-01T00:00:00.000Z',
-            status: 'DEGRADED',
-          },
-          {
-            customer: { slug: 'other-corp' },
-            endLicenseDate: '2026-12-31T00:00:00.000Z',
-            license: { name: 'Community', type: 'TRIAL' },
-            name: 'Other customer instance',
-            slug: 'instance-other',
-            startLicenseDate: '2026-01-01T00:00:00.000Z',
-          },
-        ],
-      },
-    },
-    isFetching: false,
-    isPending: false,
-  }),
 }));
 
 vi.mock('@/domains/crm-sync/queries', () => ({
@@ -203,19 +143,29 @@ vi.mock('react-i18next', () => ({
 }));
 
 describe('CustomerDetailPageContent', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     crmSyncCardVisible = false;
-    capturedDeleteOptions = undefined;
-    mockDeleteMutate.mockReset();
-    mockForgetDeletedCustomerQueries.mockClear();
-    mockNavigate.mockClear();
+    deleted = false;
+    detailReads = 0;
+    instances = [
+      { customer: { slug: 'acme' }, endLicenseDate: '2026-12-31T00:00:00.000Z', license: { name: 'Community', type: 'TRIAL' },
+        lifecycleStage: 'AT_RISK', name: 'Instance A', slug: 'instance-a', startLicenseDate: '2026-01-01T00:00:00.000Z', status: 'DEGRADED' },
+      { customer: { slug: 'other-corp' }, endLicenseDate: '2026-12-31T00:00:00.000Z', license: { name: 'Community', type: 'TRIAL' },
+        name: 'Other customer instance', slug: 'instance-other', startLicenseDate: '2026-01-01T00:00:00.000Z' },
+    ];
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    server.use(handleGetCustomer(() => {
+      detailReads++;
+      return deleted ? new HttpResponse(null, { status: 404 }) : HttpResponse.json(customer);
+    }), handleDeleteCustomer(() => { deleted = true; return new HttpResponse(null, { status: 204 }); }),
+    graphqlOperationHandler({ GetInstancesWithRelations: () => ({ instances: { hasMore: false, items: instances } }) }));
+    await queryClient.fetchQuery(customerQueryOptions('acme'));
+    mockNavigate.mockReset().mockResolvedValue(undefined);
     mockRouterNavigate.mockClear();
   });
 
   it('uses a two-column layout only when the Attio card is visible', () => {
-    const hiddenView = render(
-      <CustomerDetailPageContent customerSlug="acme" />,
-    );
+    const hiddenView = renderDetail();
     expect(
       hiddenView.container.querySelector('.lg\\:grid-cols-2'),
     ).not.toBeInTheDocument();
@@ -223,16 +173,15 @@ describe('CustomerDetailPageContent', () => {
     hiddenView.unmount();
     crmSyncCardVisible = true;
 
-    const visibleView = render(
-      <CustomerDetailPageContent customerSlug="acme" />,
-    );
+    const visibleView = renderDetail();
     expect(
       visibleView.container.querySelector('.lg\\:grid-cols-2'),
     ).toBeInTheDocument();
   });
 
-  it('renders the instance table with each name linking to its instance', () => {
-    render(<CustomerDetailPageContent customerSlug="acme" />);
+  it('renders the instance table with each name linking to its instance', async () => {
+    renderDetail();
+    await screen.findByRole('link', { name: 'Instance A' });
 
     expect(
       screen.queryByText('Other customer instance'),
@@ -243,8 +192,9 @@ describe('CustomerDetailPageContent', () => {
     );
   });
 
-  it('gives the blocked delete the same reason as the list', () => {
-    render(<CustomerDetailPageContent customerSlug="acme" />);
+  it('gives the blocked delete the same reason as the list', async () => {
+    renderDetail();
+    await screen.findByRole('link', { name: 'Instance A' });
 
     const deleteButton = screen.getByRole('button', { name: 'Delete' });
     expect(deleteButton).toBeDisabled();
@@ -254,8 +204,9 @@ describe('CustomerDetailPageContent', () => {
     );
   });
 
-  it('shows each instance status and lifecycle stage, like the instances list', () => {
-    render(<CustomerDetailPageContent customerSlug="acme" />);
+  it('shows each instance status and lifecycle stage, like the instances list', async () => {
+    renderDetail();
+    await screen.findByRole('link', { name: 'Instance A' });
 
     expect(
       screen.getByRole('columnheader', { name: 'Status' }),
@@ -268,7 +219,7 @@ describe('CustomerDetailPageContent', () => {
   });
 
   it('exposes an edit action that opens the configure dialog and an editable name', () => {
-    render(<CustomerDetailPageContent customerSlug="acme" />);
+    renderDetail();
 
     const editLink = screen.getByRole('link', { name: 'Edit' });
     expect(editLink).toHaveAttribute('data-to', '/customers/$customerSlug');
@@ -284,28 +235,25 @@ describe('CustomerDetailPageContent', () => {
   });
 
   it('leaves the detail route before reconciling the deleted customer cache', async () => {
-    render(<CustomerDetailPageContent customerSlug="acme" />);
-
-    expect(capturedDeleteOptions?.onSuccess).toBeDefined();
-    await capturedDeleteOptions?.onSuccess?.();
-
+    instances = [];
+    const view = renderDetail();
+    mockNavigate.mockImplementation(async () => {
+      expect(deleted).toBe(true);
+      expect(queryClient.getQueryData(customerQueryOptions('acme').queryKey)).toEqual(customer);
+      view.unmount();
+    });
+    const button = screen.getByRole('button', { name: 'Delete' });
+    await waitFor(() => expect(button).toBeEnabled());
+    await userEvent.setup().click(button);
+    await waitFor(() => expect(queryClient.getQueryData(customerQueryOptions('acme').queryKey)).toBeUndefined());
     expect(mockNavigate).toHaveBeenCalledWith({ to: '/customers' });
-    expect(mockForgetDeletedCustomerQueries).toHaveBeenCalledWith(
-      expect.anything(),
-      'acme',
-    );
-    // Order is the fix: touching the deleted customer's detail query while this
-    // suspense-driven route is still mounted refetches a row the server has
-    // dropped, and navigate waits behind those retries.
-    expect(mockNavigate.mock.invocationCallOrder[0]!).toBeLessThan(
-      mockForgetDeletedCustomerQueries.mock.invocationCallOrder[0]!,
-    );
+    expect(detailReads).toBe(1);
   });
 
   it('navigates to the customer-scoped instance creation route from the instances card', async () => {
     const user = userEvent.setup();
 
-    render(<CustomerDetailPageContent customerSlug="acme" />);
+    renderDetail();
 
     await user.click(screen.getByRole('button', { name: 'New Instance' }));
 

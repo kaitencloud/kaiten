@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vite-plus/test';
@@ -28,7 +28,7 @@ describe('Slider', () => {
     render(<ControlledSlider />);
 
     const thumb = await screen.findByRole('slider');
-    thumb.focus();
+    act(() => thumb.focus());
 
     await user.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}');
 

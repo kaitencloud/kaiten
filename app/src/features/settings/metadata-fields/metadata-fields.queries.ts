@@ -18,6 +18,6 @@ export const metadataFieldsSettingsQueryOptions = (
   queryOptions({
     // The settings grid is the only consumer that wants archived rows too,
     // so it picks `includeArchived: true` on the shared domain fetcher.
-    queryFn: () => fetchMetadataFields(resourceType, true),
+    queryFn: ({ signal }) => fetchMetadataFields(resourceType, true, signal),
     queryKey: metadataFieldsSettingsQueryKey(resourceType),
   });

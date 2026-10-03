@@ -57,13 +57,18 @@ export function mapSyncedRecords(
   return [...customers, ...instances];
 }
 
-async function fetchAttioSyncedRecords(): Promise<SyncedRecord[]> {
+async function fetchAttioSyncedRecords({
+  signal,
+}: {
+  signal: AbortSignal;
+}): Promise<SyncedRecord[]> {
   const variables = {
     connectorName: ATTIO_CONNECTOR_NAME,
   } satisfies GetAttioSyncedRecordsQueryVariables;
   const data = await graphqlClient.request<GetAttioSyncedRecordsQuery>(
     GET_ATTIO_SYNCED_RECORDS.toString(),
     variables,
+    signal,
   );
   return mapSyncedRecords(data);
 }

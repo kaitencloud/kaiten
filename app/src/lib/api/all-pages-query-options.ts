@@ -60,6 +60,7 @@ export const allComponentsOptions = () => ({
     items: await fetchAllPages(
       async (cursor) =>
         (await listComponents(pageRequest(cursor, signal))).data,
+      signal,
     ),
   }),
 });
@@ -72,6 +73,7 @@ export const allCustomersOptions = () => ({
     hasMore: false,
     items: await fetchAllPages(
       async (cursor) => (await listCustomers(pageRequest(cursor, signal))).data,
+      signal,
     ),
   }),
 });
@@ -85,6 +87,7 @@ export const allDeploymentZonesOptions = () => ({
     items: await fetchAllPages(
       async (cursor) =>
         (await listDeploymentZones(pageRequest(cursor, signal))).data,
+      signal,
     ),
   }),
 });
@@ -98,6 +101,7 @@ export const allEntitlementGroupsOptions = () => ({
     items: await fetchAllPages(
       async (cursor) =>
         (await listEntitlementGroups(pageRequest(cursor, signal))).data,
+      signal,
     ),
   }),
 });
@@ -111,6 +115,7 @@ export const allEntitlementsOptions = () => ({
     items: await fetchAllPages(
       async (cursor) =>
         (await listEntitlements(pageRequest(cursor, signal))).data,
+      signal,
     ),
   }),
 });
@@ -124,6 +129,7 @@ export const allFeatureFlagsOptions = () => ({
     items: await fetchAllPages(
       async (cursor) =>
         (await getFeatureFlags(pageRequest(cursor, signal))).data,
+      signal,
     ),
   }),
 });
@@ -134,6 +140,7 @@ export const allInstancesOptions = () => ({
     hasMore: false,
     items: await fetchAllPages(
       async (cursor) => (await getInstances(pageRequest(cursor, signal))).data,
+      signal,
     ),
   }),
 });
@@ -152,6 +159,7 @@ export const allLicenseEntitlementsOptions = (licenseSlug: string) => ({
             path: { licenseSlug },
           })
         ).data,
+      signal,
     ),
   }),
 });
@@ -165,6 +173,7 @@ export const allLicenseFamiliesOptions = () => ({
     items: await fetchAllPages(
       async (cursor) =>
         (await listLicenseFamilies(pageRequest(cursor, signal))).data,
+      signal,
     ),
   }),
 });
@@ -175,6 +184,7 @@ export const allLicensesOptions = () => ({
     hasMore: false,
     items: await fetchAllPages(
       async (cursor) => (await getLicenses(pageRequest(cursor, signal))).data,
+      signal,
     ),
   }),
 });
@@ -185,6 +195,7 @@ export const allReleasesOptions = () => ({
     hasMore: false,
     items: await fetchAllPages(
       async (cursor) => (await listReleases(pageRequest(cursor, signal))).data,
+      signal,
     ),
   }),
 });

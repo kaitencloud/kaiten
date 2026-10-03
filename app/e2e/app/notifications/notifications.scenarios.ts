@@ -12,7 +12,7 @@ const seedNotifications: Notification[] = [
     objectType: 'instance',
     title: 'Acme Production is close to its Webhooks limit',
     body: 'Webhooks usage is at 9 of 10 (90%).',
-    actionUrl: '/customers/instances/acme-prod/entitlements',
+    actionUrl: '/customers/instances/acme-production/entitlements',
     createdAt: '2026-03-01T09:30:00.000Z',
   },
   {
@@ -42,7 +42,7 @@ const seedNotifications: Notification[] = [
     objectType: 'instance',
     title: 'Deployment of acme-prod succeeded',
     body: 'Instance acme-prod was updated to release 2.4.1.',
-    actionUrl: '/customers/instances/acme-prod',
+    actionUrl: '/customers/instances/acme-production',
     readAt: '2026-03-01T07:00:00.000Z',
     createdAt: '2026-02-28T18:00:00.000Z',
   },
@@ -61,7 +61,7 @@ const mixedObjectNotifications: Notification[] = [
     objectType: 'instance',
     title: 'Acme Production was deployed',
     body: 'Deployed to eu-west',
-    actionUrl: '/customers/instances/acme-prod',
+    actionUrl: '/customers/instances/acme-production',
     createdAt: '2026-03-01T09:30:00.000Z',
   },
   {

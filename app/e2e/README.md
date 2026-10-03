@@ -1,11 +1,12 @@
 # End-to-end tests
 
-`e2e/` holds two Playwright suites:
+`e2e/` holds three Playwright suites:
 
 | Folder | Suite | Config | What it does |
 | --- | --- | --- | --- |
 | `e2e/app/` | Application | `playwright.app.config.ts` | Drives the real console in Chromium, signed in by bypass, with the API served by Mock Service Worker (MSW). |
 | `e2e/tests/` | Storybook | `playwright.config.ts` | Visual regression: compares screenshots of stable stories with committed baselines. |
+| `e2e/stack/` | Authenticated stack | `playwright.stack.config.ts` | Real API, PostgreSQL, gateway, signed local identity and SSE. |
 
 Interactions of an isolated component do not belong in Playwright. Write them as a story with a `play` function, run by `pnpm run test:stories`. The [testing documentation](../docs/06-testing/README.md) says how to choose between the kinds of test, and [integration tests](../docs/06-testing/integration-tests.md) explains how each suite runs.
 
@@ -16,6 +17,9 @@ Every command on this page runs from `app/`. Install Chromium once with `pnpm ex
 | Command | What it does |
 | --- | --- |
 | `pnpm run test:e2e:app` | Runs the application suite. Playwright starts the dev server itself on port 3100, which must be free. |
+| `pnpm run test:e2e:stack` | Builds an isolated Compose stack, runs five authenticated smokes, and removes its data. Needs Docker. |
+| `pnpm run test:e2e:dev-mock` | Runs the real dev mock command and verifies its seeded world after reload. No stack. |
+| `pnpm run test:cel-engine:browser` | After `build:wasm`, tests the app's loader and half-typed CEL rules in Chromium. |
 | `pnpm run test:e2e` | Runs the Storybook suite. Every test is skipped unless `CI` or `VISUAL_TESTS=true` is set. |
 | `VISUAL_TESTS=true pnpm run test:e2e` | Builds a static Storybook, serves it on port 6006 with `python3` and runs the visual tests. |
 | `pnpm run test:e2e:visual:update:linux` | Rewrites the visual baselines in the Linux Playwright Docker image. Needs a running Docker daemon, and also runs from the repository root. |
@@ -24,6 +28,20 @@ Every command on this page runs from `app/`. Install Chromium once with `pnpm ex
 | `pnpm run test:e2e:codegen:app`, `pnpm run test:e2e:codegen:storybook` | Open Playwright's code generator on `http://127.0.0.1:3100` or `http://127.0.0.1:6006`. See [Codegen](#codegen). |
 
 [Scripts](../docs/00-getting-started/scripts.md) lists the rest.
+
+The application web server explicitly disables local auth and the dev mock
+switches, enables E2E bypass/MSW, and clears the platform flag service settings.
+The standard command works even when the shell or `.env.local` enables local
+auth. It starts a fresh server every time.
+
+The default app project is Chromium. `ALL_BROWSERS=true pnpm run test:e2e:app
+--project=firefox --project=webkit` runs the focused browser smoke (read,
+navigation, form, initial focus and focus return). These projects block service
+workers and use MSW's in-page fallback; notification SSE is tested on the real
+stack. App E2E CI explicitly selects Chromium for its full shards and both
+other engines for a separate smoke job. Storybook's collected reference stories
+have blocking Axe checks; the Linux Chromium visual suite keeps its existing
+baselines.
 
 To run part of the application suite, or to debug it, call Playwright with the app config:
 
@@ -121,17 +139,59 @@ The mechanism is in [network mocks](../docs/06-testing/integration-tests.md#netw
 1. A model class in `e2e/app/_support/model/<area>-app-model.ts`, with `static fromSerialized(...)` and `serializeForMsw()`. It imports nothing from Playwright, because `src/e2e/msw/` imports it too.
 2. A `*-handlers.ts` set in `src/e2e/msw/`, registered by `browser.ts`. The bootstrap owns assembly, not object logic; `persistence.ts` owns sessionStorage updates. Build a REST handler from the operation's generated handler in `@/api-client/msw.gen` (`handleGetCustomer(...)`) rather than `http.get` and a path.
 3. The slot's serialized payload in `e2e/app/_support/contracts/msw-slots.ts`. `MswSlotKey` derives from this canonical shape; installers are typed against each slot's model serialization.
-4. An installer, `e2e/app/_support/mocks/install-<area>-app-mocks.ts`, that calls `tryInstallMswMocks(page, '<slot>', model)` and keeps a `page.route` fallback for `E2E_MOCKS=page-route`.
+4. An installer, `e2e/app/_support/mocks/install-<area>-app-mocks.ts`, that calls `installMswMocks(page, '<slot>', model)`.
 5. Its scenario factories in `e2e/app/_support/scenario-registry.ts`, the canonical browser-free inventory. `scripts/check-e2e-contracts.ts` executes it through `pnpm run check:e2e-contracts`. Register explicit variants for factories with parameters; do not maintain a second list in another check.
 
-MSW is the default adapter. The legacy `E2E_MOCKS=page-route` mode stays available
-for diagnostics using the existing installers, except notifications' stream,
-whose specs skip themselves in that mode;
-full protocol/persistence parity is not guaranteed, and no workflow runs it. Shared error mapping is in
+MSW is the only mock implementation. `contracts/mock-transport.spec.ts` checks
+wire statuses, bodies, one-shot failures and reload state. CI runs the full
+Chromium suite, including notifications, in three shards. Firefox/WebKit use
+the same handlers through MSW's in-page fallback when service workers are blocked.
+Bootstrap results use separate output folders so concurrent local runs cannot
+delete each other's trace artifacts.
+Shared error mapping is in
 `_support/contracts/mock-http.ts` and shared GraphQL operations in
 `_support/model/graphql-operations.ts`. Models stay stateful and transport-neutral.
 Handler order, fallbacks, statuses and reload persistence are preserved by the
 structural split. See [browser mock adapter](../src/e2e/msw/README.md).
+
+### Mock policy
+
+- **Full E2E:** strict. `handlers.ts` assembles the same handlers in the browser
+  and Node contract tests, with installed owners before sibling fallbacks.
+  `shell-handlers.ts` declares empty sidebar preloads and notifications only
+  after those owners. An undeclared `/api` call ends in a network error naming
+  its method, URL and GraphQL operation; `app-test.ts` fails the test on it.
+- **Dev world:** `dev:mock` installs its shared model seeds, warns on an
+  undeclared API call, and passes it through. Its inventory and cross-record
+  consistency run under Vitest because its domain imports need Vite's env.
+- **Partial notifications on a real stack:** only notifications are mocked;
+  business API and platform flags pass through.
+
+Integration read-only stubs use the `integrationStubs` slot in strict MSW.
+The dashboard error case is carried by the
+dashboard model. A new scenario factory exported from any `*.scenarios.ts`
+must appear in the registry: `check:e2e-contracts` discovers omitted factories
+and new packs. The platform flags and read-only stubs are not business models.
+
+## Authenticated stack
+
+`scripts/test-stack.mjs` reuses the repository's Compose stack, under a random
+project name with free host ports and a temporary credentials directory. It
+reads the JIT-provisioned second tenant's ID from its isolated database, rather
+than duplicating the backend's ID derivation. Tokens use HMAC-SHA-256 with a
+per-run secret. It builds the API/seeder/migrator, waits for gateway readiness,
+seeds local accounts,
+and provisions a second tenant through JIT using a JWT signed with the run's
+own secret. All API mocks and auth bypasses are disabled. It tests UI creation
+and reload, missing/insufficient credentials, cross-tenant isolation, release
+deployment read through REST and GraphQL, real notification SSE by cookie, and
+organization switching. The switch uses the app's real local-account picker.
+
+The runner removes its containers, volumes, network and temporary credentials
+in `finally`; existing local stacks are independent. Failed traces/screenshots
+are in `stack-test-results/`, the report in `stack-playwright-report/`.
+`.github/workflows/app-stack.yml` runs a dedicated job on PRs touching these
+boundaries. `check:ci` does not run this Docker/browser suite.
 
 ## Visual regression
 
@@ -151,7 +211,7 @@ pnpm run test:e2e:codegen:storybook    # in a second terminal
 For the application, `test:e2e:codegen:app` opens `http://127.0.0.1:3100` and starts no server. The dev server of the application suite has the sign-in bypass but no mocks, because a spec installs them from the test: the page shows no data.
 
 ```bash
-VITE_API_URL=/api VITE_E2E_BYPASS_AUTH=true VITE_E2E_MSW=true \
+VITE_API_URL=/api VITE_LOCAL_AUTH=false VITE_E2E_BYPASS_AUTH=true VITE_E2E_MSW=true \
   pnpm exec vp dev --host 127.0.0.1 --port 3100
 pnpm run test:e2e:codegen:app          # in a second terminal
 ```

@@ -31,11 +31,15 @@ export class GraphQLClient {
   async request<T>(
     query: string,
     variables?: Record<string, unknown>,
+    signal?: AbortSignal,
   ): Promise<T> {
+    signal?.throwIfAborted();
     const token = await getAuthToken();
+    signal?.throwIfAborted();
 
     const response = await fetch(`${this.baseURL}/graphql`, {
       method: 'POST',
+      signal,
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

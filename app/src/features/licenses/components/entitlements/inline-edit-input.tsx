@@ -1,6 +1,6 @@
 import { Input } from '@/components/ui/input';
 import type { HTMLAttributes } from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type InlineEditInputProps = {
   ariaLabel: string;
@@ -33,6 +33,7 @@ export function InlineEditInput({
   placeholder,
 }: InlineEditInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [initialValue] = useState(getInitialValue);
   // Enter and Escape settle the edit; the blur that follows must not save
   // again. A rejected value unsettles it, otherwise the corrected value could
   // never be submitted.
@@ -80,7 +81,7 @@ export function InlineEditInput({
       <Input
         ref={inputRef}
         aria-label={ariaLabel}
-        defaultValue={getInitialValue()}
+        defaultValue={initialValue}
         inputMode={inputMode}
         onChange={(event) => {
           onChange(event.currentTarget.value);

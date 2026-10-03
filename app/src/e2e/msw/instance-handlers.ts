@@ -44,7 +44,9 @@ export const instanceHandlers = (
   asFallback(
     graphqlOperationHandler({
       GetCustomersWithInstances: () => model.getCustomersWithInstances(),
-      GetReleaseManagementOverview: () => ({ releases: { items: [] } }),
+      GetReleaseManagementOverview: () => ({
+        releases: { hasMore: false, items: [], nextCursor: null },
+      }),
     }),
   ),
   // Relations keep this slot self-contained, as before the extraction.

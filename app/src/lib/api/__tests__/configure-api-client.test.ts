@@ -35,4 +35,12 @@ describe('REST bootstrap', () => {
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({ status: 403, data, response });
   });
+
+  it('preserves transport cancellation instead of wrapping it as an API error', async () => {
+    configureApiClient();
+    const abort = new DOMException('Cancelled', 'AbortError');
+    const interceptor = client.interceptors.error.fns.find(Boolean)!;
+    const request = new Request('http://api.test/api');
+    expect(await interceptor(abort, undefined, request, { headers: request.headers, url: request.url })).toBe(abort);
+  });
 });

@@ -36,10 +36,10 @@ export const Default: Story = {
             </div>
           </ActionAccordionTrigger>
           <ActionAccordionActions>
-            <Button variant="ghost" size="icon-sm">
+            <Button aria-label="Edit item" variant="ghost" size="icon-sm">
               <Edit className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon-sm">
+            <Button aria-label="Delete item" variant="ghost" size="icon-sm">
               <Trash2 className="h-4 w-4" />
             </Button>
           </ActionAccordionActions>
@@ -68,13 +68,13 @@ export const Multiple: Story = {
             </div>
           </ActionAccordionTrigger>
           <ActionAccordionActions>
-            <Button variant="ghost" size="icon-sm">
+            <Button aria-label="Copy project" variant="ghost" size="icon-sm">
               <Copy className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon-sm">
+            <Button aria-label="Edit project" variant="ghost" size="icon-sm">
               <Edit className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon-sm">
+            <Button aria-label="Delete project" variant="ghost" size="icon-sm">
               <Trash2 className="h-4 w-4" />
             </Button>
           </ActionAccordionActions>
@@ -101,13 +101,13 @@ export const Multiple: Story = {
             </div>
           </ActionAccordionTrigger>
           <ActionAccordionActions>
-            <Button variant="ghost" size="icon-sm">
+            <Button aria-label="Copy project" variant="ghost" size="icon-sm">
               <Copy className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon-sm">
+            <Button aria-label="Edit project" variant="ghost" size="icon-sm">
               <Edit className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon-sm">
+            <Button aria-label="Delete project" variant="ghost" size="icon-sm">
               <Trash2 className="h-4 w-4" />
             </Button>
           </ActionAccordionActions>
@@ -132,13 +132,13 @@ export const Multiple: Story = {
             </div>
           </ActionAccordionTrigger>
           <ActionAccordionActions>
-            <Button variant="ghost" size="icon-sm">
+            <Button aria-label="Copy project" variant="ghost" size="icon-sm">
               <Copy className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon-sm">
+            <Button aria-label="Edit project" variant="ghost" size="icon-sm">
               <Edit className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon-sm">
+            <Button aria-label="Delete project" variant="ghost" size="icon-sm">
               <Trash2 className="h-4 w-4" />
             </Button>
           </ActionAccordionActions>

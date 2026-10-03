@@ -2,6 +2,9 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { InstanceDetailEntitlementsTab } from '../instance-detail-entitlements-tab';
+vi.mock('@tanstack/react-router', () => ({
+  useRouter: () => ({ navigate: vi.fn() }),
+}));
 
 const { useInstanceDetailMock } = vi.hoisted(() => ({
   useInstanceDetailMock: vi.fn(),

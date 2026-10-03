@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronDown, ChevronUp, Edit, Trash2 } from 'lucide-react';
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Targeting } from '../types';
 import {
   TargetingItemContent,
@@ -29,6 +30,7 @@ export const TargetingItem = memo(function TargetingItem({
   onMoveUp,
   onMoveDown,
 }: TargetingItemProps) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -50,6 +52,7 @@ export const TargetingItem = memo(function TargetingItem({
               variant="ghost"
               size="icon"
               onClick={onMoveUp}
+              aria-label={t('Common.moveUp')}
               disabled={!canMoveUp}
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
             >
@@ -60,6 +63,7 @@ export const TargetingItem = memo(function TargetingItem({
               variant="ghost"
               size="icon"
               onClick={onMoveDown}
+              aria-label={t('Common.moveDown')}
               disabled={!canMoveDown}
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
             >
@@ -71,6 +75,7 @@ export const TargetingItem = memo(function TargetingItem({
               variant="ghost"
               size="icon"
               onClick={onEdit}
+              aria-label={t('Common.edit')}
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
             >
               <Edit className="h-4 w-4" />
@@ -80,6 +85,7 @@ export const TargetingItem = memo(function TargetingItem({
               variant="ghost"
               size="icon"
               onClick={onDelete}
+              aria-label={t('Common.delete')}
               className="h-8 w-8 text-muted-foreground hover:text-destructive-subtle-foreground"
             >
               <Trash2 className="h-4 w-4" />

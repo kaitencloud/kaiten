@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it } from 'vite-plus/test';
 import { testI18n } from '@/__tests__/test-i18n';
 import type { ReleaseStatus } from '@/domains/release-management';
@@ -45,6 +45,7 @@ describe('InstanceReleaseCard release status', () => {
   });
 
   afterEach(async () => {
+    cleanup();
     await testI18n.changeLanguage('en');
   });
 
@@ -57,7 +58,7 @@ describe('InstanceReleaseCard release status', () => {
   it.each(cases)(
     'reads %s in French, not as the English word',
     async (status, english, french) => {
-      await testI18n.changeLanguage('fr');
+      await act(() => testI18n.changeLanguage('fr'));
       renderCard(status);
 
       const row = statusRow('Statut');

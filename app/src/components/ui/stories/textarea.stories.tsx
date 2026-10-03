@@ -5,6 +5,7 @@ import { Label } from '../label';
 const meta = {
   title: 'Components/UI/Textarea',
   component: Textarea,
+  args: { 'aria-label': 'Message' },
   parameters: {
     layout: 'centered',
   },

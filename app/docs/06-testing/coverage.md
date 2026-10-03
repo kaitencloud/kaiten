@@ -1,6 +1,26 @@
 # Coverage
 
-Coverage is informational. No threshold is configured, and CI does not collect it: no job fails on a low number, and none publishes one. Use the reports to see which files a test suite reaches, not as a gate.
+Coverage is informational. App CI collects V8 unit coverage, uploads a SHA-named
+artifact and publishes lines/branches of sensitive files in the job summary
+(`scripts/test-report.mjs`). No arbitrary global percentage gate is configured:
+use the post-MSW [baseline](./baseline.md) and the same source perimeter when
+reviewing a regression. Browser retries remain separate in Playwright JSON reports.
+
+Compare a sensitive file's uncovered branches only on the same source perimeter;
+retain regression scenarios for auth, payloads, pagination and invalidation in
+review. Removed or moved code changes the denominator. A percentage alone is not
+an acceptance criterion. `**/e2e/**` also excludes MSW handlers and the dev world,
+even though their unit tests run.
+
+`node scripts/test-report.mjs app-test-results.json` writes the local report and,
+in CI, the job summary. Playwright JSON retains individual attempts. Storybook
+CI records warmup, failed shard attempts and successful attempt numbers separately;
+a successful rerun never erases a failed first attempt. Local interrupted runs
+are recorded separately from completed passes.
+Every Storybook invocation writes a distinct JSON and console log under
+`storybook-results/`, uploaded as a SHA-named artifact even when the job fails.
+The summary lists failed assertions and collection/import/setup failures
+separately; a zero-test invocation is never presented as a successful pass.
 
 What the project asks of a change is enforced by review, not by a tool:
 

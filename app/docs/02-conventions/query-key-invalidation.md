@@ -96,6 +96,14 @@ and replaces only the `queryFn` with one that walks every page
 `listReleasesQueryKey()` still invalidates it. The cache then holds
 `{ hasMore: false, items }` with every row.
 
+The page walker validates the envelope (`items` array and boolean `hasMore`),
+requires a non-empty cursor when more pages remain, and refuses any visited
+cursor. A malformed response is a protocol error, never an empty list or a
+silently truncated list. Pass the query's `signal` to both the walker and the
+transport. GraphQL's `request(query, variables, signal)` forwards it to fetch;
+cancellation stops the walk and TanStack Query handles it as cancellation,
+rather than a normal business error.
+
 ## Queries without a generated key
 
 GraphQL queries, and queries that combine several requests, have no generated key.

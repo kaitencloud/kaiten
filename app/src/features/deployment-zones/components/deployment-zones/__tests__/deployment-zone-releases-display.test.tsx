@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it } from 'vite-plus/test';
 import { testI18n } from '@/__tests__/test-i18n';
@@ -82,12 +82,13 @@ describe('DeploymentZoneReleasesDisplay', () => {
   });
 
   afterEach(async () => {
+    cleanup();
     await testI18n.changeLanguage('en');
   });
 
   describe.each(['en', 'fr'] as const)('in %s', (language) => {
     it('reads a superseded release as Superseded, and every other status, in the active language', async () => {
-      await testI18n.changeLanguage(language);
+      await act(() => testI18n.changeLanguage(language));
       const user = userEvent.setup();
 
       render(

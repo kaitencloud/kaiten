@@ -15,16 +15,20 @@ export const instancesWithRelationsQueryKey = () =>
 export const useInstancesWithRelations = () => {
   return useQuery({
     queryKey: instancesWithRelationsQueryKey(),
-    queryFn: async (): Promise<GetInstancesWithRelationsQuery> => {
+    queryFn: async ({ signal }): Promise<GetInstancesWithRelationsQuery> => {
       const query = GET_INSTANCES_WITH_RELATIONS.toString();
       const items = await fetchAllPages(async (cursor) => {
         const data =
-          await graphqlClient.request<GetInstancesWithRelationsQuery>(query, {
-            cursor,
-            limit: MAX_PAGE_SIZE,
-          });
+          await graphqlClient.request<GetInstancesWithRelationsQuery>(
+            query,
+            {
+              cursor,
+              limit: MAX_PAGE_SIZE,
+            },
+            signal,
+          );
         return data.instances;
-      });
+      }, signal);
       // Screens read data.instances.items, so the query's shape is kept.
       return { instances: { hasMore: false, items, nextCursor: null } };
     },

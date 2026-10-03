@@ -1,5 +1,4 @@
 import { expect, test } from '../_support/app-test';
-import { installGraphQLOperationMocks } from '../_support/mocks/graphql-operation-router';
 import { installDashboardAppMocks } from '../_support/mocks/install-dashboard-app-mocks';
 import { createDashboardReadModel } from './dashboard.scenarios';
 
@@ -29,15 +28,9 @@ test.describe('dashboard read', () => {
   });
 
   test('renders dashboard error state when GraphQL fails', async ({ page }) => {
-    // The error test cannot use DashboardAppModel since the intent is to
-    // simulate a broken GraphQL response. We route directly to return a
-    // GraphQL error payload, which is the only case where a raw page.route()
-    // call is justified in a spec file.
-    await installGraphQLOperationMocks(page, {
-      GetDashboardData: () => {
-        throw new Error('mocked dashboard failure');
-      },
-    });
+    const model = createDashboardReadModel();
+    model.setReadError(500);
+    await installDashboardAppMocks(page, model);
 
     await page.goto('/dashboard');
 

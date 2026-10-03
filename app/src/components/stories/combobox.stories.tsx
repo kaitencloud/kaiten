@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, userEvent, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import { useState } from 'react';
 import { Combobox } from '../combobox';
 
@@ -114,6 +114,7 @@ export const InteractiveSelect: Story = {
 
     const option = await body.findByRole('option', { name: /svelte/i });
     await userEvent.click(option);
+    await waitFor(() => expect(body.queryByRole('dialog')).not.toBeInTheDocument());
 
     await expect(
       canvas.getByRole('button', { name: /svelte/i }),

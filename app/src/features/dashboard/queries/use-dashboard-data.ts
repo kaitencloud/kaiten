@@ -294,9 +294,13 @@ const fetchDashboardSupplementaryData = async (
 export const useDashboardData = () => {
   return useQuery({
     queryKey: ['dashboard'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const query = GET_DASHBOARD_DATA.toString();
-      return graphqlClient.request<GetDashboardDataQuery>(query);
+      return graphqlClient.request<GetDashboardDataQuery>(
+        query,
+        undefined,
+        signal,
+      );
     },
   });
 };
@@ -316,9 +320,9 @@ export const useDashboardSupplementaryData = (
 export const useCustomers = () => {
   return useQuery({
     queryKey: ['customers'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const query = GET_CUSTOMERS.toString();
-      return graphqlClient.request<GetCustomersQuery>(query);
+      return graphqlClient.request<GetCustomersQuery>(query, undefined, signal);
     },
   });
 };
@@ -326,9 +330,9 @@ export const useCustomers = () => {
 export const useInstances = () => {
   return useQuery({
     queryKey: ['instances'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const query = GET_INSTANCES.toString();
-      return graphqlClient.request<GetInstancesQuery>(query);
+      return graphqlClient.request<GetInstancesQuery>(query, undefined, signal);
     },
   });
 };
@@ -336,9 +340,9 @@ export const useInstances = () => {
 export const useLicenses = () => {
   return useQuery({
     queryKey: ['licenses'],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const query = GET_LICENSES.toString();
-      return graphqlClient.request<GetLicensesQuery>(query);
+      return graphqlClient.request<GetLicensesQuery>(query, undefined, signal);
     },
   });
 };

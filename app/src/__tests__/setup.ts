@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom';
-import { configure } from '@testing-library/react';
-import { beforeEach, vi } from 'vite-plus/test';
+import { act, cleanup, configure } from '@testing-library/react';
+import { afterEach, beforeEach, vi } from 'vite-plus/test';
 import './test-i18n';
 
 // Every form field is code-split (see src/hooks/form.ts), so the first
@@ -13,6 +13,12 @@ configure({ asyncUtilTimeout: 5_000 });
 
 // Base UI's inset thumbs require layout measurements, absent in jsdom.
 if (typeof navigator !== 'undefined' && navigator.userAgent.includes('jsdom')) {
+  // Base UI defers thumb registration/measurement to a microtask. Finish that
+  // React work before unmounting a synchronous render-only test.
+  afterEach(async () => {
+    await act(async () => {});
+    cleanup();
+  });
   const original = HTMLElement.prototype.getBoundingClientRect;
   beforeEach(() => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
@@ -28,8 +34,9 @@ if (typeof navigator !== 'undefined' && navigator.userAgent.includes('jsdom')) {
 }
 
 // Mock ResizeObserver (works in both Node and Browser)
-globalThis.ResizeObserver = class ResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-};
+if (typeof globalThis.ResizeObserver === 'undefined')
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
