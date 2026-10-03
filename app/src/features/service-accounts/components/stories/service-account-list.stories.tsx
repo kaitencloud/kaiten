@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { FC } from 'react';
 import type { ServiceAccount } from '../../types';
 import { ServiceAccountList } from '../service-account-list';
+import { StorybookRouter } from '@/test-fixtures/storybook-router';
 
 // --- Mock Data ---
 
@@ -93,7 +94,7 @@ const meta = {
           flexDirection: 'column',
         }}
       >
-        <Story />
+        <StorybookRouter><Story /></StorybookRouter>
       </div>
     ),
   ],

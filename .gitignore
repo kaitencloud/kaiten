@@ -51,3 +51,4 @@ api/bin/
 charts/*/charts/
 app/stack-test-results/
 app/stack-playwright-report/
+app/storybook-test-results.json

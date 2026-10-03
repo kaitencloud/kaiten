@@ -131,7 +131,16 @@ jobs:
         run: vp run generate
 
       - name: Run unit tests
-        run: vp run test
+        run: vp run test:coverage --coverage.reportOnFailure
+      - name: Publish coverage and sensitive branches
+        if: always()
+        run: node scripts/test-report.mjs
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: unit-coverage-${{ github.sha }}
+          path: app/coverage
+          retention-days: 14
 
   stories:
     name: Storybook Tests
@@ -200,7 +209,11 @@ jobs:
         # shard re-optimizes mid-run. Small per-shard retry covers residual flake.
         run: |
           echo "::group::Warm the Vite optimizer cache (result ignored)"
-          vp run test:stories || true
+          if vp run test:stories; then
+            echo 'Storybook optimizer warmup passed.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Storybook optimizer warmup failed; this is a separate first-pass result.' >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "::endgroup::"
           total=3
           for shard in $(seq 1 "$total"); do
@@ -208,12 +221,14 @@ jobs:
             for attempt in 1 2; do
               echo "::group::Storybook shard ${shard}/${total} — attempt ${attempt}"
               if vp test run --project=storybook --shard="${shard}/${total}"; then
+                echo "Storybook shard ${shard}/${total}: passed on attempt ${attempt}." >> "$GITHUB_STEP_SUMMARY"
                 ok=1
                 echo "::endgroup::"
                 break
               fi
               echo "::endgroup::"
-              echo "::warning::Storybook shard ${shard}/${total} attempt ${attempt} failed (browser-runner flake); retrying…"
+              echo "Storybook shard ${shard}/${total}: failed attempt ${attempt}." >> "$GITHUB_STEP_SUMMARY"
+              echo "::warning::Storybook shard ${shard}/${total} attempt ${attempt} failed; retrying…"
             done
             if [ "$ok" != 1 ]; then
               echo "::error::Storybook shard ${shard}/${total} failed after retries"

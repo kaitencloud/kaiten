@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { HttpResponse } from 'msw/http';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
@@ -253,6 +253,9 @@ describe('useLicenseSave', () => {
         lifecycleState: 'DRAFT',
         slug: 'enterprise-v2',
       });
+      // The writes run concurrently. A rejected first grant returns before
+      // its siblings settle; keep their handlers installed until they do.
+      await waitFor(() => expect(calls.filter(({ op }) => op === 'associate')).toHaveLength(4));
     });
   });
 });

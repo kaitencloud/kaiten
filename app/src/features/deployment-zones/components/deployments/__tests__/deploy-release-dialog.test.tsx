@@ -114,7 +114,7 @@ describe('DeployReleaseDialog', () => {
     // zone off its release.
     await user.click(screen.getByRole('combobox'));
     expect(
-      screen.getAllByRole('option').map((option) => option.textContent),
+      (await screen.findAllByRole('option')).map((option) => option.textContent),
     ).toEqual(['v1.4.0', 'v1.5.0']);
 
     await user.click(screen.getByRole('option', { name: 'v1.5.0' }));

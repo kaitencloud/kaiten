@@ -25,20 +25,20 @@ vi.mock('@/components/ui/chart', () => ({
 
 vi.mock('recharts', () => ({
   Area: ({ dataKey }: { dataKey: string }) => (
-    <div data-testid={`area-series-${dataKey}`} />
+    <g data-testid={`area-series-${dataKey}`} />
   ),
   AreaChart: ({ children }: { children: ReactNode }) => (
-    <div data-testid="area-chart">{children}</div>
+    <svg data-testid="area-chart">{children}</svg>
   ),
   CartesianGrid: () => null,
   Line: ({ dataKey, dot }: { dataKey: string; dot?: unknown }) => (
-    <div
+    <g
       data-testid={`line-series-${dataKey}`}
       data-dot={dot === false ? 'off' : 'on'}
     />
   ),
   LineChart: ({ children }: { children: ReactNode }) => (
-    <div data-testid="line-chart">{children}</div>
+    <svg data-testid="line-chart">{children}</svg>
   ),
   Rectangle: () => null,
   XAxis: () => null,

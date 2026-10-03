@@ -98,6 +98,10 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Summarize first attempts and retries
+        if: always()
+        run: node scripts/test-report.mjs test-results.json
+
   e2e_app:
     name: E2E App (Chromium, shard ${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
@@ -136,6 +140,10 @@ jobs:
           path: app/app-test-results.json
           if-no-files-found: error
           retention-days: 30
+
+      - name: Summarize first attempts and retries
+        if: always()
+        run: node scripts/test-report.mjs app-test-results.json
 
   browser_smoke:
     name: App Firefox and WebKit smoke

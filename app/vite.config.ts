@@ -279,7 +279,7 @@ export default defineConfig({
     ],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'json-summary', 'html'],
       exclude: [
         '**/node_modules/**',
         '**/dist/**',
@@ -302,6 +302,7 @@ export default defineConfig({
           // independent of shell exports and .env.local. Mode-specific tests
           // opt in with vi.stubEnv and resetModules, never a local credential.
           env: {
+            RTL_SKIP_AUTO_CLEANUP: 'true',
             VITE_API_URL: 'http://api.test/api',
             VITE_CLERK_PUBLISHABLE_KEY: '',
             VITE_KAITEN_PLATFORM_API_URL: '',
