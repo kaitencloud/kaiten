@@ -35,6 +35,7 @@
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
     "test:e2e:app": "playwright test -c playwright.app.config.ts",
+    "test:e2e:stack": "node scripts/test-stack.mjs",
     "test:e2e:coverage:app": "pnpm coverage:e2e:clean && E2E_COVERAGE=true playwright test -c playwright.app.config.ts --project=chromium --workers=1 --timeout=60000 && pnpm coverage:merge",
     "test:e2e:codegen:app": "playwright codegen http://127.0.0.1:3100",
     "test:e2e:codegen:storybook": "playwright codegen http://127.0.0.1:6006",

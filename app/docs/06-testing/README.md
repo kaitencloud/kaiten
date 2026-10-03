@@ -1,6 +1,8 @@
 # 06 - Testing
 
-The console has four kinds of automated tests. They all run from `app/`, and none of them needs the backend stack: Mock Service Worker answers the API, in Node for the unit tests, and inside the browser for the stories and the end-to-end suite.
+The console has five kinds of automated tests. They all run from `app/`.
+Unit, story and UI E2E suites use Mock Service Worker; the authenticated stack
+smoke builds a real ephemeral backend with Docker.
 
 | Kind | What it checks | Where it lives | Run it with |
 | --- | --- | --- | --- |
@@ -8,6 +10,7 @@ The console has four kinds of automated tests. They all run from `app/`, and non
 | Storybook | Every story renders, and its `play` function interacts with it and asserts, in Chromium | `src/**/stories/*.stories.tsx` | `pnpm run test:stories` |
 | Visual regression | Screenshots of a few stable stories against committed baselines | `e2e/tests/visual-regression.spec.ts` | `VISUAL_TESTS=true pnpm run test:e2e` |
 | Application E2E | The real console in Chromium, signed in by bypass, with the API mocked: routes, CRUD, cache refresh, errors | `e2e/app/` | `pnpm run test:e2e:app` |
+| Authenticated stack | Signed local identity, gateway, real API/database and SSE; isolated per run | `e2e/stack/` | `pnpm run test:e2e:stack` |
 
 Unit and Storybook tests are two projects of one Vitest configuration (`test` in `app/vite.config.ts`). The other two are Playwright suites, each with its own config: `app/playwright.config.ts` (Storybook) and `app/playwright.app.config.ts` (application).
 

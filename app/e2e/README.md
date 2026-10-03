@@ -1,11 +1,12 @@
 # End-to-end tests
 
-`e2e/` holds two Playwright suites:
+`e2e/` holds three Playwright suites:
 
 | Folder | Suite | Config | What it does |
 | --- | --- | --- | --- |
 | `e2e/app/` | Application | `playwright.app.config.ts` | Drives the real console in Chromium, signed in by bypass, with the API served by Mock Service Worker (MSW). |
 | `e2e/tests/` | Storybook | `playwright.config.ts` | Visual regression: compares screenshots of stable stories with committed baselines. |
+| `e2e/stack/` | Authenticated stack | `playwright.stack.config.ts` | Real API, PostgreSQL, gateway, signed local identity and SSE. |
 
 Interactions of an isolated component do not belong in Playwright. Write them as a story with a `play` function, run by `pnpm run test:stories`. The [testing documentation](../docs/06-testing/README.md) says how to choose between the kinds of test, and [integration tests](../docs/06-testing/integration-tests.md) explains how each suite runs.
 
@@ -16,6 +17,7 @@ Every command on this page runs from `app/`. Install Chromium once with `pnpm ex
 | Command | What it does |
 | --- | --- |
 | `pnpm run test:e2e:app` | Runs the application suite. Playwright starts the dev server itself on port 3100, which must be free. |
+| `pnpm run test:e2e:stack` | Builds an isolated Compose stack, runs five authenticated smokes, and removes its data. Needs Docker. |
 | `pnpm run test:e2e` | Runs the Storybook suite. Every test is skipped unless `CI` or `VISUAL_TESTS=true` is set. |
 | `VISUAL_TESTS=true pnpm run test:e2e` | Builds a static Storybook, serves it on port 6006 with `python3` and runs the visual tests. |
 | `pnpm run test:e2e:visual:update:linux` | Rewrites the visual baselines in the Linux Playwright Docker image. Needs a running Docker daemon, and also runs from the repository root. |
@@ -157,6 +159,23 @@ explicit context routes in legacy. The dashboard error case is carried by the
 dashboard model. A new scenario factory exported from any `*.scenarios.ts`
 must appear in the registry: `check:e2e-contracts` discovers omitted factories
 and new packs. The platform flags and read-only stubs are not business models.
+
+## Authenticated stack
+
+`scripts/test-stack.mjs` reuses the repository's Compose stack, under a random
+project name with free host ports and a temporary credentials directory. It
+builds the API/seeder/migrator, waits for gateway readiness, seeds local accounts,
+and provisions a second tenant through JIT using a JWT signed with the run's
+own secret. All API mocks and auth bypasses are disabled. It tests UI creation
+and reload, missing/insufficient credentials, cross-tenant isolation, release
+deployment read through REST and GraphQL, real notification SSE by cookie, and
+organization switching. The switch uses the app's real local-account picker.
+
+The runner removes its containers, volumes, network and temporary credentials
+in `finally`; existing local stacks are independent. Failed traces/screenshots
+are in `stack-test-results/`, the report in `stack-playwright-report/`.
+`.github/workflows/app-stack.yml` runs a dedicated job on PRs touching these
+boundaries. `check:ci` does not run this Docker/browser suite.
 
 ## Visual regression
 

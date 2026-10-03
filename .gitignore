@@ -49,3 +49,5 @@ api/bin/
 # `helm dependency build` output: a packaged copy of a chart that lives in this
 # same repository. Source is charts/<name>, never charts/<other>/charts/*.tgz.
 charts/*/charts/
+app/stack-test-results/
+app/stack-playwright-report/
