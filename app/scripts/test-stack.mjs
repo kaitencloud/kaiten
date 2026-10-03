@@ -1,4 +1,4 @@
-import { randomBytes, createHmac, createHash } from 'node:crypto';
+import { randomBytes, createHmac } from 'node:crypto';
 import {
   mkdtempSync,
   mkdirSync,
@@ -72,6 +72,7 @@ function run(command, args, options = {}) {
     throw new Error(
       `${command} exited ${result.status}: ${result.error ?? ''}`,
     );
+  return result.stdout;
 }
 let exit = 1;
 try {
@@ -110,17 +111,6 @@ try {
     Buffer.from(tokens[0].token.split('.')[1], 'base64url'),
   );
   const orgExternalId = 'org_stack_second';
-  function uuidV5(namespace, name) {
-    const hash = createHash('sha1')
-      .update(Buffer.from(namespace.replaceAll('-', ''), 'hex'))
-      .update(name)
-      .digest()
-      .subarray(0, 16);
-    hash[6] = (hash[6] & 15) | 80;
-    hash[8] = (hash[8] & 63) | 128;
-    const hex = hash.toString('hex');
-    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-  }
   const header = Buffer.from(
     JSON.stringify({ alg: 'HS256', typ: 'JWT' }),
   ).toString('base64url');
@@ -133,22 +123,36 @@ try {
   ).toString('base64url');
   const input = `${header}.${payload}`;
   const token = `${input}.${createHmac('sha256', env.KAITEN_DEV_JWT_SECRET).update(input).digest('base64url')}`;
-  tokens.push({
-    ...tokens[0],
-    org_external_id: orgExternalId,
-    org_name: 'Stack Second Organization',
-    org_id: uuidV5(
-      uuidV5('eb025416-6f74-4684-97e9-83e99784aaa5', 'organization'),
-      orgExternalId,
-    ),
-    token,
-  });
   // JIT provisions the second test tenant through the authenticated API itself.
   const provision = await fetch(`${env.STACK_API_URL}/api/customers`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!provision.ok)
     throw new Error(`Second tenant provisioning failed: ${provision.status}`);
+  // Read the ID JIT actually assigned; the test must not duplicate the API's
+  // UUID derivation or treat an identity hash as a cryptographic operation.
+  const orgId = run(
+    'docker',
+    [
+      ...composeArgs,
+      'exec', '-T', 'db',
+      'psql', '-U', env.KAITEN_DATABASE_USER, '-d', env.KAITEN_DATABASE,
+      '-At', '-v', 'ON_ERROR_STOP=1', '-v', `org_external_id=${orgExternalId}`,
+    ],
+    {
+      input: "SELECT id FROM organization WHERE external_id = :'org_external_id';\n",
+      stdio: ['pipe', 'pipe', 'inherit'],
+      encoding: 'utf8',
+    },
+  ).trim();
+  if (!orgId) throw new Error('Second tenant was not provisioned');
+  tokens.push({
+    ...tokens[0],
+    org_external_id: orgExternalId,
+    org_name: 'Stack Second Organization',
+    org_id: orgId,
+    token,
+  });
   writeFileSync(tokenFile, JSON.stringify(tokens), { mode: 0o600 });
   const scopedPayload = Buffer.from(JSON.stringify({ ...claims, scopes: ['read:customers'] })).toString('base64url');
   const scopedInput = `${header}.${scopedPayload}`;

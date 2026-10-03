@@ -177,7 +177,10 @@ and new packs. The platform flags and read-only stubs are not business models.
 
 `scripts/test-stack.mjs` reuses the repository's Compose stack, under a random
 project name with free host ports and a temporary credentials directory. It
-builds the API/seeder/migrator, waits for gateway readiness, seeds local accounts,
+reads the JIT-provisioned second tenant's ID from its isolated database, rather
+than duplicating the backend's ID derivation. Tokens use HMAC-SHA-256 with a
+per-run secret. It builds the API/seeder/migrator, waits for gateway readiness,
+seeds local accounts,
 and provisions a second tenant through JIT using a JWT signed with the run's
 own secret. All API mocks and auth bypasses are disabled. It tests UI creation
 and reload, missing/insufficient credentials, cross-tenant isolation, release
