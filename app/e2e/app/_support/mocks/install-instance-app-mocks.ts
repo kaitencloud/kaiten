@@ -31,7 +31,9 @@ async function installInstancePageRouteMocks(
       variables?.resourceType === 'INSTANCE'
         ? model.getMetadataFields()
         : { metadataFields: { hasMore: false, nextCursor: null, items: [] } },
-    GetReleaseManagementOverview: () => ({ releases: { items: [] } }),
+    GetReleaseManagementOverview: () => ({
+      releases: { hasMore: false, items: [], nextCursor: null },
+    }),
   });
 
   await page.route(

@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query';
 import type { MetadataFieldsQuery } from '@/api-client/graphql/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
+import { fetchAllPages, MAX_PAGE_SIZE } from '@/lib/api/pagination';
 import type { MetadataResourceType, MetadataSettingsField } from '../types';
 import { GET_METADATA_FIELDS } from './metadata-fields.queries';
 
@@ -19,7 +20,6 @@ export const sortMetadataFields = <T extends MetadataSettingsField>(
 // The server's maximum page size. Metadata fields are a small, admin-curated
 // set — a handful of rows per resource type — so asking for the ceiling makes
 // the walk below a single round trip in practice.
-const MAX_PAGE_SIZE = 200;
 
 // Every consumer of this list (the settings grid, the table column builder,
 // the form dialogs) needs all of it to render a correct view, so the
@@ -29,24 +29,23 @@ const MAX_PAGE_SIZE = 200;
 export const fetchMetadataFields = async (
   resourceType: MetadataResourceType,
   includeArchived: boolean,
+  signal?: AbortSignal,
 ): Promise<MetadataSettingsField[]> => {
-  const fields: MetadataSettingsField[] = [];
-  let cursor: string | null = null;
-
-  do {
+  const fields = await fetchAllPages(async (cursor) => {
     const data: MetadataFieldsQuery =
       await graphqlClient.request<MetadataFieldsQuery>(
         GET_METADATA_FIELDS.toString(),
-        { cursor, includeArchived, limit: MAX_PAGE_SIZE, resourceType },
+        {
+          cursor: cursor ?? null,
+          includeArchived,
+          limit: MAX_PAGE_SIZE,
+          resourceType,
+        },
+        signal,
       );
 
-    const page = data.metadataFields;
-    fields.push(...page.items);
-    // nextCursor is null exactly when hasMore is false, so this terminates on
-    // the last page — and also if the server ever contradicts itself by
-    // claiming more without handing over a cursor to reach it.
-    cursor = page.hasMore ? (page.nextCursor ?? null) : null;
-  } while (cursor);
+    return data.metadataFields;
+  }, signal);
 
   return sortMetadataFields(fields);
 };
@@ -59,7 +58,7 @@ export const metadataFieldsActiveQueryOptions = (
   resourceType: MetadataResourceType,
 ) =>
   queryOptions({
-    queryFn: () => fetchMetadataFields(resourceType, false),
+    queryFn: ({ signal }) => fetchMetadataFields(resourceType, false, signal),
     queryKey: metadataFieldsActiveQueryKey(resourceType),
     staleTime: 30_000,
   });

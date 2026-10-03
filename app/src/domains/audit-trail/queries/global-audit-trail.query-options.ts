@@ -23,10 +23,11 @@ export const globalAuditTrailQueryOptions = (
 ) =>
   queryOptions({
     queryKey: globalAuditTrailQueryKey(limit),
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const data = await graphqlClient.request<GetGlobalAuditTrailQuery>(
         GET_GLOBAL_AUDIT_TRAIL.toString(),
         { limit },
+        signal,
       );
       return toGlobalAuditEntries(data.organizationAuditTrails.items);
     },
@@ -66,10 +67,11 @@ export const featureFlagAuditTrailQueryOptions = (
 ) =>
   queryOptions({
     queryKey: featureFlagAuditTrailQueryKey(limit),
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const data = await graphqlClient.request<GetGlobalAuditTrailQuery>(
         GET_GLOBAL_AUDIT_TRAIL.toString(),
         { limit },
+        signal,
       );
       return toGlobalAuditEntries(data.organizationAuditTrails.items).filter(
         isFeatureFlagAuditEvent,

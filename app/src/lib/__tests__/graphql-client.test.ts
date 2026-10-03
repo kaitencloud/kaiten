@@ -170,6 +170,35 @@ describe('GraphQLClient', () => {
   });
 
   describe('error handling', () => {
+    it('aborts an in-flight request and the resolver sees the signal', async () => {
+      const controller = new AbortController();
+      let resolveStarted!: () => void;
+      const started = new Promise<void>((resolve) => { resolveStarted = resolve; });
+      let sawAbort = false;
+      server.use(http.post(`${baseURL}/graphql`, async ({ request }) => {
+        resolveStarted();
+        await new Promise<void>((resolve) => request.signal.addEventListener('abort', () => {
+          sawAbort = true; resolve();
+        }, { once: true }));
+        return HttpResponse.json({ data: {} });
+      }));
+      const result = client.request('query { test }', undefined, controller.signal);
+      const rejection = expect(result).rejects.toMatchObject({ name: 'AbortError' });
+      await started;
+      controller.abort();
+      await rejection;
+      expect(sawAbort).toBe(true);
+    });
+
+    it('does not send a request cancelled while obtaining a credential', async () => {
+      const controller = new AbortController();
+      vi.mocked(getAuthToken).mockImplementation(async () => {
+        controller.abort(); return 'token';
+      });
+      const requests = serveGraphQL(() => HttpResponse.json({ data: {} }));
+      await expect(client.request('query { test }', undefined, controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
+      expect(requests).toHaveLength(0);
+    });
     it('should handle network errors', async () => {
       serveGraphQL(() => HttpResponse.error());
 

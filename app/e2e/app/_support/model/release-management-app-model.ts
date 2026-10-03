@@ -470,6 +470,8 @@ export class ReleaseManagementAppModel {
   getReleaseManagementOverviewData() {
     return {
       releases: {
+        hasMore: false,
+        nextCursor: null,
         items: clone(
           this.releases.map((release) => {
             const reachedZoneIds = new Set(

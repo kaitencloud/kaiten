@@ -24,15 +24,16 @@ const toCustomerRows = (customers: CustomerWithInstances[]): Customer[] =>
 
 export const customersWithInstancesQueryOptions = queryOptions({
   queryKey: customersWithInstancesBaseQueryKey,
-  queryFn: async () => {
+  queryFn: async ({ signal }) => {
     const query = GET_CUSTOMERS_WITH_INSTANCES.toString();
     const customers = await fetchAllPages(async (cursor) => {
       const data = await graphqlClient.request<GetCustomersWithInstancesQuery>(
         query,
         { cursor, limit: MAX_PAGE_SIZE },
+        signal,
       );
       return data.customers;
-    });
+    }, signal);
     return toCustomerRows(customers);
   },
 });

@@ -1,10 +1,11 @@
-import { QueryClient, type QueryKey } from '@tanstack/react-query';
+import { QueryClient, QueryObserver, type QueryKey } from '@tanstack/react-query';
 import { HttpResponse } from 'msw/http';
 import { describe, expect, it } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import type { Customer } from '@/api-client';
 import { getCustomerOptions } from '@/api-client/@tanstack/react-query.gen';
-import { handleGetCustomer, handleListCustomers } from '@/api-client/msw.gen';
+import { handleGetCustomer, handleListCustomers, handleUpdateCustomer } from '@/api-client/msw.gen';
+import { updateCustomer } from '@/api-client';
 import { allCustomersOptions } from '@/lib/api/all-pages-query-options';
 import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
 import {
@@ -76,6 +77,25 @@ const createQueryClient = () =>
   new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 describe('customer-query-invalidation', () => {
+  it('refreshes both REST and GraphQL projections after a real update', async () => {
+    const queryClient = createQueryClient();
+    let name = 'Before';
+    server.use(
+      handleListCustomers(() => HttpResponse.json({ hasMore: false, items: [{ name, slug: 'acme' }] })),
+      handleUpdateCustomer(async ({ request }) => { name = (await request.json()).name; return HttpResponse.json({ name, slug: 'acme' }); }),
+      graphqlOperationHandler({ GetCustomersWithInstances: () => ({ customers: { hasMore: false, items: [{ name, slug: 'acme', instances: [] }] } }) }),
+    );
+    const rest = new QueryObserver(queryClient, allCustomersOptions());
+    const graph = new QueryObserver(queryClient, customersWithInstancesQueryOptions);
+    const unsubscribe = [rest.subscribe(() => {}), graph.subscribe(() => {})];
+    await Promise.all([rest.refetch(), graph.refetch()]);
+    await updateCustomer({ path: { customerSlug: 'acme' }, body: { name: 'After' }, throwOnError: true });
+    await invalidateCustomerQueries(queryClient, 'acme');
+    expect(rest.getCurrentResult().data?.items[0]?.name).toBe('After');
+    expect(graph.getCurrentResult().data?.[0]?.name).toBe('After');
+    unsubscribe.forEach((stop) => stop());
+    queryClient.clear();
+  });
   it('invalidates the customer list projections when no slug is given', async () => {
     const queryClient = createQueryClient();
     await cacheCustomerReads(queryClient);

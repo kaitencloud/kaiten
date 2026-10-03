@@ -1,4 +1,4 @@
-import { HttpResponse } from 'msw/http';
+import { HttpResponse, http } from 'msw/http';
 import { describe, expect, it } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import type { Entitlement } from '@/api-client';
@@ -41,5 +41,15 @@ describe('allEntitlementsOptions', () => {
       { limit: '200' },
       { cursor: 'c1', limit: '200' },
     ]);
+  });
+
+  it.each([
+    '<!doctype html>', null, {}, { items: [] },
+    { hasMore: true, items: [] },
+    { hasMore: false, items: 'bad' },
+  ])('rejects an invalid successful API response: %j', async (body) => {
+    server.use(http.get('*/api/entitlements', () => HttpResponse.json(body)));
+    const options = allEntitlementsOptions();
+    await expect(options.queryFn({ signal: new AbortController().signal } as never)).rejects.toThrow('Invalid pagination response');
   });
 });

@@ -1,4 +1,4 @@
-import { HttpResponse } from 'msw/http';
+import { HttpResponse, http } from 'msw/http';
 import {
   handleGetConnectorSettings,
   handleGetFeatureFlags,
@@ -9,9 +9,9 @@ import {
   handleListDeploymentZones,
   handleListEntitlements,
   handleListReleases,
+  handleListNotifications,
 } from '@/api-client/msw.gen';
 import { NotificationAppModel } from '../../../e2e/app/_support/model/notification-app-model';
-import { notificationHandlers } from './notification-handlers';
 
 /** Explicit empty relations and sidebar preloads, after every installed owner. */
 export function shellHandlers() {
@@ -29,6 +29,9 @@ export function shellHandlers() {
     handleGetConnectorSettings(() =>
       HttpResponse.json({ message: 'not found' }, { status: 404 }),
     ),
-    ...notificationHandlers(new NotificationAppModel()),
+    handleListNotifications({ body: new NotificationAppModel().listNotifications() }),
+    // The shell has no events to stream. HTTP 204 stops EventSource reconnects
+    // rather than leaving an idle stream open in every unrelated UI test.
+    http.get(/\/api\/v1\/notifications\/stream$/, () => new HttpResponse(null, { status: 204 })),
   ];
 }
