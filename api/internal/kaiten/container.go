@@ -127,6 +127,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		// Same funnel, same reason: a deployment that licenses nothing says so by
 		// leaving the option nil, and every use case still asks unconditionally.
 		ConnectorEntitlements: services.ConnectorEntitlementsOrAlways(opts.ConnectorEntitlements),
+		EntitlementConfig:     services.EntitlementConfigOrNone(opts.EntitlementConfig),
 		WorkerRegistry:        workers,
 		BackgroundWorkers:     opts.BackgroundWorkers,
 	}

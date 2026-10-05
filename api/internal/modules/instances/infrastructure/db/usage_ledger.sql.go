@@ -161,3 +161,101 @@ func (q *Queries) FindUsageReportByTransactionID(ctx context.Context, arg FindUs
 	)
 	return i, err
 }
+
+const listUsageLedgerOrganizations = `-- name: ListUsageLedgerOrganizations :many
+WITH RECURSIVE orgs AS (
+  (SELECT ul.organization_id FROM usage_ledger ul ORDER BY ul.organization_id LIMIT 1)
+  UNION ALL
+  SELECT (SELECT ul.organization_id FROM usage_ledger ul
+           WHERE ul.organization_id > orgs.organization_id
+           ORDER BY ul.organization_id LIMIT 1)
+  FROM orgs
+  WHERE orgs.organization_id IS NOT NULL
+)
+SELECT orgs.organization_id::uuid AS organization_id FROM orgs WHERE orgs.organization_id IS NOT NULL
+`
+
+// Every organization with at least one journal row, without reading the rows:
+// a loose index scan that jumps from one organization_id to the next on
+// idx_usage_ledger_org_reported_at, one probe per organization.
+func (q *Queries) ListUsageLedgerOrganizations(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listUsageLedgerOrganizations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var organization_id uuid.UUID
+		if err := rows.Scan(&organization_id); err != nil {
+			return nil, err
+		}
+		items = append(items, organization_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUsageLedgerPartitions = `-- name: ListUsageLedgerPartitions :many
+SELECT c.relname::text AS name
+FROM pg_catalog.pg_inherits i
+JOIN pg_catalog.pg_class c ON c.oid = i.inhrelid
+WHERE i.inhparent = 'usage_ledger'::regclass
+ORDER BY c.relname
+`
+
+// The partitions attached to usage_ledger, by name. A table named like one but
+// detached is not listed: it holds no rows anybody reads.
+func (q *Queries) ListUsageLedgerPartitions(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listUsageLedgerPartitions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const purgeOrganizationUsageLedger = `-- name: PurgeOrganizationUsageLedger :execrows
+DELETE FROM usage_ledger ul
+USING (
+  SELECT old.instance_id, old.entitlement_id, old.report_seq, old.reported_at
+  FROM usage_ledger old
+  WHERE old.organization_id = $1
+    AND old.reported_at < $2
+  LIMIT $3
+) doomed
+WHERE ul.instance_id = doomed.instance_id
+  AND ul.entitlement_id = doomed.entitlement_id
+  AND ul.report_seq = doomed.report_seq
+  AND ul.reported_at = doomed.reported_at
+`
+
+type PurgeOrganizationUsageLedgerParams struct {
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	Cutoff         pgtype.Timestamp `json:"cutoff"`
+	BatchSize      int32            `json:"batch_size"`
+}
+
+// One batch of an organization's journal rows older than cutoff, through
+// idx_usage_ledger_org_reported_at. The caller repeats it until a batch comes
+// back short.
+func (q *Queries) PurgeOrganizationUsageLedger(ctx context.Context, arg PurgeOrganizationUsageLedgerParams) (int64, error) {
+	result, err := q.db.Exec(ctx, purgeOrganizationUsageLedger, arg.OrganizationID, arg.Cutoff, arg.BatchSize)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}

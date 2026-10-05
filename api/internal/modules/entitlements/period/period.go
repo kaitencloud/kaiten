@@ -222,6 +222,14 @@ func yearIndex(anchor, t time.Time) int64 {
 	return n
 }
 
+// AddMonths adds n calendar months to t (n may be negative), clamping the day
+// to the target month's last day: 2026-05-31 minus 3 months is 2026-02-28. The
+// same arithmetic as the monthly windows, for callers that count in months --
+// such as a retention of N months.
+func AddMonths(t time.Time, n int) time.Time {
+	return addMonthsClamped(t.UTC(), int64(n))
+}
+
 // addMonthsClamped adds n months to t, clamping the day-of-month to the
 // target month's last day when necessary (e.g. Jan 31 + 1 month = Feb 28).
 // Clamping is evaluated fresh from t's original day every time, not

@@ -1,6 +1,8 @@
 package instances
 
 import (
+	"context"
+
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	outboxdb "github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox/db"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
@@ -21,6 +23,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/updateinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/updateintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usageledger"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/validator"
 )
 
@@ -39,12 +42,16 @@ type UseCases struct {
 	GetEntitlementUsageMetrics   *getentitlementusagemetrics.UseCase
 	GetEntitlementsUsageMetrics  *getentitlementsusagemetrics.UseCase
 	GetAuditTrails               *getaudittrails.UseCase
+
+	// UsageLedger keeps the usage journal's partitions and retention. Nil without
+	// a pool.
+	UsageLedger *usageledger.Maintenance
 }
 
 func NewUseCases(svc services.Container) *UseCases {
 	queries := db.New(svc.Pool)
 	auditTrailPort := listforinstance.NewUseCase(auditdb.New(svc.Pool))
-	return &UseCases{
+	useCases := &UseCases{
 		CreateIntegration: createintegrations.NewUseCase(createintegrations.Deps{
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
@@ -115,4 +122,25 @@ func NewUseCases(svc services.Container) *UseCases {
 			AuditTrailPort: auditTrailPort,
 		}),
 	}
+
+	// Built with a pool so every replica can ensure partitions before it serves;
+	// the daily pass only runs where background work does, like the other sweeps.
+	if svc.Pool != nil {
+		cfg := svc.Config.UsageLedger
+		useCases.UsageLedger = usageledger.New(svc.Pool, svc.EntitlementConfig, usageledger.Config{
+			Interval:       cfg.Maintenance.Interval,
+			InitialDelay:   svc.Config.Retention.InitialDelay,
+			PurgeBatchSize: cfg.PurgeBatchSize,
+			Settings: usageledger.Settings{
+				RetentionMonths:    cfg.RetentionMonths,
+				MaxRetentionMonths: cfg.MaxRetentionMonths,
+				IdempotencyWindow:  svc.Config.Usage.IdempotencyWindow,
+			},
+		})
+		if svc.BackgroundWorkers {
+			useCases.UsageLedger.Start(context.Background())
+			svc.WorkerRegistry.OnStop(useCases.UsageLedger.Stop)
+		}
+	}
+	return useCases
 }

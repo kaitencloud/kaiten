@@ -48,3 +48,47 @@ WHERE ul.organization_id = sqlc.arg(organization_id)
   AND ul.reported_at < sqlc.arg(not_after)
 ORDER BY ul.reported_at DESC
 LIMIT 1;
+
+
+-- name: ListUsageLedgerPartitions :many
+-- The partitions attached to usage_ledger, by name. A table named like one but
+-- detached is not listed: it holds no rows anybody reads.
+SELECT c.relname::text AS name
+FROM pg_catalog.pg_inherits i
+JOIN pg_catalog.pg_class c ON c.oid = i.inhrelid
+WHERE i.inhparent = 'usage_ledger'::regclass
+ORDER BY c.relname;
+
+
+-- name: ListUsageLedgerOrganizations :many
+-- Every organization with at least one journal row, without reading the rows:
+-- a loose index scan that jumps from one organization_id to the next on
+-- idx_usage_ledger_org_reported_at, one probe per organization.
+WITH RECURSIVE orgs AS (
+  (SELECT ul.organization_id FROM usage_ledger ul ORDER BY ul.organization_id LIMIT 1)
+  UNION ALL
+  SELECT (SELECT ul.organization_id FROM usage_ledger ul
+           WHERE ul.organization_id > orgs.organization_id
+           ORDER BY ul.organization_id LIMIT 1)
+  FROM orgs
+  WHERE orgs.organization_id IS NOT NULL
+)
+SELECT orgs.organization_id::uuid AS organization_id FROM orgs WHERE orgs.organization_id IS NOT NULL;
+
+
+-- name: PurgeOrganizationUsageLedger :execrows
+-- One batch of an organization's journal rows older than cutoff, through
+-- idx_usage_ledger_org_reported_at. The caller repeats it until a batch comes
+-- back short.
+DELETE FROM usage_ledger ul
+USING (
+  SELECT old.instance_id, old.entitlement_id, old.report_seq, old.reported_at
+  FROM usage_ledger old
+  WHERE old.organization_id = sqlc.arg(organization_id)
+    AND old.reported_at < sqlc.arg(cutoff)
+  LIMIT sqlc.arg(batch_size)
+) doomed
+WHERE ul.instance_id = doomed.instance_id
+  AND ul.entitlement_id = doomed.entitlement_id
+  AND ul.report_seq = doomed.report_seq
+  AND ul.reported_at = doomed.reported_at;

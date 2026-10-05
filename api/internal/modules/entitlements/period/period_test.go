@@ -270,3 +270,21 @@ func TestResolveCurrent(t *testing.T) {
 		})
 	}
 }
+
+func TestAddMonths(t *testing.T) {
+	cases := []struct {
+		from string
+		n    int
+		want string
+	}{
+		{"2026-05-31T10:00:00Z", -3, "2026-02-28T10:00:00Z"},
+		{"2028-05-31T00:00:00Z", -3, "2028-02-29T00:00:00Z"},
+		{"2026-01-15T00:00:00Z", -18, "2024-07-15T00:00:00Z"},
+		{"2026-10-05T12:30:00Z", 12, "2027-10-05T12:30:00Z"},
+	}
+	for _, tc := range cases {
+		if got := AddMonths(mustParse(t, tc.from), tc.n); !got.Equal(mustParse(t, tc.want)) {
+			t.Errorf("AddMonths(%s, %d) = %v, want %s", tc.from, tc.n, got, tc.want)
+		}
+	}
+}

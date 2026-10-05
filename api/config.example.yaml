@@ -134,3 +134,19 @@ usage:
   # applied again. Reports are dated on receipt, so the window covers a whole
   # monthly period plus margin for late, buffered replays. At least 24h.
   idempotency_window: 840h         # KAITEN_USAGE_IDEMPOTENCY_WINDOW
+
+# The usage journal: one row per accepted usage report, in monthly partitions.
+usage_ledger:
+  maintenance:
+    # The daily pass keeps partitions a year ahead and applies retention. It
+    # runs whether or not billing is enabled. Below 0 disables it; partitions
+    # are then only ensured when a replica becomes ready.
+    interval: 24h                 # KAITEN_USAGE_LEDGER_MAINTENANCE_INTERVAL
+  # How long usage history is kept when no licensing authority says otherwise
+  # (self-hosted). 0 keeps it forever.
+  retention_months: 18            # KAITEN_USAGE_LEDGER_RETENTION_MONTHS
+  # The ceiling past which whole monthly partitions are dropped. 0 here or in
+  # retention_months disables dropping.
+  max_retention_months: 18        # KAITEN_USAGE_LEDGER_MAX_RETENTION_MONTHS
+  # Rows per DELETE when an organization keeps less than the ceiling.
+  purge_batch_size: 5000          # KAITEN_USAGE_LEDGER_PURGE_BATCH_SIZE

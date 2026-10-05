@@ -211,3 +211,13 @@ func (i Instances) ListAuditTrails(
 	return i.uc.GetAuditTrails.Execute(
 		bindOrganization(ctx, cl), instanceSlug, eventName, after, before, limit, cursor)
 }
+
+// EnsureUsageLedger creates the usage journal's missing monthly partitions and
+// fails if reports dated now would have none to land in. It is a readiness
+// check, not an operation: no caller, no scope. Nil-safe without a pool.
+func (k *Kaiten) EnsureUsageLedger(ctx context.Context) error {
+	if k.modules.Instances.UsageLedger == nil {
+		return nil
+	}
+	return k.modules.Instances.UsageLedger.EnsureReady(ctx)
+}

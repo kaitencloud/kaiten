@@ -116,6 +116,10 @@ func TestDefaultsFillWhatNobodySet(t *testing.T) {
 	assert.Equal(t, "kaiten/connectors", cfg.Connectors.VaultBasePath)
 	assert.Equal(t, 100000, cfg.Usage.RolloverMaxClosures)
 	assert.Equal(t, 35*24*time.Hour, cfg.Usage.IdempotencyWindow)
+	assert.Equal(t, 24*time.Hour, cfg.UsageLedger.Maintenance.Interval)
+	assert.Equal(t, 18, cfg.UsageLedger.RetentionMonths)
+	assert.Equal(t, 18, cfg.UsageLedger.MaxRetentionMonths)
+	assert.Equal(t, int32(5000), cfg.UsageLedger.PurgeBatchSize)
 }
 
 // A key no field claims is a setting that silently never applies: the value is
@@ -193,6 +197,28 @@ func TestRefusesAConfigurationThatCannotRun(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "usage.idempotency_window")
 		assert.Contains(t, err.Error(), "KAITEN_USAGE_IDEMPOTENCY_WINDOW")
+	})
+
+	t.Run("an idempotency window longer than the retention is refused", func(t *testing.T) {
+		minimum(t)
+		t.Setenv("KAITEN_USAGE_LEDGER_RETENTION_MONTHS", "1")
+
+		_, err := config.LoadConfig()
+
+		require.Error(t, err, "35 days of keys cannot outlive 1 month of rows")
+		assert.Contains(t, err.Error(), "KAITEN_USAGE_IDEMPOTENCY_WINDOW")
+		assert.Contains(t, err.Error(), "KAITEN_USAGE_LEDGER_RETENTION_MONTHS")
+	})
+
+	t.Run("keeping the history forever puts no bound on the idempotency window", func(t *testing.T) {
+		minimum(t)
+		t.Setenv("KAITEN_USAGE_LEDGER_RETENTION_MONTHS", "0")
+		t.Setenv("KAITEN_USAGE_LEDGER_MAX_RETENTION_MONTHS", "0")
+		t.Setenv("KAITEN_USAGE_IDEMPOTENCY_WINDOW", "8760h")
+
+		_, err := config.LoadConfig()
+
+		require.NoError(t, err)
 	})
 
 	t.Run("a rollover cap of zero is refused", func(t *testing.T) {
