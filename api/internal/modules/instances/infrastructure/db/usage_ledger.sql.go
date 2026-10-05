@@ -75,3 +75,89 @@ func (q *Queries) AppendUsageLedger(ctx context.Context, arg AppendUsageLedgerPa
 	)
 	return err
 }
+
+const findUsageReportByTransactionID = `-- name: FindUsageReportByTransactionID :one
+SELECT ul.report_seq,
+       ul.reported_at,
+       ul.window_start,
+       ul.window_end,
+       ul.behavior,
+       ul.reported_value::text                                   AS reported_value,
+       (ul.reported_value = $1::text::numeric)::bool AS same_value,
+       ul.value_after::float8                                    AS value_after,
+       ul.event_count_after,
+       -- -1 for an unlimited grant (NULL limit), as the response says it.
+       coalesce(ul.limit_value::float8, -1)::float8              AS limit_value,
+       ul.license_id,
+       l.slug                                                    AS license_slug
+FROM usage_ledger ul
+LEFT JOIN "license" l
+  ON l.id = ul.license_id
+ AND l.organization_id = ul.organization_id
+WHERE ul.organization_id = $2
+  AND ul.instance_id = $3
+  AND ul.entitlement_id = $4
+  AND ul.transaction_id = $5
+  AND ul.reported_at >= $6
+  AND ul.reported_at < $7
+ORDER BY ul.reported_at DESC
+LIMIT 1
+`
+
+type FindUsageReportByTransactionIDParams struct {
+	Value          string           `json:"value"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	InstanceID     uuid.UUID        `json:"instance_id"`
+	EntitlementID  uuid.UUID        `json:"entitlement_id"`
+	TransactionID  *string          `json:"transaction_id"`
+	NotBefore      pgtype.Timestamp `json:"not_before"`
+	NotAfter       pgtype.Timestamp `json:"not_after"`
+}
+
+type FindUsageReportByTransactionIDRow struct {
+	ReportSeq       int64               `json:"report_seq"`
+	ReportedAt      pgtype.Timestamp    `json:"reported_at"`
+	WindowStart     pgtype.Timestamp    `json:"window_start"`
+	WindowEnd       pgtype.Timestamp    `json:"window_end"`
+	Behavior        UsageReportBehavior `json:"behavior"`
+	ReportedValue   string              `json:"reported_value"`
+	SameValue       bool                `json:"same_value"`
+	ValueAfter      float64             `json:"value_after"`
+	EventCountAfter int32               `json:"event_count_after"`
+	LimitValue      float64             `json:"limit_value"`
+	LicenseID       uuid.UUID           `json:"license_id"`
+	LicenseSlug     *string             `json:"license_slug"`
+}
+
+// The idempotency-key lookup: the report a key was last accepted under within
+// [not_before, not_after), run under the pair's lock. same_value compares the
+// values as NUMERIC, so 10 and 10.0 are the same report. not_after is a day
+// past the report's own instant: it keeps the scan off empty future
+// partitions while tolerating a clock that stepped back.
+func (q *Queries) FindUsageReportByTransactionID(ctx context.Context, arg FindUsageReportByTransactionIDParams) (FindUsageReportByTransactionIDRow, error) {
+	row := q.db.QueryRow(ctx, findUsageReportByTransactionID,
+		arg.Value,
+		arg.OrganizationID,
+		arg.InstanceID,
+		arg.EntitlementID,
+		arg.TransactionID,
+		arg.NotBefore,
+		arg.NotAfter,
+	)
+	var i FindUsageReportByTransactionIDRow
+	err := row.Scan(
+		&i.ReportSeq,
+		&i.ReportedAt,
+		&i.WindowStart,
+		&i.WindowEnd,
+		&i.Behavior,
+		&i.ReportedValue,
+		&i.SameValue,
+		&i.ValueAfter,
+		&i.EventCountAfter,
+		&i.LimitValue,
+		&i.LicenseID,
+		&i.LicenseSlug,
+	)
+	return i, err
+}

@@ -219,6 +219,12 @@ type Usage struct {
 	// hold the lock for as long as the walk takes. The default, 100,000, is an
 	// HOUR entitlement idle for 11 years.
 	RolloverMaxClosures int `mapstructure:"rollover_max_closures" validate:"gt=0"`
+	// IdempotencyWindow is how long a report's transactionId is remembered:
+	// a retry with the same key inside it replays the original answer, one
+	// after it is applied again. 35 days by default, because reports are dated
+	// on receipt and a buffered report replayed late must still be recognized
+	// across a whole monthly period plus margin. At least 24 hours.
+	IdempotencyWindow time.Duration `mapstructure:"idempotency_window" validate:"gte=24h"`
 }
 
 // Connectors settings storage.
@@ -272,6 +278,7 @@ var settings = []struct {
 	{"metered.token_file", "KAITEN_METERED_TOKEN_FILE", nil, false},
 	{"connectors.vault_base_path", "VAULT_CONNECTORS_BASE_PATH", "kaiten/connectors", false},
 	{"usage.rollover_max_closures", "KAITEN_USAGE_ROLLOVER_MAX_CLOSURES", 100000, false},
+	{"usage.idempotency_window", "KAITEN_USAGE_IDEMPOTENCY_WINDOW", "840h", false},
 }
 
 const (

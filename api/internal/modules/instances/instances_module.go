@@ -97,6 +97,7 @@ func NewUseCases(svc services.Container) *UseCases {
 			UsageReporter:       svc.UsageReporter,
 			Uof:                 svc.Uof,
 			MaxRolloverClosures: svc.Config.Usage.RolloverMaxClosures,
+			IdempotencyWindow:   svc.Config.Usage.IdempotencyWindow,
 		}),
 		GetEntitlementUsageMetrics: getentitlementusagemetrics.NewUseCase(getentitlementusagemetrics.Deps{
 			UserProvider:     svc.UserProvider,

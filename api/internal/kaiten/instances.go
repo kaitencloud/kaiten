@@ -158,7 +158,7 @@ func (i Instances) DeleteIntegration(
 func (i Instances) ReportEntitlementUsage(
 	ctx context.Context, cl caller.OrganizationCaller,
 	instanceSlug, entitlementSlug string, cmd *reportentitlementusagemetric.Command,
-) (*instanceschema.EntitlementUsage, error) {
+) (*reportentitlementusagemetric.Result, error) {
 	if err := cl.Require(reportentitlementusagemetric.RequiredScope); err != nil {
 		return nil, err
 	}

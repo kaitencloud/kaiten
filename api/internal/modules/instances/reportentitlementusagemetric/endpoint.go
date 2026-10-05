@@ -3,6 +3,7 @@ package reportentitlementusagemetric
 import (
 	"context"
 	"net/http"
+	"regexp"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -20,8 +21,13 @@ type Reporter interface {
 	ReportEntitlementUsage(
 		ctx context.Context, cl caller.OrganizationCaller,
 		instanceSlug, entitlementSlug string, cmd *Command,
-	) (*schema.EntitlementUsage, error)
+	) (*Result, error)
 }
+
+// transactionIDPattern is the transactionId format, checked here rather than
+// as a schema pattern so that a malformed key answers the documented
+// ReportEntitlementUsageMetric.InvalidTransactionId, not Huma's generic 422.
+var transactionIDPattern = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,128}$`)
 
 type Request struct {
 	InstanceSlug    string `path:"instanceSlug" doc:"Instance slug" example:"instance-slug"`
@@ -40,10 +46,14 @@ type ReportEntitlementUsageBody struct {
 	Value    schema.EntitlementValue `json:"value" doc:"Reported entitlement value, discriminated by the 'type' field. Usage reporting accepts the number variant only."`
 	Behavior string                  `json:"behavior,omitempty" doc:"Report behavior: append folds the value into the stored total through the aggregation method; set overwrites it" enum:"append,set"`
 	Metadata map[string]any          `json:"metadata,omitempty" doc:"Optional metadata for the usage report"`
+	// TransactionID is a pointer so that an empty key is refused rather than
+	// read as no key.
+	TransactionID *string `json:"transactionId,omitempty" doc:"Optional idempotency key, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively. A report sent again with the same key and the same behavior and value within KAITEN_USAGE_IDEMPOTENCY_WINDOW (35 days by default) is applied once: the retry answers 200 with the original response and the Idempotent-Replayed header, and changes nothing. The same key with another behavior or value answers 409 ReportEntitlementUsageMetric.TransactionIdReused. A rejected report does not consume its key. Scoped to the instance and entitlement: one business event may feed two meters under one key." example:"llm-call-9f2c:tokens"`
 }
 
 type Response struct {
-	Body *schema.EntitlementUsage
+	IdempotentReplayed string `header:"Idempotent-Replayed" doc:"true when the report replays an earlier one sent with the same transactionId: the body is that report's original response and nothing was counted again"`
+	Body               *schema.EntitlementUsage
 }
 
 func RegisterEndpoint(api huma.API, app Reporter) {
@@ -52,7 +62,7 @@ func RegisterEndpoint(api huma.API, app Reporter) {
 		Method:      "POST",
 		Path:        "/instances/{instanceSlug}/entitlements/{entitlementSlug}/usage",
 		Summary:     "Report entitlement usage metric for an instance",
-		Description: "Report a usage metric for a specific entitlement in a given instance. This endpoint allows you to report the usage of an entitlement, including optional metadata and a timestamp.",
+		Description: "Report a usage metric for a specific entitlement in a given instance, with optional metadata. The server dates every report on receipt; the request carries no timestamp. Send a transactionId to make retries safe: without one, a report sent twice counts twice.",
 		Tags:        []string{"instances"},
 		Errors: []int{
 			http.StatusBadRequest,
@@ -85,21 +95,31 @@ func RegisterEndpoint(api huma.API, app Reporter) {
 			)
 		}
 
-		command := &Command{
-			Value:    request.Body.Value.Number.Value,
-			Behavior: behavior,
-			Metadata: request.Body.Metadata,
+		if request.Body.TransactionID != nil && !transactionIDPattern.MatchString(*request.Body.TransactionID) {
+			return nil, apierrors.UnprocessableEntity(
+				"ReportEntitlementUsageMetric.InvalidTransactionId",
+				"transactionId must be 1 to 128 characters of letters, digits, '.', '_', ':' and '-'",
+			)
 		}
 
-		entitlementUsage, err := app.ReportEntitlementUsage(
+		command := &Command{
+			Value:         request.Body.Value.Number.Value,
+			Behavior:      behavior,
+			Metadata:      request.Body.Metadata,
+			TransactionID: request.Body.TransactionID,
+		}
+
+		result, err := app.ReportEntitlementUsage(
 			ctx, cl, request.InstanceSlug, request.EntitlementSlug, command)
 		if err != nil {
 			return nil, err
 		}
 
-		return &Response{
-			Body: entitlementUsage,
-		}, nil
+		response := &Response{Body: result.Usage}
+		if result.Replayed {
+			response.IdempotentReplayed = "true"
+		}
+		return response, nil
 	})
 }
 

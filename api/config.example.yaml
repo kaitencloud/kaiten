@@ -129,3 +129,8 @@ usage:
   # many windows the report fails with a 500 instead. 100000 is an HOUR
   # entitlement idle for 11 years.
   rollover_max_closures: 100000   # KAITEN_USAGE_ROLLOVER_MAX_CLOSURES
+  # How long a report's transactionId is remembered. A retry with the same key
+  # inside the window replays the original answer; after it, the report is
+  # applied again. Reports are dated on receipt, so the window covers a whole
+  # monthly period plus margin for late, buffered replays. At least 24h.
+  idempotency_window: 840h         # KAITEN_USAGE_IDEMPOTENCY_WINDOW

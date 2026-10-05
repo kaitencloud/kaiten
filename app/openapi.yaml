@@ -2722,6 +2722,11 @@ components:
           additionalProperties: {}
           description: Optional metadata for the usage report
           type: object
+        transactionId:
+          description: "Optional idempotency key, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively. A report sent again with the same key and the same behavior and value within KAITEN_USAGE_IDEMPOTENCY_WINDOW (35 days by default) is applied once: the retry answers 200 with the original response and the Idempotent-Replayed header, and changes nothing. The same key with another behavior or value answers 409 ReportEntitlementUsageMetric.TransactionIdReused. A rejected report does not consume its key. Scoped to the instance and entitlement: one business event may feed two meters under one key."
+          examples:
+            - llm-call-9f2c:tokens
+          type: string
         value:
           description: Reported entitlement value, discriminated by the 'type' field. Usage reporting accepts the number variant only.
           discriminator:
@@ -6850,7 +6855,7 @@ paths:
       tags:
         - instances
     post:
-      description: Report a usage metric for a specific entitlement in a given instance. This endpoint allows you to report the usage of an entitlement, including optional metadata and a timestamp.
+      description: "Report a usage metric for a specific entitlement in a given instance, with optional metadata. The server dates every report on receipt; the request carries no timestamp. Send a transactionId to make retries safe: without one, a report sent twice counts twice."
       operationId: reportEntitlementUsageMetric
       parameters:
         - description: Instance slug
@@ -6884,6 +6889,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/EntitlementUsage"
           description: OK
+          headers:
+            Idempotent-Replayed:
+              schema:
+                description: "true when the report replays an earlier one sent with the same transactionId: the body is that report's original response and nothing was counted again"
+                type: string
         "400":
           content:
             application/problem+json:

@@ -115,6 +115,7 @@ func TestDefaultsFillWhatNobodySet(t *testing.T) {
 	assert.Equal(t, int32(1000), cfg.Retention.BatchSize)
 	assert.Equal(t, "kaiten/connectors", cfg.Connectors.VaultBasePath)
 	assert.Equal(t, 100000, cfg.Usage.RolloverMaxClosures)
+	assert.Equal(t, 35*24*time.Hour, cfg.Usage.IdempotencyWindow)
 }
 
 // A key no field claims is a setting that silently never applies: the value is
@@ -181,6 +182,17 @@ func TestRefusesAConfigurationThatCannotRun(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "logging.level")
 		assert.Contains(t, err.Error(), "LOG_LEVEL")
+	})
+
+	t.Run("an idempotency window under a day is refused", func(t *testing.T) {
+		minimum(t)
+		t.Setenv("KAITEN_USAGE_IDEMPOTENCY_WINDOW", "23h")
+
+		_, err := config.LoadConfig()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "usage.idempotency_window")
+		assert.Contains(t, err.Error(), "KAITEN_USAGE_IDEMPOTENCY_WINDOW")
 	})
 
 	t.Run("a rollover cap of zero is refused", func(t *testing.T) {

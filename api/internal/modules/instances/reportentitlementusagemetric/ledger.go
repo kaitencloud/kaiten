@@ -2,14 +2,17 @@ package reportentitlementusagemetric
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	entitlementUsageSchema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 )
 
 // usageLedgerTable is the partitioned table AppendUsageLedger writes; a row
@@ -104,4 +107,99 @@ func timestamp(t *time.Time) pgtype.Timestamp {
 		return pgtype.Timestamp{}
 	}
 	return pgtype.Timestamp{Time: *t, Valid: true}
+}
+
+// AcceptedReport is the journal row an idempotency key was accepted under:
+// what a replay answers with and a conflict points at.
+type AcceptedReport struct {
+	ReportSeq       int64
+	ReportedAt      time.Time
+	WindowStart     *time.Time
+	WindowEnd       *time.Time
+	Behavior        Behavior
+	ReportedValue   string
+	SameValue       bool
+	ValueAfter      float64
+	EventCountAfter int32
+	// Limit is the grant the report was gated with, -1 when unlimited.
+	Limit       float64
+	LicenseID   uuid.UUID
+	LicenseSlug string
+}
+
+// FindReportByTransactionID returns the report the pair accepted under
+// transactionID within [notBefore, notAfter), or nil when there is none.
+// value is the incoming report's value, compared as NUMERIC (SameValue).
+func (r *QueryRepository) FindReportByTransactionID(
+	ctx context.Context, organizationID, instanceID, entitlementID uuid.UUID,
+	transactionID string, value float64, notBefore, notAfter time.Time,
+) (*AcceptedReport, error) {
+	row, err := r.q(ctx).FindUsageReportByTransactionID(ctx, db.FindUsageReportByTransactionIDParams{
+		Value:          decimalString(value),
+		OrganizationID: organizationID,
+		InstanceID:     instanceID,
+		EntitlementID:  entitlementID,
+		TransactionID:  &transactionID,
+		NotBefore:      pgtype.Timestamp{Time: notBefore, Valid: true},
+		NotAfter:       pgtype.Timestamp{Time: notAfter, Valid: true},
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	report := &AcceptedReport{
+		ReportSeq:       row.ReportSeq,
+		ReportedAt:      row.ReportedAt.Time.UTC(),
+		WindowStart:     optionalTime(row.WindowStart),
+		WindowEnd:       optionalTime(row.WindowEnd),
+		Behavior:        Behavior(row.Behavior),
+		ReportedValue:   row.ReportedValue,
+		SameValue:       row.SameValue,
+		ValueAfter:      row.ValueAfter,
+		EventCountAfter: row.EventCountAfter,
+		Limit:           row.LimitValue,
+		LicenseID:       row.LicenseID,
+	}
+	if row.LicenseSlug != nil {
+		report.LicenseSlug = *row.LicenseSlug
+	}
+	return report, nil
+}
+
+// response rebuilds, from the journal row alone, the response the report
+// got when it was accepted: the counter and window as they were then, not
+// as they are now.
+func (a *AcceptedReport) response(entitlementID uuid.UUID, entitlementSlug string) *entitlementUsageSchema.EntitlementUsage {
+	return &entitlementUsageSchema.EntitlementUsage{
+		EntitlementID:   entitlementID,
+		EntitlementSlug: entitlementSlug,
+		LicenseID:       a.LicenseID,
+		LicenseSlug:     a.LicenseSlug,
+		Value: entitlementUsageSchema.EntitlementValue{
+			Number: &entitlementUsageSchema.NumberEntitlementValue{
+				Type:       entitlementvalue.TypeNumber,
+				Value:      a.ValueAfter,
+				EventCount: a.EventCountAfter,
+			},
+		},
+		Limit: &entitlementUsageSchema.EntitlementValue{
+			Number: &entitlementUsageSchema.NumberEntitlementValue{
+				Type:  entitlementvalue.TypeNumber,
+				Value: a.Limit,
+			},
+		},
+		CurrentPeriodStart: a.WindowStart,
+		CurrentPeriodEnd:   a.WindowEnd,
+	}
+}
+
+func optionalTime(t pgtype.Timestamp) *time.Time {
+	if !t.Valid {
+		return nil
+	}
+	utc := t.Time.UTC()
+	return &utc
 }
