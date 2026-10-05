@@ -2720,7 +2720,7 @@ components:
           type: string
         metadata:
           additionalProperties: {}
-          description: Optional metadata for the usage report
+          description: "Optional metadata for the usage report, a JSON object stored with it in the usage history when its compact encoding is at most 4 KiB. Above that it is not stored, the report is still counted, and the response carries Kaiten-Metadata-Dropped: too_large. It must contain no personal data: anyone who can read the organization's instances can read it, for as long as the usage history is kept. Numbers are read as 64-bit floats, so send large identifiers as strings."
           type: object
         transactionId:
           description: "Optional idempotency key, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively. A report sent again with the same key and the same behavior and value within KAITEN_USAGE_IDEMPOTENCY_WINDOW (35 days by default) is applied once: the retry answers 200 with the original response and the Idempotent-Replayed header, and changes nothing. The same key with another behavior or value answers 409 ReportEntitlementUsageMetric.TransactionIdReused. A rejected report does not consume its key. Scoped to the instance and entitlement: one business event may feed two meters under one key."
@@ -6893,6 +6893,10 @@ paths:
             Idempotent-Replayed:
               schema:
                 description: "true when the report replays an earlier one sent with the same transactionId: the body is that report's original response and nothing was counted again"
+                type: string
+            Kaiten-Metadata-Dropped:
+              schema:
+                description: too_large when the report's metadata was above 4 KiB and was not stored; the report itself was counted
                 type: string
         "400":
           content:

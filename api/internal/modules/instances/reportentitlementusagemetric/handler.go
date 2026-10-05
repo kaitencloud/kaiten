@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
@@ -86,6 +87,9 @@ const idempotencyLookahead = 24 * time.Hour
 type Result struct {
 	Usage    *entitlementUsageSchema.EntitlementUsage
 	Replayed bool
+	// MetadataDropped is the Kaiten-Metadata-Dropped value when the report's
+	// metadata was not stored, "" otherwise. A replay never carries it.
+	MetadataDropped string
 }
 
 const usageReportMeter = "kaiten.usage.report"
@@ -101,6 +105,7 @@ type UseCase struct {
 	ledgerUnavailable   metric.Int64Counter
 	idempotentReplays   metric.Int64Counter
 	idempotencyConflict metric.Int64Counter
+	metadataDropped     metric.Int64Counter
 }
 
 func NewUseCase(deps Deps) *UseCase {
@@ -138,6 +143,14 @@ func NewUseCase(deps Deps) *UseCase {
 	if err != nil {
 		slog.Warn("failed to register usage report metric", "metric", "idempotency_conflicts", "error", err)
 	}
+	metadataDropped, err := meter.Int64Counter(
+		"kaiten.usage.report.metadata_dropped",
+		metric.WithDescription("Usage reports counted without their metadata, by reason (too_large: above 4 KiB)"),
+		metric.WithUnit("{report}"),
+	)
+	if err != nil {
+		slog.Warn("failed to register usage report metric", "metric", "metadata_dropped", "error", err)
+	}
 	ledgerUnavailable, err := meter.Int64Counter(
 		"kaiten.usage.ledger.unavailable",
 		metric.WithDescription("Usage reports refused because no usage_ledger partition covers the instant they were accepted at"),
@@ -158,6 +171,7 @@ func NewUseCase(deps Deps) *UseCase {
 		ledgerUnavailable:   ledgerUnavailable,
 		idempotentReplays:   idempotentReplays,
 		idempotencyConflict: idempotencyConflict,
+		metadataDropped:     metadataDropped,
 	}
 }
 
@@ -168,6 +182,13 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 	}
 
 	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.EntitlementValuesReportedEntitlementSlug)
+
+	// Encoded before the transaction: it depends on nothing stored, and is
+	// only written if the report is accepted.
+	properties, metadataTooLarge, err := encodeMetadata(command.Metadata)
+	if err != nil {
+		return nil, err
+	}
 
 	var result *entitlementUsageSchema.EntitlementUsage
 	var thresholdExceeded, replayed bool
@@ -450,6 +471,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 			Threshold:         threshold,
 			OveragePercent:    entitlementUsageCtx.LimitCapExceededOveragePercent,
 			TransactionID:     command.TransactionID,
+			Properties:        properties,
 		}); err != nil {
 			if kaitenerrors.IsMissingPartition(err, usageLedgerTable) {
 				// No partition covers reportedAt. Partitions are created a year
@@ -581,7 +603,12 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 			fmt.Sprintf("Usage for %s exceeds the allowed threshold", entitlementSlug))
 	}
 
-	return &Result{Usage: result, Replayed: replayed}, nil
+	out := &Result{Usage: result, Replayed: replayed}
+	if metadataTooLarge && !replayed {
+		h.metadataDropped.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", metadataDroppedTooLarge)))
+		out.MetadataDropped = metadataDroppedTooLarge
+	}
+	return out, nil
 }
 
 func computeUpdatedUsage(command *Command, current *entitlementvalue.NumberUsageValue, aggregationMethod string) (*entitlementvalue.NumberUsageValue, error) {

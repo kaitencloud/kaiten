@@ -45,7 +45,7 @@ type Request struct {
 type ReportEntitlementUsageBody struct {
 	Value    schema.EntitlementValue `json:"value" doc:"Reported entitlement value, discriminated by the 'type' field. Usage reporting accepts the number variant only."`
 	Behavior string                  `json:"behavior,omitempty" doc:"Report behavior: append folds the value into the stored total through the aggregation method; set overwrites it" enum:"append,set"`
-	Metadata map[string]any          `json:"metadata,omitempty" doc:"Optional metadata for the usage report"`
+	Metadata map[string]any          `json:"metadata,omitempty" doc:"Optional metadata for the usage report, a JSON object stored with it in the usage history when its compact encoding is at most 4 KiB. Above that it is not stored, the report is still counted, and the response carries Kaiten-Metadata-Dropped: too_large. It must contain no personal data: anyone who can read the organization's instances can read it, for as long as the usage history is kept. Numbers are read as 64-bit floats, so send large identifiers as strings."`
 	// TransactionID is a pointer so that an empty key is refused rather than
 	// read as no key.
 	TransactionID *string `json:"transactionId,omitempty" doc:"Optional idempotency key, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively. A report sent again with the same key and the same behavior and value within KAITEN_USAGE_IDEMPOTENCY_WINDOW (35 days by default) is applied once: the retry answers 200 with the original response and the Idempotent-Replayed header, and changes nothing. The same key with another behavior or value answers 409 ReportEntitlementUsageMetric.TransactionIdReused. A rejected report does not consume its key. Scoped to the instance and entitlement: one business event may feed two meters under one key." example:"llm-call-9f2c:tokens"`
@@ -53,6 +53,7 @@ type ReportEntitlementUsageBody struct {
 
 type Response struct {
 	IdempotentReplayed string `header:"Idempotent-Replayed" doc:"true when the report replays an earlier one sent with the same transactionId: the body is that report's original response and nothing was counted again"`
+	MetadataDropped    string `header:"Kaiten-Metadata-Dropped" doc:"too_large when the report's metadata was above 4 KiB and was not stored; the report itself was counted"`
 	Body               *schema.EntitlementUsage
 }
 
@@ -115,7 +116,7 @@ func RegisterEndpoint(api huma.API, app Reporter) {
 			return nil, err
 		}
 
-		response := &Response{Body: result.Usage}
+		response := &Response{Body: result.Usage, MetadataDropped: result.MetadataDropped}
 		if result.Replayed {
 			response.IdempotentReplayed = "true"
 		}
