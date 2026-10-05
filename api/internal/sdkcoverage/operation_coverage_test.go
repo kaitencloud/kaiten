@@ -57,12 +57,7 @@ the operation has SDK callers and names what it waits for. The test keeps it
 honest the same two ways -- an entry must name a live operation, and it must
 be deleted, not kept, once the SDK maps the operation.
 */
-var awaitingSDKOperations = map[string]string{
-	// The usage history: one pair's accepted reports and the CSV/NDJSON exports.
-	"listUsageReports":               "the usage history; SDK support comes with the SDKs' next contract sync",
-	"exportUsageReports":             "the usage history export; SDK support comes with the SDKs' next contract sync",
-	"exportOrganizationUsageReports": "the usage history export; SDK support comes with the SDKs' next contract sync",
-}
+var awaitingSDKOperations = map[string]string{}
 
 func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
 	client, err := sdk.NewClient("https://example.com/api")
@@ -114,6 +109,9 @@ func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
 		"getEntitlementsUsageMetrics":        {receiver: client.Instances, method: "ListEntitlementUsageMetrics"},
 		"getEntitlementUsageMetrics":         {receiver: client.Instances, method: "GetEntitlementUsageMetric"},
 		"reportEntitlementUsageMetric":       {receiver: client.Instances, method: "ReportEntitlementUsageMetric"},
+		"listUsageReports":                   {receiver: client.Instances, method: "ListUsageReports"},
+		"exportUsageReports":                 {receiver: client.Instances, method: "ExportUsageReports"},
+		"exportOrganizationUsageReports":     {receiver: client.Instances, method: "ExportOrganizationUsageReports"},
 		"get-licenses":                       {receiver: client.Licenses, method: "List"},
 		"create-license":                     {receiver: client.Licenses, method: "Create"},
 		"delete-license":                     {receiver: client.Licenses, method: "Delete"},

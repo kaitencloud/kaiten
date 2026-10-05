@@ -170,8 +170,8 @@ github.com/jinzhu/inflection v1.0.0/go.mod h1:h+uFLlag+Qp1Va5pdKtLDYj+kHp5pxUVkr
 github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
 github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
 github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d/go.mod h1:2PavIy+JPciBPrBUjwbNvtwB6RQlve+hkpll6QSNmOE=
-github.com/kaitencloud/sdk-go v0.0.1 h1:WfR1qFNG++WkcGu55pOcT1nIt520VPMT0a81aOSj03M=
-github.com/kaitencloud/sdk-go v0.0.1/go.mod h1:KE77iZ8i+SfjjhUf+qPaQrLHq3/EpFuz4+UPtZ7WFeM=
+github.com/kaitencloud/sdk-go v0.0.2-0.20261005202017-deeb018edc00 h1:kPf8B3ecEZZjLFBikkY57yAI8kvdQn6zvDZ7cz16cDM=
+github.com/kaitencloud/sdk-go v0.0.2-0.20261005202017-deeb018edc00/go.mod h1:KE77iZ8i+SfjjhUf+qPaQrLHq3/EpFuz4+UPtZ7WFeM=
 github.com/klauspost/compress v1.19.1 h1:VsB4HPswih7mmZ8WleSFQ75c/Ui1M4trX5oAsJnhSlk=
 github.com/klauspost/compress v1.19.1/go.mod h1:cwPg85FWrGar70rWktvGQj8/hthj3wpl0PGDogxkrSQ=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
