@@ -122,7 +122,10 @@ export function RouteError({ error, reset }: RouteErrorProps) {
             </AlertDescription>
           </Alert>
           {isDev && stack && (
-            <pre tabIndex={0} className="mt-4 p-3 bg-muted rounded-md text-xs overflow-auto max-h-32">
+            <pre
+              tabIndex={0}
+              className="mt-4 p-3 bg-muted rounded-md text-xs overflow-auto max-h-32"
+            >
               {stack}
             </pre>
           )}
