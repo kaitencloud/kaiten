@@ -92,3 +92,77 @@ WHERE ul.instance_id = doomed.instance_id
   AND ul.entitlement_id = doomed.entitlement_id
   AND ul.report_seq = doomed.report_seq
   AND ul.reported_at = doomed.reported_at;
+
+
+-- name: ResolveUsageReportPair :one
+-- The instance and entitlement a usage history request names, in one round
+-- trip: the nil UUID for a slug the organization does not have. Neither has
+-- to be granted by the instance's current licence -- its history outlives a
+-- licence change.
+SELECT
+  coalesce((SELECT i.id FROM instance i
+             WHERE i.organization_id = sqlc.arg(organization_id) AND i.slug = sqlc.arg(instance_slug)),
+           '00000000-0000-0000-0000-000000000000')::uuid AS instance_id,
+  coalesce((SELECT e.id FROM entitlement e
+             WHERE e.organization_id = sqlc.arg(organization_id) AND e.slug = sqlc.arg(entitlement_slug)),
+           '00000000-0000-0000-0000-000000000000')::uuid AS entitlement_id;
+
+
+-- name: ListPairUsageReports :many
+-- One page of a pair's journal, in report_seq order, through the primary key.
+-- Decimals come out as their exact text, limit_value as '' when unlimited (a
+-- cast hides its nullability from sqlc); delta and overage_delta are computed
+-- here, in NUMERIC, so they are as exact as the columns. trim_scale drops the
+-- trailing zeros a subtraction of two scales leaves (2.5 - 0.5 is 2, not 2.0).
+SELECT ul.organization_id, ul.instance_id, ul.entitlement_id, ul.license_id,
+       ul.report_seq, ul.reported_at, ul.window_start, ul.window_end,
+       ul.behavior::text AS behavior, ul.aggregation_method::text AS aggregation_method,
+       ul.reported_value::text AS reported_value,
+       ul.value_before::text AS value_before,
+       ul.value_after::text AS value_after,
+       trim_scale(ul.value_after - ul.value_before)::text AS delta,
+       (CASE WHEN ul.limit_value IS NULL THEN 0
+             ELSE trim_scale(GREATEST(0, ul.value_after - ul.limit_value) - GREATEST(0, ul.value_before - ul.limit_value))
+        END)::text AS overage_delta,
+       ul.event_count_after, coalesce(ul.limit_value::text, '')::text AS limit_value, ul.overage_percent,
+       ul.transaction_id, ul.properties
+FROM usage_ledger ul
+WHERE ul.organization_id = sqlc.arg(organization_id)
+  AND ul.instance_id = sqlc.arg(instance_id)
+  AND ul.entitlement_id = sqlc.arg(entitlement_id)
+  AND ul.reported_at >= sqlc.arg(from_at)
+  AND ul.reported_at < sqlc.arg(to_at)
+  AND ul.report_seq > sqlc.arg(after_seq)
+  AND (sqlc.narg(transaction_id)::text IS NULL OR ul.transaction_id = sqlc.narg(transaction_id)::text)
+ORDER BY ul.report_seq
+LIMIT sqlc.arg(page_size);
+
+
+-- name: ListOrganizationUsageReports :many
+-- One page of an organization's journal, every pair or a filtered few, in
+-- (reported_at, instance_id, entitlement_id, report_seq) order through
+-- idx_usage_ledger_org_reported_at. The ID filters reach a deleted instance or
+-- entitlement, whose rows survive it. Same columns as ListPairUsageReports.
+SELECT ul.organization_id, ul.instance_id, ul.entitlement_id, ul.license_id,
+       ul.report_seq, ul.reported_at, ul.window_start, ul.window_end,
+       ul.behavior::text AS behavior, ul.aggregation_method::text AS aggregation_method,
+       ul.reported_value::text AS reported_value,
+       ul.value_before::text AS value_before,
+       ul.value_after::text AS value_after,
+       trim_scale(ul.value_after - ul.value_before)::text AS delta,
+       (CASE WHEN ul.limit_value IS NULL THEN 0
+             ELSE trim_scale(GREATEST(0, ul.value_after - ul.limit_value) - GREATEST(0, ul.value_before - ul.limit_value))
+        END)::text AS overage_delta,
+       ul.event_count_after, coalesce(ul.limit_value::text, '')::text AS limit_value, ul.overage_percent,
+       ul.transaction_id, ul.properties
+FROM usage_ledger ul
+WHERE ul.organization_id = sqlc.arg(organization_id)
+  AND ul.reported_at >= sqlc.arg(from_at)
+  AND ul.reported_at < sqlc.arg(to_at)
+  AND (sqlc.narg(instance_id)::uuid IS NULL OR ul.instance_id = sqlc.narg(instance_id)::uuid)
+  AND (sqlc.narg(entitlement_id)::uuid IS NULL OR ul.entitlement_id = sqlc.narg(entitlement_id)::uuid)
+  AND (ul.reported_at, ul.instance_id, ul.entitlement_id, ul.report_seq)
+      > (sqlc.arg(after_reported_at)::timestamp, sqlc.arg(after_instance_id)::uuid,
+         sqlc.arg(after_entitlement_id)::uuid, sqlc.arg(after_seq)::bigint)
+ORDER BY ul.reported_at, ul.instance_id, ul.entitlement_id, ul.report_seq
+LIMIT sqlc.arg(page_size);

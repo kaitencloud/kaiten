@@ -162,6 +162,238 @@ func (q *Queries) FindUsageReportByTransactionID(ctx context.Context, arg FindUs
 	return i, err
 }
 
+const listOrganizationUsageReports = `-- name: ListOrganizationUsageReports :many
+SELECT ul.organization_id, ul.instance_id, ul.entitlement_id, ul.license_id,
+       ul.report_seq, ul.reported_at, ul.window_start, ul.window_end,
+       ul.behavior::text AS behavior, ul.aggregation_method::text AS aggregation_method,
+       ul.reported_value::text AS reported_value,
+       ul.value_before::text AS value_before,
+       ul.value_after::text AS value_after,
+       trim_scale(ul.value_after - ul.value_before)::text AS delta,
+       (CASE WHEN ul.limit_value IS NULL THEN 0
+             ELSE trim_scale(GREATEST(0, ul.value_after - ul.limit_value) - GREATEST(0, ul.value_before - ul.limit_value))
+        END)::text AS overage_delta,
+       ul.event_count_after, coalesce(ul.limit_value::text, '')::text AS limit_value, ul.overage_percent,
+       ul.transaction_id, ul.properties
+FROM usage_ledger ul
+WHERE ul.organization_id = $1
+  AND ul.reported_at >= $2
+  AND ul.reported_at < $3
+  AND ($4::uuid IS NULL OR ul.instance_id = $4::uuid)
+  AND ($5::uuid IS NULL OR ul.entitlement_id = $5::uuid)
+  AND (ul.reported_at, ul.instance_id, ul.entitlement_id, ul.report_seq)
+      > ($6::timestamp, $7::uuid,
+         $8::uuid, $9::bigint)
+ORDER BY ul.reported_at, ul.instance_id, ul.entitlement_id, ul.report_seq
+LIMIT $10
+`
+
+type ListOrganizationUsageReportsParams struct {
+	OrganizationID     uuid.UUID        `json:"organization_id"`
+	FromAt             pgtype.Timestamp `json:"from_at"`
+	ToAt               pgtype.Timestamp `json:"to_at"`
+	InstanceID         *uuid.UUID       `json:"instance_id"`
+	EntitlementID      *uuid.UUID       `json:"entitlement_id"`
+	AfterReportedAt    pgtype.Timestamp `json:"after_reported_at"`
+	AfterInstanceID    uuid.UUID        `json:"after_instance_id"`
+	AfterEntitlementID uuid.UUID        `json:"after_entitlement_id"`
+	AfterSeq           int64            `json:"after_seq"`
+	PageSize           int32            `json:"page_size"`
+}
+
+type ListOrganizationUsageReportsRow struct {
+	OrganizationID    uuid.UUID        `json:"organization_id"`
+	InstanceID        uuid.UUID        `json:"instance_id"`
+	EntitlementID     uuid.UUID        `json:"entitlement_id"`
+	LicenseID         uuid.UUID        `json:"license_id"`
+	ReportSeq         int64            `json:"report_seq"`
+	ReportedAt        pgtype.Timestamp `json:"reported_at"`
+	WindowStart       pgtype.Timestamp `json:"window_start"`
+	WindowEnd         pgtype.Timestamp `json:"window_end"`
+	Behavior          string           `json:"behavior"`
+	AggregationMethod string           `json:"aggregation_method"`
+	ReportedValue     string           `json:"reported_value"`
+	ValueBefore       string           `json:"value_before"`
+	ValueAfter        string           `json:"value_after"`
+	Delta             string           `json:"delta"`
+	OverageDelta      string           `json:"overage_delta"`
+	EventCountAfter   int32            `json:"event_count_after"`
+	LimitValue        string           `json:"limit_value"`
+	OveragePercent    int16            `json:"overage_percent"`
+	TransactionID     *string          `json:"transaction_id"`
+	Properties        []byte           `json:"properties"`
+}
+
+// One page of an organization's journal, every pair or a filtered few, in
+// (reported_at, instance_id, entitlement_id, report_seq) order through
+// idx_usage_ledger_org_reported_at. The ID filters reach a deleted instance or
+// entitlement, whose rows survive it. Same columns as ListPairUsageReports.
+func (q *Queries) ListOrganizationUsageReports(ctx context.Context, arg ListOrganizationUsageReportsParams) ([]ListOrganizationUsageReportsRow, error) {
+	rows, err := q.db.Query(ctx, listOrganizationUsageReports,
+		arg.OrganizationID,
+		arg.FromAt,
+		arg.ToAt,
+		arg.InstanceID,
+		arg.EntitlementID,
+		arg.AfterReportedAt,
+		arg.AfterInstanceID,
+		arg.AfterEntitlementID,
+		arg.AfterSeq,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOrganizationUsageReportsRow
+	for rows.Next() {
+		var i ListOrganizationUsageReportsRow
+		if err := rows.Scan(
+			&i.OrganizationID,
+			&i.InstanceID,
+			&i.EntitlementID,
+			&i.LicenseID,
+			&i.ReportSeq,
+			&i.ReportedAt,
+			&i.WindowStart,
+			&i.WindowEnd,
+			&i.Behavior,
+			&i.AggregationMethod,
+			&i.ReportedValue,
+			&i.ValueBefore,
+			&i.ValueAfter,
+			&i.Delta,
+			&i.OverageDelta,
+			&i.EventCountAfter,
+			&i.LimitValue,
+			&i.OveragePercent,
+			&i.TransactionID,
+			&i.Properties,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPairUsageReports = `-- name: ListPairUsageReports :many
+SELECT ul.organization_id, ul.instance_id, ul.entitlement_id, ul.license_id,
+       ul.report_seq, ul.reported_at, ul.window_start, ul.window_end,
+       ul.behavior::text AS behavior, ul.aggregation_method::text AS aggregation_method,
+       ul.reported_value::text AS reported_value,
+       ul.value_before::text AS value_before,
+       ul.value_after::text AS value_after,
+       trim_scale(ul.value_after - ul.value_before)::text AS delta,
+       (CASE WHEN ul.limit_value IS NULL THEN 0
+             ELSE trim_scale(GREATEST(0, ul.value_after - ul.limit_value) - GREATEST(0, ul.value_before - ul.limit_value))
+        END)::text AS overage_delta,
+       ul.event_count_after, coalesce(ul.limit_value::text, '')::text AS limit_value, ul.overage_percent,
+       ul.transaction_id, ul.properties
+FROM usage_ledger ul
+WHERE ul.organization_id = $1
+  AND ul.instance_id = $2
+  AND ul.entitlement_id = $3
+  AND ul.reported_at >= $4
+  AND ul.reported_at < $5
+  AND ul.report_seq > $6
+  AND ($7::text IS NULL OR ul.transaction_id = $7::text)
+ORDER BY ul.report_seq
+LIMIT $8
+`
+
+type ListPairUsageReportsParams struct {
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	InstanceID     uuid.UUID        `json:"instance_id"`
+	EntitlementID  uuid.UUID        `json:"entitlement_id"`
+	FromAt         pgtype.Timestamp `json:"from_at"`
+	ToAt           pgtype.Timestamp `json:"to_at"`
+	AfterSeq       int64            `json:"after_seq"`
+	TransactionID  *string          `json:"transaction_id"`
+	PageSize       int32            `json:"page_size"`
+}
+
+type ListPairUsageReportsRow struct {
+	OrganizationID    uuid.UUID        `json:"organization_id"`
+	InstanceID        uuid.UUID        `json:"instance_id"`
+	EntitlementID     uuid.UUID        `json:"entitlement_id"`
+	LicenseID         uuid.UUID        `json:"license_id"`
+	ReportSeq         int64            `json:"report_seq"`
+	ReportedAt        pgtype.Timestamp `json:"reported_at"`
+	WindowStart       pgtype.Timestamp `json:"window_start"`
+	WindowEnd         pgtype.Timestamp `json:"window_end"`
+	Behavior          string           `json:"behavior"`
+	AggregationMethod string           `json:"aggregation_method"`
+	ReportedValue     string           `json:"reported_value"`
+	ValueBefore       string           `json:"value_before"`
+	ValueAfter        string           `json:"value_after"`
+	Delta             string           `json:"delta"`
+	OverageDelta      string           `json:"overage_delta"`
+	EventCountAfter   int32            `json:"event_count_after"`
+	LimitValue        string           `json:"limit_value"`
+	OveragePercent    int16            `json:"overage_percent"`
+	TransactionID     *string          `json:"transaction_id"`
+	Properties        []byte           `json:"properties"`
+}
+
+// One page of a pair's journal, in report_seq order, through the primary key.
+// Decimals come out as their exact text, limit_value as ” when unlimited (a
+// cast hides its nullability from sqlc); delta and overage_delta are computed
+// here, in NUMERIC, so they are as exact as the columns. trim_scale drops the
+// trailing zeros a subtraction of two scales leaves (2.5 - 0.5 is 2, not 2.0).
+func (q *Queries) ListPairUsageReports(ctx context.Context, arg ListPairUsageReportsParams) ([]ListPairUsageReportsRow, error) {
+	rows, err := q.db.Query(ctx, listPairUsageReports,
+		arg.OrganizationID,
+		arg.InstanceID,
+		arg.EntitlementID,
+		arg.FromAt,
+		arg.ToAt,
+		arg.AfterSeq,
+		arg.TransactionID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPairUsageReportsRow
+	for rows.Next() {
+		var i ListPairUsageReportsRow
+		if err := rows.Scan(
+			&i.OrganizationID,
+			&i.InstanceID,
+			&i.EntitlementID,
+			&i.LicenseID,
+			&i.ReportSeq,
+			&i.ReportedAt,
+			&i.WindowStart,
+			&i.WindowEnd,
+			&i.Behavior,
+			&i.AggregationMethod,
+			&i.ReportedValue,
+			&i.ValueBefore,
+			&i.ValueAfter,
+			&i.Delta,
+			&i.OverageDelta,
+			&i.EventCountAfter,
+			&i.LimitValue,
+			&i.OveragePercent,
+			&i.TransactionID,
+			&i.Properties,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUsageLedgerOrganizations = `-- name: ListUsageLedgerOrganizations :many
 WITH RECURSIVE orgs AS (
   (SELECT ul.organization_id FROM usage_ledger ul ORDER BY ul.organization_id LIMIT 1)
@@ -258,4 +490,36 @@ func (q *Queries) PurgeOrganizationUsageLedger(ctx context.Context, arg PurgeOrg
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const resolveUsageReportPair = `-- name: ResolveUsageReportPair :one
+SELECT
+  coalesce((SELECT i.id FROM instance i
+             WHERE i.organization_id = $1 AND i.slug = $2),
+           '00000000-0000-0000-0000-000000000000')::uuid AS instance_id,
+  coalesce((SELECT e.id FROM entitlement e
+             WHERE e.organization_id = $1 AND e.slug = $3),
+           '00000000-0000-0000-0000-000000000000')::uuid AS entitlement_id
+`
+
+type ResolveUsageReportPairParams struct {
+	OrganizationID  uuid.UUID `json:"organization_id"`
+	InstanceSlug    string    `json:"instance_slug"`
+	EntitlementSlug string    `json:"entitlement_slug"`
+}
+
+type ResolveUsageReportPairRow struct {
+	InstanceID    uuid.UUID `json:"instance_id"`
+	EntitlementID uuid.UUID `json:"entitlement_id"`
+}
+
+// The instance and entitlement a usage history request names, in one round
+// trip: the nil UUID for a slug the organization does not have. Neither has
+// to be granted by the instance's current licence -- its history outlives a
+// licence change.
+func (q *Queries) ResolveUsageReportPair(ctx context.Context, arg ResolveUsageReportPairParams) (ResolveUsageReportPairRow, error) {
+	row := q.db.QueryRow(ctx, resolveUsageReportPair, arg.OrganizationID, arg.InstanceSlug, arg.EntitlementSlug)
+	var i ResolveUsageReportPairRow
+	err := row.Scan(&i.InstanceID, &i.EntitlementID)
+	return i, err
 }

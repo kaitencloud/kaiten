@@ -3155,6 +3155,135 @@ components:
         - createdAt
         - createdBy
       type: object
+    UsageReport:
+      additionalProperties: false
+      properties:
+        aggregationMethod:
+          description: The entitlement's aggregation method when the report was accepted
+          examples:
+            - SUM
+          type: string
+        behavior:
+          description: append adds the value through the aggregation method; set overwrites the counter
+          enum:
+            - append
+            - set
+          type: string
+        delta:
+          description: valueAfter minus valueBefore; negative for a set that lowered the counter
+          examples:
+            - "600"
+          type: string
+        entitlementId:
+          description: The entitlement the report was made for. It may since have been deleted.
+          format: uuid
+          type: string
+        eventCountAfter:
+          description: Reports counted in the window after this one
+          examples:
+            - 1
+          format: int32
+          type: integer
+        instanceId:
+          description: The instance the report was made for. It may since have been deleted.
+          format: uuid
+          type: string
+        licenseId:
+          description: The instance's licence when the report was accepted
+          format: uuid
+          type: string
+        limitValue:
+          description: The limit in force when the report was accepted. Null when unlimited.
+          examples:
+            - "1000"
+          type: string
+        overageDelta:
+          description: "How much the usage above limitValue moved: max(0, valueAfter - limitValue) - max(0, valueBefore - limitValue). 0 when unlimited."
+          examples:
+            - "0"
+          type: string
+        overagePercent:
+          description: The overage allowed above limitValue, in percent, when the report was accepted. Null when unlimited.
+          examples:
+            - 50
+          format: int32
+          type: integer
+        properties:
+          additionalProperties: {}
+          description: The report's metadata, when it was stored
+          type: object
+        reportSeq:
+          description: Position of the report among the pair's accepted reports, from 1, without gaps
+          examples:
+            - 42
+          format: int64
+          type: integer
+        reportedAt:
+          description: When the server accepted the report (UTC, millisecond precision)
+          examples:
+            - "2026-10-05T08:00:00.000Z"
+          format: date-time
+          type: string
+        reportedValue:
+          description: "The value as sent: a delta for append, an absolute value for set"
+          examples:
+            - "600"
+          type: string
+        transactionId:
+          description: The report's idempotency key, when it was sent with one
+          examples:
+            - llm-call-9f2c:tokens
+          type: string
+        valueAfter:
+          description: The counter after the report
+          examples:
+            - "600"
+          type: string
+        valueBefore:
+          description: The counter before the report, after any window reset
+          examples:
+            - "0"
+          type: string
+        windowEnd:
+          description: End of the usage window the report counted in (exclusive). Null for a lifetime entitlement.
+          format: date-time
+          type: string
+        windowStart:
+          description: Start of the usage window the report counted in (inclusive). Null for a lifetime entitlement.
+          format: date-time
+          type: string
+      required:
+        - instanceId
+        - entitlementId
+        - reportSeq
+        - reportedAt
+        - behavior
+        - aggregationMethod
+        - reportedValue
+        - valueBefore
+        - valueAfter
+        - delta
+        - overageDelta
+        - eventCountAfter
+        - licenseId
+      type: object
+    UsageReportPage:
+      additionalProperties: false
+      properties:
+        items:
+          description: The reports, in reportSeq order
+          items:
+            $ref: "#/components/schemas/UsageReport"
+          type: array
+        nextAfterSeq:
+          description: Pass as afterSeq to read the next page. Absent on the last page.
+          examples:
+            - 100
+          format: int64
+          type: integer
+      required:
+        - items
+      type: object
     User:
       additionalProperties: false
       properties:
@@ -6952,6 +7081,226 @@ paths:
       summary: Report entitlement usage metric for an instance
       tags:
         - instances
+  /instances/{instanceSlug}/entitlements/{entitlementSlug}/usage/reports:
+    get:
+      description: "The usage history of one instance and entitlement: every accepted report in the range, with the counter before and after it and the limit in force, in reportSeq order, paged with afterSeq. Decimals are strings. Reports are kept for the organization's usage history retention."
+      operationId: listUsageReports
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - instance-slug
+            type: string
+        - description: Entitlement slug
+          in: path
+          name: entitlementSlug
+          required: true
+          schema:
+            description: Entitlement slug
+            examples:
+              - entitlement-slug
+            type: string
+        - description: Start of the range, inclusive (RFC 3339). Defaults to 30 days before to, moved up to the start of the organization's usage history when that is later. An explicit from before it answers 422 ListUsageReports.OutsideRetention.
+          explode: false
+          in: query
+          name: from
+          schema:
+            description: Start of the range, inclusive (RFC 3339). Defaults to 30 days before to, moved up to the start of the organization's usage history when that is later. An explicit from before it answers 422 ListUsageReports.OutsideRetention.
+            format: date-time
+            type: string
+        - description: End of the range, exclusive (RFC 3339). Defaults to now.
+          explode: false
+          in: query
+          name: to
+          schema:
+            description: End of the range, exclusive (RFC 3339). Defaults to now.
+            format: date-time
+            type: string
+        - description: "Return the reports after this reportSeq: the nextAfterSeq of the previous page"
+          explode: false
+          in: query
+          name: afterSeq
+          schema:
+            description: "Return the reports after this reportSeq: the nextAfterSeq of the previous page"
+            format: int64
+            minimum: 0
+            type: integer
+        - description: Maximum number of reports to return (default 100, max 500)
+          explode: false
+          in: query
+          name: limit
+          schema:
+            description: Maximum number of reports to return (default 100, max 500)
+            format: int32
+            maximum: 500
+            minimum: 1
+            type: integer
+        - description: Only the report sent with this idempotency key
+          explode: false
+          in: query
+          name: transactionId
+          schema:
+            description: Only the report sent with this idempotency key
+            maxLength: 128
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageReportPage"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:instances
+      summary: List an entitlement's usage reports for an instance
+      tags:
+        - instances
+  /instances/{instanceSlug}/entitlements/{entitlementSlug}/usage/reports/export:
+    get:
+      description: Streams every report of one instance and entitlement in the range as CSV or NDJSON, in reportSeq order. Decimals are written exactly as the journal stores them.
+      operationId: exportUsageReports
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - instance-slug
+            type: string
+        - description: Entitlement slug
+          in: path
+          name: entitlementSlug
+          required: true
+          schema:
+            description: Entitlement slug
+            examples:
+              - entitlement-slug
+            type: string
+        - description: Start of the range, inclusive (RFC 3339). Defaults to 30 days before to, moved up to the start of the organization's usage history when that is later. An explicit from before it answers 422 ExportUsageReports.OutsideRetention.
+          explode: false
+          in: query
+          name: from
+          schema:
+            description: Start of the range, inclusive (RFC 3339). Defaults to 30 days before to, moved up to the start of the organization's usage history when that is later. An explicit from before it answers 422 ExportUsageReports.OutsideRetention.
+            format: date-time
+            type: string
+        - description: End of the range, exclusive (RFC 3339). Defaults to now. At most 366 days after from.
+          explode: false
+          in: query
+          name: to
+          schema:
+            description: End of the range, exclusive (RFC 3339). Defaults to now. At most 366 days after from.
+            format: date-time
+            type: string
+        - description: "csv (the default): RFC 4180 with a header row. json: NDJSON, one report per line, in the shape listUsageReports returns. Anything else answers 422 ExportUsageReports.InvalidFormat."
+          explode: false
+          in: query
+          name: format
+          schema:
+            description: "csv (the default): RFC 4180 with a header row. json: NDJSON, one report per line, in the shape listUsageReports returns. Anything else answers 422 ExportUsageReports.InvalidFormat."
+            examples:
+              - csv
+            type: string
+      responses:
+        "200":
+          content:
+            application/x-ndjson:
+              schema:
+                type: string
+            text/csv:
+              schema:
+                type: string
+          description: "The reports, as an attachment: CSV with a header row for format=csv, one JSON object per line for format=json"
+          headers:
+            Content-Disposition:
+              description: attachment, with a file name naming the range
+              schema:
+                type: string
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:instances
+      summary: Export an entitlement's usage reports for an instance
+      tags:
+        - instances
   /instances/{instanceSlug}/integrations/{integrationName}:
     delete:
       description: Delete a single integration for an instance
@@ -9959,6 +10308,123 @@ paths:
       summary: Revoke a token for a service account
       tags:
         - service-accounts
+  /usage/reports/export:
+    get:
+      description: Streams every usage report of the organization in the range, across instances and entitlements, as CSV or NDJSON, ordered by reportedAt. Filters narrow it to one instance or one entitlement, including deleted ones by ID. Use it to keep the usage history before deleting the organization.
+      operationId: exportOrganizationUsageReports
+      parameters:
+        - description: Start of the range, inclusive (RFC 3339). Defaults to 30 days before to, moved up to the start of the organization's usage history when that is later. An explicit from before it answers 422 ExportUsageReports.OutsideRetention.
+          explode: false
+          in: query
+          name: from
+          schema:
+            description: Start of the range, inclusive (RFC 3339). Defaults to 30 days before to, moved up to the start of the organization's usage history when that is later. An explicit from before it answers 422 ExportUsageReports.OutsideRetention.
+            format: date-time
+            type: string
+        - description: End of the range, exclusive (RFC 3339). Defaults to now. At most 31 days after from.
+          explode: false
+          in: query
+          name: to
+          schema:
+            description: End of the range, exclusive (RFC 3339). Defaults to now. At most 31 days after from.
+            format: date-time
+            type: string
+        - description: "csv (the default): RFC 4180 with a header row. json: NDJSON, one report per line. Anything else answers 422 ExportUsageReports.InvalidFormat."
+          explode: false
+          in: query
+          name: format
+          schema:
+            description: "csv (the default): RFC 4180 with a header row. json: NDJSON, one report per line. Anything else answers 422 ExportUsageReports.InvalidFormat."
+            examples:
+              - csv
+            type: string
+        - description: Only this instance's reports
+          explode: false
+          in: query
+          name: instanceSlug
+          schema:
+            description: Only this instance's reports
+            type: string
+        - description: Only this instance's reports. Reaches a deleted instance, whose reports are kept.
+          explode: false
+          in: query
+          name: instanceId
+          schema:
+            description: Only this instance's reports. Reaches a deleted instance, whose reports are kept.
+            format: uuid
+            type: string
+        - description: Only this entitlement's reports
+          explode: false
+          in: query
+          name: entitlementSlug
+          schema:
+            description: Only this entitlement's reports
+            type: string
+        - description: Only this entitlement's reports. Reaches a deleted entitlement, whose reports are kept.
+          explode: false
+          in: query
+          name: entitlementId
+          schema:
+            description: Only this entitlement's reports. Reaches a deleted entitlement, whose reports are kept.
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/x-ndjson:
+              schema:
+                type: string
+            text/csv:
+              schema:
+                type: string
+          description: "The reports, as an attachment: CSV with a header row for format=csv, one JSON object per line for format=json"
+          headers:
+            Content-Disposition:
+              description: attachment, with a file name naming the range
+              schema:
+                type: string
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:instances
+      summary: Export the organization's usage reports
+      tags:
+        - instances
   /v1/notification-preferences:
     get:
       description: "Every notifiable event, with this user's effective value per channel: their own choice where they made one, the catalogue default otherwise. Events absent from the catalogue of a deployment never appear, which is what keeps high-volume system events out of the feed."

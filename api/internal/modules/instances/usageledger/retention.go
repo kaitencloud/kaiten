@@ -99,3 +99,25 @@ func parseRetention(raw json.RawMessage) (int, bool) {
 	}
 	return int(months), true
 }
+
+// Retention answers how far back an organization's usage history can be read:
+// the logical side of retention, which the history reads apply on top of the
+// rows the daily pass has not purged yet.
+type Retention struct {
+	Reader   services.EntitlementConfig
+	Settings Settings
+}
+
+// Start is the oldest instant organizationID's usage history can be read from
+// at now: its window back from now, and never later than the idempotency
+// horizon. Nil when nothing restricts the read: the history is kept forever,
+// or the organization's retention cannot be read right now -- the same
+// organizations the daily pass leaves alone.
+func (r Retention) Start(ctx context.Context, organizationID uuid.UUID, now time.Time) *time.Time {
+	months, source := windowMonths(ctx, services.EntitlementConfigOrNone(r.Reader), r.Settings, organizationID)
+	if source == sourceUnknown || months == 0 {
+		return nil
+	}
+	start := r.Settings.cutoff(now, months)
+	return &start
+}

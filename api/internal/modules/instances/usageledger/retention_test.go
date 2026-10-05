@@ -81,3 +81,34 @@ func TestCutoffNeverEntersTheIdempotencyHorizon(t *testing.T) {
 		t.Errorf("cutoff(1 month) = %v, want the 35-day horizon %v", got, want)
 	}
 }
+
+func TestRetentionStart(t *testing.T) {
+	now := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+	settings := Settings{RetentionMonths: 18, MaxRetentionMonths: 18, IdempotencyWindow: 35 * 24 * time.Hour}
+
+	cases := []struct {
+		name   string
+		reader services.EntitlementConfig
+		want   *time.Time
+	}{
+		{"licence grants 3 months", fakeReader{value: json.RawMessage(`{"months": 3}`)}, ptrTime(time.Date(2026, 7, 5, 12, 0, 0, 0, time.UTC))},
+		{"licence grants 1 month: the idempotency horizon wins", fakeReader{value: json.RawMessage(`{"months": 1}`)}, ptrTime(now.Add(-35 * 24 * time.Hour))},
+		{"no licensing authority: the configuration", nil, ptrTime(time.Date(2025, 4, 5, 12, 0, 0, 0, time.UTC))},
+		{"unknown: unrestricted", fakeReader{err: errors.New("timeout")}, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := Retention{Reader: tc.reader, Settings: settings}.Start(t.Context(), uuid.New(), now)
+			if (got == nil) != (tc.want == nil) || (got != nil && !got.Equal(*tc.want)) {
+				t.Errorf("Start() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+
+	forever := Retention{Settings: Settings{RetentionMonths: 0, IdempotencyWindow: settings.IdempotencyWindow}}
+	if got := forever.Start(t.Context(), uuid.New(), now); got != nil {
+		t.Errorf("Start() with history kept forever = %v, want nil", got)
+	}
+}
+
+func ptrTime(t time.Time) *time.Time { return &t }

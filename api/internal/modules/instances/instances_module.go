@@ -12,6 +12,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/exportorganizationusagereports"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/exportusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getaudittrails"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementsusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementusagemetrics"
@@ -19,6 +21,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstances"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/updateinstance"
@@ -43,6 +46,10 @@ type UseCases struct {
 	GetEntitlementsUsageMetrics  *getentitlementsusagemetrics.UseCase
 	GetAuditTrails               *getaudittrails.UseCase
 
+	ListUsageReports               *listusagereports.UseCase
+	ExportUsageReports             *exportusagereports.UseCase
+	ExportOrganizationUsageReports *exportorganizationusagereports.UseCase
+
 	// UsageLedger keeps the usage journal's partitions and retention. Nil without
 	// a pool.
 	UsageLedger *usageledger.Maintenance
@@ -51,6 +58,12 @@ type UseCases struct {
 func NewUseCases(svc services.Container) *UseCases {
 	queries := db.New(svc.Pool)
 	auditTrailPort := listforinstance.NewUseCase(auditdb.New(svc.Pool))
+	ledgerSettings := usageledger.Settings{
+		RetentionMonths:    svc.Config.UsageLedger.RetentionMonths,
+		MaxRetentionMonths: svc.Config.UsageLedger.MaxRetentionMonths,
+		IdempotencyWindow:  svc.Config.Usage.IdempotencyWindow,
+	}
+	retention := usageledger.Retention{Reader: svc.EntitlementConfig, Settings: ledgerSettings}
 	useCases := &UseCases{
 		CreateIntegration: createintegrations.NewUseCase(createintegrations.Deps{
 			UserProvider: svc.UserProvider,
@@ -121,6 +134,21 @@ func NewUseCases(svc services.Container) *UseCases {
 			UserProvider:   svc.UserProvider,
 			AuditTrailPort: auditTrailPort,
 		}),
+		ListUsageReports: listusagereports.NewUseCase(listusagereports.Deps{
+			UserProvider: svc.UserProvider,
+			DB:           svc.Pool,
+			Retention:    retention,
+		}),
+		ExportUsageReports: exportusagereports.NewUseCase(exportusagereports.Deps{
+			UserProvider: svc.UserProvider,
+			DB:           svc.Pool,
+			Retention:    retention,
+		}),
+		ExportOrganizationUsageReports: exportorganizationusagereports.NewUseCase(exportorganizationusagereports.Deps{
+			UserProvider: svc.UserProvider,
+			DB:           svc.Pool,
+			Retention:    retention,
+		}),
 	}
 
 	// Built with a pool so every replica can ensure partitions before it serves;
@@ -131,11 +159,7 @@ func NewUseCases(svc services.Container) *UseCases {
 			Interval:       cfg.Maintenance.Interval,
 			InitialDelay:   svc.Config.Retention.InitialDelay,
 			PurgeBatchSize: cfg.PurgeBatchSize,
-			Settings: usageledger.Settings{
-				RetentionMonths:    cfg.RetentionMonths,
-				MaxRetentionMonths: cfg.MaxRetentionMonths,
-				IdempotencyWindow:  svc.Config.Usage.IdempotencyWindow,
-			},
+			Settings:       ledgerSettings,
 		})
 		if svc.BackgroundWorkers {
 			useCases.UsageLedger.Start(context.Background())

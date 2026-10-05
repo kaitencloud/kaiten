@@ -135,6 +135,12 @@ type TestServerOptions struct {
 	// licences gets.
 	ConnectorEntitlements services.ConnectorEntitlements
 
+	// EntitlementConfig stands in for the licensing deployment's CONFIG
+	// entitlements, such as an organization's usage history retention. Nil means
+	// services.NoLicensingAuthority: the self-hosted shape, where those settings
+	// come from the configuration.
+	EntitlementConfig services.EntitlementConfig
+
 	// PlatformCredential makes BOTH of the server's listeners authenticate every
 	// request as a platform credential (StubPlatformMiddleware) instead of an
 	// organization one.
@@ -240,6 +246,12 @@ func NewTestServer(tdb *TestDatabase, opts ...TestServerOptions) *TestServer {
 		ConnectorEntitlements: func() services.ConnectorEntitlements {
 			if len(opts) > 0 {
 				return opts[0].ConnectorEntitlements
+			}
+			return nil
+		}(),
+		EntitlementConfig: func() services.EntitlementConfig {
+			if len(opts) > 0 {
+				return opts[0].EntitlementConfig
 			}
 			return nil
 		}(),

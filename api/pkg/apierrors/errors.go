@@ -185,6 +185,12 @@ func UnprocessableEntity(code, message string) *Error {
 	return &Error{Kind: KindUnprocessable, Code: code, Message: message}
 }
 
+// UnprocessableEntityWithErrors is UnprocessableEntity with `errors` entries on
+// the problem body.
+func UnprocessableEntityWithErrors(code, message string, errs ...*ErrorDetail) *Error {
+	return &Error{Kind: KindUnprocessable, Code: code, Message: message, Errors: errs}
+}
+
 // UnprocessableEntityf creates an unprocessable entity error with a
 // formatted message.
 func UnprocessableEntityf(code, format string, args ...any) *Error {
