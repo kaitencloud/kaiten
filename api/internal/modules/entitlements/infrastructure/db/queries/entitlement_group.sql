@@ -122,8 +122,11 @@ WHERE le.license_id = sqlc.arg(license_id)
 
 
 -- name: GetEntitlementGroupUsage :many
--- now is the same database-time value on every returned row:
--- folded into this query instead of a separate GetDatabaseNow round trip.
+-- One row per member of the group; effective_value is NULL for a member the
+-- instance is not granted, read through instance_effective_entitlement like
+-- every other reader of an instance's entitlement value. now is the same
+-- database-time value on every returned row: folded into this query instead
+-- of a separate GetDatabaseNow round trip.
 SELECT e.id              AS entitlement_id,
        e.slug            AS entitlement_slug,
        e.name            AS entitlement_name,
@@ -133,13 +136,13 @@ SELECT e.id              AS entitlement_id,
        i.start_license_date,
        eu.value          AS usage_value,
        eu.period_start,
-       le.value          AS license_value,
+       iee.value         AS effective_value,
        date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
 FROM entitlement_group eg
 JOIN entitlement_group_membership egm ON egm.entitlement_group_id = eg.id
 JOIN entitlement e ON e.id = egm.entitlement_id
 JOIN instance i ON i.slug = sqlc.arg(instance_slug) AND i.organization_id = eg.organization_id
 LEFT JOIN entitlement_usage eu ON eu.entitlement_id = e.id AND eu.instance_id = i.id AND eu.organization_id = eg.organization_id
-LEFT JOIN license_entitlement le ON le.entitlement_id = e.id AND le.license_id = i.license_id AND le.organization_id = eg.organization_id
+LEFT JOIN instance_effective_entitlement iee ON iee.entitlement_id = e.id AND iee.instance_id = i.id
 WHERE eg.slug = sqlc.arg(group_slug)
   AND eg.organization_id = sqlc.arg(organization_id);

@@ -211,15 +211,9 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 			)
 		}
 
-		// The instant this report happens at: the database clock, read once,
-		// and only now that GetEntitlementUsageContext holds the pair's lock.
-		// now() would be the transaction's BEGIN, so a report that waited for
-		// the lock across a window boundary would compute the window it began
-		// in rather than the one the report before it already rolled over to.
-		reportedAt, err := h.queryRepo.GetDatabaseNow(ctx)
-		if err != nil {
-			return err
-		}
+		// The instant this report happens at, read by GetEntitlementUsageContext
+		// once it held the pair's lock.
+		reportedAt := entitlementUsageCtx.ReportedAt
 
 		// A transactionId this pair already accepted within the horizon:
 		// answer what that report got, or refuse a different report under the
@@ -277,7 +271,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 			}
 		}
 
-		threshold, err := entitlementvalue.ParseNumberThreshold(entitlementUsageCtx.LicenseEntitlementValue)
+		threshold, err := entitlementvalue.ParseNumberThreshold(entitlementUsageCtx.EffectiveValue)
 		if err != nil {
 			return kaitenerrors.Validation("ReportEntitlementUsageMetric.InvalidLicenseEntitlementValue", err.Error())
 		}
@@ -517,7 +511,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 		if entitlementUsageCtx.LicenseSlug != nil {
 			licenseSlug = *entitlementUsageCtx.LicenseSlug
 		}
-		limit, err := entitlementUsageSchema.ParseEntitlementValue(entitlementUsageCtx.LicenseEntitlementValue)
+		limit, err := entitlementUsageSchema.ParseEntitlementValue(entitlementUsageCtx.EffectiveValue)
 		if err != nil {
 			return err
 		}

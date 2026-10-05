@@ -40,14 +40,14 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 	if result.EntitlementID == nil {
 		return nil, kaitenerrors.NotFoundf("GetEntitlementUsageMetrics.EntitlementNotFound", "Entitlement with slug %q not found", entitlementSlug)
 	}
-	if result.LicenseEntitlementID == nil {
+	if result.GrantedEntitlementID == nil {
 		return nil, kaitenerrors.NotFoundf("GetEntitlementUsageMetrics.EntitlementNotAssigned", "Entitlement with slug %q is not assigned to the license used by instance %q", entitlementSlug, instanceSlug)
 	}
 
-	// The limit is the license grant, whatever the entitlement type: for the
-	// NUMBER family it is the cap the usage below is measured against, for
-	// BOOLEAN and CONFIG it is the value itself.
-	limit, err := entitlementUsageSchema.ParseEntitlementValue(result.LicenseValue)
+	// The limit is the instance's effective entitlement, whatever its type:
+	// for the NUMBER family it is the cap the usage below is measured against,
+	// for BOOLEAN and CONFIG it is the value itself.
+	limit, err := entitlementUsageSchema.ParseEntitlementValue(result.EffectiveValue)
 	if err != nil {
 		return nil, err
 	}

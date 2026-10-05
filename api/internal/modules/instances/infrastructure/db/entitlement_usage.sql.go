@@ -65,6 +65,36 @@ func (q *Queries) GetDatabaseNow(ctx context.Context) (pgtype.Timestamp, error) 
 	return now, err
 }
 
+const getEffectiveEntitlementLimit = `-- name: GetEffectiveEntitlementLimit :one
+SELECT iee.value,
+       iee.limit_cap_exceeded_overage_percent
+FROM instance_effective_entitlement iee
+WHERE iee.instance_id = $1
+  AND iee.entitlement_id = $2
+  AND iee.organization_id = $3
+`
+
+type GetEffectiveEntitlementLimitParams struct {
+	InstanceID     uuid.UUID `json:"instance_id"`
+	EntitlementID  uuid.UUID `json:"entitlement_id"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+}
+
+type GetEffectiveEntitlementLimitRow struct {
+	Value                          []byte `json:"value"`
+	LimitCapExceededOveragePercent *int16 `json:"limit_cap_exceeded_overage_percent"`
+}
+
+// The limit and overage policy a report is gated on: the instance's effective
+// entitlement, read after StampReportInstant. No row means the instance is no
+// longer granted the entitlement.
+func (q *Queries) GetEffectiveEntitlementLimit(ctx context.Context, arg GetEffectiveEntitlementLimitParams) (GetEffectiveEntitlementLimitRow, error) {
+	row := q.db.QueryRow(ctx, getEffectiveEntitlementLimit, arg.InstanceID, arg.EntitlementID, arg.OrganizationID)
+	var i GetEffectiveEntitlementLimitRow
+	err := row.Scan(&i.Value, &i.LimitCapExceededOveragePercent)
+	return i, err
+}
+
 const getEntitlementContextBySlug = `-- name: GetEntitlementContextBySlug :one
 SELECT
   i.id                AS instance_id,
@@ -77,17 +107,14 @@ SELECT
   e.warning_threshold_percent,
   e.reset_period,
   e.reset_anchor,
-  le.value            AS license_entitlement_value,
-  le.limit_cap_exceeded_overage_percent,
   l.slug              AS license_slug
 FROM instance i
 JOIN entitlement e
   ON e.slug            = $1
  AND e.organization_id = $2
-JOIN license_entitlement le
-  ON le.license_id     = i.license_id
- AND le.entitlement_id = e.id
- AND le.organization_id = $2
+JOIN instance_effective_entitlement iee
+  ON iee.instance_id    = i.id
+ AND iee.entitlement_id = e.id
 LEFT JOIN "license" l
   ON l.id = i.license_id
 WHERE i.slug            = $3
@@ -101,25 +128,25 @@ type GetEntitlementContextBySlugParams struct {
 }
 
 type GetEntitlementContextBySlugRow struct {
-	InstanceID                     uuid.UUID               `json:"instance_id"`
-	LicenseID                      uuid.UUID               `json:"license_id"`
-	StartLicenseDate               pgtype.Timestamp        `json:"start_license_date"`
-	EntitlementID                  uuid.UUID               `json:"entitlement_id"`
-	EntitlementSlug                string                  `json:"entitlement_slug"`
-	EntitlementType                EntitlementType         `json:"entitlement_type"`
-	AggregationMethod              *AggregationMethod      `json:"aggregation_method"`
-	WarningThresholdPercent        int16                   `json:"warning_threshold_percent"`
-	ResetPeriod                    *EntitlementResetPeriod `json:"reset_period"`
-	ResetAnchor                    *EntitlementResetAnchor `json:"reset_anchor"`
-	LicenseEntitlementValue        []byte                  `json:"license_entitlement_value"`
-	LimitCapExceededOveragePercent *int16                  `json:"limit_cap_exceeded_overage_percent"`
-	LicenseSlug                    *string                 `json:"license_slug"`
+	InstanceID              uuid.UUID               `json:"instance_id"`
+	LicenseID               uuid.UUID               `json:"license_id"`
+	StartLicenseDate        pgtype.Timestamp        `json:"start_license_date"`
+	EntitlementID           uuid.UUID               `json:"entitlement_id"`
+	EntitlementSlug         string                  `json:"entitlement_slug"`
+	EntitlementType         EntitlementType         `json:"entitlement_type"`
+	AggregationMethod       *AggregationMethod      `json:"aggregation_method"`
+	WarningThresholdPercent int16                   `json:"warning_threshold_percent"`
+	ResetPeriod             *EntitlementResetPeriod `json:"reset_period"`
+	ResetAnchor             *EntitlementResetAnchor `json:"reset_anchor"`
+	LicenseSlug             *string                 `json:"license_slug"`
 }
 
-// Resolves instance/entitlement slugs and validates the license entitlement in a single
-// round-trip. Returns IDs and metadata needed to then lock and update the usage row,
-// including everything period.Current needs (reset_period/reset_anchor/start_license_date).
-// Does NOT include the usage value — call GetEntitlementUsageContext for that (with FOR UPDATE).
+// Resolves instance/entitlement slugs and checks the instance is granted the
+// entitlement, in a single round-trip. Returns IDs and metadata needed to then
+// lock and update the usage row, including everything period.Current needs
+// (reset_period/reset_anchor/start_license_date). Includes neither the usage
+// value (GetEntitlementUsageContext, with FOR UPDATE) nor the limit
+// (GetEffectiveEntitlementLimit): both are read under the pair's lock.
 func (q *Queries) GetEntitlementContextBySlug(ctx context.Context, arg GetEntitlementContextBySlugParams) (GetEntitlementContextBySlugRow, error) {
 	row := q.db.QueryRow(ctx, getEntitlementContextBySlug, arg.EntitlementSlug, arg.OrganizationID, arg.InstanceSlug)
 	var i GetEntitlementContextBySlugRow
@@ -134,8 +161,6 @@ func (q *Queries) GetEntitlementContextBySlug(ctx context.Context, arg GetEntitl
 		&i.WarningThresholdPercent,
 		&i.ResetPeriod,
 		&i.ResetAnchor,
-		&i.LicenseEntitlementValue,
-		&i.LimitCapExceededOveragePercent,
 		&i.LicenseSlug,
 	)
 	return i, err
@@ -143,21 +168,9 @@ func (q *Queries) GetEntitlementContextBySlug(ctx context.Context, arg GetEntitl
 
 const getEntitlementUsageContext = `-- name: GetEntitlementUsageContext :one
 SELECT
-  eu.entitlement_id,
-  eu.instance_id,
   eu.value,
-  eu.period_start,
-  eu.organization_id,
-  i.license_id,
-  e.type as entitlement_type,
-  e.aggregation_method,
-  e.warning_threshold_percent,
-  le.value as license_entitlement_value,
-  le.limit_cap_exceeded_overage_percent
+  eu.period_start
 FROM entitlement_usage eu
-       JOIN instance i ON eu.instance_id = i.id
-       JOIN entitlement e ON eu.entitlement_id = e.id
-       JOIN license_entitlement le ON le.license_id = i.license_id AND le.entitlement_id = eu.entitlement_id
 WHERE eu.instance_id = $1
   AND eu.entitlement_id = $2
   AND eu.organization_id = $3
@@ -171,35 +184,16 @@ type GetEntitlementUsageContextParams struct {
 }
 
 type GetEntitlementUsageContextRow struct {
-	EntitlementID                  uuid.UUID          `json:"entitlement_id"`
-	InstanceID                     uuid.UUID          `json:"instance_id"`
-	Value                          []byte             `json:"value"`
-	PeriodStart                    pgtype.Timestamp   `json:"period_start"`
-	OrganizationID                 uuid.UUID          `json:"organization_id"`
-	LicenseID                      uuid.UUID          `json:"license_id"`
-	EntitlementType                EntitlementType    `json:"entitlement_type"`
-	AggregationMethod              *AggregationMethod `json:"aggregation_method"`
-	WarningThresholdPercent        int16              `json:"warning_threshold_percent"`
-	LicenseEntitlementValue        []byte             `json:"license_entitlement_value"`
-	LimitCapExceededOveragePercent *int16             `json:"limit_cap_exceeded_overage_percent"`
+	Value       []byte           `json:"value"`
+	PeriodStart pgtype.Timestamp `json:"period_start"`
 }
 
+// The pair's counter, row-locked. The report reads it under the pair's
+// advisory lock; no row means the pair's first report.
 func (q *Queries) GetEntitlementUsageContext(ctx context.Context, arg GetEntitlementUsageContextParams) (GetEntitlementUsageContextRow, error) {
 	row := q.db.QueryRow(ctx, getEntitlementUsageContext, arg.InstanceID, arg.EntitlementID, arg.OrganizationID)
 	var i GetEntitlementUsageContextRow
-	err := row.Scan(
-		&i.EntitlementID,
-		&i.InstanceID,
-		&i.Value,
-		&i.PeriodStart,
-		&i.OrganizationID,
-		&i.LicenseID,
-		&i.EntitlementType,
-		&i.AggregationMethod,
-		&i.WarningThresholdPercent,
-		&i.LicenseEntitlementValue,
-		&i.LimitCapExceededOveragePercent,
-	)
+	err := row.Scan(&i.Value, &i.PeriodStart)
 	return i, err
 }
 
@@ -254,11 +248,11 @@ SELECT
   i.license_id      AS license_id,
   i.start_license_date,
   e.id              AS entitlement_id,
-  le.id             AS license_entitlement_id,
+  iee.entitlement_id AS granted_entitlement_id,
   e.type            AS entitlement_type,
   e.reset_period,
   e.reset_anchor,
-  le.value          AS license_value,
+  iee.value         AS effective_value,
   eu.value          AS usage_value,
   eu.period_start,
   e.slug            AS entitlement_slug,
@@ -271,10 +265,9 @@ LEFT JOIN instance i
 LEFT JOIN entitlement e
   ON e.slug            = $3
  AND e.organization_id = $2
-LEFT JOIN license_entitlement le
-  ON le.license_id     = i.license_id
- AND le.entitlement_id = e.id
- AND le.organization_id = $2
+LEFT JOIN instance_effective_entitlement iee
+  ON iee.instance_id    = i.id
+ AND iee.entitlement_id = e.id
 LEFT JOIN entitlement_usage eu
   ON eu.instance_id    = i.id
  AND eu.entitlement_id = e.id
@@ -294,11 +287,11 @@ type GetEntitlementUsageForInstanceOrDefaultRow struct {
 	LicenseID            *uuid.UUID              `json:"license_id"`
 	StartLicenseDate     pgtype.Timestamp        `json:"start_license_date"`
 	EntitlementID        *uuid.UUID              `json:"entitlement_id"`
-	LicenseEntitlementID *uuid.UUID              `json:"license_entitlement_id"`
+	GrantedEntitlementID *uuid.UUID              `json:"granted_entitlement_id"`
 	EntitlementType      *EntitlementType        `json:"entitlement_type"`
 	ResetPeriod          *EntitlementResetPeriod `json:"reset_period"`
 	ResetAnchor          *EntitlementResetAnchor `json:"reset_anchor"`
-	LicenseValue         []byte                  `json:"license_value"`
+	EffectiveValue       []byte                  `json:"effective_value"`
 	UsageValue           []byte                  `json:"usage_value"`
 	PeriodStart          pgtype.Timestamp        `json:"period_start"`
 	EntitlementSlug      *string                 `json:"entitlement_slug"`
@@ -306,7 +299,9 @@ type GetEntitlementUsageForInstanceOrDefaultRow struct {
 	Now                  pgtype.Timestamp        `json:"now"`
 }
 
-// Returns one row always. Nullable fields are nil when the entity is not found.
+// Returns one row always. Nullable fields are nil when the entity is not found;
+// granted_entitlement_id is nil when the instance is not granted the
+// entitlement.
 // now is folded in here too, instead of a separate GetDatabaseNow
 // round trip -- it does not depend on any of the LEFT JOINs below, so it is
 // always populated even when the instance/entitlement/usage row is not found.
@@ -318,11 +313,11 @@ func (q *Queries) GetEntitlementUsageForInstanceOrDefault(ctx context.Context, a
 		&i.LicenseID,
 		&i.StartLicenseDate,
 		&i.EntitlementID,
-		&i.LicenseEntitlementID,
+		&i.GrantedEntitlementID,
 		&i.EntitlementType,
 		&i.ResetPeriod,
 		&i.ResetAnchor,
-		&i.LicenseValue,
+		&i.EffectiveValue,
 		&i.UsageValue,
 		&i.PeriodStart,
 		&i.EntitlementSlug,
@@ -334,7 +329,7 @@ func (q *Queries) GetEntitlementUsageForInstanceOrDefault(ctx context.Context, a
 
 const getEntitlementsUsageForInstanceWithFallback = `-- name: GetEntitlementsUsageForInstanceWithFallback :many
 SELECT
-  le.entitlement_id,
+  iee.entitlement_id,
   e.slug            AS entitlement_slug,
   e.type            AS entitlement_type,
   e.reset_period,
@@ -342,21 +337,21 @@ SELECT
   i.license_id,
   i.start_license_date,
   l.slug            AS license_slug,
-  le.value          AS license_value,
+  iee.value         AS effective_value,
   eu.value          AS usage_value,
   eu.period_start,
   date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
 FROM instance i
-JOIN license_entitlement le
-  ON le.license_id = i.license_id
- AND le.organization_id = $1
+JOIN instance_effective_entitlement iee
+  ON iee.instance_id = i.id
+ AND iee.organization_id = $1
 JOIN entitlement e
-  ON e.id = le.entitlement_id
+  ON e.id = iee.entitlement_id
 LEFT JOIN "license" l
   ON l.id = i.license_id
 LEFT JOIN entitlement_usage eu
   ON eu.instance_id = i.id
- AND eu.entitlement_id = le.entitlement_id
+ AND eu.entitlement_id = iee.entitlement_id
  AND eu.organization_id = $1
 WHERE i.id = $2
   AND i.organization_id = $1
@@ -376,15 +371,17 @@ type GetEntitlementsUsageForInstanceWithFallbackRow struct {
 	LicenseID        uuid.UUID               `json:"license_id"`
 	StartLicenseDate pgtype.Timestamp        `json:"start_license_date"`
 	LicenseSlug      *string                 `json:"license_slug"`
-	LicenseValue     []byte                  `json:"license_value"`
+	EffectiveValue   []byte                  `json:"effective_value"`
 	UsageValue       []byte                  `json:"usage_value"`
 	PeriodStart      pgtype.Timestamp        `json:"period_start"`
 	Now              pgtype.Timestamp        `json:"now"`
 }
 
-// now is the same database-time value on every returned row:
-// folded into this query instead of a separate GetDatabaseNow round trip,
-// since every row in one call already agrees on "now" by construction.
+// One row per entitlement the instance is granted, read through
+// instance_effective_entitlement like every other reader of an instance's
+// entitlement value. now is the same database-time value on every returned
+// row: folded into this query instead of a separate GetDatabaseNow round
+// trip, since every row in one call already agrees on "now" by construction.
 func (q *Queries) GetEntitlementsUsageForInstanceWithFallback(ctx context.Context, arg GetEntitlementsUsageForInstanceWithFallbackParams) ([]GetEntitlementsUsageForInstanceWithFallbackRow, error) {
 	rows, err := q.db.Query(ctx, getEntitlementsUsageForInstanceWithFallback, arg.OrganizationID, arg.InstanceID)
 	if err != nil {
@@ -403,7 +400,7 @@ func (q *Queries) GetEntitlementsUsageForInstanceWithFallback(ctx context.Contex
 			&i.LicenseID,
 			&i.StartLicenseDate,
 			&i.LicenseSlug,
-			&i.LicenseValue,
+			&i.EffectiveValue,
 			&i.UsageValue,
 			&i.PeriodStart,
 			&i.Now,
@@ -466,4 +463,28 @@ func (q *Queries) ReportEntitlementUsage(ctx context.Context, arg ReportEntitlem
 		arg.PeriodStart,
 	)
 	return err
+}
+
+const stampReportInstant = `-- name: StampReportInstant :one
+SELECT c.now,
+       set_config('kaiten.entitlement_effective_at', to_char(c.now, 'YYYY-MM-DD HH24:MI:SS.MS'), true)::text AS effective_at
+FROM (SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now) c
+`
+
+type StampReportInstantRow struct {
+	Now         pgtype.Timestamp `json:"now"`
+	EffectiveAt string           `json:"effective_at"`
+}
+
+// The instant a report is dated by: the usage clock (see GetDatabaseNow), read
+// once the pair's lock is held. It also becomes the transaction's
+// kaiten.entitlement_effective_at, so that instance_effective_entitlement,
+// read next in the same transaction, is evaluated at that same millisecond.
+// set_config is the parameterizable SET LOCAL; true scopes it to the
+// transaction.
+func (q *Queries) StampReportInstant(ctx context.Context) (StampReportInstantRow, error) {
+	row := q.db.QueryRow(ctx, stampReportInstant)
+	var i StampReportInstantRow
+	err := row.Scan(&i.Now, &i.EffectiveAt)
+	return i, err
 }

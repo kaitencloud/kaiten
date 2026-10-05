@@ -31,6 +31,7 @@ var legacyUsageClock = regexp.MustCompile(`(?i)\(\s*now\(\)\s+AT\s+TIME\s+ZONE\s
 var usageClockQueries = map[string][]string{
 	"instances/infrastructure/db/queries/entitlement_usage.sql": {
 		"GetDatabaseNow",
+		"StampReportInstant",
 		"GetEntitlementsUsageForInstanceWithFallback",
 		"GetEntitlementUsageForInstanceOrDefault",
 	},

@@ -60,10 +60,10 @@ func MapUsageRows(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) ([]e
 	now := rows[0].Now.Time.UTC()
 
 	for _, e := range rows {
-		// The limit is the license grant, whatever the entitlement type: for the
-		// NUMBER family it is the cap the usage below is measured against, for
-		// BOOLEAN and CONFIG it is the value itself.
-		limit, err := entitlementUsageSchema.ParseEntitlementValue(e.LicenseValue)
+		// The limit is the instance's effective entitlement, whatever its type:
+		// for the NUMBER family it is the cap the usage below is measured
+		// against, for BOOLEAN and CONFIG it is the value itself.
+		limit, err := entitlementUsageSchema.ParseEntitlementValue(e.EffectiveValue)
 		if err != nil {
 			return nil, err
 		}

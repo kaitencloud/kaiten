@@ -506,15 +506,17 @@ SELECT l.slug           AS license_slug,
        lf.slug          AS license_family_slug,
        l.type           AS license_type,
        e.slug           AS entitlement_slug,
-       le.value         AS limit_value,
+       iee.value        AS limit_value,
        eu.value         AS usage_value
 FROM primary_instance pi
        JOIN "license" l ON l.id = pi.license_id
        JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
-       LEFT JOIN license_entitlement le
-         ON le.license_id = l.id AND le.organization_id = $1
+       -- The instance's effective entitlements, as every reader of an
+       -- instance's entitlement value reads them.
+       LEFT JOIN instance_effective_entitlement iee
+         ON iee.instance_id = pi.id AND iee.organization_id = $1
        LEFT JOIN entitlement e
-         ON e.id = le.entitlement_id AND e.organization_id = $1
+         ON e.id = iee.entitlement_id AND e.organization_id = $1
        LEFT JOIN entitlement_usage eu
          ON eu.instance_id = pi.id
         AND eu.entitlement_id = e.id

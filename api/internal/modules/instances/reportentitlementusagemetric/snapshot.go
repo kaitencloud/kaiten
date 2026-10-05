@@ -42,10 +42,7 @@ func WriteSnapshot(ctx context.Context, uof *uow.UnitOfWork, s Snapshot) error {
 		if err != nil {
 			return err
 		}
-		reportedAt, err := queryRepo.GetDatabaseNow(ctx)
-		if err != nil {
-			return err
-		}
+		reportedAt := usageCtx.ReportedAt
 
 		stored := entitlementvalue.NewDefaultNumberUsageValue()
 		if usageCtx.UsageValue != nil {
@@ -54,7 +51,7 @@ func WriteSnapshot(ctx context.Context, uof *uow.UnitOfWork, s Snapshot) error {
 				return kaitenerrors.Validation("ReportEntitlementUsageMetric.InvalidStoredUsageValue", err.Error())
 			}
 		}
-		threshold, err := entitlementvalue.ParseNumberThreshold(usageCtx.LicenseEntitlementValue)
+		threshold, err := entitlementvalue.ParseNumberThreshold(usageCtx.EffectiveValue)
 		if err != nil {
 			return kaitenerrors.Validation("ReportEntitlementUsageMetric.InvalidLicenseEntitlementValue", err.Error())
 		}
