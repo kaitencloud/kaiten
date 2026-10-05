@@ -2,8 +2,13 @@ package reportentitlementusagemetric
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"time"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
@@ -54,21 +59,45 @@ type Deps struct {
 	UserProvider  currentuser.Provider
 	UsageReporter services.UsageReporter
 	Uof           *uow.UnitOfWork
+	// MaxRolloverClosures caps how many usage windows one report may close
+	// (KAITEN_USAGE_ROLLOVER_MAX_CLOSURES). Zero or less means
+	// DefaultMaxRolloverClosures.
+	MaxRolloverClosures int
 }
 
+const usageReportMeter = "kaiten.usage.report"
+
 type UseCase struct {
-	deps        Deps
-	queryRepo   *QueryRepository
-	commandRepo *CommandRepository
-	outbox      *outbox.ScopedRepository
+	deps                Deps
+	queryRepo           *QueryRepository
+	commandRepo         *CommandRepository
+	outbox              *outbox.ScopedRepository
+	maxRolloverClosures int
+	rolloverCapExceeded metric.Int64Counter
 }
 
 func NewUseCase(deps Deps) *UseCase {
+	maxRolloverClosures := deps.MaxRolloverClosures
+	if maxRolloverClosures <= 0 {
+		maxRolloverClosures = DefaultMaxRolloverClosures
+	}
+
+	rolloverCapExceeded, err := otel.GetMeterProvider().Meter(usageReportMeter).Int64Counter(
+		"kaiten.usage.report.rollover_cap_exceeded",
+		metric.WithDescription("Usage reports refused because closing the windows since the last report would exceed the rollover cap"),
+		metric.WithUnit("{report}"),
+	)
+	if err != nil {
+		slog.Warn("failed to register usage report metric", "metric", "rollover_cap_exceeded", "error", err)
+	}
+
 	return &UseCase{
-		deps:        deps,
-		queryRepo:   NewQueryRepository(deps.Uof),
-		commandRepo: NewCommandRepository(deps.Uof),
-		outbox:      outbox.NewScopedRepository(deps.Uof),
+		deps:                deps,
+		queryRepo:           NewQueryRepository(deps.Uof),
+		commandRepo:         NewCommandRepository(deps.Uof),
+		outbox:              outbox.NewScopedRepository(deps.Uof),
+		maxRolloverClosures: maxRolloverClosures,
+		rolloverCapExceeded: rolloverCapExceeded,
 	}
 }
 
@@ -101,6 +130,16 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 			)
 		}
 
+		// The instant this report happens at: the database clock, read once,
+		// and only now that GetEntitlementUsageContext holds the pair's lock.
+		// now() would be the transaction's BEGIN, so a report that waited for
+		// the lock across a window boundary would compute the window it began
+		// in rather than the one the report before it already rolled over to.
+		reportedAt, err := h.queryRepo.GetDatabaseNow(ctx)
+		if err != nil {
+			return err
+		}
+
 		aggregationMethod := resolveAggregationMethod(entitlementUsageCtx.AggregationMethod)
 
 		currentUsage := entitlementvalue.NewDefaultNumberUsageValue()
@@ -124,14 +163,23 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 		// currentPeriodStart/End response fields.
 		var resolvedPeriodStart, resolvedPeriodEnd *time.Time
 		if entitlementUsageCtx.ResetPeriod != nil {
-			now, err := h.queryRepo.GetDatabaseNow(ctx)
+			// A stored window ahead of the computed one stays current (see
+			// period.ResolveCurrent): the counter keeps counting where it is
+			// instead of rolling over from a window that is already ahead.
+			window, storedAhead, err := period.ResolveCurrent(
+				reportedAt, entitlementUsageCtx.PeriodStart,
+				*entitlementUsageCtx.ResetPeriod, *entitlementUsageCtx.ResetAnchor, entitlementUsageCtx.LicenseStart,
+			)
 			if err != nil {
 				return err
 			}
-
-			window, err := period.Current(now, *entitlementUsageCtx.ResetPeriod, *entitlementUsageCtx.ResetAnchor, entitlementUsageCtx.LicenseStart)
-			if err != nil {
-				return err
+			if storedAhead {
+				slog.WarnContext(ctx, "usage window ahead of the database clock, kept as current",
+					"instance_id", entitlementUsageCtx.InstanceID,
+					"entitlement_id", entitlementUsageCtx.EntitlementID,
+					"stored_period_start", window.Start,
+					"reported_at", reportedAt,
+				)
 			}
 
 			hasStoredRow := entitlementUsageCtx.UsageValue != nil
@@ -139,9 +187,23 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 
 			if stale {
 				closures, err := planRollover(
+					ctx, h.maxRolloverClosures,
 					entitlementUsageCtx.PeriodStart, currentUsage.Value, currentUsage.EventCount,
 					window, *entitlementUsageCtx.ResetPeriod, *entitlementUsageCtx.ResetAnchor, entitlementUsageCtx.LicenseStart,
 				)
+				if errors.Is(err, errRolloverLimitExceeded) {
+					h.rolloverCapExceeded.Add(ctx, 1)
+					slog.ErrorContext(ctx, "usage report refused: too many windows to roll over",
+						"instance_id", entitlementUsageCtx.InstanceID,
+						"entitlement_id", entitlementUsageCtx.EntitlementID,
+						"stored_period_start", entitlementUsageCtx.PeriodStart,
+						"max_closures", h.maxRolloverClosures,
+					)
+					return kaitenerrors.Internal(
+						"ReportEntitlementUsageMetric.RolloverLimitExceeded",
+						fmt.Sprintf("closing the usage windows elapsed since the last report of %s would exceed the limit of %d", entitlementSlug, h.maxRolloverClosures),
+					)
+				}
 				if err != nil {
 					return err
 				}
@@ -166,9 +228,9 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 				// One round trip via CreateOutboxEvents regardless of how many
 				// windows were skipped: a dormant HOUR/DAY entitlement can
 				// legitimately produce thousands of closures in a single
-				// report (see the "no cap" decision in the ticket), and
-				// inserting them one at a time would hold the advisory lock
-				// and this transaction open far longer than necessary.
+				// report (up to maxRolloverClosures), and inserting them one at
+				// a time would hold the advisory lock and this transaction
+				// open far longer than necessary.
 				rolloverEventsToEmit := make([]outbox.Outbox, len(closures))
 				for i, c := range closures {
 					payload := InstanceEntitlementUsagePeriodRolledOver{

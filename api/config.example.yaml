@@ -121,3 +121,11 @@ metered:
 connectors:
   # VAULT_CONNECTORS_BASE_PATH — where connector settings live in Vault.
   vault_base_path: kaiten/connectors
+
+# The usage report path.
+usage:
+  # A report against a periodic entitlement first closes every window elapsed
+  # since the last report, holding that pair's lock while it does. Above this
+  # many windows the report fails with a 500 instead. 100000 is an HOUR
+  # entitlement idle for 11 years.
+  rollover_max_closures: 100000   # KAITEN_USAGE_ROLLOVER_MAX_CLOSURES

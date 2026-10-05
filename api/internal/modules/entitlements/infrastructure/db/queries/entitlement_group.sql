@@ -134,7 +134,7 @@ SELECT e.id              AS entitlement_id,
        eu.value          AS usage_value,
        eu.period_start,
        le.value          AS license_value,
-       (now() AT TIME ZONE 'UTC')::timestamp(3) AS now
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
 FROM entitlement_group eg
 JOIN entitlement_group_membership egm ON egm.entitlement_group_id = eg.id
 JOIN entitlement e ON e.id = egm.entitlement_id

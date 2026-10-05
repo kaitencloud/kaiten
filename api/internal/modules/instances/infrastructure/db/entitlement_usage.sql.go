@@ -13,12 +13,15 @@ import (
 )
 
 const getDatabaseNow = `-- name: GetDatabaseNow :one
-SELECT (now() AT TIME ZONE 'UTC')::timestamp(3) AS now
+SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
 `
 
-// The single time source for periodic usage window decisions:
-// never use application-node wall clock, so reads/reports across replicas
-// stay aligned on the same notion of "now".
+// The single time source for usage: never the application node's wall clock,
+// so reads and reports on different replicas agree on "now". clock_timestamp()
+// rather than now(): now() is frozen at the transaction's BEGIN, and a report
+// reads this after waiting for its pair's lock. Truncated rather than cast:
+// the ::timestamp(3) cast rounds, which moves 23:59:59.9996 into the next
+// window. Every usage read uses this same expression.
 func (q *Queries) GetDatabaseNow(ctx context.Context) (pgtype.Timestamp, error) {
 	row := q.db.QueryRow(ctx, getDatabaseNow)
 	var now pgtype.Timestamp
@@ -224,7 +227,7 @@ SELECT
   eu.period_start,
   e.slug            AS entitlement_slug,
   l.slug            AS license_slug,
-  (now() AT TIME ZONE 'UTC')::timestamp(3) AS now
+  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
 FROM (VALUES (true)) AS sentinel(ok)
 LEFT JOIN instance i
   ON i.slug            = $1
@@ -306,7 +309,7 @@ SELECT
   le.value          AS license_value,
   eu.value          AS usage_value,
   eu.period_start,
-  (now() AT TIME ZONE 'UTC')::timestamp(3) AS now
+  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
 FROM instance i
 JOIN license_entitlement le
   ON le.license_id = i.license_id

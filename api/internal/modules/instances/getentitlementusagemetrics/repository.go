@@ -77,14 +77,13 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 		// (GetEntitlementUsageForInstanceOrDefault) rather than a separate
 		// GetDatabaseNow round trip.
 		if result.ResetPeriod != nil {
-			window, err := period.Current(result.Now.Time.UTC(), period.ResetPeriod(*result.ResetPeriod), period.ResetAnchor(*result.ResetAnchor), result.StartLicenseDate.Time.UTC())
-			if err != nil {
-				return nil, err
-			}
-
 			var storedPeriodStart *time.Time
 			if result.PeriodStart.Valid {
 				storedPeriodStart = ptr.To(result.PeriodStart.Time.UTC())
+			}
+			window, _, err := period.ResolveCurrent(result.Now.Time.UTC(), storedPeriodStart, period.ResetPeriod(*result.ResetPeriod), period.ResetAnchor(*result.ResetAnchor), result.StartLicenseDate.Time.UTC())
+			if err != nil {
+				return nil, err
 			}
 			usage = entitlementvalue.ResolveCurrentWindowUsage(stored, storedPeriodStart, window)
 			currentPeriodStart, currentPeriodEnd = &window.Start, &window.End

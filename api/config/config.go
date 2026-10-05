@@ -63,6 +63,7 @@ type CoreConfig struct {
 	Retention  Retention
 	Metered    Metered
 	Connectors Connectors
+	Usage      Usage
 }
 
 type Server struct {
@@ -208,6 +209,18 @@ type Metered struct {
 	TokenFile string `mapstructure:"token_file" validate:"required_if=Enabled true"`
 }
 
+// Usage tunes the usage report path.
+type Usage struct {
+	// RolloverMaxClosures caps how many usage windows a single report may
+	// close. A report against a periodic entitlement first closes every
+	// window elapsed since the last report, one PERIOD_ROLLED_OVER event
+	// each, while it holds the pair's lock: an HOUR entitlement idle for a
+	// year closes 8,760. Above the cap the report fails with a 500 rather than
+	// hold the lock for as long as the walk takes. The default, 100,000, is an
+	// HOUR entitlement idle for 11 years.
+	RolloverMaxClosures int `mapstructure:"rollover_max_closures" validate:"gt=0"`
+}
+
 // Connectors settings storage.
 type Connectors struct {
 	VaultBasePath string `mapstructure:"vault_base_path"`
@@ -258,6 +271,7 @@ var settings = []struct {
 	{"metered.api_url", "KAITEN_METERED_API_URL", nil, false},
 	{"metered.token_file", "KAITEN_METERED_TOKEN_FILE", nil, false},
 	{"connectors.vault_base_path", "VAULT_CONNECTORS_BASE_PATH", "kaiten/connectors", false},
+	{"usage.rollover_max_closures", "KAITEN_USAGE_ROLLOVER_MAX_CLOSURES", 100000, false},
 }
 
 const (

@@ -86,14 +86,13 @@ func MapUsageRows(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) ([]e
 			}
 
 			if e.ResetPeriod != nil {
-				window, err := period.Current(now, period.ResetPeriod(*e.ResetPeriod), period.ResetAnchor(*e.ResetAnchor), e.StartLicenseDate.Time.UTC())
-				if err != nil {
-					return nil, err
-				}
-
 				var storedPeriodStart *time.Time
 				if e.PeriodStart.Valid {
 					storedPeriodStart = ptr.To(e.PeriodStart.Time.UTC())
+				}
+				window, _, err := period.ResolveCurrent(now, storedPeriodStart, period.ResetPeriod(*e.ResetPeriod), period.ResetAnchor(*e.ResetAnchor), e.StartLicenseDate.Time.UTC())
+				if err != nil {
+					return nil, err
 				}
 				usage = entitlementvalue.ResolveCurrentWindowUsage(stored, storedPeriodStart, window)
 				currentPeriodStart, currentPeriodEnd = &window.Start, &window.End
