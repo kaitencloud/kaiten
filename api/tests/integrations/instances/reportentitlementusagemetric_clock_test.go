@@ -115,6 +115,15 @@ func TestReportEntitlementUsageMetric_Clock(t *testing.T) {
 		gauge := readUsage(t, instances[0].Slug, entitlement.Slug)
 		require.InDelta(t, 6, gauge.Value.Number.Value, 0)
 		require.True(t, gauge.CurrentPeriodStart.Equal(ahead), "gauge currentPeriodStart = %v, want %v", gauge.CurrentPeriodStart, ahead)
+
+		// The journal records what the counter did: a row in the kept window,
+		// dated before that window starts.
+		rows := ledgerRows(t, instances[0].ID, entitlement.ID)
+		require.Len(t, rows, 1)
+		require.True(t, rows[0].WindowStart.Equal(ahead))
+		require.True(t, rows[0].ReportedAt.Before(ahead), "reported_at %v is before the kept window %v", rows[0].ReportedAt, ahead)
+		require.Equal(t, "5", rows[0].ValueBefore)
+		require.Equal(t, "6", rows[0].ValueAfter)
 	})
 
 	t.Run("WhenRolloverWouldExceedTheCap_Returns500AndWritesNothing", func(t *testing.T) {
@@ -205,6 +214,7 @@ func TestReportEntitlementUsageMetric_Clock(t *testing.T) {
 		time.Sleep(time.Until(at(100 * time.Millisecond)))
 		go send(results)
 		time.Sleep(time.Until(at(400 * time.Millisecond)))
+		released := databaseNow(t)
 		require.NoError(t, holder.Commit(t.Context()))
 
 		for range 2 {
@@ -230,5 +240,19 @@ func TestReportEntitlementUsageMetric_Clock(t *testing.T) {
 		gauge := readUsage(t, instance.Slug, entitlement.Slug)
 		require.InDelta(t, 2, gauge.Value.Number.Value, 0)
 		require.EqualValues(t, 2, gauge.Value.Number.EventCount)
+
+		// The journal: the first report in the closed window, then both waiting
+		// reports in the new one, dated after the lock was released.
+		rows := ledgerRows(t, instance.ID, entitlement.ID)
+		require.Len(t, rows, 3)
+		require.True(t, rows[0].WindowStart.Equal(boundary.Add(-time.Hour)))
+		for i, want := range []struct{ before, after string }{{"0", "1"}, {"1", "2"}} {
+			row := rows[i+1]
+			require.EqualValues(t, i+2, row.ReportSeq)
+			require.True(t, row.WindowStart.Equal(boundary), "row %d window_start = %v, want %v", i+2, row.WindowStart, boundary)
+			require.Equal(t, want.before, row.ValueBefore)
+			require.Equal(t, want.after, row.ValueAfter)
+			require.False(t, row.ReportedAt.Before(released), "row %d dated %v, before the lock was released at %v", i+2, row.ReportedAt, released)
+		}
 	})
 }

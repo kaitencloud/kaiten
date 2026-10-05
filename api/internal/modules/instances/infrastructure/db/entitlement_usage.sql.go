@@ -12,6 +12,42 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const acceptEntitlementUsage = `-- name: AcceptEntitlementUsage :one
+INSERT INTO entitlement_usage (entitlement_id, instance_id, value, organization_id, period_start, report_seq)
+VALUES ($1, $2, $3, $4, $5, 1)
+ON CONFLICT (entitlement_id, instance_id)
+  DO UPDATE SET value       = EXCLUDED.value,
+                period_start = EXCLUDED.period_start,
+                report_seq   = entitlement_usage.report_seq + 1
+RETURNING report_seq
+`
+
+type AcceptEntitlementUsageParams struct {
+	EntitlementID  uuid.UUID        `json:"entitlement_id"`
+	InstanceID     uuid.UUID        `json:"instance_id"`
+	Value          []byte           `json:"value"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	PeriodStart    pgtype.Timestamp `json:"period_start"`
+}
+
+// Writes the counter of an ACCEPTED report and moves the pair's report_seq
+// forward by one, returning it: the report_seq of the usage_ledger row the
+// same transaction writes next. A pair's first report creates the row at 1.
+// Runs under the pair's advisory lock, which is what keeps report_seq
+// contiguous.
+func (q *Queries) AcceptEntitlementUsage(ctx context.Context, arg AcceptEntitlementUsageParams) (int64, error) {
+	row := q.db.QueryRow(ctx, acceptEntitlementUsage,
+		arg.EntitlementID,
+		arg.InstanceID,
+		arg.Value,
+		arg.OrganizationID,
+		arg.PeriodStart,
+	)
+	var report_seq int64
+	err := row.Scan(&report_seq)
+	return report_seq, err
+}
+
 const getDatabaseNow = `-- name: GetDatabaseNow :one
 SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
 `
@@ -406,7 +442,7 @@ INSERT INTO entitlement_usage (entitlement_id, instance_id, value, organization_
 VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (entitlement_id, instance_id)
   DO UPDATE SET value = EXCLUDED.value, period_start = EXCLUDED.period_start
-RETURNING entitlement_id, instance_id, value, organization_id, period_start
+RETURNING entitlement_id, instance_id, value, organization_id, period_start, report_seq
 `
 
 type ReportEntitlementUsageParams struct {
@@ -417,10 +453,10 @@ type ReportEntitlementUsageParams struct {
 	PeriodStart    pgtype.Timestamp `json:"period_start"`
 }
 
-// period_start is NULL for lifetime entitlements (unchanged legacy
-// behavior) and the current window's start for periodic ones -- the report
-// path always passes the value it wants stored, whether continuing the
-// active window or rolling over to a new one.
+// Writes the counter without counting a report: the rollover reset of the
+// report path, which leaves report_seq where it is. An ACCEPTED report goes
+// through AcceptEntitlementUsage instead. period_start is NULL for lifetime
+// entitlements and the window's start for periodic ones.
 func (q *Queries) ReportEntitlementUsage(ctx context.Context, arg ReportEntitlementUsageParams) error {
 	_, err := q.db.Exec(ctx, reportEntitlementUsage,
 		arg.EntitlementID,

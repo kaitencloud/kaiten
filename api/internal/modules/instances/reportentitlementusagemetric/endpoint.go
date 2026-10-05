@@ -62,6 +62,7 @@ func RegisterEndpoint(api huma.API, app Reporter) {
 			http.StatusUnprocessableEntity,
 			http.StatusConflict,
 			http.StatusInternalServerError,
+			http.StatusServiceUnavailable,
 		},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)

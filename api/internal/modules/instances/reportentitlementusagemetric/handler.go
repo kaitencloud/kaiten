@@ -74,6 +74,7 @@ type UseCase struct {
 	outbox              *outbox.ScopedRepository
 	maxRolloverClosures int
 	rolloverCapExceeded metric.Int64Counter
+	ledgerUnavailable   metric.Int64Counter
 }
 
 func NewUseCase(deps Deps) *UseCase {
@@ -82,13 +83,22 @@ func NewUseCase(deps Deps) *UseCase {
 		maxRolloverClosures = DefaultMaxRolloverClosures
 	}
 
-	rolloverCapExceeded, err := otel.GetMeterProvider().Meter(usageReportMeter).Int64Counter(
+	meter := otel.GetMeterProvider().Meter(usageReportMeter)
+	rolloverCapExceeded, err := meter.Int64Counter(
 		"kaiten.usage.report.rollover_cap_exceeded",
 		metric.WithDescription("Usage reports refused because closing the windows since the last report would exceed the rollover cap"),
 		metric.WithUnit("{report}"),
 	)
 	if err != nil {
 		slog.Warn("failed to register usage report metric", "metric", "rollover_cap_exceeded", "error", err)
+	}
+	ledgerUnavailable, err := meter.Int64Counter(
+		"kaiten.usage.ledger.unavailable",
+		metric.WithDescription("Usage reports refused because no usage_ledger partition covers the instant they were accepted at"),
+		metric.WithUnit("{report}"),
+	)
+	if err != nil {
+		slog.Warn("failed to register usage report metric", "metric", "ledger.unavailable", "error", err)
 	}
 
 	return &UseCase{
@@ -98,6 +108,7 @@ func NewUseCase(deps Deps) *UseCase {
 		outbox:              outbox.NewScopedRepository(deps.Uof),
 		maxRolloverClosures: maxRolloverClosures,
 		rolloverCapExceeded: rolloverCapExceeded,
+		ledgerUnavailable:   ledgerUnavailable,
 	}
 }
 
@@ -305,20 +316,62 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 
 		// From here the report is accepted: within the cap, or a soft limit
 		// admitting an overage within its bound. Usage is always persisted,
-		// overage included.
+		// overage included, and journalled: the counter moves the pair's
+		// report_seq forward and the usage_ledger row records this report
+		// under it, in this transaction and under this lock, so the journal
+		// explains the counter row for row.
 		updatedUsageBytes, err := entitlementvalue.ToBytes(updatedUsage)
 		if err != nil {
 			return err
 		}
 
-		if err := h.commandRepo.ReportEntitlementUsage(
+		reportSeq, err := h.commandRepo.AcceptEntitlementUsage(
 			ctx,
 			entitlementUsageCtx.InstanceID,
 			entitlementUsageCtx.EntitlementID,
 			updatedUsageBytes,
 			user.OrganizationID,
 			resolvedPeriodStart,
-		); err != nil {
+		)
+		if err != nil {
+			return err
+		}
+
+		if err := h.commandRepo.AppendUsageLedger(ctx, LedgerEntry{
+			OrganizationID:    user.OrganizationID,
+			InstanceID:        entitlementUsageCtx.InstanceID,
+			EntitlementID:     entitlementUsageCtx.EntitlementID,
+			LicenseID:         entitlementUsageCtx.LicenseID,
+			ReportSeq:         reportSeq,
+			ReportedAt:        reportedAt,
+			WindowStart:       resolvedPeriodStart,
+			WindowEnd:         resolvedPeriodEnd,
+			Behavior:          command.Behavior,
+			AggregationMethod: aggregationMethod,
+			ReportedValue:     command.Value,
+			ValueBefore:       currentUsage.Value,
+			ValueAfter:        updatedUsage.Value,
+			EventCountAfter:   updatedUsage.EventCount,
+			Threshold:         threshold,
+			OveragePercent:    entitlementUsageCtx.LimitCapExceededOveragePercent,
+		}); err != nil {
+			if kaitenerrors.IsMissingPartition(err, usageLedgerTable) {
+				// No partition covers reportedAt. Partitions are created a year
+				// ahead, so this is a defect to page on, never a normal state:
+				// the report is refused and nothing is written, which keeps
+				// the counter and the journal in step. A retry is safe once a
+				// partition exists.
+				h.ledgerUnavailable.Add(ctx, 1)
+				slog.ErrorContext(ctx, "usage report refused: no usage_ledger partition for its instant",
+					"reported_at", reportedAt,
+					"instance_id", entitlementUsageCtx.InstanceID,
+					"entitlement_id", entitlementUsageCtx.EntitlementID,
+				)
+				return kaitenerrors.Unavailable(
+					"ReportEntitlementUsageMetric.LedgerUnavailable",
+					"the usage journal cannot record a report at this instant; nothing was counted, retry later",
+				)
+			}
 			return err
 		}
 

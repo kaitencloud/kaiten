@@ -83,15 +83,30 @@ WHERE eu.instance_id = $1
 
 
 -- name: ReportEntitlementUsage :exec
--- period_start is NULL for lifetime entitlements (unchanged legacy
--- behavior) and the current window's start for periodic ones -- the report
--- path always passes the value it wants stored, whether continuing the
--- active window or rolling over to a new one.
+-- Writes the counter without counting a report: the rollover reset of the
+-- report path, which leaves report_seq where it is. An ACCEPTED report goes
+-- through AcceptEntitlementUsage instead. period_start is NULL for lifetime
+-- entitlements and the window's start for periodic ones.
 INSERT INTO entitlement_usage (entitlement_id, instance_id, value, organization_id, period_start)
 VALUES ($1, $2, $3, sqlc.arg(organization_id), sqlc.arg(period_start))
 ON CONFLICT (entitlement_id, instance_id)
   DO UPDATE SET value = EXCLUDED.value, period_start = EXCLUDED.period_start
 RETURNING *;
+
+
+-- name: AcceptEntitlementUsage :one
+-- Writes the counter of an ACCEPTED report and moves the pair's report_seq
+-- forward by one, returning it: the report_seq of the usage_ledger row the
+-- same transaction writes next. A pair's first report creates the row at 1.
+-- Runs under the pair's advisory lock, which is what keeps report_seq
+-- contiguous.
+INSERT INTO entitlement_usage (entitlement_id, instance_id, value, organization_id, period_start, report_seq)
+VALUES (sqlc.arg(entitlement_id), sqlc.arg(instance_id), sqlc.arg(value), sqlc.arg(organization_id), sqlc.arg(period_start), 1)
+ON CONFLICT (entitlement_id, instance_id)
+  DO UPDATE SET value       = EXCLUDED.value,
+                period_start = EXCLUDED.period_start,
+                report_seq   = entitlement_usage.report_seq + 1
+RETURNING report_seq;
 
 
 -- name: GetDatabaseNow :one
