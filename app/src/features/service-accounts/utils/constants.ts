@@ -51,6 +51,8 @@ const RESOURCE_GROUPS: Record<ApiScopeResource, ScopeGroupId> = {
   components: 'releases',
   deployment_zones: 'releases',
   billing: 'billing',
+  vouchers: 'billing',
+  voucher_redemptions: 'billing',
   organizations: 'organization',
   tokens: 'organization',
   metadata_fields: 'organization',

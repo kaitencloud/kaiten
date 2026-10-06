@@ -122,4 +122,36 @@ export const BILLING_WEBHOOK_EVENTS = {
     type: 'com.kaiten.instance.invoice.v1.voided',
     group: 'invoice',
   },
+  INSTANCE_VOUCHER_EXPIRED: {
+    type: 'com.kaiten.instance.voucher.v1.expired',
+    group: 'voucher',
+  },
+  INSTANCE_VOUCHER_REDEEMED: {
+    type: 'com.kaiten.instance.voucher.v1.redeemed',
+    group: 'voucher',
+  },
+  INSTANCE_VOUCHER_REVOKED: {
+    type: 'com.kaiten.instance.voucher.v1.revoked',
+    group: 'voucher',
+  },
+  VOUCHER_ARCHIVED: {
+    type: 'com.kaiten.voucher.v1.archived',
+    group: 'voucher',
+  },
+  VOUCHER_CREATED: {
+    type: 'com.kaiten.voucher.v1.created',
+    group: 'voucher',
+  },
+  VOUCHER_EXHAUSTED: {
+    type: 'com.kaiten.voucher.v1.exhausted',
+    group: 'voucher',
+  },
+  VOUCHER_PUBLISHED: {
+    type: 'com.kaiten.voucher.v1.published',
+    group: 'voucher',
+  },
+  VOUCHER_UPDATED: {
+    type: 'com.kaiten.voucher.v1.updated',
+    group: 'voucher',
+  },
 } as const satisfies Partial<WebhookEventEntries>;

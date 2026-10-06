@@ -3006,6 +3006,16 @@ export default {
               description:
                 'Accès aux abonnements, aux factures, à la file de transmission et aux réglages de facturation',
             },
+            vouchers: {
+              label: 'Vouchers',
+              description:
+                "Accès aux vouchers : création, publication, archivage et révocation d'une utilisation",
+            },
+            voucherRedemptions: {
+              label: 'Utilisations de vouchers',
+              description:
+                "Accès aux vouchers d'une instance : vérifier un code et l'utiliser",
+            },
             organizations: {
               label: 'Organisations',
               description:
@@ -3069,6 +3079,7 @@ export default {
           usage: 'Utilisation',
           subscription: 'Abonnements',
           invoice: 'Factures',
+          voucher: 'Vouchers',
           featureFlag: 'Feature flags',
           release: 'Releases',
           deploymentZone: 'Zones de déploiement',
@@ -4323,6 +4334,9 @@ export default {
         INSTANCE_MIGRATED: 'Instance migrée',
         INSTANCE_STATUS_CHANGED: "Statut de l'instance modifié",
         INSTANCE_UPDATED: 'Instance mise à jour',
+        INSTANCE_VOUCHER_EXPIRED: "Utilisation d'un voucher expirée",
+        INSTANCE_VOUCHER_REDEEMED: 'Voucher utilisé',
+        INSTANCE_VOUCHER_REVOKED: "Utilisation d'un voucher révoquée",
         LICENSE_ARCHIVED: 'Version de licence archivée',
         LICENSE_CREATED: 'Licence créée',
         LICENSE_DELETED: 'Licence supprimée',
@@ -4347,6 +4361,11 @@ export default {
         RELEASE_DELETED: 'Release supprimée',
         RELEASE_DEPLOYED: 'Release déployée sur une zone',
         SYSTEM_ORGANIZATION_TOKEN_ISSUED: "Token d'organisation émis",
+        VOUCHER_ARCHIVED: 'Voucher archivé',
+        VOUCHER_CREATED: 'Voucher créé',
+        VOUCHER_EXHAUSTED: 'Voucher épuisé',
+        VOUCHER_PUBLISHED: 'Voucher publié',
+        VOUCHER_UPDATED: 'Voucher mis à jour',
       },
     },
     EntitlementUsage: {

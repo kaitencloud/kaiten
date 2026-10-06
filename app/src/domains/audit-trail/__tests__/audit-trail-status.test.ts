@@ -46,6 +46,7 @@ const ACCEPTED_EVENTS = [
   'METADATA_FIELD_CREATED',
   'RELEASE_CREATED',
   'RELEASE_DEPLOYED',
+  'VOUCHER_CREATED',
 ];
 
 // The API refused.
@@ -101,6 +102,9 @@ describe('event status', () => {
     // assignment: `unassigned` is not the word `assigned`.
     ['LICENSE_ENTITLEMENT_UNASSIGNED', 'read'],
     ['LICENSE_ENTITLEMENT_ASSIGNED', 'accepted'],
+    // A revoked redemption was taken back by a person, not refused by the
+    // API: it reads like a removal, not from its last word.
+    ['INSTANCE_VOUCHER_REVOKED', 'read'],
   ])('reads %s as %s', (eventName, category) => {
     expect(getEventCategory(eventName)).toBe(category);
   });

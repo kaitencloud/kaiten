@@ -2959,6 +2959,16 @@ export default {
               description:
                 'Access to subscriptions, invoices, the handoff queue and billing settings',
             },
+            vouchers: {
+              label: 'Vouchers',
+              description:
+                'Access to vouchers: create, publish and archive them, and revoke a redemption',
+            },
+            voucherRedemptions: {
+              label: 'Voucher redemptions',
+              description:
+                "Access to an instance's vouchers: check a code and redeem it",
+            },
             organizations: {
               label: 'Organizations',
               description: 'Access to organization settings and connectors',
@@ -3020,6 +3030,7 @@ export default {
           usage: 'Usage',
           subscription: 'Subscriptions',
           invoice: 'Invoices',
+          voucher: 'Vouchers',
           featureFlag: 'Feature flags',
           release: 'Releases',
           deploymentZone: 'Deployment zones',
@@ -4251,6 +4262,9 @@ export default {
         INSTANCE_MIGRATED: 'Instance migrated',
         INSTANCE_STATUS_CHANGED: 'Instance status changed',
         INSTANCE_UPDATED: 'Instance updated',
+        INSTANCE_VOUCHER_EXPIRED: 'Voucher redemption expired',
+        INSTANCE_VOUCHER_REDEEMED: 'Voucher redeemed',
+        INSTANCE_VOUCHER_REVOKED: 'Voucher redemption revoked',
         LICENSE_ARCHIVED: 'License version archived',
         LICENSE_CREATED: 'License created',
         LICENSE_DELETED: 'License deleted',
@@ -4275,6 +4289,11 @@ export default {
         RELEASE_DELETED: 'Release deleted',
         RELEASE_DEPLOYED: 'Release deployed to a zone',
         SYSTEM_ORGANIZATION_TOKEN_ISSUED: 'Organization token issued',
+        VOUCHER_ARCHIVED: 'Voucher archived',
+        VOUCHER_CREATED: 'Voucher created',
+        VOUCHER_EXHAUSTED: 'Voucher fully redeemed',
+        VOUCHER_PUBLISHED: 'Voucher published',
+        VOUCHER_UPDATED: 'Voucher updated',
       },
     },
     EntitlementUsage: {

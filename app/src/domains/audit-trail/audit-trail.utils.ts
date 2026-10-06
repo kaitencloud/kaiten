@@ -31,6 +31,10 @@ import type {
 //
 // A refusal is not a warning: ENTITLEMENT_USAGE_REPORT_REJECTED and
 // CUSTOMER_CREATION_REJECTED read as rejected.
+//
+// Nor is a revocation a refusal: INSTANCE_VOUCHER_REVOKED is a person taking a
+// redemption back, a removal like a deletion, so it reads as a plain read
+// rather than as rejected from its last word.
 const KNOWN_CATEGORIES = {
   ENTITLEMENT_VALUE_GET: 'read',
   ENTITLEMENT_USAGE_REPORT_ACCEPTED: 'accepted',
@@ -39,6 +43,7 @@ const KNOWN_CATEGORIES = {
   INSTANCE_ENTITLEMENT_USAGE_REACHED: 'warning',
   INSTANCE_ENTITLEMENT_CAP_EXCEEDED: 'warning',
   INSTANCE_INVOICE_HELD: 'warning',
+  INSTANCE_VOUCHER_REVOKED: 'read',
 } as const satisfies Partial<Record<AuditEventName, AuditEventCategory>>;
 
 // Any other event is coloured from its last word, so that failures read red and
