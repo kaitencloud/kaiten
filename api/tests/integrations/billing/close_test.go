@@ -23,9 +23,9 @@ import (
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
 
-func closePeriods(t *testing.T, body map[string]any) closing.Report {
+func closePeriods(t *testing.T, body map[string]any) closing.ClosePeriodsReport {
 	t.Helper()
-	return commonfixture.AssertJSONResponse[closing.Report](t, call(t, "POST", "/api/billing/close-periods", body), fiber.StatusOK)
+	return commonfixture.AssertJSONResponse[closing.ClosePeriodsReport](t, call(t, "POST", "/api/billing/close-periods", body), fiber.StatusOK)
 }
 
 func readBilling(t *testing.T, instanceSlug string) subscriptions.InstanceBilling {
@@ -230,7 +230,7 @@ func TestClosePeriods(t *testing.T) {
 		resp, err := platformServer.PlatformApp.Test(req, fiber.TestConfig{})
 		require.NoError(t, err)
 		t.Cleanup(func() { commonfixture.MustCloseBody(t, resp.Body) })
-		report := commonfixture.AssertJSONResponse[closing.Report](t, resp, fiber.StatusOK)
+		report := commonfixture.AssertJSONResponse[closing.ClosePeriodsReport](t, resp, fiber.StatusOK)
 		require.Equal(t, 1, report.Closed)
 
 		var writer string

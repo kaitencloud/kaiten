@@ -9,13 +9,18 @@ import (
 // InvoiceLine is one invoice line as the API returns it. It explains itself: its
 // amount is recomputable from its quantity and unit amount, and a metered
 // line's quantity from its measured quantity and sale-unit factor.
+//
+// The schema is open on purpose: ADDON and DISCOUNT lines, and the members they
+// carry, arrive in later releases, and a generated client must not break on them.
 type InvoiceLine struct {
+	_ struct{} `additionalProperties:"true"`
+
 	ID                *uuid.UUID           `json:"id,omitempty" doc:"The line's identifier, stable for the invoice's life; absent on a preview"`
 	Seq               int                  `json:"seq" doc:"Position on the invoice, from 1"`
-	Type              LineType             `json:"type" enum:"BASE,USAGE,OVERAGE" doc:"BASE: the subscription's FLAT_FEE price. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit."`
-	BillingModel      string               `json:"billingModel" enum:"FLAT_FEE,USAGE_BASED,OVERAGE" doc:"The price's billing model"`
-	BillingTiming     string               `json:"billingTiming" enum:"ADVANCE,ARREARS" doc:"ADVANCE lines bill the period that starts at the boundary, ARREARS lines the one that ends there"`
-	LicensePriceID    uuid.UUID            `json:"licensePriceId" doc:"The licence price the line bills"`
+	Type              LineType             `json:"type" enum:"BASE,ADDON,USAGE,OVERAGE,DISCOUNT" doc:"BASE: the subscription's FLAT_FEE price. ADDON: an add-on's FLAT_FEE price. DISCOUNT: a voucher's discount, negative. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit."`
+	BillingModel      string               `json:"billingModel,omitempty" enum:"FLAT_FEE,USAGE_BASED,OVERAGE" doc:"The price's billing model; absent on a DISCOUNT line"`
+	BillingTiming     string               `json:"billingTiming,omitempty" enum:"ADVANCE,ARREARS" doc:"ADVANCE lines bill the period that starts at the boundary, ARREARS lines the one that ends there; absent on a DISCOUNT line"`
+	LicensePriceID    *uuid.UUID           `json:"licensePriceId,omitempty" doc:"The licence price the line bills; absent on an ADDON line"`
 	EntitlementID     *uuid.UUID           `json:"entitlementId,omitempty" doc:"The metered entitlement, on USAGE and OVERAGE lines"`
 	EntitlementSlug   *string              `json:"entitlementSlug,omitempty" doc:"Its slug, as it was when the line was composed"`
 	Label             string               `json:"label" doc:"The price's display label, else a derived one" example:"Tokens — overage"`
@@ -23,7 +28,7 @@ type InvoiceLine struct {
 	ServiceFrom       time.Time            `json:"serviceFrom" doc:"Start of the period the line bills (inclusive)"`
 	ServiceTo         time.Time            `json:"serviceTo" doc:"End of the period the line bills (exclusive)"`
 	Quantity          string               `json:"quantity" doc:"In sale units, a decimal string: 1 on a BASE line" example:"3.05"`
-	UnitAmountDecimal string               `json:"unitAmountDecimal" doc:"The price's unit amount in minor units" example:"800"`
+	UnitAmountDecimal string               `json:"unitAmountDecimal,omitempty" doc:"The price's unit amount in minor units; absent on a DISCOUNT line" example:"800"`
 	Amount            int64                `json:"amount" doc:"round_half_up(quantity × unitAmountDecimal), in minor units" example:"2440"`
 	Metering          *InvoiceLineMetering `json:"metering,omitempty" doc:"How a USAGE or OVERAGE line's quantity was measured"`
 	Overage           *InvoiceLineOverage  `json:"overage,omitempty" doc:"The arithmetic of an OVERAGE line"`

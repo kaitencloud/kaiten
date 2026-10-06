@@ -50,7 +50,7 @@ func RegisterEndpoint(api huma.API, app Deleter) {
 func RegisterWebhook(api huma.API) {
 	webhook.Declare(api, webhook.Declaration{
 		Event:       events.CustomerDeleted,
-		Data:        (*schema.Customer)(nil),
+		Data:        (*schema.CustomerEvent)(nil),
 		OperationID: "onCustomerDeleted",
 		Summary:     "Customer Deleted Webhook",
 		Description: "Triggered when a customer is deleted.",

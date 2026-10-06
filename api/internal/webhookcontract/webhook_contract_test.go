@@ -148,6 +148,13 @@ var secretFieldNames = map[string]bool{
 	"signingkey": true, "credential": true,
 }
 
+// personalDataFieldNames are members the runtime strips from an event payload
+// because they hold personal or free-form customer data: billingEmail is a
+// customer's invoice address, properties is whatever a usage report attached.
+// A published contract that declared one would advertise data the delivery never
+// carries.
+var personalDataFieldNames = map[string]bool{"billingemail": true, "properties": true}
+
 // TestNoWebhookPayloadCanCarryASecret walks every published payload type, field by
 // field and into nested structs, and fails on a name that means "this is the
 // secret".
@@ -198,6 +205,10 @@ func assertNoSecretFields(t *testing.T, structType reflect.Type, path string, de
 		jsonName := strings.Split(field.Tag.Get("json"), ",")[0]
 
 		for _, candidate := range []string{field.Name, jsonName} {
+			if personalDataFieldNames[strings.ToLower(strings.ReplaceAll(candidate, "_", ""))] {
+				t.Errorf("webhook payload field %s (json %q) is personal or free-form customer data; "+
+					"the runtime strips it from events, so the contract must not declare it", name, jsonName)
+			}
 			if secretFieldNames[strings.ToLower(strings.ReplaceAll(candidate, "_", ""))] {
 				t.Errorf("webhook payload field %s (json %q) is named like a credential; "+
 					"a webhook payload is stored in an outbox row and posted to a subscriber, "+
