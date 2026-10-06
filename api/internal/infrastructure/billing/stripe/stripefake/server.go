@@ -50,7 +50,7 @@ func route(method, path string) (op, id string) {
 	case parts[1] == "events" && len(parts) == 2 && method == http.MethodGet:
 		return OpListEvents, ""
 	}
-	return "", ""
+	return paymentRoute(method, parts)
 }
 
 // mutating are the operations whose results Stripe stores under a key.
@@ -298,7 +298,7 @@ func (f *Fake) handle(accountID, apiKey, op, id string, form url.Values) (int, [
 		if c.Deleted {
 			return http.StatusOK, mustJSON(map[string]any{"id": c.ID, "object": "customer", "deleted": true})
 		}
-		return http.StatusOK, mustJSON(c)
+		return http.StatusOK, mustJSON(f.renderCustomer(a, c))
 
 	case OpUpdateCustomer:
 		c, ok := a.customers[id]
@@ -311,7 +311,10 @@ func (f *Fake) handle(accountID, apiKey, op, id string, form url.Values) (int, [
 		if name := form.Get("name"); name != "" {
 			c.Name = name
 		}
-		return http.StatusOK, mustJSON(c)
+		if status, body, refused := f.updateDefault(a, c.ID, form); refused {
+			return status, body
+		}
+		return http.StatusOK, mustJSON(f.renderCustomer(a, c))
 
 	case OpCreateInvoice:
 		c, ok := a.customers[form.Get("customer")]
@@ -470,7 +473,7 @@ func (f *Fake) handle(accountID, apiKey, op, id string, form url.Values) (int, [
 		page, more := paginate(data, form)
 		return http.StatusOK, list("/v1/events", page, more)
 	}
-	return missing("resource", id)
+	return f.handlePayment(a, op, id, form)
 }
 
 func contains(list []string, s string) bool {
