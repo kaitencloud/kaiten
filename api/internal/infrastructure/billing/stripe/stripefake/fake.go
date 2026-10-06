@@ -339,7 +339,9 @@ func (f *Fake) Customers(accountID string) int {
 }
 
 // Pay settles an open invoice in Stripe.
-func (f *Fake) Pay(accountID, id string) { f.transition(accountID, id, "paid", "paid_at", "invoice.paid") }
+func (f *Fake) Pay(accountID, id string) {
+	f.transition(accountID, id, "paid", "paid_at", "invoice.paid")
+}
 
 // MarkUncollectible writes an open invoice off in Stripe.
 func (f *Fake) MarkUncollectible(accountID, id string) {

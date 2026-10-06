@@ -3,15 +3,21 @@ package kaiten
 import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider/noop"
+	billingstripe "github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/cdc"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/connectorhooks"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/vault"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/billableaddons"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/providerconnector"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors"
+	connectorcommon "github.com/kaitencloud/kaiten/api/internal/modules/connectors/common"
+	connectorstripe "github.com/kaitencloud/kaiten/api/internal/modules/connectors/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers"
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements"
@@ -139,10 +145,13 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		// leaving the option nil, and every use case still asks unconditionally.
 		ConnectorEntitlements: services.ConnectorEntitlementsOrAlways(opts.ConnectorEntitlements),
 		EntitlementConfig:     services.EntitlementConfigOrNone(opts.EntitlementConfig),
-		BillingProviders:      billingProvidersOrNoop(opts.BillingProviders),
 		WorkerRegistry:        workers,
 		BackgroundWorkers:     opts.BackgroundWorkers,
 	}
+	// The payment providers, and the lifecycle rules of the connectors that
+	// configure them: both read svc (its unit of work, its settings store), and
+	// both must be on it before the billing and connectors modules are built.
+	svc.BillingProviders, svc.ConnectorHooks = billingProviders(opts, svc)
 
 	// The template for the dedicated Postgres LISTEN connections the two
 	// cache-owning modules dial (see internal/infrastructure/pgnotify), derived
@@ -207,10 +216,46 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	return built, nil
 }
 
-// billingProvidersOrNoop returns registry, or one knowing NOOP alone.
-func billingProvidersOrNoop(registry provider.Registry) provider.Registry {
-	if registry == nil {
-		return provider.NewStatic(noop.New())
+// billingProviders returns the registry the driver gave, or the providers this
+// binary ships: NOOP, and Stripe configured through its connector. A provider
+// configured through a connector is a binding: its connector's manifest, its
+// adapter, and how the stored settings become a connection; the hooks every
+// such connector keeps (credentials checked before storing, no disconnect
+// while invoices route there, connection events) are billing's, whichever
+// provider it is.
+func billingProviders(opts Options, svc services.Container) (provider.Registry, connectorhooks.Registry) {
+	if opts.BillingProviders != nil {
+		return opts.BillingProviders, nil
 	}
-	return registry
+	stripeOptions := opts.Stripe
+	stripeOptions.SendAfterFinalize = stripeOptions.SendAfterFinalize || opts.Config.Billing.Stripe.SendAfterFinalize
+	manifest := connectorstripe.Manifest()
+	stripeBinding := provider.ConnectorBinding{
+		ConnectorName:   manifest.Name,
+		EntitlementSlug: deref(manifest.EntitlementSlug),
+		Adapter:         billingstripe.New(stripeOptions),
+		Parse:           billingstripe.Parse,
+	}
+
+	registry := provider.NewStatic(noop.New())
+	deps := provider.ConnectorDeps{
+		Activations:     connectors.NewActivationReader(svc),
+		Settings:        connectors.NewSettingsReader(svc),
+		Entitlements:    svc.ConnectorEntitlements,
+		VaultConfigured: vault.Configured,
+	}
+	registry.RegisterConnector(stripeBinding, deps)
+
+	timeout := opts.Config.Billing.ProviderTimeout
+	hooks := connectorhooks.Registry{
+		stripeBinding.ConnectorName: providerconnector.New(svc.Uof, stripeBinding, timeout, connectorcommon.SecretFields(manifest.SettingsSchema)),
+	}
+	return registry, hooks
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
