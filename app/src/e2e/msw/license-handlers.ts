@@ -18,16 +18,13 @@ import {
   LicenseProblem,
   type LicenseTransition,
 } from '../../../e2e/app/_support/model/license-app-model';
-import { asFallback, messageForError, statusForError } from './handler-factory';
+import {
+  asFallback,
+  messageForError,
+  problemJson,
+  statusForError,
+} from './handler-factory';
 import { noop, type PersistMswState } from './persistence';
-
-// The Core API refuses a write with a problem document; rendering it the same
-// way lets the console show the API's own reason, as against the real backend.
-const problemJson = (status: number, detail: string, code?: string) =>
-  HttpResponse.json(
-    { type: 'about:blank', title: 'Error', status, detail, code },
-    { status, headers: { 'Content-Type': 'application/problem+json' } },
-  );
 
 const withProblems =
   <Params extends PathParams<keyof Params>, Body extends DefaultBodyType>(

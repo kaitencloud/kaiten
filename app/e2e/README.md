@@ -83,6 +83,7 @@ e2e/
 The packs under `e2e/app/` fall in three groups:
 
 - **Objects**, one folder each: `customers/`, `entitlements/`, `feature-flags/`, `instances/`, `licenses/`, `connectors/`.
+- **Billing**: `billing/` holds the scenarios of the billing capabilities (`BillingAppModel`) that every billing screen gates on; the packs of the billing screens join it as they are built.
 - **A workspace**: `release-management/` covers releases, components and deployment zones together, because they form one workspace with shared state.
 - **Read-only and cross-cutting checks**: `audit-trail/`, `dashboard/`, `notifications/`, `accessibility/` (axe), `i18n/` and `mobile/` (a Pixel 5 viewport).
 
@@ -158,8 +159,11 @@ structural split. See [browser mock adapter](../src/e2e/msw/README.md).
 
 - **Full E2E:** strict. `handlers.ts` assembles the same handlers in the browser
   and Node contract tests, with installed owners before sibling fallbacks.
-  `shell-handlers.ts` declares empty sidebar preloads and notifications only
-  after those owners. An undeclared `/api` call ends in a network error naming
+  `shell-handlers.ts` declares empty sidebar preloads, notifications and the
+  billing capabilities (billing off, which the side navigation reads on every
+  page) only after those owners. A spec that needs billing on installs the
+  `billing` slot (`installBillingAppMocks`, with a scenario of
+  `billing/billing.scenarios.ts`). An undeclared `/api` call ends in a network error naming
   its method, URL and GraphQL operation; `app-test.ts` fails the test on it.
 - **Dev world:** `dev:mock` installs its shared model seeds, warns on an
   undeclared API call, and passes it through. Its inventory and cross-record
