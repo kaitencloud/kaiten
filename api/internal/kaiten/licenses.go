@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/archivelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
@@ -21,6 +22,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenses"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicensefamilies"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicenseprices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/previewlicenseinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/publishlicense"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
@@ -32,8 +34,9 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
 
-// Licenses is the licenses module's twenty operations: ten on the license and its
-// family, five on the grants it carries, five on its prices.
+// Licenses is the licenses module's twenty-one operations: ten on the license and
+// its family, five on the grants it carries, five on its prices, and the preview of
+// what those prices would invoice.
 //
 // A license entitlement is a grant -- this license gives this entitlement, with this
 // value -- so the five that manage one keep Entitlement in the name, the way
@@ -272,4 +275,16 @@ func (l Licenses) DeprecatePrice(
 	}
 
 	return l.uc.DeprecateLicensePrice.Execute(bindOrganization(ctx, cl), licenseSlug, priceID)
+}
+
+// PreviewInvoice composes, without writing, what the version's prices would
+// invoice.
+func (l Licenses) PreviewInvoice(
+	ctx context.Context, cl caller.OrganizationCaller, licenseSlug string, scenario previewlicenseinvoice.Scenario,
+) (*rating.InvoicePreview, error) {
+	if err := cl.Require(previewlicenseinvoice.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return l.uc.PreviewLicenseInvoice.Execute(bindOrganization(ctx, cl), licenseSlug, scenario)
 }

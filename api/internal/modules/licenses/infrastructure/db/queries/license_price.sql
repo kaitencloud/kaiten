@@ -154,3 +154,28 @@ LEFT JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id 
 WHERE p.organization_id = sqlc.arg(organization_id)
   AND p.license_id = sqlc.arg(license_id)
   AND p.id = sqlc.arg(id);
+
+
+-- name: ListMeteredGrants :many
+-- The entitlements the version's ACTIVE metered prices meter, with the
+-- version's grant of each (NULL columns when it no longer grants one).
+SELECT e.id,
+       e.slug,
+       e.name,
+       le.value                              AS grant_value,
+       le.limit_cap_exceeded_overage_percent AS grant_overage_percent
+FROM license_price p
+JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id = p.organization_id
+LEFT JOIN license_entitlement le
+  ON le.entitlement_id = e.id
+ AND le.license_id = p.license_id
+ AND le.organization_id = p.organization_id
+WHERE p.organization_id = sqlc.arg(organization_id)
+  AND p.license_id = sqlc.arg(license_id)
+  AND p.status = 'ACTIVE';
+
+
+-- name: BillingClock :one
+-- The instant a composition is made at: the database's, in UTC, to the
+-- millisecond, like every stored instant.
+SELECT date_trunc('milliseconds', now() AT TIME ZONE 'UTC')::timestamp AS now;

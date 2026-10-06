@@ -80,4 +80,9 @@ func TestQuantityAndAmount(t *testing.T) {
 	if got := FormatDecimal(Quantity(decimal.NewFromInt(2), decimal.NewFromInt(3))); got != "0.666666666667" {
 		t.Errorf("Quantity(2/3) = %s", got)
 	}
+	// Rounded once, on the exact quotient 0.0000000000004999999: rounding it to
+	// 16 places first (…5000) would have carried it up to 0.000000000001.
+	if got := FormatDecimal(Quantity(decimal.NewFromInt(4999999), decimal.New(1, 19))); got != "0" {
+		t.Errorf("Quantity(4999999/1e19) = %s, want 0", got)
+	}
 }

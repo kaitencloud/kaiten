@@ -19,6 +19,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenses"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicensefamilies"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicenseprices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/previewlicenseinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/publishlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/unarchivelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicense"
@@ -26,13 +27,13 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseprice"
 )
 
-// registerLicenses publishes the licenses module's twenty operations and the
+// registerLicenses publishes the licenses module's twenty-one operations and the
 // fifteen webhook contracts its writes emit -- six for the license itself (three of
 // them lifecycle moves), three for the family it belongs to, three for the
 // entitlement values attached to it, and three for its prices, since a subscriber
 // cares which of them moved.
 //
-// All twenty receive the same value -- the facade's licenses surface -- and each
+// All twenty-one receive the same value -- the facade's licenses surface -- and each
 // takes it as its own one-method interface, so what an operation can reach is what
 // it named.
 func registerLicenses(core huma.API, app kaiten.Licenses) {
@@ -69,4 +70,5 @@ func registerLicenses(core huma.API, app kaiten.Licenses) {
 	updatelicenseprice.RegisterWebhook(core)
 	deprecatelicenseprice.RegisterEndpoint(core, app)
 	deprecatelicenseprice.RegisterWebhook(core)
+	previewlicenseinvoice.RegisterEndpoint(core, app)
 }

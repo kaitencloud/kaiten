@@ -1,0 +1,110 @@
+package rating
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// InvoiceLine is one invoice line as the API returns it. It explains itself: its
+// amount is recomputable from its quantity and unit amount, and a metered
+// line's quantity from its measured quantity and sale-unit factor.
+type InvoiceLine struct {
+	Seq               int                  `json:"seq" doc:"Position on the invoice, from 1"`
+	Type              LineType             `json:"type" enum:"BASE,USAGE,OVERAGE" doc:"BASE: the subscription's FLAT_FEE price. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit."`
+	BillingModel      string               `json:"billingModel" enum:"FLAT_FEE,USAGE_BASED,OVERAGE" doc:"The price's billing model"`
+	BillingTiming     string               `json:"billingTiming" enum:"ADVANCE,ARREARS" doc:"ADVANCE lines bill the period that starts at the boundary, ARREARS lines the one that ends there"`
+	LicensePriceID    uuid.UUID            `json:"licensePriceId" doc:"The licence price the line bills"`
+	EntitlementID     *uuid.UUID           `json:"entitlementId,omitempty" doc:"The metered entitlement, on USAGE and OVERAGE lines"`
+	EntitlementSlug   *string              `json:"entitlementSlug,omitempty" doc:"Its slug, as it was when the line was composed"`
+	Label             string               `json:"label" doc:"The price's display label, else a derived one" example:"Tokens — overage"`
+	Description       string               `json:"description" doc:"The arithmetic of the line" example:"3.05 × 8.00 EUR (per 10k tokens); 130,500 used; 30,500 above the applied limit (100,000)"`
+	ServiceFrom       time.Time            `json:"serviceFrom" doc:"Start of the period the line bills (inclusive)"`
+	ServiceTo         time.Time            `json:"serviceTo" doc:"End of the period the line bills (exclusive)"`
+	Quantity          string               `json:"quantity" doc:"In sale units, a decimal string: 1 on a BASE line" example:"3.05"`
+	UnitAmountDecimal string               `json:"unitAmountDecimal" doc:"The price's unit amount in minor units" example:"800"`
+	Amount            int64                `json:"amount" doc:"round_half_up(quantity × unitAmountDecimal), in minor units" example:"2440"`
+	Metering          *InvoiceLineMetering `json:"metering,omitempty" doc:"How a USAGE or OVERAGE line's quantity was measured"`
+	Overage           *InvoiceLineOverage  `json:"overage,omitempty" doc:"The arithmetic of an OVERAGE line"`
+	Capped            bool                 `json:"capped,omitempty" doc:"Set on a preview line whose sample exceeded what the licence accepts: reports above that are rejected, so the excess is not billed"`
+
+	displayOrder int32
+}
+
+// InvoiceLineMetering is how a metered line's quantity was measured.
+type InvoiceLineMetering struct {
+	SaleUnitFactor          string `json:"saleUnitFactor" doc:"Measured units in one sale unit" example:"10000"`
+	MeasuredQuantity        string `json:"measuredQuantity" doc:"In measured units: the usage for a USAGE line, the overage for an OVERAGE line" example:"30500"`
+	Windows                 int    `json:"windows" doc:"Reset windows the period spans" example:"1"`
+	NegativeSegmentsFloored int    `json:"negativeSegmentsFloored" doc:"Windows whose net movement was negative and counted as 0" example:"0"`
+}
+
+// InvoiceLineOverage is the arithmetic of an OVERAGE line.
+type InvoiceLineOverage struct {
+	UsageMeasured   string         `json:"usageMeasured" doc:"Usage in measured units" example:"130500"`
+	OverageMeasured string         `json:"overageMeasured" doc:"Usage above the applied limit" example:"30500"`
+	Limits          []OverageLimit `json:"limits" nullable:"false" doc:"The limits applied, in the order they first applied"`
+}
+
+// OverageLimit is one limit an overage was measured against.
+type OverageLimit struct {
+	LimitValue     *string `json:"limitValue" doc:"The limit, null when unlimited" example:"100000"`
+	OveragePercent int32   `json:"overagePercent" doc:"Usage accepted above the limit, as a percent of it" example:"50"`
+	Rows           int     `json:"rows" doc:"Usage reports measured against it; 0 for a sample"`
+}
+
+// InvoicePreview is an invoice that was composed but not issued: what a
+// boundary would bill on the given inputs. Nothing is written to compose it.
+type InvoicePreview struct {
+	Status        string        `json:"status" enum:"PREVIEW" doc:"Always PREVIEW"`
+	Kind          Kind          `json:"kind" enum:"ACTIVATION,RENEWAL,FINAL" doc:"The boundary previewed"`
+	AsOf          time.Time     `json:"asOf" doc:"When the preview was composed"`
+	BoundaryAt    time.Time     `json:"boundaryAt" doc:"The boundary the invoice bills"`
+	ServiceFrom   *time.Time    `json:"serviceFrom,omitempty" doc:"Earliest start of the lines' service periods; absent without lines"`
+	ServiceTo     *time.Time    `json:"serviceTo,omitempty" doc:"Latest end of the lines' service periods; absent without lines"`
+	LicenseSlug   string        `json:"licenseSlug" doc:"The licence version previewed"`
+	Currency      string        `json:"currency" doc:"ISO 4217 code" example:"EUR"`
+	Subtotal      int64         `json:"subtotal" doc:"Sum of the lines, in minor units"`
+	DiscountTotal int64         `json:"discountTotal" doc:"Sum of the discounts, in minor units"`
+	Total         int64         `json:"total" doc:"subtotal − discountTotal, in minor units"`
+	Lines         []InvoiceLine `json:"lines" nullable:"false"`
+	WouldHold     []InvoiceHold `json:"wouldHold" nullable:"false" doc:"Meters whose usage journal fails a consistency check, which would hold the invoice. Always empty for a sample."`
+}
+
+// InvoiceHold is a meter that would hold an invoice.
+type InvoiceHold struct {
+	EntitlementID uuid.UUID `json:"entitlementId"`
+	Invariant     string    `json:"invariant" doc:"The check that failed"`
+}
+
+// Preview wraps a composition as an InvoicePreview.
+func Preview(kind Kind, asOf, boundary time.Time, licenseSlug string, currency string, c Composition) InvoicePreview {
+	preview := InvoicePreview{
+		Status:        "PREVIEW",
+		Kind:          kind,
+		AsOf:          asOf,
+		BoundaryAt:    boundary,
+		ServiceFrom:   nil,
+		ServiceTo:     nil,
+		LicenseSlug:   licenseSlug,
+		Currency:      currency,
+		Subtotal:      c.Subtotal,
+		DiscountTotal: c.DiscountTotal,
+		Total:         c.Total,
+		Lines:         c.Lines,
+		WouldHold:     []InvoiceHold{},
+	}
+	if preview.Lines == nil {
+		preview.Lines = []InvoiceLine{}
+	}
+	for i := range c.Lines {
+		from, to := c.Lines[i].ServiceFrom, c.Lines[i].ServiceTo
+		if preview.ServiceFrom == nil || from.Before(*preview.ServiceFrom) {
+			preview.ServiceFrom = &from
+		}
+		if preview.ServiceTo == nil || to.After(*preview.ServiceTo) {
+			preview.ServiceTo = &to
+		}
+	}
+	return preview
+}

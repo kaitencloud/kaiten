@@ -102,7 +102,9 @@ func Quantity(measured, factor decimal.Decimal) decimal.Decimal {
 	if factor.IsZero() {
 		return decimal.Zero
 	}
-	return measured.DivRound(factor, MaxScale+4).Round(MaxScale)
+	// One rounding, on the exact quotient: rounding to more places first and
+	// then to 12 could carry a digit past the half that the exact value is not.
+	return measured.DivRound(factor, MaxScale)
 }
 
 func scale(d decimal.Decimal) int32 {

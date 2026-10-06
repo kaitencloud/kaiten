@@ -63,6 +63,7 @@ var awaitingSDKOperations = map[string]string{
 	"createLicensePrice":    "licence prices: the SDK models them in its billing release",
 	"updateLicensePrice":    "licence prices: the SDK models them in its billing release",
 	"deprecateLicensePrice": "licence prices: the SDK models them in its billing release",
+	"previewLicenseInvoice": "licence prices: the SDK models them in its billing release",
 }
 
 func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {

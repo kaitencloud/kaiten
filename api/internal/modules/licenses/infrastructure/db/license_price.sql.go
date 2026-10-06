@@ -12,6 +12,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const billingClock = `-- name: BillingClock :one
+SELECT date_trunc('milliseconds', now() AT TIME ZONE 'UTC')::timestamp AS now
+`
+
+// The instant a composition is made at: the database's, in UTC, to the
+// millisecond, like every stored instant.
+func (q *Queries) BillingClock(ctx context.Context) (pgtype.Timestamp, error) {
+	row := q.db.QueryRow(ctx, billingClock)
+	var now pgtype.Timestamp
+	err := row.Scan(&now)
+	return now, err
+}
+
 const countOtherActiveMeteredPrices = `-- name: CountOtherActiveMeteredPrices :one
 SELECT count(*)::int AS count
 FROM license_price p
@@ -413,6 +426,64 @@ func (q *Queries) ListLicensePrices(ctx context.Context, arg ListLicensePricesPa
 			&i.DeprecatedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMeteredGrants = `-- name: ListMeteredGrants :many
+SELECT e.id,
+       e.slug,
+       e.name,
+       le.value                              AS grant_value,
+       le.limit_cap_exceeded_overage_percent AS grant_overage_percent
+FROM license_price p
+JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id = p.organization_id
+LEFT JOIN license_entitlement le
+  ON le.entitlement_id = e.id
+ AND le.license_id = p.license_id
+ AND le.organization_id = p.organization_id
+WHERE p.organization_id = $1
+  AND p.license_id = $2
+  AND p.status = 'ACTIVE'
+`
+
+type ListMeteredGrantsParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	LicenseID      uuid.UUID `json:"license_id"`
+}
+
+type ListMeteredGrantsRow struct {
+	ID                  uuid.UUID `json:"id"`
+	Slug                string    `json:"slug"`
+	Name                string    `json:"name"`
+	GrantValue          []byte    `json:"grant_value"`
+	GrantOveragePercent *int16    `json:"grant_overage_percent"`
+}
+
+// The entitlements the version's ACTIVE metered prices meter, with the
+// version's grant of each (NULL columns when it no longer grants one).
+func (q *Queries) ListMeteredGrants(ctx context.Context, arg ListMeteredGrantsParams) ([]ListMeteredGrantsRow, error) {
+	rows, err := q.db.Query(ctx, listMeteredGrants, arg.OrganizationID, arg.LicenseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMeteredGrantsRow
+	for rows.Next() {
+		var i ListMeteredGrantsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Name,
+			&i.GrantValue,
+			&i.GrantOveragePercent,
 		); err != nil {
 			return nil, err
 		}

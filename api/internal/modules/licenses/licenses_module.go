@@ -20,6 +20,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicensefamilies"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicenseprices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/previewlicenseinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/publishlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/unarchivelicense"
@@ -49,6 +50,7 @@ type UseCases struct {
 	CreateLicensePrice              *createlicenseprice.UseCase
 	UpdateLicensePrice              *updatelicenseprice.UseCase
 	DeprecateLicensePrice           *deprecatelicenseprice.UseCase
+	PreviewLicenseInvoice           *previewlicenseinvoice.UseCase
 }
 
 func NewUseCases(svc services.Container) *UseCases {
@@ -141,5 +143,6 @@ func NewUseCases(svc services.Container) *UseCases {
 		CreateLicensePrice:    createlicenseprice.NewUseCase(priceDeps),
 		UpdateLicensePrice:    updatelicenseprice.NewUseCase(priceDeps),
 		DeprecateLicensePrice: deprecatelicenseprice.NewUseCase(priceDeps),
+		PreviewLicenseInvoice: previewlicenseinvoice.NewUseCase(priceDeps),
 	}
 }
