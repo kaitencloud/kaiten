@@ -12,6 +12,105 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getInvoice = `-- name: GetInvoice :one
+SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at
+FROM instance_invoice i
+WHERE i.organization_id = $1
+  AND i.id = $2
+`
+
+type GetInvoiceParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ID             uuid.UUID `json:"id"`
+}
+
+func (q *Queries) GetInvoice(ctx context.Context, arg GetInvoiceParams) (InstanceInvoice, error) {
+	row := q.db.QueryRow(ctx, getInvoice, arg.OrganizationID, arg.ID)
+	var i InstanceInvoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceBillingID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.LicenseID,
+		&i.LicenseSlug,
+		&i.BillingEmail,
+		&i.Kind,
+		&i.BoundaryAt,
+		&i.ServiceFrom,
+		&i.ServiceTo,
+		&i.Currency,
+		&i.SubtotalMinor,
+		&i.DiscountTotalMinor,
+		&i.TotalMinor,
+		&i.Lines,
+		&i.Status,
+		&i.HoldReason,
+		&i.HoldDetail,
+		&i.HeldAt,
+		&i.HoldReleasedAt,
+		&i.HoldReleasedByID,
+		&i.HoldReleaseReason,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.ExternalCustomerID,
+		&i.ExternalInvoiceID,
+		&i.ProviderInvoiceNumber,
+		&i.ProviderStatus,
+		&i.HostedInvoiceUrl,
+		&i.InvoicePdfUrl,
+		&i.ProviderTotalExcludingTaxMinor,
+		&i.ReconciliationStatus,
+		&i.ReconciliationDetail,
+		&i.ReconciledAt,
+		&i.PushAttempts,
+		&i.NextPushAt,
+		&i.LastPushError,
+		&i.PushedAt,
+		&i.SyncedAt,
+		&i.IssuedAt,
+		&i.DaysUntilDue,
+		&i.DueAt,
+		&i.PaidAt,
+		&i.MarkedPaidByID,
+		&i.PaymentFailedAt,
+		&i.LastPaymentError,
+		&i.UncollectibleAt,
+		&i.VoidedAt,
+		&i.VoidedByID,
+		&i.VoidReason,
+		&i.ReplacesInvoiceID,
+		&i.HandoffStatus,
+		&i.HandoffLeaseID,
+		&i.HandoffLeasedUntil,
+		&i.HandoffClaimCount,
+		&i.HandoffAcknowledgedAt,
+		&i.HandoffAcknowledgedByID,
+		&i.ExternalReference,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getReplacementInvoiceID = `-- name: GetReplacementInvoiceID :one
+SELECT i.id
+FROM instance_invoice i
+WHERE i.replaces_invoice_id = $1
+`
+
+// The invoice recomposed from a VOID one, when there is one.
+func (q *Queries) GetReplacementInvoiceID(ctx context.Context, id *uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getReplacementInvoiceID, id)
+	var id_2 uuid.UUID
+	err := row.Scan(&id_2)
+	return id_2, err
+}
+
 const insertInvoice = `-- name: InsertInvoice :one
 INSERT INTO instance_invoice (organization_id, instance_billing_id, customer_id, instance_slug, instance_name,
                               customer_slug, customer_name, license_id, license_slug, billing_email, kind,
@@ -169,4 +268,332 @@ func (q *Queries) InsertInvoice(ctx context.Context, arg InsertInvoiceParams) (I
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listInvoices = `-- name: ListInvoices :many
+SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at
+FROM instance_invoice i
+WHERE i.organization_id = $1
+  AND (cardinality($2::text[]) = 0 OR i.status::text = ANY ($2::text[]))
+  AND ($3::invoice_kind IS NULL OR i.kind = $3::invoice_kind)
+  AND ($4::billing_provider_kind IS NULL OR i.provider_kind = $4::billing_provider_kind)
+  AND ($5::text IS NULL
+       OR i.customer_slug = $5::text
+       OR i.customer_id = (SELECT c.id FROM customer c
+                            WHERE c.organization_id = i.organization_id AND c.slug = $5::text))
+  AND ($6::text IS NULL
+       OR i.instance_slug = $6::text
+       OR i.instance_billing_id = (SELECT ib.id FROM instance_billing ib
+                                     JOIN instance n ON n.id = ib.instance_id
+                                    WHERE n.organization_id = i.organization_id AND n.slug = $6::text))
+  AND ($7::uuid IS NULL OR i.instance_billing_id = $7::uuid)
+  AND (NOT $8::boolean
+       OR (i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED') AND i.due_at < $9::timestamp))
+  AND (NOT $10::boolean OR i.hold_reason IS NOT NULL)
+  AND ($11::handoff_status IS NULL OR i.handoff_status = $11::handoff_status)
+  AND ($12::timestamp IS NULL OR i.issued_at >= $12::timestamp)
+  AND ($13::timestamp IS NULL OR i.issued_at < $13::timestamp)
+  AND ($14::timestamp IS NULL OR i.boundary_at >= $14::timestamp)
+  AND ($15::timestamp IS NULL OR i.boundary_at < $15::timestamp)
+  AND (NOT $16::boolean
+       OR (i.created_at, i.id) < ($17::timestamp, $18::uuid))
+ORDER BY i.created_at DESC, i.id DESC
+LIMIT $19
+`
+
+type ListInvoicesParams struct {
+	OrganizationID    uuid.UUID            `json:"organization_id"`
+	Statuses          []string             `json:"statuses"`
+	Kind              *InvoiceKind         `json:"kind"`
+	ProviderKind      *BillingProviderKind `json:"provider_kind"`
+	CustomerSlug      *string              `json:"customer_slug"`
+	InstanceSlug      *string              `json:"instance_slug"`
+	InstanceBillingID *uuid.UUID           `json:"instance_billing_id"`
+	Overdue           bool                 `json:"overdue"`
+	Now               pgtype.Timestamp     `json:"now"`
+	Held              bool                 `json:"held"`
+	HandoffStatus     *HandoffStatus       `json:"handoff_status"`
+	IssuedFrom        pgtype.Timestamp     `json:"issued_from"`
+	IssuedTo          pgtype.Timestamp     `json:"issued_to"`
+	BoundaryFrom      pgtype.Timestamp     `json:"boundary_from"`
+	BoundaryTo        pgtype.Timestamp     `json:"boundary_to"`
+	HasCursor         bool                 `json:"has_cursor"`
+	CursorAt          pgtype.Timestamp     `json:"cursor_at"`
+	CursorID          uuid.UUID            `json:"cursor_id"`
+	PageSize          int32                `json:"page_size"`
+}
+
+// One page of an organization's invoices, newest first, under the list's
+// filters. customer_slug and instance_slug match the slug the invoice was
+// composed under or the customer/instance that holds it now, so a rename
+// loses nothing. Fetched one row past the page.
+func (q *Queries) ListInvoices(ctx context.Context, arg ListInvoicesParams) ([]InstanceInvoice, error) {
+	rows, err := q.db.Query(ctx, listInvoices,
+		arg.OrganizationID,
+		arg.Statuses,
+		arg.Kind,
+		arg.ProviderKind,
+		arg.CustomerSlug,
+		arg.InstanceSlug,
+		arg.InstanceBillingID,
+		arg.Overdue,
+		arg.Now,
+		arg.Held,
+		arg.HandoffStatus,
+		arg.IssuedFrom,
+		arg.IssuedTo,
+		arg.BoundaryFrom,
+		arg.BoundaryTo,
+		arg.HasCursor,
+		arg.CursorAt,
+		arg.CursorID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InstanceInvoice
+	for rows.Next() {
+		var i InstanceInvoice
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.InstanceBillingID,
+			&i.CustomerID,
+			&i.InstanceSlug,
+			&i.InstanceName,
+			&i.CustomerSlug,
+			&i.CustomerName,
+			&i.LicenseID,
+			&i.LicenseSlug,
+			&i.BillingEmail,
+			&i.Kind,
+			&i.BoundaryAt,
+			&i.ServiceFrom,
+			&i.ServiceTo,
+			&i.Currency,
+			&i.SubtotalMinor,
+			&i.DiscountTotalMinor,
+			&i.TotalMinor,
+			&i.Lines,
+			&i.Status,
+			&i.HoldReason,
+			&i.HoldDetail,
+			&i.HeldAt,
+			&i.HoldReleasedAt,
+			&i.HoldReleasedByID,
+			&i.HoldReleaseReason,
+			&i.ProviderKind,
+			&i.CollectionMethod,
+			&i.ExternalCustomerID,
+			&i.ExternalInvoiceID,
+			&i.ProviderInvoiceNumber,
+			&i.ProviderStatus,
+			&i.HostedInvoiceUrl,
+			&i.InvoicePdfUrl,
+			&i.ProviderTotalExcludingTaxMinor,
+			&i.ReconciliationStatus,
+			&i.ReconciliationDetail,
+			&i.ReconciledAt,
+			&i.PushAttempts,
+			&i.NextPushAt,
+			&i.LastPushError,
+			&i.PushedAt,
+			&i.SyncedAt,
+			&i.IssuedAt,
+			&i.DaysUntilDue,
+			&i.DueAt,
+			&i.PaidAt,
+			&i.MarkedPaidByID,
+			&i.PaymentFailedAt,
+			&i.LastPaymentError,
+			&i.UncollectibleAt,
+			&i.VoidedAt,
+			&i.VoidedByID,
+			&i.VoidReason,
+			&i.ReplacesInvoiceID,
+			&i.HandoffStatus,
+			&i.HandoffLeaseID,
+			&i.HandoffLeasedUntil,
+			&i.HandoffClaimCount,
+			&i.HandoffAcknowledgedAt,
+			&i.HandoffAcknowledgedByID,
+			&i.ExternalReference,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listInvoicesUpdatedSince = `-- name: ListInvoicesUpdatedSince :many
+SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at
+FROM instance_invoice i
+WHERE i.organization_id = $1
+  AND (cardinality($2::text[]) = 0 OR i.status::text = ANY ($2::text[]))
+  AND ($3::invoice_kind IS NULL OR i.kind = $3::invoice_kind)
+  AND ($4::billing_provider_kind IS NULL OR i.provider_kind = $4::billing_provider_kind)
+  AND ($5::text IS NULL
+       OR i.customer_slug = $5::text
+       OR i.customer_id = (SELECT c.id FROM customer c
+                            WHERE c.organization_id = i.organization_id AND c.slug = $5::text))
+  AND ($6::text IS NULL
+       OR i.instance_slug = $6::text
+       OR i.instance_billing_id = (SELECT ib.id FROM instance_billing ib
+                                     JOIN instance n ON n.id = ib.instance_id
+                                    WHERE n.organization_id = i.organization_id AND n.slug = $6::text))
+  AND ($7::uuid IS NULL OR i.instance_billing_id = $7::uuid)
+  AND (NOT $8::boolean
+       OR (i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED') AND i.due_at < $9::timestamp))
+  AND (NOT $10::boolean OR i.hold_reason IS NOT NULL)
+  AND ($11::handoff_status IS NULL OR i.handoff_status = $11::handoff_status)
+  AND ($12::timestamp IS NULL OR i.issued_at >= $12::timestamp)
+  AND ($13::timestamp IS NULL OR i.issued_at < $13::timestamp)
+  AND ($14::timestamp IS NULL OR i.boundary_at >= $14::timestamp)
+  AND ($15::timestamp IS NULL OR i.boundary_at < $15::timestamp)
+  AND i.updated_at >= $16::timestamp
+  AND (NOT $17::boolean
+       OR (i.updated_at, i.id) > ($18::timestamp, $19::uuid))
+ORDER BY i.updated_at, i.id
+LIMIT $20
+`
+
+type ListInvoicesUpdatedSinceParams struct {
+	OrganizationID    uuid.UUID            `json:"organization_id"`
+	Statuses          []string             `json:"statuses"`
+	Kind              *InvoiceKind         `json:"kind"`
+	ProviderKind      *BillingProviderKind `json:"provider_kind"`
+	CustomerSlug      *string              `json:"customer_slug"`
+	InstanceSlug      *string              `json:"instance_slug"`
+	InstanceBillingID *uuid.UUID           `json:"instance_billing_id"`
+	Overdue           bool                 `json:"overdue"`
+	Now               pgtype.Timestamp     `json:"now"`
+	Held              bool                 `json:"held"`
+	HandoffStatus     *HandoffStatus       `json:"handoff_status"`
+	IssuedFrom        pgtype.Timestamp     `json:"issued_from"`
+	IssuedTo          pgtype.Timestamp     `json:"issued_to"`
+	BoundaryFrom      pgtype.Timestamp     `json:"boundary_from"`
+	BoundaryTo        pgtype.Timestamp     `json:"boundary_to"`
+	UpdatedSince      pgtype.Timestamp     `json:"updated_since"`
+	HasCursor         bool                 `json:"has_cursor"`
+	CursorAt          pgtype.Timestamp     `json:"cursor_at"`
+	CursorID          uuid.UUID            `json:"cursor_id"`
+	PageSize          int32                `json:"page_size"`
+}
+
+// The same, for incremental sync: the invoices changed since an instant,
+// oldest change first, so a consumer that stores the last updatedAt it read
+// misses none.
+func (q *Queries) ListInvoicesUpdatedSince(ctx context.Context, arg ListInvoicesUpdatedSinceParams) ([]InstanceInvoice, error) {
+	rows, err := q.db.Query(ctx, listInvoicesUpdatedSince,
+		arg.OrganizationID,
+		arg.Statuses,
+		arg.Kind,
+		arg.ProviderKind,
+		arg.CustomerSlug,
+		arg.InstanceSlug,
+		arg.InstanceBillingID,
+		arg.Overdue,
+		arg.Now,
+		arg.Held,
+		arg.HandoffStatus,
+		arg.IssuedFrom,
+		arg.IssuedTo,
+		arg.BoundaryFrom,
+		arg.BoundaryTo,
+		arg.UpdatedSince,
+		arg.HasCursor,
+		arg.CursorAt,
+		arg.CursorID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InstanceInvoice
+	for rows.Next() {
+		var i InstanceInvoice
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.InstanceBillingID,
+			&i.CustomerID,
+			&i.InstanceSlug,
+			&i.InstanceName,
+			&i.CustomerSlug,
+			&i.CustomerName,
+			&i.LicenseID,
+			&i.LicenseSlug,
+			&i.BillingEmail,
+			&i.Kind,
+			&i.BoundaryAt,
+			&i.ServiceFrom,
+			&i.ServiceTo,
+			&i.Currency,
+			&i.SubtotalMinor,
+			&i.DiscountTotalMinor,
+			&i.TotalMinor,
+			&i.Lines,
+			&i.Status,
+			&i.HoldReason,
+			&i.HoldDetail,
+			&i.HeldAt,
+			&i.HoldReleasedAt,
+			&i.HoldReleasedByID,
+			&i.HoldReleaseReason,
+			&i.ProviderKind,
+			&i.CollectionMethod,
+			&i.ExternalCustomerID,
+			&i.ExternalInvoiceID,
+			&i.ProviderInvoiceNumber,
+			&i.ProviderStatus,
+			&i.HostedInvoiceUrl,
+			&i.InvoicePdfUrl,
+			&i.ProviderTotalExcludingTaxMinor,
+			&i.ReconciliationStatus,
+			&i.ReconciliationDetail,
+			&i.ReconciledAt,
+			&i.PushAttempts,
+			&i.NextPushAt,
+			&i.LastPushError,
+			&i.PushedAt,
+			&i.SyncedAt,
+			&i.IssuedAt,
+			&i.DaysUntilDue,
+			&i.DueAt,
+			&i.PaidAt,
+			&i.MarkedPaidByID,
+			&i.PaymentFailedAt,
+			&i.LastPaymentError,
+			&i.UncollectibleAt,
+			&i.VoidedAt,
+			&i.VoidedByID,
+			&i.VoidReason,
+			&i.ReplacesInvoiceID,
+			&i.HandoffStatus,
+			&i.HandoffLeaseID,
+			&i.HandoffLeasedUntil,
+			&i.HandoffClaimCount,
+			&i.HandoffAcknowledgedAt,
+			&i.HandoffAcknowledgedByID,
+			&i.ExternalReference,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

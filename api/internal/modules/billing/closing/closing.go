@@ -169,35 +169,7 @@ func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boun
 		billingEmail = customer.BillingEmail
 	}
 
-	// The elapsed period, billed in arrears from the later of its start and
-	// the instant billing went live; the next one, billed in advance.
-	periodStart := sub.CurrentPeriodStart.Time.UTC()
-	if started := sub.StartedAt.Time.UTC(); started.After(periodStart) {
-		periodStart = started
-	}
-	months := rating.PeriodMonths(string(sub.BillingPeriod))
-	next := NextBoundary(sub.AnchorAt.Time.UTC(), boundary, months)
-
-	meteredPrices, err := c.deps.Catalogue.MeteredPrices(ctx, sub.OrganizationID, base.LicenseID)
-	if err != nil {
-		return Outcome{}, err
-	}
-	measures, hold, err := c.measure(ctx, q, sub, meteredPrices, periodStart, boundary)
-	if err != nil {
-		return Outcome{}, err
-	}
-	ratedMetered := make([]rating.Price, len(meteredPrices))
-	for i, price := range meteredPrices {
-		ratedMetered[i] = metering.Price(price)
-	}
-	composition, err := rating.Compose(rating.Input{
-		Kind: rating.KindRenewal, Currency: money.Currency(sub.Currency), LicenseName: base.LicenseName,
-		Base: metering.Price(*base), Metered: ratedMetered, Measures: measures,
-		Advance: rating.Period{From: boundary, To: next}, Arrears: rating.Period{From: periodStart, To: boundary},
-	})
-	if errors.Is(err, rating.ErrAmountOverflow) {
-		return Outcome{}, kaitenerrors.Internal("ComposeInvoice.AmountOverflow", "an invoice amount overflows 64-bit minor units")
-	}
+	composition, hold, next, err := c.compose(ctx, q, sub, base, boundary, boundary)
 	if err != nil {
 		return Outcome{}, err
 	}
@@ -231,6 +203,83 @@ func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boun
 		},
 		SkipReason: "",
 	}, nil
+}
+
+// compose rates the subscription's period ending at boundary: its usage up
+// to measuredTo in arrears, from the later of the period's start and the
+// instant billing went live, and the next period's base in advance. It
+// returns the composition, the hold its journal calls for, and the next
+// boundary.
+func (c *Closer) compose(ctx context.Context, q *db.Queries, sub db.InstanceBilling, base *ports.CataloguePrice, boundary, measuredTo time.Time) (rating.Composition, *invoices.Hold, time.Time, error) {
+	periodStart := sub.CurrentPeriodStart.Time.UTC()
+	if started := sub.StartedAt.Time.UTC(); started.After(periodStart) {
+		periodStart = started
+	}
+	until := boundary
+	if measuredTo.Before(boundary) {
+		until = measuredTo
+	}
+	if until.Before(periodStart) {
+		until = periodStart
+	}
+	months := rating.PeriodMonths(string(sub.BillingPeriod))
+	next := NextBoundary(sub.AnchorAt.Time.UTC(), boundary, months)
+
+	meteredPrices, err := c.deps.Catalogue.MeteredPrices(ctx, sub.OrganizationID, base.LicenseID)
+	if err != nil {
+		return rating.Composition{}, nil, time.Time{}, err
+	}
+	measures, hold, err := c.measure(ctx, q, sub, meteredPrices, periodStart, until)
+	if err != nil {
+		return rating.Composition{}, nil, time.Time{}, err
+	}
+	ratedMetered := make([]rating.Price, len(meteredPrices))
+	for i, price := range meteredPrices {
+		ratedMetered[i] = metering.Price(price)
+	}
+	composition, err := rating.Compose(rating.Input{
+		Kind: rating.KindRenewal, Currency: money.Currency(sub.Currency), LicenseName: base.LicenseName,
+		Base: metering.Price(*base), Metered: ratedMetered, Measures: measures,
+		Advance: rating.Period{From: boundary, To: next}, Arrears: rating.Period{From: periodStart, To: boundary},
+	})
+	if errors.Is(err, rating.ErrAmountOverflow) {
+		return rating.Composition{}, nil, time.Time{}, kaitenerrors.Internal("ComposeInvoice.AmountOverflow", "an invoice amount overflows 64-bit minor units")
+	}
+	if err != nil {
+		return rating.Composition{}, nil, time.Time{}, err
+	}
+	return composition, hold, next, nil
+}
+
+// Preview composes, without sealing or writing anything, the invoice the
+// subscription's next boundary would issue on its usage so far, and says
+// which meters' journals would hold it.
+func (c *Closer) Preview(ctx context.Context, sub db.InstanceBilling) (*rating.InvoicePreview, error) {
+	q := c.deps.Queries(ctx)
+	clock, err := q.BillingClock(ctx)
+	if err != nil {
+		return nil, err
+	}
+	now := clock.Time.UTC()
+	base, err := c.deps.Catalogue.Price(ctx, sub.OrganizationID, sub.BaseLicensePriceID)
+	if err != nil {
+		return nil, err
+	}
+	if base == nil {
+		return nil, fmt.Errorf("subscription %s is pinned to price %s, which does not exist", sub.ID, sub.BaseLicensePriceID)
+	}
+	boundary := sub.CurrentPeriodEnd.Time.UTC()
+	composition, hold, _, err := c.compose(ctx, q, sub, base, boundary, now)
+	if err != nil {
+		return nil, err
+	}
+	preview := rating.Preview(rating.KindRenewal, now, boundary, base.LicenseSlug, sub.Currency, composition)
+	if hold != nil {
+		for _, pair := range hold.Detail.Pairs {
+			preview.WouldHold = append(preview.WouldHold, rating.InvoiceHold{EntitlementID: pair.EntitlementID, Invariant: string(pair.Invariant)})
+		}
+	}
+	return &preview, nil
 }
 
 // measure summarizes every metered pair over [from, to) and checks its

@@ -15,6 +15,10 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getupcominginvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinstanceinvoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updatebillingsettings"
@@ -32,6 +36,10 @@ type UseCases struct {
 	SubscribeInstance     *subscribeinstance.UseCase
 	GetInstanceBilling    *getinstancebilling.UseCase
 	CloseBillingPeriods   *closebillingperiods.UseCase
+	ListInvoices          *listinvoices.UseCase
+	ListInstanceInvoices  *listinstanceinvoices.UseCase
+	GetInvoice            *getinvoice.UseCase
+	GetUpcomingInvoice    *getupcominginvoice.UseCase
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -50,6 +58,10 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		SubscribeInstance:     subscribeinstance.NewUseCase(deps),
 		GetInstanceBilling:    getinstancebilling.NewUseCase(deps),
 		CloseBillingPeriods:   closebillingperiods.NewUseCase(deps, closer, batchSize(cfg.PeriodClose.BatchSize)),
+		ListInvoices:          listinvoices.NewUseCase(deps),
+		ListInstanceInvoices:  listinstanceinvoices.NewUseCase(deps),
+		GetInvoice:            getinvoice.NewUseCase(deps),
+		GetUpcomingInvoice:    getupcominginvoice.NewUseCase(deps, closer),
 	}
 
 	// The billing jobs run only where billing is on and background work runs.
