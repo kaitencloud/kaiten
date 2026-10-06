@@ -14,6 +14,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A migration below main's newest breaks `migrate up` on databases that
+  # already applied it: goose refuses a pending version lower than an applied one.
+  migration-order:
+    name: Migration order
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: New migrations are newer than the base branch's
+        run: scripts/check-migration-order.sh "origin/${{ github.base_ref }}"
+
   lint:
     name: Lint & Build /api
     runs-on: ubuntu-latest
