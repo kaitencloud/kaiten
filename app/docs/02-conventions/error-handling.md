@@ -268,6 +268,10 @@ Use an optimistic update for deletes and simple toggles
 a preference the same way). For a create or an edit, invalidate in `onSuccess`
 instead. See [query key invalidation](./query-key-invalidation.md).
 
+## Billing refusals
+
+The billing calls answer a problem document with a stable `code` and a `detail`. The console shows the `detail` as written and keeps no `Errors.api.<code>` translation per code: `check:api-error-i18n` covers only the generic categories above. `ProblemAlert` (`app/src/domains/billing/components/`) is what a billing dialog renders: the `detail`, or a generic message with the `code` in a monospace hint when there is none. `handleBillingProblem` (`app/src/domains/billing/logic/billing-problem.ts`) recognises the few codes that change what a screen does, such as a missing scope (a banner naming it), billing being off, a 503 (nothing was changed, with a retry) and a boundary being closed (`Retry-After`), and `applyProblemFieldErrors` puts the field errors of a 422 on a form. Billing mutations never use the optimistic helpers: a refusal must not show as a success. See [billing](../../src/domains/billing/README.md).
+
 ## Errors that are not failures
 
 Some errors are an expected answer, not a failure to report:

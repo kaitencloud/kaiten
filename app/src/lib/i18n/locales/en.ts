@@ -3075,6 +3075,90 @@ export default {
     },
   },
   Features: {
+    Billing: {
+      Unavailable: {
+        DEPLOYMENT_DISABLED: {
+          title: 'Billing is not enabled',
+          description:
+            'Billing is switched off on this deployment. Set KAITEN_BILLING_ENABLED to true on the API to turn it on.',
+        },
+        NOT_ENTITLED: {
+          title: 'Billing is not part of your plan',
+          description:
+            "Your organization's plan does not include billing. Upgrade your plan to use it.",
+        },
+        MISSING_SCOPE: {
+          title: 'You do not have access to billing',
+          description:
+            'Billing cannot be opened with the access of this session.',
+        },
+        FEATURE_UNAVAILABLE: {
+          title: 'Not available in this version',
+          description:
+            'This part of billing is not shipped by the version of Kaiten you are running.',
+        },
+        UNREACHABLE: {
+          title: 'Billing could not be reached',
+          description:
+            'The billing capabilities did not load, so billing stays hidden. Nothing was changed. Try again in a moment.',
+        },
+      },
+      MissingScope: {
+        title: 'Missing access',
+        description:
+          'The token of your session does not carry the scope this needs:',
+        unknownScope: 'a scope this action requires',
+        templateHint:
+          'If you should have it, the token template of your identity provider must list the billing scopes (read:billing and write:billing).',
+      },
+      Problems: {
+        title: 'The request was refused',
+        generic: 'Something went wrong while talking to billing.',
+        transient: 'Nothing was changed. You can try again.',
+        providerUnreachable:
+          'The payment provider could not be reached. Nothing was changed.',
+        reference: 'Reference {{id}}',
+        outsideRetention: 'Usage before {{date}} is no longer kept.',
+      },
+      InvoiceStatus: {
+        DRAFT: 'Draft',
+        MANUAL: 'Ready to bill',
+        PUSHED: 'Awaiting payment',
+        PAID: 'Paid',
+        PUSH_FAILED: 'Push failed',
+        PAYMENT_FAILED: 'Payment failed',
+        UNCOLLECTIBLE: 'Written off',
+        VOID: 'Void',
+        held: 'Held',
+        overdue: 'Overdue',
+      },
+      HoldReason: {
+        LEDGER_SEQUENCE_GAP: 'Usage reports are missing from the journal',
+        LEDGER_CHAIN_BREAK: 'The usage journal chain is broken',
+        LEDGER_COUNTER_MISMATCH: 'The usage counter does not match the journal',
+      },
+      InvoiceLineType: {
+        BASE: 'Base',
+        ADDON: 'Add-on',
+        USAGE: 'Usage',
+        OVERAGE: 'Overage',
+        DISCOUNT: 'Discount',
+        unknown: 'Other',
+      },
+      SubscriptionStatus: {
+        TRIAL: 'Trial',
+        ACTIVE: 'Active',
+        PAST_DUE: 'Past due',
+        CANCELED: 'Canceled',
+        cancellationScheduled: 'Cancels at period end',
+      },
+      SubscriptionActions: {
+        Reasons: {
+          trial: 'Unavailable during a trial',
+          cancellationScheduled: 'Reactivate the subscription first',
+        },
+      },
+    },
     AuditTrail: {
       events: {
         ADDON_ARCHIVED: 'Add-on version archived',

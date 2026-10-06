@@ -94,7 +94,11 @@ A machine user of an organization. It holds API tokens (`/service-accounts/{serv
 
 ### Token and scope
 
-A **token** authenticates a service account. Its value is returned once, when it is created. A **scope** is `read:<resource>` or `write:<resource>`; a token carries the scopes it was given. The resources are the ones of `app/src/lib/api/scopes.gen.ts`, generated from the contract.
+A **token** authenticates a service account. Its value is returned once, when it is created. A **scope** is `read:<resource>` or `write:<resource>`; a token carries the scopes it was given. The resources are the ones of `app/src/lib/api/scopes.gen.ts`, generated from the contract, and the scope each operation requires is `OPERATION_SCOPES` in `app/src/lib/api/operation-scopes.gen.ts`. The billing domain reads the scopes of the session from its token (`app/src/lib/granted-scopes.ts`, through `useCanPerform`), only to hide the actions the API would refuse.
+
+### Billing capabilities
+
+`GET /billing/capabilities` says whether billing is on for the organization (`enabled`, and `disabledReason` when it is not), which providers can collect invoices and which `features` the running release ships. The console shows billing only when it answers `enabled`: the side navigation and the guards of the billing routes read it, and a failure to read it reads as off. Code: `app/src/domains/billing/`.
 
 ### Webhook
 

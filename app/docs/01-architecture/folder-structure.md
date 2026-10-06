@@ -48,7 +48,7 @@ app/src/
 └── styles.css, tokens.css   # Tailwind entry point, the app's own design tokens
 ```
 
-`src/e2e/` is test infrastructure, not a layer: `main.tsx` loads it dynamically, only when a `VITE_E2E_MSW`, `VITE_MOCK_API` or `VITE_MOCK_NOTIFICATIONS` variable asks for it, and the production build leaves it out. Its handlers build their seeds from the Playwright models in `app/e2e/app/_support/model/`, and the dev world (`src/e2e/msw/dev-world/`) its records with the fixture builders of `app/e2e/app/_support/fixtures/`, a dependency that `check:architecture` cannot judge, because its target lies outside `src/` and no rule covers it.
+`src/e2e/` is test infrastructure, not a layer: `main.tsx` loads it dynamically, only when a `VITE_E2E_MSW`, `VITE_MOCK_API` or `VITE_MOCK_NOTIFICATIONS` variable asks for it, and the production build leaves it out. Its handlers build their seeds from the Playwright models in `app/e2e/app/_support/model/`, and the dev world (`src/e2e/msw/dev-world/`) its records with the fixture builders of `app/e2e/app/_support/fixtures/`. The unit-test server (`src/__tests__/msw-server.ts`), the Storybook configuration (`.storybook/msw.ts`), `src/test-fixtures/` and a few unit tests read the billing capability profiles of `app/e2e/app/_support/model/billing-capabilities.ts` the same way. These dependencies are ones that `check:architecture` cannot judge, because their target lies outside `src/` and no rule covers it.
 
 ## Dependency matrix
 
@@ -138,6 +138,7 @@ A domain typically has `queries/` (query keys, options, invalidation helpers), `
 - `domains/release-management/` holds the release overview query, the release statuses and the shared component-catalog form, used by `releases`, `components`, `deployment-zones` and `instances`.
 - `domains/crm-sync/` holds the per-entity CRM sync read model and its display components.
 - `domains/webhooks/` holds whether outbound webhooks are served to the organization, which the side navigation, the webhooks route guard and the token scope picker read.
+- `domains/billing/` holds what the billing screens share: the capabilities every billing screen gates on, the scope each action needs, money, period and status components, and how a refusal of the API is shown.
 
 Put in a domain:
 
@@ -190,7 +191,7 @@ A hook used by one feature stays in `features/<name>/hooks/` and moves here when
 | Path | What it holds |
 | --- | --- |
 | `api/` | Wiring of the generated REST client: base URL, auth interceptor, `ApiError` wrapping; pagination helpers; query options that fetch every page of a list (`all-pages-query-options.ts`, built on the generated client); the generated `scopes.gen.ts` and `operation-scopes.gen.ts` |
-| `auth-token.ts`, `local-auth.ts` | Resolution of the bearer token, and the local dev-token mode |
+| `auth-token.ts`, `local-auth.ts`, `granted-scopes.ts` | Resolution of the bearer token, the local dev-token mode, and the scopes the token carries (decoded for display only, never verified) |
 | `graphql-client.ts` | The small `fetch` client for GraphQL |
 | `errors/` | `ApiError`, `handleApiError`, `getApiErrorMessage`, error codes |
 | `i18n/` | i18next configuration and the `en` and `fr` locales |
@@ -199,7 +200,7 @@ A hook used by one feature stays in `features/<name>/hooks/` and moves here when
 | `feature-flags.ts` | Evaluation of the flags the app gates its own features on, through OpenFeature and its OFREP web provider |
 | `external-id.ts` | Browser-side derivation of an organization id, which has to match the server's (`api/pkg/externalid`) |
 | `optimistic-mutations.ts`, `monaco-workers.ts` | Callbacks for optimistic deletes and invalidation on success; Monaco worker configuration |
-| `logger.ts`, `utils.ts`, `debounce.ts`, `format-date.ts`, `money.ts`, ... | Cross-cutting utilities; `cn` is in `utils.ts`; `money.ts` formats and converts amounts without a float (BigInt and decimal strings) |
+| `logger.ts`, `utils.ts`, `debounce.ts`, `app-locale.ts`, `format-date.ts`, `money.ts`, `download-blob.ts`, ... | Cross-cutting utilities; `cn` is in `utils.ts`; `app-locale.ts` names the language that numbers, money and dates are written in; `money.ts` formats and converts amounts without a float (BigInt and decimal strings), with the minor-unit exponents of the API in `currency-exponents.ts`; `download-blob.ts` saves a file the page holds or an export the API streams |
 
 `lib/` is infrastructure plus a few bridges to the product. `data-model-icons.ts` maps each entity to an icon and `navigation/segment-labels.ts` maps URL segments to labels, because the whole app shares that vocabulary. `feature-flags.ts` names a product flag (`DEMO_SANDBOX_FLAG`) and `external-id.ts` repeats a server-side derivation. Feature screens and mutations stay out of `lib/`.
 
