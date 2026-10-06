@@ -1,6 +1,7 @@
 /** Shared HTTP helpers for MSW handlers. */
 import type { DefaultBodyType, PathParams, RequestHandler } from 'msw';
 import { HttpResponse, type HttpResponseResolver, http } from 'msw/http';
+import type { ErrorDetail } from '@/api-client';
 import {
   extractOperationName,
   messageForError,
@@ -31,6 +32,35 @@ export const withFallbacksLast = <T extends RequestHandler>(
   ...handlers.filter((handler) => !fallbackHandlers.has(handler)),
   ...handlers.filter((handler) => fallbackHandlers.has(handler)),
 ];
+
+/**
+ * A refusal as the Core API words it: a problem document, so that the console
+ * shows the API's own reason, code and field errors, and reads a `Retry-After`
+ * the way it does against the real backend.
+ */
+export const problemJson = (
+  status: number,
+  detail: string,
+  code?: string,
+  extras: { errors?: ErrorDetail[]; headers?: Record<string, string> } = {},
+) =>
+  HttpResponse.json(
+    {
+      type: 'about:blank',
+      title: 'Error',
+      status,
+      detail,
+      code,
+      errors: extras.errors,
+    },
+    {
+      status,
+      headers: {
+        'Content-Type': 'application/problem+json',
+        ...extras.headers,
+      },
+    },
+  );
 
 export const parseRequestJson = async <T>(request: Request): Promise<T> => {
   const body = await request.json();

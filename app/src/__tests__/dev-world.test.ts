@@ -31,6 +31,7 @@ describe('dev world', () => {
   it('seeds every area of the console', () => {
     expect(Object.keys(config).sort()).toEqual([
       'auditTrail',
+      'billing',
       'connectors',
       'customers',
       'dashboard',
@@ -107,6 +108,14 @@ describe('dev world', () => {
         expect(releaseSlugs).toContain(release[1]);
       }
     }
+  });
+
+  it('turns billing on, with NoOp to collect invoices', () => {
+    const { capabilities, outage } = slot(config.billing);
+
+    expect(outage).toBeNull();
+    expect(capabilities.enabled).toBe(true);
+    expect(capabilities.providers.map(({ kind }) => kind)).toEqual(['NOOP']);
   });
 
   it('counts on the dashboard what the lists show', () => {

@@ -29,7 +29,9 @@ worker with unmocked flags passed through, and `pnpm run dev:mock`
 records the areas share (`dev-world/`), with a warning for each API request no
 slot answers. `src/__tests__/dev-world.test.ts` builds that world through the
 models, which check it against the contract, and checks that its references
-resolve. E2E defaults unmocked platform flags off and fails undeclared API
+resolve. E2E defaults unmocked platform flags off, answers the billing capabilities
+with billing off (the shell reads them on every page; the unit network and the
+stories' network do the same) and fails undeclared API
 requests with a network error; the shared Playwright fixture fails on the
 named console error. Explicit shell fallbacks run after model owners.
 Dev-world mocks warn and pass through, and partial notification mocks pass

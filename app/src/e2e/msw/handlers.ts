@@ -1,6 +1,7 @@
 import { HttpResponse, http } from 'msw/http';
 import type { E2EMswConfig } from '../../../e2e/app/_support/contracts/msw-slots';
 import { AuditTrailAppModel } from '../../../e2e/app/_support/model/audit-trail-app-model';
+import { BillingAppModel } from '../../../e2e/app/_support/model/billing-app-model';
 import { ConnectorAppModel } from '../../../e2e/app/_support/model/connector-app-model';
 import { CustomerAppModel } from '../../../e2e/app/_support/model/customer-app-model';
 import { DashboardAppModel } from '../../../e2e/app/_support/model/dashboard-app-model';
@@ -12,6 +13,7 @@ import { NotificationAppModel } from '../../../e2e/app/_support/model/notificati
 import { NO_PLATFORM_FLAGS } from '../../../e2e/app/_support/model/platform-flags';
 import { ReleaseManagementAppModel } from '../../../e2e/app/_support/model/release-management-app-model';
 import { auditTrailHandlers } from './audit-trail-handlers';
+import { billingHandlers } from './billing-handlers';
 import { connectorHandlers } from './connector-handlers';
 import { customerHandlers } from './customer-handlers';
 import { dashboardHandlers } from './dashboard-handlers';
@@ -36,6 +38,9 @@ export function createMockHandlers(
 ) {
   const auditTrail = effectiveConfig.auditTrail
     ? AuditTrailAppModel.fromSerialized(effectiveConfig.auditTrail)
+    : null;
+  const billing = effectiveConfig.billing
+    ? BillingAppModel.fromSerialized(effectiveConfig.billing)
     : null;
   const connectors = effectiveConfig.connectors
     ? ConnectorAppModel.fromSerialized(effectiveConfig.connectors)
@@ -74,6 +79,11 @@ export function createMockHandlers(
   // Explicit sibling fallbacks are sorted last, after all installed owners.
   const handlers = [
     ...(auditTrail ? auditTrailHandlers(auditTrail) : []),
+    ...(billing
+      ? billingHandlers(billing, () =>
+          persist('billing', billing.serializeForMsw()),
+        )
+      : []),
     ...(licenses
       ? licenseHandlers(licenses, () =>
           persist('licenses', licenses.serializeForMsw()),
