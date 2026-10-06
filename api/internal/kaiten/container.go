@@ -4,6 +4,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/cdc"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons/billableaddons"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components"
@@ -28,6 +30,7 @@ import (
 // through, and it is unexported so that reading through it is the facade's
 // privilege rather than anyone's option.
 type modules struct {
+	Addons          *addons.UseCases
 	AuditTrail      *audittrail.UseCases
 	Billing         *billing.UseCases
 	Components      *components.UseCases
@@ -155,12 +158,15 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	instanceModule := instances.NewUseCases(svc)
 
 	built := modules{
+		Addons:     addons.NewUseCases(svc),
 		AuditTrail: audittrail.NewUseCases(svc, notificationModule.Announcer),
-		// Billing reads the licence catalogue and the usage journal through
-		// ports it owns; the modules that own that data implement them.
+		// Billing reads the licence catalogue, the usage journal and the
+		// add-ons an instance holds through ports it owns; the modules that own
+		// that data implement them.
 		Billing: billing.NewUseCases(svc, billing.Ports{
 			Catalogue: billablecatalogue.New(svc.Uof),
 			Usage:     instanceModule.BillableUsage,
+			Addons:    billableaddons.New(svc.Uof),
 		}),
 		Components:      components.NewUseCases(svc),
 		Connectors:      connectors.NewUseCases(svc),

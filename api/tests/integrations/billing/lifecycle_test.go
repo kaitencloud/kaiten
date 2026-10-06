@@ -192,7 +192,7 @@ func TestPlanChanges(t *testing.T) {
 		renewal := getInvoice(t, report.Invoices[0].ID)
 		require.Len(t, renewal.Lines, 1)
 		require.EqualValues(t, 49000, renewal.Lines[0].Amount, "the new plan's year, in advance")
-		require.Equal(t, annual.ID, renewal.Lines[0].LicensePriceID)
+		require.Equal(t, annual.ID, *renewal.Lines[0].LicensePriceID)
 
 		billing := readBilling(t, s.instance.Slug)
 		require.Equal(t, annual.ID, billing.BasePrice.ID)

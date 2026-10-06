@@ -1,5 +1,454 @@
 components:
   schemas:
+    Addon:
+      additionalProperties: false
+      properties:
+        createdAt:
+          format: date-time
+          readOnly: true
+          type: string
+        description:
+          type: string
+        familySlug:
+          description: The family the version belongs to
+          examples:
+            - extra-seats
+          type: string
+        id:
+          readOnly: true
+          type: string
+        isDefault:
+          description: The version the family resolves to. Only a PUBLISHED version.
+          type: boolean
+        lifecycleState:
+          description: A DRAFT can be attached to try it; an ARCHIVED version stays on the instances holding it but cannot be attached again.
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - ARCHIVED
+          type: string
+        maxQuantity:
+          description: The largest quantity an instance can hold; unbounded when absent
+          examples:
+            - 10
+          format: int32
+          type: integer
+        name:
+          examples:
+            - Extra seats
+          type: string
+        pricingType:
+          enum:
+            - FREE
+            - PAID
+            - CUSTOM
+          type: string
+        slug:
+          description: The version's slug, unique in the organization
+          examples:
+            - extra-seats-v1
+          type: string
+        updatedAt:
+          format: date-time
+          readOnly: true
+          type: string
+        version:
+          description: The version number in its family, assigned on create
+          examples:
+            - 1
+          format: int32
+          readOnly: true
+          type: integer
+        versionName:
+          examples:
+            - Version - 1
+          type: string
+      required:
+        - id
+        - slug
+        - familySlug
+        - name
+        - description
+        - version
+        - versionName
+        - isDefault
+        - lifecycleState
+        - pricingType
+        - createdAt
+        - updatedAt
+      type: object
+    AddonChanges:
+      additionalProperties: false
+      properties:
+        description:
+          type: string
+        isDefault:
+          type: boolean
+        maxQuantity:
+          format: int32
+          type: integer
+        name:
+          examples:
+            - Extra seats
+          minLength: 1
+          type: string
+        versionName:
+          type: string
+      required:
+        - name
+        - description
+        - isDefault
+      type: object
+    AddonEntitlement:
+      additionalProperties: false
+      properties:
+        entitlementSlug:
+          examples:
+            - seats
+          type: string
+        entitlementType:
+          enum:
+            - BOOLEAN
+            - NUMBER
+            - CONFIG
+            - NUMBER_AI_CREDIT
+          type: string
+        id:
+          readOnly: true
+          type: string
+        limitCapExceededOveragePercent:
+          description: The overage the add-on allows; absent inherits the licence grant's
+          format: int32
+          type: integer
+        overrideBehavior:
+          description: "How a number grant combines with the licence's: ADD sums value × quantity, OVERRIDE replaces it with the latest attached add-on's, MAX keeps the larger. A boolean always ORs, a config always overrides."
+          enum:
+            - ADD
+            - OVERRIDE
+            - MAX
+          type: string
+        value:
+          additionalProperties: {}
+          description: "{type, value}, shaped like a licence grant. A number counts once per unit of quantity."
+          type: object
+      required:
+        - id
+        - entitlementSlug
+        - entitlementType
+        - value
+        - overrideBehavior
+      type: object
+    AddonFamily:
+      additionalProperties: false
+      properties:
+        currentVersion:
+          $ref: "#/components/schemas/Addon"
+          description: The default version, else the highest PUBLISHED one; absent when none is published
+        id:
+          readOnly: true
+          type: string
+        isPublic:
+          description: Whether the family is listed in the public catalogue
+          type: boolean
+        lastVersion:
+          description: The highest version number the family has assigned
+          format: int32
+          type: integer
+        slug:
+          examples:
+            - extra-seats
+          type: string
+        versions:
+          description: Every version, newest first
+          items:
+            $ref: "#/components/schemas/Addon"
+          type:
+            - array
+            - "null"
+      required:
+        - id
+        - slug
+        - isPublic
+        - lastVersion
+        - versions
+      type: object
+    AddonFamilyVisibility:
+      additionalProperties: false
+      properties:
+        isPublic:
+          description: List the family's default PUBLISHED version, with its ACTIVE prices, in the public catalogue
+          type: boolean
+      required:
+        - isPublic
+      type: object
+    AddonGrant:
+      additionalProperties: false
+      properties:
+        limitCapExceededOveragePercent:
+          description: "The overage the add-on allows: -1 with an unlimited value, 0 or more otherwise. Absent inherits the licence grant's."
+          format: int32
+          type: integer
+        overrideBehavior:
+          default: MAX
+          description: How a number grant combines with the licence's
+          enum:
+            - ADD
+            - OVERRIDE
+            - MAX
+          type: string
+        value:
+          additionalProperties: {}
+          description: "{type, value}, shaped like a licence grant: a number counts once per unit of quantity"
+          examples:
+            - type: number
+              value: 5
+          type: object
+      required:
+        - value
+      type: object
+    AddonGrantUpdate:
+      additionalProperties: false
+      properties:
+        addonSlug:
+          description: The add-on version the grant belongs to
+          type: string
+        entitlementSlug:
+          examples:
+            - seats
+          type: string
+        entitlementType:
+          enum:
+            - BOOLEAN
+            - NUMBER
+            - CONFIG
+            - NUMBER_AI_CREDIT
+          type: string
+        id:
+          readOnly: true
+          type: string
+        limitCapExceededOveragePercent:
+          description: The overage the add-on allows; absent inherits the licence grant's
+          format: int32
+          type: integer
+        overrideBehavior:
+          description: "How a number grant combines with the licence's: ADD sums value × quantity, OVERRIDE replaces it with the latest attached add-on's, MAX keeps the larger. A boolean always ORs, a config always overrides."
+          enum:
+            - ADD
+            - OVERRIDE
+            - MAX
+          type: string
+        value:
+          additionalProperties: {}
+          description: "{type, value}, shaped like a licence grant. A number counts once per unit of quantity."
+          type: object
+      required:
+        - addonSlug
+        - id
+        - entitlementSlug
+        - entitlementType
+        - value
+        - overrideBehavior
+      type: object
+    AddonPriceUpdate:
+      additionalProperties: false
+      properties:
+        addonSlug:
+          description: The add-on version the price belongs to
+          type: string
+        billingModel:
+          description: "FLAT_FEE: an amount per billing period. USAGE_BASED: an amount per sale unit of the metered entitlement's usage. OVERAGE: an amount per sale unit of the usage above the licence's limit."
+          enum:
+            - FLAT_FEE
+            - USAGE_BASED
+            - OVERAGE
+          type: string
+        billingPeriod:
+          description: The period a FLAT_FEE price is charged for. Absent on metered prices, which bill on the subscription's period.
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        billingTiming:
+          description: ADVANCE bills the period that starts; ARREARS the period that ended. Metered prices are always ARREARS.
+          enum:
+            - ADVANCE
+            - ARREARS
+          type: string
+        createdAt:
+          format: date-time
+          readOnly: true
+          type: string
+        currency:
+          description: ISO 4217 code, upper case. One currency per licence version.
+          examples:
+            - EUR
+          type: string
+        deprecatedAt:
+          description: When the price was deprecated
+          format: date-time
+          type: string
+        displayLabel:
+          description: The invoice line's label; a default is derived when absent.
+          examples:
+            - Pro plan
+          type: string
+        displayOrder:
+          description: Order among the version's prices
+          examples:
+            - 0
+          format: int32
+          type: integer
+        id:
+          description: Unique identifier of the price
+          readOnly: true
+          type: string
+        isDefault:
+          description: The FLAT_FEE price picked for its billing period when none is named. At most one per period; only an ACTIVE FLAT_FEE price.
+          type: boolean
+        metered:
+          $ref: "#/components/schemas/Meter"
+          description: What a metered price measures. Absent on FLAT_FEE prices.
+        status:
+          description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
+          enum:
+            - ACTIVE
+            - DEPRECATED
+          type: string
+        unitAmount:
+          description: unitAmountDecimal as an integer number of minor units, when it is one; absent otherwise.
+          examples:
+            - 2900
+          format: int64
+          type: integer
+        unitAmountDecimal:
+          description: "Amount in the currency's minor units (cents for EUR): per period for FLAT_FEE, per sale unit for metered prices. Up to 12 decimal places."
+          examples:
+            - "2900"
+          type: string
+        updatedAt:
+          format: date-time
+          readOnly: true
+          type: string
+      required:
+        - addonSlug
+        - id
+        - billingModel
+        - billingTiming
+        - currency
+        - unitAmountDecimal
+        - displayOrder
+        - isDefault
+        - status
+        - createdAt
+        - updatedAt
+      type: object
+    AddonQuantity:
+      additionalProperties: false
+      properties:
+        quantity:
+          examples:
+            - 3
+          format: int32
+          minimum: 1
+          type: integer
+      required:
+        - quantity
+      type: object
+    AddonUpdate:
+      additionalProperties: false
+      properties:
+        changedFields:
+          description: The members the change touched, as the API names them
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        compatibleLicenseFamilies:
+          description: The licence families the version fits after the change
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        createdAt:
+          format: date-time
+          readOnly: true
+          type: string
+        description:
+          type: string
+        familySlug:
+          description: The family the version belongs to
+          examples:
+            - extra-seats
+          type: string
+        id:
+          readOnly: true
+          type: string
+        isDefault:
+          description: The version the family resolves to. Only a PUBLISHED version.
+          type: boolean
+        lifecycleState:
+          description: A DRAFT can be attached to try it; an ARCHIVED version stays on the instances holding it but cannot be attached again.
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - ARCHIVED
+          type: string
+        maxQuantity:
+          description: The largest quantity an instance can hold; unbounded when absent
+          examples:
+            - 10
+          format: int32
+          type: integer
+        name:
+          examples:
+            - Extra seats
+          type: string
+        pricingType:
+          enum:
+            - FREE
+            - PAID
+            - CUSTOM
+          type: string
+        slug:
+          description: The version's slug, unique in the organization
+          examples:
+            - extra-seats-v1
+          type: string
+        updatedAt:
+          format: date-time
+          readOnly: true
+          type: string
+        version:
+          description: The version number in its family, assigned on create
+          examples:
+            - 1
+          format: int32
+          readOnly: true
+          type: integer
+        versionName:
+          examples:
+            - Version - 1
+          type: string
+      required:
+        - changedFields
+        - compatibleLicenseFamilies
+        - id
+        - slug
+        - familySlug
+        - name
+        - description
+        - version
+        - versionName
+        - isDefault
+        - lifecycleState
+        - pricingType
+        - createdAt
+        - updatedAt
+      type: object
     AuditTrail:
       additionalProperties: false
       properties:
@@ -772,6 +1221,18 @@ components:
       required:
         - entitlementSlug
       type: object
+    CompatibleLicenseFamilies:
+      additionalProperties: false
+      properties:
+        familySlugs:
+          examples:
+            - - pro
+          items:
+            type: string
+          type: array
+      required:
+        - familySlugs
+      type: object
     Component:
       additionalProperties: false
       properties:
@@ -1175,6 +1636,20 @@ components:
         - $ref: "#/components/schemas/Basic"
         - $ref: "#/components/schemas/RolloutDate"
         - $ref: "#/components/schemas/RolloutPercentage"
+    DeletedAddon:
+      additionalProperties: false
+      properties:
+        familySlug:
+          type: string
+        id:
+          type: string
+        slug:
+          type: string
+      required:
+        - id
+        - slug
+        - familySlug
+      type: object
     Deployment:
       additionalProperties: false
       properties:
@@ -2348,6 +2823,101 @@ components:
         - startLicenseDate
         - endLicenseDate
       type: object
+    InstanceAddon:
+      additionalProperties: false
+      properties:
+        addonId:
+          type: string
+        addonSlug:
+          examples:
+            - extra-seats-v1
+          type: string
+        attachedAt:
+          format: date-time
+          type: string
+        familySlug:
+          examples:
+            - extra-seats
+          type: string
+        id:
+          readOnly: true
+          type: string
+        maxQuantity:
+          format: int32
+          type: integer
+        prices:
+          description: "What the instance's subscription bills for it: the default FLAT_FEE price of the subscription's period and the ACTIVE metered prices. Empty when the instance is not billed."
+          items:
+            $ref: "#/components/schemas/Price"
+          type: array
+        quantity:
+          examples:
+            - 3
+          format: int32
+          type: integer
+        removedAt:
+          format: date-time
+          type: string
+      required:
+        - id
+        - addonId
+        - addonSlug
+        - familySlug
+        - quantity
+        - attachedAt
+        - prices
+      type: object
+    InstanceAddonUpdate:
+      additionalProperties: false
+      properties:
+        addonId:
+          type: string
+        addonSlug:
+          examples:
+            - extra-seats-v1
+          type: string
+        attachedAt:
+          format: date-time
+          type: string
+        familySlug:
+          examples:
+            - extra-seats
+          type: string
+        id:
+          readOnly: true
+          type: string
+        instanceSlug:
+          type: string
+        maxQuantity:
+          format: int32
+          type: integer
+        previousQuantity:
+          description: The quantity before a quantity change
+          format: int32
+          type: integer
+        prices:
+          description: "What the instance's subscription bills for it: the default FLAT_FEE price of the subscription's period and the ACTIVE metered prices. Empty when the instance is not billed."
+          items:
+            $ref: "#/components/schemas/Price"
+          type: array
+        quantity:
+          examples:
+            - 3
+          format: int32
+          type: integer
+        removedAt:
+          format: date-time
+          type: string
+      required:
+        - instanceSlug
+        - id
+        - addonId
+        - addonSlug
+        - familySlug
+        - quantity
+        - attachedAt
+        - prices
+      type: object
     InstanceBilling:
       additionalProperties: false
       properties:
@@ -3031,6 +3601,12 @@ components:
     InvoiceLine:
       additionalProperties: false
       properties:
+        addonId:
+          description: The add-on version an ADDON line bills
+          type: string
+        addonPriceId:
+          description: The add-on price an ADDON line bills
+          type: string
         amount:
           description: round_half_up(quantity × unitAmountDecimal), in minor units
           examples:
@@ -3067,13 +3643,16 @@ components:
         id:
           description: The line's identifier, stable for the invoice's life; absent on a preview
           type: string
+        instanceAddonId:
+          description: The instance's attachment an ADDON line bills
+          type: string
         label:
           description: The price's display label, else a derived one
           examples:
             - Tokens — overage
           type: string
         licensePriceId:
-          description: The licence price the line bills
+          description: The licence price the line bills; absent on an ADDON line
           type: string
         metering:
           $ref: "#/components/schemas/InvoiceLineMetering"
@@ -3082,7 +3661,7 @@ components:
           $ref: "#/components/schemas/InvoiceLineOverage"
           description: The arithmetic of an OVERAGE line
         quantity:
-          description: "In sale units, a decimal string: 1 on a BASE line"
+          description: "In sale units, a decimal string: 1 on a BASE line, the quantity held on an ADDON line"
           examples:
             - "3.05"
           type: string
@@ -3099,9 +3678,10 @@ components:
           format: date-time
           type: string
         type:
-          description: "BASE: the subscription's FLAT_FEE price. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit."
+          description: "BASE: the subscription's FLAT_FEE price. ADDON: an add-on's FLAT_FEE price times the quantity held at the boundary. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit."
           enum:
             - BASE
+            - ADDON
             - USAGE
             - OVERAGE
           type: string
@@ -3115,7 +3695,6 @@ components:
         - type
         - billingModel
         - billingTiming
-        - licensePriceId
         - label
         - description
         - serviceFrom
@@ -4135,6 +4714,161 @@ components:
       required:
         - entitlementSlug
         - saleUnitFactor
+      type: object
+    NewAddon:
+      additionalProperties: false
+      properties:
+        description:
+          examples:
+            - Five more seats per unit
+          type: string
+        familyId:
+          description: Make this a new version of this family
+          type: string
+        familySlug:
+          description: Make this a new version of this family
+          examples:
+            - extra-seats
+          type: string
+        isDefault:
+          description: Make this version its family's default; the previous default loses it
+          type: boolean
+        lifecycleState:
+          default: PUBLISHED
+          enum:
+            - DRAFT
+            - PUBLISHED
+          type: string
+        maxQuantity:
+          description: The largest quantity an instance can hold
+          examples:
+            - 10
+          format: int32
+          type: integer
+        name:
+          examples:
+            - Extra seats
+          minLength: 1
+          type: string
+        pricingType:
+          enum:
+            - FREE
+            - PAID
+            - CUSTOM
+          type: string
+        slug:
+          description: "The version's slug. Default: {familySlug}-v{n} for a new version of a family, a slug generated from the name for a new family."
+          examples:
+            - extra-seats-v1
+          type: string
+        versionName:
+          description: "Default: Version - {n}"
+          type: string
+      required:
+        - name
+        - description
+        - pricingType
+      type: object
+    NewAddonGrant:
+      additionalProperties: false
+      properties:
+        entitlementSlug:
+          examples:
+            - seats
+          type: string
+        limitCapExceededOveragePercent:
+          description: "The overage the add-on allows: -1 with an unlimited value, 0 or more otherwise. Absent inherits the licence grant's."
+          format: int32
+          type: integer
+        overrideBehavior:
+          default: MAX
+          description: How a number grant combines with the licence's
+          enum:
+            - ADD
+            - OVERRIDE
+            - MAX
+          type: string
+        value:
+          additionalProperties: {}
+          description: "{type, value}, shaped like a licence grant: a number counts once per unit of quantity"
+          examples:
+            - type: number
+              value: 5
+          type: object
+      required:
+        - entitlementSlug
+        - value
+      type: object
+    NewAddonPrice:
+      additionalProperties: false
+      properties:
+        billingModel:
+          enum:
+            - FLAT_FEE
+            - USAGE_BASED
+            - OVERAGE
+          type: string
+        billingPeriod:
+          description: "Required on a FLAT_FEE price: it bills subscriptions of that period. Refused on a metered one."
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        billingTiming:
+          description: Defaults to ADVANCE for a FLAT_FEE price and ARREARS for a metered one, which must be ARREARS.
+          enum:
+            - ADVANCE
+            - ARREARS
+          type: string
+        currency:
+          description: ISO 4217 code, upper case. One currency per add-on version.
+          examples:
+            - EUR
+          type: string
+        displayLabel:
+          maxLength: 200
+          type: string
+        displayOrder:
+          format: int32
+          minimum: 0
+          type: integer
+        isDefault:
+          description: Makes this FLAT_FEE price the one that bills its period; the previous default of the period loses it.
+          type: boolean
+        meteredEntitlementSlug:
+          description: "The entitlement a metered price measures: granted by the add-on version, with a reset period, SUM or COUNT, NUMBER or NUMBER_AI_CREDIT."
+          examples:
+            - tokens
+          type: string
+        unitAmountDecimal:
+          description: "Amount in minor units: per unit and period for FLAT_FEE, per sale unit for metered prices."
+          examples:
+            - "900"
+          type: string
+      required:
+        - billingModel
+        - currency
+        - unitAmountDecimal
+      type: object
+    NewInstanceAddon:
+      additionalProperties: false
+      properties:
+        addonSlug:
+          description: The add-on version to attach
+          examples:
+            - extra-seats-v1
+          type: string
+        quantity:
+          default: 1
+          examples:
+            - 3
+          format: int32
+          minimum: 1
+          type: integer
+      required:
+        - addonSlug
       type: object
     NewLicensePrice:
       additionalProperties: false
@@ -6722,6 +7456,7 @@ components:
       scheme: bearer
       type: http
       x-kaiten-scopes:
+        - read:addons
         - read:billing
         - read:components
         - read:customers
@@ -6736,6 +7471,7 @@ components:
         - read:releases
         - read:tokens
         - read:webhooks
+        - write:addons
         - write:billing
         - write:components
         - write:customers
@@ -6759,6 +7495,1660 @@ info:
   version: 1.0.0
 openapi: 3.1.0
 paths:
+  /addon-families:
+    get:
+      description: Every add-on family of the organization with its versions, newest family first. Requires billing to be enabled for the organization.
+      operationId: listAddonFamilies
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/AddonFamily"
+                type: array
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:addons
+      summary: List add-on families
+      tags:
+        - addons
+  /addon-families/{familySlug}:
+    get:
+      description: One add-on family with its versions and its current version. Requires billing to be enabled for the organization.
+      operationId: getAddonFamily
+      parameters:
+        - description: Add-on family slug
+          in: path
+          name: familySlug
+          required: true
+          schema:
+            description: Add-on family slug
+            examples:
+              - extra-seats
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddonFamily"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:addons
+      summary: Get an add-on family
+      tags:
+        - addons
+    patch:
+      description: Lists the family in the public catalogue, or takes it out. Families are private until made public. Emits ADDON_UPDATED on each of its versions. Requires billing to be enabled for the organization.
+      operationId: updateAddonFamily
+      parameters:
+        - description: Add-on family slug
+          in: path
+          name: familySlug
+          required: true
+          schema:
+            description: Add-on family slug
+            examples:
+              - extra-seats
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddonFamilyVisibility"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddonFamily"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:addons
+      summary: Update an add-on family
+      tags:
+        - addons
+  /addons:
+    get:
+      description: The organization's add-on versions, newest first. Requires billing to be enabled for the organization.
+      operationId: listAddons
+      parameters:
+        - description: Only versions in this state
+          explode: false
+          in: query
+          name: lifecycleState
+          schema:
+            description: Only versions in this state
+            enum:
+              - DRAFT
+              - PUBLISHED
+              - ARCHIVED
+            type: string
+        - description: Only versions of this family
+          explode: false
+          in: query
+          name: familySlug
+          schema:
+            description: Only versions of this family
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Addon"
+                type: array
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:addons
+      summary: List add-on versions
+      tags:
+        - addons
+    post:
+      description: "Creates an add-on version: the first of a new family, or the next version of the family familySlug (or familyId) names. Emits ADDON_CREATED. Requires billing to be enabled for the organization."
+      operationId: createAddon
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewAddon"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Addon"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:addons
+      summary: Create an add-on version
+      tags:
+        - addons
+  /addons/{addonSlug}:
+    delete:
+      description: Deletes a version that was never attached and grants nothing (409 DeleteAddon.InUseConflict otherwise); its family goes with its last version. Emits ADDON_DELETED. Requires billing to be enabled for the organization.
+      operationId: deleteAddon
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:addons
+      summary: Delete an add-on version
+      tags:
+        - addons
+    get:
+      description: One add-on version. Requires billing to be enabled for the organization.
+      operationId: getAddon
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Addon"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:addons
+      summary: Get an add-on version
+      tags:
+        - addons
+    put:
+      description: Replaces a version's name, description, version name, default flag and maximum quantity. Emits ADDON_UPDATED. Requires billing to be enabled for the organization.
+      operationId: updateAddon
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddonChanges"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Addon"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:addons
+      summary: Update an add-on version
+      tags:
+        - addons
+  /addons/{addonSlug}/archive:
+    post:
+      description: "Withdraws a PUBLISHED version from sale: instances holding it keep it, none can attach it again (409 ArchiveAddon.NotPublished otherwise). Emits ADDON_ARCHIVED. Requires billing to be enabled for the organization."
+      operationId: archiveAddon
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Addon"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:addons
+      summary: Archive an add-on version
+      tags:
+        - addons
+  /addons/{addonSlug}/compatible-license-families:
+    get:
+      description: "The licence families an instance must be on to attach this add-on version. None: it cannot be attached. Requires billing to be enabled for the organization."
+      operationId: listAddonCompatibility
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompatibleLicenseFamilies"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:addons
+      summary: List the licence families an add-on fits
+      tags:
+        - addons
+  /addons/{addonSlug}/compatible-license-families/{familySlug}:
+    delete:
+      description: Instances already holding the add-on keep it; no new attachment from the family. Idempotent. Emits ADDON_UPDATED. Requires billing to be enabled for the organization.
+      operationId: removeAddonCompatibility
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+        - description: License family slug
+          in: path
+          name: familySlug
+          required: true
+          schema:
+            description: License family slug
+            examples:
+              - pro
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:addons
+      summary: Stop an add-on fitting a licence family
+      tags:
+        - addons
+    put:
+      description: Lets instances on any version of the licence family attach this add-on version. Idempotent. Emits ADDON_UPDATED. Requires billing to be enabled for the organization.
+      operationId: setAddonCompatibility
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+        - description: License family slug
+          in: path
+          name: familySlug
+          required: true
+          schema:
+            description: License family slug
+            examples:
+              - pro
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:addons
+      summary: Make an add-on fit a licence family
+      tags:
+        - addons
+  /addons/{addonSlug}/entitlements:
+    get:
+      description: What one add-on version grants per unit of quantity. Requires billing to be enabled for the organization.
+      operationId: listAddonEntitlements
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/AddonEntitlement"
+                type: array
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:addons
+      summary: List an add-on version's grants
+      tags:
+        - addons
+    post:
+      description: Grants an entitlement per unit of an add-on version. Refused while an instance with a live subscription holds the version (409 AssignAddonEntitlement.BillingActive). Emits ADDON_ENTITLEMENT_ASSIGNED. Requires billing to be enabled for the organization.
+      operationId: assignAddonEntitlement
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewAddonGrant"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddonEntitlement"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:addons
+      summary: Grant an entitlement through an add-on
+      tags:
+        - addons
+  /addons/{addonSlug}/entitlements/{entitlementSlug}:
+    delete:
+      description: Removes a grant. Refused while an instance with a live subscription holds the version (409 UnassignAddonEntitlement.BillingActive) and while an ACTIVE price of the version meters it (409 UnassignAddonEntitlement.MeteredByPrice). Emits ADDON_ENTITLEMENT_UNASSIGNED. Requires billing to be enabled for the organization.
+      operationId: unassignAddonEntitlement
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+        - description: Entitlement slug
+          in: path
+          name: entitlementSlug
+          required: true
+          schema:
+            description: Entitlement slug
+            examples:
+              - seats
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:addons
+      summary: Remove an add-on grant
+      tags:
+        - addons
+    get:
+      description: One grant of an add-on version. Requires billing to be enabled for the organization.
+      operationId: getAddonEntitlement
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+        - description: Entitlement slug
+          in: path
+          name: entitlementSlug
+          required: true
+          schema:
+            description: Entitlement slug
+            examples:
+              - seats
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddonEntitlement"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:addons
+      summary: Get an add-on grant
+      tags:
+        - addons
+    put:
+      description: Replaces a grant's value, override behaviour and overage. Refused while an instance with a live subscription holds the version (409 UpdateAddonEntitlement.BillingActive). Emits ADDON_ENTITLEMENT_UPDATED. Requires billing to be enabled for the organization.
+      operationId: updateAddonEntitlement
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+        - description: Entitlement slug
+          in: path
+          name: entitlementSlug
+          required: true
+          schema:
+            description: Entitlement slug
+            examples:
+              - seats
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddonGrant"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddonEntitlement"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:addons
+      summary: Update an add-on grant
+      tags:
+        - addons
+  /addons/{addonSlug}/prices:
+    get:
+      description: The prices of one add-on version, in display order. Requires billing to be enabled for the organization.
+      operationId: listAddonPrices
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+        - description: Only prices in this status; both when omitted
+          explode: false
+          in: query
+          name: status
+          schema:
+            description: Only prices in this status; both when omitted
+            enum:
+              - ACTIVE
+              - DEPRECATED
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Price"
+                type: array
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:addons
+      summary: List an add-on version's prices
+      tags:
+        - addons
+    post:
+      description: "Adds a price to an add-on version, under the rules of a licence price. A price cannot change once created: create another and deprecate this one. Refused while an instance with a live subscription holds the version (409 CreateAddonPrice.BillingActive). Emits ADDON_PRICE_CREATED. Requires billing to be enabled for the organization."
+      operationId: createAddonPrice
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewAddonPrice"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Price"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:addons
+      summary: Create an add-on price
+      tags:
+        - addons
+  /addons/{addonSlug}/prices/{priceId}/deprecate:
+    post:
+      description: "Stops offering a price. A default price cannot be deprecated (409 DeprecateAddonPrice.IsDefault): it is what bills every instance holding the version; retire it through a new version. Emits ADDON_PRICE_DEPRECATED. Requires billing to be enabled for the organization."
+      operationId: deprecateAddonPrice
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+        - description: Price id
+          in: path
+          name: priceId
+          required: true
+          schema:
+            description: Price id
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Price"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:addons
+      summary: Deprecate an add-on price
+      tags:
+        - addons
+  /addons/{addonSlug}/publish:
+    post:
+      description: Puts a DRAFT version on sale (409 PublishAddon.NotADraft otherwise). Emits ADDON_PUBLISHED. Requires billing to be enabled for the organization.
+      operationId: publishAddon
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Addon"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:addons
+      summary: Publish an add-on version
+      tags:
+        - addons
+  /addons/{addonSlug}/unarchive:
+    post:
+      description: Puts an ARCHIVED version back on sale (409 UnarchiveAddon.NotArchived otherwise). Emits ADDON_UNARCHIVED. Requires billing to be enabled for the organization.
+      operationId: unarchiveAddon
+      parameters:
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Addon"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:addons
+      summary: Unarchive an add-on version
+      tags:
+        - addons
   /billing/capabilities:
     get:
       description: Whether billing is enabled for the organization, and if not why; who can collect its invoices; and which parts of billing this release ships, so a client shows only what works. Answers even when billing is disabled.
@@ -10587,6 +12977,333 @@ paths:
         - bearerAuth:
             - write:instances
       summary: Update an instance
+      tags:
+        - instances
+  /instances/{instanceSlug}/addons:
+    get:
+      description: The add-ons an instance holds, in attachment order, each with the prices its subscription bills. Requires billing to be enabled for the organization.
+      operationId: listInstanceAddons
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+        - description: Also list the add-ons removed from the instance
+          explode: false
+          in: query
+          name: includeRemoved
+          schema:
+            description: Also list the add-ons removed from the instance
+            type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/InstanceAddon"
+                type: array
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:instances
+      summary: List an instance's add-ons
+      tags:
+        - instances
+    post:
+      description: "Gives an instance an add-on version and a quantity. The entitlements apply at once; a subscription bills the quantity held at each boundary, without proration. One version per family: moving to another version is detach then attach. Emits INSTANCE_ADDON_ADDED. Requires billing to be enabled for the organization."
+      operationId: attachInstanceAddon
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewInstanceAddon"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstanceAddon"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:instances
+      summary: Attach an add-on to an instance
+      tags:
+        - instances
+  /instances/{instanceSlug}/addons/{addonSlug}:
+    delete:
+      description: Removes an add-on from an instance. The entitlements drop at once; nothing is refunded. The attachment stays readable with includeRemoved. Emits INSTANCE_ADDON_REMOVED. Requires billing to be enabled for the organization.
+      operationId: detachInstanceAddon
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:instances
+      summary: Remove an add-on from an instance
+      tags:
+        - instances
+    patch:
+      description: Changes how many units of an add-on an instance holds. The entitlements follow at once; the next invoice bills the new quantity. Emits INSTANCE_ADDON_QUANTITY_CHANGED. Requires billing to be enabled for the organization.
+      operationId: setInstanceAddonQuantity
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+        - description: Add-on version slug
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: Add-on version slug
+            examples:
+              - extra-seats-v1
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddonQuantity"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstanceAddon"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:instances
+      summary: Change an instance add-on's quantity
       tags:
         - instances
   /instances/{instanceSlug}/audit-trails:
@@ -16822,6 +19539,435 @@ security:
 servers:
   - url: /api
 webhooks:
+  com.kaiten.addon.entitlement.v1.assigned:
+    post:
+      description: Triggered when an add-on version grants an entitlement.
+      operationId: onAddonEntitlementAssigned
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/AddonGrantUpdate"
+                name:
+                  description: Event name
+                  enum:
+                    - ADDON_ENTITLEMENT_ASSIGNED
+                  examples:
+                    - ADDON_ENTITLEMENT_ASSIGNED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.addon.entitlement.v1.assigned
+                  examples:
+                    - com.kaiten.addon.entitlement.v1.assigned
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Add-on Entitlement Assigned Webhook
+      tags:
+        - webhooks
+        - addons
+  com.kaiten.addon.entitlement.v1.unassigned:
+    post:
+      description: Triggered when an add-on grant is removed.
+      operationId: onAddonEntitlementUnassigned
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/AddonGrantUpdate"
+                name:
+                  description: Event name
+                  enum:
+                    - ADDON_ENTITLEMENT_UNASSIGNED
+                  examples:
+                    - ADDON_ENTITLEMENT_UNASSIGNED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.addon.entitlement.v1.unassigned
+                  examples:
+                    - com.kaiten.addon.entitlement.v1.unassigned
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Add-on Entitlement Unassigned Webhook
+      tags:
+        - webhooks
+        - addons
+  com.kaiten.addon.entitlement.v1.updated:
+    post:
+      description: Triggered when an add-on grant changes.
+      operationId: onAddonEntitlementUpdated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/AddonGrantUpdate"
+                name:
+                  description: Event name
+                  enum:
+                    - ADDON_ENTITLEMENT_UPDATED
+                  examples:
+                    - ADDON_ENTITLEMENT_UPDATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.addon.entitlement.v1.updated
+                  examples:
+                    - com.kaiten.addon.entitlement.v1.updated
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Add-on Entitlement Updated Webhook
+      tags:
+        - webhooks
+        - addons
+  com.kaiten.addon.price.v1.created:
+    post:
+      description: Triggered when a price is added to an add-on version.
+      operationId: onAddonPriceCreated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/AddonPriceUpdate"
+                name:
+                  description: Event name
+                  enum:
+                    - ADDON_PRICE_CREATED
+                  examples:
+                    - ADDON_PRICE_CREATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.addon.price.v1.created
+                  examples:
+                    - com.kaiten.addon.price.v1.created
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Add-on Price Created Webhook
+      tags:
+        - webhooks
+        - addons
+  com.kaiten.addon.price.v1.deprecated:
+    post:
+      description: Triggered when an add-on price stops being offered.
+      operationId: onAddonPriceDeprecated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/AddonPriceUpdate"
+                name:
+                  description: Event name
+                  enum:
+                    - ADDON_PRICE_DEPRECATED
+                  examples:
+                    - ADDON_PRICE_DEPRECATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.addon.price.v1.deprecated
+                  examples:
+                    - com.kaiten.addon.price.v1.deprecated
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Add-on Price Deprecated Webhook
+      tags:
+        - webhooks
+        - addons
+  com.kaiten.addon.v1.archived:
+    post:
+      description: Triggered when an add-on version is withdrawn from sale.
+      operationId: onAddonArchived
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Addon"
+                name:
+                  description: Event name
+                  enum:
+                    - ADDON_ARCHIVED
+                  examples:
+                    - ADDON_ARCHIVED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.addon.v1.archived
+                  examples:
+                    - com.kaiten.addon.v1.archived
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Add-on Archived Webhook
+      tags:
+        - webhooks
+        - addons
+  com.kaiten.addon.v1.created:
+    post:
+      description: Triggered when an add-on version is created.
+      operationId: onAddonCreated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Addon"
+                name:
+                  description: Event name
+                  enum:
+                    - ADDON_CREATED
+                  examples:
+                    - ADDON_CREATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.addon.v1.created
+                  examples:
+                    - com.kaiten.addon.v1.created
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Add-on Created Webhook
+      tags:
+        - webhooks
+        - addons
+  com.kaiten.addon.v1.deleted:
+    post:
+      description: Triggered when an add-on version is deleted.
+      operationId: onAddonDeleted
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/DeletedAddon"
+                name:
+                  description: Event name
+                  enum:
+                    - ADDON_DELETED
+                  examples:
+                    - ADDON_DELETED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.addon.v1.deleted
+                  examples:
+                    - com.kaiten.addon.v1.deleted
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Add-on Deleted Webhook
+      tags:
+        - webhooks
+        - addons
+  com.kaiten.addon.v1.published:
+    post:
+      description: Triggered when a draft add-on version goes on sale.
+      operationId: onAddonPublished
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Addon"
+                name:
+                  description: Event name
+                  enum:
+                    - ADDON_PUBLISHED
+                  examples:
+                    - ADDON_PUBLISHED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.addon.v1.published
+                  examples:
+                    - com.kaiten.addon.v1.published
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Add-on Published Webhook
+      tags:
+        - webhooks
+        - addons
+  com.kaiten.addon.v1.unarchived:
+    post:
+      description: Triggered when an archived add-on version goes back on sale.
+      operationId: onAddonUnarchived
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Addon"
+                name:
+                  description: Event name
+                  enum:
+                    - ADDON_UNARCHIVED
+                  examples:
+                    - ADDON_UNARCHIVED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.addon.v1.unarchived
+                  examples:
+                    - com.kaiten.addon.v1.unarchived
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Add-on Unarchived Webhook
+      tags:
+        - webhooks
+        - addons
+  com.kaiten.addon.v1.updated:
+    post:
+      description: Triggered when an add-on version, its compatibility or its family's visibility changes.
+      operationId: onAddonUpdated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/AddonUpdate"
+                name:
+                  description: Event name
+                  enum:
+                    - ADDON_UPDATED
+                  examples:
+                    - ADDON_UPDATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.addon.v1.updated
+                  examples:
+                    - com.kaiten.addon.v1.updated
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Add-on Updated Webhook
+      tags:
+        - webhooks
+        - addons
   com.kaiten.component.v1.created:
     post:
       description: Triggered when a new component is created.
@@ -17680,6 +20826,123 @@ webhooks:
       tags:
         - webhooks
         - identity
+  com.kaiten.instance.addon.v1.added:
+    post:
+      description: Triggered when an add-on is attached to an instance.
+      operationId: onInstanceAddonAdded
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/InstanceAddonUpdate"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_ADDON_ADDED
+                  examples:
+                    - INSTANCE_ADDON_ADDED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.addon.v1.added
+                  examples:
+                    - com.kaiten.instance.addon.v1.added
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Add-on Added Webhook
+      tags:
+        - webhooks
+        - instances
+  com.kaiten.instance.addon.v1.quantity_changed:
+    post:
+      description: Triggered when the quantity of an instance's add-on changes.
+      operationId: onInstanceAddonQuantityChanged
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/InstanceAddonUpdate"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_ADDON_QUANTITY_CHANGED
+                  examples:
+                    - INSTANCE_ADDON_QUANTITY_CHANGED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.addon.v1.quantity_changed
+                  examples:
+                    - com.kaiten.instance.addon.v1.quantity_changed
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Add-on Quantity Changed Webhook
+      tags:
+        - webhooks
+        - instances
+  com.kaiten.instance.addon.v1.removed:
+    post:
+      description: Triggered when an add-on is removed from an instance.
+      operationId: onInstanceAddonRemoved
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/InstanceAddonUpdate"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_ADDON_REMOVED
+                  examples:
+                    - INSTANCE_ADDON_REMOVED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.addon.v1.removed
+                  examples:
+                    - com.kaiten.instance.addon.v1.removed
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Add-on Removed Webhook
+      tags:
+        - webhooks
+        - instances
   com.kaiten.instance.billing.v1.canceled:
     post:
       description: "Triggered when a subscription is canceled: at its period's end, immediately, or during its trial."
