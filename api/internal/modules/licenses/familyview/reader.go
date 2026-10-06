@@ -101,6 +101,7 @@ func (r *Reader) view(
 	view := &schema.LicenseFamilyView{
 		ID:        family.ID,
 		Slug:      family.Slug,
+		IsPublic:  family.IsPublic,
 		CreatedAt: family.CreatedAt.Time,
 		UpdatedAt: family.UpdatedAt.Time,
 	}

@@ -3854,6 +3854,9 @@ components:
             - 123e4567-e89b-12d3-a456-426614174000
           readOnly: true
           type: string
+        isPublic:
+          description: Whether the family's default PUBLISHED version is listed in the public catalogue. Private by default.
+          type: boolean
         slug:
           description: URL-friendly identifier of the family, unique per organization and stable across renames and new versions. Deleting the family's last version deletes the family and frees the slug.
           examples:
@@ -3881,8 +3884,18 @@ components:
         - id
         - slug
         - versionCount
+        - isPublic
         - createdAt
         - updatedAt
+      type: object
+    LicenseFamilyVisibility:
+      additionalProperties: false
+      properties:
+        isPublic:
+          description: List the family's default PUBLISHED version, with its ACTIVE prices, in the public catalogue
+          type: boolean
+      required:
+        - isPublic
       type: object
     LicensePriceChanges:
       additionalProperties: false
@@ -13648,6 +13661,74 @@ paths:
       summary: Get a license family by slug
       tags:
         - license-families
+    patch:
+      description: Lists the family in the public catalogue, or takes it out. Families are private until made public.
+      operationId: updateLicenseFamily
+      parameters:
+        - description: License family slug
+          in: path
+          name: familySlug
+          required: true
+          schema:
+            description: License family slug
+            examples:
+              - pro
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LicenseFamilyVisibility"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LicenseFamilyView"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:licenses
+      summary: Update a license family
+      tags:
+        - licenses
   /licenses:
     get:
       description: Returns a cursor-paginated page of licenses for the current organization.
