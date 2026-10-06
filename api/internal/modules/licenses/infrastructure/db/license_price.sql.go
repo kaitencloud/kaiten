@@ -250,6 +250,39 @@ func (q *Queries) GetLicensePrice(ctx context.Context, arg GetLicensePriceParams
 	return i, err
 }
 
+const getPriceVersion = `-- name: GetPriceVersion :one
+SELECT l.id, l.slug, l.name, l.lifecycle_state
+FROM license_price p
+JOIN license l ON l.id = p.license_id AND l.organization_id = p.organization_id
+WHERE p.organization_id = $1
+  AND p.id = $2
+`
+
+type GetPriceVersionParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ID             uuid.UUID `json:"id"`
+}
+
+type GetPriceVersionRow struct {
+	ID             uuid.UUID             `json:"id"`
+	Slug           string                `json:"slug"`
+	Name           string                `json:"name"`
+	LifecycleState LicenseLifecycleState `json:"lifecycle_state"`
+}
+
+// The version a price belongs to, by the price's id alone.
+func (q *Queries) GetPriceVersion(ctx context.Context, arg GetPriceVersionParams) (GetPriceVersionRow, error) {
+	row := q.db.QueryRow(ctx, getPriceVersion, arg.OrganizationID, arg.ID)
+	var i GetPriceVersionRow
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Name,
+		&i.LifecycleState,
+	)
+	return i, err
+}
+
 const getPricingEntitlement = `-- name: GetPricingEntitlement :one
 SELECT e.id,
        e.slug,

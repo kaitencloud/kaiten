@@ -10,6 +10,7 @@ import (
 // amount is recomputable from its quantity and unit amount, and a metered
 // line's quantity from its measured quantity and sale-unit factor.
 type InvoiceLine struct {
+	ID                *uuid.UUID           `json:"id,omitempty" doc:"The line's identifier, stable for the invoice's life; absent on a preview"`
 	Seq               int                  `json:"seq" doc:"Position on the invoice, from 1"`
 	Type              LineType             `json:"type" enum:"BASE,USAGE,OVERAGE" doc:"BASE: the subscription's FLAT_FEE price. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit."`
 	BillingModel      string               `json:"billingModel" enum:"FLAT_FEE,USAGE_BASED,OVERAGE" doc:"The price's billing model"`

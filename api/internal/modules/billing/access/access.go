@@ -8,6 +8,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 )
 
@@ -16,6 +17,10 @@ type Deps struct {
 	UserProvider currentuser.Provider
 	Uof          *uow.UnitOfWork
 	Gate         gate.Gate
+	// Catalogue and Usage are the other modules' data billing reads: licence
+	// prices, and the usage journal.
+	Catalogue ports.CatalogueSource
+	Usage     ports.UsageSource
 }
 
 // Caller is the user a request acts for, past the billing gate.

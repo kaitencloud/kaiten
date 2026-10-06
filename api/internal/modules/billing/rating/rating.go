@@ -225,6 +225,7 @@ func baseLine(in Input, service Period) (InvoiceLine, error) {
 	}
 	price := in.Base.ID
 	return InvoiceLine{
+		ID:                nil,
 		Seq:               0,
 		Type:              LineBase,
 		BillingModel:      in.Base.BillingModel,
@@ -309,6 +310,7 @@ func meteredLine(in Input, price Price) (InvoiceLine, bool, error) {
 
 	entitlementID, entitlementSlug := price.Meter.EntitlementID, price.Meter.EntitlementSlug
 	return InvoiceLine{
+		ID:                nil,
 		Seq:               0,
 		Type:              lineType,
 		BillingModel:      price.BillingModel,

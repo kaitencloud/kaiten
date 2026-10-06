@@ -7,7 +7,96 @@ package db
 import (
 	"database/sql/driver"
 	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type BillingPeriod string
+
+const (
+	BillingPeriodMONTHLY    BillingPeriod = "MONTHLY"
+	BillingPeriodQUARTERLY  BillingPeriod = "QUARTERLY"
+	BillingPeriodSEMIANNUAL BillingPeriod = "SEMI_ANNUAL"
+	BillingPeriodANNUAL     BillingPeriod = "ANNUAL"
+)
+
+func (e *BillingPeriod) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = BillingPeriod(s)
+	case string:
+		*e = BillingPeriod(s)
+	default:
+		return fmt.Errorf("unsupported scan type for BillingPeriod: %T", src)
+	}
+	return nil
+}
+
+type NullBillingPeriod struct {
+	BillingPeriod BillingPeriod `json:"billing_period"`
+	Valid         bool          `json:"valid"` // Valid is true if BillingPeriod is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullBillingPeriod) Scan(value interface{}) error {
+	if value == nil {
+		ns.BillingPeriod, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.BillingPeriod.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullBillingPeriod) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.BillingPeriod), nil
+}
+
+type BillingProviderKind string
+
+const (
+	BillingProviderKindNOOP   BillingProviderKind = "NOOP"
+	BillingProviderKindSTRIPE BillingProviderKind = "STRIPE"
+)
+
+func (e *BillingProviderKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = BillingProviderKind(s)
+	case string:
+		*e = BillingProviderKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for BillingProviderKind: %T", src)
+	}
+	return nil
+}
+
+type NullBillingProviderKind struct {
+	BillingProviderKind BillingProviderKind `json:"billing_provider_kind"`
+	Valid               bool                `json:"valid"` // Valid is true if BillingProviderKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullBillingProviderKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.BillingProviderKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.BillingProviderKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullBillingProviderKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.BillingProviderKind), nil
+}
 
 type CollectionMethod string
 
@@ -49,4 +138,411 @@ func (ns NullCollectionMethod) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.CollectionMethod), nil
+}
+
+type HandoffStatus string
+
+const (
+	HandoffStatusNOTREQUIRED  HandoffStatus = "NOT_REQUIRED"
+	HandoffStatusPENDING      HandoffStatus = "PENDING"
+	HandoffStatusACKNOWLEDGED HandoffStatus = "ACKNOWLEDGED"
+)
+
+func (e *HandoffStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = HandoffStatus(s)
+	case string:
+		*e = HandoffStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for HandoffStatus: %T", src)
+	}
+	return nil
+}
+
+type NullHandoffStatus struct {
+	HandoffStatus HandoffStatus `json:"handoff_status"`
+	Valid         bool          `json:"valid"` // Valid is true if HandoffStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullHandoffStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.HandoffStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.HandoffStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullHandoffStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.HandoffStatus), nil
+}
+
+type InstanceBillingStatus string
+
+const (
+	InstanceBillingStatusTRIAL    InstanceBillingStatus = "TRIAL"
+	InstanceBillingStatusACTIVE   InstanceBillingStatus = "ACTIVE"
+	InstanceBillingStatusPASTDUE  InstanceBillingStatus = "PAST_DUE"
+	InstanceBillingStatusCANCELED InstanceBillingStatus = "CANCELED"
+)
+
+func (e *InstanceBillingStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = InstanceBillingStatus(s)
+	case string:
+		*e = InstanceBillingStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for InstanceBillingStatus: %T", src)
+	}
+	return nil
+}
+
+type NullInstanceBillingStatus struct {
+	InstanceBillingStatus InstanceBillingStatus `json:"instance_billing_status"`
+	Valid                 bool                  `json:"valid"` // Valid is true if InstanceBillingStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullInstanceBillingStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.InstanceBillingStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.InstanceBillingStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullInstanceBillingStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.InstanceBillingStatus), nil
+}
+
+type InvoiceHoldReason string
+
+const (
+	InvoiceHoldReasonLEDGERSEQUENCEGAP     InvoiceHoldReason = "LEDGER_SEQUENCE_GAP"
+	InvoiceHoldReasonLEDGERCHAINBREAK      InvoiceHoldReason = "LEDGER_CHAIN_BREAK"
+	InvoiceHoldReasonLEDGERCOUNTERMISMATCH InvoiceHoldReason = "LEDGER_COUNTER_MISMATCH"
+)
+
+func (e *InvoiceHoldReason) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = InvoiceHoldReason(s)
+	case string:
+		*e = InvoiceHoldReason(s)
+	default:
+		return fmt.Errorf("unsupported scan type for InvoiceHoldReason: %T", src)
+	}
+	return nil
+}
+
+type NullInvoiceHoldReason struct {
+	InvoiceHoldReason InvoiceHoldReason `json:"invoice_hold_reason"`
+	Valid             bool              `json:"valid"` // Valid is true if InvoiceHoldReason is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullInvoiceHoldReason) Scan(value interface{}) error {
+	if value == nil {
+		ns.InvoiceHoldReason, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.InvoiceHoldReason.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullInvoiceHoldReason) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.InvoiceHoldReason), nil
+}
+
+type InvoiceKind string
+
+const (
+	InvoiceKindACTIVATION InvoiceKind = "ACTIVATION"
+	InvoiceKindRENEWAL    InvoiceKind = "RENEWAL"
+	InvoiceKindFINAL      InvoiceKind = "FINAL"
+)
+
+func (e *InvoiceKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = InvoiceKind(s)
+	case string:
+		*e = InvoiceKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for InvoiceKind: %T", src)
+	}
+	return nil
+}
+
+type NullInvoiceKind struct {
+	InvoiceKind InvoiceKind `json:"invoice_kind"`
+	Valid       bool        `json:"valid"` // Valid is true if InvoiceKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullInvoiceKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.InvoiceKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.InvoiceKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullInvoiceKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.InvoiceKind), nil
+}
+
+type InvoiceStatus string
+
+const (
+	InvoiceStatusDRAFT         InvoiceStatus = "DRAFT"
+	InvoiceStatusPUSHED        InvoiceStatus = "PUSHED"
+	InvoiceStatusPUSHFAILED    InvoiceStatus = "PUSH_FAILED"
+	InvoiceStatusMANUAL        InvoiceStatus = "MANUAL"
+	InvoiceStatusPAID          InvoiceStatus = "PAID"
+	InvoiceStatusPAYMENTFAILED InvoiceStatus = "PAYMENT_FAILED"
+	InvoiceStatusUNCOLLECTIBLE InvoiceStatus = "UNCOLLECTIBLE"
+	InvoiceStatusVOID          InvoiceStatus = "VOID"
+)
+
+func (e *InvoiceStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = InvoiceStatus(s)
+	case string:
+		*e = InvoiceStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for InvoiceStatus: %T", src)
+	}
+	return nil
+}
+
+type NullInvoiceStatus struct {
+	InvoiceStatus InvoiceStatus `json:"invoice_status"`
+	Valid         bool          `json:"valid"` // Valid is true if InvoiceStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullInvoiceStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.InvoiceStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.InvoiceStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullInvoiceStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.InvoiceStatus), nil
+}
+
+type LicenseLifecycleState string
+
+const (
+	LicenseLifecycleStateDRAFT     LicenseLifecycleState = "DRAFT"
+	LicenseLifecycleStatePUBLISHED LicenseLifecycleState = "PUBLISHED"
+	LicenseLifecycleStateARCHIVED  LicenseLifecycleState = "ARCHIVED"
+)
+
+func (e *LicenseLifecycleState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = LicenseLifecycleState(s)
+	case string:
+		*e = LicenseLifecycleState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for LicenseLifecycleState: %T", src)
+	}
+	return nil
+}
+
+type NullLicenseLifecycleState struct {
+	LicenseLifecycleState LicenseLifecycleState `json:"license_lifecycle_state"`
+	Valid                 bool                  `json:"valid"` // Valid is true if LicenseLifecycleState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullLicenseLifecycleState) Scan(value interface{}) error {
+	if value == nil {
+		ns.LicenseLifecycleState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.LicenseLifecycleState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullLicenseLifecycleState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.LicenseLifecycleState), nil
+}
+
+type ReconciliationStatus string
+
+const (
+	ReconciliationStatusMATCHED  ReconciliationStatus = "MATCHED"
+	ReconciliationStatusMISMATCH ReconciliationStatus = "MISMATCH"
+)
+
+func (e *ReconciliationStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ReconciliationStatus(s)
+	case string:
+		*e = ReconciliationStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ReconciliationStatus: %T", src)
+	}
+	return nil
+}
+
+type NullReconciliationStatus struct {
+	ReconciliationStatus ReconciliationStatus `json:"reconciliation_status"`
+	Valid                bool                 `json:"valid"` // Valid is true if ReconciliationStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullReconciliationStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ReconciliationStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ReconciliationStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullReconciliationStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ReconciliationStatus), nil
+}
+
+type InstanceBilling struct {
+	ID                      uuid.UUID             `json:"id"`
+	OrganizationID          uuid.UUID             `json:"organization_id"`
+	InstanceID              *uuid.UUID            `json:"instance_id"`
+	CustomerID              *uuid.UUID            `json:"customer_id"`
+	InstanceSlug            string                `json:"instance_slug"`
+	InstanceName            string                `json:"instance_name"`
+	CustomerSlug            string                `json:"customer_slug"`
+	CustomerName            string                `json:"customer_name"`
+	Status                  InstanceBillingStatus `json:"status"`
+	ProviderKind            BillingProviderKind   `json:"provider_kind"`
+	CollectionMethod        *CollectionMethod     `json:"collection_method"`
+	DaysUntilDue            *int32                `json:"days_until_due"`
+	BaseLicensePriceID      uuid.UUID             `json:"base_license_price_id"`
+	BillingPeriod           BillingPeriod         `json:"billing_period"`
+	Currency                string                `json:"currency"`
+	AnchorAt                pgtype.Timestamp      `json:"anchor_at"`
+	StartedAt               pgtype.Timestamp      `json:"started_at"`
+	CurrentPeriodStart      pgtype.Timestamp      `json:"current_period_start"`
+	CurrentPeriodEnd        pgtype.Timestamp      `json:"current_period_end"`
+	CancelAtPeriodEnd       bool                  `json:"cancel_at_period_end"`
+	CancelRequestedAt       pgtype.Timestamp      `json:"cancel_requested_at"`
+	CanceledAt              pgtype.Timestamp      `json:"canceled_at"`
+	CancellationReason      *string               `json:"cancellation_reason"`
+	PastDueSince            pgtype.Timestamp      `json:"past_due_since"`
+	ScheduledLicensePriceID *uuid.UUID            `json:"scheduled_license_price_id"`
+	ScheduledAt             pgtype.Timestamp      `json:"scheduled_at"`
+	CreatedAt               pgtype.Timestamp      `json:"created_at"`
+	CreatedByID             uuid.UUID             `json:"created_by_id"`
+	UpdatedAt               pgtype.Timestamp      `json:"updated_at"`
+	UpdatedByID             uuid.UUID             `json:"updated_by_id"`
+}
+
+type InstanceInvoice struct {
+	ID                             uuid.UUID             `json:"id"`
+	OrganizationID                 uuid.UUID             `json:"organization_id"`
+	InstanceBillingID              uuid.UUID             `json:"instance_billing_id"`
+	CustomerID                     *uuid.UUID            `json:"customer_id"`
+	InstanceSlug                   string                `json:"instance_slug"`
+	InstanceName                   string                `json:"instance_name"`
+	CustomerSlug                   string                `json:"customer_slug"`
+	CustomerName                   string                `json:"customer_name"`
+	LicenseID                      uuid.UUID             `json:"license_id"`
+	LicenseSlug                    string                `json:"license_slug"`
+	BillingEmail                   *string               `json:"billing_email"`
+	Kind                           InvoiceKind           `json:"kind"`
+	BoundaryAt                     pgtype.Timestamp      `json:"boundary_at"`
+	ServiceFrom                    pgtype.Timestamp      `json:"service_from"`
+	ServiceTo                      pgtype.Timestamp      `json:"service_to"`
+	Currency                       string                `json:"currency"`
+	SubtotalMinor                  int64                 `json:"subtotal_minor"`
+	DiscountTotalMinor             int64                 `json:"discount_total_minor"`
+	TotalMinor                     int64                 `json:"total_minor"`
+	Lines                          []byte                `json:"lines"`
+	Status                         InvoiceStatus         `json:"status"`
+	HoldReason                     *InvoiceHoldReason    `json:"hold_reason"`
+	HoldDetail                     []byte                `json:"hold_detail"`
+	HeldAt                         pgtype.Timestamp      `json:"held_at"`
+	HoldReleasedAt                 pgtype.Timestamp      `json:"hold_released_at"`
+	HoldReleasedByID               *uuid.UUID            `json:"hold_released_by_id"`
+	HoldReleaseReason              *string               `json:"hold_release_reason"`
+	ProviderKind                   BillingProviderKind   `json:"provider_kind"`
+	CollectionMethod               CollectionMethod      `json:"collection_method"`
+	ExternalCustomerID             *string               `json:"external_customer_id"`
+	ExternalInvoiceID              *string               `json:"external_invoice_id"`
+	ProviderInvoiceNumber          *string               `json:"provider_invoice_number"`
+	ProviderStatus                 *string               `json:"provider_status"`
+	HostedInvoiceUrl               *string               `json:"hosted_invoice_url"`
+	InvoicePdfUrl                  *string               `json:"invoice_pdf_url"`
+	ProviderTotalExcludingTaxMinor *int64                `json:"provider_total_excluding_tax_minor"`
+	ReconciliationStatus           *ReconciliationStatus `json:"reconciliation_status"`
+	ReconciliationDetail           []byte                `json:"reconciliation_detail"`
+	ReconciledAt                   pgtype.Timestamp      `json:"reconciled_at"`
+	PushAttempts                   int32                 `json:"push_attempts"`
+	NextPushAt                     pgtype.Timestamp      `json:"next_push_at"`
+	LastPushError                  *string               `json:"last_push_error"`
+	PushedAt                       pgtype.Timestamp      `json:"pushed_at"`
+	SyncedAt                       pgtype.Timestamp      `json:"synced_at"`
+	IssuedAt                       pgtype.Timestamp      `json:"issued_at"`
+	DaysUntilDue                   *int32                `json:"days_until_due"`
+	DueAt                          pgtype.Timestamp      `json:"due_at"`
+	PaidAt                         pgtype.Timestamp      `json:"paid_at"`
+	MarkedPaidByID                 *uuid.UUID            `json:"marked_paid_by_id"`
+	PaymentFailedAt                pgtype.Timestamp      `json:"payment_failed_at"`
+	LastPaymentError               *string               `json:"last_payment_error"`
+	UncollectibleAt                pgtype.Timestamp      `json:"uncollectible_at"`
+	VoidedAt                       pgtype.Timestamp      `json:"voided_at"`
+	VoidedByID                     *uuid.UUID            `json:"voided_by_id"`
+	VoidReason                     *string               `json:"void_reason"`
+	ReplacesInvoiceID              *uuid.UUID            `json:"replaces_invoice_id"`
+	HandoffStatus                  HandoffStatus         `json:"handoff_status"`
+	HandoffLeaseID                 *uuid.UUID            `json:"handoff_lease_id"`
+	HandoffLeasedUntil             pgtype.Timestamp      `json:"handoff_leased_until"`
+	HandoffClaimCount              int32                 `json:"handoff_claim_count"`
+	HandoffAcknowledgedAt          pgtype.Timestamp      `json:"handoff_acknowledged_at"`
+	HandoffAcknowledgedByID        *uuid.UUID            `json:"handoff_acknowledged_by_id"`
+	ExternalReference              *string               `json:"external_reference"`
+	CreatedAt                      pgtype.Timestamp      `json:"created_at"`
+	UpdatedAt                      pgtype.Timestamp      `json:"updated_at"`
 }

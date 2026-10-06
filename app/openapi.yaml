@@ -94,6 +94,123 @@ components:
         - defaultDaysUntilDue
         - handoffStripeInvoices
       type: object
+    BillingStarted:
+      additionalProperties: false
+      properties:
+        anchorAt:
+          description: The instant its periods are counted from
+          format: date-time
+          type: string
+        basePrice:
+          $ref: "#/components/schemas/Price"
+          description: The FLAT_FEE price the subscription is pinned to, deprecated or not
+        billingPeriod:
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        cancelAtPeriodEnd:
+          type: boolean
+        cancelRequestedAt:
+          format: date-time
+          type: string
+        canceledAt:
+          format: date-time
+          type: string
+        cancellationReason:
+          type: string
+        collectionMethod:
+          description: "Effective: the subscription's own, else the organization's default"
+          enum:
+            - SEND_INVOICE
+            - CHARGE_AUTOMATICALLY
+          type: string
+        collectionMethodOverride:
+          description: The subscription's own collection method; absent when it takes the organization's
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        currentPeriodEnd:
+          description: "The next boundary: the period closes, and its invoice is composed, after it"
+          format: date-time
+          type: string
+        currentPeriodStart:
+          format: date-time
+          type: string
+        customerName:
+          type: string
+        customerSlug:
+          type: string
+        daysUntilDue:
+          description: "Effective: the subscription's own, else the organization's default"
+          format: int32
+          type: integer
+        daysUntilDueOverride:
+          description: The subscription's own payment terms; absent when it takes the organization's
+          format: int32
+          type: integer
+        id:
+          type: string
+        instanceName:
+          type: string
+        instanceSlug:
+          description: As it was at the subscription's last write
+          type: string
+        pastDueSince:
+          format: date-time
+          type: string
+        providerKind:
+          description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+        resubscribed:
+          description: Set when a CANCELED subscription was subscribed again
+          type: boolean
+        startedAt:
+          description: "When billing started: usage before it is never billed"
+          format: date-time
+          type: string
+        status:
+          enum:
+            - TRIAL
+            - ACTIVE
+            - PAST_DUE
+            - CANCELED
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - resubscribed
+        - id
+        - instanceSlug
+        - instanceName
+        - customerSlug
+        - customerName
+        - status
+        - providerKind
+        - collectionMethod
+        - daysUntilDue
+        - basePrice
+        - billingPeriod
+        - currency
+        - anchorAt
+        - startedAt
+        - currentPeriodStart
+        - currentPeriodEnd
+        - cancelAtPeriodEnd
+        - createdAt
+        - updatedAt
+      type: object
     BooleanEntitlementValue:
       additionalProperties: false
       properties:
@@ -1427,6 +1544,119 @@ components:
         - startLicenseDate
         - endLicenseDate
       type: object
+    InstanceBilling:
+      additionalProperties: false
+      properties:
+        anchorAt:
+          description: The instant its periods are counted from
+          format: date-time
+          type: string
+        basePrice:
+          $ref: "#/components/schemas/Price"
+          description: The FLAT_FEE price the subscription is pinned to, deprecated or not
+        billingPeriod:
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        cancelAtPeriodEnd:
+          type: boolean
+        cancelRequestedAt:
+          format: date-time
+          type: string
+        canceledAt:
+          format: date-time
+          type: string
+        cancellationReason:
+          type: string
+        collectionMethod:
+          description: "Effective: the subscription's own, else the organization's default"
+          enum:
+            - SEND_INVOICE
+            - CHARGE_AUTOMATICALLY
+          type: string
+        collectionMethodOverride:
+          description: The subscription's own collection method; absent when it takes the organization's
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        currentPeriodEnd:
+          description: "The next boundary: the period closes, and its invoice is composed, after it"
+          format: date-time
+          type: string
+        currentPeriodStart:
+          format: date-time
+          type: string
+        customerName:
+          type: string
+        customerSlug:
+          type: string
+        daysUntilDue:
+          description: "Effective: the subscription's own, else the organization's default"
+          format: int32
+          type: integer
+        daysUntilDueOverride:
+          description: The subscription's own payment terms; absent when it takes the organization's
+          format: int32
+          type: integer
+        id:
+          type: string
+        instanceName:
+          type: string
+        instanceSlug:
+          description: As it was at the subscription's last write
+          type: string
+        pastDueSince:
+          format: date-time
+          type: string
+        providerKind:
+          description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+        startedAt:
+          description: "When billing started: usage before it is never billed"
+          format: date-time
+          type: string
+        status:
+          enum:
+            - TRIAL
+            - ACTIVE
+            - PAST_DUE
+            - CANCELED
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - id
+        - instanceSlug
+        - instanceName
+        - customerSlug
+        - customerName
+        - status
+        - providerKind
+        - collectionMethod
+        - daysUntilDue
+        - basePrice
+        - billingPeriod
+        - currency
+        - anchorAt
+        - startedAt
+        - currentPeriodStart
+        - currentPeriodEnd
+        - cancelAtPeriodEnd
+        - createdAt
+        - updatedAt
+      type: object
     InstanceBody:
       additionalProperties: false
       properties:
@@ -1859,6 +2089,9 @@ components:
         entitlementSlug:
           description: Its slug, as it was when the line was composed
           type: string
+        id:
+          description: The line's identifier, stable for the invoice's life; absent on a preview
+          type: string
         label:
           description: The price's display label, else a derived one
           examples:
@@ -2093,6 +2326,277 @@ components:
           type:
             - array
             - "null"
+      type: object
+    InvoiceSummary:
+      additionalProperties: false
+      properties:
+        boundaryAt:
+          description: The boundary the invoice bills. With the kind, it identifies the invoice within its subscription
+          format: date-time
+          type: string
+        collectionMethod:
+          enum:
+            - SEND_INVOICE
+            - CHARGE_AUTOMATICALLY
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        customerName:
+          type: string
+        customerSlug:
+          description: As it was when the invoice was composed
+          type: string
+        daysUntilDue:
+          format: int32
+          type: integer
+        discountTotal:
+          description: Sum of the discounts, in minor units
+          format: int64
+          type: integer
+        dueAt:
+          description: issuedAt + daysUntilDue
+          format: date-time
+          type: string
+        handoffStatus:
+          description: "PENDING: waiting in the handoff queue for the organization's accounting system"
+          enum:
+            - NOT_REQUIRED
+            - PENDING
+            - ACKNOWLEDGED
+          type: string
+        holdReason:
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          enum:
+            - LEDGER_SEQUENCE_GAP
+            - LEDGER_CHAIN_BREAK
+            - LEDGER_COUNTER_MISMATCH
+          type: string
+        id:
+          description: "The invoice's identifier: the key an accounting system deduplicates on"
+          type: string
+        instanceName:
+          type: string
+        instanceSlug:
+          type: string
+        issuedAt:
+          format: date-time
+          type: string
+        kind:
+          description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
+          enum:
+            - ACTIVATION
+            - RENEWAL
+            - FINAL
+          type: string
+        licenseSlug:
+          type: string
+        paidAt:
+          format: date-time
+          type: string
+        providerKind:
+          description: "Who collects it. NOOP: the organization itself, through the handoff queue"
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+        serviceFrom:
+          description: Earliest start of its lines' service periods
+          format: date-time
+          type: string
+        serviceTo:
+          description: Latest end of its lines' service periods
+          format: date-time
+          type: string
+        status:
+          description: "MANUAL: issued, for the organization to collect. PAID, UNCOLLECTIBLE and VOID are final. DRAFT: held, waiting for a release or a recompose"
+          enum:
+            - DRAFT
+            - PUSHED
+            - PUSH_FAILED
+            - MANUAL
+            - PAID
+            - PAYMENT_FAILED
+            - UNCOLLECTIBLE
+            - VOID
+          type: string
+        subtotal:
+          description: Sum of the lines, in minor units
+          format: int64
+          type: integer
+        total:
+          description: subtotal − discountTotal, in minor units
+          format: int64
+          type: integer
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - id
+        - kind
+        - boundaryAt
+        - serviceFrom
+        - serviceTo
+        - status
+        - providerKind
+        - collectionMethod
+        - currency
+        - subtotal
+        - discountTotal
+        - total
+        - customerSlug
+        - customerName
+        - instanceSlug
+        - instanceName
+        - licenseSlug
+        - handoffStatus
+        - createdAt
+        - updatedAt
+      type: object
+    IssuedInvoice:
+      additionalProperties: false
+      properties:
+        boundaryAt:
+          description: The boundary the invoice bills. With the kind, it identifies the invoice within its subscription
+          format: date-time
+          type: string
+        collectionMethod:
+          enum:
+            - SEND_INVOICE
+            - CHARGE_AUTOMATICALLY
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        customerName:
+          type: string
+        customerSlug:
+          description: As it was when the invoice was composed
+          type: string
+        daysUntilDue:
+          format: int32
+          type: integer
+        discountTotal:
+          description: Sum of the discounts, in minor units
+          format: int64
+          type: integer
+        dueAt:
+          description: issuedAt + daysUntilDue
+          format: date-time
+          type: string
+        handoffStatus:
+          description: "PENDING: waiting in the handoff queue for the organization's accounting system"
+          enum:
+            - NOT_REQUIRED
+            - PENDING
+            - ACKNOWLEDGED
+          type: string
+        holdReason:
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          enum:
+            - LEDGER_SEQUENCE_GAP
+            - LEDGER_CHAIN_BREAK
+            - LEDGER_COUNTER_MISMATCH
+          type: string
+        id:
+          description: "The invoice's identifier: the key an accounting system deduplicates on"
+          type: string
+        instanceName:
+          type: string
+        instanceSlug:
+          type: string
+        issuedAt:
+          format: date-time
+          type: string
+        kind:
+          description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
+          enum:
+            - ACTIVATION
+            - RENEWAL
+            - FINAL
+          type: string
+        licenseId:
+          type: string
+        licenseSlug:
+          type: string
+        lines:
+          items:
+            $ref: "#/components/schemas/InvoiceLine"
+          type: array
+        linesTruncated:
+          description: "Set when the lines did not fit the event: read the invoice for all of them"
+          type: boolean
+        paidAt:
+          format: date-time
+          type: string
+        providerKind:
+          description: "Who collects it. NOOP: the organization itself, through the handoff queue"
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+        serviceFrom:
+          description: Earliest start of its lines' service periods
+          format: date-time
+          type: string
+        serviceTo:
+          description: Latest end of its lines' service periods
+          format: date-time
+          type: string
+        status:
+          description: "MANUAL: issued, for the organization to collect. PAID, UNCOLLECTIBLE and VOID are final. DRAFT: held, waiting for a release or a recompose"
+          enum:
+            - DRAFT
+            - PUSHED
+            - PUSH_FAILED
+            - MANUAL
+            - PAID
+            - PAYMENT_FAILED
+            - UNCOLLECTIBLE
+            - VOID
+          type: string
+        subtotal:
+          description: Sum of the lines, in minor units
+          format: int64
+          type: integer
+        total:
+          description: subtotal − discountTotal, in minor units
+          format: int64
+          type: integer
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - licenseId
+        - lines
+        - id
+        - kind
+        - boundaryAt
+        - serviceFrom
+        - serviceTo
+        - status
+        - providerKind
+        - collectionMethod
+        - currency
+        - subtotal
+        - discountTotal
+        - total
+        - customerSlug
+        - customerName
+        - instanceSlug
+        - instanceName
+        - licenseSlug
+        - handoffStatus
+        - createdAt
+        - updatedAt
       type: object
     License:
       additionalProperties: false
@@ -2649,6 +3153,33 @@ components:
         - currency
         - unitAmountDecimal
       type: object
+    NewSubscription:
+      additionalProperties: false
+      properties:
+        basePriceId:
+          description: An ACTIVE FLAT_FEE price of the instance's licence version, which must be PUBLISHED. The subscription stays pinned to it, even once deprecated.
+          type: string
+        collectionMethod:
+          description: "Omitted: the organization's default, read at each invoice."
+          enum:
+            - SEND_INVOICE
+          type: string
+        daysUntilDue:
+          description: "Payment terms in days, 0 to 365. Omitted: the organization's default, read at each invoice."
+          format: int32
+          type: integer
+        providerKind:
+          description: "Who collects the invoices. NOOP (the default): the organization itself, through the handoff queue."
+          enum:
+            - NOOP
+          type: string
+        startAt:
+          description: "The anchor periods are counted from, truncated to the second: now when omitted, else at most one billing period ago. A period that has already ended closes on the next pass."
+          format: date-time
+          type: string
+      required:
+        - basePriceId
+      type: object
     Notification:
       additionalProperties: false
       properties:
@@ -3001,6 +3532,146 @@ components:
       required:
         - items
         - hasMore
+      type: object
+    PaidInvoice:
+      additionalProperties: false
+      properties:
+        boundaryAt:
+          description: The boundary the invoice bills. With the kind, it identifies the invoice within its subscription
+          format: date-time
+          type: string
+        collectionMethod:
+          enum:
+            - SEND_INVOICE
+            - CHARGE_AUTOMATICALLY
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        customerName:
+          type: string
+        customerSlug:
+          description: As it was when the invoice was composed
+          type: string
+        daysUntilDue:
+          format: int32
+          type: integer
+        discountTotal:
+          description: Sum of the discounts, in minor units
+          format: int64
+          type: integer
+        dueAt:
+          description: issuedAt + daysUntilDue
+          format: date-time
+          type: string
+        externalReference:
+          type: string
+        handoffStatus:
+          description: "PENDING: waiting in the handoff queue for the organization's accounting system"
+          enum:
+            - NOT_REQUIRED
+            - PENDING
+            - ACKNOWLEDGED
+          type: string
+        holdReason:
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          enum:
+            - LEDGER_SEQUENCE_GAP
+            - LEDGER_CHAIN_BREAK
+            - LEDGER_COUNTER_MISMATCH
+          type: string
+        id:
+          description: "The invoice's identifier: the key an accounting system deduplicates on"
+          type: string
+        instanceName:
+          type: string
+        instanceSlug:
+          type: string
+        issuedAt:
+          format: date-time
+          type: string
+        kind:
+          description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
+          enum:
+            - ACTIVATION
+            - RENEWAL
+            - FINAL
+          type: string
+        licenseSlug:
+          type: string
+        paidAt:
+          format: date-time
+          type: string
+        providerKind:
+          description: "Who collects it. NOOP: the organization itself, through the handoff queue"
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+        serviceFrom:
+          description: Earliest start of its lines' service periods
+          format: date-time
+          type: string
+        serviceTo:
+          description: Latest end of its lines' service periods
+          format: date-time
+          type: string
+        source:
+          description: "MARK_PAID: recorded by the organization. ZERO_TOTAL: nothing was owed"
+          enum:
+            - MARK_PAID
+            - PROVIDER
+            - ZERO_TOTAL
+          type: string
+        status:
+          description: "MANUAL: issued, for the organization to collect. PAID, UNCOLLECTIBLE and VOID are final. DRAFT: held, waiting for a release or a recompose"
+          enum:
+            - DRAFT
+            - PUSHED
+            - PUSH_FAILED
+            - MANUAL
+            - PAID
+            - PAYMENT_FAILED
+            - UNCOLLECTIBLE
+            - VOID
+          type: string
+        subtotal:
+          description: Sum of the lines, in minor units
+          format: int64
+          type: integer
+        total:
+          description: subtotal − discountTotal, in minor units
+          format: int64
+          type: integer
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - source
+        - id
+        - kind
+        - boundaryAt
+        - serviceFrom
+        - serviceTo
+        - status
+        - providerKind
+        - collectionMethod
+        - currency
+        - subtotal
+        - discountTotal
+        - total
+        - customerSlug
+        - customerName
+        - instanceSlug
+        - instanceName
+        - licenseSlug
+        - handoffStatus
+        - createdAt
+        - updatedAt
       type: object
     PatchInstanceBody:
       additionalProperties: false
@@ -3584,6 +4255,122 @@ components:
       required:
         - name
         - tokens
+      type: object
+    StartedSubscription:
+      additionalProperties: false
+      properties:
+        activationInvoice:
+          $ref: "#/components/schemas/InvoiceSummary"
+          description: The invoice of the first period, when the base price bills in advance; absent otherwise
+        anchorAt:
+          description: The instant its periods are counted from
+          format: date-time
+          type: string
+        basePrice:
+          $ref: "#/components/schemas/Price"
+          description: The FLAT_FEE price the subscription is pinned to, deprecated or not
+        billingPeriod:
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        cancelAtPeriodEnd:
+          type: boolean
+        cancelRequestedAt:
+          format: date-time
+          type: string
+        canceledAt:
+          format: date-time
+          type: string
+        cancellationReason:
+          type: string
+        collectionMethod:
+          description: "Effective: the subscription's own, else the organization's default"
+          enum:
+            - SEND_INVOICE
+            - CHARGE_AUTOMATICALLY
+          type: string
+        collectionMethodOverride:
+          description: The subscription's own collection method; absent when it takes the organization's
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        currentPeriodEnd:
+          description: "The next boundary: the period closes, and its invoice is composed, after it"
+          format: date-time
+          type: string
+        currentPeriodStart:
+          format: date-time
+          type: string
+        customerName:
+          type: string
+        customerSlug:
+          type: string
+        daysUntilDue:
+          description: "Effective: the subscription's own, else the organization's default"
+          format: int32
+          type: integer
+        daysUntilDueOverride:
+          description: The subscription's own payment terms; absent when it takes the organization's
+          format: int32
+          type: integer
+        id:
+          type: string
+        instanceName:
+          type: string
+        instanceSlug:
+          description: As it was at the subscription's last write
+          type: string
+        pastDueSince:
+          format: date-time
+          type: string
+        providerKind:
+          description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+        startedAt:
+          description: "When billing started: usage before it is never billed"
+          format: date-time
+          type: string
+        status:
+          enum:
+            - TRIAL
+            - ACTIVE
+            - PAST_DUE
+            - CANCELED
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - id
+        - instanceSlug
+        - instanceName
+        - customerSlug
+        - customerName
+        - status
+        - providerKind
+        - collectionMethod
+        - daysUntilDue
+        - basePrice
+        - billingPeriod
+        - currency
+        - anchorAt
+        - startedAt
+        - currentPeriodStart
+        - currentPeriodEnd
+        - cancelAtPeriodEnd
+        - createdAt
+        - updatedAt
       type: object
     SystemTokenIssuance:
       additionalProperties: false
@@ -7744,6 +8531,149 @@ paths:
       summary: List audit trail entries for an instance
       tags:
         - instances
+  /instances/{instanceSlug}/billing:
+    get:
+      description: The instance's subscription, live or CANCELED; 404 when it was never subscribed. Requires billing to be enabled for the organization.
+      operationId: getInstanceBilling
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstanceBilling"
+          description: OK
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:billing
+      summary: Get an instance's subscription
+      tags:
+        - billing
+    post:
+      description: Starts billing an instance on a FLAT_FEE price of its licence version. A base price that bills in advance issues the first period's invoice (ACTIVATION) at once; each period then closes into a RENEWAL. A CANCELED subscription is subscribed again. While the subscription is live the instance's customer and licence cannot change. Requires billing to be enabled for the organization.
+      operationId: subscribeInstance
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewSubscription"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartedSubscription"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:billing
+      summary: Subscribe an instance
+      tags:
+        - billing
   /instances/{instanceSlug}/entitlements/usage:
     get:
       description: Retrieve a list of all entitlements usage metrics for a specific instance
@@ -12914,6 +13844,45 @@ webhooks:
       tags:
         - webhooks
         - identity
+  com.kaiten.instance.billing.v1.started:
+    post:
+      description: Triggered when an instance is subscribed, or a CANCELED subscription subscribed again.
+      operationId: onInstanceBillingStarted
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/BillingStarted"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_BILLING_STARTED
+                  examples:
+                    - INSTANCE_BILLING_STARTED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.billing.v1.started
+                  examples:
+                    - com.kaiten.instance.billing.v1.started
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Billing Started Webhook
+      tags:
+        - webhooks
+        - billing
   com.kaiten.instance.entitlement.v1.cap_exceeded:
     post:
       description: Triggered when a SOFT-enforcement entitlement's usage crosses from below the cap to above it. Fires once per crossing.
@@ -13187,6 +14156,84 @@ webhooks:
       tags:
         - webhooks
         - instances
+  com.kaiten.instance.invoice.v1.issued:
+    post:
+      description: Triggered once per invoice with something owed, when it is issued. For an invoice the organization collects itself, it is the signal to claim it from the handoff queue, which stays the source of truth.
+      operationId: onInstanceInvoiceIssued
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/IssuedInvoice"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_INVOICE_ISSUED
+                  examples:
+                    - INSTANCE_INVOICE_ISSUED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.invoice.v1.issued
+                  examples:
+                    - com.kaiten.instance.invoice.v1.issued
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Invoice Issued Webhook
+      tags:
+        - webhooks
+        - billing
+  com.kaiten.instance.invoice.v1.paid:
+    post:
+      description: "Triggered when an invoice is paid: marked paid by the organization, or issued paid because nothing was owed."
+      operationId: onInstanceInvoicePaid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/PaidInvoice"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_INVOICE_PAID
+                  examples:
+                    - INSTANCE_INVOICE_PAID
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.invoice.v1.paid
+                  examples:
+                    - com.kaiten.instance.invoice.v1.paid
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Invoice Paid Webhook
+      tags:
+        - webhooks
+        - billing
   com.kaiten.instance.v1.created:
     post:
       description: Triggered when a new instance is created.

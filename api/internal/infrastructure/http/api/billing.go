@@ -5,12 +5,20 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updatebillingsettings"
 )
 
-// registerBilling publishes the billing module's operations. Each receives the
-// facade's billing surface as its own one-method interface.
+// registerBilling publishes the billing module's operations and the webhook
+// contracts its writes emit. Each operation receives the facade's billing
+// surface as its own one-method interface.
 func registerBilling(core huma.API, app kaiten.Billing) {
 	getbillingsettings.RegisterEndpoint(core, app)
 	updatebillingsettings.RegisterEndpoint(core, app)
+	subscribeinstance.RegisterEndpoint(core, app)
+	subscribeinstance.RegisterWebhook(core)
+	getinstancebilling.RegisterEndpoint(core, app)
+	invoices.RegisterWebhooks(core)
 }

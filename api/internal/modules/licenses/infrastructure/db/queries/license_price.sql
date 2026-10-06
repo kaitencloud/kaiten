@@ -193,3 +193,12 @@ WHERE p.organization_id = sqlc.arg(organization_id)
   AND l.slug = sqlc.arg(license_slug)
   AND e.slug = sqlc.arg(entitlement_slug)
   AND p.status = 'ACTIVE';
+
+
+-- name: GetPriceVersion :one
+-- The version a price belongs to, by the price's id alone.
+SELECT l.id, l.slug, l.name, l.lifecycle_state
+FROM license_price p
+JOIN license l ON l.id = p.license_id AND l.organization_id = p.organization_id
+WHERE p.organization_id = sqlc.arg(organization_id)
+  AND p.id = sqlc.arg(id);

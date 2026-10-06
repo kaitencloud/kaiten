@@ -14,8 +14,10 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/billableusage"
 	"github.com/kaitencloud/kaiten/api/internal/modules/integrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/billablecatalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields"
 	"github.com/kaitencloud/kaiten/api/internal/modules/notifications"
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization"
@@ -151,8 +153,13 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	notificationModule := notifications.NewUseCases(svc)
 
 	built := modules{
-		AuditTrail:      audittrail.NewUseCases(svc, notificationModule.Announcer),
-		Billing:         billing.NewUseCases(svc),
+		AuditTrail: audittrail.NewUseCases(svc, notificationModule.Announcer),
+		// Billing reads the licence catalogue and the usage journal through
+		// ports it owns; the modules that own that data implement them.
+		Billing: billing.NewUseCases(svc, billing.Ports{
+			Catalogue: billablecatalogue.New(svc.Uof),
+			Usage:     billableusage.New(svc.Pool, svc.Uof),
+		}),
 		Components:      components.NewUseCases(svc),
 		Connectors:      connectors.NewUseCases(svc),
 		Customers:       customers.NewUseCases(svc),

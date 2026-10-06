@@ -37,3 +37,33 @@ func Ledger(fp ports.Fingerprint) *rating.InvoiceLineLedger {
 		SumOverage: &sumOverage,
 	}
 }
+
+// Price is a catalogue price as the composer rates it.
+func Price(cp ports.CataloguePrice) rating.Price {
+	out := rating.Price{
+		ID:                cp.ID,
+		BillingModel:      cp.BillingModel,
+		BillingTiming:     cp.BillingTiming,
+		UnitAmountDecimal: cp.Amount(),
+		DisplayLabel:      "",
+		DisplayOrder:      cp.DisplayOrder,
+		Meter:             nil,
+	}
+	if cp.DisplayLabel != nil {
+		out.DisplayLabel = *cp.DisplayLabel
+	}
+	if cp.Metered != nil && cp.EntitlementID != nil {
+		saleUnit := ""
+		if cp.Metered.SaleUnitSingular != nil {
+			saleUnit = *cp.Metered.SaleUnitSingular
+		}
+		out.Meter = &rating.Meter{
+			EntitlementID:   *cp.EntitlementID,
+			EntitlementSlug: cp.Metered.EntitlementSlug,
+			EntitlementName: cp.EntitlementName,
+			SaleUnitFactor:  cp.Factor(),
+			SaleUnit:        saleUnit,
+		}
+	}
+	return out
+}

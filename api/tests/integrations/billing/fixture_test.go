@@ -16,6 +16,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/config"
 	customerschema "github.com/kaitencloud/kaiten/api/internal/modules/customers/schema"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/tests"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
@@ -136,6 +137,20 @@ func grant(t *testing.T, licenseSlug, entitlementSlug string, limit float64, ove
 		"limitCapExceededOveragePercent": overagePercent,
 	})
 	require.Contains(t, []int{fiber.StatusOK, fiber.StatusCreated, fiber.StatusNoContent}, resp.StatusCode)
+}
+
+func flatFee(amount, period string) map[string]any {
+	return map[string]any{"billingModel": "FLAT_FEE", "billingPeriod": period, "currency": "EUR", "unitAmountDecimal": amount}
+}
+
+func metered(model, entitlementSlug, amount string) map[string]any {
+	return map[string]any{"billingModel": model, "currency": "EUR", "unitAmountDecimal": amount, "meteredEntitlementSlug": entitlementSlug}
+}
+
+func createPrice(t *testing.T, licenseSlug string, payload map[string]any) prices.Price {
+	t.Helper()
+	return commonfixture.AssertJSONResponse[prices.Price](t,
+		call(t, "POST", "/api/licenses/"+licenseSlug+"/prices", payload), fiber.StatusCreated)
 }
 
 // newCustomer creates a customer and returns its slug and id.

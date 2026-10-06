@@ -70,6 +70,8 @@ var awaitingSDKOperations = map[string]string{
 	"previewLicenseInvoice": awaitsBilling,
 	"getBillingSettings":    awaitsBilling,
 	"updateBillingSettings": awaitsBilling,
+	"subscribeInstance":     awaitsBilling,
+	"getInstanceBilling":    awaitsBilling,
 }
 
 func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
