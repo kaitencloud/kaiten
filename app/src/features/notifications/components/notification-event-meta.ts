@@ -77,6 +77,12 @@ const eventMeta: EventNameMap<NotificationEventMeta> = {
     Icon: dataModelIcons.license,
     tone: 'default',
   },
+  INSTANCE_BILLING_STARTED: { Icon: dataModelIcons.instance, tone: 'default' },
+  // As INSTANCE_STATUS_CHANGED: whether it is bad news depends on the new
+  // status, and the server notifies by default on the move to PAST_DUE.
+  INSTANCE_BILLING_STATUS_CHANGED: { Icon: AlertCircle, tone: 'warning' },
+  INSTANCE_BILLING_CANCELED: { Icon: dataModelIcons.instance, tone: 'default' },
+  INSTANCE_INVOICE_HELD: { Icon: AlertTriangle, tone: 'warning' },
   SYSTEM_ORGANIZATION_TOKEN_ISSUED: { Icon: ShieldAlert, tone: 'warning' },
 };
 

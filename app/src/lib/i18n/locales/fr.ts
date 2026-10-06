@@ -2908,6 +2908,10 @@ export default {
             label: 'Licences',
             description: 'Licences et entitlements qui y sont rattachés.',
           },
+          billing: {
+            label: 'Facturation',
+            description: "Abonnements et factures qu'ils émettent.",
+          },
           security: {
             label: 'Sécurité',
             description: 'Identifiants émis pour votre organisation.',
@@ -2961,6 +2965,14 @@ export default {
             'Un entitlement a été ajouté à une licence.',
           LICENSE_ENTITLEMENT_UNASSIGNED:
             "Un entitlement a été retiré d'une licence.",
+          INSTANCE_BILLING_STARTED:
+            'Une instance a été abonnée, ou un abonnement résilié a repris.',
+          INSTANCE_BILLING_STATUS_CHANGED:
+            'Un essai a été converti, ou un abonnement est passé en retard de paiement ou en est sorti.',
+          INSTANCE_BILLING_CANCELED:
+            'Un abonnement a été résilié, en fin de période ou immédiatement.',
+          INSTANCE_INVOICE_HELD:
+            "Une facture a été retenue car son journal d'usage a échoué à une vérification ; elle attend d'être libérée ou recomposée.",
           SYSTEM_ORGANIZATION_TOKEN_ISSUED:
             'Un identifiant a été émis pour votre organisation.',
         },
@@ -3123,7 +3135,16 @@ export default {
         FEATURE_FLAG_DELETED: 'Feature flag supprimé',
         FEATURE_FLAG_EVALUATED: 'Feature flag évalué',
         FEATURE_FLAG_UPDATED: 'Feature flag mis à jour',
+        INSTANCE_BILLING_CANCELED: 'Abonnement résilié',
+        INSTANCE_BILLING_CANCELLATION_REVERTED:
+          "Résiliation de l'abonnement annulée",
+        INSTANCE_BILLING_CANCELLATION_SCHEDULED:
+          "Résiliation de l'abonnement programmée",
+        INSTANCE_BILLING_PLAN_CHANGED: "Plan de l'abonnement modifié",
+        INSTANCE_BILLING_PLAN_CHANGE_CANCELLED: 'Changement de plan annulé',
+        INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED: 'Changement de plan programmé',
         INSTANCE_BILLING_STARTED: 'Abonnement démarré',
+        INSTANCE_BILLING_STATUS_CHANGED: "Statut de l'abonnement modifié",
         INSTANCE_CREATED: 'Instance créée',
         INSTANCE_DELETED: 'Instance supprimée',
         INSTANCE_DEPLOYED: 'Instance déployée',
