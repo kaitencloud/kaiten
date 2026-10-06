@@ -24,6 +24,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases"
 	"github.com/kaitencloud/kaiten/api/internal/modules/users"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/billablediscounts"
 )
 
 // modules is every module, constructed. It is what the facade namespaces read
@@ -48,6 +50,7 @@ type modules struct {
 	Organization    *organization.UseCases
 	Releases        *releases.UseCases
 	Users           *users.UseCases
+	Vouchers        *vouchers.UseCases
 
 	// CDC is the fan-out over the in-process consumers of the CDC stream. Not a
 	// module: it owns no tables and publishes no operation, it is the thing that
@@ -160,13 +163,14 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	built := modules{
 		Addons:     addons.NewUseCases(svc),
 		AuditTrail: audittrail.NewUseCases(svc, notificationModule.Announcer),
-		// Billing reads the licence catalogue, the usage journal and the
-		// add-ons an instance holds through ports it owns; the modules that own
-		// that data implement them.
+		// Billing reads the licence catalogue, the usage journal, the add-ons
+		// an instance holds and the vouchers it redeemed through ports it owns;
+		// the modules that own that data implement them.
 		Billing: billing.NewUseCases(svc, billing.Ports{
 			Catalogue: billablecatalogue.New(svc.Uof),
 			Usage:     instanceModule.BillableUsage,
 			Addons:    billableaddons.New(svc.Uof),
+			Discounts: billablediscounts.New(svc.Uof),
 		}),
 		Components:      components.NewUseCases(svc),
 		Connectors:      connectors.NewUseCases(svc),
@@ -183,6 +187,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		Organization:    organization.NewUseCases(svc),
 		Releases:        releases.NewUseCases(svc),
 		Users:           users.NewUseCases(svc),
+		Vouchers:        vouchers.NewUseCases(svc),
 	}
 
 	// A list, not a pipeline: the dispatcher runs these in parallel and waits for all
