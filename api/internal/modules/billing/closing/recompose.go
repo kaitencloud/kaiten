@@ -263,7 +263,7 @@ func (c *Closer) recheckOne(ctx context.Context, invoiceID uuid.UUID) (released 
 			return err
 		}
 		updated, err := invoices.Rewrite(ctx, q, row, &recomposed.Composition, nil,
-			invoices.Release{By: nil, Reason: AutoReleaseReason}, terms, clock.Time.UTC())
+			invoices.Release{By: nil, Reason: AutoReleaseReason}, terms, c.deps.Pushes(row.ProviderKind), clock.Time.UTC())
 		if err != nil {
 			return err
 		}

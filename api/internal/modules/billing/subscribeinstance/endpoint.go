@@ -24,8 +24,8 @@ type Subscriber interface {
 // of them.
 type NewSubscription struct {
 	BasePriceID      uuid.UUID  `json:"basePriceId" doc:"An ACTIVE FLAT_FEE price of the instance's licence version, which must be PUBLISHED. The subscription stays pinned to it, even once deprecated."`
-	ProviderKind     string     `json:"providerKind,omitempty" enum:"NOOP" doc:"Who collects the invoices. NOOP (the default): the organization itself, through the handoff queue."`
-	CollectionMethod *string    `json:"collectionMethod,omitempty" enum:"SEND_INVOICE" doc:"Omitted: the organization's default, read at each invoice."`
+	ProviderKind     string     `json:"providerKind,omitempty" enum:"NOOP,STRIPE" doc:"Who issues and collects the invoices. NOOP (the default): the organization itself, through the handoff queue. A provider must be connected (SubscribeInstance.ProviderNotConnected); one that pushes invoices needs the customer's billing e-mail for SEND_INVOICE (.BillingEmailMissing) and the price's currency (.UnsupportedCurrency), and registers the customer first."`
+	CollectionMethod *string    `json:"collectionMethod,omitempty" enum:"SEND_INVOICE,CHARGE_AUTOMATICALLY" doc:"Omitted: the organization's default, read at each invoice. CHARGE_AUTOMATICALLY needs a provider that charges automatically (SubscribeInstance.CollectionMethodUnsupported)."`
 	DaysUntilDue     *int32     `json:"daysUntilDue,omitempty" doc:"Payment terms in days, 0 to 365. Omitted: the organization's default, read at each invoice."`
 	StartAt          *time.Time `json:"startAt,omitempty" doc:"The anchor periods are counted from, truncated to the second: now when omitted, else at most one billing period ago. A period that has already ended closes on the next pass."`
 	TrialDays        *int32     `json:"trialDays,omitempty" doc:"Days of trial from the anchor: nothing is billed, and no usage counts, until it ends; the period close then issues the first invoice. 0 is no trial. Omitted: the licence's trialPeriodDays, else no trial."`
@@ -57,6 +57,7 @@ func RegisterEndpoint(api huma.API, app Subscriber) {
 		}
 		started, err := app.Subscribe(ctx, cl, request.InstanceSlug, Command{
 			BasePriceID:      request.Body.BasePriceID,
+			ProviderKind:     request.Body.ProviderKind,
 			CollectionMethod: request.Body.CollectionMethod,
 			DaysUntilDue:     request.Body.DaysUntilDue,
 			StartAt:          request.Body.StartAt,
