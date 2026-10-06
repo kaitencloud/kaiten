@@ -334,6 +334,40 @@ components:
           additionalProperties: {}
           type: object
       type: object
+    ClosePeriodsReport:
+      additionalProperties: false
+      properties:
+        closed:
+          description: Periods closed into an invoice
+          format: int64
+          type: integer
+        examined:
+          description: Subscriptions the batch looked at
+          format: int64
+          type: integer
+        hasMore:
+          description: Set when due subscriptions are left beyond the batch
+          type: boolean
+        held:
+          description: Of those, invoices held as DRAFTs for their usage journal
+          format: int64
+          type: integer
+        invoices:
+          items:
+            $ref: "#/components/schemas/ClosedInvoice"
+          type: array
+        skipped:
+          description: "Subscriptions left for later: held by another transaction, their meters' clock not at the boundary, or failed (logged)"
+          format: int64
+          type: integer
+      required:
+        - examined
+        - closed
+        - held
+        - skipped
+        - hasMore
+        - invoices
+      type: object
     ClosePeriodsScope:
       additionalProperties: false
       properties:
@@ -714,6 +748,68 @@ components:
         - name
         - slug
         - reason
+      type: object
+    CustomerEvent:
+      additionalProperties: false
+      properties:
+        createdAt:
+          description: Timestamp when the customer was created
+          examples:
+            - "2023-10-01T12:00:00Z"
+          format: date-time
+          type: string
+        createdBy:
+          $ref: "#/components/schemas/User"
+          description: User who created this customer
+        domain:
+          description: Customer domain name
+          examples:
+            - example.tld
+          type: string
+        externalCustomerId:
+          description: Identifier for the customer in an external system, null when there is none
+          examples:
+            - external-customer-id-12345
+          type:
+            - string
+            - "null"
+        id:
+          description: Unique identifier for the customer
+          examples:
+            - 123e4567-e89b-12d3-a456-426614174000
+          type: string
+        integrations:
+          additionalProperties:
+            $ref: "#/components/schemas/CustomerIntegration"
+          description: Integrations grouped by adapter name
+          type: object
+        name:
+          description: Name of the customer
+          examples:
+            - Awesome Customer
+          type: string
+        slug:
+          description: URL-friendly identifier, unique per organization
+          examples:
+            - awesome-customer
+          type: string
+        updatedAt:
+          description: Timestamp when the customer was last updated
+          examples:
+            - "2023-10-01T12:00:00Z"
+          format: date-time
+          type: string
+        updatedBy:
+          $ref: "#/components/schemas/User"
+          description: User who last updated this customer
+      required:
+        - id
+        - name
+        - externalCustomerId
+        - createdBy
+        - createdAt
+        - updatedBy
+        - updatedAt
       type: object
     CustomerIntegration:
       additionalProperties: false
@@ -1309,105 +1405,6 @@ components:
       required:
         - key
       type: object
-    Event:
-      additionalProperties: false
-      properties:
-        billingModel:
-          description: "FLAT_FEE: an amount per billing period. USAGE_BASED: an amount per sale unit of the metered entitlement's usage. OVERAGE: an amount per sale unit of the usage above the licence's limit."
-          enum:
-            - FLAT_FEE
-            - USAGE_BASED
-            - OVERAGE
-          type: string
-        billingPeriod:
-          description: The period a FLAT_FEE price is charged for. Absent on metered prices, which bill on the subscription's period.
-          enum:
-            - MONTHLY
-            - QUARTERLY
-            - SEMI_ANNUAL
-            - ANNUAL
-          type: string
-        billingTiming:
-          description: ADVANCE bills the period that starts; ARREARS the period that ended. Metered prices are always ARREARS.
-          enum:
-            - ADVANCE
-            - ARREARS
-          type: string
-        createdAt:
-          format: date-time
-          readOnly: true
-          type: string
-        currency:
-          description: ISO 4217 code, upper case. One currency per licence version.
-          examples:
-            - EUR
-          type: string
-        deprecatedAt:
-          description: When the price was deprecated
-          format: date-time
-          type: string
-        displayLabel:
-          description: The invoice line's label; a default is derived when absent.
-          examples:
-            - Pro plan
-          type: string
-        displayOrder:
-          description: Order among the version's prices
-          examples:
-            - 0
-          format: int32
-          type: integer
-        familySlug:
-          description: The family of that version
-          type: string
-        id:
-          description: Unique identifier of the price
-          readOnly: true
-          type: string
-        isDefault:
-          description: The FLAT_FEE price picked for its billing period when none is named. At most one per period; only an ACTIVE FLAT_FEE price.
-          type: boolean
-        licenseSlug:
-          description: The licence version the price belongs to
-          type: string
-        metered:
-          $ref: "#/components/schemas/Meter"
-          description: What a metered price measures. Absent on FLAT_FEE prices.
-        status:
-          description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
-          enum:
-            - ACTIVE
-            - DEPRECATED
-          type: string
-        unitAmount:
-          description: unitAmountDecimal as an integer number of minor units, when it is one; absent otherwise.
-          examples:
-            - 2900
-          format: int64
-          type: integer
-        unitAmountDecimal:
-          description: "Amount in the currency's minor units (cents for EUR): per period for FLAT_FEE, per sale unit for metered prices. Up to 12 decimal places."
-          examples:
-            - "2900"
-          type: string
-        updatedAt:
-          format: date-time
-          readOnly: true
-          type: string
-      required:
-        - licenseSlug
-        - familySlug
-        - id
-        - billingModel
-        - billingTiming
-        - currency
-        - unitAmountDecimal
-        - displayOrder
-        - isDefault
-        - status
-        - createdAt
-        - updatedAt
-      type: object
     FeatureFlag:
       additionalProperties: false
       properties:
@@ -1504,34 +1501,6 @@ components:
         - flag_slug
         - flag_id
         - reason
-      type: object
-    Handoff:
-      additionalProperties: false
-      properties:
-        acknowledgedAt:
-          format: date-time
-          type: string
-        claimCount:
-          format: int32
-          type: integer
-        externalReference:
-          description: The invoice's number in the organization's accounting system
-          type: string
-        leaseId:
-          description: The claim currently holding it
-          type: string
-        leasedUntil:
-          format: date-time
-          type: string
-        status:
-          enum:
-            - NOT_REQUIRED
-            - PENDING
-            - ACKNOWLEDGED
-          type: string
-      required:
-        - status
-        - claimCount
       type: object
     HandoffAcknowledgement:
       additionalProperties: false
@@ -2499,7 +2468,7 @@ components:
           format: date-time
           type: string
         handoff:
-          $ref: "#/components/schemas/Handoff"
+          $ref: "#/components/schemas/InvoiceHandoff"
         handoffStatus:
           description: "PENDING: waiting in the handoff queue for the organization's accounting system"
           enum:
@@ -2624,6 +2593,34 @@ components:
         - createdAt
         - updatedAt
       type: object
+    InvoiceHandoff:
+      additionalProperties: false
+      properties:
+        acknowledgedAt:
+          format: date-time
+          type: string
+        claimCount:
+          format: int32
+          type: integer
+        externalReference:
+          description: The invoice's number in the organization's accounting system
+          type: string
+        leaseId:
+          description: The claim currently holding it
+          type: string
+        leasedUntil:
+          format: date-time
+          type: string
+        status:
+          enum:
+            - NOT_REQUIRED
+            - PENDING
+            - ACKNOWLEDGED
+          type: string
+      required:
+        - status
+        - claimCount
+      type: object
     InvoiceHold:
       additionalProperties: false
       properties:
@@ -2637,7 +2634,7 @@ components:
         - invariant
       type: object
     InvoiceLine:
-      additionalProperties: false
+      additionalProperties: true
       properties:
         amount:
           description: round_half_up(quantity × unitAmountDecimal), in minor units
@@ -2646,14 +2643,14 @@ components:
           format: int64
           type: integer
         billingModel:
-          description: The price's billing model
+          description: The price's billing model; absent on a DISCOUNT line
           enum:
             - FLAT_FEE
             - USAGE_BASED
             - OVERAGE
           type: string
         billingTiming:
-          description: ADVANCE lines bill the period that starts at the boundary, ARREARS lines the one that ends there
+          description: ADVANCE lines bill the period that starts at the boundary, ARREARS lines the one that ends there; absent on a DISCOUNT line
           enum:
             - ADVANCE
             - ARREARS
@@ -2681,7 +2678,7 @@ components:
             - Tokens — overage
           type: string
         licensePriceId:
-          description: The licence price the line bills
+          description: The licence price the line bills; absent on an ADDON line
           type: string
         metering:
           $ref: "#/components/schemas/InvoiceLineMetering"
@@ -2707,29 +2704,27 @@ components:
           format: date-time
           type: string
         type:
-          description: "BASE: the subscription's FLAT_FEE price. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit."
+          description: "BASE: the subscription's FLAT_FEE price. ADDON: an add-on's FLAT_FEE price. DISCOUNT: a voucher's discount, negative. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit."
           enum:
             - BASE
+            - ADDON
             - USAGE
             - OVERAGE
+            - DISCOUNT
           type: string
         unitAmountDecimal:
-          description: The price's unit amount in minor units
+          description: The price's unit amount in minor units; absent on a DISCOUNT line
           examples:
             - "800"
           type: string
       required:
         - seq
         - type
-        - billingModel
-        - billingTiming
-        - licensePriceId
         - label
         - description
         - serviceFrom
         - serviceTo
         - quantity
-        - unitAmountDecimal
         - amount
       type: object
     InvoiceLineLedger:
@@ -3525,6 +3520,212 @@ components:
           description: See createLicensePrice.
           type: string
       type: object
+    LicensePriceEvent:
+      additionalProperties: false
+      properties:
+        billingModel:
+          description: "FLAT_FEE: an amount per billing period. USAGE_BASED: an amount per sale unit of the metered entitlement's usage. OVERAGE: an amount per sale unit of the usage above the licence's limit."
+          enum:
+            - FLAT_FEE
+            - USAGE_BASED
+            - OVERAGE
+          type: string
+        billingPeriod:
+          description: The period a FLAT_FEE price is charged for. Absent on metered prices, which bill on the subscription's period.
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        billingTiming:
+          description: ADVANCE bills the period that starts; ARREARS the period that ended. Metered prices are always ARREARS.
+          enum:
+            - ADVANCE
+            - ARREARS
+          type: string
+        createdAt:
+          format: date-time
+          readOnly: true
+          type: string
+        currency:
+          description: ISO 4217 code, upper case. One currency per licence version.
+          examples:
+            - EUR
+          type: string
+        deprecatedAt:
+          description: When the price was deprecated
+          format: date-time
+          type: string
+        displayLabel:
+          description: The invoice line's label; a default is derived when absent.
+          examples:
+            - Pro plan
+          type: string
+        displayOrder:
+          description: Order among the version's prices
+          examples:
+            - 0
+          format: int32
+          type: integer
+        familySlug:
+          description: The family of that version
+          type: string
+        id:
+          description: Unique identifier of the price
+          readOnly: true
+          type: string
+        isDefault:
+          description: The FLAT_FEE price picked for its billing period when none is named. At most one per period; only an ACTIVE FLAT_FEE price.
+          type: boolean
+        licenseSlug:
+          description: The licence version the price belongs to
+          type: string
+        metered:
+          $ref: "#/components/schemas/PriceMeter"
+          description: What a metered price measures. Absent on FLAT_FEE prices.
+        status:
+          description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
+          enum:
+            - ACTIVE
+            - DEPRECATED
+          type: string
+        unitAmount:
+          description: unitAmountDecimal as an integer number of minor units, when it is one; absent otherwise.
+          examples:
+            - 2900
+          format: int64
+          type: integer
+        unitAmountDecimal:
+          description: "Amount in the currency's minor units (cents for EUR): per period for FLAT_FEE, per sale unit for metered prices. Up to 12 decimal places."
+          examples:
+            - "2900"
+          type: string
+        updatedAt:
+          format: date-time
+          readOnly: true
+          type: string
+      required:
+        - licenseSlug
+        - familySlug
+        - id
+        - billingModel
+        - billingTiming
+        - currency
+        - unitAmountDecimal
+        - displayOrder
+        - isDefault
+        - status
+        - createdAt
+        - updatedAt
+      type: object
+    LicensePriceUpdatedEvent:
+      additionalProperties: false
+      properties:
+        billingModel:
+          description: "FLAT_FEE: an amount per billing period. USAGE_BASED: an amount per sale unit of the metered entitlement's usage. OVERAGE: an amount per sale unit of the usage above the licence's limit."
+          enum:
+            - FLAT_FEE
+            - USAGE_BASED
+            - OVERAGE
+          type: string
+        billingPeriod:
+          description: The period a FLAT_FEE price is charged for. Absent on metered prices, which bill on the subscription's period.
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        billingTiming:
+          description: ADVANCE bills the period that starts; ARREARS the period that ended. Metered prices are always ARREARS.
+          enum:
+            - ADVANCE
+            - ARREARS
+          type: string
+        changedFields:
+          description: The members the update changed, as the API names them
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        createdAt:
+          format: date-time
+          readOnly: true
+          type: string
+        currency:
+          description: ISO 4217 code, upper case. One currency per licence version.
+          examples:
+            - EUR
+          type: string
+        deprecatedAt:
+          description: When the price was deprecated
+          format: date-time
+          type: string
+        displayLabel:
+          description: The invoice line's label; a default is derived when absent.
+          examples:
+            - Pro plan
+          type: string
+        displayOrder:
+          description: Order among the version's prices
+          examples:
+            - 0
+          format: int32
+          type: integer
+        familySlug:
+          description: The family of that version
+          type: string
+        id:
+          description: Unique identifier of the price
+          readOnly: true
+          type: string
+        isDefault:
+          description: The FLAT_FEE price picked for its billing period when none is named. At most one per period; only an ACTIVE FLAT_FEE price.
+          type: boolean
+        licenseSlug:
+          description: The licence version the price belongs to
+          type: string
+        metered:
+          $ref: "#/components/schemas/PriceMeter"
+          description: What a metered price measures. Absent on FLAT_FEE prices.
+        status:
+          description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
+          enum:
+            - ACTIVE
+            - DEPRECATED
+          type: string
+        unitAmount:
+          description: unitAmountDecimal as an integer number of minor units, when it is one; absent otherwise.
+          examples:
+            - 2900
+          format: int64
+          type: integer
+        unitAmountDecimal:
+          description: "Amount in the currency's minor units (cents for EUR): per period for FLAT_FEE, per sale unit for metered prices. Up to 12 decimal places."
+          examples:
+            - "2900"
+          type: string
+        updatedAt:
+          format: date-time
+          readOnly: true
+          type: string
+      required:
+        - changedFields
+        - licenseSlug
+        - familySlug
+        - id
+        - billingModel
+        - billingTiming
+        - currency
+        - unitAmountDecimal
+        - displayOrder
+        - isDefault
+        - status
+        - createdAt
+        - updatedAt
+      type: object
     LineReportPage:
       additionalProperties: false
       properties:
@@ -3705,31 +3906,6 @@ components:
           type: object
       required:
         - jsonSchema
-      type: object
-    Meter:
-      additionalProperties: false
-      properties:
-        entitlementSlug:
-          description: The metered entitlement
-          examples:
-            - tokens
-          type: string
-        saleUnitFactor:
-          description: "Measured units in one sale unit, captured when the price was created (1 when the entitlement has no sale unit): 10000 bills per 10,000 tokens."
-          examples:
-            - "10000"
-          type: string
-        saleUnitPlural:
-          examples:
-            - 10k tokens
-          type: string
-        saleUnitSingular:
-          examples:
-            - 10k tokens
-          type: string
-      required:
-        - entitlementSlug
-        - saleUnitFactor
       type: object
     NewLicensePrice:
       additionalProperties: false
@@ -4544,7 +4720,7 @@ components:
           description: The FLAT_FEE price picked for its billing period when none is named. At most one per period; only an ACTIVE FLAT_FEE price.
           type: boolean
         metered:
-          $ref: "#/components/schemas/Meter"
+          $ref: "#/components/schemas/PriceMeter"
           description: What a metered price measures. Absent on FLAT_FEE prices.
         status:
           description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
@@ -4578,6 +4754,31 @@ components:
         - status
         - createdAt
         - updatedAt
+      type: object
+    PriceMeter:
+      additionalProperties: false
+      properties:
+        entitlementSlug:
+          description: The metered entitlement
+          examples:
+            - tokens
+          type: string
+        saleUnitFactor:
+          description: "Measured units in one sale unit, captured when the price was created (1 when the entitlement has no sale unit): 10000 bills per 10,000 tokens."
+          examples:
+            - "10000"
+          type: string
+        saleUnitPlural:
+          examples:
+            - 10k tokens
+          type: string
+        saleUnitSingular:
+          examples:
+            - 10k tokens
+          type: string
+      required:
+        - entitlementSlug
+        - saleUnitFactor
       type: object
     Problem:
       additionalProperties: false
@@ -4686,7 +4887,7 @@ components:
           format: date-time
           type: string
         handoff:
-          $ref: "#/components/schemas/Handoff"
+          $ref: "#/components/schemas/InvoiceHandoff"
         handoffStatus:
           description: "PENDING: waiting in the handoff queue for the organization's accounting system"
           enum:
@@ -5015,40 +5216,6 @@ components:
             - "null"
       required:
         - ids
-      type: object
-    Report:
-      additionalProperties: false
-      properties:
-        closed:
-          description: Periods closed into an invoice
-          format: int64
-          type: integer
-        examined:
-          description: Subscriptions the batch looked at
-          format: int64
-          type: integer
-        hasMore:
-          description: Set when due subscriptions are left beyond the batch
-          type: boolean
-        held:
-          description: Of those, invoices held as DRAFTs for their usage journal
-          format: int64
-          type: integer
-        invoices:
-          items:
-            $ref: "#/components/schemas/ClosedInvoice"
-          type: array
-        skipped:
-          description: "Subscriptions left for later: held by another transaction, their meters' clock not at the boundary, or failed (logged)"
-          format: int64
-          type: integer
-      required:
-        - examined
-        - closed
-        - held
-        - skipped
-        - hasMore
-        - invoices
       type: object
     ReportEntitlementUsageBody:
       additionalProperties: false
@@ -5762,113 +5929,6 @@ components:
         - createdAt
         - updatedAt
       type: object
-    UpdatedEvent:
-      additionalProperties: false
-      properties:
-        billingModel:
-          description: "FLAT_FEE: an amount per billing period. USAGE_BASED: an amount per sale unit of the metered entitlement's usage. OVERAGE: an amount per sale unit of the usage above the licence's limit."
-          enum:
-            - FLAT_FEE
-            - USAGE_BASED
-            - OVERAGE
-          type: string
-        billingPeriod:
-          description: The period a FLAT_FEE price is charged for. Absent on metered prices, which bill on the subscription's period.
-          enum:
-            - MONTHLY
-            - QUARTERLY
-            - SEMI_ANNUAL
-            - ANNUAL
-          type: string
-        billingTiming:
-          description: ADVANCE bills the period that starts; ARREARS the period that ended. Metered prices are always ARREARS.
-          enum:
-            - ADVANCE
-            - ARREARS
-          type: string
-        changedFields:
-          description: The members the update changed, as the API names them
-          items:
-            type: string
-          type:
-            - array
-            - "null"
-        createdAt:
-          format: date-time
-          readOnly: true
-          type: string
-        currency:
-          description: ISO 4217 code, upper case. One currency per licence version.
-          examples:
-            - EUR
-          type: string
-        deprecatedAt:
-          description: When the price was deprecated
-          format: date-time
-          type: string
-        displayLabel:
-          description: The invoice line's label; a default is derived when absent.
-          examples:
-            - Pro plan
-          type: string
-        displayOrder:
-          description: Order among the version's prices
-          examples:
-            - 0
-          format: int32
-          type: integer
-        familySlug:
-          description: The family of that version
-          type: string
-        id:
-          description: Unique identifier of the price
-          readOnly: true
-          type: string
-        isDefault:
-          description: The FLAT_FEE price picked for its billing period when none is named. At most one per period; only an ACTIVE FLAT_FEE price.
-          type: boolean
-        licenseSlug:
-          description: The licence version the price belongs to
-          type: string
-        metered:
-          $ref: "#/components/schemas/Meter"
-          description: What a metered price measures. Absent on FLAT_FEE prices.
-        status:
-          description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
-          enum:
-            - ACTIVE
-            - DEPRECATED
-          type: string
-        unitAmount:
-          description: unitAmountDecimal as an integer number of minor units, when it is one; absent otherwise.
-          examples:
-            - 2900
-          format: int64
-          type: integer
-        unitAmountDecimal:
-          description: "Amount in the currency's minor units (cents for EUR): per period for FLAT_FEE, per sale unit for metered prices. Up to 12 decimal places."
-          examples:
-            - "2900"
-          type: string
-        updatedAt:
-          format: date-time
-          readOnly: true
-          type: string
-      required:
-        - changedFields
-        - licenseSlug
-        - familySlug
-        - id
-        - billingModel
-        - billingTiming
-        - currency
-        - unitAmountDecimal
-        - displayOrder
-        - isDefault
-        - status
-        - createdAt
-        - updatedAt
-      type: object
     UsageReport:
       additionalProperties: false
       properties:
@@ -6260,7 +6320,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Report"
+                $ref: "#/components/schemas/ClosePeriodsReport"
           description: OK
         "400":
           content:
@@ -15931,7 +15991,7 @@ webhooks:
               additionalProperties: false
               properties:
                 data:
-                  $ref: "#/components/schemas/Customer"
+                  $ref: "#/components/schemas/CustomerEvent"
                 name:
                   description: Event name
                   enum:
@@ -16009,7 +16069,7 @@ webhooks:
               additionalProperties: false
               properties:
                 data:
-                  $ref: "#/components/schemas/Customer"
+                  $ref: "#/components/schemas/CustomerEvent"
                 name:
                   description: Event name
                   enum:
@@ -16048,7 +16108,7 @@ webhooks:
               additionalProperties: false
               properties:
                 data:
-                  $ref: "#/components/schemas/Customer"
+                  $ref: "#/components/schemas/CustomerEvent"
                 name:
                   description: Event name
                   enum:
@@ -17647,7 +17707,7 @@ webhooks:
               additionalProperties: false
               properties:
                 data:
-                  $ref: "#/components/schemas/Event"
+                  $ref: "#/components/schemas/LicensePriceEvent"
                 name:
                   description: Event name
                   enum:
@@ -17686,7 +17746,7 @@ webhooks:
               additionalProperties: false
               properties:
                 data:
-                  $ref: "#/components/schemas/Event"
+                  $ref: "#/components/schemas/LicensePriceEvent"
                 name:
                   description: Event name
                   enum:
@@ -17725,7 +17785,7 @@ webhooks:
               additionalProperties: false
               properties:
                 data:
-                  $ref: "#/components/schemas/UpdatedEvent"
+                  $ref: "#/components/schemas/LicensePriceUpdatedEvent"
                 name:
                   description: Event name
                   enum:

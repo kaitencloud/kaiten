@@ -36,7 +36,7 @@ type Price struct {
 	Currency          string     `json:"currency" doc:"ISO 4217 code, upper case. One currency per licence version." example:"EUR"`
 	UnitAmount        *int64     `json:"unitAmount,omitempty" doc:"unitAmountDecimal as an integer number of minor units, when it is one; absent otherwise." example:"2900"`
 	UnitAmountDecimal string     `json:"unitAmountDecimal" doc:"Amount in the currency's minor units (cents for EUR): per period for FLAT_FEE, per sale unit for metered prices. Up to 12 decimal places." example:"2900"`
-	Metered           *Meter     `json:"metered,omitempty" doc:"What a metered price measures. Absent on FLAT_FEE prices."`
+	Metered           *PriceMeter     `json:"metered,omitempty" doc:"What a metered price measures. Absent on FLAT_FEE prices."`
 	DisplayLabel      *string    `json:"displayLabel,omitempty" doc:"The invoice line's label; a default is derived when absent." example:"Pro plan"`
 	DisplayOrder      int32      `json:"displayOrder" doc:"Order among the version's prices" example:"0"`
 	IsDefault         bool       `json:"isDefault" doc:"The FLAT_FEE price picked for its billing period when none is named. At most one per period; only an ACTIVE FLAT_FEE price."`
@@ -46,24 +46,24 @@ type Price struct {
 	UpdatedAt         time.Time  `json:"updatedAt" readOnly:"true"`
 }
 
-// Meter is what a metered price measures.
-type Meter struct {
+// PriceMeter is what a metered price measures.
+type PriceMeter struct {
 	EntitlementSlug  string  `json:"entitlementSlug" doc:"The metered entitlement" example:"tokens"`
 	SaleUnitFactor   string  `json:"saleUnitFactor" doc:"Measured units in one sale unit, captured when the price was created (1 when the entitlement has no sale unit): 10000 bills per 10,000 tokens." example:"10000"`
 	SaleUnitSingular *string `json:"saleUnitSingular,omitempty" example:"10k tokens"`
 	SaleUnitPlural   *string `json:"saleUnitPlural,omitempty" example:"10k tokens"`
 }
 
-// Event is the payload of LICENSE_PRICE_CREATED and LICENSE_PRICE_DEPRECATED:
+// LicensePriceEvent is the payload of LICENSE_PRICE_CREATED and LICENSE_PRICE_DEPRECATED:
 // the price and the version it belongs to.
-type Event struct {
+type LicensePriceEvent struct {
 	Price
 	LicenseSlug string `json:"licenseSlug" doc:"The licence version the price belongs to"`
 	FamilySlug  string `json:"familySlug" doc:"The family of that version"`
 }
 
-// UpdatedEvent is the payload of LICENSE_PRICE_UPDATED.
-type UpdatedEvent struct {
-	Event
+// LicensePriceUpdatedEvent is the payload of LICENSE_PRICE_UPDATED.
+type LicensePriceUpdatedEvent struct {
+	LicensePriceEvent
 	ChangedFields []string `json:"changedFields" doc:"The members the update changed, as the API names them"`
 }

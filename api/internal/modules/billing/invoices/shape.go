@@ -64,7 +64,7 @@ type Invoice struct {
 	BillingEmail        *string              `json:"billingEmail,omitempty" doc:"The address the invoice is for, as it was when composed. Personal data: it appears in no event"`
 	HoldDetail          *HoldDetail          `json:"holdDetail,omitempty" doc:"Every meter whose journal failed a check"`
 	Hold                *HoldRecord          `json:"hold,omitempty" doc:"When the invoice was held and released"`
-	Handoff             Handoff              `json:"handoff"`
+	Handoff             InvoiceHandoff              `json:"handoff"`
 	UncollectibleAt     *time.Time           `json:"uncollectibleAt,omitempty"`
 	VoidedAt            *time.Time           `json:"voidedAt,omitempty"`
 	VoidReason          *string              `json:"voidReason,omitempty"`
@@ -92,8 +92,8 @@ type HoldRecord struct {
 	ReleaseReason *string    `json:"releaseReason,omitempty"`
 }
 
-// Handoff is where an invoice stands in the handoff queue.
-type Handoff struct {
+// InvoiceHandoff is where an invoice stands in the handoff queue.
+type InvoiceHandoff struct {
 	Status            string     `json:"status" enum:"NOT_REQUIRED,PENDING,ACKNOWLEDGED"`
 	LeaseID           *uuid.UUID `json:"leaseId,omitempty" doc:"The claim currently holding it"`
 	LeasedUntil       *time.Time `json:"leasedUntil,omitempty"`

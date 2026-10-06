@@ -232,7 +232,7 @@ func FromRow(row db.InstanceInvoice) (Invoice, error) {
 		BillingEmail:   row.BillingEmail,
 		HoldDetail:     nil,
 		Hold:           nil,
-		Handoff: Handoff{
+		Handoff: InvoiceHandoff{
 			Status:            string(row.HandoffStatus),
 			LeaseID:           row.HandoffLeaseID,
 			LeasedUntil:       TimePtr(row.HandoffLeasedUntil),
