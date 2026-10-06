@@ -199,7 +199,7 @@ A hook used by one feature stays in `features/<name>/hooks/` and moves here when
 | `feature-flags.ts` | Evaluation of the flags the app gates its own features on, through OpenFeature and its OFREP web provider |
 | `external-id.ts` | Browser-side derivation of an organization id, which has to match the server's (`api/pkg/externalid`) |
 | `optimistic-mutations.ts`, `monaco-workers.ts` | Callbacks for optimistic deletes and invalidation on success; Monaco worker configuration |
-| `logger.ts`, `utils.ts`, `debounce.ts`, `format-date.ts`, ... | Cross-cutting utilities; `cn` is in `utils.ts` |
+| `logger.ts`, `utils.ts`, `debounce.ts`, `format-date.ts`, `money.ts`, ... | Cross-cutting utilities; `cn` is in `utils.ts`; `money.ts` formats and converts amounts without a float (BigInt and decimal strings) |
 
 `lib/` is infrastructure plus a few bridges to the product. `data-model-icons.ts` maps each entity to an icon and `navigation/segment-labels.ts` maps URL segments to labels, because the whole app shares that vocabulary. `feature-flags.ts` names a product flag (`DEMO_SANDBOX_FLAG`) and `external-id.ts` repeats a server-side derivation. Feature screens and mutations stay out of `lib/`.
 
