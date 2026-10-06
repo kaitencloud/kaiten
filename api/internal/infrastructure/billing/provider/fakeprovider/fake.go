@@ -148,8 +148,8 @@ func (f *Fake) Customers() int {
 	return len(f.customers)
 }
 
-// Pay records a payment of an open invoice in the provider.
-func (f *Fake) Pay(externalID string) { f.transition(externalID, provider.StatusPaid, "invoice.paid") }
+// PayInProvider records a payment of an open invoice in the provider.
+func (f *Fake) PayInProvider(externalID string) { f.transition(externalID, provider.StatusPaid, "invoice.paid") }
 
 // MarkUncollectible marks an open invoice uncollectible in the provider.
 func (f *Fake) MarkUncollectible(externalID string) {
@@ -476,4 +476,19 @@ func (f *Fake) CreateBillingPortalSession(context.Context, provider.Ref, string,
 // DetachPaymentMethod implements provider.Adapter.
 func (f *Fake) DetachPaymentMethod(context.Context, provider.Ref, string) error {
 	return provider.ErrUnsupported
+}
+
+// Pay implements provider.Adapter: not supported.
+func (f *Fake) Pay(context.Context, provider.Ref, string, provider.NormalizedInvoice) (provider.PaymentOutcome, error) {
+	return provider.PaymentOutcome{}, provider.ErrUnsupported
+}
+
+// DefaultPaymentMethod implements provider.Adapter: not supported.
+func (f *Fake) DefaultPaymentMethod(context.Context, provider.Ref, string) (*provider.PaymentMethod, error) {
+	return nil, provider.ErrUnsupported
+}
+
+// SetDefaultPaymentMethod implements provider.Adapter: not supported.
+func (f *Fake) SetDefaultPaymentMethod(context.Context, provider.Ref, string, string) (provider.PaymentMethod, error) {
+	return provider.PaymentMethod{}, provider.ErrUnsupported
 }
