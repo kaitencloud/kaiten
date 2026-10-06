@@ -320,6 +320,11 @@ components:
     Customer:
       additionalProperties: false
       properties:
+        billingEmail:
+          description: "Where invoices sent to this customer are delivered, at most 254 characters (CreateCustomer.InvalidBillingEmail). Absent when there is none. On update, omit it to keep the stored value, or send an empty string to remove it. Personal data: never included in event payloads."
+          examples:
+            - billing@example.tld
+          type: string
         createdAt:
           description: Timestamp when the customer was created
           examples:
@@ -1032,6 +1037,105 @@ components:
       required:
         - key
       type: object
+    Event:
+      additionalProperties: false
+      properties:
+        billingModel:
+          description: "FLAT_FEE: an amount per billing period. USAGE_BASED: an amount per sale unit of the metered entitlement's usage. OVERAGE: an amount per sale unit of the usage above the licence's limit."
+          enum:
+            - FLAT_FEE
+            - USAGE_BASED
+            - OVERAGE
+          type: string
+        billingPeriod:
+          description: The period a FLAT_FEE price is charged for. Absent on metered prices, which bill on the subscription's period.
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        billingTiming:
+          description: ADVANCE bills the period that starts; ARREARS the period that ended. Metered prices are always ARREARS.
+          enum:
+            - ADVANCE
+            - ARREARS
+          type: string
+        createdAt:
+          format: date-time
+          readOnly: true
+          type: string
+        currency:
+          description: ISO 4217 code, upper case. One currency per licence version.
+          examples:
+            - EUR
+          type: string
+        deprecatedAt:
+          description: When the price was deprecated
+          format: date-time
+          type: string
+        displayLabel:
+          description: The invoice line's label; a default is derived when absent.
+          examples:
+            - Pro plan
+          type: string
+        displayOrder:
+          description: Order among the version's prices
+          examples:
+            - 0
+          format: int32
+          type: integer
+        familySlug:
+          description: The family of that version
+          type: string
+        id:
+          description: Unique identifier of the price
+          readOnly: true
+          type: string
+        isDefault:
+          description: The FLAT_FEE price picked for its billing period when none is named. At most one per period; only an ACTIVE FLAT_FEE price.
+          type: boolean
+        licenseSlug:
+          description: The licence version the price belongs to
+          type: string
+        metered:
+          $ref: "#/components/schemas/Meter"
+          description: What a metered price measures. Absent on FLAT_FEE prices.
+        status:
+          description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
+          enum:
+            - ACTIVE
+            - DEPRECATED
+          type: string
+        unitAmount:
+          description: unitAmountDecimal as an integer number of minor units, when it is one; absent otherwise.
+          examples:
+            - 2900
+          format: int64
+          type: integer
+        unitAmountDecimal:
+          description: "Amount in the currency's minor units (cents for EUR): per period for FLAT_FEE, per sale unit for metered prices. Up to 12 decimal places."
+          examples:
+            - "2900"
+          type: string
+        updatedAt:
+          format: date-time
+          readOnly: true
+          type: string
+      required:
+        - licenseSlug
+        - familySlug
+        - id
+        - billingModel
+        - billingTiming
+        - currency
+        - unitAmountDecimal
+        - displayOrder
+        - isDefault
+        - status
+        - createdAt
+        - updatedAt
+      type: object
     FeatureFlag:
       additionalProperties: false
       properties:
@@ -1682,6 +1786,252 @@ components:
         - new_status
         - changed_by
       type: object
+    InvoiceHold:
+      additionalProperties: false
+      properties:
+        entitlementId:
+          type: string
+        invariant:
+          description: The check that failed
+          type: string
+      required:
+        - entitlementId
+        - invariant
+      type: object
+    InvoiceLine:
+      additionalProperties: false
+      properties:
+        amount:
+          description: round_half_up(quantity × unitAmountDecimal), in minor units
+          examples:
+            - 2440
+          format: int64
+          type: integer
+        billingModel:
+          description: The price's billing model
+          enum:
+            - FLAT_FEE
+            - USAGE_BASED
+            - OVERAGE
+          type: string
+        billingTiming:
+          description: ADVANCE lines bill the period that starts at the boundary, ARREARS lines the one that ends there
+          enum:
+            - ADVANCE
+            - ARREARS
+          type: string
+        capped:
+          description: "Set on a preview line whose sample exceeded what the licence accepts: reports above that are rejected, so the excess is not billed"
+          type: boolean
+        description:
+          description: The arithmetic of the line
+          examples:
+            - 3.05 × 8.00 EUR (per 10k tokens); 130,500 used; 30,500 above the applied limit (100,000)
+          type: string
+        entitlementId:
+          description: The metered entitlement, on USAGE and OVERAGE lines
+          type: string
+        entitlementSlug:
+          description: Its slug, as it was when the line was composed
+          type: string
+        label:
+          description: The price's display label, else a derived one
+          examples:
+            - Tokens — overage
+          type: string
+        licensePriceId:
+          description: The licence price the line bills
+          type: string
+        metering:
+          $ref: "#/components/schemas/InvoiceLineMetering"
+          description: How a USAGE or OVERAGE line's quantity was measured
+        overage:
+          $ref: "#/components/schemas/InvoiceLineOverage"
+          description: The arithmetic of an OVERAGE line
+        quantity:
+          description: "In sale units, a decimal string: 1 on a BASE line"
+          examples:
+            - "3.05"
+          type: string
+        seq:
+          description: Position on the invoice, from 1
+          format: int64
+          type: integer
+        serviceFrom:
+          description: Start of the period the line bills (inclusive)
+          format: date-time
+          type: string
+        serviceTo:
+          description: End of the period the line bills (exclusive)
+          format: date-time
+          type: string
+        type:
+          description: "BASE: the subscription's FLAT_FEE price. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit."
+          enum:
+            - BASE
+            - USAGE
+            - OVERAGE
+          type: string
+        unitAmountDecimal:
+          description: The price's unit amount in minor units
+          examples:
+            - "800"
+          type: string
+      required:
+        - seq
+        - type
+        - billingModel
+        - billingTiming
+        - licensePriceId
+        - label
+        - description
+        - serviceFrom
+        - serviceTo
+        - quantity
+        - unitAmountDecimal
+        - amount
+      type: object
+    InvoiceLineMetering:
+      additionalProperties: false
+      properties:
+        measuredQuantity:
+          description: "In measured units: the usage for a USAGE line, the overage for an OVERAGE line"
+          examples:
+            - "30500"
+          type: string
+        negativeSegmentsFloored:
+          description: Windows whose net movement was negative and counted as 0
+          examples:
+            - 0
+          format: int64
+          type: integer
+        saleUnitFactor:
+          description: Measured units in one sale unit
+          examples:
+            - "10000"
+          type: string
+        windows:
+          description: Reset windows the period spans
+          examples:
+            - 1
+          format: int64
+          type: integer
+      required:
+        - saleUnitFactor
+        - measuredQuantity
+        - windows
+        - negativeSegmentsFloored
+      type: object
+    InvoiceLineOverage:
+      additionalProperties: false
+      properties:
+        limits:
+          description: The limits applied, in the order they first applied
+          items:
+            $ref: "#/components/schemas/OverageLimit"
+          type: array
+        overageMeasured:
+          description: Usage above the applied limit
+          examples:
+            - "30500"
+          type: string
+        usageMeasured:
+          description: Usage in measured units
+          examples:
+            - "130500"
+          type: string
+      required:
+        - usageMeasured
+        - overageMeasured
+        - limits
+      type: object
+    InvoicePreview:
+      additionalProperties: false
+      properties:
+        asOf:
+          description: When the preview was composed
+          format: date-time
+          type: string
+        boundaryAt:
+          description: The boundary the invoice bills
+          format: date-time
+          type: string
+        currency:
+          description: ISO 4217 code
+          examples:
+            - EUR
+          type: string
+        discountTotal:
+          description: Sum of the discounts, in minor units
+          format: int64
+          type: integer
+        kind:
+          description: The boundary previewed
+          enum:
+            - ACTIVATION
+            - RENEWAL
+            - FINAL
+          type: string
+        licenseSlug:
+          description: The licence version previewed
+          type: string
+        lines:
+          items:
+            $ref: "#/components/schemas/InvoiceLine"
+          type: array
+        serviceFrom:
+          description: Earliest start of the lines' service periods; absent without lines
+          format: date-time
+          type: string
+        serviceTo:
+          description: Latest end of the lines' service periods; absent without lines
+          format: date-time
+          type: string
+        status:
+          description: Always PREVIEW
+          enum:
+            - PREVIEW
+          type: string
+        subtotal:
+          description: Sum of the lines, in minor units
+          format: int64
+          type: integer
+        total:
+          description: subtotal − discountTotal, in minor units
+          format: int64
+          type: integer
+        wouldHold:
+          description: Meters whose usage journal fails a consistency check, which would hold the invoice. Always empty for a sample.
+          items:
+            $ref: "#/components/schemas/InvoiceHold"
+          type: array
+      required:
+        - status
+        - kind
+        - asOf
+        - boundaryAt
+        - licenseSlug
+        - currency
+        - subtotal
+        - discountTotal
+        - total
+        - lines
+        - wouldHold
+      type: object
+    InvoicePreviewScenario:
+      additionalProperties: false
+      properties:
+        basePriceId:
+          description: The FLAT_FEE price billed as the base (PreviewLicenseInvoice.PriceNotFound). Defaults to the version's default FLAT_FEE price (PreviewLicenseInvoice.NoBasePrice when it has none).
+          type: string
+        sampleUsage:
+          description: Usage of the metered entitlements over the period that ends, one entry per entitlement. An entitlement left out used nothing.
+          items:
+            $ref: "#/components/schemas/SampleUsageAmount"
+          type:
+            - array
+            - "null"
+      type: object
     License:
       additionalProperties: false
       properties:
@@ -1739,6 +2089,26 @@ components:
           maxLength: 100
           minLength: 1
           type: string
+        pricingType:
+          description: How this version is sold. FREE and PAID can be bought self-serve; CUSTOM sends a buyer to selfServeCtaUrl or a conversation. Always present in responses. On create it defaults to CUSTOM; on update, omit it to keep the stored value.
+          enum:
+            - FREE
+            - PAID
+            - CUSTOM
+          examples:
+            - PAID
+          type: string
+        requiresPaymentMethod:
+          description: Whether self-serve signup captures a payment method before activation. Always present in responses; false when omitted on create. On update, omit it to keep the stored value.
+          examples:
+            - false
+          type: boolean
+        selfServeCtaUrl:
+          description: "Where a buyer is sent when this version cannot be bought self-serve: an http(s) URL of at most 2048 characters (CreateLicense.InvalidSelfServeCtaUrl). Absent when there is none. On update, omit it to keep the stored value, or send an empty string to remove it."
+          examples:
+            - https://example.com/contact-sales
+          maxLength: 2048
+          type: string
         slug:
           description: Optional URL-friendly identifier, unique per organization. When omitted, a new version of an existing family takes {familySlug}-v{version}, and any other license gets one generated from its name. A license that opens a new family gives the family its slug.
           examples:
@@ -1747,6 +2117,13 @@ components:
           minLength: 2
           pattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
           type: string
+        trialPeriodDays:
+          description: Trial length, in days, a subscription to this version starts with by default. Absent when there is none. Must be at least 1 on create (CreateLicense.InvalidTrialPeriodDays). On update, omit it to keep the stored value, or send 0 to remove the trial.
+          examples:
+            - 14
+          format: int32
+          minimum: 0
+          type: integer
         type:
           description: Type of the license determining its capabilities and restrictions
           enum:
@@ -1930,6 +2307,39 @@ components:
         - createdAt
         - updatedAt
       type: object
+    LicensePriceChanges:
+      additionalProperties: false
+      properties:
+        billingPeriod:
+          description: See createLicensePrice.
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        billingTiming:
+          description: See createLicensePrice.
+          enum:
+            - ADVANCE
+            - ARREARS
+          type: string
+        displayLabel:
+          maxLength: 200
+          type: string
+        displayOrder:
+          format: int32
+          minimum: 0
+          type: integer
+        isDefault:
+          type: boolean
+        meteredEntitlementSlug:
+          description: See createLicensePrice.
+          type: string
+        unitAmountDecimal:
+          description: See createLicensePrice.
+          type: string
+      type: object
     List:
       additionalProperties: false
       properties:
@@ -2096,6 +2506,87 @@ components:
       required:
         - jsonSchema
       type: object
+    Meter:
+      additionalProperties: false
+      properties:
+        entitlementSlug:
+          description: The metered entitlement
+          examples:
+            - tokens
+          type: string
+        saleUnitFactor:
+          description: "Measured units in one sale unit, captured when the price was created (1 when the entitlement has no sale unit): 10000 bills per 10,000 tokens."
+          examples:
+            - "10000"
+          type: string
+        saleUnitPlural:
+          examples:
+            - 10k tokens
+          type: string
+        saleUnitSingular:
+          examples:
+            - 10k tokens
+          type: string
+      required:
+        - entitlementSlug
+        - saleUnitFactor
+      type: object
+    NewLicensePrice:
+      additionalProperties: false
+      properties:
+        billingModel:
+          description: "FLAT_FEE: an amount per billing period. USAGE_BASED: per sale unit of usage. OVERAGE: per sale unit of usage above the licence's limit."
+          enum:
+            - FLAT_FEE
+            - USAGE_BASED
+            - OVERAGE
+          type: string
+        billingPeriod:
+          description: Required on a FLAT_FEE price, refused on a metered one (CreateLicensePrice.InvalidPeriod).
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        billingTiming:
+          description: Defaults to ADVANCE for a FLAT_FEE price and ARREARS for a metered one, which must be ARREARS (CreateLicensePrice.InvalidTiming).
+          enum:
+            - ADVANCE
+            - ARREARS
+          type: string
+        currency:
+          description: ISO 4217 code, upper case (CreateLicensePrice.InvalidCurrency). One currency per licence version (CreateLicensePrice.CurrencyMismatch).
+          examples:
+            - EUR
+          type: string
+        displayLabel:
+          description: The invoice line's label.
+          maxLength: 200
+          type: string
+        displayOrder:
+          description: Order among the version's prices.
+          format: int32
+          minimum: 0
+          type: integer
+        isDefault:
+          description: Makes this FLAT_FEE price the default of its billing period (CreateLicensePrice.DefaultConflict when another is).
+          type: boolean
+        meteredEntitlementSlug:
+          description: "The entitlement a metered price measures: granted by the version, with a reset period, SUM or COUNT, NUMBER or NUMBER_AI_CREDIT, and metered by no other active price of the version."
+          examples:
+            - tokens
+          type: string
+        unitAmountDecimal:
+          description: "Amount in minor units: per period for FLAT_FEE, per sale unit for metered prices. A non-negative decimal of at most 12 integer digits and 12 decimal places (CreateLicensePrice.InvalidAmount)."
+          examples:
+            - "2900"
+          type: string
+      required:
+        - billingModel
+        - currency
+        - unitAmountDecimal
+      type: object
     Notification:
       additionalProperties: false
       properties:
@@ -2168,6 +2659,31 @@ components:
       required:
         - type
         - value
+      type: object
+    OverageLimit:
+      additionalProperties: false
+      properties:
+        limitValue:
+          description: The limit, null when unlimited
+          examples:
+            - "100000"
+          type:
+            - string
+            - "null"
+        overagePercent:
+          description: Usage accepted above the limit, as a percent of it
+          examples:
+            - 50
+          format: int32
+          type: integer
+        rows:
+          description: Usage reports measured against it; 0 for a sample
+          format: int64
+          type: integer
+      required:
+        - limitValue
+        - overagePercent
+        - rows
       type: object
     PageAuditTrail:
       additionalProperties: false
@@ -2568,6 +3084,97 @@ components:
         - eventName
         - channels
       type: object
+    Price:
+      additionalProperties: false
+      properties:
+        billingModel:
+          description: "FLAT_FEE: an amount per billing period. USAGE_BASED: an amount per sale unit of the metered entitlement's usage. OVERAGE: an amount per sale unit of the usage above the licence's limit."
+          enum:
+            - FLAT_FEE
+            - USAGE_BASED
+            - OVERAGE
+          type: string
+        billingPeriod:
+          description: The period a FLAT_FEE price is charged for. Absent on metered prices, which bill on the subscription's period.
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        billingTiming:
+          description: ADVANCE bills the period that starts; ARREARS the period that ended. Metered prices are always ARREARS.
+          enum:
+            - ADVANCE
+            - ARREARS
+          type: string
+        createdAt:
+          format: date-time
+          readOnly: true
+          type: string
+        currency:
+          description: ISO 4217 code, upper case. One currency per licence version.
+          examples:
+            - EUR
+          type: string
+        deprecatedAt:
+          description: When the price was deprecated
+          format: date-time
+          type: string
+        displayLabel:
+          description: The invoice line's label; a default is derived when absent.
+          examples:
+            - Pro plan
+          type: string
+        displayOrder:
+          description: Order among the version's prices
+          examples:
+            - 0
+          format: int32
+          type: integer
+        id:
+          description: Unique identifier of the price
+          readOnly: true
+          type: string
+        isDefault:
+          description: The FLAT_FEE price picked for its billing period when none is named. At most one per period; only an ACTIVE FLAT_FEE price.
+          type: boolean
+        metered:
+          $ref: "#/components/schemas/Meter"
+          description: What a metered price measures. Absent on FLAT_FEE prices.
+        status:
+          description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
+          enum:
+            - ACTIVE
+            - DEPRECATED
+          type: string
+        unitAmount:
+          description: unitAmountDecimal as an integer number of minor units, when it is one; absent otherwise.
+          examples:
+            - 2900
+          format: int64
+          type: integer
+        unitAmountDecimal:
+          description: "Amount in the currency's minor units (cents for EUR): per period for FLAT_FEE, per sale unit for metered prices. Up to 12 decimal places."
+          examples:
+            - "2900"
+          type: string
+        updatedAt:
+          format: date-time
+          readOnly: true
+          type: string
+      required:
+        - id
+        - billingModel
+        - billingTiming
+        - currency
+        - unitAmountDecimal
+        - displayOrder
+        - isDefault
+        - status
+        - createdAt
+        - updatedAt
+      type: object
     Problem:
       additionalProperties: false
       properties:
@@ -2863,6 +3470,23 @@ components:
         - percentage
         - date
       type: object
+    SampleUsageAmount:
+      additionalProperties: false
+      properties:
+        entitlementSlug:
+          description: An entitlement an ACTIVE price of the version meters
+          examples:
+            - tokens
+          type: string
+        quantity:
+          description: "Usage in the entitlement's measured units, a non-negative decimal string. Rated as one reset window against the version's grant: usage above limit × (1 + overage percent / 100) would be rejected, so it is capped, and the line says capped."
+          examples:
+            - "130500"
+          type: string
+      required:
+        - entitlementSlug
+        - quantity
+      type: object
     ServiceAccount:
       additionalProperties: false
       properties:
@@ -3154,6 +3778,113 @@ components:
         - scopes
         - createdAt
         - createdBy
+      type: object
+    UpdatedEvent:
+      additionalProperties: false
+      properties:
+        billingModel:
+          description: "FLAT_FEE: an amount per billing period. USAGE_BASED: an amount per sale unit of the metered entitlement's usage. OVERAGE: an amount per sale unit of the usage above the licence's limit."
+          enum:
+            - FLAT_FEE
+            - USAGE_BASED
+            - OVERAGE
+          type: string
+        billingPeriod:
+          description: The period a FLAT_FEE price is charged for. Absent on metered prices, which bill on the subscription's period.
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        billingTiming:
+          description: ADVANCE bills the period that starts; ARREARS the period that ended. Metered prices are always ARREARS.
+          enum:
+            - ADVANCE
+            - ARREARS
+          type: string
+        changedFields:
+          description: The members the update changed, as the API names them
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        createdAt:
+          format: date-time
+          readOnly: true
+          type: string
+        currency:
+          description: ISO 4217 code, upper case. One currency per licence version.
+          examples:
+            - EUR
+          type: string
+        deprecatedAt:
+          description: When the price was deprecated
+          format: date-time
+          type: string
+        displayLabel:
+          description: The invoice line's label; a default is derived when absent.
+          examples:
+            - Pro plan
+          type: string
+        displayOrder:
+          description: Order among the version's prices
+          examples:
+            - 0
+          format: int32
+          type: integer
+        familySlug:
+          description: The family of that version
+          type: string
+        id:
+          description: Unique identifier of the price
+          readOnly: true
+          type: string
+        isDefault:
+          description: The FLAT_FEE price picked for its billing period when none is named. At most one per period; only an ACTIVE FLAT_FEE price.
+          type: boolean
+        licenseSlug:
+          description: The licence version the price belongs to
+          type: string
+        metered:
+          $ref: "#/components/schemas/Meter"
+          description: What a metered price measures. Absent on FLAT_FEE prices.
+        status:
+          description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
+          enum:
+            - ACTIVE
+            - DEPRECATED
+          type: string
+        unitAmount:
+          description: unitAmountDecimal as an integer number of minor units, when it is one; absent otherwise.
+          examples:
+            - 2900
+          format: int64
+          type: integer
+        unitAmountDecimal:
+          description: "Amount in the currency's minor units (cents for EUR): per period for FLAT_FEE, per sale unit for metered prices. Up to 12 decimal places."
+          examples:
+            - "2900"
+          type: string
+        updatedAt:
+          format: date-time
+          readOnly: true
+          type: string
+      required:
+        - changedFields
+        - licenseSlug
+        - familySlug
+        - id
+        - billingModel
+        - billingTiming
+        - currency
+        - unitAmountDecimal
+        - displayOrder
+        - isDefault
+        - status
+        - createdAt
+        - updatedAt
       type: object
     UsageReport:
       additionalProperties: false
@@ -5783,6 +6514,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
         "422":
           content:
             application/problem+json:
@@ -8665,6 +9402,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
         "422":
           content:
             application/problem+json:
@@ -8803,6 +9546,492 @@ paths:
         - bearerAuth:
             - write:licenses
       summary: Update an license entitlement
+      tags:
+        - licenses
+  /licenses/{licenseSlug}/invoice-preview:
+    post:
+      description: "Composes the RENEWAL invoice a subscription to this licence version would be billed at a boundary now, without writing anything: the sample usage rated in arrears over the billing period that ends, and the base price for the period that starts (or the one that ends, for an ARREARS base). Works on DRAFT versions, to check prices before publishing. Requires billing to be enabled for the organization."
+      operationId: previewLicenseInvoice
+      parameters:
+        - description: License version slug
+          in: path
+          name: licenseSlug
+          required: true
+          schema:
+            description: License version slug
+            examples:
+              - pro-v2
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoicePreviewScenario"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoicePreview"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:licenses
+      summary: Preview a license invoice
+      tags:
+        - licenses
+  /licenses/{licenseSlug}/prices:
+    get:
+      description: The prices of one licence version, in display order. Requires billing to be enabled for the organization.
+      operationId: listLicensePrices
+      parameters:
+        - description: License version slug
+          in: path
+          name: licenseSlug
+          required: true
+          schema:
+            description: License version slug
+            examples:
+              - pro-v2
+            type: string
+        - description: Only prices in this status; both when omitted
+          explode: false
+          in: query
+          name: status
+          schema:
+            description: Only prices in this status; both when omitted
+            enum:
+              - ACTIVE
+              - DEPRECATED
+            type: string
+        - description: Only prices of this billing model
+          explode: false
+          in: query
+          name: billingModel
+          schema:
+            description: Only prices of this billing model
+            enum:
+              - FLAT_FEE
+              - USAGE_BASED
+              - OVERAGE
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Price"
+                type: array
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:licenses
+      summary: List a license version's prices
+      tags:
+        - licenses
+    post:
+      description: Adds a price to a licence version. A metered price's sale-unit factor is captured from its entitlement now and never changes. Requires billing to be enabled for the organization.
+      operationId: createLicensePrice
+      parameters:
+        - description: License version slug
+          in: path
+          name: licenseSlug
+          required: true
+          schema:
+            description: License version slug
+            examples:
+              - pro-v2
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewLicensePrice"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Price"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:licenses
+      summary: Create a license price
+      tags:
+        - licenses
+  /licenses/{licenseSlug}/prices/{priceId}:
+    get:
+      description: One price of a licence version. Requires billing to be enabled for the organization.
+      operationId: getLicensePrice
+      parameters:
+        - description: License version slug
+          in: path
+          name: licenseSlug
+          required: true
+          schema:
+            description: License version slug
+            examples:
+              - pro-v2
+            type: string
+        - description: Price identifier
+          in: path
+          name: priceId
+          required: true
+          schema:
+            description: Price identifier
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Price"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:licenses
+      summary: Get a license price
+      tags:
+        - licenses
+    patch:
+      description: Edits a price of a DRAFT licence version; the prices of a published version are immutable (UpdateLicensePrice.VersionNotDraft). Currency and billing model cannot change. Requires billing to be enabled for the organization.
+      operationId: updateLicensePrice
+      parameters:
+        - description: License version slug
+          in: path
+          name: licenseSlug
+          required: true
+          schema:
+            description: License version slug
+            examples:
+              - pro-v2
+            type: string
+        - description: Price identifier
+          in: path
+          name: priceId
+          required: true
+          schema:
+            description: Price identifier
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LicensePriceChanges"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Price"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:licenses
+      summary: Update a license price
+      tags:
+        - licenses
+  /licenses/{licenseSlug}/prices/{priceId}/deprecate:
+    post:
+      description: "Retires a price from the catalogue: it keeps billing what is already pinned to it, is no longer offered, and stops being a default. Deprecation cannot be undone. Requires billing to be enabled for the organization."
+      operationId: deprecateLicensePrice
+      parameters:
+        - description: License version slug
+          in: path
+          name: licenseSlug
+          required: true
+          schema:
+            description: License version slug
+            examples:
+              - pro-v2
+            type: string
+        - description: Price identifier
+          in: path
+          name: priceId
+          required: true
+          schema:
+            description: Price identifier
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Price"
+          description: OK
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:licenses
+      summary: Deprecate a license price
       tags:
         - licenses
   /licenses/{licenseSlug}/publish:
@@ -12182,6 +13411,123 @@ webhooks:
         "200":
           description: Webhook processed successfully
       summary: License Entitlement Updated Webhook
+      tags:
+        - webhooks
+        - licenses
+  com.kaiten.license.price.v1.created:
+    post:
+      description: Triggered when a price is added to a licence version.
+      operationId: onLicensePriceCreated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Event"
+                name:
+                  description: Event name
+                  enum:
+                    - LICENSE_PRICE_CREATED
+                  examples:
+                    - LICENSE_PRICE_CREATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.license.price.v1.created
+                  examples:
+                    - com.kaiten.license.price.v1.created
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: License Price Created Webhook
+      tags:
+        - webhooks
+        - licenses
+  com.kaiten.license.price.v1.deprecated:
+    post:
+      description: Triggered when a licence price is deprecated.
+      operationId: onLicensePriceDeprecated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Event"
+                name:
+                  description: Event name
+                  enum:
+                    - LICENSE_PRICE_DEPRECATED
+                  examples:
+                    - LICENSE_PRICE_DEPRECATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.license.price.v1.deprecated
+                  examples:
+                    - com.kaiten.license.price.v1.deprecated
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: License Price Deprecated Webhook
+      tags:
+        - webhooks
+        - licenses
+  com.kaiten.license.price.v1.updated:
+    post:
+      description: Triggered when a price of a DRAFT licence version is edited.
+      operationId: onLicensePriceUpdated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/UpdatedEvent"
+                name:
+                  description: Event name
+                  enum:
+                    - LICENSE_PRICE_UPDATED
+                  examples:
+                    - LICENSE_PRICE_UPDATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.license.price.v1.updated
+                  examples:
+                    - com.kaiten.license.price.v1.updated
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: License Price Updated Webhook
       tags:
         - webhooks
         - licenses

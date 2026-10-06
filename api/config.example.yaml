@@ -150,3 +150,9 @@ usage_ledger:
   max_retention_months: 18        # KAITEN_USAGE_LEDGER_MAX_RETENTION_MONTHS
   # Rows per DELETE when an organization keeps less than the ceiling.
   purge_batch_size: 5000          # KAITEN_USAGE_LEDGER_PURGE_BATCH_SIZE
+
+# The commercial surface: licence prices and invoice previews (subscriptions and
+# invoices later). Off by default; usage reporting and its history are never
+# behind it.
+billing:
+  enabled: false                  # KAITEN_BILLING_ENABLED

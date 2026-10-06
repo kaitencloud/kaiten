@@ -160,6 +160,31 @@ func (r *CommandRepository) update(ctx context.Context, command *Command, slug s
 		Slug:           slug,
 		IsDefault:      command.IsDefault,
 		Features:       nil,
+
+		PricingType:           nil,
+		TrialPeriodDays:       nil,
+		TrialPeriodDaysClear:  false,
+		RequiresPaymentMethod: command.RequiresPaymentMethod,
+		SelfServeCtaUrl:       nil,
+		SelfServeCtaUrlClear:  false,
+	}
+	if command.PricingType != "" {
+		pricingType := db.PricingType(command.PricingType)
+		params.PricingType = &pricingType
+	}
+	if command.TrialPeriodDays != nil {
+		if *command.TrialPeriodDays == 0 {
+			params.TrialPeriodDaysClear = true
+		} else {
+			params.TrialPeriodDays = command.TrialPeriodDays
+		}
+	}
+	if command.SelfServeCtaURL != nil {
+		if *command.SelfServeCtaURL == "" {
+			params.SelfServeCtaUrlClear = true
+		} else {
+			params.SelfServeCtaUrl = command.SelfServeCtaURL
+		}
 	}
 
 	res, err := queries.EditLicense(ctx, params)

@@ -1,7 +1,7 @@
 -- name: CreateCustomer :one
 WITH inserted AS (
-  INSERT INTO customer (name, slug, external_customer_id, domain, created_by_id, updated_by_id, organization_id)
-  SELECT $1, $2, $3, $4, uo.user_id, uo.user_id, uo.organization_id
+  INSERT INTO customer (name, slug, external_customer_id, domain, billing_email, created_by_id, updated_by_id, organization_id)
+  SELECT $1, $2, $3, $4, sqlc.narg(billing_email), uo.user_id, uo.user_id, uo.organization_id
   FROM user_on_organization uo
   WHERE uo.organization_id = sqlc.arg(organization_id)
          AND uo.user_id = sqlc.arg(user_id)
@@ -30,6 +30,7 @@ SELECT c.id,
        c.slug,
        external_customer_id,
   c.domain,
+  c.billing_email,
        c.created_by_id,
        creator.name AS created_by_name,
        c.created_at,
@@ -66,6 +67,7 @@ SELECT c.id,
        c.slug,
        external_customer_id,
   c.domain,
+  c.billing_email,
        c.created_by_id,
        creator.name AS created_by_name,
        c.created_at,
@@ -89,6 +91,7 @@ SELECT c.id,
        c.slug,
        external_customer_id,
   c.domain,
+  c.billing_email,
        c.created_by_id,
        creator.name AS created_by_name,
        c.created_at,
@@ -109,6 +112,11 @@ WITH updated AS (
   SET name          = $1,
       external_customer_id = $2,
     domain = $3,
+      -- Keep-if-absent: NULL keeps the stored address, the clear flag removes it.
+      billing_email = CASE
+        WHEN sqlc.arg(billing_email_clear)::bool THEN NULL
+        ELSE COALESCE(sqlc.narg(billing_email)::text, c.billing_email)
+      END,
       updated_by_id = uo.user_id,
       updated_at    = now()
   FROM user_on_organization uo
@@ -149,6 +157,7 @@ SELECT c.id,
        c.slug,
        external_customer_id,
   c.domain,
+  c.billing_email,
        c.created_by_id,
        creator.name AS created_by_name,
        c.created_at,

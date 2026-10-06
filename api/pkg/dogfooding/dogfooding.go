@@ -77,6 +77,11 @@ const (
 	ConnectorAttioEntitlementSlug = "connector-attio"
 )
 
+// BillingEntitlementSlug gates the commercial surface (licence prices, invoice
+// previews, subscriptions) for an organization licensed by a licensing
+// authority. BOOLEAN, read rather than reported, like the connectors.
+const BillingEntitlementSlug = "billing"
+
 // Configuration entitlement slugs (CONFIG). A CONFIG entitlement carries an
 // object rather than a yes/no or a quota: the licence states a setting, and kaiten
 // reads it for the organization.
@@ -146,6 +151,7 @@ var EntitlementSlugs = []string{
 	ServiceAccountTokenReadEntitlementSlug,
 
 	ConnectorAttioEntitlementSlug,
+	BillingEntitlementSlug,
 
 	UsageHistoryRetentionEntitlementSlug,
 }
@@ -163,6 +169,7 @@ var EntitlementSlugs = []string{
 // A subset of EntitlementSlugs, and disjoint from MeteredEntitlementSlugs.
 var BooleanEntitlementSlugs = []string{
 	ConnectorAttioEntitlementSlug,
+	BillingEntitlementSlug,
 }
 
 // ConfigEntitlementSlugs are the catalogue entries that must be created as CONFIG

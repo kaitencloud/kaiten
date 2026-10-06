@@ -57,7 +57,14 @@ the operation has SDK callers and names what it waits for. The test keeps it
 honest the same two ways -- an entry must name a live operation, and it must
 be deleted, not kept, once the SDK maps the operation.
 */
-var awaitingSDKOperations = map[string]string{}
+var awaitingSDKOperations = map[string]string{
+	"listLicensePrices":     "licence prices: the SDK models them in its billing release",
+	"getLicensePrice":       "licence prices: the SDK models them in its billing release",
+	"createLicensePrice":    "licence prices: the SDK models them in its billing release",
+	"updateLicensePrice":    "licence prices: the SDK models them in its billing release",
+	"deprecateLicensePrice": "licence prices: the SDK models them in its billing release",
+	"previewLicenseInvoice": "licence prices: the SDK models them in its billing release",
+}
 
 func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
 	client, err := sdk.NewClient("https://example.com/api")

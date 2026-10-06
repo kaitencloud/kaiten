@@ -41,6 +41,13 @@ func (r *CommandRepository) DeleteEntitlement(ctx context.Context, organizationI
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, kaitenerrors.NotFound("DeleteEntitlement.NotFound", fmt.Sprintf("Entitlement with slug %q not found", slug))
 		}
+		// A licence price that meters the entitlement holds it, deprecated or
+		// not: a price that may have billed is never deleted, so neither is
+		// what it measured.
+		if kaitenerrors.IsForeignKeyViolation(err) {
+			return nil, kaitenerrors.Conflict("DeleteEntitlement.InUseConflict",
+				fmt.Sprintf("Entitlement %q is metered by a licence price and cannot be deleted", slug))
+		}
 		return nil, err
 	}
 
