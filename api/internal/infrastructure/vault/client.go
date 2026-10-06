@@ -40,6 +40,14 @@ func NewClient() (*Client, error) {
 	return NewClientForPath(os.Getenv("VAULT_SECRET_PATH"))
 }
 
+// Configured reports whether this process can reach a Vault at all: a real one
+// (VAULT_ADDR) or the development file store (VAULT_FAKE_FILE_PATH). Without
+// either, nothing can store connector settings, and a feature that needs them
+// should say so rather than fail inside the client.
+func Configured() bool {
+	return strings.TrimSpace(os.Getenv("VAULT_ADDR")) != "" || strings.TrimSpace(os.Getenv("VAULT_FAKE_FILE_PATH")) != ""
+}
+
 // NewClientForPath creates a Vault client from environment variables and an explicit KV path.
 func NewClientForPath(secretPath string) (*Client, error) {
 	if secretPath == "" {
@@ -48,7 +56,7 @@ func NewClientForPath(secretPath string) (*Client, error) {
 
 	addr := strings.TrimRight(os.Getenv("VAULT_ADDR"), "/")
 	fakePath := strings.TrimSpace(os.Getenv("VAULT_FAKE_FILE_PATH"))
-	if addr == "" && fakePath == "" {
+	if !Configured() {
 		return nil, fmt.Errorf("vault: either VAULT_ADDR or VAULT_FAKE_FILE_PATH is required")
 	}
 

@@ -81,3 +81,10 @@ func MergeStoredSecrets(incoming, stored map[string]any, secretFields []string) 
 
 	return merged
 }
+
+// HasSettings reports whether a connector declares settings at all. One that
+// does stores them in Vault, so it cannot work on a deployment without one.
+func HasSettings(settingsSchema map[string]any) bool {
+	properties, ok := settingsSchema["properties"].(map[string]any)
+	return ok && len(properties) > 0
+}

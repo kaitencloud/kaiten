@@ -46,8 +46,9 @@ type Writer interface {
 	// Activate is idempotent and does not move ActivatedAt on a repeat: activating
 	// something already active is the same request with a different outcome, and when
 	// an organization FIRST turned a connector on is worth not overwriting every time
-	// its settings form is saved.
-	Activate(ctx context.Context, organizationID uuid.UUID, connectorName string) (*Activation, error)
+	// its settings form is saved. inserted reports a first activation, so a caller
+	// can act on the transition and not on every repeat.
+	Activate(ctx context.Context, organizationID uuid.UUID, connectorName string) (activation *Activation, inserted bool, err error)
 
 	// Deactivate reports whether a row was actually removed, so a caller can tell
 	// "turned it off" from "it was already off" without a read that races the delete.
@@ -90,9 +91,9 @@ func (r *QueryRepository) Get(
 
 func (r *QueryRepository) Activate(
 	ctx context.Context, organizationID uuid.UUID, connectorName string,
-) (*Activation, error) {
+) (*Activation, bool, error) {
 	if r.queries == nil {
-		return nil, fmt.Errorf("connector activation repository is not configured")
+		return nil, false, fmt.Errorf("connector activation repository is not configured")
 	}
 
 	row, err := r.queries.ActivateConnectorForOrganization(ctx, db.ActivateConnectorForOrganizationParams{
@@ -100,10 +101,14 @@ func (r *QueryRepository) Activate(
 		ConnectorName:  connectorName,
 	})
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	return decode(row), nil
+	return &Activation{
+		OrganizationID: row.OrganizationID,
+		ConnectorName:  row.ConnectorName,
+		ActivatedAt:    row.ActivatedAt.Time,
+	}, row.Inserted, nil
 }
 
 func (r *QueryRepository) Deactivate(
