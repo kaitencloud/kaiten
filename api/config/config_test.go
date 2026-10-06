@@ -120,6 +120,7 @@ func TestDefaultsFillWhatNobodySet(t *testing.T) {
 	assert.Equal(t, 18, cfg.UsageLedger.RetentionMonths)
 	assert.Equal(t, 18, cfg.UsageLedger.MaxRetentionMonths)
 	assert.Equal(t, int32(5000), cfg.UsageLedger.PurgeBatchSize)
+	assert.False(t, cfg.Billing.Enabled)
 }
 
 // A key no field claims is a setting that silently never applies: the value is

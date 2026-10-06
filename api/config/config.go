@@ -67,6 +67,17 @@ type CoreConfig struct {
 	// The tag is not redundant: without it mapstructure would look for the key
 	// "usageledger".
 	UsageLedger UsageLedger `mapstructure:"usage_ledger"`
+	Billing     Billing
+}
+
+// Billing switches the commercial surface: prices, previews and, later,
+// subscriptions and invoices. Usage reporting, the usage history and the
+// effective entitlement reads are never behind it.
+type Billing struct {
+	// Enabled is the master switch. Off, every billing route answers 403
+	// Billing.Disabled. On a deployment that reports to a licensing authority,
+	// the organization's licence must also grant the billing entitlement.
+	Enabled bool
 }
 
 type Server struct {
@@ -312,6 +323,7 @@ var settings = []struct {
 	{"usage_ledger.retention_months", "KAITEN_USAGE_LEDGER_RETENTION_MONTHS", 18, false},
 	{"usage_ledger.max_retention_months", "KAITEN_USAGE_LEDGER_MAX_RETENTION_MONTHS", 18, false},
 	{"usage_ledger.purge_batch_size", "KAITEN_USAGE_LEDGER_PURGE_BATCH_SIZE", 5000, false},
+	{"billing.enabled", "KAITEN_BILLING_ENABLED", false, false},
 }
 
 const (
