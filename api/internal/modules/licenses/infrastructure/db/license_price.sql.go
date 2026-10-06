@@ -555,6 +555,29 @@ func (q *Queries) ListMeteredGrants(ctx context.Context, arg ListMeteredGrantsPa
 	return items, nil
 }
 
+const priceIsPlanChangeTarget = `-- name: PriceIsPlanChangeTarget :one
+SELECT EXISTS (
+  SELECT 1 FROM instance_billing ib
+  WHERE ib.organization_id = $1
+    AND ib.scheduled_license_price_id = $2
+    AND ib.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
+)::boolean AS target
+`
+
+type PriceIsPlanChangeTargetParams struct {
+	OrganizationID uuid.UUID  `json:"organization_id"`
+	PriceID        *uuid.UUID `json:"price_id"`
+}
+
+// Whether a live subscription is scheduled to move to a price at its next
+// boundary.
+func (q *Queries) PriceIsPlanChangeTarget(ctx context.Context, arg PriceIsPlanChangeTargetParams) (bool, error) {
+	row := q.db.QueryRow(ctx, priceIsPlanChangeTarget, arg.OrganizationID, arg.PriceID)
+	var target bool
+	err := row.Scan(&target)
+	return target, err
+}
+
 const updateLicensePrice = `-- name: UpdateLicensePrice :one
 UPDATE license_price
 SET billing_timing        = $1,
@@ -637,4 +660,28 @@ func (q *Queries) VersionIsBilled(ctx context.Context, arg VersionIsBilledParams
 	var billed bool
 	err := row.Scan(&billed)
 	return billed, err
+}
+
+const versionIsPlanChangeTarget = `-- name: VersionIsPlanChangeTarget :one
+SELECT EXISTS (
+  SELECT 1 FROM instance_billing ib
+  JOIN license_price p ON p.id = ib.scheduled_license_price_id AND p.organization_id = ib.organization_id
+  JOIN license l ON l.id = p.license_id AND l.organization_id = p.organization_id
+  WHERE ib.organization_id = $1
+    AND l.slug = $2
+    AND ib.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
+)::boolean AS target
+`
+
+type VersionIsPlanChangeTargetParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	LicenseSlug    string    `json:"license_slug"`
+}
+
+// Whether a live subscription is scheduled to move to a price of a version.
+func (q *Queries) VersionIsPlanChangeTarget(ctx context.Context, arg VersionIsPlanChangeTargetParams) (bool, error) {
+	row := q.db.QueryRow(ctx, versionIsPlanChangeTarget, arg.OrganizationID, arg.LicenseSlug)
+	var target bool
+	err := row.Scan(&target)
+	return target, err
 }
