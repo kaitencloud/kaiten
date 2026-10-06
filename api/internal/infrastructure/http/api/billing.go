@@ -22,6 +22,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoicelinereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/providerconnector"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/reactivatesubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/recomposeinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/releaseinvoicehold"
@@ -48,6 +49,7 @@ func registerBilling(core, platform huma.API, app kaiten.Billing, platformApp ka
 	syncinvoice.RegisterEndpoint(core, app)
 	retryinvoicepush.RegisterEndpoint(core, app)
 	syncing.RegisterWebhooks(core)
+	providerconnector.RegisterWebhooks(core)
 	getbillingsettings.RegisterEndpoint(core, app)
 	updatebillingsettings.RegisterEndpoint(core, app)
 	subscribeinstance.RegisterEndpoint(core, app)
