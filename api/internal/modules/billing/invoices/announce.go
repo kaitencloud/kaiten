@@ -126,6 +126,30 @@ func RegisterWebhooks(api huma.API) {
 		Tags:        []string{"webhooks", "billing"},
 	})
 	webhook.Declare(api, webhook.Declaration{
+		Event:       events.InstanceInvoicePushed,
+		Data:        (*PushedInvoice)(nil),
+		OperationID: "onInstanceInvoicePushed",
+		Summary:     "Instance Invoice Pushed Webhook",
+		Description: "Triggered when an invoice's payment provider has issued it, right after INSTANCE_INVOICE_ISSUED.",
+		Tags:        []string{"webhooks", "billing"},
+	})
+	webhook.Declare(api, webhook.Declaration{
+		Event:       events.InstanceInvoicePushFailed,
+		Data:        (*PushFailedInvoice)(nil),
+		OperationID: "onInstanceInvoicePushFailed",
+		Summary:     "Instance Invoice Push Failed Webhook",
+		Description: "Triggered when pushing an invoice to its payment provider has failed as many times as the alert threshold, then once a day while it keeps failing.",
+		Tags:        []string{"webhooks", "billing"},
+	})
+	webhook.Declare(api, webhook.Declaration{
+		Event:       events.InstanceInvoiceReconciliationMismatch,
+		Data:        (*MismatchedInvoice)(nil),
+		OperationID: "onInstanceInvoiceReconciliationMismatch",
+		Summary:     "Instance Invoice Reconciliation Mismatch Webhook",
+		Description: "Triggered when an invoice's payment provider holds amounts that differ from Kaiten's. Kaiten never corrects itself: void and recompose the invoice.",
+		Tags:        []string{"webhooks", "billing"},
+	})
+	webhook.Declare(api, webhook.Declaration{
 		Event:       events.InstanceInvoiceHandoffAcknowledged,
 		Data:        (*HandoffAcknowledgement)(nil),
 		OperationID: "onInstanceInvoiceHandoffAcknowledged",

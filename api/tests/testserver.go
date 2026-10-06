@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/config"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/server"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/platform/auth"
@@ -141,6 +142,10 @@ type TestServerOptions struct {
 	// come from the configuration.
 	EntitlementConfig services.EntitlementConfig
 
+	// BillingProviders stands in for the payment providers a deployment
+	// registers. Nil means NOOP alone.
+	BillingProviders provider.Registry
+
 	// PlatformCredential makes BOTH of the server's listeners authenticate every
 	// request as a platform credential (StubPlatformMiddleware) instead of an
 	// organization one.
@@ -252,6 +257,12 @@ func NewTestServer(tdb *TestDatabase, opts ...TestServerOptions) *TestServer {
 		EntitlementConfig: func() services.EntitlementConfig {
 			if len(opts) > 0 {
 				return opts[0].EntitlementConfig
+			}
+			return nil
+		}(),
+		BillingProviders: func() provider.Registry {
+			if len(opts) > 0 {
+				return opts[0].BillingProviders
 			}
 			return nil
 		}(),

@@ -23,6 +23,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/builtinconnectors"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	httpapi "github.com/kaitencloud/kaiten/api/internal/infrastructure/http/api"
@@ -55,9 +56,12 @@ type Dependencies struct {
 	// nil in production and filled by setupUsageReporter alongside
 	// ConnectorEntitlements, for the same reason; a test may set it.
 	EntitlementConfig services.EntitlementConfig
-	DB                *pgxpool.Pool
-	Logger            *slog.Logger
-	UsageReporter     services.UsageReporter
+	// BillingProviders resolves the payment providers invoices are issued
+	// through. Nil means NOOP alone; a test may register a fake provider.
+	BillingProviders provider.Registry
+	DB               *pgxpool.Pool
+	Logger           *slog.Logger
+	UsageReporter    services.UsageReporter
 }
 
 // Server runs two HTTP stacks in one process.
@@ -268,6 +272,7 @@ func (s *Server) setupApplication() error {
 		UsageReporter:         s.deps.UsageReporter,
 		ConnectorEntitlements: s.deps.ConnectorEntitlements,
 		EntitlementConfig:     s.deps.EntitlementConfig,
+		BillingProviders:      s.deps.BillingProviders,
 		// A server with no database serves no background work: cmd/docs builds one
 		// purely to walk the route table and generate the OpenAPI documents. This is
 		// the same condition setupRetention applies to the transport-table sweep,

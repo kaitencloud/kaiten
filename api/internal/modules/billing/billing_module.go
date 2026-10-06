@@ -19,6 +19,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/exportinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingcapabilities"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillinghealth"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
@@ -30,11 +31,16 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/pushing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/reactivatesubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/recomposeinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/releaseinvoicehold"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/retryinvoicepush"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/scheduleplanchange"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncing"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncinvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncprovider"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updatebillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updateinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/voidinvoice"
@@ -75,20 +81,31 @@ type UseCases struct {
 	SchedulePlanChange     *scheduleplanchange.UseCase
 	CancelPlanChange       *cancelplanchange.UseCase
 	UpdateInstanceBilling  *updateinstancebilling.UseCase
+	RetryInvoicePush       *retryinvoicepush.UseCase
+	SyncProvider           *syncprovider.UseCase
+	SyncInvoice            *syncinvoice.UseCase
+	GetBillingHealth       *getbillinghealth.UseCase
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
 	deps := access.Deps{
-		UserProvider: svc.UserProvider,
-		Uof:          svc.Uof,
-		Gate:         gate.New(svc.Config.Billing.Enabled, svc.ConnectorEntitlements),
-		Catalogue:    from.Catalogue,
-		Usage:        from.Usage,
-		Addons:       from.Addons,
-		Discounts:    from.Discounts,
+		UserProvider:    svc.UserProvider,
+		Uof:             svc.Uof,
+		Gate:            gate.New(svc.Config.Billing.Enabled, svc.ConnectorEntitlements),
+		Catalogue:       from.Catalogue,
+		Usage:           from.Usage,
+		Addons:          from.Addons,
+		Discounts:       from.Discounts,
+		Providers:       svc.BillingProviders,
+		ProviderTimeout: svc.Config.Billing.ProviderTimeout,
 	}
 	cfg := svc.Config.Billing
 	closer := closing.New(deps, cfg.CloseGrace)
+	pusher := pushing.New(deps, pushing.Config{
+		MaxBackoff: cfg.Push.MaxBackoff, AlertAfterAttempts: cfg.Push.AlertAfterAttempts,
+		Timeout: cfg.ProviderTimeout, BatchSize: cfg.Push.BatchSize,
+	})
+	syncer := syncing.New(deps, cfg.ProviderTimeout)
 	useCases := &UseCases{
 		GetBillingSettings:     getbillingsettings.NewUseCase(deps),
 		UpdateBillingSettings:  updatebillingsettings.NewUseCase(deps),
@@ -115,6 +132,10 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		SchedulePlanChange:     scheduleplanchange.NewUseCase(deps),
 		CancelPlanChange:       cancelplanchange.NewUseCase(deps),
 		UpdateInstanceBilling:  updateinstancebilling.NewUseCase(deps),
+		RetryInvoicePush:       retryinvoicepush.NewUseCase(deps, pusher),
+		SyncProvider:           syncprovider.NewUseCase(deps, syncer),
+		SyncInvoice:            syncinvoice.NewUseCase(deps, syncer),
+		GetBillingHealth:       getbillinghealth.NewUseCase(deps, cfg.Push.AlertAfterAttempts),
 	}
 
 	// The billing jobs run only where billing is on and background work runs.
@@ -132,6 +153,20 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		}, batchSize(cfg.PeriodClose.BatchSize))
 		overdue.Start(context.Background())
 		svc.WorkerRegistry.OnStop(overdue.Stop)
+
+		push := pushing.NewJob(svc.Pool, pusher, sweep.Config{
+			InitialDelay: orDefault(cfg.InitialDelay, time.Minute),
+			Interval:     orDefault(cfg.Push.Interval, time.Minute),
+		})
+		push.Start(context.Background())
+		svc.WorkerRegistry.OnStop(push.Stop)
+
+		sync := syncing.NewJob(svc.Pool, syncer, sweep.Config{
+			InitialDelay: orDefault(cfg.InitialDelay, time.Minute),
+			Interval:     orDefault(cfg.Sync.Interval, 15*time.Minute),
+		})
+		sync.Start(context.Background())
+		svc.WorkerRegistry.OnStop(sync.Stop)
 	}
 	return useCases
 }
