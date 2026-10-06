@@ -2979,6 +2979,11 @@ export default {
               label: 'Droits',
               description: 'Accès aux définitions de droits',
             },
+            addons: {
+              label: 'Add-ons',
+              description:
+                "Accès au catalogue des add-ons : versions, prix et droits qu'ils accordent",
+            },
             deploymentZones: {
               label: 'Zones de déploiement',
               description: 'Accès à la gestion des zones de déploiement',
@@ -3058,6 +3063,7 @@ export default {
           instance: 'Instances',
           license: 'Licences',
           licenseFamily: 'Familles de licences',
+          addon: 'Add-ons',
           entitlement: 'Droits',
           entitlementGroup: 'Groupes de droits',
           usage: 'Utilisation',
@@ -4249,6 +4255,17 @@ export default {
     },
     AuditTrail: {
       events: {
+        ADDON_ARCHIVED: "Version d'add-on archivée",
+        ADDON_CREATED: 'Add-on créé',
+        ADDON_DELETED: 'Add-on supprimé',
+        ADDON_ENTITLEMENT_ASSIGNED: 'Droit attribué à un add-on',
+        ADDON_ENTITLEMENT_UNASSIGNED: "Droit retiré d'un add-on",
+        ADDON_ENTITLEMENT_UPDATED: 'Droit modifié sur un add-on',
+        ADDON_PRICE_CREATED: "Prix d'add-on ajouté",
+        ADDON_PRICE_DEPRECATED: "Prix d'add-on déprécié",
+        ADDON_PUBLISHED: "Version d'add-on publiée",
+        ADDON_UNARCHIVED: "Version d'add-on désarchivée",
+        ADDON_UPDATED: 'Add-on mis à jour',
         COMPONENT_CREATED: 'Component ajouté',
         COMPONENT_DELETED: 'Component supprimé',
         COMPONENT_UPDATED: 'Component mis à jour',
@@ -4272,6 +4289,9 @@ export default {
         FEATURE_FLAG_DELETED: 'Feature flag supprimé',
         FEATURE_FLAG_EVALUATED: 'Feature flag évalué',
         FEATURE_FLAG_UPDATED: 'Feature flag mis à jour',
+        INSTANCE_ADDON_ADDED: 'Add-on ajouté à une instance',
+        INSTANCE_ADDON_QUANTITY_CHANGED: "Quantité d'add-on modifiée",
+        INSTANCE_ADDON_REMOVED: "Add-on retiré d'une instance",
         INSTANCE_BILLING_CANCELED: 'Abonnement résilié',
         INSTANCE_BILLING_CANCELLATION_REVERTED:
           "Résiliation de l'abonnement annulée",

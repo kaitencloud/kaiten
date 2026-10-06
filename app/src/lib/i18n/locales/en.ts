@@ -2932,6 +2932,11 @@ export default {
               label: 'Entitlements',
               description: 'Access to entitlement definitions',
             },
+            addons: {
+              label: 'Add-ons',
+              description:
+                'Access to the add-on catalogue: versions, prices and the entitlements they grant',
+            },
             deploymentZones: {
               label: 'Deployment Zones',
               description: 'Access to deployment zone management',
@@ -3009,6 +3014,7 @@ export default {
           instance: 'Instances',
           license: 'Licenses',
           licenseFamily: 'License families',
+          addon: 'Add-ons',
           entitlement: 'Entitlements',
           entitlementGroup: 'Entitlement groups',
           usage: 'Usage',
@@ -4178,6 +4184,17 @@ export default {
     },
     AuditTrail: {
       events: {
+        ADDON_ARCHIVED: 'Add-on version archived',
+        ADDON_CREATED: 'Add-on created',
+        ADDON_DELETED: 'Add-on deleted',
+        ADDON_ENTITLEMENT_ASSIGNED: 'Entitlement assigned to an add-on',
+        ADDON_ENTITLEMENT_UNASSIGNED: 'Entitlement unassigned from an add-on',
+        ADDON_ENTITLEMENT_UPDATED: 'Entitlement updated on an add-on',
+        ADDON_PRICE_CREATED: 'Add-on price added',
+        ADDON_PRICE_DEPRECATED: 'Add-on price deprecated',
+        ADDON_PUBLISHED: 'Add-on version published',
+        ADDON_UNARCHIVED: 'Add-on version unarchived',
+        ADDON_UPDATED: 'Add-on updated',
         COMPONENT_CREATED: 'Component added',
         COMPONENT_DELETED: 'Component deleted',
         COMPONENT_UPDATED: 'Component updated',
@@ -4201,6 +4218,9 @@ export default {
         FEATURE_FLAG_DELETED: 'Feature flag deleted',
         FEATURE_FLAG_EVALUATED: 'Feature flag evaluated',
         FEATURE_FLAG_UPDATED: 'Feature flag updated',
+        INSTANCE_ADDON_ADDED: 'Add-on attached to an instance',
+        INSTANCE_ADDON_QUANTITY_CHANGED: 'Add-on quantity changed',
+        INSTANCE_ADDON_REMOVED: 'Add-on removed from an instance',
         INSTANCE_BILLING_CANCELED: 'Subscription canceled',
         INSTANCE_BILLING_CANCELLATION_REVERTED:
           'Subscription cancellation reverted',
