@@ -134,7 +134,7 @@ list the `lucide-react` imports of the glyphs of `data-model-icons.ts` and judge
 each hit:
 
 ```bash
-rg -nU "import [{][^}]*[^A-Za-z](Boxes|Braces|FileText|Flag|MapPinned|Package|Rocket|Server|Tag|UserKey|Users)[^A-Za-z][^}]*[}] from .lucide-react." src --glob '!src/lib/data-model-icons.ts' --glob '!*.md'
+rg -nU "import [{][^}]*[^A-Za-z](Boxes|Braces|Coins|FileText|Flag|MapPinned|Package|Puzzle|Receipt|Repeat|Rocket|Server|Tag|Ticket|UserKey|Users)[^A-Za-z][^}]*[}] from .lucide-react." src --glob '!src/lib/data-model-icons.ts' --glob '!*.md'
 ```
 
 ### Generated schemas

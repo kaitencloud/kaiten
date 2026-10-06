@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { expect, userEvent, within } from 'storybook/test';
 import { Button } from '@/components/ui/button';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
 import CheckboxField from '../checkbox-field';
 import ComboboxField from '../combobox-field';
 import DatePickerField from '../date-picker-field';
+import MoneyField from '../money-field';
 import NumberField from '../number-field';
 import SelectField from '../select-field';
 import TextField from '../text-field';
@@ -219,6 +221,50 @@ export const NumberFieldExample: Story = {
         </form>
       </div>
     );
+  },
+};
+
+// A price per sale unit has decimals a float cannot hold: the field keeps the
+// string that was typed.
+export const MoneyFieldExample: Story = {
+  render: function MoneyFieldExampleStory() {
+    const form = useAppForm({
+      defaultValues: {
+        unitPrice: '',
+      },
+      onSubmit: async ({ value }) => {
+        alert(JSON.stringify(value, null, 2));
+      },
+    });
+
+    return (
+      <div className="max-w-md">
+        <form onSubmit={createFormSubmitHandler(form.handleSubmit)}>
+          <form.AppField name="unitPrice">
+            {() => (
+              <MoneyField
+                currency="USD"
+                label="Unit price"
+                placeholder="0.00"
+                description="Per sale unit, in dollars"
+              />
+            )}
+          </form.AppField>
+          <Button type="submit" className="mt-4">
+            Submit
+          </Button>
+        </form>
+      </div>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const input = await canvas.findByLabelText('Unit price');
+
+    await userEvent.type(input, '0.0750000001');
+
+    await expect(input).toHaveValue('0.0750000001');
+    await expect(canvas.getByText('USD')).toBeVisible();
   },
 };
 

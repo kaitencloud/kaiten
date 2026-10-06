@@ -1,14 +1,19 @@
 import {
   Boxes,
   Braces,
+  Coins,
   FileText,
   Flag,
   type LucideIcon,
   MapPinned,
   Package,
+  Puzzle,
+  Receipt,
+  Repeat,
   Rocket,
   Server,
   Tag,
+  Ticket,
   UserKey,
   Users,
 } from 'lucide-react';
@@ -25,6 +30,11 @@ export const dataModelIcons = {
   deploymentZone: MapPinned,
   serviceAccount: UserKey,
   token: Braces,
+  invoice: Receipt,
+  subscription: Repeat,
+  price: Coins,
+  addon: Puzzle,
+  voucher: Ticket,
 } as const satisfies Record<string, LucideIcon>;
 
 export type DataModelIconKey = keyof typeof dataModelIcons;

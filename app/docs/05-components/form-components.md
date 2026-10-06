@@ -11,6 +11,7 @@ Each field is a file of `app/src/components/form/fields/`, registered in `fieldC
 | `field.TextField` | `text-field.tsx` | `Input` |
 | `field.TextAreaField` | `textarea-field.tsx` | `Textarea`. The component is named `TextareaField` in its file and registered as `TextAreaField`. |
 | `field.NumberField` | `number-field.tsx` | `NumberInput` |
+| `field.MoneyField` | `money-field.tsx` | `Input`, with the currency beside it; the value is the string typed in major units |
 | `field.SelectField` | `select-field.tsx` | `Select` |
 | `field.ComboboxField` | `combobox-field.tsx` | `Combobox` |
 | `field.CheckboxField` | `checkbox-field.tsx` | `Checkbox` |

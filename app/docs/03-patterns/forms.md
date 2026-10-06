@@ -99,6 +99,7 @@ Every field takes `label` and, optionally, `description`, `required` and `classN
 | `TextField` | `text-field.tsx` | `string` | `placeholder`, `disabled`, `onChange(value)`. A single-line input. |
 | `TextAreaField` | `textarea-field.tsx` | `string` | `placeholder`, `disabled`. The component is named `TextareaField` in its file and registered as `TextAreaField`. |
 | `NumberField` | `number-field.tsx` | `number`, `NaN` while the input is empty | `min`, `max`, `step`, `placeholder`, `disabled`, `onChange(value)` |
+| `MoneyField` | `money-field.tsx` | `string`, the amount as typed in major units (`0.075`) | `currency` (required, shown beside the input), `placeholder`, `disabled`, `onChange(value)`. A float loses the decimals of a price per sale unit, so the string goes to the schema and, at submit time, through `majorToMinorDecimal` of `@/lib/money`. |
 | `SelectField` | `select-field.tsx` | `string` | `options`, `getOptionLabel`, `getOptionValue` (defaults to the option itself), `placeholder`, `disabled` |
 | `ComboboxField` | `combobox-field.tsx` | `string` | `options`, `getOptionLabel`, `getOptionValue`, `searchPlaceholder`, `placeholder`, `allowCustomValue`, `clearable`, `clearLabel`, `disabled` |
 | `CheckboxField` | `checkbox-field.tsx` | `boolean` | `disabled`. The label sits beside the box. |

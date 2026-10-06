@@ -6,6 +6,7 @@ const CheckboxField = lazy(
   () => import('@/components/form/fields/checkbox-field'),
 );
 const TextField = lazy(() => import('@/components/form/fields/text-field'));
+const MoneyField = lazy(() => import('@/components/form/fields/money-field'));
 const NumberField = lazy(() => import('@/components/form/fields/number-field'));
 const SelectField = lazy(() => import('@/components/form/fields/select-field'));
 const ComboboxField = lazy(
@@ -37,6 +38,7 @@ export const { useAppForm, withForm, withFieldGroup } = createFormHook({
   fieldComponents: {
     CheckboxField,
     TextField,
+    MoneyField,
     NumberField,
     SelectField,
     ComboboxField,
