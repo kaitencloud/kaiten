@@ -2,17 +2,13 @@ package closing
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log/slog"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/sweep"
-	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
-	"github.com/kaitencloud/kaiten/api/internal/platform/platformidentity"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
 )
 
 // lockID elects the replica that runs a pass: the version of the migration
@@ -47,11 +43,5 @@ func NewJob(pool *pgxpool.Pool, closer *Closer, cfg sweep.Config, batchSize int)
 // SystemActor is system:kaiten's membership in the organization, the user a
 // close the job makes is recorded under.
 func (c *Closer) SystemActor(ctx context.Context, organizationID uuid.UUID) (uuid.UUID, error) {
-	actor, err := c.deps.Queries(ctx).GetSystemActor(ctx, db.GetSystemActorParams{
-		OrganizationID: organizationID, ExternalID: platformidentity.ExternalID,
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return uuid.Nil, fmt.Errorf("system:kaiten has no membership in organization %s", organizationID)
-	}
-	return actor, err
+	return lifecycle.SystemActor(ctx, c.deps.Queries(ctx), organizationID)
 }
