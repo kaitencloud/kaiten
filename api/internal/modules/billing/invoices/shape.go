@@ -116,6 +116,35 @@ type PaidInvoice struct {
 	InvoiceSummary
 	Source            string  `json:"source" enum:"MARK_PAID,PROVIDER,ZERO_TOTAL" doc:"MARK_PAID: recorded by the organization. ZERO_TOTAL: nothing was owed"`
 	ExternalReference *string `json:"externalReference,omitempty"`
+	Note              *string `json:"note,omitempty" doc:"The note given when it was marked paid, kept only here"`
+}
+
+// ReleasedInvoice is the payload of INSTANCE_INVOICE_RELEASED.
+type ReleasedInvoice struct {
+	InvoiceSummary
+	ReleaseReason string     `json:"releaseReason"`
+	ReleasedBy    string     `json:"releasedBy" doc:"The user who released it, or system when a later check found the journal sound"`
+	HoldDetail    HoldDetail `json:"holdDetail" doc:"The hold it left, which the invoice no longer shows"`
+}
+
+// UncollectibleInvoice is the payload of INSTANCE_INVOICE_MARKED_UNCOLLECTIBLE.
+type UncollectibleInvoice struct {
+	InvoiceSummary
+	Reason string `json:"reason"`
+}
+
+// VoidedInvoice is the payload of INSTANCE_INVOICE_VOIDED.
+type VoidedInvoice struct {
+	InvoiceSummary
+	VoidReason string `json:"voidReason"`
+}
+
+// HandoffAcknowledgement is the payload of
+// INSTANCE_INVOICE_HANDOFF_ACKNOWLEDGED.
+type HandoffAcknowledgement struct {
+	InvoiceID         uuid.UUID `json:"invoiceId"`
+	ExternalReference *string   `json:"externalReference,omitempty" doc:"The invoice's number in the organization's accounting system"`
+	AcknowledgedBy    uuid.UUID `json:"acknowledgedBy"`
 }
 
 // HeldInvoice is the payload of INSTANCE_INVOICE_HELD.

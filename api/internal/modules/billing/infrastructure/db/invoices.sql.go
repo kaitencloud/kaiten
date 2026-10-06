@@ -12,6 +12,26 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getHeldInvoice = `-- name: GetHeldInvoice :one
+SELECT i.id, i.organization_id, i.instance_billing_id
+FROM instance_invoice i
+WHERE i.id = $1
+  AND i.hold_reason IS NOT NULL
+`
+
+type GetHeldInvoiceRow struct {
+	ID                uuid.UUID `json:"id"`
+	OrganizationID    uuid.UUID `json:"organization_id"`
+	InstanceBillingID uuid.UUID `json:"instance_billing_id"`
+}
+
+func (q *Queries) GetHeldInvoice(ctx context.Context, id uuid.UUID) (GetHeldInvoiceRow, error) {
+	row := q.db.QueryRow(ctx, getHeldInvoice, id)
+	var i GetHeldInvoiceRow
+	err := row.Scan(&i.ID, &i.OrganizationID, &i.InstanceBillingID)
+	return i, err
+}
+
 const getInvoice = `-- name: GetInvoice :one
 SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at
 FROM instance_invoice i
@@ -268,6 +288,40 @@ func (q *Queries) InsertInvoice(ctx context.Context, arg InsertInvoiceParams) (I
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listHeldInvoices = `-- name: ListHeldInvoices :many
+SELECT i.id, i.organization_id
+FROM instance_invoice i
+WHERE i.hold_reason IS NOT NULL
+ORDER BY i.held_at, i.id
+LIMIT $1
+`
+
+type ListHeldInvoicesRow struct {
+	ID             uuid.UUID `json:"id"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+}
+
+// Held drafts, oldest first, for the close to check again.
+func (q *Queries) ListHeldInvoices(ctx context.Context, pageSize int32) ([]ListHeldInvoicesRow, error) {
+	rows, err := q.db.Query(ctx, listHeldInvoices, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListHeldInvoicesRow
+	for rows.Next() {
+		var i ListHeldInvoicesRow
+		if err := rows.Scan(&i.ID, &i.OrganizationID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listInvoices = `-- name: ListInvoices :many
@@ -596,4 +650,580 @@ func (q *Queries) ListInvoicesUpdatedSince(ctx context.Context, arg ListInvoices
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockInvoice = `-- name: LockInvoice :one
+SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at
+FROM instance_invoice i
+WHERE i.organization_id = $1
+  AND i.id = $2
+FOR UPDATE
+`
+
+type LockInvoiceParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ID             uuid.UUID `json:"id"`
+}
+
+func (q *Queries) LockInvoice(ctx context.Context, arg LockInvoiceParams) (InstanceInvoice, error) {
+	row := q.db.QueryRow(ctx, lockInvoice, arg.OrganizationID, arg.ID)
+	var i InstanceInvoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceBillingID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.LicenseID,
+		&i.LicenseSlug,
+		&i.BillingEmail,
+		&i.Kind,
+		&i.BoundaryAt,
+		&i.ServiceFrom,
+		&i.ServiceTo,
+		&i.Currency,
+		&i.SubtotalMinor,
+		&i.DiscountTotalMinor,
+		&i.TotalMinor,
+		&i.Lines,
+		&i.Status,
+		&i.HoldReason,
+		&i.HoldDetail,
+		&i.HeldAt,
+		&i.HoldReleasedAt,
+		&i.HoldReleasedByID,
+		&i.HoldReleaseReason,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.ExternalCustomerID,
+		&i.ExternalInvoiceID,
+		&i.ProviderInvoiceNumber,
+		&i.ProviderStatus,
+		&i.HostedInvoiceUrl,
+		&i.InvoicePdfUrl,
+		&i.ProviderTotalExcludingTaxMinor,
+		&i.ReconciliationStatus,
+		&i.ReconciliationDetail,
+		&i.ReconciledAt,
+		&i.PushAttempts,
+		&i.NextPushAt,
+		&i.LastPushError,
+		&i.PushedAt,
+		&i.SyncedAt,
+		&i.IssuedAt,
+		&i.DaysUntilDue,
+		&i.DueAt,
+		&i.PaidAt,
+		&i.MarkedPaidByID,
+		&i.PaymentFailedAt,
+		&i.LastPaymentError,
+		&i.UncollectibleAt,
+		&i.VoidedAt,
+		&i.VoidedByID,
+		&i.VoidReason,
+		&i.ReplacesInvoiceID,
+		&i.HandoffStatus,
+		&i.HandoffLeaseID,
+		&i.HandoffLeasedUntil,
+		&i.HandoffClaimCount,
+		&i.HandoffAcknowledgedAt,
+		&i.HandoffAcknowledgedByID,
+		&i.ExternalReference,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const lockSubscriptionByID = `-- name: LockSubscriptionByID :one
+SELECT id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id
+FROM instance_billing ib
+WHERE ib.organization_id = $1
+  AND ib.id = $2
+FOR UPDATE
+`
+
+type LockSubscriptionByIDParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ID             uuid.UUID `json:"id"`
+}
+
+// An invoice action locks the invoice's subscription first, then the
+// invoice: the order every billing writer takes them in.
+func (q *Queries) LockSubscriptionByID(ctx context.Context, arg LockSubscriptionByIDParams) (InstanceBilling, error) {
+	row := q.db.QueryRow(ctx, lockSubscriptionByID, arg.OrganizationID, arg.ID)
+	var i InstanceBilling
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.Status,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.DaysUntilDue,
+		&i.BaseLicensePriceID,
+		&i.BillingPeriod,
+		&i.Currency,
+		&i.AnchorAt,
+		&i.StartedAt,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CancelAtPeriodEnd,
+		&i.CancelRequestedAt,
+		&i.CanceledAt,
+		&i.CancellationReason,
+		&i.PastDueSince,
+		&i.ScheduledLicensePriceID,
+		&i.ScheduledAt,
+		&i.CreatedAt,
+		&i.CreatedByID,
+		&i.UpdatedAt,
+		&i.UpdatedByID,
+	)
+	return i, err
+}
+
+const markInvoicePaid = `-- name: MarkInvoicePaid :one
+UPDATE instance_invoice
+SET status                     = 'PAID',
+    paid_at                    = $1,
+    marked_paid_by_id          = $2,
+    external_reference         = coalesce($3, external_reference),
+    handoff_status             = CASE WHEN handoff_status = 'PENDING' THEN 'ACKNOWLEDGED'::handoff_status ELSE handoff_status END,
+    handoff_acknowledged_at    = CASE WHEN handoff_status = 'PENDING' THEN $4 ELSE handoff_acknowledged_at END,
+    handoff_acknowledged_by_id = CASE WHEN handoff_status = 'PENDING' THEN $2 ELSE handoff_acknowledged_by_id END,
+    handoff_lease_id           = NULL,
+    handoff_leased_until       = NULL,
+    updated_at                 = $4
+WHERE id = $5
+RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at
+`
+
+type MarkInvoicePaidParams struct {
+	PaidAt            pgtype.Timestamp `json:"paid_at"`
+	UserID            *uuid.UUID       `json:"user_id"`
+	ExternalReference *string          `json:"external_reference"`
+	Now               pgtype.Timestamp `json:"now"`
+	ID                uuid.UUID        `json:"id"`
+}
+
+// A MANUAL invoice paid, as the organization recorded it. A handoff still
+// PENDING is acknowledged in the same write, its lease cleared.
+func (q *Queries) MarkInvoicePaid(ctx context.Context, arg MarkInvoicePaidParams) (InstanceInvoice, error) {
+	row := q.db.QueryRow(ctx, markInvoicePaid,
+		arg.PaidAt,
+		arg.UserID,
+		arg.ExternalReference,
+		arg.Now,
+		arg.ID,
+	)
+	var i InstanceInvoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceBillingID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.LicenseID,
+		&i.LicenseSlug,
+		&i.BillingEmail,
+		&i.Kind,
+		&i.BoundaryAt,
+		&i.ServiceFrom,
+		&i.ServiceTo,
+		&i.Currency,
+		&i.SubtotalMinor,
+		&i.DiscountTotalMinor,
+		&i.TotalMinor,
+		&i.Lines,
+		&i.Status,
+		&i.HoldReason,
+		&i.HoldDetail,
+		&i.HeldAt,
+		&i.HoldReleasedAt,
+		&i.HoldReleasedByID,
+		&i.HoldReleaseReason,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.ExternalCustomerID,
+		&i.ExternalInvoiceID,
+		&i.ProviderInvoiceNumber,
+		&i.ProviderStatus,
+		&i.HostedInvoiceUrl,
+		&i.InvoicePdfUrl,
+		&i.ProviderTotalExcludingTaxMinor,
+		&i.ReconciliationStatus,
+		&i.ReconciliationDetail,
+		&i.ReconciledAt,
+		&i.PushAttempts,
+		&i.NextPushAt,
+		&i.LastPushError,
+		&i.PushedAt,
+		&i.SyncedAt,
+		&i.IssuedAt,
+		&i.DaysUntilDue,
+		&i.DueAt,
+		&i.PaidAt,
+		&i.MarkedPaidByID,
+		&i.PaymentFailedAt,
+		&i.LastPaymentError,
+		&i.UncollectibleAt,
+		&i.VoidedAt,
+		&i.VoidedByID,
+		&i.VoidReason,
+		&i.ReplacesInvoiceID,
+		&i.HandoffStatus,
+		&i.HandoffLeaseID,
+		&i.HandoffLeasedUntil,
+		&i.HandoffClaimCount,
+		&i.HandoffAcknowledgedAt,
+		&i.HandoffAcknowledgedByID,
+		&i.ExternalReference,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const rewriteInvoice = `-- name: RewriteInvoice :one
+UPDATE instance_invoice
+SET lines                = $1,
+    service_from         = $2,
+    service_to           = $3,
+    subtotal_minor       = $4,
+    discount_total_minor = $5,
+    total_minor          = $6,
+    status               = $7,
+    hold_reason          = $8,
+    hold_detail          = $9,
+    held_at              = $10,
+    hold_released_at     = $11,
+    hold_released_by_id  = $12,
+    hold_release_reason  = $13,
+    issued_at            = $14,
+    days_until_due       = $15,
+    due_at               = $16,
+    paid_at              = $17,
+    handoff_status       = $18,
+    updated_at           = $19
+WHERE id = $20
+RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at
+`
+
+type RewriteInvoiceParams struct {
+	Lines              []byte             `json:"lines"`
+	ServiceFrom        pgtype.Timestamp   `json:"service_from"`
+	ServiceTo          pgtype.Timestamp   `json:"service_to"`
+	SubtotalMinor      int64              `json:"subtotal_minor"`
+	DiscountTotalMinor int64              `json:"discount_total_minor"`
+	TotalMinor         int64              `json:"total_minor"`
+	Status             InvoiceStatus      `json:"status"`
+	HoldReason         *InvoiceHoldReason `json:"hold_reason"`
+	HoldDetail         []byte             `json:"hold_detail"`
+	HeldAt             pgtype.Timestamp   `json:"held_at"`
+	HoldReleasedAt     pgtype.Timestamp   `json:"hold_released_at"`
+	HoldReleasedByID   *uuid.UUID         `json:"hold_released_by_id"`
+	HoldReleaseReason  *string            `json:"hold_release_reason"`
+	IssuedAt           pgtype.Timestamp   `json:"issued_at"`
+	DaysUntilDue       *int32             `json:"days_until_due"`
+	DueAt              pgtype.Timestamp   `json:"due_at"`
+	PaidAt             pgtype.Timestamp   `json:"paid_at"`
+	HandoffStatus      HandoffStatus      `json:"handoff_status"`
+	Now                pgtype.Timestamp   `json:"now"`
+	ID                 uuid.UUID          `json:"id"`
+}
+
+// A held draft recomposed in place, or released: its lines and totals, its
+// hold, and -- when it leaves the hold -- its issue, written whole.
+func (q *Queries) RewriteInvoice(ctx context.Context, arg RewriteInvoiceParams) (InstanceInvoice, error) {
+	row := q.db.QueryRow(ctx, rewriteInvoice,
+		arg.Lines,
+		arg.ServiceFrom,
+		arg.ServiceTo,
+		arg.SubtotalMinor,
+		arg.DiscountTotalMinor,
+		arg.TotalMinor,
+		arg.Status,
+		arg.HoldReason,
+		arg.HoldDetail,
+		arg.HeldAt,
+		arg.HoldReleasedAt,
+		arg.HoldReleasedByID,
+		arg.HoldReleaseReason,
+		arg.IssuedAt,
+		arg.DaysUntilDue,
+		arg.DueAt,
+		arg.PaidAt,
+		arg.HandoffStatus,
+		arg.Now,
+		arg.ID,
+	)
+	var i InstanceInvoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceBillingID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.LicenseID,
+		&i.LicenseSlug,
+		&i.BillingEmail,
+		&i.Kind,
+		&i.BoundaryAt,
+		&i.ServiceFrom,
+		&i.ServiceTo,
+		&i.Currency,
+		&i.SubtotalMinor,
+		&i.DiscountTotalMinor,
+		&i.TotalMinor,
+		&i.Lines,
+		&i.Status,
+		&i.HoldReason,
+		&i.HoldDetail,
+		&i.HeldAt,
+		&i.HoldReleasedAt,
+		&i.HoldReleasedByID,
+		&i.HoldReleaseReason,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.ExternalCustomerID,
+		&i.ExternalInvoiceID,
+		&i.ProviderInvoiceNumber,
+		&i.ProviderStatus,
+		&i.HostedInvoiceUrl,
+		&i.InvoicePdfUrl,
+		&i.ProviderTotalExcludingTaxMinor,
+		&i.ReconciliationStatus,
+		&i.ReconciliationDetail,
+		&i.ReconciledAt,
+		&i.PushAttempts,
+		&i.NextPushAt,
+		&i.LastPushError,
+		&i.PushedAt,
+		&i.SyncedAt,
+		&i.IssuedAt,
+		&i.DaysUntilDue,
+		&i.DueAt,
+		&i.PaidAt,
+		&i.MarkedPaidByID,
+		&i.PaymentFailedAt,
+		&i.LastPaymentError,
+		&i.UncollectibleAt,
+		&i.VoidedAt,
+		&i.VoidedByID,
+		&i.VoidReason,
+		&i.ReplacesInvoiceID,
+		&i.HandoffStatus,
+		&i.HandoffLeaseID,
+		&i.HandoffLeasedUntil,
+		&i.HandoffClaimCount,
+		&i.HandoffAcknowledgedAt,
+		&i.HandoffAcknowledgedByID,
+		&i.ExternalReference,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const voidInvoice = `-- name: VoidInvoice :one
+UPDATE instance_invoice
+SET status       = 'VOID',
+    voided_at    = $1,
+    voided_by_id = $2,
+    void_reason  = $3,
+    hold_reason  = NULL,
+    hold_detail  = NULL,
+    held_at      = NULL,
+    updated_at   = $1
+WHERE id = $4
+RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at
+`
+
+type VoidInvoiceParams struct {
+	Now    pgtype.Timestamp `json:"now"`
+	UserID *uuid.UUID       `json:"user_id"`
+	Reason *string          `json:"reason"`
+	ID     uuid.UUID        `json:"id"`
+}
+
+// A void leaves the invoice's identity key free for a recompose. A held
+// draft voided gives up its hold: only a DRAFT can be held.
+func (q *Queries) VoidInvoice(ctx context.Context, arg VoidInvoiceParams) (InstanceInvoice, error) {
+	row := q.db.QueryRow(ctx, voidInvoice,
+		arg.Now,
+		arg.UserID,
+		arg.Reason,
+		arg.ID,
+	)
+	var i InstanceInvoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceBillingID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.LicenseID,
+		&i.LicenseSlug,
+		&i.BillingEmail,
+		&i.Kind,
+		&i.BoundaryAt,
+		&i.ServiceFrom,
+		&i.ServiceTo,
+		&i.Currency,
+		&i.SubtotalMinor,
+		&i.DiscountTotalMinor,
+		&i.TotalMinor,
+		&i.Lines,
+		&i.Status,
+		&i.HoldReason,
+		&i.HoldDetail,
+		&i.HeldAt,
+		&i.HoldReleasedAt,
+		&i.HoldReleasedByID,
+		&i.HoldReleaseReason,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.ExternalCustomerID,
+		&i.ExternalInvoiceID,
+		&i.ProviderInvoiceNumber,
+		&i.ProviderStatus,
+		&i.HostedInvoiceUrl,
+		&i.InvoicePdfUrl,
+		&i.ProviderTotalExcludingTaxMinor,
+		&i.ReconciliationStatus,
+		&i.ReconciliationDetail,
+		&i.ReconciledAt,
+		&i.PushAttempts,
+		&i.NextPushAt,
+		&i.LastPushError,
+		&i.PushedAt,
+		&i.SyncedAt,
+		&i.IssuedAt,
+		&i.DaysUntilDue,
+		&i.DueAt,
+		&i.PaidAt,
+		&i.MarkedPaidByID,
+		&i.PaymentFailedAt,
+		&i.LastPaymentError,
+		&i.UncollectibleAt,
+		&i.VoidedAt,
+		&i.VoidedByID,
+		&i.VoidReason,
+		&i.ReplacesInvoiceID,
+		&i.HandoffStatus,
+		&i.HandoffLeaseID,
+		&i.HandoffLeasedUntil,
+		&i.HandoffClaimCount,
+		&i.HandoffAcknowledgedAt,
+		&i.HandoffAcknowledgedByID,
+		&i.ExternalReference,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const writeOffInvoice = `-- name: WriteOffInvoice :one
+UPDATE instance_invoice
+SET status           = 'UNCOLLECTIBLE',
+    uncollectible_at = $1,
+    updated_at       = $1
+WHERE id = $2
+RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at
+`
+
+type WriteOffInvoiceParams struct {
+	Now pgtype.Timestamp `json:"now"`
+	ID  uuid.UUID        `json:"id"`
+}
+
+func (q *Queries) WriteOffInvoice(ctx context.Context, arg WriteOffInvoiceParams) (InstanceInvoice, error) {
+	row := q.db.QueryRow(ctx, writeOffInvoice, arg.Now, arg.ID)
+	var i InstanceInvoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceBillingID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.LicenseID,
+		&i.LicenseSlug,
+		&i.BillingEmail,
+		&i.Kind,
+		&i.BoundaryAt,
+		&i.ServiceFrom,
+		&i.ServiceTo,
+		&i.Currency,
+		&i.SubtotalMinor,
+		&i.DiscountTotalMinor,
+		&i.TotalMinor,
+		&i.Lines,
+		&i.Status,
+		&i.HoldReason,
+		&i.HoldDetail,
+		&i.HeldAt,
+		&i.HoldReleasedAt,
+		&i.HoldReleasedByID,
+		&i.HoldReleaseReason,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.ExternalCustomerID,
+		&i.ExternalInvoiceID,
+		&i.ProviderInvoiceNumber,
+		&i.ProviderStatus,
+		&i.HostedInvoiceUrl,
+		&i.InvoicePdfUrl,
+		&i.ProviderTotalExcludingTaxMinor,
+		&i.ReconciliationStatus,
+		&i.ReconciliationDetail,
+		&i.ReconciledAt,
+		&i.PushAttempts,
+		&i.NextPushAt,
+		&i.LastPushError,
+		&i.PushedAt,
+		&i.SyncedAt,
+		&i.IssuedAt,
+		&i.DaysUntilDue,
+		&i.DueAt,
+		&i.PaidAt,
+		&i.MarkedPaidByID,
+		&i.PaymentFailedAt,
+		&i.LastPaymentError,
+		&i.UncollectibleAt,
+		&i.VoidedAt,
+		&i.VoidedByID,
+		&i.VoidReason,
+		&i.ReplacesInvoiceID,
+		&i.HandoffStatus,
+		&i.HandoffLeaseID,
+		&i.HandoffLeasedUntil,
+		&i.HandoffClaimCount,
+		&i.HandoffAcknowledgedAt,
+		&i.HandoffAcknowledgedByID,
+		&i.ExternalReference,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

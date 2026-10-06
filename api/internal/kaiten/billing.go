@@ -16,11 +16,16 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinstanceinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/recomposeinvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/releaseinvoicehold"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updatebillingsettings"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/voidinvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/writeoffinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
@@ -127,4 +132,55 @@ func (b Billing) GetUpcomingInvoice(
 	}
 
 	return b.uc.GetUpcomingInvoice.Execute(bindOrganization(ctx, cl), instanceSlug)
+}
+
+// MarkInvoicePaid records a payment of an invoice the organization collects.
+func (b Billing) MarkInvoicePaid(
+	ctx context.Context, cl caller.OrganizationCaller, invoiceID uuid.UUID, cmd markinvoicepaid.Command,
+) (*invoices.Invoice, error) {
+	if err := cl.Require(markinvoicepaid.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.MarkInvoicePaid.Execute(bindOrganization(ctx, cl), invoiceID, cmd)
+}
+
+func (b Billing) WriteOffInvoice(
+	ctx context.Context, cl caller.OrganizationCaller, invoiceID uuid.UUID, reason string,
+) (*invoices.Invoice, error) {
+	if err := cl.Require(writeoffinvoice.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.WriteOffInvoice.Execute(bindOrganization(ctx, cl), invoiceID, reason)
+}
+
+func (b Billing) VoidInvoice(
+	ctx context.Context, cl caller.OrganizationCaller, invoiceID uuid.UUID, reason string,
+) (*invoices.Invoice, error) {
+	if err := cl.Require(voidinvoice.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.VoidInvoice.Execute(bindOrganization(ctx, cl), invoiceID, reason)
+}
+
+func (b Billing) ReleaseInvoiceHold(
+	ctx context.Context, cl caller.OrganizationCaller, invoiceID uuid.UUID, reason string,
+) (*invoices.Invoice, error) {
+	if err := cl.Require(releaseinvoicehold.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.ReleaseInvoiceHold.Execute(bindOrganization(ctx, cl), invoiceID, reason)
+}
+
+func (b Billing) RecomposeInvoice(
+	ctx context.Context, cl caller.OrganizationCaller, invoiceID uuid.UUID,
+) (*recomposeinvoice.Result, error) {
+	if err := cl.Require(recomposeinvoice.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.RecomposeInvoice.Execute(bindOrganization(ctx, cl), invoiceID)
 }

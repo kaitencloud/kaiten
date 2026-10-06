@@ -104,26 +104,116 @@ func Insert(ctx context.Context, q *db.Queries, d Draft) (db.InstanceInvoice, er
 		HandoffStatus:      db.HandoffStatusNOTREQUIRED,
 		Now:                Timestamp(d.Now),
 	}
-	switch {
-	case d.Hold != nil:
+	if d.Hold != nil {
 		reason := db.InvoiceHoldReason(d.Hold.Reason)
 		detail, err := json.Marshal(d.Hold.Detail)
 		if err != nil {
 			return db.InstanceInvoice{}, fmt.Errorf("encode hold detail: %w", err)
 		}
 		params.HoldReason, params.HoldDetail, params.HeldAt = &reason, detail, Timestamp(d.Now)
-	case d.Composition.Total == 0:
-		zero := int32(0)
-		params.Status = db.InvoiceStatusPAID
-		params.IssuedAt, params.DaysUntilDue, params.DueAt, params.PaidAt = Timestamp(d.Now), &zero, Timestamp(d.Now), Timestamp(d.Now)
-	default:
-		days := d.Terms.DaysUntilDue
-		params.Status = db.InvoiceStatusMANUAL
-		params.IssuedAt, params.DaysUntilDue = Timestamp(d.Now), &days
-		params.DueAt = Timestamp(d.Now.AddDate(0, 0, int(days)))
-		params.HandoffStatus = db.HandoffStatusPENDING
+	} else {
+		issued := issue(d.Composition.Total, d.Terms, d.Now)
+		params.Status, params.IssuedAt, params.DaysUntilDue = issued.status, issued.issuedAt, issued.daysUntilDue
+		params.DueAt, params.PaidAt, params.HandoffStatus = issued.dueAt, issued.paidAt, issued.handoff
 	}
 	return q.InsertInvoice(ctx, params)
+}
+
+// issuance is how an invoice leaves composition, or its hold.
+type issuance struct {
+	status       db.InvoiceStatus
+	issuedAt     pgtype.Timestamp
+	daysUntilDue *int32
+	dueAt        pgtype.Timestamp
+	paidAt       pgtype.Timestamp
+	handoff      db.HandoffStatus
+}
+
+// issue is the issuance of an invoice without a payment provider: PAID at
+// issue when nothing is owed, never handed off; otherwise MANUAL, due after
+// the terms' days and PENDING in the handoff queue.
+func issue(total int64, terms Terms, now time.Time) issuance {
+	if total == 0 {
+		zero := int32(0)
+		return issuance{
+			status: db.InvoiceStatusPAID, issuedAt: Timestamp(now), daysUntilDue: &zero,
+			dueAt: Timestamp(now), paidAt: Timestamp(now), handoff: db.HandoffStatusNOTREQUIRED,
+		}
+	}
+	days := terms.DaysUntilDue
+	return issuance{
+		status: db.InvoiceStatusMANUAL, issuedAt: Timestamp(now), daysUntilDue: &days,
+		dueAt: Timestamp(now.AddDate(0, 0, int(days))), paidAt: pgtype.Timestamp{}, handoff: db.HandoffStatusPENDING,
+	}
+}
+
+// Release is how a held draft leaves its hold: by whom (nil for a later
+// check of the close) and why.
+type Release struct {
+	By     *uuid.UUID
+	Reason string
+}
+
+// Rewrite writes a held draft again: with lines recomposed when composition
+// is given, else its own; still held when hold is given, else released and
+// issued.
+func Rewrite(ctx context.Context, q *db.Queries, row db.InstanceInvoice, composition *rating.Composition,
+	hold *Hold, release Release, terms Terms, now time.Time,
+) (db.InstanceInvoice, error) {
+	params := db.RewriteInvoiceParams{
+		Lines: row.Lines, ServiceFrom: row.ServiceFrom, ServiceTo: row.ServiceTo,
+		SubtotalMinor: row.SubtotalMinor, DiscountTotalMinor: row.DiscountTotalMinor, TotalMinor: row.TotalMinor,
+		Status: db.InvoiceStatusDRAFT, HoldReason: row.HoldReason, HoldDetail: row.HoldDetail, HeldAt: row.HeldAt,
+		HoldReleasedAt: row.HoldReleasedAt, HoldReleasedByID: row.HoldReleasedByID, HoldReleaseReason: row.HoldReleaseReason,
+		IssuedAt: pgtype.Timestamp{}, DaysUntilDue: nil, DueAt: pgtype.Timestamp{}, PaidAt: pgtype.Timestamp{},
+		HandoffStatus: db.HandoffStatusNOTREQUIRED, Now: Timestamp(now), ID: row.ID,
+	}
+	total := row.TotalMinor
+	if composition != nil {
+		lines := composition.Lines
+		if lines == nil {
+			lines = []rating.InvoiceLine{}
+		}
+		from, to := row.BoundaryAt.Time.UTC(), row.BoundaryAt.Time.UTC()
+		for i := range lines {
+			if lines[i].ID == nil {
+				id := uuid.New()
+				lines[i].ID = &id
+			}
+			if i == 0 || lines[i].ServiceFrom.Before(from) {
+				from = lines[i].ServiceFrom
+			}
+			if i == 0 || lines[i].ServiceTo.After(to) {
+				to = lines[i].ServiceTo
+			}
+		}
+		encoded, err := json.Marshal(lines)
+		if err != nil {
+			return db.InstanceInvoice{}, fmt.Errorf("encode invoice lines: %w", err)
+		}
+		params.Lines, params.ServiceFrom, params.ServiceTo = encoded, Timestamp(from), Timestamp(to)
+		params.SubtotalMinor, params.DiscountTotalMinor, params.TotalMinor = composition.Subtotal, composition.DiscountTotal, composition.Total
+		total = composition.Total
+	}
+	if hold != nil {
+		reason := db.InvoiceHoldReason(hold.Reason)
+		detail, err := json.Marshal(hold.Detail)
+		if err != nil {
+			return db.InstanceInvoice{}, fmt.Errorf("encode hold detail: %w", err)
+		}
+		params.HoldReason, params.HoldDetail = &reason, detail
+		if !params.HeldAt.Valid {
+			params.HeldAt = Timestamp(now)
+		}
+		return q.RewriteInvoice(ctx, params)
+	}
+	reason := release.Reason
+	params.HoldReason, params.HoldDetail, params.HeldAt = nil, nil, pgtype.Timestamp{}
+	params.HoldReleasedAt, params.HoldReleasedByID, params.HoldReleaseReason = Timestamp(now), release.By, &reason
+	issued := issue(total, terms, now)
+	params.Status, params.IssuedAt, params.DaysUntilDue = issued.status, issued.issuedAt, issued.daysUntilDue
+	params.DueAt, params.PaidAt, params.HandoffStatus = issued.dueAt, issued.paidAt, issued.handoff
+	return q.RewriteInvoice(ctx, params)
 }
 
 // FromRow is an invoice row as the API returns it.

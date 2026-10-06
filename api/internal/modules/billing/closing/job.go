@@ -20,7 +20,8 @@ import (
 const lockID int64 = 20261007000000
 
 // NewJob is the period-close job: every pass closes up to batchSize due
-// subscriptions of every organization, recorded under system:kaiten.
+// subscriptions of every organization, recorded under system:kaiten, then
+// checks the held invoices' journals again and releases the sound ones.
 //
 // The elected connection only holds the election; each subscription closes in
 // its own transaction on the pool, and the row locks, not the election, are
@@ -31,6 +32,13 @@ func NewJob(pool *pgxpool.Pool, closer *Closer, cfg sweep.Config, batchSize int)
 		if report.Examined > 0 {
 			slog.InfoContext(ctx, "billing periods closed", "examined", report.Examined, "closed", report.Closed,
 				"held", report.Held, "skipped", report.Skipped, "has_more", report.HasMore)
+		}
+		if err != nil {
+			return err
+		}
+		released, err := closer.RecheckHeld(ctx, batchSize)
+		if released > 0 {
+			slog.InfoContext(ctx, "held invoices released", "released", released)
 		}
 		return err
 	})

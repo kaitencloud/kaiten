@@ -1448,6 +1448,20 @@ components:
         - status
         - claimCount
       type: object
+    HandoffAcknowledgement:
+      additionalProperties: false
+      properties:
+        acknowledgedBy:
+          type: string
+        externalReference:
+          description: The invoice's number in the organization's accounting system
+          type: string
+        invoiceId:
+          type: string
+      required:
+        - invoiceId
+        - acknowledgedBy
+      type: object
     HeldInvoice:
       additionalProperties: false
       properties:
@@ -1643,6 +1657,15 @@ components:
         releasedBy:
           description: The user who released it; absent when it was released by a later check
           type: string
+      type: object
+    HoldRelease:
+      additionalProperties: false
+      properties:
+        reason:
+          description: 1 to 500 characters
+          type: string
+      required:
+        - reason
       type: object
     Impact:
       additionalProperties: false
@@ -2673,6 +2696,21 @@ components:
         - overageMeasured
         - limits
       type: object
+    InvoicePayment:
+      additionalProperties: false
+      properties:
+        externalReference:
+          description: The invoice's number in the organization's accounting system, 1 to 255 characters. It also acknowledges an invoice still waiting in the handoff queue
+          type: string
+        note:
+          description: A note, such as the transfer's reference, kept only in the paid event
+          maxLength: 1000
+          type: string
+        paidAt:
+          description: When it was paid, now or earlier; now when omitted
+          format: date-time
+          type: string
+      type: object
     InvoicePreview:
       additionalProperties: false
       properties:
@@ -2889,6 +2927,24 @@ components:
         - handoffStatus
         - createdAt
         - updatedAt
+      type: object
+    InvoiceVoid:
+      additionalProperties: false
+      properties:
+        reason:
+          description: 1 to 500 characters
+          type: string
+      required:
+        - reason
+      type: object
+    InvoiceWriteOff:
+      additionalProperties: false
+      properties:
+        reason:
+          description: 1 to 500 characters
+          type: string
+      required:
+        - reason
       type: object
     IssuedInvoice:
       additionalProperties: false
@@ -4053,6 +4109,9 @@ components:
           type: string
         licenseSlug:
           type: string
+        note:
+          description: The note given when it was marked paid, kept only here
+          type: string
         paidAt:
           format: date-time
           type: string
@@ -4486,6 +4545,147 @@ components:
         - version
         - createdBy
         - createdAt
+      type: object
+    ReleasedInvoice:
+      additionalProperties: false
+      properties:
+        boundaryAt:
+          description: The boundary the invoice bills. With the kind, it identifies the invoice within its subscription
+          format: date-time
+          type: string
+        collectionMethod:
+          enum:
+            - SEND_INVOICE
+            - CHARGE_AUTOMATICALLY
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        customerName:
+          type: string
+        customerSlug:
+          description: As it was when the invoice was composed
+          type: string
+        daysUntilDue:
+          format: int32
+          type: integer
+        discountTotal:
+          description: Sum of the discounts, in minor units
+          format: int64
+          type: integer
+        dueAt:
+          description: issuedAt + daysUntilDue
+          format: date-time
+          type: string
+        handoffStatus:
+          description: "PENDING: waiting in the handoff queue for the organization's accounting system"
+          enum:
+            - NOT_REQUIRED
+            - PENDING
+            - ACKNOWLEDGED
+          type: string
+        holdDetail:
+          $ref: "#/components/schemas/HoldDetail"
+          description: The hold it left, which the invoice no longer shows
+        holdReason:
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          enum:
+            - LEDGER_SEQUENCE_GAP
+            - LEDGER_CHAIN_BREAK
+            - LEDGER_COUNTER_MISMATCH
+          type: string
+        id:
+          description: "The invoice's identifier: the key an accounting system deduplicates on"
+          type: string
+        instanceName:
+          type: string
+        instanceSlug:
+          type: string
+        issuedAt:
+          format: date-time
+          type: string
+        kind:
+          description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
+          enum:
+            - ACTIVATION
+            - RENEWAL
+            - FINAL
+          type: string
+        licenseSlug:
+          type: string
+        paidAt:
+          format: date-time
+          type: string
+        providerKind:
+          description: "Who collects it. NOOP: the organization itself, through the handoff queue"
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+        releaseReason:
+          type: string
+        releasedBy:
+          description: The user who released it, or system when a later check found the journal sound
+          type: string
+        serviceFrom:
+          description: Earliest start of its lines' service periods
+          format: date-time
+          type: string
+        serviceTo:
+          description: Latest end of its lines' service periods
+          format: date-time
+          type: string
+        status:
+          description: "MANUAL: issued, for the organization to collect. PAID, UNCOLLECTIBLE and VOID are final. DRAFT: held, waiting for a release or a recompose"
+          enum:
+            - DRAFT
+            - PUSHED
+            - PUSH_FAILED
+            - MANUAL
+            - PAID
+            - PAYMENT_FAILED
+            - UNCOLLECTIBLE
+            - VOID
+          type: string
+        subtotal:
+          description: Sum of the lines, in minor units
+          format: int64
+          type: integer
+        total:
+          description: subtotal − discountTotal, in minor units
+          format: int64
+          type: integer
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - releaseReason
+        - releasedBy
+        - holdDetail
+        - id
+        - kind
+        - boundaryAt
+        - serviceFrom
+        - serviceTo
+        - status
+        - providerKind
+        - collectionMethod
+        - currency
+        - subtotal
+        - discountTotal
+        - total
+        - customerSlug
+        - customerName
+        - instanceSlug
+        - instanceName
+        - licenseSlug
+        - handoffStatus
+        - createdAt
+        - updatedAt
       type: object
     ReorderMetadataFieldsInput:
       additionalProperties: false
@@ -5112,6 +5312,139 @@ components:
         - createdAt
         - createdBy
       type: object
+    UncollectibleInvoice:
+      additionalProperties: false
+      properties:
+        boundaryAt:
+          description: The boundary the invoice bills. With the kind, it identifies the invoice within its subscription
+          format: date-time
+          type: string
+        collectionMethod:
+          enum:
+            - SEND_INVOICE
+            - CHARGE_AUTOMATICALLY
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        customerName:
+          type: string
+        customerSlug:
+          description: As it was when the invoice was composed
+          type: string
+        daysUntilDue:
+          format: int32
+          type: integer
+        discountTotal:
+          description: Sum of the discounts, in minor units
+          format: int64
+          type: integer
+        dueAt:
+          description: issuedAt + daysUntilDue
+          format: date-time
+          type: string
+        handoffStatus:
+          description: "PENDING: waiting in the handoff queue for the organization's accounting system"
+          enum:
+            - NOT_REQUIRED
+            - PENDING
+            - ACKNOWLEDGED
+          type: string
+        holdReason:
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          enum:
+            - LEDGER_SEQUENCE_GAP
+            - LEDGER_CHAIN_BREAK
+            - LEDGER_COUNTER_MISMATCH
+          type: string
+        id:
+          description: "The invoice's identifier: the key an accounting system deduplicates on"
+          type: string
+        instanceName:
+          type: string
+        instanceSlug:
+          type: string
+        issuedAt:
+          format: date-time
+          type: string
+        kind:
+          description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
+          enum:
+            - ACTIVATION
+            - RENEWAL
+            - FINAL
+          type: string
+        licenseSlug:
+          type: string
+        paidAt:
+          format: date-time
+          type: string
+        providerKind:
+          description: "Who collects it. NOOP: the organization itself, through the handoff queue"
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+        reason:
+          type: string
+        serviceFrom:
+          description: Earliest start of its lines' service periods
+          format: date-time
+          type: string
+        serviceTo:
+          description: Latest end of its lines' service periods
+          format: date-time
+          type: string
+        status:
+          description: "MANUAL: issued, for the organization to collect. PAID, UNCOLLECTIBLE and VOID are final. DRAFT: held, waiting for a release or a recompose"
+          enum:
+            - DRAFT
+            - PUSHED
+            - PUSH_FAILED
+            - MANUAL
+            - PAID
+            - PAYMENT_FAILED
+            - UNCOLLECTIBLE
+            - VOID
+          type: string
+        subtotal:
+          description: Sum of the lines, in minor units
+          format: int64
+          type: integer
+        total:
+          description: subtotal − discountTotal, in minor units
+          format: int64
+          type: integer
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - reason
+        - id
+        - kind
+        - boundaryAt
+        - serviceFrom
+        - serviceTo
+        - status
+        - providerKind
+        - collectionMethod
+        - currency
+        - subtotal
+        - discountTotal
+        - total
+        - customerSlug
+        - customerName
+        - instanceSlug
+        - instanceName
+        - licenseSlug
+        - handoffStatus
+        - createdAt
+        - updatedAt
+      type: object
     UpdatedEvent:
       additionalProperties: false
       properties:
@@ -5376,6 +5709,139 @@ components:
         - name
         - description
         - value
+      type: object
+    VoidedInvoice:
+      additionalProperties: false
+      properties:
+        boundaryAt:
+          description: The boundary the invoice bills. With the kind, it identifies the invoice within its subscription
+          format: date-time
+          type: string
+        collectionMethod:
+          enum:
+            - SEND_INVOICE
+            - CHARGE_AUTOMATICALLY
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        customerName:
+          type: string
+        customerSlug:
+          description: As it was when the invoice was composed
+          type: string
+        daysUntilDue:
+          format: int32
+          type: integer
+        discountTotal:
+          description: Sum of the discounts, in minor units
+          format: int64
+          type: integer
+        dueAt:
+          description: issuedAt + daysUntilDue
+          format: date-time
+          type: string
+        handoffStatus:
+          description: "PENDING: waiting in the handoff queue for the organization's accounting system"
+          enum:
+            - NOT_REQUIRED
+            - PENDING
+            - ACKNOWLEDGED
+          type: string
+        holdReason:
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          enum:
+            - LEDGER_SEQUENCE_GAP
+            - LEDGER_CHAIN_BREAK
+            - LEDGER_COUNTER_MISMATCH
+          type: string
+        id:
+          description: "The invoice's identifier: the key an accounting system deduplicates on"
+          type: string
+        instanceName:
+          type: string
+        instanceSlug:
+          type: string
+        issuedAt:
+          format: date-time
+          type: string
+        kind:
+          description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
+          enum:
+            - ACTIVATION
+            - RENEWAL
+            - FINAL
+          type: string
+        licenseSlug:
+          type: string
+        paidAt:
+          format: date-time
+          type: string
+        providerKind:
+          description: "Who collects it. NOOP: the organization itself, through the handoff queue"
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+        serviceFrom:
+          description: Earliest start of its lines' service periods
+          format: date-time
+          type: string
+        serviceTo:
+          description: Latest end of its lines' service periods
+          format: date-time
+          type: string
+        status:
+          description: "MANUAL: issued, for the organization to collect. PAID, UNCOLLECTIBLE and VOID are final. DRAFT: held, waiting for a release or a recompose"
+          enum:
+            - DRAFT
+            - PUSHED
+            - PUSH_FAILED
+            - MANUAL
+            - PAID
+            - PAYMENT_FAILED
+            - UNCOLLECTIBLE
+            - VOID
+          type: string
+        subtotal:
+          description: Sum of the lines, in minor units
+          format: int64
+          type: integer
+        total:
+          description: subtotal − discountTotal, in minor units
+          format: int64
+          type: integer
+        updatedAt:
+          format: date-time
+          type: string
+        voidReason:
+          type: string
+      required:
+        - voidReason
+        - id
+        - kind
+        - boundaryAt
+        - serviceFrom
+        - serviceTo
+        - status
+        - providerKind
+        - collectionMethod
+        - currency
+        - subtotal
+        - discountTotal
+        - total
+        - customerSlug
+        - customerName
+        - instanceSlug
+        - instanceName
+        - licenseSlug
+        - handoffStatus
+        - createdAt
+        - updatedAt
       type: object
   securitySchemes:
     bearerAuth:
@@ -10803,6 +11269,389 @@ paths:
       summary: Get an invoice
       tags:
         - billing
+  /invoices/{invoiceId}/mark-paid:
+    post:
+      description: Records that a MANUAL invoice was paid. An invoice still waiting in the handoff queue is acknowledged by the same write. Marking it paid again with the same external reference answers it unchanged. An invoice a payment provider collects is settled there. Requires billing to be enabled for the organization.
+      operationId: markInvoicePaid
+      parameters:
+        - description: Invoice identifier
+          in: path
+          name: invoiceId
+          required: true
+          schema:
+            description: Invoice identifier
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoicePayment"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:billing
+      summary: Mark an invoice paid
+      tags:
+        - billing
+  /invoices/{invoiceId}/recompose:
+    post:
+      description: "Composes an invoice again from the usage journal as it is now, keeping its BASE lines as they were sold. A held DRAFT is rewritten in place (200): issued when its journal is now sound, held again otherwise. A VOID invoice gets a replacement for the same boundary (201), under the subscription's current terms and billing e-mail. Any other invoice must be voided first. Requires billing to be enabled for the organization."
+      operationId: recomposeInvoice
+      parameters:
+        - description: Invoice identifier
+          in: path
+          name: invoiceId
+          required: true
+          schema:
+            description: Invoice identifier
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+          description: OK
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:billing
+      summary: Recompose an invoice
+      tags:
+        - billing
+  /invoices/{invoiceId}/release-hold:
+    post:
+      description: "Accepts a held invoice as composed and issues it: MANUAL and pending in the handoff queue, or PAID when nothing is owed. The release keeps who released it and why. Requires billing to be enabled for the organization."
+      operationId: releaseInvoiceHold
+      parameters:
+        - description: Invoice identifier
+          in: path
+          name: invoiceId
+          required: true
+          schema:
+            description: Invoice identifier
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HoldRelease"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:billing
+      summary: Release a held invoice
+      tags:
+        - billing
+  /invoices/{invoiceId}/void:
+    post:
+      description: Voids an invoice not yet settled -- a DRAFT, held or not, or a MANUAL one -- which frees its boundary for a recompose. A paid or written-off invoice cannot be voided. A handoff still pending stays so, and its consumer sees the VOID. Voiding a VOID invoice again answers it unchanged. Requires billing to be enabled for the organization.
+      operationId: voidInvoice
+      parameters:
+        - description: Invoice identifier
+          in: path
+          name: invoiceId
+          required: true
+          schema:
+            description: Invoice identifier
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceVoid"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:billing
+      summary: Void an invoice
+      tags:
+        - billing
+  /invoices/{invoiceId}/write-off:
+    post:
+      description: "Records that the organization gave up collecting a MANUAL invoice: it becomes UNCOLLECTIBLE. A handoff still pending stays so, and its consumer sees the new status. Writing off an UNCOLLECTIBLE invoice again answers it unchanged. Requires billing to be enabled for the organization."
+      operationId: writeOffInvoice
+      parameters:
+        - description: Invoice identifier
+          in: path
+          name: invoiceId
+          required: true
+          schema:
+            description: Invoice identifier
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceWriteOff"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:billing
+      summary: Write off an invoice
+      tags:
+        - billing
   /license-families:
     get:
       description: "Returns a cursor-paginated page of license families for the current organization, each with the version it currently resolves to: the family's default version, or its highest-numbered published version. A family whose versions are all drafts or all archived is still listed, with no current version."
@@ -15213,6 +16062,45 @@ webhooks:
       tags:
         - webhooks
         - instances
+  com.kaiten.instance.invoice.v1.handoff_acknowledged:
+    post:
+      description: Triggered when the organization's accounting system acknowledges an invoice from the handoff queue, or the invoice is marked paid while still waiting there.
+      operationId: onInstanceInvoiceHandoffAcknowledged
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/HandoffAcknowledgement"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_INVOICE_HANDOFF_ACKNOWLEDGED
+                  examples:
+                    - INSTANCE_INVOICE_HANDOFF_ACKNOWLEDGED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.invoice.v1.handoff_acknowledged
+                  examples:
+                    - com.kaiten.instance.invoice.v1.handoff_acknowledged
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Invoice Handoff Acknowledged Webhook
+      tags:
+        - webhooks
+        - billing
   com.kaiten.instance.invoice.v1.held:
     post:
       description: Triggered when a period closes into an invoice held as a DRAFT, because the usage journal it was measured from failed a consistency check. It is neither issued nor handed off until released or recomposed.
@@ -15291,6 +16179,45 @@ webhooks:
       tags:
         - webhooks
         - billing
+  com.kaiten.instance.invoice.v1.marked_uncollectible:
+    post:
+      description: Triggered when an invoice is written off.
+      operationId: onInstanceInvoiceMarkedUncollectible
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/UncollectibleInvoice"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_INVOICE_MARKED_UNCOLLECTIBLE
+                  examples:
+                    - INSTANCE_INVOICE_MARKED_UNCOLLECTIBLE
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.invoice.v1.marked_uncollectible
+                  examples:
+                    - com.kaiten.instance.invoice.v1.marked_uncollectible
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Invoice Marked Uncollectible Webhook
+      tags:
+        - webhooks
+        - billing
   com.kaiten.instance.invoice.v1.paid:
     post:
       description: "Triggered when an invoice is paid: marked paid by the organization, or issued paid because nothing was owed."
@@ -15327,6 +16254,84 @@ webhooks:
         "200":
           description: Webhook processed successfully
       summary: Instance Invoice Paid Webhook
+      tags:
+        - webhooks
+        - billing
+  com.kaiten.instance.invoice.v1.released:
+    post:
+      description: "Triggered when a held invoice leaves its hold: released by the organization, recomposed from a sound journal, or found sound by a later check. It is issued in the same transaction."
+      operationId: onInstanceInvoiceReleased
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/ReleasedInvoice"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_INVOICE_RELEASED
+                  examples:
+                    - INSTANCE_INVOICE_RELEASED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.invoice.v1.released
+                  examples:
+                    - com.kaiten.instance.invoice.v1.released
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Invoice Released Webhook
+      tags:
+        - webhooks
+        - billing
+  com.kaiten.instance.invoice.v1.voided:
+    post:
+      description: Triggered when an invoice is voided. Its boundary can then be recomposed into a replacement.
+      operationId: onInstanceInvoiceVoided
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/VoidedInvoice"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_INVOICE_VOIDED
+                  examples:
+                    - INSTANCE_INVOICE_VOIDED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.invoice.v1.voided
+                  examples:
+                    - com.kaiten.instance.invoice.v1.voided
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Invoice Voided Webhook
       tags:
         - webhooks
         - billing

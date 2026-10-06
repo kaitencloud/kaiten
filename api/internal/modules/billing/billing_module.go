@@ -19,9 +19,14 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getupcominginvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinstanceinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/recomposeinvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/releaseinvoicehold"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updatebillingsettings"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/voidinvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/writeoffinvoice"
 )
 
 // Ports is what billing reads from other modules, implemented by them.
@@ -40,6 +45,11 @@ type UseCases struct {
 	ListInstanceInvoices  *listinstanceinvoices.UseCase
 	GetInvoice            *getinvoice.UseCase
 	GetUpcomingInvoice    *getupcominginvoice.UseCase
+	MarkInvoicePaid       *markinvoicepaid.UseCase
+	WriteOffInvoice       *writeoffinvoice.UseCase
+	VoidInvoice           *voidinvoice.UseCase
+	ReleaseInvoiceHold    *releaseinvoicehold.UseCase
+	RecomposeInvoice      *recomposeinvoice.UseCase
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -62,6 +72,11 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		ListInstanceInvoices:  listinstanceinvoices.NewUseCase(deps),
 		GetInvoice:            getinvoice.NewUseCase(deps),
 		GetUpcomingInvoice:    getupcominginvoice.NewUseCase(deps, closer),
+		MarkInvoicePaid:       markinvoicepaid.NewUseCase(deps),
+		WriteOffInvoice:       writeoffinvoice.NewUseCase(deps),
+		VoidInvoice:           voidinvoice.NewUseCase(deps),
+		ReleaseInvoiceHold:    releaseinvoicehold.NewUseCase(deps, closer),
+		RecomposeInvoice:      recomposeinvoice.NewUseCase(deps, closer),
 	}
 
 	// The billing jobs run only where billing is on and background work runs.

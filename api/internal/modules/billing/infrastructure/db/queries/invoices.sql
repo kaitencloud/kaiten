@@ -98,3 +98,107 @@ WHERE i.organization_id = sqlc.arg(organization_id)
 SELECT i.id
 FROM instance_invoice i
 WHERE i.replaces_invoice_id = sqlc.arg(id);
+
+
+-- name: LockSubscriptionByID :one
+-- An invoice action locks the invoice's subscription first, then the
+-- invoice: the order every billing writer takes them in.
+SELECT *
+FROM instance_billing ib
+WHERE ib.organization_id = sqlc.arg(organization_id)
+  AND ib.id = sqlc.arg(id)
+FOR UPDATE;
+
+
+-- name: LockInvoice :one
+SELECT *
+FROM instance_invoice i
+WHERE i.organization_id = sqlc.arg(organization_id)
+  AND i.id = sqlc.arg(id)
+FOR UPDATE;
+
+
+-- name: MarkInvoicePaid :one
+-- A MANUAL invoice paid, as the organization recorded it. A handoff still
+-- PENDING is acknowledged in the same write, its lease cleared.
+UPDATE instance_invoice
+SET status                     = 'PAID',
+    paid_at                    = sqlc.arg(paid_at),
+    marked_paid_by_id          = sqlc.arg(user_id),
+    external_reference         = coalesce(sqlc.narg(external_reference), external_reference),
+    handoff_status             = CASE WHEN handoff_status = 'PENDING' THEN 'ACKNOWLEDGED'::handoff_status ELSE handoff_status END,
+    handoff_acknowledged_at    = CASE WHEN handoff_status = 'PENDING' THEN sqlc.arg(now) ELSE handoff_acknowledged_at END,
+    handoff_acknowledged_by_id = CASE WHEN handoff_status = 'PENDING' THEN sqlc.arg(user_id) ELSE handoff_acknowledged_by_id END,
+    handoff_lease_id           = NULL,
+    handoff_leased_until       = NULL,
+    updated_at                 = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+
+-- name: WriteOffInvoice :one
+UPDATE instance_invoice
+SET status           = 'UNCOLLECTIBLE',
+    uncollectible_at = sqlc.arg(now),
+    updated_at       = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+
+-- name: VoidInvoice :one
+-- A void leaves the invoice's identity key free for a recompose. A held
+-- draft voided gives up its hold: only a DRAFT can be held.
+UPDATE instance_invoice
+SET status       = 'VOID',
+    voided_at    = sqlc.arg(now),
+    voided_by_id = sqlc.arg(user_id),
+    void_reason  = sqlc.arg(reason),
+    hold_reason  = NULL,
+    hold_detail  = NULL,
+    held_at      = NULL,
+    updated_at   = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+
+-- name: RewriteInvoice :one
+-- A held draft recomposed in place, or released: its lines and totals, its
+-- hold, and -- when it leaves the hold -- its issue, written whole.
+UPDATE instance_invoice
+SET lines                = sqlc.arg(lines),
+    service_from         = sqlc.arg(service_from),
+    service_to           = sqlc.arg(service_to),
+    subtotal_minor       = sqlc.arg(subtotal_minor),
+    discount_total_minor = sqlc.arg(discount_total_minor),
+    total_minor          = sqlc.arg(total_minor),
+    status               = sqlc.arg(status),
+    hold_reason          = sqlc.narg(hold_reason),
+    hold_detail          = sqlc.narg(hold_detail),
+    held_at              = sqlc.narg(held_at),
+    hold_released_at     = sqlc.narg(hold_released_at),
+    hold_released_by_id  = sqlc.narg(hold_released_by_id),
+    hold_release_reason  = sqlc.narg(hold_release_reason),
+    issued_at            = sqlc.narg(issued_at),
+    days_until_due       = sqlc.narg(days_until_due),
+    due_at               = sqlc.narg(due_at),
+    paid_at              = sqlc.narg(paid_at),
+    handoff_status       = sqlc.arg(handoff_status),
+    updated_at           = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+
+-- name: ListHeldInvoices :many
+-- Held drafts, oldest first, for the close to check again.
+SELECT i.id, i.organization_id
+FROM instance_invoice i
+WHERE i.hold_reason IS NOT NULL
+ORDER BY i.held_at, i.id
+LIMIT sqlc.arg(page_size);
+
+
+-- name: GetHeldInvoice :one
+SELECT i.id, i.organization_id, i.instance_billing_id
+FROM instance_invoice i
+WHERE i.id = sqlc.arg(id)
+  AND i.hold_reason IS NOT NULL;

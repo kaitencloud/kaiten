@@ -77,6 +77,11 @@ var awaitingSDKOperations = map[string]string{
 	"listInstanceInvoices":  awaitsBilling,
 	"getInvoice":            awaitsBilling,
 	"getUpcomingInvoice":    awaitsBilling,
+	"markInvoicePaid":       awaitsBilling,
+	"writeOffInvoice":       awaitsBilling,
+	"voidInvoice":           awaitsBilling,
+	"releaseInvoiceHold":    awaitsBilling,
+	"recomposeInvoice":      awaitsBilling,
 }
 
 func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {

@@ -168,18 +168,36 @@ func Compose(in Input) (Composition, error) {
 		lines = appendLine(lines, line)
 	}
 
-	if in.Kind == KindRenewal || in.Kind == KindFinal {
-		for _, price := range in.Metered {
-			line, ok, err := meteredLine(in, price)
-			if err != nil {
-				return Composition{}, err
-			}
-			if ok {
-				lines = appendLine(lines, line)
-			}
+	metered, err := MeteredLines(in)
+	if err != nil {
+		return Composition{}, err
+	}
+	return Assemble(append(lines, metered...))
+}
+
+// MeteredLines rates the metered prices of a RENEWAL or FINAL over its
+// arrears period; an ACTIVATION has none.
+func MeteredLines(in Input) ([]InvoiceLine, error) {
+	if in.Kind != KindRenewal && in.Kind != KindFinal {
+		return nil, nil
+	}
+	var lines []InvoiceLine
+	for _, price := range in.Metered {
+		line, ok, err := meteredLine(in, price)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			lines = appendLine(lines, line)
 		}
 	}
+	return lines, nil
+}
 
+// Assemble orders lines by service start, type, the price's display order
+// and its id, numbers them from 1, and totals them. A recompose assembles the
+// lines it kept with the ones it measured again.
+func Assemble(lines []InvoiceLine) (Composition, error) {
 	sort.SliceStable(lines, func(i, j int) bool {
 		a, b := lines[i], lines[j]
 		if !a.ServiceFrom.Equal(b.ServiceFrom) {

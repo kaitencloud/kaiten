@@ -12,8 +12,13 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinstanceinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/recomposeinvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/releaseinvoicehold"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updatebillingsettings"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/voidinvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/writeoffinvoice"
 )
 
 // registerBilling publishes the billing module's operations and the webhook
@@ -29,6 +34,11 @@ func registerBilling(core, platform huma.API, app kaiten.Billing, platformApp ka
 	listinvoices.RegisterEndpoint(core, app)
 	listinstanceinvoices.RegisterEndpoint(core, app)
 	getinvoice.RegisterEndpoint(core, app)
+	markinvoicepaid.RegisterEndpoint(core, app)
+	writeoffinvoice.RegisterEndpoint(core, app)
+	voidinvoice.RegisterEndpoint(core, app)
+	releaseinvoicehold.RegisterEndpoint(core, app)
+	recomposeinvoice.RegisterEndpoint(core, app)
 	closebillingperiods.RegisterEndpoint(core, app)
 	closebillingperiods.RegisterPlatformEndpoint(platform, platformApp)
 	invoices.RegisterWebhooks(core)
