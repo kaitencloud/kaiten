@@ -180,6 +180,33 @@ function RouteComponent() {
 
 The mutation, the validation and the navigation after the submit are all in `FeatureFlagForm`.
 
+### A route that exists only where a capability says so
+
+A route can depend on what the deployment ships: billing exists only where `GET /billing/capabilities` says so. Its guard is a `beforeLoad` that reads the capability from the cache. Where the capability is there, the route loads. Where it is not, the guard throws `notFound({ data })` with the reason, and the route's `notFoundComponent` renders an explanation in place of the screen: a link to a screen that is not there explains why instead of failing or sending the person elsewhere. The same `notFoundComponent` answers a path under the layout that is no page.
+
+```tsx
+// app/src/routes/billing/route.tsx (abridged)
+export const Route = createFileRoute('/billing')({
+  component: BillingLayout,
+  notFoundComponent: BillingNotFound,
+  beforeLoad: async ({ context }) => {
+    await requireBillingCapability(context.queryClient);
+  },
+});
+
+function BillingLayout() {
+  return (
+    <Suspense fallback={null}>
+      <Outlet />
+    </Suspense>
+  );
+}
+```
+
+The guard throws because a `beforeLoad` that returns lets the `beforeLoad` and the `loader` of every route below it run, whatever it put in the route context. A screen under a closed gate would ask the API for data that is not there. A throw stops them all, and only the capabilities are requested. A `notFound` that carries `data` is a not-found the route explains itself, so the tab title keeps the title of the trail instead of reading "Page not found" (`isNotFoundPage` in `app/src/routes/-components/path-breadcrumbs/breadcrumb-items.ts`).
+
+`requireBillingCapability` and `BillingNotFound` come from `@/domains/billing`, and the guard fails closed: see [billing](../../src/domains/billing/README.md). A route that guards on a platform flag instead (`routes/integrations/webhooks/route.tsx`) answers with the plain not-found page.
+
 ### Search parameters and edit dialogs
 
 A route declares the search parameters it accepts with `validateSearch`, and passes them to the feature as props. `app/src/routes/notifications/index.tsx` and `app/src/routes/feature-flags/index.tsx` do it for a status filter and a view mode; see [URL state](./state-management.md#url-state). The edit mode of a detail page (`?mode=configure`) and the routes that render a dialog are in [dialog via route](./dialog-via-route.md).

@@ -530,6 +530,11 @@ export default {
         },
         Detail: {
           editName: 'Edit name',
+          Billing: {
+            Subscribe: {
+              title: 'Subscribe',
+            },
+          },
           tabs: {
             overview: 'Overview',
             entitlements: 'Entitlements & Usage',
@@ -814,6 +819,9 @@ export default {
     Licenses: {
       title: 'Licenses',
       subtitle: 'Manage licenses and entitlement limits',
+      Prices: {
+        title: 'Prices',
+      },
       Table: {
         Columns: {
           name: 'Name',
@@ -2198,6 +2206,9 @@ export default {
     },
     Integrations: {
       title: 'Integrations',
+      PublishableKeys: {
+        title: 'Publishable keys',
+      },
       Connectors: {
         title: 'Connectors',
         pageDescription:
@@ -2659,6 +2670,27 @@ export default {
           },
         },
       },
+    },
+    Billing: {
+      title: 'Billing',
+      Invoices: {
+        title: 'Invoices',
+        Lines: {
+          title: 'Lines',
+        },
+      },
+      Handoff: {
+        title: 'Handoff',
+      },
+    },
+    Addons: {
+      title: 'Add-ons',
+      Compatibility: {
+        title: 'Compatible licenses',
+      },
+    },
+    Vouchers: {
+      title: 'Vouchers',
     },
     Notifications: {
       title: 'Notifications',

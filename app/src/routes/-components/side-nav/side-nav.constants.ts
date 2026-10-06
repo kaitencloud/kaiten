@@ -1,4 +1,5 @@
 import { Gauge, type LucideIcon, ScrollText, Settings } from 'lucide-react';
+import type { BillingFeatureKey } from '@/domains/billing';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { type PlatformFlag, WEBHOOKS_FLAG } from '@/lib/feature-flags';
 
@@ -17,6 +18,20 @@ export type SideNavSubRouteDefinition = {
    * so a hidden entry is not merely a missing link.
    */
   platformFlag?: PlatformFlag;
+};
+
+/** An entry of the Billing section. */
+export type SideNavBillingRouteDefinition = {
+  /**
+   * What the entry needs of billing (`GET /billing/capabilities`): billing on
+   * and, when a `feature` is named, a release that ships it. It is hidden while
+   * the capabilities load and whenever they cannot be read. Required, so that an
+   * entry cannot be added that would show where billing is off. The entry's
+   * route guards itself as well.
+   */
+  capability: { feature?: BillingFeatureKey };
+  labelKey: string;
+  path: string;
 };
 
 export type SideNavResolvedSubRoute = {
@@ -84,6 +99,31 @@ export const integrationsSubRoutes: SideNavSubRouteDefinition[] = [
   {
     labelKey: 'Pages.Integrations.Connectors.title',
     path: '/integrations/connectors',
+  },
+];
+
+// The Billing section: shown where billing is on, entry by entry by what the
+// release ships. It sits in the nav as one section because it is one gate.
+export const billingSubRoutes: SideNavBillingRouteDefinition[] = [
+  {
+    capability: {},
+    labelKey: 'Pages.Billing.Invoices.title',
+    path: '/billing/invoices',
+  },
+  {
+    capability: {},
+    labelKey: 'Pages.Billing.Handoff.title',
+    path: '/billing/handoff',
+  },
+  {
+    capability: { feature: 'addons' },
+    labelKey: 'Pages.Addons.title',
+    path: '/addons',
+  },
+  {
+    capability: { feature: 'vouchers' },
+    labelKey: 'Pages.Vouchers.title',
+    path: '/vouchers',
   },
 ];
 

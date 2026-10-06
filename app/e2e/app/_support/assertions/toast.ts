@@ -6,6 +6,11 @@ export async function expectToast(page: Page, message: string) {
   ).toBeVisible();
 }
 
+/** Asserts that no toast is on screen: nothing was reported to the person. */
+export async function expectNoToast(page: Page) {
+  await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
+}
+
 /**
  * Asserts that an error toast (data-type="error") is visible.
  * Does not check the message text — useful when the exact error message is
