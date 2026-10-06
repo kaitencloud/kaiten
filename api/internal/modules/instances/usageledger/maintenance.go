@@ -197,10 +197,9 @@ func (m *Maintenance) pass(ctx context.Context, conn *pgxpool.Conn) error {
 // the cheap purge, a catalog operation rather than a DELETE.
 //
 // Rows that are not invoiced yet must never be purged, whatever the
-// retention. Until subscriptions exist nothing is invoiced from the journal,
-// and no row of a partition this old is inside the idempotency horizon (the
-// configuration refuses a horizon longer than the retention), so no partition
-// past the ceiling holds a row that must be kept today.
+// retention (D-33): a partition past the ceiling that still holds one, for
+// instance an annual arrears subscription's usage, is kept and warned about
+// until the close has billed it.
 func (m *Maintenance) dropExpired(ctx context.Context, conn *pgxpool.Conn, now time.Time) error {
 	ceiling, enabled := m.cfg.Settings.dropCeilingMonths()
 	if !enabled {
@@ -215,6 +214,19 @@ func (m *Maintenance) dropExpired(ctx context.Context, conn *pgxpool.Conn, now t
 	var errs []error
 	for _, month := range attached {
 		if period.AddMonths(month, 1).After(boundary) {
+			continue
+		}
+		protected, err := db.New(conn).HasProtectedUsageLedgerRows(ctx, db.HasProtectedUsageLedgerRowsParams{
+			RangeStart: pgtype.Timestamp{Time: month, Valid: true},
+			RangeEnd:   pgtype.Timestamp{Time: period.AddMonths(month, 1), Valid: true},
+		})
+		if err != nil {
+			errs = append(errs, fmt.Errorf("check %s for protected rows: %w", partitionName(month), err))
+			continue
+		}
+		if protected {
+			slog.WarnContext(ctx, "usage_ledger: partition past the retention ceiling holds rows that are not invoiced yet, keeping it",
+				"partition", partitionName(month), "ceiling_months", ceiling)
 			continue
 		}
 		if err := dropPartition(ctx, conn, month, ddlLockID); err != nil {
