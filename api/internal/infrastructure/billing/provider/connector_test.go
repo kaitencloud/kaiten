@@ -14,7 +14,9 @@ import (
 
 type activations map[uuid.UUID]bool
 
-func (a activations) IsActive(_ context.Context, org uuid.UUID, _ string) (bool, error) { return a[org], nil }
+func (a activations) IsActive(_ context.Context, org uuid.UUID, _ string) (bool, error) {
+	return a[org], nil
+}
 
 type settingsStore map[uuid.UUID]map[string]any
 
@@ -31,7 +33,9 @@ type entitlements struct {
 	err      error
 }
 
-func (e entitlements) Entitled(context.Context, uuid.UUID, string) (bool, error) { return e.entitled, e.err }
+func (e entitlements) Entitled(context.Context, uuid.UUID, string) (bool, error) {
+	return e.entitled, e.err
+}
 
 func binding() provider.ConnectorBinding {
 	return provider.ConnectorBinding{
@@ -51,8 +55,8 @@ func TestConnectorProviderResolvesFromActivationAndSettings(t *testing.T) {
 	inactive, noSettings, broken, connected := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	registry := provider.NewStatic(noop.New())
 	registry.RegisterConnector(binding(), provider.ConnectorDeps{
-		Activations: activations{noSettings: true, broken: true, connected: true},
-		Settings:    settingsStore{broken: {"key": ""}, connected: {"key": "live"}},
+		Activations:  activations{noSettings: true, broken: true, connected: true},
+		Settings:     settingsStore{broken: {"key": ""}, connected: {"key": "live"}},
 		Entitlements: entitlements{entitled: true, err: nil}, VaultConfigured: func() bool { return true },
 	})
 
