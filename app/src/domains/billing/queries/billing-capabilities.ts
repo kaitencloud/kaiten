@@ -27,11 +27,16 @@ export const BILLING_CAPABILITIES_TIMEOUT_MS = 10_000;
  * billing is only shown once it answered, so an API that never does must not
  * leave the navigation waiting. The timer is the app's own rather than
  * `AbortSignal.timeout`, so that tests can drive it.
+ *
+ * The signal of the query is left alone on purpose. A query whose signal is read
+ * is cancelled when its last observer goes away, which React's strict mode does
+ * on every mount in development, and the route guard that is waiting on the same
+ * read would take that cancellation for a failure and close the gate on an API
+ * that was about to answer. The capabilities are cheap and shared: the read
+ * finishes, and its answer is cached for whoever asks next.
  */
-async function fetchBillingCapabilities(signal: AbortSignal) {
+async function fetchBillingCapabilities() {
   const request = new AbortController();
-  const stop = () => request.abort(signal.reason);
-  signal.addEventListener('abort', stop);
   const timer = setTimeout(
     () => request.abort(new Error('The billing capabilities timed out')),
     BILLING_CAPABILITIES_TIMEOUT_MS,
@@ -50,7 +55,6 @@ async function fetchBillingCapabilities(signal: AbortSignal) {
     throw error;
   } finally {
     clearTimeout(timer);
-    signal.removeEventListener('abort', stop);
   }
 }
 
@@ -65,7 +69,7 @@ async function fetchBillingCapabilities(signal: AbortSignal) {
  */
 export const billingCapabilitiesQueryOptions = queryOptions({
   ...getBillingCapabilitiesOptions(),
-  queryFn: ({ signal }) => fetchBillingCapabilities(signal),
+  queryFn: () => fetchBillingCapabilities(),
   retry: false,
   // The capabilities change with a deployment, not with a click.
   staleTime: 60_000,

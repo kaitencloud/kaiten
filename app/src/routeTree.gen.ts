@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BillingRouteRouteImport } from './routes/billing/route'
 import { Route as CustomersRouteRouteImport } from './routes/customers/route'
 import { Route as EntitlementsRouteRouteImport } from './routes/entitlements/route'
 import { Route as ReleasesRouteRouteImport } from './routes/releases/route'
@@ -91,6 +92,11 @@ import { Route as IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRou
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingRouteRoute = BillingRouteRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomersRouteRoute = CustomersRouteRouteImport.update({
@@ -534,6 +540,7 @@ const IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/billing': typeof BillingRouteRoute
   '/customers': typeof CustomersRouteRouteWithChildren
   '/entitlements': typeof EntitlementsRouteRouteWithChildren
   '/releases': typeof ReleasesRouteRouteWithChildren
@@ -614,6 +621,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/billing': typeof BillingRouteRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
@@ -682,6 +690,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/billing': typeof BillingRouteRoute
   '/customers': typeof CustomersRouteRouteWithChildren
   '/entitlements': typeof EntitlementsRouteRouteWithChildren
   '/releases': typeof ReleasesRouteRouteWithChildren
@@ -764,6 +773,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/billing'
     | '/customers'
     | '/entitlements'
     | '/releases'
@@ -844,6 +854,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/billing'
     | '/sign-in'
     | '/sign-up'
     | '/releases/components'
@@ -911,6 +922,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/billing'
     | '/customers'
     | '/entitlements'
     | '/releases'
@@ -992,6 +1004,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BillingRouteRoute: typeof BillingRouteRoute
   CustomersRouteRoute: typeof CustomersRouteRouteWithChildren
   EntitlementsRouteRoute: typeof EntitlementsRouteRouteWithChildren
   ReleasesRouteRoute: typeof ReleasesRouteRouteWithChildren
@@ -1025,6 +1038,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing': {
+      id: '/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof BillingRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customers': {
@@ -1891,6 +1911,7 @@ const IntegrationsWebhooksRouteRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BillingRouteRoute: BillingRouteRoute,
   CustomersRouteRoute: CustomersRouteRouteWithChildren,
   EntitlementsRouteRoute: EntitlementsRouteRouteWithChildren,
   ReleasesRouteRoute: ReleasesRouteRouteWithChildren,

@@ -543,6 +543,11 @@ export default {
         },
         Detail: {
           editName: 'Modifier le nom',
+          Billing: {
+            Subscribe: {
+              title: 'Souscrire',
+            },
+          },
           tabs: {
             overview: 'Overview',
             entitlements: 'Entitlements & Usage',
@@ -827,6 +832,9 @@ export default {
     Licenses: {
       title: 'Licences',
       subtitle: 'Gérez les licences et les limites de droits',
+      Prices: {
+        title: 'Prix',
+      },
       Table: {
         Columns: {
           name: 'Nom',
@@ -2243,6 +2251,9 @@ export default {
     },
     Integrations: {
       title: 'Intégrations',
+      PublishableKeys: {
+        title: 'Clés publiables',
+      },
       Connectors: {
         title: 'Connecteurs',
         pageDescription:
@@ -2745,6 +2756,27 @@ export default {
           },
         },
       },
+    },
+    Billing: {
+      title: 'Facturation',
+      Invoices: {
+        title: 'Factures',
+        Lines: {
+          title: 'Lignes',
+        },
+      },
+      Handoff: {
+        title: 'Transmission',
+      },
+    },
+    Addons: {
+      title: 'Options',
+      Compatibility: {
+        title: 'Licences compatibles',
+      },
+    },
+    Vouchers: {
+      title: 'Codes promo',
     },
     Notifications: {
       title: 'Notifications',

@@ -83,7 +83,7 @@ e2e/
 The packs under `e2e/app/` fall in three groups:
 
 - **Objects**, one folder each: `customers/`, `entitlements/`, `feature-flags/`, `instances/`, `licenses/`, `connectors/`.
-- **Billing**: `billing/` holds the scenarios of the billing capabilities (`BillingAppModel`) that every billing screen gates on; the packs of the billing screens join it as they are built.
+- **Billing**: `billing/` holds the scenarios of the billing capabilities (`BillingAppModel`) that every billing screen gates on, and the specs of the navigation and of what a billing link explains where billing is not there; the packs of the billing screens join it as they are built.
 - **A workspace**: `release-management/` covers releases, components and deployment zones together, because they form one workspace with shared state.
 - **Read-only and cross-cutting checks**: `audit-trail/`, `dashboard/`, `notifications/`, `accessibility/` (axe), `i18n/` and `mobile/` (a Pixel 5 viewport).
 
