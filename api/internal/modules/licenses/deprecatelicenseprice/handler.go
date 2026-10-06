@@ -62,7 +62,7 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, priceID uuid.
 		}
 		return u.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
 			user.OrganizationID, events.LicensePriceDeprecated.Name, events.LicensePriceDeprecated.Type,
-			prices.Event{Price: *deprecated, LicenseSlug: licenseSlug, FamilySlug: version.FamilySlug}, nil,
+			prices.LicensePriceEvent{Price: *deprecated, LicenseSlug: licenseSlug, FamilySlug: version.FamilySlug}, nil,
 		))
 	})
 	if err != nil {

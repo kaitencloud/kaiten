@@ -88,10 +88,10 @@ func TestCreateLicensePrice(t *testing.T) {
 			call(t, "GET", "/api/licenses/"+slug+"/prices/"+price.ID.String(), nil), fiber.StatusOK)
 		require.Equal(t, price, read)
 
-		var created []prices.Event
+		var created []prices.LicensePriceEvent
 		for _, event := range commonfixture.ListOutboxEvents(t, testServer.Dependencies.DB, testDb.DefaultData.OrganizationID) {
 			if event.EventName == "LICENSE_PRICE_CREATED" {
-				var payload prices.Event
+				var payload prices.LicensePriceEvent
 				require.NoError(t, json.Unmarshal(event.Data, &payload))
 				created = append(created, payload)
 			}
@@ -313,7 +313,7 @@ func TestUpdateLicensePrice(t *testing.T) {
 		var changed [][]string
 		for _, event := range commonfixture.ListOutboxEvents(t, testServer.Dependencies.DB, testDb.DefaultData.OrganizationID) {
 			if event.EventName == "LICENSE_PRICE_UPDATED" {
-				var payload prices.UpdatedEvent
+				var payload prices.LicensePriceUpdatedEvent
 				require.NoError(t, json.Unmarshal(event.Data, &payload))
 				changed = append(changed, payload.ChangedFields)
 			}

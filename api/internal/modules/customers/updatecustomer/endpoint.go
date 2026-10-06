@@ -82,7 +82,7 @@ func RegisterEndpoint(api huma.API, app Updater) {
 func RegisterWebhook(api huma.API) {
 	webhook.Declare(api, webhook.Declaration{
 		Event:       events.CustomerUpdated,
-		Data:        (*schema.Customer)(nil),
+		Data:        (*schema.CustomerEvent)(nil),
 		OperationID: "onCustomerUpdated",
 		Summary:     "Customer Updated Webhook",
 		Description: "Triggered when a customer is updated.",

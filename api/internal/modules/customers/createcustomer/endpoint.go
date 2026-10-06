@@ -73,7 +73,7 @@ func RegisterWebhook(api huma.API) {
 		api,
 		webhook.Declaration{
 			Event:       events.CustomerCreated,
-			Data:        (*schema.Customer)(nil),
+			Data:        (*schema.CustomerEvent)(nil),
 			OperationID: "onCustomerCreated",
 			Summary:     "Customer Created Webhook",
 			Description: "Triggered when a new customer is created.",
