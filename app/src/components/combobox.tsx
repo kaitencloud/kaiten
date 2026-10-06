@@ -197,7 +197,11 @@ export const Combobox = <TOption,>({
           </Button>
         }
       />
-      <PopoverContent aria-label={searchPlaceholder} className="p-0 popover-content-full-width" align="start">
+      <PopoverContent
+        aria-label={searchPlaceholder}
+        className="p-0 popover-content-full-width"
+        align="start"
+      >
         <ComboboxPanel<ComboboxEntry>
           items={entries}
           value={null}

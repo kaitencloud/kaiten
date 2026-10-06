@@ -112,7 +112,11 @@ export function DataTablePagination<TData extends RowData>({
                   table.setPageSize(Number(value));
                 }}
               >
-                <SelectTrigger aria-label={t('Common.rowsPerPage')} size="sm" className="h-8 w-20">
+                <SelectTrigger
+                  aria-label={t('Common.rowsPerPage')}
+                  size="sm"
+                  className="h-8 w-20"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

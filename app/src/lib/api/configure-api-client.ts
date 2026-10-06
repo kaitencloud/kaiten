@@ -21,16 +21,20 @@ export function configureApiClient() {
   });
 
   // Preserve HTTP status and parsed body; network errors have no response.
-  client.interceptors.error.use(
-    (error, response) => {
-      // Cancellation is transport control flow, not a failed business request.
-      if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') return error;
-      return new ApiError({
-        status: response?.status,
-        data: error,
-        response,
-        cause: error,
-      });
-    },
-  );
+  client.interceptors.error.use((error, response) => {
+    // Cancellation is transport control flow, not a failed business request.
+    if (
+      error &&
+      typeof error === 'object' &&
+      'name' in error &&
+      error.name === 'AbortError'
+    )
+      return error;
+    return new ApiError({
+      status: response?.status,
+      data: error,
+      response,
+      cause: error,
+    });
+  });
 }
