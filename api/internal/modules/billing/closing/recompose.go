@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/money"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
@@ -147,10 +148,30 @@ func (c *Closer) Released(ctx context.Context, row db.InstanceInvoice, releasedB
 // chain in an append-only journal does not mend: most holds stay until a
 // person releases or recomposes them.
 func (c *Closer) RecheckHeld(ctx context.Context, limit int) (released int, err error) {
-	held, err := c.deps.Queries(ctx).ListHeldInvoices(ctx, int32(limit)) //nolint:gosec // bounded by the batch size
+	c.cursorMu.Lock()
+	cursor := c.heldCursor
+	c.cursorMu.Unlock()
+
+	held, err := c.listHeld(ctx, cursor, limit)
 	if err != nil {
 		return 0, err
 	}
+	// Past the last held invoice: wrap to the oldest, so a pass never finds
+	// nothing while holds remain.
+	if len(held) == 0 && cursor != nil {
+		if held, err = c.listHeld(ctx, nil, limit); err != nil {
+			return 0, err
+		}
+	}
+	var next *heldCursor
+	if len(held) == limit {
+		last := held[len(held)-1]
+		next = &heldCursor{HeldAt: last.HeldAt, ID: last.ID}
+	}
+	c.cursorMu.Lock()
+	c.heldCursor = next
+	c.cursorMu.Unlock()
+
 	for _, invoice := range held {
 		ok, err := c.recheckOne(ctx, invoice.ID)
 		if err != nil {
@@ -159,9 +180,24 @@ func (c *Closer) RecheckHeld(ctx context.Context, limit int) (released int, err 
 		}
 		if ok {
 			released++
+			add(ctx, c.m.released, 1)
 		}
 	}
 	return released, nil
+}
+
+// heldCursor is where a re-check pass stopped: the next one starts after it.
+type heldCursor struct {
+	HeldAt pgtype.Timestamp
+	ID     uuid.UUID
+}
+
+func (c *Closer) listHeld(ctx context.Context, after *heldCursor, limit int) ([]db.ListHeldInvoicesRow, error) {
+	params := db.ListHeldInvoicesParams{PageSize: int32(limit)} //nolint:gosec // bounded by the batch size
+	if after != nil {
+		params.AfterHeldAt, params.AfterID = after.HeldAt, after.ID
+	}
+	return c.deps.Queries(ctx).ListHeldInvoices(ctx, params)
 }
 
 func (c *Closer) recheckOne(ctx context.Context, invoiceID uuid.UUID) (released bool, err error) {
