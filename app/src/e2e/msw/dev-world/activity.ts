@@ -147,7 +147,16 @@ export const createAuditTrail = ({
       eventName: 'CUSTOMER_CREATED',
       eventType: 'com.kaiten.customer.v1.created',
       id: 'dev-audit-04',
-      payload: { name: gamma.name, slug: gamma.slug },
+      payload: {
+        createdAt: gamma.createdAt,
+        createdBy: gamma.createdBy,
+        externalCustomerId: gamma.externalCustomerId ?? null,
+        id: gamma.id,
+        name: gamma.name,
+        slug: gamma.slug,
+        updatedAt: gamma.updatedAt,
+        updatedBy: gamma.updatedBy,
+      },
       timestamp: gamma.createdAt,
     },
     ...(lastDeployment
