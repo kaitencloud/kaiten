@@ -58,4 +58,8 @@ const (
 	// Connector entitlements are BOOLEAN and read rather than reported: see
 	// entitlements.go, and pkg/dogfooding for why each connector has its own slug.
 	ConnectorAttioEntitlementSlug = slugs.ConnectorAttioEntitlementSlug
+	BillingEntitlementSlug        = slugs.BillingEntitlementSlug
+
+	// CONFIG entitlements are read through ConfigValue, never reported.
+	UsageHistoryRetentionEntitlementSlug = slugs.UsageHistoryRetentionEntitlementSlug
 )

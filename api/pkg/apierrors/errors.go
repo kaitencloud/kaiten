@@ -72,6 +72,10 @@ type Error struct {
 	Message string         // Human-readable message
 	Err     error          // Wrapped error (optional)
 	Details map[string]any // Additional details (e.g., validation errors)
+	// Errors are the problem's `errors` entries for a kind other than
+	// Validation (whose entries come from Details): structured detail a
+	// client can act on, such as the original report behind a 409.
+	Errors []*ErrorDetail
 }
 
 func (e *Error) Error() string {
@@ -164,6 +168,11 @@ func Conflict(code, message string) *Error {
 	return &Error{Kind: KindConflict, Code: code, Message: message}
 }
 
+// ConflictWithErrors is Conflict with `errors` entries on the problem body.
+func ConflictWithErrors(code, message string, errs ...*ErrorDetail) *Error {
+	return &Error{Kind: KindConflict, Code: code, Message: message, Errors: errs}
+}
+
 func Validation(code, message string) *Error {
 	return &Error{Kind: KindValidation, Code: code, Message: message}
 }
@@ -174,6 +183,12 @@ func ValidationWithDetails(code, message string, details map[string]any) *Error 
 
 func UnprocessableEntity(code, message string) *Error {
 	return &Error{Kind: KindUnprocessable, Code: code, Message: message}
+}
+
+// UnprocessableEntityWithErrors is UnprocessableEntity with `errors` entries on
+// the problem body.
+func UnprocessableEntityWithErrors(code, message string, errs ...*ErrorDetail) *Error {
+	return &Error{Kind: KindUnprocessable, Code: code, Message: message, Errors: errs}
 }
 
 // UnprocessableEntityf creates an unprocessable entity error with a

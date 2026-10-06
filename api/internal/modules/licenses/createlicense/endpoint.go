@@ -90,6 +90,11 @@ func RegisterEndpoint(api huma.API, app Creator) {
 			FamilyID:       familyID,
 			IsDefault:      input.Body.IsDefault,
 			LifecycleState: input.Body.LifecycleState,
+
+			PricingType:           input.Body.PricingType,
+			TrialPeriodDays:       input.Body.TrialPeriodDays,
+			RequiresPaymentMethod: input.Body.RequiresPaymentMethod != nil && *input.Body.RequiresPaymentMethod,
+			SelfServeCtaURL:       input.Body.SelfServeCtaURL,
 		}
 
 		license, err := app.Create(ctx, cl, command)

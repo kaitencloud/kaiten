@@ -77,6 +77,22 @@ const (
 	ConnectorAttioEntitlementSlug = "connector-attio"
 )
 
+// BillingEntitlementSlug gates the commercial surface (licence prices, invoice
+// previews, subscriptions) for an organization licensed by a licensing
+// authority. BOOLEAN, read rather than reported, like the connectors.
+const BillingEntitlementSlug = "billing"
+
+// Configuration entitlement slugs (CONFIG). A CONFIG entitlement carries an
+// object rather than a yes/no or a quota: the licence states a setting, and kaiten
+// reads it for the organization.
+//
+// UsageHistoryRetentionEntitlementSlug is how many months of usage history the
+// organization keeps, as {"months": N} with N at least 1. A deployment with no
+// licensing authority reads the window from its own configuration instead.
+const (
+	UsageHistoryRetentionEntitlementSlug = "usage-history-retention"
+)
+
 // Entitlement group slugs. Groups give the SDK its presentation/category axis
 // so the storefront renders meaningful sections instead of a flat list. The
 // headline resource quotas land in customer-facing groups; the raw
@@ -135,6 +151,9 @@ var EntitlementSlugs = []string{
 	ServiceAccountTokenReadEntitlementSlug,
 
 	ConnectorAttioEntitlementSlug,
+	BillingEntitlementSlug,
+
+	UsageHistoryRetentionEntitlementSlug,
 }
 
 // BooleanEntitlementSlugs are the catalogue entries that must be created as BOOLEAN
@@ -150,6 +169,18 @@ var EntitlementSlugs = []string{
 // A subset of EntitlementSlugs, and disjoint from MeteredEntitlementSlugs.
 var BooleanEntitlementSlugs = []string{
 	ConnectorAttioEntitlementSlug,
+	BillingEntitlementSlug,
+}
+
+// ConfigEntitlementSlugs are the catalogue entries that must be created as CONFIG
+// entitlements, whose value is an object. Read with a NUMBER or BOOLEAN shape, a
+// setting reads as unknown for every organization, which is silent -- hence the
+// list, for the same reason BooleanEntitlementSlugs exists.
+//
+// A subset of EntitlementSlugs, and disjoint from BooleanEntitlementSlugs and
+// MeteredEntitlementSlugs.
+var ConfigEntitlementSlugs = []string{
+	UsageHistoryRetentionEntitlementSlug,
 }
 
 // MeteredEntitlementSlugs are the headline write quotas -- the ones the SDK's

@@ -49,7 +49,7 @@ func (h *UseCase) Execute(ctx context.Context, slug string) error {
 			user.OrganizationID,
 			events.CustomerDeleted.Name,
 			events.CustomerDeleted.Type,
-			deletedCustomer,
+			deletedCustomer.WithoutPersonalData(),
 			nil,
 		)
 

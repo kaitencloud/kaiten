@@ -13,6 +13,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/licenseview"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	shared "github.com/kaitencloud/kaiten/api/internal/shared/user"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -47,6 +48,9 @@ func (r *CommandRepository) entitlements(ctx context.Context) licenseview.Port {
 }
 
 func (r *CommandRepository) AssociateEntitlementToLicense(ctx context.Context, licenseSlug string, command *Command, userID uuid.UUID, organizationID uuid.UUID) (*schema.LicenseEntitlement, error) {
+	if err := prices.RefuseBilled(ctx, r.q(ctx), "AssociateEntitlementToLicense", organizationID, licenseSlug); err != nil {
+		return nil, err
+	}
 	entitlement, err := r.resolveEntitlementSlug(ctx, command.EntitlementSlug, organizationID)
 	if err != nil {
 		return nil, err

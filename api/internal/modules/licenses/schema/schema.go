@@ -45,6 +45,16 @@ func (e *Type) Scan(src interface{}) error {
 // Draft and Archived are both unservable and resolution treats them alike, but
 // they are not the same fact: one has never been offered, the other has been
 // withdrawn. That distinction is why this is a state and not a boolean.
+// PricingType is how a licence version is sold: FREE and PAID are self-serve
+// candidates, CUSTOM goes through a conversation ("Contact us").
+type PricingType string
+
+const (
+	PricingTypeFree   PricingType = "FREE"
+	PricingTypePaid   PricingType = "PAID"
+	PricingTypeCustom PricingType = "CUSTOM"
+)
+
 type LifecycleState string
 
 const (
@@ -99,6 +109,11 @@ type License struct {
 	LifecycleState LifecycleState `json:"lifecycleState,omitempty" example:"PUBLISHED" enum:"DRAFT,PUBLISHED,ARCHIVED" doc:"Whether this version may be served. Always present in responses. Optional on create, where it is DRAFT or PUBLISHED and PUBLISHED when omitted; ARCHIVED is refused (CreateLicense.LifecycleStateNotSettable), since a version is archived by withdrawing it from sale. After that it changes only through publish-license (DRAFT to PUBLISHED), archive-license (PUBLISHED to ARCHIVED) and unarchive-license (ARCHIVED to PUBLISHED); update accepts the stored state and refuses any other (UpdateLicense.LifecycleStateNotSettable). Only a PUBLISHED version can be the family's default. An ARCHIVED version cannot be assigned to an instance (CreateInstance.LicenseArchived, UpdateInstance.LicenseArchived); instances already on it keep it."`
 	CreatedAt      time.Time      `json:"createdAt" readOnly:"true" example:"2023-10-01T12:00:00Z" doc:"Timestamp when this license was created"`
 	UpdatedAt      time.Time      `json:"updatedAt" readOnly:"true" example:"2023-10-02T12:00:00Z" doc:"Timestamp when this license was last updated"`
+
+	PricingType           PricingType `json:"pricingType,omitempty" example:"PAID" enum:"FREE,PAID,CUSTOM" doc:"How this version is sold. FREE and PAID can be bought self-serve; CUSTOM sends a buyer to selfServeCtaUrl or a conversation. Always present in responses. On create it defaults to CUSTOM; on update, omit it to keep the stored value."`
+	TrialPeriodDays       *int32      `json:"trialPeriodDays,omitempty" example:"14" minimum:"0" doc:"Trial length, in days, a subscription to this version starts with by default. Absent when there is none. Must be at least 1 on create (CreateLicense.InvalidTrialPeriodDays). On update, omit it to keep the stored value, or send 0 to remove the trial."`
+	RequiresPaymentMethod *bool       `json:"requiresPaymentMethod,omitempty" example:"false" doc:"Whether self-serve signup captures a payment method before activation. Always present in responses; false when omitted on create. On update, omit it to keep the stored value."`
+	SelfServeCtaURL       *string     `json:"selfServeCtaUrl,omitempty" example:"https://example.com/contact-sales" maxLength:"2048" doc:"Where a buyer is sent when this version cannot be bought self-serve: an http(s) URL of at most 2048 characters (CreateLicense.InvalidSelfServeCtaUrl). Absent when there is none. On update, omit it to keep the stored value, or send an empty string to remove it."`
 }
 
 // LicenseFamily is the product a license is a version of, as the GraphQL

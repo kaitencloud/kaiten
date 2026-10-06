@@ -2,8 +2,15 @@ package reportentitlementusagemetric
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"log/slog"
 	"time"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
@@ -54,25 +61,121 @@ type Deps struct {
 	UserProvider  currentuser.Provider
 	UsageReporter services.UsageReporter
 	Uof           *uow.UnitOfWork
+	// MaxRolloverClosures caps how many usage windows one report may close
+	// (KAITEN_USAGE_ROLLOVER_MAX_CLOSURES). Zero or less means
+	// DefaultMaxRolloverClosures.
+	MaxRolloverClosures int
+	// IdempotencyWindow is how long a transactionId is remembered
+	// (KAITEN_USAGE_IDEMPOTENCY_WINDOW). Zero or less means
+	// DefaultIdempotencyWindow.
+	IdempotencyWindow time.Duration
 }
 
+// DefaultIdempotencyWindow is 35 days: reports are dated on receipt, so a
+// buffered report replayed late (an agent flushing after reconnecting, a batch
+// re-sent after an incident) must be recognized across a whole monthly period
+// plus margin.
+const DefaultIdempotencyWindow = 35 * 24 * time.Hour
+
+// idempotencyLookahead bounds the key lookup above the report's instant: a
+// key accepted "in the future" only exists if the clock stepped back, and the
+// bound keeps the scan off the empty partitions ahead.
+const idempotencyLookahead = 24 * time.Hour
+
+// Result is what a report answers with, and whether it is the replay of an
+// earlier report sent under the same transactionId (Idempotent-Replayed).
+type Result struct {
+	Usage    *entitlementUsageSchema.EntitlementUsage
+	Replayed bool
+	// MetadataDropped is the Kaiten-Metadata-Dropped value when the report's
+	// metadata was not stored, "" otherwise. A replay never carries it.
+	MetadataDropped string
+}
+
+const usageReportMeter = "kaiten.usage.report"
+
 type UseCase struct {
-	deps        Deps
-	queryRepo   *QueryRepository
-	commandRepo *CommandRepository
-	outbox      *outbox.ScopedRepository
+	deps                Deps
+	queryRepo           *QueryRepository
+	commandRepo         *CommandRepository
+	outbox              *outbox.ScopedRepository
+	maxRolloverClosures int
+	idempotencyWindow   time.Duration
+	rolloverCapExceeded metric.Int64Counter
+	ledgerUnavailable   metric.Int64Counter
+	idempotentReplays   metric.Int64Counter
+	idempotencyConflict metric.Int64Counter
+	metadataDropped     metric.Int64Counter
 }
 
 func NewUseCase(deps Deps) *UseCase {
+	maxRolloverClosures := deps.MaxRolloverClosures
+	if maxRolloverClosures <= 0 {
+		maxRolloverClosures = DefaultMaxRolloverClosures
+	}
+	idempotencyWindow := deps.IdempotencyWindow
+	if idempotencyWindow <= 0 {
+		idempotencyWindow = DefaultIdempotencyWindow
+	}
+
+	meter := otel.GetMeterProvider().Meter(usageReportMeter)
+	rolloverCapExceeded, err := meter.Int64Counter(
+		"kaiten.usage.report.rollover_cap_exceeded",
+		metric.WithDescription("Usage reports refused because closing the windows since the last report would exceed the rollover cap"),
+		metric.WithUnit("{report}"),
+	)
+	if err != nil {
+		slog.Warn("failed to register usage report metric", "metric", "rollover_cap_exceeded", "error", err)
+	}
+	idempotentReplays, err := meter.Int64Counter(
+		"kaiten.usage.report.idempotent_replays",
+		metric.WithDescription("Usage reports answered as the replay of an earlier report with the same transactionId"),
+		metric.WithUnit("{report}"),
+	)
+	if err != nil {
+		slog.Warn("failed to register usage report metric", "metric", "idempotent_replays", "error", err)
+	}
+	idempotencyConflict, err := meter.Int64Counter(
+		"kaiten.usage.report.idempotency_conflicts",
+		metric.WithDescription("Usage reports refused because their transactionId was already used for another report: a client bug"),
+		metric.WithUnit("{report}"),
+	)
+	if err != nil {
+		slog.Warn("failed to register usage report metric", "metric", "idempotency_conflicts", "error", err)
+	}
+	metadataDropped, err := meter.Int64Counter(
+		"kaiten.usage.report.metadata_dropped",
+		metric.WithDescription("Usage reports counted without their metadata, by reason (too_large: above 4 KiB)"),
+		metric.WithUnit("{report}"),
+	)
+	if err != nil {
+		slog.Warn("failed to register usage report metric", "metric", "metadata_dropped", "error", err)
+	}
+	ledgerUnavailable, err := meter.Int64Counter(
+		"kaiten.usage.ledger.unavailable",
+		metric.WithDescription("Usage reports refused because no usage_ledger partition covers the instant they were accepted at"),
+		metric.WithUnit("{report}"),
+	)
+	if err != nil {
+		slog.Warn("failed to register usage report metric", "metric", "ledger.unavailable", "error", err)
+	}
+
 	return &UseCase{
-		deps:        deps,
-		queryRepo:   NewQueryRepository(deps.Uof),
-		commandRepo: NewCommandRepository(deps.Uof),
-		outbox:      outbox.NewScopedRepository(deps.Uof),
+		deps:                deps,
+		queryRepo:           NewQueryRepository(deps.Uof),
+		commandRepo:         NewCommandRepository(deps.Uof),
+		outbox:              outbox.NewScopedRepository(deps.Uof),
+		maxRolloverClosures: maxRolloverClosures,
+		idempotencyWindow:   idempotencyWindow,
+		rolloverCapExceeded: rolloverCapExceeded,
+		ledgerUnavailable:   ledgerUnavailable,
+		idempotentReplays:   idempotentReplays,
+		idempotencyConflict: idempotencyConflict,
+		metadataDropped:     metadataDropped,
 	}
 }
 
-func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug string, command *Command) (*entitlementUsageSchema.EntitlementUsage, error) {
+func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug string, command *Command) (*Result, error) {
 	user, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return nil, err
@@ -80,8 +183,15 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 
 	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.EntitlementValuesReportedEntitlementSlug)
 
+	// Encoded before the transaction: it depends on nothing stored, and is
+	// only written if the report is accepted.
+	properties, metadataTooLarge, err := encodeMetadata(command.Metadata)
+	if err != nil {
+		return nil, err
+	}
+
 	var result *entitlementUsageSchema.EntitlementUsage
-	var thresholdExceeded bool
+	var thresholdExceeded, replayed bool
 
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		entitlementUsageCtx, err := h.queryRepo.GetEntitlementUsageContext(
@@ -101,6 +211,56 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 			)
 		}
 
+		// The instant this report happens at, read by GetEntitlementUsageContext
+		// once it held the pair's lock.
+		reportedAt := entitlementUsageCtx.ReportedAt
+
+		// A transactionId this pair already accepted within the horizon:
+		// answer what that report got, or refuse a different report under the
+		// same key. Either way nothing is written -- no counter, no rollover,
+		// no event, no row -- and the lookup runs under the pair's lock, so two
+		// identical requests in flight apply once and replay once. A REJECTED
+		// report wrote no row, so its key was never consumed.
+		if command.TransactionID != nil {
+			original, err := h.queryRepo.FindReportByTransactionID(
+				ctx, user.OrganizationID, entitlementUsageCtx.InstanceID, entitlementUsageCtx.EntitlementID,
+				*command.TransactionID, command.Value,
+				reportedAt.Add(-h.idempotencyWindow), reportedAt.Add(idempotencyLookahead),
+			)
+			if err != nil {
+				return err
+			}
+			if original != nil {
+				if original.Behavior != command.Behavior || !original.SameValue {
+					h.idempotencyConflict.Add(ctx, 1)
+					slog.WarnContext(ctx, "usage report refused: transactionId reused for another report",
+						"organization_id", user.OrganizationID,
+						"instance_id", entitlementUsageCtx.InstanceID,
+						"entitlement_id", entitlementUsageCtx.EntitlementID,
+						"original_report_seq", original.ReportSeq,
+					)
+					return kaitenerrors.ConflictWithErrors(
+						"ReportEntitlementUsageMetric.TransactionIdReused",
+						fmt.Sprintf("transactionId %q was already used for another report of %s; send a correction under a new key", *command.TransactionID, entitlementSlug),
+						&kaitenerrors.ErrorDetail{
+							Message:  "the report this transactionId was first accepted with",
+							Location: "body.transactionId",
+							Value: map[string]any{
+								"reportSeq":  original.ReportSeq,
+								"reportedAt": original.ReportedAt,
+								"behavior":   original.Behavior,
+								"value":      json.Number(original.ReportedValue),
+							},
+						},
+					)
+				}
+				h.idempotentReplays.Add(ctx, 1)
+				result = original.response(entitlementUsageCtx.EntitlementID, entitlementUsageCtx.EntitlementSlug)
+				replayed = true
+				return nil
+			}
+		}
+
 		aggregationMethod := resolveAggregationMethod(entitlementUsageCtx.AggregationMethod)
 
 		currentUsage := entitlementvalue.NewDefaultNumberUsageValue()
@@ -111,7 +271,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 			}
 		}
 
-		threshold, err := entitlementvalue.ParseNumberThreshold(entitlementUsageCtx.LicenseEntitlementValue)
+		threshold, err := entitlementvalue.ParseNumberThreshold(entitlementUsageCtx.EffectiveValue)
 		if err != nil {
 			return kaitenerrors.Validation("ReportEntitlementUsageMetric.InvalidLicenseEntitlementValue", err.Error())
 		}
@@ -124,14 +284,23 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 		// currentPeriodStart/End response fields.
 		var resolvedPeriodStart, resolvedPeriodEnd *time.Time
 		if entitlementUsageCtx.ResetPeriod != nil {
-			now, err := h.queryRepo.GetDatabaseNow(ctx)
+			// A stored window ahead of the computed one stays current (see
+			// period.ResolveCurrent): the counter keeps counting where it is
+			// instead of rolling over from a window that is already ahead.
+			window, storedAhead, err := period.ResolveCurrent(
+				reportedAt, entitlementUsageCtx.PeriodStart,
+				*entitlementUsageCtx.ResetPeriod, *entitlementUsageCtx.ResetAnchor, entitlementUsageCtx.LicenseStart,
+			)
 			if err != nil {
 				return err
 			}
-
-			window, err := period.Current(now, *entitlementUsageCtx.ResetPeriod, *entitlementUsageCtx.ResetAnchor, entitlementUsageCtx.LicenseStart)
-			if err != nil {
-				return err
+			if storedAhead {
+				slog.WarnContext(ctx, "usage window ahead of the database clock, kept as current",
+					"instance_id", entitlementUsageCtx.InstanceID,
+					"entitlement_id", entitlementUsageCtx.EntitlementID,
+					"stored_period_start", window.Start,
+					"reported_at", reportedAt,
+				)
 			}
 
 			hasStoredRow := entitlementUsageCtx.UsageValue != nil
@@ -139,9 +308,23 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 
 			if stale {
 				closures, err := planRollover(
+					ctx, h.maxRolloverClosures,
 					entitlementUsageCtx.PeriodStart, currentUsage.Value, currentUsage.EventCount,
 					window, *entitlementUsageCtx.ResetPeriod, *entitlementUsageCtx.ResetAnchor, entitlementUsageCtx.LicenseStart,
 				)
+				if errors.Is(err, errRolloverLimitExceeded) {
+					h.rolloverCapExceeded.Add(ctx, 1)
+					slog.ErrorContext(ctx, "usage report refused: too many windows to roll over",
+						"instance_id", entitlementUsageCtx.InstanceID,
+						"entitlement_id", entitlementUsageCtx.EntitlementID,
+						"stored_period_start", entitlementUsageCtx.PeriodStart,
+						"max_closures", h.maxRolloverClosures,
+					)
+					return kaitenerrors.Internal(
+						"ReportEntitlementUsageMetric.RolloverLimitExceeded",
+						fmt.Sprintf("closing the usage windows elapsed since the last report of %s would exceed the limit of %d", entitlementSlug, h.maxRolloverClosures),
+					)
+				}
 				if err != nil {
 					return err
 				}
@@ -166,9 +349,9 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 				// One round trip via CreateOutboxEvents regardless of how many
 				// windows were skipped: a dormant HOUR/DAY entitlement can
 				// legitimately produce thousands of closures in a single
-				// report (see the "no cap" decision in the ticket), and
-				// inserting them one at a time would hold the advisory lock
-				// and this transaction open far longer than necessary.
+				// report (up to maxRolloverClosures), and inserting them one at
+				// a time would hold the advisory lock and this transaction
+				// open far longer than necessary.
 				rolloverEventsToEmit := make([]outbox.Outbox, len(closures))
 				for i, c := range closures {
 					payload := InstanceEntitlementUsagePeriodRolledOver{
@@ -188,7 +371,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 						events.InstanceEntitlementUsagePeriodRolledOver.Type,
 						payload,
 						outbox.AuditHeaders{InstanceID: &entitlementUsageCtx.InstanceID},
-					)
+					).At(reportedAt)
 				}
 				if err := h.outbox.CreateOutboxEvents(ctx, rolloverEventsToEmit); err != nil {
 					return err
@@ -232,7 +415,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 					Status:          events.UsageReportStatusRejected,
 				},
 				outbox.AuditHeaders{InstanceID: &entitlementUsageCtx.InstanceID},
-			)
+			).At(reportedAt)
 			if err := h.outbox.CreateOutboxEvent(ctx, event); err != nil {
 				return err
 			}
@@ -243,20 +426,64 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 
 		// From here the report is accepted: within the cap, or a soft limit
 		// admitting an overage within its bound. Usage is always persisted,
-		// overage included.
+		// overage included, and journalled: the counter moves the pair's
+		// report_seq forward and the usage_ledger row records this report
+		// under it, in this transaction and under this lock, so the journal
+		// explains the counter row for row.
 		updatedUsageBytes, err := entitlementvalue.ToBytes(updatedUsage)
 		if err != nil {
 			return err
 		}
 
-		if err := h.commandRepo.ReportEntitlementUsage(
+		reportSeq, err := h.commandRepo.AcceptEntitlementUsage(
 			ctx,
 			entitlementUsageCtx.InstanceID,
 			entitlementUsageCtx.EntitlementID,
 			updatedUsageBytes,
 			user.OrganizationID,
 			resolvedPeriodStart,
-		); err != nil {
+		)
+		if err != nil {
+			return err
+		}
+
+		if err := h.commandRepo.AppendUsageLedger(ctx, LedgerEntry{
+			OrganizationID:    user.OrganizationID,
+			InstanceID:        entitlementUsageCtx.InstanceID,
+			EntitlementID:     entitlementUsageCtx.EntitlementID,
+			LicenseID:         entitlementUsageCtx.LicenseID,
+			ReportSeq:         reportSeq,
+			ReportedAt:        reportedAt,
+			WindowStart:       resolvedPeriodStart,
+			WindowEnd:         resolvedPeriodEnd,
+			Behavior:          command.Behavior,
+			AggregationMethod: aggregationMethod,
+			ReportedValue:     command.Value,
+			ValueBefore:       currentUsage.Value,
+			ValueAfter:        updatedUsage.Value,
+			EventCountAfter:   updatedUsage.EventCount,
+			Threshold:         threshold,
+			OveragePercent:    entitlementUsageCtx.LimitCapExceededOveragePercent,
+			TransactionID:     command.TransactionID,
+			Properties:        properties,
+		}); err != nil {
+			if kaitenerrors.IsMissingPartition(err, usageLedgerTable) {
+				// No partition covers reportedAt. Partitions are created a year
+				// ahead, so this is a defect to page on, never a normal state:
+				// the report is refused and nothing is written, which keeps
+				// the counter and the journal in step. A retry is safe once a
+				// partition exists.
+				h.ledgerUnavailable.Add(ctx, 1)
+				slog.ErrorContext(ctx, "usage report refused: no usage_ledger partition for its instant",
+					"reported_at", reportedAt,
+					"instance_id", entitlementUsageCtx.InstanceID,
+					"entitlement_id", entitlementUsageCtx.EntitlementID,
+				)
+				return kaitenerrors.Unavailable(
+					"ReportEntitlementUsageMetric.LedgerUnavailable",
+					"the usage journal cannot record a report at this instant; nothing was counted, retry later",
+				)
+			}
 			return err
 		}
 
@@ -272,7 +499,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 				Status:          events.UsageReportStatusAccepted,
 			},
 			outbox.AuditHeaders{InstanceID: &entitlementUsageCtx.InstanceID},
-		)
+		).At(reportedAt)
 		if err := h.outbox.CreateOutboxEvent(ctx, acceptedEvent); err != nil {
 			return err
 		}
@@ -284,7 +511,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 		if entitlementUsageCtx.LicenseSlug != nil {
 			licenseSlug = *entitlementUsageCtx.LicenseSlug
 		}
-		limit, err := entitlementUsageSchema.ParseEntitlementValue(entitlementUsageCtx.LicenseEntitlementValue)
+		limit, err := entitlementUsageSchema.ParseEntitlementValue(entitlementUsageCtx.EffectiveValue)
 		if err != nil {
 			return err
 		}
@@ -312,7 +539,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 				events.InstanceEntitlementUsageReached.Type,
 				result,
 				outbox.AuditHeaders{InstanceID: &entitlementUsageCtx.InstanceID},
-			)
+			).At(reportedAt)
 			if err := h.outbox.CreateOutboxEvent(ctx, event); err != nil {
 				return err
 			}
@@ -332,7 +559,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 					Overage:         updatedUsage.Value - threshold,
 				},
 				outbox.AuditHeaders{InstanceID: &entitlementUsageCtx.InstanceID},
-			)
+			).At(reportedAt)
 			if err := h.outbox.CreateOutboxEvent(ctx, event); err != nil {
 				return err
 			}
@@ -352,7 +579,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 						Value:           updatedUsage.Value,
 					},
 					outbox.AuditHeaders{InstanceID: &entitlementUsageCtx.InstanceID},
-				)
+				).At(reportedAt)
 				if err := h.outbox.CreateOutboxEvent(ctx, event); err != nil {
 					return err
 				}
@@ -370,7 +597,12 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 			fmt.Sprintf("Usage for %s exceeds the allowed threshold", entitlementSlug))
 	}
 
-	return result, nil
+	out := &Result{Usage: result, Replayed: replayed}
+	if metadataTooLarge && !replayed {
+		h.metadataDropped.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", metadataDroppedTooLarge)))
+		out.MetadataDropped = metadataDroppedTooLarge
+	}
+	return out, nil
 }
 
 func computeUpdatedUsage(command *Command, current *entitlementvalue.NumberUsageValue, aggregationMethod string) (*entitlementvalue.NumberUsageValue, error) {

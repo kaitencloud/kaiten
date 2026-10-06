@@ -85,5 +85,10 @@ func ToLicense(license *db.License) (*schema.License, error) {
 
 		CreatedAt: license.CreatedAt.Time,
 		UpdatedAt: license.UpdatedAt.Time,
+
+		PricingType:           schema.PricingType(license.PricingType),
+		TrialPeriodDays:       license.TrialPeriodDays,
+		RequiresPaymentMethod: &license.RequiresPaymentMethod,
+		SelfServeCtaURL:       license.SelfServeCtaUrl,
 	}, nil
 }

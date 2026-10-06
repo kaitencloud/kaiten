@@ -51,9 +51,13 @@ type Dependencies struct {
 	// where the connection to the licensing deployment is built; a test may set it
 	// to stand in for that deployment.
 	ConnectorEntitlements services.ConnectorEntitlements
-	DB                    *pgxpool.Pool
-	Logger                *slog.Logger
-	UsageReporter         services.UsageReporter
+	// EntitlementConfig reads the settings an organization's licence states. Left
+	// nil in production and filled by setupUsageReporter alongside
+	// ConnectorEntitlements, for the same reason; a test may set it.
+	EntitlementConfig services.EntitlementConfig
+	DB                *pgxpool.Pool
+	Logger            *slog.Logger
+	UsageReporter     services.UsageReporter
 }
 
 // Server runs two HTTP stacks in one process.
@@ -263,6 +267,7 @@ func (s *Server) setupApplication() error {
 		UserProvider:          s.deps.UserProvider,
 		UsageReporter:         s.deps.UsageReporter,
 		ConnectorEntitlements: s.deps.ConnectorEntitlements,
+		EntitlementConfig:     s.deps.EntitlementConfig,
 		// A server with no database serves no background work: cmd/docs builds one
 		// purely to walk the route table and generate the OpenAPI documents. This is
 		// the same condition setupRetention applies to the transport-table sweep,
@@ -407,15 +412,23 @@ func (s *Server) readinessProbe(c fiber.Ctx) bool {
 		return false
 	}
 
+	// Every accepted usage report writes the journal, and a month with no partition
+	// fails every one of them: a replica does not serve until reports have
+	// somewhere to land.
+	if err := s.app.EnsureUsageLedger(ctx); err != nil {
+		slog.ErrorContext(ctx, "readiness check failed: usage journal partitions", "error", err)
+		return false
+	}
+
 	s.ready.Store(true)
 	return true
 }
 
 // readinessWorkTimeout bounds the database work behind the readiness latch: the
-// schema-version read, plus the built-in connector registration when startup
-// deferred it. Deliberately generous next to kubelet's own probe timeout -- a probe
-// the kubelet gives up on still finishes its work in this process, and the next one
-// reads the latch.
+// schema-version read, the built-in connector registration when startup deferred
+// it, and the usage journal's partitions. Deliberately generous next to kubelet's
+// own probe timeout -- a probe the kubelet gives up on still finishes its work in
+// this process, and the next one reads the latch.
 const readinessWorkTimeout = 5 * time.Second
 
 // setupUsageReporter installs the reporter every module, resolver and
@@ -463,6 +476,9 @@ func (s *Server) setupUsageReporter(ctx context.Context) error {
 	// Only when the driver supplied none, for the reason above.
 	if s.deps.ConnectorEntitlements == nil {
 		s.deps.ConnectorEntitlements = reporter
+	}
+	if s.deps.EntitlementConfig == nil {
+		s.deps.EntitlementConfig = reporter
 	}
 	return nil
 }

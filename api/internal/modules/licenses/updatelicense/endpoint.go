@@ -95,6 +95,11 @@ func RegisterEndpoint(api huma.API, app Updater) {
 			IsDefault:      request.Body.IsDefault,
 			FamilyID:       familyID,
 			LifecycleState: request.Body.LifecycleState,
+
+			PricingType:           request.Body.PricingType,
+			TrialPeriodDays:       request.Body.TrialPeriodDays,
+			RequiresPaymentMethod: request.Body.RequiresPaymentMethod,
+			SelfServeCtaURL:       request.Body.SelfServeCtaURL,
 		}
 
 		if err := app.Update(ctx, cl, request.LicenseSlug, command); err != nil {

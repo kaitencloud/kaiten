@@ -159,9 +159,11 @@ type EntitlementUsage struct {
 	// entitlements have no usage of their own, so Value repeats it.
 	Limit *EntitlementValue `json:"limit,omitempty" doc:"License grant this usage is measured against, discriminated by the 'type' field. Null when the license grants no value; -1 means unlimited for a NUMBER entitlement."`
 	// CurrentPeriodStart/End are null for a lifetime entitlement (no configured
-	// reset period). For a periodic entitlement, these are always the bounds of
-	// the window containing "now" at read time, computed lazily -- they do not
-	// depend on whether the stored row still belongs to that window.
+	// reset period). For a periodic entitlement, these are the bounds of the
+	// window containing "now" at read time, computed lazily -- whether or not
+	// the stored row still belongs to it. The one exception is a stored window
+	// that is ahead of "now" (see period.ResolveCurrent): that window is the
+	// current one, for reads as for reports.
 	CurrentPeriodStart *time.Time `json:"currentPeriodStart,omitempty" doc:"Start of the current usage window (inclusive). Null for a lifetime entitlement (no configured reset period)." example:"2026-03-01T00:00:00Z"`
 	CurrentPeriodEnd   *time.Time `json:"currentPeriodEnd,omitempty" doc:"End of the current usage window (exclusive). Null for a lifetime entitlement (no configured reset period)." example:"2026-04-01T00:00:00Z"`
 }

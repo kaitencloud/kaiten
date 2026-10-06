@@ -48,6 +48,48 @@ var consoleAuthoringOperations = map[string]string{
 	"test-targeting-rule":        "interactive dry-run for the editor; nothing programmatic rehearses a rule it is about to submit",
 }
 
+/*
+awaitingSDKOperations are Core operations the public SDK will model but does
+not yet: the contract shipped first, and the SDK follows in its own release.
+
+Unlike consoleAuthoringOperations this is debt, not a decision: an entry says
+the operation has SDK callers and names what it waits for. The test keeps it
+honest the same two ways -- an entry must name a live operation, and it must
+be deleted, not kept, once the SDK maps the operation.
+*/
+// awaitsBilling is the reason every billing operation gives: the SDK models the
+// priced catalogue and the billing module in one release, after the contract.
+const awaitsBilling = "billing: the SDK models it in its billing release"
+
+var awaitingSDKOperations = map[string]string{
+	"listLicensePrices":      awaitsBilling,
+	"getLicensePrice":        awaitsBilling,
+	"createLicensePrice":     awaitsBilling,
+	"updateLicensePrice":     awaitsBilling,
+	"deprecateLicensePrice":  awaitsBilling,
+	"previewLicenseInvoice":  awaitsBilling,
+	"getBillingSettings":     awaitsBilling,
+	"updateBillingSettings":  awaitsBilling,
+	"subscribeInstance":      awaitsBilling,
+	"getInstanceBilling":     awaitsBilling,
+	"closeBillingPeriods":    awaitsBilling,
+	"listInvoices":           awaitsBilling,
+	"listInstanceInvoices":   awaitsBilling,
+	"getInvoice":             awaitsBilling,
+	"getUpcomingInvoice":     awaitsBilling,
+	"markInvoicePaid":        awaitsBilling,
+	"writeOffInvoice":        awaitsBilling,
+	"voidInvoice":            awaitsBilling,
+	"releaseInvoiceHold":     awaitsBilling,
+	"recomposeInvoice":       awaitsBilling,
+	"listHandoff":            awaitsBilling,
+	"claimHandoff":           awaitsBilling,
+	"ackHandoff":             awaitsBilling,
+	"exportInvoices":         awaitsBilling,
+	"listInvoiceLineReports": awaitsBilling,
+	"getBillingCapabilities": awaitsBilling,
+}
+
 func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
 	client, err := sdk.NewClient("https://example.com/api")
 	if err != nil {
@@ -98,6 +140,9 @@ func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
 		"getEntitlementsUsageMetrics":        {receiver: client.Instances, method: "ListEntitlementUsageMetrics"},
 		"getEntitlementUsageMetrics":         {receiver: client.Instances, method: "GetEntitlementUsageMetric"},
 		"reportEntitlementUsageMetric":       {receiver: client.Instances, method: "ReportEntitlementUsageMetric"},
+		"listUsageReports":                   {receiver: client.Instances, method: "ListUsageReports"},
+		"exportUsageReports":                 {receiver: client.Instances, method: "ExportUsageReports"},
+		"exportOrganizationUsageReports":     {receiver: client.Instances, method: "ExportOrganizationUsageReports"},
 		"get-licenses":                       {receiver: client.Licenses, method: "List"},
 		"create-license":                     {receiver: client.Licenses, method: "Create"},
 		"delete-license":                     {receiver: client.Licenses, method: "Delete"},
@@ -145,6 +190,9 @@ func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
 		if _, exempt := consoleAuthoringOperations[operationID]; exempt {
 			continue
 		}
+		if _, awaiting := awaitingSDKOperations[operationID]; awaiting {
+			continue
+		}
 		if _, ok := implemented[operationID]; !ok {
 			missingMappings = append(missingMappings, operationID)
 		}
@@ -181,6 +229,14 @@ func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
 		}
 		if _, ok := implemented[operationID]; ok {
 			t.Fatalf("operation %q is both SDK-mapped and console-authoring-exempt — pick one", operationID)
+		}
+	}
+	for operationID := range awaitingSDKOperations {
+		if _, ok := currentOperations[operationID]; !ok {
+			t.Fatalf("awaiting-SDK entry %q names an operation no longer in the OpenAPI spec — delete the entry", operationID)
+		}
+		if _, ok := implemented[operationID]; ok {
+			t.Fatalf("operation %q is SDK-mapped now — delete its awaiting-SDK entry", operationID)
 		}
 	}
 }
