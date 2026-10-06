@@ -7,6 +7,20 @@ export type AuditEventName = Webhooks['body']['name'];
 // One label per event the API emits. The OpenAPI declares every event as a
 // webhook, so a new one fails typecheck here until it has a label.
 export const AUDIT_EVENT_LABEL_KEYS = {
+  ADDON_ARCHIVED: 'Features.AuditTrail.events.ADDON_ARCHIVED',
+  ADDON_CREATED: 'Features.AuditTrail.events.ADDON_CREATED',
+  ADDON_DELETED: 'Features.AuditTrail.events.ADDON_DELETED',
+  ADDON_ENTITLEMENT_ASSIGNED:
+    'Features.AuditTrail.events.ADDON_ENTITLEMENT_ASSIGNED',
+  ADDON_ENTITLEMENT_UNASSIGNED:
+    'Features.AuditTrail.events.ADDON_ENTITLEMENT_UNASSIGNED',
+  ADDON_ENTITLEMENT_UPDATED:
+    'Features.AuditTrail.events.ADDON_ENTITLEMENT_UPDATED',
+  ADDON_PRICE_CREATED: 'Features.AuditTrail.events.ADDON_PRICE_CREATED',
+  ADDON_PRICE_DEPRECATED: 'Features.AuditTrail.events.ADDON_PRICE_DEPRECATED',
+  ADDON_PUBLISHED: 'Features.AuditTrail.events.ADDON_PUBLISHED',
+  ADDON_UNARCHIVED: 'Features.AuditTrail.events.ADDON_UNARCHIVED',
+  ADDON_UPDATED: 'Features.AuditTrail.events.ADDON_UPDATED',
   COMPONENT_CREATED: 'Features.AuditTrail.events.COMPONENT_CREATED',
   COMPONENT_DELETED: 'Features.AuditTrail.events.COMPONENT_DELETED',
   COMPONENT_UPDATED: 'Features.AuditTrail.events.COMPONENT_UPDATED',
@@ -36,6 +50,10 @@ export const AUDIT_EVENT_LABEL_KEYS = {
   FEATURE_FLAG_DELETED: 'Features.AuditTrail.events.FEATURE_FLAG_DELETED',
   FEATURE_FLAG_EVALUATED: 'Features.AuditTrail.events.FEATURE_FLAG_EVALUATED',
   FEATURE_FLAG_UPDATED: 'Features.AuditTrail.events.FEATURE_FLAG_UPDATED',
+  INSTANCE_ADDON_ADDED: 'Features.AuditTrail.events.INSTANCE_ADDON_ADDED',
+  INSTANCE_ADDON_QUANTITY_CHANGED:
+    'Features.AuditTrail.events.INSTANCE_ADDON_QUANTITY_CHANGED',
+  INSTANCE_ADDON_REMOVED: 'Features.AuditTrail.events.INSTANCE_ADDON_REMOVED',
   INSTANCE_BILLING_CANCELED:
     'Features.AuditTrail.events.INSTANCE_BILLING_CANCELED',
   INSTANCE_BILLING_CANCELLATION_REVERTED:

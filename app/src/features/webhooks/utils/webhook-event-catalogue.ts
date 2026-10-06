@@ -21,6 +21,7 @@ export const WEBHOOK_EVENT_GROUPS = [
   'instance',
   'license',
   'licenseFamily',
+  'addon',
   'entitlement',
   'entitlementGroup',
   'usage',

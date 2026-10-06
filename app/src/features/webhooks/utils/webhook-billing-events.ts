@@ -6,6 +6,62 @@ import type { WebhookEventEntries } from './webhook-event-catalogue';
 // entry's type is checked against the contract, a name that leaves it fails
 // typecheck, and the catalogue fails while an event is in neither file.
 export const BILLING_WEBHOOK_EVENTS = {
+  ADDON_ARCHIVED: {
+    type: 'com.kaiten.addon.v1.archived',
+    group: 'addon',
+  },
+  ADDON_CREATED: {
+    type: 'com.kaiten.addon.v1.created',
+    group: 'addon',
+  },
+  ADDON_DELETED: {
+    type: 'com.kaiten.addon.v1.deleted',
+    group: 'addon',
+  },
+  ADDON_ENTITLEMENT_ASSIGNED: {
+    type: 'com.kaiten.addon.entitlement.v1.assigned',
+    group: 'addon',
+  },
+  ADDON_ENTITLEMENT_UNASSIGNED: {
+    type: 'com.kaiten.addon.entitlement.v1.unassigned',
+    group: 'addon',
+  },
+  ADDON_ENTITLEMENT_UPDATED: {
+    type: 'com.kaiten.addon.entitlement.v1.updated',
+    group: 'addon',
+  },
+  ADDON_PRICE_CREATED: {
+    type: 'com.kaiten.addon.price.v1.created',
+    group: 'addon',
+  },
+  ADDON_PRICE_DEPRECATED: {
+    type: 'com.kaiten.addon.price.v1.deprecated',
+    group: 'addon',
+  },
+  ADDON_PUBLISHED: {
+    type: 'com.kaiten.addon.v1.published',
+    group: 'addon',
+  },
+  ADDON_UNARCHIVED: {
+    type: 'com.kaiten.addon.v1.unarchived',
+    group: 'addon',
+  },
+  ADDON_UPDATED: {
+    type: 'com.kaiten.addon.v1.updated',
+    group: 'addon',
+  },
+  INSTANCE_ADDON_ADDED: {
+    type: 'com.kaiten.instance.addon.v1.added',
+    group: 'subscription',
+  },
+  INSTANCE_ADDON_QUANTITY_CHANGED: {
+    type: 'com.kaiten.instance.addon.v1.quantity_changed',
+    group: 'subscription',
+  },
+  INSTANCE_ADDON_REMOVED: {
+    type: 'com.kaiten.instance.addon.v1.removed',
+    group: 'subscription',
+  },
   INSTANCE_BILLING_CANCELED: {
     type: 'com.kaiten.instance.billing.v1.canceled',
     group: 'subscription',
