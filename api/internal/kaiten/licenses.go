@@ -3,29 +3,37 @@ package kaiten
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/archivelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicense"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deletelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deletelicenseentitlement"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deprecatelicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseentitlements"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicensefamily"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenses"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicensefamilies"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicenseprices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/publishlicense"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/unarchivelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseentitlement"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
 
-// Licenses is the licenses module's fifteen operations: ten on the license and its
-// family, five on the grants it carries.
+// Licenses is the licenses module's twenty operations: ten on the license and its
+// family, five on the grants it carries, five on its prices.
 //
 // A license entitlement is a grant -- this license gives this entitlement, with this
 // value -- so the five that manage one keep Entitlement in the name, the way
@@ -33,6 +41,9 @@ import (
 // CreateEntitlement, because the entitlement already exists and what the call makes
 // is the link; naming it Create would suggest the operation could bring an
 // entitlement into being, which it cannot.
+//
+// A price is the version's own, so its five keep Price in the name the same way.
+// It has no delete: a price that may have billed is deprecated, never removed.
 //
 // See Customers for the naming and argument-order convention.
 type Licenses struct {
@@ -209,4 +220,56 @@ func (l Licenses) DeleteEntitlement(
 
 	return l.uc.DeleteLicenseEntitlement.Execute(
 		bindOrganization(ctx, cl), licenseSlug, entitlementSlug)
+}
+
+func (l Licenses) ListPrices(
+	ctx context.Context, cl caller.OrganizationCaller, licenseSlug, status, billingModel string,
+) ([]prices.Price, error) {
+	if err := cl.Require(listlicenseprices.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return l.uc.ListLicensePrices.Execute(bindOrganization(ctx, cl), licenseSlug, status, billingModel)
+}
+
+func (l Licenses) GetPrice(
+	ctx context.Context, cl caller.OrganizationCaller, licenseSlug string, priceID uuid.UUID,
+) (*prices.Price, error) {
+	if err := cl.Require(getlicenseprice.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return l.uc.GetLicensePrice.Execute(bindOrganization(ctx, cl), licenseSlug, priceID)
+}
+
+func (l Licenses) CreatePrice(
+	ctx context.Context, cl caller.OrganizationCaller, licenseSlug string, draft prices.Draft,
+) (*prices.Price, error) {
+	if err := cl.Require(createlicenseprice.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return l.uc.CreateLicensePrice.Execute(bindOrganization(ctx, cl), licenseSlug, draft)
+}
+
+func (l Licenses) UpdatePrice(
+	ctx context.Context, cl caller.OrganizationCaller,
+	licenseSlug string, priceID uuid.UUID, patch updatelicenseprice.Patch,
+) (*prices.Price, error) {
+	if err := cl.Require(updatelicenseprice.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return l.uc.UpdateLicensePrice.Execute(bindOrganization(ctx, cl), licenseSlug, priceID, patch)
+}
+
+// DeprecatePrice is the one change a published price takes.
+func (l Licenses) DeprecatePrice(
+	ctx context.Context, cl caller.OrganizationCaller, licenseSlug string, priceID uuid.UUID,
+) (*prices.Price, error) {
+	if err := cl.Require(deprecatelicenseprice.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return l.uc.DeprecateLicensePrice.Execute(bindOrganization(ctx, cl), licenseSlug, priceID)
 }
