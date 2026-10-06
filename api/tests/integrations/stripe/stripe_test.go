@@ -67,7 +67,8 @@ func TestRefusedSettings(t *testing.T) {
 	fresh(t)
 
 	for _, settings := range []map[string]any{
-		{"stripeSecretKey": "sk_test_abc"}, {"stripeSecretKey": "rk_test_A1", "taxBehavior": "exclusive"},
+		{"stripeSecretKey": "sk_test_abc"},
+		{"stripeSecretKey": "rk_test_A1", "taxBehavior": "exclusive"},
 		{"stripeSecretKey": "rk_test_A1", "webhookSecret": "whsec_1"},
 	} {
 		got := problem(t, fiber.StatusBadRequest, "PUT", "/api/connectors/"+connector+"/settings", map[string]any{"settings": settings})

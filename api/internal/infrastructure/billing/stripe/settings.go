@@ -104,6 +104,8 @@ func settingsOf(settings any) (*Settings, error) {
 			return &s, nil
 		}
 	}
-	return nil, &provider.Error{Class: provider.ClassNotConnected, Code: "settings_missing", Param: "", RequestID: "",
-		Message: "the Stripe connector has no usable settings"}
+	return nil, &provider.Error{
+		Class: provider.ClassNotConnected, Code: "settings_missing", Param: "", RequestID: "",
+		Message: "the Stripe connector has no usable settings",
+	}
 }

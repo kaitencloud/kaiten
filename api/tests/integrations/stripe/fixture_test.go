@@ -21,8 +21,8 @@ import (
 	billingstripe "github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe/stripefake"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
-	connectorstripe "github.com/kaitencloud/kaiten/api/internal/modules/connectors/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
+	connectorstripe "github.com/kaitencloud/kaiten/api/internal/modules/connectors/stripe"
 	customerschema "github.com/kaitencloud/kaiten/api/internal/modules/customers/schema"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
@@ -97,7 +97,7 @@ func fresh(t *testing.T) {
 	require.NoError(t, err)
 	fake.Reset()
 	// Vault is a file the database reset does not touch.
-	require.NoError(t, os.WriteFile(os.Getenv("VAULT_FAKE_FILE_PATH"), []byte("{}"), 0o600))
+	require.NoError(t, os.WriteFile(os.Getenv("VAULT_FAKE_FILE_PATH"), []byte("{}"), 0o600)) //nolint:gosec // the temp file TestMain created
 	t.Cleanup(func() {
 		fake.Reset()
 		require.NoError(t, testDb.Reset())

@@ -149,8 +149,10 @@ func (a *Adapter) EnsureCustomer(ctx context.Context, ref provider.Ref, customer
 		return provider.CustomerRecord{}, classify(err, objectCustomer)
 	}
 	if existing.Deleted {
-		return provider.CustomerRecord{}, &provider.Error{Class: provider.ClassCustomerMissing, Code: "customer_deleted", Param: "", RequestID: "",
-			Message: "the Stripe customer was deleted"}
+		return provider.CustomerRecord{}, &provider.Error{
+			Class: provider.ClassCustomerMissing, Code: "customer_deleted", Param: "", RequestID: "",
+			Message: "the Stripe customer was deleted",
+		}
 	}
 	if customer.Email != "" && customer.Email != existing.Email {
 		digest := sha256.Sum256([]byte(customer.Email))
@@ -350,8 +352,10 @@ func (a *Adapter) VoidInvoice(ctx context.Context, ref provider.Ref, externalInv
 	case stripego.InvoiceStatusVoid:
 		return nil
 	default:
-		return &provider.Error{Class: provider.ClassRejected, Code: "invoice_" + string(inv.Status), Param: "", RequestID: "",
-			Message: "the Stripe invoice is " + string(inv.Status) + " and cannot be voided"}
+		return &provider.Error{
+			Class: provider.ClassRejected, Code: "invoice_" + string(inv.Status), Param: "", RequestID: "",
+			Message: "the Stripe invoice is " + string(inv.Status) + " and cannot be voided",
+		}
 	}
 }
 
