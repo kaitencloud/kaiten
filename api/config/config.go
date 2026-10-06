@@ -75,9 +75,27 @@ type CoreConfig struct {
 // effective entitlement reads are never behind it.
 type Billing struct {
 	// Enabled is the master switch. Off, every billing route answers 403
-	// Billing.Disabled. On a deployment that reports to a licensing authority,
-	// the organization's licence must also grant the billing entitlement.
+	// Billing.Disabled and no billing job runs. On a deployment that reports to
+	// a licensing authority, the organization's licence must also grant the
+	// billing entitlement.
 	Enabled bool
+	// InitialDelay is how long after start-up each billing job first runs.
+	InitialDelay time.Duration `mapstructure:"initial_delay"`
+	// CloseGrace is how long after a period's end its close waits. The usage
+	// journal has no late reports, so none is needed by default.
+	CloseGrace  time.Duration      `mapstructure:"close_grace" validate:"gte=0"`
+	PeriodClose BillingPeriodClose `mapstructure:"period_close"`
+}
+
+// BillingPeriodClose schedules the pass that closes the subscriptions whose
+// period has ended into their invoices.
+type BillingPeriodClose struct {
+	// Interval below 0 disables the pass: periods then close only when
+	// close-periods is called.
+	Interval time.Duration
+	// BatchSize bounds the subscriptions one pass, or one close-periods call,
+	// closes.
+	BatchSize int `mapstructure:"batch_size" validate:"gte=1"`
 }
 
 type Server struct {
@@ -324,6 +342,10 @@ var settings = []struct {
 	{"usage_ledger.max_retention_months", "KAITEN_USAGE_LEDGER_MAX_RETENTION_MONTHS", 18, false},
 	{"usage_ledger.purge_batch_size", "KAITEN_USAGE_LEDGER_PURGE_BATCH_SIZE", 5000, false},
 	{"billing.enabled", "KAITEN_BILLING_ENABLED", false, false},
+	{"billing.initial_delay", "KAITEN_BILLING_INITIAL_DELAY", "1m", false},
+	{"billing.close_grace", "KAITEN_BILLING_CLOSE_GRACE", "0s", false},
+	{"billing.period_close.interval", "KAITEN_BILLING_PERIOD_CLOSE_INTERVAL", "5m", false},
+	{"billing.period_close.batch_size", "KAITEN_BILLING_CLOSE_BATCH_SIZE", 100, false},
 }
 
 const (

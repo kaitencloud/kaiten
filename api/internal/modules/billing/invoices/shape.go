@@ -117,3 +117,9 @@ type PaidInvoice struct {
 	Source            string  `json:"source" enum:"MARK_PAID,PROVIDER,ZERO_TOTAL" doc:"MARK_PAID: recorded by the organization. ZERO_TOTAL: nothing was owed"`
 	ExternalReference *string `json:"externalReference,omitempty"`
 }
+
+// HeldInvoice is the payload of INSTANCE_INVOICE_HELD.
+type HeldInvoice struct {
+	InvoiceSummary
+	HoldDetail HoldDetail `json:"holdDetail"`
+}

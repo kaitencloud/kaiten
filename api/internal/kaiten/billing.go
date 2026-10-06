@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
@@ -64,4 +66,15 @@ func (b Billing) GetInstanceBilling(
 	}
 
 	return b.uc.GetInstanceBilling.Execute(bindOrganization(ctx, cl), instanceSlug)
+}
+
+// CloseBillingPeriods closes the organization's due subscriptions now.
+func (b Billing) CloseBillingPeriods(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug *string,
+) (*closing.Report, error) {
+	if err := cl.Require(closebillingperiods.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.CloseBillingPeriods.Execute(bindOrganization(ctx, cl), instanceSlug)
 }

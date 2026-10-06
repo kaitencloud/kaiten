@@ -151,8 +151,19 @@ usage_ledger:
   # Rows per DELETE when an organization keeps less than the ceiling.
   purge_batch_size: 5000          # KAITEN_USAGE_LEDGER_PURGE_BATCH_SIZE
 
-# The commercial surface: licence prices and invoice previews (subscriptions and
-# invoices later). Off by default; usage reporting and its history are never
+# The commercial surface: licence prices, invoice previews, subscriptions and
+# their invoices. Off by default; usage reporting and its history are never
 # behind it.
 billing:
   enabled: false                  # KAITEN_BILLING_ENABLED
+  # Delay before each billing job's first pass after start-up.
+  initial_delay: 1m               # KAITEN_BILLING_INITIAL_DELAY
+  # Wait after a period's end before closing it. The usage journal has no late
+  # reports, so 0 is safe.
+  close_grace: 0s                 # KAITEN_BILLING_CLOSE_GRACE
+  period_close:
+    # How often due subscriptions are closed into their invoices. Below 0
+    # disables the pass; periods then close only through close-periods.
+    interval: 5m                  # KAITEN_BILLING_PERIOD_CLOSE_INTERVAL
+    # Subscriptions closed per pass, or per close-periods call.
+    batch_size: 100               # KAITEN_BILLING_CLOSE_BATCH_SIZE

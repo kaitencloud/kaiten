@@ -37,7 +37,11 @@ func TestMain(m *testing.M) {
 	defer testDb.TearDown()
 
 	testServer = tests.NewTestServer(testDb, tests.TestServerOptions{
-		ConfigOverride:        func(cfg *config.Config) { cfg.Billing.Enabled = true },
+		ConfigOverride: func(cfg *config.Config) {
+			cfg.Billing.Enabled = true
+			// Tests close periods themselves; the job would race them.
+			cfg.Billing.PeriodClose.Interval = -1
+		},
 		ConnectorEntitlements: entitlements,
 	})
 	disabledServer = tests.NewTestServer(testDb)

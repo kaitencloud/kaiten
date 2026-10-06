@@ -30,6 +30,8 @@ var (
 	entitlements = &switchableEntitlements{entitled: true}
 	// disabledServer runs with the default configuration: billing off.
 	disabledServer *tests.TestServer
+	// platformServer authenticates every request as the platform credential.
+	platformServer *tests.TestServer
 )
 
 func TestMain(m *testing.M) {
@@ -41,10 +43,21 @@ func TestMain(m *testing.M) {
 	defer testDb.TearDown()
 
 	testServer = tests.NewTestServer(testDb, tests.TestServerOptions{
-		ConfigOverride:        func(cfg *config.Config) { cfg.Billing.Enabled = true },
+		ConfigOverride: func(cfg *config.Config) {
+			cfg.Billing.Enabled = true
+			// Tests close periods themselves; the job would race them.
+			cfg.Billing.PeriodClose.Interval = -1
+		},
 		ConnectorEntitlements: entitlements,
 	})
 	disabledServer = tests.NewTestServer(testDb)
+	platformServer = tests.NewTestServer(testDb, tests.TestServerOptions{
+		ConfigOverride: func(cfg *config.Config) {
+			cfg.Billing.Enabled = true
+			cfg.Billing.PeriodClose.Interval = -1
+		},
+		PlatformCredential: true,
+	})
 
 	os.Exit(m.Run())
 }

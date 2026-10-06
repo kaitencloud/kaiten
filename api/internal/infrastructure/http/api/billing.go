@@ -4,6 +4,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
@@ -14,11 +15,13 @@ import (
 // registerBilling publishes the billing module's operations and the webhook
 // contracts its writes emit. Each operation receives the facade's billing
 // surface as its own one-method interface.
-func registerBilling(core huma.API, app kaiten.Billing) {
+func registerBilling(core, platform huma.API, app kaiten.Billing, platformApp kaiten.Platform) {
 	getbillingsettings.RegisterEndpoint(core, app)
 	updatebillingsettings.RegisterEndpoint(core, app)
 	subscribeinstance.RegisterEndpoint(core, app)
 	subscribeinstance.RegisterWebhook(core)
 	getinstancebilling.RegisterEndpoint(core, app)
+	closebillingperiods.RegisterEndpoint(core, app)
+	closebillingperiods.RegisterPlatformEndpoint(platform, platformApp)
 	invoices.RegisterWebhooks(core)
 }

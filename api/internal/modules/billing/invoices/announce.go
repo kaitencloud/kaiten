@@ -17,19 +17,27 @@ import (
 // carry; beyond it the event says so and a consumer reads the invoice.
 const maxIssuedLinesBytes = 200 * 1024
 
-// AnnounceComposed records what a newly composed invoice is: issued for
-// collection, or paid at once because nothing was owed. A held draft records
-// nothing here: the period close announces its hold.
+// AnnounceComposed records what a newly composed invoice is: held for its
+// usage journal, issued for collection, or paid at once because nothing was
+// owed.
 func AnnounceComposed(ctx context.Context, repo *outbox.ScopedRepository, row db.InstanceInvoice) error {
 	invoice, err := FromRow(row)
 	if err != nil {
 		return err
 	}
-	switch row.Status {
-	case db.InvoiceStatusMANUAL:
+	switch {
+	case row.HoldReason != nil:
+		var detail HoldDetail
+		if invoice.HoldDetail != nil {
+			detail = *invoice.HoldDetail
+		}
+		return repo.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
+			row.OrganizationID, events.InstanceInvoiceHeld.Name, events.InstanceInvoiceHeld.Type,
+			HeldInvoice{InvoiceSummary: invoice.InvoiceSummary, HoldDetail: detail}, nil))
+	case row.Status == db.InvoiceStatusMANUAL:
 		return repo.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
 			row.OrganizationID, events.InstanceInvoiceIssued.Name, events.InstanceInvoiceIssued.Type, Issued(invoice), nil))
-	case db.InvoiceStatusPAID:
+	case row.Status == db.InvoiceStatusPAID:
 		return repo.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
 			row.OrganizationID, events.InstanceInvoicePaid.Name, events.InstanceInvoicePaid.Type,
 			PaidInvoice{InvoiceSummary: invoice.InvoiceSummary, Source: "ZERO_TOTAL", ExternalReference: nil}, nil))
@@ -66,6 +74,14 @@ func RegisterWebhooks(api huma.API) {
 		OperationID: "onInstanceInvoiceIssued",
 		Summary:     "Instance Invoice Issued Webhook",
 		Description: "Triggered once per invoice with something owed, when it is issued. For an invoice the organization collects itself, it is the signal to claim it from the handoff queue, which stays the source of truth.",
+		Tags:        []string{"webhooks", "billing"},
+	})
+	webhook.Declare(api, webhook.Declaration{
+		Event:       events.InstanceInvoiceHeld,
+		Data:        (*HeldInvoice)(nil),
+		OperationID: "onInstanceInvoiceHeld",
+		Summary:     "Instance Invoice Held Webhook",
+		Description: "Triggered when a period closes into an invoice held as a DRAFT, because the usage journal it was measured from failed a consistency check. It is neither issued nor handed off until released or recomposed.",
 		Tags:        []string{"webhooks", "billing"},
 	})
 	webhook.Declare(api, webhook.Declaration{
