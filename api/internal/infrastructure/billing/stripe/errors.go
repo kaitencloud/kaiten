@@ -12,8 +12,9 @@ import (
 )
 
 // keyPattern matches Stripe keys, which Stripe echoes in some messages
-// ("Invalid API Key provided: rk_test_…"): a message never carries one out.
-var keyPattern = regexp.MustCompile(`\b(sk|rk|pk)_(live|test)_[A-Za-z0-9]+`)
+// ("Invalid API Key provided: rk_test_****abcd", masked but for its last
+// characters): a message never carries any part of one out.
+var keyPattern = regexp.MustCompile(`\b(sk|rk|pk)_(live|test)_[A-Za-z0-9*]+`)
 
 func scrub(message string) string { return keyPattern.ReplaceAllString(message, "[redacted]") }
 
