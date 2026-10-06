@@ -16,6 +16,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/metering"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
@@ -202,9 +203,16 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 				user.OrganizationID, events.InstanceBillingStarted.Name, events.InstanceBillingStarted.Type,
 				BillingStarted{InstanceBilling: *billing, Resubscribed: resubscribe}, nil))
 		}
+		var held []ports.BillableAddon
+		if u.deps.Addons != nil {
+			held, err = u.deps.Addons.BillableAddons(ctx, user.OrganizationID, instance.ID, *base.BillingPeriod)
+			if err != nil {
+				return err
+			}
+		}
 		composition, err := rating.Compose(rating.Input{
 			Kind: rating.KindActivation, Currency: money.Currency(base.Currency), LicenseName: license.Name, Base: metering.Price(*base),
-			Metered: nil, Measures: nil,
+			Metered: nil, Measures: nil, Addons: metering.Addons(held, base.Currency),
 			Advance: rating.Period{From: anchor, To: periodEnd}, Arrears: rating.Period{From: anchor, To: anchor},
 		})
 		if err != nil {

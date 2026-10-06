@@ -67,6 +67,7 @@ func Register(deps Deps) {
 	registerEntitlements(deps.Core, deps.App.Entitlements())
 	registerLicenses(deps.Core, deps.App.Licenses())
 	registerBilling(deps.Core, deps.Platform, deps.App.Billing(), platform)
+	registerAddons(deps.Core, deps.App.Addons())
 	registerIntegrations(deps.Core, deps.App.Integrations())
 	registerInstances(deps.Core, deps.App.Instances())
 	registerFeatureFlags(deps.Core, deps.Router, deps.App.FeatureFlags())
