@@ -33,9 +33,16 @@ type InvoiceLine struct {
 	Metering          *InvoiceLineMetering `json:"metering,omitempty" doc:"How a USAGE or OVERAGE line's quantity was measured"`
 	Overage           *InvoiceLineOverage  `json:"overage,omitempty" doc:"The arithmetic of an OVERAGE line"`
 	Discount          *InvoiceLineDiscount `json:"discount,omitempty" doc:"How a DISCOUNT line was computed"`
+	Provider          *InvoiceLineProvider `json:"provider,omitempty" doc:"The line in the payment provider, once pushed"`
 	Capped            bool                 `json:"capped,omitempty" doc:"Set on a preview line whose sample exceeded what the licence accepts: reports above that are rejected, so the excess is not billed"`
 
 	displayOrder int32
+}
+
+// InvoiceLineProvider is a line as its payment provider holds it.
+type InvoiceLineProvider struct {
+	ExternalLineID string `json:"externalLineId" doc:"The provider's id of the line"`
+	Amount         *int64 `json:"amount,omitempty" doc:"The provider's amount, read back for reconciliation"`
 }
 
 // InvoiceLineMetering is how a metered line's quantity was measured.

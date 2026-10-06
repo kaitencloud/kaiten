@@ -137,7 +137,7 @@ INSERT INTO instance_invoice (organization_id, instance_billing_id, customer_id,
                               boundary_at, service_from, service_to, currency, subtotal_minor,
                               discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at,
                               provider_kind, collection_method, issued_at, days_until_due, due_at, paid_at,
-                              replaces_invoice_id, handoff_status, created_at, updated_at)
+                              replaces_invoice_id, handoff_status, next_push_at, created_at, updated_at)
 VALUES ($1, $2, $3, $4,
         $5, $6, $7, $8,
         $9, $10, $11, $12,
@@ -145,7 +145,8 @@ VALUES ($1, $2, $3, $4,
         $17, $18, $19, $20,
         $21, $22, $23, $24,
         $25, $26, $27, $28,
-        $29, $30, $31, $32, $32)
+        $29, $30, $31, $32,
+        $33, $33)
 RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at
 `
 
@@ -181,6 +182,7 @@ type InsertInvoiceParams struct {
 	PaidAt             pgtype.Timestamp    `json:"paid_at"`
 	ReplacesInvoiceID  *uuid.UUID          `json:"replaces_invoice_id"`
 	HandoffStatus      HandoffStatus       `json:"handoff_status"`
+	NextPushAt         pgtype.Timestamp    `json:"next_push_at"`
 	Now                pgtype.Timestamp    `json:"now"`
 }
 
@@ -217,6 +219,7 @@ func (q *Queries) InsertInvoice(ctx context.Context, arg InsertInvoiceParams) (I
 		arg.PaidAt,
 		arg.ReplacesInvoiceID,
 		arg.HandoffStatus,
+		arg.NextPushAt,
 		arg.Now,
 	)
 	var i InstanceInvoice
@@ -917,8 +920,9 @@ SET lines                = $1,
     due_at               = $16,
     paid_at              = $17,
     handoff_status       = $18,
-    updated_at           = $19
-WHERE id = $20
+    next_push_at         = $19,
+    updated_at           = $20
+WHERE id = $21
 RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at
 `
 
@@ -941,6 +945,7 @@ type RewriteInvoiceParams struct {
 	DueAt              pgtype.Timestamp   `json:"due_at"`
 	PaidAt             pgtype.Timestamp   `json:"paid_at"`
 	HandoffStatus      HandoffStatus      `json:"handoff_status"`
+	NextPushAt         pgtype.Timestamp   `json:"next_push_at"`
 	Now                pgtype.Timestamp   `json:"now"`
 	ID                 uuid.UUID          `json:"id"`
 }
@@ -967,6 +972,7 @@ func (q *Queries) RewriteInvoice(ctx context.Context, arg RewriteInvoiceParams) 
 		arg.DueAt,
 		arg.PaidAt,
 		arg.HandoffStatus,
+		arg.NextPushAt,
 		arg.Now,
 		arg.ID,
 	)
@@ -1050,6 +1056,7 @@ SET status       = 'VOID',
     hold_reason  = NULL,
     hold_detail  = NULL,
     held_at      = NULL,
+    next_push_at = NULL,
     updated_at   = $1
 WHERE id = $4
 RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at

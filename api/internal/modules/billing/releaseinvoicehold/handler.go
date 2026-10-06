@@ -55,7 +55,8 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID uuid.UUID, reason strin
 		if err != nil {
 			return err
 		}
-		updated, err := invoices.Rewrite(ctx, q, row, nil, nil, invoices.Release{By: &user.ID, Reason: reason}, terms, clock.Time.UTC())
+		updated, err := invoices.Rewrite(ctx, q, row, nil, nil, invoices.Release{By: &user.ID, Reason: reason}, terms,
+			u.deps.Pushes(row.ProviderKind), clock.Time.UTC())
 		if err != nil {
 			return err
 		}

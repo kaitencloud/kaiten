@@ -2,9 +2,12 @@ package voidinvoice
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
@@ -12,6 +15,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoiceaction"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/providers"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -38,6 +42,9 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID uuid.UUID, reason strin
 	if err := invoiceaction.Reason(operation, reason); err != nil {
 		return nil, err
 	}
+	if err := u.voidInProvider(ctx, user.OrganizationID, invoiceID); err != nil {
+		return nil, err
+	}
 	var result *invoices.Invoice
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -50,7 +57,8 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID uuid.UUID, reason strin
 			invoice, err := invoices.FromRow(row)
 			result = &invoice
 			return err
-		case db.InvoiceStatusDRAFT, db.InvoiceStatusPUSHFAILED, db.InvoiceStatusMANUAL:
+		case db.InvoiceStatusDRAFT, db.InvoiceStatusPUSHFAILED, db.InvoiceStatusMANUAL,
+			db.InvoiceStatusPUSHED, db.InvoiceStatusPAYMENTFAILED:
 		default:
 			return kaitenerrors.Conflict(operation+".InvalidStatus", "a "+string(row.Status)+" invoice cannot be voided")
 		}
@@ -80,4 +88,52 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID uuid.UUID, reason strin
 		return nil, err
 	}
 	return result, nil
+}
+
+// voidInProvider runs the provider's leg of a void, first: Kaiten shows VOID
+// only once the provider confirms, so never for an invoice its customer can
+// still pay. An invoice the provider has not created yet needs no leg; one it
+// reports paid is refused, and sync mirrors the payment. A run of the push
+// that creates the provider's invoice meanwhile finds it VOID and removes it.
+func (u *UseCase) voidInProvider(ctx context.Context, organizationID, invoiceID uuid.UUID) error {
+	q := u.deps.Queries(ctx)
+	row, err := q.GetInvoiceByID(ctx, invoiceID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil // the transaction answers NotFound
+	}
+	if err != nil {
+		return err
+	}
+	if row.OrganizationID != organizationID || row.ProviderKind == db.BillingProviderKindNOOP || row.ExternalInvoiceID == nil {
+		return nil
+	}
+	switch row.Status {
+	case db.InvoiceStatusDRAFT, db.InvoiceStatusPUSHFAILED, db.InvoiceStatusPUSHED, db.InvoiceStatusPAYMENTFAILED:
+	default:
+		return nil // the transaction answers the status
+	}
+	conn, err := providers.Connect(ctx, u.deps.Providers, organizationID, row.ProviderKind)
+	if err != nil {
+		return providers.APIError(operation, err)
+	}
+	callCtx, cancel := providers.Bound(ctx, u.deps.ProviderTimeout)
+	read, err := conn.Adapter.GetInvoice(callCtx, conn.Ref, *row.ExternalInvoiceID)
+	cancel()
+	switch {
+	case provider.ClassOf(err) == provider.ClassNotFound:
+		return nil
+	case err != nil:
+		return providers.APIError(operation, err)
+	case read.Status == provider.StatusPaid:
+		return kaitenerrors.ConflictWithErrors(operation+".InvalidStatus", "the payment provider reports this invoice paid",
+			&kaitenerrors.ErrorDetail{Message: "paid at the provider", Location: "provider", Value: "paid_at_provider"})
+	case read.Status == provider.StatusVoid:
+		return nil
+	}
+	callCtx, cancel = providers.Bound(ctx, u.deps.ProviderTimeout)
+	defer cancel()
+	if err := conn.Adapter.VoidInvoice(callCtx, conn.Ref, *row.ExternalInvoiceID); err != nil {
+		return providers.APIError(operation, err)
+	}
+	return nil
 }

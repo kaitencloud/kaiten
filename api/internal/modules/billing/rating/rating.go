@@ -315,6 +315,7 @@ func baseLine(in Input, service Period) (InvoiceLine, error) {
 		Metering:          nil,
 		Overage:           nil,
 		Discount:          nil,
+		Provider:          nil,
 		Capped:            false,
 		displayOrder:      in.Base.DisplayOrder,
 	}, nil
@@ -356,6 +357,7 @@ func addonLine(in Input, addon AddonCharge, service Period) (InvoiceLine, error)
 		Metering:          nil,
 		Overage:           nil,
 		Discount:          nil,
+		Provider:          nil,
 		Capped:            false,
 		displayOrder:      addon.Price.DisplayOrder,
 	}, nil
@@ -464,6 +466,7 @@ func meteredLine(in Input, price Price) (InvoiceLine, bool, error) {
 		},
 		Overage:      overage,
 		Discount:     nil,
+		Provider:     nil,
 		Capped:       measure.Capped,
 		displayOrder: price.DisplayOrder,
 	}, true, nil

@@ -51,8 +51,20 @@ type PlanChange struct {
 }
 
 // RegisterWebhooks declares the subscription lifecycle events.
+// ProviderChange is the payload of INSTANCE_BILLING_PROVIDER_CHANGED.
+type ProviderChange struct {
+	InstanceSlug  string `json:"instanceSlug"`
+	From          string `json:"from" enum:"NOOP,STRIPE"`
+	To            string `json:"to" enum:"NOOP,STRIPE"`
+	EffectiveFrom string `json:"effectiveFrom" enum:"next_composition" doc:"Invoices already composed keep their provider"`
+}
+
 func RegisterWebhooks(api huma.API) {
 	for _, d := range []webhook.Declaration{
+		{
+			Event: events.InstanceBillingProviderChanged, Data: (*ProviderChange)(nil), OperationID: "onInstanceBillingProviderChanged",
+			Summary: "Instance Billing Provider Changed Webhook", Description: "Triggered when a subscription moves to another payment provider, from its next invoice on.",
+		},
 		{
 			Event: events.InstanceBillingStatusChanged, Data: (*StatusChange)(nil), OperationID: "onInstanceBillingStatusChanged",
 			Summary: "Instance Billing Status Changed Webhook", Description: "Triggered when a trial converts, or a subscription becomes PAST_DUE or leaves it.",

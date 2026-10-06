@@ -14,6 +14,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/exportinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingcapabilities"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillinghealth"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
@@ -29,10 +30,13 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/reactivatesubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/recomposeinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/releaseinvoicehold"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/retryinvoicepush"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/scheduleplanchange"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncinvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncprovider"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updatebillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updateinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/voidinvoice"
@@ -311,4 +315,32 @@ func (b Billing) UpdateInstanceBilling(
 	}
 
 	return b.uc.UpdateInstanceBilling.Execute(bindOrganization(ctx, cl), instanceSlug, cmd)
+}
+
+func (b Billing) RetryInvoicePush(ctx context.Context, cl caller.OrganizationCaller, invoiceID uuid.UUID) (*invoices.Invoice, error) {
+	if err := cl.Require(retryinvoicepush.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.RetryInvoicePush.Execute(bindOrganization(ctx, cl), invoiceID)
+}
+
+func (b Billing) SyncProvider(ctx context.Context, cl caller.OrganizationCaller) (*syncprovider.SyncReport, error) {
+	if err := cl.Require(syncprovider.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.SyncProvider.Execute(bindOrganization(ctx, cl))
+}
+
+func (b Billing) SyncInvoice(ctx context.Context, cl caller.OrganizationCaller, invoiceID uuid.UUID) (*invoices.Invoice, error) {
+	if err := cl.Require(syncinvoice.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.SyncInvoice.Execute(bindOrganization(ctx, cl), invoiceID)
+}
+
+func (b Billing) GetHealth(ctx context.Context, cl caller.OrganizationCaller) (*getbillinghealth.BillingHealth, error) {
+	if err := cl.Require(getbillinghealth.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.GetBillingHealth.Execute(bindOrganization(ctx, cl))
 }

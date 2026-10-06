@@ -1,6 +1,8 @@
 package kaiten
 
 import (
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider/noop"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/cdc"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
@@ -137,6 +139,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		// leaving the option nil, and every use case still asks unconditionally.
 		ConnectorEntitlements: services.ConnectorEntitlementsOrAlways(opts.ConnectorEntitlements),
 		EntitlementConfig:     services.EntitlementConfigOrNone(opts.EntitlementConfig),
+		BillingProviders:      billingProvidersOrNoop(opts.BillingProviders),
 		WorkerRegistry:        workers,
 		BackgroundWorkers:     opts.BackgroundWorkers,
 	}
@@ -202,4 +205,12 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	built.CDC = dispatcher
 
 	return built, nil
+}
+
+// billingProvidersOrNoop returns registry, or one knowing NOOP alone.
+func billingProvidersOrNoop(registry provider.Registry) provider.Registry {
+	if registry == nil {
+		return provider.NewStatic(noop.New())
+	}
+	return registry
 }

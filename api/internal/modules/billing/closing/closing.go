@@ -229,7 +229,7 @@ func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boun
 		inserted, err := invoices.Insert(ctx, q, invoices.Draft{
 			Subscription: sub, LicenseID: filedUnder.LicenseID, LicenseSlug: filedUnder.LicenseSlug, BillingEmail: billingEmail,
 			Kind: plan.kind, BoundaryAt: boundary, Composition: composition,
-			Terms: terms, Hold: hold, ReplacesInvoiceID: nil, Now: now,
+			Terms: terms, Hold: hold, ReplacesInvoiceID: nil, Pushes: c.deps.Pushes(sub.ProviderKind), Now: now,
 		})
 		if err != nil {
 			return Outcome{}, err
@@ -628,7 +628,7 @@ func (c *Closer) Finalize(ctx context.Context, q *db.Queries, sub db.InstanceBil
 	invoice, err := invoices.Insert(ctx, q, invoices.Draft{
 		Subscription: sub, LicenseID: base.LicenseID, LicenseSlug: base.LicenseSlug, BillingEmail: billingEmail,
 		Kind: rating.KindFinal, BoundaryAt: at, Composition: composition, Terms: terms, Hold: hold,
-		ReplacesInvoiceID: nil, Now: now,
+		ReplacesInvoiceID: nil, Pushes: c.deps.Pushes(sub.ProviderKind), Now: now,
 	})
 	if err != nil {
 		return nil, db.InstanceBilling{}, err

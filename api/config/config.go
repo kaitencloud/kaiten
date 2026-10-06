@@ -86,6 +86,32 @@ type Billing struct {
 	CloseGrace  time.Duration      `mapstructure:"close_grace" validate:"gte=0"`
 	PeriodClose BillingPeriodClose `mapstructure:"period_close"`
 	Lifecycle   BillingLifecycle   `mapstructure:"lifecycle"`
+	Push        BillingPush        `mapstructure:"push"`
+	Sync        BillingSync        `mapstructure:"sync"`
+	// ProviderTimeout bounds one call to a payment provider.
+	ProviderTimeout time.Duration `mapstructure:"provider_timeout" validate:"gte=0"`
+}
+
+// BillingPush schedules the pass that pushes invoices to the payment
+// providers that issue them.
+type BillingPush struct {
+	// Interval below 0 disables the pass: invoices then wait in the queue.
+	Interval time.Duration
+	// BatchSize bounds the invoices one pass pushes.
+	BatchSize int `mapstructure:"batch_size" validate:"gte=1"`
+	// MaxBackoff caps the wait before a failed push is tried again; the wait
+	// doubles from one minute with each failure.
+	MaxBackoff time.Duration `mapstructure:"max_backoff" validate:"gte=0"`
+	// AlertAfterAttempts is the failed attempts after which a push failure is
+	// announced, and counted by the health section.
+	AlertAfterAttempts int `mapstructure:"alert_after_attempts" validate:"gte=1"`
+}
+
+// BillingSync schedules the pass that mirrors what payment providers report:
+// payments, voids, finalizations done outside Kaiten.
+type BillingSync struct {
+	// Interval below 0 disables the pass; POST /billing/sync still runs one.
+	Interval time.Duration
 }
 
 // BillingLifecycle schedules the pass that moves subscriptions in and out of
@@ -356,6 +382,12 @@ var settings = []struct {
 	{"billing.period_close.interval", "KAITEN_BILLING_PERIOD_CLOSE_INTERVAL", "5m", false},
 	{"billing.period_close.batch_size", "KAITEN_BILLING_CLOSE_BATCH_SIZE", 100, false},
 	{"billing.lifecycle.interval", "KAITEN_BILLING_LIFECYCLE_INTERVAL", "15m", false},
+	{"billing.push.interval", "KAITEN_BILLING_PUSH_INTERVAL", "1m", false},
+	{"billing.push.batch_size", "KAITEN_BILLING_PUSH_BATCH_SIZE", 50, false},
+	{"billing.push.max_backoff", "KAITEN_BILLING_PUSH_MAX_BACKOFF", "6h", false},
+	{"billing.push.alert_after_attempts", "KAITEN_BILLING_PUSH_ALERT_AFTER_ATTEMPTS", 5, false},
+	{"billing.sync.interval", "KAITEN_BILLING_SYNC_INTERVAL", "15m", false},
+	{"billing.provider_timeout", "KAITEN_BILLING_PROVIDER_TIMEOUT", "30s", false},
 }
 
 const (
