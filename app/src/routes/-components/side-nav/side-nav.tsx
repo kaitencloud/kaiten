@@ -1,4 +1,5 @@
 import { useLocation } from '@tanstack/react-router';
+import { Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   Sidebar,
@@ -11,25 +12,31 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { isRouteActive } from './side-nav.constants';
-import { SideNavIntegrationsMenu } from './side-nav-integrations-menu';
+import { SideNavCollapsibleMenu } from './side-nav-collapsible-menu';
 import { SideNavLogo } from './side-nav-logo';
 import {
   SideNavFooterRoutes,
   SideNavPrimaryRoutes,
+  useResolvedBillingItems,
   useResolvedIntegrationsItems,
 } from './side-nav-sections';
-import { useSideNavIntegrationsState } from './use-side-nav-integrations-state';
+import { useSideNavMenuState } from './use-side-nav-menu-state';
 
 export function SideNav() {
   const { t } = useTranslation();
   const { pathname } = useLocation();
   const { state } = useSidebar();
   const isCollapsed = state === 'collapsed';
-  const integrationsItems = useResolvedIntegrationsItems();
-  const integrationsState = useSideNavIntegrationsState(
-    isRouteActive(pathname, '/integrations'),
+  const billingItems = useResolvedBillingItems();
+  const isBillingActive = billingItems.some((item) =>
+    isRouteActive(pathname, item.path),
   );
+  const billingState = useSideNavMenuState(isBillingActive);
+  const integrationsItems = useResolvedIntegrationsItems();
+  const isIntegrationsActive = isRouteActive(pathname, '/integrations');
+  const integrationsState = useSideNavMenuState(isIntegrationsActive);
 
   return (
     <Sidebar collapsible="icon">
@@ -42,8 +49,23 @@ export function SideNav() {
           <SidebarGroupContent>
             <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:items-center">
               <SideNavPrimaryRoutes pathname={pathname} />
+              {billingItems.length > 0 ? (
+                <SidebarMenuItem>
+                  <SideNavCollapsibleMenu
+                    Icon={dataModelIcons.invoice}
+                    isActive={isBillingActive}
+                    isCollapsed={isCollapsed}
+                    items={billingItems}
+                    pathname={pathname}
+                    state={billingState}
+                    title={t('Pages.Billing.title')}
+                  />
+                </SidebarMenuItem>
+              ) : null}
               <SidebarMenuItem>
-                <SideNavIntegrationsMenu
+                <SideNavCollapsibleMenu
+                  Icon={Zap}
+                  isActive={isIntegrationsActive}
                   isCollapsed={isCollapsed}
                   items={integrationsItems}
                   pathname={pathname}

@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next';
+import { useBillingCapabilities } from '@/domains/billing';
 import { useWebhooksServed } from '@/domains/webhooks';
 import {
+  billingSubRoutes,
   footerRoutes,
   integrationsSubRoutes,
   type SideNavResolvedSubRoute,
@@ -56,6 +58,23 @@ export function useResolvedIntegrationsItems() {
   // better than one that vanishes.
   return integrationsSubRoutes
     .filter(({ needsWebhooks }) => !needsWebhooks || webhooksServed)
+    .map(({ labelKey, path }): SideNavResolvedSubRoute => ({
+      label: t(labelKey),
+      path,
+    }));
+}
+
+/**
+ * The entries of the Billing section the running deployment offers. Billing is
+ * off until its capabilities say otherwise, so the list is empty while they load
+ * and when they cannot be read, and the section is not drawn.
+ */
+export function useResolvedBillingItems() {
+  const { t } = useTranslation();
+  const billing = useBillingCapabilities();
+
+  return billingSubRoutes
+    .filter(({ capability }) => billing.has(capability.feature))
     .map(({ labelKey, path }): SideNavResolvedSubRoute => ({
       label: t(labelKey),
       path,

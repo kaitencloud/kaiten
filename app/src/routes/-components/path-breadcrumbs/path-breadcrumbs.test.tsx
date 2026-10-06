@@ -34,6 +34,8 @@ const translations: Record<string, string> = {
   'Common.new': 'New',
   'Errors.notFound': 'Page not found',
   'Features.Releases.Actions.deploy': 'Deploy',
+  'Pages.Billing.Invoices.title': 'Invoices',
+  'Pages.Billing.title': 'Billing',
   'Pages.Customers.Instances.title': 'Instances',
   'Pages.Customers.title': 'Customers',
   'Pages.FeatureFlags.title': 'Feature Flags',
@@ -293,6 +295,52 @@ describe('PathBreadcrumbs', () => {
     expect(
       screen.getByRole('link', { current: 'page', name: 'does-not-exist' }),
     ).toBeInTheDocument();
+    expect(document.title).toBe('Page not found · Kaiten');
+  });
+
+  it('keeps the title of the trail for a route that explains its own not-found', () => {
+    mockRoutesByPath = { '/billing': {}, '/billing/invoices': {} };
+    mockUseMatches.mockReturnValue([
+      { pathname: '/', fullPath: '/', context: {} },
+      {
+        pathname: '/billing',
+        fullPath: '/billing',
+        status: 'notFound',
+        // What `notFound({ data })` threw: the route says why it has no screen.
+        error: {
+          data: { available: false, reason: 'DEPLOYMENT_DISABLED' },
+          isNotFound: true,
+        },
+        context: {},
+      },
+      {
+        pathname: '/billing/invoices',
+        fullPath: '/billing/invoices',
+        status: 'pending',
+        context: {},
+      },
+    ]);
+
+    render(<PathBreadcrumbs />);
+
+    expect(document.title).toBe('Invoices · Billing · Kaiten');
+  });
+
+  it('still titles the tab "Page not found" for a not-found that explains nothing', () => {
+    mockRoutesByPath = { '/billing': {} };
+    mockUseMatches.mockReturnValue([
+      { pathname: '/', fullPath: '/', context: {} },
+      {
+        pathname: '/billing',
+        fullPath: '/billing',
+        status: 'notFound',
+        error: { isNotFound: true },
+        context: {},
+      },
+    ]);
+
+    render(<PathBreadcrumbs />);
+
     expect(document.title).toBe('Page not found · Kaiten');
   });
 

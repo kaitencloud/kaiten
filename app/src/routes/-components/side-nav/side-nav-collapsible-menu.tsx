@@ -4,7 +4,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Link } from '@tanstack/react-router';
-import { ChevronDown, ChevronUp, Zap } from 'lucide-react';
+import { ChevronDown, ChevronUp, type LucideIcon } from 'lucide-react';
 import { SidebarMenuButton } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 import {
@@ -13,19 +13,19 @@ import {
   topLevelButtonClassName,
 } from './side-nav.constants';
 import { SideNavSubRouteList } from './side-nav-link-item';
-import type { useSideNavIntegrationsState } from './use-side-nav-integrations-state';
+import type { useSideNavMenuState } from './use-side-nav-menu-state';
 
-type CollapsedIntegrationsPopoverLinkProps = {
+type CollapsedMenuLinkProps = {
   item: SideNavResolvedSubRoute;
   onClick: () => void;
   pathname: string;
 };
 
-function CollapsedIntegrationsPopoverLink({
+function CollapsedMenuLink({
   item,
   onClick,
   pathname,
-}: CollapsedIntegrationsPopoverLinkProps) {
+}: CollapsedMenuLinkProps) {
   const active = isRouteActive(pathname, item.path);
 
   return (
@@ -43,7 +43,9 @@ function CollapsedIntegrationsPopoverLink({
   );
 }
 
-type CollapsedIntegrationsMenuProps = {
+type CollapsedMenuProps = {
+  Icon: LucideIcon;
+  isActive: boolean;
   isOpen: boolean;
   isTooltipEnabled: boolean;
   items: SideNavResolvedSubRoute[];
@@ -54,7 +56,9 @@ type CollapsedIntegrationsMenuProps = {
   title: string;
 };
 
-function CollapsedIntegrationsMenu({
+function CollapsedMenu({
+  Icon,
+  isActive,
   isOpen,
   isTooltipEnabled,
   items,
@@ -63,10 +67,10 @@ function CollapsedIntegrationsMenu({
   onTriggerPointerLeave,
   pathname,
   title,
-}: CollapsedIntegrationsMenuProps) {
+}: CollapsedMenuProps) {
   function renderCollapsedPopoverLink(item: SideNavResolvedSubRoute) {
     return (
-      <CollapsedIntegrationsPopoverLink
+      <CollapsedMenuLink
         key={item.path}
         item={item}
         onClick={onSubItemClick}
@@ -80,12 +84,12 @@ function CollapsedIntegrationsMenu({
       <PopoverTrigger
         render={
           <SidebarMenuButton
-            isActive={isRouteActive(pathname, '/integrations')}
+            isActive={isActive}
             tooltip={isTooltipEnabled ? title : undefined}
             className={topLevelButtonClassName}
             onPointerLeave={onTriggerPointerLeave}
           >
-            <Zap />
+            <Icon />
             <span>{title}</span>
           </SidebarMenuButton>
         }
@@ -107,7 +111,9 @@ function CollapsedIntegrationsMenu({
   );
 }
 
-type ExpandedIntegrationsMenuProps = {
+type ExpandedMenuProps = {
+  Icon: LucideIcon;
+  isActive: boolean;
   isOpen: boolean;
   items: SideNavResolvedSubRoute[];
   onToggle: () => void;
@@ -115,24 +121,26 @@ type ExpandedIntegrationsMenuProps = {
   title: string;
 };
 
-function ExpandedIntegrationsMenu({
+function ExpandedMenu({
+  Icon,
+  isActive,
   isOpen,
   items,
   onToggle,
   pathname,
   title,
-}: ExpandedIntegrationsMenuProps) {
+}: ExpandedMenuProps) {
   return (
     <>
       <SidebarMenuButton
         type="button"
-        isActive={isRouteActive(pathname, '/integrations')}
+        isActive={isActive}
         tooltip={title}
         className={cn(topLevelButtonClassName, 'relative pr-8')}
         aria-expanded={isOpen}
         onClick={onToggle}
       >
-        <Zap />
+        <Icon />
         <span>{title}</span>
         {isOpen ? (
           <ChevronUp className="absolute top-1/2 right-2.5 size-3.5 -translate-y-1/2 opacity-70" />
@@ -148,28 +156,41 @@ function ExpandedIntegrationsMenu({
   );
 }
 
-type SideNavIntegrationsMenuProps = {
+type SideNavCollapsibleMenuProps = {
+  /** The icon of the section. */
+  Icon: LucideIcon;
+  /** Whether the page is inside the section, which highlights its button. */
+  isActive: boolean;
   isCollapsed: boolean;
   items: SideNavResolvedSubRoute[];
   pathname: string;
-  state: ReturnType<typeof useSideNavIntegrationsState>;
+  state: ReturnType<typeof useSideNavMenuState>;
   title: string;
 };
 
-export function SideNavIntegrationsMenu({
+/**
+ * A section of the side navigation that holds sub-entries: a toggle with its
+ * entries underneath when the nav is expanded, a popover beside the icon when it
+ * is collapsed.
+ */
+export function SideNavCollapsibleMenu({
+  Icon,
+  isActive,
   isCollapsed,
   items,
   pathname,
   state,
   title,
-}: SideNavIntegrationsMenuProps) {
+}: SideNavCollapsibleMenuProps) {
   if (isCollapsed) {
     return (
-      <CollapsedIntegrationsMenu
-        isOpen={state.isIntegrationsPopoverOpen}
-        isTooltipEnabled={!state.isIntegrationsTooltipSuppressed}
+      <CollapsedMenu
+        Icon={Icon}
+        isActive={isActive}
+        isOpen={state.isPopoverOpen}
+        isTooltipEnabled={!state.isTooltipSuppressed}
         items={items}
-        onOpenChange={state.setIsIntegrationsPopoverOpen}
+        onOpenChange={state.setIsPopoverOpen}
         onSubItemClick={state.handleSubItemClick}
         onTriggerPointerLeave={state.handleTriggerPointerLeave}
         pathname={pathname}
@@ -179,10 +200,12 @@ export function SideNavIntegrationsMenu({
   }
 
   return (
-    <ExpandedIntegrationsMenu
-      isOpen={state.isIntegrationsOpen}
+    <ExpandedMenu
+      Icon={Icon}
+      isActive={isActive}
+      isOpen={state.isOpen}
       items={items}
-      onToggle={state.toggleIntegrationsMenu}
+      onToggle={state.toggle}
       pathname={pathname}
       title={title}
     />
