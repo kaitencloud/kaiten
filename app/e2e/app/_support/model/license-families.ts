@@ -39,6 +39,8 @@ export function listLicenseFamilyViews(
         newestFirst.find((license) => license.isDefault) ??
         newestFirst.find(isPublished),
       id,
+      // Families are private until listed; no seed lists one publicly.
+      isPublic: false,
       slug: opener.slug ?? id,
       updatedAt: newest.createdAt,
       versionCount: versions.length,

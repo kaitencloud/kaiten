@@ -124,6 +124,7 @@ const familyView = (
     createdAt: storyLastWeek,
     currentVersion: versions.find((license) => license.id === currentVersionId),
     id,
+    isPublic: false,
     slug,
     updatedAt: storyYesterday,
     versionCount: versions.length,

@@ -3586,6 +3586,10 @@ export default {
             label: 'Licensing',
             description: 'Licenses and the entitlements attached to them.',
           },
+          billing: {
+            label: 'Billing',
+            description: 'Subscriptions and the invoices they issue.',
+          },
           security: {
             label: 'Security',
             description: 'Credentials issued against your organization.',
@@ -3635,6 +3639,14 @@ export default {
             'An entitlement was added to a license.',
           LICENSE_ENTITLEMENT_UNASSIGNED:
             'An entitlement was removed from a license.',
+          INSTANCE_BILLING_STARTED:
+            'An instance was subscribed, or a canceled subscription started again.',
+          INSTANCE_BILLING_STATUS_CHANGED:
+            'A trial converted, or a subscription became past due or left that status.',
+          INSTANCE_BILLING_CANCELED:
+            'A subscription was canceled, at the end of its period or immediately.',
+          INSTANCE_INVOICE_HELD:
+            'An invoice was held because its usage journal failed a check; it waits to be released or recomposed.',
           SYSTEM_ORGANIZATION_TOKEN_ISSUED:
             'A credential was issued for your organization.',
         },
@@ -4189,7 +4201,16 @@ export default {
         FEATURE_FLAG_DELETED: 'Feature flag deleted',
         FEATURE_FLAG_EVALUATED: 'Feature flag evaluated',
         FEATURE_FLAG_UPDATED: 'Feature flag updated',
+        INSTANCE_BILLING_CANCELED: 'Subscription canceled',
+        INSTANCE_BILLING_CANCELLATION_REVERTED:
+          'Subscription cancellation reverted',
+        INSTANCE_BILLING_CANCELLATION_SCHEDULED:
+          'Subscription cancellation scheduled',
+        INSTANCE_BILLING_PLAN_CHANGED: 'Subscription plan changed',
+        INSTANCE_BILLING_PLAN_CHANGE_CANCELLED: 'Plan change canceled',
+        INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED: 'Plan change scheduled',
         INSTANCE_BILLING_STARTED: 'Subscription started',
+        INSTANCE_BILLING_STATUS_CHANGED: 'Subscription status changed',
         INSTANCE_CREATED: 'Instance created',
         INSTANCE_DELETED: 'Instance deleted',
         INSTANCE_DEPLOYED: 'Instance deployed',
