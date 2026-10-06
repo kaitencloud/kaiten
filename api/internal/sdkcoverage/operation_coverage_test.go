@@ -57,13 +57,19 @@ the operation has SDK callers and names what it waits for. The test keeps it
 honest the same two ways -- an entry must name a live operation, and it must
 be deleted, not kept, once the SDK maps the operation.
 */
+// awaitsBilling is the reason every billing operation gives: the SDK models the
+// priced catalogue and the billing module in one release, after the contract.
+const awaitsBilling = "billing: the SDK models it in its billing release"
+
 var awaitingSDKOperations = map[string]string{
-	"listLicensePrices":     "licence prices: the SDK models them in its billing release",
-	"getLicensePrice":       "licence prices: the SDK models them in its billing release",
-	"createLicensePrice":    "licence prices: the SDK models them in its billing release",
-	"updateLicensePrice":    "licence prices: the SDK models them in its billing release",
-	"deprecateLicensePrice": "licence prices: the SDK models them in its billing release",
-	"previewLicenseInvoice": "licence prices: the SDK models them in its billing release",
+	"listLicensePrices":     awaitsBilling,
+	"getLicensePrice":       awaitsBilling,
+	"createLicensePrice":    awaitsBilling,
+	"updateLicensePrice":    awaitsBilling,
+	"deprecateLicensePrice": awaitsBilling,
+	"previewLicenseInvoice": awaitsBilling,
+	"getBillingSettings":    awaitsBilling,
+	"updateBillingSettings": awaitsBilling,
 }
 
 func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {

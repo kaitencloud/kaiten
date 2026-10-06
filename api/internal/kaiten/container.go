@@ -5,6 +5,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers"
@@ -27,6 +28,7 @@ import (
 // privilege rather than anyone's option.
 type modules struct {
 	AuditTrail      *audittrail.UseCases
+	Billing         *billing.UseCases
 	Components      *components.UseCases
 	Connectors      *connectors.UseCases
 	Customers       *customers.UseCases
@@ -150,6 +152,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 
 	built := modules{
 		AuditTrail:      audittrail.NewUseCases(svc, notificationModule.Announcer),
+		Billing:         billing.NewUseCases(svc),
 		Components:      components.NewUseCases(svc),
 		Connectors:      connectors.NewUseCases(svc),
 		Customers:       customers.NewUseCases(svc),
