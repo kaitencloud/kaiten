@@ -172,3 +172,13 @@ FROM license_family f
 WHERE f.organization_id = sqlc.arg(organization_id)
   AND f.id = sqlc.arg(family_id)
   AND NOT EXISTS (SELECT 1 FROM license l WHERE l.family_id = f.id);
+
+
+-- name: SetLicenseFamilyPublic :one
+-- Lists the family in the public catalogue, or takes it out. updated_at is
+-- left alone: it says when a version was last added.
+UPDATE license_family
+SET is_public = sqlc.arg(is_public)
+WHERE organization_id = sqlc.arg(organization_id)
+  AND slug = sqlc.arg(slug)
+RETURNING id;

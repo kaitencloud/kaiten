@@ -93,6 +93,7 @@ var awaitingSDKOperations = map[string]string{
 	"schedulePlanChange":     awaitsBilling,
 	"cancelPlanChange":       awaitsBilling,
 	"updateInstanceBilling":  awaitsBilling,
+	"updateLicenseFamily":    awaitsBilling,
 }
 
 func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {

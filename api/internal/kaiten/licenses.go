@@ -29,6 +29,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/unarchivelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseentitlement"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicensefamily"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
@@ -287,4 +288,15 @@ func (l Licenses) PreviewInvoice(
 	}
 
 	return l.uc.PreviewLicenseInvoice.Execute(bindOrganization(ctx, cl), licenseSlug, scenario)
+}
+
+// UpdateFamily lists a family in the public catalogue, or takes it out.
+func (l Licenses) UpdateFamily(
+	ctx context.Context, cl caller.OrganizationCaller, familySlug string, isPublic bool,
+) (*licenseschema.LicenseFamilyView, error) {
+	if err := cl.Require(updatelicensefamily.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return l.uc.UpdateLicenseFamily.Execute(bindOrganization(ctx, cl), familySlug, isPublic)
 }
