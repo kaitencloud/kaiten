@@ -40,6 +40,9 @@ type Transition struct {
 	// instead.
 	WrongStateCode string
 	WrongState     func(slug string, current schema.LifecycleState) string
+	// Guard, when set, refuses the move for a reason of its own, under the
+	// version's lock.
+	Guard func(ctx context.Context, queries *db.Queries, organizationID uuid.UUID, slug string) error
 }
 
 // Deps lists exactly what a transition needs, instead of the full
@@ -173,6 +176,11 @@ func (r *Repository) apply(
 	}
 	if schema.LifecycleState(current) != t.From {
 		return nil, familyevents.Before{}, kaitenerrors.Conflict(t.WrongStateCode, t.WrongState(slug, schema.LifecycleState(current)))
+	}
+	if t.Guard != nil {
+		if err := t.Guard(ctx, queries, organizationID, slug); err != nil {
+			return nil, familyevents.Before{}, err
+		}
 	}
 
 	row, err := queries.TransitionLicenseLifecycleState(ctx, db.TransitionLicenseLifecycleStateParams{

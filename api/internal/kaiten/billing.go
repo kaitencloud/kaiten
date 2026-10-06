@@ -7,6 +7,8 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ackhandoff"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/cancelplanchange"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/cancelsubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/claimhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
@@ -24,12 +26,15 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/reactivatesubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/recomposeinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/releaseinvoicehold"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/scheduleplanchange"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updatebillingsettings"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updateinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/voidinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/writeoffinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
@@ -255,4 +260,55 @@ func (b Billing) GetCapabilities(ctx context.Context, cl caller.OrganizationCall
 	}
 
 	return b.uc.GetBillingCapabilities.Execute(bindOrganization(ctx, cl))
+}
+
+// CancelSubscription cancels at the period's end, or now with a FINAL invoice.
+func (b Billing) CancelSubscription(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug, mode string, reason *string,
+) (*cancelsubscription.CanceledSubscription, error) {
+	if err := cl.Require(cancelsubscription.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.CancelSubscription.Execute(bindOrganization(ctx, cl), instanceSlug, mode, reason)
+}
+
+func (b Billing) ReactivateSubscription(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug string,
+) (*subscriptions.InstanceBilling, error) {
+	if err := cl.Require(reactivatesubscription.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.ReactivateSubscription.Execute(bindOrganization(ctx, cl), instanceSlug)
+}
+
+func (b Billing) SchedulePlanChange(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug string, priceID uuid.UUID,
+) (*subscriptions.InstanceBilling, error) {
+	if err := cl.Require(scheduleplanchange.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.SchedulePlanChange.Execute(bindOrganization(ctx, cl), instanceSlug, priceID)
+}
+
+func (b Billing) CancelPlanChange(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug string,
+) (*subscriptions.InstanceBilling, error) {
+	if err := cl.Require(cancelplanchange.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.CancelPlanChange.Execute(bindOrganization(ctx, cl), instanceSlug)
+}
+
+func (b Billing) UpdateInstanceBilling(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug string, cmd updateinstancebilling.Command,
+) (*subscriptions.InstanceBilling, error) {
+	if err := cl.Require(updateinstancebilling.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.UpdateInstanceBilling.Execute(bindOrganization(ctx, cl), instanceSlug, cmd)
 }

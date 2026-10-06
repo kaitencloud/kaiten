@@ -19,15 +19,16 @@ type Subscriber interface {
 	Subscribe(ctx context.Context, cl caller.OrganizationCaller, instanceSlug string, cmd Command) (*StartedSubscription, error)
 }
 
-// NewSubscription is a subscription to start. Trials, add-ons, vouchers,
-// automatic collection and payment providers are not offered yet: the body
-// takes none of them.
+// NewSubscription is a subscription to start. Add-ons, vouchers, automatic
+// collection and payment providers are not offered yet: the body takes none
+// of them.
 type NewSubscription struct {
 	BasePriceID      uuid.UUID  `json:"basePriceId" doc:"An ACTIVE FLAT_FEE price of the instance's licence version, which must be PUBLISHED. The subscription stays pinned to it, even once deprecated."`
 	ProviderKind     string     `json:"providerKind,omitempty" enum:"NOOP" doc:"Who collects the invoices. NOOP (the default): the organization itself, through the handoff queue."`
 	CollectionMethod *string    `json:"collectionMethod,omitempty" enum:"SEND_INVOICE" doc:"Omitted: the organization's default, read at each invoice."`
 	DaysUntilDue     *int32     `json:"daysUntilDue,omitempty" doc:"Payment terms in days, 0 to 365. Omitted: the organization's default, read at each invoice."`
 	StartAt          *time.Time `json:"startAt,omitempty" doc:"The anchor periods are counted from, truncated to the second: now when omitted, else at most one billing period ago. A period that has already ended closes on the next pass."`
+	TrialDays        *int32     `json:"trialDays,omitempty" doc:"Days of trial from the anchor: nothing is billed, and no usage counts, until it ends; the period close then issues the first invoice. 0 is no trial. Omitted: the licence's trialPeriodDays, else no trial."`
 }
 
 type Request struct {
@@ -59,6 +60,7 @@ func RegisterEndpoint(api huma.API, app Subscriber) {
 			CollectionMethod: request.Body.CollectionMethod,
 			DaysUntilDue:     request.Body.DaysUntilDue,
 			StartAt:          request.Body.StartAt,
+			TrialDays:        request.Body.TrialDays,
 		})
 		if err != nil {
 			return nil, err
