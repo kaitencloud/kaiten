@@ -77,8 +77,8 @@ type ActivationReader interface {
 	IsActive(ctx context.Context, organizationID uuid.UUID, connectorName string) (bool, error)
 }
 
-// SettingsReader reads a connector's stored settings, unredacted;
-// ErrSettingsNotFound when there are none.
+// SettingsReader reads a connector's stored settings, unredacted: nil (and
+// no error, or ErrSettingsNotFound) when there are none.
 type SettingsReader interface {
 	Get(ctx context.Context, organizationID uuid.UUID, connectorName string) (map[string]any, error)
 }
@@ -120,7 +120,7 @@ func (s *Static) RegisterConnector(binding ConnectorBinding, deps ConnectorDeps)
 			return nil, ErrNotConnected
 		}
 		stored, err := deps.Settings.Get(ctx, organizationID, binding.ConnectorName)
-		if errors.Is(err, ErrSettingsNotFound) {
+		if errors.Is(err, ErrSettingsNotFound) || (err == nil && stored == nil) {
 			return nil, ErrNotConnected
 		}
 		if err != nil {

@@ -454,6 +454,61 @@ func (q *Queries) ClaimPushBatch(ctx context.Context, arg ClaimPushBatchParams) 
 	return items, nil
 }
 
+const countProviderRouting = `-- name: CountProviderRouting :one
+SELECT
+  (SELECT count(*) FROM instance_billing ib
+    WHERE ib.organization_id = $1
+      AND ib.provider_kind = $2
+      AND ib.status <> 'CANCELED')::bigint AS active_subscriptions,
+  (SELECT count(*) FROM instance_invoice i
+    WHERE i.organization_id = $1
+      AND i.provider_kind = $2
+      AND i.status IN ('DRAFT', 'PUSHED', 'PUSH_FAILED', 'PAYMENT_FAILED'))::bigint AS open_invoices
+`
+
+type CountProviderRoutingParams struct {
+	OrganizationID uuid.UUID           `json:"organization_id"`
+	ProviderKind   BillingProviderKind `json:"provider_kind"`
+}
+
+type CountProviderRoutingRow struct {
+	ActiveSubscriptions int64 `json:"active_subscriptions"`
+	OpenInvoices        int64 `json:"open_invoices"`
+}
+
+// What still routes to a provider in an organization: the subscriptions not
+// canceled that invoice through it, and its invoices not settled yet. A
+// provider's connector cannot be disconnected under either.
+func (q *Queries) CountProviderRouting(ctx context.Context, arg CountProviderRoutingParams) (CountProviderRoutingRow, error) {
+	row := q.db.QueryRow(ctx, countProviderRouting, arg.OrganizationID, arg.ProviderKind)
+	var i CountProviderRoutingRow
+	err := row.Scan(&i.ActiveSubscriptions, &i.OpenInvoices)
+	return i, err
+}
+
+const getAnyCustomerBillingID = `-- name: GetAnyCustomerBillingID :one
+SELECT cb.external_customer_id
+FROM customer_billing cb
+WHERE cb.organization_id = $1
+  AND cb.provider_kind = $2
+ORDER BY cb.created_at
+LIMIT 1
+`
+
+type GetAnyCustomerBillingIDParams struct {
+	OrganizationID uuid.UUID           `json:"organization_id"`
+	ProviderKind   BillingProviderKind `json:"provider_kind"`
+}
+
+// One customer the organization already maps in a provider: a new key must
+// reach the account it lives in.
+func (q *Queries) GetAnyCustomerBillingID(ctx context.Context, arg GetAnyCustomerBillingIDParams) (string, error) {
+	row := q.db.QueryRow(ctx, getAnyCustomerBillingID, arg.OrganizationID, arg.ProviderKind)
+	var external_customer_id string
+	err := row.Scan(&external_customer_id)
+	return external_customer_id, err
+}
+
 const getCustomerBilling = `-- name: GetCustomerBilling :one
 SELECT customer_id, organization_id, provider_kind, external_customer_id, web_url, synced_at, last_error, created_at, updated_at
 FROM customer_billing
