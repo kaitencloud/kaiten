@@ -27,6 +27,9 @@ const WARNING_EVENTS = [
 
 // Something was taken, created or put in place.
 const ACCEPTED_EVENTS = [
+  'ADDON_CREATED',
+  'ADDON_ENTITLEMENT_ASSIGNED',
+  'ADDON_PRICE_CREATED',
   'COMPONENT_CREATED',
   'CUSTOMER_CREATED',
   'DEPLOYMENT_ZONE_CREATED',
