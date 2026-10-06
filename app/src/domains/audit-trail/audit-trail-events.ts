@@ -96,6 +96,12 @@ export const AUDIT_EVENT_LABEL_KEYS = {
   INSTANCE_MIGRATED: 'Features.AuditTrail.events.INSTANCE_MIGRATED',
   INSTANCE_STATUS_CHANGED: 'Features.AuditTrail.events.INSTANCE_STATUS_CHANGED',
   INSTANCE_UPDATED: 'Features.AuditTrail.events.INSTANCE_UPDATED',
+  INSTANCE_VOUCHER_EXPIRED:
+    'Features.AuditTrail.events.INSTANCE_VOUCHER_EXPIRED',
+  INSTANCE_VOUCHER_REDEEMED:
+    'Features.AuditTrail.events.INSTANCE_VOUCHER_REDEEMED',
+  INSTANCE_VOUCHER_REVOKED:
+    'Features.AuditTrail.events.INSTANCE_VOUCHER_REVOKED',
   LICENSE_ARCHIVED: 'Features.AuditTrail.events.LICENSE_ARCHIVED',
   LICENSE_CREATED: 'Features.AuditTrail.events.LICENSE_CREATED',
   LICENSE_DELETED: 'Features.AuditTrail.events.LICENSE_DELETED',
@@ -127,6 +133,12 @@ export const AUDIT_EVENT_LABEL_KEYS = {
   RELEASE_DEPLOYED: 'Features.AuditTrail.events.RELEASE_DEPLOYED',
   SYSTEM_ORGANIZATION_TOKEN_ISSUED:
     'Features.AuditTrail.events.SYSTEM_ORGANIZATION_TOKEN_ISSUED',
+  VOUCHER_ARCHIVED: 'Features.AuditTrail.events.VOUCHER_ARCHIVED',
+  VOUCHER_CREATED: 'Features.AuditTrail.events.VOUCHER_CREATED',
+  VOUCHER_EXHAUSTED: 'Features.AuditTrail.events.VOUCHER_EXHAUSTED',
+  VOUCHER_EXPIRED: 'Features.AuditTrail.events.VOUCHER_EXPIRED',
+  VOUCHER_PUBLISHED: 'Features.AuditTrail.events.VOUCHER_PUBLISHED',
+  VOUCHER_UPDATED: 'Features.AuditTrail.events.VOUCHER_UPDATED',
 } as const satisfies Record<AuditEventName, string>;
 
 const isAuditEventName = (eventName: string): eventName is AuditEventName =>
