@@ -400,7 +400,8 @@ func TestProviderSwitch(t *testing.T) {
 
 		onlyNoop := commonfixture.AssertJSONResponse[getbillingcapabilities.BillingCapabilities](t,
 			call(t, "GET", "/api/billing/capabilities", nil), fiber.StatusOK)
-		require.Len(t, onlyNoop.Providers, 1)
+		require.Len(t, onlyNoop.Providers, 2, "NOOP, and the shipped Stripe, not connected")
+		require.False(t, onlyNoop.Providers[1].Connected)
 		require.Equal(t, "SubscribeInstance.ProviderNotConnected", commonfixture.AssertJSONResponse[kaitenerrors.Problem](t,
 			call(t, "POST", "/api/instances/any/billing", map[string]any{"basePriceId": uuid.New(), "providerKind": "STRIPE"}),
 			fiber.StatusUnprocessableEntity).Code)
