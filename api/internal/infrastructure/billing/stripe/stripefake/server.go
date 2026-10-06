@@ -115,13 +115,17 @@ func (f *Fake) serve(w http.ResponseWriter, r *http.Request) {
 			switch {
 			case previous.inFlight:
 				f.mu.Unlock()
-				f.write(w, http.StatusConflict, errorBody(apiError{Type: "idempotency_error", Code: "idempotency_key_in_use",
-					Message: "There is currently another in-progress request using this Idempotent Key"}), false)
+				f.write(w, http.StatusConflict, errorBody(apiError{
+					Type: "idempotency_error", Code: "idempotency_key_in_use",
+					Message: "There is currently another in-progress request using this Idempotent Key",
+				}), false)
 				return
 			case previous.params != fingerprint:
 				f.mu.Unlock()
-				f.write(w, http.StatusBadRequest, errorBody(apiError{Type: "idempotency_error",
-					Message: "Keys for idempotent requests can only be used with the same parameters they were first used with."}), false)
+				f.write(w, http.StatusBadRequest, errorBody(apiError{
+					Type:    "idempotency_error",
+					Message: "Keys for idempotent requests can only be used with the same parameters they were first used with.",
+				}), false)
 				return
 			default:
 				status, replay := previous.status, previous.body
@@ -184,7 +188,7 @@ func (f *Fake) write(w http.ResponseWriter, status int, body []byte, replayed bo
 		w.Header().Set("Idempotent-Replayed", "true")
 	}
 	w.WriteHeader(status)
-	_, _ = w.Write(body)
+	_, _ = w.Write(body) //nolint:gosec // a test fake answering JSON its own handlers built, never HTML
 }
 
 func hijackAndClose(w http.ResponseWriter) {
@@ -391,8 +395,10 @@ func (f *Fake) handle(accountID, apiKey, op, id string, form url.Values) (int, [
 			return missing("invoice", id)
 		}
 		if inv.Status != "draft" {
-			return http.StatusBadRequest, errorBody(apiError{Type: "invalid_request_error", Code: "invoice_not_editable",
-				Message: "This invoice is already finalized, you can't re-finalize a non-draft invoice."})
+			return http.StatusBadRequest, errorBody(apiError{
+				Type: "invalid_request_error", Code: "invoice_not_editable",
+				Message: "This invoice is already finalized, you can't re-finalize a non-draft invoice.",
+			})
 		}
 		if v := form.Get("auto_advance"); v != "" {
 			inv.AutoAdvance = v == "true"
@@ -406,8 +412,10 @@ func (f *Fake) handle(accountID, apiKey, op, id string, form url.Values) (int, [
 			return missing("invoice", id)
 		}
 		if inv.Status != "open" {
-			return http.StatusBadRequest, errorBody(apiError{Type: "invalid_request_error", Code: "invoice_not_editable",
-				Message: "You can only void open invoices."})
+			return http.StatusBadRequest, errorBody(apiError{
+				Type: "invalid_request_error", Code: "invoice_not_editable",
+				Message: "You can only void open invoices.",
+			})
 		}
 		inv.Status = "void"
 		inv.StatusTransitions["voided_at"] = now
