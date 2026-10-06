@@ -179,3 +179,17 @@ WHERE p.organization_id = sqlc.arg(organization_id)
 -- The instant a composition is made at: the database's, in UTC, to the
 -- millisecond, like every stored instant.
 SELECT date_trunc('milliseconds', now() AT TIME ZONE 'UTC')::timestamp AS now;
+
+
+-- name: CountActivePricesMeteringGrant :one
+-- How many ACTIVE prices of a version meter an entitlement, by slugs: a grant
+-- they meter cannot be removed from under them. The caller holds the version's
+-- lock, as a price write does.
+SELECT count(*)::int AS count
+FROM license_price p
+JOIN license l ON l.id = p.license_id AND l.organization_id = p.organization_id
+JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id = p.organization_id
+WHERE p.organization_id = sqlc.arg(organization_id)
+  AND l.slug = sqlc.arg(license_slug)
+  AND e.slug = sqlc.arg(entitlement_slug)
+  AND p.status = 'ACTIVE';

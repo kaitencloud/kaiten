@@ -25,6 +25,33 @@ func (q *Queries) BillingClock(ctx context.Context) (pgtype.Timestamp, error) {
 	return now, err
 }
 
+const countActivePricesMeteringGrant = `-- name: CountActivePricesMeteringGrant :one
+SELECT count(*)::int AS count
+FROM license_price p
+JOIN license l ON l.id = p.license_id AND l.organization_id = p.organization_id
+JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id = p.organization_id
+WHERE p.organization_id = $1
+  AND l.slug = $2
+  AND e.slug = $3
+  AND p.status = 'ACTIVE'
+`
+
+type CountActivePricesMeteringGrantParams struct {
+	OrganizationID  uuid.UUID `json:"organization_id"`
+	LicenseSlug     string    `json:"license_slug"`
+	EntitlementSlug string    `json:"entitlement_slug"`
+}
+
+// How many ACTIVE prices of a version meter an entitlement, by slugs: a grant
+// they meter cannot be removed from under them. The caller holds the version's
+// lock, as a price write does.
+func (q *Queries) CountActivePricesMeteringGrant(ctx context.Context, arg CountActivePricesMeteringGrantParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countActivePricesMeteringGrant, arg.OrganizationID, arg.LicenseSlug, arg.EntitlementSlug)
+	var count int32
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countOtherActiveMeteredPrices = `-- name: CountOtherActiveMeteredPrices :one
 SELECT count(*)::int AS count
 FROM license_price p
