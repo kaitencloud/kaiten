@@ -63,8 +63,8 @@ the pull request template and the `pr-check` skill point here.
     for the client types.
   - An HTTP operation: `task generate` (it runs `task generate:oas`, then
     `pnpm run generate` in `app/`), and commit what it regenerates:
-    `app/openapi.yaml`, `app/platform-openapi.yaml` and
-    `app/src/lib/api/scopes.gen.ts`.
+    `app/openapi.yaml`, `app/platform-openapi.yaml`,
+    `app/src/lib/api/scopes.gen.ts` and `app/src/lib/api/operation-scopes.gen.ts`.
 
   A new migration is named with a timestamp **newer than the highest one on
   `main` when you merge**, not when you branch: goose refuses a pending version
