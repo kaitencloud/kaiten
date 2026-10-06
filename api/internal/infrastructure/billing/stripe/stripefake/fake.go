@@ -177,14 +177,31 @@ type apiError struct {
 
 // New starts a fake Stripe, closed when the test ends.
 func New(t testing.TB) *Fake {
-	f := &Fake{
-		seq: map[string]int{}, accounts: map[string]string{}, rejected: map[string]apiError{},
-		state: map[string]*account{}, keys: map[string]*storedKey{},
-		faults: map[string][]fault{}, delays: map[string]time.Duration{}, drops: map[string]int{},
-	}
-	f.server = httptest.NewServer(http.HandlerFunc(f.serve))
-	t.Cleanup(f.server.Close)
+	f := Start()
+	t.Cleanup(f.Close)
 	return f
+}
+
+// Start starts a fake Stripe the caller closes: one a TestMain shares across
+// a package's tests, resetting it between them.
+func Start() *Fake {
+	f := &Fake{}
+	f.Reset()
+	f.server = httptest.NewServer(http.HandlerFunc(f.serve))
+	return f
+}
+
+// Close stops the server.
+func (f *Fake) Close() { f.server.Close() }
+
+// Reset forgets every account, key, call, fault and clock setting.
+func (f *Fake) Reset() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.seq, f.accounts, f.rejected = map[string]int{}, map[string]string{}, map[string]apiError{}
+	f.state, f.keys, f.calls = map[string]*account{}, map[string]*storedKey{}, nil
+	f.faults, f.delays, f.drops = map[string][]fault{}, map[string]time.Duration{}, map[string]int{}
+	f.down, f.clockSet = false, false
 }
 
 // URL is the base URL the adapter is pointed at.
