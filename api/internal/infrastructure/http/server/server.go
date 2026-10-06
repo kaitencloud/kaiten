@@ -33,6 +33,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/attio"
+	connectorstripe "github.com/kaitencloud/kaiten/api/internal/modules/connectors/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/platform/auth"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/platform/jit"
@@ -341,6 +342,7 @@ func (s *Server) registerBuiltInConnectorsIfMigrated(ctx context.Context) error 
 // protocol for it to implement and no startup hook for it to own.
 var builtInConnectorManifests = []builtinconnectors.Manifest{
 	attio.Manifest(),
+	connectorstripe.Manifest(),
 }
 
 // setupRetention starts the background sweep that bounds outbox_events and
