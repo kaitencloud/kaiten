@@ -12,6 +12,35 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countEntitlementReferences = `-- name: CountEntitlementReferences :one
+SELECT
+  (SELECT count(*) FROM license_entitlement le WHERE le.entitlement_id = e.id)::int AS license_grants,
+  (SELECT count(*) FROM entitlement_usage eu WHERE eu.entitlement_id = e.id)::int AS usage_counters,
+  (SELECT count(*) FROM license_price p WHERE p.meters_entitlement_id = e.id)::int AS license_prices
+FROM entitlement e
+WHERE e.organization_id = $1
+  AND e.slug = $2
+`
+
+type CountEntitlementReferencesParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+type CountEntitlementReferencesRow struct {
+	LicenseGrants int32 `json:"license_grants"`
+	UsageCounters int32 `json:"usage_counters"`
+	LicensePrices int32 `json:"license_prices"`
+}
+
+// What still references an entitlement a delete was refused for.
+func (q *Queries) CountEntitlementReferences(ctx context.Context, arg CountEntitlementReferencesParams) (CountEntitlementReferencesRow, error) {
+	row := q.db.QueryRow(ctx, countEntitlementReferences, arg.OrganizationID, arg.Slug)
+	var i CountEntitlementReferencesRow
+	err := row.Scan(&i.LicenseGrants, &i.UsageCounters, &i.LicensePrices)
+	return i, err
+}
+
 const createEntitlement = `-- name: CreateEntitlement :one
 INSERT INTO entitlement (name, slug, description, type, aggregation_method, organization_id, icon,
                          unit_singular, unit_plural, sale_unit_singular, sale_unit_plural, sale_unit_factor, user_facing,

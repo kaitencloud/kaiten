@@ -49,6 +49,9 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, draft prices.
 		if version.LifecycleState == db.LicenseLifecycleStateARCHIVED {
 			return kaitenerrors.Conflict(operation+".VersionArchived", "an archived licence version takes no new price")
 		}
+		if err := prices.RefuseBilled(ctx, queries, operation, user.OrganizationID, licenseSlug); err != nil {
+			return err
+		}
 
 		params := db.InsertLicensePriceParams{
 			OrganizationID:      user.OrganizationID,

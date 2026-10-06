@@ -10,6 +10,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	shared "github.com/kaitencloud/kaiten/api/internal/shared/user"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -31,6 +32,9 @@ func (r *CommandRepository) q(ctx context.Context) *db.Queries {
 }
 
 func (r *CommandRepository) DeleteLicenseEntitlement(ctx context.Context, licenseSlug, entitlementSlug string, organizationID uuid.UUID) (*schema.LicenseEntitlement, error) {
+	if err := prices.RefuseBilled(ctx, r.q(ctx), "DeleteLicenseEntitlement", organizationID, licenseSlug); err != nil {
+		return nil, err
+	}
 	if err := r.refuseMeteredGrant(ctx, licenseSlug, entitlementSlug, organizationID); err != nil {
 		return nil, err
 	}

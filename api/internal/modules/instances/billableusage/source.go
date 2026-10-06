@@ -55,6 +55,11 @@ func (s *Source) ExportReports(ref ports.UsageRef, from, to time.Time, format us
 	}, format, name)
 }
 
+// RetentionMonths is the organization's usage history window.
+func (s *Source) RetentionMonths(ctx context.Context, organizationID uuid.UUID) (int, bool) {
+	return s.retention.Months(ctx, organizationID)
+}
+
 // RetentionStart is where the organization's usage history starts.
 func (s *Source) RetentionStart(ctx context.Context, organizationID uuid.UUID, now time.Time) *time.Time {
 	return s.retention.Start(ctx, organizationID, now)

@@ -202,3 +202,20 @@ FROM license_price p
 JOIN license l ON l.id = p.license_id AND l.organization_id = p.organization_id
 WHERE p.organization_id = sqlc.arg(organization_id)
   AND p.id = sqlc.arg(id);
+
+
+-- name: VersionIsBilled :one
+-- Whether a live subscription bills a licence version: its base price, or the
+-- price it is scheduled to change to, is one of the version's. What it sold
+-- is then frozen.
+SELECT EXISTS (
+  SELECT 1
+  FROM instance_billing ib
+  JOIN license_price p
+    ON p.organization_id = ib.organization_id
+   AND (p.id = ib.base_license_price_id OR p.id = ib.scheduled_license_price_id)
+  JOIN license l ON l.id = p.license_id AND l.organization_id = p.organization_id
+  WHERE ib.organization_id = sqlc.arg(organization_id)
+    AND l.slug = sqlc.arg(license_slug)
+    AND ib.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
+)::boolean AS billed;

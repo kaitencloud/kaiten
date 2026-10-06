@@ -113,6 +113,13 @@ type Retention struct {
 // horizon. Nil when nothing restricts the read: the history is kept forever,
 // or the organization's retention cannot be read right now -- the same
 // organizations the daily pass leaves alone.
+// Months is the organization's usage history window in months, 0 when it
+// keeps everything; false when it cannot be told.
+func (r Retention) Months(ctx context.Context, organizationID uuid.UUID) (int, bool) {
+	months, source := windowMonths(ctx, services.EntitlementConfigOrNone(r.Reader), r.Settings, organizationID)
+	return months, source != sourceUnknown
+}
+
 func (r Retention) Start(ctx context.Context, organizationID uuid.UUID, now time.Time) *time.Time {
 	months, source := windowMonths(ctx, services.EntitlementConfigOrNone(r.Reader), r.Settings, organizationID)
 	if source == sourceUnknown || months == 0 {

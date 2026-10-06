@@ -16,6 +16,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/exportinvoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingcapabilities"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
@@ -60,6 +61,7 @@ type UseCases struct {
 	AckHandoff             *ackhandoff.UseCase
 	ExportInvoices         *exportinvoices.UseCase
 	ListInvoiceLineReports *listinvoicelinereports.UseCase
+	GetBillingCapabilities *getbillingcapabilities.UseCase
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -92,6 +94,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		AckHandoff:             ackhandoff.NewUseCase(deps),
 		ExportInvoices:         exportinvoices.NewUseCase(deps),
 		ListInvoiceLineReports: listinvoicelinereports.NewUseCase(deps),
+		GetBillingCapabilities: getbillingcapabilities.NewUseCase(deps, svc.Config.Usage.IdempotencyWindow),
 	}
 
 	// The billing jobs run only where billing is on and background work runs.

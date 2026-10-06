@@ -609,3 +609,32 @@ func (q *Queries) UpdateLicensePrice(ctx context.Context, arg UpdateLicensePrice
 	err := row.Scan(&id)
 	return id, err
 }
+
+const versionIsBilled = `-- name: VersionIsBilled :one
+SELECT EXISTS (
+  SELECT 1
+  FROM instance_billing ib
+  JOIN license_price p
+    ON p.organization_id = ib.organization_id
+   AND (p.id = ib.base_license_price_id OR p.id = ib.scheduled_license_price_id)
+  JOIN license l ON l.id = p.license_id AND l.organization_id = p.organization_id
+  WHERE ib.organization_id = $1
+    AND l.slug = $2
+    AND ib.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
+)::boolean AS billed
+`
+
+type VersionIsBilledParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	LicenseSlug    string    `json:"license_slug"`
+}
+
+// Whether a live subscription bills a licence version: its base price, or the
+// price it is scheduled to change to, is one of the version's. What it sold
+// is then frozen.
+func (q *Queries) VersionIsBilled(ctx context.Context, arg VersionIsBilledParams) (bool, error) {
+	row := q.db.QueryRow(ctx, versionIsBilled, arg.OrganizationID, arg.LicenseSlug)
+	var billed bool
+	err := row.Scan(&billed)
+	return billed, err
+}

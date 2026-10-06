@@ -253,3 +253,28 @@ FROM primary_instance pi
         AND eu.entitlement_id = e.id
         AND eu.organization_id = sqlc.arg(organization_id)
 ORDER BY e.slug;
+
+
+-- name: GetCustomerBillingBlock :one
+-- What keeps a customer from being deleted: a live subscription of one of its
+-- instances, or an invoice of its not settled yet.
+SELECT
+  EXISTS (SELECT 1 FROM instance_billing ib
+           WHERE ib.customer_id = c.id AND ib.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')) AS live,
+  coalesce(array(SELECT inv.id
+                   FROM instance_invoice inv
+                  WHERE inv.customer_id = c.id
+                    AND inv.status IN ('DRAFT', 'PUSHED', 'PUSH_FAILED', 'MANUAL', 'PAYMENT_FAILED')
+                  ORDER BY inv.boundary_at),
+           '{}')::uuid[] AS unpaid_invoice_ids
+FROM customer c
+WHERE c.organization_id = sqlc.arg(organization_id)
+  AND c.slug = sqlc.arg(slug);
+
+
+-- name: LockCustomerForDelete :one
+SELECT c.id
+FROM customer c
+WHERE c.organization_id = sqlc.arg(organization_id)
+  AND c.slug = sqlc.arg(slug)
+FOR UPDATE;

@@ -8,6 +8,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/claimhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/exportinvoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingcapabilities"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
@@ -30,6 +31,7 @@ import (
 // contracts its writes emit. Each operation receives the facade's billing
 // surface as its own one-method interface.
 func registerBilling(core, platform huma.API, app kaiten.Billing, platformApp kaiten.Platform) {
+	getbillingcapabilities.RegisterEndpoint(core, app)
 	getbillingsettings.RegisterEndpoint(core, app)
 	updatebillingsettings.RegisterEndpoint(core, app)
 	subscribeinstance.RegisterEndpoint(core, app)

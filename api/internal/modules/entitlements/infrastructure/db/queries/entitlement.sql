@@ -160,3 +160,14 @@ SELECT e.id,
 FROM entitlement e
 WHERE e.organization_id = sqlc.arg(organization_id)
   AND e.slug = sqlc.arg(entitlement_slug);
+
+
+-- name: CountEntitlementReferences :one
+-- What still references an entitlement a delete was refused for.
+SELECT
+  (SELECT count(*) FROM license_entitlement le WHERE le.entitlement_id = e.id)::int AS license_grants,
+  (SELECT count(*) FROM entitlement_usage eu WHERE eu.entitlement_id = e.id)::int AS usage_counters,
+  (SELECT count(*) FROM license_price p WHERE p.meters_entitlement_id = e.id)::int AS license_prices
+FROM entitlement e
+WHERE e.organization_id = sqlc.arg(organization_id)
+  AND e.slug = sqlc.arg(slug);

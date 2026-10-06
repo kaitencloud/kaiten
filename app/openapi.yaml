@@ -69,6 +69,91 @@ components:
         - variant
         - rule
       type: object
+    BillingCapabilities:
+      additionalProperties: false
+      properties:
+        disabledReason:
+          description: "Why they do not: billing is off on this deployment, or the organization's plan does not include it"
+          enum:
+            - DEPLOYMENT_DISABLED
+            - NOT_ENTITLED
+          type: string
+        enabled:
+          description: Whether the billing routes answer for this organization
+          type: boolean
+        features:
+          $ref: "#/components/schemas/BillingFeatures"
+          description: Which parts of billing this release ships
+        providers:
+          description: Who can collect invoices
+          items:
+            $ref: "#/components/schemas/BillingProvider"
+          type: array
+        publicSurface:
+          $ref: "#/components/schemas/PublicSurface"
+        usageHistoryRetentionMonths:
+          description: How long usage reports are kept, in months; absent when they are kept forever or it cannot be told
+          format: int64
+          type: integer
+        usageIdempotencyWindowDays:
+          description: How long a usage report's transactionId is remembered, in days
+          format: int64
+          type: integer
+      required:
+        - enabled
+        - providers
+        - publicSurface
+        - usageIdempotencyWindowDays
+        - features
+      type: object
+    BillingFeatures:
+      additionalProperties: false
+      properties:
+        addons:
+          type: boolean
+        chargeAutomatically:
+          type: boolean
+        lifecycle:
+          description: Cancellation, reactivation, plan changes and overdue tracking
+          type: boolean
+        publicSurface:
+          type: boolean
+        stripe:
+          type: boolean
+        trials:
+          type: boolean
+        vouchers:
+          type: boolean
+      required:
+        - stripe
+        - lifecycle
+        - trials
+        - addons
+        - vouchers
+        - chargeAutomatically
+        - publicSurface
+      type: object
+    BillingProvider:
+      additionalProperties: false
+      properties:
+        available:
+          type: boolean
+        capabilities:
+          $ref: "#/components/schemas/ProviderCapabilities"
+        connected:
+          description: Whether it is set up for the organization; NOOP always is
+          type: boolean
+        kind:
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+      required:
+        - kind
+        - available
+        - connected
+        - capabilities
+      type: object
     BillingSettings:
       additionalProperties: false
       properties:
@@ -4543,6 +4628,28 @@ components:
           format: uri
           type: string
       type: object
+    ProviderCapabilities:
+      additionalProperties: false
+      properties:
+        automaticCollection:
+          type: boolean
+        billingPortal:
+          type: boolean
+        paymentMethodCapture:
+          type: boolean
+      required:
+        - paymentMethodCapture
+        - billingPortal
+        - automaticCollection
+      type: object
+    PublicSurface:
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+      required:
+        - enabled
+      type: object
     QueuedInvoice:
       additionalProperties: false
       properties:
@@ -6097,6 +6204,47 @@ info:
   version: 1.0.0
 openapi: 3.1.0
 paths:
+  /billing/capabilities:
+    get:
+      description: Whether billing is enabled for the organization, and if not why; who can collect its invoices; and which parts of billing this release ships, so a client shows only what works. Answers even when billing is disabled.
+      operationId: getBillingCapabilities
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingCapabilities"
+          description: OK
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:billing
+      summary: Get billing capabilities
+      tags:
+        - billing
   /billing/close-periods:
     post:
       description: "Closes the subscriptions whose period has ended now, rather than at the period-close job's next pass: each one's RENEWAL invoice is composed and issued (or held, when its usage journal fails a check) and its period advances. A subscription several periods behind closes one period at a time until it is current. Only what is due closes, at most the configured batch size per call. Requires billing to be enabled for the organization."
@@ -7515,6 +7663,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
         "422":
           content:
             application/problem+json:
@@ -9666,6 +9820,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
         "422":
           content:
             application/problem+json:
@@ -13274,6 +13434,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
         "422":
           content:
             application/problem+json:

@@ -143,6 +143,40 @@ func (q *Queries) DeleteCustomer(ctx context.Context, arg DeleteCustomerParams) 
 	return i, err
 }
 
+const getCustomerBillingBlock = `-- name: GetCustomerBillingBlock :one
+SELECT
+  EXISTS (SELECT 1 FROM instance_billing ib
+           WHERE ib.customer_id = c.id AND ib.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')) AS live,
+  coalesce(array(SELECT inv.id
+                   FROM instance_invoice inv
+                  WHERE inv.customer_id = c.id
+                    AND inv.status IN ('DRAFT', 'PUSHED', 'PUSH_FAILED', 'MANUAL', 'PAYMENT_FAILED')
+                  ORDER BY inv.boundary_at),
+           '{}')::uuid[] AS unpaid_invoice_ids
+FROM customer c
+WHERE c.organization_id = $1
+  AND c.slug = $2
+`
+
+type GetCustomerBillingBlockParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+type GetCustomerBillingBlockRow struct {
+	Live             bool        `json:"live"`
+	UnpaidInvoiceIds []uuid.UUID `json:"unpaid_invoice_ids"`
+}
+
+// What keeps a customer from being deleted: a live subscription of one of its
+// instances, or an invoice of its not settled yet.
+func (q *Queries) GetCustomerBillingBlock(ctx context.Context, arg GetCustomerBillingBlockParams) (GetCustomerBillingBlockRow, error) {
+	row := q.db.QueryRow(ctx, getCustomerBillingBlock, arg.OrganizationID, arg.Slug)
+	var i GetCustomerBillingBlockRow
+	err := row.Scan(&i.Live, &i.UnpaidInvoiceIds)
+	return i, err
+}
+
 const getCustomerExternalIDByID = `-- name: GetCustomerExternalIDByID :one
 SELECT c.external_customer_id
 FROM customer c
@@ -609,6 +643,26 @@ func (q *Queries) GetTargetingFactsByCustomerSlug(ctx context.Context, arg GetTa
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockCustomerForDelete = `-- name: LockCustomerForDelete :one
+SELECT c.id
+FROM customer c
+WHERE c.organization_id = $1
+  AND c.slug = $2
+FOR UPDATE
+`
+
+type LockCustomerForDeleteParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+func (q *Queries) LockCustomerForDelete(ctx context.Context, arg LockCustomerForDeleteParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockCustomerForDelete, arg.OrganizationID, arg.Slug)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const setCustomerExternalIDByID = `-- name: SetCustomerExternalIDByID :execrows

@@ -11,6 +11,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/exportinvoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingcapabilities"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
@@ -244,4 +245,14 @@ func (b Billing) ListInvoiceLineReports(
 	}
 
 	return b.uc.ListInvoiceLineReports.Execute(bindOrganization(ctx, cl), invoiceID, lineID, q)
+}
+
+// GetCapabilities answers what billing can do for the organization, enabled
+// or not.
+func (b Billing) GetCapabilities(ctx context.Context, cl caller.OrganizationCaller) (*getbillingcapabilities.BillingCapabilities, error) {
+	if err := cl.Require(getbillingcapabilities.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.GetBillingCapabilities.Execute(bindOrganization(ctx, cl))
 }

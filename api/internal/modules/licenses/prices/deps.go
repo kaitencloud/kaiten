@@ -70,3 +70,18 @@ func Entitlement(ctx context.Context, queries *db.Queries, operation string, org
 	}
 	return entitlement, err
 }
+
+// RefuseBilled refuses to change what a licence version sells while a live
+// subscription bills it: a grant edit, or a new price, would silently change
+// a contract already sold. A new version and a plan change are the way.
+func RefuseBilled(ctx context.Context, queries *db.Queries, operation string, organizationID uuid.UUID, licenseSlug string) error {
+	billed, err := queries.VersionIsBilled(ctx, db.VersionIsBilledParams{OrganizationID: organizationID, LicenseSlug: licenseSlug})
+	if err != nil {
+		return err
+	}
+	if billed {
+		return kaitenerrors.Conflict(operation+".BillingActive",
+			"a live subscription bills this licence version: what it sells is frozen; publish a new version instead")
+	}
+	return nil
+}
