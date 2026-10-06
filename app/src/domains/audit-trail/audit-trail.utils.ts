@@ -22,6 +22,13 @@ import type {
 // - INSTANCE_ENTITLEMENT_CAP_EXCEEDED: a soft limit took a report above the
 //   cap and kept it, the overage included.
 //
+// One billing event warns too, for a reason of its own:
+//
+// - INSTANCE_INVOICE_HELD: a period closed into an invoice held as a draft,
+//   because the usage journal it was measured from failed a consistency
+//   check. It is neither issued nor handed off until someone releases or
+//   recomposes it.
+//
 // A refusal is not a warning: ENTITLEMENT_USAGE_REPORT_REJECTED and
 // CUSTOMER_CREATION_REJECTED read as rejected.
 const KNOWN_CATEGORIES = {
@@ -31,6 +38,7 @@ const KNOWN_CATEGORIES = {
   INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED: 'warning',
   INSTANCE_ENTITLEMENT_USAGE_REACHED: 'warning',
   INSTANCE_ENTITLEMENT_CAP_EXCEEDED: 'warning',
+  INSTANCE_INVOICE_HELD: 'warning',
 } as const satisfies Partial<Record<AuditEventName, AuditEventCategory>>;
 
 // Any other event is coloured from its last word, so that failures read red and
