@@ -188,7 +188,7 @@ A hook used by one feature stays in `features/<name>/hooks/` and moves here when
 
 | Path | What it holds |
 | --- | --- |
-| `api/` | Wiring of the generated REST client: base URL, auth interceptor, `ApiError` wrapping; pagination helpers; query options that fetch every page of a list (`all-pages-query-options.ts`, built on the generated client); the generated `scopes.gen.ts` |
+| `api/` | Wiring of the generated REST client: base URL, auth interceptor, `ApiError` wrapping; pagination helpers; query options that fetch every page of a list (`all-pages-query-options.ts`, built on the generated client); the generated `scopes.gen.ts` and `operation-scopes.gen.ts` |
 | `auth-token.ts`, `local-auth.ts` | Resolution of the bearer token, and the local dev-token mode |
 | `graphql-client.ts` | The small `fetch` client for GraphQL |
 | `errors/` | `ApiError`, `handleApiError`, `getApiErrorMessage`, error codes |

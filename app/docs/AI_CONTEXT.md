@@ -75,7 +75,7 @@ Never edit these files by hand; regenerate them.
 | Files | Regenerate with |
 | --- | --- |
 | `app/src/api-client/**`, git-ignored: absent after a clone | `pnpm run generate` in `app/`. REST comes from `app/openapi.yaml`, GraphQL from the `.graphqls` schemas under `api/`. |
-| `app/src/lib/api/scopes.gen.ts` | `pnpm run generate` in `app/` |
+| `app/src/lib/api/scopes.gen.ts`, `app/src/lib/api/operation-scopes.gen.ts` | `pnpm run generate` in `app/` |
 | `app/src/routeTree.gen.ts` | written by the TanStack Router plugin when the dev server or a build runs |
 | `app/openapi.yaml`, `app/platform-openapi.yaml` | `task generate:oas` from the repository root, from the Go source |
 
@@ -106,7 +106,7 @@ Run from `app/`.
 | `pnpm run check:architecture` | The 12 rules of [Import rules](#import-rules): 10 errors and 2 warnings. |
 | `pnpm run check:lint-parity` | Root/app lint rule ASTs match; ignored source scopes intentionally differ. |
 | `pnpm run lint` | Oxlint on `src` and `e2e`, type-aware: correctness rules, the restricted imports and the file names of [Import rules](#import-rules). |
-| `pnpm run check:file-sizes` | Every `.ts` and `.tsx` file under `src` has at most 350 lines. Exempt: tests, stories, `__tests__/`, `components/ui/`, `lib/i18n/locales/`, `api-client/`, `routeTree.gen.ts` and `src/e2e/`. |
+| `pnpm run check:file-sizes` | Every `.ts` and `.tsx` file under `src` has at most 350 lines. Exempt: tests, stories, `__tests__/`, `components/ui/`, `lib/i18n/locales/`, `api-client/`, the generated `*.gen.ts` files (`routeTree.gen.ts`, `lib/api/*.gen.ts`) and `src/e2e/`. |
 | `pnpm run typecheck`, `pnpm run typecheck:e2e` | `tsc` for `src` and for `e2e`. |
 | `pnpm run check:e2e-contracts` | Every E2E scenario model builds, and its seed passes the API contract validation (`parseContract`). |
 | `pnpm run check:i18n-parity` | Every key of the `en` locale exists in `fr`, and the reverse. |
