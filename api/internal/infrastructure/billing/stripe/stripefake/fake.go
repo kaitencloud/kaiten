@@ -91,6 +91,7 @@ type account struct {
 	order     []string // invoice ids, creation order
 	items     map[string]*item
 	events    []*event
+	payments  *payments
 }
 
 type customer struct {
