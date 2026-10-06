@@ -196,7 +196,7 @@ func discountLine(d Discount, targets []InvoiceLine, base, raw decimal.Decimal, 
 		Label: truncate(label), Description: truncate("on " + major(base, currency) + " " + string(currency)),
 		ServiceFrom: from, ServiceTo: to, Quantity: "1", UnitAmountDecimal: "",
 		Amount:   -money.RoundMinor(raw),
-		Metering: nil, Overage: nil, Capped: false,
+		Metering: nil, Overage: nil, Capped: false, Provider: nil,
 		Discount: &InvoiceLineDiscount{
 			DiscountType: d.Type, DiscountValue: d.Value.String(), Currency: fixedCurrency, AppliesTo: d.AppliesTo,
 			TargetSeqs: seqs, Base: money.FormatDecimal(base), Application: d.Applications + 1,

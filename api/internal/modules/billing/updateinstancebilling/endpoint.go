@@ -20,8 +20,8 @@ type Updater interface {
 // SubscriptionTerms is a change of a subscription's own terms. An omitted
 // member is left alone; null restores the organization's default.
 type SubscriptionTerms struct {
-	ProviderKind     *string `json:"providerKind,omitempty" enum:"NOOP" doc:"Who collects the invoices. Only NOOP is available until a payment provider is."`
-	CollectionMethod *string `json:"collectionMethod,omitempty" enum:"SEND_INVOICE" nullable:"true" doc:"null: the organization's default"`
+	ProviderKind     *string `json:"providerKind,omitempty" enum:"NOOP,STRIPE" doc:"Who issues and collects the invoices, from the next one on. NOOP: the organization itself, through the handoff queue. A provider must be connected (UpdateInstanceBilling.ProviderNotConnected); one that pushes invoices needs the customer's billing e-mail for SEND_INVOICE (.BillingEmailMissing) and the subscription's currency (.UnsupportedCurrency)."`
+	CollectionMethod *string `json:"collectionMethod,omitempty" enum:"SEND_INVOICE,CHARGE_AUTOMATICALLY" nullable:"true" doc:"null: the organization's default. CHARGE_AUTOMATICALLY needs a provider that charges automatically (UpdateInstanceBilling.CollectionMethodUnsupported)."`
 	DaysUntilDue     *int32  `json:"daysUntilDue,omitempty" nullable:"true" doc:"0 to 365; null: the organization's default"`
 }
 
@@ -40,8 +40,8 @@ func RegisterEndpoint(api huma.API, app Updater) {
 		OperationID: "updateInstanceBilling",
 		Method:      http.MethodPatch,
 		Path:        "/instances/{instanceSlug}/billing",
-		Summary:     "Change a subscription's terms",
-		Description: "Changes the subscription's collection method and payment terms from its next invoice on; null restores the organization's default. Invoices already composed keep their own. Requires billing to be enabled for the organization.",
+		Summary:     "Change a subscription's terms or provider",
+		Description: "Changes the subscription's payment provider, collection method and payment terms from its next invoice on; null restores the organization's default. Invoices already composed keep their own, and keep routing to the provider that issued them. Moving to a provider that pushes invoices registers the customer with it first (503 UpdateInstanceBilling.ProviderUnavailable when it cannot be reached). A provider change emits INSTANCE_BILLING_PROVIDER_CHANGED. Requires billing to be enabled for the organization.",
 		Tags:        []string{"billing"},
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
@@ -56,6 +56,7 @@ func RegisterEndpoint(api huma.API, app Updater) {
 		_, methodSet := present["collectionMethod"]
 		_, daysSet := present["daysUntilDue"]
 		billing, err := app.UpdateInstanceBilling(ctx, cl, request.InstanceSlug, Command{
+			ProviderKind:     request.Body.ProviderKind,
 			CollectionMethod: Optional[string]{Set: methodSet, Value: request.Body.CollectionMethod},
 			DaysUntilDue:     Optional[int32]{Set: daysSet, Value: request.Body.DaysUntilDue},
 		})

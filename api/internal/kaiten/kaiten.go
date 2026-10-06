@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kaitencloud/kaiten/api/config"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 )
@@ -70,6 +71,11 @@ type Options struct {
 	// services.NoLicensingAuthority: a self-hosted deployment reads those settings
 	// from its own configuration.
 	EntitlementConfig services.EntitlementConfig
+
+	// BillingProviders resolves the payment providers invoices are issued
+	// through. Nil is legal and becomes NOOP alone: the organization collects
+	// its invoices itself.
+	BillingProviders provider.Registry
 
 	// BackgroundWorkers is whether this process runs background work: the
 	// pgnotify listeners, the retired-token sweep, the feature-flag evaluation
