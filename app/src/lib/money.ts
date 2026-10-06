@@ -74,28 +74,54 @@ type DecimalNumberFormat = {
 const decimalFormat = (format: Intl.NumberFormat) =>
   format as unknown as DecimalNumberFormat;
 
+type FractionDigits = { minimum: number; maximum: number };
+
+// A list shows hundreds of amounts and building a formatter is the costly part
+// of writing one, so each is built once. `null`: the code is not a currency.
+const currencyFormats = new Map<string, DecimalNumberFormat | null>();
+
+function currencyFormat(
+  currency: string,
+  fractionDigits: FractionDigits,
+  locale: string,
+): DecimalNumberFormat | null {
+  const key = `${locale}|${currency}|${fractionDigits.minimum}|${fractionDigits.maximum}`;
+  let format = currencyFormats.get(key);
+
+  if (format === undefined) {
+    try {
+      format = decimalFormat(
+        new Intl.NumberFormat(locale, {
+          currency,
+          maximumFractionDigits: fractionDigits.maximum,
+          minimumFractionDigits: fractionDigits.minimum,
+          style: 'currency',
+        }),
+      );
+    } catch {
+      format = null;
+    }
+    currencyFormats.set(key, format);
+  }
+
+  return format;
+}
+
 function formatDecimal(
   currency: string,
   decimal: string,
-  fractionDigits: { minimum: number; maximum: number },
+  fractionDigits: FractionDigits,
   locale: string,
 ): string {
-  const options: Intl.NumberFormatOptions = {
-    maximumFractionDigits: fractionDigits.maximum,
-    minimumFractionDigits: fractionDigits.minimum,
-  };
-  let format: DecimalNumberFormat;
-  try {
-    format = decimalFormat(
-      new Intl.NumberFormat(locale, {
-        ...options,
-        currency,
-        style: 'currency',
-      }),
-    );
-  } catch {
+  const format = currencyFormat(currency, fractionDigits, locale);
+
+  if (!format) {
     // Not a currency code at all: show the amount beside whatever was sent.
-    return `${currency} ${decimalFormat(new Intl.NumberFormat(locale, options)).format(decimal)}`;
+    const plain = new Intl.NumberFormat(locale, {
+      maximumFractionDigits: fractionDigits.maximum,
+      minimumFractionDigits: fractionDigits.minimum,
+    });
+    return `${currency} ${decimalFormat(plain).format(decimal)}`;
   }
 
   // A true minus sign, whatever the locale prints.

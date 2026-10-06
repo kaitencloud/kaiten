@@ -1,5 +1,6 @@
 import type { AnyFormApi } from '@tanstack/react-form';
 import { act, render, screen } from '@testing-library/react';
+import { useEffect } from 'react';
 import { describe, expect, it } from 'vite-plus/test';
 import { useAppForm } from '@/hooks/form';
 import { ApiError } from '@/lib/errors';
@@ -227,7 +228,9 @@ function Dialog({ onForm }: { onForm: (form: AnyFormApi) => void }) {
   const form = useAppForm({
     defaultValues: { billingEmail: '', externalReference: '', note: '' } as Fields,
   });
-  onForm(form as unknown as AnyFormApi);
+  useEffect(() => {
+    onForm(form as unknown as AnyFormApi);
+  }, [form, onForm]);
 
   return (
     <>
