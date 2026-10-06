@@ -189,10 +189,14 @@ RETURNING *;
 
 
 -- name: ListHeldInvoices :many
--- Held drafts, oldest first, for the close to check again.
-SELECT i.id, i.organization_id
+-- Held drafts, oldest first, for the close to check again, after a cursor: a
+-- pass that starts where the previous one stopped cannot be starved by holds
+-- that never mend.
+SELECT i.id, i.organization_id, i.held_at
 FROM instance_invoice i
 WHERE i.hold_reason IS NOT NULL
+  AND (sqlc.narg(after_held_at)::timestamp IS NULL
+       OR (i.held_at, i.id) > (sqlc.narg(after_held_at)::timestamp, sqlc.arg(after_id)::uuid))
 ORDER BY i.held_at, i.id
 LIMIT sqlc.arg(page_size);
 
