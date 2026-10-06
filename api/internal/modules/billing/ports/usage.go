@@ -11,6 +11,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
+
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usagehistory"
 )
 
 // ErrClockBehind is Seal answering that the database clock has not reached the
@@ -110,4 +112,13 @@ type UsageSource interface {
 	// the subscription's previous invoice, when it has one: the period must
 	// start right after it. Failures come in invariant order.
 	CheckInvariants(ctx context.Context, ref UsageRef, from, to time.Time, prev *Fingerprint) ([]InvariantFailure, error)
+	// ListReports reads up to limit of the pair's reports dated in [from, to)
+	// after afterSeq, in report_seq order, and whether more follow: the rows
+	// behind a metered invoice line.
+	ListReports(ctx context.Context, ref UsageRef, from, to time.Time, afterSeq int64, limit int32) ([]usagehistory.UsageReport, bool, error)
+	// ExportReports streams the same rows, every one, as format.
+	ExportReports(ref UsageRef, from, to time.Time, format usagehistory.Format, name string) *usagehistory.Export
+	// RetentionStart is the earliest instant the organization's usage history
+	// still serves, or nil when it keeps everything or cannot tell.
+	RetentionStart(ctx context.Context, organizationID uuid.UUID, now time.Time) *time.Time
 }

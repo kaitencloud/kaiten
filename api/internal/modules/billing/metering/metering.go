@@ -30,6 +30,7 @@ func Measure(summary ports.UsageSummary) rating.Measure {
 func Ledger(fp ports.Fingerprint) *rating.InvoiceLineLedger {
 	sumOverage := money.FormatDecimal(fp.SumOverage)
 	return &rating.InvoiceLineLedger{
+		InstanceID: nil,
 		FirstSeq:   fp.FirstSeq,
 		LastSeq:    fp.LastSeq,
 		Rows:       fp.Rows,

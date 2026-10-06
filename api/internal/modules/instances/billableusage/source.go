@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,20 +18,46 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usagehistory"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usageledger"
 )
 
 // Source implements ports.UsageSource.
 type Source struct {
-	pool *pgxpool.Pool
-	uof  *uow.UnitOfWork
+	pool      *pgxpool.Pool
+	uof       *uow.UnitOfWork
+	reader    *usagehistory.Reader
+	retention usageledger.Retention
 }
 
 var _ ports.UsageSource = (*Source)(nil)
 
-// New reads through pool for Seal, which runs its own transaction, and through
-// the transaction uof carries for the rest.
-func New(pool *pgxpool.Pool, uof *uow.UnitOfWork) *Source {
-	return &Source{pool: pool, uof: uof}
+// New reads through pool for Seal, which runs its own transaction, and for
+// reports, which are read page by page; through the transaction uof carries
+// for the rest. retention is the organization's usage history window.
+func New(pool *pgxpool.Pool, uof *uow.UnitOfWork, retention usageledger.Retention) *Source {
+	return &Source{pool: pool, uof: uof, reader: usagehistory.NewReader(pool), retention: retention}
+}
+
+// ListReports reads one page of a pair's reports dated in [from, to).
+func (s *Source) ListReports(ctx context.Context, ref ports.UsageRef, from, to time.Time, afterSeq int64, limit int32) ([]usagehistory.UsageReport, bool, error) {
+	return s.reader.ListPair(ctx, usagehistory.PairQuery{
+		OrganizationID: ref.OrganizationID, InstanceID: ref.InstanceID, EntitlementID: ref.EntitlementID,
+		Range: usagehistory.Range{From: from, To: to}, AfterSeq: afterSeq, TransactionID: nil,
+	}, limit)
+}
+
+// ExportReports streams a pair's reports dated in [from, to).
+func (s *Source) ExportReports(ref ports.UsageRef, from, to time.Time, format usagehistory.Format, name string) *usagehistory.Export {
+	return usagehistory.NewPairExport(s.reader, usagehistory.PairQuery{
+		OrganizationID: ref.OrganizationID, InstanceID: ref.InstanceID, EntitlementID: ref.EntitlementID,
+		Range: usagehistory.Range{From: from, To: to}, AfterSeq: 0, TransactionID: nil,
+	}, format, name)
+}
+
+// RetentionStart is where the organization's usage history starts.
+func (s *Source) RetentionStart(ctx context.Context, organizationID uuid.UUID, now time.Time) *time.Time {
+	return s.retention.Start(ctx, organizationID, now)
 }
 
 // Seal takes the pair's report lock -- the one every report takes before it

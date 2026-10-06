@@ -15,6 +15,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/billableusage"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usageledger"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/billablecatalogue"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
@@ -210,7 +211,7 @@ func TestReleaseAndRecompose(t *testing.T) {
 		unit := uow.NewUnitOfWork(testDb.DbPool)
 		closer := closing.New(access.Deps{
 			UserProvider: nil, Uof: unit, Gate: gate.New(true, services.AlwaysEntitled{}),
-			Catalogue: billablecatalogue.New(unit), Usage: billableusage.New(testDb.DbPool, unit),
+			Catalogue: billablecatalogue.New(unit), Usage: billableusage.New(testDb.DbPool, unit, usageledger.Retention{}),
 		}, 0)
 
 		released, err := closer.RecheckHeld(t.Context(), 10)

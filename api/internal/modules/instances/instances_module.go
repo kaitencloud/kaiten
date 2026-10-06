@@ -8,6 +8,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	auditdb "github.com/kaitencloud/kaiten/api/internal/modules/audittrail/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/listforinstance"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/billableusage"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteinstance"
@@ -53,6 +54,9 @@ type UseCases struct {
 	// UsageLedger keeps the usage journal's partitions and retention. Nil without
 	// a pool.
 	UsageLedger *usageledger.Maintenance
+
+	// BillableUsage is the usage journal as the billing module reads it.
+	BillableUsage *billableusage.Source
 }
 
 func NewUseCases(svc services.Container) *UseCases {
@@ -65,6 +69,7 @@ func NewUseCases(svc services.Container) *UseCases {
 	}
 	retention := usageledger.Retention{Reader: svc.EntitlementConfig, Settings: ledgerSettings}
 	useCases := &UseCases{
+		BillableUsage: billableusage.New(svc.Pool, svc.Uof, retention),
 		CreateIntegration: createintegrations.NewUseCase(createintegrations.Deps{
 			UserProvider: svc.UserProvider,
 			Queries:      queries,

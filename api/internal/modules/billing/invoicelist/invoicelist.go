@@ -40,22 +40,26 @@ type cursorKey struct {
 	ID uuid.UUID `json:"id"`
 }
 
+// Validate refuses the filters no list can serve.
+func Validate(operation string, p Params) error {
+	if err := checkRange(operation, "issued", p.IssuedFrom, p.IssuedTo); err != nil {
+		return err
+	}
+	return checkRange(operation, "boundary", p.BoundaryFrom, p.BoundaryTo)
+}
+
 // List reads one page of an organization's invoices, optionally of one
 // subscription. operation prefixes the filter refusals.
 func List(ctx context.Context, q *db.Queries, operation string, organizationID uuid.UUID, subscriptionID *uuid.UUID,
 	p Params, instanceSlug string, now time.Time,
 ) (pagination.Page[invoices.InvoiceSummary], error) {
 	empty := pagination.Page[invoices.InvoiceSummary]{}
-	if err := checkRange(operation, "issued", p.IssuedFrom, p.IssuedTo); err != nil {
-		return empty, err
-	}
-	if err := checkRange(operation, "boundary", p.BoundaryFrom, p.BoundaryTo); err != nil {
+	if err := Validate(operation, p); err != nil {
 		return empty, err
 	}
 	limit := pagination.ClampLimit(p.Limit)
-	var key cursorKey
-	hasCursor := p.Cursor != ""
-	if hasCursor {
+	var key *cursorKey
+	if p.Cursor != "" {
 		decoded, err := pagination.Decode[cursorKey](p.Cursor)
 		if err != nil {
 			if errors.Is(err, pagination.ErrInvalidCursor) {
@@ -63,9 +67,58 @@ func List(ctx context.Context, q *db.Queries, operation string, organizationID u
 			}
 			return empty, err
 		}
-		key = decoded
+		key = &decoded
 	}
+	rows, err := fetch(ctx, q, organizationID, subscriptionID, p, instanceSlug, now, key, limit+1)
+	if err != nil {
+		return empty, err
+	}
+	summaries := make([]invoices.InvoiceSummary, len(rows))
+	for i, row := range rows {
+		summaries[i] = invoices.Summary(row)
+	}
+	byUpdate := !p.UpdatedSince.IsZero()
+	return pagination.BuildPage(summaries, limit, func(s invoices.InvoiceSummary) cursorKey {
+		if byUpdate {
+			return cursorKey{At: s.UpdatedAt, ID: s.ID}
+		}
+		return cursorKey{At: s.CreatedAt, ID: s.ID}
+	})
+}
 
+// Each reads every invoice the filters select, pageSize at a time, in the
+// list's order, and hands each page to fn. Every page is its own statement:
+// nothing stays open between them.
+func Each(ctx context.Context, q *db.Queries, organizationID uuid.UUID, p Params, instanceSlug string, now time.Time,
+	pageSize int32, fn func([]db.InstanceInvoice) error,
+) error {
+	var key *cursorKey
+	byUpdate := !p.UpdatedSince.IsZero()
+	for {
+		rows, err := fetch(ctx, q, organizationID, nil, p, instanceSlug, now, key, pageSize)
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 {
+			if err := fn(rows); err != nil {
+				return err
+			}
+		}
+		if int32(len(rows)) < pageSize { //nolint:gosec // a page never exceeds pageSize
+			return nil
+		}
+		last := rows[len(rows)-1]
+		next := cursorKey{At: last.CreatedAt.Time, ID: last.ID}
+		if byUpdate {
+			next.At = last.UpdatedAt.Time
+		}
+		key = &next
+	}
+}
+
+func fetch(ctx context.Context, q *db.Queries, organizationID uuid.UUID, subscriptionID *uuid.UUID, p Params,
+	instanceSlug string, now time.Time, key *cursorKey, size int32,
+) ([]db.InstanceInvoice, error) {
 	statuses := p.Status
 	if statuses == nil {
 		statuses = []string{}
@@ -85,42 +138,28 @@ func List(ctx context.Context, q *db.Queries, operation string, organizationID u
 		h := db.HandoffStatus(p.HandoffStatus)
 		handoff = &h
 	}
-
-	var rows []db.InstanceInvoice
-	var err error
+	var cursor cursorKey
+	if key != nil {
+		cursor = *key
+	}
 	if !p.UpdatedSince.IsZero() {
-		rows, err = q.ListInvoicesUpdatedSince(ctx, db.ListInvoicesUpdatedSinceParams{
+		return q.ListInvoicesUpdatedSince(ctx, db.ListInvoicesUpdatedSinceParams{
 			OrganizationID: organizationID, Statuses: statuses, Kind: kind, ProviderKind: providerKind,
 			CustomerSlug: optional(p.CustomerSlug), InstanceSlug: optional(instanceSlug), InstanceBillingID: subscriptionID,
 			Overdue: p.Overdue, Now: invoices.Timestamp(now), Held: p.Held, HandoffStatus: handoff,
 			IssuedFrom: optionalTime(p.IssuedFrom), IssuedTo: optionalTime(p.IssuedTo),
 			BoundaryFrom: optionalTime(p.BoundaryFrom), BoundaryTo: optionalTime(p.BoundaryTo),
 			UpdatedSince: invoices.Timestamp(p.UpdatedSince),
-			HasCursor:    hasCursor, CursorAt: invoices.Timestamp(key.At), CursorID: key.ID, PageSize: limit + 1,
-		})
-	} else {
-		rows, err = q.ListInvoices(ctx, db.ListInvoicesParams{
-			OrganizationID: organizationID, Statuses: statuses, Kind: kind, ProviderKind: providerKind,
-			CustomerSlug: optional(p.CustomerSlug), InstanceSlug: optional(instanceSlug), InstanceBillingID: subscriptionID,
-			Overdue: p.Overdue, Now: invoices.Timestamp(now), Held: p.Held, HandoffStatus: handoff,
-			IssuedFrom: optionalTime(p.IssuedFrom), IssuedTo: optionalTime(p.IssuedTo),
-			BoundaryFrom: optionalTime(p.BoundaryFrom), BoundaryTo: optionalTime(p.BoundaryTo),
-			HasCursor: hasCursor, CursorAt: invoices.Timestamp(key.At), CursorID: key.ID, PageSize: limit + 1,
+			HasCursor:    key != nil, CursorAt: invoices.Timestamp(cursor.At), CursorID: cursor.ID, PageSize: size,
 		})
 	}
-	if err != nil {
-		return empty, err
-	}
-	summaries := make([]invoices.InvoiceSummary, len(rows))
-	for i, row := range rows {
-		summaries[i] = invoices.Summary(row)
-	}
-	byUpdate := !p.UpdatedSince.IsZero()
-	return pagination.BuildPage(summaries, limit, func(s invoices.InvoiceSummary) cursorKey {
-		if byUpdate {
-			return cursorKey{At: s.UpdatedAt, ID: s.ID}
-		}
-		return cursorKey{At: s.CreatedAt, ID: s.ID}
+	return q.ListInvoices(ctx, db.ListInvoicesParams{
+		OrganizationID: organizationID, Statuses: statuses, Kind: kind, ProviderKind: providerKind,
+		CustomerSlug: optional(p.CustomerSlug), InstanceSlug: optional(instanceSlug), InstanceBillingID: subscriptionID,
+		Overdue: p.Overdue, Now: invoices.Timestamp(now), Held: p.Held, HandoffStatus: handoff,
+		IssuedFrom: optionalTime(p.IssuedFrom), IssuedTo: optionalTime(p.IssuedTo),
+		BoundaryFrom: optionalTime(p.BoundaryFrom), BoundaryTo: optionalTime(p.BoundaryTo),
+		HasCursor: key != nil, CursorAt: invoices.Timestamp(cursor.At), CursorID: cursor.ID, PageSize: size,
 	})
 }
 

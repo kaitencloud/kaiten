@@ -17,6 +17,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/billableusage"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usageledger"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/billablecatalogue"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
@@ -229,7 +230,7 @@ func TestPeriodCloseJob(t *testing.T) {
 	unit := uow.NewUnitOfWork(testDb.DbPool)
 	closer := closing.New(access.Deps{
 		UserProvider: nil, Uof: unit, Gate: gate.New(true, services.AlwaysEntitled{}),
-		Catalogue: billablecatalogue.New(unit), Usage: billableusage.New(testDb.DbPool, unit),
+		Catalogue: billablecatalogue.New(unit), Usage: billableusage.New(testDb.DbPool, unit, usageledger.Retention{}),
 	}, 0)
 	job := closing.NewJob(testDb.DbPool, closer, sweep.Config{InitialDelay: time.Millisecond, Interval: 50 * time.Millisecond}, 100)
 	job.Start(t.Context())

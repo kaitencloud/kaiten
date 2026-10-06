@@ -14,6 +14,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/billableusage"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usageledger"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 )
 
@@ -88,7 +89,7 @@ func exec(t *testing.T, sql string, args ...any) {
 }
 
 func source() *billableusage.Source {
-	return billableusage.New(testDb.DbPool, uow.NewUnitOfWork(testDb.DbPool))
+	return billableusage.New(testDb.DbPool, uow.NewUnitOfWork(testDb.DbPool), usageledger.Retention{})
 }
 
 func TestUsageSourceSummarize(t *testing.T) {

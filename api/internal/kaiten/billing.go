@@ -10,6 +10,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/claimhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/exportinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
@@ -18,6 +19,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinstanceinvoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoicelinereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
@@ -219,4 +221,27 @@ func (b Billing) AckHandoff(
 	}
 
 	return b.uc.AckHandoff.Execute(bindOrganization(ctx, cl), invoiceID, cmd)
+}
+
+// ExportInvoices checks an export request; the export reads as it streams.
+func (b Billing) ExportInvoices(
+	ctx context.Context, cl caller.OrganizationCaller, params invoicelist.Params, instanceSlug, format, granularity string,
+) (*exportinvoices.Export, error) {
+	if err := cl.Require(exportinvoices.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.ExportInvoices.Execute(bindOrganization(ctx, cl), params, instanceSlug, format, granularity)
+}
+
+// ListInvoiceLineReports reads the usage reports a metered line was measured
+// from.
+func (b Billing) ListInvoiceLineReports(
+	ctx context.Context, cl caller.OrganizationCaller, invoiceID, lineID uuid.UUID, q listinvoicelinereports.Query,
+) (*listinvoicelinereports.Answer, error) {
+	if err := cl.Require(listinvoicelinereports.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.ListInvoiceLineReports.Execute(bindOrganization(ctx, cl), invoiceID, lineID, q)
 }

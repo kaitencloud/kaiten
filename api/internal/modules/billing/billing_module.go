@@ -15,12 +15,14 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/claimhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/exportinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getupcominginvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinstanceinvoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoicelinereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
@@ -39,23 +41,25 @@ type Ports struct {
 }
 
 type UseCases struct {
-	GetBillingSettings    *getbillingsettings.UseCase
-	UpdateBillingSettings *updatebillingsettings.UseCase
-	SubscribeInstance     *subscribeinstance.UseCase
-	GetInstanceBilling    *getinstancebilling.UseCase
-	CloseBillingPeriods   *closebillingperiods.UseCase
-	ListInvoices          *listinvoices.UseCase
-	ListInstanceInvoices  *listinstanceinvoices.UseCase
-	GetInvoice            *getinvoice.UseCase
-	GetUpcomingInvoice    *getupcominginvoice.UseCase
-	MarkInvoicePaid       *markinvoicepaid.UseCase
-	WriteOffInvoice       *writeoffinvoice.UseCase
-	VoidInvoice           *voidinvoice.UseCase
-	ReleaseInvoiceHold    *releaseinvoicehold.UseCase
-	RecomposeInvoice      *recomposeinvoice.UseCase
-	ListHandoff           *listhandoff.UseCase
-	ClaimHandoff          *claimhandoff.UseCase
-	AckHandoff            *ackhandoff.UseCase
+	GetBillingSettings     *getbillingsettings.UseCase
+	UpdateBillingSettings  *updatebillingsettings.UseCase
+	SubscribeInstance      *subscribeinstance.UseCase
+	GetInstanceBilling     *getinstancebilling.UseCase
+	CloseBillingPeriods    *closebillingperiods.UseCase
+	ListInvoices           *listinvoices.UseCase
+	ListInstanceInvoices   *listinstanceinvoices.UseCase
+	GetInvoice             *getinvoice.UseCase
+	GetUpcomingInvoice     *getupcominginvoice.UseCase
+	MarkInvoicePaid        *markinvoicepaid.UseCase
+	WriteOffInvoice        *writeoffinvoice.UseCase
+	VoidInvoice            *voidinvoice.UseCase
+	ReleaseInvoiceHold     *releaseinvoicehold.UseCase
+	RecomposeInvoice       *recomposeinvoice.UseCase
+	ListHandoff            *listhandoff.UseCase
+	ClaimHandoff           *claimhandoff.UseCase
+	AckHandoff             *ackhandoff.UseCase
+	ExportInvoices         *exportinvoices.UseCase
+	ListInvoiceLineReports *listinvoicelinereports.UseCase
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -69,23 +73,25 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 	cfg := svc.Config.Billing
 	closer := closing.New(deps, cfg.CloseGrace)
 	useCases := &UseCases{
-		GetBillingSettings:    getbillingsettings.NewUseCase(deps),
-		UpdateBillingSettings: updatebillingsettings.NewUseCase(deps),
-		SubscribeInstance:     subscribeinstance.NewUseCase(deps),
-		GetInstanceBilling:    getinstancebilling.NewUseCase(deps),
-		CloseBillingPeriods:   closebillingperiods.NewUseCase(deps, closer, batchSize(cfg.PeriodClose.BatchSize)),
-		ListInvoices:          listinvoices.NewUseCase(deps),
-		ListInstanceInvoices:  listinstanceinvoices.NewUseCase(deps),
-		GetInvoice:            getinvoice.NewUseCase(deps),
-		GetUpcomingInvoice:    getupcominginvoice.NewUseCase(deps, closer),
-		MarkInvoicePaid:       markinvoicepaid.NewUseCase(deps),
-		WriteOffInvoice:       writeoffinvoice.NewUseCase(deps),
-		VoidInvoice:           voidinvoice.NewUseCase(deps),
-		ReleaseInvoiceHold:    releaseinvoicehold.NewUseCase(deps, closer),
-		RecomposeInvoice:      recomposeinvoice.NewUseCase(deps, closer),
-		ListHandoff:           listhandoff.NewUseCase(deps),
-		ClaimHandoff:          claimhandoff.NewUseCase(deps),
-		AckHandoff:            ackhandoff.NewUseCase(deps),
+		GetBillingSettings:     getbillingsettings.NewUseCase(deps),
+		UpdateBillingSettings:  updatebillingsettings.NewUseCase(deps),
+		SubscribeInstance:      subscribeinstance.NewUseCase(deps),
+		GetInstanceBilling:     getinstancebilling.NewUseCase(deps),
+		CloseBillingPeriods:    closebillingperiods.NewUseCase(deps, closer, batchSize(cfg.PeriodClose.BatchSize)),
+		ListInvoices:           listinvoices.NewUseCase(deps),
+		ListInstanceInvoices:   listinstanceinvoices.NewUseCase(deps),
+		GetInvoice:             getinvoice.NewUseCase(deps),
+		GetUpcomingInvoice:     getupcominginvoice.NewUseCase(deps, closer),
+		MarkInvoicePaid:        markinvoicepaid.NewUseCase(deps),
+		WriteOffInvoice:        writeoffinvoice.NewUseCase(deps),
+		VoidInvoice:            voidinvoice.NewUseCase(deps),
+		ReleaseInvoiceHold:     releaseinvoicehold.NewUseCase(deps, closer),
+		RecomposeInvoice:       recomposeinvoice.NewUseCase(deps, closer),
+		ListHandoff:            listhandoff.NewUseCase(deps),
+		ClaimHandoff:           claimhandoff.NewUseCase(deps),
+		AckHandoff:             ackhandoff.NewUseCase(deps),
+		ExportInvoices:         exportinvoices.NewUseCase(deps),
+		ListInvoiceLineReports: listinvoicelinereports.NewUseCase(deps),
 	}
 
 	// The billing jobs run only where billing is on and background work runs.

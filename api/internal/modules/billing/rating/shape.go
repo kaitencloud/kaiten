@@ -45,11 +45,12 @@ type InvoiceLineMetering struct {
 // InvoiceLineLedger identifies the usage journal rows a metered line was
 // measured from: with them, the line can be recomputed.
 type InvoiceLineLedger struct {
-	FirstSeq   *int64  `json:"firstSeq" doc:"First report of the period, null when it has none"`
-	LastSeq    *int64  `json:"lastSeq" doc:"Last report of the period, null when it has none"`
-	Rows       int64   `json:"rows" doc:"Reports in the period"`
-	SumDelta   string  `json:"sumDelta" doc:"Sum of the reports' movements, before any floor"`
-	SumOverage *string `json:"sumOverage" doc:"Sum of their movements above the limit, before any floor"`
+	InstanceID *uuid.UUID `json:"instanceId,omitempty" doc:"The instance whose reports these are: with the line's entitlement, the pair the journal is kept by. It outlives the instance"`
+	FirstSeq   *int64     `json:"firstSeq" doc:"First report of the period, null when it has none"`
+	LastSeq    *int64     `json:"lastSeq" doc:"Last report of the period, null when it has none"`
+	Rows       int64      `json:"rows" doc:"Reports in the period"`
+	SumDelta   string     `json:"sumDelta" doc:"Sum of the reports' movements, before any floor"`
+	SumOverage *string    `json:"sumOverage" doc:"Sum of their movements above the limit, before any floor"`
 }
 
 // InvoiceLineOverage is the arithmetic of an OVERAGE line.

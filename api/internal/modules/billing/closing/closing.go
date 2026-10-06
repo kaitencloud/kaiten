@@ -301,7 +301,10 @@ func (c *Closer) measure(ctx context.Context, q *db.Queries, sub db.InstanceBill
 		if err != nil {
 			return nil, nil, err
 		}
-		measures[ref.EntitlementID] = metering.Measure(summary)
+		measure := metering.Measure(summary)
+		instanceID := ref.InstanceID
+		measure.Ledger.InstanceID = &instanceID
+		measures[ref.EntitlementID] = measure
 		failures, err := c.deps.Usage.CheckInvariants(ctx, ref, from, to, previous[ref.EntitlementID])
 		if err != nil {
 			return nil, nil, err

@@ -14,7 +14,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances"
-	"github.com/kaitencloud/kaiten/api/internal/modules/instances/billableusage"
 	"github.com/kaitencloud/kaiten/api/internal/modules/integrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/billablecatalogue"
@@ -151,6 +150,9 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	// from inside the transaction that writes the entry, which is the whole
 	// reason the announcement is not a CDC consumer of its own.
 	notificationModule := notifications.NewUseCases(svc)
+	// Built before the map too: billing reads the usage journal through the
+	// source the instances module exposes.
+	instanceModule := instances.NewUseCases(svc)
 
 	built := modules{
 		AuditTrail: audittrail.NewUseCases(svc, notificationModule.Announcer),
@@ -158,7 +160,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		// ports it owns; the modules that own that data implement them.
 		Billing: billing.NewUseCases(svc, billing.Ports{
 			Catalogue: billablecatalogue.New(svc.Uof),
-			Usage:     billableusage.New(svc.Pool, svc.Uof),
+			Usage:     instanceModule.BillableUsage,
 		}),
 		Components:      components.NewUseCases(svc),
 		Connectors:      connectors.NewUseCases(svc),
@@ -168,7 +170,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		FeatureFlags:    featureflags.NewUseCases(svc),
 		Notifications:   notificationModule,
 		Identity:        identity.NewUseCases(svc),
-		Instances:       instances.NewUseCases(svc),
+		Instances:       instanceModule,
 		Integrations:    integrations.NewUseCases(svc),
 		Licenses:        licenses.NewUseCases(svc),
 		MetadataFields:  metadatafields.NewUseCases(svc),

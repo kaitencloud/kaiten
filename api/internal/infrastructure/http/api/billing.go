@@ -7,6 +7,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ackhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/claimhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/exportinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
@@ -14,6 +15,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinstanceinvoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoicelinereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/recomposeinvoice"
@@ -36,7 +38,10 @@ func registerBilling(core, platform huma.API, app kaiten.Billing, platformApp ka
 	getupcominginvoice.RegisterEndpoint(core, app)
 	listinvoices.RegisterEndpoint(core, app)
 	listinstanceinvoices.RegisterEndpoint(core, app)
+	// The export's static path before the invoice's {invoiceId}.
+	exportinvoices.RegisterEndpoint(core, app)
 	getinvoice.RegisterEndpoint(core, app)
+	listinvoicelinereports.RegisterEndpoint(core, app)
 	markinvoicepaid.RegisterEndpoint(core, app)
 	writeoffinvoice.RegisterEndpoint(core, app)
 	voidinvoice.RegisterEndpoint(core, app)

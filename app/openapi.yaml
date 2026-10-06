@@ -2656,6 +2656,9 @@ components:
           type:
             - integer
             - "null"
+        instanceId:
+          description: "The instance whose reports these are: with the line's entitlement, the pair the journal is kept by. It outlives the instance"
+          type: string
         lastSeq:
           description: Last report of the period, null when it has none
           format: int64
@@ -3436,6 +3439,21 @@ components:
         unitAmountDecimal:
           description: See createLicensePrice.
           type: string
+      type: object
+    LineReportPage:
+      additionalProperties: false
+      properties:
+        items:
+          description: The reports, in reportSeq order
+          items:
+            $ref: "#/components/schemas/UsageReport"
+          type: array
+        nextAfterSeq:
+          description: Pass as afterSeq to read the next page. Absent on the last page.
+          format: int64
+          type: integer
+      required:
+        - items
       type: object
     List:
       additionalProperties: false
@@ -11619,6 +11637,217 @@ paths:
       summary: List invoices
       tags:
         - billing
+  /invoices/export:
+    get:
+      description: "Streams the invoices the filters of listInvoices select, as CSV or NDJSON. Amounts are integer minor units with the currency's exponent beside them, so a spreadsheet never sees a float. The export carries billing e-mails: it is an authenticated read for the organization's accounting. Requires billing to be enabled for the organization."
+      operationId: exportInvoices
+      parameters:
+        - description: Only invoices in these statuses; repeat the parameter for several
+          explode: true
+          in: query
+          name: status
+          schema:
+            description: Only invoices in these statuses; repeat the parameter for several
+            items:
+              enum:
+                - DRAFT
+                - PUSHED
+                - PUSH_FAILED
+                - MANUAL
+                - PAID
+                - PAYMENT_FAILED
+                - UNCOLLECTIBLE
+                - VOID
+              type: string
+            type:
+              - array
+              - "null"
+        - explode: false
+          in: query
+          name: kind
+          schema:
+            enum:
+              - ACTIVATION
+              - RENEWAL
+              - FINAL
+            type: string
+        - explode: false
+          in: query
+          name: providerKind
+          schema:
+            enum:
+              - NOOP
+              - STRIPE
+            type: string
+        - description: "Only this customer's invoices: composed under this slug, or of the customer that has it now"
+          explode: false
+          in: query
+          name: customerSlug
+          schema:
+            description: "Only this customer's invoices: composed under this slug, or of the customer that has it now"
+            type: string
+        - description: Only issued invoices still unpaid past their due date
+          explode: false
+          in: query
+          name: overdue
+          schema:
+            description: Only issued invoices still unpaid past their due date
+            type: boolean
+        - description: Only DRAFTs held for their usage journal
+          explode: false
+          in: query
+          name: held
+          schema:
+            description: Only DRAFTs held for their usage journal
+            type: boolean
+        - explode: false
+          in: query
+          name: handoffStatus
+          schema:
+            enum:
+              - NOT_REQUIRED
+              - PENDING
+              - ACKNOWLEDGED
+            type: string
+        - description: Issued at or after this instant (RFC 3339)
+          explode: false
+          in: query
+          name: issuedFrom
+          schema:
+            description: Issued at or after this instant (RFC 3339)
+            format: date-time
+            type: string
+        - description: Issued before this instant (RFC 3339)
+          explode: false
+          in: query
+          name: issuedTo
+          schema:
+            description: Issued before this instant (RFC 3339)
+            format: date-time
+            type: string
+        - description: Billing a boundary at or after this instant
+          explode: false
+          in: query
+          name: boundaryFrom
+          schema:
+            description: Billing a boundary at or after this instant
+            format: date-time
+            type: string
+        - description: Billing a boundary before this instant
+          explode: false
+          in: query
+          name: boundaryTo
+          schema:
+            description: Billing a boundary before this instant
+            format: date-time
+            type: string
+        - description: "Only invoices changed at or after this instant, oldest change first instead of newest invoice first: store the last updatedAt read and pass it next time to miss no change"
+          explode: false
+          in: query
+          name: updatedSince
+          schema:
+            description: "Only invoices changed at or after this instant, oldest change first instead of newest invoice first: store the last updatedAt read and pass it next time to miss no change"
+            format: date-time
+            type: string
+        - description: Opaque cursor from the previous page's nextCursor
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: Opaque cursor from the previous page's nextCursor
+            type: string
+        - description: Page size, 50 by default, 200 at most
+          explode: false
+          in: query
+          name: limit
+          schema:
+            description: Page size, 50 by default, 200 at most
+            format: int32
+            maximum: 200
+            minimum: 0
+            type: integer
+        - description: Only this instance's invoices
+          explode: false
+          in: query
+          name: instanceSlug
+          schema:
+            description: Only this instance's invoices
+            type: string
+        - description: "csv (the default): RFC 4180 with a header row. json: NDJSON, one invoice with its lines per line. Anything else answers 422 ExportInvoices.InvalidFormat."
+          explode: false
+          in: query
+          name: format
+          schema:
+            description: "csv (the default): RFC 4180 with a header row. json: NDJSON, one invoice with its lines per line. Anything else answers 422 ExportInvoices.InvalidFormat."
+            examples:
+              - csv
+            type: string
+        - description: "For csv: line (the default), one row per invoice line with the invoice's columns repeated; invoice, one row per invoice. Anything else answers 422 ExportInvoices.InvalidGranularity."
+          explode: false
+          in: query
+          name: granularity
+          schema:
+            description: "For csv: line (the default), one row per invoice line with the invoice's columns repeated; invoice, one row per invoice. Anything else answers 422 ExportInvoices.InvalidGranularity."
+            examples:
+              - line
+            type: string
+      responses:
+        "200":
+          content:
+            application/x-ndjson:
+              schema:
+                type: string
+            text/csv:
+              schema:
+                type: string
+          description: The invoices, as an attachment
+          headers:
+            Content-Disposition:
+              description: attachment, with a file name
+              schema:
+                type: string
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:billing
+      summary: Export invoices
+      tags:
+        - billing
   /invoices/{invoiceId}:
     get:
       description: "One invoice with its lines, the customer and instance as they were when it was composed, its hold and its handoff. Addressed by id at organization level: an invoice outlives its instance and customer. Requires billing to be enabled for the organization."
@@ -11678,6 +11907,111 @@ paths:
         - bearerAuth:
             - read:billing
       summary: Get an invoice
+      tags:
+        - billing
+  /invoices/{invoiceId}/lines/{lineId}/reports:
+    get:
+      description: "The usage reports a USAGE or OVERAGE line was measured from: its pair's reports dated in its service period, in reportSeq order. Summed by reset window and floored at 0, they give the line's measured quantity. Addressed by invoice, it answers after the instance was deleted. Requires billing to be enabled for the organization."
+      operationId: listInvoiceLineReports
+      parameters:
+        - description: Invoice identifier
+          in: path
+          name: invoiceId
+          required: true
+          schema:
+            description: Invoice identifier
+            type: string
+        - description: Line identifier, as the invoice's lines carry it
+          in: path
+          name: lineId
+          required: true
+          schema:
+            description: Line identifier, as the invoice's lines carry it
+            type: string
+        - description: Reports after this reportSeq; 0 starts at the first
+          explode: false
+          in: query
+          name: afterSeq
+          schema:
+            description: Reports after this reportSeq; 0 starts at the first
+            format: int64
+            minimum: 0
+            type: integer
+        - description: Page size, 100 by default, 500 at most
+          explode: false
+          in: query
+          name: limit
+          schema:
+            description: Page size, 100 by default, 500 at most
+            format: int32
+            maximum: 500
+            minimum: 0
+            type: integer
+        - description: "json (the default): one page. csv: every report, streamed as RFC 4180 with a header row. Anything else answers 422 ListInvoiceLineReports.InvalidFormat."
+          explode: false
+          in: query
+          name: format
+          schema:
+            description: "json (the default): one page. csv: every report, streamed as RFC 4180 with a header row. Anything else answers 422 ListInvoiceLineReports.InvalidFormat."
+            examples:
+              - json
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LineReportPage"
+            text/csv:
+              schema:
+                type: string
+          description: One page of reports (json), or every report as a CSV attachment (csv)
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:billing
+      summary: List the usage reports behind an invoice line
       tags:
         - billing
   /invoices/{invoiceId}/mark-paid:
