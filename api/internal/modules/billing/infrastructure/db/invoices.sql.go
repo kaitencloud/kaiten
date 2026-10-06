@@ -291,21 +291,32 @@ func (q *Queries) InsertInvoice(ctx context.Context, arg InsertInvoiceParams) (I
 }
 
 const listHeldInvoices = `-- name: ListHeldInvoices :many
-SELECT i.id, i.organization_id
+SELECT i.id, i.organization_id, i.held_at
 FROM instance_invoice i
 WHERE i.hold_reason IS NOT NULL
+  AND ($1::timestamp IS NULL
+       OR (i.held_at, i.id) > ($1::timestamp, $2::uuid))
 ORDER BY i.held_at, i.id
-LIMIT $1
+LIMIT $3
 `
 
-type ListHeldInvoicesRow struct {
-	ID             uuid.UUID `json:"id"`
-	OrganizationID uuid.UUID `json:"organization_id"`
+type ListHeldInvoicesParams struct {
+	AfterHeldAt pgtype.Timestamp `json:"after_held_at"`
+	AfterID     uuid.UUID        `json:"after_id"`
+	PageSize    int32            `json:"page_size"`
 }
 
-// Held drafts, oldest first, for the close to check again.
-func (q *Queries) ListHeldInvoices(ctx context.Context, pageSize int32) ([]ListHeldInvoicesRow, error) {
-	rows, err := q.db.Query(ctx, listHeldInvoices, pageSize)
+type ListHeldInvoicesRow struct {
+	ID             uuid.UUID        `json:"id"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	HeldAt         pgtype.Timestamp `json:"held_at"`
+}
+
+// Held drafts, oldest first, for the close to check again, after a cursor: a
+// pass that starts where the previous one stopped cannot be starved by holds
+// that never mend.
+func (q *Queries) ListHeldInvoices(ctx context.Context, arg ListHeldInvoicesParams) ([]ListHeldInvoicesRow, error) {
+	rows, err := q.db.Query(ctx, listHeldInvoices, arg.AfterHeldAt, arg.AfterID, arg.PageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +324,7 @@ func (q *Queries) ListHeldInvoices(ctx context.Context, pageSize int32) ([]ListH
 	var items []ListHeldInvoicesRow
 	for rows.Next() {
 		var i ListHeldInvoicesRow
-		if err := rows.Scan(&i.ID, &i.OrganizationID); err != nil {
+		if err := rows.Scan(&i.ID, &i.OrganizationID, &i.HeldAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

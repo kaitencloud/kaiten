@@ -232,3 +232,58 @@ func (q *Queries) LockDueSubscription(ctx context.Context, id uuid.UUID) (Instan
 	)
 	return i, err
 }
+
+const refreshSubscriptionSnapshot = `-- name: RefreshSubscriptionSnapshot :one
+UPDATE instance_billing ib
+SET instance_slug = coalesce(i.slug, ib.instance_slug),
+    instance_name = coalesce(i.name, ib.instance_name),
+    customer_slug = coalesce(c.slug, ib.customer_slug),
+    customer_name = coalesce(c.name, ib.customer_name)
+FROM (SELECT $1::uuid AS id) target
+LEFT JOIN instance i ON i.id = (SELECT x.instance_id FROM instance_billing x WHERE x.id = target.id)
+LEFT JOIN customer c ON c.id = (SELECT x.customer_id FROM instance_billing x WHERE x.id = target.id)
+WHERE ib.id = target.id
+RETURNING ib.id, ib.organization_id, ib.instance_id, ib.customer_id, ib.instance_slug, ib.instance_name, ib.customer_slug, ib.customer_name, ib.status, ib.provider_kind, ib.collection_method, ib.days_until_due, ib.base_license_price_id, ib.billing_period, ib.currency, ib.anchor_at, ib.started_at, ib.current_period_start, ib.current_period_end, ib.cancel_at_period_end, ib.cancel_requested_at, ib.canceled_at, ib.cancellation_reason, ib.past_due_since, ib.scheduled_license_price_id, ib.scheduled_at, ib.created_at, ib.created_by_id, ib.updated_at, ib.updated_by_id
+`
+
+// Brings the identity a subscription snapshots (instance and customer slugs and
+// names) up to the live instance and customer, so the invoice a close issues
+// carries today's names and not those of subscribe time. A deleted instance or
+// customer keeps its last snapshot.
+func (q *Queries) RefreshSubscriptionSnapshot(ctx context.Context, id uuid.UUID) (InstanceBilling, error) {
+	row := q.db.QueryRow(ctx, refreshSubscriptionSnapshot, id)
+	var i InstanceBilling
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.Status,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.DaysUntilDue,
+		&i.BaseLicensePriceID,
+		&i.BillingPeriod,
+		&i.Currency,
+		&i.AnchorAt,
+		&i.StartedAt,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CancelAtPeriodEnd,
+		&i.CancelRequestedAt,
+		&i.CanceledAt,
+		&i.CancellationReason,
+		&i.PastDueSince,
+		&i.ScheduledLicensePriceID,
+		&i.ScheduledAt,
+		&i.CreatedAt,
+		&i.CreatedByID,
+		&i.UpdatedAt,
+		&i.UpdatedByID,
+	)
+	return i, err
+}

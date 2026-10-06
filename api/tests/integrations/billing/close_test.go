@@ -181,6 +181,26 @@ func TestClosePeriods(t *testing.T) {
 		require.True(t, readBilling(t, s.instance.Slug).CurrentPeriodEnd.Equal(started.CurrentPeriodEnd))
 	})
 
+	t.Run("ARenamedInstanceAndCustomer_AreOnTheRenewal_NotTheSubscribeTimeNames", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		backdate(t, started.ID, 1)
+		exec(t, `UPDATE instance SET name = 'Renamed prod' WHERE id = $1`, s.instance.ID)
+		exec(t, `UPDATE customer SET name = 'Renamed customer' WHERE id = (SELECT customer_id FROM instance WHERE id = $1)`, s.instance.ID)
+
+		report := closePeriods(t, map[string]any{})
+		require.Equal(t, 1, report.Closed)
+		var instanceName, customerName, snapshotName string
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+			`SELECT instance_name, customer_name FROM instance_invoice WHERE id = $1`, report.Invoices[0].ID).Scan(&instanceName, &customerName))
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+			`SELECT instance_name FROM instance_billing WHERE id = $1`, started.ID).Scan(&snapshotName))
+		require.Equal(t, "Renamed prod", instanceName)
+		require.Equal(t, "Renamed customer", customerName)
+		require.Equal(t, "Renamed prod", snapshotName, "the snapshot follows, for the next close")
+	})
+
 	t.Run("OneInstance_CanBeClosedAlone", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 		a := newSold(t, flatFee("2900", "MONTHLY"))

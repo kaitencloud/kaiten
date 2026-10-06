@@ -61,6 +61,7 @@ func (c *Closer) CloseDue(ctx context.Context, scope Scope, limit int, actorFor 
 			case err != nil:
 				slog.ErrorContext(ctx, "billing period close failed",
 					"instance_billing_id", sub.ID, "organization_id", sub.OrganizationID, "error", err)
+				add(ctx, c.m.failed, 1)
 				report.Skipped++
 				excluded = append(excluded, sub.ID)
 			case !outcome.Closed:
@@ -68,8 +69,10 @@ func (c *Closer) CloseDue(ctx context.Context, scope Scope, limit int, actorFor 
 				excluded = append(excluded, sub.ID)
 			default:
 				report.Closed++
+				add(ctx, c.m.closed, 1)
 				if outcome.Invoice.Held {
 					report.Held++
+					add(ctx, c.m.held, 1)
 				}
 				report.Invoices = append(report.Invoices, *outcome.Invoice)
 			}

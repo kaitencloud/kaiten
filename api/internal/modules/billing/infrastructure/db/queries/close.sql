@@ -28,6 +28,23 @@ WHERE ib.id = sqlc.arg(id)
 FOR UPDATE SKIP LOCKED;
 
 
+-- name: RefreshSubscriptionSnapshot :one
+-- Brings the identity a subscription snapshots (instance and customer slugs and
+-- names) up to the live instance and customer, so the invoice a close issues
+-- carries today's names and not those of subscribe time. A deleted instance or
+-- customer keeps its last snapshot.
+UPDATE instance_billing ib
+SET instance_slug = coalesce(i.slug, ib.instance_slug),
+    instance_name = coalesce(i.name, ib.instance_name),
+    customer_slug = coalesce(c.slug, ib.customer_slug),
+    customer_name = coalesce(c.name, ib.customer_name)
+FROM (SELECT sqlc.arg(id)::uuid AS id) target
+LEFT JOIN instance i ON i.id = (SELECT x.instance_id FROM instance_billing x WHERE x.id = target.id)
+LEFT JOIN customer c ON c.id = (SELECT x.customer_id FROM instance_billing x WHERE x.id = target.id)
+WHERE ib.id = target.id
+RETURNING ib.*;
+
+
 -- name: AdvanceSubscriptionPeriod :exec
 UPDATE instance_billing
 SET current_period_start = sqlc.arg(period_start),

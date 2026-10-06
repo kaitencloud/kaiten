@@ -9,7 +9,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -61,10 +63,15 @@ type Closer struct {
 	deps   access.Deps
 	outbox *outbox.ScopedRepository
 	grace  time.Duration
+	m      *metrics
+
+	// heldCursor is where the held-invoice re-check stopped, per replica.
+	cursorMu   sync.Mutex
+	heldCursor *heldCursor
 }
 
 func New(deps access.Deps, grace time.Duration) *Closer {
-	return &Closer{deps: deps, outbox: outbox.NewScopedRepository(deps.Uof), grace: grace}
+	return &Closer{deps: deps, outbox: outbox.NewScopedRepository(deps.Uof), grace: grace, m: newMetrics()}
 }
 
 // CloseOne closes the subscription's current period if it has ended: it
@@ -127,6 +134,9 @@ func (c *Closer) CloseOne(ctx context.Context, subscriptionID, actor uuid.UUID) 
 	if kaitenerrors.IsUniqueViolationOnConstraint(err, boundaryConstraint) {
 		// Another close issued this boundary's invoice between our read and
 		// our insert; the period it advanced is no longer due.
+		slog.InfoContext(ctx, "billing period close lost the race for a boundary, nothing issued",
+			"instance_billing_id", subscriptionID, "boundary_at", boundary)
+		add(ctx, c.m.duplicates, 1)
 		return Outcome{Closed: false, Invoice: nil, SkipReason: "closed concurrently"}, nil
 	}
 	if err != nil {
@@ -151,6 +161,11 @@ func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boun
 	now := clock.Time.UTC()
 	if !c.due(sub, now) || !sub.CurrentPeriodEnd.Time.UTC().Equal(boundary) {
 		return Outcome{Closed: false, Invoice: nil, SkipReason: "not due"}, nil
+	}
+
+	// The identity on the invoice is the live one (§5.7), not subscribe time's.
+	if sub, err = q.RefreshSubscriptionSnapshot(ctx, sub.ID); err != nil {
+		return Outcome{}, err
 	}
 
 	base, err := c.deps.Catalogue.Price(ctx, sub.OrganizationID, sub.BaseLicensePriceID)
