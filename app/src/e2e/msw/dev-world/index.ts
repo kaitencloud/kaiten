@@ -2,6 +2,7 @@ import type { License } from '@/api-client';
 import type { GetAttioSyncedRecordsQuery } from '@/api-client/graphql/graphql';
 import { ATTIO_CONNECTOR_NAME } from '@/domains/crm-sync';
 import { AuditTrailAppModel } from '../../../../e2e/app/_support/model/audit-trail-app-model';
+import { BillingAppModel } from '../../../../e2e/app/_support/model/billing-app-model';
 import { ConnectorAppModel } from '../../../../e2e/app/_support/model/connector-app-model';
 import { CustomerAppModel } from '../../../../e2e/app/_support/model/customer-app-model';
 import { DashboardAppModel } from '../../../../e2e/app/_support/model/dashboard-app-model';
@@ -26,6 +27,7 @@ import {
   createLicenseEntitlements,
   createLicenses,
 } from './catalog';
+import { createBillingCapabilities } from './billing';
 import { bySlug } from './by-slug';
 import { createFeatureFlags } from './feature-flags';
 import {
@@ -175,6 +177,9 @@ export function createDevMockConfig(): E2EMswConfig {
     auditTrail: new AuditTrailAppModel(
       createAuditTrail(world),
     ).serializeForMsw(),
+    billing: new BillingAppModel({
+      capabilities: createBillingCapabilities(),
+    }).serializeForMsw(),
     connectors: new ConnectorAppModel({
       syncedRecords: syncedWithAttio(world),
     }).serializeForMsw(),

@@ -3,6 +3,13 @@
  * Consumers execute factories; model constructors validate their API seeds.
  */
 import { createUsageEventsAuditTrailModel } from '../audit-trail/audit-trail.scenarios';
+import {
+  createBillingDisabledModel,
+  createBillingFeatureGatedModel,
+  createBillingFullModel,
+  createBillingOutageModel,
+  createBillingStackModel,
+} from '../billing/billing.scenarios';
 import { createDisconnectedAttioModel } from '../connectors/connectors.scenarios';
 import { createDashboardReadModel } from '../dashboard/dashboard.scenarios';
 import {
@@ -71,6 +78,33 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   [
     'audit-trail/createUsageEventsAuditTrailModel',
     createUsageEventsAuditTrailModel,
+  ],
+  ['billing/createBillingStackModel', createBillingStackModel],
+  ['billing/createBillingFullModel', createBillingFullModel],
+  ['billing/createBillingFeatureGatedModel', createBillingFeatureGatedModel],
+  [
+    "billing/createBillingDisabledModel('DEPLOYMENT_DISABLED')",
+    () => createBillingDisabledModel('DEPLOYMENT_DISABLED'),
+  ],
+  [
+    "billing/createBillingDisabledModel('NOT_ENTITLED')",
+    () => createBillingDisabledModel('NOT_ENTITLED'),
+  ],
+  [
+    "billing/createBillingOutageModel('missingScope')",
+    () => createBillingOutageModel('missingScope'),
+  ],
+  [
+    "billing/createBillingOutageModel('unavailable')",
+    () => createBillingOutageModel('unavailable'),
+  ],
+  [
+    "billing/createBillingOutageModel('notImplemented')",
+    () => createBillingOutageModel('notImplemented'),
+  ],
+  [
+    "billing/createBillingOutageModel('hang')",
+    () => createBillingOutageModel('hang'),
   ],
   ['customers/createCustomersListModel', createCustomersListModel],
   ['customers/createEditableCustomerModel', createEditableCustomerModel],

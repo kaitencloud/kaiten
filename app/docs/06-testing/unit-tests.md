@@ -52,7 +52,7 @@ The `unit` project alone then runs `src/__tests__/msw-setup.ts` (setup files run
 in list order), which:
 
 - points the generated REST client at `env.API_URL`, an absolute URL, which fetch needs outside a page;
-- starts Mock Service Worker's Node server (`src/__tests__/msw-server.ts`) before the tests and closes it after them. It answers nothing by default: a request that no test declared fails with a network error and an `[MSW]` error, and never reaches a real API. The handlers a test declares are dropped after it. See [mock the network](#mock-the-network).
+- starts Mock Service Worker's Node server (`src/__tests__/msw-server.ts`) before the tests and closes it after them. It answers nothing by default but the billing capabilities (billing off, which the app shell reads): a request that no test declared fails with a network error and an `[MSW]` error, and never reaches a real API. The handlers a test declares are dropped after it. See [mock the network](#mock-the-network).
 
 Import `describe`, `it`, `expect` and `vi` from `vite-plus/test`, as the existing tests do.
 
