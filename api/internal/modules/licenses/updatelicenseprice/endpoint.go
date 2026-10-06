@@ -66,7 +66,7 @@ func RegisterEndpoint(api huma.API, app Updater) {
 func RegisterWebhook(api huma.API) {
 	webhook.Declare(api, webhook.Declaration{
 		Event:       events.LicensePriceUpdated,
-		Data:        (*prices.UpdatedEvent)(nil),
+		Data:        (*prices.LicensePriceUpdatedEvent)(nil),
 		OperationID: "onLicensePriceUpdated",
 		Summary:     "License Price Updated Webhook",
 		Description: "Triggered when a price of a DRAFT licence version is edited.",

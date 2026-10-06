@@ -14,12 +14,12 @@ import (
 
 // Closer is the one facade method the Core operation calls.
 type Closer interface {
-	CloseBillingPeriods(ctx context.Context, cl caller.OrganizationCaller, instanceSlug *string) (*closing.Report, error)
+	CloseBillingPeriods(ctx context.Context, cl caller.OrganizationCaller, instanceSlug *string) (*closing.ClosePeriodsReport, error)
 }
 
 // PlatformCloser is the one facade method the Platform operation calls.
 type PlatformCloser interface {
-	CloseBillingPeriods(ctx context.Context, cl caller.PlatformCaller, target uuid.UUID, instanceSlug *string) (*closing.Report, error)
+	CloseBillingPeriods(ctx context.Context, cl caller.PlatformCaller, target uuid.UUID, instanceSlug *string) (*closing.ClosePeriodsReport, error)
 }
 
 // ClosePeriodsScope narrows a close to one instance.
@@ -37,7 +37,7 @@ type PlatformRequest struct {
 }
 
 type Response struct {
-	Body *closing.Report
+	Body *closing.ClosePeriodsReport
 }
 
 const description = "Closes the subscriptions whose period has ended now, rather than at the period-close job's next pass: each one's RENEWAL invoice is composed and issued (or held, when its usage journal fails a check) and its period advances. A subscription several periods behind closes one period at a time until it is current. Only what is due closes, at most the configured batch size per call."

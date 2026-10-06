@@ -92,7 +92,7 @@ func (b Billing) GetInstanceBilling(
 // CloseBillingPeriods closes the organization's due subscriptions now.
 func (b Billing) CloseBillingPeriods(
 	ctx context.Context, cl caller.OrganizationCaller, instanceSlug *string,
-) (*closing.Report, error) {
+) (*closing.ClosePeriodsReport, error) {
 	if err := cl.Require(closebillingperiods.RequiredScope); err != nil {
 		return nil, err
 	}

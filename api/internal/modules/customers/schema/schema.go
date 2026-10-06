@@ -78,11 +78,30 @@ type CustomerPage struct {
 	HasMore    bool
 }
 
-// WithoutPersonalData is the customer as an event payload carries it: without
-// its billing email, which only authenticated reads return.
-func (c Customer) WithoutPersonalData() Customer {
-	c.BillingEmail = nil
-	return c
+// CustomerEvent is the customer as an event payload carries it, and as the
+// webhook contract publishes it: a Customer without its billing email, which
+// only authenticated reads return. It is declared as its own type so the
+// published contract cannot advertise a member the runtime never sends.
+type CustomerEvent struct {
+	ID                 uuid.UUID                      `json:"id" doc:"Unique identifier for the customer" example:"123e4567-e89b-12d3-a456-426614174000"`
+	Name               string                         `json:"name" doc:"Name of the customer" example:"Awesome Customer"`
+	Slug               string                         `json:"slug,omitempty" doc:"URL-friendly identifier, unique per organization" example:"awesome-customer"`
+	ExternalCustomerID *string                        `json:"externalCustomerId" doc:"Identifier for the customer in an external system, null when there is none" example:"external-customer-id-12345"`
+	Domain             *string                        `json:"domain,omitempty" doc:"Customer domain name" example:"example.tld"`
+	Integrations       map[string]CustomerIntegration `json:"integrations,omitempty" doc:"Integrations grouped by adapter name"`
+	CreatedBy          shared.User                    `json:"createdBy" doc:"User who created this customer"`
+	CreatedAt          time.Time                      `json:"createdAt" doc:"Timestamp when the customer was created" example:"2023-10-01T12:00:00Z"`
+	UpdatedBy          shared.User                    `json:"updatedBy" doc:"User who last updated this customer"`
+	UpdatedAt          time.Time                      `json:"updatedAt" doc:"Timestamp when the customer was last updated" example:"2023-10-01T12:00:00Z"`
+}
+
+// WithoutPersonalData is the customer as an event payload carries it.
+func (c Customer) WithoutPersonalData() CustomerEvent {
+	return CustomerEvent{
+		ID: c.ID, Name: c.Name, Slug: c.Slug, ExternalCustomerID: c.ExternalCustomerID, Domain: c.Domain,
+		Integrations: c.Integrations, CreatedBy: c.CreatedBy, CreatedAt: c.CreatedAt,
+		UpdatedBy: c.UpdatedBy, UpdatedAt: c.UpdatedAt,
+	}
 }
 
 // billingEmailPattern mirrors customer_billing_email_check.

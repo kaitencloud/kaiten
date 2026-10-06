@@ -101,7 +101,7 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, draft prices.
 		}
 		return u.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
 			user.OrganizationID, events.LicensePriceCreated.Name, events.LicensePriceCreated.Type,
-			prices.Event{Price: *created, LicenseSlug: licenseSlug, FamilySlug: version.FamilySlug}, nil,
+			prices.LicensePriceEvent{Price: *created, LicenseSlug: licenseSlug, FamilySlug: version.FamilySlug}, nil,
 		))
 	})
 	if err != nil {

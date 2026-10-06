@@ -1,5 +1,39 @@
 components:
   schemas:
+    ClosePeriodsReport:
+      additionalProperties: false
+      properties:
+        closed:
+          description: Periods closed into an invoice
+          format: int64
+          type: integer
+        examined:
+          description: Subscriptions the batch looked at
+          format: int64
+          type: integer
+        hasMore:
+          description: Set when due subscriptions are left beyond the batch
+          type: boolean
+        held:
+          description: Of those, invoices held as DRAFTs for their usage journal
+          format: int64
+          type: integer
+        invoices:
+          items:
+            $ref: "#/components/schemas/ClosedInvoice"
+          type: array
+        skipped:
+          description: "Subscriptions left for later: held by another transaction, their meters' clock not at the boundary, or failed (logged)"
+          format: int64
+          type: integer
+      required:
+        - examined
+        - closed
+        - held
+        - skipped
+        - hasMore
+        - invoices
+      type: object
     ClosePeriodsScope:
       additionalProperties: false
       properties:
@@ -330,40 +364,6 @@ components:
         - name
         - version
         - settings_schema
-      type: object
-    Report:
-      additionalProperties: false
-      properties:
-        closed:
-          description: Periods closed into an invoice
-          format: int64
-          type: integer
-        examined:
-          description: Subscriptions the batch looked at
-          format: int64
-          type: integer
-        hasMore:
-          description: Set when due subscriptions are left beyond the batch
-          type: boolean
-        held:
-          description: Of those, invoices held as DRAFTs for their usage journal
-          format: int64
-          type: integer
-        invoices:
-          items:
-            $ref: "#/components/schemas/ClosedInvoice"
-          type: array
-        skipped:
-          description: "Subscriptions left for later: held by another transaction, their meters' clock not at the boundary, or failed (logged)"
-          format: int64
-          type: integer
-      required:
-        - examined
-        - closed
-        - held
-        - skipped
-        - hasMore
-        - invoices
       type: object
     Token:
       additionalProperties: false
@@ -715,7 +715,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Report"
+                $ref: "#/components/schemas/ClosePeriodsReport"
           description: OK
         "400":
           content:

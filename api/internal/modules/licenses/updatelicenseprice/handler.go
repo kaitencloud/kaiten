@@ -122,8 +122,8 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, priceID uuid.
 		}
 		return u.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
 			user.OrganizationID, events.LicensePriceUpdated.Name, events.LicensePriceUpdated.Type,
-			prices.UpdatedEvent{
-				Event:         prices.Event{Price: *updated, LicenseSlug: licenseSlug, FamilySlug: version.FamilySlug},
+			prices.LicensePriceUpdatedEvent{
+				LicensePriceEvent:         prices.LicensePriceEvent{Price: *updated, LicenseSlug: licenseSlug, FamilySlug: version.FamilySlug},
 				ChangedFields: changed,
 			}, nil,
 		))

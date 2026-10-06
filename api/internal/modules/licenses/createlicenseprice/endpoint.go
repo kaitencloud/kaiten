@@ -84,7 +84,7 @@ func RegisterEndpoint(api huma.API, app Creator) {
 func RegisterWebhook(api huma.API) {
 	webhook.Declare(api, webhook.Declaration{
 		Event:       events.LicensePriceCreated,
-		Data:        (*prices.Event)(nil),
+		Data:        (*prices.LicensePriceEvent)(nil),
 		OperationID: "onLicensePriceCreated",
 		Summary:     "License Price Created Webhook",
 		Description: "Triggered when a price is added to a licence version.",

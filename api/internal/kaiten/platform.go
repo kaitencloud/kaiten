@@ -206,7 +206,7 @@ func (p Platform) RevokeOrganizationToken(
 // the period-close job.
 func (p Platform) CloseBillingPeriods(
 	ctx context.Context, cl caller.PlatformCaller, target uuid.UUID, instanceSlug *string,
-) (*closing.Report, error) {
+) (*closing.ClosePeriodsReport, error) {
 	ctx, err := p.bindTarget(ctx, cl, closebillingperiods.RequiredScope, target)
 	if err != nil {
 		return nil, err

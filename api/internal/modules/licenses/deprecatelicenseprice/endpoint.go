@@ -54,7 +54,7 @@ func RegisterEndpoint(api huma.API, app Deprecator) {
 func RegisterWebhook(api huma.API) {
 	webhook.Declare(api, webhook.Declaration{
 		Event:       events.LicensePriceDeprecated,
-		Data:        (*prices.Event)(nil),
+		Data:        (*prices.LicensePriceEvent)(nil),
 		OperationID: "onLicensePriceDeprecated",
 		Summary:     "License Price Deprecated Webhook",
 		Description: "Triggered when a licence price is deprecated.",

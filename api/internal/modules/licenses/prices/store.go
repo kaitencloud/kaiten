@@ -116,7 +116,7 @@ func fromRow(row db.ListLicensePricesRow) Price {
 	}
 	if row.MetersEntitlementID != nil && row.EntitlementSlug != nil {
 		factor, _ := decimal.NewFromString(row.SaleUnitFactor)
-		price.Metered = &Meter{
+		price.Metered = &PriceMeter{
 			EntitlementSlug:  *row.EntitlementSlug,
 			SaleUnitFactor:   money.FormatDecimal(factor),
 			SaleUnitSingular: row.SaleUnitSingular,

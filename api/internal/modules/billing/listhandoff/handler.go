@@ -17,7 +17,7 @@ import (
 // QueuedInvoice is an invoice in the handoff queue, waiting or acknowledged.
 type QueuedInvoice struct {
 	invoices.InvoiceSummary
-	Handoff invoices.Handoff `json:"handoff"`
+	Handoff invoices.InvoiceHandoff `json:"handoff"`
 }
 
 type cursorKey struct {

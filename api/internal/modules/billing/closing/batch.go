@@ -21,8 +21,8 @@ type Scope struct {
 	InstanceID     *uuid.UUID
 }
 
-// Report is what a batch did.
-type Report struct {
+// ClosePeriodsReport is what a batch did.
+type ClosePeriodsReport struct {
 	Examined int             `json:"examined" doc:"Subscriptions the batch looked at"`
 	Closed   int             `json:"closed" doc:"Periods closed into an invoice"`
 	Held     int             `json:"held" doc:"Of those, invoices held as DRAFTs for their usage journal"`
@@ -39,8 +39,8 @@ type ActorFor func(ctx context.Context, organizationID uuid.UUID) (uuid.UUID, er
 // transaction and is selected again until it is no longer due. Each one is
 // its own unit: an error or a panic in one is logged and leaves it for a
 // later pass, and the batch moves on without selecting it again.
-func (c *Closer) CloseDue(ctx context.Context, scope Scope, limit int, actorFor ActorFor) (Report, error) {
-	report := Report{Examined: 0, Closed: 0, Held: 0, Skipped: 0, HasMore: false, Invoices: []ClosedInvoice{}}
+func (c *Closer) CloseDue(ctx context.Context, scope Scope, limit int, actorFor ActorFor) (ClosePeriodsReport, error) {
+	report := ClosePeriodsReport{Examined: 0, Closed: 0, Held: 0, Skipped: 0, HasMore: false, Invoices: []ClosedInvoice{}}
 	excluded := []uuid.UUID{}
 	q := c.deps.Queries(ctx)
 	for report.Examined < limit {
