@@ -11,12 +11,15 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/sweep"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ackhandoff"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/claimhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getupcominginvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinstanceinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
@@ -50,6 +53,9 @@ type UseCases struct {
 	VoidInvoice           *voidinvoice.UseCase
 	ReleaseInvoiceHold    *releaseinvoicehold.UseCase
 	RecomposeInvoice      *recomposeinvoice.UseCase
+	ListHandoff           *listhandoff.UseCase
+	ClaimHandoff          *claimhandoff.UseCase
+	AckHandoff            *ackhandoff.UseCase
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -77,6 +83,9 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		VoidInvoice:           voidinvoice.NewUseCase(deps),
 		ReleaseInvoiceHold:    releaseinvoicehold.NewUseCase(deps, closer),
 		RecomposeInvoice:      recomposeinvoice.NewUseCase(deps, closer),
+		ListHandoff:           listhandoff.NewUseCase(deps),
+		ClaimHandoff:          claimhandoff.NewUseCase(deps),
+		AckHandoff:            ackhandoff.NewUseCase(deps),
 	}
 
 	// The billing jobs run only where billing is on and background work runs.

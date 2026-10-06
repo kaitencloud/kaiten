@@ -6,6 +6,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ackhandoff"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/claimhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
@@ -14,6 +16,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getupcominginvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoicelist"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinstanceinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
@@ -183,4 +186,37 @@ func (b Billing) RecomposeInvoice(
 	}
 
 	return b.uc.RecomposeInvoice.Execute(bindOrganization(ctx, cl), invoiceID)
+}
+
+// ListHandoff reads the handoff queue without leasing anything.
+func (b Billing) ListHandoff(
+	ctx context.Context, cl caller.OrganizationCaller, status, cursor string, limit int32,
+) (pagination.Page[listhandoff.QueuedInvoice], error) {
+	if err := cl.Require(listhandoff.RequiredScope); err != nil {
+		return pagination.Page[listhandoff.QueuedInvoice]{}, err
+	}
+
+	return b.uc.ListHandoff.Execute(bindOrganization(ctx, cl), status, cursor, limit)
+}
+
+// ClaimHandoff leases invoices waiting for the organization's accounting
+// system.
+func (b Billing) ClaimHandoff(
+	ctx context.Context, cl caller.OrganizationCaller, limit, leaseSeconds int32,
+) (*claimhandoff.HandoffClaim, error) {
+	if err := cl.Require(claimhandoff.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.ClaimHandoff.Execute(bindOrganization(ctx, cl), limit, leaseSeconds)
+}
+
+func (b Billing) AckHandoff(
+	ctx context.Context, cl caller.OrganizationCaller, invoiceID uuid.UUID, cmd ackhandoff.Command,
+) (*invoices.Invoice, error) {
+	if err := cl.Require(ackhandoff.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.AckHandoff.Execute(bindOrganization(ctx, cl), invoiceID, cmd)
 }

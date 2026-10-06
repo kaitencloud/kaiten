@@ -4,12 +4,15 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ackhandoff"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/claimhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getupcominginvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinstanceinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
@@ -39,6 +42,9 @@ func registerBilling(core, platform huma.API, app kaiten.Billing, platformApp ka
 	voidinvoice.RegisterEndpoint(core, app)
 	releaseinvoicehold.RegisterEndpoint(core, app)
 	recomposeinvoice.RegisterEndpoint(core, app)
+	listhandoff.RegisterEndpoint(core, app)
+	claimhandoff.RegisterEndpoint(core, app)
+	ackhandoff.RegisterEndpoint(core, app)
 	closebillingperiods.RegisterEndpoint(core, app)
 	closebillingperiods.RegisterPlatformEndpoint(platform, platformApp)
 	invoices.RegisterWebhooks(core)
