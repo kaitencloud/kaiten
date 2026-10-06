@@ -1,6 +1,8 @@
 package reportentitlementusagemetric
 
 import (
+	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -39,6 +41,15 @@ type rolloverClosure struct {
 	IsSynthetic       bool
 }
 
+// DefaultMaxRolloverClosures is how many windows one report may close when
+// the configuration says nothing: an HOUR entitlement dormant for 11 years.
+const DefaultMaxRolloverClosures = 100_000
+
+// errRolloverLimitExceeded means bringing the stored bucket up to date would
+// close more windows than the configured cap. The report fails rather than
+// hold the pair's lock while it materializes them.
+var errRolloverLimitExceeded = errors.New("rollover: more windows to close than the configured cap")
+
 // planRollover computes the ordered sequence of window closures needed to
 // bring a stale stored bucket up to currentWindow. Callers must only invoke
 // this once stored.period_start != currentWindow.Start has already been
@@ -53,8 +64,13 @@ type rolloverClosure struct {
 // pass the stored row's current value either way.
 //
 // The result always has at least one closure and always ends with a
-// closure whose NewPeriodStart equals currentWindow.Start.
+// closure whose NewPeriodStart equals currentWindow.Start. The walk stops
+// with errRolloverLimitExceeded after maxClosures closures, and with ctx's
+// error as soon as ctx is done: the caller holds the pair's lock and a
+// transaction for as long as it runs.
 func planRollover(
+	ctx context.Context,
+	maxClosures int,
 	storedPeriodStart *time.Time,
 	storedValue float64,
 	storedEventCount int32,
@@ -100,6 +116,13 @@ func planRollover(
 	closingWindow := storedWindow
 	first := true
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if len(closures) >= maxClosures {
+			return nil, errRolloverLimitExceeded
+		}
+
 		nextWindow, err := period.Next(closingWindow, resetPeriod, resetAnchor, licenseStart)
 		if err != nil {
 			return nil, err

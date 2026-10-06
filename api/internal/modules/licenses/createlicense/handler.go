@@ -59,6 +59,17 @@ func NewUseCase(deps Deps) *UseCase {
 // any of its products. deletelicense decrements to match, only when the
 // version it deletes takes its family with it.
 func (h *UseCase) Execute(ctx context.Context, command *Command) (*schema.License, error) {
+	if command.TrialPeriodDays != nil {
+		if err := schema.ValidateTrialPeriodDays("CreateLicense", *command.TrialPeriodDays); err != nil {
+			return nil, err
+		}
+	}
+	if url := command.SelfServeCtaURL; url != nil && *url != "" {
+		if err := schema.ValidateSelfServeCtaURL("CreateLicense", *url); err != nil {
+			return nil, err
+		}
+	}
+
 	user, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return nil, err

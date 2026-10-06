@@ -61,3 +61,25 @@ func TestForeignKeyViolationMapsToConflict(t *testing.T) {
 		t.Errorf("GetHTTPStatus(unmapped) = %d, want %d -- the 500 this mapping exists to avoid", got, http.StatusInternalServerError)
 	}
 }
+
+func TestIsMissingPartition(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"no partition for the row", &pgconn.PgError{Code: pgCheckViolation, TableName: "usage_ledger"}, true},
+		{"wrapped", fmt.Errorf("append: %w", &pgconn.PgError{Code: pgCheckViolation, TableName: "usage_ledger"}), true},
+		{"another table", &pgconn.PgError{Code: pgCheckViolation, TableName: "outbox_events"}, false},
+		{"a named CHECK on the table", &pgconn.PgError{Code: pgCheckViolation, TableName: "usage_ledger", ConstraintName: "usage_ledger_limit_check"}, false},
+		{"another code", &pgconn.PgError{Code: pgUniqueViolation, TableName: "usage_ledger"}, false},
+		{"not a Postgres error", errors.New("boom"), false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := IsMissingPartition(tc.err, "usage_ledger"); got != tc.want {
+				t.Errorf("IsMissingPartition() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

@@ -68,6 +68,7 @@ func RegisterEndpoint(api huma.API, app Updater) {
 			Name:               request.Body.Name,
 			ExternalCustomerID: request.Body.ExternalCustomerID,
 			Domain:             request.Body.Domain,
+			BillingEmail:       request.Body.BillingEmail,
 		}
 		if _, err := app.Update(ctx, cl, request.Slug, command); err != nil {
 			return nil, err

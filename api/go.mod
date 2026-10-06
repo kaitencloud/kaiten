@@ -20,7 +20,7 @@ require (
 	github.com/hashicorp/vault-client-go v0.4.3
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kaitencloud/sdk-go v0.0.1
+	github.com/kaitencloud/sdk-go v0.0.2-0.20261005202017-deeb018edc00
 	github.com/lib/pq v1.12.3
 	github.com/open-feature/go-sdk v1.17.2
 	github.com/open-feature/go-sdk-contrib/providers/ofrep v0.1.7
@@ -28,6 +28,7 @@ require (
 	github.com/ravilushqa/otelgqlgen v0.19.0
 	github.com/samber/slog-fiber v1.22.2
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
+	github.com/shopspring/decimal v1.5.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1

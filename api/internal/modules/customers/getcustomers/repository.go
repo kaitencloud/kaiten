@@ -92,6 +92,7 @@ func (r *QueryRepository) GetCustomers(ctx context.Context, organizationID uuid.
 			Slug:               c.Slug,
 			ExternalCustomerID: c.ExternalCustomerID,
 			Domain:             c.Domain,
+			BillingEmail:       c.BillingEmail,
 			Integrations:       integrations,
 			CreatedBy:          shared.User{ID: c.CreatedByID, Name: c.CreatedByName},
 			UpdatedBy:          shared.User{ID: c.UpdatedByID, Name: c.UpdatedByName},

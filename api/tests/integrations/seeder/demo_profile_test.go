@@ -93,6 +93,19 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 		WHERE eu.organization_id = $1 AND e.slug != 'monthly-orders' AND eu.period_start IS NOT NULL
 	`, orgID))
 
+	// Every seeded counter comes with the usage_ledger row that explains it:
+	// report_seq 1, in the counter's own window, ending at the counter's value.
+	require.Zero(t, countRows(t, ctx, testDB, `
+		SELECT COUNT(*)
+		FROM entitlement_usage eu
+		LEFT JOIN usage_ledger ul
+		  ON ul.instance_id = eu.instance_id AND ul.entitlement_id = eu.entitlement_id
+		 AND ul.report_seq = eu.report_seq
+		 AND ul.window_start IS NOT DISTINCT FROM eu.period_start
+		 AND ul.value_after = (eu.value->>'value')::numeric
+		WHERE eu.organization_id = $1 AND (eu.report_seq <> 1 OR ul.report_seq IS NULL)
+	`, orgID), "a seeded counter has no matching journal row")
+
 	// Sakura Dedicated stays on the July release -- the "pending upgrade"
 	// zone the deployment journal exists to show.
 	require.Equal(t, 1, countRows(t, ctx, testDB, `

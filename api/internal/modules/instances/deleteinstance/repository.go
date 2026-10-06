@@ -31,6 +31,10 @@ func (r *CommandRepository) q(ctx context.Context) *db.Queries {
 }
 
 func (r *CommandRepository) DeleteInstance(ctx context.Context, userID uuid.UUID, organizationID uuid.UUID, slug string) (*schema.Instance, error) {
+	if err := r.refuseBilled(ctx, organizationID, slug); err != nil {
+		return nil, err
+	}
+
 	params := db.DeleteInstanceParams{
 		Slug:           slug,
 		UserID:         userID,
@@ -69,4 +73,36 @@ func (r *CommandRepository) DeleteInstance(ctx context.Context, userID uuid.UUID
 		StartLicenseDate:   i.StartLicenseDate.Time,
 		EndLicenseDate:     i.EndLicenseDate.Time,
 	}, nil
+}
+
+// refuseBilled refuses to delete an instance that bills: a live subscription,
+// or an invoice not settled yet. Once both are behind it, the instance goes
+// and its subscription and invoices stay, readable through their snapshots.
+// The instance is locked first, so a subscribe cannot slip in between.
+func (r *CommandRepository) refuseBilled(ctx context.Context, organizationID uuid.UUID, slug string) error {
+	q := r.q(ctx)
+	if _, err := q.LockInstanceForDelete(ctx, db.LockInstanceForDeleteParams{OrganizationID: organizationID, Slug: slug}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	block, err := q.GetInstanceBillingBlock(ctx, db.GetInstanceBillingBlockParams{OrganizationID: organizationID, Slug: slug})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	live := block.Status == "TRIAL" || block.Status == "ACTIVE" || block.Status == "PAST_DUE"
+	if !live && len(block.UnpaidInvoiceIds) == 0 {
+		return nil
+	}
+	return kaitenerrors.ConflictWithErrors("DeleteInstance.BillingActive",
+		fmt.Sprintf("Instance %q is billed: cancel its subscription and settle its invoices first", slug),
+		&kaitenerrors.ErrorDetail{
+			Message:  "the subscription's status and the invoices not settled yet",
+			Location: "instance",
+			Value:    map[string]any{"status": block.Status, "unpaidInvoiceIds": block.UnpaidInvoiceIds},
+		})
 }
