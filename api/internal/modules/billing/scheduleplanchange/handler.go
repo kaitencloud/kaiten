@@ -2,6 +2,7 @@ package scheduleplanchange
 
 import (
 	"context"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -76,6 +77,16 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, priceID uuid
 		case target.Currency != sub.Currency:
 			return kaitenerrors.UnprocessableEntity(operation+".CurrencyMismatch",
 				"the boundary's invoice bills the old plan and the new one in one currency: "+sub.Currency)
+		}
+		if sub.InstanceID != nil && u.deps.Addons != nil && target.BillingPeriod != nil {
+			stranded, err := u.deps.Addons.Incompatible(ctx, user.OrganizationID, *sub.InstanceID, target.LicenseID, *target.BillingPeriod)
+			if err != nil {
+				return err
+			}
+			if len(stranded) > 0 {
+				return kaitenerrors.UnprocessableEntityf(operation+".AddonIncompatible",
+					"the instance holds add-ons the new plan does not fit or price: %s", strings.Join(stranded, ", "))
+			}
 		}
 		if sub.ScheduledLicensePriceID != nil && *sub.ScheduledLicensePriceID == target.ID {
 			result, err = subscriptions.Build(ctx, q, u.deps.Catalogue, sub)
