@@ -8,22 +8,26 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/exportorganizationusagereports"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/exportusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getaudittrails"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementsusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstances"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/updateinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/updateintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usagehistory"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
 
-// Instances is the instances module's fourteen operations -- the largest namespace
+// Instances is the instances module's seventeen operations -- the largest namespace
 // here, because an instance is what everything else in the domain ends up attached
 // to: a customer's deployment, a license's grants, a deployment zone's release, and
 // the usage that meters all three.
@@ -158,7 +162,7 @@ func (i Instances) DeleteIntegration(
 func (i Instances) ReportEntitlementUsage(
 	ctx context.Context, cl caller.OrganizationCaller,
 	instanceSlug, entitlementSlug string, cmd *reportentitlementusagemetric.Command,
-) (*instanceschema.EntitlementUsage, error) {
+) (*reportentitlementusagemetric.Result, error) {
 	if err := cl.Require(reportentitlementusagemetric.RequiredScope); err != nil {
 		return nil, err
 	}
@@ -210,4 +214,51 @@ func (i Instances) ListAuditTrails(
 
 	return i.uc.GetAuditTrails.Execute(
 		bindOrganization(ctx, cl), instanceSlug, eventName, after, before, limit, cursor)
+}
+
+// ListUsageReports reads one page of a pair's usage history: the reports the
+// journal recorded, within the organization's retention. A read only: unlike
+// GetEntitlementUsage it emits no event.
+func (i Instances) ListUsageReports(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug, entitlementSlug string, q listusagereports.Query,
+) (*listusagereports.UsageReportPage, error) {
+	if err := cl.Require(listusagereports.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return i.uc.ListUsageReports.Execute(bindOrganization(ctx, cl), instanceSlug, entitlementSlug, q)
+}
+
+// ExportUsageReports checks an export of a pair's usage history and returns it
+// ready to stream; the rows are read as it is written.
+func (i Instances) ExportUsageReports(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug, entitlementSlug string, q exportusagereports.Query,
+) (*usagehistory.Export, error) {
+	if err := cl.Require(exportusagereports.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return i.uc.ExportUsageReports.Execute(bindOrganization(ctx, cl), instanceSlug, entitlementSlug, q)
+}
+
+// ExportOrganizationUsageReports is ExportUsageReports across the whole
+// organization, deleted instances and entitlements included.
+func (i Instances) ExportOrganizationUsageReports(
+	ctx context.Context, cl caller.OrganizationCaller, q exportorganizationusagereports.Query,
+) (*usagehistory.Export, error) {
+	if err := cl.Require(exportorganizationusagereports.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return i.uc.ExportOrganizationUsageReports.Execute(bindOrganization(ctx, cl), q)
+}
+
+// EnsureUsageLedger creates the usage journal's missing monthly partitions and
+// fails if reports dated now would have none to land in. It is a readiness
+// check, not an operation: no caller, no scope. Nil-safe without a pool.
+func (k *Kaiten) EnsureUsageLedger(ctx context.Context) error {
+	if k.modules.Instances.UsageLedger == nil {
+		return nil
+	}
+	return k.modules.Instances.UsageLedger.EnsureReady(ctx)
 }

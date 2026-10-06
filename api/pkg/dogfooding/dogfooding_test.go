@@ -86,6 +86,19 @@ func TestBooleanAndMeteredSlugsAreDisjoint(t *testing.T) {
 	}
 }
 
+// A config slug the catalogue never creates, or creates with another type, is a
+// setting every organization reads as unknown.
+func TestConfigSlugsAreCatalogueSlugsOfTheirOwnType(t *testing.T) {
+	for _, slug := range dogfooding.ConfigEntitlementSlugs {
+		if !slices.Contains(dogfooding.EntitlementSlugs, slug) {
+			t.Errorf("config slug %q is not in EntitlementSlugs", slug)
+		}
+		if slices.Contains(dogfooding.BooleanEntitlementSlugs, slug) || slices.Contains(dogfooding.MeteredEntitlementSlugs, slug) {
+			t.Errorf("config slug %q is also listed as a boolean or metered slug", slug)
+		}
+	}
+}
+
 // declaredSlugConstants returns name -> value for every *EntitlementSlug
 // constant in this package, read out of the source rather than the binary.
 func declaredSlugConstants(t *testing.T) map[string]string {

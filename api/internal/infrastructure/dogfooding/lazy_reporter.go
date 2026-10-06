@@ -146,6 +146,7 @@ type Reporter struct {
 	tokenFile     string
 	lastToken     string
 	workers       *workerPool
+	configs       configCache
 	ready         chan struct{}
 	closed        chan struct{}
 	watchDone     chan struct{}

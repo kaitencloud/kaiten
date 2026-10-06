@@ -34,7 +34,7 @@ func RegisterEndpoint(api huma.API, app Deleter) {
 		Summary:     "Delete a license entitlement",
 		Description: "Delete a license entitlement with the provided details",
 		Tags:        []string{"licenses"},
-		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusUnprocessableEntity, http.StatusInternalServerError},
+		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*struct{}, error) {
 		cl, err := caller.Organization(ctx)
 		if err != nil {

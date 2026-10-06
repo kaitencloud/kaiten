@@ -572,6 +572,39 @@ func (q *Queries) GetAllInstancesByCursor(ctx context.Context, arg GetAllInstanc
 	return items, nil
 }
 
+const getInstanceBillingBlock = `-- name: GetInstanceBillingBlock :one
+SELECT ib.status::text AS status,
+       coalesce(array(SELECT inv.id
+                        FROM instance_invoice inv
+                       WHERE inv.instance_billing_id = ib.id
+                         AND inv.status IN ('DRAFT', 'PUSHED', 'PUSH_FAILED', 'MANUAL', 'PAYMENT_FAILED')
+                       ORDER BY inv.boundary_at),
+                '{}')::uuid[] AS unpaid_invoice_ids
+FROM instance_billing ib
+JOIN instance i ON i.id = ib.instance_id
+WHERE i.organization_id = $1
+  AND i.slug = $2
+`
+
+type GetInstanceBillingBlockParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+type GetInstanceBillingBlockRow struct {
+	Status           string      `json:"status"`
+	UnpaidInvoiceIds []uuid.UUID `json:"unpaid_invoice_ids"`
+}
+
+// What keeps an instance from being deleted: its subscription's status, and
+// its invoices not settled yet. No row when it was never subscribed.
+func (q *Queries) GetInstanceBillingBlock(ctx context.Context, arg GetInstanceBillingBlockParams) (GetInstanceBillingBlockRow, error) {
+	row := q.db.QueryRow(ctx, getInstanceBillingBlock, arg.OrganizationID, arg.Slug)
+	var i GetInstanceBillingBlockRow
+	err := row.Scan(&i.Status, &i.UnpaidInvoiceIds)
+	return i, err
+}
+
 const getInstancesByCustomerIDs = `-- name: GetInstancesByCustomerIDs :many
 SELECT i.id,
        i.created_by_id,
@@ -1107,6 +1140,28 @@ func (q *Queries) InstanceExists(ctx context.Context, arg InstanceExistsParams) 
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const lockInstanceForDelete = `-- name: LockInstanceForDelete :one
+SELECT i.id
+FROM instance i
+WHERE i.organization_id = $1
+  AND i.slug = $2
+FOR UPDATE
+`
+
+type LockInstanceForDeleteParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+// The instance a delete names, locked first: a subscribe that starts
+// meanwhile waits, then finds it gone.
+func (q *Queries) LockInstanceForDelete(ctx context.Context, arg LockInstanceForDeleteParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockInstanceForDelete, arg.OrganizationID, arg.Slug)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const updateInstanceLifecycleStage = `-- name: UpdateInstanceLifecycleStage :one

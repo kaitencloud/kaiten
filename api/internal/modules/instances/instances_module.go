@@ -1,15 +1,20 @@
 package instances
 
 import (
+	"context"
+
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	outboxdb "github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox/db"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	auditdb "github.com/kaitencloud/kaiten/api/internal/modules/audittrail/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/listforinstance"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/billableusage"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/exportorganizationusagereports"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/exportusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getaudittrails"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementsusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementusagemetrics"
@@ -17,10 +22,12 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstances"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/updateinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/updateintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usageledger"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/validator"
 )
 
@@ -39,12 +46,30 @@ type UseCases struct {
 	GetEntitlementUsageMetrics   *getentitlementusagemetrics.UseCase
 	GetEntitlementsUsageMetrics  *getentitlementsusagemetrics.UseCase
 	GetAuditTrails               *getaudittrails.UseCase
+
+	ListUsageReports               *listusagereports.UseCase
+	ExportUsageReports             *exportusagereports.UseCase
+	ExportOrganizationUsageReports *exportorganizationusagereports.UseCase
+
+	// UsageLedger keeps the usage journal's partitions and retention. Nil without
+	// a pool.
+	UsageLedger *usageledger.Maintenance
+
+	// BillableUsage is the usage journal as the billing module reads it.
+	BillableUsage *billableusage.Source
 }
 
 func NewUseCases(svc services.Container) *UseCases {
 	queries := db.New(svc.Pool)
 	auditTrailPort := listforinstance.NewUseCase(auditdb.New(svc.Pool))
-	return &UseCases{
+	ledgerSettings := usageledger.Settings{
+		RetentionMonths:    svc.Config.UsageLedger.RetentionMonths,
+		MaxRetentionMonths: svc.Config.UsageLedger.MaxRetentionMonths,
+		IdempotencyWindow:  svc.Config.Usage.IdempotencyWindow,
+	}
+	retention := usageledger.Retention{Reader: svc.EntitlementConfig, Settings: ledgerSettings}
+	useCases := &UseCases{
+		BillableUsage: billableusage.New(svc.Pool, svc.Uof, retention),
 		CreateIntegration: createintegrations.NewUseCase(createintegrations.Deps{
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
@@ -93,9 +118,11 @@ func NewUseCases(svc services.Container) *UseCases {
 			Queries:      queries,
 		}),
 		ReportEntitlementUsageMetric: reportentitlementusagemetric.NewUseCase(reportentitlementusagemetric.Deps{
-			UserProvider:  svc.UserProvider,
-			UsageReporter: svc.UsageReporter,
-			Uof:           svc.Uof,
+			UserProvider:        svc.UserProvider,
+			UsageReporter:       svc.UsageReporter,
+			Uof:                 svc.Uof,
+			MaxRolloverClosures: svc.Config.Usage.RolloverMaxClosures,
+			IdempotencyWindow:   svc.Config.Usage.IdempotencyWindow,
 		}),
 		GetEntitlementUsageMetrics: getentitlementusagemetrics.NewUseCase(getentitlementusagemetrics.Deps{
 			UserProvider:     svc.UserProvider,
@@ -112,5 +139,37 @@ func NewUseCases(svc services.Container) *UseCases {
 			UserProvider:   svc.UserProvider,
 			AuditTrailPort: auditTrailPort,
 		}),
+		ListUsageReports: listusagereports.NewUseCase(listusagereports.Deps{
+			UserProvider: svc.UserProvider,
+			DB:           svc.Pool,
+			Retention:    retention,
+		}),
+		ExportUsageReports: exportusagereports.NewUseCase(exportusagereports.Deps{
+			UserProvider: svc.UserProvider,
+			DB:           svc.Pool,
+			Retention:    retention,
+		}),
+		ExportOrganizationUsageReports: exportorganizationusagereports.NewUseCase(exportorganizationusagereports.Deps{
+			UserProvider: svc.UserProvider,
+			DB:           svc.Pool,
+			Retention:    retention,
+		}),
 	}
+
+	// Built with a pool so every replica can ensure partitions before it serves;
+	// the daily pass only runs where background work does, like the other sweeps.
+	if svc.Pool != nil {
+		cfg := svc.Config.UsageLedger
+		useCases.UsageLedger = usageledger.New(svc.Pool, svc.EntitlementConfig, usageledger.Config{
+			Interval:       cfg.Maintenance.Interval,
+			InitialDelay:   svc.Config.Retention.InitialDelay,
+			PurgeBatchSize: cfg.PurgeBatchSize,
+			Settings:       ledgerSettings,
+		})
+		if svc.BackgroundWorkers {
+			useCases.UsageLedger.Start(context.Background())
+			svc.WorkerRegistry.OnStop(useCases.UsageLedger.Stop)
+		}
+	}
+	return useCases
 }

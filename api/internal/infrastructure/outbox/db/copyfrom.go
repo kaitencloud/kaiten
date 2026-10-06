@@ -48,3 +48,43 @@ func (r iteratorForCreateOutboxEvents) Err() error {
 func (q *Queries) CreateOutboxEvents(ctx context.Context, arg []CreateOutboxEventsParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"outbox_events"}, []string{"organization_id", "event_name", "event_type", "data", "headers"}, &iteratorForCreateOutboxEvents{rows: arg})
 }
+
+// iteratorForCreateOutboxEventsAt implements pgx.CopyFromSource.
+type iteratorForCreateOutboxEventsAt struct {
+	rows                 []CreateOutboxEventsAtParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForCreateOutboxEventsAt) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForCreateOutboxEventsAt) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].OrganizationID,
+		r.rows[0].EventName,
+		r.rows[0].EventType,
+		r.rows[0].Data,
+		r.rows[0].Headers,
+		r.rows[0].OccurredAt,
+	}, nil
+}
+
+func (r iteratorForCreateOutboxEventsAt) Err() error {
+	return nil
+}
+
+// CreateOutboxEvents for events that carry the instant they happened at,
+// rather than the writing transaction's now(): COPY has no column default to
+// fall back on per row, so the two shapes are two statements.
+func (q *Queries) CreateOutboxEventsAt(ctx context.Context, arg []CreateOutboxEventsAtParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"outbox_events"}, []string{"organization_id", "event_name", "event_type", "data", "headers", "occurred_at"}, &iteratorForCreateOutboxEventsAt{rows: arg})
+}

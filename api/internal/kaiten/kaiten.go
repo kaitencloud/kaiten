@@ -65,6 +65,12 @@ type Options struct {
 	// registered connector is available to every organization.
 	ConnectorEntitlements services.ConnectorEntitlements
 
+	// EntitlementConfig reads the settings an organization's licence states, such
+	// as how long its usage history is kept. Nil is legal and becomes
+	// services.NoLicensingAuthority: a self-hosted deployment reads those settings
+	// from its own configuration.
+	EntitlementConfig services.EntitlementConfig
+
 	// BackgroundWorkers is whether this process runs background work: the
 	// pgnotify listeners, the retired-token sweep, the feature-flag evaluation
 	// publisher.

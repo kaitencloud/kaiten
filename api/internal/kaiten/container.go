@@ -5,6 +5,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers"
@@ -15,6 +16,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances"
 	"github.com/kaitencloud/kaiten/api/internal/modules/integrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/billablecatalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields"
 	"github.com/kaitencloud/kaiten/api/internal/modules/notifications"
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization"
@@ -27,6 +29,7 @@ import (
 // privilege rather than anyone's option.
 type modules struct {
 	AuditTrail      *audittrail.UseCases
+	Billing         *billing.UseCases
 	Components      *components.UseCases
 	Connectors      *connectors.UseCases
 	Customers       *customers.UseCases
@@ -127,6 +130,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		// Same funnel, same reason: a deployment that licenses nothing says so by
 		// leaving the option nil, and every use case still asks unconditionally.
 		ConnectorEntitlements: services.ConnectorEntitlementsOrAlways(opts.ConnectorEntitlements),
+		EntitlementConfig:     services.EntitlementConfigOrNone(opts.EntitlementConfig),
 		WorkerRegistry:        workers,
 		BackgroundWorkers:     opts.BackgroundWorkers,
 	}
@@ -146,9 +150,18 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	// from inside the transaction that writes the entry, which is the whole
 	// reason the announcement is not a CDC consumer of its own.
 	notificationModule := notifications.NewUseCases(svc)
+	// Built before the map too: billing reads the usage journal through the
+	// source the instances module exposes.
+	instanceModule := instances.NewUseCases(svc)
 
 	built := modules{
-		AuditTrail:      audittrail.NewUseCases(svc, notificationModule.Announcer),
+		AuditTrail: audittrail.NewUseCases(svc, notificationModule.Announcer),
+		// Billing reads the licence catalogue and the usage journal through
+		// ports it owns; the modules that own that data implement them.
+		Billing: billing.NewUseCases(svc, billing.Ports{
+			Catalogue: billablecatalogue.New(svc.Uof),
+			Usage:     instanceModule.BillableUsage,
+		}),
 		Components:      components.NewUseCases(svc),
 		Connectors:      connectors.NewUseCases(svc),
 		Customers:       customers.NewUseCases(svc),
@@ -157,7 +170,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		FeatureFlags:    featureflags.NewUseCases(svc),
 		Notifications:   notificationModule,
 		Identity:        identity.NewUseCases(svc),
-		Instances:       instances.NewUseCases(svc),
+		Instances:       instanceModule,
 		Integrations:    integrations.NewUseCases(svc),
 		Licenses:        licenses.NewUseCases(svc),
 		MetadataFields:  metadatafields.NewUseCases(svc),

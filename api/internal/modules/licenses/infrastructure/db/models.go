@@ -12,6 +12,226 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AggregationMethod string
+
+const (
+	AggregationMethodSUM     AggregationMethod = "SUM"
+	AggregationMethodCOUNT   AggregationMethod = "COUNT"
+	AggregationMethodAVERAGE AggregationMethod = "AVERAGE"
+	AggregationMethodMAX     AggregationMethod = "MAX"
+	AggregationMethodMIN     AggregationMethod = "MIN"
+	AggregationMethodLATEST  AggregationMethod = "LATEST"
+)
+
+func (e *AggregationMethod) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AggregationMethod(s)
+	case string:
+		*e = AggregationMethod(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AggregationMethod: %T", src)
+	}
+	return nil
+}
+
+type NullAggregationMethod struct {
+	AggregationMethod AggregationMethod `json:"aggregation_method"`
+	Valid             bool              `json:"valid"` // Valid is true if AggregationMethod is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAggregationMethod) Scan(value interface{}) error {
+	if value == nil {
+		ns.AggregationMethod, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AggregationMethod.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAggregationMethod) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AggregationMethod), nil
+}
+
+type BillingModel string
+
+const (
+	BillingModelFLATFEE    BillingModel = "FLAT_FEE"
+	BillingModelUSAGEBASED BillingModel = "USAGE_BASED"
+	BillingModelOVERAGE    BillingModel = "OVERAGE"
+)
+
+func (e *BillingModel) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = BillingModel(s)
+	case string:
+		*e = BillingModel(s)
+	default:
+		return fmt.Errorf("unsupported scan type for BillingModel: %T", src)
+	}
+	return nil
+}
+
+type NullBillingModel struct {
+	BillingModel BillingModel `json:"billing_model"`
+	Valid        bool         `json:"valid"` // Valid is true if BillingModel is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullBillingModel) Scan(value interface{}) error {
+	if value == nil {
+		ns.BillingModel, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.BillingModel.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullBillingModel) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.BillingModel), nil
+}
+
+type BillingPeriod string
+
+const (
+	BillingPeriodMONTHLY    BillingPeriod = "MONTHLY"
+	BillingPeriodQUARTERLY  BillingPeriod = "QUARTERLY"
+	BillingPeriodSEMIANNUAL BillingPeriod = "SEMI_ANNUAL"
+	BillingPeriodANNUAL     BillingPeriod = "ANNUAL"
+)
+
+func (e *BillingPeriod) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = BillingPeriod(s)
+	case string:
+		*e = BillingPeriod(s)
+	default:
+		return fmt.Errorf("unsupported scan type for BillingPeriod: %T", src)
+	}
+	return nil
+}
+
+type NullBillingPeriod struct {
+	BillingPeriod BillingPeriod `json:"billing_period"`
+	Valid         bool          `json:"valid"` // Valid is true if BillingPeriod is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullBillingPeriod) Scan(value interface{}) error {
+	if value == nil {
+		ns.BillingPeriod, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.BillingPeriod.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullBillingPeriod) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.BillingPeriod), nil
+}
+
+type BillingTiming string
+
+const (
+	BillingTimingADVANCE BillingTiming = "ADVANCE"
+	BillingTimingARREARS BillingTiming = "ARREARS"
+)
+
+func (e *BillingTiming) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = BillingTiming(s)
+	case string:
+		*e = BillingTiming(s)
+	default:
+		return fmt.Errorf("unsupported scan type for BillingTiming: %T", src)
+	}
+	return nil
+}
+
+type NullBillingTiming struct {
+	BillingTiming BillingTiming `json:"billing_timing"`
+	Valid         bool          `json:"valid"` // Valid is true if BillingTiming is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullBillingTiming) Scan(value interface{}) error {
+	if value == nil {
+		ns.BillingTiming, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.BillingTiming.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullBillingTiming) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.BillingTiming), nil
+}
+
+type EntitlementResetPeriod string
+
+const (
+	EntitlementResetPeriodHOUR  EntitlementResetPeriod = "HOUR"
+	EntitlementResetPeriodDAY   EntitlementResetPeriod = "DAY"
+	EntitlementResetPeriodWEEK  EntitlementResetPeriod = "WEEK"
+	EntitlementResetPeriodMONTH EntitlementResetPeriod = "MONTH"
+	EntitlementResetPeriodYEAR  EntitlementResetPeriod = "YEAR"
+)
+
+func (e *EntitlementResetPeriod) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EntitlementResetPeriod(s)
+	case string:
+		*e = EntitlementResetPeriod(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EntitlementResetPeriod: %T", src)
+	}
+	return nil
+}
+
+type NullEntitlementResetPeriod struct {
+	EntitlementResetPeriod EntitlementResetPeriod `json:"entitlement_reset_period"`
+	Valid                  bool                   `json:"valid"` // Valid is true if EntitlementResetPeriod is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEntitlementResetPeriod) Scan(value interface{}) error {
+	if value == nil {
+		ns.EntitlementResetPeriod, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EntitlementResetPeriod.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEntitlementResetPeriod) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EntitlementResetPeriod), nil
+}
+
 type EntitlementType string
 
 const (
@@ -143,21 +363,110 @@ func (ns NullLicenseType) Value() (driver.Value, error) {
 	return string(ns.LicenseType), nil
 }
 
+type PriceStatus string
+
+const (
+	PriceStatusACTIVE     PriceStatus = "ACTIVE"
+	PriceStatusDEPRECATED PriceStatus = "DEPRECATED"
+)
+
+func (e *PriceStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PriceStatus(s)
+	case string:
+		*e = PriceStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PriceStatus: %T", src)
+	}
+	return nil
+}
+
+type NullPriceStatus struct {
+	PriceStatus PriceStatus `json:"price_status"`
+	Valid       bool        `json:"valid"` // Valid is true if PriceStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPriceStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.PriceStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PriceStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPriceStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PriceStatus), nil
+}
+
+type PricingType string
+
+const (
+	PricingTypeFREE   PricingType = "FREE"
+	PricingTypePAID   PricingType = "PAID"
+	PricingTypeCUSTOM PricingType = "CUSTOM"
+)
+
+func (e *PricingType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PricingType(s)
+	case string:
+		*e = PricingType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PricingType: %T", src)
+	}
+	return nil
+}
+
+type NullPricingType struct {
+	PricingType PricingType `json:"pricing_type"`
+	Valid       bool        `json:"valid"` // Valid is true if PricingType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPricingType) Scan(value interface{}) error {
+	if value == nil {
+		ns.PricingType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PricingType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPricingType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PricingType), nil
+}
+
 type License struct {
-	ID             uuid.UUID             `json:"id"`
-	Name           string                `json:"name"`
-	Slug           string                `json:"slug"`
-	Description    string                `json:"description"`
-	Type           LicenseType           `json:"type"`
-	Version        int32                 `json:"version"`
-	VersionName    *string               `json:"version_name"`
-	IsDefault      bool                  `json:"is_default"`
-	Features       []byte                `json:"features"`
-	OrganizationID uuid.UUID             `json:"organization_id"`
-	CreatedAt      pgtype.Timestamp      `json:"created_at"`
-	UpdatedAt      pgtype.Timestamp      `json:"updated_at"`
-	FamilyID       uuid.UUID             `json:"family_id"`
-	LifecycleState LicenseLifecycleState `json:"lifecycle_state"`
+	ID                    uuid.UUID             `json:"id"`
+	Name                  string                `json:"name"`
+	Slug                  string                `json:"slug"`
+	Description           string                `json:"description"`
+	Type                  LicenseType           `json:"type"`
+	Version               int32                 `json:"version"`
+	VersionName           *string               `json:"version_name"`
+	IsDefault             bool                  `json:"is_default"`
+	Features              []byte                `json:"features"`
+	OrganizationID        uuid.UUID             `json:"organization_id"`
+	CreatedAt             pgtype.Timestamp      `json:"created_at"`
+	UpdatedAt             pgtype.Timestamp      `json:"updated_at"`
+	FamilyID              uuid.UUID             `json:"family_id"`
+	LifecycleState        LicenseLifecycleState `json:"lifecycle_state"`
+	PricingType           PricingType           `json:"pricing_type"`
+	TrialPeriodDays       *int32                `json:"trial_period_days"`
+	RequiresPaymentMethod bool                  `json:"requires_payment_method"`
+	SelfServeCtaUrl       *string               `json:"self_serve_cta_url"`
 }
 
 type LicenseFamily struct {
@@ -167,4 +476,5 @@ type LicenseFamily struct {
 	LastVersion    int32            `json:"last_version"`
 	CreatedAt      pgtype.Timestamp `json:"created_at"`
 	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
+	IsPublic       bool             `json:"is_public"`
 }

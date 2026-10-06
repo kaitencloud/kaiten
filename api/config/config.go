@@ -63,6 +63,39 @@ type CoreConfig struct {
 	Retention  Retention
 	Metered    Metered
 	Connectors Connectors
+	Usage      Usage
+	// The tag is not redundant: without it mapstructure would look for the key
+	// "usageledger".
+	UsageLedger UsageLedger `mapstructure:"usage_ledger"`
+	Billing     Billing
+}
+
+// Billing switches the commercial surface: prices, previews and, later,
+// subscriptions and invoices. Usage reporting, the usage history and the
+// effective entitlement reads are never behind it.
+type Billing struct {
+	// Enabled is the master switch. Off, every billing route answers 403
+	// Billing.Disabled and no billing job runs. On a deployment that reports to
+	// a licensing authority, the organization's licence must also grant the
+	// billing entitlement.
+	Enabled bool
+	// InitialDelay is how long after start-up each billing job first runs.
+	InitialDelay time.Duration `mapstructure:"initial_delay"`
+	// CloseGrace is how long after a period's end its close waits. The usage
+	// journal has no late reports, so none is needed by default.
+	CloseGrace  time.Duration      `mapstructure:"close_grace" validate:"gte=0"`
+	PeriodClose BillingPeriodClose `mapstructure:"period_close"`
+}
+
+// BillingPeriodClose schedules the pass that closes the subscriptions whose
+// period has ended into their invoices.
+type BillingPeriodClose struct {
+	// Interval below 0 disables the pass: periods then close only when
+	// close-periods is called.
+	Interval time.Duration
+	// BatchSize bounds the subscriptions one pass, or one close-periods call,
+	// closes.
+	BatchSize int `mapstructure:"batch_size" validate:"gte=1"`
 }
 
 type Server struct {
@@ -208,6 +241,50 @@ type Metered struct {
 	TokenFile string `mapstructure:"token_file" validate:"required_if=Enabled true"`
 }
 
+// Usage tunes the usage report path.
+type Usage struct {
+	// RolloverMaxClosures caps how many usage windows a single report may
+	// close. A report against a periodic entitlement first closes every
+	// window elapsed since the last report, one PERIOD_ROLLED_OVER event
+	// each, while it holds the pair's lock: an HOUR entitlement idle for a
+	// year closes 8,760. Above the cap the report fails with a 500 rather than
+	// hold the lock for as long as the walk takes. The default, 100,000, is an
+	// HOUR entitlement idle for 11 years.
+	RolloverMaxClosures int `mapstructure:"rollover_max_closures" validate:"gt=0"`
+	// IdempotencyWindow is how long a report's transactionId is remembered:
+	// a retry with the same key inside it replays the original answer, one
+	// after it is applied again. 35 days by default, because reports are dated
+	// on receipt and a buffered report replayed late must still be recognized
+	// across a whole monthly period plus margin. At least 24 hours.
+	IdempotencyWindow time.Duration `mapstructure:"idempotency_window" validate:"gte=24h"`
+}
+
+// UsageLedger keeps the usage journal: its monthly partitions, and how long its
+// rows are kept.
+type UsageLedger struct {
+	Maintenance UsageLedgerMaintenance
+	// RetentionMonths is how long an organization's usage history is kept when no
+	// licensing authority says otherwise: every self-hosted deployment. 0 keeps it
+	// forever.
+	RetentionMonths int `mapstructure:"retention_months" validate:"gte=0"`
+	// MaxRetentionMonths is the global ceiling: a monthly partition entirely older
+	// than it is dropped whole, which is the cheap purge. Never below
+	// RetentionMonths in effect, and 0 here or there disables dropping.
+	MaxRetentionMonths int `mapstructure:"max_retention_months" validate:"gte=0"`
+	// PurgeBatchSize is how many rows one DELETE removes when an organization keeps
+	// its history for less than the ceiling.
+	PurgeBatchSize int32 `mapstructure:"purge_batch_size" validate:"gt=0"`
+}
+
+// UsageLedgerMaintenance schedules the daily pass that keeps partitions a year
+// ahead and applies retention. It runs whether or not billing is enabled: every
+// accepted usage report is journalled.
+type UsageLedgerMaintenance struct {
+	// Interval below 0 disables the pass; partitions are then only ensured when
+	// a replica becomes ready.
+	Interval time.Duration
+}
+
 // Connectors settings storage.
 type Connectors struct {
 	VaultBasePath string `mapstructure:"vault_base_path"`
@@ -258,6 +335,17 @@ var settings = []struct {
 	{"metered.api_url", "KAITEN_METERED_API_URL", nil, false},
 	{"metered.token_file", "KAITEN_METERED_TOKEN_FILE", nil, false},
 	{"connectors.vault_base_path", "VAULT_CONNECTORS_BASE_PATH", "kaiten/connectors", false},
+	{"usage.rollover_max_closures", "KAITEN_USAGE_ROLLOVER_MAX_CLOSURES", 100000, false},
+	{"usage.idempotency_window", "KAITEN_USAGE_IDEMPOTENCY_WINDOW", "840h", false},
+	{"usage_ledger.maintenance.interval", "KAITEN_USAGE_LEDGER_MAINTENANCE_INTERVAL", "24h", false},
+	{"usage_ledger.retention_months", "KAITEN_USAGE_LEDGER_RETENTION_MONTHS", 18, false},
+	{"usage_ledger.max_retention_months", "KAITEN_USAGE_LEDGER_MAX_RETENTION_MONTHS", 18, false},
+	{"usage_ledger.purge_batch_size", "KAITEN_USAGE_LEDGER_PURGE_BATCH_SIZE", 5000, false},
+	{"billing.enabled", "KAITEN_BILLING_ENABLED", false, false},
+	{"billing.initial_delay", "KAITEN_BILLING_INITIAL_DELAY", "1m", false},
+	{"billing.close_grace", "KAITEN_BILLING_CLOSE_GRACE", "0s", false},
+	{"billing.period_close.interval", "KAITEN_BILLING_PERIOD_CLOSE_INTERVAL", "5m", false},
+	{"billing.period_close.batch_size", "KAITEN_BILLING_CLOSE_BATCH_SIZE", 100, false},
 }
 
 const (
@@ -333,8 +421,35 @@ func LoadConfig() (*Config, error) {
 	if err := validator.New(validator.WithRequiredStructEnabled()).Struct(&cfg); err != nil {
 		return nil, explain(err)
 	}
+	if err := checkIdempotencyWindow(cfg.CoreConfig); err != nil {
+		return nil, err
+	}
 
 	return &cfg, nil
+}
+
+// minDaysPerMonth is the shortest a month gets, the safe reading of "N months"
+// when comparing it with a duration.
+const minDaysPerMonth = 28
+
+// checkIdempotencyWindow refuses a transactionId horizon longer than the usage
+// history is kept: a key is looked up in the journal, so a horizon past the
+// retention would promise to recognize keys whose rows are already gone.
+func checkIdempotencyWindow(cfg CoreConfig) error {
+	shortest := 0
+	for _, months := range []int{cfg.UsageLedger.RetentionMonths, cfg.UsageLedger.MaxRetentionMonths} {
+		if months > 0 && (shortest == 0 || months < shortest) {
+			shortest = months
+		}
+	}
+	if shortest == 0 {
+		return nil
+	}
+	if limit := time.Duration(shortest*minDaysPerMonth) * 24 * time.Hour; cfg.Usage.IdempotencyWindow > limit {
+		return fmt.Errorf("incomplete configuration:\n  usage.idempotency_window / KAITEN_USAGE_IDEMPOTENCY_WINDOW: %s is longer than the usage history is kept (%d months, at most %s); shorten it or raise usage_ledger.retention_months / KAITEN_USAGE_LEDGER_RETENTION_MONTHS",
+			cfg.Usage.IdempotencyWindow, shortest, limit)
+	}
+	return nil
 }
 
 // renamed is every variable that used to set something and no longer does,

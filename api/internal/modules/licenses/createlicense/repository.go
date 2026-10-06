@@ -133,6 +133,17 @@ func (r *CommandRepository) create(ctx context.Context, command *Command, organi
 		IsDefault:      command.IsDefault,
 		LifecycleState: state,
 		Features:       nil,
+
+		PricingType:           db.PricingTypeCUSTOM,
+		TrialPeriodDays:       command.TrialPeriodDays,
+		RequiresPaymentMethod: command.RequiresPaymentMethod,
+		SelfServeCtaUrl:       nil,
+	}
+	if command.PricingType != "" {
+		params.PricingType = db.PricingType(command.PricingType)
+	}
+	if command.SelfServeCtaURL != nil && *command.SelfServeCtaURL != "" {
+		params.SelfServeCtaUrl = command.SelfServeCtaURL
 	}
 
 	result, err := queries.CreateLicense(ctx, params)

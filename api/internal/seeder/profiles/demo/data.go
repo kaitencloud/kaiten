@@ -8,6 +8,7 @@ import (
 
 	deploymentzoneevents "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/events"
 	entitlementevents "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/events"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	featureflagevents "github.com/kaitencloud/kaiten/api/internal/modules/featureflags/events"
@@ -115,6 +116,8 @@ type entitlementDef struct {
 	GroupSlugs        []string
 	Type              entitlementschema.Type
 	AggregationMethod *entitlementschema.AggregationMethod
+	ResetPeriod       *period.ResetPeriod
+	ResetAnchor       *period.ResetAnchor
 }
 
 var entitlementGroups = []seedkit.EntitlementGroupDef{
@@ -138,6 +141,10 @@ var entitlements = []entitlementDef{
 		GroupSlugs:        []string{"restaurant-operations"},
 		Type:              entitlementschema.Number,
 		AggregationMethod: ptr.To(entitlementschema.Sum),
+		// The one periodic entitlement of the dataset: its usage resets on
+		// the first of each UTC month. The others are lifetime counters.
+		ResetPeriod: ptr.To(period.Month),
+		ResetAnchor: ptr.To(period.Calendar),
 	},
 	{
 		Name:              "Delivery Drivers",
@@ -520,11 +527,6 @@ var customers = []customerDef{
 // usageEntitlementOrder defines the deterministic iteration order for usage
 // values, avoiding map iteration non-determinism.
 var usageEntitlementOrder = []string{"menu-items", "monthly-orders", "delivery-drivers", "locations"}
-
-// monthlyResetEntitlementSlug is the one entitlement with a MONTH/CALENDAR
-// reset period (menu-items/delivery-drivers/locations are lifetime
-// counters).
-const monthlyResetEntitlementSlug = "monthly-orders"
 
 // ── Deployment Zones ───────────────────────────────────────────────────────
 

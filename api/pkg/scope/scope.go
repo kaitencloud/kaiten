@@ -61,6 +61,15 @@ const (
 	// reach the feed -- otherwise the endpoints answer 403 and the bell stays
 	// empty with nothing in the logs to explain it.
 	Notifications Module = "notifications"
+	// Billing gates subscriptions, invoices, the invoice handoff queue and their
+	// exports, and the organization's billing settings. Licence prices and the
+	// invoice preview stay on Licenses: they describe the catalogue, not what an
+	// organization's customers owe.
+	//
+	// DEPLOYMENT NOTE: like Notifications, read:billing and write:billing have to
+	// be added to the identity provider's JWT template before a signed-in user
+	// can reach a billing screen.
+	Billing Module = "billing"
 )
 
 // allModules is the single source of truth for valid modules
@@ -80,6 +89,7 @@ var allModules = []Module{
 	Webhooks,
 	Memberships,
 	Notifications,
+	Billing,
 }
 
 // Error codes a scope refusal answers with. They live here, next to the scopes

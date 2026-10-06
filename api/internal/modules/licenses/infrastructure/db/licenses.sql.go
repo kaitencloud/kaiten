@@ -14,7 +14,7 @@ import (
 
 const createLicense = `-- name: CreateLicense :one
 INSERT INTO license (name, slug, description, type, version_name, is_default, features, organization_id, family_id,
-                     lifecycle_state)
+                     lifecycle_state, pricing_type, trial_period_days, requires_payment_method, self_serve_cta_url)
 VALUES ($1,
        $2,
        $3,
@@ -24,21 +24,29 @@ VALUES ($1,
        $7,
        $8,
        $9,
-       $10)
-RETURNING id, name, slug, description, type, version, version_name, is_default, features, organization_id, created_at, updated_at, family_id, lifecycle_state
+       $10,
+       $11,
+       $12,
+       $13,
+       $14)
+RETURNING id, name, slug, description, type, version, version_name, is_default, features, organization_id, created_at, updated_at, family_id, lifecycle_state, pricing_type, trial_period_days, requires_payment_method, self_serve_cta_url
 `
 
 type CreateLicenseParams struct {
-	Name           string                `json:"name"`
-	Slug           string                `json:"slug"`
-	Description    string                `json:"description"`
-	Type           LicenseType           `json:"type"`
-	VersionName    *string               `json:"version_name"`
-	IsDefault      bool                  `json:"is_default"`
-	Features       []byte                `json:"features"`
-	OrganizationID uuid.UUID             `json:"organization_id"`
-	FamilyID       uuid.UUID             `json:"family_id"`
-	LifecycleState LicenseLifecycleState `json:"lifecycle_state"`
+	Name                  string                `json:"name"`
+	Slug                  string                `json:"slug"`
+	Description           string                `json:"description"`
+	Type                  LicenseType           `json:"type"`
+	VersionName           *string               `json:"version_name"`
+	IsDefault             bool                  `json:"is_default"`
+	Features              []byte                `json:"features"`
+	OrganizationID        uuid.UUID             `json:"organization_id"`
+	FamilyID              uuid.UUID             `json:"family_id"`
+	LifecycleState        LicenseLifecycleState `json:"lifecycle_state"`
+	PricingType           PricingType           `json:"pricing_type"`
+	TrialPeriodDays       *int32                `json:"trial_period_days"`
+	RequiresPaymentMethod bool                  `json:"requires_payment_method"`
+	SelfServeCtaUrl       *string               `json:"self_serve_cta_url"`
 }
 
 // version is deliberately absent from the column list: update_license_version()
@@ -63,6 +71,10 @@ func (q *Queries) CreateLicense(ctx context.Context, arg CreateLicenseParams) (L
 		arg.OrganizationID,
 		arg.FamilyID,
 		arg.LifecycleState,
+		arg.PricingType,
+		arg.TrialPeriodDays,
+		arg.RequiresPaymentMethod,
+		arg.SelfServeCtaUrl,
 	)
 	var i License
 	err := row.Scan(
@@ -80,6 +92,10 @@ func (q *Queries) CreateLicense(ctx context.Context, arg CreateLicenseParams) (L
 		&i.UpdatedAt,
 		&i.FamilyID,
 		&i.LifecycleState,
+		&i.PricingType,
+		&i.TrialPeriodDays,
+		&i.RequiresPaymentMethod,
+		&i.SelfServeCtaUrl,
 	)
 	return i, err
 }
@@ -89,7 +105,7 @@ DELETE
 FROM license l
 WHERE l.slug = $1
        AND organization_id = $2
-RETURNING l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state
+RETURNING l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state, l.pricing_type, l.trial_period_days, l.requires_payment_method, l.self_serve_cta_url
 `
 
 type DeleteLicenseParams struct {
@@ -115,6 +131,10 @@ func (q *Queries) DeleteLicense(ctx context.Context, arg DeleteLicenseParams) (L
 		&i.UpdatedAt,
 		&i.FamilyID,
 		&i.LifecycleState,
+		&i.PricingType,
+		&i.TrialPeriodDays,
+		&i.RequiresPaymentMethod,
+		&i.SelfServeCtaUrl,
 	)
 	return i, err
 }
@@ -127,26 +147,42 @@ SET name        = $1,
     version_name = $4,
     is_default  = $5,
     features    = $6,
+    pricing_type = COALESCE($7::pricing_type, l.pricing_type),
+    trial_period_days = CASE
+      WHEN $8::bool THEN NULL
+      ELSE COALESCE($9::integer, l.trial_period_days)
+    END,
+    requires_payment_method = COALESCE($10::bool, l.requires_payment_method),
+    self_serve_cta_url = CASE
+      WHEN $11::bool THEN NULL
+      ELSE COALESCE($12::text, l.self_serve_cta_url)
+    END,
     updated_at  = now()
 FROM user_on_organization uo
-WHERE uo.organization_id = $7
-       AND uo.user_id = $8
+WHERE uo.organization_id = $13
+       AND uo.user_id = $14
        AND uo.deleted_at IS NULL
        AND l.organization_id = uo.organization_id
-       AND l.slug = $9
-RETURNING l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state
+       AND l.slug = $15
+RETURNING l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state, l.pricing_type, l.trial_period_days, l.requires_payment_method, l.self_serve_cta_url
 `
 
 type EditLicenseParams struct {
-	Name           string      `json:"name"`
-	Description    string      `json:"description"`
-	Type           LicenseType `json:"type"`
-	VersionName    *string     `json:"version_name"`
-	IsDefault      bool        `json:"is_default"`
-	Features       []byte      `json:"features"`
-	OrganizationID uuid.UUID   `json:"organization_id"`
-	UserID         uuid.UUID   `json:"user_id"`
-	Slug           string      `json:"slug"`
+	Name                  string       `json:"name"`
+	Description           string       `json:"description"`
+	Type                  LicenseType  `json:"type"`
+	VersionName           *string      `json:"version_name"`
+	IsDefault             bool         `json:"is_default"`
+	Features              []byte       `json:"features"`
+	PricingType           *PricingType `json:"pricing_type"`
+	TrialPeriodDaysClear  bool         `json:"trial_period_days_clear"`
+	TrialPeriodDays       *int32       `json:"trial_period_days"`
+	RequiresPaymentMethod *bool        `json:"requires_payment_method"`
+	SelfServeCtaUrlClear  bool         `json:"self_serve_cta_url_clear"`
+	SelfServeCtaUrl       *string      `json:"self_serve_cta_url"`
+	OrganizationID        uuid.UUID    `json:"organization_id"`
+	UserID                uuid.UUID    `json:"user_id"`
+	Slug                  string       `json:"slug"`
 }
 
 // Writes what an update may change. lifecycle_state is not part of it: a
@@ -154,6 +190,12 @@ type EditLicenseParams struct {
 // lifecycle rules and record their events. is_default is written
 // as sent, and license_default_must_be_published_check refuses a default that
 // is not PUBLISHED.
+//
+// The commercial columns are keep-if-absent: a NULL argument leaves the
+// column as it is, so a client that predates them (or sends a representation
+// without them) never resets them. trial_period_days and self_serve_cta_url
+// are cleared by their *_clear flags rather than by NULL, which already means
+// "keep".
 func (q *Queries) EditLicense(ctx context.Context, arg EditLicenseParams) (License, error) {
 	row := q.db.QueryRow(ctx, editLicense,
 		arg.Name,
@@ -162,6 +204,12 @@ func (q *Queries) EditLicense(ctx context.Context, arg EditLicenseParams) (Licen
 		arg.VersionName,
 		arg.IsDefault,
 		arg.Features,
+		arg.PricingType,
+		arg.TrialPeriodDaysClear,
+		arg.TrialPeriodDays,
+		arg.RequiresPaymentMethod,
+		arg.SelfServeCtaUrlClear,
+		arg.SelfServeCtaUrl,
 		arg.OrganizationID,
 		arg.UserID,
 		arg.Slug,
@@ -182,12 +230,16 @@ func (q *Queries) EditLicense(ctx context.Context, arg EditLicenseParams) (Licen
 		&i.UpdatedAt,
 		&i.FamilyID,
 		&i.LifecycleState,
+		&i.PricingType,
+		&i.TrialPeriodDays,
+		&i.RequiresPaymentMethod,
+		&i.SelfServeCtaUrl,
 	)
 	return i, err
 }
 
 const getAllLicenses = `-- name: GetAllLicenses :many
-SELECT l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state
+SELECT l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state, l.pricing_type, l.trial_period_days, l.requires_payment_method, l.self_serve_cta_url
 FROM license l
 WHERE l.organization_id = $1
 `
@@ -220,6 +272,10 @@ func (q *Queries) GetAllLicenses(ctx context.Context, organizationID uuid.UUID) 
 			&i.UpdatedAt,
 			&i.FamilyID,
 			&i.LifecycleState,
+			&i.PricingType,
+			&i.TrialPeriodDays,
+			&i.RequiresPaymentMethod,
+			&i.SelfServeCtaUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -232,7 +288,7 @@ func (q *Queries) GetAllLicenses(ctx context.Context, organizationID uuid.UUID) 
 }
 
 const getAllLicensesByCursor = `-- name: GetAllLicensesByCursor :many
-SELECT l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state
+SELECT l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state, l.pricing_type, l.trial_period_days, l.requires_payment_method, l.self_serve_cta_url
 FROM license l
 WHERE l.organization_id = $1
   AND (
@@ -284,6 +340,10 @@ func (q *Queries) GetAllLicensesByCursor(ctx context.Context, arg GetAllLicenses
 			&i.UpdatedAt,
 			&i.FamilyID,
 			&i.LifecycleState,
+			&i.PricingType,
+			&i.TrialPeriodDays,
+			&i.RequiresPaymentMethod,
+			&i.SelfServeCtaUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -296,7 +356,7 @@ func (q *Queries) GetAllLicensesByCursor(ctx context.Context, arg GetAllLicenses
 }
 
 const getLicensesByIDs = `-- name: GetLicensesByIDs :many
-SELECT l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state
+SELECT l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state, l.pricing_type, l.trial_period_days, l.requires_payment_method, l.self_serve_cta_url
 FROM license l
 WHERE l.organization_id = $1
   AND l.id = ANY ($2::uuid[])
@@ -331,6 +391,10 @@ func (q *Queries) GetLicensesByIDs(ctx context.Context, arg GetLicensesByIDsPara
 			&i.UpdatedAt,
 			&i.FamilyID,
 			&i.LifecycleState,
+			&i.PricingType,
+			&i.TrialPeriodDays,
+			&i.RequiresPaymentMethod,
+			&i.SelfServeCtaUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -343,7 +407,7 @@ func (q *Queries) GetLicensesByIDs(ctx context.Context, arg GetLicensesByIDsPara
 }
 
 const getOneLicense = `-- name: GetOneLicense :one
-SELECT l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state
+SELECT l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state, l.pricing_type, l.trial_period_days, l.requires_payment_method, l.self_serve_cta_url
 FROM license l
 WHERE l.organization_id = $1
   AND l.slug = $2
@@ -372,6 +436,10 @@ func (q *Queries) GetOneLicense(ctx context.Context, arg GetOneLicenseParams) (L
 		&i.UpdatedAt,
 		&i.FamilyID,
 		&i.LifecycleState,
+		&i.PricingType,
+		&i.TrialPeriodDays,
+		&i.RequiresPaymentMethod,
+		&i.SelfServeCtaUrl,
 	)
 	return i, err
 }
@@ -414,7 +482,7 @@ WHERE uo.organization_id = $2
        AND l.organization_id = uo.organization_id
        AND l.slug = $4
        AND l.lifecycle_state = $5::license_lifecycle_state
-RETURNING l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state
+RETURNING l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state, l.pricing_type, l.trial_period_days, l.requires_payment_method, l.self_serve_cta_url
 `
 
 type TransitionLicenseLifecycleStateParams struct {
@@ -454,6 +522,10 @@ func (q *Queries) TransitionLicenseLifecycleState(ctx context.Context, arg Trans
 		&i.UpdatedAt,
 		&i.FamilyID,
 		&i.LifecycleState,
+		&i.PricingType,
+		&i.TrialPeriodDays,
+		&i.RequiresPaymentMethod,
+		&i.SelfServeCtaUrl,
 	)
 	return i, err
 }
@@ -466,7 +538,7 @@ WHERE organization_id = $1
   AND is_default = TRUE
   AND family_id = $2
   AND slug IS DISTINCT FROM $3
-RETURNING id, name, slug, description, type, version, version_name, is_default, features, organization_id, created_at, updated_at, family_id, lifecycle_state
+RETURNING id, name, slug, description, type, version, version_name, is_default, features, organization_id, created_at, updated_at, family_id, lifecycle_state, pricing_type, trial_period_days, requires_payment_method, self_serve_cta_url
 `
 
 type UnsetFamilyDefaultParams struct {
@@ -512,6 +584,10 @@ func (q *Queries) UnsetFamilyDefault(ctx context.Context, arg UnsetFamilyDefault
 			&i.UpdatedAt,
 			&i.FamilyID,
 			&i.LifecycleState,
+			&i.PricingType,
+			&i.TrialPeriodDays,
+			&i.RequiresPaymentMethod,
+			&i.SelfServeCtaUrl,
 		); err != nil {
 			return nil, err
 		}

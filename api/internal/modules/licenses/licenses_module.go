@@ -1,24 +1,32 @@
 package licenses
 
 import (
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/licenseview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/archivelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicense"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deletelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deletelicenseentitlement"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deprecatelicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseentitlements"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicensefamily"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenses"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicensefamilies"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicenseprices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/previewlicenseinvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/publishlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/unarchivelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseentitlement"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseprice"
 )
 
 type UseCases struct {
@@ -37,11 +45,22 @@ type UseCases struct {
 	GetLicenseEntitlements          *getlicenseentitlements.UseCase
 	DeleteLicenseEntitlement        *deletelicenseentitlement.UseCase
 	UpdateLicenseEntitlement        *updatelicenseentitlement.UseCase
+	ListLicensePrices               *listlicenseprices.UseCase
+	GetLicensePrice                 *getlicenseprice.UseCase
+	CreateLicensePrice              *createlicenseprice.UseCase
+	UpdateLicensePrice              *updatelicenseprice.UseCase
+	DeprecateLicensePrice           *deprecatelicenseprice.UseCase
+	PreviewLicenseInvoice           *previewlicenseinvoice.UseCase
 }
 
 func NewUseCases(svc services.Container) *UseCases {
 	queries := db.New(svc.Pool)
 	entitlementReader := licenseview.New(svc.Pool)
+	priceDeps := prices.Deps{
+		UserProvider: svc.UserProvider,
+		Uof:          svc.Uof,
+		Gate:         gate.New(svc.Config.Billing.Enabled, svc.ConnectorEntitlements),
+	}
 	return &UseCases{
 		CreateLicense: createlicense.NewUseCase(createlicense.Deps{
 			UserProvider:  svc.UserProvider,
@@ -119,5 +138,11 @@ func NewUseCases(svc services.Container) *UseCases {
 			UsageReporter: svc.UsageReporter,
 			Uof:           svc.Uof,
 		}),
+		ListLicensePrices:     listlicenseprices.NewUseCase(priceDeps),
+		GetLicensePrice:       getlicenseprice.NewUseCase(priceDeps),
+		CreateLicensePrice:    createlicenseprice.NewUseCase(priceDeps),
+		UpdateLicensePrice:    updatelicenseprice.NewUseCase(priceDeps),
+		DeprecateLicensePrice: deprecatelicenseprice.NewUseCase(priceDeps),
+		PreviewLicenseInvoice: previewlicenseinvoice.NewUseCase(priceDeps),
 	}
 }

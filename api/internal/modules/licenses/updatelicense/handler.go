@@ -10,6 +10,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/familydefault"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/familyevents"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 )
 
@@ -39,6 +40,17 @@ func NewUseCase(deps Deps) *UseCase {
 }
 
 func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) error {
+	if days := command.TrialPeriodDays; days != nil && *days != 0 {
+		if err := schema.ValidateTrialPeriodDays("UpdateLicense", *days); err != nil {
+			return err
+		}
+	}
+	if url := command.SelfServeCtaURL; url != nil && *url != "" {
+		if err := schema.ValidateSelfServeCtaURL("UpdateLicense", *url); err != nil {
+			return err
+		}
+	}
+
 	user, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return err

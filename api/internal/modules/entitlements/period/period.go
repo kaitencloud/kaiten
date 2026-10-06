@@ -68,6 +68,43 @@ func Current(now time.Time, resetPeriod ResetPeriod, resetAnchor ResetAnchor, li
 	return windowContaining(now.UTC(), resetPeriod, resetAnchor, licenseStart.UTC())
 }
 
+// ResolveCurrent returns the window a stored usage bucket is read and
+// written in at now. It is Current(now) except in one case: the bucket's
+// stored window starts after Current(now) and is itself a window of this
+// cadence, anchor and licenseStart. Such a bucket was opened by a report
+// whose clock had already passed a boundary that now has not reached yet --
+// a database clock that stepped back across a failover, or a report that
+// read the clock before waiting for the pair's lock. That window is then
+// kept as the current one: reading it as stale would show 0 for usage that
+// was counted, and rolling it over would mean walking forward from a window
+// that is already ahead of now, which never meets now's window.
+//
+// A stored start that is not a window boundary under the current
+// configuration is a phase shift (start_license_date or the anchor changed
+// since the bucket was written), not a clock lead: Current(now) applies and
+// the report path closes the old bucket. A nil storedPeriodStart (no stored
+// row, or a lifetime bucket) also gets Current(now).
+//
+// storedAhead reports whether the stored window was kept.
+func ResolveCurrent(now time.Time, storedPeriodStart *time.Time, resetPeriod ResetPeriod, resetAnchor ResetAnchor, licenseStart time.Time) (window Window, storedAhead bool, err error) {
+	current, err := Current(now, resetPeriod, resetAnchor, licenseStart)
+	if err != nil {
+		return Window{}, false, err
+	}
+	if storedPeriodStart == nil || !storedPeriodStart.After(current.Start) {
+		return current, false, nil
+	}
+
+	stored, err := Current(*storedPeriodStart, resetPeriod, resetAnchor, licenseStart)
+	if err != nil {
+		return Window{}, false, err
+	}
+	if !stored.Start.Equal(*storedPeriodStart) {
+		return current, false, nil
+	}
+	return stored, true, nil
+}
+
 // Next returns the window immediately following w for the same
 // cadence/anchor/licenseStart. It is evaluated at w.End using the same
 // arithmetic as Current, so windows are always contiguous: Next(w).Start is
@@ -183,6 +220,14 @@ func yearIndex(anchor, t time.Time) int64 {
 		n--
 	}
 	return n
+}
+
+// AddMonths adds n calendar months to t (n may be negative), clamping the day
+// to the target month's last day: 2026-05-31 minus 3 months is 2026-02-28. The
+// same arithmetic as the monthly windows, for callers that count in months --
+// such as a retention of N months.
+func AddMonths(t time.Time, n int) time.Time {
+	return addMonthsClamped(t.UTC(), int64(n))
 }
 
 // addMonthsClamped adds n months to t, clamping the day-of-month to the

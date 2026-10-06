@@ -31,7 +31,7 @@ func RegisterEndpoint(api huma.API, app Deleter) {
 		Summary:     "Delete a customer",
 		Description: "Delete a customer by their slug.",
 		Tags:        []string{"customers"},
-		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusUnprocessableEntity, http.StatusInternalServerError},
+		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*struct{}, error) {
 		cl, err := caller.Organization(ctx)
 		if err != nil {

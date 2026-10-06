@@ -121,3 +121,49 @@ metered:
 connectors:
   # VAULT_CONNECTORS_BASE_PATH — where connector settings live in Vault.
   vault_base_path: kaiten/connectors
+
+# The usage report path.
+usage:
+  # A report against a periodic entitlement first closes every window elapsed
+  # since the last report, holding that pair's lock while it does. Above this
+  # many windows the report fails with a 500 instead. 100000 is an HOUR
+  # entitlement idle for 11 years.
+  rollover_max_closures: 100000   # KAITEN_USAGE_ROLLOVER_MAX_CLOSURES
+  # How long a report's transactionId is remembered. A retry with the same key
+  # inside the window replays the original answer; after it, the report is
+  # applied again. Reports are dated on receipt, so the window covers a whole
+  # monthly period plus margin for late, buffered replays. At least 24h.
+  idempotency_window: 840h         # KAITEN_USAGE_IDEMPOTENCY_WINDOW
+
+# The usage journal: one row per accepted usage report, in monthly partitions.
+usage_ledger:
+  maintenance:
+    # The daily pass keeps partitions a year ahead and applies retention. It
+    # runs whether or not billing is enabled. Below 0 disables it; partitions
+    # are then only ensured when a replica becomes ready.
+    interval: 24h                 # KAITEN_USAGE_LEDGER_MAINTENANCE_INTERVAL
+  # How long usage history is kept when no licensing authority says otherwise
+  # (self-hosted). 0 keeps it forever.
+  retention_months: 18            # KAITEN_USAGE_LEDGER_RETENTION_MONTHS
+  # The ceiling past which whole monthly partitions are dropped. 0 here or in
+  # retention_months disables dropping.
+  max_retention_months: 18        # KAITEN_USAGE_LEDGER_MAX_RETENTION_MONTHS
+  # Rows per DELETE when an organization keeps less than the ceiling.
+  purge_batch_size: 5000          # KAITEN_USAGE_LEDGER_PURGE_BATCH_SIZE
+
+# The commercial surface: licence prices, invoice previews, subscriptions and
+# their invoices. Off by default; usage reporting and its history are never
+# behind it.
+billing:
+  enabled: false                  # KAITEN_BILLING_ENABLED
+  # Delay before each billing job's first pass after start-up.
+  initial_delay: 1m               # KAITEN_BILLING_INITIAL_DELAY
+  # Wait after a period's end before closing it. The usage journal has no late
+  # reports, so 0 is safe.
+  close_grace: 0s                 # KAITEN_BILLING_CLOSE_GRACE
+  period_close:
+    # How often due subscriptions are closed into their invoices. Below 0
+    # disables the pass; periods then close only through close-periods.
+    interval: 5m                  # KAITEN_BILLING_PERIOD_CLOSE_INTERVAL
+    # Subscriptions closed per pass, or per close-periods call.
+    batch_size: 100               # KAITEN_BILLING_CLOSE_BATCH_SIZE

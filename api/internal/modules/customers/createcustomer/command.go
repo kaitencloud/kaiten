@@ -8,4 +8,5 @@ type Command struct {
 	Domain             *string                               `json:"domain,omitempty"`
 	Slug               *string                               `json:"slug,omitempty"`
 	Integrations       map[string]schema.CustomerIntegration `json:"integrations,omitempty"`
+	BillingEmail       *string                               `json:"billingEmail,omitempty"`
 }

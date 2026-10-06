@@ -35,6 +35,11 @@ func NewUseCase(deps Deps) *UseCase {
 }
 
 func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) (*schema.Customer, error) {
+	if email := command.BillingEmail; email != nil && *email != "" {
+		if err := schema.ValidateBillingEmail("UpdateCustomer", *email); err != nil {
+			return nil, err
+		}
+	}
 	u, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return nil, err
@@ -53,7 +58,7 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) (*
 			u.OrganizationID,
 			events.CustomerUpdated.Name,
 			events.CustomerUpdated.Type,
-			updatedUser,
+			updatedUser.WithoutPersonalData(),
 			nil,
 		)
 

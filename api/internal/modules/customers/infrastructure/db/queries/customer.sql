@@ -1,7 +1,7 @@
 -- name: CreateCustomer :one
 WITH inserted AS (
-  INSERT INTO customer (name, slug, external_customer_id, domain, created_by_id, updated_by_id, organization_id)
-  SELECT $1, $2, $3, $4, uo.user_id, uo.user_id, uo.organization_id
+  INSERT INTO customer (name, slug, external_customer_id, domain, billing_email, created_by_id, updated_by_id, organization_id)
+  SELECT $1, $2, $3, $4, sqlc.narg(billing_email), uo.user_id, uo.user_id, uo.organization_id
   FROM user_on_organization uo
   WHERE uo.organization_id = sqlc.arg(organization_id)
          AND uo.user_id = sqlc.arg(user_id)
@@ -30,6 +30,7 @@ SELECT c.id,
        c.slug,
        external_customer_id,
   c.domain,
+  c.billing_email,
        c.created_by_id,
        creator.name AS created_by_name,
        c.created_at,
@@ -66,6 +67,7 @@ SELECT c.id,
        c.slug,
        external_customer_id,
   c.domain,
+  c.billing_email,
        c.created_by_id,
        creator.name AS created_by_name,
        c.created_at,
@@ -89,6 +91,7 @@ SELECT c.id,
        c.slug,
        external_customer_id,
   c.domain,
+  c.billing_email,
        c.created_by_id,
        creator.name AS created_by_name,
        c.created_at,
@@ -109,6 +112,11 @@ WITH updated AS (
   SET name          = $1,
       external_customer_id = $2,
     domain = $3,
+      -- Keep-if-absent: NULL keeps the stored address, the clear flag removes it.
+      billing_email = CASE
+        WHEN sqlc.arg(billing_email_clear)::bool THEN NULL
+        ELSE COALESCE(sqlc.narg(billing_email)::text, c.billing_email)
+      END,
       updated_by_id = uo.user_id,
       updated_at    = now()
   FROM user_on_organization uo
@@ -149,6 +157,7 @@ SELECT c.id,
        c.slug,
        external_customer_id,
   c.domain,
+  c.billing_email,
        c.created_by_id,
        creator.name AS created_by_name,
        c.created_at,
@@ -228,17 +237,44 @@ SELECT l.slug           AS license_slug,
        lf.slug          AS license_family_slug,
        l.type           AS license_type,
        e.slug           AS entitlement_slug,
-       le.value         AS limit_value,
+       iee.value        AS limit_value,
        eu.value         AS usage_value
 FROM primary_instance pi
        JOIN "license" l ON l.id = pi.license_id
        JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
-       LEFT JOIN license_entitlement le
-         ON le.license_id = l.id AND le.organization_id = sqlc.arg(organization_id)
+       -- The instance's effective entitlements, as every reader of an
+       -- instance's entitlement value reads them.
+       LEFT JOIN instance_effective_entitlement iee
+         ON iee.instance_id = pi.id AND iee.organization_id = sqlc.arg(organization_id)
        LEFT JOIN entitlement e
-         ON e.id = le.entitlement_id AND e.organization_id = sqlc.arg(organization_id)
+         ON e.id = iee.entitlement_id AND e.organization_id = sqlc.arg(organization_id)
        LEFT JOIN entitlement_usage eu
          ON eu.instance_id = pi.id
         AND eu.entitlement_id = e.id
         AND eu.organization_id = sqlc.arg(organization_id)
 ORDER BY e.slug;
+
+
+-- name: GetCustomerBillingBlock :one
+-- What keeps a customer from being deleted: a live subscription of one of its
+-- instances, or an invoice of its not settled yet.
+SELECT
+  EXISTS (SELECT 1 FROM instance_billing ib
+           WHERE ib.customer_id = c.id AND ib.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')) AS live,
+  coalesce(array(SELECT inv.id
+                   FROM instance_invoice inv
+                  WHERE inv.customer_id = c.id
+                    AND inv.status IN ('DRAFT', 'PUSHED', 'PUSH_FAILED', 'MANUAL', 'PAYMENT_FAILED')
+                  ORDER BY inv.boundary_at),
+           '{}')::uuid[] AS unpaid_invoice_ids
+FROM customer c
+WHERE c.organization_id = sqlc.arg(organization_id)
+  AND c.slug = sqlc.arg(slug);
+
+
+-- name: LockCustomerForDelete :one
+SELECT c.id
+FROM customer c
+WHERE c.organization_id = sqlc.arg(organization_id)
+  AND c.slug = sqlc.arg(slug)
+FOR UPDATE;

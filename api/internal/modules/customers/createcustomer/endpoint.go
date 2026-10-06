@@ -53,6 +53,7 @@ func RegisterEndpoint(api huma.API, app Creator) {
 			Domain:             request.Body.Domain,
 			Slug:               slug,
 			Integrations:       request.Body.Integrations,
+			BillingEmail:       request.Body.BillingEmail,
 		}
 
 		customer, err := app.Create(ctx, cl, command)

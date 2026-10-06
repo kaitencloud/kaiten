@@ -132,6 +132,9 @@ func ProblemFrom(err error, instance string) *Problem {
 	if appErr.Kind == KindValidation {
 		model.Errors = detailsToErrors(appErr.Details)
 	}
+	if len(appErr.Errors) > 0 {
+		model.Errors = appErr.Errors
+	}
 	return model
 }
 

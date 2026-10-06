@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createOutboxEvent = `-- name: CreateOutboxEvent :exec
@@ -16,22 +17,26 @@ INSERT INTO outbox_events (organization_id,
                            event_name,
                            event_type,
                            data,
-                           headers)
+                           headers,
+                           occurred_at)
 VALUES ($1,
     $2,
     $3,
     $4,
-    $5)
+    $5,
+    COALESCE($6::timestamptz, now()))
 `
 
 type CreateOutboxEventParams struct {
-	OrganizationID uuid.UUID `json:"organization_id"`
-	EventName      string    `json:"event_name"`
-	EventType      string    `json:"event_type"`
-	Data           []byte    `json:"data"`
-	Headers        []byte    `json:"headers"`
+	OrganizationID uuid.UUID          `json:"organization_id"`
+	EventName      string             `json:"event_name"`
+	EventType      string             `json:"event_type"`
+	Data           []byte             `json:"data"`
+	Headers        []byte             `json:"headers"`
+	OccurredAt     pgtype.Timestamptz `json:"occurred_at"`
 }
 
+// occurred_at NULL means the column default, the writing transaction's now().
 func (q *Queries) CreateOutboxEvent(ctx context.Context, arg CreateOutboxEventParams) error {
 	_, err := q.db.Exec(ctx, createOutboxEvent,
 		arg.OrganizationID,
@@ -39,6 +44,7 @@ func (q *Queries) CreateOutboxEvent(ctx context.Context, arg CreateOutboxEventPa
 		arg.EventType,
 		arg.Data,
 		arg.Headers,
+		arg.OccurredAt,
 	)
 	return err
 }
@@ -49,6 +55,15 @@ type CreateOutboxEventsParams struct {
 	EventType      string    `json:"event_type"`
 	Data           []byte    `json:"data"`
 	Headers        []byte    `json:"headers"`
+}
+
+type CreateOutboxEventsAtParams struct {
+	OrganizationID uuid.UUID          `json:"organization_id"`
+	EventName      string             `json:"event_name"`
+	EventType      string             `json:"event_type"`
+	Data           []byte             `json:"data"`
+	Headers        []byte             `json:"headers"`
+	OccurredAt     pgtype.Timestamptz `json:"occurred_at"`
 }
 
 const deleteOutboxEvent = `-- name: DeleteOutboxEvent :exec
