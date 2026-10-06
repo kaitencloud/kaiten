@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	billingevents "github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
 	componentevents "github.com/kaitencloud/kaiten/api/internal/modules/components/events"
 	customerevents "github.com/kaitencloud/kaiten/api/internal/modules/customers/events"
 	deploymentzoneevents "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/events"
@@ -24,6 +25,7 @@ const (
 	GroupCustomers   = "customers"
 	GroupLicensing   = "licensing"
 	GroupSecurity    = "security"
+	GroupBilling     = "billing"
 )
 
 // Where clicking a notification goes. These are the app's routes, not the API's
@@ -70,6 +72,42 @@ const (
 //     "updated" events, the infrastructure ones, and anything a teammate does
 //     routinely are off and discoverable in settings.
 func init() {
+	Register(Entry{
+		Event:    billingevents.InstanceBillingStarted,
+		Group:    GroupBilling,
+		Object:   ObjectInstance,
+		Label:    "Subscription started",
+		Defaults: map[Channel]bool{ChannelInApp: true},
+		renderer: renderSubscription("%s's subscription started"),
+	})
+
+	Register(Entry{
+		Event:    billingevents.InstanceBillingStatusChanged,
+		Group:    GroupBilling,
+		Object:   ObjectInstance,
+		Label:    "Subscription status changed",
+		Defaults: map[Channel]bool{ChannelInApp: true},
+		renderer: renderSubscription("%s's subscription changed status"),
+	})
+
+	Register(Entry{
+		Event:    billingevents.InstanceBillingCanceled,
+		Group:    GroupBilling,
+		Object:   ObjectInstance,
+		Label:    "Subscription canceled",
+		Defaults: map[Channel]bool{ChannelInApp: true},
+		renderer: renderSubscription("%s's subscription was canceled"),
+	})
+
+	Register(Entry{
+		Event:    billingevents.InstanceInvoiceHeld,
+		Group:    GroupBilling,
+		Object:   ObjectInstance,
+		Label:    "Invoice held",
+		Defaults: map[Channel]bool{ChannelInApp: true},
+		renderer: renderHeldInvoice,
+	})
+
 	// ── Instances ────────────────────────────────────────────────────────────
 
 	Register(Entry{
@@ -635,4 +673,52 @@ func renderOnList(titleFormat, listPath string) Renderer {
 			ActionURL: listPath,
 		}
 	}
+}
+
+// billingPayload is what the billing events carry that a notification reads.
+type billingPayload struct {
+	ID           string `json:"id"`
+	InstanceSlug string `json:"instanceSlug"`
+	To           string `json:"to"`
+	Status       string `json:"status"`
+	HoldReason   string `json:"holdReason"`
+}
+
+// renderSubscription renders a subscription event, linking to the instance's
+// billing tab.
+func renderSubscription(titleFormat string) Renderer {
+	return func(payload []byte, refs Refs) Rendered {
+		var decoded billingPayload
+		_ = json.Unmarshal(payload, &decoded)
+		slug := decoded.InstanceSlug
+		if slug == "" && refs.Instance != nil {
+			slug = refs.Instance.Slug
+		}
+		if slug == "" {
+			return Rendered{ActionURL: instancesPath}
+		}
+		rendered := Rendered{Title: fmt.Sprintf(titleFormat, slug), ActionURL: instancesPath + "/" + slug + "/billing"}
+		switch {
+		case decoded.To != "":
+			rendered.Body = "Now " + decoded.To
+		case decoded.Status != "":
+			rendered.Body = "Now " + decoded.Status
+		}
+		return rendered
+	}
+}
+
+// renderHeldInvoice renders an invoice held for its usage journal, linking to
+// the invoice.
+func renderHeldInvoice(payload []byte, _ Refs) Rendered {
+	var decoded billingPayload
+	_ = json.Unmarshal(payload, &decoded)
+	if decoded.ID == "" {
+		return Rendered{ActionURL: "/billing/invoices"}
+	}
+	rendered := Rendered{Title: "An invoice of " + decoded.InstanceSlug + " is held", ActionURL: "/billing/invoices/" + decoded.ID}
+	if decoded.HoldReason != "" {
+		rendered.Body = "Its usage journal failed a check: " + decoded.HoldReason
+	}
+	return rendered
 }
