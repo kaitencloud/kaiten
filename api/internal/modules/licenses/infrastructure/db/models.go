@@ -143,21 +143,68 @@ func (ns NullLicenseType) Value() (driver.Value, error) {
 	return string(ns.LicenseType), nil
 }
 
+type PricingType string
+
+const (
+	PricingTypeFREE   PricingType = "FREE"
+	PricingTypePAID   PricingType = "PAID"
+	PricingTypeCUSTOM PricingType = "CUSTOM"
+)
+
+func (e *PricingType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PricingType(s)
+	case string:
+		*e = PricingType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PricingType: %T", src)
+	}
+	return nil
+}
+
+type NullPricingType struct {
+	PricingType PricingType `json:"pricing_type"`
+	Valid       bool        `json:"valid"` // Valid is true if PricingType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPricingType) Scan(value interface{}) error {
+	if value == nil {
+		ns.PricingType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PricingType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPricingType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PricingType), nil
+}
+
 type License struct {
-	ID             uuid.UUID             `json:"id"`
-	Name           string                `json:"name"`
-	Slug           string                `json:"slug"`
-	Description    string                `json:"description"`
-	Type           LicenseType           `json:"type"`
-	Version        int32                 `json:"version"`
-	VersionName    *string               `json:"version_name"`
-	IsDefault      bool                  `json:"is_default"`
-	Features       []byte                `json:"features"`
-	OrganizationID uuid.UUID             `json:"organization_id"`
-	CreatedAt      pgtype.Timestamp      `json:"created_at"`
-	UpdatedAt      pgtype.Timestamp      `json:"updated_at"`
-	FamilyID       uuid.UUID             `json:"family_id"`
-	LifecycleState LicenseLifecycleState `json:"lifecycle_state"`
+	ID                    uuid.UUID             `json:"id"`
+	Name                  string                `json:"name"`
+	Slug                  string                `json:"slug"`
+	Description           string                `json:"description"`
+	Type                  LicenseType           `json:"type"`
+	Version               int32                 `json:"version"`
+	VersionName           *string               `json:"version_name"`
+	IsDefault             bool                  `json:"is_default"`
+	Features              []byte                `json:"features"`
+	OrganizationID        uuid.UUID             `json:"organization_id"`
+	CreatedAt             pgtype.Timestamp      `json:"created_at"`
+	UpdatedAt             pgtype.Timestamp      `json:"updated_at"`
+	FamilyID              uuid.UUID             `json:"family_id"`
+	LifecycleState        LicenseLifecycleState `json:"lifecycle_state"`
+	PricingType           PricingType           `json:"pricing_type"`
+	TrialPeriodDays       *int32                `json:"trial_period_days"`
+	RequiresPaymentMethod bool                  `json:"requires_payment_method"`
+	SelfServeCtaUrl       *string               `json:"self_serve_cta_url"`
 }
 
 type LicenseFamily struct {
@@ -167,4 +214,5 @@ type LicenseFamily struct {
 	LastVersion    int32            `json:"last_version"`
 	CreatedAt      pgtype.Timestamp `json:"created_at"`
 	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
+	IsPublic       bool             `json:"is_public"`
 }

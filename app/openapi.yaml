@@ -320,6 +320,11 @@ components:
     Customer:
       additionalProperties: false
       properties:
+        billingEmail:
+          description: "Where invoices sent to this customer are delivered, at most 254 characters (CreateCustomer.InvalidBillingEmail). Absent when there is none. On update, omit it to keep the stored value, or send an empty string to remove it. Personal data: never included in event payloads."
+          examples:
+            - billing@example.tld
+          type: string
         createdAt:
           description: Timestamp when the customer was created
           examples:
@@ -1739,6 +1744,26 @@ components:
           maxLength: 100
           minLength: 1
           type: string
+        pricingType:
+          description: How this version is sold. FREE and PAID can be bought self-serve; CUSTOM sends a buyer to selfServeCtaUrl or a conversation. Always present in responses. On create it defaults to CUSTOM; on update, omit it to keep the stored value.
+          enum:
+            - FREE
+            - PAID
+            - CUSTOM
+          examples:
+            - PAID
+          type: string
+        requiresPaymentMethod:
+          description: Whether self-serve signup captures a payment method before activation. Always present in responses; false when omitted on create. On update, omit it to keep the stored value.
+          examples:
+            - false
+          type: boolean
+        selfServeCtaUrl:
+          description: "Where a buyer is sent when this version cannot be bought self-serve: an http(s) URL of at most 2048 characters (CreateLicense.InvalidSelfServeCtaUrl). Absent when there is none. On update, omit it to keep the stored value, or send an empty string to remove it."
+          examples:
+            - https://example.com/contact-sales
+          maxLength: 2048
+          type: string
         slug:
           description: Optional URL-friendly identifier, unique per organization. When omitted, a new version of an existing family takes {familySlug}-v{version}, and any other license gets one generated from its name. A license that opens a new family gives the family its slug.
           examples:
@@ -1747,6 +1772,13 @@ components:
           minLength: 2
           pattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
           type: string
+        trialPeriodDays:
+          description: Trial length, in days, a subscription to this version starts with by default. Absent when there is none. Must be at least 1 on create (CreateLicense.InvalidTrialPeriodDays). On update, omit it to keep the stored value, or send 0 to remove the trial.
+          examples:
+            - 14
+          format: int32
+          minimum: 0
+          type: integer
         type:
           description: Type of the license determining its capabilities and restrictions
           enum:
