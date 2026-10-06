@@ -179,11 +179,12 @@ slug:
 | `invalidateReleaseQueries(queryClient, releaseSlug?)` | The releases, components and deployment zones, the release overview, and the release's detail |
 | `invalidateLicenseQueries(queryClient, licenseSlug?)` | The license lists and families, the license's detail and entitlements, then refetches them |
 | `invalidateWebhookQueries(queryClient)`, `invalidateNotificationFeedQueries(queryClient)`, `invalidateAttioQueries(queryClient)` | The webhooks, the notification feed and the Attio connector |
+| `invalidateInstanceBillingQueries(queryClient, instanceSlug)`, `invalidateInvoiceQueries(queryClient, invoiceId?)`, `invalidateLicensePriceQueries(queryClient, licenseSlug)`, `invalidateBillingSettingsQueries(queryClient)` | An instance's subscription, upcoming invoice and invoices (and the instance itself), the invoices and the handoff queue, the prices of a license version, the billing settings and capabilities |
 
 They live in `app/src/domains/customer-management/queries/`,
 `app/src/features/releases/queries/`, `app/src/features/licenses/queries/`,
-`app/src/features/webhooks/queries/`, `app/src/features/notifications/queries/` and
-`app/src/features/connectors/attio/queries/`.
+`app/src/features/webhooks/queries/`, `app/src/features/notifications/queries/`,
+`app/src/features/connectors/attio/queries/` and `app/src/domains/billing/queries/`.
 
 Some release-area mutations invalidate keys directly instead of calling
 `invalidateReleaseQueries`. The deployment-zone hooks in

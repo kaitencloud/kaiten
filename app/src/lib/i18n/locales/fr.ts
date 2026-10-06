@@ -3089,6 +3089,90 @@ export default {
     },
   },
   Features: {
+    Billing: {
+      Unavailable: {
+        DEPLOYMENT_DISABLED: {
+          title: 'La facturation n’est pas activée',
+          description:
+            'La facturation est désactivée sur ce déploiement. Positionnez KAITEN_BILLING_ENABLED à true sur l’API pour l’activer.',
+        },
+        NOT_ENTITLED: {
+          title: 'La facturation ne fait pas partie de votre offre',
+          description:
+            'L’offre de votre organisation n’inclut pas la facturation. Passez à une offre supérieure pour l’utiliser.',
+        },
+        MISSING_SCOPE: {
+          title: 'Vous n’avez pas accès à la facturation',
+          description:
+            'La facturation ne peut pas être ouverte avec les accès de cette session.',
+        },
+        FEATURE_UNAVAILABLE: {
+          title: 'Indisponible dans cette version',
+          description:
+            'Cette partie de la facturation n’est pas fournie par la version de Kaiten que vous utilisez.',
+        },
+        UNREACHABLE: {
+          title: 'La facturation est injoignable',
+          description:
+            'Les capacités de facturation n’ont pas pu être chargées : la facturation reste masquée. Rien n’a été modifié. Réessayez dans un instant.',
+        },
+      },
+      MissingScope: {
+        title: 'Accès manquant',
+        description: 'Le jeton de votre session ne porte pas le scope requis :',
+        unknownScope: 'un scope requis par cette action',
+        templateHint:
+          'Si vous devriez l’avoir, le modèle de jeton de votre fournisseur d’identité doit lister les scopes de facturation (read:billing et write:billing).',
+      },
+      Problems: {
+        title: 'La requête a été refusée',
+        generic: 'Une erreur est survenue en dialoguant avec la facturation.',
+        transient: 'Rien n’a été modifié. Vous pouvez réessayer.',
+        providerUnreachable:
+          'Le fournisseur de paiement est injoignable. Rien n’a été modifié.',
+        reference: 'Référence {{id}}',
+        outsideRetention: 'L’usage antérieur au {{date}} n’est plus conservé.',
+      },
+      InvoiceStatus: {
+        DRAFT: 'Brouillon',
+        MANUAL: 'Prêt à facturer',
+        PUSHED: 'En attente de paiement',
+        PAID: 'Payée',
+        PUSH_FAILED: 'Envoi échoué',
+        PAYMENT_FAILED: 'Paiement échoué',
+        UNCOLLECTIBLE: 'Passée en perte',
+        VOID: 'Annulée',
+        held: 'Bloquée',
+        overdue: 'En retard',
+      },
+      HoldReason: {
+        LEDGER_SEQUENCE_GAP: 'Des rapports d’usage manquent dans le journal',
+        LEDGER_CHAIN_BREAK: 'La chaîne du journal d’usage est rompue',
+        LEDGER_COUNTER_MISMATCH:
+          'Le compteur d’usage ne correspond pas au journal',
+      },
+      InvoiceLineType: {
+        BASE: 'Forfait',
+        ADDON: 'Option',
+        USAGE: 'Consommation',
+        OVERAGE: 'Dépassement',
+        DISCOUNT: 'Remise',
+        unknown: 'Autre',
+      },
+      SubscriptionStatus: {
+        TRIAL: 'Essai',
+        ACTIVE: 'Actif',
+        PAST_DUE: 'En retard de paiement',
+        CANCELED: 'Annulé',
+        cancellationScheduled: 'Annulation en fin de période',
+      },
+      SubscriptionActions: {
+        Reasons: {
+          trial: 'Indisponible pendant un essai',
+          cancellationScheduled: 'Réactivez d’abord l’abonnement',
+        },
+      },
+    },
     AuditTrail: {
       events: {
         COMPONENT_CREATED: 'Component ajouté',
