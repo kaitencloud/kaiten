@@ -2501,6 +2501,7 @@ export default {
             licensing: { label: 'Licences' },
             featureFlags: { label: 'Feature flags' },
             releases: { label: 'Releases' },
+            billing: { label: 'Facturation' },
             organization: { label: 'Organisation' },
           },
           Presets: {
@@ -2558,6 +2559,11 @@ export default {
               label: 'Notifications',
               description:
                 'Accès à son propre fil de notifications et à ses préférences',
+            },
+            billing: {
+              label: 'Facturation',
+              description:
+                'Accès aux abonnements, aux factures, à la file de transmission et aux réglages de facturation',
             },
             organizations: {
               label: 'Organisations',
@@ -2619,6 +2625,8 @@ export default {
           entitlement: 'Droits',
           entitlementGroup: 'Groupes de droits',
           usage: 'Utilisation',
+          subscription: 'Abonnements',
+          invoice: 'Factures',
           featureFlag: 'Feature flags',
           release: 'Releases',
           deploymentZone: 'Zones de déploiement',
@@ -3115,6 +3123,7 @@ export default {
         FEATURE_FLAG_DELETED: 'Feature flag supprimé',
         FEATURE_FLAG_EVALUATED: 'Feature flag évalué',
         FEATURE_FLAG_UPDATED: 'Feature flag mis à jour',
+        INSTANCE_BILLING_STARTED: 'Abonnement démarré',
         INSTANCE_CREATED: 'Instance créée',
         INSTANCE_DELETED: 'Instance supprimée',
         INSTANCE_DEPLOYED: 'Instance déployée',
@@ -3124,6 +3133,14 @@ export default {
         INSTANCE_ENTITLEMENT_USAGE_REACHED: 'Droit entièrement consommé',
         INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED:
           'Droit proche du seuil',
+        INSTANCE_INVOICE_HANDOFF_ACKNOWLEDGED:
+          'Transmission de facture confirmée',
+        INSTANCE_INVOICE_HELD: 'Facture retenue',
+        INSTANCE_INVOICE_ISSUED: 'Facture émise',
+        INSTANCE_INVOICE_MARKED_UNCOLLECTIBLE: 'Facture déclarée irrécouvrable',
+        INSTANCE_INVOICE_PAID: 'Facture payée',
+        INSTANCE_INVOICE_RELEASED: 'Facture retenue libérée',
+        INSTANCE_INVOICE_VOIDED: 'Facture annulée',
         INSTANCE_LIFECYCLE_STAGE_CHANGED: "Cycle de vie de l'instance modifié",
         INSTANCE_MIGRATED: 'Instance migrée',
         INSTANCE_STATUS_CHANGED: "Statut de l'instance modifié",
@@ -3137,6 +3154,9 @@ export default {
         LICENSE_FAMILY_CREATED: 'Famille de licences créée',
         LICENSE_FAMILY_DELETED: 'Famille de licences supprimée',
         LICENSE_FAMILY_UPDATED: 'Famille de licences mise à jour',
+        LICENSE_PRICE_CREATED: 'Prix de licence ajouté',
+        LICENSE_PRICE_DEPRECATED: 'Prix de licence déprécié',
+        LICENSE_PRICE_UPDATED: 'Prix de licence mis à jour',
         LICENSE_PUBLISHED: 'Version de licence publiée',
         LICENSE_UNARCHIVED: 'Version de licence désarchivée',
         LICENSE_UPDATED: 'Licence mise à jour',

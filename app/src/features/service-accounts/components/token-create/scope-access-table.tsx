@@ -1,4 +1,4 @@
-import { Building2, type LucideIcon } from 'lucide-react';
+import { Building2, type LucideIcon, Receipt } from 'lucide-react';
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -28,6 +28,7 @@ const GROUP_ICONS: Record<ScopeGroupId, LucideIcon> = {
   licensing: dataModelIcons.license,
   featureFlags: dataModelIcons.featureFlag,
   releases: dataModelIcons.release,
+  billing: Receipt,
   organization: Building2,
 };
 

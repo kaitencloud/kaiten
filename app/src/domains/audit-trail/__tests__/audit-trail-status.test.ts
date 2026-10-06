@@ -16,11 +16,13 @@ import {
 // and the CSV export. Every event not listed reads as a plain read.
 
 // An entitlement's usage is approaching, at or past its limit, while the API
-// still accepts the usage.
+// still accepts the usage; or an invoice is held, neither issued nor handed
+// off, until someone releases or recomposes it.
 const WARNING_EVENTS = [
   'INSTANCE_ENTITLEMENT_CAP_EXCEEDED',
   'INSTANCE_ENTITLEMENT_USAGE_REACHED',
   'INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED',
+  'INSTANCE_INVOICE_HELD',
 ];
 
 // Something was taken, created or put in place.
@@ -37,6 +39,7 @@ const ACCEPTED_EVENTS = [
   'LICENSE_CREATED',
   'LICENSE_ENTITLEMENT_ASSIGNED',
   'LICENSE_FAMILY_CREATED',
+  'LICENSE_PRICE_CREATED',
   'METADATA_FIELD_CREATED',
   'RELEASE_CREATED',
   'RELEASE_DEPLOYED',
@@ -68,7 +71,7 @@ const withStatus = (status: string): AuditFilters => ({
 const label = (eventName: string) => eventName;
 
 describe('event status', () => {
-  it('reads as a warning exactly the usage events that say a limit is at hand', () => {
+  it('reads as a warning exactly the events that ask for attention', () => {
     expect(eventsWithStatus('warning')).toEqual(WARNING_EVENTS);
   });
 

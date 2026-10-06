@@ -32,6 +32,7 @@ export const SCOPE_GROUP_IDS: ScopeGroupId[] = [
   'licensing',
   'featureFlags',
   'releases',
+  'billing',
   'organization',
 ];
 
@@ -48,6 +49,7 @@ const RESOURCE_GROUPS: Record<ApiScopeResource, ScopeGroupId> = {
   releases: 'releases',
   components: 'releases',
   deployment_zones: 'releases',
+  billing: 'billing',
   organizations: 'organization',
   tokens: 'organization',
   metadata_fields: 'organization',
