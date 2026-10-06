@@ -59,7 +59,7 @@ func mustCompose(t *testing.T, in Input) Composition {
 	return c
 }
 
-// The renewal of the spec's worked example, without its add-on and vouchers:
+// A renewal with one line of each type the composer makes:
 // 123,457 API calls at 0.04 cents, 30,500 tokens over the limit at 8.00 EUR a
 // 10k, and the next month's 29.00 EUR base.
 func TestComposeRenewal(t *testing.T) {
@@ -205,7 +205,7 @@ func TestComposeMeteredLines(t *testing.T) {
 	})
 }
 
-// The rounding examples of the spec, one per exponent.
+// Rounding, one example per currency exponent, and a tie.
 func TestComposeRounding(t *testing.T) {
 	for _, tc := range []struct {
 		currency money.Currency
@@ -252,7 +252,7 @@ func TestSample(t *testing.T) {
 		{"80000", "80000", "0", false},
 		{"130500", "130500", "30500", false},
 		{"150000", "150000", "50000", false},
-		// The spec's example: 300,000 against 100,000 @ 50 % is 50,000 of overage.
+		// 300,000 against 100,000 @ 50 % is 50,000 of overage.
 		{"300000", "150000", "50000", true},
 	} {
 		m := Sample(dec(tc.quantity), grant)

@@ -23,7 +23,7 @@ func sample(slug, quantity string) map[string]any {
 	return map[string]any{"sampleUsage": []map[string]any{{"entitlementSlug": slug, "quantity": quantity}}}
 }
 
-// pricedVersion is the spec's example catalogue on a DRAFT version: 29.00 EUR
+// pricedVersion is a worked-example catalogue on a DRAFT version: 29.00 EUR
 // a month in advance, and 8.00 EUR per 10k tokens above a 100,000 limit that
 // accepts 50 % more.
 func pricedVersion(t *testing.T) string {

@@ -61,7 +61,7 @@ func TestRoundMinorIsHalfUpOnTheMagnitude(t *testing.T) {
 }
 
 func TestQuantityAndAmount(t *testing.T) {
-	// The spec's example: 30,500 tokens at 10,000 a sale unit, 8.00 EUR a sale unit.
+	// A worked example: 30,500 tokens at 10,000 a sale unit, 8.00 EUR a sale unit.
 	quantity := Quantity(decimal.RequireFromString("30500"), decimal.RequireFromString("10000"))
 	if FormatDecimal(quantity) != "3.05" {
 		t.Fatalf("Quantity = %s, want 3.05", quantity)
