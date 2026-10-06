@@ -334,6 +334,59 @@ func (q *Queries) GetPairReportSeq(ctx context.Context, arg GetPairReportSeqPara
 	return report_seq, err
 }
 
+const hasProtectedUsageLedgerRows = `-- name: HasProtectedUsageLedgerRows :one
+SELECT EXISTS (
+  SELECT 1
+  FROM usage_ledger old
+  WHERE old.reported_at >= $1
+    AND old.reported_at < $2
+  AND (EXISTS (
+    SELECT 1
+    FROM instance_billing ib
+    WHERE ib.instance_id = old.instance_id
+      AND ib.status <> 'CANCELED'
+      AND (
+        -- (a) not invoiced yet: since the current period started.
+        old.reported_at >= ib.current_period_start
+        -- the last row of the pair before it, so that the "first_seq - 1"
+        -- probe of invariant 1 stays answerable.
+        OR (old.reported_at < ib.current_period_start
+            AND NOT EXISTS (
+              SELECT 1 FROM usage_ledger nxt
+              WHERE nxt.instance_id = old.instance_id
+                AND nxt.entitlement_id = old.entitlement_id
+                AND nxt.reported_at > old.reported_at
+                AND nxt.reported_at < ib.current_period_start))
+      )
+  )
+  OR EXISTS (
+    -- (b) in the service period of a DRAFT invoice: held, awaiting release,
+    -- recompose or handoff.
+    SELECT 1
+    FROM instance_billing ib
+    JOIN instance_invoice inv ON inv.instance_billing_id = ib.id
+    WHERE ib.instance_id = old.instance_id
+      AND inv.status = 'DRAFT'
+      AND old.reported_at >= inv.service_from
+      AND old.reported_at < inv.service_to
+  ))
+)::bool AS protected
+`
+
+type HasProtectedUsageLedgerRowsParams struct {
+	RangeStart pgtype.Timestamp `json:"range_start"`
+	RangeEnd   pgtype.Timestamp `json:"range_end"`
+}
+
+// Whether any row dated in [range_start, range_end) is protected (D-33): a
+// partition holding one is not dropped.
+func (q *Queries) HasProtectedUsageLedgerRows(ctx context.Context, arg HasProtectedUsageLedgerRowsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasProtectedUsageLedgerRows, arg.RangeStart, arg.RangeEnd)
+	var protected bool
+	err := row.Scan(&protected)
+	return protected, err
+}
+
 const listOrganizationUsageReports = `-- name: ListOrganizationUsageReports :many
 SELECT ul.organization_id, ul.instance_id, ul.entitlement_id, ul.license_id,
        ul.report_seq, ul.reported_at, ul.window_start, ul.window_end,
@@ -639,6 +692,36 @@ USING (
   FROM usage_ledger old
   WHERE old.organization_id = $1
     AND old.reported_at < $2
+  AND NOT EXISTS (
+    SELECT 1
+    FROM instance_billing ib
+    WHERE ib.instance_id = old.instance_id
+      AND ib.status <> 'CANCELED'
+      AND (
+        -- (a) not invoiced yet: since the current period started.
+        old.reported_at >= ib.current_period_start
+        -- the last row of the pair before it, so that the "first_seq - 1"
+        -- probe of invariant 1 stays answerable.
+        OR (old.reported_at < ib.current_period_start
+            AND NOT EXISTS (
+              SELECT 1 FROM usage_ledger nxt
+              WHERE nxt.instance_id = old.instance_id
+                AND nxt.entitlement_id = old.entitlement_id
+                AND nxt.reported_at > old.reported_at
+                AND nxt.reported_at < ib.current_period_start))
+      )
+  )
+  AND NOT EXISTS (
+    -- (b) in the service period of a DRAFT invoice: held, awaiting release,
+    -- recompose or handoff.
+    SELECT 1
+    FROM instance_billing ib
+    JOIN instance_invoice inv ON inv.instance_billing_id = ib.id
+    WHERE ib.instance_id = old.instance_id
+      AND inv.status = 'DRAFT'
+      AND old.reported_at >= inv.service_from
+      AND old.reported_at < inv.service_to
+  )
   LIMIT $3
 ) doomed
 WHERE ul.instance_id = doomed.instance_id
@@ -655,7 +738,9 @@ type PurgeOrganizationUsageLedgerParams struct {
 
 // One batch of an organization's journal rows older than cutoff, through
 // idx_usage_ledger_org_reported_at. The caller repeats it until a batch comes
-// back short.
+// back short. Rows that are not invoiced yet are never deleted (D-33): those
+// of a live subscription since its current period started, the last row before
+// that of each pair, and those in the service period of a DRAFT invoice.
 func (q *Queries) PurgeOrganizationUsageLedger(ctx context.Context, arg PurgeOrganizationUsageLedgerParams) (int64, error) {
 	result, err := q.db.Exec(ctx, purgeOrganizationUsageLedger, arg.OrganizationID, arg.Cutoff, arg.BatchSize)
 	if err != nil {

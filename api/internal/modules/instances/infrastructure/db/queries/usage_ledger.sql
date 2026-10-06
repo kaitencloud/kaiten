@@ -79,19 +79,92 @@ SELECT orgs.organization_id::uuid AS organization_id FROM orgs WHERE orgs.organi
 -- name: PurgeOrganizationUsageLedger :execrows
 -- One batch of an organization's journal rows older than cutoff, through
 -- idx_usage_ledger_org_reported_at. The caller repeats it until a batch comes
--- back short.
+-- back short. Rows that are not invoiced yet are never deleted (D-33): those
+-- of a live subscription since its current period started, the last row before
+-- that of each pair, and those in the service period of a DRAFT invoice.
 DELETE FROM usage_ledger ul
 USING (
   SELECT old.instance_id, old.entitlement_id, old.report_seq, old.reported_at
   FROM usage_ledger old
   WHERE old.organization_id = sqlc.arg(organization_id)
     AND old.reported_at < sqlc.arg(cutoff)
+  AND NOT EXISTS (
+    SELECT 1
+    FROM instance_billing ib
+    WHERE ib.instance_id = old.instance_id
+      AND ib.status <> 'CANCELED'
+      AND (
+        -- (a) not invoiced yet: since the current period started.
+        old.reported_at >= ib.current_period_start
+        -- the last row of the pair before it, so that the "first_seq - 1"
+        -- probe of invariant 1 stays answerable.
+        OR (old.reported_at < ib.current_period_start
+            AND NOT EXISTS (
+              SELECT 1 FROM usage_ledger nxt
+              WHERE nxt.instance_id = old.instance_id
+                AND nxt.entitlement_id = old.entitlement_id
+                AND nxt.reported_at > old.reported_at
+                AND nxt.reported_at < ib.current_period_start))
+      )
+  )
+  AND NOT EXISTS (
+    -- (b) in the service period of a DRAFT invoice: held, awaiting release,
+    -- recompose or handoff.
+    SELECT 1
+    FROM instance_billing ib
+    JOIN instance_invoice inv ON inv.instance_billing_id = ib.id
+    WHERE ib.instance_id = old.instance_id
+      AND inv.status = 'DRAFT'
+      AND old.reported_at >= inv.service_from
+      AND old.reported_at < inv.service_to
+  )
   LIMIT sqlc.arg(batch_size)
 ) doomed
 WHERE ul.instance_id = doomed.instance_id
   AND ul.entitlement_id = doomed.entitlement_id
   AND ul.report_seq = doomed.report_seq
   AND ul.reported_at = doomed.reported_at;
+
+
+-- name: HasProtectedUsageLedgerRows :one
+-- Whether any row dated in [range_start, range_end) is protected (D-33): a
+-- partition holding one is not dropped.
+SELECT EXISTS (
+  SELECT 1
+  FROM usage_ledger old
+  WHERE old.reported_at >= sqlc.arg(range_start)
+    AND old.reported_at < sqlc.arg(range_end)
+  AND (EXISTS (
+    SELECT 1
+    FROM instance_billing ib
+    WHERE ib.instance_id = old.instance_id
+      AND ib.status <> 'CANCELED'
+      AND (
+        -- (a) not invoiced yet: since the current period started.
+        old.reported_at >= ib.current_period_start
+        -- the last row of the pair before it, so that the "first_seq - 1"
+        -- probe of invariant 1 stays answerable.
+        OR (old.reported_at < ib.current_period_start
+            AND NOT EXISTS (
+              SELECT 1 FROM usage_ledger nxt
+              WHERE nxt.instance_id = old.instance_id
+                AND nxt.entitlement_id = old.entitlement_id
+                AND nxt.reported_at > old.reported_at
+                AND nxt.reported_at < ib.current_period_start))
+      )
+  )
+  OR EXISTS (
+    -- (b) in the service period of a DRAFT invoice: held, awaiting release,
+    -- recompose or handoff.
+    SELECT 1
+    FROM instance_billing ib
+    JOIN instance_invoice inv ON inv.instance_billing_id = ib.id
+    WHERE ib.instance_id = old.instance_id
+      AND inv.status = 'DRAFT'
+      AND old.reported_at >= inv.service_from
+      AND old.reported_at < inv.service_to
+  ))
+)::bool AS protected;
 
 
 -- name: ResolveUsageReportPair :one
