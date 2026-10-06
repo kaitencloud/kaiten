@@ -17,11 +17,13 @@ The contract files themselves, and where each one comes from, are listed in
 | --- | --- | --- | --- |
 | REST (Core API) | `app/openapi.yaml` | `@hey-api/openapi-ts` | `src/api-client/` (`types.gen.ts`, `zod.gen.ts`, `sdk.gen.ts`, `@tanstack/react-query.gen.ts`, `msw.gen.ts`, the fetch client in `client/` and `core/`) |
 | REST scopes | `app/openapi.yaml` (`x-kaiten-scopes`) | `packages/api-codegen/generate-scopes.js` | `src/lib/api/scopes.gen.ts` (tracked) |
+| Scope of each operation | `app/openapi.yaml` (the `security` of each operation) | `packages/api-codegen/generate-scopes.js` | `src/lib/api/operation-scopes.gen.ts` (tracked): `OPERATION_SCOPES`, keyed by the SDK name of the operation (`getBillingCapabilities`) |
 | GraphQL | the `.graphqls` files in `api/` | GraphQL Code Generator | `src/api-client/graphql/` |
 
 ```
 Go handlers ──task generate:oas──▶ app/openapi.yaml ──generate-api-sdk──▶ src/api-client/*.gen.ts
                                                                           src/lib/api/scopes.gen.ts
+                                                                          src/lib/api/operation-scopes.gen.ts
 api/**/*.graphqls (written by hand) ──generate-graphql──▶ src/api-client/graphql/
                     └──task generate:gqlgen (go generate)──▶ Go resolvers and models
 ```
@@ -47,7 +49,7 @@ From `app/`:
 
 ```bash
 pnpm run generate          # generate-api-sdk, then generate-graphql
-pnpm run generate-api-sdk  # REST only: openapi-ts and scopes.gen.ts
+pnpm run generate-api-sdk  # REST only: openapi-ts, scopes.gen.ts and operation-scopes.gen.ts
 pnpm run generate-graphql  # GraphQL only: graphql-codegen --config codegen.ts
 ```
 
@@ -61,8 +63,9 @@ it before it lints, type-checks, tests or builds.
 
 After a change to the API contract, run `task generate:oas`, then
 `pnpm run generate` in `app/`, and commit the regenerated `app/openapi.yaml`,
-`app/platform-openapi.yaml` and `app/src/lib/api/scopes.gen.ts`. TypeScript then
-flags every call site the change breaks.
+`app/platform-openapi.yaml`, `app/src/lib/api/scopes.gen.ts` and
+`app/src/lib/api/operation-scopes.gen.ts`. TypeScript then flags every call site
+the change breaks.
 
 Configuration:
 
