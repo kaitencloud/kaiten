@@ -315,3 +315,29 @@ SELECT *
 FROM billing_sync_state
 WHERE organization_id = sqlc.arg(organization_id)
 ORDER BY provider_kind;
+
+
+-- name: CountProviderRouting :one
+-- What still routes to a provider in an organization: the subscriptions not
+-- canceled that invoice through it, and its invoices not settled yet. A
+-- provider's connector cannot be disconnected under either.
+SELECT
+  (SELECT count(*) FROM instance_billing ib
+    WHERE ib.organization_id = sqlc.arg(organization_id)
+      AND ib.provider_kind = sqlc.arg(provider_kind)
+      AND ib.status <> 'CANCELED')::bigint AS active_subscriptions,
+  (SELECT count(*) FROM instance_invoice i
+    WHERE i.organization_id = sqlc.arg(organization_id)
+      AND i.provider_kind = sqlc.arg(provider_kind)
+      AND i.status IN ('DRAFT', 'PUSHED', 'PUSH_FAILED', 'PAYMENT_FAILED'))::bigint AS open_invoices;
+
+
+-- name: GetAnyCustomerBillingID :one
+-- One customer the organization already maps in a provider: a new key must
+-- reach the account it lives in.
+SELECT cb.external_customer_id
+FROM customer_billing cb
+WHERE cb.organization_id = sqlc.arg(organization_id)
+  AND cb.provider_kind = sqlc.arg(provider_kind)
+ORDER BY cb.created_at
+LIMIT 1;
