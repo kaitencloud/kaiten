@@ -2459,6 +2459,7 @@ export default {
             licensing: { label: 'Licensing' },
             featureFlags: { label: 'Feature Flags' },
             releases: { label: 'Releases' },
+            billing: { label: 'Billing' },
             organization: { label: 'Organization' },
           },
           Presets: {
@@ -2514,6 +2515,11 @@ export default {
               label: 'Notifications',
               description:
                 'Access to its own notification feed and preferences',
+            },
+            billing: {
+              label: 'Billing',
+              description:
+                'Access to subscriptions, invoices, the handoff queue and billing settings',
             },
             organizations: {
               label: 'Organizations',
@@ -2573,6 +2579,8 @@ export default {
           entitlement: 'Entitlements',
           entitlementGroup: 'Entitlement groups',
           usage: 'Usage',
+          subscription: 'Subscriptions',
+          invoice: 'Invoices',
           featureFlag: 'Feature flags',
           release: 'Releases',
           deploymentZone: 'Deployment zones',
@@ -3052,6 +3060,7 @@ export default {
         FEATURE_FLAG_DELETED: 'Feature flag deleted',
         FEATURE_FLAG_EVALUATED: 'Feature flag evaluated',
         FEATURE_FLAG_UPDATED: 'Feature flag updated',
+        INSTANCE_BILLING_STARTED: 'Subscription started',
         INSTANCE_CREATED: 'Instance created',
         INSTANCE_DELETED: 'Instance deleted',
         INSTANCE_DEPLOYED: 'Instance deployed',
@@ -3061,6 +3070,13 @@ export default {
         INSTANCE_ENTITLEMENT_USAGE_REACHED: 'Entitlement fully used',
         INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED:
           'Entitlement near limit',
+        INSTANCE_INVOICE_HANDOFF_ACKNOWLEDGED: 'Invoice handoff acknowledged',
+        INSTANCE_INVOICE_HELD: 'Invoice held',
+        INSTANCE_INVOICE_ISSUED: 'Invoice issued',
+        INSTANCE_INVOICE_MARKED_UNCOLLECTIBLE: 'Invoice marked uncollectible',
+        INSTANCE_INVOICE_PAID: 'Invoice paid',
+        INSTANCE_INVOICE_RELEASED: 'Held invoice released',
+        INSTANCE_INVOICE_VOIDED: 'Invoice voided',
         INSTANCE_LIFECYCLE_STAGE_CHANGED: 'Instance lifecycle stage changed',
         INSTANCE_MIGRATED: 'Instance migrated',
         INSTANCE_STATUS_CHANGED: 'Instance status changed',
@@ -3074,6 +3090,9 @@ export default {
         LICENSE_FAMILY_CREATED: 'License family created',
         LICENSE_FAMILY_DELETED: 'License family deleted',
         LICENSE_FAMILY_UPDATED: 'License family updated',
+        LICENSE_PRICE_CREATED: 'License price added',
+        LICENSE_PRICE_DEPRECATED: 'License price deprecated',
+        LICENSE_PRICE_UPDATED: 'License price updated',
         LICENSE_PUBLISHED: 'License version published',
         LICENSE_UNARCHIVED: 'License version unarchived',
         LICENSE_UPDATED: 'License updated',
