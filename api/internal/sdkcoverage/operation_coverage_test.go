@@ -120,6 +120,18 @@ var awaitingSDKOperations = map[string]string{
 	"attachInstanceAddon":      awaitsBilling,
 	"setInstanceAddonQuantity": awaitsBilling,
 	"detachInstanceAddon":      awaitsBilling,
+	"createVoucher":            awaitsBilling,
+	"listVouchers":             awaitsBilling,
+	"getVoucher":               awaitsBilling,
+	"lookupVoucher":            awaitsBilling,
+	"updateVoucher":            awaitsBilling,
+	"publishVoucher":           awaitsBilling,
+	"archiveVoucher":           awaitsBilling,
+	"listVoucherRedemptions":   awaitsBilling,
+	"validateVoucher":          awaitsBilling,
+	"redeemVoucher":            awaitsBilling,
+	"listInstanceVouchers":     awaitsBilling,
+	"revokeInstanceVoucher":    awaitsBilling,
 }
 
 func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
