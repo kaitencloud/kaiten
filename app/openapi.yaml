@@ -623,6 +623,7 @@ components:
       additionalProperties: false
       properties:
         available:
+          description: Whether the organization may connect it on this deployment
           type: boolean
         capabilities:
           $ref: "#/components/schemas/ProviderCapabilities"
@@ -633,6 +634,15 @@ components:
           enum:
             - NOOP
             - STRIPE
+          type: string
+        livemode:
+          description: Whether the connection reaches the provider's live account rather than a test one; absent when not connected, and for NOOP
+          type: boolean
+        unavailableReason:
+          description: Why it is not available; absent when it is
+          enum:
+            - NOT_ENTITLED
+            - VAULT_NOT_CONFIGURED
           type: string
       required:
         - kind
@@ -1359,6 +1369,27 @@ components:
       required:
         - type
         - value
+      type: object
+    Connection:
+      additionalProperties: false
+      properties:
+        connectorName:
+          description: The connector that configures it
+          examples:
+            - kaiten.integration.billing.stripe
+          type: string
+        livemode:
+          description: Whether the connection reaches the provider's live account rather than a test one
+          type: boolean
+        providerKind:
+          description: The payment provider
+          enum:
+            - STRIPE
+          type: string
+      required:
+        - providerKind
+        - connectorName
+        - livemode
       type: object
     Connector:
       additionalProperties: false
@@ -22383,6 +22414,84 @@ webhooks:
       tags:
         - webhooks
         - addons
+  com.kaiten.billing_provider.v1.connected:
+    post:
+      description: Triggered when an organization connects a payment provider (activates its connector).
+      operationId: onBillingProviderConnected
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Connection"
+                name:
+                  description: Event name
+                  enum:
+                    - BILLING_PROVIDER_CONNECTED
+                  examples:
+                    - BILLING_PROVIDER_CONNECTED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.billing_provider.v1.connected
+                  examples:
+                    - com.kaiten.billing_provider.v1.connected
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Billing Provider Connected Webhook
+      tags:
+        - webhooks
+        - billing
+  com.kaiten.billing_provider.v1.disconnected:
+    post:
+      description: Triggered when an organization disconnects a payment provider (deactivates its connector).
+      operationId: onBillingProviderDisconnected
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Connection"
+                name:
+                  description: Event name
+                  enum:
+                    - BILLING_PROVIDER_DISCONNECTED
+                  examples:
+                    - BILLING_PROVIDER_DISCONNECTED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.billing_provider.v1.disconnected
+                  examples:
+                    - com.kaiten.billing_provider.v1.disconnected
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Billing Provider Disconnected Webhook
+      tags:
+        - webhooks
+        - billing
   com.kaiten.billing_provider.v1.sync_failed:
     post:
       description: Triggered when syncing with a payment provider has failed three passes in a row, once per streak.
