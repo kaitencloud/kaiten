@@ -76,6 +76,158 @@ func (q *Queries) AppendUsageLedger(ctx context.Context, arg AppendUsageLedgerPa
 	return err
 }
 
+const checkUsageLedgerInvariants = `-- name: CheckUsageLedgerInvariants :one
+WITH in_range AS (
+  SELECT ul.report_seq, ul.window_start, ul.value_before, ul.value_after
+  FROM usage_ledger ul
+  WHERE ul.organization_id = $1
+    AND ul.instance_id = $2
+    AND ul.entitlement_id = $3
+    AND ul.reported_at >= $4
+    AND ul.reported_at < $5
+),
+bounds AS (
+  SELECT min(r.report_seq) AS first_seq, max(r.report_seq) AS last_seq, count(*) AS row_count
+  FROM in_range r
+),
+counter AS (
+  SELECT eu.report_seq, (eu.value ->> 'value')::numeric AS value, eu.period_start
+  FROM entitlement_usage eu
+  WHERE eu.instance_id = $2
+    AND eu.entitlement_id = $3
+),
+pred AS (
+  SELECT ul.report_seq, ul.window_start, ul.value_before, ul.value_after
+  FROM usage_ledger ul, bounds b
+  WHERE ul.organization_id = $1
+    AND ul.instance_id = $2
+    AND ul.entitlement_id = $3
+    AND ul.report_seq = b.first_seq - 1
+),
+chain AS (
+  SELECT c.report_seq, c.window_start, c.value_before, c.in_period,
+         lag(c.report_seq) OVER (ORDER BY c.report_seq) AS prev_seq,
+         lag(c.window_start) OVER (ORDER BY c.report_seq) AS prev_window_start,
+         lag(c.value_after) OVER (ORDER BY c.report_seq) AS prev_value_after
+  FROM (SELECT r.report_seq, r.window_start, r.value_before, r.value_after, TRUE AS in_period FROM in_range r
+        UNION ALL
+        SELECT p.report_seq, p.window_start, p.value_before, p.value_after, FALSE AS in_period FROM pred p) c
+),
+tail AS (
+  SELECT ul.window_start, ul.value_after
+  FROM usage_ledger ul, counter k
+  WHERE ul.organization_id = $1
+    AND ul.instance_id = $2
+    AND ul.entitlement_id = $3
+    AND ul.report_seq = k.report_seq
+)
+SELECT
+  coalesce(b.first_seq, 0)::bigint AS first_seq,
+  coalesce(b.last_seq, 0)::bigint AS last_seq,
+  b.row_count::bigint AS row_count,
+  coalesce((SELECT k.report_seq FROM counter k), -1)::bigint AS counter_seq,
+  coalesce((SELECT trim_scale(k.value)::text FROM counter k), '')::text AS counter_value,
+  (SELECT count(DISTINCT ul.report_seq)
+     FROM usage_ledger ul, counter k
+    WHERE ul.organization_id = $1
+      AND ul.instance_id = $2
+      AND ul.entitlement_id = $3
+      AND ul.report_seq BETWEEN b.first_seq AND k.report_seq)::bigint AS seqs_present,
+  EXISTS (SELECT 1 FROM pred) AS pred_exists,
+  EXISTS (SELECT 1
+            FROM usage_ledger ul
+           WHERE ul.organization_id = $1
+             AND ul.instance_id = $2
+             AND ul.entitlement_id = $3
+             AND ul.report_seq < b.first_seq) AS lower_exists,
+  coalesce((SELECT min(c.report_seq) FROM chain c
+    WHERE c.in_period
+      AND c.prev_seq = c.report_seq - 1
+      AND c.prev_window_start IS NOT DISTINCT FROM c.window_start
+      AND c.value_before <> c.prev_value_after), 0)::bigint AS first_chain_break,
+  coalesce((SELECT min(c.report_seq) FROM chain c, usage_ledger_epoch e
+    WHERE c.in_period
+      AND c.window_start IS NOT NULL
+      AND c.window_start >= e.epoch_at + INTERVAL '24 hours'
+      AND ((c.prev_seq IS NULL AND c.report_seq = 1)
+           OR (c.prev_seq = c.report_seq - 1 AND c.prev_window_start IS DISTINCT FROM c.window_start))
+      AND c.value_before <> 0), 0)::bigint AS first_window_start_break,
+  EXISTS (SELECT 1 FROM tail) AS tail_exists,
+  coalesce((SELECT t.window_start IS NOT DISTINCT FROM k.period_start FROM tail t, counter k), FALSE)::boolean AS tail_in_counter_window,
+  coalesce((SELECT t.value_after = k.value FROM tail t, counter k), FALSE)::boolean AS tail_matches_counter,
+  coalesce((SELECT trim_scale(t.value_after)::text FROM tail t), '')::text AS tail_value_after
+FROM bounds b
+`
+
+type CheckUsageLedgerInvariantsParams struct {
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	InstanceID     uuid.UUID        `json:"instance_id"`
+	EntitlementID  uuid.UUID        `json:"entitlement_id"`
+	FromAt         pgtype.Timestamp `json:"from_at"`
+	ToAt           pgtype.Timestamp `json:"to_at"`
+}
+
+type CheckUsageLedgerInvariantsRow struct {
+	FirstSeq              int64  `json:"first_seq"`
+	LastSeq               int64  `json:"last_seq"`
+	RowCount              int64  `json:"row_count"`
+	CounterSeq            int64  `json:"counter_seq"`
+	CounterValue          string `json:"counter_value"`
+	SeqsPresent           int64  `json:"seqs_present"`
+	PredExists            bool   `json:"pred_exists"`
+	LowerExists           bool   `json:"lower_exists"`
+	FirstChainBreak       int64  `json:"first_chain_break"`
+	FirstWindowStartBreak int64  `json:"first_window_start_break"`
+	TailExists            bool   `json:"tail_exists"`
+	TailInCounterWindow   bool   `json:"tail_in_counter_window"`
+	TailMatchesCounter    bool   `json:"tail_matches_counter"`
+	TailValueAfter        string `json:"tail_value_after"`
+}
+
+// Everything the journal invariants need about a pair, in one statement so
+// that one snapshot answers them all: a report committing meanwhile cannot
+// make the counter and the journal disagree.
+//
+//	in_range     the rows dated in [from, to)
+//	pred         the row just before the first of them, whatever its date
+//	counter      the live counter: its value, window and report_seq
+//	tail         the row the counter's report_seq names
+//
+// 0 stands for "none" in the seq columns (a report_seq is at least 1), and -1
+// for "no counter" in counter_seq.
+//
+// The chain is checked over pred and in_range, between consecutive reports
+// only (a gap is the sequence invariant's to report): a row's value_before
+// must be the previous row's value_after when both are in one window, and the
+// first row of a window opened a day after the journal existed must start at 0.
+func (q *Queries) CheckUsageLedgerInvariants(ctx context.Context, arg CheckUsageLedgerInvariantsParams) (CheckUsageLedgerInvariantsRow, error) {
+	row := q.db.QueryRow(ctx, checkUsageLedgerInvariants,
+		arg.OrganizationID,
+		arg.InstanceID,
+		arg.EntitlementID,
+		arg.FromAt,
+		arg.ToAt,
+	)
+	var i CheckUsageLedgerInvariantsRow
+	err := row.Scan(
+		&i.FirstSeq,
+		&i.LastSeq,
+		&i.RowCount,
+		&i.CounterSeq,
+		&i.CounterValue,
+		&i.SeqsPresent,
+		&i.PredExists,
+		&i.LowerExists,
+		&i.FirstChainBreak,
+		&i.FirstWindowStartBreak,
+		&i.TailExists,
+		&i.TailInCounterWindow,
+		&i.TailMatchesCounter,
+		&i.TailValueAfter,
+	)
+	return i, err
+}
+
 const findUsageReportByTransactionID = `-- name: FindUsageReportByTransactionID :one
 SELECT ul.report_seq,
        ul.reported_at,
@@ -160,6 +312,26 @@ func (q *Queries) FindUsageReportByTransactionID(ctx context.Context, arg FindUs
 		&i.LicenseSlug,
 	)
 	return i, err
+}
+
+const getPairReportSeq = `-- name: GetPairReportSeq :one
+SELECT coalesce((SELECT eu.report_seq FROM entitlement_usage eu
+                  WHERE eu.instance_id = $1
+                    AND eu.entitlement_id = $2), 0)::bigint AS report_seq
+`
+
+type GetPairReportSeqParams struct {
+	InstanceID    uuid.UUID `json:"instance_id"`
+	EntitlementID uuid.UUID `json:"entitlement_id"`
+}
+
+// The pair's report counter, 0 before its first report. Read by Seal under
+// the pair's lock.
+func (q *Queries) GetPairReportSeq(ctx context.Context, arg GetPairReportSeqParams) (int64, error) {
+	row := q.db.QueryRow(ctx, getPairReportSeq, arg.InstanceID, arg.EntitlementID)
+	var report_seq int64
+	err := row.Scan(&report_seq)
+	return report_seq, err
 }
 
 const listOrganizationUsageReports = `-- name: ListOrganizationUsageReports :many
@@ -522,4 +694,138 @@ func (q *Queries) ResolveUsageReportPair(ctx context.Context, arg ResolveUsageRe
 	var i ResolveUsageReportPairRow
 	err := row.Scan(&i.InstanceID, &i.EntitlementID)
 	return i, err
+}
+
+const summarizeUsageLimits = `-- name: SummarizeUsageLimits :many
+SELECT coalesce(trim_scale(ul.limit_value)::text, '')::text AS limit_value,
+       ul.overage_percent,
+       count(*)::bigint AS row_count
+FROM usage_ledger ul
+WHERE ul.organization_id = $1
+  AND ul.instance_id = $2
+  AND ul.entitlement_id = $3
+  AND ul.reported_at >= $4
+  AND ul.reported_at < $5
+GROUP BY ul.limit_value, ul.overage_percent
+ORDER BY min(ul.report_seq)
+`
+
+type SummarizeUsageLimitsParams struct {
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	InstanceID     uuid.UUID        `json:"instance_id"`
+	EntitlementID  uuid.UUID        `json:"entitlement_id"`
+	FromAt         pgtype.Timestamp `json:"from_at"`
+	ToAt           pgtype.Timestamp `json:"to_at"`
+}
+
+type SummarizeUsageLimitsRow struct {
+	LimitValue     string `json:"limit_value"`
+	OveragePercent int16  `json:"overage_percent"`
+	RowCount       int64  `json:"row_count"`
+}
+
+// The distinct (limit, overage percent) pairs the gate applied to a pair's
+// rows dated in [from, to), in the order they first applied. limit_value is
+// ” when unlimited.
+func (q *Queries) SummarizeUsageLimits(ctx context.Context, arg SummarizeUsageLimitsParams) ([]SummarizeUsageLimitsRow, error) {
+	rows, err := q.db.Query(ctx, summarizeUsageLimits,
+		arg.OrganizationID,
+		arg.InstanceID,
+		arg.EntitlementID,
+		arg.FromAt,
+		arg.ToAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SummarizeUsageLimitsRow
+	for rows.Next() {
+		var i SummarizeUsageLimitsRow
+		if err := rows.Scan(&i.LimitValue, &i.OveragePercent, &i.RowCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const summarizeUsageWindows = `-- name: SummarizeUsageWindows :many
+SELECT ul.window_start,
+       ul.window_end,
+       trim_scale(sum(ul.value_after - ul.value_before))::text AS usage,
+       trim_scale(sum(CASE WHEN ul.limit_value IS NULL THEN 0
+                           ELSE GREATEST(0, ul.value_after - ul.limit_value)
+                              - GREATEST(0, ul.value_before - ul.limit_value)
+                      END))::text AS overage,
+       count(*)::bigint AS row_count,
+       min(ul.report_seq)::bigint AS first_seq,
+       max(ul.report_seq)::bigint AS last_seq
+FROM usage_ledger ul
+WHERE ul.organization_id = $1
+  AND ul.instance_id = $2
+  AND ul.entitlement_id = $3
+  AND ul.reported_at >= $4
+  AND ul.reported_at < $5
+GROUP BY ul.window_start, ul.window_end
+ORDER BY min(ul.report_seq)
+`
+
+type SummarizeUsageWindowsParams struct {
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	InstanceID     uuid.UUID        `json:"instance_id"`
+	EntitlementID  uuid.UUID        `json:"entitlement_id"`
+	FromAt         pgtype.Timestamp `json:"from_at"`
+	ToAt           pgtype.Timestamp `json:"to_at"`
+}
+
+type SummarizeUsageWindowsRow struct {
+	WindowStart pgtype.Timestamp `json:"window_start"`
+	WindowEnd   pgtype.Timestamp `json:"window_end"`
+	Usage       string           `json:"usage"`
+	Overage     string           `json:"overage"`
+	RowCount    int64            `json:"row_count"`
+	FirstSeq    int64            `json:"first_seq"`
+	LastSeq     int64            `json:"last_seq"`
+}
+
+// A pair's rows dated in [from, to), summed by reset window, oldest window
+// first. Usage is the counter's own movement; overage is its movement above
+// the limit each row was gated against (0 on an unlimited row). Decimals come
+// out as exact text.
+func (q *Queries) SummarizeUsageWindows(ctx context.Context, arg SummarizeUsageWindowsParams) ([]SummarizeUsageWindowsRow, error) {
+	rows, err := q.db.Query(ctx, summarizeUsageWindows,
+		arg.OrganizationID,
+		arg.InstanceID,
+		arg.EntitlementID,
+		arg.FromAt,
+		arg.ToAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SummarizeUsageWindowsRow
+	for rows.Next() {
+		var i SummarizeUsageWindowsRow
+		if err := rows.Scan(
+			&i.WindowStart,
+			&i.WindowEnd,
+			&i.Usage,
+			&i.Overage,
+			&i.RowCount,
+			&i.FirstSeq,
+			&i.LastSeq,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

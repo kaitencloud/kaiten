@@ -37,6 +37,18 @@ type InvoiceLineMetering struct {
 	MeasuredQuantity        string `json:"measuredQuantity" doc:"In measured units: the usage for a USAGE line, the overage for an OVERAGE line" example:"30500"`
 	Windows                 int    `json:"windows" doc:"Reset windows the period spans" example:"1"`
 	NegativeSegmentsFloored int    `json:"negativeSegmentsFloored" doc:"Windows whose net movement was negative and counted as 0" example:"0"`
+	// Ledger is absent on a preview from sample usage, which has no rows.
+	Ledger *InvoiceLineLedger `json:"ledger,omitempty" doc:"The usage journal rows the line was measured from"`
+}
+
+// InvoiceLineLedger identifies the usage journal rows a metered line was
+// measured from: with them, the line can be recomputed.
+type InvoiceLineLedger struct {
+	FirstSeq   *int64  `json:"firstSeq" doc:"First report of the period, null when it has none"`
+	LastSeq    *int64  `json:"lastSeq" doc:"Last report of the period, null when it has none"`
+	Rows       int64   `json:"rows" doc:"Reports in the period"`
+	SumDelta   string  `json:"sumDelta" doc:"Sum of the reports' movements, before any floor"`
+	SumOverage *string `json:"sumOverage" doc:"Sum of their movements above the limit, before any floor"`
 }
 
 // InvoiceLineOverage is the arithmetic of an OVERAGE line.

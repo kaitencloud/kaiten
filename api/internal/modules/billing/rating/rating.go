@@ -101,11 +101,17 @@ type Meter struct {
 // Measure is what one meter measured over the arrears period, in measured
 // units, with each window's net movement floored at 0.
 type Measure struct {
-	Usage                   decimal.Decimal
-	Overage                 decimal.Decimal
-	Windows                 int
+	Usage   decimal.Decimal
+	Overage decimal.Decimal
+	Windows int
+	// NegativeSegmentsFloored counts the windows whose usage moved down and
+	// were counted as 0; OverageFloored the same for the overage.
 	NegativeSegmentsFloored int
+	OverageFloored          int
 	Limits                  []OverageLimit
+	// Ledger identifies the journal rows the measure was summed from; nil for
+	// a sample.
+	Ledger *InvoiceLineLedger
 	// Unlimited is set when no limit applied anywhere in the period: an
 	// OVERAGE price then bills nothing.
 	Unlimited bool
@@ -293,7 +299,11 @@ func meteredLine(in Input, price Price) (InvoiceLine, bool, error) {
 	if measure.Capped {
 		description += "; sample capped at what the licence accepts"
 	}
-	if measure.NegativeSegmentsFloored > 0 {
+	floored := measure.NegativeSegmentsFloored
+	if lineType == LineOverage {
+		floored = measure.OverageFloored
+	}
+	if floored > 0 {
 		description += "; corrections below 0 not credited"
 	}
 
@@ -317,7 +327,8 @@ func meteredLine(in Input, price Price) (InvoiceLine, bool, error) {
 			SaleUnitFactor:          money.FormatDecimal(factor),
 			MeasuredQuantity:        money.FormatDecimal(measured),
 			Windows:                 measure.Windows,
-			NegativeSegmentsFloored: measure.NegativeSegmentsFloored,
+			NegativeSegmentsFloored: floored,
+			Ledger:                  measure.Ledger,
 		},
 		Overage:      overage,
 		Capped:       measure.Capped,

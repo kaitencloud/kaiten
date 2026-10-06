@@ -306,3 +306,27 @@ func TestPreviewSpansItsLines(t *testing.T) {
 		t.Errorf("empty preview = %+v", empty)
 	}
 }
+
+func TestMeasureWindows(t *testing.T) {
+	limit := "100000"
+	windows := []Window{
+		{Usage: dec("-13000"), Overage: dec("-13000")},
+		{Usage: dec("180500"), Overage: dec("30500")},
+	}
+	m := MeasureWindows(windows, []OverageLimit{{LimitValue: &limit, OveragePercent: 50, Rows: 4}}, nil)
+	if m.Usage.String() != "180500" || m.Overage.String() != "30500" || m.Windows != 2 {
+		t.Errorf("measure = %+v", m)
+	}
+	if m.NegativeSegmentsFloored != 1 || m.OverageFloored != 1 || m.Unlimited {
+		t.Errorf("floors and limit = %+v", m)
+	}
+
+	unlimited := MeasureWindows([]Window{{Usage: dec("5"), Overage: decimal.Zero}},
+		[]OverageLimit{{LimitValue: nil, OveragePercent: -1, Rows: 1}}, nil)
+	if !unlimited.Unlimited {
+		t.Error("rows that all had no limit are unlimited")
+	}
+	if empty := MeasureWindows(nil, nil, nil); empty.Unlimited || !empty.Usage.IsZero() {
+		t.Errorf("an empty period = %+v", empty)
+	}
+}

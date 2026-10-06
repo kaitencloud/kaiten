@@ -33,7 +33,9 @@ func Sample(quantity decimal.Decimal, grant Grant) Measure {
 			Overage:                 decimal.Zero,
 			Windows:                 1,
 			NegativeSegmentsFloored: 0,
+			OverageFloored:          0,
 			Limits:                  []OverageLimit{{LimitValue: nil, OveragePercent: -1, Rows: 0}},
+			Ledger:                  nil,
 			Unlimited:               true,
 			Capped:                  false,
 		}
@@ -47,7 +49,9 @@ func Sample(quantity decimal.Decimal, grant Grant) Measure {
 		Overage:                 decimal.Min(decimal.Max(decimal.Zero, quantity.Sub(grant.Limit)), allowance),
 		Windows:                 1,
 		NegativeSegmentsFloored: 0,
+		OverageFloored:          0,
 		Limits:                  []OverageLimit{{LimitValue: &limit, OveragePercent: percent, Rows: 0}},
+		Ledger:                  nil,
 		Unlimited:               false,
 		Capped:                  quantity.GreaterThan(accepted),
 	}

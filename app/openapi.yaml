@@ -1916,9 +1916,46 @@ components:
         - unitAmountDecimal
         - amount
       type: object
+    InvoiceLineLedger:
+      additionalProperties: false
+      properties:
+        firstSeq:
+          description: First report of the period, null when it has none
+          format: int64
+          type:
+            - integer
+            - "null"
+        lastSeq:
+          description: Last report of the period, null when it has none
+          format: int64
+          type:
+            - integer
+            - "null"
+        rows:
+          description: Reports in the period
+          format: int64
+          type: integer
+        sumDelta:
+          description: Sum of the reports' movements, before any floor
+          type: string
+        sumOverage:
+          description: Sum of their movements above the limit, before any floor
+          type:
+            - string
+            - "null"
+      required:
+        - firstSeq
+        - lastSeq
+        - rows
+        - sumDelta
+        - sumOverage
+      type: object
     InvoiceLineMetering:
       additionalProperties: false
       properties:
+        ledger:
+          $ref: "#/components/schemas/InvoiceLineLedger"
+          description: The usage journal rows the line was measured from
         measuredQuantity:
           description: "In measured units: the usage for a USAGE line, the overage for an OVERAGE line"
           examples:
