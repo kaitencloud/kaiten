@@ -258,7 +258,7 @@ func TestUsageSourceSeal(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	ref := journalPair(t, exampleJournal, "181500", 45)
 
-	mark, err := source().Seal(t.Context(), ref, time.Now().UTC().Add(-time.Second))
+	mark, err := source().Seal(t.Context(), ref, time.Now().UTC().Add(-time.Minute))
 	require.NoError(t, err)
 	require.EqualValues(t, 45, mark.ReportSeq)
 	require.WithinDuration(t, time.Now(), mark.SealedAt, time.Minute)
@@ -267,7 +267,7 @@ func TestUsageSourceSeal(t *testing.T) {
 	require.ErrorIs(t, err, ports.ErrClockBehind)
 
 	unknown := ports.UsageRef{OrganizationID: ref.OrganizationID, InstanceID: uuid.New(), EntitlementID: uuid.New()}
-	mark, err = source().Seal(t.Context(), unknown, time.Now().UTC().Add(-time.Second))
+	mark, err = source().Seal(t.Context(), unknown, time.Now().UTC().Add(-time.Minute))
 	require.NoError(t, err)
 	require.Zero(t, mark.ReportSeq, fmt.Sprintf("a pair with no report seals at 0, got %d", mark.ReportSeq))
 }
@@ -294,9 +294,13 @@ func TestUsageSourceOverReportedUsage(t *testing.T) {
 	}
 
 	ref := ports.UsageRef{OrganizationID: testDb.DefaultData.OrganizationID, InstanceID: instance.ID, EntitlementID: tokens}
-	_, err := source().Seal(t.Context(), ref, time.Now().UTC().Add(-time.Millisecond))
+	// Sealed at the database's clock, not the host's: the two can drift.
+	var dbNow time.Time
+	require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+		`SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp`).Scan(&dbNow))
+	_, err := source().Seal(t.Context(), ref, dbNow)
 	require.NoError(t, err)
-	to := time.Now().UTC().Add(time.Second)
+	to := dbNow.Add(time.Second)
 
 	summary, err := source().Summarize(t.Context(), ref, from, to)
 	require.NoError(t, err)

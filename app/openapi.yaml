@@ -260,6 +260,9 @@ components:
         resubscribed:
           description: Set when a CANCELED subscription was subscribed again
           type: boolean
+        scheduledChange:
+          $ref: "#/components/schemas/ScheduledChange"
+          description: A plan change waiting for the next boundary
         startedAt:
           description: "When billing started: usage before it is never billed"
           format: date-time
@@ -270,6 +273,10 @@ components:
             - ACTIVE
             - PAST_DUE
             - CANCELED
+          type: string
+        trialEndsAt:
+          description: "When the trial ends, or ended: usage before it is never billed"
+          format: date-time
           type: string
         updatedAt:
           format: date-time
@@ -333,6 +340,384 @@ components:
         context:
           additionalProperties: {}
           type: object
+      type: object
+    CanceledSubscription:
+      additionalProperties: false
+      properties:
+        anchorAt:
+          description: The instant its periods are counted from
+          format: date-time
+          type: string
+        basePrice:
+          $ref: "#/components/schemas/Price"
+          description: The FLAT_FEE price the subscription is pinned to, deprecated or not
+        billingPeriod:
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        cancelAtPeriodEnd:
+          type: boolean
+        cancelRequestedAt:
+          format: date-time
+          type: string
+        canceledAt:
+          format: date-time
+          type: string
+        cancellationReason:
+          type: string
+        collectionMethod:
+          description: "Effective: the subscription's own, else the organization's default"
+          enum:
+            - SEND_INVOICE
+            - CHARGE_AUTOMATICALLY
+          type: string
+        collectionMethodOverride:
+          description: The subscription's own collection method; absent when it takes the organization's
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        currentPeriodEnd:
+          description: "The next boundary: the period closes, and its invoice is composed, after it"
+          format: date-time
+          type: string
+        currentPeriodStart:
+          format: date-time
+          type: string
+        customerName:
+          type: string
+        customerSlug:
+          type: string
+        daysUntilDue:
+          description: "Effective: the subscription's own, else the organization's default"
+          format: int32
+          type: integer
+        daysUntilDueOverride:
+          description: The subscription's own payment terms; absent when it takes the organization's
+          format: int32
+          type: integer
+        finalInvoice:
+          $ref: "#/components/schemas/InvoiceSummary"
+          description: The FINAL invoice of an immediate cancellation
+        id:
+          type: string
+        instanceName:
+          type: string
+        instanceSlug:
+          description: As it was at the subscription's last write
+          type: string
+        pastDueSince:
+          format: date-time
+          type: string
+        providerKind:
+          description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+        scheduledChange:
+          $ref: "#/components/schemas/ScheduledChange"
+          description: A plan change waiting for the next boundary
+        startedAt:
+          description: "When billing started: usage before it is never billed"
+          format: date-time
+          type: string
+        status:
+          enum:
+            - TRIAL
+            - ACTIVE
+            - PAST_DUE
+            - CANCELED
+          type: string
+        trialEndsAt:
+          description: "When the trial ends, or ended: usage before it is never billed"
+          format: date-time
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - id
+        - instanceSlug
+        - instanceName
+        - customerSlug
+        - customerName
+        - status
+        - providerKind
+        - collectionMethod
+        - daysUntilDue
+        - basePrice
+        - billingPeriod
+        - currency
+        - anchorAt
+        - startedAt
+        - currentPeriodStart
+        - currentPeriodEnd
+        - cancelAtPeriodEnd
+        - createdAt
+        - updatedAt
+      type: object
+    Cancellation:
+      additionalProperties: false
+      properties:
+        anchorAt:
+          description: The instant its periods are counted from
+          format: date-time
+          type: string
+        basePrice:
+          $ref: "#/components/schemas/Price"
+          description: The FLAT_FEE price the subscription is pinned to, deprecated or not
+        billingPeriod:
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        cancelAtPeriodEnd:
+          type: boolean
+        cancelRequestedAt:
+          format: date-time
+          type: string
+        canceledAt:
+          format: date-time
+          type: string
+        cancellationReason:
+          type: string
+        collectionMethod:
+          description: "Effective: the subscription's own, else the organization's default"
+          enum:
+            - SEND_INVOICE
+            - CHARGE_AUTOMATICALLY
+          type: string
+        collectionMethodOverride:
+          description: The subscription's own collection method; absent when it takes the organization's
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        currentPeriodEnd:
+          description: "The next boundary: the period closes, and its invoice is composed, after it"
+          format: date-time
+          type: string
+        currentPeriodStart:
+          format: date-time
+          type: string
+        customerName:
+          type: string
+        customerSlug:
+          type: string
+        daysUntilDue:
+          description: "Effective: the subscription's own, else the organization's default"
+          format: int32
+          type: integer
+        daysUntilDueOverride:
+          description: The subscription's own payment terms; absent when it takes the organization's
+          format: int32
+          type: integer
+        finalInvoiceId:
+          description: The FINAL invoice, when the cancellation issued one
+          type: string
+        id:
+          type: string
+        instanceName:
+          type: string
+        instanceSlug:
+          description: As it was at the subscription's last write
+          type: string
+        mode:
+          description: How it was canceled; a trial is canceled at once in either mode
+          enum:
+            - AT_PERIOD_END
+            - IMMEDIATE
+          type: string
+        pastDueSince:
+          format: date-time
+          type: string
+        providerKind:
+          description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+        scheduledChange:
+          $ref: "#/components/schemas/ScheduledChange"
+          description: A plan change waiting for the next boundary
+        startedAt:
+          description: "When billing started: usage before it is never billed"
+          format: date-time
+          type: string
+        status:
+          enum:
+            - TRIAL
+            - ACTIVE
+            - PAST_DUE
+            - CANCELED
+          type: string
+        trialEndsAt:
+          description: "When the trial ends, or ended: usage before it is never billed"
+          format: date-time
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - mode
+        - id
+        - instanceSlug
+        - instanceName
+        - customerSlug
+        - customerName
+        - status
+        - providerKind
+        - collectionMethod
+        - daysUntilDue
+        - basePrice
+        - billingPeriod
+        - currency
+        - anchorAt
+        - startedAt
+        - currentPeriodStart
+        - currentPeriodEnd
+        - cancelAtPeriodEnd
+        - createdAt
+        - updatedAt
+      type: object
+    CancellationChange:
+      additionalProperties: false
+      properties:
+        anchorAt:
+          description: The instant its periods are counted from
+          format: date-time
+          type: string
+        basePrice:
+          $ref: "#/components/schemas/Price"
+          description: The FLAT_FEE price the subscription is pinned to, deprecated or not
+        billingPeriod:
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        cancelAtPeriodEnd:
+          type: boolean
+        cancelRequestedAt:
+          format: date-time
+          type: string
+        canceledAt:
+          format: date-time
+          type: string
+        cancellationReason:
+          type: string
+        collectionMethod:
+          description: "Effective: the subscription's own, else the organization's default"
+          enum:
+            - SEND_INVOICE
+            - CHARGE_AUTOMATICALLY
+          type: string
+        collectionMethodOverride:
+          description: The subscription's own collection method; absent when it takes the organization's
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        currentPeriodEnd:
+          description: "The next boundary: the period closes, and its invoice is composed, after it"
+          format: date-time
+          type: string
+        currentPeriodStart:
+          format: date-time
+          type: string
+        customerName:
+          type: string
+        customerSlug:
+          type: string
+        daysUntilDue:
+          description: "Effective: the subscription's own, else the organization's default"
+          format: int32
+          type: integer
+        daysUntilDueOverride:
+          description: The subscription's own payment terms; absent when it takes the organization's
+          format: int32
+          type: integer
+        effectiveAt:
+          description: The boundary the cancellation takes effect at
+          format: date-time
+          type: string
+        id:
+          type: string
+        instanceName:
+          type: string
+        instanceSlug:
+          description: As it was at the subscription's last write
+          type: string
+        pastDueSince:
+          format: date-time
+          type: string
+        providerKind:
+          description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+        scheduledChange:
+          $ref: "#/components/schemas/ScheduledChange"
+          description: A plan change waiting for the next boundary
+        startedAt:
+          description: "When billing started: usage before it is never billed"
+          format: date-time
+          type: string
+        status:
+          enum:
+            - TRIAL
+            - ACTIVE
+            - PAST_DUE
+            - CANCELED
+          type: string
+        trialEndsAt:
+          description: "When the trial ends, or ended: usage before it is never billed"
+          format: date-time
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - effectiveAt
+        - id
+        - instanceSlug
+        - instanceName
+        - customerSlug
+        - customerName
+        - status
+        - providerKind
+        - collectionMethod
+        - daysUntilDue
+        - basePrice
+        - billingPeriod
+        - currency
+        - anchorAt
+        - startedAt
+        - currentPeriodStart
+        - currentPeriodEnd
+        - cancelAtPeriodEnd
+        - createdAt
+        - updatedAt
       type: object
     ClosePeriodsScope:
       additionalProperties: false
@@ -2041,6 +2426,9 @@ components:
             - NOOP
             - STRIPE
           type: string
+        scheduledChange:
+          $ref: "#/components/schemas/ScheduledChange"
+          description: A plan change waiting for the next boundary
         startedAt:
           description: "When billing started: usage before it is never billed"
           format: date-time
@@ -2051,6 +2439,10 @@ components:
             - ACTIVE
             - PAST_DUE
             - CANCELED
+          type: string
+        trialEndsAt:
+          description: "When the trial ends, or ended: usage before it is never billed"
+          format: date-time
           type: string
         updatedAt:
           format: date-time
@@ -3811,6 +4203,10 @@ components:
           description: "The anchor periods are counted from, truncated to the second: now when omitted, else at most one billing period ago. A period that has already ended closes on the next pass."
           format: date-time
           type: string
+        trialDays:
+          description: "Days of trial from the anchor: nothing is billed, and no usage counts, until it ends; the period close then issues the first invoice. 0 is no trial. Omitted: the licence's trialPeriodDays, else no trial."
+          format: int32
+          type: integer
       required:
         - basePriceId
       type: object
@@ -4412,6 +4808,57 @@ components:
         - scopes
         - createdAt
         - createdBy
+      type: object
+    PlanChange:
+      additionalProperties: false
+      properties:
+        fromLicenseSlug:
+          type: string
+        fromPriceId:
+          type: string
+        instanceSlug:
+          type: string
+        invoiceId:
+          description: The RENEWAL that billed the old plan's arrears and the new plan's advance
+          type: string
+        toLicenseSlug:
+          type: string
+        toPriceId:
+          type: string
+      required:
+        - instanceSlug
+        - fromLicenseSlug
+        - toLicenseSlug
+        - fromPriceId
+        - toPriceId
+        - invoiceId
+      type: object
+    PlanChangeSchedule:
+      additionalProperties: false
+      properties:
+        effectiveAt:
+          format: date-time
+          type: string
+        fromPriceId:
+          type: string
+        instanceSlug:
+          type: string
+        toPriceId:
+          type: string
+      required:
+        - instanceSlug
+        - fromPriceId
+        - toPriceId
+        - effectiveAt
+      type: object
+    PlanChangeTarget:
+      additionalProperties: false
+      properties:
+        licensePriceId:
+          description: An ACTIVE FLAT_FEE price of a PUBLISHED licence version, in the subscription's currency
+          type: string
+      required:
+        - licensePriceId
       type: object
     PreferenceChoices:
       additionalProperties: false
@@ -5221,6 +5668,24 @@ components:
         - entitlementSlug
         - quantity
       type: object
+    ScheduledChange:
+      additionalProperties: false
+      properties:
+        effectiveAt:
+          description: "The boundary it applies at: the current period's end"
+          format: date-time
+          type: string
+        price:
+          $ref: "#/components/schemas/Price"
+          description: The FLAT_FEE price the subscription moves to
+        scheduledAt:
+          format: date-time
+          type: string
+      required:
+        - price
+        - scheduledAt
+        - effectiveAt
+      type: object
     ServiceAccount:
       additionalProperties: false
       properties:
@@ -5338,6 +5803,9 @@ components:
             - NOOP
             - STRIPE
           type: string
+        scheduledChange:
+          $ref: "#/components/schemas/ScheduledChange"
+          description: A plan change waiting for the next boundary
         startedAt:
           description: "When billing started: usage before it is never billed"
           format: date-time
@@ -5348,6 +5816,10 @@ components:
             - ACTIVE
             - PAST_DUE
             - CANCELED
+          type: string
+        trialEndsAt:
+          description: "When the trial ends, or ended: usage before it is never billed"
+          format: date-time
           type: string
         updatedAt:
           format: date-time
@@ -5372,6 +5844,76 @@ components:
         - cancelAtPeriodEnd
         - createdAt
         - updatedAt
+      type: object
+    StatusChange:
+      additionalProperties: false
+      properties:
+        from:
+          enum:
+            - TRIAL
+            - ACTIVE
+            - PAST_DUE
+            - CANCELED
+          type: string
+        instanceBillingId:
+          type: string
+        instanceSlug:
+          type: string
+        reason:
+          enum:
+            - TRIAL_ENDED
+            - INVOICE_OVERDUE
+            - PAYMENT_FAILED
+            - SETTLED
+          type: string
+        to:
+          enum:
+            - TRIAL
+            - ACTIVE
+            - PAST_DUE
+            - CANCELED
+          type: string
+      required:
+        - instanceBillingId
+        - instanceSlug
+        - from
+        - to
+        - reason
+      type: object
+    SubscriptionCancellation:
+      additionalProperties: false
+      properties:
+        mode:
+          description: "AT_PERIOD_END (the default): the period paid for runs out, then the FINAL invoice is issued. IMMEDIATE: the FINAL invoice is issued now, flat fees billed in full and nothing refunded."
+          enum:
+            - AT_PERIOD_END
+            - IMMEDIATE
+          type: string
+        reason:
+          description: Up to 500 characters
+          type: string
+      type: object
+    SubscriptionTerms:
+      additionalProperties: false
+      properties:
+        collectionMethod:
+          description: "null: the organization's default"
+          enum:
+            - SEND_INVOICE
+          type:
+            - string
+            - "null"
+        daysUntilDue:
+          description: "0 to 365; null: the organization's default"
+          format: int32
+          type:
+            - integer
+            - "null"
+        providerKind:
+          description: Who collects the invoices. Only NOOP is available until a payment provider is.
+          enum:
+            - NOOP
+          type: string
       type: object
     SystemTokenIssuance:
       additionalProperties: false
@@ -10198,6 +10740,91 @@ paths:
       summary: Get an instance's subscription
       tags:
         - billing
+    patch:
+      description: Changes the subscription's collection method and payment terms from its next invoice on; null restores the organization's default. Invoices already composed keep their own. Requires billing to be enabled for the organization.
+      operationId: updateInstanceBilling
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscriptionTerms"
+          application/octet-stream:
+            schema:
+              contentMediaType: application/octet-stream
+              format: binary
+              type: string
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstanceBilling"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:billing
+      summary: Change a subscription's terms
+      tags:
+        - billing
     post:
       description: Starts billing an instance on a FLAT_FEE price of its licence version. A base price that bills in advance issues the first period's invoice (ACTIVATION) at once; each period then closes into a RENEWAL. A CANCELED subscription is subscribed again. While the subscription is live the instance's customer and licence cannot change. Requires billing to be enabled for the organization.
       operationId: subscribeInstance
@@ -10276,6 +10903,317 @@ paths:
         - bearerAuth:
             - write:billing
       summary: Subscribe an instance
+      tags:
+        - billing
+  /instances/{instanceSlug}/billing/cancel:
+    post:
+      description: "Cancels an instance's subscription: a trial at once with no invoice; otherwise at the period's end (repeating it changes nothing), or immediately with a FINAL invoice. Cancellation changes billing only: entitlements and licence dates stay the vendor's to change. Requires billing to be enabled for the organization."
+      operationId: cancelSubscription
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscriptionCancellation"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CanceledSubscription"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:billing
+      summary: Cancel a subscription
+      tags:
+        - billing
+  /instances/{instanceSlug}/billing/reactivate:
+    post:
+      description: Reverts a cancellation scheduled for the period end, before it. A canceled subscription is subscribed again instead. Requires billing to be enabled for the organization.
+      operationId: reactivateSubscription
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstanceBilling"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:billing
+      summary: Reactivate a subscription
+      tags:
+        - billing
+  /instances/{instanceSlug}/billing/scheduled-change:
+    delete:
+      description: Drops the plan change scheduled for the next boundary. Requires billing to be enabled for the organization.
+      operationId: cancelPlanChange
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstanceBilling"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:billing
+      summary: Cancel a scheduled plan change
+      tags:
+        - billing
+    put:
+      description: Schedules a move to another FLAT_FEE price, of any PUBLISHED licence version in the subscription's currency, for the next boundary. That boundary's RENEWAL bills the old plan's arrears and the new plan's advance, and moves the instance to the new version; there is no proration. Scheduling another target replaces the change, the same one changes nothing. A scheduled target's price cannot be deprecated, nor its version archived. Requires billing to be enabled for the organization.
+      operationId: schedulePlanChange
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanChangeTarget"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstanceBilling"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:billing
+      summary: Schedule a plan change
       tags:
         - billing
   /instances/{instanceSlug}/billing/upcoming-invoice:
@@ -16661,6 +17599,240 @@ webhooks:
       tags:
         - webhooks
         - identity
+  com.kaiten.instance.billing.v1.canceled:
+    post:
+      description: "Triggered when a subscription is canceled: at its period's end, immediately, or during its trial."
+      operationId: onInstanceBillingCanceled
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Cancellation"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_BILLING_CANCELED
+                  examples:
+                    - INSTANCE_BILLING_CANCELED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.billing.v1.canceled
+                  examples:
+                    - com.kaiten.instance.billing.v1.canceled
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Billing Canceled Webhook
+      tags:
+        - webhooks
+        - billing
+  com.kaiten.instance.billing.v1.cancellation_reverted:
+    post:
+      description: Triggered when a scheduled cancellation is reverted before the boundary.
+      operationId: onInstanceBillingCancellationReverted
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/CancellationChange"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_BILLING_CANCELLATION_REVERTED
+                  examples:
+                    - INSTANCE_BILLING_CANCELLATION_REVERTED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.billing.v1.cancellation_reverted
+                  examples:
+                    - com.kaiten.instance.billing.v1.cancellation_reverted
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Billing Cancellation Reverted Webhook
+      tags:
+        - webhooks
+        - billing
+  com.kaiten.instance.billing.v1.cancellation_scheduled:
+    post:
+      description: Triggered when a subscription is set to cancel at the end of its period.
+      operationId: onInstanceBillingCancellationScheduled
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/CancellationChange"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_BILLING_CANCELLATION_SCHEDULED
+                  examples:
+                    - INSTANCE_BILLING_CANCELLATION_SCHEDULED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.billing.v1.cancellation_scheduled
+                  examples:
+                    - com.kaiten.instance.billing.v1.cancellation_scheduled
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Billing Cancellation Scheduled Webhook
+      tags:
+        - webhooks
+        - billing
+  com.kaiten.instance.billing.v1.plan_change_cancelled:
+    post:
+      description: "Triggered when a scheduled plan change is dropped: by request, or by a cancellation."
+      operationId: onInstanceBillingPlanChangeCancelled
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/PlanChangeSchedule"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_BILLING_PLAN_CHANGE_CANCELLED
+                  examples:
+                    - INSTANCE_BILLING_PLAN_CHANGE_CANCELLED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.billing.v1.plan_change_cancelled
+                  examples:
+                    - com.kaiten.instance.billing.v1.plan_change_cancelled
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Billing Plan Change Cancelled Webhook
+      tags:
+        - webhooks
+        - billing
+  com.kaiten.instance.billing.v1.plan_change_scheduled:
+    post:
+      description: Triggered when a plan change is scheduled for the next boundary, or replaced.
+      operationId: onInstanceBillingPlanChangeScheduled
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/PlanChangeSchedule"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED
+                  examples:
+                    - INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.billing.v1.plan_change_scheduled
+                  examples:
+                    - com.kaiten.instance.billing.v1.plan_change_scheduled
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Billing Plan Change Scheduled Webhook
+      tags:
+        - webhooks
+        - billing
+  com.kaiten.instance.billing.v1.plan_changed:
+    post:
+      description: Triggered when a scheduled plan change is applied at a boundary.
+      operationId: onInstanceBillingPlanChanged
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/PlanChange"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_BILLING_PLAN_CHANGED
+                  examples:
+                    - INSTANCE_BILLING_PLAN_CHANGED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.billing.v1.plan_changed
+                  examples:
+                    - com.kaiten.instance.billing.v1.plan_changed
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Billing Plan Changed Webhook
+      tags:
+        - webhooks
+        - billing
   com.kaiten.instance.billing.v1.started:
     post:
       description: Triggered when an instance is subscribed, or a CANCELED subscription subscribed again.
@@ -16697,6 +17869,45 @@ webhooks:
         "200":
           description: Webhook processed successfully
       summary: Instance Billing Started Webhook
+      tags:
+        - webhooks
+        - billing
+  com.kaiten.instance.billing.v1.status_changed:
+    post:
+      description: Triggered when a trial converts, or a subscription becomes PAST_DUE or leaves it.
+      operationId: onInstanceBillingStatusChanged
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/StatusChange"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_BILLING_STATUS_CHANGED
+                  examples:
+                    - INSTANCE_BILLING_STATUS_CHANGED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.billing.v1.status_changed
+                  examples:
+                    - com.kaiten.instance.billing.v1.status_changed
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Billing Status Changed Webhook
       tags:
         - webhooks
         - billing
