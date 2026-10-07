@@ -68,3 +68,23 @@ func Price(cp ports.CataloguePrice) rating.Price {
 	}
 	return out
 }
+
+// Addons maps the add-ons an instance holds to what the composer bills, in
+// the subscription's currency only: an add-on priced in another one cannot be
+// on its invoice.
+func Addons(held []ports.BillableAddon, currency string) []rating.AddonCharge {
+	var out []rating.AddonCharge
+	for _, addon := range held {
+		if addon.Currency != currency {
+			continue
+		}
+		out = append(out, rating.AddonCharge{
+			InstanceAddonID: addon.InstanceAddonID, AddonID: addon.AddonID, Name: addon.Name, Quantity: addon.Quantity,
+			Price: rating.Price{
+				ID: addon.PriceID, BillingModel: rating.ModelFlatFee, BillingTiming: addon.BillingTiming,
+				UnitAmountDecimal: addon.UnitAmountDecimal, DisplayLabel: addon.DisplayLabel, DisplayOrder: 0, Meter: nil,
+			},
+		})
+	}
+	return out
+}
