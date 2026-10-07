@@ -80,7 +80,7 @@ func (u *UseCase) Execute(ctx context.Context) (*BillingCapabilities, error) {
 		UsageHistoryRetentionMonths: nil,
 		UsageIdempotencyWindowDays:  int(u.idempotencyWindow / (24 * time.Hour)),
 		Features: BillingFeatures{
-			Stripe: false, Lifecycle: true, Trials: true, Addons: false, Vouchers: false,
+			Stripe: false, Lifecycle: true, Trials: true, Addons: true, Vouchers: false,
 			ChargeAutomatically: false, PublicSurface: false,
 		},
 	}

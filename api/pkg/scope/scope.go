@@ -70,6 +70,14 @@ const (
 	// be added to the identity provider's JWT template before a signed-in user
 	// can reach a billing screen.
 	Billing Module = "billing"
+	// Addons gates the add-on catalogue: families, versions, their prices,
+	// grants and compatible licence families. Attaching an add-on to an
+	// instance stays on Instances: it changes what the instance is entitled
+	// to, like changing its licence.
+	//
+	// DEPLOYMENT NOTE: like Billing, read:addons and write:addons have to be
+	// added to the identity provider's JWT template.
+	Addons Module = "addons"
 )
 
 // allModules is the single source of truth for valid modules
@@ -90,6 +98,7 @@ var allModules = []Module{
 	Memberships,
 	Notifications,
 	Billing,
+	Addons,
 }
 
 // Error codes a scope refusal answers with. They live here, next to the scopes

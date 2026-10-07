@@ -9,6 +9,7 @@
 // side.
 
 export const API_SCOPE_RESOURCES = [
+  'addons',
   'billing',
   'components',
   'customers',
@@ -32,6 +33,7 @@ export const API_SCOPE_PERMISSIONS = ['read', 'write'] as const;
 export type ApiScopePermission = (typeof API_SCOPE_PERMISSIONS)[number];
 
 export const API_SCOPES = [
+  'read:addons',
   'read:billing',
   'read:components',
   'read:customers',
@@ -46,6 +48,7 @@ export const API_SCOPES = [
   'read:releases',
   'read:tokens',
   'read:webhooks',
+  'write:addons',
   'write:billing',
   'write:components',
   'write:customers',

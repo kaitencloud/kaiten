@@ -45,6 +45,7 @@ import (
 type Ports struct {
 	Catalogue ports.CatalogueSource
 	Usage     ports.UsageSource
+	Addons    ports.AddonSource
 }
 
 type UseCases struct {
@@ -82,6 +83,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		Gate:         gate.New(svc.Config.Billing.Enabled, svc.ConnectorEntitlements),
 		Catalogue:    from.Catalogue,
 		Usage:        from.Usage,
+		Addons:       from.Addons,
 	}
 	cfg := svc.Config.Billing
 	closer := closing.New(deps, cfg.CloseGrace)
