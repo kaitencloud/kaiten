@@ -821,6 +821,89 @@ export default {
       subtitle: 'Manage licenses and entitlement limits',
       Prices: {
         title: 'Prices',
+        tabDescription:
+          'One price is one billable concern, and becomes one line of an invoice.',
+        defaultBadge: 'Default',
+        perUnit: 'per {{unit}}',
+        deprecatedOn: 'Deprecated {{date}}',
+        Summary: {
+          empty: 'No active price yet',
+          or: 'or',
+          overage: '{{price}} above the allowance',
+        },
+        Notes: {
+          draft:
+            'The prices of a draft can be edited. Once the version is published they become immutable: deprecate one, or create a new version to change what is sold.',
+          published:
+            'The prices of a published version are immutable. Deprecate a price to retire it, or create a new version to change what is sold. A price can still be added until a subscription bills this version.',
+          archived:
+            'This version is withdrawn from sale. Its prices are immutable and it takes no new price; subscriptions that bill it keep being billed.',
+        },
+        Models: {
+          FLAT_FEE: {
+            label: 'Flat fee',
+            blurb: 'Recurs each period, quantity 1.',
+          },
+          USAGE_BASED: {
+            label: 'Usage-based',
+            blurb: 'Meters from the first unit, per sale unit.',
+          },
+          OVERAGE: {
+            label: 'Overage',
+            blurb: 'Bills only what exceeds the grant, up to its cap.',
+          },
+        },
+        Timings: {
+          ADVANCE: {
+            label: 'In advance',
+            blurb: 'Bills the period that starts at the boundary.',
+          },
+          ARREARS: {
+            label: 'In arrears',
+            blurb: 'Bills the period that ends at the boundary.',
+          },
+        },
+        Periods: {
+          MONTHLY: 'Monthly',
+          QUARTERLY: 'Quarterly',
+          SEMI_ANNUAL: 'Every 6 months',
+          ANNUAL: 'Annual',
+        },
+        PeriodSuffix: {
+          MONTHLY: '/month',
+          QUARTERLY: '/quarter',
+          SEMI_ANNUAL: '/6 months',
+          ANNUAL: '/year',
+        },
+        Status: {
+          ACTIVE: 'Active',
+          DEPRECATED: 'Deprecated',
+        },
+        ResetUnits: {
+          HOUR: 'hour',
+          DAY: 'day',
+          WEEK: 'week',
+          MONTH: 'month',
+          YEAR: 'year',
+        },
+        Meter: {
+          overage: 'Bills above {{limit}} {{unit}}/{{period}}, up to {{cap}}',
+          overageUnknown:
+            'Bills the usage above the allowance the version grants',
+          usageSum: 'Summed, resets every {{period}}',
+          usageCount: 'Counted, resets every {{period}}',
+        },
+        Table: {
+          Columns: {
+            price: 'Price',
+            shape: 'Shape',
+            meter: 'Meters',
+            amount: 'Amount',
+            billed: 'Billed',
+            status: 'Status',
+          },
+          empty: 'This version has no price yet.',
+        },
       },
       Table: {
         Columns: {
@@ -982,6 +1065,9 @@ export default {
           'Only a published version can be set as the default',
       },
       Detail: {
+        Tabs: {
+          overview: 'Overview',
+        },
         cardTitle: 'License details',
         cardDescription:
           'Name, type, version. Entitlements and limits are managed below.',
