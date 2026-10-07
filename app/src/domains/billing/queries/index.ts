@@ -17,3 +17,4 @@ export {
   invalidateInvoiceQueries,
   invalidateLicensePriceQueries,
 } from './billing-query-invalidation';
+export { usageReportPagesQueryOptions } from './usage-report-pages';

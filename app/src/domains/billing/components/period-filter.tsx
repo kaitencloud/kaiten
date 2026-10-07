@@ -5,7 +5,7 @@ import {
   dateInputToInstant,
   instantToDateInput,
   isPeriodInvalid,
-} from '../../utils/invoice-filters';
+} from '@/lib/date-input';
 
 type PeriodFilterProps = {
   from: string | undefined;
@@ -63,7 +63,7 @@ export function PeriodFilter({ from, label, onChange, to }: PeriodFilterProps) {
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground" htmlFor={fromId}>
-            {t('Pages.Billing.Invoices.Filters.from')}
+            {t('Features.Billing.PeriodFilter.from')}
           </label>
           <Input
             id={fromId}
@@ -77,7 +77,7 @@ export function PeriodFilter({ from, label, onChange, to }: PeriodFilterProps) {
         </div>
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground" htmlFor={toId}>
-            {t('Pages.Billing.Invoices.Filters.before')}
+            {t('Features.Billing.PeriodFilter.before')}
           </label>
           <Input
             aria-invalid={invalid}
@@ -93,7 +93,7 @@ export function PeriodFilter({ from, label, onChange, to }: PeriodFilterProps) {
       </div>
       {invalid ? (
         <p className="text-xs text-destructive-subtle-foreground" role="alert">
-          {t('Pages.Billing.Invoices.Filters.periodInvalid')}
+          {t('Features.Billing.PeriodFilter.periodInvalid')}
         </p>
       ) : null}
     </fieldset>
