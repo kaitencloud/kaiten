@@ -4022,6 +4022,55 @@ export default {
         shown_other: '{{count}} invoices shown',
         loadMore: 'Load more',
       },
+      DeletionRefusal: {
+        title: {
+          instance: 'This instance cannot be deleted',
+          customer: 'This customer cannot be deleted',
+          entitlement: 'This entitlement cannot be deleted',
+        },
+        description: {
+          instance:
+            'Billing still depends on this instance, so it was kept. Nothing was deleted.',
+          customer:
+            'Billing still depends on this customer, so it was kept. Nothing was deleted.',
+          entitlement:
+            'Something still grants, counts or prices this entitlement, so it was kept. Nothing was deleted.',
+        },
+        subscriptionTitle: 'Subscription',
+        subscriptionLive: 'The subscription is still running.',
+        subscriptionEnded:
+          'The subscription has ended, but some of its invoices are not settled.',
+        openSubscription: 'Open the subscription',
+        customerLive:
+          'A subscription of one of its instances is still running.',
+        customerNoneLive:
+          'None of its subscriptions is running, but some invoices are not settled.',
+        openInstances: 'Open the customer',
+        unsettledTitle_one: '{{count}} invoice not settled',
+        unsettledTitle_other: '{{count}} invoices not settled',
+        unsettledHint:
+          'Settle each one (paid, void or written off), then try again.',
+        referencesTitle: 'Still in use',
+        references: {
+          licenseGrants_one: 'Granted by {{count}} license version',
+          licenseGrants_other: 'Granted by {{count}} license versions',
+          usageCounters_one: 'Usage recorded on {{count}} instance',
+          usageCounters_other: 'Usage recorded on {{count}} instances',
+          licensePrices_one: 'Metered by {{count}} license price',
+          licensePrices_other: 'Metered by {{count}} license prices',
+          addonPrices_one: 'Metered by {{count}} add-on price',
+          addonPrices_other: 'Metered by {{count}} add-on prices',
+          addonGrants_one: 'Granted by {{count}} add-on',
+          addonGrants_other: 'Granted by {{count}} add-ons',
+          boostGrants_one: 'Granted by {{count}} voucher boost',
+          boostGrants_other: 'Granted by {{count}} voucher boosts',
+        },
+        removeFirst:
+          'Remove these references, then delete the entitlement again.',
+        hideInstead:
+          'A price or a voucher boost cannot be removed once it exists, so this entitlement can no longer be deleted. To stop showing it in customer-facing components, turn off “User facing” on its page.',
+        openEntitlement: 'Open the entitlement',
+      },
     },
     AuditTrail: {
       events: {

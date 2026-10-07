@@ -95,6 +95,14 @@ export {
   getFirstInvoiceTiming,
   getSubscriptionStartBounds,
 } from './billing-period';
+export {
+  type DeletionRefusal,
+  ENTITLEMENT_REFERENCE_KEYS,
+  type EntitlementReferenceKey,
+  getEntitlementReferenceLabelKey,
+  hasPermanentReference,
+  readDeletionRefusal,
+} from './deletion-refusals';
 export { getLimitChangeSeqs } from './usage-reports';
 export {
   BILLING_MODELS,
