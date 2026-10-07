@@ -184,6 +184,28 @@ test.describe('the invoice preview of a version', () => {
     await expect(preview.totals()).not.toContainText('$34.79');
   });
 
+  test('keeps the focus on the button that ran it, so that a keyboard goes on from there', async ({
+    page,
+  }) => {
+    const prices = new LicensePricesDriver(page);
+    const preview = new LicensePreviewDriver(page);
+    await installLicenseAppMocks(page, createPricedCatalogModel());
+
+    await prices.goto('pro-v2', 'Pro');
+    await preview.open();
+    await preview.sample('Traces').fill('172345');
+    await preview.run().focus();
+    await page.keyboard.press('Enter');
+
+    await expect(preview.totals()).toContainText('$34.79');
+    // The dialog stays open once the invoice is composed: a button that took the
+    // focus with it while it worked would leave the keyboard on the page behind.
+    await expect(preview.run()).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(preview.totals()).toContainText('$34.79');
+    await expect(preview.run()).toBeFocused();
+  });
+
   test('refuses a quantity that is not one, before anything is sent', async ({
     page,
   }) => {

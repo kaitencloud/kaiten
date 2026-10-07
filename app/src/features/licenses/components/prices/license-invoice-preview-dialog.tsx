@@ -83,8 +83,13 @@ export function LicenseInvoicePreviewDialog({
             samples={sampleFields}
           />
           <div className="flex justify-end">
+            {/* The dialog stays open once the invoice is composed, so the button
+                keeps the focus while it works: a disabled one would drop it on the
+                page, and the next key would start from nowhere. */}
             <form.SubmitButton
               allowPristine
+              className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+              focusableWhenDisabled
               label={t('Pages.Licenses.Prices.Preview.run')}
             />
           </div>
