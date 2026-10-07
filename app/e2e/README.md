@@ -64,7 +64,7 @@ e2e/
 │   ├── _support/             # what the specs of every pack build on, one file per area
 │   │   ├── app-test.ts       # `test` and `expect` for specs, with optional V8 coverage
 │   │   ├── coverage.ts
-│   │   ├── assertions/       # shared expectations: toasts, accessibility, tracked events, and `recordWrites`, the writes a page sent
+│   │   ├── assertions/       # shared expectations: toasts, accessibility, a dialog's focus trap, a page with no sideways scroll, tracked events, and `recordWrites`, the writes a page sent
 │   │   ├── contracts/        # parseContract: checks a model's data against the generated Zod schemas; parseAuditEventContract: the same for an audit trail event, by its name
 │   │   ├── drivers/          # page objects for screens, dialogs and forms
 │   │   ├── fixtures/         # builders for reusable entities
@@ -85,14 +85,14 @@ The packs under `e2e/app/` fall in three groups:
 - **Objects**, one folder each: `customers/`, `entitlements/`, `feature-flags/`, `instances/`, `licenses/`, `connectors/`.
 - **Billing**: `billing/` holds the scenarios of the billing capabilities (`BillingAppModel`) that every billing screen gates on, and the specs of the navigation and of what a billing link explains where billing is not there; the packs of the billing screens join it as they are built. The screens of a license version's prices live in `licenses/`, with the model of what a version sells (`LicenseAppModel`: grants, prices, the invoice preview composed as the API does it, and the freezes of a billed version).
 - **A workspace**: `release-management/` covers releases, components and deployment zones together, because they form one workspace with shared state.
-- **Read-only and cross-cutting checks**: `audit-trail/`, `dashboard/`, `notifications/`, `accessibility/` (axe), `i18n/` and `mobile/` (a Pixel 5 viewport).
+- **Read-only and cross-cutting checks**: `audit-trail/`, `dashboard/`, `notifications/`, `accessibility/` (axe, the focus trap of dialogs), `i18n/` and `mobile/` (a Pixel 5 viewport, and the 375 px width billing screens are checked at).
 
 ## Write an application spec
 
 The rules the packs follow:
 
 1. A simple object gets its own folder. A sub-domain that spans several features gets one workspace folder, as `release-management/` does.
-2. Specs are named `<subject>.<intent>.spec.ts`. The subject is the pack or, in a workspace folder, the object the spec covers (`releases.create.spec.ts` in `release-management/`). The intent is what the user does or what the spec checks: `read`, `create`, `update`, `delete`, `errors`, `deploy`, `toggle`, `lifecycle`, `display-order` and so on. One spec file states one intention; a significant variant goes in its own file, not in a long test. `accessibility/` holds a single `accessibility.spec.ts`.
+2. Specs are named `<subject>.<intent>.spec.ts`. The subject is the pack or, in a workspace folder, the object the spec covers (`releases.create.spec.ts` in `release-management/`). The intent is what the user does or what the spec checks: `read`, `create`, `update`, `delete`, `errors`, `deploy`, `toggle`, `lifecycle`, `display-order` and so on. One spec file states one intention; a significant variant goes in its own file, not in a long test. `accessibility/` holds `accessibility.spec.ts`, the axe smoke over the main screens, and one spec for an area whose dialogs need more than that (`accessibility.licenses.spec.ts`: no violation, the focus held, Escape to close); `mobile/` does the same (`mobile.licenses.spec.ts`).
 3. A pack that owns test data keeps it next to its specs in `<pack>.scenarios.ts`, as factories such as `createCustomersListModel()` that return a seeded model. `accessibility/`, `i18n/` and `mobile/` have none: they import the scenarios of the packs whose screens they visit.
 4. `_support/` holds the drivers, mock installers, models and fixtures of every pack, one per area, even when a single pack uses them. Look there before you write a helper, and reuse a driver or a model instead of copying it into a spec.
 5. Mocks are stateful. A create, an update or a deploy changes the model, and the screens that depend on it read the change back.
