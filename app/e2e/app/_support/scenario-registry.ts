@@ -9,9 +9,13 @@ import {
   createBillingFullModel,
   createBillingOutageModel,
   createBillingStackModel,
+  createDeletedInstanceModel,
   createEmptyInvoicesModel,
   createInvoicesModel,
+  createLongHandoffQueueModel,
   createManyInvoicesModel,
+  createManyReportsModel,
+  createMismatchedTotalsModel,
 } from '../billing/billing.scenarios';
 import { createDisconnectedAttioModel } from '../connectors/connectors.scenarios';
 import { createDashboardReadModel } from '../dashboard/dashboard.scenarios';
@@ -127,7 +131,15 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     () => createInvoicesModel({ retentionStart: '2026-04-01T00:00:00.000Z' }),
   ],
   ['billing/createEmptyInvoicesModel', createEmptyInvoicesModel],
+  [
+    'billing/createInvoicesModel({ retentionMonths: 1 })',
+    () => createInvoicesModel({ retentionMonths: 1 }),
+  ],
   ['billing/createManyInvoicesModel', createManyInvoicesModel],
+  ['billing/createManyReportsModel', createManyReportsModel],
+  ['billing/createLongHandoffQueueModel', createLongHandoffQueueModel],
+  ['billing/createDeletedInstanceModel', createDeletedInstanceModel],
+  ['billing/createMismatchedTotalsModel', createMismatchedTotalsModel],
   ['customers/createCustomersListModel', createCustomersListModel],
   ['customers/createEditableCustomerModel', createEditableCustomerModel],
   ['customers/createDeletableCustomerModel', createDeletableCustomerModel],

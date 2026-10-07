@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 
 /**
- * The scopes of the people the billing specs sign in as. They are the claims
+ * The scopes of the people the specs of the billing screens sign in as. They are the claims
  * of the token of a session, which is where the console reads them from.
  */
 export const SESSION_SCOPES = {
