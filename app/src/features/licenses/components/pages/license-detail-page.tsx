@@ -10,6 +10,8 @@ import { getActiveTabFromPathname } from '@/lib/detail';
 type LicenseDetailPageProps = {
   /** The tab the route renders: its overview, or its prices. */
   children: ReactNode;
+  /** The version whose prices were being copied to this one, when a copy stopped. */
+  copyFrom?: string;
   license: License;
   licenseSlug: string;
 };
@@ -21,6 +23,7 @@ type LicenseDetailPageProps = {
  */
 export function LicenseDetailPage({
   children,
+  copyFrom,
   license,
   licenseSlug,
 }: LicenseDetailPageProps) {
@@ -29,6 +32,10 @@ export function LicenseDetailPage({
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
+  // A copy of prices that stopped is finished on the Prices tab, and the cause
+  // of its stopping may be fixed on the Overview (a grant the prices meter): the
+  // tabs carry it, so that coming back finds it.
+  const search = copyFrom ? { copyFrom } : undefined;
   const activeTab = getActiveTabFromPathname({
     defaultTab: 'overview',
     matchers: [{ suffix: '/prices', value: 'prices' }],
@@ -39,6 +46,7 @@ export function LicenseDetailPage({
     {
       label: t('Pages.Licenses.Detail.Tabs.overview'),
       params,
+      search,
       to: '/licenses/$licenseSlug',
       value: 'overview',
     },
@@ -47,6 +55,7 @@ export function LicenseDetailPage({
           {
             label: t('Pages.Licenses.Prices.title'),
             params,
+            search,
             to: '/licenses/$licenseSlug/prices',
             value: 'prices',
           },

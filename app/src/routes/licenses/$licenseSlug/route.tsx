@@ -9,10 +9,13 @@ import {
 } from '@/features/licenses';
 
 // `?mode=configure` opens the dialog the commercial fields are edited in, as it
-// opens the edit dialog of the other detail pages. The search stays open: a tab
-// of the version has search of its own.
+// opens the edit dialog of the other detail pages. `?copyFrom=<version>` is left
+// by a copy of that version's prices that stopped halfway: the tabs of the
+// version carry it, so that it is found again on the Prices tab. The search
+// stays open: a tab of the version has search of its own.
 const licenseDetailSearchSchema = z
   .object({
+    copyFrom: z.string().optional(),
     mode: z.enum(['configure']).optional(),
   })
   .loose();
@@ -36,7 +39,7 @@ export const Route = createFileRoute('/licenses/$licenseSlug')({
 function LicenseDetailRouteLayout() {
   const navigate = useNavigate();
   const { licenseSlug } = Route.useParams();
-  const { mode } = Route.useSearch();
+  const { copyFrom, mode } = Route.useSearch();
   const { data: license } = useSuspenseQuery(licenseQueryOptions(licenseSlug));
 
   const closeConfigure = () => {
@@ -47,7 +50,11 @@ function LicenseDetailRouteLayout() {
   };
 
   return (
-    <LicenseDetailPage license={license} licenseSlug={licenseSlug}>
+    <LicenseDetailPage
+      copyFrom={copyFrom}
+      license={license}
+      licenseSlug={licenseSlug}
+    >
       {mode === 'configure' ? (
         <LicenseCommercialDialog license={license} onClose={closeConfigure} />
       ) : null}
