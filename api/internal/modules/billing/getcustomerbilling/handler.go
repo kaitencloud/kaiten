@@ -14,7 +14,7 @@ const operation = "GetCustomerBilling"
 
 // CustomerBilling is a customer's billing as the providers know it.
 type CustomerBilling struct {
-	BillingEmail *string                           `json:"billingEmail,omitempty" doc:"Where the customer's invoices are sent. Personal data"`
+	BillingEmail *string                             `json:"billingEmail,omitempty" doc:"Where the customer's invoices are sent. Personal data"`
 	Providers    []paymentmethods.CustomerInProvider `json:"providers" nullable:"false" doc:"The customer in each payment provider; none for NOOP"`
 }
 

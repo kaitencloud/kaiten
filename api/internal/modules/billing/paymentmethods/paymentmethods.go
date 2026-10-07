@@ -41,10 +41,10 @@ type PaymentMethodLabels struct {
 
 // CustomerInProvider is a customer's side in one provider.
 type CustomerInProvider struct {
-	ProviderKind       string         `json:"providerKind" enum:"STRIPE"`
-	ExternalCustomerID string         `json:"externalCustomerId" doc:"The customer's id in the provider"`
-	WebURL             *string        `json:"webUrl,omitempty" doc:"The customer's page in the provider's dashboard"`
-	SyncedAt           *time.Time     `json:"syncedAt,omitempty"`
+	ProviderKind       string               `json:"providerKind" enum:"STRIPE"`
+	ExternalCustomerID string               `json:"externalCustomerId" doc:"The customer's id in the provider"`
+	WebURL             *string              `json:"webUrl,omitempty" doc:"The customer's page in the provider's dashboard"`
+	SyncedAt           *time.Time           `json:"syncedAt,omitempty"`
 	PaymentMethod      *PaymentMethodLabels `json:"paymentMethod" doc:"Its default payment method; null when there is none"`
 }
 

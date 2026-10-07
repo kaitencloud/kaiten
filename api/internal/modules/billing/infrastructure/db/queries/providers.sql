@@ -483,3 +483,28 @@ WHERE ib.organization_id = sqlc.arg(organization_id)
   AND ib.provider_kind = sqlc.arg(provider_kind)
   AND ib.status <> 'CANCELED'
   AND coalesce(ib.collection_method, s.default_collection_method, 'SEND_INVOICE') = 'CHARGE_AUTOMATICALLY';
+
+
+-- name: ListExpiringPaymentMethods :many
+-- The ACTIVE payment methods whose expiry month ends 30 days after day:
+-- announced once, on that day.
+SELECT cb.*, c.slug AS customer_slug
+FROM customer_billing cb
+JOIN customer c ON c.id = cb.customer_id AND c.organization_id = cb.organization_id
+WHERE cb.payment_method_status = 'ACTIVE'
+  AND cb.payment_method_exp_year IS NOT NULL
+  AND cb.payment_method_exp_month IS NOT NULL
+  AND (make_date(cb.payment_method_exp_year, cb.payment_method_exp_month, 1) + interval '1 month' - interval '1 day')::date
+      - 30 = sqlc.arg(day)::date;
+
+
+-- name: ExpirePaymentMethods :execrows
+-- ACTIVE payment methods past the last day of their expiry month: EXPIRED,
+-- with no event.
+UPDATE customer_billing cb
+SET payment_method_status = 'EXPIRED',
+    updated_at            = sqlc.arg(now)
+WHERE cb.payment_method_status = 'ACTIVE'
+  AND cb.payment_method_exp_year IS NOT NULL
+  AND cb.payment_method_exp_month IS NOT NULL
+  AND make_date(cb.payment_method_exp_year, cb.payment_method_exp_month, 1) + interval '1 month' <= sqlc.arg(day)::date;

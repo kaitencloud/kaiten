@@ -12,12 +12,12 @@ import (
 
 // Creator is the one facade method this operation calls.
 type Creator interface {
-	CreatePortalSession(ctx context.Context, cl caller.OrganizationCaller, customerSlug string, cmd PortalSessionRequest) (*PortalSession, error)
+	CreatePortalSession(ctx context.Context, cl caller.OrganizationCaller, customerSlug string, cmd NewPortalSession) (*PortalSession, error)
 }
 
 type Request struct {
 	CustomerSlug string `path:"customerSlug" doc:"Customer slug"`
-	Body         PortalSessionRequest
+	Body         NewPortalSession
 }
 
 type Response struct {

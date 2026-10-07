@@ -12,12 +12,12 @@ import (
 
 // Creator is the one facade method this operation calls.
 type Creator interface {
-	CreatePaymentMethodSession(ctx context.Context, cl caller.OrganizationCaller, customerSlug string, cmd PaymentMethodSessionRequest) (*PaymentMethodSession, error)
+	CreatePaymentMethodSession(ctx context.Context, cl caller.OrganizationCaller, customerSlug string, cmd NewPaymentMethodSession) (*PaymentMethodSession, error)
 }
 
 type Request struct {
 	CustomerSlug string `path:"customerSlug" doc:"Customer slug"`
-	Body         PaymentMethodSessionRequest
+	Body         NewPaymentMethodSession
 }
 
 type Response struct {

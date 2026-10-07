@@ -23,8 +23,8 @@ import (
 
 const operation = "CreatePaymentMethodSession"
 
-// PaymentMethodSessionRequest is the page asked for.
-type PaymentMethodSessionRequest struct {
+// NewPaymentMethodSession is the page asked for.
+type NewPaymentMethodSession struct {
 	ReturnURL string  `json:"returnUrl" doc:"Where the customer comes back to: https, or http on localhost. The session id is appended as kaiten_setup_session" example:"https://app.example.test/billing"`
 	Currency  *string `json:"currency,omitempty" doc:"The currency the payment method is set up in; required when the customer has no live subscription, whose currency is used otherwise" example:"EUR"`
 }
@@ -41,7 +41,7 @@ type UseCase struct{ deps access.Deps }
 func NewUseCase(deps access.Deps) *UseCase { return &UseCase{deps: deps} }
 
 // Execute ensures the provider's customer and opens the page.
-func (u *UseCase) Execute(ctx context.Context, customerSlug string, cmd PaymentMethodSessionRequest) (*PaymentMethodSession, error) {
+func (u *UseCase) Execute(ctx context.Context, customerSlug string, cmd NewPaymentMethodSession) (*PaymentMethodSession, error) {
 	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return nil, err

@@ -359,7 +359,7 @@ func (b Billing) GetCustomerBilling(ctx context.Context, cl caller.OrganizationC
 }
 
 // CreatePaymentMethodSession opens a page saving a customer's payment method.
-func (b Billing) CreatePaymentMethodSession(ctx context.Context, cl caller.OrganizationCaller, customerSlug string, cmd createpaymentmethodsession.PaymentMethodSessionRequest) (*createpaymentmethodsession.PaymentMethodSession, error) {
+func (b Billing) CreatePaymentMethodSession(ctx context.Context, cl caller.OrganizationCaller, customerSlug string, cmd createpaymentmethodsession.NewPaymentMethodSession) (*createpaymentmethodsession.PaymentMethodSession, error) {
 	if err := cl.Require(createpaymentmethodsession.RequiredScope); err != nil {
 		return nil, err
 	}
@@ -375,7 +375,7 @@ func (b Billing) CompletePaymentMethodSession(ctx context.Context, cl caller.Org
 }
 
 // CreatePortalSession opens a customer's billing portal in its provider.
-func (b Billing) CreatePortalSession(ctx context.Context, cl caller.OrganizationCaller, customerSlug string, cmd createportalsession.PortalSessionRequest) (*createportalsession.PortalSession, error) {
+func (b Billing) CreatePortalSession(ctx context.Context, cl caller.OrganizationCaller, customerSlug string, cmd createportalsession.NewPortalSession) (*createportalsession.PortalSession, error) {
 	if err := cl.Require(createportalsession.RequiredScope); err != nil {
 		return nil, err
 	}
