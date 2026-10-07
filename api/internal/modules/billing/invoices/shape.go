@@ -64,7 +64,7 @@ type Invoice struct {
 	BillingEmail        *string              `json:"billingEmail,omitempty" doc:"The address the invoice is for, as it was when composed. Personal data: it appears in no event"`
 	HoldDetail          *HoldDetail          `json:"holdDetail,omitempty" doc:"Every meter whose journal failed a check"`
 	Hold                *HoldRecord          `json:"hold,omitempty" doc:"When the invoice was held and released"`
-	Handoff             InvoiceHandoff              `json:"handoff"`
+	Handoff             InvoiceHandoff       `json:"handoff"`
 	UncollectibleAt     *time.Time           `json:"uncollectibleAt,omitempty"`
 	VoidedAt            *time.Time           `json:"voidedAt,omitempty"`
 	VoidReason          *string              `json:"voidReason,omitempty"`

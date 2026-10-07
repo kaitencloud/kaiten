@@ -246,11 +246,16 @@ type heldCursor struct {
 }
 
 func (c *Closer) listHeld(ctx context.Context, after *heldCursor, limit int) ([]db.ListHeldInvoicesRow, error) {
-	params := db.ListHeldInvoicesParams{PageSize: int32(limit)} //nolint:gosec // bounded by the batch size
+	// No cursor (a NULL instant): from the oldest held invoice.
+	var afterHeldAt pgtype.Timestamp
+	var afterID uuid.UUID
 	if after != nil {
-		params.AfterHeldAt, params.AfterID = after.HeldAt, after.ID
+		afterHeldAt, afterID = after.HeldAt, after.ID
 	}
-	return c.deps.Queries(ctx).ListHeldInvoices(ctx, params)
+	return c.deps.Queries(ctx).ListHeldInvoices(ctx, db.ListHeldInvoicesParams{
+		AfterHeldAt: afterHeldAt, AfterID: afterID,
+		PageSize: int32(limit), //nolint:gosec // bounded by the batch size
+	})
 }
 
 func (c *Closer) recheckOne(ctx context.Context, invoiceID uuid.UUID) (released bool, err error) {

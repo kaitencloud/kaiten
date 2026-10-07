@@ -8,9 +8,9 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/require"
 
+	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
-	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 	"github.com/kaitencloud/kaiten/api/tests"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"

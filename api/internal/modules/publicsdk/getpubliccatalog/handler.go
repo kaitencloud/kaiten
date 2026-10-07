@@ -150,11 +150,11 @@ func (u *UseCase) capturesPaymentMethods(ctx context.Context, organizationID uui
 		if !ok || !capabilities.PaymentMethodCapture {
 			continue
 		}
-		if _, err := u.deps.Providers.Resolve(ctx, organizationID, kind); err == nil {
+		_, err := u.deps.Providers.Resolve(ctx, organizationID, kind)
+		if err == nil {
 			return true
-		} else {
-			slog.DebugContext(ctx, "publicsdk: provider not connected", "provider", kind, "error", err)
 		}
+		slog.DebugContext(ctx, "publicsdk: provider not connected", "provider", kind, "error", err)
 	}
 	return false
 }
@@ -282,11 +282,15 @@ func toPrice[T db.ListPublicPlanPricesRow | db.ListPublicAddonPricesRow](row T) 
 func asPriceRow[T db.ListPublicPlanPricesRow | db.ListPublicAddonPricesRow](row T) priceRow {
 	switch r := any(row).(type) {
 	case db.ListPublicPlanPricesRow:
-		return priceRow{r.ID, r.BillingModel, r.BillingTiming, r.BillingPeriod, r.UnitAmountDecimal, r.Currency,
-			r.SaleUnitFactor, r.EntitlementSlug, r.SaleUnitSingular, r.SaleUnitPlural, r.DisplayLabel, r.DisplayOrder, r.IsDefault}
+		return priceRow{
+			r.ID, r.BillingModel, r.BillingTiming, r.BillingPeriod, r.UnitAmountDecimal, r.Currency,
+			r.SaleUnitFactor, r.EntitlementSlug, r.SaleUnitSingular, r.SaleUnitPlural, r.DisplayLabel, r.DisplayOrder, r.IsDefault,
+		}
 	case db.ListPublicAddonPricesRow:
-		return priceRow{r.ID, r.BillingModel, r.BillingTiming, r.BillingPeriod, r.UnitAmountDecimal, r.Currency,
-			r.SaleUnitFactor, r.EntitlementSlug, r.SaleUnitSingular, r.SaleUnitPlural, r.DisplayLabel, r.DisplayOrder, r.IsDefault}
+		return priceRow{
+			r.ID, r.BillingModel, r.BillingTiming, r.BillingPeriod, r.UnitAmountDecimal, r.Currency,
+			r.SaleUnitFactor, r.EntitlementSlug, r.SaleUnitSingular, r.SaleUnitPlural, r.DisplayLabel, r.DisplayOrder, r.IsDefault,
+		}
 	}
 	panic("unreachable: the type set has two members")
 }
