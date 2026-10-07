@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 -- Payment providers, whichever they are.
 --
--- 20261007000000 wrote the provider rules for STRIPE by name. They hold for
+-- 20261007140000 wrote the provider rules for STRIPE by name. They hold for
 -- every provider that pushes invoices, so they are restated here as "not NOOP":
 -- a later provider then only adds its value to billing_provider_kind.
 ALTER TABLE "instance_invoice" DROP CONSTRAINT "instance_invoice_provider_status_check";
