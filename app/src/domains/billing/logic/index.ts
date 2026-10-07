@@ -82,11 +82,25 @@ export {
   isKnownHoldReason,
 } from './invoice-status';
 export {
+  formatBoundary,
   formatInstant,
   formatServicePeriod,
   formatUtcDate,
   formatUtcTime,
 } from './service-period';
+export {
+  addMonthsClamped,
+  BILLING_PERIOD_MONTHS,
+  BILLING_PERIODS,
+  type BillingPeriod,
+  type BillingTiming,
+  type FirstInvoiceTiming,
+  getBillingPeriodLabelKey,
+  getBillingPeriodSuffixKey,
+  getBillingTimingLabelKey,
+  getFirstInvoiceTiming,
+  getSubscriptionStartBounds,
+} from './billing-period';
 export {
   getSubscriptionActions,
   getSubscriptionStatusLabelKey,
