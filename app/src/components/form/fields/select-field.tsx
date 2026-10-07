@@ -18,6 +18,8 @@ type SelectFieldProps = {
   disabled?: boolean;
   getOptionLabel: (option: unknown) => string;
   getOptionValue?: (option: unknown) => string;
+  /** An option that is listed and cannot be chosen: the label says why. */
+  isOptionDisabled?: (option: unknown) => boolean;
 };
 
 function SelectField({
@@ -30,11 +32,16 @@ function SelectField({
   disabled,
   getOptionLabel,
   getOptionValue = (option: unknown) => option as unknown as string,
+  isOptionDisabled,
 }: SelectFieldProps) {
   const renderOption = (option: unknown) => {
     const value = getOptionValue(option);
     return (
-      <SelectItem key={value} value={value}>
+      <SelectItem
+        disabled={isOptionDisabled?.(option)}
+        key={value}
+        value={value}
+      >
         {getOptionLabel(option)}
       </SelectItem>
     );
