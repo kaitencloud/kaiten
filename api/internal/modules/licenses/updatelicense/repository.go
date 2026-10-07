@@ -198,7 +198,7 @@ func (r *CommandRepository) update(ctx context.Context, command *Command, slug s
 // The other keys on license are out of reach: the slug is never written here,
 // the version neither since it became readOnly, and the pre-family
 // key on (name, version, organization_id) is dropped by
-// 20260902000000_license_family.sql, so renaming a version onto a name another
+// 20261007000000_license_family.sql, so renaming a version onto a name another
 // family holds is simply allowed.
 //
 // Returns nil for any other error, so the caller falls through to reporting it

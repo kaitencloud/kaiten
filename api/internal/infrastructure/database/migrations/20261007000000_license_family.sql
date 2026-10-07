@@ -24,6 +24,18 @@
 -- the family gained its version counter (last_version) and the
 -- (id, organization_id) key its versions reference.
 --
+-- This file was 20260902000000_license_family.sql until 26.10.0. It merged
+-- after 20260916000000_notifications.sql had been released, so every database
+-- running that release had a newer version applied than this pending one, and
+-- goose refused to upgrade it ("missing (out-of-order) migration"). Renumbering
+-- it past the newest released migration keeps goose strict about order. A
+-- database built from main between the two -- a developer machine -- already
+-- has this schema under the old version; record it under the new one instead
+-- of re-running it:
+--
+--   UPDATE goose_db_version SET version_id = 20261007000000
+--   WHERE version_id = 20260902000000;
+--
 -- A database that applied some of the three, or an earlier state of this file,
 -- should be reset (`task reset`) rather than migrated onto it: goose sees this
 -- version as applied and would skip whatever it has not run.

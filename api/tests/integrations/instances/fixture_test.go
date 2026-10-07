@@ -121,7 +121,7 @@ func newLicenseIn(t *testing.T, organizationID uuid.UUID) *licenseschema.License
 	require.NoError(t, err)
 
 	// Each call is a separate product. They may all carry the same display
-	// name: 20260902000000_license_family.sql dropped the name-keyed
+	// name: 20261007000000_license_family.sql dropped the name-keyed
 	// constraint, and the family is the only thing that tells them apart.
 	versionName := "Initial"
 	request := createlicense.Command{
