@@ -1,25 +1,16 @@
-import { Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Price } from '@/api-client';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TableCard } from '@/functionals/table';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import type { useLicensePricing } from '../../hooks/use-license-pricing';
 import { getPreviewBases } from '../../utils/license-price-preview.utils';
 import { LicensePricesActions } from './license-prices-actions';
 import { PriceCopyBanner } from './price-copy-banner';
+import { PriceStateNote } from './price-state-note';
 import { PriceSummary } from './price-summary';
 import { PriceTable } from './price-table';
 
 const PriceIcon = dataModelIcons.price;
-
-// What the state of the version says about its prices, so that a price that
-// cannot be edited is never a surprise.
-const STATE_NOTE_KEYS = {
-  ARCHIVED: 'Pages.Licenses.Prices.Notes.archived',
-  DRAFT: 'Pages.Licenses.Prices.Notes.draft',
-  PUBLISHED: 'Pages.Licenses.Prices.Notes.published',
-} as const;
 
 type LicensePricesCardProps = {
   /** The version whose prices were being copied to this one, when a copy stopped. */
@@ -34,8 +25,9 @@ type LicensePricesCardProps = {
 
 /**
  * What the Prices tab shows of a version: what it bills, as a line a person
- * reads and as the table of its prices, what its state means for them, the copy
- * that stopped when there is one, and what can be done to the prices as a whole.
+ * reads and as the table of its prices, what its state means for them (with the
+ * way to a new version, where they can no longer be changed), the copy that
+ * stopped when there is one, and what can be done to the prices as a whole.
  */
 export function LicensePricesCard({
   copyFrom,
@@ -86,10 +78,7 @@ export function LicensePricesCard({
           entitlementBySlug={entitlementBySlug}
           prices={prices}
         />
-        <Alert>
-          <Lock />
-          <AlertDescription>{t(STATE_NOTE_KEYS[rules.state])}</AlertDescription>
-        </Alert>
+        <PriceStateNote licenseSlug={licenseSlug} state={rules.state} />
       </TableCard.Toolbar>
       <TableCard.Content>
         <PriceTable

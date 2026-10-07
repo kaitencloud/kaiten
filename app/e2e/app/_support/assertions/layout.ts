@@ -30,3 +30,22 @@ export async function expectScrollsInside(table: Locator) {
   }));
   expect(scrollWidth).toBeGreaterThan(clientWidth);
 }
+
+/**
+ * What a container holds is wholly inside it, on the horizontal axis: a row of
+ * buttons that is wider than the card it is in is cut off by the card, or spills
+ * out of it, and the page does not scroll to say so.
+ */
+export async function expectInside(container: Locator, item: Locator) {
+  const [outer, inner] = await Promise.all([
+    container.boundingBox(),
+    item.boundingBox(),
+  ]);
+
+  expect(outer).not.toBeNull();
+  expect(inner).not.toBeNull();
+  expect(inner?.x).toBeGreaterThanOrEqual(outer?.x ?? 0);
+  expect((inner?.x ?? 0) + (inner?.width ?? 0)).toBeLessThanOrEqual(
+    (outer?.x ?? 0) + (outer?.width ?? 0),
+  );
+}
