@@ -23,17 +23,21 @@ reach them: `lib/money.ts`, `lib/decimal.ts`,
 `components/form/fields/money-field.tsx`, `lib/download-blob.ts` and the billing
 icons of `lib/data-model-icons.ts`.
 
-What has no second caller yet is built for a screen that comes next. The billing
-tab of an instance reads the same capabilities and refusals, lists its invoices
-in the same table, and shows its upcoming invoice, an `InvoicePreview` made of the
-same lines as an invoice (`LineFingerprint`, `OverageLimits`, `InvoiceLinesTable`);
-the export offered before an organization is deleted, in the settings, is the
-download of the list (`downloadInvoiceExport`); `RetryableProblem` and
-`BillingRouteError` are for each route that reads one record. Three things have
-only `features/billing` as their caller today, and sit here beside the statuses
-they read: `getInvoiceActions` with `useInvoiceActionAccess` (what an invoice
-allows), `isHandoffLeased` and `readRecomposeRefusal`. They move to the feature if
-no other screen needs them.
+The screens that came next use it the same way. The billing tab of an instance reads
+the same capabilities and refusals, lists its invoices in the same card as the page of
+a customer (`InvoicesCard`), and shows its upcoming invoice, an `InvoicePreview` made
+of the same lines as an invoice (`LineFingerprint`, `OverageLimits`,
+`InvoiceLinesTable`); the usage history of an entitlement and the reports behind an
+invoice line are drawn with the same columns (`useUsageReportColumns`) and filtered by
+the same period (`PeriodFilter`); the export offered before an organization is deleted,
+in the settings, is the download of the list (`downloadInvoiceExport`) through the same
+menu (`ExportInvoicesMenu`); the dialog that says what keeps a record from being deleted
+(`DeletionRefusalDialog`) is shared by the instances, the customers and the
+entitlements; `RetryableProblem` and `BillingRouteError` are for each route that reads
+one record. Three things have only `features/billing` as their caller today, and sit
+here beside the statuses they read: `getInvoiceActions` with
+`useInvoiceActionAccess` (what an invoice allows), `isHandoffLeased` and
+`readRecomposeRefusal`. They move to the feature if no other screen needs them.
 
 ## Structure
 
@@ -45,17 +49,27 @@ app/src/domains/billing/
 │                     # invoices-table-columns) and its cells, the
 │                     # fingerprint and the arithmetic of a metered line (LineFingerprint,
 │                     # OverageLimits), the invoice preview: InvoiceLinesTable,
-│                     # InvoiceTotals, InvoicePreviewResult, InvoicePreviewDialog, and what a
+│                     # InvoiceTotals, InvoicePreviewResult, InvoicePreviewDialog, what a
 │                     # list the server pages is drawn with (paged-list/: the skeleton, the empty
-│                     # state, the foot)
+│                     # state, the foot), the invoices of one subject in a card (InvoicesCard),
+│                     # the period of a list (PeriodFilter), the columns of a table of usage
+│                     # reports (useUsageReportColumns), the menu of the export of the invoices
+│                     # (ExportInvoicesMenu) and the dialog of a refusal to delete
+│                     # (DeletionRefusalDialog)
 ├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session;
 │                     # useInvoiceActionAccess, the same for the five actions on an invoice;
-│                     # useAlertFocus, which puts the focus on a refusal
-├── logic/            # actions and their scopes, availability, problems, statuses,
+│                     # useAlertFocus, which puts the focus on a refusal or a confirmation; useDeletionRefusal,
+│                     # which explains a deletion billing refused; useExportInvoices;
+│                     # useUsageReports, over the pages of a list of usage reports
+├── logic/            # actions and their scopes, availability, problems, the placing of a
+│                     # refusal on the fields of a form (problem-field-errors), statuses,
 │                     # invoice kinds, line types, invoice actions, the refusals of a
-│                     # recompose, handoff, export, retention, subscription actions, periods
-├── queries/          # the capabilities, the route guard, invalidation helpers,
-│                     # the export of the invoices
+│                     # recompose and of a deletion, handoff, export, retention, usage reports,
+│                     # subscription actions, billing periods, and what a price is called and
+│                     # how its amount is written (price-types, price-labels, price-display)
+├── queries/          # the capabilities, the billing settings, the route guard, invalidation
+│                     # helpers, the pages of the invoices of a subject, the pages of usage
+│                     # reports, the export of the invoices
 ├── types/
 ├── __tests__/
 └── index.ts
@@ -77,6 +91,19 @@ page holds, or an export the API streams.
   `beforeLoad`. The read does not take the query's own abort signal: a query whose
   signal is read is cancelled when its last observer goes, which strict mode does
   on every mount, and a guard waiting on it would take that for a failure.
+- `invoicesPagesQueryOptions(filters)` reads the invoices a subject has, fifty at a
+  time, under the generated key of the list with an `_infinite` marker: the page of a
+  customer and the tab of an instance page it by the cursor the API returns, and a
+  helper that invalidates the invoices reaches all of them by prefix.
+  `billingSettingsQueryOptions` is `GET /billing/settings` (the defaults a subscription
+  takes), read by the settings page and by the dialog that subscribes an instance.
+- `usageReportPagesQueryOptions({ fetchPage, queryKey })` reads usage reports a page at a
+  time by report number (`afterSeq`: the API answers with the number to read after, and
+  none on the last page), under the generated key of the operation with an `_infinite`
+  marker, never retried: the reports behind an invoice line and the usage history of an
+  entitlement of an instance are read through it, and `useUsageReports(query)` gives
+  what a screen reads off the pages (the reports, the ones where the limit moved, and
+  whether the period reaches before what is kept, which is an answer and not a failure).
 - `downloadInvoiceExport(variant, filters)` exports the invoices a list selects (a
   call of the generated SDK with `parseAs: 'blob'`, handed to `downloadBlob`); the
   query of each variant and the name of its file are `toInvoiceExportQuery` and
@@ -218,12 +245,60 @@ page holds, or an export the API streams.
   `placeRefusalOnFields` shows a refusal of the API on the field of a form it is
   about, for the forms of the dialogs that ask for an audited action and those that
   follow.
+- **A refusal on a field goes when the field changes.** `setProblemFieldError` shows
+  the API's words on one field (`errorMap.onServer`, the code of the refusal beside
+  the message for what is drawn under the field), remembers the value it was shown
+  for, and takes the error back as soon as the field holds another: a refusal is about
+  what was typed, and a form that stayed invalid after the person fixed it would not
+  let them send it again. A newer refusal on the same field replaces the older.
+  `applyProblemFieldErrors` and `placeRefusalOnFields` place a problem on the fields
+  that its locations or its code name, and answer whether every error found one.
+- **A billing period is counted as the API counts it.** `addMonthsClamped` moves a
+  date by whole months in UTC with the day clamped to the last of the month (Jan 31
+  plus a month is Feb 28), so that a boundary the console shows is the instant the API
+  composes the invoice at. `getSubscriptionStartBounds` gives the instants a
+  subscription may start at (from one period ago to now) and `getFirstInvoiceTiming`
+  says when the first invoice is issued: at once for a price billed in advance, at the
+  end of the first period for one billed in arrears. They say when and never how much:
+  only the API composes an invoice.
+- **A price reads the same wherever it is shown.** The enums of a price (`BillingModel`,
+  `BillingPeriod`, `BillingTiming`), the words they read as (`price-labels`: the label
+  and the blurb of a shape or a timing, a period and what follows an amount over it,
+  the status, the unit a metered price resets on, under `Features.Billing.Price` in
+  both languages) and the way an amount is written (`getPriceAmountParts`,
+  `joinPriceAmount`, `getPriceLabel`, `getPriceUnitLabel`) are the domain's. The prices
+  of a license version, which are edited in `features/licenses`, and the subscription
+  of an instance, which is pinned to one of them in `features/instances`, are drawn
+  from the same code. A decimal string of minor units is written with every decimal it
+  has, a metered price is per sale unit, and none is ever added to another.
+- **A refusal to delete says what stands in the way.** `readDeletionRefusal` reads the
+  409 of the deletion of an instance (`DeleteInstance.BillingActive`), of a customer
+  (`DeleteCustomer.BillingActive`) and of an entitlement
+  (`DeleteEntitlement.InUseConflict`) from the problem's `errors[0].value`: the status
+  of the subscription and the invoices not settled, whether a subscription lives, or
+  what still grants, counts or prices the entitlement. `useDeletionRefusal(slug)`
+  answers whether a failure was one and, if so, holds the dialog to render beside the
+  action, with the links to the subscription, the invoices and the record; any other
+  failure keeps its toast. A list whose rows leave it before the API has answered (the
+  entitlements) holds the hook above its rows and names the record on each call,
+  `showRefusal(error, slug)`, since a dialog kept by a row goes with the row. Nothing was deleted, and the dialog says so. A price and a
+  voucher boost are never deleted through the API, so an entitlement held by one
+  (`hasPermanentReference`) is not asked to be freed: the dialog offers to hide it
+  instead, by turning off its "User facing" option.
+- **Usage outside the retention is not a failure.** The API refuses a period that
+  starts before the usage it keeps with `OutsideRetention` and the start of what it
+  keeps as a bare ISO string in `errors[0].value` (the line of an invoice carries an
+  object, the metering). `handleBillingProblem` reads both into `retentionStart`; the
+  usage history says how long usage is kept, when the capabilities tell, and offers
+  to start where it begins, and the export of the usage of the organization reads its
+  oldest month from there.
 - **Reading a billing route fails visibly.** `BillingRouteError` is the
   `errorComponent` of the routes of one record: the API's words, a banner for a
   missing scope, a page that does not exist for a 404, and a Retry that invalidates
   the router (the `reset` of an error component only clears the boundary, which
   throws the same error again). `RetryableProblem` is the same for a read inside a
-  page: the refusal and a way to ask again, none where it would change nothing.
+  page: the refusal and a way to ask again, none where it would change nothing (a
+  missing scope, a period whose usage is no longer kept).
   `ProblemAlert` takes `autoFocus` for a dialog, whose confirmation is disabled
   while the API answers and drops the focus with it.
 - **Downloads are authenticated.** An export is a stream behind a bearer token, so
@@ -238,8 +313,9 @@ components, the invoice preview, the scopes of the session
 (`use-can-perform.test.tsx`, `useActionAccess` included) and the invalidation
 helpers;
 `billing-sources.test.ts` reads the billing code to refuse a scope written by hand
-and an amount added up. `components/stories/billing-components.stories.tsx` and
-`components/stories/invoice-preview.stories.tsx` show the states of the
+and an amount added up. `components/stories/billing-components.stories.tsx`,
+`components/stories/invoice-preview.stories.tsx`, `deletion-refusal-dialog.stories.tsx`,
+`usage-reports.stories.tsx` and `invoices-card.stories.tsx` show the states of the
 components and run as tests. The capabilities of the mocked
 console are `e2e/app/_support/model/billing-capabilities.ts`, the navigation is
 covered by `e2e/app/billing/billing.navigation.spec.ts` and what a billing link
