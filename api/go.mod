@@ -32,6 +32,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
+	github.com/stripe/stripe-go/v87 v87.0.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.43.0
 	github.com/valyala/fasthttp v1.73.0
 	github.com/vektah/gqlparser/v2 v2.5.36

@@ -26,5 +26,7 @@ var (
 	InstanceInvoicePushFailed             = events.New("INSTANCE_INVOICE_PUSH_FAILED", "com.kaiten.instance.invoice.v1.push_failed")
 	InstanceInvoiceReconciliationMismatch = events.New("INSTANCE_INVOICE_RECONCILIATION_MISMATCH", "com.kaiten.instance.invoice.v1.reconciliation_mismatch")
 
-	BillingProviderSyncFailed = events.New("BILLING_PROVIDER_SYNC_FAILED", "com.kaiten.billing_provider.v1.sync_failed")
+	BillingProviderSyncFailed   = events.New("BILLING_PROVIDER_SYNC_FAILED", "com.kaiten.billing_provider.v1.sync_failed")
+	BillingProviderConnected    = events.New("BILLING_PROVIDER_CONNECTED", "com.kaiten.billing_provider.v1.connected")
+	BillingProviderDisconnected = events.New("BILLING_PROVIDER_DISCONNECTED", "com.kaiten.billing_provider.v1.disconnected")
 )

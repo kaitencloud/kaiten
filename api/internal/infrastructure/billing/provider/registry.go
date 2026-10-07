@@ -17,6 +17,9 @@ type Registry interface {
 	// the organization has not connected it, or the deployment does not
 	// know it.
 	Resolve(ctx context.Context, organizationID uuid.UUID, kind Kind) (*Connection, error)
+	// Availability tells whether the organization may connect a known
+	// provider on this deployment, and why not. NOOP always may.
+	Availability(ctx context.Context, organizationID uuid.UUID, kind Kind) (Availability, error)
 }
 
 // Resolver connects one provider for an organization.
@@ -25,14 +28,18 @@ type Resolver func(ctx context.Context, organizationID uuid.UUID) (*Connection, 
 // Static is a Registry over a fixed set of providers. NOOP is always
 // registered and always connected.
 type Static struct {
-	adapters  map[Kind]Adapter
-	resolvers map[Kind]Resolver
-	order     []Kind
+	adapters     map[Kind]Adapter
+	resolvers    map[Kind]Resolver
+	availability map[Kind]func(context.Context, uuid.UUID) (Availability, error)
+	order        []Kind
 }
 
 // NewStatic returns a registry knowing NOOP only.
 func NewStatic(noop Adapter) *Static {
-	s := &Static{adapters: map[Kind]Adapter{}, resolvers: map[Kind]Resolver{}, order: nil}
+	s := &Static{
+		adapters: map[Kind]Adapter{}, resolvers: map[Kind]Resolver{},
+		availability: map[Kind]func(context.Context, uuid.UUID) (Availability, error){}, order: nil,
+	}
 	s.Register(noop, func(_ context.Context, organizationID uuid.UUID) (*Connection, error) {
 		return &Connection{Adapter: noop, Ref: Ref{OrganizationID: organizationID, Settings: nil}, AutoFinalize: true, InclusiveTax: false}, nil
 	})
@@ -68,4 +75,16 @@ func (s *Static) Resolve(ctx context.Context, organizationID uuid.UUID, kind Kin
 		return nil, ErrNotConnected
 	}
 	return resolve(ctx, organizationID)
+}
+
+// Availability implements Registry. A provider registered without a
+// connector is available wherever it is known.
+func (s *Static) Availability(ctx context.Context, organizationID uuid.UUID, kind Kind) (Availability, error) {
+	if _, ok := s.adapters[kind]; !ok {
+		return Availability{Available: false, Reason: ""}, nil
+	}
+	if availability, ok := s.availability[kind]; ok {
+		return availability(ctx, organizationID)
+	}
+	return Availability{Available: true, Reason: ""}, nil
 }

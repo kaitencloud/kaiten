@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/connectorhooks"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/activateconnector"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/common"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/infrastructure/db"
@@ -25,6 +27,10 @@ type Deps struct {
 	// rather than resolved here so that both doors onto activation -- the explicit
 	// PUT and this one -- apply the same licence check.
 	Entitlements services.ConnectorEntitlements
+	// Uof and Hooks are handed to the composed activation; Hooks also
+	// validates the settings before anything is written.
+	Uof   *uow.UnitOfWork
+	Hooks connectorhooks.Registry
 }
 
 type UseCase struct {
@@ -44,7 +50,8 @@ type UseCase struct {
 // activator is the one operation this handler composes, declared as its own
 // interface so the dependency is on the behaviour rather than on the package.
 type activator interface {
-	Execute(ctx context.Context, connectorName string) (*schema.ConnectorActivation, error)
+	Check(ctx context.Context, connectorName string) error
+	ExecuteWithSettings(ctx context.Context, connectorName string, settings map[string]any) (*schema.ConnectorActivation, error)
 }
 
 func NewUseCase(deps Deps) *UseCase {
@@ -61,9 +68,12 @@ func NewHandlerWithRegistry(deps Deps, connectorRegistry registry.Reader) *UseCa
 		store:    connectorsettings.NewStore(deps.ConnectorsVaultBasePath),
 		registry: connectorRegistry,
 		activator: activateconnector.NewUseCase(activateconnector.Deps{
-			UserProvider: deps.UserProvider,
-			Queries:      deps.Queries,
-			Entitlements: deps.Entitlements,
+			UserProvider:            deps.UserProvider,
+			Queries:                 deps.Queries,
+			Entitlements:            deps.Entitlements,
+			Uof:                     deps.Uof,
+			Hooks:                   deps.Hooks,
+			ConnectorsVaultBasePath: deps.ConnectorsVaultBasePath,
 		}),
 	}
 }
@@ -101,17 +111,37 @@ func (h *UseCase) Execute(ctx context.Context, connectorName string, body schema
 	// Write-only fields may be omitted (or echoed redacted/empty) to keep the
 	// stored value, so clients never have to round-trip plaintext secrets.
 	// Merge before schema validation: secret fields are usually required.
+	// Nothing below can work without Vault: say so before reading from it.
+	if err := common.RequireVault("UpdateConnectorSettings", connector.SettingsSchema); err != nil {
+		return nil, err
+	}
+
 	secretFields := common.SecretFields(connector.SettingsSchema)
 	settings := body.Settings
-	if len(secretFields) > 0 {
-		stored, err := h.store.Get(ctx, user.OrganizationID, normalizedName)
+	var stored map[string]any
+	if len(secretFields) > 0 || h.deps.Hooks.Has(normalizedName) {
+		stored, err = h.store.Get(ctx, user.OrganizationID, normalizedName)
 		if err != nil && !errors.Is(err, connectorsettings.ErrNotFound) {
 			return nil, err
 		}
+	}
+	if len(secretFields) > 0 {
 		settings = common.MergeStoredSecrets(settings, stored, secretFields)
 	}
 
 	if err := common.ValidateConnectorSettings(normalizedName, connector.SettingsSchema, settings, "UpdateConnectorSettings.InvalidPayloadSchema"); err != nil {
+		return nil, err
+	}
+
+	// The connector's own rules (a credential the provider refuses, a key of
+	// another account) come before anything is written: a refused write must
+	// leave neither an activation row nor a stored secret behind. The
+	// activation's own refusals (licence, Vault) come first, so that an
+	// organization that may not use the connector never reaches its provider.
+	if err := h.activator.Check(ctx, normalizedName); err != nil {
+		return nil, err
+	}
+	if err := h.deps.Hooks.For(normalizedName).ValidateSettings(ctx, user.OrganizationID, settings, stored); err != nil {
 		return nil, err
 	}
 
@@ -125,7 +155,7 @@ func (h *UseCase) Execute(ctx context.Context, connectorName string, body schema
 	// as "on but not configured", which the settings endpoints already handle,
 	// whereas settings with no activation would be a connector configured and
 	// invisible.
-	if _, err := h.activator.Execute(ctx, normalizedName); err != nil {
+	if _, err := h.activator.ExecuteWithSettings(ctx, normalizedName, settings); err != nil {
 		return nil, err
 	}
 

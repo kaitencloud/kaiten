@@ -90,6 +90,15 @@ type Billing struct {
 	Sync        BillingSync        `mapstructure:"sync"`
 	// ProviderTimeout bounds one call to a payment provider.
 	ProviderTimeout time.Duration `mapstructure:"provider_timeout" validate:"gte=0"`
+	Stripe          BillingStripe `mapstructure:"stripe"`
+}
+
+// BillingStripe tunes the Stripe provider.
+type BillingStripe struct {
+	// SendAfterFinalize e-mails a SEND_INVOICE invoice right after Kaiten
+	// finalizes it, for accounts where an API finalization does not e-mail it.
+	// Off until the Stripe sandbox confirms which one Stripe does.
+	SendAfterFinalize bool `mapstructure:"send_after_finalize"`
 }
 
 // BillingPush schedules the pass that pushes invoices to the payment
@@ -388,6 +397,7 @@ var settings = []struct {
 	{"billing.push.alert_after_attempts", "KAITEN_BILLING_PUSH_ALERT_AFTER_ATTEMPTS", 5, false},
 	{"billing.sync.interval", "KAITEN_BILLING_SYNC_INTERVAL", "15m", false},
 	{"billing.provider_timeout", "KAITEN_BILLING_PROVIDER_TIMEOUT", "30s", false},
+	{"billing.stripe.send_after_finalize", "KAITEN_BILLING_STRIPE_SEND_AFTER_FINALIZE", false, false},
 }
 
 const (

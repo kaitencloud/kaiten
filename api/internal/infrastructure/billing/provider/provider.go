@@ -53,10 +53,17 @@ type Capabilities struct {
 	BillingPortal bool
 	// Currencies the provider accepts; empty accepts any.
 	Currencies []string
+	// RefusedCurrencies the provider cannot collect, whatever Currencies says.
+	RefusedCurrencies []string
 }
 
 // AcceptsCurrency reports whether the provider accepts a currency.
 func (c Capabilities) AcceptsCurrency(currency string) bool {
+	for _, refused := range c.RefusedCurrencies {
+		if refused == currency {
+			return false
+		}
+	}
 	if len(c.Currencies) == 0 {
 		return true
 	}
@@ -86,6 +93,9 @@ type Connection struct {
 	// reconciliation compares its subtotal rather than its total excluding
 	// tax.
 	InclusiveTax bool
+	// Livemode: the connection reaches the provider's live account rather
+	// than a test one.
+	Livemode bool
 }
 
 // Adapter is the surface every provider implements. Push is split in steps
@@ -136,6 +146,10 @@ type Customer struct {
 	Name       string
 	Email      string
 	Metadata   map[string]string
+	// RecreateOf is the provider id of a customer that was deleted in the
+	// provider. Set, the adapter creates a new customer, under an idempotency
+	// key of its own so that it is not answered with the deleted one.
+	RecreateOf string
 }
 
 // CustomerRecord is the provider's customer.
