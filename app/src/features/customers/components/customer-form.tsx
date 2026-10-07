@@ -5,13 +5,16 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
 import type { Customer } from '@/api-client';
+import { placeRefusalOnFields } from '@/domains/billing';
 import {
   StackedFormDialogFooter,
   StackedFormDialogPanel,
 } from '@/functionals/stacked-form-dialog';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
+import { useCustomerBilling } from '../hooks/use-customer-billing';
 import { useCustomerFormMutations } from './customer-form.mutations';
 import {
+  CUSTOMER_REFUSAL_FIELDS,
   customerFormSchema,
   customerFormValuesToCreateBody,
   customerFormValuesToUpdateBody,
@@ -37,6 +40,7 @@ export const CustomerForm = ({
   const navigate = useNavigate();
   const formId = useId();
   const { createMutation, updateMutation } = useCustomerFormMutations(customer);
+  const { isBillingEnabled } = useCustomerBilling();
 
   function backToList() {
     navigate({ to: '/customers' });
@@ -67,7 +71,7 @@ export const CustomerForm = ({
     validators: {
       onChange: customerFormSchema,
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: async ({ formApi, value }) => {
       try {
         // An update may answer with no body; the customer being edited then
         // stands in, since only its slug is needed downstream.
@@ -81,7 +85,9 @@ export const CustomerForm = ({
             });
         handleSuccess(savedCustomer);
       } catch (e) {
-        toast.error(getApiErrorMessage(e));
+        if (!placeRefusalOnFields(formApi, e, CUSTOMER_REFUSAL_FIELDS)) {
+          toast.error(getApiErrorMessage(e));
+        }
       }
     },
   });
@@ -104,7 +110,11 @@ export const CustomerForm = ({
         </StackedFormDialogFooter>
         <StackedFormDialogPanel className={panelClassName}>
           <div className="space-y-6">
-            <CustomerFormFields form={form} isEditing={!!customer} />
+            <CustomerFormFields
+              form={form}
+              isEditing={!!customer}
+              showBillingEmail={isBillingEnabled}
+            />
           </div>
         </StackedFormDialogPanel>
       </form.AppForm>

@@ -375,10 +375,19 @@ export default {
             name: 'Nom',
             externalId: 'ID externe',
             domain: 'Domaine',
+            billingEmail: 'E-mail de facturation',
             createdAt: 'Créé le',
             updatedAt: 'Mis à jour le',
           },
           by: 'par',
+          billingEmailNone: 'Non renseigné',
+        },
+        Billing: {
+          Invoices: {
+            description:
+              'Les factures de toutes les instances de ce client, de la plus récente à la plus ancienne.',
+            empty: 'Aucune instance de ce client n’a encore été facturée.',
+          },
         },
         instances: {
           title: 'Instances',
@@ -405,12 +414,14 @@ export default {
             customId: 'ID externe',
             domain: 'Domaine',
             slug: 'Slug',
+            billingEmail: 'E-mail de facturation',
           },
           Placeholders: {
             name: 'Acme Inc.',
             customId: 'ID HubSpot',
             domain: 'acme.com',
             slug: 'acme-inc',
+            billingEmail: 'facturation@acme.com',
           },
           Descriptions: {
             name: "L'entreprise ou l'organisation, telle que votre équipe la connaît.",
@@ -421,11 +432,17 @@ export default {
             slug: 'Généré automatiquement — modifiable.',
             slugLocked:
               'Défini à la création du client, il ne peut plus changer.',
+            billingEmail:
+              'L’adresse que portent les factures de ce client, pour votre comptabilité. Facultatif : videz le champ pour la retirer.',
           },
           Errors: {
             name: 'Le nom est requis',
             domain:
               'Le domaine doit être un nom de domaine valide (ex: acme.com)',
+            billingEmail:
+              'Saisissez une adresse e-mail valide, par exemple facturation@acme.com',
+            billingEmailTooLong:
+              'L’adresse e-mail est trop longue (254 caractères au plus)',
           },
           createSuccess: 'Client créé avec succès',
           updateSuccess: 'Client mis à jour avec succès',

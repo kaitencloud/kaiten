@@ -363,10 +363,20 @@ export default {
             name: 'Name',
             externalId: 'External ID',
             domain: 'Domain',
+            billingEmail: 'Billing e-mail',
             createdAt: 'Created at',
             updatedAt: 'Updated at',
           },
           by: 'by',
+          billingEmailNone: 'Not set',
+        },
+        Billing: {
+          Invoices: {
+            description:
+              'The invoices of every instance of this customer, newest first.',
+            empty:
+              'None of the instances of this customer has been invoiced yet.',
+          },
         },
         instances: {
           title: 'Instances',
@@ -393,12 +403,14 @@ export default {
             customId: 'External ID',
             domain: 'Domain',
             slug: 'Slug',
+            billingEmail: 'Billing e-mail',
           },
           Placeholders: {
             name: 'Acme Inc.',
             customId: 'HubSpot ID',
             domain: 'acme.com',
             slug: 'acme-inc',
+            billingEmail: 'billing@acme.com',
           },
           Descriptions: {
             name: 'The company or organization, as your team knows it.',
@@ -409,10 +421,16 @@ export default {
             slug: 'Auto-generated — edit to set a custom one.',
             slugLocked:
               "Set when the customer was created. It can't be changed.",
+            billingEmail:
+              'Where the invoices of this customer are addressed, for your accounting system. Optional: empty it to remove it.',
           },
           Errors: {
             name: 'Name is required',
             domain: 'Domain must be a valid domain name (e.g. acme.com)',
+            billingEmail:
+              'Enter a valid e-mail address, such as billing@acme.com',
+            billingEmailTooLong:
+              'The e-mail address is too long (254 characters at most)',
           },
           createSuccess: 'Customer created successfully',
           updateSuccess: 'Customer updated successfully',
