@@ -42,7 +42,11 @@ export const problemJson = (
   status: number,
   detail: string,
   code?: string,
-  extras: { errors?: ErrorDetail[]; headers?: Record<string, string> } = {},
+  extras: {
+    errorId?: string;
+    errors?: ErrorDetail[];
+    headers?: Record<string, string>;
+  } = {},
 ) =>
   HttpResponse.json(
     {
@@ -51,6 +55,7 @@ export const problemJson = (
       status,
       detail,
       code,
+      errorId: extras.errorId,
       errors: extras.errors,
     },
     {

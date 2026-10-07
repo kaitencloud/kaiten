@@ -27,7 +27,7 @@ import {
   createLicenseEntitlements,
   createLicenses,
 } from './catalog';
-import { createBillingCapabilities } from './billing';
+import { createBillingCapabilities, createBillingInvoices } from './billing';
 import { bySlug } from './by-slug';
 import { createFeatureFlags } from './feature-flags';
 import {
@@ -181,6 +181,7 @@ export function createDevMockConfig(): E2EMswConfig {
     ).serializeForMsw(),
     billing: new BillingAppModel({
       capabilities: createBillingCapabilities(),
+      ...createBillingInvoices(world),
     }).serializeForMsw(),
     connectors: new ConnectorAppModel({
       syncedRecords: syncedWithAttio(world),

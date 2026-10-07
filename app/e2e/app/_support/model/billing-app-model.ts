@@ -1,34 +1,17 @@
-import type { BillingCapabilities, ErrorDetail } from '@/api-client';
+import type { BillingCapabilities } from '@/api-client';
 import { zBillingCapabilities } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 import { billingCapabilitiesProfiles } from './billing-capabilities';
+import {
+  BillingInvoices,
+  type BillingInvoicesSeed,
+  type SerializedBillingInvoices,
+} from './billing-invoices';
+import { BillingProblem } from './billing-problem';
+
+export { BillingProblem } from './billing-problem';
 
 const clone = <T>(value: T): T => structuredClone(value);
-
-/**
- * A refusal the Core API answers with a problem document. The handlers render
- * it as application/problem+json with its code and detail, so the console shows
- * the reason the real API would give.
- */
-export class BillingProblem extends Error {
-  readonly httpStatus: number;
-  readonly code?: string;
-  readonly errors?: ErrorDetail[];
-  readonly retryAfterSeconds?: number;
-
-  constructor(
-    httpStatus: number,
-    code: string | undefined,
-    detail: string,
-    extras: { errors?: ErrorDetail[]; retryAfterSeconds?: number } = {},
-  ) {
-    super(detail);
-    this.httpStatus = httpStatus;
-    this.code = code;
-    this.errors = extras.errors;
-    this.retryAfterSeconds = extras.retryAfterSeconds;
-  }
-}
 
 /**
  * How `GET /billing/capabilities` stops answering with its body, for as long as
@@ -68,36 +51,45 @@ export const CAPABILITIES_OUTAGES = {
   hang: { kind: 'hang' },
 } as const satisfies Record<string, CapabilitiesOutage>;
 
-export type BillingAppModelSeed = {
+export type BillingAppModelSeed = BillingInvoicesSeed & {
   /** What `GET /billing/capabilities` answers; billing on with NoOp by default. */
   capabilities?: BillingCapabilities;
 };
 
 export type SerializedBillingAppModel = {
   capabilities: BillingCapabilities;
+  /** The invoices and their queue; a state stored before they existed has none. */
+  invoices?: SerializedBillingInvoices;
   outage: CapabilitiesOutage | null;
 };
 
 /**
- * Billing as the Core API exposes it to the console. For now that is the
- * capabilities: whether billing answers at all, who can collect invoices and
- * which parts of the release ship, which every other billing screen gates on.
- * The subscriptions, invoices and settings of the screens that follow are
- * added to this model, so that what one screen changes shows on the others.
+ * Billing as the Core API exposes it to the console: the capabilities every
+ * billing screen gates on (whether billing answers at all, who can collect
+ * invoices, which parts of the release ship) and the invoices of the
+ * organization with their handoff queue. The subscriptions and settings of the
+ * screens that follow are added to this model, so that what one screen changes
+ * shows on the others.
  */
 export class BillingAppModel {
   private capabilities: BillingCapabilities;
   private outage: CapabilitiesOutage | null = null;
+  /** The invoices, the handoff queue and the usage behind the metered lines. */
+  invoices: BillingInvoices;
 
   static fromSerialized(state: SerializedBillingAppModel) {
     const model = new BillingAppModel({ capabilities: state.capabilities });
     model.outage = state.outage;
+    if (state.invoices) {
+      model.invoices = BillingInvoices.fromSerialized(state.invoices);
+    }
     return model;
   }
 
   serializeForMsw(): SerializedBillingAppModel {
     return {
       capabilities: clone(this.capabilities),
+      invoices: this.invoices.serialize(),
       outage: clone(this.outage),
     };
   }
@@ -108,6 +100,7 @@ export class BillingAppModel {
       seed.capabilities ?? billingCapabilitiesProfiles.stack(),
       'BillingAppModel seed.capabilities',
     );
+    this.invoices = new BillingInvoices(seed);
   }
 
   /** The body of `GET /billing/capabilities`, or the refusal the model is set to give. */
