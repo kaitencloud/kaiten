@@ -84,8 +84,8 @@ export class InstanceBillingDriver {
     return this.page.getByTestId('would-hold-banner');
   }
 
-  viewLinesButton(): Locator {
-    return this.upcomingCard().getByRole('button', { name: 'View the lines' });
+  viewLinesButton(name = 'View the lines'): Locator {
+    return this.page.getByRole('button', { name });
   }
 
   invoicesCount(): Locator {
@@ -156,7 +156,8 @@ export class InstanceBillingDriver {
     await expect(this.dialog()).toHaveCount(0);
   }
 
-  private card(title: string): Locator {
+  /** A card of the page by its title, as the language of the page writes it. */
+  card(title: string): Locator {
     return this.page
       .locator('[data-slot="card-title"]')
       .filter({ hasText: new RegExp(`^${escapeRegExp(title)}$`) })
