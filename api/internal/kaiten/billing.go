@@ -2,6 +2,11 @@ package kaiten
 
 import (
 	"context"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/completepaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createpaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createportalsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/detachpaymentmethod"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getcustomerbilling"
 
 	"github.com/google/uuid"
 
@@ -343,4 +348,44 @@ func (b Billing) GetHealth(ctx context.Context, cl caller.OrganizationCaller) (*
 		return nil, err
 	}
 	return b.uc.GetBillingHealth.Execute(bindOrganization(ctx, cl))
+}
+
+// GetCustomerBilling reads a customer's side in each payment provider.
+func (b Billing) GetCustomerBilling(ctx context.Context, cl caller.OrganizationCaller, customerSlug string) (*getcustomerbilling.CustomerBilling, error) {
+	if err := cl.Require(getcustomerbilling.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.GetCustomerBilling.Execute(bindOrganization(ctx, cl), customerSlug)
+}
+
+// CreatePaymentMethodSession opens a page saving a customer's payment method.
+func (b Billing) CreatePaymentMethodSession(ctx context.Context, cl caller.OrganizationCaller, customerSlug string, cmd createpaymentmethodsession.PaymentMethodSessionRequest) (*createpaymentmethodsession.PaymentMethodSession, error) {
+	if err := cl.Require(createpaymentmethodsession.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.CreatePaymentMethodSession.Execute(bindOrganization(ctx, cl), customerSlug, cmd)
+}
+
+// CompletePaymentMethodSession applies a setup page the customer finished.
+func (b Billing) CompletePaymentMethodSession(ctx context.Context, cl caller.OrganizationCaller, customerSlug, sessionID string) (*completepaymentmethodsession.CompletedPaymentMethodSession, error) {
+	if err := cl.Require(completepaymentmethodsession.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.CompletePaymentMethodSession.Execute(bindOrganization(ctx, cl), customerSlug, sessionID)
+}
+
+// CreatePortalSession opens a customer's billing portal in its provider.
+func (b Billing) CreatePortalSession(ctx context.Context, cl caller.OrganizationCaller, customerSlug string, cmd createportalsession.PortalSessionRequest) (*createportalsession.PortalSession, error) {
+	if err := cl.Require(createportalsession.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.CreatePortalSession.Execute(bindOrganization(ctx, cl), customerSlug, cmd)
+}
+
+// DetachPaymentMethod removes a customer's payment method from its provider.
+func (b Billing) DetachPaymentMethod(ctx context.Context, cl caller.OrganizationCaller, customerSlug string) error {
+	if err := cl.Require(detachpaymentmethod.RequiredScope); err != nil {
+		return err
+	}
+	return b.uc.DetachPaymentMethod.Execute(bindOrganization(ctx, cl), customerSlug)
 }

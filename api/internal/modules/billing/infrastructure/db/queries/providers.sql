@@ -441,3 +441,45 @@ FROM customer_billing
 WHERE organization_id = sqlc.arg(organization_id)
   AND provider_kind = sqlc.arg(provider_kind)
   AND external_customer_id = sqlc.arg(external_customer_id);
+
+
+-- name: GetBillingCustomerBySlug :one
+SELECT c.id, c.slug, c.name, c.billing_email
+FROM customer c
+WHERE c.organization_id = sqlc.arg(organization_id)
+  AND c.slug = sqlc.arg(slug);
+
+
+-- name: ListCustomerBilling :many
+-- A customer's side in each provider, with its payment-method labels.
+SELECT *
+FROM customer_billing
+WHERE organization_id = sqlc.arg(organization_id)
+  AND customer_id = sqlc.arg(customer_id)
+ORDER BY provider_kind;
+
+
+-- name: GetLiveSubscriptionCurrency :one
+-- The currency of a live subscription of the customer: what a payment
+-- method saved for it is set up in.
+SELECT ib.currency::text AS currency
+FROM instance_billing ib
+WHERE ib.organization_id = sqlc.arg(organization_id)
+  AND ib.customer_id = sqlc.arg(customer_id)
+  AND ib.status <> 'CANCELED'
+ORDER BY ib.created_at
+LIMIT 1;
+
+
+-- name: CountAutomaticCollection :one
+-- The live subscriptions of a customer, in a provider, whose invoices it
+-- charges: their effective collection method is CHARGE_AUTOMATICALLY, their
+-- own or the organization's default.
+SELECT count(*)::bigint AS subscriptions
+FROM instance_billing ib
+LEFT JOIN organization_billing_settings s ON s.organization_id = ib.organization_id
+WHERE ib.organization_id = sqlc.arg(organization_id)
+  AND ib.customer_id = sqlc.arg(customer_id)
+  AND ib.provider_kind = sqlc.arg(provider_kind)
+  AND ib.status <> 'CANCELED'
+  AND coalesce(ib.collection_method, s.default_collection_method, 'SEND_INVOICE') = 'CHARGE_AUTOMATICALLY';
