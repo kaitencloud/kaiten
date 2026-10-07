@@ -118,6 +118,41 @@ describe('dev world', () => {
     expect(capabilities.providers.map(({ kind }) => kind)).toEqual(['NOOP']);
   });
 
+  it('prices the versions of the licenses, and only what they grant', () => {
+    const { grants, prices } = slot(config.licenses).pricing;
+    const licenseSlugs = new Set(
+      slot(config.licenses).licenses.map(({ slug }) => slug),
+    );
+
+    expect(Object.keys(prices).length).toBeGreaterThan(0);
+    for (const [slug, versionPrices] of Object.entries(prices)) {
+      expect(licenseSlugs).toContain(slug);
+      // One currency per version, and no deprecated price that is a default.
+      expect(new Set(versionPrices.map(({ currency }) => currency)).size).toBe(1);
+      for (const price of versionPrices) {
+        expect(price.status === 'DEPRECATED' && price.isDefault).toBe(false);
+        if (price.metered) {
+          expect(
+            grants.some(
+              (grant) =>
+                grant.licenseSlug === slug &&
+                grant.entitlementSlug === price.metered?.entitlementSlug,
+            ),
+            `${slug} meters ${price.metered.entitlementSlug} without granting it`,
+          ).toBe(true);
+        }
+      }
+      // At most one default per billing period.
+      const defaults = versionPrices
+        .filter((price) => price.isDefault)
+        .map(({ billingPeriod }) => billingPeriod);
+      expect(new Set(defaults).size).toBe(defaults.length);
+    }
+    for (const slug of slot(config.licenses).pricing.billedVersions) {
+      expect(licenseSlugs).toContain(slug);
+    }
+  });
+
   it('counts on the dashboard what the lists show', () => {
     const { data } = slot(config.dashboard);
     expect(data.customers).toHaveLength(customerIds.size);
