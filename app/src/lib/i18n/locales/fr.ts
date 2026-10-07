@@ -1043,6 +1043,7 @@ export default {
               'Le prix que le catalogue et l’aperçu de facture utilisent pour cette période de facturation. Une période n’en a qu’un.',
           },
           Placeholders: {
+            amount: '0,00',
             currency: 'Choisir une devise',
             currencySearch: 'Rechercher une devise',
             label: 'Pro, mensuel',

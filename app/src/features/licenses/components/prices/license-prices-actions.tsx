@@ -22,6 +22,43 @@ type LicensePricesActionsProps = {
   rules: PriceRules;
 };
 
+// A button that cannot be used stays in the tab order, and says why on hover and
+// on focus, instead of a wrapper that takes the focus for it.
+function PreviewAction({
+  canPreview,
+  onPreview,
+}: {
+  canPreview: boolean;
+  onPreview: () => void;
+}) {
+  const { t } = useTranslation();
+  const button = (
+    <Button
+      className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+      disabled={!canPreview}
+      focusableWhenDisabled
+      onClick={onPreview}
+      size="sm"
+      type="button"
+      variant="outline"
+    >
+      <InvoiceIcon className="size-4" />
+      {t('Pages.Licenses.Prices.Preview.open')}
+    </Button>
+  );
+
+  return canPreview ? (
+    button
+  ) : (
+    <Tooltip>
+      <TooltipTrigger render={button} />
+      <TooltipContent>
+        {t('Pages.Licenses.Prices.Preview.unavailable')}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 /**
  * What the tab offers on the prices as a whole: to preview the invoice they make
  * up, and to add one. An action the session's scopes do not cover is not there,
@@ -43,39 +80,10 @@ export function LicensePricesActions({
     return null;
   }
 
-  const previewButton = (
-    <Button
-      disabled={!canPreview}
-      onClick={onPreview}
-      size="sm"
-      type="button"
-      variant="outline"
-    >
-      <InvoiceIcon className="size-4" />
-      {t('Pages.Licenses.Prices.Preview.open')}
-    </Button>
-  );
-
   return (
     <TableCard.HeaderActions>
       {mayPreview ? (
-        canPreview ? (
-          previewButton
-        ) : (
-          // A disabled button takes no pointer event: its wrapper shows the reason.
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <span className="inline-flex rounded-sm" tabIndex={0}>
-                  {previewButton}
-                </span>
-              }
-            />
-            <TooltipContent>
-              {t('Pages.Licenses.Prices.Preview.unavailable')}
-            </TooltipContent>
-          </Tooltip>
-        )
+        <PreviewAction canPreview={canPreview} onPreview={onPreview} />
       ) : null}
       {mayAdd ? (
         <Button
