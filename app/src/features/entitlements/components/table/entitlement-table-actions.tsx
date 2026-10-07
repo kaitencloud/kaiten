@@ -13,10 +13,17 @@ import { useEntitlementLicenseLinks } from '../../hooks';
 
 type EntitlementTableActionsProps = {
   entitlement: Entitlement;
+  /**
+   * Called with the failure of the delete, once the row is back in the list: true
+   * when the table shows it itself (the dialog that says what still uses the
+   * entitlement), and then there is no toast.
+   */
+  onDeleteRefused: (error: unknown, entitlementSlug?: string) => boolean;
 };
 
 export const EntitlementTableActions = ({
   entitlement,
+  onDeleteRefused,
 }: EntitlementTableActionsProps) => {
   const { t } = useTranslation();
   const { queryClient } = useRouteContext({ from: '__root__' });
@@ -32,13 +39,26 @@ export const EntitlementTableActions = ({
 
   const deleteMutation = useMutation({
     ...deleteEntitlementMutation(),
-    ...optimisticDeleteCallbacks<Entitlement>(
+    ...optimisticDeleteCallbacks<
+      Entitlement,
+      { path: { entitlementSlug: string } }
+    >(
       queryClient,
       listEntitlementsQueryKey(),
       entitlement.id,
       {
         success: t('Pages.Entitlements.Mutation.deleteSuccess'),
         error: t('Common.deleteError', 'Error deleting entitlement'),
+      },
+      // What a license grants is checked above; an instance that counts the
+      // entitlement or a price that meters it blocks the delete too, and the
+      // dialog says which, with how many. The table holds that dialog: the row
+      // leaves the list while the API answers, and takes with it whatever it
+      // holds, so a refusal kept here would never be shown. The record is the
+      // one the delete was sent for, since by then this row may show another.
+      {
+        handleError: (error, { path }) =>
+          onDeleteRefused(error, path.entitlementSlug),
       },
     ),
   });

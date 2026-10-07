@@ -528,6 +528,9 @@ export default {
             createSuccess: 'Instance created successfully',
             updateSuccess: 'Instance updated successfully',
             updateError: 'Error updating instance',
+            Frozen: {
+              openSubscription: 'Open the subscription',
+            },
           },
         },
         Deployment: {

@@ -250,6 +250,45 @@ describe('CustomerDetailPageContent', () => {
     expect(detailReads).toBe(1);
   });
 
+  // A customer that bills cannot be deleted. The API says what stands in the way,
+  // and the page explains it in a dialog instead of a toast that says nothing.
+  it('explains a refused delete in a dialog, keeps the customer and stays on the page', async () => {
+    instances = [];
+    server.use(
+      handleDeleteCustomer(() =>
+        HttpResponse.json(
+          {
+            code: 'DeleteCustomer.BillingActive',
+            detail: 'Customer "acme" is billed',
+            errors: [
+              {
+                location: 'customer',
+                message: 'what keeps it',
+                value: { live: false, unpaidInvoiceIds: ['inv-1', 'inv-2'] },
+              },
+            ],
+            status: 409,
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderDetail();
+    const button = screen.getByRole('button', { name: 'Delete' });
+    await waitFor(() => expect(button).toBeEnabled());
+
+    await userEvent.setup().click(button);
+
+    const refusal = await screen.findByTestId('deletion-refusal');
+    expect(refusal).toBeInTheDocument();
+    expect(screen.getByText('Customer "acme" is billed')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('deletion-refusal-invoices').querySelectorAll('li'),
+    ).toHaveLength(2);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(deleted).toBe(false);
+  });
+
   it('navigates to the customer-scoped instance creation route from the instances card', async () => {
     const user = userEvent.setup();
 
