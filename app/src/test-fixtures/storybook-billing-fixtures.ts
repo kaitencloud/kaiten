@@ -84,3 +84,9 @@ export {
   buildInvoiceLine,
   buildUsageReport,
 } from '../../e2e/app/_support/fixtures/build-invoice';
+
+// The subscription of an instance and the price it is pinned to, built as the
+// mocks build them.
+export { buildPrice } from '../../e2e/app/_support/fixtures/build-pricing';
+export { buildSubscription } from '../../e2e/app/_support/fixtures/build-subscription';
+export { buildLicense } from '../../e2e/app/_support/fixtures/build-license';
