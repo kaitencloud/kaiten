@@ -46,7 +46,7 @@ The `unit` project runs every test in jsdom, with a timeout of 10 seconds per te
 - registers the `@testing-library/jest-dom` matchers, such as `toBeDisabled` and `toHaveTextContent`;
 - raises Testing Library's `findBy*` and `waitFor` timeout to 5 seconds, because form fields are code-split and the first query of a cold run waits on a dynamic import;
 - initialises i18next with one resource (`src/__tests__/test-i18n.ts`), so `t('Some.key')` returns `Some.key`: assert on the key, or mock `react-i18next` when a test needs real wording;
-- stubs `ResizeObserver`.
+- stubs `ResizeObserver`, and gives jsdom an empty `getAnimations`, which Base UI's `ScrollArea` (the body of a `Page layout="scroll"`) asks its viewport for. Base UI waits for the animations of an overlay to end before it unmounts it, and only where that method exists, so the setup also sets its `BASE_UI_ANIMATIONS_DISABLED` switch: a dialog still unmounts at once in a test.
 
 The `unit` project alone then runs `src/__tests__/msw-setup.ts` (setup files run
 in list order), which:
