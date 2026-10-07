@@ -10,7 +10,7 @@ import {
 } from './persistence';
 
 type StartOptions = {
-  unmockedFlags?: 'off' | 'passthrough';
+  unmockedPlatform?: 'off' | 'passthrough';
   warnUnhandledApiRequests?: boolean;
 };
 type MockWindow = Window & {
@@ -21,14 +21,14 @@ type MockWindow = Window & {
 
 /**
  * E2E is strict; dev warns and passes through; partial notification mocks pass
- * through with real flags. A reload preserves session state, while an HMR
+ * through with the stack's own platform: its flags, and its webhooks. A reload preserves session state, while an HMR
  * restart uses the edited seed. With service workers blocked, fetch/XHR are
  * intercepted in the page instead (not EventSource).
  */
 export async function startE2EMockServiceWorker(
   config: E2EMswConfig,
   {
-    unmockedFlags = 'off',
+    unmockedPlatform = 'off',
     warnUnhandledApiRequests = false,
   }: StartOptions = {},
 ) {
@@ -38,9 +38,14 @@ export async function startE2EMockServiceWorker(
     ? config
     : { ...config, ...readStoredConfig() };
   writeStoredConfig(effectiveConfig);
-  const strict = unmockedFlags === 'off' && !warnUnhandledApiRequests;
+  const strict = unmockedPlatform === 'off' && !warnUnhandledApiRequests;
   const handlers = [
-    ...createMockHandlers(effectiveConfig, unmockedFlags, persistSlot, strict),
+    ...createMockHandlers(
+      effectiveConfig,
+      unmockedPlatform,
+      persistSlot,
+      strict,
+    ),
     ...(strict ? [undeclaredApiRequest] : []),
   ];
   if (running) {

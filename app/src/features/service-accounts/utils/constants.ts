@@ -2,7 +2,6 @@ import {
   API_SCOPE_RESOURCES,
   type ApiScopeResource,
 } from '@/lib/api/scopes.gen';
-import { type PlatformFlag, WEBHOOKS_FLAG } from '@/lib/feature-flags';
 
 import type {
   AccessLevels,
@@ -57,15 +56,11 @@ const RESOURCE_GROUPS: Record<ApiScopeResource, ScopeGroupId> = {
   webhooks: 'organization',
 };
 
-// The scopes of a feature a platform flag decides (lib/feature-flags): the
-// picker offers one only where its flag is on, since a token that may call
-// webhooks is no use on a deployment that serves none. The token's scopes are
-// still what the API accepts -- this narrows what is offered, not what is valid.
-export const RESOURCE_PLATFORM_FLAGS: Partial<
-  Record<ApiScopeResource, PlatformFlag>
-> = {
-  webhooks: WEBHOOKS_FLAG,
-};
+// The scope of a feature not every organization is served (domains/webhooks):
+// the picker offers it only where webhooks are, since a token that may call
+// webhooks is no use where none are served. The token's scopes are still what
+// the API accepts -- this narrows what is offered, not what is valid.
+export const WEBHOOKS_SCOPE_RESOURCE: ApiScopeResource = 'webhooks';
 
 // Every scope an organization credential can carry, from the OpenAPI document.
 export const AVAILABLE_RESOURCES: AvailableResource[] = API_SCOPE_RESOURCES.map(

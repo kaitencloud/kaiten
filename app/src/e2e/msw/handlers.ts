@@ -24,13 +24,19 @@ import { licenseHandlers } from './license-handlers';
 import { notificationHandlers } from './notification-handlers';
 import type { persistSlot } from './persistence';
 import { releaseManagementHandlers } from './release-management-handlers';
-import { integrationStubHandlers } from './integration-stub-handlers';
+import {
+  integrationStubHandlers,
+  noWebhooksServiceHandler,
+} from './integration-stub-handlers';
 import { shellHandlers } from './shell-handlers';
 
 /** The same first-match assembly in Node tests and in the browser. */
 export function createMockHandlers(
   effectiveConfig: E2EMswConfig,
-  unmockedFlags: 'off' | 'passthrough' = 'off',
+  // What Kaiten Cloud decides about the organization when no slot says: its
+  // platform flags, and whether it is served webhooks. 'off' answers as a
+  // self-hosted deployment would; 'passthrough' leaves it to the real stack.
+  unmockedPlatform: 'off' | 'passthrough' = 'off',
   persist: typeof persistSlot = () => {},
   strict = false,
 ) {
@@ -68,7 +74,7 @@ export function createMockHandlers(
     : null;
   const flagEvaluations =
     effectiveConfig.flagEvaluations ??
-    (unmockedFlags === 'off' ? NO_PLATFORM_FLAGS : null);
+    (unmockedPlatform === 'off' ? NO_PLATFORM_FLAGS : null);
 
   // Preserve first-match ownership and the original slot registration order.
   // Explicit sibling fallbacks are sorted last, after all installed owners.
@@ -119,6 +125,8 @@ export function createMockHandlers(
     ...(effectiveConfig.integrationStubs
       ? integrationStubHandlers(effectiveConfig.integrationStubs)
       : []),
+    // After the stubs, which say otherwise: no saas-api, no webhooks.
+    ...(unmockedPlatform === 'off' ? [noWebhooksServiceHandler] : []),
   ];
   return [...withFallbacksLast(handlers), ...(strict ? shellHandlers() : [])];
 }

@@ -34,6 +34,27 @@ describe('mock protocol and ownership', () => {
     expect((await graphql('MetadataFields', { resourceType: 'INSTANCE' })).data.metadataFields.items).toEqual(config.instances?.metadataFields);
   });
 
+  // The console shows webhooks where GET /api/webhooks answers, so the mocks
+  // decide it: a self-hosted deployment unless a stub says Kaiten Cloud.
+  it('answers the webhooks routes as a self-hosted deployment unless a stub says otherwise', async () => {
+    const status = async (config: E2EMswConfig, path = 'webhooks') => {
+      server.resetHandlers();
+      server.use(...createMockHandlers(config, 'off', undefined, true), undeclaredApiRequest);
+      return (await fetch(`http://api.test/api/${path}`)).status;
+    };
+    expect(await status({})).toBe(404);
+    expect(await status({}, 'webhooks/history')).toBe(404);
+    expect(await status({ integrationStubs: { emptyWebhooks: true } })).toBe(200);
+    expect(await status({ integrationStubs: { webhooksNotEntitled: true } })).toBe(403);
+    expect(await status({ integrationStubs: { webhooksNotEntitled: true } }, 'webhooks/history')).toBe(403);
+
+    // Over a real stack the stack answers, so the mocks declare nothing.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    server.resetHandlers();
+    server.use(...createMockHandlers({}, 'passthrough'), undeclaredApiRequest);
+    await expect(fetch('http://api.test/api/webhooks')).rejects.toThrow();
+  });
+
   it('persists create, update and delete for a rehydrated customer model', async () => {
     const config: E2EMswConfig = createDevMockConfig();
     const install = () => {

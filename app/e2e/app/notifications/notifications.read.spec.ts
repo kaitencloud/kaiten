@@ -1,9 +1,7 @@
 import { expect, test } from '../_support/app-test';
 import { NotificationsDriver } from '../_support/drivers/notifications.driver';
-import { installFlagEvaluations } from '../_support/mocks/install-app-mocks';
 import { installEmptyWebhooksStub } from '../_support/mocks/install-integration-stubs';
 import { installNotificationAppMocks } from '../_support/mocks/install-notification-app-mocks';
-import { WEBHOOKS_ON } from '../integrations/integrations.scenarios';
 import { installCustomerAppMocks } from '../_support/mocks/install-customer-app-mocks';
 import { installInstanceAppMocks } from '../_support/mocks/install-instance-app-mocks';
 import { installDashboardAppMocks } from '../_support/mocks/install-dashboard-app-mocks';
@@ -48,9 +46,8 @@ test.describe('notifications read', () => {
     const model = createNotificationsFeedModel();
     const notifications = new NotificationsDriver(page);
 
-    // A webhook delivery only fails where Kaiten Cloud serves webhooks; without
-    // the flag the link would land on the not-found page.
-    await installFlagEvaluations(page, WEBHOOKS_ON);
+    // A webhook delivery only fails where Kaiten Cloud serves webhooks; where
+    // it does not, the link would land on the not-found page.
     await installEmptyWebhooksStub(page);
     await installNotificationAppMocks(page, model);
     await page.goto('/dashboard');
