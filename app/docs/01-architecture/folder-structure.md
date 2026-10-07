@@ -137,7 +137,7 @@ A domain typically has `queries/` (query keys, options, invalidation helpers), `
 - `domains/customer-management/` holds the read models that `customers`, `instances` and `connectors` share.
 - `domains/release-management/` holds the release overview query, the release statuses and the shared component-catalog form, used by `releases`, `components`, `deployment-zones` and `instances`.
 - `domains/crm-sync/` holds the per-entity CRM sync read model and its display components.
-- `domains/billing/` holds what the billing screens share: the capabilities every billing screen gates on, the scope each action needs, money, period and status components, and how a refusal of the API is shown.
+- `domains/billing/` holds what the billing screens share: the capabilities every billing screen gates on, the scope each action needs, money, period and status components, the invoice preview, and how a refusal of the API is shown.
 
 Put in a domain:
 

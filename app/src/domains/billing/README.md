@@ -12,10 +12,13 @@ invoices, the prices of a license version, the instance and customer pages, the
 settings, the add-ons and the vouchers all show money and statuses and need the
 same gate, so the base is written once, before the first of them, instead of
 being extracted from the first screen and reworked by each one that follows. That
-is why most of what `index.ts` exports has no caller yet: it is the contract
-those screens are built against. The generic parts live where any feature can
-reach them: `lib/money.ts`, `components/form/fields/money-field.tsx`,
-`lib/download-blob.ts` and the billing icons of `lib/data-model-icons.ts`.
+is why part of what `index.ts` exports has no caller yet: it is the contract
+those screens are built against. The prices of a license version and the preview
+of its invoice are the first to use it (`features/licenses`): the gate, the
+scopes, the problem alert and the invoice preview below. The generic parts live
+where any feature can reach them: `lib/money.ts`,
+`components/form/fields/money-field.tsx`, `lib/download-blob.ts` and the billing
+icons of `lib/data-model-icons.ts`.
 
 ## Structure
 
@@ -23,10 +26,11 @@ reach them: `lib/money.ts`, `components/form/fields/money-field.tsx`,
 app/src/domains/billing/
 ├── components/       # Money, ServicePeriod, the status and line-type badges,
 │                     # ProblemAlert, MissingScopeBanner, BillingUnavailable,
-│                     # BillingNotFound
-├── hooks/            # useCanPerform, over the scopes of the session
+│                     # BillingNotFound, and the invoice preview: InvoiceLinesTable,
+│                     # InvoiceTotals, InvoicePreviewResult, InvoicePreviewDialog
+├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session
 ├── logic/            # actions and their scopes, availability, problems,
-│                     # statuses, line types, subscription actions, periods
+│                     # statuses, invoice kinds, line types, subscription actions, periods
 ├── queries/          # the capabilities, the route guard, invalidation helpers
 ├── types/
 ├── __tests__/
@@ -90,7 +94,10 @@ export the API streams.
   customer: a 403 there would blank the whole page.
 - **Actions follow the scopes of the session.** `useCanPerform('invoice.markPaid')`
   is false when the token's `scopes` claim does not cover the scope the contract
-  gives the operation. A token that says nothing about scopes (a session token
+  gives the operation, and false while the token is still being read.
+  `useActionAccess` answers the same with `isPending`, for the screen that must
+  tell "not allowed" from "not known yet": a link that is dropped when it cannot
+  be followed must not be dropped before the token has been read. A token that says nothing about scopes (a session token
   whose template predates billing) offers every action: the API answers
   403 `Auth.MissingScope` to one it refuses, and `ProblemAlert` shows a banner that
   names the scope. The token is decoded for display, never verified: the API
@@ -117,6 +124,19 @@ export the API streams.
   when absent) and usage outside the retention. `applyProblemFieldErrors` puts the
   field errors of a 422 on the fields of a form, and the problem's `detail` goes
   in a banner when one finds no field.
+- **An invoice preview is shown as it came.** `InvoicePreviewDialog` is the
+  shell every preview opens in: a banner that says it is a preview and not an
+  invoice (`Features.Billing.InvoicePreview`), whatever the caller puts above the
+  result, and a Close button, with no Save since a preview writes nothing.
+  `InvoicePreviewResult` shows the invoice (its kind and when it was composed,
+  `InvoiceLinesTable`, `InvoiceTotals`): the lines with their service periods,
+  the arithmetic of each in the API's own words, the `capped` mark, and the
+  totals, all fields of the API. A preview that disagrees with the invoice it
+  predicts is a defect of the API, never something to fix up here. The caller
+  brings the data: the preview of a license version is a mutation
+  (`POST /licenses/{slug}/invoice-preview` is the only way to read it), and the
+  upcoming invoice of an instance will be a query. A line's description is a
+  sentence and a table cell does not wrap, so the line cell does.
 - **NoOp is absent, not empty.** Blocks that only a Stripe invoice or
   subscription has are not rendered otherwise; a screen decides from the
   `providerKind` the API names on the invoice or the subscription.
@@ -134,17 +154,20 @@ export the API streams.
 
 `__tests__/` holds the unit tests of the logic, the capabilities query (the
 timeout runs on fake timers), the guard and its explanation on a real router, the
-components, the scopes of the session and the invalidation helpers;
+components, the invoice preview, the scopes of the session
+(`use-can-perform.test.tsx`, `useActionAccess` included) and the invalidation
+helpers;
 `billing-sources.test.ts` reads the billing code to refuse a scope written by hand
-and an amount added up. `components/stories/billing-components.stories.tsx` shows
-the states of every component and runs as a test. The capabilities of the mocked
+and an amount added up. `components/stories/billing-components.stories.tsx` and
+`components/stories/invoice-preview.stories.tsx` show the states of the
+components and run as tests. The capabilities of the mocked
 console are `e2e/app/_support/model/billing-capabilities.ts`, the navigation is
 covered by `e2e/app/billing/billing.navigation.spec.ts` and what a billing link
 explains by `e2e/app/billing/billing.unavailable.spec.ts`.
 
 ## Public API
 
-`index.ts` exports the components, `useCanPerform`, the logic, the queries and the
-types above. Features and routes import it as `@/domains/billing`. The domain
+`index.ts` exports the components, `useCanPerform` and `useActionAccess`, the logic,
+the queries and the types above. Features and routes import it as `@/domains/billing`. The domain
 imports `@/domains/customer-management` for the instance invalidation, and no
 feature.

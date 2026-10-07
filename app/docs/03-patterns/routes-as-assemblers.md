@@ -65,27 +65,46 @@ The route preloads two queries in parallel. The page component reads them itself
 ### A detail page: `beforeLoad` and several queries
 
 ```tsx
-// app/src/routes/licenses/$licenseSlug/index.tsx
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
-import {
-  entitlementsQueryOptions,
-  LicenseDetailPage,
-  licenseEntitlementsQueryOptions,
-  licenseQueryOptions,
-} from '@/features/licenses';
-
-export const Route = createFileRoute('/licenses/$licenseSlug/')({
-  component: LicenseDetailRoute,
+// app/src/routes/licenses/$licenseSlug/route.tsx (abridged)
+export const Route = createFileRoute('/licenses/$licenseSlug')({
+  component: LicenseDetailRouteLayout,
+  validateSearch: (search) => licenseDetailSearchSchema.parse(search),
   beforeLoad: async ({ context, params: { licenseSlug } }) => {
     const license = await context.queryClient.ensureQueryData(
       licenseQueryOptions(licenseSlug),
     );
     return { getTitle: () => license.name };
   },
+  loader: ({ context, params: { licenseSlug } }) =>
+    context.queryClient.ensureQueryData(licenseQueryOptions(licenseSlug)),
+});
+
+function LicenseDetailRouteLayout() {
+  const { licenseSlug } = Route.useParams();
+  const { copyFrom, mode } = Route.useSearch();
+  const { data: license } = useSuspenseQuery(licenseQueryOptions(licenseSlug));
+
+  return (
+    <LicenseDetailPage
+      copyFrom={copyFrom}
+      license={license}
+      licenseSlug={licenseSlug}
+    >
+      {/* the commercial dialog while `mode` is `configure` */}
+      <Suspense fallback={null}>
+        <Outlet />
+      </Suspense>
+    </LicenseDetailPage>
+  );
+}
+```
+
+```tsx
+// app/src/routes/licenses/$licenseSlug/index.tsx: the Overview tab loads its own queries
+export const Route = createFileRoute('/licenses/$licenseSlug/')({
+  component: LicenseOverviewRoute,
   loader: async ({ context, params: { licenseSlug } }) => {
     await Promise.all([
-      context.queryClient.ensureQueryData(licenseQueryOptions(licenseSlug)),
       context.queryClient.ensureQueryData(
         licenseEntitlementsQueryOptions(licenseSlug),
       ),
@@ -93,16 +112,9 @@ export const Route = createFileRoute('/licenses/$licenseSlug/')({
     ]);
   },
 });
-
-function LicenseDetailRoute() {
-  const { licenseSlug } = Route.useParams();
-  const { data: license } = useSuspenseQuery(licenseQueryOptions(licenseSlug));
-
-  return <LicenseDetailPage license={license} licenseSlug={licenseSlug} />;
-}
 ```
 
-`beforeLoad` runs before the loader and gives the breadcrumb its title. The loader runs in parallel with the code splitting of the component and loads every query the page needs. The second `ensureQueryData` for the license returns from the cache. `LicenseDetailPage` reads the other queries itself.
+`beforeLoad` runs before the loader and gives the breadcrumb its title; its `ensureQueryData` fills the cache, so the loader's call returns at once and the component reads the same query with `useSuspenseQuery`. The layout loads the version, which its title and its tabs need, and passes the search parameters it declares to the page as props. Each tab loads what it shows itself, in parallel with the code splitting of its component: a tab whose data the session may not read, or that exists only where billing does, never blanks the page around it.
 
 ### A detail page with tabs
 
