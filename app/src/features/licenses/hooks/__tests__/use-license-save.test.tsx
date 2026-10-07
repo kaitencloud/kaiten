@@ -257,5 +257,56 @@ describe('useLicenseSave', () => {
       // its siblings settle; keep their handlers installed until they do.
       await waitFor(() => expect(calls.filter(({ op }) => op === 'associate')).toHaveLength(4));
     });
+
+    // What a version also sells (its prices) is added between its grants and its
+    // publication: a price meters an entitlement the version must grant, and a
+    // published version must not be served half made.
+    it('runs what comes after the grants once they are attached, and before the publish', async () => {
+      const order: string[] = [];
+      const { result } = renderHook(() => useLicenseSave(entitlements), {
+        wrapper: createWrapper(),
+      });
+
+      const saved = await result.current.createLicenseWithGrants({
+        afterGrants: async (license) => {
+          order.push(
+            `after:${license.slug}:${calls.map(({ op }) => op).join(',')}`,
+          );
+        },
+        body: { ...body, lifecycleState: 'PUBLISHED' },
+        draftEntitlements: drafts,
+      });
+
+      expect(order).toEqual([
+        'after:enterprise-v2:create,associate,associate,associate,associate',
+      ]);
+      expect(calls.at(-1)).toEqual({
+        op: 'publish',
+        licenseSlug: 'enterprise-v2',
+      });
+      expect(saved.error).toBeUndefined();
+    });
+
+    it('keeps the draft unpublished and reports why when what comes after the grants fails', async () => {
+      const { result } = renderHook(() => useLicenseSave(entitlements), {
+        wrapper: createWrapper(),
+      });
+      const failure = new Error('price refused');
+
+      const saved = await result.current.createLicenseWithGrants({
+        afterGrants: async () => {
+          throw failure;
+        },
+        body: { ...body, lifecycleState: 'PUBLISHED' },
+        draftEntitlements: drafts,
+      });
+
+      expect(calls.map(({ op }) => op)).not.toContain('publish');
+      expect(saved.error).toBe(failure);
+      expect(saved.license).toEqual({
+        lifecycleState: 'DRAFT',
+        slug: 'enterprise-v2',
+      });
+    });
   });
 });
