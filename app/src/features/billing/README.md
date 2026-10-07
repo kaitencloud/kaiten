@@ -30,8 +30,6 @@ app/src/features/billing/
 │   ├── line-drilldown/                 # the page: summary, one card per reset window, the reports section, the notice
 │   │                                   # for reports no longer kept, the CSV button
 │   ├── handoff/                        # the page: tabs, list, table and its columns, empty state, the acknowledgement dialog
-│   ├── paged-list/                     # what the three lists the server pages share: the skeleton, the empty state,
-│   │                                   # and the foot (how many were read, "Load more", a refusal of the next page)
 │   ├── action-dialog/                  # the frame of the dialogs that ask the API for an audited action
 │   ├── __tests__/, stories/
 │   └── index.ts
@@ -41,8 +39,7 @@ app/src/features/billing/
 │                                       # the line reports CSV
 ├── schemas/                            # the filters of the URL and the status of the queue; the bodies of mark paid,
 │                                       # release, write off, void and acknowledge, composed from the generated schemas
-├── utils/                              # the filters (query, chips, dates), the title of an invoice, the usage windows,
-│                                       # where a refusal of the API is shown on a form
+├── utils/                              # the filters (query, chips, dates), the title of an invoice, the usage windows
 └── index.ts
 ```
 
@@ -73,11 +70,11 @@ Writes use the generated mutations (`markInvoicePaidMutation`, `writeOffInvoiceM
 ## Tests
 
 - Unit and component tests (Vitest), next to the code:
-  - `components/__tests__/`: the invoice pieces (`invoice-detail-parts`: the actions bar, the hold banner, the chain, the handoff block, the line detail with its scope gate, the summary), the order of the writes of the actions (`invoice-actions-flow`), the audited dialogs (`reason-dialog`, `invoice-dialogs`: mark paid and acknowledge), the reports of a line (`line-drilldown`), the handoff table, the export menu and the filters toolbar (`handoff-and-lists`), the pieces the lists share (`paged-list`), and the two lists as a person meets them, with their paging, their refusals and their empty states (`invoices-list`, `handoff-list`). `billing-test-support.tsx` is the support of those files and no test: the real English and French texts (`useBillingTexts`), a router over plain anchors, a client that does not retry, the rows of a list, a page of a list and a refusal as the API answers it, with its status and its problem.
-  - `utils/__tests__/`: the usage windows, the filters of the URL and their chips, and where a refusal of the API is shown on a form (`place-refusal`).
+  - `components/__tests__/`: the invoice pieces (`invoice-detail-parts`: the actions bar, the hold banner, the chain, the handoff block, the line detail with its scope gate, the summary), the order of the writes of the actions (`invoice-actions-flow`), the audited dialogs (`reason-dialog`, `invoice-dialogs`: mark paid and acknowledge), the reports of a line (`line-drilldown`), the handoff table, the export menu and the filters toolbar (`handoff-and-lists`), and the two lists as a person meets them, with their paging, their refusals and their empty states (`invoices-list`, `handoff-list`). `app/src/test-fixtures/billing-test-support.tsx` is the support of those files, and of the tests of the billing screens of other features, and no test: the real English and French texts (`useBillingTexts`), a router over plain anchors, a client that does not retry, the rows of a list, a page of a list and a refusal as the API answers it, with its status and its problem.
+  - `utils/__tests__/`: the usage windows, the filters of the URL and their chips.
   - `schemas/__tests__/`: the reason, the payment and the acknowledgement, and the search of the queue (`handoff-search`).
   - `queries/__tests__/`: the CSV of a line.
-- Stories (`components/stories/`, run by `pnpm run test:stories`): the invoice detail pieces, the usage windows and the notice for reports no longer kept, the handoff table and its empty states, and the skeleton, the empty state and the foot of a paged list (`paged-list`). `app/src/domains/billing/components/stories/invoices-table.stories.tsx` shows the table of invoices.
+- Stories (`components/stories/`, run by `pnpm run test:stories`): the invoice detail pieces, the usage windows and the notice for reports no longer kept, the handoff table and its empty states. `app/src/domains/billing/components/stories/invoices-table.stories.tsx` shows the table of invoices and `paged-list.stories.tsx` the skeleton, the empty state and the foot of a paged list.
 - E2E specs, `app/e2e/app/billing/`: `billing.invoices-list.spec.ts` (rows, filters in the URL and on the wire, paging, states, export), `billing.invoice-detail.spec.ts`, `billing.drilldown.spec.ts`, `billing.invoice-actions.spec.ts`, `billing.handoff.spec.ts`, `billing.errors.spec.ts`, `billing.noop-variant.spec.ts`, `billing.french.spec.ts` (every screen read in French); the screens are also in `accessibility/accessibility.billing.spec.ts` and `mobile/mobile.billing.spec.ts`. The data is `invoice-fixtures.ts` and the scenarios of `billing.scenarios.ts`, behind the mocks of `app/src/e2e/msw/billing-invoice-handlers.ts`, which filter, page, change state and refuse as the API does. A spec that needs a session with other scopes signs in with `signInWithScopes` (`app/e2e/app/_support/session-scopes.ts`), and one that reads the console in French and then navigates starts it in French with `startInLanguage` (`app/e2e/app/_support/language.ts`). Against the real API, `app/e2e/stack/billing-console.stack.spec.ts` has the API compose the invoices of a renamed customer and checks the console against them (see [the stack suite](../../../e2e/README.md#authenticated-stack)).
 
 ## Public API

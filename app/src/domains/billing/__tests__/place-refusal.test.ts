@@ -1,7 +1,7 @@
 import type { AnyFormApi } from '@tanstack/react-form';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { ApiError } from '@/lib/errors';
-import { placeRefusalOnFields } from '../place-refusal';
+import { placeRefusalOnFields } from '../logic/place-refusal';
 
 /** A form with the fields it is given, which keeps the meta it is handed. */
 function fakeForm(fields: string[]) {

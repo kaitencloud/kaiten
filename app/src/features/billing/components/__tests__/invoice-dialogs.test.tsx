@@ -16,13 +16,13 @@ import {
   refusal,
   renderWithClient,
   useBillingTexts,
-} from './billing-test-support';
+} from '@/test-fixtures/billing-test-support';
 
 const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
 
 vi.mock('sonner', () => ({ toast }));
 vi.mock('@tanstack/react-router', async () =>
-  (await import('./billing-test-support')).createRouterModule(vi.fn()),
+  (await import('@/test-fixtures/billing-test-support')).createRouterModule(vi.fn()),
 );
 
 useBillingTexts();

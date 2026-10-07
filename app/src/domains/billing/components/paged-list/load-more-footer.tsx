@@ -1,7 +1,7 @@
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ProblemAlert } from '@/domains/billing';
 import { cn } from '@/lib/utils';
+import { ProblemAlert } from '../problem-alert';
 
 /** What the footer reads of an infinite query: the next page, and why it could not be read. */
 type PagedQuery = {

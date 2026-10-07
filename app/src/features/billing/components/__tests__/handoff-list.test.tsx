@@ -13,13 +13,13 @@ import {
   renderWithClient,
   sessionToken,
   useBillingTexts,
-} from './billing-test-support';
+} from '@/test-fixtures/billing-test-support';
 
 const getAuthToken = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/auth-token', () => ({ getAuthToken }));
 vi.mock('@tanstack/react-router', async () =>
-  (await import('./billing-test-support')).createRouterModule(vi.fn()),
+  (await import('@/test-fixtures/billing-test-support')).createRouterModule(vi.fn()),
 );
 
 useBillingTexts();
