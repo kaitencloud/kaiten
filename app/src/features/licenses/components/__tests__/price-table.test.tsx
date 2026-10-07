@@ -178,6 +178,14 @@ describe('PriceTable', () => {
     expect(row.queryByText('Default')).toBeNull();
   });
 
+  it('sets a deprecated price aside by muted text, never by an opacity that takes it under the contrast floor', () => {
+    renderTable();
+
+    expect(rowOf('Pro, annual')).toHaveClass('text-muted-foreground');
+    expect(rowOf('Pro, annual').className).not.toMatch(/opacity/);
+    expect(rowOf('Pro, monthly')).not.toHaveClass('text-muted-foreground');
+  });
+
   it('shows an overage with its unit, its timing, and the allowance and cap it bills against', () => {
     renderTable();
 
