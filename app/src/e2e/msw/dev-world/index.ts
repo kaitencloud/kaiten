@@ -35,6 +35,7 @@ import {
   createInstances,
   INSTANCE_METADATA_FIELDS,
 } from './instances';
+import { createLicensePrices, BILLED_LICENSE_SLUGS } from './pricing';
 import { createReleaseTrain } from './release-train';
 
 const STREAM_DEMO_INTERVAL_MS = 45_000;
@@ -64,6 +65,7 @@ export const createDevWorld = () => {
     featureFlags: createFeatureFlags(),
     instances,
     licenseEntitlements,
+    licensePrices: createLicensePrices(licenses),
     licenses,
   };
 };
@@ -196,8 +198,11 @@ export function createDevMockConfig(): E2EMswConfig {
     }).serializeForMsw(),
     instances: instances.serializeForMsw(),
     licenses: new LicenseAppModel({
+      billedVersions: BILLED_LICENSE_SLUGS,
       entitlements: world.entitlements,
+      grants: world.licenseEntitlements,
       licenses: world.licenses,
+      prices: world.licensePrices,
     }).serializeForMsw(),
     notifications: new NotificationAppModel({
       notifications: createNotifications(world.instances),

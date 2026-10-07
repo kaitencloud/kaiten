@@ -50,8 +50,11 @@ import {
 } from '../instances/instances.scenarios';
 import { createSdkServiceAccount } from '../integrations/integrations.scenarios';
 import {
+  createBilledCatalogModel,
+  createDraftPricesModel,
   createLicenseCatalogModel,
   createNumberedLicenseFamilyModel,
+  createPricedCatalogModel,
 } from '../licenses/licenses.scenarios';
 import {
   createComponentsCatalogModel,
@@ -75,6 +78,9 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     'licenses/createNumberedLicenseFamilyModel',
     createNumberedLicenseFamilyModel,
   ],
+  ['licenses/createPricedCatalogModel', createPricedCatalogModel],
+  ['licenses/createBilledCatalogModel', createBilledCatalogModel],
+  ['licenses/createDraftPricesModel', createDraftPricesModel],
   [
     'audit-trail/createUsageEventsAuditTrailModel',
     createUsageEventsAuditTrailModel,
