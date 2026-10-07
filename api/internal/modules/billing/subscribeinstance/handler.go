@@ -218,6 +218,18 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		if err != nil {
 			return err
 		}
+		// The vouchers the instance redeemed up to now apply to its first
+		// invoice, even when the subscription starts earlier.
+		if u.deps.Discounts != nil {
+			redeemed, err := u.deps.Discounts.Discounts(ctx, user.OrganizationID, instance.ID, now)
+			if err != nil {
+				return err
+			}
+			composition, err = rating.ApplyDiscounts(composition, metering.Discounts(redeemed), money.Currency(base.Currency))
+			if err != nil {
+				return err
+			}
+		}
 		if len(composition.Lines) > 0 {
 			defaults, err := settings.Read(ctx, q, user.OrganizationID)
 			if err != nil {
@@ -238,6 +250,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			summary := invoices.Summary(invoice)
 			started.ActivationInvoice = &summary
 			if err := invoices.AnnounceComposed(ctx, u.outbox, invoice); err != nil {
+				return err
+			}
+			if err := metering.Consume(ctx, u.deps.Discounts, user.OrganizationID, composition, now); err != nil {
 				return err
 			}
 		}

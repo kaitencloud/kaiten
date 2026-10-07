@@ -3,6 +3,11 @@
 package metering
 
 import (
+	"context"
+	"time"
+
+	"github.com/google/uuid"
+
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/money"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
@@ -87,4 +92,34 @@ func Addons(held []ports.BillableAddon, currency string) []rating.AddonCharge {
 		})
 	}
 	return out
+}
+
+// Discounts maps the redemptions billing read to what the composer applies.
+func Discounts(redeemed []ports.Discount) []rating.Discount {
+	out := make([]rating.Discount, len(redeemed))
+	for i, d := range redeemed {
+		out[i] = rating.Discount{
+			InstanceVoucherID: d.InstanceVoucherID, VoucherID: d.VoucherID, Name: d.Name, Type: d.Type, Value: d.Value,
+			Currency: d.Currency, AppliesTo: d.AppliesTo, LicensePriceIDs: d.LicensePriceIDs, AddonPriceIDs: d.AddonPriceIDs,
+			Applications: d.Applications, ApplicationsMax: d.ApplicationsMax,
+		}
+	}
+	return out
+}
+
+// Consume records, for each DISCOUNT line of an issued invoice, that its
+// redemption discounted one more invoice.
+func Consume(ctx context.Context, source ports.DiscountSource, organizationID uuid.UUID, composition rating.Composition, now time.Time) error {
+	if source == nil {
+		return nil
+	}
+	for _, line := range composition.Lines {
+		if line.Type != rating.LineDiscount || line.InstanceVoucherID == nil || line.Discount == nil {
+			continue
+		}
+		if err := source.Applied(ctx, organizationID, *line.InstanceVoucherID, line.Discount.ApplicationsMax, now); err != nil {
+			return err
+		}
+	}
+	return nil
 }
