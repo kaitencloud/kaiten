@@ -136,6 +136,9 @@ func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) e
 	if err != nil {
 		return err
 	}
+	if charging(row) {
+		return p.resumeCharge(ctx, row)
+	}
 	if !pushable(row) {
 		return nil
 	}
@@ -228,7 +231,15 @@ func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) e
 		return nil
 	}
 
-	// Step 4: read back and reconcile. A failed read leaves the
+	// Step 4, automatic collection: charge it. Reconciliation reads the
+	// invoice after the charge, whatever its outcome.
+	if pushed.CollectionMethod == db.CollectionMethodCHARGEAUTOMATICALLY {
+		if err := p.charge(ctx, conn, *pushed, normalized); err != nil {
+			return err
+		}
+	}
+
+	// Step 5: read back and reconcile. A failed read leaves the
 	// reconciliation to the next sync pass.
 	callCtx, cancel = providers.Bound(ctx, p.cfg.Timeout)
 	read, err := conn.Adapter.GetInvoice(callCtx, conn.Ref, externalID)
@@ -238,6 +249,42 @@ func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) e
 		return nil
 	}
 	return Reconcile(ctx, p.deps, p.outbox, *pushed, read, conn.InclusiveTax)
+}
+
+// charging reports an issued invoice waiting for its automatic charge's
+// outcome: claimed again by the push queue until it is known.
+func charging(row db.InstanceInvoice) bool {
+	return row.ProviderKind != db.BillingProviderKindNOOP && row.Status == db.InvoiceStatusPUSHED &&
+		row.CollectionMethod == db.CollectionMethodCHARGEAUTOMATICALLY && row.NextPushAt.Valid
+}
+
+// resumeCharge retries the charge of an issued invoice, under the same key:
+// Stripe replays the first outcome within 24 hours, and beyond them the
+// adapter reads the invoice first and charges only one still open.
+func (p *Pusher) resumeCharge(ctx context.Context, row db.InstanceInvoice) error {
+	conn, err := providers.Connect(ctx, p.deps.Providers, row.OrganizationID, row.ProviderKind)
+	if err != nil {
+		return err
+	}
+	normalized, _, err := providers.Normalize(row, deref(row.ExternalCustomerID), nil)
+	if err != nil {
+		return err
+	}
+	if err := p.charge(ctx, conn, row, normalized); err != nil {
+		return err
+	}
+	q := p.deps.Queries(ctx)
+	current, err := q.GetInvoiceByID(ctx, row.ID)
+	if err != nil || current.ReconciliationStatus != nil {
+		return err
+	}
+	callCtx, cancel := providers.Bound(ctx, p.cfg.Timeout)
+	read, err := conn.Adapter.GetInvoice(callCtx, conn.Ref, deref(row.ExternalInvoiceID))
+	cancel()
+	if err != nil {
+		return nil // the next sync pass reconciles it
+	}
+	return Reconcile(ctx, p.deps, p.outbox, current, read, conn.InclusiveTax)
 }
 
 func pushable(row db.InstanceInvoice) bool {
@@ -362,12 +409,7 @@ func (p *Pusher) failed(ctx context.Context, row db.InstanceInvoice, cause error
 		return err
 	}
 	attempts := int(row.PushAttempts) + 1
-	wait := p.cfg.MaxBackoff
-	if attempts < 30 {
-		if backoff := time.Duration(1<<(attempts-1)) * time.Minute; backoff < wait {
-			wait = backoff
-		}
-	}
+	wait := p.backoff(attempts)
 	summary := provider.Summary(cause)
 	err = p.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := p.deps.Queries(ctx)
@@ -391,6 +433,17 @@ func (p *Pusher) failed(ctx context.Context, row db.InstanceInvoice, cause error
 		return err
 	}
 	return fmt.Errorf("push of invoice %s: %w", row.ID, cause)
+}
+
+// backoff is the wait before attempt+1: 1, 2, 4... minutes, up to the cap.
+func (p *Pusher) backoff(attempts int) time.Duration {
+	wait := p.cfg.MaxBackoff
+	if attempts < 30 {
+		if backoff := time.Duration(1<<(attempts-1)) * time.Minute; backoff < wait {
+			wait = backoff
+		}
+	}
+	return wait
 }
 
 // alerts reports whether the failure of this attempt is announced: at the

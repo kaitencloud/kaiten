@@ -12,11 +12,114 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const applyPaymentFailed = `-- name: ApplyPaymentFailed :one
+UPDATE instance_invoice
+SET status             = 'PAYMENT_FAILED',
+    payment_failed_at  = $1,
+    last_payment_error = $2,
+    provider_status    = 'open',
+    next_push_at       = NULL,
+    synced_at          = $3,
+    updated_at         = $3
+WHERE id = $4
+  AND status = 'PUSHED'
+RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at
+`
+
+type ApplyPaymentFailedParams struct {
+	FailedAt         pgtype.Timestamp `json:"failed_at"`
+	LastPaymentError *string          `json:"last_payment_error"`
+	Now              pgtype.Timestamp `json:"now"`
+	ID               uuid.UUID        `json:"id"`
+}
+
+// An automatic charge refused (declined, expired, nothing to charge) or
+// awaiting the customer's authentication: the provider keeps the invoice open,
+// the customer pays on its hosted page or the provider retries.
+func (q *Queries) ApplyPaymentFailed(ctx context.Context, arg ApplyPaymentFailedParams) (InstanceInvoice, error) {
+	row := q.db.QueryRow(ctx, applyPaymentFailed,
+		arg.FailedAt,
+		arg.LastPaymentError,
+		arg.Now,
+		arg.ID,
+	)
+	var i InstanceInvoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceBillingID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.LicenseID,
+		&i.LicenseSlug,
+		&i.BillingEmail,
+		&i.Kind,
+		&i.BoundaryAt,
+		&i.ServiceFrom,
+		&i.ServiceTo,
+		&i.Currency,
+		&i.SubtotalMinor,
+		&i.DiscountTotalMinor,
+		&i.TotalMinor,
+		&i.Lines,
+		&i.Status,
+		&i.HoldReason,
+		&i.HoldDetail,
+		&i.HeldAt,
+		&i.HoldReleasedAt,
+		&i.HoldReleasedByID,
+		&i.HoldReleaseReason,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.ExternalCustomerID,
+		&i.ExternalInvoiceID,
+		&i.ProviderInvoiceNumber,
+		&i.ProviderStatus,
+		&i.HostedInvoiceUrl,
+		&i.InvoicePdfUrl,
+		&i.ProviderTotalExcludingTaxMinor,
+		&i.ReconciliationStatus,
+		&i.ReconciliationDetail,
+		&i.ReconciledAt,
+		&i.PushAttempts,
+		&i.NextPushAt,
+		&i.LastPushError,
+		&i.PushedAt,
+		&i.SyncedAt,
+		&i.IssuedAt,
+		&i.DaysUntilDue,
+		&i.DueAt,
+		&i.PaidAt,
+		&i.MarkedPaidByID,
+		&i.PaymentFailedAt,
+		&i.LastPaymentError,
+		&i.UncollectibleAt,
+		&i.VoidedAt,
+		&i.VoidedByID,
+		&i.VoidReason,
+		&i.ReplacesInvoiceID,
+		&i.HandoffStatus,
+		&i.HandoffLeaseID,
+		&i.HandoffLeasedUntil,
+		&i.HandoffClaimCount,
+		&i.HandoffAcknowledgedAt,
+		&i.HandoffAcknowledgedByID,
+		&i.ExternalReference,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const applyProviderPaid = `-- name: ApplyProviderPaid :one
 UPDATE instance_invoice
 SET status          = 'PAID',
     paid_at         = $1,
     provider_status = 'paid',
+    next_push_at    = NULL,
     synced_at       = $2,
     updated_at      = $2
 WHERE id = $3
@@ -352,7 +455,10 @@ SELECT
     WHERE b.organization_id = $1 AND b.status = 'PAST_DUE')::bigint AS past_due,
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = $1 AND i.status IN ('MANUAL', 'PUSHED', 'PAYMENT_FAILED')
-      AND i.due_at < $2)::bigint AS overdue,
+      AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+              THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
+                OR i.issued_at < $4::timestamp
+              ELSE i.due_at < $2::timestamp END))::bigint AS overdue,
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = $1 AND i.handoff_status = 'PENDING')::bigint AS handoff_pending,
   (SELECT min(i.issued_at) FROM instance_invoice i
@@ -360,9 +466,10 @@ SELECT
 `
 
 type BillingHealthParams struct {
-	OrganizationID     uuid.UUID        `json:"organization_id"`
-	Now                pgtype.Timestamp `json:"now"`
-	AlertAfterAttempts int32            `json:"alert_after_attempts"`
+	OrganizationID       uuid.UUID        `json:"organization_id"`
+	Now                  pgtype.Timestamp `json:"now"`
+	AlertAfterAttempts   int32            `json:"alert_after_attempts"`
+	AutoCollectionBefore pgtype.Timestamp `json:"auto_collection_before"`
 }
 
 type BillingHealthRow struct {
@@ -383,7 +490,12 @@ type BillingHealthRow struct {
 
 // The health section, computed at read time.
 func (q *Queries) BillingHealth(ctx context.Context, arg BillingHealthParams) (BillingHealthRow, error) {
-	row := q.db.QueryRow(ctx, billingHealth, arg.OrganizationID, arg.Now, arg.AlertAfterAttempts)
+	row := q.db.QueryRow(ctx, billingHealth,
+		arg.OrganizationID,
+		arg.Now,
+		arg.AlertAfterAttempts,
+		arg.AutoCollectionBefore,
+	)
 	var i BillingHealthRow
 	err := row.Scan(
 		&i.CloseBacklog,
@@ -411,7 +523,10 @@ WHERE i.id IN (SELECT q.id
                FROM instance_invoice q
                WHERE q.provider_kind <> 'NOOP'
                  AND q.provider_kind::text = ANY ($3::text[])
-                 AND q.status IN ('DRAFT', 'PUSH_FAILED')
+                 -- An issued invoice the provider charges stays in the queue
+                 -- until the charge's outcome is known.
+                 AND (q.status IN ('DRAFT', 'PUSH_FAILED')
+                   OR (q.status = 'PUSHED' AND q.collection_method = 'CHARGE_AUTOMATICALLY'))
                  AND q.hold_reason IS NULL
                  AND q.next_push_at <= $2
                ORDER BY q.next_push_at
@@ -452,6 +567,59 @@ func (q *Queries) ClaimPushBatch(ctx context.Context, arg ClaimPushBatchParams) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const clearPaymentMethod = `-- name: ClearPaymentMethod :one
+UPDATE customer_billing
+SET default_payment_method_id  = NULL,
+    payment_method_brand       = NULL,
+    payment_method_last4       = NULL,
+    payment_method_exp_month   = NULL,
+    payment_method_exp_year    = NULL,
+    payment_method_status      = 'NONE',
+    payment_method_attached_at = NULL,
+    synced_at                  = $1,
+    updated_at                 = $1
+WHERE organization_id = $2
+  AND customer_id = $3
+  AND provider_kind = $4
+RETURNING customer_id, organization_id, provider_kind, external_customer_id, web_url, synced_at, last_error, created_at, updated_at, default_payment_method_id, payment_method_brand, payment_method_last4, payment_method_exp_month, payment_method_exp_year, payment_method_status, payment_method_attached_at
+`
+
+type ClearPaymentMethodParams struct {
+	Now            pgtype.Timestamp    `json:"now"`
+	OrganizationID uuid.UUID           `json:"organization_id"`
+	CustomerID     uuid.UUID           `json:"customer_id"`
+	ProviderKind   BillingProviderKind `json:"provider_kind"`
+}
+
+func (q *Queries) ClearPaymentMethod(ctx context.Context, arg ClearPaymentMethodParams) (CustomerBilling, error) {
+	row := q.db.QueryRow(ctx, clearPaymentMethod,
+		arg.Now,
+		arg.OrganizationID,
+		arg.CustomerID,
+		arg.ProviderKind,
+	)
+	var i CustomerBilling
+	err := row.Scan(
+		&i.CustomerID,
+		&i.OrganizationID,
+		&i.ProviderKind,
+		&i.ExternalCustomerID,
+		&i.WebUrl,
+		&i.SyncedAt,
+		&i.LastError,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DefaultPaymentMethodID,
+		&i.PaymentMethodBrand,
+		&i.PaymentMethodLast4,
+		&i.PaymentMethodExpMonth,
+		&i.PaymentMethodExpYear,
+		&i.PaymentMethodStatus,
+		&i.PaymentMethodAttachedAt,
+	)
+	return i, err
 }
 
 const countProviderRouting = `-- name: CountProviderRouting :one
@@ -510,7 +678,7 @@ func (q *Queries) GetAnyCustomerBillingID(ctx context.Context, arg GetAnyCustome
 }
 
 const getCustomerBilling = `-- name: GetCustomerBilling :one
-SELECT customer_id, organization_id, provider_kind, external_customer_id, web_url, synced_at, last_error, created_at, updated_at
+SELECT customer_id, organization_id, provider_kind, external_customer_id, web_url, synced_at, last_error, created_at, updated_at, default_payment_method_id, payment_method_brand, payment_method_last4, payment_method_exp_month, payment_method_exp_year, payment_method_status, payment_method_attached_at
 FROM customer_billing
 WHERE organization_id = $1
   AND customer_id = $2
@@ -536,6 +704,51 @@ func (q *Queries) GetCustomerBilling(ctx context.Context, arg GetCustomerBilling
 		&i.LastError,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DefaultPaymentMethodID,
+		&i.PaymentMethodBrand,
+		&i.PaymentMethodLast4,
+		&i.PaymentMethodExpMonth,
+		&i.PaymentMethodExpYear,
+		&i.PaymentMethodStatus,
+		&i.PaymentMethodAttachedAt,
+	)
+	return i, err
+}
+
+const getCustomerBillingByExternalID = `-- name: GetCustomerBillingByExternalID :one
+SELECT customer_id, organization_id, provider_kind, external_customer_id, web_url, synced_at, last_error, created_at, updated_at, default_payment_method_id, payment_method_brand, payment_method_last4, payment_method_exp_month, payment_method_exp_year, payment_method_status, payment_method_attached_at
+FROM customer_billing
+WHERE organization_id = $1
+  AND provider_kind = $2
+  AND external_customer_id = $3
+`
+
+type GetCustomerBillingByExternalIDParams struct {
+	OrganizationID     uuid.UUID           `json:"organization_id"`
+	ProviderKind       BillingProviderKind `json:"provider_kind"`
+	ExternalCustomerID string              `json:"external_customer_id"`
+}
+
+func (q *Queries) GetCustomerBillingByExternalID(ctx context.Context, arg GetCustomerBillingByExternalIDParams) (CustomerBilling, error) {
+	row := q.db.QueryRow(ctx, getCustomerBillingByExternalID, arg.OrganizationID, arg.ProviderKind, arg.ExternalCustomerID)
+	var i CustomerBilling
+	err := row.Scan(
+		&i.CustomerID,
+		&i.OrganizationID,
+		&i.ProviderKind,
+		&i.ExternalCustomerID,
+		&i.WebUrl,
+		&i.SyncedAt,
+		&i.LastError,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DefaultPaymentMethodID,
+		&i.PaymentMethodBrand,
+		&i.PaymentMethodLast4,
+		&i.PaymentMethodExpMonth,
+		&i.PaymentMethodExpYear,
+		&i.PaymentMethodStatus,
+		&i.PaymentMethodAttachedAt,
 	)
 	return i, err
 }
@@ -921,6 +1134,136 @@ func (q *Queries) ListSyncTargets(ctx context.Context) ([]ListSyncTargetsRow, er
 	return items, nil
 }
 
+const markChargeUnknown = `-- name: MarkChargeUnknown :one
+UPDATE instance_invoice
+SET push_attempts   = push_attempts + 1,
+    last_push_error = $1,
+    next_push_at    = $2,
+    updated_at      = $3
+WHERE id = $4
+  AND status = 'PUSHED'
+  AND collection_method = 'CHARGE_AUTOMATICALLY'
+RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at
+`
+
+type MarkChargeUnknownParams struct {
+	LastPushError *string          `json:"last_push_error"`
+	NextPushAt    pgtype.Timestamp `json:"next_push_at"`
+	Now           pgtype.Timestamp `json:"now"`
+	ID            uuid.UUID        `json:"id"`
+}
+
+// A charge whose outcome is unknown (the provider did not answer): the
+// invoice stays PUSHED and the charge is retried, under the same key, after a
+// backoff. It counts as a push attempt, so the backoff and the alert apply.
+func (q *Queries) MarkChargeUnknown(ctx context.Context, arg MarkChargeUnknownParams) (InstanceInvoice, error) {
+	row := q.db.QueryRow(ctx, markChargeUnknown,
+		arg.LastPushError,
+		arg.NextPushAt,
+		arg.Now,
+		arg.ID,
+	)
+	var i InstanceInvoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceBillingID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.LicenseID,
+		&i.LicenseSlug,
+		&i.BillingEmail,
+		&i.Kind,
+		&i.BoundaryAt,
+		&i.ServiceFrom,
+		&i.ServiceTo,
+		&i.Currency,
+		&i.SubtotalMinor,
+		&i.DiscountTotalMinor,
+		&i.TotalMinor,
+		&i.Lines,
+		&i.Status,
+		&i.HoldReason,
+		&i.HoldDetail,
+		&i.HeldAt,
+		&i.HoldReleasedAt,
+		&i.HoldReleasedByID,
+		&i.HoldReleaseReason,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.ExternalCustomerID,
+		&i.ExternalInvoiceID,
+		&i.ProviderInvoiceNumber,
+		&i.ProviderStatus,
+		&i.HostedInvoiceUrl,
+		&i.InvoicePdfUrl,
+		&i.ProviderTotalExcludingTaxMinor,
+		&i.ReconciliationStatus,
+		&i.ReconciliationDetail,
+		&i.ReconciledAt,
+		&i.PushAttempts,
+		&i.NextPushAt,
+		&i.LastPushError,
+		&i.PushedAt,
+		&i.SyncedAt,
+		&i.IssuedAt,
+		&i.DaysUntilDue,
+		&i.DueAt,
+		&i.PaidAt,
+		&i.MarkedPaidByID,
+		&i.PaymentFailedAt,
+		&i.LastPaymentError,
+		&i.UncollectibleAt,
+		&i.VoidedAt,
+		&i.VoidedByID,
+		&i.VoidReason,
+		&i.ReplacesInvoiceID,
+		&i.HandoffStatus,
+		&i.HandoffLeaseID,
+		&i.HandoffLeasedUntil,
+		&i.HandoffClaimCount,
+		&i.HandoffAcknowledgedAt,
+		&i.HandoffAcknowledgedByID,
+		&i.ExternalReference,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const markPaymentMethodStatus = `-- name: MarkPaymentMethodStatus :exec
+UPDATE customer_billing
+SET payment_method_status = $1,
+    updated_at            = $2
+WHERE organization_id = $3
+  AND customer_id = $4
+  AND provider_kind = $5
+  AND payment_method_status <> 'NONE'
+`
+
+type MarkPaymentMethodStatusParams struct {
+	Status         PaymentMethodStatus `json:"status"`
+	Now            pgtype.Timestamp    `json:"now"`
+	OrganizationID uuid.UUID           `json:"organization_id"`
+	CustomerID     uuid.UUID           `json:"customer_id"`
+	ProviderKind   BillingProviderKind `json:"provider_kind"`
+}
+
+// A charge told the payment method is no longer usable (EXPIRED, FAILED).
+func (q *Queries) MarkPaymentMethodStatus(ctx context.Context, arg MarkPaymentMethodStatusParams) error {
+	_, err := q.db.Exec(ctx, markPaymentMethodStatus,
+		arg.Status,
+		arg.Now,
+		arg.OrganizationID,
+		arg.CustomerID,
+		arg.ProviderKind,
+	)
+	return err
+}
+
 const markPushFailed = `-- name: MarkPushFailed :one
 UPDATE instance_invoice
 SET status          = 'PUSH_FAILED',
@@ -1032,7 +1375,10 @@ SET status                  = 'PUSHED',
     handoff_status          = $7,
     pushed_at               = $8,
     synced_at               = $8,
-    next_push_at            = NULL,
+    -- Charged automatically: still in the push queue, for the charge, under
+    -- the run's lease; a run that dies before the charge leaves it due.
+    next_push_at            = CASE WHEN collection_method = 'CHARGE_AUTOMATICALLY'
+                                   THEN $8::timestamp + interval '10 minutes' END,
     last_push_error         = NULL,
     updated_at              = $8
 WHERE id = $9
@@ -1381,6 +1727,73 @@ func (q *Queries) SetInvoiceLines(ctx context.Context, arg SetInvoiceLinesParams
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const setPaymentMethod = `-- name: SetPaymentMethod :one
+UPDATE customer_billing
+SET default_payment_method_id  = $1,
+    payment_method_brand       = $2,
+    payment_method_last4       = $3,
+    payment_method_exp_month   = $4,
+    payment_method_exp_year    = $5,
+    payment_method_status      = 'ACTIVE',
+    payment_method_attached_at = CASE WHEN default_payment_method_id IS DISTINCT FROM $1
+                                        OR payment_method_attached_at IS NULL
+                                      THEN $6::timestamp ELSE payment_method_attached_at END,
+    synced_at                  = $6,
+    updated_at                 = $6
+WHERE organization_id = $7
+  AND customer_id = $8
+  AND provider_kind = $9
+RETURNING customer_id, organization_id, provider_kind, external_customer_id, web_url, synced_at, last_error, created_at, updated_at, default_payment_method_id, payment_method_brand, payment_method_last4, payment_method_exp_month, payment_method_exp_year, payment_method_status, payment_method_attached_at
+`
+
+type SetPaymentMethodParams struct {
+	PaymentMethodID *string             `json:"payment_method_id"`
+	Brand           *string             `json:"brand"`
+	Last4           *string             `json:"last4"`
+	ExpMonth        *int16              `json:"exp_month"`
+	ExpYear         *int16              `json:"exp_year"`
+	Now             pgtype.Timestamp    `json:"now"`
+	OrganizationID  uuid.UUID           `json:"organization_id"`
+	CustomerID      uuid.UUID           `json:"customer_id"`
+	ProviderKind    BillingProviderKind `json:"provider_kind"`
+}
+
+// The labels of the customer's default payment method in a provider, as the
+// provider reports them. Never card data.
+func (q *Queries) SetPaymentMethod(ctx context.Context, arg SetPaymentMethodParams) (CustomerBilling, error) {
+	row := q.db.QueryRow(ctx, setPaymentMethod,
+		arg.PaymentMethodID,
+		arg.Brand,
+		arg.Last4,
+		arg.ExpMonth,
+		arg.ExpYear,
+		arg.Now,
+		arg.OrganizationID,
+		arg.CustomerID,
+		arg.ProviderKind,
+	)
+	var i CustomerBilling
+	err := row.Scan(
+		&i.CustomerID,
+		&i.OrganizationID,
+		&i.ProviderKind,
+		&i.ExternalCustomerID,
+		&i.WebUrl,
+		&i.SyncedAt,
+		&i.LastError,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DefaultPaymentMethodID,
+		&i.PaymentMethodBrand,
+		&i.PaymentMethodLast4,
+		&i.PaymentMethodExpMonth,
+		&i.PaymentMethodExpYear,
+		&i.PaymentMethodStatus,
+		&i.PaymentMethodAttachedAt,
+	)
+	return i, err
 }
 
 const setReconciliation = `-- name: SetReconciliation :execrows
