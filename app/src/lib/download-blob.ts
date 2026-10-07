@@ -6,7 +6,11 @@
  * is handed the blob.
  */
 
-type BlobResult = { data: Blob; response?: Response };
+// The SDK types the body of an export by what the contract declares for it (a
+// string, for a CSV), whatever `parseAs` says it is read as. Read as a blob it is
+// one at run time; the string is accepted as well, so that the call types as it
+// is generated.
+type BlobResult = { data: Blob | string; response?: Response };
 
 /** Hands `blob` to the browser to save as `filename`. */
 export function saveBlob(blob: Blob, filename: string): void {
@@ -68,5 +72,8 @@ export async function downloadBlob(
 ): Promise<void> {
   const { data, response } = await request();
 
-  saveBlob(data, filenameFromResponse(response) ?? fallbackFilename);
+  saveBlob(
+    typeof data === 'string' ? new Blob([data]) : data,
+    filenameFromResponse(response) ?? fallbackFilename,
+  );
 }

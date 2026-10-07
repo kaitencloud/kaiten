@@ -46,6 +46,7 @@ In a form, use the [form fields](./form-components.md): they wrap these controls
 | `AlertDialog` | A modal that asks for a decision. `AlertDialogAction` is a button; compose `AlertDialogClose render={<AlertDialogAction ... />}` when confirming should also close the dialog. | [alert-dialog](../../src/components/ui/stories/alert-dialog.stories.tsx) |
 | `Sheet` | A panel that slides in from an edge. | [sheet](../../src/components/ui/stories/sheet.stories.tsx) |
 | `Popover` | A floating panel anchored to a trigger. | none |
+| `DropdownMenu` | A menu of actions that opens from a button, on Base UI's Menu: `DropdownMenu`, `DropdownMenuTrigger` (pass the button with `render`), `DropdownMenuContent`, `DropdownMenuItem` (`variant="destructive"` for what cannot be undone), `DropdownMenuGroup`, `DropdownMenuLabel`, `DropdownMenuSeparator`. For the actions that do not fit beside each other, such as the actions of an invoice on a phone. A choice that stays, a value, is a `Select`. | [dropdown-menu](../../src/components/ui/stories/dropdown-menu.stories.tsx) |
 
 For a form in a dialog and for confirmations, see the dialog shells of [`components/dialog`](./README.md#dialogs).
 

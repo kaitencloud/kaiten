@@ -100,6 +100,7 @@ Every field takes `label` and, optionally, `description`, `required` and `classN
 | `TextAreaField` | `textarea-field.tsx` | `string` | `placeholder`, `disabled`. The component is named `TextareaField` in its file and registered as `TextAreaField`. |
 | `NumberField` | `number-field.tsx` | `number`, `NaN` while the input is empty | `min`, `max`, `step`, `placeholder`, `disabled`, `onChange(value)` |
 | `MoneyField` | `money-field.tsx` | `string`, the amount as typed in major units (`0.075`) | `currency` (required, shown beside the input), `placeholder`, `disabled`, `onChange(value)`. A float loses the decimals of a price per sale unit, so the string goes to the schema and, at submit time, through `majorToMinorDecimal` of `@/lib/money`. |
+| `DateTimeField` | `date-time-field.tsx` | `string`, the text the control holds (`2027-03-03T10:00`, no zone, `''` when empty) | `disabled`. The field does not say which zone it is read in: the label or the description does, and the form converts the text at submit time (`dateTimeInputToInstant` of `features/billing/schemas/mark-paid.schema.ts` reads it as UTC). |
 | `SelectField` | `select-field.tsx` | `string` | `options`, `getOptionLabel`, `getOptionValue` (defaults to the option itself), `placeholder`, `disabled` |
 | `ComboboxField` | `combobox-field.tsx` | `string` | `options`, `getOptionLabel`, `getOptionValue`, `searchPlaceholder`, `placeholder`, `allowCustomValue`, `clearable`, `clearLabel`, `disabled` |
 | `CheckboxField` | `checkbox-field.tsx` | `boolean` | `disabled`. The label sits beside the box. |

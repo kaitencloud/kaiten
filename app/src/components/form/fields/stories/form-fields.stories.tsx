@@ -5,6 +5,7 @@ import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
 import CheckboxField from '../checkbox-field';
 import ComboboxField from '../combobox-field';
 import DatePickerField from '../date-picker-field';
+import DateTimeField from '../date-time-field';
 import MoneyField from '../money-field';
 import NumberField from '../number-field';
 import SelectField from '../select-field';
@@ -265,6 +266,45 @@ export const MoneyFieldExample: Story = {
 
     await expect(input).toHaveValue('0.0750000001');
     await expect(canvas.getByText('USD')).toBeVisible();
+  },
+};
+
+// A date and a time with the browser's own control. The field holds the text the
+// control holds, with no zone: the label says which zone it is read in.
+export const DateTimeFieldExample: Story = {
+  render: function DateTimeFieldExampleStory() {
+    const form = useAppForm({
+      defaultValues: {
+        paidAt: '',
+      },
+      onSubmit: async ({ value }) => {
+        alert(JSON.stringify(value, null, 2));
+      },
+    });
+
+    return (
+      <div className="max-w-md">
+        <form onSubmit={createFormSubmitHandler(form.handleSubmit)}>
+          <form.AppField name="paidAt">
+            {() => (
+              <DateTimeField
+                description="Now or earlier. Leave it empty for now."
+                label="Paid at (UTC)"
+              />
+            )}
+          </form.AppField>
+        </form>
+      </div>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const input = await canvas.findByLabelText('Paid at (UTC)');
+
+    await userEvent.type(input, '2027-03-03T10:00');
+
+    await expect(input).toHaveValue('2027-03-03T10:00');
+    await expect(input).toHaveAttribute('type', 'datetime-local');
   },
 };
 

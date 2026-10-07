@@ -18,6 +18,9 @@ const DateRangePickerField = lazy(
 const DatePickerField = lazy(
   () => import('@/components/form/fields/date-picker-field'),
 );
+const DateTimeField = lazy(
+  () => import('@/components/form/fields/date-time-field'),
+);
 const TextAreaField = lazy(
   () => import('@/components/form/fields/textarea-field'),
 );
@@ -44,6 +47,7 @@ export const { useAppForm, withForm, withFieldGroup } = createFormHook({
     ComboboxField,
     DateRangePickerField,
     DatePickerField,
+    DateTimeField,
     TextAreaField,
     JsonField,
   },

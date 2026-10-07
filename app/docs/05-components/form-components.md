@@ -15,6 +15,7 @@ Each field is a file of `app/src/components/form/fields/`, registered in `fieldC
 | `field.SelectField` | `select-field.tsx` | `Select` |
 | `field.ComboboxField` | `combobox-field.tsx` | `Combobox` |
 | `field.CheckboxField` | `checkbox-field.tsx` | `Checkbox` |
+| `field.DateTimeField` | `date-time-field.tsx` | `Input type="datetime-local"`; the value is the text the control holds (`2027-03-03T10:00`, no zone, empty when nothing is chosen), so a form says which zone it is read in and converts it itself |
 | `field.DatePickerField` | `date-picker-field.tsx` | `DatePicker` |
 | `field.DateRangePickerField` | `date-range-picker-field.tsx` | `DateRangePicker` |
 | `field.JsonField` | `json-field.tsx` | A CodeMirror editor that lints JSON |

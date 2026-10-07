@@ -381,6 +381,7 @@ export default defineConfig({
     // CI runners and times out the e2e app suite.
     include: [
       '@base-ui/react/input',
+      '@base-ui/react/menu',
       '@base-ui/react/merge-props',
       '@monaco-editor/react',
       'monaco-editor/esm/vs/editor/editor.api',
