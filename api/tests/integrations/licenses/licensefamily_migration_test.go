@@ -17,10 +17,10 @@ import (
 )
 
 // preFamilyMigrationVersion is the schema version immediately before
-// 20260902000000_license_family.sql: the last one where the family of a
+// 20261007000000_license_family.sql: the last one where the family of a
 // license version was inferred from its name, nothing said whether a version
 // may be served, and (name, version) was unique per organization.
-const preFamilyMigrationVersion int64 = 20260901000000
+const preFamilyMigrationVersion int64 = 20260916000000
 
 // nameVersionKey is the pre-family uniqueness the migration drops and its Down
 // restores.

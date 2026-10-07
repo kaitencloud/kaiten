@@ -144,7 +144,7 @@ func TestLicenseFamily_RenamingAVersionDoesNotDetachIt(t *testing.T) {
 // a freely editable display label".
 // license_name_version_organization_id_key -- the pre-family key -- made this
 // a 409 while it existed: every family starts at version 1, so two families
-// could not share a name at all. 20260902000000_license_family.sql drops it.
+// could not share a name at all. 20261007000000_license_family.sql drops it.
 // Two products may share a display name, and only family_id says which rows
 // are the same product.
 func TestLicenseFamily_TwoFamiliesCanShareAName(t *testing.T) {
