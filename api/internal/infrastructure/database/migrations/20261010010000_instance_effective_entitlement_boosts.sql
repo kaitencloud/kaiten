@@ -35,14 +35,14 @@ SELECT
   e."id"                                  AS "entitlement_id",
   e."slug"                                AS "entitlement_slug",
   e."type"                                AS "entitlement_type",
-  r."value",
-  r."limit_cap_exceeded_overage_percent",
+  r."value"::jsonb                        AS "value",
+  r."limit_cap_exceeded_overage_percent"::smallint AS "limit_cap_exceeded_overage_percent",
   le."id"                                 AS "license_entitlement_id",
   le."value"                              AS "license_value",
   le."limit_cap_exceeded_overage_percent" AS "license_overage_percent",
   a."grant_count"                         AS "addon_grant_count",
   b."grant_count"                         AS "boost_grant_count",
-  r."provenance"
+  r."provenance"::jsonb                   AS "provenance"
 FROM "instance" i
 CROSS JOIN LATERAL (
   SELECT le0."entitlement_id"
@@ -199,14 +199,14 @@ SELECT
   e."id"                                  AS "entitlement_id",
   e."slug"                                AS "entitlement_slug",
   e."type"                                AS "entitlement_type",
-  r."value",
-  r."limit_cap_exceeded_overage_percent",
+  r."value"::jsonb                        AS "value",
+  r."limit_cap_exceeded_overage_percent"::smallint AS "limit_cap_exceeded_overage_percent",
   le."id"                                 AS "license_entitlement_id",
   le."value"                              AS "license_value",
   le."limit_cap_exceeded_overage_percent" AS "license_overage_percent",
   a."grant_count"                         AS "addon_grant_count",
   b."grant_count"                         AS "boost_grant_count",
-  r."provenance"
+  r."provenance"::jsonb                   AS "provenance"
 FROM "instance" i
 CROSS JOIN LATERAL (
   SELECT le0."entitlement_id"

@@ -98,6 +98,49 @@ func (ns NullBillingProviderKind) Value() (driver.Value, error) {
 	return string(ns.BillingProviderKind), nil
 }
 
+type BillingSyncStatus string
+
+const (
+	BillingSyncStatusSUCCESS BillingSyncStatus = "SUCCESS"
+	BillingSyncStatusPARTIAL BillingSyncStatus = "PARTIAL"
+	BillingSyncStatusFAILED  BillingSyncStatus = "FAILED"
+)
+
+func (e *BillingSyncStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = BillingSyncStatus(s)
+	case string:
+		*e = BillingSyncStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for BillingSyncStatus: %T", src)
+	}
+	return nil
+}
+
+type NullBillingSyncStatus struct {
+	BillingSyncStatus BillingSyncStatus `json:"billing_sync_status"`
+	Valid             bool              `json:"valid"` // Valid is true if BillingSyncStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullBillingSyncStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.BillingSyncStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.BillingSyncStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullBillingSyncStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.BillingSyncStatus), nil
+}
+
 type CollectionMethod string
 
 const (
@@ -444,6 +487,32 @@ func (ns NullReconciliationStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.ReconciliationStatus), nil
+}
+
+type BillingSyncState struct {
+	OrganizationID      uuid.UUID           `json:"organization_id"`
+	ProviderKind        BillingProviderKind `json:"provider_kind"`
+	Cursor              *string             `json:"cursor"`
+	CursorCreatedAt     pgtype.Timestamp    `json:"cursor_created_at"`
+	LastSyncedAt        pgtype.Timestamp    `json:"last_synced_at"`
+	LastSyncStatus      *BillingSyncStatus  `json:"last_sync_status"`
+	LastSyncError       *string             `json:"last_sync_error"`
+	ConsecutiveFailures int32               `json:"consecutive_failures"`
+	LastFullSweepAt     pgtype.Timestamp    `json:"last_full_sweep_at"`
+	CreatedAt           pgtype.Timestamp    `json:"created_at"`
+	UpdatedAt           pgtype.Timestamp    `json:"updated_at"`
+}
+
+type CustomerBilling struct {
+	CustomerID         uuid.UUID           `json:"customer_id"`
+	OrganizationID     uuid.UUID           `json:"organization_id"`
+	ProviderKind       BillingProviderKind `json:"provider_kind"`
+	ExternalCustomerID string              `json:"external_customer_id"`
+	WebUrl             *string             `json:"web_url"`
+	SyncedAt           pgtype.Timestamp    `json:"synced_at"`
+	LastError          *string             `json:"last_error"`
+	CreatedAt          pgtype.Timestamp    `json:"created_at"`
+	UpdatedAt          pgtype.Timestamp    `json:"updated_at"`
 }
 
 type InstanceBilling struct {

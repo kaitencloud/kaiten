@@ -17,6 +17,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/metering"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/providers"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
@@ -31,7 +32,9 @@ const boundaryConstraint = "instance_invoice_boundary_key"
 // Command is a subscription to start. A nil member takes its default: the
 // organization's terms, and an anchor at the database's current second.
 type Command struct {
-	BasePriceID      uuid.UUID
+	BasePriceID uuid.UUID
+	// ProviderKind is who issues the invoices; empty is NOOP.
+	ProviderKind     string
 	CollectionMethod *string
 	DaysUntilDue     *int32
 	StartAt          *time.Time
@@ -69,6 +72,10 @@ func NewUseCase(deps access.Deps) *UseCase {
 // instance's customer and licence are frozen.
 func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command) (*StartedSubscription, error) {
 	user, err := u.deps.Caller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	kind, err := u.checkProvider(ctx, user.OrganizationID, instanceSlug, cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +177,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			row, err = q.ResubscribeInstanceBilling(ctx, db.ResubscribeInstanceBillingParams{
 				CustomerID: &customer.ID, InstanceSlug: instance.Slug, InstanceName: instance.Name,
 				CustomerSlug: customer.Slug, CustomerName: customer.Name, Status: status,
-				ProviderKind: db.BillingProviderKindNOOP, CollectionMethod: method, DaysUntilDue: cmd.DaysUntilDue,
+				ProviderKind: kind, CollectionMethod: method, DaysUntilDue: cmd.DaysUntilDue,
 				BaseLicensePriceID: base.ID, BillingPeriod: db.BillingPeriod(*base.BillingPeriod), Currency: base.Currency,
 				AnchorAt: invoices.Timestamp(anchor), CurrentPeriodEnd: invoices.Timestamp(periodEnd), TrialEndsAt: trialEndsAt,
 				UserID: user.ID, Now: invoices.Timestamp(now), ID: existing.ID, OrganizationID: user.OrganizationID,
@@ -179,7 +186,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			row, err = q.InsertInstanceBilling(ctx, db.InsertInstanceBillingParams{
 				OrganizationID: user.OrganizationID, InstanceID: &instance.ID, CustomerID: &customer.ID,
 				InstanceSlug: instance.Slug, InstanceName: instance.Name, CustomerSlug: customer.Slug,
-				CustomerName: customer.Name, Status: status, ProviderKind: db.BillingProviderKindNOOP,
+				CustomerName: customer.Name, Status: status, ProviderKind: kind,
 				CollectionMethod: method, DaysUntilDue: cmd.DaysUntilDue, BaseLicensePriceID: base.ID,
 				BillingPeriod: db.BillingPeriod(*base.BillingPeriod), Currency: base.Currency,
 				AnchorAt: invoices.Timestamp(anchor), CurrentPeriodEnd: invoices.Timestamp(periodEnd), TrialEndsAt: trialEndsAt,
@@ -238,7 +245,8 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			invoice, err := invoices.Insert(ctx, q, invoices.Draft{
 				Subscription: row, LicenseID: license.ID, LicenseSlug: license.Slug, BillingEmail: customer.BillingEmail,
 				Kind: rating.KindActivation, BoundaryAt: anchor, Composition: composition,
-				Terms: subscriptions.Terms(row, defaults), Hold: nil, ReplacesInvoiceID: nil, Now: now,
+				Terms: subscriptions.Terms(row, defaults), Hold: nil, ReplacesInvoiceID: nil,
+				Pushes: u.deps.Pushes(row.ProviderKind), Now: now,
 			})
 			if kaitenerrors.IsUniqueViolationOnConstraint(err, boundaryConstraint) {
 				return kaitenerrors.Conflict(operation+".BoundaryConflict",
@@ -265,4 +273,71 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		return nil, err
 	}
 	return started, nil
+}
+
+// checkProvider checks the provider the subscription bills through, and for
+// one that pushes invoices, makes sure it knows the customer: synchronously,
+// before the subscription is written.
+func (u *UseCase) checkProvider(ctx context.Context, organizationID uuid.UUID, instanceSlug string, cmd Command) (db.BillingProviderKind, error) {
+	kind := db.BillingProviderKindNOOP
+	if cmd.ProviderKind != "" {
+		kind = db.BillingProviderKind(cmd.ProviderKind)
+	}
+	q := u.deps.Queries(ctx)
+	defaults, err := settings.Read(ctx, q, organizationID)
+	if err != nil {
+		return "", err
+	}
+	method := defaults.DefaultCollectionMethod
+	if cmd.CollectionMethod != nil {
+		method = *cmd.CollectionMethod
+	}
+	if kind == db.BillingProviderKindNOOP && method == settings.SendInvoice {
+		return kind, nil
+	}
+	conn, err := providers.Connect(ctx, u.deps.Providers, organizationID, kind)
+	if err != nil {
+		return "", providers.APIError(operation, err)
+	}
+	capabilities := conn.Adapter.Capabilities()
+	if method != settings.SendInvoice && !capabilities.ChargeAutomatically {
+		return "", kaitenerrors.UnprocessableEntity(operation+".CollectionMethodUnsupported",
+			"only SEND_INVOICE is available: the payment provider cannot charge automatically")
+	}
+	if !capabilities.PushesInvoices {
+		return kind, nil
+	}
+	instance, err := q.LockInstanceForSubscribe(ctx, db.LockInstanceForSubscribeParams{OrganizationID: organizationID, Slug: instanceSlug})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", kaitenerrors.NotFoundf(operation+".InstanceNotFound", "instance %q not found", instanceSlug)
+	}
+	if err != nil {
+		return "", err
+	}
+	if base, err := u.deps.Catalogue.Price(ctx, organizationID, cmd.BasePriceID); err != nil {
+		return "", err
+	} else if base != nil && !capabilities.AcceptsCurrency(base.Currency) {
+		return "", kaitenerrors.UnprocessableEntityf(operation+".UnsupportedCurrency", "the payment provider does not accept %s", base.Currency)
+	}
+	customer, err := q.GetBillingCustomer(ctx, db.GetBillingCustomerParams{OrganizationID: organizationID, ID: instance.CustomerID})
+	if err != nil {
+		return "", err
+	}
+	if method == settings.SendInvoice && (customer.BillingEmail == nil || *customer.BillingEmail == "") {
+		return "", kaitenerrors.UnprocessableEntity(operation+".BillingEmailMissing",
+			"the customer has no billing e-mail: the payment provider sends the invoices there")
+	}
+	clock, err := q.BillingClock(ctx)
+	if err != nil {
+		return "", err
+	}
+	email := ""
+	if customer.BillingEmail != nil {
+		email = *customer.BillingEmail
+	}
+	if _, err := providers.EnsureCustomer(ctx, q, conn, organizationID,
+		providers.Customer{ID: customer.ID, Name: customer.Name, Email: email}, u.deps.ProviderTimeout, clock.Time.UTC()); err != nil {
+		return "", providers.APIError(operation, err)
+	}
+	return kind, nil
 }

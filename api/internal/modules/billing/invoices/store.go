@@ -37,15 +37,19 @@ type Draft struct {
 	Terms             Terms
 	Hold              *Hold
 	ReplacesInvoiceID *uuid.UUID
-	Now               time.Time
+	// Pushes: the subscription's provider pushes invoices, so the invoice
+	// waits in the push queue instead of being issued MANUAL.
+	Pushes bool
+	Now    time.Time
 }
 
-// Insert writes a composed invoice, issued by the subscription's provider.
-// Without a provider (NOOP) an invoice is issued at once:
+// Insert writes a composed invoice, issued by the subscription's provider:
 //   - held: a DRAFT, issued only once released or recomposed;
-//   - nothing owed: PAID at issue, never handed off;
-//   - otherwise MANUAL, due after the terms' days, and PENDING in the handoff
-//     queue for the organization's accounting system.
+//   - nothing owed: PAID at issue, never handed off nor pushed;
+//   - with a provider that pushes invoices: a DRAFT in the push queue, issued
+//     when the provider finalizes it;
+//   - otherwise (NOOP) MANUAL, due after the terms' days, and PENDING in the
+//     handoff queue for the organization's accounting system.
 //
 // Every line gets the identifier it keeps for the invoice's life.
 func Insert(ctx context.Context, q *db.Queries, d Draft) (db.InstanceInvoice, error) {
@@ -102,6 +106,7 @@ func Insert(ctx context.Context, q *db.Queries, d Draft) (db.InstanceInvoice, er
 		PaidAt:             pgtype.Timestamp{},
 		ReplacesInvoiceID:  d.ReplacesInvoiceID,
 		HandoffStatus:      db.HandoffStatusNOTREQUIRED,
+		NextPushAt:         pgtype.Timestamp{},
 		Now:                Timestamp(d.Now),
 	}
 	if d.Hold != nil {
@@ -112,9 +117,10 @@ func Insert(ctx context.Context, q *db.Queries, d Draft) (db.InstanceInvoice, er
 		}
 		params.HoldReason, params.HoldDetail, params.HeldAt = &reason, detail, Timestamp(d.Now)
 	} else {
-		issued := issue(d.Composition.Total, d.Terms, d.Now)
+		issued := issue(d.Composition.Total, d.Terms, d.Pushes, d.Now)
 		params.Status, params.IssuedAt, params.DaysUntilDue = issued.status, issued.issuedAt, issued.daysUntilDue
 		params.DueAt, params.PaidAt, params.HandoffStatus = issued.dueAt, issued.paidAt, issued.handoff
+		params.NextPushAt = issued.nextPushAt
 	}
 	return q.InsertInvoice(ctx, params)
 }
@@ -127,23 +133,32 @@ type issuance struct {
 	dueAt        pgtype.Timestamp
 	paidAt       pgtype.Timestamp
 	handoff      db.HandoffStatus
+	nextPushAt   pgtype.Timestamp
 }
 
-// issue is the issuance of an invoice without a payment provider: PAID at
-// issue when nothing is owed, never handed off; otherwise MANUAL, due after
-// the terms' days and PENDING in the handoff queue.
-func issue(total int64, terms Terms, now time.Time) issuance {
+// issue is how an invoice leaves composition or its hold: PAID at issue when
+// nothing is owed, never handed off nor pushed; a DRAFT due in the push queue
+// now when its provider pushes invoices; otherwise MANUAL, due after the
+// terms' days and PENDING in the handoff queue.
+func issue(total int64, terms Terms, pushes bool, now time.Time) issuance {
 	if total == 0 {
 		zero := int32(0)
 		return issuance{
 			status: db.InvoiceStatusPAID, issuedAt: Timestamp(now), daysUntilDue: &zero,
-			dueAt: Timestamp(now), paidAt: Timestamp(now), handoff: db.HandoffStatusNOTREQUIRED,
+			dueAt: Timestamp(now), paidAt: Timestamp(now), handoff: db.HandoffStatusNOTREQUIRED, nextPushAt: pgtype.Timestamp{},
+		}
+	}
+	if pushes {
+		return issuance{
+			status: db.InvoiceStatusDRAFT, issuedAt: pgtype.Timestamp{}, daysUntilDue: nil, dueAt: pgtype.Timestamp{},
+			paidAt: pgtype.Timestamp{}, handoff: db.HandoffStatusNOTREQUIRED, nextPushAt: Timestamp(now),
 		}
 	}
 	days := terms.DaysUntilDue
 	return issuance{
 		status: db.InvoiceStatusMANUAL, issuedAt: Timestamp(now), daysUntilDue: &days,
 		dueAt: Timestamp(now.AddDate(0, 0, int(days))), paidAt: pgtype.Timestamp{}, handoff: db.HandoffStatusPENDING,
+		nextPushAt: pgtype.Timestamp{},
 	}
 }
 
@@ -158,7 +173,7 @@ type Release struct {
 // is given, else its own; still held when hold is given, else released and
 // issued.
 func Rewrite(ctx context.Context, q *db.Queries, row db.InstanceInvoice, composition *rating.Composition,
-	hold *Hold, release Release, terms Terms, now time.Time,
+	hold *Hold, release Release, terms Terms, pushes bool, now time.Time,
 ) (db.InstanceInvoice, error) {
 	params := db.RewriteInvoiceParams{
 		Lines: row.Lines, ServiceFrom: row.ServiceFrom, ServiceTo: row.ServiceTo,
@@ -166,7 +181,7 @@ func Rewrite(ctx context.Context, q *db.Queries, row db.InstanceInvoice, composi
 		Status: db.InvoiceStatusDRAFT, HoldReason: row.HoldReason, HoldDetail: row.HoldDetail, HeldAt: row.HeldAt,
 		HoldReleasedAt: row.HoldReleasedAt, HoldReleasedByID: row.HoldReleasedByID, HoldReleaseReason: row.HoldReleaseReason,
 		IssuedAt: pgtype.Timestamp{}, DaysUntilDue: nil, DueAt: pgtype.Timestamp{}, PaidAt: pgtype.Timestamp{},
-		HandoffStatus: db.HandoffStatusNOTREQUIRED, Now: Timestamp(now), ID: row.ID,
+		HandoffStatus: db.HandoffStatusNOTREQUIRED, NextPushAt: pgtype.Timestamp{}, Now: Timestamp(now), ID: row.ID,
 	}
 	total := row.TotalMinor
 	if composition != nil {
@@ -210,9 +225,10 @@ func Rewrite(ctx context.Context, q *db.Queries, row db.InstanceInvoice, composi
 	reason := release.Reason
 	params.HoldReason, params.HoldDetail, params.HeldAt = nil, nil, pgtype.Timestamp{}
 	params.HoldReleasedAt, params.HoldReleasedByID, params.HoldReleaseReason = Timestamp(now), release.By, &reason
-	issued := issue(total, terms, now)
+	issued := issue(total, terms, pushes, now)
 	params.Status, params.IssuedAt, params.DaysUntilDue = issued.status, issued.issuedAt, issued.daysUntilDue
 	params.DueAt, params.PaidAt, params.HandoffStatus = issued.dueAt, issued.paidAt, issued.handoff
+	params.NextPushAt = issued.nextPushAt
 	return q.RewriteInvoice(ctx, params)
 }
 
@@ -245,6 +261,14 @@ func FromRow(row db.InstanceInvoice) (Invoice, error) {
 		VoidReason:          row.VoidReason,
 		ReplacesInvoiceID:   row.ReplacesInvoiceID,
 		ReplacedByInvoiceID: nil,
+		Provider:            nil,
+	}
+	if row.ProviderKind != db.BillingProviderKindNOOP {
+		record, err := providerRecord(row)
+		if err != nil {
+			return Invoice{}, err
+		}
+		invoice.Provider = record
 	}
 	if len(row.HoldDetail) > 0 {
 		var detail HoldDetail
@@ -312,4 +336,27 @@ func TimePtr(ts pgtype.Timestamp) *time.Time {
 	}
 	t := ts.Time.UTC()
 	return &t
+}
+
+func providerRecord(row db.InstanceInvoice) (*ProviderRecord, error) {
+	record := &ProviderRecord{
+		ExternalCustomerID: row.ExternalCustomerID, ExternalInvoiceID: row.ExternalInvoiceID,
+		InvoiceNumber: row.ProviderInvoiceNumber, Status: row.ProviderStatus, HostedInvoiceURL: row.HostedInvoiceUrl,
+		InvoicePDFURL: row.InvoicePdfUrl, PushAttempts: row.PushAttempts, NextPushAt: TimePtr(row.NextPushAt),
+		LastPushError: row.LastPushError, PushedAt: TimePtr(row.PushedAt), SyncedAt: TimePtr(row.SyncedAt),
+		TotalExcludingTax: row.ProviderTotalExcludingTaxMinor, ReconciliationStatus: nil,
+		ReconciledAt: TimePtr(row.ReconciledAt), ReconciliationDetails: nil,
+	}
+	if row.ReconciliationStatus != nil {
+		status := string(*row.ReconciliationStatus)
+		record.ReconciliationStatus = &status
+	}
+	if len(row.ReconciliationDetail) > 0 {
+		var detail Reconciliation
+		if err := json.Unmarshal(row.ReconciliationDetail, &detail); err != nil {
+			return nil, fmt.Errorf("decode reconciliation of invoice %s: %w", row.ID, err)
+		}
+		record.ReconciliationDetails = &detail
+	}
+	return record, nil
 }

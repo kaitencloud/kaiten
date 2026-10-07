@@ -23,3 +23,10 @@ sql:
               import: "github.com/google/uuid"
               type: "UUID"
               pointer: true
+          # The view casts this column to SMALLINT so sqlc can type it, and sqlc
+          # then takes the cast as NOT NULL; it is NULL unless the entitlement
+          # is number-typed.
+          - column: "instance_effective_entitlement.limit_cap_exceeded_overage_percent"
+            go_type:
+              type: "int16"
+              pointer: true

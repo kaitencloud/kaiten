@@ -4,8 +4,10 @@ package access
 
 import (
 	"context"
+	"time"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
@@ -26,6 +28,10 @@ type Deps struct {
 	// Discounts is the PRICE vouchers an instance redeemed, which its
 	// invoices apply.
 	Discounts ports.DiscountSource
+	// Providers resolves the payment providers invoices are issued through.
+	Providers provider.Registry
+	// ProviderTimeout bounds one call to a provider.
+	ProviderTimeout time.Duration
 }
 
 // Caller is the user a request acts for, past the billing gate.
@@ -43,4 +49,19 @@ func (d Deps) Caller(ctx context.Context) (*currentuser.User, error) {
 // Queries binds to the transaction ctx carries, or the pool.
 func (d Deps) Queries(ctx context.Context) *db.Queries {
 	return db.New(d.Uof.DBTX(ctx))
+}
+
+// Pushes reports whether invoices issued through a provider wait in the push
+// queue rather than being issued MANUAL. A provider this deployment does not
+// know is taken to push: its invoices wait in the queue until a deployment
+// that knows it pushes them.
+func (d Deps) Pushes(kind db.BillingProviderKind) bool {
+	if kind == db.BillingProviderKindNOOP {
+		return false
+	}
+	if d.Providers == nil {
+		return true
+	}
+	capabilities, ok := d.Providers.Capabilities(provider.Kind(kind))
+	return !ok || capabilities.PushesInvoices
 }

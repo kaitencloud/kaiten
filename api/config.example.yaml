@@ -171,3 +171,18 @@ billing:
     # How often subscriptions move in and out of PAST_DUE as their invoices
     # become overdue. Below 0 disables the pass.
     interval: 15m                 # KAITEN_BILLING_LIFECYCLE_INTERVAL
+  push:
+    # How often invoices are pushed to the payment provider that issues them.
+    # Below 0 disables the pass.
+    interval: 1m                  # KAITEN_BILLING_PUSH_INTERVAL
+    batch_size: 50                # KAITEN_BILLING_PUSH_BATCH_SIZE
+    # A failed push waits 1, 2, 4... minutes before the next try, up to this.
+    max_backoff: 6h               # KAITEN_BILLING_PUSH_MAX_BACKOFF
+    # Failed attempts after which a push failure is announced.
+    alert_after_attempts: 5       # KAITEN_BILLING_PUSH_ALERT_AFTER_ATTEMPTS
+  sync:
+    # How often payments, voids and finalizations done in the provider are
+    # mirrored. Below 0 disables the pass.
+    interval: 15m                 # KAITEN_BILLING_SYNC_INTERVAL
+  # Bounds one call to a payment provider.
+  provider_timeout: 30s           # KAITEN_BILLING_PROVIDER_TIMEOUT

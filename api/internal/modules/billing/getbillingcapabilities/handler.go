@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -58,6 +60,27 @@ type UseCase struct {
 	idempotencyWindow time.Duration
 }
 
+// providers lists the providers this deployment knows, NOOP first, and
+// whether the organization has connected each.
+func (u *UseCase) providers(ctx context.Context, organizationID uuid.UUID) []BillingProvider {
+	out := []BillingProvider{}
+	if u.deps.Providers == nil {
+		return out
+	}
+	for _, kind := range u.deps.Providers.Kinds() {
+		capabilities, _ := u.deps.Providers.Capabilities(kind)
+		_, err := u.deps.Providers.Resolve(ctx, organizationID, kind)
+		out = append(out, BillingProvider{
+			Kind: string(kind), Available: true, Connected: err == nil,
+			Capabilities: ProviderCapabilities{
+				PaymentMethodCapture: capabilities.PaymentMethodCapture, BillingPortal: capabilities.BillingPortal,
+				AutomaticCollection: capabilities.ChargeAutomatically,
+			},
+		})
+	}
+	return out
+}
+
 func NewUseCase(deps access.Deps, idempotencyWindow time.Duration) *UseCase {
 	return &UseCase{deps: deps, idempotencyWindow: idempotencyWindow}
 }
@@ -70,12 +93,9 @@ func (u *UseCase) Execute(ctx context.Context) (*BillingCapabilities, error) {
 		return nil, err
 	}
 	out := &BillingCapabilities{
-		Enabled:        true,
-		DisabledReason: nil,
-		Providers: []BillingProvider{{
-			Kind: "NOOP", Available: true, Connected: true,
-			Capabilities: ProviderCapabilities{PaymentMethodCapture: false, BillingPortal: false, AutomaticCollection: false},
-		}},
+		Enabled:                     true,
+		DisabledReason:              nil,
+		Providers:                   u.providers(ctx, user.OrganizationID),
 		PublicSurface:               PublicSurface{Enabled: false},
 		UsageHistoryRetentionMonths: nil,
 		UsageIdempotencyWindowDays:  int(u.idempotencyWindow / (24 * time.Hour)),

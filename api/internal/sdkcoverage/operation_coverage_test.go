@@ -132,6 +132,10 @@ var awaitingSDKOperations = map[string]string{
 	"redeemVoucher":            awaitsBilling,
 	"listInstanceVouchers":     awaitsBilling,
 	"revokeInstanceVoucher":    awaitsBilling,
+	"retryInvoicePush":         awaitsBilling,
+	"syncBillingProvider":      awaitsBilling,
+	"syncInvoice":              awaitsBilling,
+	"getBillingHealth":         awaitsBilling,
 }
 
 func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
