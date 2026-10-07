@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, within } from 'storybook/test';
 import type { InvoiceLine, UsageReport } from '@/api-client';
+import { getLimitChangeSeqs } from '@/domains/billing';
 import { ApiError } from '@/lib/errors';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import {
@@ -10,10 +11,7 @@ import {
 import { LineSummaryCard } from '../line-drilldown/line-summary-card';
 import { OutsideRetentionNotice } from '../line-drilldown/outside-retention-notice';
 import { UsageWindowCard } from '../line-drilldown/usage-window-card';
-import {
-  getLimitChangeSeqs,
-  groupReportsByWindow,
-} from '../../utils/usage-windows';
+import { groupReportsByWindow } from '../../utils/usage-windows';
 
 const meta = {
   title: 'Features/Billing/LineDrilldown',

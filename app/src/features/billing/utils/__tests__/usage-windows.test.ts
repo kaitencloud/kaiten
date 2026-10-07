@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import type { UsageReport } from '@/api-client';
-import {
-  getLimitChangeSeqs,
-  groupReportsByWindow,
-} from '../usage-windows';
+import { groupReportsByWindow } from '../usage-windows';
 
 const MARCH = {
   windowEnd: '2027-04-01T00:00:00.000Z',
@@ -115,50 +112,5 @@ describe('grouping the reports of a line by the window they counted in', () => {
 
   it('has no group for no report', () => {
     expect(groupReportsByWindow([])).toEqual([]);
-  });
-});
-
-describe('finding where the limit in force changed', () => {
-  it('flags the report whose limit differs from the one before it in the same window', () => {
-    expect(
-      [
-        ...getLimitChangeSeqs([
-          report(1, { limitValue: '100' }),
-          report(2, { limitValue: '100' }),
-          report(3, { limitValue: '150' }),
-          report(4, { limitValue: '150' }),
-        ]),
-      ],
-    ).toEqual([3]);
-  });
-
-  it('does not flag the first report of a window: its window is what changed', () => {
-    expect(
-      getLimitChangeSeqs([
-        report(1, { limitValue: '100' }),
-        report(2, { limitValue: '200', ...APRIL }),
-      ]).size,
-    ).toBe(0);
-  });
-
-  it('flags a limit that was lifted, and one that was set', () => {
-    expect(
-      [
-        ...getLimitChangeSeqs([
-          report(1, { limitValue: '100' }),
-          report(2, { limitValue: undefined }),
-          report(3, { limitValue: '100' }),
-        ]),
-      ],
-    ).toEqual([2, 3]);
-  });
-
-  it('reads no limit the same whether it is absent or null', () => {
-    expect(
-      getLimitChangeSeqs([
-        report(1, { limitValue: undefined }),
-        report(2, { limitValue: null as unknown as undefined }),
-      ]).size,
-    ).toBe(0);
   });
 });

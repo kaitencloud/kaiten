@@ -11,10 +11,10 @@ import {
   INVOICE_STATUSES,
   type InvoiceStatus,
   HANDOFF_STATUSES,
+  PeriodFilter,
 } from '@/domains/billing';
 import type { InvoiceFilters } from '../../schemas/invoice-filters.schema';
 import { FilterChoice } from './filter-choice';
-import { PeriodFilter } from './period-filter';
 import { SlugFilterInput } from './slug-filter-input';
 
 type InvoiceFiltersFieldsProps = {

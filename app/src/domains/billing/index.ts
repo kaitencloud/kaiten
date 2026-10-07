@@ -18,6 +18,7 @@ export {
   InvoicesTable,
   type InvoicesTableColumn,
   InvoiceTotals,
+  PeriodFilter,
   LineFingerprint,
   ListEmptyState,
   LoadMoreFooter,
@@ -31,6 +32,7 @@ export {
   rightAlignedHeader,
   ServicePeriod,
   SubscriptionStatusBadge,
+  useUsageReportColumns,
 } from './components';
 export {
   type ActionAccess,
@@ -38,6 +40,7 @@ export {
   useAlertFocus,
   useCanPerform,
   useInvoiceActionAccess,
+  useUsageReports,
 } from './hooks';
 export {
   addMonthsClamped,
@@ -73,6 +76,7 @@ export {
   getFirstInvoiceTiming,
   getHandoffStatusLabelKey,
   getHoldReasonLabelKey,
+  getLimitChangeSeqs,
   getPriceAmountParts,
   getPriceLabel,
   getPriceUnitLabel,
@@ -149,6 +153,7 @@ export {
   invalidateLicensePriceQueries,
   INVOICES_PAGE_SIZE,
   invoicesPagesQueryOptions,
+  usageReportPagesQueryOptions,
   requireBillingCapability,
   useBillingCapabilities,
 } from './queries';

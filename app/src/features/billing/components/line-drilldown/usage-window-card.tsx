@@ -1,9 +1,8 @@
 import { useTranslation } from 'react-i18next';
-import { ServicePeriod } from '@/domains/billing';
+import { ServicePeriod, useUsageReportColumns } from '@/domains/billing';
 import { DataTable, TableCard } from '@/functionals/table';
 import { formatDecimalQuantity } from '@/lib/decimal';
 import type { UsageWindow } from '../../utils/usage-windows';
-import { useUsageWindowColumns } from './usage-window-columns';
 
 type UsageWindowCardProps = {
   /** More reports follow, so the sum of this window may not be whole yet. */
@@ -31,7 +30,7 @@ export function UsageWindowCard({
   window,
 }: UsageWindowCardProps) {
   const { i18n, t } = useTranslation();
-  const columns = useUsageWindowColumns(limitChanges);
+  const columns = useUsageReportColumns({ limitChanges, showOverage: true });
   const sum = measuresOverage ? window.sumOverageDelta : window.sumDelta;
   const hasWindow = window.start !== undefined && window.end !== undefined;
 
