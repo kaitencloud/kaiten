@@ -11,6 +11,7 @@ import type {
 import { zCustomer, zCustomerWritable } from '@/api-client/zod.gen';
 import { ATTIO_CONNECTOR_NAME } from '@/domains/crm-sync/constants';
 import { parseContract } from '../contracts/openapi-contract';
+import { type ArmedBillingProblem, ArmedProblems } from './armed-problems';
 import { BillingProblem } from './billing-problem';
 import { ErrorInjector } from './error-injector';
 
@@ -44,6 +45,8 @@ export type CustomerAppModelSeed = {
 };
 
 export type SerializedCustomerAppModel = CustomerAppModelSeed & {
+  /** The refusals held for the next call of an operation; a state stored before there were none has none. */
+  armedProblems?: Array<[CustomerErrorOp, ArmedBillingProblem]>;
   attioSyncAttempts: Record<string, number>;
   clock: number;
   pendingErrors: Array<[CustomerErrorOp, number]>;
@@ -89,6 +92,7 @@ export class CustomerAppModel {
   private instances: InstanceRow[];
   private sequence: number;
   private readonly errors = new ErrorInjector<CustomerErrorOp>();
+  private readonly problems = new ArmedProblems<CustomerErrorOp>();
 
   constructor(seed: CustomerAppModelSeed = {}) {
     this.attioSyncAfterAttempts = seed.attioSyncAfterAttempts;
@@ -125,12 +129,16 @@ export class CustomerAppModel {
     model.clock = state.clock;
     model.sequence = state.sequence;
     model.errors.restore(state.pendingErrors);
+    for (const [operation, problem] of state.armedProblems ?? []) {
+      model.problems.arm(operation, problem);
+    }
 
     return model;
   }
 
   serializeForMsw(): SerializedCustomerAppModel {
     return {
+      armedProblems: this.problems.serialize(),
       attioSyncAfterAttempts: this.attioSyncAfterAttempts,
       attioSyncAttempts: clone(this.attioSyncAttempts),
       billingBlocks: clone(this.billingBlocks),
@@ -237,6 +245,14 @@ export class CustomerAppModel {
     this.errors.setNextError(op, status);
   }
 
+  /**
+   * Arms the next call of an operation to fail with a problem document, the code
+   * and the words the screen has to show. One-shot, as `setNextError` is.
+   */
+  armProblem(operation: CustomerErrorOp, problem: ArmedBillingProblem) {
+    this.problems.arm(operation, problem);
+  }
+
   /** @deprecated Use `setNextError('create', status)` instead. */
   setNextCreateError(status: number) {
     this.setNextError('create', status);
@@ -254,6 +270,7 @@ export class CustomerAppModel {
       'CustomerAppModel.createCustomer body',
     );
     this.errors.consume('create');
+    this.problems.consume('create');
     checkBillingEmail('CreateCustomer', input.billingEmail);
     const timestamp = this.nextTimestamp();
     const customer: Customer = {
@@ -287,6 +304,7 @@ export class CustomerAppModel {
       'CustomerAppModel.updateCustomer body',
     );
     this.errors.consume('update');
+    this.problems.consume('update');
     checkBillingEmail('UpdateCustomer', input.billingEmail);
     const customerIndex = this.customers.findIndex(
       (customer) => customer.slug === customerSlug,
@@ -342,6 +360,7 @@ export class CustomerAppModel {
 
   deleteCustomer(customerSlug: string) {
     this.errors.consume('delete');
+    this.problems.consume('delete');
 
     // A live subscription of one of its instances, or an invoice not settled,
     // keeps the customer.
