@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -25,10 +26,12 @@ const lockID int64 = 20261008000000
 type Overdue struct {
 	uof    *uow.UnitOfWork
 	outbox *outbox.ScopedRepository
+	grace  time.Duration
 }
 
-func NewOverdue(uof *uow.UnitOfWork) *Overdue {
-	return &Overdue{uof: uof, outbox: outbox.NewScopedRepository(uof)}
+// NewOverdue re-evaluates PAST_DUE with the auto-collection grace.
+func NewOverdue(uof *uow.UnitOfWork, grace time.Duration) *Overdue {
+	return &Overdue{uof: uof, outbox: outbox.NewScopedRepository(uof), grace: grace}
 }
 
 // Pass re-evaluates up to limit subscriptions whose overdue status may have
@@ -41,7 +44,8 @@ func (o *Overdue) Pass(ctx context.Context, limit int) (moved int, err error) {
 		return 0, err
 	}
 	candidates, err := q.ListOverdueCandidates(ctx, db.ListOverdueCandidatesParams{
-		Now: timestamp(now), PageSize: int32(limit), //nolint:gosec // bounded by the batch size
+		Now: timestamp(now), AutoCollectionBefore: timestamp(now.Add(-o.grace)),
+		PageSize: int32(limit), //nolint:gosec // bounded by the batch size
 	})
 	if err != nil {
 		return 0, err
@@ -82,7 +86,7 @@ func (o *Overdue) one(ctx context.Context, id, organizationID uuid.UUID) (change
 		if err != nil {
 			return err
 		}
-		updated, err := Reevaluate(ctx, q, o.outbox, sub, actor, now)
+		updated, err := Reevaluate(ctx, q, o.outbox, sub, actor, now, o.grace)
 		changed = updated.Status != sub.Status
 		return err
 	})
@@ -90,11 +94,24 @@ func (o *Overdue) one(ctx context.Context, id, organizationID uuid.UUID) (change
 }
 
 // NewJob is the billing-lifecycle job.
-func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize int) *sweep.Job {
+// daily is work the job does on its first pass of each UTC day (payment
+// methods expiring).
+type daily interface {
+	Pass(ctx context.Context) (int, error)
+}
+
+func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize int, everyDay ...daily) *sweep.Job {
 	return sweep.New("billing-lifecycle", pool, lockID, cfg, func(ctx context.Context, _ *pgxpool.Conn) error {
 		moved, err := overdue.Pass(ctx, batchSize)
 		if moved > 0 {
 			slog.InfoContext(ctx, "subscriptions moved in or out of PAST_DUE", "moved", moved)
+		}
+		for _, work := range everyDay {
+			n, dailyErr := work.Pass(ctx)
+			if n > 0 {
+				slog.InfoContext(ctx, "payment methods announced as expiring", "count", n)
+			}
+			err = errors.Join(err, dailyErr)
 		}
 		return err
 	})

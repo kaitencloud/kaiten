@@ -129,13 +129,64 @@ type Adapter interface {
 	// oldest first, and returns the cursor to resume from.
 	ListInvoiceEvents(ctx context.Context, ref Ref, cursor string, since time.Time) ([]Event, string, error)
 
-	// CreateSetupSession, GetSetupSession, CreateBillingPortalSession and
-	// DetachPaymentMethod serve automatic collection; a provider without the
-	// capability answers ErrUnsupported.
+	// Pay charges an issued invoice to the customer's saved payment method,
+	// off-session (ChargeAutomatically). A declined or unauthenticated charge
+	// is an outcome, not an error; an error means the outcome is unknown, and
+	// the same call is retried.
+	Pay(ctx context.Context, ref Ref, externalInvoiceID string, invoice NormalizedInvoice) (PaymentOutcome, error)
+
+	// CreateSetupSession, GetSetupSession, CreateBillingPortalSession,
+	// DetachPaymentMethod and the default payment method serve automatic
+	// collection; a provider without the capability answers ErrUnsupported.
 	CreateSetupSession(ctx context.Context, ref Ref, session SetupSession) (SetupSessionLink, error)
 	GetSetupSession(ctx context.Context, ref Ref, sessionID string) (SetupSessionResult, error)
 	CreateBillingPortalSession(ctx context.Context, ref Ref, externalCustomerID, returnURL string) (string, error)
 	DetachPaymentMethod(ctx context.Context, ref Ref, externalPaymentMethodID string) error
+	// DefaultPaymentMethod is the payment method the provider charges the
+	// customer with; nil when there is none.
+	DefaultPaymentMethod(ctx context.Context, ref Ref, externalCustomerID string) (*PaymentMethod, error)
+	// SetDefaultPaymentMethod makes a payment method attached to the
+	// customer the one charged, and returns it.
+	SetDefaultPaymentMethod(ctx context.Context, ref Ref, externalCustomerID, externalPaymentMethodID string) (PaymentMethod, error)
+}
+
+// PaymentMethod is a saved payment method as Kaiten shows it: labels only,
+// never card data.
+type PaymentMethod struct {
+	ExternalID string
+	Brand      string
+	Last4      string
+	ExpMonth   int
+	ExpYear    int
+}
+
+// PaymentStatus is the outcome of an automatic charge.
+type PaymentStatus string
+
+const (
+	// PaymentPaid: the invoice is settled.
+	PaymentPaid PaymentStatus = "paid"
+	// PaymentFailed: the charge was declined, or there was nothing to charge.
+	PaymentFailed PaymentStatus = "failed"
+	// PaymentRequiresAction: the customer must authenticate (3-D Secure)
+	// on the provider's hosted page.
+	PaymentRequiresAction PaymentStatus = "requires_action"
+)
+
+// Codes of a failed charge billing treats on their own.
+const (
+	PaymentCodeAuthenticationRequired = "authentication_required"
+	PaymentCodeExpiredCard            = "expired_card"
+	PaymentCodeNoPaymentMethod        = "no_payment_method"
+)
+
+// PaymentOutcome is what an automatic charge did.
+type PaymentOutcome struct {
+	Status PaymentStatus
+	// Code is the provider's failure or decline code; empty when paid.
+	Code string
+	// Invoice is the invoice after the charge.
+	Invoice Invoice
 }
 
 // Customer is a Kaiten customer as a provider is told about it.
@@ -230,13 +281,17 @@ type Line struct {
 }
 
 // Event is one change in the provider's feed. Events are a change feed only:
-// billing reads the invoice by id and applies that state, so an event seen
-// twice or out of order is harmless.
+// billing reads the invoice (or the customer) by id and applies that state,
+// so an event seen twice or out of order is harmless.
 type Event struct {
 	ID                string
 	Type              string
 	CreatedAt         time.Time
 	ExternalInvoiceID string
+	// ExternalCustomerID is set on a customer's event (its payment method
+	// changed); ExternalSessionID on a completed setup session.
+	ExternalCustomerID string
+	ExternalSessionID  string
 }
 
 // SetupSession asks for a hosted page saving a customer's payment method.
@@ -259,6 +314,8 @@ type SetupSessionResult struct {
 	Complete                bool
 	ExternalCustomerID      string
 	ExternalPaymentMethodID string
+	// Metadata is what the session was created with (Kaiten's customer id).
+	Metadata map[string]string
 }
 
 // ErrUnsupported is what an adapter answers for a call outside its

@@ -39,7 +39,10 @@ WHERE i.organization_id = sqlc.arg(organization_id)
                                     WHERE n.organization_id = i.organization_id AND n.slug = sqlc.narg(instance_slug)::text))
   AND (sqlc.narg(instance_billing_id)::uuid IS NULL OR i.instance_billing_id = sqlc.narg(instance_billing_id)::uuid)
   AND (NOT sqlc.arg(overdue)::boolean
-       OR (i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED') AND i.due_at < sqlc.arg(now)::timestamp))
+       OR (i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED') AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+              THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
+                OR i.issued_at < sqlc.arg(auto_collection_before)::timestamp
+              ELSE i.due_at < sqlc.arg(now)::timestamp END)))
   AND (NOT sqlc.arg(held)::boolean OR i.hold_reason IS NOT NULL)
   AND (sqlc.narg(handoff_status)::handoff_status IS NULL OR i.handoff_status = sqlc.narg(handoff_status)::handoff_status)
   AND (sqlc.narg(issued_from)::timestamp IS NULL OR i.issued_at >= sqlc.narg(issued_from)::timestamp)
@@ -73,7 +76,10 @@ WHERE i.organization_id = sqlc.arg(organization_id)
                                     WHERE n.organization_id = i.organization_id AND n.slug = sqlc.narg(instance_slug)::text))
   AND (sqlc.narg(instance_billing_id)::uuid IS NULL OR i.instance_billing_id = sqlc.narg(instance_billing_id)::uuid)
   AND (NOT sqlc.arg(overdue)::boolean
-       OR (i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED') AND i.due_at < sqlc.arg(now)::timestamp))
+       OR (i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED') AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+              THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
+                OR i.issued_at < sqlc.arg(auto_collection_before)::timestamp
+              ELSE i.due_at < sqlc.arg(now)::timestamp END)))
   AND (NOT sqlc.arg(held)::boolean OR i.hold_reason IS NOT NULL)
   AND (sqlc.narg(handoff_status)::handoff_status IS NULL OR i.handoff_status = sqlc.narg(handoff_status)::handoff_status)
   AND (sqlc.narg(issued_from)::timestamp IS NULL OR i.issued_at >= sqlc.narg(issued_from)::timestamp)

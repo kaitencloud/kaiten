@@ -32,6 +32,15 @@ type Deps struct {
 	Providers provider.Registry
 	// ProviderTimeout bounds one call to a provider.
 	ProviderTimeout time.Duration
+	// AutoCollectionGrace is how long an invoice the provider charges may
+	// stay unpaid after its issue before it is overdue (§9.6 rule 1).
+	AutoCollectionGrace time.Duration
+}
+
+// AutoCollectionBefore is the issue instant before which an unpaid invoice
+// the provider charges is overdue at now.
+func (d Deps) AutoCollectionBefore(now time.Time) time.Time {
+	return now.Add(-d.AutoCollectionGrace)
 }
 
 // Caller is the user a request acts for, past the billing gate.

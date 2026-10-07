@@ -43,5 +43,5 @@ func (u *UseCase) Execute(ctx context.Context, params invoicelist.Params, instan
 	if err != nil {
 		return nil, err
 	}
-	return New(q, user.OrganizationID, params, instanceSlug, clock.Time.UTC(), format, granularity), nil
+	return New(q, user.OrganizationID, params, instanceSlug, clock.Time.UTC(), u.deps.AutoCollectionBefore(clock.Time.UTC()), format, granularity), nil
 }
