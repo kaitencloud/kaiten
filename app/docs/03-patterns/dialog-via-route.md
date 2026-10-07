@@ -243,7 +243,9 @@ function CustomerDetailRouteLayout() {
 - **Any tab.** The form belongs to the layout route, so it opens over whichever tab route is active.
 - **Other search parameters.** `.loose()` keeps the keys the schema does not name instead of stripping them (a plain `z.object` drops them), so the parsed search still carries any other parameter of the URL.
 - **Old URLs.** `/customers/$customerSlug/edit` and `/customers/instances/$instanceSlug/edit` redirect to the detail route with `mode: 'configure'`, keeping the other search parameters (`app/src/routes/customers/$customerSlug/edit.tsx`).
-- **Where it is used.** Customers, instances and entitlements show a dialog. The feature flag route shows `FeatureFlagConfigurePage`, a full-page form that replaces the detail page while `mode` is `configure`.
+- **Where it is used.** Customers, instances and entitlements show a dialog. The feature flag route shows `FeatureFlagConfigurePage`, a full-page form that replaces the detail page while `mode` is `configure`. A license version shows `LicenseCommercialDialog`, which edits how it is sold and nothing else (the console does not edit the rest of a version); its layout route drops only `mode` on close (`search: (previous) => ({ ...previous, mode: undefined })`, `to: '.'`), since a tab of the version has search of its own.
+
+A nested entity can open from a search parameter of its tab in the same way, in a drawer: the Prices tab of a license version opens the drawer of a price from `?price=new` and `?price=<id>`. The tab reads the parameter, so a link can open it and the back button closes it; a link that cannot open it (an unknown id, a published version) is replaced by the tab, once what decides it is known.
 
 ## Avoiding a flash
 

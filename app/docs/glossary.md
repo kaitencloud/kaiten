@@ -32,6 +32,22 @@ What an instance is on: a named set of entitlement grants. One license record is
 
 The product that several license versions belong to (`familyId`, `familySlug`), stable across renames and new versions. A family resolves to one version, its `currentVersion`: the version marked as default (at most one, and it must be published), otherwise its highest-numbered published version. The console groups versions by `familyId`, never by name.
 
+### License price
+
+One billable concern of a license version, which becomes one line of an invoice (`/licenses/{licenseSlug}/prices`). Its `billingModel` is `FLAT_FEE` (a fee each period, quantity 1), `USAGE_BASED` (metered from the first unit) or `OVERAGE` (metered above what the version grants, up to the cap its overage percent allows). Its `billingTiming` is `ADVANCE` or `ARREARS`, and a metered price is always in arrears; only a flat fee has a `billingPeriod`; a version bills in one `currency`. Its amount is `unitAmountDecimal`, a decimal string in the currency's minor units (`"7.5"` is 7.5 cents), per sale unit for a metered price, which names the entitlement it meters. The prices of a draft are edited; once the version is published they are immutable and can only be deprecated, and a deprecated price keeps billing what is pinned to it. Code: `app/src/features/licenses/components/prices/` and `app/src/domains/billing/`.
+
+### Invoice preview
+
+The renewal invoice a subscription to a license version would be billed at its next boundary, composed by the API from a base flat fee and a sample usage (`POST /licenses/{licenseSlug}/invoice-preview`). It writes nothing and works on a draft. The console shows the lines, their arithmetic and the totals as the API sent them, and says it is a preview and not an invoice. Code: `app/src/domains/billing/` and `app/src/features/licenses/`.
+
+### Commercial terms
+
+How a license version is sold: its `pricingType` (`FREE`, `PAID` or `CUSTOM`), the `trialPeriodDays` a subscription starts with, whether sign-up captures a payment method (`requiresPaymentMethod`) and the `selfServeCtaUrl` a buyer is sent to when the version cannot be bought self-serve. They are fields of the version, written by `PUT /licenses/{licenseSlug}`, which keeps what an update leaves out: a trial is cleared with `0` and the URL with the empty string. Feature: `app/src/features/licenses/`.
+
+### Frozen version
+
+A license version whose grants and prices can no longer change where they are. A live subscription freezes the grants and the prices of the version it bills (`*.BillingActive`), the prices of a published version are immutable (`UpdateLicensePrice.VersionNotDraft`) and an archived version takes no new price (`CreateLicensePrice.VersionArchived`). Every such refusal has the same way out, a new version, which the console offers. No field of a version says it is billed, so the refusal is the only signal.
+
 ### Entitlement
 
 A capability or a limit that a license can grant, defined once per organization. Its `type` is `BOOLEAN` (on or off), `NUMBER` (a quantity), `CONFIG` (a structured value) or `NUMBER_AI_CREDIT`. A license grants it with a value, which the contract calls a license entitlement. For a `NUMBER`, the value is a cap: unlimited, hard, or exceedable by a set percentage (`limitCapExceededOveragePercent`). The usage of a `NUMBER` entitlement is reported per instance, and can reset on a period (`resetPeriod`). Feature: `app/src/features/entitlements/`.

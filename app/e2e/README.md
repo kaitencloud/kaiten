@@ -64,7 +64,7 @@ e2e/
 │   ├── _support/             # what the specs of every pack build on, one file per area
 │   │   ├── app-test.ts       # `test` and `expect` for specs, with optional V8 coverage
 │   │   ├── coverage.ts
-│   │   ├── assertions/       # shared expectations: toasts, accessibility, tracked events
+│   │   ├── assertions/       # shared expectations: toasts, accessibility, tracked events, and `recordWrites`, the writes a page sent
 │   │   ├── contracts/        # parseContract: checks a model's data against the generated Zod schemas; parseAuditEventContract: the same for an audit trail event, by its name
 │   │   ├── drivers/          # page objects for screens, dialogs and forms
 │   │   ├── fixtures/         # builders for reusable entities
@@ -83,7 +83,7 @@ e2e/
 The packs under `e2e/app/` fall in three groups:
 
 - **Objects**, one folder each: `customers/`, `entitlements/`, `feature-flags/`, `instances/`, `licenses/`, `connectors/`.
-- **Billing**: `billing/` holds the scenarios of the billing capabilities (`BillingAppModel`) that every billing screen gates on, and the specs of the navigation and of what a billing link explains where billing is not there; the packs of the billing screens join it as they are built.
+- **Billing**: `billing/` holds the scenarios of the billing capabilities (`BillingAppModel`) that every billing screen gates on, and the specs of the navigation and of what a billing link explains where billing is not there; the packs of the billing screens join it as they are built. The screens of a license version's prices live in `licenses/`, with the model of what a version sells (`LicenseAppModel`: grants, prices, the invoice preview composed as the API does it, and the freezes of a billed version).
 - **A workspace**: `release-management/` covers releases, components and deployment zones together, because they form one workspace with shared state.
 - **Read-only and cross-cutting checks**: `audit-trail/`, `dashboard/`, `notifications/`, `accessibility/` (axe), `i18n/` and `mobile/` (a Pixel 5 viewport).
 
@@ -131,7 +131,9 @@ To test a failure, arm the model so that its next call fails, as `e2e/app/custom
 model.setNextCreateError(500); // the next create call answers with a 500
 ```
 
-Most models keep the pending errors in an `ErrorInjector` (`e2e/app/_support/model/error-injector.ts`).
+Most models keep the pending errors in an `ErrorInjector` (`e2e/app/_support/model/error-injector.ts`), which fails a call with a status. A refusal that the screen reads, with its code and its `detail`, is armed with `setNextProblem` on the license model (`model.setNextProblem('createPrice', { code, detail, status })`); `after` lets that many calls through first, to stop a sequence of calls halfway.
+
+What a screen sends is as much part of the behaviour as what it shows (an amount typed as `49.00` goes out as `4900`): `recordWrites(page, /^\/api\/licenses\/[^/]+\/prices$/)` from `app-test` returns the writes a page sends, with their JSON bodies, to assert once the call has answered.
 
 ## Mock a new area
 
