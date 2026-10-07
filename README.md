@@ -45,8 +45,8 @@ HTTP double rather than to Attio.
 Outbound webhooks are provided by Kaiten Cloud; a self-hosted deployment consumes
 the same events from the events pipeline (outbox → Debezium → RabbitMQ), whose
 payloads the `webhooks:` section of [`app/openapi.yaml`](./app/openapi.yaml)
-documents, and the console hides the webhooks pages wherever Kaiten's platform
-flags are not configured.
+documents. The console shows its webhooks pages only where `/api/webhooks`
+answers, so a self-hosted deployment does not show them.
 
 `api/pkg/` holds the Go packages meant to be imported from outside the API module
 (OpenTelemetry setup, Fiber helpers, Debezium helpers, scopes and others), as an

@@ -50,13 +50,16 @@ container.
 | --- | --- | --- |
 | `VITE_API_URL` | In a production build. Elsewhere it falls back to `http://localhost:6060/api`. | Base URL of the API, ending in `/api` (trailing slashes are removed). The app appends REST paths, `/graphql` and `/v1/notifications/stream` to it. The API is served under `/api`, so a URL without that suffix sends requests to the app instead of the API. |
 | `VITE_CLERK_PUBLISHABLE_KEY` | When the app mounts Clerk, which it does unless the build sets `VITE_LOCAL_AUTH` or `VITE_E2E_BYPASS_AUTH`. | Clerk publishable key, passed to `ClerkProvider` (`app/src/components/clerk-provider.tsx`). |
-| `VITE_KAITEN_PLATFORM_API_URL` | No | With the token below, points the app at a Kaiten API (URL ending in `/api`) from which it reads the flags that gate some of the console's own features (`demo-sandbox`, `webhooks`), over OFREP. |
+| `VITE_KAITEN_PLATFORM_API_URL` | No | With the token below, points the app at a Kaiten API (URL ending in `/api`) from which it reads the flags that gate some of the console's own features (`demo-sandbox`), over OFREP. |
 | `VITE_KAITEN_PLATFORM_FLAGS_TOKEN` | No | Token with the `read:feature_flags` scope for that API. Set both or neither. It is sent to every browser that loads the page, so it must carry that scope only. |
 
 When the last two are not both set, the dev server and the `VITE_LOCAL_AUTH` and
 E2E builds read the flags from `VITE_API_URL`; any other build evaluates
-nothing, so every such flag is off and the console hides the webhooks pages. The
-logic is in `app/src/lib/feature-flags.ts`.
+nothing, so every such flag is off and the console hides the demo banner. The
+logic is in `app/src/lib/feature-flags.ts`. The webhooks pages do not depend on
+these: the console shows them where `GET /api/webhooks` answers
+(`app/src/domains/webhooks/`), which only Kaiten Cloud's saas-api does, for an
+organization whose licence carries them.
 
 All four values reach the browser. None of them is a secret.
 

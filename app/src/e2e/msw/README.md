@@ -29,8 +29,8 @@ worker with unmocked flags passed through, and `pnpm run dev:mock`
 records the areas share (`dev-world/`), with a warning for each API request no
 slot answers. `src/__tests__/dev-world.test.ts` builds that world through the
 models, which check it against the contract, and checks that its references
-resolve. E2E defaults unmocked platform flags off and fails undeclared API
-requests with a network error; the shared Playwright fixture fails on the
+resolve. E2E defaults unmocked platform flags off and the webhooks routes to 404
+(no saas-api), and fails undeclared API requests with a network error; the shared Playwright fixture fails on the
 named console error. Explicit shell fallbacks run after model owners.
 Dev-world mocks warn and pass through, and partial notification mocks pass
-through the business API and flags. See the [mock policy](../../../e2e/README.md#mock-policy).
+through the business API, flags and webhooks. See the [mock policy](../../../e2e/README.md#mock-policy).

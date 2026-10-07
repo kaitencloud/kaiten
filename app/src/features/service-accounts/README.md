@@ -81,7 +81,7 @@ The table cannot miss a scope: a token is minted only with scopes `pkg/scope` ac
 
 - a group, in `RESOURCE_GROUPS` (`app/src/features/service-accounts/utils/constants.ts`), a `Record` over the generated type, so the type check fails until one is chosen;
 - a label and a description in `app/src/lib/i18n/locales/en.ts` and `fr.ts`, under `Pages.Integrations.ServiceAccounts.Scopes.Resources`, which `app/src/features/service-accounts/utils/__tests__/constants.test.ts` requires. The same test requires a label for each group and a label and description for each preset.
-- for the scope of a feature not every deployment serves, its platform flag in `RESOURCE_PLATFORM_FLAGS` (`app/src/features/service-accounts/utils/constants.ts`), so the picker offers it only where that flag is on (`app/src/lib/feature-flags.ts`). Webhooks is one: served by saas-api on Kaiten Cloud alone, the picker leaves it out on a self-hosted deployment, which has no webhooks to call.
+- for the scope of a feature not every organization is served, a check in the picker. Webhooks is the one (`WEBHOOKS_SCOPE_RESOURCE` in `app/src/features/service-accounts/utils/constants.ts`): served by saas-api on Kaiten Cloud alone, and only to an organization whose licence carries them, the picker offers it only where `useWebhooksServed()` (`@/domains/webhooks`) says they are. On a self-hosted deployment there are no webhooks to call.
 
 ## Tests
 
