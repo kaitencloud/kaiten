@@ -32,14 +32,18 @@ func NewExpiry(uof *uow.UnitOfWork) *Expiry {
 	return &Expiry{uof: uof, outbox: outbox.NewScopedRepository(uof)}
 }
 
-// Pass handles today, once.
-func (e *Expiry) Pass(ctx context.Context) (announced int, err error) {
-	q := db.New(e.uof.DBTX(ctx))
-	clock, err := q.BillingClock(ctx)
+// Pass handles today (the database's clock), once.
+func (e *Expiry) Pass(ctx context.Context) (int, error) {
+	clock, err := db.New(e.uof.DBTX(ctx)).BillingClock(ctx)
 	if err != nil {
 		return 0, err
 	}
-	now := clock.Time.UTC()
+	return e.PassAt(ctx, clock.Time.UTC())
+}
+
+// PassAt handles now's UTC day, once.
+func (e *Expiry) PassAt(ctx context.Context, now time.Time) (announced int, err error) {
+	now = now.UTC()
 	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	e.mu.Lock()
 	done := !e.last.Before(day)

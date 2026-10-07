@@ -154,8 +154,7 @@ func (f *Fake) customerEvent(a *account, eventType, customerID string) {
 
 // renderCustomer is a customer with its default payment method expanded.
 func (f *Fake) renderCustomer(a *account, c *customer) map[string]any {
-	var out map[string]any
-	out = map[string]any{}
+	out := map[string]any{}
 	for k, v := range map[string]any{
 		"id": c.ID, "object": "customer", "email": c.Email, "name": c.Name, "metadata": c.Metadata,
 		"livemode": c.Livemode, "created": c.Created,
@@ -181,13 +180,17 @@ func (f *Fake) handlePayment(a *account, op, id string, form url.Values) (int, [
 			return missing("invoice", id)
 		}
 		if inv.Status != "open" {
-			return http.StatusBadRequest, errorBody(apiError{Type: "invalid_request_error", Code: "invoice_not_open",
-				Message: "Invoice is already " + inv.Status + "."})
+			return http.StatusBadRequest, errorBody(apiError{
+				Type: "invalid_request_error", Code: "invoice_not_open",
+				Message: "Invoice is already " + inv.Status + ".",
+			})
 		}
 		pmID := p.defaults[inv.Customer]
 		if pmID == "" {
-			return http.StatusBadRequest, errorBody(apiError{Type: "invalid_request_error", Code: "invoice_no_payment_method_types",
-				Message: "The customer has no default payment method."})
+			return http.StatusBadRequest, errorBody(apiError{
+				Type: "invalid_request_error", Code: "invoice_no_payment_method_types",
+				Message: "The customer has no default payment method.",
+			})
 		}
 		inv.AttemptCount++
 		switch outcome := p.methods[pmID].outcome; outcome {
@@ -198,15 +201,19 @@ func (f *Fake) handlePayment(a *account, op, id string, form url.Values) (int, [
 			return http.StatusOK, mustJSON(f.render(a, inv))
 		case CardAuthenticationRequire:
 			f.emit(a, "invoice.payment_action_required", inv)
-			return http.StatusPaymentRequired, errorBody(apiError{Type: "card_error", Code: "invoice_payment_intent_requires_action",
-				Message: "This payment requires additional user action before it can be completed successfully."})
+			return http.StatusPaymentRequired, errorBody(apiError{
+				Type: "card_error", Code: "invoice_payment_intent_requires_action",
+				Message: "This payment requires additional user action before it can be completed successfully.",
+			})
 		case CardExpired:
 			f.emit(a, "invoice.payment_failed", inv)
 			return http.StatusPaymentRequired, errorBody(apiError{Type: "card_error", Code: "expired_card", Message: "Your card has expired."})
 		default:
 			f.emit(a, "invoice.payment_failed", inv)
-			return http.StatusPaymentRequired, errorBody(apiError{Type: "card_error", Code: "card_declined", DeclineCode: outcome,
-				Message: "Your card was declined."})
+			return http.StatusPaymentRequired, errorBody(apiError{
+				Type: "card_error", Code: "card_declined", DeclineCode: outcome,
+				Message: "Your card was declined.",
+			})
 		}
 
 	case OpCreateCheckoutSession:
@@ -273,8 +280,10 @@ func (f *Fake) handlePayment(a *account, op, id string, form url.Values) (int, [
 		}
 		a.events = append(a.events, &event{
 			ID: f.next("evt"), Object: "event", Type: "payment_method.detached", Created: now.Unix(),
-			Data: map[string]any{"object": map[string]any{"id": id, "object": "payment_method", "customer": nil},
-				"previous_attributes": map[string]any{"customer": customerID}},
+			Data: map[string]any{
+				"object":              map[string]any{"id": id, "object": "payment_method", "customer": nil},
+				"previous_attributes": map[string]any{"customer": customerID},
+			},
 		})
 		return http.StatusOK, mustJSON(pm)
 	}
@@ -297,4 +306,3 @@ func (f *Fake) updateDefault(a *account, customerID string, form url.Values) (in
 	f.customerEvent(a, "customer.updated", customerID)
 	return 0, nil, false
 }
-
