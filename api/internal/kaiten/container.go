@@ -30,6 +30,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields"
 	"github.com/kaitencloud/kaiten/api/internal/modules/notifications"
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases"
 	"github.com/kaitencloud/kaiten/api/internal/modules/users"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers"
@@ -56,6 +57,7 @@ type modules struct {
 	Licenses        *licenses.UseCases
 	MetadataFields  *metadatafields.UseCases
 	Organization    *organization.UseCases
+	PublicSDK       *publicsdk.UseCases
 	Releases        *releases.UseCases
 	Users           *users.UseCases
 	Vouchers        *vouchers.UseCases
@@ -197,6 +199,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		Licenses:        licenses.NewUseCases(svc),
 		MetadataFields:  metadatafields.NewUseCases(svc),
 		Organization:    organization.NewUseCases(svc),
+		PublicSDK:       publicsdk.NewUseCases(svc),
 		Releases:        releases.NewUseCases(svc),
 		Users:           users.NewUseCases(svc),
 		Vouchers:        vouchers.NewUseCases(svc),
