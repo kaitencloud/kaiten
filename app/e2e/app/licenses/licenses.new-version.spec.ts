@@ -236,6 +236,53 @@ test.describe('a new version of a version that cannot be changed any more', () =
   });
 });
 
+test.describe('a new version offered from the prices of a version', () => {
+  test.beforeEach(async ({ page }) => {
+    await installBillingAppMocks(page, createBillingStackModel());
+    await installLicenseAppMocks(page, createPricedCatalogModel());
+  });
+
+  test('is there for a version that cannot change its prices, and starts a draft from it', async ({
+    page,
+  }) => {
+    const prices = new LicensePricesDriver(page);
+    const form = new LicenseVersionFormDriver(page);
+
+    // Published: its prices are immutable.
+    await prices.goto('pro-v2', 'Pro');
+    await expect(prices.newVersion()).toHaveAttribute(
+      'href',
+      '/licenses/versions/pro-v2?draft=true',
+    );
+    // Archived: it takes no price at all.
+    await prices.goto('pro', 'Pro');
+    await expect(prices.newVersion()).toBeVisible();
+    await expect(prices.addPrice()).toHaveCount(0);
+
+    await prices.goto('pro-v2', 'Pro');
+    await prices.newVersion().click();
+
+    // The form starts from this version, as a draft, with its prices.
+    await expect(page).toHaveURL('/licenses/versions/pro-v2?draft=true');
+    await form.expectLoaded('Pro');
+    await expect(
+      page.getByRole('checkbox', { name: 'Save as draft' }),
+    ).toBeChecked();
+    await expect(form.copyPrices()).toBeChecked();
+  });
+
+  test('is not there for a draft, which is changed in place', async ({
+    page,
+  }) => {
+    const prices = new LicensePricesDriver(page);
+
+    await prices.goto('pro-v4', 'Pro');
+
+    await expect(prices.addPrice()).toBeVisible();
+    await expect(prices.newVersion()).toHaveCount(0);
+  });
+});
+
 test.describe('where billing is not there', () => {
   test.beforeEach(async ({ page }) => {
     await installBillingAppMocks(

@@ -76,6 +76,11 @@ export class LicensePricesDriver {
     return this.page.getByRole('link', { name: 'Add price', exact: true });
   }
 
+  /** A published or archived version's way to change what it sells: a new version, as a draft. */
+  newVersion(): Locator {
+    return this.page.getByRole('link', { name: 'New Version', exact: true });
+  }
+
   /** The Edit link of a row, which leads to the drawer of its price. */
   edit(label: string): Locator {
     return this.row(label).getByRole('link', { name: `Edit ${label}` });

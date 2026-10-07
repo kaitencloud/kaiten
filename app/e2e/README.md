@@ -64,7 +64,7 @@ e2e/
 │   ├── _support/             # what the specs of every pack build on, one file per area
 │   │   ├── app-test.ts       # `test` and `expect` for specs, with optional V8 coverage
 │   │   ├── coverage.ts
-│   │   ├── assertions/       # shared expectations: toasts, accessibility, a dialog's focus trap, a page with no sideways scroll, tracked events, and `recordWrites`, the writes a page sent
+│   │   ├── assertions/       # shared expectations: toasts, accessibility, a dialog's focus trap, a page with no sideways scroll, a control that stays inside its card, tracked events, and `recordWrites`, the writes a page sent
 │   │   ├── contracts/        # parseContract: checks a model's data against the generated Zod schemas; parseAuditEventContract: the same for an audit trail event, by its name
 │   │   ├── drivers/          # page objects for screens, dialogs and forms
 │   │   ├── fixtures/         # builders for reusable entities

@@ -1,6 +1,7 @@
 import { devices, type Locator } from '@playwright/test';
 import { expect, test } from '../_support/app-test';
 import {
+  expectInside,
   expectNoHorizontalScroll,
   expectScrollsInside,
 } from '../_support/assertions/layout';
@@ -51,6 +52,22 @@ test.describe('what a license version sells, on the narrowest phone', () => {
     await expectScrollsInside(page.getByRole('table'));
     // What a row offers is still there, at the end of the row it belongs to.
     await expect(prices.deprecate('Traces, overage')).toBeAttached();
+  });
+
+  test('the actions of the Prices tab stay inside its card, on the version that offers the most', async ({
+    page,
+  }) => {
+    const prices = new LicensePricesDriver(page);
+    const preview = new LicensePreviewDriver(page);
+
+    // A published version: the preview, the way to add a price and the way to a
+    // new version. A page that does not scroll sideways does not say that one of
+    // them is cut off by the card.
+    await prices.goto('pro-v2', 'Pro');
+
+    await expectInside(prices.card(), preview.openButton());
+    await expectInside(prices.card(), prices.addPrice());
+    await expectInside(prices.card(), prices.newVersion());
   });
 
   test('the overview, with its commercial terms and their dialog, fits the screen', async ({
