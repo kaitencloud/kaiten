@@ -149,7 +149,9 @@ func (f *Fake) Customers() int {
 }
 
 // PayInProvider records a payment of an open invoice in the provider.
-func (f *Fake) PayInProvider(externalID string) { f.transition(externalID, provider.StatusPaid, "invoice.paid") }
+func (f *Fake) PayInProvider(externalID string) {
+	f.transition(externalID, provider.StatusPaid, "invoice.paid")
+}
 
 // MarkUncollectible marks an open invoice uncollectible in the provider.
 func (f *Fake) MarkUncollectible(externalID string) {

@@ -95,7 +95,7 @@ type Billing struct {
 	// refused (§9.6 rule 1): room for the charge's retries and the provider's
 	// own attempt, so that a successful charge never passes through PAST_DUE.
 	AutoCollectionGrace time.Duration `mapstructure:"auto_collection_grace" validate:"gte=0"`
-	Stripe          BillingStripe `mapstructure:"stripe"`
+	Stripe              BillingStripe `mapstructure:"stripe"`
 }
 
 // BillingStripe tunes the Stripe provider.

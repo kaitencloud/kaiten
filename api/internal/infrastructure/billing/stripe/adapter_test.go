@@ -218,7 +218,6 @@ func TestSendAfterFinalizeWhenConfigured(t *testing.T) {
 	require.Equal(t, in.KaitenInvoiceID.String()+":send", sends[0].IdempotencyKey)
 }
 
-
 func TestVoid(t *testing.T) {
 	f := newFixture(t, stripe.Settings{})
 	_, customerID := f.customer(t)
@@ -397,4 +396,3 @@ func TestSettingsKeysMatchTheManifest(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, properties, 4)
 }
-

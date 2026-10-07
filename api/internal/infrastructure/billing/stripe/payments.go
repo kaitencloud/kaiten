@@ -43,8 +43,10 @@ func (a *Adapter) Pay(ctx context.Context, ref provider.Ref, externalInvoiceID s
 		return provider.PaymentOutcome{Status: provider.PaymentPaid, Code: "", Invoice: read}, err
 	case stripego.InvoiceStatusOpen:
 	default:
-		return provider.PaymentOutcome{}, &provider.Error{Class: provider.ClassRejected, Code: "invoice_" + string(current.Status), Param: "", RequestID: "",
-			Message: "the Stripe invoice is " + string(current.Status) + " and cannot be charged"}
+		return provider.PaymentOutcome{}, &provider.Error{
+			Class: provider.ClassRejected, Code: "invoice_" + string(current.Status), Param: "", RequestID: "",
+			Message: "the Stripe invoice is " + string(current.Status) + " and cannot be charged",
+		}
 	}
 
 	customerID := in.ExternalCustomerID
@@ -198,8 +200,10 @@ func (a *Adapter) defaultPaymentMethod(ctx context.Context, sc *stripego.Client,
 		return nil, classify(err, objectCustomer)
 	}
 	if customer.Deleted {
-		return nil, &provider.Error{Class: provider.ClassCustomerMissing, Code: "customer_deleted", Param: "", RequestID: "",
-			Message: "the Stripe customer was deleted"}
+		return nil, &provider.Error{
+			Class: provider.ClassCustomerMissing, Code: "customer_deleted", Param: "", RequestID: "",
+			Message: "the Stripe customer was deleted",
+		}
 	}
 	if customer.InvoiceSettings == nil || customer.InvoiceSettings.DefaultPaymentMethod == nil || customer.InvoiceSettings.DefaultPaymentMethod.ID == "" {
 		return nil, nil
@@ -228,8 +232,10 @@ func (a *Adapter) SetDefaultPaymentMethod(ctx context.Context, ref provider.Ref,
 		return provider.PaymentMethod{}, classify(err, objectNone)
 	}
 	if method.Customer == nil || method.Customer.ID != externalCustomerID {
-		return provider.PaymentMethod{}, &provider.Error{Class: provider.ClassRejected, Code: "payment_method_not_attached", Param: "", RequestID: "",
-			Message: "the payment method is not attached to the customer"}
+		return provider.PaymentMethod{}, &provider.Error{
+			Class: provider.ClassRejected, Code: "payment_method_not_attached", Param: "", RequestID: "",
+			Message: "the payment method is not attached to the customer",
+		}
 	}
 	params := &stripego.CustomerUpdateParams{
 		InvoiceSettings: &stripego.CustomerUpdateInvoiceSettingsParams{DefaultPaymentMethod: stripego.String(externalPaymentMethodID)},

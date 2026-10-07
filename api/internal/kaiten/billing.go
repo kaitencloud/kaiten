@@ -2,11 +2,6 @@ package kaiten
 
 import (
 	"context"
-	"github.com/kaitencloud/kaiten/api/internal/modules/billing/completepaymentmethodsession"
-	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createpaymentmethodsession"
-	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createportalsession"
-	"github.com/kaitencloud/kaiten/api/internal/modules/billing/detachpaymentmethod"
-	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getcustomerbilling"
 
 	"github.com/google/uuid"
 
@@ -17,10 +12,15 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/claimhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/completepaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createpaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createportalsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/detachpaymentmethod"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/exportinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingcapabilities"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillinghealth"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getcustomerbilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getupcominginvoice"
