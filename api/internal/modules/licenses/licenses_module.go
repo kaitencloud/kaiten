@@ -26,6 +26,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/unarchivelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseentitlement"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicensefamily"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseprice"
 )
 
@@ -51,6 +52,7 @@ type UseCases struct {
 	UpdateLicensePrice              *updatelicenseprice.UseCase
 	DeprecateLicensePrice           *deprecatelicenseprice.UseCase
 	PreviewLicenseInvoice           *previewlicenseinvoice.UseCase
+	UpdateLicenseFamily             *updatelicensefamily.UseCase
 }
 
 func NewUseCases(svc services.Container) *UseCases {
@@ -144,5 +146,8 @@ func NewUseCases(svc services.Container) *UseCases {
 		UpdateLicensePrice:    updatelicenseprice.NewUseCase(priceDeps),
 		DeprecateLicensePrice: deprecatelicenseprice.NewUseCase(priceDeps),
 		PreviewLicenseInvoice: previewlicenseinvoice.NewUseCase(priceDeps),
+		UpdateLicenseFamily: updatelicensefamily.NewUseCase(updatelicensefamily.Deps{
+			UserProvider: svc.UserProvider, Uof: svc.Uof,
+		}),
 	}
 }

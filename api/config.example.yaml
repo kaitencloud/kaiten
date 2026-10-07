@@ -167,3 +167,7 @@ billing:
     interval: 5m                  # KAITEN_BILLING_PERIOD_CLOSE_INTERVAL
     # Subscriptions closed per pass, or per close-periods call.
     batch_size: 100               # KAITEN_BILLING_CLOSE_BATCH_SIZE
+  lifecycle:
+    # How often subscriptions move in and out of PAST_DUE as their invoices
+    # become overdue. Below 0 disables the pass.
+    interval: 15m                 # KAITEN_BILLING_LIFECYCLE_INTERVAL
