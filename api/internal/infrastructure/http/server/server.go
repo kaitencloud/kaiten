@@ -24,6 +24,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/builtinconnectors"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
+	billingstripe "github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	httpapi "github.com/kaitencloud/kaiten/api/internal/infrastructure/http/api"
@@ -33,6 +34,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/attio"
+	connectorstripe "github.com/kaitencloud/kaiten/api/internal/modules/connectors/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/platform/auth"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/platform/jit"
@@ -59,9 +61,12 @@ type Dependencies struct {
 	// BillingProviders resolves the payment providers invoices are issued
 	// through. Nil means NOOP alone; a test may register a fake provider.
 	BillingProviders provider.Registry
-	DB               *pgxpool.Pool
-	Logger           *slog.Logger
-	UsageReporter    services.UsageReporter
+	// Stripe configures the Stripe adapter of the default providers (tests
+	// point it at a fake Stripe); the zero value reaches Stripe.
+	Stripe        billingstripe.Options
+	DB            *pgxpool.Pool
+	Logger        *slog.Logger
+	UsageReporter services.UsageReporter
 }
 
 // Server runs two HTTP stacks in one process.
@@ -273,6 +278,7 @@ func (s *Server) setupApplication() error {
 		ConnectorEntitlements: s.deps.ConnectorEntitlements,
 		EntitlementConfig:     s.deps.EntitlementConfig,
 		BillingProviders:      s.deps.BillingProviders,
+		Stripe:                s.deps.Stripe,
 		// A server with no database serves no background work: cmd/docs builds one
 		// purely to walk the route table and generate the OpenAPI documents. This is
 		// the same condition setupRetention applies to the transport-table sweep,
@@ -341,6 +347,7 @@ func (s *Server) registerBuiltInConnectorsIfMigrated(ctx context.Context) error 
 // protocol for it to implement and no startup hook for it to own.
 var builtInConnectorManifests = []builtinconnectors.Manifest{
 	attio.Manifest(),
+	connectorstripe.Manifest(),
 }
 
 // setupRetention starts the background sweep that bounds outbox_events and
