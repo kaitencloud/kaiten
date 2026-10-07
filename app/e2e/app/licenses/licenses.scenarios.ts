@@ -307,3 +307,48 @@ export function createDraftPricesModel() {
     },
   });
 }
+
+/**
+ * A draft with two flat fees an invoice can start from, the monthly one the
+ * default, and an overage on traces beside them: what a preview asks which base
+ * to start from, and what usage to give.
+ */
+export function createTwoFlatFeesModel() {
+  return new LicenseAppModel({
+    entitlements: PRICING_CATALOGUE,
+    grants: PRO_V4_GRANTS,
+    licenses: [PRO_V4],
+    prices: {
+      'pro-v4': [
+        buildPrice({
+          billingPeriod: 'MONTHLY',
+          displayLabel: 'Pro, monthly',
+          displayOrder: 1,
+          id: 'price-1-monthly',
+          isDefault: true,
+          unitAmountDecimal: '3900',
+        }),
+        buildPrice({
+          billingPeriod: 'ANNUAL',
+          displayLabel: 'Pro, annual',
+          displayOrder: 2,
+          id: 'price-2-annual',
+          unitAmountDecimal: '39000',
+        }),
+        buildPrice({
+          billingModel: 'OVERAGE',
+          displayLabel: 'Traces, overage',
+          displayOrder: 3,
+          id: 'price-3-over',
+          metered: {
+            entitlementSlug: 'traces',
+            saleUnitFactor: '100000',
+            saleUnitPlural: '100,000 traces',
+            saleUnitSingular: '100,000 traces',
+          },
+          unitAmountDecimal: '800',
+        }),
+      ],
+    },
+  });
+}
