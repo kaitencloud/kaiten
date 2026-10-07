@@ -15,3 +15,9 @@ export {
   licensePreviewFormSchema,
   previewValuesToScenario,
 } from './license-preview.schema';
+export type { LicenseCommercialFormValues } from './license-commercial.schema';
+export {
+  commercialFormValuesToUpdateBody,
+  licenseCommercialFormSchema,
+  licenseToCommercialFormValues,
+} from './license-commercial.schema';

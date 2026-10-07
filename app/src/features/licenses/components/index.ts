@@ -1,3 +1,4 @@
+export { LicenseCommercialDialog } from './commercial';
 export { LicenseEntitlementsCard } from './entitlements';
 export { LicenseForm, LicenseVersionForm } from './forms';
 export { LicenseList } from './license-list';

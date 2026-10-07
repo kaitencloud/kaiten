@@ -21,6 +21,7 @@ export {
   getProblemCode,
   getRetryAfterMs,
   handleBillingProblem,
+  setProblemFieldError,
 } from './billing-problem';
 export {
   getInvoiceKindLabelKey,
