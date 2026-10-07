@@ -39,7 +39,13 @@ export function SortableTargetingItem({
       style={style}
       className="relative group cursor-grab active:cursor-grabbing hover:scale-[1.01] transition-transform duration-200 ease-out"
     >
-      <button type="button" className="absolute -left-5 top-5 cursor-grab" aria-label={t('Common.reorder')} {...attributes} {...listeners}>
+      <button
+        type="button"
+        className="absolute -left-5 top-5 cursor-grab"
+        aria-label={t('Common.reorder')}
+        {...attributes}
+        {...listeners}
+      >
         <GripVertical className="size-4" />
       </button>
       <TargetingItem {...props} />

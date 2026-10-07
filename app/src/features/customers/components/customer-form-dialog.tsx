@@ -23,7 +23,11 @@ export function CustomerFormDialog({
       finalFocus={() => {
         // Closing a route dialog replaces its opener's DOM node. Restore the
         // equivalent list action after the navigation has committed.
-        requestAnimationFrame(() => document.querySelector<HTMLAnchorElement>('a[href="/customers/new"]')?.focus());
+        requestAnimationFrame(() =>
+          document
+            .querySelector<HTMLAnchorElement>('a[href="/customers/new"]')
+            ?.focus(),
+        );
         return false;
       }}
       confirmOnClose={false}
