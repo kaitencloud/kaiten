@@ -1,7 +1,11 @@
 export { BillingNotFound } from './billing-not-found';
 export { BillingUnavailable } from './billing-unavailable';
 export { InvoiceLineTypeBadge } from './invoice-line-type-badge';
+export { InvoiceLinesTable } from './invoice-lines-table';
+export { InvoicePreviewDialog } from './invoice-preview-dialog';
+export { InvoicePreviewResult } from './invoice-preview-result';
 export { InvoiceStatusBadge } from './invoice-status-badge';
+export { InvoiceTotals } from './invoice-totals';
 export { MissingScopeBanner } from './missing-scope-banner';
 export { Money } from './money';
 export { ProblemAlert } from './problem-alert';
