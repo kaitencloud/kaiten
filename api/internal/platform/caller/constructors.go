@@ -45,6 +45,21 @@ func Platform(ctx context.Context) (PlatformCaller, error) {
 	}, nil
 }
 
+// PublishableKey derives a [PublishableKeyCaller] from an authenticated
+// request. Every other credential class is refused with the shared
+// wrong-credential answer -- see [Organization].
+func PublishableKey(ctx context.Context) (PublishableKeyCaller, error) {
+	i, err := principalOfKind(ctx, principal.KindPublishableKey)
+	if err != nil {
+		return PublishableKeyCaller{}, err
+	}
+
+	return PublishableKeyCaller{
+		organizationID: i.OrganizationID,
+		keyID:          i.PublishableKeyID,
+	}, nil
+}
+
 // Static is an [OrganizationCaller] for a driver that knows the identity at
 // construction time instead of reading it off a request — the seeder, which
 // seeds as a specific user inside a specific organization.
