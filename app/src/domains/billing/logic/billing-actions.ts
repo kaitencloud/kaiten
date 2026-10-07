@@ -27,6 +27,8 @@ export const BILLING_ACTIONS = {
   'licensePrices.update': 'updateLicensePrice',
   'licensePrices.deprecate': 'deprecateLicensePrice',
   'license.updateCommercialFields': 'updateLicense',
+  // A new version, which is what changes a version that can no longer change.
+  'license.createVersion': 'createLicense',
   // An instance's subscription.
   'subscription.read': 'getInstanceBilling',
   'subscription.subscribe': 'subscribeInstance',
