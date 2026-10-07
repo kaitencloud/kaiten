@@ -3,35 +3,57 @@
 What the billing screens share: whether billing exists on this deployment, what
 a session may do about it, how amounts, periods and statuses read, and how a
 refusal of the API is shown. The domain owns no page and no route: the screens
-stay in their features, and `routes/billing/route.tsx` is the only route that
-uses it today, together with the side navigation, which reads the capabilities
-to decide whether to list billing at all.
+stay in their features, and the routes under `routes/billing/` use it for the
+gate (`routes/billing/route.tsx`) and for what an invoice page reads
+(`BillingRouteError`, the line types), together with the side navigation, which
+reads the capabilities to decide whether to list billing at all.
 
-The domain is built ahead of the screens that will use it, on purpose. The
-invoices, the prices of a license version, the instance and customer pages, the
-settings, the add-ons and the vouchers all show money and statuses and need the
-same gate, so the base is written once, before the first of them, instead of
-being extracted from the first screen and reworked by each one that follows. That
-is why part of what `index.ts` exports has no caller yet: it is the contract
-those screens are built against. The prices of a license version and the preview
-of its invoice are the first to use it (`features/licenses`): the gate, the
-scopes, the problem alert and the invoice preview below. The generic parts live
-where any feature can reach them: `lib/money.ts`,
+The domain is built ahead of the screens that use it, on purpose. The invoices,
+the prices of a license version, the instance and customer pages, the settings,
+the add-ons and the vouchers all show money and statuses and need the same gate,
+so the base is written once, before the first of them, instead of being
+extracted from the first screen and reworked by each one that follows. Part of
+what `index.ts` exports may therefore have no caller yet: it is the contract the
+screens still to come are built against. The prices of a license version and the
+preview of its invoice (`features/licenses`) and the invoices of the organization
+(`features/billing`) use it today: the gate, the scopes, the problem alert, the
+invoice preview, the table of invoices, the rules of the actions of an invoice
+and the way a refusal is shown. The generic parts live where any feature can
+reach them: `lib/money.ts`, `lib/decimal.ts`,
 `components/form/fields/money-field.tsx`, `lib/download-blob.ts` and the billing
 icons of `lib/data-model-icons.ts`.
+
+What has no second caller yet is built for a screen that comes next. The billing
+tab of an instance reads the same capabilities and refusals, lists its invoices
+in the same table, and shows its upcoming invoice, an `InvoicePreview` made of the
+same lines as an invoice (`LineFingerprint`, `OverageLimits`, `InvoiceLinesTable`);
+the export offered before an organization is deleted, in the settings, is the
+download of the list (`downloadInvoiceExport`); `RetryableProblem` and
+`BillingRouteError` are for each route that reads one record. Three things have
+only `features/billing` as their caller today, and sit here beside the statuses
+they read: `getInvoiceActions` with `useInvoiceActionAccess` (what an invoice
+allows), `isHandoffLeased` and `readRecomposeRefusal`. They move to the feature if
+no other screen needs them.
 
 ## Structure
 
 ```txt
 app/src/domains/billing/
-├── components/       # Money, ServicePeriod, the status and line-type badges,
-│                     # ProblemAlert, MissingScopeBanner, BillingUnavailable,
-│                     # BillingNotFound, and the invoice preview: InvoiceLinesTable,
+├── components/       # Money, ServicePeriod, the status, provider and line-type badges,
+│                     # ProblemAlert, RetryableProblem, MissingScopeBanner, BillingUnavailable,
+│                     # BillingNotFound, BillingRouteError, InvoicesTable (its columns in
+│                     # invoices-table-columns) and its cells, the
+│                     # fingerprint and the arithmetic of a metered line (LineFingerprint,
+│                     # OverageLimits), and the invoice preview: InvoiceLinesTable,
 │                     # InvoiceTotals, InvoicePreviewResult, InvoicePreviewDialog
-├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session
-├── logic/            # actions and their scopes, availability, problems,
-│                     # statuses, invoice kinds, line types, subscription actions, periods
-├── queries/          # the capabilities, the route guard, invalidation helpers
+├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session;
+│                     # useInvoiceActionAccess, the same for the five actions on an invoice;
+│                     # useAlertFocus, which puts the focus on a refusal
+├── logic/            # actions and their scopes, availability, problems, statuses,
+│                     # invoice kinds, line types, invoice actions, the refusals of a
+│                     # recompose, handoff, export, retention, subscription actions, periods
+├── queries/          # the capabilities, the route guard, invalidation helpers,
+│                     # the export of the invoices
 ├── types/
 ├── __tests__/
 └── index.ts
@@ -40,9 +62,10 @@ app/src/domains/billing/
 `lib/money.ts` formats and converts amounts, with the minor-unit exponents of
 `lib/currency-exponents.ts` (the table of the API), and
 `components/form/fields/money-field.tsx` types them: the helpers are generic and
-`hooks/form.ts` may not import a domain. `lib/granted-scopes.ts` reads the scopes
-of the session's token. `lib/download-blob.ts` saves a file the page holds, or an
-export the API streams.
+`hooks/form.ts` may not import a domain. `lib/decimal.ts` writes and adds the
+decimal strings the API carries quantities in, digit for digit. `lib/granted-scopes.ts`
+reads the scopes of the session's token. `lib/download-blob.ts` saves a file the
+page holds, or an export the API streams.
 
 ## Data
 
@@ -52,6 +75,10 @@ export the API streams.
   `beforeLoad`. The read does not take the query's own abort signal: a query whose
   signal is read is cancelled when its last observer goes, which strict mode does
   on every mount, and a guard waiting on it would take that for a failure.
+- `downloadInvoiceExport(variant, filters)` exports the invoices a list selects (a
+  call of the generated SDK with `parseAs: 'blob'`, handed to `downloadBlob`); the
+  query of each variant and the name of its file are `toInvoiceExportQuery` and
+  `invoiceExportFilename`.
 - `invalidateInstanceBillingQueries`, `invalidateInvoiceQueries`,
   `invalidateLicensePriceQueries` and `invalidateBillingSettingsQueries` refresh
   what a billing mutation changed, with the generated keys. A mutation of billing
@@ -113,7 +140,9 @@ export the API streams.
   refuses `.reduce(` in the billing code.
 - **Time is UTC and half-open.** A period reads `Mar 1 – Apr 1, 2027 (UTC)`: the
   end is the instant that closes it, not the last day it covers. A boundary that
-  is a day reads `Mar 1, 2027 (UTC)`.
+  is a day reads `Mar 1, 2027 (UTC)`, and the time of day is added only when a
+  boundary is not at midnight. A cell that gives the day on one line writes the
+  time under it with `formatUtcTime` (`10:00 AM (UTC)`).
 - **A refusal shows the `detail` of the API's problem document as written.**
   There is no translation per code (`check:api-error-i18n` covers only the generic
   client categories): a problem with no `detail` falls back to a generic message
@@ -146,6 +175,46 @@ export the API streams.
   never as a failure. Every label map is typed `satisfies Record<Enum, string>`: a
   status the contract adds fails the type check until it has a label. A line type
   the console does not know renders as it was sent.
+- **What an invoice allows is decided here.** `getInvoiceActions(invoice, context)`
+  answers, from the status, the hold and the replacement of an invoice, which of
+  release, recompose, mark paid, write off and void it offers, in order, and
+  `INVOICE_ACTION_SCOPES` names the billing action, hence the scope, of each, and
+  `useInvoiceActionAccess` reads them once for a screen. An
+  action the status allows and the screen knows the API would refuse is returned
+  disabled, with why: a recompose of a void invoice whose usage is no longer kept
+  (`getRetentionStart(months)` from `usageHistoryRetentionMonths`, which a held draft
+  is exempt from) and one for an instance that was deleted. The API has the last
+  word. `isHandoffLeased` says whether a consumer holds an invoice of the handoff
+  queue, from its lease; an expired lease is as good as none.
+  `readRecomposeRefusal` reads what a recompose was refused for when the refusal
+  changes what is offered next (the invoice has to be voided first, its
+  replacement already exists and is named, its instance was deleted): the codes
+  and the replacement the problem carries are read here, once, and the dialog
+  switches on the result.
+- **A metered line shows what it was measured from.** `LineFingerprint` writes the
+  `metering.ledger` of a line (`Reports 41–45 · 5 rows · Σ 172,345`) and
+  `OverageLimits` the arithmetic of an overage line with every limit that applied,
+  as the API sent them. Neither is shown for a base fee, an add-on or a discount.
+- **A table of invoices is one table.** `InvoicesTable` is the table of the
+  organization, of an instance and of a customer: a screen leaves out the columns
+  it already says (`hiddenColumns`, the same array from one render to the next,
+  since the columns are built from it), nothing sorts since the server orders what
+  it pages, and a row leads to its invoice. `InvoiceCustomerCell`, `InvoiceKindCell`
+  and `InvoiceTotalCell` are the cells every table of invoices has, the handoff
+  queue's included, and `rightAlignedHeader` the header of a column of amounts. The
+  service period is stacked, its start above its end (`ServicePeriod` with
+  `stacked`), since a subscription that bills from the middle of a day writes the
+  time of day on both ends and that is wider than any other column, and the
+  handoff label wraps, so that the eight columns fit the width of a laptop with
+  the side navigation open.
+- **Reading a billing route fails visibly.** `BillingRouteError` is the
+  `errorComponent` of the routes of one record: the API's words, a banner for a
+  missing scope, a page that does not exist for a 404, and a Retry that invalidates
+  the router (the `reset` of an error component only clears the boundary, which
+  throws the same error again). `RetryableProblem` is the same for a read inside a
+  page: the refusal and a way to ask again, none where it would change nothing.
+  `ProblemAlert` takes `autoFocus` for a dialog, whose confirmation is disabled
+  while the API answers and drops the focus with it.
 - **Downloads are authenticated.** An export is a stream behind a bearer token, so
   `downloadBlob` (`lib/download-blob.ts`) takes a call of the generated SDK made
   with `parseAs: 'blob'` and saves its body.
@@ -163,7 +232,13 @@ and an amount added up. `components/stories/billing-components.stories.tsx` and
 components and run as tests. The capabilities of the mocked
 console are `e2e/app/_support/model/billing-capabilities.ts`, the navigation is
 covered by `e2e/app/billing/billing.navigation.spec.ts` and what a billing link
-explains by `e2e/app/billing/billing.unavailable.spec.ts`.
+explains by `e2e/app/billing/billing.unavailable.spec.ts`. The table of invoices,
+the fingerprint, the arithmetic of an overage, the refusals (`retryable-problem`,
+and `invoice-refusals` for what a recompose was refused for), the rules of the
+invoice actions and the scopes that gate them, the export and the lease of a
+handoff have their own files in `__tests__/`, and
+`components/stories/invoices-table.stories.tsx` shows the table. The screens built on the domain are tested in
+[`features/billing`](../../features/billing/README.md).
 
 ## Public API
 

@@ -2976,12 +2976,322 @@ export default {
       title: 'Billing',
       Invoices: {
         title: 'Invoices',
+        subtitle:
+          'Every invoice of your organization, across its customers and instances.',
+        loading: 'Loading invoices',
+        shown_one: '{{count}} invoice shown',
+        shown_other: '{{count}} invoices shown',
+        loadMore: 'Load more',
         Lines: {
           title: 'Lines',
+        },
+        Empty: {
+          title: 'No invoices yet',
+          description:
+            'An invoice is composed when a subscription reaches a boundary. Subscribe an instance to start billing.',
+          instances: 'Go to instances',
+          filteredTitle: 'No invoice matches these filters',
+          filteredDescription:
+            'Remove a filter or widen the period to see more.',
+        },
+        Filters: {
+          button: 'Filters',
+          panelLabel: 'Invoice filters',
+          clear: 'Clear filters',
+          remove: 'Remove the filter {{filter}}',
+          chip: '{{field}}: {{value}}',
+          status: 'Status',
+          kind: 'Kind',
+          provider: 'Provider',
+          handoff: 'Handoff',
+          overdue: 'Overdue',
+          overdueOnly: 'Overdue invoices only',
+          held: 'Held',
+          heldOnly: 'Held drafts only',
+          customer: 'Customer',
+          instance: 'Instance',
+          slugPlaceholder: 'slug',
+          boundary: 'Boundary',
+          issued: 'Issued',
+          from: 'From',
+          before: 'Before',
+          openEnd: 'any',
+          periodInvalid: 'The period must end after it starts.',
+        },
+        Export: {
+          button: 'Export',
+          csvLines: 'CSV by invoice line',
+          csvInvoices: 'CSV by invoice',
+          ndjson: 'NDJSON, one invoice per line',
+        },
+        Toasts: {
+          released: 'Invoice released',
+          paid: 'Invoice marked as paid',
+          writtenOff: 'Invoice written off',
+          voided: 'Invoice voided',
+          recomposed: 'Invoice recomposed',
+          replaced: 'Replacement invoice composed',
+        },
+        Detail: {
+          title: '{{kind}} invoice, {{date}}',
+          subtitle: '{{customer}} · {{instance}}',
+          Actions: {
+            menu: 'Actions',
+            markPaid: 'Mark as paid',
+            recompose: 'Recompose',
+            releaseHold: 'Release the hold',
+            void: 'Void',
+            writeOff: 'Write off',
+            purgedUsage:
+              'The usage of this period is no longer kept (before {{date}}): a recompose would leave out its usage lines.',
+            instanceDeleted:
+              'The instance of this invoice was deleted, so nothing can be recomposed for it.',
+          },
+          Chain: {
+            label: 'Replacement chain',
+            replaces: 'Replaces',
+            replacedBy: 'Replaced by',
+          },
+          Hold: {
+            title: 'Held: {{reason}}',
+            description:
+              'After the period closed, the usage journal behind this invoice failed a consistency check. The invoice was composed but not issued: billing does not bill an amount it cannot vouch for.',
+            Columns: {
+              meter: 'Meter',
+              check: 'Check',
+              expected: 'Expected',
+              found: 'Found',
+              reports: 'Reports',
+              counter: 'Counter report',
+            },
+            release_NOOP:
+              'Releasing accepts the amounts as composed. The invoice is issued with no payment provider and waits in the handoff queue for your ERP.',
+            release_STRIPE:
+              'Releasing accepts the amounts as composed. The invoice is pushed to Stripe, which collects it.',
+            recompose:
+              'Recomposing composes the invoice again from the usage journal as it is now, under the provider the subscription uses now.',
+          },
+          Summary: {
+            title: 'Summary',
+            kind: 'Kind',
+            boundary: 'Boundary',
+            period: 'Service period',
+            provider: 'Provider',
+            issued: 'Issued',
+            due: 'Due',
+            dueValue_one: '{{date}} · {{count}} day to pay',
+            dueValue_other: '{{date}} · {{count}} days to pay',
+            paid: 'Paid',
+            writtenOff: 'Written off',
+            voided: 'Voided',
+            voidReason: 'Void reason',
+            released: 'Hold released',
+            releasedValue: '{{date}}, by a person, for this reason: {{reason}}',
+            releasedAutomatically:
+              '{{date}}, automatically: a later check found the usage journal sound',
+          },
+          Lines: {
+            title: 'Lines',
+            viewReports_one: 'View {{count}} usage report',
+            viewReports_other: 'View {{count}} usage reports',
+          },
+          Handoff: {
+            title: 'Handoff',
+            waiting:
+              'A job or the CLI takes it from the queue, books it and acknowledges it.',
+            waiting_VOID:
+              'This invoice is void and its handoff stays pending: the system that reads the queue sees it as void, and acknowledges it.',
+            waiting_UNCOLLECTIBLE:
+              'This invoice was written off and its handoff stays pending: the system that reads the queue sees it as written off, and acknowledges it.',
+            claims: 'Claims',
+            leasedUntil: 'Reserved until',
+            reference: 'ERP reference',
+            noReference: 'Acknowledged without a reference',
+            acknowledgedAt: 'Acknowledged',
+          },
+          Identity: {
+            title: 'Billed to',
+            description:
+              'As it was when the invoice was composed. A rename since does not change it.',
+            customer: 'Customer',
+            instance: 'Instance',
+            license: 'License',
+            billingEmail: 'Billing e-mail',
+            customerInvoices: 'Invoices of this customer',
+            instanceInvoices: 'Invoices of this instance',
+          },
+          MarkPaid: {
+            title: 'Mark as paid',
+            description:
+              'Record that this invoice was paid. Times are read as UTC.',
+            descriptionPending:
+              'Record that this invoice was paid. It also acknowledges the invoice in the handoff queue, under the reference you give.',
+            reference: 'External reference',
+            referenceHint:
+              'The invoice’s number in your ERP, up to {{max}} characters. Optional.',
+            paidAt: 'Paid at (UTC)',
+            paidAtHint: 'Now or earlier. Leave it empty for now.',
+            note: 'Note',
+            noteHint:
+              'For example the reference of the transfer. It is kept in the paid event only.',
+            confirm: 'Mark as paid',
+          },
+          Release: {
+            title: 'Release the hold',
+            description:
+              'Accept the amounts as composed, although the usage journal could not vouch for them. The invoice is then issued.',
+            reason: 'Reason',
+            reasonHint:
+              'Why the amounts can be trusted. It is kept with your name in the audit trail.',
+            effect_NOOP:
+              'The invoice is issued with no payment provider and waits in the handoff queue for your ERP.',
+            effect_STRIPE:
+              'The invoice is pushed to Stripe, which collects it.',
+            confirm: 'Release',
+          },
+          Recompose: {
+            title: 'Recompose the invoice',
+            descriptionHeld:
+              'Compose this held draft again from the usage journal as it is now.',
+            descriptionVoid:
+              'Compose a replacement for the boundary this void invoice billed.',
+            effectHeld:
+              'The draft is rewritten in place. If the journal is sound, the invoice is issued under the provider the subscription uses now.',
+            effectVoid:
+              'The replacement is issued under the provider the subscription uses now, and this invoice points to it.',
+            confirm: 'Recompose',
+          },
+          Void: {
+            title: 'Void the invoice',
+            descriptionNoop:
+              'Voiding takes the invoice off the boundary it billed, which a recompose can then fill. A handoff still pending stays pending, with the void in its payload.',
+            descriptionProvider:
+              'The invoice is voided at your payment provider first, then here. This cannot be undone.',
+            reason: 'Reason',
+            confirm: 'Void invoice',
+          },
+          VoidThenRecompose: {
+            title: 'Void and recompose',
+            description:
+              'This invoice is not a held draft, so it cannot be edited: it is voided, and a replacement is composed from the usage journal as it is now. One reason covers both.',
+            confirm: 'Void and recompose',
+          },
+          WriteOff: {
+            title: 'Write the invoice off',
+            description:
+              'Give up collecting this invoice. It becomes uncollectible, which is final. A handoff still pending stays pending.',
+            reason: 'Reason',
+            confirm: 'Write off',
+          },
+        },
+        Drilldown: {
+          subtitle: 'Usage behind a line of this invoice: {{invoice}}',
+          backToInvoice: 'Back to the invoice',
+          region: 'Usage reports of the line',
+          export: 'Export CSV',
+          loading: 'Loading the usage reports',
+          Empty: {
+            title: 'No usage reports',
+            description:
+              'No report was accepted during the period of this line.',
+          },
+          Summary: {
+            title: 'This line',
+            period: 'Service period',
+            measured: 'Measured quantity',
+            billed: 'Billed quantity',
+            saleUnit: 'Measured units per sale unit',
+            windows: 'Reset windows',
+            windowsValue_one: '{{count}} window',
+            windowsValue_other: '{{count}} windows',
+            windowsFloored_one:
+              '{{count}} window had a negative movement and counted as 0',
+            windowsFloored_other:
+              '{{count}} windows had a negative movement and counted as 0',
+            amount: 'Line amount',
+          },
+          Columns: {
+            report: 'Report',
+            reportedAt: 'Reported at',
+            behavior: 'Behavior',
+            counter: 'Counter',
+            delta: 'Change',
+            overageDelta: 'Overage change',
+            limit: 'Limit',
+            transaction: 'Transaction',
+            properties: 'Properties',
+          },
+          Behavior: {
+            append: 'Append',
+            set: 'Set',
+          },
+          unlimited: 'No limit',
+          limitChanged: 'Limit changed',
+          lifetime: 'Whole lifetime',
+          windowUsage_one: '{{count}} report · usage {{sum}}',
+          windowUsage_other: '{{count}} reports · usage {{sum}}',
+          windowOverage_one: '{{count}} report · overage {{sum}}',
+          windowOverage_other: '{{count}} reports · overage {{sum}}',
+          windowPartial_one: '{{count}} report so far · more to load',
+          windowPartial_other: '{{count}} reports so far · more to load',
+          propertiesTitle: 'Properties of report {{report}}',
+          propertiesOpen: 'Show the properties of report {{report}}',
+          shown_one: '{{count}} report shown',
+          shown_other: '{{count}} reports shown',
+          loadMore: 'Load more reports',
+          OutsideRetention: {
+            title: 'The reports of this line are no longer kept',
+            description:
+              'The usage behind this line is older than the history your organization keeps. The invoice kept a fingerprint of it: which reports it was measured from, and what they sum to.',
+            kept: 'What the invoice kept',
+          },
         },
       },
       Handoff: {
         title: 'Handoff',
+        subtitle:
+          'The invoices waiting for your ERP, oldest first. A job or the CLI takes them from the queue and acknowledges them once booked.',
+        Tabs: {
+          label: 'Part of the queue',
+          pending: 'Waiting',
+          acknowledged: 'Acknowledged',
+        },
+        loading: 'Loading the queue',
+        shown_one: '{{count}} invoice shown',
+        shown_other: '{{count}} invoices shown',
+        loadMore: 'Load more',
+        Columns: {
+          issued: 'Issued',
+          booked: 'Booked',
+          claims: 'Claims',
+        },
+        claims_one: '{{count}} claim',
+        claims_other: '{{count}} claims',
+        reservedUntil: 'Reserved until {{date}}',
+        noReference: 'No reference',
+        acknowledge: 'Acknowledge',
+        Empty: {
+          pendingTitle: 'Nothing is waiting for your ERP',
+          pendingDescription:
+            'Invoices that no payment provider collects wait here until a job or a terminal takes them. To take them from a terminal, run:',
+          acknowledgedTitle: 'Nothing acknowledged yet',
+          acknowledgedDescription:
+            'Invoices booked in your ERP appear here once they are acknowledged.',
+        },
+        Acknowledge: {
+          title: 'Acknowledge the invoice',
+          description:
+            'Record that your ERP booked this invoice. Do it only for an invoice you booked yourself: a job or the CLI acknowledges the ones it takes.',
+          leased:
+            'A consumer holds this invoice until {{date}}. Acknowledging it now may book it twice.',
+          reference: 'External reference',
+          referenceHint:
+            'The invoice’s number in your ERP, up to {{max}} characters. Optional.',
+          confirm: 'Acknowledge',
+        },
+        Toasts: {
+          acknowledged: 'Invoice acknowledged',
+        },
       },
     },
     Addons: {
@@ -3469,6 +3779,58 @@ export default {
           'This is what the invoice would come to at a boundary now. Nothing is saved, sent or billed.',
         resultLabel: 'Invoice preview',
         composed: '{{kind}} invoice, composed {{asOf}}.',
+      },
+      Fingerprint: {
+        empty: 'No usage reports in this period.',
+        summary_one: 'Report {{first}} · {{count}} row · Σ {{sum}}',
+        summary_other:
+          'Reports {{first}}–{{last}} · {{count}} rows · Σ {{sum}}',
+      },
+      HandoffStatus: {
+        PENDING: 'Waiting for your ERP',
+        ACKNOWLEDGED: 'Acknowledged',
+        NOT_REQUIRED: 'Not required',
+      },
+      Invoices: {
+        notIssued: 'Not issued',
+        Columns: {
+          customer: 'Customer',
+          invoice: 'Invoice',
+          period: 'Service period',
+          total: 'Total',
+          status: 'Status',
+          due: 'Due',
+          provider: 'Provider',
+          handoff: 'Handoff',
+        },
+      },
+      MarkPaid: {
+        Errors: {
+          referenceTooLong: 'The reference is too long',
+          noteTooLong: 'The note is too long',
+          paidAtInvalid: 'Enter a valid date and time',
+          paidAtInFuture: 'The payment cannot be in the future',
+        },
+      },
+      Overage: {
+        unlimited: 'No limit',
+        limit: 'Limit {{limit}} (+{{percent}}% accepted)',
+        reports_one: '{{count}} report',
+        reports_other: '{{count}} reports',
+        measured: 'Usage {{usage}}, of which {{overage}} above the limit',
+        limitsLabel: 'Limits applied',
+      },
+      ProviderKind: {
+        NOOP: 'Manual',
+        STRIPE: 'Stripe',
+      },
+      Reason: {
+        description:
+          'Required, up to {{max}} characters. It is kept with your name in the audit trail.',
+        Errors: {
+          required: 'A reason is required',
+          tooLong: 'The reason is too long',
+        },
       },
     },
     AuditTrail: {

@@ -1,8 +1,11 @@
 import { ShieldAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useAlertFocus } from '../hooks/use-alert-focus';
 
 type MissingScopeBannerProps = {
+  /** Takes the focus when it appears: for a dialog, whose confirmation was disabled while it worked. */
+  autoFocus?: boolean;
   className?: string;
   /** The scope the API named in its 403 `Auth.MissingScope`. */
   scope?: string;
@@ -16,15 +19,19 @@ type MissingScopeBannerProps = {
  * banner names the scope and where to add it.
  */
 export function MissingScopeBanner({
+  autoFocus = false,
   className,
   scope,
 }: MissingScopeBannerProps) {
   const { t } = useTranslation();
+  const alertRef = useAlertFocus(autoFocus, scope);
 
   return (
     <Alert
       className={className}
       data-kind="missing-scope"
+      ref={alertRef}
+      tabIndex={autoFocus ? -1 : undefined}
       variant="destructive"
     >
       <ShieldAlert />
