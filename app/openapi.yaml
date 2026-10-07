@@ -1523,6 +1523,30 @@ components:
         - entitled
         - activated
       type: object
+    CreatedCustomerSession:
+      additionalProperties: false
+      properties:
+        customerSlug:
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        id:
+          description: Revoke it with POST /customer-sessions/{id}/revoke
+          type: string
+        instanceSlug:
+          type: string
+        token:
+          description: "The kst_ token: hand it to the customer's browser, which sends it as Authorization: Bearer on /api/public/session routes. Shown once; only its digest is stored."
+          examples:
+            - kst_3q2-7wEXAMPLEtokenBodyOfFortyThreeCharactersX
+          type: string
+      required:
+        - id
+        - token
+        - expiresAt
+        - customerSlug
+      type: object
     Customer:
       additionalProperties: false
       properties:
@@ -1751,6 +1775,28 @@ components:
         - name
         - slug
       type: object
+    CustomerSessionDraft:
+      additionalProperties: false
+      properties:
+        customerSlug:
+          description: The customer the session acts for
+          examples:
+            - acme
+          type: string
+        instanceSlug:
+          description: "Binds the session to one of the customer's instances; checkout, cancel and the other subscription routes need it. Omitted: the session reads the whole customer."
+          examples:
+            - acme-prod
+          type: string
+        ttlSeconds:
+          description: "How long the session lives, in seconds: 300 to 3600 (CreateCustomerSession.InvalidTtl otherwise). Default 30 minutes; mint a new one before it ends."
+          examples:
+            - 1800
+          format: int32
+          type: integer
+      required:
+        - customerSlug
+      type: object
     DefaultVariant:
       discriminator:
         mapping:
@@ -1885,6 +1931,36 @@ components:
         - createdAt
         - updatedBy
         - updatedAt
+      type: object
+    DueToday:
+      additionalProperties: false
+      properties:
+        currency:
+          examples:
+            - EUR
+          type: string
+        discountTotal:
+          description: Minor units
+          format: int64
+          type: integer
+        lines:
+          items:
+            $ref: "#/components/schemas/SessionLine"
+          type: array
+        subtotal:
+          description: Minor units
+          format: int64
+          type: integer
+        total:
+          description: Minor units
+          format: int64
+          type: integer
+      required:
+        - currency
+        - subtotal
+        - discountTotal
+        - total
+        - lines
       type: object
     Entitlement:
       additionalProperties: false
@@ -5392,6 +5468,14 @@ components:
     NewSubscription:
       additionalProperties: false
       properties:
+        addOns:
+          description: "Add-ons to attach with the subscription, under the rules of POST /instances/{instanceSlug}/addons; the ACTIVATION invoice bills them. One refused refuses the subscribe: 422 SubscribeInstance.AddonInvalid, the add-on's own code in errors[0].value.code."
+          items:
+            $ref: "#/components/schemas/SubscriptionAddon"
+          maxItems: 50
+          type:
+            - array
+            - "null"
         basePriceId:
           description: An ACTIVE FLAT_FEE price of the instance's licence version, which must be PUBLISHED. The subscription stays pinned to it, even once deprecated.
           type: string
@@ -5419,6 +5503,11 @@ components:
           description: "Days of trial from the anchor: nothing is billed, and no usage counts, until it ends; the period close then issues the first invoice. 0 is no trial. Omitted: the licence's trialPeriodDays, else no trial."
           format: int32
           type: integer
+        voucherCode:
+          description: "A voucher to redeem with the subscription, once its add-ons are attached; a PRICE voucher applies from the ACTIVATION invoice. Refused: 422 SubscribeInstance.VoucherInvalid, the redemption's own code in errors[0].value.code."
+          maxLength: 64
+          minLength: 1
+          type: string
       required:
         - basePriceId
       type: object
@@ -5826,6 +5915,23 @@ components:
         - items
         - hasMore
       type: object
+    PageSessionInvoice:
+      additionalProperties: false
+      properties:
+        hasMore:
+          description: Whether more rows exist beyond this page.
+          type: boolean
+        items:
+          items:
+            $ref: "#/components/schemas/SessionInvoice"
+          type: array
+        nextCursor:
+          description: Opaque cursor for the next page. Absent when hasMore is false.
+          type: string
+      required:
+        - items
+        - hasMore
+      type: object
     PageToken:
       additionalProperties: false
       properties:
@@ -6005,6 +6111,23 @@ components:
           examples:
             - INCIDENT
           type: string
+      type: object
+    Payment:
+      additionalProperties: false
+      properties:
+        hostedInvoiceUrl:
+          type: string
+        status:
+          description: "paid. requires_action: the customer must confirm the payment on hostedInvoiceUrl. failed: the charge was refused; save another payment method, or pay on hostedInvoiceUrl. processing: the outcome is not known yet; poll GET /public/session/invoices. not_required: nothing is due today."
+          enum:
+            - paid
+            - requires_action
+            - failed
+            - processing
+            - not_required
+          type: string
+      required:
+        - status
       type: object
     PaymentFailedInvoice:
       additionalProperties: false
@@ -6624,6 +6747,9 @@ components:
           description: The provider's invoice number
           type: string
         invoicePdfUrl:
+          type: string
+        lastPaymentError:
+          description: "Why the last automatic charge failed, as the provider coded it: authentication_required (the customer must confirm the payment on the hosted invoice page), card_declined, expired_card, no_payment_method..."
           type: string
         lastPushError:
           description: The provider's code and message of the last failed push step
@@ -8244,12 +8370,293 @@ components:
         - name
         - tokens
       type: object
+    SessionCheckout:
+      additionalProperties: false
+      properties:
+        activationInvoice:
+          $ref: "#/components/schemas/SessionInvoice"
+          description: "subscribed: the invoice of the first period; absent during a trial"
+        dueToday:
+          $ref: "#/components/schemas/DueToday"
+          description: "preview: what the checkout bills today; zero, with no lines, during a trial"
+        expiresAt:
+          description: "requires_payment_method: when the setup page expires"
+          format: date-time
+          type: string
+        payment:
+          $ref: "#/components/schemas/Payment"
+          description: "subscribed: how paying the activation invoice went"
+        setupSessionId:
+          description: "requires_payment_method: send it back as setupSessionId once the customer returns"
+          type: string
+        setupUrl:
+          description: "requires_payment_method: the provider's page where the customer saves a payment method"
+          type: string
+        status:
+          enum:
+            - preview
+            - requires_payment_method
+            - subscribed
+          type: string
+        subscription:
+          $ref: "#/components/schemas/SessionSubscription"
+          description: "subscribed: the subscription started"
+        trialEndsAt:
+          description: "preview: when the trial would end, if there is one"
+          format: date-time
+          type: string
+      required:
+        - status
+      type: object
+    SessionCheckoutOrder:
+      additionalProperties: false
+      properties:
+        addOns:
+          description: Public add-ons that fit the plan
+          items:
+            $ref: "#/components/schemas/SubscriptionAddon"
+          maxItems: 50
+          type:
+            - array
+            - "null"
+        billingEmail:
+          description: Where invoices go. Required when the customer has none; stored on the customer when given.
+          maxLength: 254
+          type: string
+        dryRun:
+          description: Answer what the checkout would bill today, and change nothing
+          type: boolean
+        licensePriceId:
+          description: An ACTIVE flat-fee price of a plan in the public catalogue. The instance is moved to that price's version when it is on another one.
+          type: string
+        returnUrl:
+          description: Where the setup page sends the customer back, with kaiten_setup_session appended. Required when a payment method has to be captured. Its origin must be one the organization's publishable keys allow.
+          format: uri
+          type: string
+        setupSessionId:
+          description: "The setupSessionId a requires_payment_method answer gave, once the customer is back from the setup page: the payment method saved there is checked with the provider and used."
+          type: string
+        trial:
+          description: "false skips the plan's trial. Omitted: the plan's trial, if it has one."
+          type: boolean
+        voucherCode:
+          description: Validated and redeemed in the checkout; any refusal answers .VoucherInvalid
+          maxLength: 64
+          minLength: 1
+          type: string
+      required:
+        - licensePriceId
+      type: object
+    SessionInvoice:
+      additionalProperties: false
+      properties:
+        currency:
+          examples:
+            - EUR
+          type: string
+        discountTotal:
+          description: Minor units
+          format: int64
+          type: integer
+        dueAt:
+          format: date-time
+          type:
+            - string
+            - "null"
+        externalReference:
+          description: The vendor's own number for an invoice it collects itself
+          type:
+            - string
+            - "null"
+        hostedInvoiceUrl:
+          description: Where the customer pays the invoice, or confirms a payment that needs authenticating
+          type:
+            - string
+            - "null"
+        id:
+          format: uuid
+          type: string
+        invoicePdfUrl:
+          type:
+            - string
+            - "null"
+        issuedAt:
+          format: date-time
+          type:
+            - string
+            - "null"
+        kind:
+          enum:
+            - ACTIVATION
+            - RENEWAL
+            - FINAL
+          type: string
+        lines:
+          items:
+            $ref: "#/components/schemas/SessionLine"
+          type: array
+        paidAt:
+          format: date-time
+          type:
+            - string
+            - "null"
+        providerInvoiceNumber:
+          type:
+            - string
+            - "null"
+        serviceFrom:
+          format: date-time
+          type: string
+        serviceTo:
+          format: date-time
+          type: string
+        status:
+          description: "PUSHED: issued and awaiting payment. PAYMENT_FAILED: a charge failed; pay on hostedInvoiceUrl. MANUAL: issued, the vendor collects it."
+          enum:
+            - MANUAL
+            - PUSHED
+            - PAID
+            - PAYMENT_FAILED
+            - UNCOLLECTIBLE
+            - VOID
+          type: string
+        subtotal:
+          description: Minor units
+          format: int64
+          type: integer
+        total:
+          description: Minor units
+          format: int64
+          type: integer
+      required:
+        - id
+        - kind
+        - status
+        - currency
+        - subtotal
+        - discountTotal
+        - total
+        - issuedAt
+        - dueAt
+        - paidAt
+        - serviceFrom
+        - serviceTo
+        - providerInvoiceNumber
+        - externalReference
+        - hostedInvoiceUrl
+        - invoicePdfUrl
+        - lines
+      type: object
+    SessionLine:
+      additionalProperties: false
+      properties:
+        amount:
+          description: Minor units; negative on a DISCOUNT line
+          format: int64
+          type: integer
+        description:
+          type: string
+        label:
+          type: string
+        quantity:
+          description: In sale units, a decimal string
+          type: string
+        seq:
+          format: int64
+          type: integer
+        serviceFrom:
+          format: date-time
+          type: string
+        serviceTo:
+          format: date-time
+          type: string
+        type:
+          enum:
+            - BASE
+            - ADDON
+            - USAGE
+            - OVERAGE
+            - DISCOUNT
+          type: string
+        unitAmountDecimal:
+          description: Minor units; empty on a DISCOUNT line
+          type: string
+      required:
+        - seq
+        - type
+        - label
+        - description
+        - quantity
+        - unitAmountDecimal
+        - amount
+        - serviceFrom
+        - serviceTo
+      type: object
+    SessionSubscription:
+      additionalProperties: false
+      properties:
+        basePrice:
+          $ref: "#/components/schemas/PublicPrice"
+        billingPeriod:
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        cancelAtPeriodEnd:
+          type: boolean
+        collectionMethod:
+          enum:
+            - SEND_INVOICE
+            - CHARGE_AUTOMATICALLY
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        currentPeriodEnd:
+          description: "When the current period ends: the renewal date, or the trial's end"
+          format: date-time
+          type: string
+        currentPeriodStart:
+          format: date-time
+          type: string
+        providerKind:
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+        status:
+          enum:
+            - TRIAL
+            - ACTIVE
+            - PAST_DUE
+            - CANCELED
+          type: string
+        trialEndsAt:
+          format: date-time
+          type:
+            - string
+            - "null"
+      required:
+        - status
+        - providerKind
+        - collectionMethod
+        - currency
+        - billingPeriod
+        - basePrice
+        - currentPeriodStart
+        - currentPeriodEnd
+        - trialEndsAt
+        - cancelAtPeriodEnd
+      type: object
     StartedSubscription:
       additionalProperties: false
       properties:
         activationInvoice:
           $ref: "#/components/schemas/InvoiceSummary"
-          description: The invoice of the first period, when the base price bills in advance; absent otherwise
+          description: "The invoice of the first period, when the base price bills in advance; absent otherwise. Charged automatically, it is pushed and charged before this answer when the provider answers within 20 seconds: its status says how it went."
         anchorAt:
           description: The instant its periods are counted from
           format: date-time
@@ -8401,6 +8808,24 @@ components:
         - from
         - to
         - reason
+      type: object
+    SubscriptionAddon:
+      additionalProperties: false
+      properties:
+        addonSlug:
+          description: The add-on version to attach
+          examples:
+            - extra-seats-v1
+          type: string
+        quantity:
+          default: 1
+          examples:
+            - 3
+          format: int32
+          minimum: 1
+          type: integer
+      required:
+        - addonSlug
       type: object
     SubscriptionCancellation:
       additionalProperties: false
@@ -9580,6 +10005,7 @@ components:
         - read:addons
         - read:billing
         - read:components
+        - read:customer_sessions
         - read:customers
         - read:deployment_zones
         - read:entitlements
@@ -9598,6 +10024,7 @@ components:
         - write:addons
         - write:billing
         - write:components
+        - write:customer_sessions
         - write:customers
         - write:deployment_zones
         - write:entitlements
@@ -9613,6 +10040,11 @@ components:
         - write:voucher_redemptions
         - write:vouchers
         - write:webhooks
+    customerSession:
+      bearerFormat: kst_
+      description: "A customer session (`kst_...`), minted by the vendor's backend with POST /customer-sessions and sent as `Authorization: Bearer kst_...`. It acts for one customer -- and one of its instances, when bound -- on the /public/session routes and nowhere else. A browser request must come from an origin one of the organization's publishable keys allows."
+      scheme: bearer
+      type: http
     publishableKey:
       description: "A Kaiten publishable key (`pk_...`). Not a secret: it ships in web pages, and authorizes reading the organization's public catalogue and nothing else. A browser request must come from one of the key's allowed origins. Never send it as `Authorization`; a request carrying `Authorization` is refused."
       in: header
@@ -12668,6 +13100,128 @@ paths:
       summary: Get connector state for this organization
       tags:
         - connectors
+  /customer-sessions:
+    post:
+      description: "Mints a kst_ session for one of the organization's customers, optionally bound to one of its instances, for that customer's browser to call the /api/public/session routes: checkout, invoices. Call it from your backend, where the customer is signed in, and hand the token to the page; mint a new one before it expires. What the session writes is attributed to the caller. Limited to 50 sessions a second per organization."
+      operationId: createCustomerSession
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerSessionDraft"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedCustomerSession"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:customer_sessions
+      summary: Create a customer session
+      tags:
+        - customer-sessions
+  /customer-sessions/{sessionId}/revoke:
+    post:
+      description: "The session stops authenticating on the next request: on sign-out, or when the customer's access changes. Idempotent."
+      operationId: revokeCustomerSession
+      parameters:
+        - description: Customer session id
+          in: path
+          name: sessionId
+          required: true
+          schema:
+            description: Customer session id
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:customer_sessions
+      summary: Revoke a customer session
+      tags:
+        - customer-sessions
   /customers:
     get:
       description: Returns a cursor-paginated page of customers for the current organization.
@@ -16168,7 +16722,7 @@ paths:
       tags:
         - billing
     post:
-      description: Starts billing an instance on a FLAT_FEE price of its licence version. A base price that bills in advance issues the first period's invoice (ACTIVATION) at once; each period then closes into a RENEWAL. A CANCELED subscription is subscribed again. While the subscription is live the instance's customer and licence cannot change. Requires billing to be enabled for the organization.
+      description: Starts billing an instance on a FLAT_FEE price of its licence version. A base price that bills in advance issues the first period's invoice (ACTIVATION) at once; charged automatically, it is pushed and charged before the answer when the provider answers within 20 seconds. Each period then closes into a RENEWAL. Add-ons and a voucher can be started with it, in the same transaction. A CANCELED subscription is subscribed again. While the subscription is live the instance's customer and licence cannot change. Requires billing to be enabled for the organization.
       operationId: subscribeInstance
       parameters:
         - description: Instance slug
@@ -21513,6 +22067,146 @@ paths:
       security:
         - publishableKey: []
       summary: Get the public catalogue
+      tags:
+        - public
+  /public/session/checkout:
+    post:
+      description: "Subscribes the session's instance to a price of the public catalogue, with add-ons and a voucher, in one call. With dryRun, answers 200 status=preview and what would be billed today, changing nothing. When a payment method has to be saved first, answers 200 status=requires_payment_method with a setup page: send the customer there, then call again with its setupSessionId. Otherwise answers 201 status=subscribed: the invoice of the first period has been pushed and charged, and payment.status says how that went -- poll GET /public/session/invoices on processing or requires_action. Needs a session bound to an instance."
+      operationId: createSessionCheckout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionCheckoutOrder"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionCheckout"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - customerSession: []
+      summary: Check out
+      tags:
+        - public
+  /public/session/invoices:
+    get:
+      description: "The session's customer's issued invoices -- its instance's, for a session bound to one -- newest first, with how to pay each. An invoice still awaiting the outcome of its payment is read from the payment provider first, at most every 30 seconds: poll this after a checkout answered processing or requires_action."
+      operationId: listSessionInvoices
+      parameters:
+        - description: Opaque cursor from the previous page's nextCursor
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: Opaque cursor from the previous page's nextCursor
+            type: string
+        - description: Page size, 50 by default, 200 at most
+          explode: false
+          in: query
+          name: limit
+          schema:
+            description: Page size, 50 by default, 200 at most
+            format: int32
+            maximum: 200
+            minimum: 0
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageSessionInvoice"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - customerSession: []
+      summary: List the customer's invoices
       tags:
         - public
   /publishable-keys:

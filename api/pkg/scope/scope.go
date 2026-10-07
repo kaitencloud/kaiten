@@ -98,6 +98,15 @@ const (
 	// write:publishable_keys have to be added to the identity provider's JWT
 	// template before the console can manage keys.
 	PublishableKeys Module = "publishable_keys"
+	// CustomerSessions gates minting and revoking the kst_ sessions a vendor's
+	// backend hands to its customers' browsers. Only write: is used -- a
+	// session is never listed. What a session may do needs no scope: it is
+	// bound to its customer, and to the /api/public/session routes.
+	//
+	// DEPLOYMENT NOTE: a vendor backend mints sessions with a ksh_ token, so
+	// write:customer_sessions must be granted to that token; add it to the
+	// identity provider's JWT template too for the console to revoke one.
+	CustomerSessions Module = "customer_sessions"
 )
 
 // allModules is the single source of truth for valid modules
@@ -122,6 +131,7 @@ var allModules = []Module{
 	Vouchers,
 	VoucherRedemptions,
 	PublishableKeys,
+	CustomerSessions,
 }
 
 // Error codes a scope refusal answers with. They live here, next to the scopes

@@ -28,6 +28,14 @@ type Deps struct {
 	// Discounts is the PRICE vouchers an instance redeemed, which its
 	// invoices apply.
 	Discounts ports.DiscountSource
+	// Attacher, Redeemer and Mover are the other modules' writes a subscribe
+	// makes inside its transaction: the add-ons and the voucher it is started
+	// with (§9.1), and the version a self-serve checkout moves the instance to
+	// (§14.4 rule 2). Nil where a test wires none: a subscribe that asks for
+	// one is then refused.
+	Attacher ports.AddonAttacher
+	Redeemer ports.VoucherRedeemer
+	Mover    ports.InstanceVersionMover
 	// Providers resolves the payment providers invoices are issued through.
 	Providers provider.Registry
 	// ProviderTimeout bounds one call to a provider.

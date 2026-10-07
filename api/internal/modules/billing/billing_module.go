@@ -43,6 +43,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/releaseinvoicehold"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/retryinvoicepush"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/scheduleplanchange"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/sessioninvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncinvoice"
@@ -59,6 +60,9 @@ type Ports struct {
 	Usage     ports.UsageSource
 	Addons    ports.AddonSource
 	Discounts ports.DiscountSource
+	Attacher  ports.AddonAttacher
+	Redeemer  ports.VoucherRedeemer
+	Mover     ports.InstanceVersionMover
 }
 
 type UseCases struct {
@@ -91,6 +95,9 @@ type UseCases struct {
 	SyncProvider           *syncprovider.UseCase
 	SyncInvoice            *syncinvoice.UseCase
 	GetBillingHealth       *getbillinghealth.UseCase
+	// SessionInvoices is what a customer session reads of its invoices, through
+	// the public SDK surface.
+	SessionInvoices *sessioninvoices.UseCase
 
 	GetCustomerBilling           *getcustomerbilling.UseCase
 	CreatePaymentMethodSession   *createpaymentmethodsession.UseCase
@@ -108,6 +115,9 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		Usage:           from.Usage,
 		Addons:          from.Addons,
 		Discounts:       from.Discounts,
+		Attacher:        from.Attacher,
+		Redeemer:        from.Redeemer,
+		Mover:           from.Mover,
 		Providers:       svc.BillingProviders,
 		ProviderTimeout: svc.Config.Billing.ProviderTimeout,
 
@@ -123,7 +133,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 	useCases := &UseCases{
 		GetBillingSettings:     getbillingsettings.NewUseCase(deps),
 		UpdateBillingSettings:  updatebillingsettings.NewUseCase(deps),
-		SubscribeInstance:      subscribeinstance.NewUseCase(deps),
+		SubscribeInstance:      subscribeinstance.NewUseCase(deps, pusher),
 		GetInstanceBilling:     getinstancebilling.NewUseCase(deps),
 		CloseBillingPeriods:    closebillingperiods.NewUseCase(deps, closer, batchSize(cfg.PeriodClose.BatchSize)),
 		ListInvoices:           listinvoices.NewUseCase(deps),
@@ -150,6 +160,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		SyncProvider:           syncprovider.NewUseCase(deps, syncer),
 		SyncInvoice:            syncinvoice.NewUseCase(deps, syncer),
 		GetBillingHealth:       getbillinghealth.NewUseCase(deps, cfg.Push.AlertAfterAttempts),
+		SessionInvoices:        sessioninvoices.NewUseCase(deps, syncer),
 
 		GetCustomerBilling:           getcustomerbilling.NewUseCase(deps),
 		CreatePaymentMethodSession:   createpaymentmethodsession.NewUseCase(deps),

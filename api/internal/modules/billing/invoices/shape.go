@@ -85,6 +85,7 @@ type ProviderRecord struct {
 	PushAttempts          int32           `json:"pushAttempts"`
 	NextPushAt            *time.Time      `json:"nextPushAt,omitempty" doc:"When the push queue tries it next; absent when it waits for a human (finalization in the provider) or is pushed"`
 	LastPushError         *string         `json:"lastPushError,omitempty" doc:"The provider's code and message of the last failed push step"`
+	LastPaymentError      *string         `json:"lastPaymentError,omitempty" doc:"Why the last automatic charge failed, as the provider coded it: authentication_required (the customer must confirm the payment on the hosted invoice page), card_declined, expired_card, no_payment_method..."`
 	PushedAt              *time.Time      `json:"pushedAt,omitempty"`
 	SyncedAt              *time.Time      `json:"syncedAt,omitempty"`
 	TotalExcludingTax     *int64          `json:"totalExcludingTax,omitempty" doc:"The provider's total excluding tax, read back"`
