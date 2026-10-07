@@ -18,11 +18,11 @@ The URL-friendly identifier of a resource, optional on create (the API generates
 
 ### Customer
 
-A customer of the organization: a name, an optional `domain`, an optional `externalCustomerId` (its identifier in another system) and its `integrations`. A customer has instances. Feature: `app/src/features/customers/`.
+A customer of the organization: a name, an optional `domain`, an optional `externalCustomerId` (its identifier in another system) and its `integrations`. A customer has instances. Where billing is on, it also has an optional `billingEmail` that its invoices carry (cleared with the empty string) and the invoices composed for it. Feature: `app/src/features/customers/`.
 
 ### Instance
 
-A customer's use of a license. It references one customer and one license version, has start and end license dates, an operational `status` (`HEALTHY`, `DEGRADED`, `INCIDENT` or `MAINTENANCE`), a free-form commercial `lifecycleStage` and typed `metadata`, and can be placed on a deployment zone. Its entitlement usage and its audit trail are read per instance. Feature: `app/src/features/instances/`.
+A customer's use of a license. It references one customer and one license version, has start and end license dates, an operational `status` (`HEALTHY`, `DEGRADED`, `INCIDENT` or `MAINTENANCE`), a free-form commercial `lifecycleStage` and typed `metadata`, and can be placed on a deployment zone. Its entitlement usage and its audit trail are read per instance, and where billing is on so is its [subscription](#subscription). Feature: `app/src/features/instances/`.
 
 ### License
 
@@ -35,6 +35,18 @@ The product that several license versions belong to (`familyId`, `familySlug`), 
 ### License price
 
 One billable concern of a license version, which becomes one line of an invoice (`/licenses/{licenseSlug}/prices`). Its `billingModel` is `FLAT_FEE` (a fee each period, quantity 1), `USAGE_BASED` (metered from the first unit) or `OVERAGE` (metered above what the version grants, up to the cap its overage percent allows). Its `billingTiming` is `ADVANCE` or `ARREARS`, and a metered price is always in arrears; only a flat fee has a `billingPeriod`; a version bills in one `currency`. Its amount is `unitAmountDecimal`, a decimal string in the currency's minor units (`"7.5"` is 7.5 cents), per sale unit for a metered price, which names the entitlement it meters. The prices of a draft are edited; once the version is published they are immutable and can only be deprecated, and a deprecated price keeps billing what is pinned to it. Code: `app/src/features/licenses/components/prices/` and `app/src/domains/billing/`.
+
+### Subscription
+
+What bills an instance. It pins the instance to a flat-fee price of its license version and has a `status` (`TRIAL`, `ACTIVE`, `PAST_DUE` or `CANCELED`), a provider that collects its invoices (`NOOP`: the organization itself, through the [handoff queue](#handoff-queue)), a collection method and payment terms (its own, or the organization's defaults) and a billing period counted in UTC from the instant it started. An instance has one live subscription at most, and one that ended stays as `CANCELED` and can be subscribed again. While it lives, the customer and the license of the instance cannot change (`UpdateInstance.BillingActive`), and the instance cannot be deleted while it lives or an invoice of it is not settled (`DeleteInstance.BillingActive`). The **upcoming invoice** is what its next boundary will issue, composed from the usage so far and written to nothing. The console shows and starts it from the Billing tab of the instance (`GET` and `POST /instances/{instanceSlug}/billing`). Code: `app/src/features/instances/components/instance-detail/tabs/billing/`.
+
+### Billing settings
+
+The defaults of an organization for the subscriptions that name none of their own: how an invoice is collected, the days it is due and whether the invoices of a payment provider also enter the handoff queue (`GET` and `PUT /billing/settings`, a `PUT` replaces the three). The retention of usage is not one of them: the deployment says it in its capabilities. Code: `app/src/features/settings/billing/`.
+
+### Usage history
+
+The usage reports an instance sent for one of its counters, every one that was accepted, in the order it was accepted, with the counter before and after it and the limit in force (`GET /instances/{instanceSlug}/entitlements/{entitlementSlug}/usage/reports`). It belongs to the instances and not to billing, so it is read with billing off. The organization keeps it for a retention, and a period that reaches before what is kept is refused with `ListUsageReports.OutsideRetention`, which the console tells apart from a failure. Code: `app/src/features/instances/components/instance-detail/tabs/entitlements/usage-history/`.
 
 ### Invoice preview
 
