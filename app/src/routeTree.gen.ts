@@ -30,6 +30,7 @@ import { Route as IntegrationsConnectorsRouteRouteImport } from './routes/integr
 import { Route as IntegrationsServiceAccountsRouteRouteImport } from './routes/integrations/service-accounts/route'
 import { Route as IntegrationsWebhooksRouteRouteImport } from './routes/integrations/webhooks/route'
 import { Route as LicensesIndexRouteImport } from './routes/licenses/index'
+import { Route as LicensesLicenseSlugRouteRouteImport } from './routes/licenses/$licenseSlug/route'
 import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
 import { Route as ReleasesIndexRouteImport } from './routes/releases/index'
 import { Route as ReleasesReleaseSlugRouteRouteImport } from './routes/releases/$releaseSlug/route'
@@ -61,6 +62,7 @@ import { Route as IntegrationsServiceAccountsIndexRouteImport } from './routes/i
 import { Route as IntegrationsWebhooksIndexRouteImport } from './routes/integrations/webhooks/index'
 import { Route as IntegrationsWebhooksHistoryRouteImport } from './routes/integrations/webhooks/history'
 import { Route as LicensesLicenseSlugIndexRouteImport } from './routes/licenses/$licenseSlug/index'
+import { Route as LicensesLicenseSlugPricesRouteImport } from './routes/licenses/$licenseSlug/prices'
 import { Route as LicensesNewIndexRouteImport } from './routes/licenses/new/index'
 import { Route as LicensesVersionsIndexRouteImport } from './routes/licenses/versions/index'
 import { Route as ReleasesReleaseSlugIndexRouteImport } from './routes/releases/$releaseSlug/index'
@@ -200,6 +202,12 @@ const LicensesIndexRoute = LicensesIndexRouteImport.update({
   path: '/licenses/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LicensesLicenseSlugRouteRoute =
+  LicensesLicenseSlugRouteRouteImport.update({
+    id: '/licenses/$licenseSlug',
+    path: '/licenses/$licenseSlug',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const NotificationsIndexRoute = NotificationsIndexRouteImport.update({
   id: '/notifications/',
   path: '/notifications/',
@@ -372,9 +380,15 @@ const IntegrationsWebhooksHistoryRoute =
   } as any)
 const LicensesLicenseSlugIndexRoute =
   LicensesLicenseSlugIndexRouteImport.update({
-    id: '/licenses/$licenseSlug/',
-    path: '/licenses/$licenseSlug/',
-    getParentRoute: () => rootRouteImport,
+    id: '/',
+    path: '/',
+    getParentRoute: () => LicensesLicenseSlugRouteRoute,
+  } as any)
+const LicensesLicenseSlugPricesRoute =
+  LicensesLicenseSlugPricesRouteImport.update({
+    id: '/prices',
+    path: '/prices',
+    getParentRoute: () => LicensesLicenseSlugRouteRoute,
   } as any)
 const LicensesNewIndexRoute = LicensesNewIndexRouteImport.update({
   id: '/licenses/new/',
@@ -553,6 +567,7 @@ export interface FileRoutesByFullPath {
   '/integrations/connectors': typeof IntegrationsConnectorsRouteRouteWithChildren
   '/integrations/service-accounts': typeof IntegrationsServiceAccountsRouteRouteWithChildren
   '/integrations/webhooks': typeof IntegrationsWebhooksRouteRouteWithChildren
+  '/licenses/$licenseSlug': typeof LicensesLicenseSlugRouteRouteWithChildren
   '/releases/$releaseSlug': typeof ReleasesReleaseSlugRouteRouteWithChildren
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
   '/releases/deployment-zones': typeof ReleasesDeploymentZonesRouteRouteWithChildren
@@ -581,6 +596,7 @@ export interface FileRoutesByFullPath {
   '/feature-flags/$featureFlagSlug/variants': typeof FeatureFlagsFeatureFlagSlugVariantsRoute
   '/integrations/connectors/$connectorId': typeof IntegrationsConnectorsConnectorIdRoute
   '/integrations/webhooks/history': typeof IntegrationsWebhooksHistoryRoute
+  '/licenses/$licenseSlug/prices': typeof LicensesLicenseSlugPricesRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
   '/customers/$customerSlug/': typeof CustomersCustomerSlugIndexRoute
@@ -649,6 +665,7 @@ export interface FileRoutesByTo {
   '/feature-flags/$featureFlagSlug/variants': typeof FeatureFlagsFeatureFlagSlugVariantsRoute
   '/integrations/connectors/$connectorId': typeof IntegrationsConnectorsConnectorIdRoute
   '/integrations/webhooks/history': typeof IntegrationsWebhooksHistoryRoute
+  '/licenses/$licenseSlug/prices': typeof LicensesLicenseSlugPricesRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
   '/customers/$customerSlug': typeof CustomersCustomerSlugIndexRoute
@@ -703,6 +720,7 @@ export interface FileRoutesById {
   '/integrations/connectors': typeof IntegrationsConnectorsRouteRouteWithChildren
   '/integrations/service-accounts': typeof IntegrationsServiceAccountsRouteRouteWithChildren
   '/integrations/webhooks': typeof IntegrationsWebhooksRouteRouteWithChildren
+  '/licenses/$licenseSlug': typeof LicensesLicenseSlugRouteRouteWithChildren
   '/releases/$releaseSlug': typeof ReleasesReleaseSlugRouteRouteWithChildren
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
   '/releases/deployment-zones': typeof ReleasesDeploymentZonesRouteRouteWithChildren
@@ -731,6 +749,7 @@ export interface FileRoutesById {
   '/feature-flags/$featureFlagSlug/variants': typeof FeatureFlagsFeatureFlagSlugVariantsRoute
   '/integrations/connectors/$connectorId': typeof IntegrationsConnectorsConnectorIdRoute
   '/integrations/webhooks/history': typeof IntegrationsWebhooksHistoryRoute
+  '/licenses/$licenseSlug/prices': typeof LicensesLicenseSlugPricesRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
   '/customers/$customerSlug/': typeof CustomersCustomerSlugIndexRoute
@@ -786,6 +805,7 @@ export interface FileRouteTypes {
     | '/integrations/connectors'
     | '/integrations/service-accounts'
     | '/integrations/webhooks'
+    | '/licenses/$licenseSlug'
     | '/releases/$releaseSlug'
     | '/releases/components'
     | '/releases/deployment-zones'
@@ -814,6 +834,7 @@ export interface FileRouteTypes {
     | '/feature-flags/$featureFlagSlug/variants'
     | '/integrations/connectors/$connectorId'
     | '/integrations/webhooks/history'
+    | '/licenses/$licenseSlug/prices'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
     | '/customers/$customerSlug/'
@@ -882,6 +903,7 @@ export interface FileRouteTypes {
     | '/feature-flags/$featureFlagSlug/variants'
     | '/integrations/connectors/$connectorId'
     | '/integrations/webhooks/history'
+    | '/licenses/$licenseSlug/prices'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
     | '/customers/$customerSlug'
@@ -935,6 +957,7 @@ export interface FileRouteTypes {
     | '/integrations/connectors'
     | '/integrations/service-accounts'
     | '/integrations/webhooks'
+    | '/licenses/$licenseSlug'
     | '/releases/$releaseSlug'
     | '/releases/components'
     | '/releases/deployment-zones'
@@ -963,6 +986,7 @@ export interface FileRouteTypes {
     | '/feature-flags/$featureFlagSlug/variants'
     | '/integrations/connectors/$connectorId'
     | '/integrations/webhooks/history'
+    | '/licenses/$licenseSlug/prices'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
     | '/customers/$customerSlug/'
@@ -1014,6 +1038,7 @@ export interface RootRouteChildren {
   IntegrationsConnectorsRouteRoute: typeof IntegrationsConnectorsRouteRouteWithChildren
   IntegrationsServiceAccountsRouteRoute: typeof IntegrationsServiceAccountsRouteRouteWithChildren
   IntegrationsWebhooksRouteRoute: typeof IntegrationsWebhooksRouteRouteWithChildren
+  LicensesLicenseSlugRouteRoute: typeof LicensesLicenseSlugRouteRouteWithChildren
   SettingsMetadataRoute: typeof SettingsMetadataRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   AuditTrailIndexRoute: typeof AuditTrailIndexRoute
@@ -1024,7 +1049,6 @@ export interface RootRouteChildren {
   NotificationsIndexRoute: typeof NotificationsIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
   FeatureFlagsNewIndexRoute: typeof FeatureFlagsNewIndexRoute
-  LicensesLicenseSlugIndexRoute: typeof LicensesLicenseSlugIndexRoute
   LicensesNewIndexRoute: typeof LicensesNewIndexRoute
   LicensesVersionsIndexRoute: typeof LicensesVersionsIndexRoute
   LicensesVersionsLicenseSlugIndexRoute: typeof LicensesVersionsLicenseSlugIndexRoute
@@ -1178,6 +1202,13 @@ declare module '@tanstack/react-router' {
       path: '/licenses'
       fullPath: '/licenses/'
       preLoaderRoute: typeof LicensesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/licenses/$licenseSlug': {
+      id: '/licenses/$licenseSlug'
+      path: '/licenses/$licenseSlug'
+      fullPath: '/licenses/$licenseSlug'
+      preLoaderRoute: typeof LicensesLicenseSlugRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notifications/': {
@@ -1392,10 +1423,17 @@ declare module '@tanstack/react-router' {
     }
     '/licenses/$licenseSlug/': {
       id: '/licenses/$licenseSlug/'
-      path: '/licenses/$licenseSlug'
+      path: '/'
       fullPath: '/licenses/$licenseSlug/'
       preLoaderRoute: typeof LicensesLicenseSlugIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof LicensesLicenseSlugRouteRoute
+    }
+    '/licenses/$licenseSlug/prices': {
+      id: '/licenses/$licenseSlug/prices'
+      path: '/prices'
+      fullPath: '/licenses/$licenseSlug/prices'
+      preLoaderRoute: typeof LicensesLicenseSlugPricesRouteImport
+      parentRoute: typeof LicensesLicenseSlugRouteRoute
     }
     '/licenses/new/': {
       id: '/licenses/new/'
@@ -1909,6 +1947,22 @@ const IntegrationsWebhooksRouteRouteWithChildren =
     IntegrationsWebhooksRouteRouteChildren,
   )
 
+interface LicensesLicenseSlugRouteRouteChildren {
+  LicensesLicenseSlugPricesRoute: typeof LicensesLicenseSlugPricesRoute
+  LicensesLicenseSlugIndexRoute: typeof LicensesLicenseSlugIndexRoute
+}
+
+const LicensesLicenseSlugRouteRouteChildren: LicensesLicenseSlugRouteRouteChildren =
+  {
+    LicensesLicenseSlugPricesRoute: LicensesLicenseSlugPricesRoute,
+    LicensesLicenseSlugIndexRoute: LicensesLicenseSlugIndexRoute,
+  }
+
+const LicensesLicenseSlugRouteRouteWithChildren =
+  LicensesLicenseSlugRouteRoute._addFileChildren(
+    LicensesLicenseSlugRouteRouteChildren,
+  )
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BillingRouteRoute: BillingRouteRoute,
@@ -1924,6 +1978,7 @@ const rootRouteChildren: RootRouteChildren = {
   IntegrationsServiceAccountsRouteRoute:
     IntegrationsServiceAccountsRouteRouteWithChildren,
   IntegrationsWebhooksRouteRoute: IntegrationsWebhooksRouteRouteWithChildren,
+  LicensesLicenseSlugRouteRoute: LicensesLicenseSlugRouteRouteWithChildren,
   SettingsMetadataRoute: SettingsMetadataRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
   AuditTrailIndexRoute: AuditTrailIndexRoute,
@@ -1934,7 +1989,6 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsIndexRoute: NotificationsIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
   FeatureFlagsNewIndexRoute: FeatureFlagsNewIndexRoute,
-  LicensesLicenseSlugIndexRoute: LicensesLicenseSlugIndexRoute,
   LicensesNewIndexRoute: LicensesNewIndexRoute,
   LicensesVersionsIndexRoute: LicensesVersionsIndexRoute,
   LicensesVersionsLicenseSlugIndexRoute: LicensesVersionsLicenseSlugIndexRoute,

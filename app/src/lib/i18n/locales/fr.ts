@@ -834,6 +834,91 @@ export default {
       subtitle: 'Gérez les licences et les limites de droits',
       Prices: {
         title: 'Prix',
+        tabDescription:
+          'Un prix est une chose facturable, et devient une ligne de facture.',
+        defaultBadge: 'Par défaut',
+        perUnit: 'par {{unit}}',
+        deprecatedOn: 'Déprécié le {{date}}',
+        Summary: {
+          empty: 'Aucun prix actif pour l’instant',
+          or: 'ou',
+          overage: '{{price}} au-delà de l’allocation',
+        },
+        Notes: {
+          draft:
+            'Les prix d’un brouillon se modifient. Une fois la version publiée, ils deviennent immuables : dépréciez-en un, ou créez une nouvelle version pour changer ce qui est vendu.',
+          published:
+            'Les prix d’une version publiée sont immuables. Dépréciez un prix pour le retirer, ou créez une nouvelle version pour changer ce qui est vendu. Un prix peut encore être ajouté tant qu’aucun abonnement ne facture cette version.',
+          archived:
+            'Cette version est retirée de la vente. Ses prix sont immuables et elle n’accepte aucun nouveau prix ; les abonnements qui la facturent continuent de l’être.',
+        },
+        Models: {
+          FLAT_FEE: {
+            label: 'Forfait',
+            blurb: 'Revient à chaque période, quantité 1.',
+          },
+          USAGE_BASED: {
+            label: 'À l’usage',
+            blurb: 'Mesuré dès la première unité, par unité de vente.',
+          },
+          OVERAGE: {
+            label: 'Dépassement',
+            blurb:
+              'Facture seulement ce qui dépasse l’octroi, jusqu’à son plafond.',
+          },
+        },
+        Timings: {
+          ADVANCE: {
+            label: 'À l’avance',
+            blurb: 'Facture la période qui commence à l’échéance.',
+          },
+          ARREARS: {
+            label: 'À terme échu',
+            blurb: 'Facture la période qui se termine à l’échéance.',
+          },
+        },
+        Periods: {
+          MONTHLY: 'Mensuel',
+          QUARTERLY: 'Trimestriel',
+          SEMI_ANNUAL: 'Semestriel',
+          ANNUAL: 'Annuel',
+        },
+        PeriodSuffix: {
+          MONTHLY: '/mois',
+          QUARTERLY: '/trimestre',
+          SEMI_ANNUAL: '/semestre',
+          ANNUAL: '/an',
+        },
+        Status: {
+          ACTIVE: 'Actif',
+          DEPRECATED: 'Déprécié',
+        },
+        ResetUnits: {
+          HOUR: 'heure',
+          DAY: 'jour',
+          WEEK: 'semaine',
+          MONTH: 'mois',
+          YEAR: 'an',
+        },
+        Meter: {
+          overage:
+            'Facture au-delà de {{limit}} {{unit}}/{{period}}, jusqu’à {{cap}}',
+          overageUnknown:
+            'Facture l’usage au-delà de l’allocation accordée par la version',
+          usageSum: 'Somme, remis à zéro chaque {{period}}',
+          usageCount: 'Décompte, remis à zéro chaque {{period}}',
+        },
+        Table: {
+          Columns: {
+            price: 'Prix',
+            shape: 'Forme',
+            meter: 'Mesure',
+            amount: 'Montant',
+            billed: 'Facturation',
+            status: 'Statut',
+          },
+          empty: 'Cette version n’a pas encore de prix.',
+        },
       },
       Table: {
         Columns: {
@@ -997,6 +1082,9 @@ export default {
           'Seule une version publiée peut devenir la version par défaut',
       },
       Detail: {
+        Tabs: {
+          overview: 'Vue d’ensemble',
+        },
         cardTitle: 'Détails de la licence',
         cardDescription:
           'Nom, type, version. Les droits et limites sont gérés ci-dessous.',
