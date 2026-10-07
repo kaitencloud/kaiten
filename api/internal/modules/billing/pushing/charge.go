@@ -97,9 +97,7 @@ func (p *Pusher) paymentMethodRefused(ctx context.Context, q *db.Queries, row db
 	if row.CustomerID == nil {
 		return nil
 	}
-	key := db.MarkPaymentMethodStatusParams{
-		OrganizationID: row.OrganizationID, CustomerID: *row.CustomerID, ProviderKind: row.ProviderKind, Now: invoices.Timestamp(now),
-	}
+	status := db.PaymentMethodStatusFAILED
 	switch code {
 	case provider.PaymentCodeAuthenticationRequired:
 		return nil // the method is fine; the customer must confirm
@@ -112,9 +110,11 @@ func (p *Pusher) paymentMethodRefused(ctx context.Context, q *db.Queries, row db
 		}
 		return err
 	case provider.PaymentCodeExpiredCard:
-		key.Status = db.PaymentMethodStatusEXPIRED
-	default:
-		key.Status = db.PaymentMethodStatusFAILED
+		status = db.PaymentMethodStatusEXPIRED
+	}
+	key := db.MarkPaymentMethodStatusParams{
+		Status: status, Now: invoices.Timestamp(now),
+		OrganizationID: row.OrganizationID, CustomerID: *row.CustomerID, ProviderKind: row.ProviderKind,
 	}
 	return q.MarkPaymentMethodStatus(ctx, key)
 }
