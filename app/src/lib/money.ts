@@ -5,7 +5,7 @@ import { logger } from './logger';
 /**
  * Money as the Core API carries it: an integer in the currency's minor units
  * next to an ISO 4217 code, and a price as a decimal string in minor units
- * (`unitAmountDecimal`, at most 12 decimals). Nothing here goes through a float:
+ * (`unitAmountDecimal`, at most 12 digits before the point and 12 decimals). Nothing here goes through a float:
  * an amount becomes a decimal string with BigInt, and `Intl.NumberFormat`
  * formats the string it is given, so a large amount keeps every digit and a
  * price is never rounded. The console never adds or multiplies amounts either:
@@ -14,6 +14,9 @@ import { logger } from './logger';
 
 /** The decimals a `unitAmountDecimal` may carry, in minor units, at most. */
 export const UNIT_AMOUNT_MAX_DECIMALS = 12;
+
+/** The digits before the point a `unitAmountDecimal` may have, in minor units, at most. */
+export const UNIT_AMOUNT_MAX_INTEGER_DIGITS = 12;
 
 const DEFAULT_EXPONENT = 2;
 const MINUS_SIGN = '−';
@@ -224,7 +227,8 @@ const MAJOR_AMOUNT = /^(\d*)(?:[.,](\d*))?$/;
  * What a person typed in major units (`0.075`, `12,5`) as the `unitAmountDecimal`
  * the API takes: a decimal string in minor units, with no float on the way.
  * Null when it is not a non-negative amount, or has more decimals than a price
- * may (12 beyond the currency's own).
+ * may (12 beyond the currency's own), or more digits before the point than the
+ * API accepts (12, in minor units).
  */
 export function majorToMinorDecimal(
   majorAmount: string,
@@ -244,6 +248,9 @@ export function majorToMinorDecimal(
     /^0+(?=\d)/,
     '',
   );
+  if (integer.length > UNIT_AMOUNT_MAX_INTEGER_DIGITS) {
+    return null;
+  }
 
   return trimTrailingZeros(integer || '0', padded.slice(exponent), 0);
 }

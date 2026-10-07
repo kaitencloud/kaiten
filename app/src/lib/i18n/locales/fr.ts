@@ -908,6 +908,93 @@ export default {
           usageSum: 'Somme, remis à zéro chaque {{period}}',
           usageCount: 'Décompte, remis à zéro chaque {{period}}',
         },
+        Actions: {
+          add: 'Ajouter un prix',
+          edit: 'Modifier',
+          editAria: 'Modifier {{label}}',
+          deprecate: 'Déprécier',
+          deprecateAria: 'Déprécier {{label}}',
+        },
+        Drawer: {
+          titleNew: 'Nouveau prix',
+          titleEdit: 'Modifier le prix',
+          description:
+            '{{name}}, version {{version}}. Un prix devient une ligne de facture.',
+          create: 'Créer le prix',
+          update: 'Enregistrer le prix',
+        },
+        Form: {
+          Labels: {
+            model: 'Forme',
+            timing: 'Moment de facturation',
+            period: 'Période de facturation',
+            currency: 'Devise',
+            label: 'Libellé sur la facture',
+            meter: 'Droit mesuré',
+            amount: 'Montant',
+            amountPer: 'Montant par {{unit}}',
+            isDefault: 'Prix par défaut de cette période',
+          },
+          Descriptions: {
+            modelLocked:
+              'La forme d’un prix ne change plus une fois créé. Dépréciez-le et ajoutez-en un autre pour la changer.',
+            timingLocked:
+              'Un prix mesuré est toujours facturé à terme échu : l’usage ne peut pas être facturé avant d’avoir eu lieu.',
+            period: 'À quelle fréquence le montant est facturé.',
+            currency:
+              'Une version facture dans une seule devise, fixée par son premier prix.',
+            currencyLocked:
+              'Cette version facture en {{currency}}, devise fixée par son premier prix.',
+            label:
+              'Le nom de la ligne sur la facture. Laissé vide, Kaiten en déduit un.',
+            amountFlat:
+              'Facturé une fois par période. Saisissez le montant dans l’unité de la devise (par exemple 49,00).',
+            amountUsage:
+              'Appliqué dès la première unité. Saisissez le montant dans l’unité de la devise (par exemple 0,075).',
+            amountOverage:
+              'Appliqué seulement aux unités au-delà de la limite. Saisissez le montant dans l’unité de la devise (par exemple 0,075).',
+            isDefault:
+              'Le prix que le catalogue et l’aperçu de facture utilisent pour cette période de facturation. Une période n’en a qu’un.',
+          },
+          Placeholders: {
+            currency: 'Choisir une devise',
+            currencySearch: 'Rechercher une devise',
+            label: 'Pro, mensuel',
+          },
+          Meter: {
+            none: 'Cette version n’accorde aucun droit qu’un prix puisse mesurer. Accordez un nombre compté ou sommé qui se remet à zéro, puis revenez.',
+            stock:
+              'Un stock : il ne se remet jamais à zéro, il ne peut donc pas être mesuré.',
+            stockHint:
+              'Un stock, comme des sièges ou du stockage, se vend comme un add-on avec une quantité, il ne se mesure pas. Les add-ons ne font pas encore partie de cette console.',
+            overageUnreachable:
+              'Le dépassement ne peut pas survenir sur cet octroi : sa limite est dure ou illimitée.',
+          },
+          livePreview: 'Se lit {{price}}',
+          Errors: {
+            label: 'Le libellé fait 200 caractères au plus.',
+            currency: 'Choisissez une devise prise en charge par Kaiten.',
+            amount:
+              'Saisissez un montant valide : zéro ou plus, avec au plus 12 décimales au-delà de celles de la devise et 12 chiffres dans sa plus petite unité.',
+            meter: 'Choisissez le droit que ce prix mesure.',
+            period: 'Choisissez la période de facturation.',
+          },
+        },
+        Deprecate: {
+          title: 'Déprécier « {{label}} » ?',
+          descriptionFlat:
+            'Les abonnements déjà épinglés à ce prix continuent d’être facturés à partir de lui. Il n’est plus proposé aux nouvelles souscriptions, ni comme cible d’un changement de plan. Cette action est irréversible.',
+          descriptionMetered:
+            'Ce prix ne produit plus de ligne à partir de la prochaine facture, et il n’est plus proposé. Ce qu’il a déjà facturé ne change pas. Cette action est irréversible.',
+          defaultNote:
+            'C’est le prix par défaut de sa période : le déprécier retire l’indicateur par défaut dans la même écriture.',
+          confirm: 'Déprécier',
+        },
+        Toasts: {
+          created: 'Prix créé',
+          updated: 'Prix mis à jour',
+          deprecated: 'Prix déprécié',
+        },
         Table: {
           Columns: {
             price: 'Prix',
@@ -1063,6 +1150,8 @@ export default {
         title: 'Supprimer le brouillon {{name}} v{{version}} ?',
         description:
           "Le brouillon et les droits qu'il accorde sont supprimés. Il n'a jamais été en vente : aucun client ne le perd. Une instance qui l'utilise encore empêche la suppression.",
+        descriptionBilling:
+          "Le brouillon, ses prix et les droits qu'il accorde sont supprimés. Il n'a jamais été en vente : aucun client ne le perd. Une instance qui l'utilise encore empêche la suppression.",
         confirm: 'Supprimer',
         success: 'Brouillon supprimé',
       },
