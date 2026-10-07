@@ -89,6 +89,15 @@ const (
 	// and VoucherRedemptions have to be added to the identity provider's JWT
 	// template.
 	VoucherRedemptions Module = "voucher_redemptions"
+	// PublishableKeys gates issuing, listing, editing and revoking the pk_
+	// keys a vendor's web pages use to read its public catalogue. Reading the
+	// catalogue with one needs no scope: a key authorizes that one route and
+	// nothing else.
+	//
+	// DEPLOYMENT NOTE: like Billing, read:publishable_keys and
+	// write:publishable_keys have to be added to the identity provider's JWT
+	// template before the console can manage keys.
+	PublishableKeys Module = "publishable_keys"
 )
 
 // allModules is the single source of truth for valid modules
@@ -112,6 +121,7 @@ var allModules = []Module{
 	Addons,
 	Vouchers,
 	VoucherRedemptions,
+	PublishableKeys,
 }
 
 // Error codes a scope refusal answers with. They live here, next to the scopes

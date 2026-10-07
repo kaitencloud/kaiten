@@ -84,6 +84,35 @@ static_resources:
                           max_age: "100"
                           allow_credentials: true
                       routes:
+                        # ---- /api/public — the public SDK surface (pk_) ----
+                        # A vendor's web page reads its public catalogue here
+                        # with a publishable key in X-Kaiten-Publishable-Key.
+                        # Neither jwt_authn nor ext_authz runs: the API verifies
+                        # the key itself, by digest, and refuses any request
+                        # carrying Authorization on these paths. Its own CORS
+                        # policy, because the virtual host's (one exact origin,
+                        # credentials) would refuse every vendor origin: any
+                        # origin, never credentials -- no cookie is read or set
+                        # here -- and the per-key origin allowlist is enforced
+                        # by the API on the actual request, since a preflight
+                        # carries no key to check.
+                        - match: { prefix: "/api/public/" }
+                          route: { cluster: api }
+                          typed_per_filter_config:
+                            envoy.filters.http.jwt_authn:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.PerRouteConfig
+                              disabled: true
+                            envoy.filters.http.ext_authz.pat:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthzPerRoute
+                              disabled: true
+                            envoy.filters.http.cors:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy
+                              allow_origin_string_match:
+                                - safe_regex: { regex: ".*" }
+                              allow_methods: "GET, OPTIONS"
+                              allow_headers: "content-type,x-kaiten-publishable-key"
+                              max_age: "600"
+                              allow_credentials: false
                         # ---- /api/docs, /api/openapi*, /api/healthz — public ----
                         - match: { prefix: "/api/docs" }
                           route: { cluster: api }
