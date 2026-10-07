@@ -131,7 +131,13 @@ vi.mock('./instance-form-sections', () => ({
     return <div>info</div>;
   },
   InstanceLicenseFields: () => <div>license</div>,
+}));
+
+vi.mock('./instance-form-deployment-fields', () => ({
   InstanceDeploymentFields: () => <div>deployment</div>,
+}));
+
+vi.mock('./instance-form-metadata-fields', () => ({
   InstanceMetadataFields: () => <div>metadata</div>,
 }));
 

@@ -6,9 +6,9 @@ export {
 } from '../../utils/instance-form.shared';
 export { InstanceForm, type LockedCustomer } from './instance-form';
 export { InstanceFormDialog } from './instance-form-dialog';
+export { InstanceDeploymentFields } from './instance-form-deployment-fields';
+export { InstanceMetadataFields } from './instance-form-metadata-fields';
 export {
-  InstanceDeploymentFields,
   InstanceInformationFields,
   InstanceLicenseFields,
-  InstanceMetadataFields,
 } from './instance-form-sections';
