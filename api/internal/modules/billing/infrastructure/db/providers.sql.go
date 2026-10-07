@@ -681,6 +681,31 @@ func (q *Queries) CountProviderRouting(ctx context.Context, arg CountProviderRou
 	return i, err
 }
 
+const expirePaymentMethods = `-- name: ExpirePaymentMethods :execrows
+UPDATE customer_billing cb
+SET payment_method_status = 'EXPIRED',
+    updated_at            = $1
+WHERE cb.payment_method_status = 'ACTIVE'
+  AND cb.payment_method_exp_year IS NOT NULL
+  AND cb.payment_method_exp_month IS NOT NULL
+  AND make_date(cb.payment_method_exp_year, cb.payment_method_exp_month, 1) + interval '1 month' <= $2::date
+`
+
+type ExpirePaymentMethodsParams struct {
+	Now pgtype.Timestamp `json:"now"`
+	Day pgtype.Date      `json:"day"`
+}
+
+// ACTIVE payment methods past the last day of their expiry month: EXPIRED,
+// with no event.
+func (q *Queries) ExpirePaymentMethods(ctx context.Context, arg ExpirePaymentMethodsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, expirePaymentMethods, arg.Now, arg.Day)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getAnyCustomerBillingID = `-- name: GetAnyCustomerBillingID :one
 SELECT cb.external_customer_id
 FROM customer_billing cb
@@ -1072,6 +1097,77 @@ func (q *Queries) ListCustomerBilling(ctx context.Context, arg ListCustomerBilli
 			&i.PaymentMethodExpYear,
 			&i.PaymentMethodStatus,
 			&i.PaymentMethodAttachedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listExpiringPaymentMethods = `-- name: ListExpiringPaymentMethods :many
+SELECT cb.customer_id, cb.organization_id, cb.provider_kind, cb.external_customer_id, cb.web_url, cb.synced_at, cb.last_error, cb.created_at, cb.updated_at, cb.default_payment_method_id, cb.payment_method_brand, cb.payment_method_last4, cb.payment_method_exp_month, cb.payment_method_exp_year, cb.payment_method_status, cb.payment_method_attached_at, c.slug AS customer_slug
+FROM customer_billing cb
+JOIN customer c ON c.id = cb.customer_id AND c.organization_id = cb.organization_id
+WHERE cb.payment_method_status = 'ACTIVE'
+  AND cb.payment_method_exp_year IS NOT NULL
+  AND cb.payment_method_exp_month IS NOT NULL
+  AND (make_date(cb.payment_method_exp_year, cb.payment_method_exp_month, 1) + interval '1 month' - interval '1 day')::date
+      - 30 = $1::date
+`
+
+type ListExpiringPaymentMethodsRow struct {
+	CustomerID              uuid.UUID           `json:"customer_id"`
+	OrganizationID          uuid.UUID           `json:"organization_id"`
+	ProviderKind            BillingProviderKind `json:"provider_kind"`
+	ExternalCustomerID      string              `json:"external_customer_id"`
+	WebUrl                  *string             `json:"web_url"`
+	SyncedAt                pgtype.Timestamp    `json:"synced_at"`
+	LastError               *string             `json:"last_error"`
+	CreatedAt               pgtype.Timestamp    `json:"created_at"`
+	UpdatedAt               pgtype.Timestamp    `json:"updated_at"`
+	DefaultPaymentMethodID  *string             `json:"default_payment_method_id"`
+	PaymentMethodBrand      *string             `json:"payment_method_brand"`
+	PaymentMethodLast4      *string             `json:"payment_method_last4"`
+	PaymentMethodExpMonth   *int16              `json:"payment_method_exp_month"`
+	PaymentMethodExpYear    *int16              `json:"payment_method_exp_year"`
+	PaymentMethodStatus     PaymentMethodStatus `json:"payment_method_status"`
+	PaymentMethodAttachedAt pgtype.Timestamp    `json:"payment_method_attached_at"`
+	CustomerSlug            string              `json:"customer_slug"`
+}
+
+// The ACTIVE payment methods whose expiry month ends 30 days after day:
+// announced once, on that day.
+func (q *Queries) ListExpiringPaymentMethods(ctx context.Context, day pgtype.Date) ([]ListExpiringPaymentMethodsRow, error) {
+	rows, err := q.db.Query(ctx, listExpiringPaymentMethods, day)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListExpiringPaymentMethodsRow
+	for rows.Next() {
+		var i ListExpiringPaymentMethodsRow
+		if err := rows.Scan(
+			&i.CustomerID,
+			&i.OrganizationID,
+			&i.ProviderKind,
+			&i.ExternalCustomerID,
+			&i.WebUrl,
+			&i.SyncedAt,
+			&i.LastError,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DefaultPaymentMethodID,
+			&i.PaymentMethodBrand,
+			&i.PaymentMethodLast4,
+			&i.PaymentMethodExpMonth,
+			&i.PaymentMethodExpYear,
+			&i.PaymentMethodStatus,
+			&i.PaymentMethodAttachedAt,
+			&i.CustomerSlug,
 		); err != nil {
 			return nil, err
 		}

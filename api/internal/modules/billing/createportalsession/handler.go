@@ -18,8 +18,8 @@ import (
 
 const operation = "CreatePortalSession"
 
-// PortalSessionRequest is where the customer comes back to.
-type PortalSessionRequest struct {
+// NewPortalSession is where the customer comes back to.
+type NewPortalSession struct {
 	ReturnURL string `json:"returnUrl" doc:"https, or http on localhost" example:"https://app.example.test/billing"`
 }
 
@@ -33,7 +33,7 @@ type UseCase struct{ deps access.Deps }
 func NewUseCase(deps access.Deps) *UseCase { return &UseCase{deps: deps} }
 
 // Execute opens the portal.
-func (u *UseCase) Execute(ctx context.Context, customerSlug string, cmd PortalSessionRequest) (*PortalSession, error) {
+func (u *UseCase) Execute(ctx context.Context, customerSlug string, cmd NewPortalSession) (*PortalSession, error) {
 	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return nil, err
