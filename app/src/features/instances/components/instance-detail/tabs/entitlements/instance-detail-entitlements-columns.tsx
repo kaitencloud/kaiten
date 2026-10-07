@@ -1,6 +1,8 @@
+import { Link } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { EntityIcon } from '@/components/ui/icon';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, History, XCircle } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -252,8 +254,61 @@ function buildStatusColumn(t: TranslateFn): EntitlementColumn {
   };
 }
 
-export const useEntitlementsColumns = (locale: string) => {
+// The usage reports are a counter's: a flag or a configuration reports none. The
+// link opens the drawer the URL controls, over the tab, and a click on the row
+// elsewhere still leads to the entitlement.
+function buildHistoryColumn(
+  t: TranslateFn,
+  instanceSlug: string,
+): EntitlementColumn {
+  return {
+    id: 'history',
+    header: t(
+      'Pages.Customers.Instances.Detail.entitlements.table.headers.history',
+    ),
+    enableSorting: false,
+    cell: ({ row }) =>
+      row.original.entitlementType === 'NUMBER' &&
+      row.original.entitlementSlug ? (
+        <Button
+          aria-label={t(
+            'Pages.Customers.Instances.Detail.entitlements.history.openLabel',
+            { entitlement: row.original.entitlementName },
+          )}
+          nativeButton={false}
+          render={
+            <Link
+              params={{ instanceSlug }}
+              search={{ history: row.original.entitlementSlug }}
+              to="/customers/instances/$instanceSlug/entitlements"
+            >
+              <History className="size-4" />
+              {t('Pages.Customers.Instances.Detail.entitlements.history.open')}
+            </Link>
+          }
+          role="link"
+          size="sm"
+          variant="ghost"
+        />
+      ) : null,
+  };
+}
+
+type EntitlementsColumnsOptions = {
+  /**
+   * Where the history of an entitlement is opened, which is the instance the
+   * table is of: left out, the table offers no history (the session may not read
+   * it, and is not offered what it would be refused).
+   */
+  history?: { instanceSlug: string };
+};
+
+export const useEntitlementsColumns = (
+  locale: string,
+  { history }: EntitlementsColumnsOptions = {},
+) => {
   const { t } = useTranslation();
+  const historySlug = history?.instanceSlug;
 
   return useMemo<EntitlementColumn[]>(
     () => [
@@ -263,7 +318,10 @@ export const useEntitlementsColumns = (locale: string) => {
       buildThresholdColumn(t, locale),
       buildCurrentPeriodColumn(t, locale),
       buildStatusColumn(t),
+      ...(historySlug === undefined
+        ? []
+        : [buildHistoryColumn(t, historySlug)]),
     ],
-    [locale, t],
+    [historySlug, locale, t],
   );
 };

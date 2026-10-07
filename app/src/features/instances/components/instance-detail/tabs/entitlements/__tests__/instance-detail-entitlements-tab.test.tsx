@@ -2,8 +2,36 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { InstanceDetailEntitlementsTab } from '../instance-detail-entitlements-tab';
+const { drawer, navigate, navigateTo } = vi.hoisted(() => ({
+  drawer: vi.fn(),
+  navigate: vi.fn(),
+  navigateTo: vi.fn(),
+}));
+
 vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, to }: { children?: ReactNode; to: string }) => (
+    <a href={to}>{children}</a>
+  ),
+  Navigate: (props: unknown) => {
+    navigateTo(props);
+
+    return null;
+  },
+  useNavigate: () => navigate,
   useRouter: () => ({ navigate: vi.fn() }),
+}));
+
+// The scopes of the session are read from its token, which these tests have none of.
+vi.mock('@/domains/billing', () => ({
+  useCanPerform: () => true,
+}));
+
+vi.mock('../usage-history', () => ({
+  UsageHistoryDrawer: (props: unknown) => {
+    drawer(props);
+
+    return <div data-testid="usage-history" />;
+  },
 }));
 
 const { useInstanceDetailMock } = vi.hoisted(() => ({
@@ -119,7 +147,11 @@ vi.mock('@/functionals/table', () => {
 
 describe('InstanceDetailEntitlementsTab', () => {
   beforeEach(() => {
+    drawer.mockClear();
+    navigate.mockClear();
+    navigateTo.mockClear();
     useInstanceDetailMock.mockReturnValue({
+      instance: { id: 'ins-1', name: 'Globex Production', slug: 'globex-production' },
       entitlementsRows: [
         {
           enabled: true,
@@ -185,6 +217,7 @@ describe('InstanceDetailEntitlementsTab', () => {
   // beside it has to state its allowance or the line contradicts itself.
   it('states the allowance its usage percentage is measured against', () => {
     useInstanceDetailMock.mockReturnValue({
+      instance: { id: 'ins-1', name: 'Globex Production', slug: 'globex-production' },
       entitlementsRows: [
         {
           enabled: true,
@@ -216,6 +249,7 @@ describe('InstanceDetailEntitlementsTab', () => {
   // allowance a hard limit does not have.
   it('announces no allowance for a hard limit', () => {
     useInstanceDetailMock.mockReturnValue({
+      instance: { id: 'ins-1', name: 'Globex Production', slug: 'globex-production' },
       entitlementsRows: [
         {
           enabled: true,
@@ -245,6 +279,7 @@ describe('InstanceDetailEntitlementsTab', () => {
 
   it('draws no meter for a grant nothing caps', () => {
     useInstanceDetailMock.mockReturnValue({
+      instance: { id: 'ins-1', name: 'Globex Production', slug: 'globex-production' },
       entitlementsRows: [
         {
           enabled: true,
@@ -283,5 +318,133 @@ describe('InstanceDetailEntitlementsTab', () => {
 
     expect(screen.getByText('Lifetime')).toBeInTheDocument();
     expect(screen.queryByText(/^Current window:/)).not.toBeInTheDocument();
+  });
+  describe('the usage history the URL opens', () => {
+    it('opens the drawer on the counter a link names, with the instance it is of', () => {
+      render(<InstanceDetailEntitlementsTab historyParam="api-calls" />);
+
+      expect(screen.getByTestId('usage-history')).toBeInTheDocument();
+      expect(drawer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entitlementName: 'API Calls',
+          entitlementSlug: 'api-calls',
+          instanceName: 'Globex Production',
+          instanceSlug: 'globex-production',
+        }),
+      );
+      expect(navigateTo).not.toHaveBeenCalled();
+    });
+
+    it('hands the drawer the period the URL holds, and writes a new one to it without a new history entry', () => {
+      render(
+        <InstanceDetailEntitlementsTab
+          historyParam="api-calls"
+          historyRange={{ from: '2027-03-01T00:00:00.000Z' }}
+        />,
+      );
+
+      const props = drawer.mock.calls[0][0] as {
+        onRangeChange: (range: { from?: string; to?: string }) => void;
+        range: unknown;
+      };
+      expect(props.range).toEqual({ from: '2027-03-01T00:00:00.000Z' });
+      props.onRangeChange({
+        from: '2027-03-01T00:00:00.000Z',
+        to: '2027-04-01T00:00:00.000Z',
+      });
+
+      const { replace, search, to } = navigate.mock.calls[0][0] as {
+        replace: boolean;
+        search: (previous: Record<string, unknown>) => unknown;
+        to: string;
+      };
+      expect(replace).toBe(true);
+      expect(to).toBe('/customers/instances/$instanceSlug/entitlements');
+      expect(search({ history: 'api-calls' })).toEqual({
+        from: '2027-03-01T00:00:00.000Z',
+        history: 'api-calls',
+        to: '2027-04-01T00:00:00.000Z',
+      });
+    });
+
+    it('takes the period away with the drawer when it closes', () => {
+      render(
+        <InstanceDetailEntitlementsTab
+          historyParam="api-calls"
+          historyRange={{ from: '2027-03-01T00:00:00.000Z' }}
+        />,
+      );
+
+      (drawer.mock.calls[0][0] as { onClose: () => void }).onClose();
+
+      const { search } = navigate.mock.calls[0][0] as {
+        search: (previous: Record<string, unknown>) => Record<string, unknown>;
+      };
+      expect(
+        search({
+          from: '2027-03-01T00:00:00.000Z',
+          history: 'api-calls',
+          other: 1,
+        }),
+      ).toStrictEqual({
+        from: undefined,
+        history: undefined,
+        other: 1,
+        to: undefined,
+      });
+    });
+
+    it('opens nothing when there is no link to follow', () => {
+      render(<InstanceDetailEntitlementsTab />);
+
+      expect(screen.queryByTestId('usage-history')).toBeNull();
+      expect(navigateTo).not.toHaveBeenCalled();
+    });
+
+    it.each(['sso', 'seats', ''])(
+      'drops the link %j, which names no counter of this instance, and opens the page as it is',
+      (historyParam) => {
+        useInstanceDetailMock.mockReturnValue({
+          instance: {
+            id: 'ins-1',
+            name: 'Globex Production',
+            slug: 'globex-production',
+          },
+          entitlementsRows: [
+            {
+              enabled: true,
+              entitlementGroups: [],
+              entitlementId: 'ent-sso',
+              entitlementName: 'SSO',
+              entitlementSlug: 'sso',
+              entitlementType: 'BOOLEAN',
+              threshold: null,
+              value: 1,
+            },
+          ],
+          entitlementsMetrics: {
+            enabled: 1,
+            nearThreshold: 0,
+            numberEntitlements: [],
+            total: 1,
+          },
+        });
+        render(<InstanceDetailEntitlementsTab historyParam={historyParam} />);
+
+        expect(screen.queryByTestId('usage-history')).toBeNull();
+        expect(navigateTo).toHaveBeenCalledTimes(1);
+        const { replace, search, to } = navigateTo.mock.calls[0][0] as {
+          replace: boolean;
+          search: (previous: Record<string, unknown>) => unknown;
+          to: string;
+        };
+        expect(replace).toBe(true);
+        expect(to).toBe('/customers/instances/$instanceSlug/entitlements');
+        expect(search({ history: historyParam, other: 1 })).toEqual({
+          history: undefined,
+          other: 1,
+        });
+      },
+    );
   });
 });

@@ -811,12 +811,41 @@ export default {
                 threshold: 'Threshold',
                 currentPeriod: 'Current window',
                 status: 'Status',
+                history: 'History',
               },
             },
             status: {
               enabled: 'Enabled',
               disabled: 'Disabled',
               unknown: 'Unknown',
+            },
+            history: {
+              open: 'History',
+              openLabel: 'Usage history of {{entitlement}}',
+              title: 'Usage history',
+              description:
+                '{{entitlement}} on {{instance}}: every report accepted for this counter, in the order it was accepted.',
+              region: 'Usage reports of {{entitlement}}',
+              loading: 'Loading the usage history',
+              period: 'Period (UTC)',
+              defaultPeriod:
+                'With no period, the last 30 days are shown, as far back as your organization keeps usage.',
+              export: 'Export CSV',
+              exportTooLong:
+                'A CSV covers up to 366 days: narrow the period to export it.',
+              Empty: {
+                title: 'No usage reports',
+                description: 'No report was accepted during this period.',
+              },
+              shown_one: '{{count}} report shown',
+              shown_other: '{{count}} reports shown',
+              loadMore: 'Load more reports',
+              OutsideRetention: {
+                title_one: 'Beyond your retention of {{count}} month',
+                title_other: 'Beyond your retention of {{count}} months',
+                titleUnknown: 'Beyond what your organization keeps',
+                showFrom: 'Show from {{date}}',
+              },
             },
           },
           auditTrail: {
