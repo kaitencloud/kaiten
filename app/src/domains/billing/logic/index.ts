@@ -95,6 +95,7 @@ export {
   getFirstInvoiceTiming,
   getSubscriptionStartBounds,
 } from './billing-period';
+export { getLimitChangeSeqs } from './usage-reports';
 export {
   BILLING_MODELS,
   BILLING_PERIODS,
