@@ -219,3 +219,26 @@ SELECT EXISTS (
     AND l.slug = sqlc.arg(license_slug)
     AND ib.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
 )::boolean AS billed;
+
+
+-- name: PriceIsPlanChangeTarget :one
+-- Whether a live subscription is scheduled to move to a price at its next
+-- boundary.
+SELECT EXISTS (
+  SELECT 1 FROM instance_billing ib
+  WHERE ib.organization_id = sqlc.arg(organization_id)
+    AND ib.scheduled_license_price_id = sqlc.arg(price_id)
+    AND ib.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
+)::boolean AS target;
+
+
+-- name: VersionIsPlanChangeTarget :one
+-- Whether a live subscription is scheduled to move to a price of a version.
+SELECT EXISTS (
+  SELECT 1 FROM instance_billing ib
+  JOIN license_price p ON p.id = ib.scheduled_license_price_id AND p.organization_id = ib.organization_id
+  JOIN license l ON l.id = p.license_id AND l.organization_id = p.organization_id
+  WHERE ib.organization_id = sqlc.arg(organization_id)
+    AND l.slug = sqlc.arg(license_slug)
+    AND ib.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
+)::boolean AS target;
