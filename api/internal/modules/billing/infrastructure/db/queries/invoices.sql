@@ -4,7 +4,7 @@ INSERT INTO instance_invoice (organization_id, instance_billing_id, customer_id,
                               boundary_at, service_from, service_to, currency, subtotal_minor,
                               discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at,
                               provider_kind, collection_method, issued_at, days_until_due, due_at, paid_at,
-                              replaces_invoice_id, handoff_status, created_at, updated_at)
+                              replaces_invoice_id, handoff_status, next_push_at, created_at, updated_at)
 VALUES (sqlc.arg(organization_id), sqlc.arg(instance_billing_id), sqlc.narg(customer_id), sqlc.arg(instance_slug),
         sqlc.arg(instance_name), sqlc.arg(customer_slug), sqlc.arg(customer_name), sqlc.arg(license_id),
         sqlc.arg(license_slug), sqlc.narg(billing_email), sqlc.arg(kind), sqlc.arg(boundary_at),
@@ -12,7 +12,8 @@ VALUES (sqlc.arg(organization_id), sqlc.arg(instance_billing_id), sqlc.narg(cust
         sqlc.arg(discount_total_minor), sqlc.arg(total_minor), sqlc.arg(lines), sqlc.arg(status),
         sqlc.narg(hold_reason), sqlc.narg(hold_detail), sqlc.narg(held_at), sqlc.arg(provider_kind),
         sqlc.arg(collection_method), sqlc.narg(issued_at), sqlc.narg(days_until_due), sqlc.narg(due_at),
-        sqlc.narg(paid_at), sqlc.narg(replaces_invoice_id), sqlc.arg(handoff_status), sqlc.arg(now), sqlc.arg(now))
+        sqlc.narg(paid_at), sqlc.narg(replaces_invoice_id), sqlc.arg(handoff_status), sqlc.narg(next_push_at),
+        sqlc.arg(now), sqlc.arg(now))
 RETURNING *;
 
 
@@ -156,6 +157,7 @@ SET status       = 'VOID',
     hold_reason  = NULL,
     hold_detail  = NULL,
     held_at      = NULL,
+    next_push_at = NULL,
     updated_at   = sqlc.arg(now)
 WHERE id = sqlc.arg(id)
 RETURNING *;
@@ -183,6 +185,7 @@ SET lines                = sqlc.arg(lines),
     due_at               = sqlc.narg(due_at),
     paid_at              = sqlc.narg(paid_at),
     handoff_status       = sqlc.arg(handoff_status),
+    next_push_at         = sqlc.narg(next_push_at),
     updated_at           = sqlc.arg(now)
 WHERE id = sqlc.arg(id)
 RETURNING *;

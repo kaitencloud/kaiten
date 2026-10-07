@@ -70,6 +70,72 @@ type Invoice struct {
 	VoidReason          *string              `json:"voidReason,omitempty"`
 	ReplacesInvoiceID   *uuid.UUID           `json:"replacesInvoiceId,omitempty" doc:"The VOID invoice this one was recomposed from"`
 	ReplacedByInvoiceID *uuid.UUID           `json:"replacedByInvoiceId,omitempty" doc:"The invoice recomposed from this VOID one"`
+	Provider            *ProviderRecord      `json:"provider,omitempty" doc:"The invoice in its payment provider; absent for NOOP"`
+}
+
+// ProviderRecord is where an invoice stands in the payment provider that
+// issues it.
+type ProviderRecord struct {
+	ExternalCustomerID    *string         `json:"externalCustomerId,omitempty"`
+	ExternalInvoiceID     *string         `json:"externalInvoiceId,omitempty"`
+	InvoiceNumber         *string         `json:"invoiceNumber,omitempty" doc:"The provider's invoice number"`
+	Status                *string         `json:"status,omitempty" enum:"draft,open,paid,uncollectible,void" doc:"The provider's status, mirrored verbatim"`
+	HostedInvoiceURL      *string         `json:"hostedInvoiceUrl,omitempty"`
+	InvoicePDFURL         *string         `json:"invoicePdfUrl,omitempty"`
+	PushAttempts          int32           `json:"pushAttempts"`
+	NextPushAt            *time.Time      `json:"nextPushAt,omitempty" doc:"When the push queue tries it next; absent when it waits for a human (finalization in the provider) or is pushed"`
+	LastPushError         *string         `json:"lastPushError,omitempty" doc:"The provider's code and message of the last failed push step"`
+	PushedAt              *time.Time      `json:"pushedAt,omitempty"`
+	SyncedAt              *time.Time      `json:"syncedAt,omitempty"`
+	TotalExcludingTax     *int64          `json:"totalExcludingTax,omitempty" doc:"The provider's total excluding tax, read back"`
+	ReconciliationStatus  *string         `json:"reconciliationStatus,omitempty" enum:"MATCHED,MISMATCH"`
+	ReconciledAt          *time.Time      `json:"reconciledAt,omitempty"`
+	ReconciliationDetails *Reconciliation `json:"reconciliationDetail,omitempty" doc:"What differs, on a MISMATCH"`
+}
+
+// Reconciliation is what differs between an invoice and its provider's copy.
+type Reconciliation struct {
+	Lines             []LineDifference `json:"lines" nullable:"false"`
+	MissingInProvider []uuid.UUID      `json:"missingInProvider" nullable:"false" doc:"Kaiten lines the provider does not have"`
+	ExtraInProvider   []string         `json:"extraInProvider" nullable:"false" doc:"Provider lines Kaiten does not have"`
+	Totals            TotalsDifference `json:"totals"`
+	InclusiveTax      bool             `json:"inclusiveTax" doc:"Whether the provider's subtotal was compared, its tax being included in the amounts"`
+}
+
+// LineDifference is a line whose amounts differ.
+type LineDifference struct {
+	LineID         uuid.UUID `json:"lineId"`
+	Seq            int       `json:"seq"`
+	KaitenAmount   int64     `json:"kaitenAmount"`
+	ProviderAmount int64     `json:"providerAmount"`
+	ExternalLineID string    `json:"externalLineId"`
+}
+
+// TotalsDifference is the totals compared.
+type TotalsDifference struct {
+	KaitenTotal               int64  `json:"kaitenTotal"`
+	ProviderTotalExcludingTax int64  `json:"providerTotalExcludingTax"`
+	ProviderSubtotal          *int64 `json:"providerSubtotal,omitempty"`
+}
+
+// PushedInvoice is the payload of INSTANCE_INVOICE_PUSHED.
+type PushedInvoice struct {
+	InvoiceSummary
+	ExternalInvoiceID     string  `json:"externalInvoiceId"`
+	ProviderInvoiceNumber *string `json:"providerInvoiceNumber,omitempty"`
+}
+
+// PushFailedInvoice is the payload of INSTANCE_INVOICE_PUSH_FAILED.
+type PushFailedInvoice struct {
+	InvoiceSummary
+	PushAttempts  int32  `json:"pushAttempts"`
+	LastPushError string `json:"lastPushError" doc:"The provider's code and message, never a request body"`
+}
+
+// MismatchedInvoice is the payload of INSTANCE_INVOICE_RECONCILIATION_MISMATCH.
+type MismatchedInvoice struct {
+	InvoiceSummary
+	ReconciliationDetail Reconciliation `json:"reconciliationDetail"`
 }
 
 // HoldDetail lists the meters whose journal failed a check.
