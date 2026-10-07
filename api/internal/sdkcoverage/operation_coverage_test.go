@@ -142,6 +142,11 @@ var awaitingSDKOperations = map[string]string{
 	"createPortalSession":          awaitsBilling,
 	"detachPaymentMethod":          awaitsBilling,
 	"getBillingHealth":             awaitsBilling,
+
+	"createPublishableKey": awaitsBilling,
+	"listPublishableKeys":  awaitsBilling,
+	"updatePublishableKey": awaitsBilling,
+	"revokePublishableKey": awaitsBilling,
 }
 
 func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
@@ -352,6 +357,12 @@ func loadOpenAPIOperationIDs(t *testing.T) map[string]struct{} {
 func shouldSkipSDKPath(path string) bool {
 	switch path {
 	case "/ofrep/v1/evaluate/flags", "/ofrep/v1/evaluate/flags/{key}", "/openfeature/v0/manifest":
+		return true
+	// The public SDK surface is read with a publishable key, by
+	// @kaitencloud/client in a browser. This SDK authenticates with an
+	// organization credential, which the route refuses: there is nothing for it
+	// to call.
+	case "/public/catalog":
 		return true
 	// Connector machinery: consumed by connector workers and by Kaiten's own
 	// console (registration, activation, settings, per-entity integration

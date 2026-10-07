@@ -44,6 +44,13 @@ const (
 	// is. currentuser.GetUser does accept it, because it names an organization and
 	// an actor, which is the whole question that provider answers.
 	KindSystem Kind = "system"
+
+	// KindPublishableKey authenticates a vendor's web page by its publishable key
+	// (pk_), on the /api/public routes only. It names an organization and no
+	// actor: UserID is uuid.Nil, there are no scopes, and JIT provisioning skips
+	// it. What bounds it is that only caller.PublishableKey accepts it, and only
+	// the public catalogue asks for that caller.
+	KindPublishableKey Kind = "publishable_key"
 )
 
 // ErrCodeWrongCredentialKind and ErrMsgWrongCredentialKind are the single answer
@@ -87,9 +94,12 @@ type Principal struct {
 	// and only if Kind is KindPlatform. It arrives in the signed platform JWT, so
 	// it is not client-controllable, and it is what links a minted organization
 	// token back to its parent for cascade revocation and audit attribution.
-	PlatformTokenID uuid.UUID    `json:"-"`
-	Scopes          []string     `json:"scopes"`
-	Provisioning    Provisioning `json:"-"`
+	PlatformTokenID uuid.UUID `json:"-"`
+	// PublishableKeyID is the key that authenticated the request, set if and
+	// only if Kind is KindPublishableKey.
+	PublishableKeyID uuid.UUID    `json:"-"`
+	Scopes           []string     `json:"scopes"`
+	Provisioning     Provisioning `json:"-"`
 }
 
 // IsPlatform reports whether this is a platform credential. Nil-safe, because

@@ -34,6 +34,13 @@ func NewMiddleware(p provisioner) fiber.Handler {
 			return c.Next()
 		}
 
+		// A publishable key names its organization by id and has no actor to
+		// provision; the authenticator that built it has already resolved
+		// everything it carries.
+		if identity.Kind == principal.KindPublishableKey {
+			return c.Next()
+		}
+
 		if identity.UserID != uuid.Nil && identity.OrganizationID != uuid.Nil {
 			return c.Next()
 		}

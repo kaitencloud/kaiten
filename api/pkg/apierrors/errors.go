@@ -39,6 +39,11 @@ const (
 	// needs an upgrade) and "we could not check your limit" (this,
 	// retryable) must not look alike to a client.
 	KindUnavailable
+
+	// KindTooManyRequests is a caller over its rate. It maps to 429, and the
+	// answer carries Retry-After: like a 503 nothing was decided, but unlike
+	// one, retrying sooner only makes it longer.
+	KindTooManyRequests
 )
 
 // String returns a string representation of the Kind.
@@ -60,6 +65,8 @@ func (k Kind) String() string {
 		return "INTERNAL"
 	case KindUnavailable:
 		return "UNAVAILABLE"
+	case KindTooManyRequests:
+		return "TOO_MANY_REQUESTS"
 	default:
 		return "UNKNOWN"
 	}
@@ -108,6 +115,8 @@ func (e *Error) HTTPStatus() int {
 		return http.StatusInternalServerError
 	case KindUnavailable:
 		return http.StatusServiceUnavailable
+	case KindTooManyRequests:
+		return http.StatusTooManyRequests
 	default:
 		return http.StatusInternalServerError
 	}
@@ -236,6 +245,11 @@ func IsConflict(err error) bool      { return Is(err, KindConflict) }
 func IsValidation(err error) bool    { return Is(err, KindValidation) }
 func IsUnprocessable(err error) bool { return Is(err, KindUnprocessable) }
 func IsUnavailable(err error) bool   { return Is(err, KindUnavailable) }
+
+// TooManyRequests is a caller over its rate. The caller sets Retry-After.
+func TooManyRequests(code, message string) *Error {
+	return &Error{Kind: KindTooManyRequests, Code: code, Message: message}
+}
 
 // GetHTTPStatus extracts HTTP status from any error.
 func GetHTTPStatus(err error) int {

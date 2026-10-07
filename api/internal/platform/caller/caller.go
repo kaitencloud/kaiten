@@ -83,3 +83,18 @@ func requireScope(scopes []string, required string) error {
 func errNoIdentity() error {
 	return kaitenerrors.Unauthorized(scope.ErrCodeNoIdentity, scope.ErrMsgNoIdentity)
 }
+
+// PublishableKeyCaller is a vendor's web page, identified by its publishable
+// key. It carries an organization and nothing to authorize with: no user, no
+// scopes. What bounds it is the route family -- only the public catalogue asks
+// for one -- so there is no Require method to forget to call.
+type PublishableKeyCaller struct {
+	organizationID uuid.UUID
+	keyID          uuid.UUID
+}
+
+// OrganizationID is the organization whose catalogue the key reads.
+func (c PublishableKeyCaller) OrganizationID() uuid.UUID { return c.organizationID }
+
+// KeyID is the publishable key that authenticated the request.
+func (c PublishableKeyCaller) KeyID() uuid.UUID { return c.keyID }

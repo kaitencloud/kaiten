@@ -622,11 +622,22 @@ func (s *Server) setupCoreRoutes() (apiGroup, daprGroup fiber.Router) {
 		// to try platform verification. A platform credential presented here is an
 		// organization JWT missing its organization claim, and is refused as one.
 		authorize := s.deps.Auth.Authorization()
+		// The public SDK surface has its own authenticator, and it is the only
+		// one its paths reach: a publishable key is verified here, by digest,
+		// because the gateway routes /api/public with no ext_authz in front.
+		authorizePublishable := s.publishableKeyAuthenticator()
 		apiGroup.Use(func(c fiber.Ctx) error {
 			path := strings.TrimSuffix(c.Path(), "/")
 
 			if IsPublicAPIPath(path) {
 				return c.Next()
+			}
+
+			if IsPublicSDKPath(path) {
+				if authorizePublishable == nil {
+					return fiber.ErrNotFound
+				}
+				return authorizePublishable(c)
 			}
 
 			return authorize(c)
@@ -770,6 +781,25 @@ func IsPublicAPIPath(path string) bool {
 	// predicate must not describe as public.
 
 	return strings.HasPrefix(path, "/api/openapi")
+}
+
+// IsPublicSDKPath reports whether path is on the public SDK surface, which a
+// publishable key authenticates instead of an organization credential. The
+// gateway routes the same prefix with no authentication of its own (charts'
+// <api>-public-sdk HTTPRoute, compose's /api/public route).
+func IsPublicSDKPath(path string) bool {
+	return path == "/api/public" || strings.HasPrefix(path, "/api/public/")
+}
+
+// publishableKeyAuthenticator is the middleware that authenticates the public
+// SDK surface, built from the application like the platform one: resolving a
+// key is a database read through the publicsdk module. nil only when there is
+// no application to build it from.
+func (s *Server) publishableKeyAuthenticator() fiber.Handler {
+	if s.app == nil {
+		return nil
+	}
+	return auth.NewPublishableKey(s.app.PublishableKeyAuthenticator()).Authorization()
 }
 
 // IsPublicPlatformAPIPath is IsPublicAPIPath for the internal listener.
