@@ -116,13 +116,22 @@ RETURNING *;
 
 -- name: EarliestOverdue :one
 -- When the subscription's earliest overdue invoice became overdue: issued,
--- unpaid, something owed, past its due date. NULL when none is.
-SELECT min(i.due_at)::timestamp AS overdue_since
+-- unpaid, something owed, past its due date. NULL when none is. An invoice
+-- the provider charges is overdue from its refused charge, or once the
+-- auto-collection grace after its issue elapsed (§9.6 rule 1).
+SELECT min(CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+                THEN CASE WHEN i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required'
+                          THEN i.payment_failed_at
+                          ELSE i.issued_at + (sqlc.arg(now)::timestamp - sqlc.arg(auto_collection_before)::timestamp) END
+                ELSE i.due_at END)::timestamp AS overdue_since
 FROM instance_invoice i
 WHERE i.instance_billing_id = sqlc.arg(instance_billing_id)
   AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
   AND i.total_minor > 0
-  AND i.due_at < sqlc.arg(now);
+  AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+              THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
+                OR i.issued_at < sqlc.arg(auto_collection_before)::timestamp
+              ELSE i.due_at < sqlc.arg(now)::timestamp END);
 
 
 -- name: ListOverdueCandidates :many
@@ -135,12 +144,18 @@ WHERE (ib.status = 'ACTIVE' AND EXISTS (
           WHERE i.instance_billing_id = ib.id
             AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
             AND i.total_minor > 0
-            AND i.due_at < sqlc.arg(now)))
+            AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+              THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
+                OR i.issued_at < sqlc.arg(auto_collection_before)::timestamp
+              ELSE i.due_at < sqlc.arg(now)::timestamp END)))
    OR (ib.status = 'PAST_DUE' AND NOT EXISTS (
          SELECT 1 FROM instance_invoice i
           WHERE i.instance_billing_id = ib.id
             AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
             AND i.total_minor > 0
-            AND i.due_at < sqlc.arg(now)))
+            AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+              THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
+                OR i.issued_at < sqlc.arg(auto_collection_before)::timestamp
+              ELSE i.due_at < sqlc.arg(now)::timestamp END)))
 ORDER BY ib.id
 LIMIT sqlc.arg(page_size);

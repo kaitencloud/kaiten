@@ -126,6 +126,14 @@ func RegisterWebhooks(api huma.API) {
 		Tags:        []string{"webhooks", "billing"},
 	})
 	webhook.Declare(api, webhook.Declaration{
+		Event:       events.InstanceInvoicePaymentFailed,
+		Data:        (*PaymentFailedInvoice)(nil),
+		OperationID: "onInstanceInvoicePaymentFailed",
+		Summary:     "Instance Invoice Payment Failed Webhook",
+		Description: "Triggered when the automatic charge of an invoice is refused, or needs the customer to authenticate it on the invoice's hosted page.",
+		Tags:        []string{"webhooks", "billing"},
+	})
+	webhook.Declare(api, webhook.Declaration{
 		Event:       events.InstanceInvoicePushed,
 		Data:        (*PushedInvoice)(nil),
 		OperationID: "onInstanceInvoicePushed",

@@ -65,11 +65,14 @@ func Now(ctx context.Context, q *db.Queries) (time.Time, error) {
 // overdue, and out of it when none is any more: after an invoice changed, and
 // on every lifecycle pass. Only an ACTIVE subscription becomes PAST_DUE; a
 // TRIAL has no invoice and a CANCELED one stays canceled.
-func Reevaluate(ctx context.Context, q *db.Queries, repo *outbox.ScopedRepository, sub db.InstanceBilling, actor uuid.UUID, now time.Time) (db.InstanceBilling, error) {
+// grace is the auto-collection grace (access.Deps.AutoCollectionGrace).
+func Reevaluate(ctx context.Context, q *db.Queries, repo *outbox.ScopedRepository, sub db.InstanceBilling, actor uuid.UUID, now time.Time, grace time.Duration) (db.InstanceBilling, error) {
 	if sub.Status != db.InstanceBillingStatusACTIVE && sub.Status != db.InstanceBillingStatusPASTDUE {
 		return sub, nil
 	}
-	since, err := q.EarliestOverdue(ctx, db.EarliestOverdueParams{InstanceBillingID: sub.ID, Now: invoices.Timestamp(now)})
+	since, err := q.EarliestOverdue(ctx, db.EarliestOverdueParams{
+		InstanceBillingID: sub.ID, Now: invoices.Timestamp(now), AutoCollectionBefore: invoices.Timestamp(now.Add(-grace)),
+	})
 	if err != nil {
 		return sub, err
 	}

@@ -282,7 +282,7 @@ func (s *Syncer) apply(ctx context.Context, conn *provider.Connection, row db.In
 			return err
 		}
 		updated = changed
-		_, err = lifecycle.Reevaluate(ctx, q, s.outbox, sub, sub.UpdatedByID, now)
+		_, err = lifecycle.Reevaluate(ctx, q, s.outbox, sub, sub.UpdatedByID, now, s.deps.AutoCollectionGrace)
 		return err
 	})
 	if err != nil {

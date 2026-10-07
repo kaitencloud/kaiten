@@ -146,3 +146,18 @@ func Normalize(row db.InstanceInvoice, externalCustomerID string, daysUntilDue *
 	}
 	return normalized, lines, nil
 }
+
+// RequirePaymentMethod refuses automatic collection for a customer without
+// an ACTIVE payment method in the provider: nothing could be charged
+// (<operation>.PaymentMethodRequired).
+func RequirePaymentMethod(ctx context.Context, q *db.Queries, organizationID, customerID uuid.UUID, kind db.BillingProviderKind, operation string) error {
+	row, err := q.GetCustomerBilling(ctx, db.GetCustomerBillingParams{OrganizationID: organizationID, CustomerID: customerID, ProviderKind: kind})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if err == nil && row.PaymentMethodStatus == db.PaymentMethodStatusACTIVE {
+		return nil
+	}
+	return kaitenerrors.UnprocessableEntity(operation+".PaymentMethodRequired",
+		"the customer has no usable payment method to charge: save one through a payment-method session first")
+}
