@@ -23,6 +23,12 @@ linters:
     exhaustruct:
       include:
         - .*Params$
+      # stripe-go's request types are all named *Params, and every member is an
+      # optional pointer whose nil means "not sent": listing each one would be
+      # dozens of nils per call, and a forgotten one could not be told from a
+      # deliberate omission anyway.
+      exclude:
+        - ^github\.com/stripe/stripe-go/v[0-9]+\..*Params$
 
     nolintlint:
       # A suppression nobody can justify is a suppression nobody can review.

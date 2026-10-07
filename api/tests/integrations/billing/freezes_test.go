@@ -94,9 +94,16 @@ func TestBillingCapabilities(t *testing.T) {
 	on := read(t, call(t, "GET", "/api/billing/capabilities", nil))
 	require.True(t, on.Enabled)
 	require.Nil(t, on.DisabledReason)
-	require.Len(t, on.Providers, 1)
+	require.Len(t, on.Providers, 2)
 	require.Equal(t, "NOOP", on.Providers[0].Kind)
-	require.False(t, on.Features.Stripe)
+	require.True(t, on.Providers[0].Available)
+	// Stripe ships with every binary, and needs Vault to store its settings:
+	// this suite runs without one.
+	require.Equal(t, "STRIPE", on.Providers[1].Kind)
+	require.False(t, on.Providers[1].Available)
+	require.Equal(t, "VAULT_NOT_CONFIGURED", *on.Providers[1].UnavailableReason)
+	require.False(t, on.Providers[1].Connected)
+	require.True(t, on.Features.Stripe)
 
 	off := read(t, callOn(t, disabledServer, "GET", "/api/billing/capabilities", nil))
 	require.False(t, off.Enabled)

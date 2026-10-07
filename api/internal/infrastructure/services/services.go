@@ -13,6 +13,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/connectorhooks"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/pgnotify"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
@@ -215,6 +216,10 @@ type Container struct {
 	// BillingProviders resolves the payment providers invoices are issued
 	// through. Never nil: NOOP alone when the driver registers none.
 	BillingProviders provider.Registry
+
+	// ConnectorHooks are the lifecycle rules of the connectors that have
+	// their own (a payment provider's), by connector name. Nil has none.
+	ConnectorHooks connectorhooks.Registry
 
 	// WorkerRegistry is never nil, so a module registers its shutdown hook
 	// unconditionally rather than asking whether anyone is collecting them. A
