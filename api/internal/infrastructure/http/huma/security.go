@@ -31,6 +31,17 @@ const PublishableKeyAuth = "publishableKey"
 // server authenticates it with the publishable key alone.
 const PublicPathPrefix = "/public"
 
+// CustomerSessionAuth is the scheme of the session routes of the public SDK
+// surface: a customer session (kst_) as a bearer token. A fourth scheme, so a
+// generated client cannot send a publishable key or an organization
+// credential there by accident.
+const CustomerSessionAuth = "customerSession"
+
+// SessionPathPrefix is the session routes' namespace, inside PublicPathPrefix:
+// a customer session authenticates them, and nothing else does. Every
+// operation registered with RegisterSession lives under it, and only those.
+const SessionPathPrefix = PublicPathPrefix + "/session"
+
 // ScopesExtension is the vendor extension under which the Core document's
 // security scheme lists every scope an organization credential can carry
 // (scope.OrganizationScopes). The operations' own `security:` blocks cannot stand
@@ -83,6 +94,18 @@ var publishableKeyScheme = &huma.SecurityScheme{
 		"Never send it as `Authorization`; a request carrying `Authorization` is refused.",
 }
 
+// customerSessionScheme describes how a vendor's customer authenticates to the
+// session routes.
+var customerSessionScheme = &huma.SecurityScheme{
+	Type:         "http",
+	Scheme:       "bearer",
+	BearerFormat: "kst_",
+	Description: "A customer session (`kst_...`), minted by the vendor's backend with " +
+		"POST /customer-sessions and sent as `Authorization: Bearer kst_...`. It acts for one " +
+		"customer -- and one of its instances, when bound -- on the /public/session routes and nowhere else. " +
+		"A browser request must come from an origin one of the organization's publishable keys allows.",
+}
+
 // ConfigureSecurity declares the bearer scheme and makes it the
 // document-level default, so a generated client is born authenticated
 // instead of every SDK re-inventing the plumbing by hand.
@@ -96,6 +119,7 @@ func ConfigureSecurity(config huma.Config) huma.Config {
 	}
 	config.Components.SecuritySchemes[BearerAuth] = bearerScheme
 	config.Components.SecuritySchemes[PublishableKeyAuth] = publishableKeyScheme
+	config.Components.SecuritySchemes[CustomerSessionAuth] = customerSessionScheme
 	config.Security = []map[string][]string{{BearerAuth: {}}}
 	return config
 }
@@ -198,10 +222,35 @@ func RegisterPublishable[I, O any](
 	op huma.Operation,
 	handler func(context.Context, *I) (*O, error),
 ) {
-	if !strings.HasPrefix(op.Path, PublicPathPrefix+"/") {
-		panic(fmt.Sprintf("RegisterPublishable: operation %q has path %q, outside %s/", op.OperationID, op.Path, PublicPathPrefix))
+	if !strings.HasPrefix(op.Path, PublicPathPrefix+"/") || strings.HasPrefix(op.Path, SessionPathPrefix+"/") {
+		panic(fmt.Sprintf("RegisterPublishable: operation %q has path %q, outside %s/ or inside %s/",
+			op.OperationID, op.Path, PublicPathPrefix, SessionPathPrefix))
 	}
 	op.Security = []map[string][]string{{PublishableKeyAuth: {}}}
+	huma.Register(api, op, handler)
+}
+
+// RegisterSession registers an operation of the session routes, which a
+// customer session authenticates.
+//
+// It takes no scope, for the reason RegisterPublishable takes none: a session
+// carries none, and what bounds it is its customer -- which every handler
+// filters on -- and this route family. tests/architecture asserts its handlers
+// resolve caller.CustomerSession, and that its paths and only its paths are
+// under SessionPathPrefix.
+//
+// It panics for a path outside SessionPathPrefix: the server authenticates
+// that prefix with a session alone, so an operation registered here elsewhere
+// would be reached with a credential it does not declare.
+func RegisterSession[I, O any](
+	api huma.API,
+	op huma.Operation,
+	handler func(context.Context, *I) (*O, error),
+) {
+	if !strings.HasPrefix(op.Path, SessionPathPrefix+"/") {
+		panic(fmt.Sprintf("RegisterSession: operation %q has path %q, outside %s/", op.OperationID, op.Path, SessionPathPrefix))
+	}
+	op.Security = []map[string][]string{{CustomerSessionAuth: {}}}
 	huma.Register(api, op, handler)
 }
 
