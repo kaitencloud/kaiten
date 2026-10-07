@@ -14,6 +14,13 @@ import {
   billingCapabilities,
   billingCapabilitiesProfiles,
 } from '../_support/model/billing-capabilities';
+import {
+  ACME_LEGACY_SUBSCRIPTION,
+  ACME_PRODUCTION_SUBSCRIPTION,
+  acmeInvoices,
+  acmeProductionUpcoming,
+  billedCatalogue,
+} from './billed-instances';
 import { GLOBEX_IDENTITY, invoiceSet } from './invoice-fixtures';
 
 /**
@@ -399,5 +406,23 @@ export function createLongHandoffQueueModel() {
   return new BillingAppModel({
     capabilities: billingCapabilitiesProfiles.stack(),
     invoices,
+  });
+}
+
+/**
+ * The billing of the instances of Acme and Beta, on the capabilities of the
+ * local stack: Acme Production is subscribed, on a contract of its own, and its
+ * next invoice would be held for its usage journal; Acme Legacy ended its
+ * subscription; Beta Staging has none and its version is on sale; Beta Lab has
+ * none and its version is a draft. The invoices are the ones Acme has had, one of
+ * them not settled yet.
+ */
+export function createSubscriptionsModel() {
+  return new BillingAppModel({
+    capabilities: billingCapabilitiesProfiles.stack(),
+    catalogue: billedCatalogue(),
+    invoices: acmeInvoices(),
+    subscriptions: [ACME_PRODUCTION_SUBSCRIPTION, ACME_LEGACY_SUBSCRIPTION],
+    upcoming: { 'acme-production': acmeProductionUpcoming() },
   });
 }

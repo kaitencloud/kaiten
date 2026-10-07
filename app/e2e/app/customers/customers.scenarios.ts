@@ -212,3 +212,66 @@ export function createDeletableCustomerModel() {
     ],
   });
 }
+
+/**
+ * The customers the end-to-end specs of billing read: Acme has a billing
+ * e-mail and two instances, Beta has neither an e-mail nor a subscribed
+ * instance, and Gamma has no instance left but an invoice that was never
+ * settled, which keeps it from being deleted. The invoices Acme has had are in
+ * the billing slot of `createSubscriptionsModel`.
+ */
+export function createBillingCustomersModel() {
+  const acme = buildCustomer({
+    billingEmail: 'ap@acme.com',
+    domain: 'acme.com',
+    externalCustomerId: 'crm-acme-001',
+    id: 'customer-acme',
+    name: 'Acme Corp',
+    slug: 'acme-corp',
+  });
+  const beta = buildCustomer({
+    domain: 'beta.test',
+    id: 'customer-beta',
+    name: 'Beta Industries',
+    slug: 'beta-industries',
+  });
+  const gamma = buildCustomer({
+    id: 'customer-gamma',
+    name: 'Gamma Labs',
+    slug: 'gamma-labs',
+  });
+  const instanceOf = (
+    customer: typeof acme,
+    name: string,
+    slug: string,
+    license: { id: string; name: string },
+  ) =>
+    buildInstance({
+      customerId: customer.id,
+      customerName: customer.name,
+      customerSlug: customer.slug ?? '',
+      description: `${name} environment`,
+      licenseId: license.id,
+      licenseName: license.name,
+      licenseType: 'PAID',
+      name,
+      slug,
+    });
+  const enterprise = { id: 'license-enterprise', name: 'Enterprise' };
+
+  return new CustomerAppModel({
+    billingBlocks: {
+      'acme-corp': { live: true, unpaidInvoiceIds: ['inv-acme-renewal'] },
+      'gamma-labs': { live: false, unpaidInvoiceIds: ['inv-gamma-open'] },
+    },
+    customers: [acme, beta, gamma],
+    instances: [
+      instanceOf(acme, 'Acme Production', 'acme-production', enterprise),
+      instanceOf(acme, 'Acme Legacy', 'acme-legacy', enterprise),
+      instanceOf(beta, 'Beta Staging', 'beta-staging', {
+        id: 'license-starter',
+        name: 'Starter',
+      }),
+    ],
+  });
+}
