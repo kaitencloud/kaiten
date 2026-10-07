@@ -825,12 +825,42 @@ export default {
                 threshold: 'Seuil',
                 currentPeriod: 'Fenêtre courante',
                 status: 'Statut',
+                history: 'Historique',
               },
             },
             status: {
               enabled: 'Activé',
               disabled: 'Désactivé',
               unknown: 'Inconnu',
+            },
+            history: {
+              open: 'Historique',
+              openLabel: 'Historique d’usage de {{entitlement}}',
+              title: 'Historique d’usage',
+              description:
+                '{{entitlement}} sur {{instance}} : tous les rapports acceptés pour ce compteur, dans l’ordre où ils l’ont été.',
+              region: 'Rapports d’usage de {{entitlement}}',
+              loading: 'Chargement de l’historique d’usage',
+              period: 'Période (UTC)',
+              defaultPeriod:
+                'Sans période, les 30 derniers jours sont affichés, dans la limite de ce que votre organisation conserve.',
+              export: 'Exporter en CSV',
+              exportTooLong:
+                'Un CSV couvre 366 jours au plus : réduisez la période pour l’exporter.',
+              Empty: {
+                title: 'Aucun rapport d’usage',
+                description:
+                  'Aucun rapport n’a été accepté pendant cette période.',
+              },
+              shown_one: '{{count}} rapport affiché',
+              shown_other: '{{count}} rapports affichés',
+              loadMore: 'Charger plus de rapports',
+              OutsideRetention: {
+                title_one: 'Au-delà de votre rétention de {{count}} mois',
+                title_other: 'Au-delà de votre rétention de {{count}} mois',
+                titleUnknown: 'Au-delà de ce que votre organisation conserve',
+                showFrom: 'Afficher à partir du {{date}}',
+              },
             },
           },
           auditTrail: {

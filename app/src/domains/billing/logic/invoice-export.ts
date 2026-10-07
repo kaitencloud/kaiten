@@ -1,4 +1,5 @@
 import type { ExportInvoicesData } from '@/api-client';
+import { formatFileStamp } from '@/lib/file-stamp';
 
 /**
  * The ways the invoices are exported: a CSV with a row for every line, a CSV with
@@ -57,8 +58,6 @@ export function toInvoiceExportQuery(
   return { ...filters, format, granularity };
 }
 
-const pad = (value: number) => String(value).padStart(2, '0');
-
 /**
  * The name of the file an export is saved as: `invoices-by-line-20271004T153000Z.csv`.
  * The API proposes one in `Content-Disposition`, which a browser reads only when
@@ -70,7 +69,5 @@ export function invoiceExportFilename(
   variant: InvoiceExportVariant,
   now: Date = new Date(),
 ): string {
-  const stamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;
-
-  return `invoices${FILE_NAME_INFIX[variant]}-${stamp}.${EXTENSIONS[variant]}`;
+  return `invoices${FILE_NAME_INFIX[variant]}-${formatFileStamp(now)}.${EXTENSIONS[variant]}`;
 }

@@ -14,3 +14,4 @@ export {
   instanceBillingQueryOptions,
   instanceInvoicesQueryOptions,
 } from './queries';
+export { readEntitlementsSearch } from './schemas/entitlements-search.schema';

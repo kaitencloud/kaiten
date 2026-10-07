@@ -214,6 +214,54 @@ describe('handleBillingProblem', () => {
     });
   });
 
+  it('reads where the kept usage begins as the API sends it: the bare value of its error', () => {
+    // ListUsageReports.OutsideRetention names retentionStart as a date and nothing else.
+    expect(
+      handleBillingProblem(
+        apiError(422, {
+          code: 'ListUsageReports.OutsideRetention',
+          errors: [
+            {
+              location: 'query.from',
+              message: 'retentionStart',
+              value: '2026-11-01T00:00:00Z',
+            },
+          ],
+          status: 422,
+        }),
+      ),
+    ).toMatchObject({
+      kind: 'outside-retention',
+      retentionStart: '2026-11-01T00:00:00Z',
+    });
+  });
+
+  it('never reads a retention start from what is not a date', () => {
+    for (const value of ['soon', 42, null, { metering: {} }, undefined]) {
+      expect(
+        handleBillingProblem(
+          apiError(422, {
+            code: 'GetUpcomingInvoice.OutsideRetention',
+            errors: [{ location: 'metering', value }],
+            status: 422,
+          }),
+        ).retentionStart,
+      ).toBeUndefined();
+    }
+  });
+
+  it('reads a string value as a retention start only for a retention refusal', () => {
+    expect(
+      handleBillingProblem(
+        apiError(422, {
+          code: 'ListUsageReports.InvalidRange',
+          errors: [{ location: 'query.from', value: '2026-11-01T00:00:00Z' }],
+          status: 422,
+        }),
+      ).retentionStart,
+    ).toBeUndefined();
+  });
+
   it('always has a list of errors, though the API may send null', () => {
     expect(
       handleBillingProblem(apiError(400, { detail: 'x', errors: null, status: 400 })).errors,
