@@ -44,3 +44,43 @@ export function recordWrites(
 
   return writes;
 }
+
+/**
+ * Holds back every request that matches until `ms` have passed, in the page, so
+ * that a spec can look at the screen while the API has not answered. The mocks
+ * answer at once, which hides everything that happens in between: a row removed
+ * from a list before its delete is confirmed, a button that must not send twice.
+ * It wraps `fetch` before the page's own scripts run, so it is installed before
+ * `goto`.
+ */
+export async function delayRequests(
+  page: Page,
+  {
+    methods = ['POST', 'PUT', 'PATCH', 'DELETE'],
+    ms,
+    pathname,
+  }: { methods?: readonly string[]; ms: number; pathname: RegExp },
+) {
+  await page.addInitScript(
+    ({ allowed, delay, source }) => {
+      const original = window.fetch.bind(window);
+      const pattern = new RegExp(source);
+
+      window.fetch = async (input, init) => {
+        const request = input instanceof Request ? input : undefined;
+        const url = request?.url ?? String(input);
+        const method = (init?.method ?? request?.method ?? 'GET').toUpperCase();
+
+        if (
+          allowed.includes(method) &&
+          pattern.test(new URL(url, location.href).pathname)
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+
+        return original(input, init);
+      };
+    },
+    { allowed: [...methods], delay: ms, source: pathname.source },
+  );
+}
