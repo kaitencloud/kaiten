@@ -98,6 +98,8 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		Discounts:       from.Discounts,
 		Providers:       svc.BillingProviders,
 		ProviderTimeout: svc.Config.Billing.ProviderTimeout,
+
+		AutoCollectionGrace: svc.Config.Billing.AutoCollectionGrace,
 	}
 	cfg := svc.Config.Billing
 	closer := closing.New(deps, cfg.CloseGrace)
@@ -147,7 +149,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		job.Start(context.Background())
 		svc.WorkerRegistry.OnStop(job.Stop)
 
-		overdue := lifecycle.NewJob(svc.Pool, lifecycle.NewOverdue(svc.Uof), sweep.Config{
+		overdue := lifecycle.NewJob(svc.Pool, lifecycle.NewOverdue(svc.Uof, cfg.AutoCollectionGrace), sweep.Config{
 			InitialDelay: orDefault(cfg.InitialDelay, time.Minute),
 			Interval:     orDefault(cfg.Lifecycle.Interval, 15*time.Minute),
 		}, batchSize(cfg.PeriodClose.BatchSize))

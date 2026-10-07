@@ -27,5 +27,5 @@ func (u *UseCase) Execute(ctx context.Context, params invoicelist.Params, instan
 	if err != nil {
 		return pagination.Page[invoices.InvoiceSummary]{}, err
 	}
-	return invoicelist.List(ctx, q, "ListInvoices", user.OrganizationID, nil, params, instanceSlug, clock.Time.UTC())
+	return invoicelist.List(ctx, q, "ListInvoices", user.OrganizationID, nil, params, instanceSlug, clock.Time.UTC(), u.deps.AutoCollectionBefore(clock.Time.UTC()))
 }

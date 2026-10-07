@@ -83,6 +83,7 @@ func (u *UseCase) Execute(ctx context.Context) (*BillingHealth, error) {
 	}
 	row, err := q.BillingHealth(ctx, db.BillingHealthParams{
 		OrganizationID: user.OrganizationID, Now: invoices.Timestamp(now),
+		AutoCollectionBefore: invoices.Timestamp(u.deps.AutoCollectionBefore(now)),
 		AlertAfterAttempts: int32(u.alertAfterAttempts), //nolint:gosec // bounded by the configuration
 	})
 	if err != nil {
