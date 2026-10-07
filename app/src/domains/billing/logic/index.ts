@@ -13,7 +13,6 @@ export {
   toBillingGate,
 } from './billing-availability';
 export {
-  applyProblemFieldErrors,
   type BillingProblem,
   type BillingProblemKind,
   DEFAULT_RETRY_AFTER_MS,
@@ -22,9 +21,12 @@ export {
   getProblemValueMember,
   getRetryAfterMs,
   handleBillingProblem,
-  setProblemFieldError,
 } from './billing-problem';
 export { placeRefusalOnFields, type RefusalFields } from './place-refusal';
+export {
+  applyProblemFieldErrors,
+  setProblemFieldError,
+} from './problem-field-errors';
 export {
   getHandoffStatusLabelKey,
   HANDOFF_STATUSES,

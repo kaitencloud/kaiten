@@ -1,9 +1,9 @@
 import type { AnyFormApi } from '@tanstack/react-form';
+import { handleBillingProblem } from './billing-problem';
 import {
   applyProblemFieldErrors,
-  handleBillingProblem,
   setProblemFieldError,
-} from './billing-problem';
+} from './problem-field-errors';
 
 /** Which field of a form a refusal of the API is about. */
 export type RefusalFields = {
