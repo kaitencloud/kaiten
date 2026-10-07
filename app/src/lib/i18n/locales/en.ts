@@ -3179,12 +3179,6 @@ export default {
           issued: 'Issued',
           openEnd: 'any',
         },
-        Export: {
-          button: 'Export',
-          csvLines: 'CSV by invoice line',
-          csvInvoices: 'CSV by invoice',
-          ndjson: 'NDJSON, one invoice per line',
-        },
         Toasts: {
           released: 'Invoice released',
           paid: 'Invoice marked as paid',
@@ -4062,6 +4056,12 @@ export default {
         from: 'From',
         before: 'Before',
         periodInvalid: 'The period must end after it starts.',
+      },
+      InvoiceExport: {
+        button: 'Export',
+        csvLines: 'CSV by invoice line',
+        csvInvoices: 'CSV by invoice',
+        ndjson: 'NDJSON, one invoice per line',
       },
       InvoicesCard: {
         title: 'Invoices',
