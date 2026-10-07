@@ -44,8 +44,10 @@ app/src/domains/billing/
 │                     # BillingNotFound, BillingRouteError, InvoicesTable (its columns in
 │                     # invoices-table-columns) and its cells, the
 │                     # fingerprint and the arithmetic of a metered line (LineFingerprint,
-│                     # OverageLimits), and the invoice preview: InvoiceLinesTable,
-│                     # InvoiceTotals, InvoicePreviewResult, InvoicePreviewDialog
+│                     # OverageLimits), the invoice preview: InvoiceLinesTable,
+│                     # InvoiceTotals, InvoicePreviewResult, InvoicePreviewDialog, and what a
+│                     # list the server pages is drawn with (paged-list/: the skeleton, the empty
+│                     # state, the foot)
 ├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session;
 │                     # useInvoiceActionAccess, the same for the five actions on an invoice;
 │                     # useAlertFocus, which puts the focus on a refusal
@@ -207,6 +209,15 @@ page holds, or an export the API streams.
   time of day on both ends and that is wider than any other column, and the
   handoff label wraps, so that the eight columns fit the width of a laptop with
   the side navigation open.
+- **A list the server pages draws the same states.** `PagedListSkeleton` while the
+  first page is on the way, `ListEmptyState` when there is no row, and
+  `LoadMoreFooter` under the rows: how many were read ("50 invoices shown", never how
+  many there are, since the API does not say), "Load more", and a refusal of the next
+  page above the count. They started in `features/billing` for its three lists and
+  moved here when the invoices of an instance and of a customer paged theirs.
+  `placeRefusalOnFields` shows a refusal of the API on the field of a form it is
+  about, for the forms of the dialogs that ask for an audited action and those that
+  follow.
 - **Reading a billing route fails visibly.** `BillingRouteError` is the
   `errorComponent` of the routes of one record: the API's words, a banner for a
   missing scope, a page that does not exist for a 404, and a Retry that invalidates

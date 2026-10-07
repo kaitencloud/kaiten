@@ -3,7 +3,7 @@ import {
   applyProblemFieldErrors,
   handleBillingProblem,
   setProblemFieldError,
-} from '@/domains/billing';
+} from './billing-problem';
 
 /** Which field of a form a refusal of the API is about. */
 export type RefusalFields = {

@@ -6,17 +6,15 @@ import { Button } from '@/components/ui/button';
 import {
   type InvoicesTableColumn,
   InvoicesTable,
+  ListEmptyState,
+  LoadMoreFooter,
+  PagedListSkeleton,
   RetryableProblem,
 } from '@/domains/billing';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { invoicesQueryOptions } from '../../queries';
 import type { InvoiceFilters } from '../../schemas/invoice-filters.schema';
 import { hasActiveInvoiceFilters } from '../../utils/invoice-filters';
-import {
-  ListEmptyState,
-  LoadMoreFooter,
-  PagedListSkeleton,
-} from '../paged-list';
 
 type InvoicesListProps = {
   filters: InvoiceFilters;

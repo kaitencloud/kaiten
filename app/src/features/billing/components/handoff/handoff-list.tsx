@@ -2,10 +2,14 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { QueuedInvoice } from '@/api-client';
-import { RetryableProblem, useCanPerform } from '@/domains/billing';
+import {
+  LoadMoreFooter,
+  PagedListSkeleton,
+  RetryableProblem,
+  useCanPerform,
+} from '@/domains/billing';
 import { handoffQueryOptions } from '../../queries';
 import type { HandoffQueueStatus } from '../../schemas/handoff-search.schema';
-import { LoadMoreFooter, PagedListSkeleton } from '../paged-list';
 import { AcknowledgeHandoffDialog } from './acknowledge-handoff-dialog';
 import { HandoffEmpty } from './handoff-empty';
 import { HandoffTable } from './handoff-table';

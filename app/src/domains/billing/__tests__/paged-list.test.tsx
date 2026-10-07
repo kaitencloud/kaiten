@@ -7,8 +7,8 @@ import {
   ListEmptyState,
   LoadMoreFooter,
   PagedListSkeleton,
-} from '../paged-list';
-import { useBillingTexts } from './billing-test-support';
+} from '../components/paged-list';
+import { useBillingTexts } from '@/test-fixtures/billing-test-support';
 
 useBillingTexts();
 

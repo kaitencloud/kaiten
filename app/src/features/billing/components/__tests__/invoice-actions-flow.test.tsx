@@ -26,7 +26,7 @@ import {
   renderWithClient,
   sessionToken,
   useBillingTexts,
-} from './billing-test-support';
+} from '@/test-fixtures/billing-test-support';
 
 const getAuthToken = vi.hoisted(() => vi.fn());
 const navigate = vi.hoisted(() => vi.fn());
@@ -35,7 +35,7 @@ const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
 vi.mock('@/lib/auth-token', () => ({ getAuthToken }));
 vi.mock('sonner', () => ({ toast }));
 vi.mock('@tanstack/react-router', async () =>
-  (await import('./billing-test-support')).createRouterModule(navigate),
+  (await import('@/test-fixtures/billing-test-support')).createRouterModule(navigate),
 );
 
 useBillingTexts();

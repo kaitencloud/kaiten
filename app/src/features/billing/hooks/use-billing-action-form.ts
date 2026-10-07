@@ -1,10 +1,7 @@
 import { useId, useState } from 'react';
 import type { z } from 'zod';
 import { useAppForm } from '@/hooks/form';
-import {
-  placeRefusalOnFields,
-  type RefusalFields,
-} from '../utils/place-refusal';
+import { placeRefusalOnFields, type RefusalFields } from '@/domains/billing';
 
 type UseBillingActionFormOptions<TValues extends Record<string, string>> = {
   defaultValues: TValues;
