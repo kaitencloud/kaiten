@@ -1,7 +1,32 @@
 import { render, renderHook, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import type { InstanceEntitlementRow } from '../../../../../utils/instance-detail-entitlements.utils';
 import { useEntitlementsColumns } from '../instance-detail-entitlements-columns';
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    children,
+    params,
+    search,
+    to,
+    ...props
+  }: {
+    children?: ReactNode;
+    params: Record<string, string>;
+    search: Record<string, string>;
+    to: string;
+  }) => (
+    <a
+      {...props}
+      data-params={JSON.stringify(params)}
+      data-search={JSON.stringify(search)}
+      href={to}
+    >
+      {children}
+    </a>
+  ),
+}));
 
 // Echoes the key, except for the two strings these tests read, so an assertion
 // fails loudly rather than matching a raw key by accident.
@@ -228,4 +253,48 @@ describe('status column', () => {
       ),
     ).toBeInTheDocument();
   });
+});
+
+describe('history column', () => {
+  const history = { instanceSlug: 'globex-production' };
+
+  const historyColumn = (options?: Parameters<typeof useEntitlementsColumns>[1]) =>
+    renderHook(() => useEntitlementsColumns('en-US', options)).result.current.find(
+      (column) => (column as { id?: string }).id === 'history',
+    );
+
+  it('is offered only to a session that may read the history', () => {
+    expect(historyColumn()).toBeUndefined();
+    expect(historyColumn({ history })).toBeDefined();
+  });
+
+  it('links a counter to its history, over the same page, and says whose it is', () => {
+    const column = historyColumn({ history });
+    if (!column?.cell || typeof column.cell !== 'function') {
+      throw new Error('the history column has no cell renderer');
+    }
+
+    render(<>{column.cell({ row: { original: row({}) } } as never)}</>);
+
+    const link = screen.getByRole('link', {
+      name: 'Pages.Customers.Instances.Detail.entitlements.history.openLabel',
+    });
+    expect(link).toHaveAttribute('href', '/customers/instances/$instanceSlug/entitlements');
+    expect(link).toHaveAttribute('data-search', '{"history":"api-calls"}');
+    expect(link).toHaveAttribute('data-params', '{"instanceSlug":"globex-production"}');
+  });
+
+  it.each(['BOOLEAN', 'CONFIG'] as const)(
+    'offers no history for a %s entitlement, which reports no usage',
+    (entitlementType) => {
+      const column = historyColumn({ history });
+      if (!column?.cell || typeof column.cell !== 'function') {
+        throw new Error('the history column has no cell renderer');
+      }
+
+      render(<>{column.cell({ row: { original: row({ entitlementType }) } } as never)}</>);
+
+      expect(screen.queryByRole('link')).toBeNull();
+    },
+  );
 });

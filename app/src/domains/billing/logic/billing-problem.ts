@@ -128,6 +128,25 @@ export function getProblemValueMember(
   return typeof found === 'string' ? found : undefined;
 }
 
+/**
+ * Where the usage that is kept begins, from the refusal of a history that reaches
+ * before it. The refusal of the usage history of an instance names it as the bare
+ * `value` of its error (`"2027-01-01T00:00:00Z"`, `message: "retentionStart"`),
+ * and the one of an invoice line, whose body is the metering of the line, as a
+ * member of an object when it names it at all. Only a date is read as one.
+ */
+function getRetentionStart(errors: readonly ErrorDetail[]): string | undefined {
+  const member = getProblemValueMember(errors, 'retentionStart');
+  if (member !== undefined) {
+    return member;
+  }
+  const value = errors[0]?.value;
+
+  return typeof value === 'string' && !Number.isNaN(Date.parse(value))
+    ? value
+    : undefined;
+}
+
 // What to say of a failure that is not a problem document. Only a problem is the
 // API speaking: any other body is the text or the HTML page of a gateway, so the
 // message is the generic one of the status (or of the network), as the route
@@ -213,7 +232,7 @@ export function handleBillingProblem(error: unknown): BillingProblem {
     case 'outside-retention':
       return {
         ...read,
-        retentionStart: getProblemValueMember(errors, 'retentionStart'),
+        retentionStart: getRetentionStart(errors),
       };
     case 'generic':
       return read;
