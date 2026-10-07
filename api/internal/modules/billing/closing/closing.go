@@ -407,9 +407,13 @@ func (c *Closer) compose(ctx context.Context, q *db.Queries, sub db.InstanceBill
 		for i, price := range meteredPrices {
 			rated[i] = metering.Price(price)
 		}
+		held, err := c.addons(ctx, sub, string(sub.BillingPeriod))
+		if err != nil {
+			return rating.Composition{}, nil, err
+		}
 		arrears, err := rating.Compose(rating.Input{
 			Kind: rating.KindFinal, Currency: money.Currency(sub.Currency), LicenseName: p.arrearsBase.LicenseName,
-			Base: metering.Price(*p.arrearsBase), Metered: rated, Measures: measures,
+			Base: metering.Price(*p.arrearsBase), Metered: rated, Measures: measures, Addons: held,
 			Advance: rating.Period{From: boundary, To: boundary}, Arrears: rating.Period{From: periodStart, To: boundary},
 		})
 		if err != nil {
@@ -418,9 +422,17 @@ func (c *Closer) compose(ctx context.Context, q *db.Queries, sub db.InstanceBill
 		lines = append(lines, arrears.Lines...)
 	}
 	if p.advanceBase != nil {
+		period := string(sub.BillingPeriod)
+		if p.advanceBase.BillingPeriod != nil {
+			period = *p.advanceBase.BillingPeriod
+		}
+		held, err := c.addons(ctx, sub, period)
+		if err != nil {
+			return rating.Composition{}, nil, err
+		}
 		advance, err := rating.Compose(rating.Input{
 			Kind: rating.KindActivation, Currency: money.Currency(p.advanceBase.Currency), LicenseName: p.advanceBase.LicenseName,
-			Base: metering.Price(*p.advanceBase), Metered: nil, Measures: nil,
+			Base: metering.Price(*p.advanceBase), Metered: nil, Measures: nil, Addons: held,
 			Advance: rating.Period{From: boundary, To: p.next}, Arrears: rating.Period{From: boundary, To: boundary},
 		})
 		if err != nil {
@@ -440,6 +452,19 @@ func overflow(err error) error {
 		return kaitenerrors.Internal("ComposeInvoice.AmountOverflow", "an invoice amount overflows 64-bit minor units")
 	}
 	return err
+}
+
+// addons reads the add-ons the subscription's instance holds, priced for a
+// period; none once the instance is deleted.
+func (c *Closer) addons(ctx context.Context, sub db.InstanceBilling, period string) ([]rating.AddonCharge, error) {
+	if sub.InstanceID == nil || c.deps.Addons == nil {
+		return nil, nil
+	}
+	held, err := c.deps.Addons.BillableAddons(ctx, sub.OrganizationID, *sub.InstanceID, period)
+	if err != nil {
+		return nil, err
+	}
+	return metering.Addons(held, sub.Currency), nil
 }
 
 // Preview composes, without sealing or writing anything, the invoice the
