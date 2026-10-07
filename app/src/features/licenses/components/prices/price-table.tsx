@@ -128,8 +128,8 @@ function usePriceColumns({
 
 /**
  * The prices of a license version, in the order the API gives them: display
- * order, then id. A deprecated price stays in the list, dimmed, with the day it
- * was retired, since subscriptions pinned to it keep being billed from it.
+ * order, then id. A deprecated price stays in the list, in muted text, with the
+ * day it was retired, since subscriptions pinned to it keep being billed from it.
  */
 export function PriceTable({ prices, ...columnOptions }: PriceTableProps) {
   const { t } = useTranslation();
@@ -140,8 +140,11 @@ export function PriceTable({ prices, ...columnOptions }: PriceTableProps) {
       columns={columns}
       data={prices}
       emptyMessage={t('Pages.Licenses.Prices.Table.empty')}
+      // A deprecated price reads as set aside by its muted text, not by an opacity
+      // over the row: that would drag the text of the row, which a person still
+      // reads (what it charged, when it was retired), under the contrast floor.
       getRowClassName={(price) =>
-        price.status === 'DEPRECATED' ? 'opacity-60' : undefined
+        price.status === 'DEPRECATED' ? 'text-muted-foreground' : undefined
       }
       getRowId={(price) => price.id}
       pagination={false}
