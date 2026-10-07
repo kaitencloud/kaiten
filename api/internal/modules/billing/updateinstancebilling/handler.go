@@ -83,6 +83,11 @@ func (u *UseCase) checkProvider(ctx context.Context, organizationID uuid.UUID, i
 		return nil, kaitenerrors.UnprocessableEntity(operation+".CollectionMethodUnsupported",
 			"only SEND_INVOICE is available: the payment provider cannot charge automatically")
 	}
+	if method == settings.ChargeAutomatically && capabilities.PushesInvoices && sub.CustomerID != nil {
+		if err := providers.RequirePaymentMethod(ctx, q, organizationID, *sub.CustomerID, kind, operation); err != nil {
+			return nil, err
+		}
+	}
 	if target == nil || !capabilities.PushesInvoices {
 		return target, nil
 	}

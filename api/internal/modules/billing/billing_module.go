@@ -17,10 +17,15 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/claimhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/completepaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createpaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createportalsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/detachpaymentmethod"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/exportinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingcapabilities"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillinghealth"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getcustomerbilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getupcominginvoice"
@@ -30,6 +35,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoicelinereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/paymentmethods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/pushing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/reactivatesubscription"
@@ -85,6 +91,12 @@ type UseCases struct {
 	SyncProvider           *syncprovider.UseCase
 	SyncInvoice            *syncinvoice.UseCase
 	GetBillingHealth       *getbillinghealth.UseCase
+
+	GetCustomerBilling           *getcustomerbilling.UseCase
+	CreatePaymentMethodSession   *createpaymentmethodsession.UseCase
+	CompletePaymentMethodSession *completepaymentmethodsession.UseCase
+	CreatePortalSession          *createportalsession.UseCase
+	DetachPaymentMethod          *detachpaymentmethod.UseCase
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -98,6 +110,8 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		Discounts:       from.Discounts,
 		Providers:       svc.BillingProviders,
 		ProviderTimeout: svc.Config.Billing.ProviderTimeout,
+
+		AutoCollectionGrace: svc.Config.Billing.AutoCollectionGrace,
 	}
 	cfg := svc.Config.Billing
 	closer := closing.New(deps, cfg.CloseGrace)
@@ -136,6 +150,12 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		SyncProvider:           syncprovider.NewUseCase(deps, syncer),
 		SyncInvoice:            syncinvoice.NewUseCase(deps, syncer),
 		GetBillingHealth:       getbillinghealth.NewUseCase(deps, cfg.Push.AlertAfterAttempts),
+
+		GetCustomerBilling:           getcustomerbilling.NewUseCase(deps),
+		CreatePaymentMethodSession:   createpaymentmethodsession.NewUseCase(deps),
+		CompletePaymentMethodSession: completepaymentmethodsession.NewUseCase(deps),
+		CreatePortalSession:          createportalsession.NewUseCase(deps),
+		DetachPaymentMethod:          detachpaymentmethod.NewUseCase(deps),
 	}
 
 	// The billing jobs run only where billing is on and background work runs.
@@ -147,10 +167,10 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		job.Start(context.Background())
 		svc.WorkerRegistry.OnStop(job.Stop)
 
-		overdue := lifecycle.NewJob(svc.Pool, lifecycle.NewOverdue(svc.Uof), sweep.Config{
+		overdue := lifecycle.NewJob(svc.Pool, lifecycle.NewOverdue(svc.Uof, cfg.AutoCollectionGrace), sweep.Config{
 			InitialDelay: orDefault(cfg.InitialDelay, time.Minute),
 			Interval:     orDefault(cfg.Lifecycle.Interval, 15*time.Minute),
-		}, batchSize(cfg.PeriodClose.BatchSize))
+		}, batchSize(cfg.PeriodClose.BatchSize), paymentmethods.NewExpiry(svc.Uof))
 		overdue.Start(context.Background())
 		svc.WorkerRegistry.OnStop(overdue.Stop)
 

@@ -356,39 +356,43 @@ WHERE i.organization_id = $1
                                     WHERE n.organization_id = i.organization_id AND n.slug = $6::text))
   AND ($7::uuid IS NULL OR i.instance_billing_id = $7::uuid)
   AND (NOT $8::boolean
-       OR (i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED') AND i.due_at < $9::timestamp))
-  AND (NOT $10::boolean OR i.hold_reason IS NOT NULL)
-  AND ($11::handoff_status IS NULL OR i.handoff_status = $11::handoff_status)
-  AND ($12::timestamp IS NULL OR i.issued_at >= $12::timestamp)
-  AND ($13::timestamp IS NULL OR i.issued_at < $13::timestamp)
-  AND ($14::timestamp IS NULL OR i.boundary_at >= $14::timestamp)
-  AND ($15::timestamp IS NULL OR i.boundary_at < $15::timestamp)
-  AND (NOT $16::boolean
-       OR (i.created_at, i.id) < ($17::timestamp, $18::uuid))
+       OR (i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED') AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+              THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
+                OR i.issued_at < $9::timestamp
+              ELSE i.due_at < $10::timestamp END)))
+  AND (NOT $11::boolean OR i.hold_reason IS NOT NULL)
+  AND ($12::handoff_status IS NULL OR i.handoff_status = $12::handoff_status)
+  AND ($13::timestamp IS NULL OR i.issued_at >= $13::timestamp)
+  AND ($14::timestamp IS NULL OR i.issued_at < $14::timestamp)
+  AND ($15::timestamp IS NULL OR i.boundary_at >= $15::timestamp)
+  AND ($16::timestamp IS NULL OR i.boundary_at < $16::timestamp)
+  AND (NOT $17::boolean
+       OR (i.created_at, i.id) < ($18::timestamp, $19::uuid))
 ORDER BY i.created_at DESC, i.id DESC
-LIMIT $19
+LIMIT $20
 `
 
 type ListInvoicesParams struct {
-	OrganizationID    uuid.UUID            `json:"organization_id"`
-	Statuses          []string             `json:"statuses"`
-	Kind              *InvoiceKind         `json:"kind"`
-	ProviderKind      *BillingProviderKind `json:"provider_kind"`
-	CustomerSlug      *string              `json:"customer_slug"`
-	InstanceSlug      *string              `json:"instance_slug"`
-	InstanceBillingID *uuid.UUID           `json:"instance_billing_id"`
-	Overdue           bool                 `json:"overdue"`
-	Now               pgtype.Timestamp     `json:"now"`
-	Held              bool                 `json:"held"`
-	HandoffStatus     *HandoffStatus       `json:"handoff_status"`
-	IssuedFrom        pgtype.Timestamp     `json:"issued_from"`
-	IssuedTo          pgtype.Timestamp     `json:"issued_to"`
-	BoundaryFrom      pgtype.Timestamp     `json:"boundary_from"`
-	BoundaryTo        pgtype.Timestamp     `json:"boundary_to"`
-	HasCursor         bool                 `json:"has_cursor"`
-	CursorAt          pgtype.Timestamp     `json:"cursor_at"`
-	CursorID          uuid.UUID            `json:"cursor_id"`
-	PageSize          int32                `json:"page_size"`
+	OrganizationID       uuid.UUID            `json:"organization_id"`
+	Statuses             []string             `json:"statuses"`
+	Kind                 *InvoiceKind         `json:"kind"`
+	ProviderKind         *BillingProviderKind `json:"provider_kind"`
+	CustomerSlug         *string              `json:"customer_slug"`
+	InstanceSlug         *string              `json:"instance_slug"`
+	InstanceBillingID    *uuid.UUID           `json:"instance_billing_id"`
+	Overdue              bool                 `json:"overdue"`
+	AutoCollectionBefore pgtype.Timestamp     `json:"auto_collection_before"`
+	Now                  pgtype.Timestamp     `json:"now"`
+	Held                 bool                 `json:"held"`
+	HandoffStatus        *HandoffStatus       `json:"handoff_status"`
+	IssuedFrom           pgtype.Timestamp     `json:"issued_from"`
+	IssuedTo             pgtype.Timestamp     `json:"issued_to"`
+	BoundaryFrom         pgtype.Timestamp     `json:"boundary_from"`
+	BoundaryTo           pgtype.Timestamp     `json:"boundary_to"`
+	HasCursor            bool                 `json:"has_cursor"`
+	CursorAt             pgtype.Timestamp     `json:"cursor_at"`
+	CursorID             uuid.UUID            `json:"cursor_id"`
+	PageSize             int32                `json:"page_size"`
 }
 
 // One page of an organization's invoices, newest first, under the list's
@@ -405,6 +409,7 @@ func (q *Queries) ListInvoices(ctx context.Context, arg ListInvoicesParams) ([]I
 		arg.InstanceSlug,
 		arg.InstanceBillingID,
 		arg.Overdue,
+		arg.AutoCollectionBefore,
 		arg.Now,
 		arg.Held,
 		arg.HandoffStatus,
@@ -519,41 +524,45 @@ WHERE i.organization_id = $1
                                     WHERE n.organization_id = i.organization_id AND n.slug = $6::text))
   AND ($7::uuid IS NULL OR i.instance_billing_id = $7::uuid)
   AND (NOT $8::boolean
-       OR (i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED') AND i.due_at < $9::timestamp))
-  AND (NOT $10::boolean OR i.hold_reason IS NOT NULL)
-  AND ($11::handoff_status IS NULL OR i.handoff_status = $11::handoff_status)
-  AND ($12::timestamp IS NULL OR i.issued_at >= $12::timestamp)
-  AND ($13::timestamp IS NULL OR i.issued_at < $13::timestamp)
-  AND ($14::timestamp IS NULL OR i.boundary_at >= $14::timestamp)
-  AND ($15::timestamp IS NULL OR i.boundary_at < $15::timestamp)
-  AND i.updated_at >= $16::timestamp
-  AND (NOT $17::boolean
-       OR (i.updated_at, i.id) > ($18::timestamp, $19::uuid))
+       OR (i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED') AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+              THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
+                OR i.issued_at < $9::timestamp
+              ELSE i.due_at < $10::timestamp END)))
+  AND (NOT $11::boolean OR i.hold_reason IS NOT NULL)
+  AND ($12::handoff_status IS NULL OR i.handoff_status = $12::handoff_status)
+  AND ($13::timestamp IS NULL OR i.issued_at >= $13::timestamp)
+  AND ($14::timestamp IS NULL OR i.issued_at < $14::timestamp)
+  AND ($15::timestamp IS NULL OR i.boundary_at >= $15::timestamp)
+  AND ($16::timestamp IS NULL OR i.boundary_at < $16::timestamp)
+  AND i.updated_at >= $17::timestamp
+  AND (NOT $18::boolean
+       OR (i.updated_at, i.id) > ($19::timestamp, $20::uuid))
 ORDER BY i.updated_at, i.id
-LIMIT $20
+LIMIT $21
 `
 
 type ListInvoicesUpdatedSinceParams struct {
-	OrganizationID    uuid.UUID            `json:"organization_id"`
-	Statuses          []string             `json:"statuses"`
-	Kind              *InvoiceKind         `json:"kind"`
-	ProviderKind      *BillingProviderKind `json:"provider_kind"`
-	CustomerSlug      *string              `json:"customer_slug"`
-	InstanceSlug      *string              `json:"instance_slug"`
-	InstanceBillingID *uuid.UUID           `json:"instance_billing_id"`
-	Overdue           bool                 `json:"overdue"`
-	Now               pgtype.Timestamp     `json:"now"`
-	Held              bool                 `json:"held"`
-	HandoffStatus     *HandoffStatus       `json:"handoff_status"`
-	IssuedFrom        pgtype.Timestamp     `json:"issued_from"`
-	IssuedTo          pgtype.Timestamp     `json:"issued_to"`
-	BoundaryFrom      pgtype.Timestamp     `json:"boundary_from"`
-	BoundaryTo        pgtype.Timestamp     `json:"boundary_to"`
-	UpdatedSince      pgtype.Timestamp     `json:"updated_since"`
-	HasCursor         bool                 `json:"has_cursor"`
-	CursorAt          pgtype.Timestamp     `json:"cursor_at"`
-	CursorID          uuid.UUID            `json:"cursor_id"`
-	PageSize          int32                `json:"page_size"`
+	OrganizationID       uuid.UUID            `json:"organization_id"`
+	Statuses             []string             `json:"statuses"`
+	Kind                 *InvoiceKind         `json:"kind"`
+	ProviderKind         *BillingProviderKind `json:"provider_kind"`
+	CustomerSlug         *string              `json:"customer_slug"`
+	InstanceSlug         *string              `json:"instance_slug"`
+	InstanceBillingID    *uuid.UUID           `json:"instance_billing_id"`
+	Overdue              bool                 `json:"overdue"`
+	AutoCollectionBefore pgtype.Timestamp     `json:"auto_collection_before"`
+	Now                  pgtype.Timestamp     `json:"now"`
+	Held                 bool                 `json:"held"`
+	HandoffStatus        *HandoffStatus       `json:"handoff_status"`
+	IssuedFrom           pgtype.Timestamp     `json:"issued_from"`
+	IssuedTo             pgtype.Timestamp     `json:"issued_to"`
+	BoundaryFrom         pgtype.Timestamp     `json:"boundary_from"`
+	BoundaryTo           pgtype.Timestamp     `json:"boundary_to"`
+	UpdatedSince         pgtype.Timestamp     `json:"updated_since"`
+	HasCursor            bool                 `json:"has_cursor"`
+	CursorAt             pgtype.Timestamp     `json:"cursor_at"`
+	CursorID             uuid.UUID            `json:"cursor_id"`
+	PageSize             int32                `json:"page_size"`
 }
 
 // The same, for incremental sync: the invoices changed since an instant,
@@ -569,6 +578,7 @@ func (q *Queries) ListInvoicesUpdatedSince(ctx context.Context, arg ListInvoices
 		arg.InstanceSlug,
 		arg.InstanceBillingID,
 		arg.Overdue,
+		arg.AutoCollectionBefore,
 		arg.Now,
 		arg.Held,
 		arg.HandoffStatus,

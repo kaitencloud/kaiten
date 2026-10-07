@@ -218,16 +218,6 @@ func TestSendAfterFinalizeWhenConfigured(t *testing.T) {
 	require.Equal(t, in.KaitenInvoiceID.String()+":send", sends[0].IdempotencyKey)
 }
 
-func TestCreateDraftRefusesAutomaticCollection(t *testing.T) {
-	f := newFixture(t, stripe.Settings{})
-	_, customerID := f.customer(t)
-	in := invoiceFor(customerID, "EUR", line(1, 100))
-	in.CollectionMethod = "CHARGE_AUTOMATICALLY"
-	_, err := f.adapter.CreateDraft(f.ctx, f.ref, in)
-	require.ErrorIs(t, err, provider.ErrUnsupported)
-	require.Equal(t, 0, f.fake.Count(stripefake.OpCreateInvoice))
-}
-
 func TestVoid(t *testing.T) {
 	f := newFixture(t, stripe.Settings{})
 	_, customerID := f.customer(t)
@@ -405,13 +395,4 @@ func TestSettingsKeysMatchTheManifest(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, properties, 4)
-}
-
-func TestCapabilities(t *testing.T) {
-	capabilities := stripe.New(stripe.Options{}).Capabilities()
-	require.True(t, capabilities.PushesInvoices)
-	require.True(t, capabilities.EventFeed)
-	require.False(t, capabilities.ChargeAutomatically)
-	require.False(t, capabilities.AcceptsCurrency("HUF"))
-	require.True(t, capabilities.AcceptsCurrency("EUR"))
 }

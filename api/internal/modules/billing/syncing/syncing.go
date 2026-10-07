@@ -31,6 +31,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoiceaction"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/paymentmethods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/providers"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/pushing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
@@ -149,9 +150,18 @@ func (s *Syncer) Organization(ctx context.Context, organizationID uuid.UUID, kin
 		if err != nil {
 			return s.record(ctx, organizationID, kind, state, outcome, StatusFailed, provider.Summary(err), now)
 		}
+		customers := map[string]bool{}
 		for _, event := range feed {
 			if event.ExternalInvoiceID != "" {
 				apply(event.ExternalInvoiceID)
+			}
+			if event.ExternalCustomerID != "" && !customers[event.ExternalCustomerID+"\x00"+event.ExternalSessionID] {
+				customers[event.ExternalCustomerID+"\x00"+event.ExternalSessionID] = true
+				if err := s.customer(ctx, conn, organizationID, kind, event); err != nil {
+					outcome.Failed++
+					failedIDs = append(failedIDs, event.ExternalCustomerID)
+					slog.WarnContext(ctx, "provider customer could not be applied", "external_customer_id", event.ExternalCustomerID, "error", err)
+				}
 			}
 			cursorAt = invoices.Timestamp(event.CreatedAt)
 		}
@@ -282,7 +292,7 @@ func (s *Syncer) apply(ctx context.Context, conn *provider.Connection, row db.In
 			return err
 		}
 		updated = changed
-		_, err = lifecycle.Reevaluate(ctx, q, s.outbox, sub, sub.UpdatedByID, now)
+		_, err = lifecycle.Reevaluate(ctx, q, s.outbox, sub, sub.UpdatedByID, now, s.deps.AutoCollectionGrace)
 		return err
 	})
 	if err != nil {
@@ -332,6 +342,22 @@ func (s *Syncer) mirror(ctx context.Context, q *db.Queries, row db.InstanceInvoi
 		announce = func(invoice invoices.Invoice) error {
 			return invoices.Announce(ctx, s.outbox, row.OrganizationID, events.InstanceInvoicePaid,
 				invoices.PaidInvoice{InvoiceSummary: invoice.InvoiceSummary, Source: "PROVIDER", ExternalReference: nil, Note: nil})
+		}
+	case read.Status == provider.StatusOpen && row.Status == db.InvoiceStatusPUSHED &&
+		row.CollectionMethod == db.CollectionMethodCHARGEAUTOMATICALLY && read.AttemptCount > 0 && !row.NextPushAt.Valid:
+		// The provider's own attempt failed (Kaiten's charge settled the
+		// invoice or recorded its outcome itself).
+		code := read.LastPaymentError
+		if code == "" {
+			code = "payment_failed"
+		}
+		updated, err = q.ApplyPaymentFailed(ctx, db.ApplyPaymentFailedParams{
+			FailedAt: invoices.Timestamp(now), LastPaymentError: &code, Now: invoices.Timestamp(now), ID: row.ID,
+		})
+		announce = func(invoice invoices.Invoice) error {
+			return invoices.Announce(ctx, s.outbox, row.OrganizationID, events.InstanceInvoicePaymentFailed, invoices.PaymentFailedInvoice{
+				InvoiceSummary: invoice.InvoiceSummary, FailureCode: code, RequiresAction: false,
+			})
 		}
 	case read.Status == provider.StatusUncollectible:
 		updated, err = q.ApplyProviderUncollectible(ctx, db.ApplyProviderUncollectibleParams{
@@ -400,4 +426,76 @@ func RegisterWebhooks(api huma.API) {
 		Description: "Triggered when syncing with a payment provider has failed three passes in a row, once per streak.",
 		Tags:        []string{"webhooks", "billing"},
 	})
+}
+
+// customer applies a customer's change in the provider: its default payment
+// method, read by id (the event is a change feed only). A completed setup
+// session Kaiten created is adopted first when the customer has no default
+// yet, so a session nobody completed still converges (§12.6 rule 4).
+func (s *Syncer) customer(ctx context.Context, conn *provider.Connection, organizationID uuid.UUID, kind db.BillingProviderKind, event provider.Event) error {
+	if !conn.Adapter.Capabilities().PaymentMethodCapture {
+		return nil
+	}
+	q := s.deps.Queries(ctx)
+	mapped, err := q.GetCustomerBillingByExternalID(ctx, db.GetCustomerBillingByExternalIDParams{
+		OrganizationID: organizationID, ProviderKind: kind, ExternalCustomerID: event.ExternalCustomerID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil // not a customer of Kaiten's
+	}
+	if err != nil {
+		return err
+	}
+	customer, err := q.GetBillingCustomer(ctx, db.GetBillingCustomerParams{OrganizationID: organizationID, ID: mapped.CustomerID})
+	if err != nil {
+		return err
+	}
+
+	callCtx, cancel := providers.Bound(ctx, s.timeout)
+	method, err := conn.Adapter.DefaultPaymentMethod(callCtx, conn.Ref, mapped.ExternalCustomerID)
+	cancel()
+	if err != nil {
+		return err
+	}
+	if method == nil && event.ExternalSessionID != "" {
+		if method, err = s.adopt(ctx, conn, mapped, event.ExternalSessionID); err != nil {
+			return err
+		}
+	}
+
+	return s.deps.Uof.Transact(ctx, func(ctx context.Context) error {
+		q := s.deps.Queries(ctx)
+		now, err := lifecycle.Now(ctx, q)
+		if err != nil {
+			return err
+		}
+		if method == nil {
+			return paymentmethods.Clear(ctx, q, s.outbox, organizationID, customer.ID, customer.Slug, kind, now)
+		}
+		_, err = paymentmethods.Apply(ctx, q, s.outbox, organizationID, customer.ID, customer.Slug, kind, *method, now)
+		return err
+	})
+}
+
+// adopt makes the payment method of a completed setup session Kaiten created
+// for this customer its default, the call complete would have made. nil when
+// the session is not one to adopt.
+func (s *Syncer) adopt(ctx context.Context, conn *provider.Connection, mapped db.CustomerBilling, sessionID string) (*provider.PaymentMethod, error) {
+	callCtx, cancel := providers.Bound(ctx, s.timeout)
+	session, err := conn.Adapter.GetSetupSession(callCtx, conn.Ref, sessionID)
+	cancel()
+	if err != nil {
+		return nil, err
+	}
+	if !session.Complete || session.ExternalCustomerID != mapped.ExternalCustomerID ||
+		session.Metadata["kaiten_customer_id"] != mapped.CustomerID.String() {
+		return nil, nil
+	}
+	callCtx, cancel = providers.Bound(ctx, s.timeout)
+	method, err := conn.Adapter.SetDefaultPaymentMethod(callCtx, conn.Ref, mapped.ExternalCustomerID, session.ExternalPaymentMethodID)
+	cancel()
+	if err != nil {
+		return nil, err
+	}
+	return &method, nil
 }

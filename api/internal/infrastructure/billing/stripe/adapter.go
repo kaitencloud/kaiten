@@ -36,8 +36,9 @@ var RefusedCurrencies = []string{"BHD", "HUF", "ISK", "JOD", "KWD", "OMR", "TND"
 
 // invoiceEvents are the event types sync reads.
 var invoiceEvents = []string{
-	"invoice.finalized", "invoice.paid", "invoice.payment_failed", "invoice.voided",
-	"invoice.marked_uncollectible", "invoice.deleted",
+	"invoice.finalized", "invoice.paid", "invoice.payment_failed", "invoice.payment_action_required",
+	"invoice.voided", "invoice.marked_uncollectible", "invoice.deleted",
+	"checkout.session.completed", "customer.updated", "payment_method.detached",
 }
 
 // firstPassLookback bounds the first read of the event feed, when there is
@@ -79,12 +80,11 @@ var (
 // Kind implements provider.Adapter.
 func (*Adapter) Kind() provider.Kind { return provider.KindStripe }
 
-// Capabilities implements provider.Adapter. Automatic collection and the
-// hosted payment-method and portal sessions come with a later release.
+// Capabilities implements provider.Adapter.
 func (*Adapter) Capabilities() provider.Capabilities {
 	return provider.Capabilities{
 		PushesInvoices: true, EventFeed: true,
-		ChargeAutomatically: false, PaymentMethodCapture: false, BillingPortal: false,
+		ChargeAutomatically: true, PaymentMethodCapture: true, BillingPortal: true,
 		Currencies: nil, RefusedCurrencies: RefusedCurrencies,
 	}
 }
@@ -201,8 +201,9 @@ func (a *Adapter) CreateDraft(ctx context.Context, ref provider.Ref, in provider
 	if err != nil {
 		return provider.Invoice{}, err
 	}
-	if in.CollectionMethod != "SEND_INVOICE" {
-		return provider.Invoice{}, provider.ErrUnsupported
+	collection := "send_invoice"
+	if in.CollectionMethod == "CHARGE_AUTOMATICALLY" {
+		collection = "charge_automatically"
 	}
 	metadata := map[string]string{}
 	for k, v := range in.Metadata {
@@ -214,13 +215,14 @@ func (a *Adapter) CreateDraft(ctx context.Context, ref provider.Ref, in provider
 	params := &stripego.InvoiceCreateParams{
 		Customer:                    stripego.String(in.ExternalCustomerID),
 		Currency:                    stripego.String(strings.ToLower(in.Currency)),
-		CollectionMethod:            stripego.String("send_invoice"),
+		CollectionMethod:            stripego.String(collection),
 		AutoAdvance:                 stripego.Bool(false),
 		PendingInvoiceItemsBehavior: stripego.String("exclude"),
 		AutomaticTax:                &stripego.InvoiceCreateAutomaticTaxParams{Enabled: stripego.Bool(settings.AutomaticTax)},
 		Metadata:                    metadata,
 	}
-	if in.DaysUntilDue != nil {
+	// Stripe refuses days_until_due on an invoice it charges itself.
+	if in.DaysUntilDue != nil && collection == "send_invoice" {
 		params.DaysUntilDue = stripego.Int64(int64(*in.DaysUntilDue))
 	}
 	params.SetIdempotencyKey(in.KaitenInvoiceID.String() + ":draft")
@@ -390,39 +392,13 @@ func (a *Adapter) ListInvoiceEvents(ctx context.Context, ref provider.Ref, curso
 			out = out[:0] // everything up to the cursor was read before
 			continue
 		}
-		externalID := ""
-		if event.Data != nil {
-			externalID, _ = event.Data.Object["id"].(string)
-		}
-		out = append(out, provider.Event{
-			ID: event.ID, Type: string(event.Type), CreatedAt: time.Unix(event.Created, 0).UTC(), ExternalInvoiceID: externalID,
-		})
+		out = append(out, eventOf(event))
 	}
 	next := cursor
 	if len(out) > 0 {
 		next = out[len(out)-1].ID
 	}
 	return out, next, nil
-}
-
-// CreateSetupSession implements provider.Adapter: not in this release.
-func (*Adapter) CreateSetupSession(context.Context, provider.Ref, provider.SetupSession) (provider.SetupSessionLink, error) {
-	return provider.SetupSessionLink{}, provider.ErrUnsupported
-}
-
-// GetSetupSession implements provider.Adapter: not in this release.
-func (*Adapter) GetSetupSession(context.Context, provider.Ref, string) (provider.SetupSessionResult, error) {
-	return provider.SetupSessionResult{}, provider.ErrUnsupported
-}
-
-// CreateBillingPortalSession implements provider.Adapter: not in this release.
-func (*Adapter) CreateBillingPortalSession(context.Context, provider.Ref, string, string) (string, error) {
-	return "", provider.ErrUnsupported
-}
-
-// DetachPaymentMethod implements provider.Adapter: not in this release.
-func (*Adapter) DetachPaymentMethod(context.Context, provider.Ref, string) error {
-	return provider.ErrUnsupported
 }
 
 // CheckCredentials implements provider.CredentialChecker: one read-only call

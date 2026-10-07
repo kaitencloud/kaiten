@@ -51,7 +51,7 @@ func Validate(operation string, p Params) error {
 // List reads one page of an organization's invoices, optionally of one
 // subscription. operation prefixes the filter refusals.
 func List(ctx context.Context, q *db.Queries, operation string, organizationID uuid.UUID, subscriptionID *uuid.UUID,
-	p Params, instanceSlug string, now time.Time,
+	p Params, instanceSlug string, now, autoCollectionBefore time.Time,
 ) (pagination.Page[invoices.InvoiceSummary], error) {
 	empty := pagination.Page[invoices.InvoiceSummary]{}
 	if err := Validate(operation, p); err != nil {
@@ -69,7 +69,7 @@ func List(ctx context.Context, q *db.Queries, operation string, organizationID u
 		}
 		key = &decoded
 	}
-	rows, err := fetch(ctx, q, organizationID, subscriptionID, p, instanceSlug, now, key, limit+1)
+	rows, err := fetch(ctx, q, organizationID, subscriptionID, p, instanceSlug, now, autoCollectionBefore, key, limit+1)
 	if err != nil {
 		return empty, err
 	}
@@ -89,13 +89,13 @@ func List(ctx context.Context, q *db.Queries, operation string, organizationID u
 // Each reads every invoice the filters select, pageSize at a time, in the
 // list's order, and hands each page to fn. Every page is its own statement:
 // nothing stays open between them.
-func Each(ctx context.Context, q *db.Queries, organizationID uuid.UUID, p Params, instanceSlug string, now time.Time,
+func Each(ctx context.Context, q *db.Queries, organizationID uuid.UUID, p Params, instanceSlug string, now, autoCollectionBefore time.Time,
 	pageSize int32, fn func([]db.InstanceInvoice) error,
 ) error {
 	var key *cursorKey
 	byUpdate := !p.UpdatedSince.IsZero()
 	for {
-		rows, err := fetch(ctx, q, organizationID, nil, p, instanceSlug, now, key, pageSize)
+		rows, err := fetch(ctx, q, organizationID, nil, p, instanceSlug, now, autoCollectionBefore, key, pageSize)
 		if err != nil {
 			return err
 		}
@@ -117,7 +117,7 @@ func Each(ctx context.Context, q *db.Queries, organizationID uuid.UUID, p Params
 }
 
 func fetch(ctx context.Context, q *db.Queries, organizationID uuid.UUID, subscriptionID *uuid.UUID, p Params,
-	instanceSlug string, now time.Time, key *cursorKey, size int32,
+	instanceSlug string, now, autoCollectionBefore time.Time, key *cursorKey, size int32,
 ) ([]db.InstanceInvoice, error) {
 	statuses := p.Status
 	if statuses == nil {
@@ -146,7 +146,7 @@ func fetch(ctx context.Context, q *db.Queries, organizationID uuid.UUID, subscri
 		return q.ListInvoicesUpdatedSince(ctx, db.ListInvoicesUpdatedSinceParams{
 			OrganizationID: organizationID, Statuses: statuses, Kind: kind, ProviderKind: providerKind,
 			CustomerSlug: optional(p.CustomerSlug), InstanceSlug: optional(instanceSlug), InstanceBillingID: subscriptionID,
-			Overdue: p.Overdue, Now: invoices.Timestamp(now), Held: p.Held, HandoffStatus: handoff,
+			Overdue: p.Overdue, Now: invoices.Timestamp(now), AutoCollectionBefore: invoices.Timestamp(autoCollectionBefore), Held: p.Held, HandoffStatus: handoff,
 			IssuedFrom: optionalTime(p.IssuedFrom), IssuedTo: optionalTime(p.IssuedTo),
 			BoundaryFrom: optionalTime(p.BoundaryFrom), BoundaryTo: optionalTime(p.BoundaryTo),
 			UpdatedSince: invoices.Timestamp(p.UpdatedSince),
@@ -156,7 +156,7 @@ func fetch(ctx context.Context, q *db.Queries, organizationID uuid.UUID, subscri
 	return q.ListInvoices(ctx, db.ListInvoicesParams{
 		OrganizationID: organizationID, Statuses: statuses, Kind: kind, ProviderKind: providerKind,
 		CustomerSlug: optional(p.CustomerSlug), InstanceSlug: optional(instanceSlug), InstanceBillingID: subscriptionID,
-		Overdue: p.Overdue, Now: invoices.Timestamp(now), Held: p.Held, HandoffStatus: handoff,
+		Overdue: p.Overdue, Now: invoices.Timestamp(now), AutoCollectionBefore: invoices.Timestamp(autoCollectionBefore), Held: p.Held, HandoffStatus: handoff,
 		IssuedFrom: optionalTime(p.IssuedFrom), IssuedTo: optionalTime(p.IssuedTo),
 		BoundaryFrom: optionalTime(p.BoundaryFrom), BoundaryTo: optionalTime(p.BoundaryTo),
 		HasCursor: key != nil, CursorAt: invoices.Timestamp(cursor.At), CursorID: cursor.ID, PageSize: size,

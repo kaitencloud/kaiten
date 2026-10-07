@@ -234,23 +234,33 @@ func (q *Queries) ConvertTrial(ctx context.Context, arg ConvertTrialParams) (Ins
 }
 
 const earliestOverdue = `-- name: EarliestOverdue :one
-SELECT min(i.due_at)::timestamp AS overdue_since
+SELECT min(CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+                THEN CASE WHEN i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required'
+                          THEN i.payment_failed_at
+                          ELSE i.issued_at + ($1::timestamp - $2::timestamp) END
+                ELSE i.due_at END)::timestamp AS overdue_since
 FROM instance_invoice i
-WHERE i.instance_billing_id = $1
+WHERE i.instance_billing_id = $3
   AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
   AND i.total_minor > 0
-  AND i.due_at < $2
+  AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+              THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
+                OR i.issued_at < $2::timestamp
+              ELSE i.due_at < $1::timestamp END)
 `
 
 type EarliestOverdueParams struct {
-	InstanceBillingID uuid.UUID        `json:"instance_billing_id"`
-	Now               pgtype.Timestamp `json:"now"`
+	Now                  pgtype.Timestamp `json:"now"`
+	AutoCollectionBefore pgtype.Timestamp `json:"auto_collection_before"`
+	InstanceBillingID    uuid.UUID        `json:"instance_billing_id"`
 }
 
 // When the subscription's earliest overdue invoice became overdue: issued,
-// unpaid, something owed, past its due date. NULL when none is.
+// unpaid, something owed, past its due date. NULL when none is. An invoice
+// the provider charges is overdue from its refused charge, or once the
+// auto-collection grace after its issue elapsed (§9.6 rule 1).
 func (q *Queries) EarliestOverdue(ctx context.Context, arg EarliestOverdueParams) (pgtype.Timestamp, error) {
-	row := q.db.QueryRow(ctx, earliestOverdue, arg.InstanceBillingID, arg.Now)
+	row := q.db.QueryRow(ctx, earliestOverdue, arg.Now, arg.AutoCollectionBefore, arg.InstanceBillingID)
 	var overdue_since pgtype.Timestamp
 	err := row.Scan(&overdue_since)
 	return overdue_since, err
@@ -264,20 +274,27 @@ WHERE (ib.status = 'ACTIVE' AND EXISTS (
           WHERE i.instance_billing_id = ib.id
             AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
             AND i.total_minor > 0
-            AND i.due_at < $1))
+            AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+              THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
+                OR i.issued_at < $1::timestamp
+              ELSE i.due_at < $2::timestamp END)))
    OR (ib.status = 'PAST_DUE' AND NOT EXISTS (
          SELECT 1 FROM instance_invoice i
           WHERE i.instance_billing_id = ib.id
             AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
             AND i.total_minor > 0
-            AND i.due_at < $1))
+            AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+              THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
+                OR i.issued_at < $1::timestamp
+              ELSE i.due_at < $2::timestamp END)))
 ORDER BY ib.id
-LIMIT $2
+LIMIT $3
 `
 
 type ListOverdueCandidatesParams struct {
-	Now      pgtype.Timestamp `json:"now"`
-	PageSize int32            `json:"page_size"`
+	AutoCollectionBefore pgtype.Timestamp `json:"auto_collection_before"`
+	Now                  pgtype.Timestamp `json:"now"`
+	PageSize             int32            `json:"page_size"`
 }
 
 type ListOverdueCandidatesRow struct {
@@ -288,7 +305,7 @@ type ListOverdueCandidatesRow struct {
 // The subscriptions whose overdue status may have to move: ACTIVE ones with
 // an overdue invoice, PAST_DUE ones without.
 func (q *Queries) ListOverdueCandidates(ctx context.Context, arg ListOverdueCandidatesParams) ([]ListOverdueCandidatesRow, error) {
-	rows, err := q.db.Query(ctx, listOverdueCandidates, arg.Now, arg.PageSize)
+	rows, err := q.db.Query(ctx, listOverdueCandidates, arg.AutoCollectionBefore, arg.Now, arg.PageSize)
 	if err != nil {
 		return nil, err
 	}

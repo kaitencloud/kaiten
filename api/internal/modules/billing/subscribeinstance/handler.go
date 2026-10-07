@@ -327,6 +327,11 @@ func (u *UseCase) checkProvider(ctx context.Context, organizationID uuid.UUID, i
 		return "", kaitenerrors.UnprocessableEntity(operation+".BillingEmailMissing",
 			"the customer has no billing e-mail: the payment provider sends the invoices there")
 	}
+	if method == settings.ChargeAutomatically {
+		if err := providers.RequirePaymentMethod(ctx, q, organizationID, customer.ID, kind, operation); err != nil {
+			return "", err
+		}
+	}
 	clock, err := q.BillingClock(ctx)
 	if err != nil {
 		return "", err

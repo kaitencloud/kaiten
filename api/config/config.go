@@ -90,7 +90,12 @@ type Billing struct {
 	Sync        BillingSync        `mapstructure:"sync"`
 	// ProviderTimeout bounds one call to a payment provider.
 	ProviderTimeout time.Duration `mapstructure:"provider_timeout" validate:"gte=0"`
-	Stripe          BillingStripe `mapstructure:"stripe"`
+	// AutoCollectionGrace is how long an invoice the provider charges may stay
+	// unpaid after its issue before it is overdue, unless its charge was
+	// refused (§9.6 rule 1): room for the charge's retries and the provider's
+	// own attempt, so that a successful charge never passes through PAST_DUE.
+	AutoCollectionGrace time.Duration `mapstructure:"auto_collection_grace" validate:"gte=0"`
+	Stripe              BillingStripe `mapstructure:"stripe"`
 }
 
 // BillingStripe tunes the Stripe provider.
@@ -397,6 +402,7 @@ var settings = []struct {
 	{"billing.push.alert_after_attempts", "KAITEN_BILLING_PUSH_ALERT_AFTER_ATTEMPTS", 5, false},
 	{"billing.sync.interval", "KAITEN_BILLING_SYNC_INTERVAL", "15m", false},
 	{"billing.provider_timeout", "KAITEN_BILLING_PROVIDER_TIMEOUT", "30s", false},
+	{"billing.auto_collection_grace", "KAITEN_BILLING_AUTO_COLLECTION_GRACE", "2h", false},
 	{"billing.stripe.send_after_finalize", "KAITEN_BILLING_STRIPE_SEND_AFTER_FINALIZE", false, false},
 }
 

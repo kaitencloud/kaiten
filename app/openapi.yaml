@@ -1326,6 +1326,14 @@ components:
       required:
         - familySlugs
       type: object
+    CompletedPaymentMethodSession:
+      additionalProperties: false
+      properties:
+        paymentMethod:
+          $ref: "#/components/schemas/PaymentMethodLabels"
+      required:
+        - paymentMethod
+      type: object
     Component:
       additionalProperties: false
       properties:
@@ -1625,6 +1633,20 @@ components:
         - updatedBy
         - updatedAt
       type: object
+    CustomerBilling:
+      additionalProperties: false
+      properties:
+        billingEmail:
+          description: Where the customer's invoices are sent. Personal data
+          type: string
+        providers:
+          description: The customer in each payment provider; none for NOOP
+          items:
+            $ref: "#/components/schemas/CustomerInProvider"
+          type: array
+      required:
+        - providers
+      type: object
     CustomerBody:
       additionalProperties: false
       properties:
@@ -1736,6 +1758,30 @@ components:
         - createdAt
         - updatedBy
         - updatedAt
+      type: object
+    CustomerInProvider:
+      additionalProperties: false
+      properties:
+        externalCustomerId:
+          description: The customer's id in the provider
+          type: string
+        paymentMethod:
+          $ref: "#/components/schemas/PaymentMethodLabels"
+          description: Its default payment method; null when there is none
+        providerKind:
+          enum:
+            - STRIPE
+          type: string
+        syncedAt:
+          format: date-time
+          type: string
+        webUrl:
+          description: The customer's page in the provider's dashboard
+          type: string
+      required:
+        - providerKind
+        - externalCustomerId
+        - paymentMethod
       type: object
     CustomerIntegration:
       additionalProperties: false
@@ -5494,6 +5540,33 @@ components:
         - currency
         - unitAmountDecimal
       type: object
+    NewPaymentMethodSession:
+      additionalProperties: false
+      properties:
+        currency:
+          description: The currency the payment method is set up in; required when the customer has no live subscription, whose currency is used otherwise
+          examples:
+            - EUR
+          type: string
+        returnUrl:
+          description: "Where the customer comes back to: https, or http on localhost. The session id is appended as kaiten_setup_session"
+          examples:
+            - https://app.example.test/billing
+          type: string
+      required:
+        - returnUrl
+      type: object
+    NewPortalSession:
+      additionalProperties: false
+      properties:
+        returnUrl:
+          description: https, or http on localhost
+          examples:
+            - https://app.example.test/billing
+          type: string
+      required:
+        - returnUrl
+      type: object
     NewSubscription:
       additionalProperties: false
       properties:
@@ -6111,6 +6184,248 @@ components:
             - INCIDENT
           type: string
       type: object
+    PaymentFailedInvoice:
+      additionalProperties: false
+      properties:
+        boundaryAt:
+          description: The boundary the invoice bills. With the kind, it identifies the invoice within its subscription
+          format: date-time
+          type: string
+        collectionMethod:
+          enum:
+            - SEND_INVOICE
+            - CHARGE_AUTOMATICALLY
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        customerName:
+          type: string
+        customerSlug:
+          description: As it was when the invoice was composed
+          type: string
+        daysUntilDue:
+          format: int32
+          type: integer
+        discountTotal:
+          description: Sum of the discounts, in minor units
+          format: int64
+          type: integer
+        dueAt:
+          description: issuedAt + daysUntilDue
+          format: date-time
+          type: string
+        failureCode:
+          description: The provider's decline or failure code, such as card_declined, expired_card, authentication_required or no_payment_method
+          type: string
+        handoffStatus:
+          description: "PENDING: waiting in the handoff queue for the organization's accounting system"
+          enum:
+            - NOT_REQUIRED
+            - PENDING
+            - ACKNOWLEDGED
+          type: string
+        holdReason:
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          enum:
+            - LEDGER_SEQUENCE_GAP
+            - LEDGER_CHAIN_BREAK
+            - LEDGER_COUNTER_MISMATCH
+          type: string
+        id:
+          description: "The invoice's identifier: the key an accounting system deduplicates on"
+          type: string
+        instanceName:
+          type: string
+        instanceSlug:
+          type: string
+        issuedAt:
+          format: date-time
+          type: string
+        kind:
+          description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
+          enum:
+            - ACTIVATION
+            - RENEWAL
+            - FINAL
+          type: string
+        licenseSlug:
+          type: string
+        paidAt:
+          format: date-time
+          type: string
+        providerKind:
+          description: "Who collects it. NOOP: the organization itself, through the handoff queue"
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+        requiresAction:
+          description: The customer must authenticate the payment on the invoice's hosted page
+          type: boolean
+        serviceFrom:
+          description: Earliest start of its lines' service periods
+          format: date-time
+          type: string
+        serviceTo:
+          description: Latest end of its lines' service periods
+          format: date-time
+          type: string
+        status:
+          description: "MANUAL: issued, for the organization to collect. PAID, UNCOLLECTIBLE and VOID are final. DRAFT: held, waiting for a release or a recompose"
+          enum:
+            - DRAFT
+            - PUSHED
+            - PUSH_FAILED
+            - MANUAL
+            - PAID
+            - PAYMENT_FAILED
+            - UNCOLLECTIBLE
+            - VOID
+          type: string
+        subtotal:
+          description: Sum of the lines, in minor units
+          format: int64
+          type: integer
+        total:
+          description: subtotal − discountTotal, in minor units
+          format: int64
+          type: integer
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - failureCode
+        - requiresAction
+        - id
+        - kind
+        - boundaryAt
+        - serviceFrom
+        - serviceTo
+        - status
+        - providerKind
+        - collectionMethod
+        - currency
+        - subtotal
+        - discountTotal
+        - total
+        - customerSlug
+        - customerName
+        - instanceSlug
+        - instanceName
+        - licenseSlug
+        - handoffStatus
+        - createdAt
+        - updatedAt
+      type: object
+    PaymentMethodAttached:
+      additionalProperties: false
+      properties:
+        attachedAt:
+          format: date-time
+          type: string
+        customerSlug:
+          type: string
+        providerKind:
+          enum:
+            - STRIPE
+          type: string
+        status:
+          enum:
+            - ACTIVE
+          type: string
+      required:
+        - customerSlug
+        - providerKind
+        - status
+        - attachedAt
+      type: object
+    PaymentMethodDetached:
+      additionalProperties: false
+      properties:
+        customerSlug:
+          type: string
+        providerKind:
+          enum:
+            - STRIPE
+          type: string
+      required:
+        - customerSlug
+        - providerKind
+      type: object
+    PaymentMethodExpiring:
+      additionalProperties: false
+      properties:
+        customerSlug:
+          type: string
+        expiresAt:
+          description: The last instant of the payment method's expiry month
+          format: date-time
+          type: string
+        providerKind:
+          enum:
+            - STRIPE
+          type: string
+      required:
+        - customerSlug
+        - providerKind
+        - expiresAt
+      type: object
+    PaymentMethodLabels:
+      additionalProperties: false
+      properties:
+        attachedAt:
+          format: date-time
+          type: string
+        brand:
+          examples:
+            - visa
+          type: string
+        expMonth:
+          examples:
+            - 12
+          format: int64
+          type: integer
+        expYear:
+          examples:
+            - 2030
+          format: int64
+          type: integer
+        last4:
+          examples:
+            - "4242"
+          type: string
+        status:
+          description: "ACTIVE: charged automatically. EXPIRED, FAILED: a charge said it is no longer usable; save another one"
+          enum:
+            - ACTIVE
+            - EXPIRED
+            - FAILED
+          type: string
+      required:
+        - status
+      type: object
+    PaymentMethodSession:
+      additionalProperties: false
+      properties:
+        expiresAt:
+          format: date-time
+          type: string
+        sessionId:
+          description: Complete it with POST …/payment-method-session/{sessionId}/complete once the customer is back
+          type: string
+        url:
+          description: The provider's page; send the customer there
+          type: string
+      required:
+        - url
+        - sessionId
+        - expiresAt
+      type: object
     PlainToken:
       additionalProperties: false
       properties:
@@ -6210,6 +6525,14 @@ components:
           type: string
       required:
         - licensePriceId
+      type: object
+    PortalSession:
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+      required:
+        - url
       type: object
     PreferenceChoices:
       additionalProperties: false
@@ -12211,6 +12534,386 @@ paths:
       summary: Update a customer
       tags:
         - customers
+  /customers/{customerSlug}/billing:
+    get:
+      description: "The customer's billing e-mail and its side in each payment provider: its id there and the labels of its default payment method (never card data). 404 GetCustomerBilling.CustomerNotFound. Requires billing to be enabled for the organization."
+      operationId: getCustomerBilling
+      parameters:
+        - description: Customer slug
+          in: path
+          name: customerSlug
+          required: true
+          schema:
+            description: Customer slug
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerBilling"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:billing
+      summary: Get a customer's billing
+      tags:
+        - billing
+  /customers/{customerSlug}/billing/payment-method:
+    delete:
+      description: Removes the customer's payment method from the payment provider. 409 .InUseByAutomaticCollection while a live subscription of the customer is charged automatically, .NoPaymentMethod; 503 .ProviderUnavailable. Requires billing to be enabled for the organization.
+      operationId: detachPaymentMethod
+      parameters:
+        - description: Customer slug
+          in: path
+          name: customerSlug
+          required: true
+          schema:
+            description: Customer slug
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:billing
+      summary: Detach a customer's payment method
+      tags:
+        - billing
+  /customers/{customerSlug}/billing/payment-method-session:
+    post:
+      description: Ensures the customer in the payment provider, then opens the provider's hosted page where the customer saves a payment method; Kaiten never sees card data. When the customer comes back to returnUrl, complete the session server-side. 404 .CustomerNotFound; 422 .ProviderNotConnected, .InvalidReturnUrl, .CurrencyRequired; 503 .ProviderUnavailable. Requires billing to be enabled for the organization.
+      operationId: createPaymentMethodSession
+      parameters:
+        - description: Customer slug
+          in: path
+          name: customerSlug
+          required: true
+          schema:
+            description: Customer slug
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPaymentMethodSession"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentMethodSession"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:billing
+      summary: Open a page saving a customer's payment method
+      tags:
+        - billing
+  /customers/{customerSlug}/billing/payment-method-session/{sessionId}/complete:
+    post:
+      description: Checks the setup session with the payment provider (the redirect is never trusted) and makes the payment method saved there the one the customer's invoices are charged to. Idempotent. 404 .SessionNotFound (unknown, or another customer's); 409 .SessionNotComplete; 503 .ProviderUnavailable. Requires billing to be enabled for the organization.
+      operationId: completePaymentMethodSession
+      parameters:
+        - description: Customer slug
+          in: path
+          name: customerSlug
+          required: true
+          schema:
+            description: Customer slug
+            type: string
+        - description: The setup session id the customer came back with
+          in: path
+          name: sessionId
+          required: true
+          schema:
+            description: The setup session id the customer came back with
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompletedPaymentMethodSession"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:billing
+      summary: Complete a payment-method session
+      tags:
+        - billing
+  /customers/{customerSlug}/billing/portal-session:
+    post:
+      description: Opens the payment provider's hosted portal for the customer, where it manages payment methods and invoices; changes reach Kaiten through sync. 422 .ProviderNotConnected, .CustomerNotOnProvider, .InvalidReturnUrl; 503 .ProviderUnavailable. Requires billing to be enabled for the organization.
+      operationId: createPortalSession
+      parameters:
+        - description: Customer slug
+          in: path
+          name: customerSlug
+          required: true
+          schema:
+            description: Customer slug
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPortalSession"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalSession"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:billing
+      summary: Open a customer's billing portal
+      tags:
+        - billing
   /customers/{customerSlug}/integrations/{integrationName}:
     delete:
       description: Delete a single integration for a customer
@@ -22710,6 +23413,123 @@ webhooks:
       tags:
         - webhooks
         - components
+  com.kaiten.customer.payment_method.v1.attached:
+    post:
+      description: Triggered when a customer's default payment method in a provider is set or replaced (a completed setup session, or a change in the provider's portal). Carries no card data.
+      operationId: onCustomerPaymentMethodAttached
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/PaymentMethodAttached"
+                name:
+                  description: Event name
+                  enum:
+                    - CUSTOMER_PAYMENT_METHOD_ATTACHED
+                  examples:
+                    - CUSTOMER_PAYMENT_METHOD_ATTACHED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.customer.payment_method.v1.attached
+                  examples:
+                    - com.kaiten.customer.payment_method.v1.attached
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Customer Payment Method Attached Webhook
+      tags:
+        - webhooks
+        - billing
+  com.kaiten.customer.payment_method.v1.detached:
+    post:
+      description: Triggered when a customer no longer has a payment method in a provider.
+      operationId: onCustomerPaymentMethodDetached
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/PaymentMethodDetached"
+                name:
+                  description: Event name
+                  enum:
+                    - CUSTOMER_PAYMENT_METHOD_DETACHED
+                  examples:
+                    - CUSTOMER_PAYMENT_METHOD_DETACHED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.customer.payment_method.v1.detached
+                  examples:
+                    - com.kaiten.customer.payment_method.v1.detached
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Customer Payment Method Detached Webhook
+      tags:
+        - webhooks
+        - billing
+  com.kaiten.customer.payment_method.v1.expiring:
+    post:
+      description: Triggered once, 30 days before the end of the expiry month of a customer's payment method.
+      operationId: onCustomerPaymentMethodExpiring
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/PaymentMethodExpiring"
+                name:
+                  description: Event name
+                  enum:
+                    - CUSTOMER_PAYMENT_METHOD_EXPIRING
+                  examples:
+                    - CUSTOMER_PAYMENT_METHOD_EXPIRING
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.customer.payment_method.v1.expiring
+                  examples:
+                    - com.kaiten.customer.payment_method.v1.expiring
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Customer Payment Method Expiring Webhook
+      tags:
+        - webhooks
+        - billing
   com.kaiten.customer.v1.created:
     post:
       description: Triggered when a new customer is created.
@@ -24384,6 +25204,45 @@ webhooks:
         "200":
           description: Webhook processed successfully
       summary: Instance Invoice Paid Webhook
+      tags:
+        - webhooks
+        - billing
+  com.kaiten.instance.invoice.v1.payment_failed:
+    post:
+      description: Triggered when the automatic charge of an invoice is refused, or needs the customer to authenticate it on the invoice's hosted page.
+      operationId: onInstanceInvoicePaymentFailed
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/PaymentFailedInvoice"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_INVOICE_PAYMENT_FAILED
+                  examples:
+                    - INSTANCE_INVOICE_PAYMENT_FAILED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.invoice.v1.payment_failed
+                  examples:
+                    - com.kaiten.instance.invoice.v1.payment_failed
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Invoice Payment Failed Webhook
       tags:
         - webhooks
         - billing

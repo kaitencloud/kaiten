@@ -132,6 +132,15 @@ type PushFailedInvoice struct {
 	LastPushError string `json:"lastPushError" doc:"The provider's code and message, never a request body"`
 }
 
+// PaymentFailedInvoice is the payload of INSTANCE_INVOICE_PAYMENT_FAILED: an
+// automatic charge refused, or waiting for the customer to authenticate. No
+// card data.
+type PaymentFailedInvoice struct {
+	InvoiceSummary
+	FailureCode    string `json:"failureCode" doc:"The provider's decline or failure code, such as card_declined, expired_card, authentication_required or no_payment_method"`
+	RequiresAction bool   `json:"requiresAction" doc:"The customer must authenticate the payment on the invoice's hosted page"`
+}
+
 // MismatchedInvoice is the payload of INSTANCE_INVOICE_RECONCILIATION_MISMATCH.
 type MismatchedInvoice struct {
 	InvoiceSummary
