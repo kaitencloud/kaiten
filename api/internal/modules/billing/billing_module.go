@@ -5,6 +5,11 @@ package billing
 
 import (
 	"context"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/completepaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createpaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createportalsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/detachpaymentmethod"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getcustomerbilling"
 	"time"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
@@ -85,6 +90,12 @@ type UseCases struct {
 	SyncProvider           *syncprovider.UseCase
 	SyncInvoice            *syncinvoice.UseCase
 	GetBillingHealth       *getbillinghealth.UseCase
+
+	GetCustomerBilling           *getcustomerbilling.UseCase
+	CreatePaymentMethodSession   *createpaymentmethodsession.UseCase
+	CompletePaymentMethodSession *completepaymentmethodsession.UseCase
+	CreatePortalSession          *createportalsession.UseCase
+	DetachPaymentMethod          *detachpaymentmethod.UseCase
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -138,6 +149,12 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		SyncProvider:           syncprovider.NewUseCase(deps, syncer),
 		SyncInvoice:            syncinvoice.NewUseCase(deps, syncer),
 		GetBillingHealth:       getbillinghealth.NewUseCase(deps, cfg.Push.AlertAfterAttempts),
+
+		GetCustomerBilling:           getcustomerbilling.NewUseCase(deps),
+		CreatePaymentMethodSession:   createpaymentmethodsession.NewUseCase(deps),
+		CompletePaymentMethodSession: completepaymentmethodsession.NewUseCase(deps),
+		CreatePortalSession:          createportalsession.NewUseCase(deps),
+		DetachPaymentMethod:          detachpaymentmethod.NewUseCase(deps),
 	}
 
 	// The billing jobs run only where billing is on and background work runs.

@@ -161,3 +161,10 @@ func RequirePaymentMethod(ctx context.Context, q *db.Queries, organizationID, cu
 	return kaitenerrors.UnprocessableEntity(operation+".PaymentMethodRequired",
 		"the customer has no usable payment method to charge: save one through a payment-method session first")
 }
+
+// IsNotFound reports a provider failure saying the object asked for does not
+// exist (an unknown session, a deleted draft).
+func IsNotFound(err error) bool {
+	var providerErr *provider.Error
+	return errors.As(err, &providerErr) && providerErr.Class == provider.ClassNotFound
+}
