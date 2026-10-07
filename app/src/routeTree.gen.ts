@@ -39,6 +39,7 @@ import { Route as ReleasesComponentsRouteRouteImport } from './routes/releases/c
 import { Route as ReleasesDeploymentZonesRouteRouteImport } from './routes/releases/deployment-zones/route'
 import { Route as ReleasesDeploymentsRouteRouteImport } from './routes/releases/deployments/route'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as SettingsBillingRouteImport } from './routes/settings/billing'
 import { Route as SettingsMetadataRouteImport } from './routes/settings/metadata'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
 import { Route as BillingHandoffIndexRouteImport } from './routes/billing/handoff/index'
@@ -258,6 +259,11 @@ const ReleasesDeploymentsRouteRoute =
 const SettingsIndexRoute = SettingsIndexRouteImport.update({
   id: '/settings/',
   path: '/settings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsBillingRoute = SettingsBillingRouteImport.update({
+  id: '/settings/billing',
+  path: '/settings/billing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsMetadataRoute = SettingsMetadataRouteImport.update({
@@ -632,6 +638,7 @@ export interface FileRoutesByFullPath {
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
   '/releases/deployment-zones': typeof ReleasesDeploymentZonesRouteRouteWithChildren
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
+  '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
@@ -711,6 +718,7 @@ export interface FileRoutesByTo {
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
   '/releases/deployment-zones': typeof ReleasesDeploymentZonesRouteRouteWithChildren
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
+  '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/audit-trail': typeof AuditTrailIndexRoute
@@ -800,6 +808,7 @@ export interface FileRoutesById {
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
   '/releases/deployment-zones': typeof ReleasesDeploymentZonesRouteRouteWithChildren
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
+  '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
@@ -894,6 +903,7 @@ export interface FileRouteTypes {
     | '/releases/components'
     | '/releases/deployment-zones'
     | '/releases/deployments'
+    | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
     | '/audit-trail/'
@@ -973,6 +983,7 @@ export interface FileRouteTypes {
     | '/releases/components'
     | '/releases/deployment-zones'
     | '/releases/deployments'
+    | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
     | '/audit-trail'
@@ -1061,6 +1072,7 @@ export interface FileRouteTypes {
     | '/releases/components'
     | '/releases/deployment-zones'
     | '/releases/deployments'
+    | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
     | '/audit-trail/'
@@ -1147,6 +1159,7 @@ export interface RootRouteChildren {
   IntegrationsServiceAccountsRouteRoute: typeof IntegrationsServiceAccountsRouteRouteWithChildren
   IntegrationsWebhooksRouteRoute: typeof IntegrationsWebhooksRouteRouteWithChildren
   LicensesLicenseSlugRouteRoute: typeof LicensesLicenseSlugRouteRouteWithChildren
+  SettingsBillingRoute: typeof SettingsBillingRoute
   SettingsMetadataRoute: typeof SettingsMetadataRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   AuditTrailIndexRoute: typeof AuditTrailIndexRoute
@@ -1373,6 +1386,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings/'
       preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/billing': {
+      id: '/settings/billing'
+      path: '/settings/billing'
+      fullPath: '/settings/billing'
+      preLoaderRoute: typeof SettingsBillingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/metadata': {
@@ -2207,6 +2227,7 @@ const rootRouteChildren: RootRouteChildren = {
     IntegrationsServiceAccountsRouteRouteWithChildren,
   IntegrationsWebhooksRouteRoute: IntegrationsWebhooksRouteRouteWithChildren,
   LicensesLicenseSlugRouteRoute: LicensesLicenseSlugRouteRouteWithChildren,
+  SettingsBillingRoute: SettingsBillingRoute,
   SettingsMetadataRoute: SettingsMetadataRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
   AuditTrailIndexRoute: AuditTrailIndexRoute,

@@ -3708,6 +3708,95 @@ export default {
           confirmButton: 'Reset settings',
         },
       },
+      Billing: {
+        title: 'Billing',
+        subtitle:
+          'Who collects your invoices, the defaults a subscription takes, and how long usage is kept.',
+        cardDescription:
+          'Who collects your invoices, the defaults a subscription takes, and how long usage is kept.',
+        configureButton: 'Open billing settings',
+        loading: 'Loading the billing settings',
+        Providers: {
+          title: 'Payment providers',
+          description: 'Who collects the invoices of your organization.',
+          available: 'Available',
+          connected: 'Connected',
+          notConnected: 'Not connected',
+          Noop: {
+            title: 'Manual hand-off',
+            description:
+              'Nothing to connect. Kaiten records each invoice and hands it to your own system, such as your ERP, through the handoff queue, and you collect it as you do today.',
+            handoff: 'Open the handoff queue',
+          },
+          Stripe: {
+            description:
+              'Collects the invoices of the subscriptions that use it.',
+          },
+        },
+        Defaults: {
+          title: 'Defaults for subscriptions',
+          description:
+            'A subscription that names no terms of its own takes these. They apply to the invoices issued from now on: an invoice already issued keeps the terms it was issued with.',
+          save: 'Save the defaults',
+          saved: 'Billing defaults saved',
+          readOnly: 'Your session can read these defaults but not change them.',
+          Labels: {
+            collectionMethod: 'Collection method',
+            daysUntilDue: 'Payment terms (days)',
+            handoffStripeInvoices: 'Hand off Stripe invoices',
+          },
+          Descriptions: {
+            collectionMethod:
+              'How an invoice is collected when its subscription does not say.',
+            daysUntilDue:
+              'Days between issuing an invoice and its due date, from 0 to 365.',
+            handoffStripeInvoices:
+              'Also put the invoices a payment provider issues in the handoff queue, for an accounting system that wants every invoice.',
+          },
+          CollectionMethod: {
+            SEND_INVOICE: 'Send the invoice',
+            CHARGE_AUTOMATICALLY: 'Charge automatically',
+            unavailable: '{{method}} (needs a payment provider)',
+          },
+          Errors: {
+            daysUntilDue: 'Enter a whole number of days, from 0 to 365',
+          },
+        },
+        Retention: {
+          title: 'Usage retention',
+          description:
+            'How long the usage reports behind your invoices are kept.',
+          months_one: 'Usage reports are kept for {{count}} month.',
+          months_other: 'Usage reports are kept for {{count}} months.',
+          unlimited:
+            'No time limit is reported for usage reports on this deployment.',
+          idempotency_one:
+            'A report sent again with the same transaction id is ignored for {{count}} day.',
+          idempotency_other:
+            'A report sent again with the same transaction id is ignored for {{count}} days.',
+        },
+      },
+      DataExport: {
+        title: 'Export your data',
+        description:
+          'Deleting an organization erases what billing recorded for it, the journal of usage included, and Kaiten is not your accounting system. Export what you need to keep before you do.',
+        Invoices: {
+          title: 'Invoices',
+          description: 'Every invoice of the organization, with its lines.',
+        },
+        Usage: {
+          title: 'Usage reports',
+          description_one:
+            'The reports of every instance, one file for each month. Kaiten keeps {{count}} month of usage.',
+          description_other:
+            'The reports of every instance, one file for each month. Kaiten keeps {{count}} months of usage.',
+          descriptionUnknown:
+            'The reports of every instance, one file for each month. The last {{count}} months are listed; an older period is exported through the API.',
+          list: 'Months of usage',
+          export: 'Export CSV',
+          exportMonth: 'Export the usage of {{month}} as a CSV',
+        },
+      },
       Metadata: {
         title: 'Metadata fields',
         subtitle:
