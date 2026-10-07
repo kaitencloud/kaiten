@@ -41,6 +41,8 @@ export type PricingProblemOperation =
   | 'updatePrice';
 
 export type ArmedProblem = {
+  /** How many calls of the operation go through before the one that fails. */
+  after?: number;
   code: string;
   detail: string;
   status: number;
@@ -156,6 +158,15 @@ export class LicensePricing {
   private consume(operation: PricingProblemOperation) {
     const problem = this.armed.get(operation);
     if (!problem) {
+      return;
+    }
+    if ((problem.after ?? 0) > 0) {
+      // Let this call through: a copy that stops halfway is one that fails late.
+      this.armed.set(operation, {
+        ...problem,
+        after: (problem.after ?? 0) - 1,
+      });
+
       return;
     }
     this.armed.delete(operation);

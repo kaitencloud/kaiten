@@ -23,6 +23,8 @@ type PriceDrawerProps = {
   licenseSlug: string;
   /** Closes the drawer: the route drops the price it was opened on. */
   onClose: () => void;
+  /** The API refused because the version cannot be changed where it is. */
+  onFrozen: (error: unknown) => void;
   /** The price being edited; a new one when left out. */
   price?: Price;
   pricing: ReturnType<typeof useLicensePricing>;
@@ -36,6 +38,7 @@ type PriceDrawerProps = {
 export function PriceDrawer({
   licenseSlug,
   onClose,
+  onFrozen,
   price,
   pricing,
 }: PriceDrawerProps) {
@@ -44,6 +47,7 @@ export function PriceDrawer({
   const { failure, form, isEditing } = usePriceForm({
     licenseSlug,
     onDone: onClose,
+    onFrozen,
     price,
     pricing,
   });

@@ -832,6 +832,35 @@ export default {
     Licenses: {
       title: 'Licences',
       subtitle: 'Gérez les licences et les limites de droits',
+      Freeze: {
+        billed: {
+          title: 'Cette version est facturée',
+          description:
+            'Un abonnement actif facture cette version : ses droits et ses prix sont gelés, car les modifier changerait un contrat déjà vendu. Créez une nouvelle version pour changer ce qui est vendu. Elle part des droits et des prix de celle-ci, en brouillon modifiable, et les abonnements restent sur cette version jusqu’à ce qu’ils passent à la nouvelle.',
+        },
+        published: {
+          title: 'Les prix d’une version publiée sont immuables',
+          description:
+            'Dépréciez un prix pour le retirer, ou créez une nouvelle version pour changer ce qui est vendu. La nouvelle version part des droits et des prix de celle-ci, en brouillon modifiable.',
+        },
+        archived: {
+          title: 'Cette version n’accepte aucun nouveau prix',
+          description:
+            'Une version retirée de la vente n’accepte aucun nouveau prix. Créez une nouvelle version pour changer ce qui est vendu. Elle part des droits et des prix de celle-ci, en brouillon modifiable.',
+        },
+        createNewVersion: 'Créer une nouvelle version',
+      },
+      PriceCopy: {
+        title: 'La copie des prix s’est arrêtée',
+        description:
+          'Les prix de {{name}} v{{version}} étaient copiés vers cette version, et {{copied}} sur {{total}} sont passés. Le reste peut être copié à partir de là où elle s’est arrêtée. Rien n’a été supprimé, et rien n’a été modifié sur {{name}} v{{version}}.',
+        copiedHeading: 'Copiés',
+        pendingHeading: 'Restent à copier',
+        resume: 'Reprendre la copie',
+        Toasts: {
+          done: 'Prix copiés',
+        },
+      },
       Commercial: {
         cardTitle: 'Conditions commerciales',
         cardDescription: 'Comment cette version est vendue.',
@@ -1164,6 +1193,11 @@ export default {
             licenseName: 'Nom de la licence',
             versionName: 'Nom de version',
             baseVersion: 'Version de base (existante)',
+            copyPrices: 'Copier les prix de la version de base',
+          },
+          Descriptions: {
+            copyPrices:
+              "Chaque prix actif de la version de base est ajouté à la nouvelle, dans le même ordre, une fois ses droits en place. Les abonnements restent sur leur version tant que chacun n'est pas programmé vers la nouvelle.",
           },
           Placeholders: {
             selectLicenseName: 'Sélectionner un nom de licence',

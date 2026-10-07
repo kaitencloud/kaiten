@@ -1,5 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
+import { z } from 'zod';
 import {
   entitlementsQueryOptions,
   LicenseVersionForm,
@@ -9,8 +10,13 @@ import {
 } from '@/features/licenses';
 import i18n from '@/lib/i18n/config';
 
+// `?draft=true` offers the version as a draft, which a link from a version that
+// cannot be changed any more uses: a draft is what can be changed.
+const newVersionSearchSchema = z.object({ draft: z.boolean().optional() });
+
 export const Route = createFileRoute('/licenses/versions/$licenseSlug/')({
   component: NewLicenseVersionForLicenseRoute,
+  validateSearch: (search) => newVersionSearchSchema.parse(search),
   beforeLoad: async ({ context, params: { licenseSlug } }) => {
     const license = await context.queryClient.ensureQueryData(
       licenseQueryOptions(licenseSlug),
@@ -34,6 +40,7 @@ export const Route = createFileRoute('/licenses/versions/$licenseSlug/')({
 
 function NewLicenseVersionForLicenseRoute() {
   const { licenseSlug } = Route.useParams();
+  const { draft } = Route.useSearch();
   const { data: licenses } = useSuspenseQuery(licensesQueryOptions);
   const { data: families } = useSuspenseQuery(licenseFamiliesQueryOptions);
   const { data: license } = useSuspenseQuery(licenseQueryOptions(licenseSlug));
@@ -47,6 +54,7 @@ function NewLicenseVersionForLicenseRoute() {
       availableFamilies={families?.items ?? []}
       availableLicenses={licenses?.items ?? []}
       selectedLicenseSlug={licenseSlug}
+      startAsDraft={draft}
     />
   );
 }

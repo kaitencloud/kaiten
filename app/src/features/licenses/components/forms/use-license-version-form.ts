@@ -6,16 +6,18 @@ import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
 import type { Entitlement, License, LicenseFamilyView } from '@/api-client';
 import { useAppForm } from '@/hooks/form';
+import { useCreateLicenseVersion } from '../../hooks/use-create-license-version';
 import { useLicenseEntitlementsDraft } from '../../hooks/use-license-entitlements-draft';
-import { useLicenseSave } from '../../hooks/use-license-save';
 import { useLicenseVersionFormStore } from '../../hooks/use-license-version-form-store';
 import {
   entitlementsQueryOptions,
-  invalidateLicenseQueries,
   licenseEntitlementsQueryOptions,
 } from '../../queries';
 import { resolveLicenseEntitlements } from '../../utils';
+import { getCopyFailure } from '../../utils/license-price-copy.utils';
+import { getCreatedVersionDestination } from '../../utils/license-version-destination.utils';
 import {
+  type LicenseVersionFormValues,
   licenseVersionFormSchema,
   licenseVersionFormValuesToLicenseInput,
 } from './license-version-form.schema';
@@ -28,6 +30,7 @@ type UseLicenseVersionFormOptions = {
   onCancel?: () => void;
   onSuccess?: () => void;
   selectedLicenseSlug?: string;
+  startAsDraft?: boolean;
 };
 
 type SyncDraftEntitlementsFromBaseOptions = {
@@ -131,6 +134,81 @@ function useInitializeBaseEntitlements({
   ]);
 }
 
+type SubmitLicenseVersionOptions = Pick<
+  UseLicenseVersionFormOptions,
+  'availableLicenses' | 'onSuccess'
+> & {
+  draftEntitlements: ReturnType<
+    typeof useLicenseEntitlementsDraft
+  >['draftEntitlements'];
+  entitlements: Entitlement[];
+};
+
+// What the form does once it is valid: creates the version, tells the person
+// when it stayed a draft, and goes where the version opens.
+function useSubmitLicenseVersion({
+  availableLicenses,
+  draftEntitlements,
+  entitlements,
+  onSuccess,
+}: SubmitLicenseVersionOptions) {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const createVersion = useCreateLicenseVersion(entitlements);
+
+  return async (value: LicenseVersionFormValues) => {
+    try {
+      const baseLicense = availableLicenses.find(
+        (license) => license.slug === value.baseLicenseSlug,
+      );
+
+      if (!baseLicense) {
+        throw new Error(
+          t('Pages.Licenses.Version.Form.Errors.baseLicenseNotFound'),
+        );
+      }
+
+      const { error, hasPrices, license } = await createVersion({
+        baseLicense,
+        body: licenseVersionFormValuesToLicenseInput(value, baseLicense),
+        copyPrices: value.copyPrices,
+        draftEntitlements,
+      });
+
+      // The version exists but stayed a draft: a grant, a price or the
+      // publish failed. A copy of prices that stopped says why with the
+      // refusal of the API that stopped it.
+      if (error) {
+        toast.error(
+          t('Pages.Licenses.Mutation.Form.Errors.savedAsDraft', {
+            reason: getApiErrorMessage(getCopyFailure(error)),
+          }),
+        );
+      }
+
+      const destination = getCreatedVersionDestination({
+        baseSlug: baseLicense.slug,
+        error,
+        hasPrices,
+        license,
+      });
+      if (destination) {
+        router.navigate(destination);
+        return;
+      }
+
+      if (onSuccess) {
+        onSuccess();
+        return;
+      }
+
+      router.navigate({ to: '/licenses' });
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    }
+  };
+}
+
 export function useLicenseVersionForm({
   availableFamilies,
   availableLicenses,
@@ -138,6 +216,7 @@ export function useLicenseVersionForm({
   onCancel,
   onSuccess,
   selectedLicenseSlug,
+  startAsDraft,
 }: UseLicenseVersionFormOptions) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -152,13 +231,13 @@ export function useLicenseVersionForm({
   const { queryClient } = useRouteContext({ from: '__root__' });
   const { data: entitlementsData } = useSuspenseQuery(entitlementsQueryOptions);
   const entitlements = entitlementsData?.items ?? [];
-  const { createLicenseWithGrants } = useLicenseSave(entitlements);
   const { familyOptions, initialValues, licensesByFamily } =
     useLicenseVersionFormOptions({
       availableFamilies,
       availableLicenses,
       baseLicense,
       selectedLicenseSlug,
+      startAsDraft,
     });
 
   const {
@@ -181,59 +260,18 @@ export function useLicenseVersionForm({
     syncDraftEntitlementsFromBase,
   });
 
+  const submit = useSubmitLicenseVersion({
+    availableLicenses,
+    draftEntitlements,
+    entitlements,
+    onSuccess,
+  });
   const form = useAppForm({
     defaultValues: initialValues,
     validators: {
       onChange: licenseVersionFormSchema,
     },
-    onSubmit: async ({ value }) => {
-      try {
-        const selectedBaseLicense = availableLicenses.find(
-          (license) => license.slug === value.baseLicenseSlug,
-        );
-
-        if (!selectedBaseLicense) {
-          throw new Error(
-            t('Pages.Licenses.Version.Form.Errors.baseLicenseNotFound'),
-          );
-        }
-
-        const { error, license } = await createLicenseWithGrants({
-          body: licenseVersionFormValuesToLicenseInput(
-            value,
-            selectedBaseLicense,
-          ),
-          draftEntitlements,
-        });
-        await invalidateLicenseQueries(queryClient);
-
-        // The version exists but stayed a draft: a grant or the publish
-        // failed. Its own page is where the vendor finishes it.
-        if (error) {
-          toast.error(
-            t('Pages.Licenses.Mutation.Form.Errors.savedAsDraft', {
-              reason: getApiErrorMessage(error),
-            }),
-          );
-          if (license.slug) {
-            router.navigate({
-              to: '/licenses/$licenseSlug',
-              params: { licenseSlug: license.slug },
-            });
-            return;
-          }
-        }
-
-        if (onSuccess) {
-          onSuccess();
-          return;
-        }
-
-        router.navigate({ to: '/licenses' });
-      } catch (error) {
-        toast.error(getApiErrorMessage(error));
-      }
-    },
+    onSubmit: ({ value }) => submit(value),
   });
 
   const selectedFamilyId =

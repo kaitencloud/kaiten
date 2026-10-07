@@ -45,23 +45,28 @@ export class LicensePricesDriver {
     });
   }
 
-  /** The labels of the prices, from the first row to the last. */
+  /**
+   * The labels of the prices, from the first row to the last, read in one
+   * snapshot of the page: a table that is replaced while it is read (the tab
+   * is reached by a navigation whose chunks are still loading, and the page it
+   * leaves is still there) answers with what it shows then, and the caller reads
+   * again, instead of waiting on a row that has gone.
+   */
   async labels(): Promise<string[]> {
-    const rows = this.rows();
-    const count = await rows.count();
-    const labels: string[] = [];
-    for (let index = 0; index < count; index += 1) {
-      // The label is the first line of the first cell, where a badge that says
-      // the price is the default is another line.
-      const cell = await rows.nth(index).getByRole('cell').first().innerText();
-      labels.push(cell.split('\n')[0].trim());
-    }
-
-    return labels;
+    // The label is the first line of the first cell, where a badge that says the
+    // price is the default is another line.
+    return this.rows().evaluateAll((rows) =>
+      rows.map(
+        (row) =>
+          row.querySelector('td')?.innerText.split('\n')[0]?.trim() ?? '',
+      ),
+    );
   }
 
   async expectLabels(labels: string[]) {
-    await expect.poll(() => this.labels()).toEqual(labels);
+    // The tab may be reached by a client-side navigation whose chunks the dev
+    // server still has to build, which takes longer than an assertion's default.
+    await expect.poll(() => this.labels(), { timeout: 20_000 }).toEqual(labels);
   }
 
   // --- What is done to the prices --------------------------------------------

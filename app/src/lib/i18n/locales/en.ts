@@ -819,6 +819,35 @@ export default {
     Licenses: {
       title: 'Licenses',
       subtitle: 'Manage licenses and entitlement limits',
+      Freeze: {
+        billed: {
+          title: 'This version is billed',
+          description:
+            'A live subscription bills this version, so its entitlements and prices are frozen: changing them would change a contract already sold. Create a new version to change what is sold. It starts from this version’s entitlements and prices, as a draft you can change, and subscriptions stay on this version until they move to the new one.',
+        },
+        published: {
+          title: 'The prices of a published version are immutable',
+          description:
+            'Deprecate a price to retire it, or create a new version to change what is sold. The new version starts from this version’s entitlements and prices, as a draft you can change.',
+        },
+        archived: {
+          title: 'This version takes no new price',
+          description:
+            'A version withdrawn from sale takes no new price. Create a new version to change what is sold. It starts from this version’s entitlements and prices, as a draft you can change.',
+        },
+        createNewVersion: 'Create a new version',
+      },
+      PriceCopy: {
+        title: 'The copy of prices stopped',
+        description:
+          'The prices of {{name}} v{{version}} were being copied to this version, and {{copied}} of {{total}} are in. The rest can be copied from where it stopped. Nothing was deleted, and nothing was changed on {{name}} v{{version}}.',
+        copiedHeading: 'Copied',
+        pendingHeading: 'Still to copy',
+        resume: 'Resume the copy',
+        Toasts: {
+          done: 'Prices copied',
+        },
+      },
       Commercial: {
         cardTitle: 'Commercial terms',
         cardDescription: 'How this version is sold.',
@@ -1146,6 +1175,11 @@ export default {
             licenseName: 'License name',
             versionName: 'Version name',
             baseVersion: 'Base version (existing)',
+            copyPrices: 'Copy the prices of the base version',
+          },
+          Descriptions: {
+            copyPrices:
+              'Each active price of the base version is added to the new one, in the same order, once its entitlements are. Subscriptions stay on their version until each one is scheduled onto the new one.',
           },
           Placeholders: {
             selectLicenseName: 'Select license name',

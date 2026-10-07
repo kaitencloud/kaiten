@@ -12,6 +12,8 @@ import { getPriceLabel } from '../../utils/license-price-display';
 import { getPreviewBases } from '../../utils/license-price-preview.utils';
 import { canEditPrice } from '../../utils/license-price.utils';
 import { DeprecatePriceDialog } from './deprecate-price-dialog';
+import { NewVersionDialog } from '../new-version-dialog';
+import { PriceCopyBanner } from './price-copy-banner';
 import { LicenseInvoicePreviewDialog } from './license-invoice-preview-dialog';
 import { LicensePricesActions } from './license-prices-actions';
 import { PriceDrawer } from './price-drawer';
@@ -21,6 +23,8 @@ import { PriceTable } from './price-table';
 const PriceIcon = dataModelIcons.price;
 
 type LicensePricesTabProps = {
+  /** The version whose prices were being copied to this one, when a copy stopped. */
+  copyFrom?: string;
   licenseSlug: string;
   /** `new`, or the id of the price the URL opens the drawer on. */
   priceParam?: string;
@@ -41,6 +45,7 @@ const STATE_NOTE_KEYS = {
  * edit opens in a drawer the URL controls; a deprecation asks first.
  */
 export function LicensePricesTab({
+  copyFrom,
   licenseSlug,
   priceParam,
 }: LicensePricesTabProps) {
@@ -54,10 +59,20 @@ export function LicensePricesTab({
   const mayUpdate = update.allowed;
   const [toDeprecate, setToDeprecate] = useState<Price | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  // What the API refused with when the version could not be changed any more.
+  const [frozen, setFrozen] = useState<unknown>(null);
 
   const closeDrawer = () => {
     void navigate({
       params: { licenseSlug },
+      search: (previous) => ({ ...previous, price: undefined }),
+      to: '/licenses/$licenseSlug/prices',
+    });
+  };
+  const endCopy = () => {
+    void navigate({
+      params: { licenseSlug },
+      search: (previous) => ({ ...previous, copyFrom: undefined }),
       to: '/licenses/$licenseSlug/prices',
     });
   };
@@ -110,6 +125,15 @@ export function LicensePricesTab({
           />
         </TableCard.Header>
         <div className="space-y-3 px-6 pb-3">
+          {copyFrom ? (
+            <PriceCopyBanner
+              copyFrom={copyFrom}
+              entitlementBySlug={entitlementBySlug}
+              licenseSlug={licenseSlug}
+              onDone={endCopy}
+              prices={prices}
+            />
+          ) : null}
           <PriceSummary
             className="text-sm font-medium"
             entitlementBySlug={entitlementBySlug}
@@ -137,6 +161,10 @@ export function LicensePricesTab({
         <PriceDrawer
           licenseSlug={licenseSlug}
           onClose={closeDrawer}
+          onFrozen={(error) => {
+            closeDrawer();
+            setFrozen(error);
+          }}
           price={mayEdit ? editing : undefined}
           pricing={pricing}
         />
@@ -145,7 +173,15 @@ export function LicensePricesTab({
         <Navigate
           params={{ licenseSlug }}
           replace
+          search={(previous) => ({ ...previous, price: undefined })}
           to="/licenses/$licenseSlug/prices"
+        />
+      ) : null}
+      {frozen ? (
+        <NewVersionDialog
+          error={frozen}
+          licenseSlug={licenseSlug}
+          onClose={() => setFrozen(null)}
         />
       ) : null}
       {previewing ? (
