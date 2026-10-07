@@ -3900,6 +3900,14 @@ export default {
           tooLong: 'Le motif est trop long',
         },
       },
+      InvoicesCard: {
+        title: 'Factures',
+        loading: 'Chargement des factures',
+        emptyTitle: 'Aucune facture pour le moment',
+        shown_one: '{{count}} facture affichée',
+        shown_other: '{{count}} factures affichées',
+        loadMore: 'Charger plus',
+      },
     },
     AuditTrail: {
       events: {

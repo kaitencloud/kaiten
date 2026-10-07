@@ -12,6 +12,7 @@ export { InvoiceLinesTable } from './invoice-lines-table';
 export { InvoicePreviewDialog } from './invoice-preview-dialog';
 export { InvoicePreviewResult } from './invoice-preview-result';
 export { InvoiceStatusBadge } from './invoice-status-badge';
+export { InvoicesCard } from './invoices-card';
 export { InvoiceTotals } from './invoice-totals';
 export { InvoicesTable, type InvoicesTableColumn } from './invoices-table';
 export { LineFingerprint } from './line-fingerprint';

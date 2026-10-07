@@ -90,6 +90,22 @@ export function formatInstant(
   return text ? `${text} ${UTC_MARKER}` : DEFAULT_FALLBACK;
 }
 
+/**
+ * A boundary between two periods as text, in UTC and marked: the day when it
+ * falls at midnight, as the subscriptions anchored on a day do (`Apr 1, 2027
+ * (UTC)`), and the moment otherwise (`Apr 1, 2027, 10:00 AM (UTC)`).
+ */
+export function formatBoundary(
+  value: string | undefined | null,
+  locale: string = getAppLocale(),
+): string {
+  const date = parse(value);
+
+  return date && isMidnightUtc(date)
+    ? formatUtcDate(value, locale)
+    : formatInstant(value, locale);
+}
+
 const TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   timeStyle: 'short',
   timeZone: 'UTC',

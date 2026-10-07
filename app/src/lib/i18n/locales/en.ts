@@ -3832,6 +3832,14 @@ export default {
           tooLong: 'The reason is too long',
         },
       },
+      InvoicesCard: {
+        title: 'Invoices',
+        loading: 'Loading invoices',
+        emptyTitle: 'No invoices yet',
+        shown_one: '{{count}} invoice shown',
+        shown_other: '{{count}} invoices shown',
+        loadMore: 'Load more',
+      },
     },
     AuditTrail: {
       events: {
