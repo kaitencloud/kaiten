@@ -21,7 +21,7 @@ ALTER TABLE "instance_billing"
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM "instance_billing" WHERE "status" = 'TRIAL') THEN
-    RAISE EXCEPTION 'instance_billing has TRIAL rows; convert or cancel them before rolling back 20261008000000';
+    RAISE EXCEPTION 'instance_billing has TRIAL rows; convert or cancel them before rolling back 20261007150000';
   END IF;
 END $$;
 ALTER TABLE "instance_billing" DROP CONSTRAINT IF EXISTS "instance_billing_trial_check";
