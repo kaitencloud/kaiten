@@ -1,26 +1,13 @@
 import { Navigate, useNavigate } from '@tanstack/react-router';
-import { Lock } from 'lucide-react';
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import type { Price } from '@/api-client';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useActionAccess } from '@/domains/billing';
-import { TableCard } from '@/functionals/table';
-import { dataModelIcons } from '@/lib/data-model-icons';
 import { useLicensePricing } from '../../hooks/use-license-pricing';
-import { getPriceLabel } from '../../utils/license-price-display';
-import { getPreviewBases } from '../../utils/license-price-preview.utils';
-import { canEditPrice } from '../../utils/license-price.utils';
-import { DeprecatePriceDialog } from './deprecate-price-dialog';
+import { usePriceDrawerTarget } from '../../hooks/use-price-drawer-target';
 import { NewVersionDialog } from '../new-version-dialog';
-import { PriceCopyBanner } from './price-copy-banner';
+import { DeprecatePriceDialog } from './deprecate-price-dialog';
 import { LicenseInvoicePreviewDialog } from './license-invoice-preview-dialog';
-import { LicensePricesActions } from './license-prices-actions';
+import { LicensePricesCard } from './license-prices-card';
 import { PriceDrawer } from './price-drawer';
-import { PriceSummary } from './price-summary';
-import { PriceTable } from './price-table';
-
-const PriceIcon = dataModelIcons.price;
 
 type LicensePricesTabProps = {
   /** The version whose prices were being copied to this one, when a copy stopped. */
@@ -30,146 +17,59 @@ type LicensePricesTabProps = {
   priceParam?: string;
 };
 
-// What the state of the version says about its prices, so that a price that
-// cannot be edited is never a surprise.
-const STATE_NOTE_KEYS = {
-  ARCHIVED: 'Pages.Licenses.Prices.Notes.archived',
-  DRAFT: 'Pages.Licenses.Prices.Notes.draft',
-  PUBLISHED: 'Pages.Licenses.Prices.Notes.published',
-} as const;
-
 /**
- * The prices of one license version: what it bills, as a line a person reads
- * and as the table of its prices, and what can be done to them. Each price is
- * one billable concern and becomes one line of an invoice. A new price or an
- * edit opens in a drawer the URL controls; a deprecation asks first.
+ * The prices of one license version: what it bills and what can be done to its
+ * prices. Each price is one billable concern and becomes one line of an invoice.
+ * A new price or an edit opens in a drawer the URL controls; a deprecation asks
+ * first; the preview of the invoice they make up and the way to a new version,
+ * when a price cannot be changed where it is, are dialogs over the tab.
  */
 export function LicensePricesTab({
   copyFrom,
   licenseSlug,
   priceParam,
 }: LicensePricesTabProps) {
-  const { t } = useTranslation();
   const navigate = useNavigate();
   const pricing = useLicensePricing(licenseSlug);
-  const { entitlementBySlug, grantBySlug, prices, rules } = pricing;
-  const create = useActionAccess('licensePrices.create');
-  const update = useActionAccess('licensePrices.update');
-  const mayCreate = create.allowed;
-  const mayUpdate = update.allowed;
+  const { entitlementBySlug, prices, rules } = pricing;
+  const drawer = usePriceDrawerTarget({ priceParam, prices, rules });
   const [toDeprecate, setToDeprecate] = useState<Price | null>(null);
   const [previewing, setPreviewing] = useState(false);
   // What the API refused with when the version could not be changed any more.
   const [frozen, setFrozen] = useState<unknown>(null);
 
-  const closeDrawer = () => {
+  // The tab keeps the rest of its search (the copy that stopped) when it drops
+  // what it was asked for.
+  const dropSearch = (key: 'copyFrom' | 'price') =>
     void navigate({
       params: { licenseSlug },
-      search: (previous) => ({ ...previous, price: undefined }),
+      search: (previous) => ({ ...previous, [key]: undefined }),
       to: '/licenses/$licenseSlug/prices',
     });
-  };
-  const endCopy = () => {
-    void navigate({
-      params: { licenseSlug },
-      search: (previous) => ({ ...previous, copyFrom: undefined }),
-      to: '/licenses/$licenseSlug/prices',
-    });
-  };
-
-  const adding = priceParam === 'new' && mayCreate && rules.canAdd;
-  const editing =
-    priceParam && priceParam !== 'new'
-      ? prices.find((price) => price.id === priceParam)
-      : undefined;
-  const mayEdit =
-    editing !== undefined && mayUpdate && canEditPrice(rules, editing);
-  // A link to a drawer that cannot open (an unknown price, a published version, a
-  // session that may not write) leads to the tab, not to a drawer left blank. It
-  // is kept while the scopes of the session are being read: they are not known
-  // yet, and a link followed from outside must not be dropped for that.
-  const unopenable =
-    !create.isPending && priceParam !== undefined && !adding && !mayEdit;
-  const toDeprecateLabel = toDeprecate
-    ? getPriceLabel(
-        toDeprecate,
-        toDeprecate.metered
-          ? entitlementBySlug.get(toDeprecate.metered.entitlementSlug)
-          : undefined,
-        t,
-      )
-    : '';
 
   return (
     <>
-      <TableCard>
-        <TableCard.Header>
-          <TableCard.HeaderLeading>
-            <TableCard.HeaderIcon>
-              <PriceIcon />
-            </TableCard.HeaderIcon>
-            <TableCard.HeaderHeading>
-              <TableCard.HeaderTitle>
-                {t('Pages.Licenses.Prices.title')}
-              </TableCard.HeaderTitle>
-              <TableCard.HeaderSubtitle>
-                {t('Pages.Licenses.Prices.tabDescription')}
-              </TableCard.HeaderSubtitle>
-            </TableCard.HeaderHeading>
-          </TableCard.HeaderLeading>
-          <LicensePricesActions
-            canPreview={getPreviewBases(prices).length > 0}
-            licenseSlug={licenseSlug}
-            onPreview={() => setPreviewing(true)}
-            rules={rules}
-          />
-        </TableCard.Header>
-        <div className="space-y-3 px-6 pb-3">
-          {copyFrom ? (
-            <PriceCopyBanner
-              copyFrom={copyFrom}
-              entitlementBySlug={entitlementBySlug}
-              licenseSlug={licenseSlug}
-              onDone={endCopy}
-              prices={prices}
-            />
-          ) : null}
-          <PriceSummary
-            className="text-sm font-medium"
-            entitlementBySlug={entitlementBySlug}
-            prices={prices}
-          />
-          <Alert>
-            <Lock />
-            <AlertDescription>
-              {t(STATE_NOTE_KEYS[rules.state])}
-            </AlertDescription>
-          </Alert>
-        </div>
-        <TableCard.Content>
-          <PriceTable
-            entitlementBySlug={entitlementBySlug}
-            grantBySlug={grantBySlug}
-            licenseSlug={licenseSlug}
-            onDeprecate={setToDeprecate}
-            prices={prices}
-            rules={rules}
-          />
-        </TableCard.Content>
-      </TableCard>
-      {adding || (mayEdit && editing) ? (
+      <LicensePricesCard
+        copyFrom={copyFrom}
+        licenseSlug={licenseSlug}
+        onCopyDone={() => dropSearch('copyFrom')}
+        onDeprecate={setToDeprecate}
+        onPreview={() => setPreviewing(true)}
+        pricing={pricing}
+      />
+      {drawer.isOpen ? (
         <PriceDrawer
           licenseSlug={licenseSlug}
-          onClose={closeDrawer}
+          onClose={() => dropSearch('price')}
           onFrozen={(error) => {
-            closeDrawer();
+            dropSearch('price');
             setFrozen(error);
           }}
-          price={mayEdit ? editing : undefined}
+          price={drawer.price}
           pricing={pricing}
         />
       ) : null}
-      {unopenable ? (
+      {drawer.shouldLeave ? (
         <Navigate
           params={{ licenseSlug }}
           replace
@@ -193,7 +93,7 @@ export function LicensePricesTab({
       ) : null}
       {toDeprecate ? (
         <DeprecatePriceDialog
-          label={toDeprecateLabel}
+          entitlementBySlug={entitlementBySlug}
           licenseSlug={licenseSlug}
           onClose={() => setToDeprecate(null)}
           price={toDeprecate}
