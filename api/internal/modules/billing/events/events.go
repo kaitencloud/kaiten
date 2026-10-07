@@ -22,13 +22,13 @@ var (
 	InstanceInvoiceVoided              = events.New("INSTANCE_INVOICE_VOIDED", "com.kaiten.instance.invoice.v1.voided")
 	InstanceInvoiceHandoffAcknowledged = events.New("INSTANCE_INVOICE_HANDOFF_ACKNOWLEDGED", "com.kaiten.instance.invoice.v1.handoff_acknowledged")
 
-	InstanceInvoicePushed                 = events.New("INSTANCE_INVOICE_PUSHED", "com.kaiten.instance.invoice.v1.pushed")
-	InstanceInvoicePushFailed             = events.New("INSTANCE_INVOICE_PUSH_FAILED", "com.kaiten.instance.invoice.v1.push_failed")
-	InstanceInvoicePaymentFailed          = events.New("INSTANCE_INVOICE_PAYMENT_FAILED", "com.kaiten.instance.invoice.v1.payment_failed")
+	InstanceInvoicePushed        = events.New("INSTANCE_INVOICE_PUSHED", "com.kaiten.instance.invoice.v1.pushed")
+	InstanceInvoicePushFailed    = events.New("INSTANCE_INVOICE_PUSH_FAILED", "com.kaiten.instance.invoice.v1.push_failed")
+	InstanceInvoicePaymentFailed = events.New("INSTANCE_INVOICE_PAYMENT_FAILED", "com.kaiten.instance.invoice.v1.payment_failed")
 
-	CustomerPaymentMethodAttached = events.New("CUSTOMER_PAYMENT_METHOD_ATTACHED", "com.kaiten.customer.payment_method.v1.attached")
-	CustomerPaymentMethodDetached = events.New("CUSTOMER_PAYMENT_METHOD_DETACHED", "com.kaiten.customer.payment_method.v1.detached")
-	CustomerPaymentMethodExpiring = events.New("CUSTOMER_PAYMENT_METHOD_EXPIRING", "com.kaiten.customer.payment_method.v1.expiring")
+	CustomerPaymentMethodAttached         = events.New("CUSTOMER_PAYMENT_METHOD_ATTACHED", "com.kaiten.customer.payment_method.v1.attached")
+	CustomerPaymentMethodDetached         = events.New("CUSTOMER_PAYMENT_METHOD_DETACHED", "com.kaiten.customer.payment_method.v1.detached")
+	CustomerPaymentMethodExpiring         = events.New("CUSTOMER_PAYMENT_METHOD_EXPIRING", "com.kaiten.customer.payment_method.v1.expiring")
 	InstanceInvoiceReconciliationMismatch = events.New("INSTANCE_INVOICE_RECONCILIATION_MISMATCH", "com.kaiten.instance.invoice.v1.reconciliation_mismatch")
 
 	BillingProviderSyncFailed   = events.New("BILLING_PROVIDER_SYNC_FAILED", "com.kaiten.billing_provider.v1.sync_failed")
