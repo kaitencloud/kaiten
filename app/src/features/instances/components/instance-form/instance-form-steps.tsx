@@ -14,11 +14,11 @@ import {
   InstanceLicenseStepFooter,
   InstanceMetadataStepFooter,
 } from './instance-form-footers';
+import { InstanceDeploymentFields } from './instance-form-deployment-fields';
+import { InstanceMetadataFields } from './instance-form-metadata-fields';
 import {
-  InstanceDeploymentFields,
   InstanceInformationFields,
   InstanceLicenseFields,
-  InstanceMetadataFields,
 } from './instance-form-sections';
 
 type InstanceFormStepsProps = {

@@ -1,16 +1,9 @@
-import { useMutation, useQuery, useSuspenseQuery } from '@tanstack/react-query';
-import { useRouteContext, useRouter } from '@tanstack/react-router';
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
+import { useRouter } from '@tanstack/react-router';
 import { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { Customer, DeploymentZone, Instance, License } from '@/api-client';
-import {
-  createInstanceMutation,
-  getInstanceQueryKey,
-  patchInstanceMutation,
-  updateInstanceMutation,
-} from '@/api-client/@tanstack/react-query.gen';
-import { startAttioSyncWatcher } from '@/domains/crm-sync';
 import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
 import {
   allCustomersOptions,
@@ -23,10 +16,6 @@ import { StepStack, type StepStackOrientation } from '@/functionals/step-stack';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
 import { getApiErrorMessage } from '@/lib/errors';
 import {
-  invalidateInstanceQueries,
-  invalidateInstancesListQueries,
-} from '../../hooks/instance-query-invalidation';
-import {
   initialInstanceFormValues,
   instanceFormSchema,
   instanceFormValuesToInstanceInput,
@@ -35,6 +24,7 @@ import {
   instanceToFormValues,
 } from '../../utils/instance-form.shared';
 import { InstanceFormSteps } from './instance-form-steps';
+import { useInstanceFormMutations } from './use-instance-form-mutations';
 
 export type LockedCustomer = Pick<Customer, 'id' | 'name'>;
 type InstanceCustomerOption = Pick<Customer, 'id' | 'name'>;
@@ -80,7 +70,6 @@ const InstanceFormContent = ({
   const { t } = useTranslation();
   const router = useRouter();
   const formId = useId();
-  const { queryClient } = useRouteContext({ from: '__root__' });
 
   // Soft-fetch, as on the instances table: a missing or 403'd response reads as
   // "no schema declared", and the form simply has one step fewer.
@@ -92,54 +81,8 @@ const InstanceFormContent = ({
     [metadataFieldsData],
   );
 
-  const createMutation = useMutation({
-    ...createInstanceMutation(),
-    onSuccess: async (createdInstance) => {
-      // Creation lands on the new instance's page. Caching it here lets that
-      // route read it instead of fetching it: each list row mounts a closed
-      // deployment dialog whose disabled observer sits on this same query, and
-      // when the list unmounts mid-fetch that last observer leaving cancels
-      // the fetch the route awaits (CancelledError, route error page).
-      if (createdInstance.slug) {
-        queryClient.setQueryData<Instance>(
-          getInstanceQueryKey({ path: { instanceSlug: createdInstance.slug } }),
-          createdInstance,
-        );
-      }
-      await invalidateInstancesListQueries(queryClient);
-      void startAttioSyncWatcher({
-        queryClient,
-        entityKind: 'instance',
-        entitySlug: createdInstance.slug ?? '',
-        integrations: createdInstance.integrations,
-      });
-    },
-  });
-
-  const updateMutation = useMutation({
-    ...updateInstanceMutation({ path: { instanceSlug: instance?.slug ?? '' } }),
-    onSuccess: async (_updatedInstance, variables) => {
-      const instanceSlug = variables.path.instanceSlug;
-      const syncWatcher = startAttioSyncWatcher({
-        queryClient,
-        entityKind: 'instance',
-        entitySlug: instanceSlug,
-        integrations: instance?.integrations,
-        watchForChange: true,
-      });
-      await invalidateInstanceQueries(queryClient, instanceSlug);
-      void syncWatcher;
-    },
-  });
-
-  // Lifecycle stage is a PATCH-only field, persisted separately from the PUT
-  // body once the instance exists (after create or alongside an update).
-  const lifecycleMutation = useMutation({
-    ...patchInstanceMutation({ path: { instanceSlug: instance?.slug ?? '' } }),
-    onSuccess: async (_response, variables) => {
-      await invalidateInstanceQueries(queryClient, variables.path.instanceSlug);
-    },
-  });
+  const { createMutation, lifecycleMutation, updateMutation } =
+    useInstanceFormMutations(instance);
 
   const form = useAppForm({
     defaultValues: getDefaultValues(instance, lockedCustomer),
