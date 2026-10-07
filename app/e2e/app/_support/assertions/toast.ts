@@ -13,12 +13,19 @@ export async function expectNoToast(page: Page) {
 
 /**
  * Asserts that an error toast (data-type="error") is visible.
- * Does not check the message text — useful when the exact error message is
- * controlled by a third-party (e.g. Axios) and could change without notice.
+ * Without a message it does not check the text — useful when the exact error
+ * message is controlled by a third-party (e.g. Axios) and could change without
+ * notice. With one, the toast that says it is the one asserted: for a refusal of
+ * the API, whose words the screen shows as they were written.
  */
-export async function expectErrorToast(page: Page) {
+export async function expectErrorToast(page: Page, message?: string) {
+  const errors = page.locator('[data-sonner-toast][data-type="error"]');
+
   await expect(
-    page.locator('[data-sonner-toast][data-type="error"]').first(),
+    (message === undefined
+      ? errors
+      : errors.filter({ hasText: message })
+    ).first(),
   ).toBeVisible();
 }
 

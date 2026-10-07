@@ -10,7 +10,7 @@ import {
 } from '../_support/fixtures/build-invoice';
 
 /**
- * The invoices the billing specs read: what a finance person meets in an
+ * The invoices the specs of the billing screens read: what a finance person meets in an
  * organization that sells by usage and hands its invoices to an accounting
  * system. Every date is a fixed day of 2026, so that what a spec reads does not
  * depend on the day it runs; an invoice that must be overdue is long past its
@@ -52,6 +52,8 @@ export function tracesReports(): UsageReport[] {
       delta: '60000',
       limitValue: '100000',
       overageDelta: '0',
+      // The one report that was sent with properties, which the journal kept.
+      properties: { region: 'eu-west-1', source: 'otel' },
       reportSeq: 41,
       reportedAt: '2026-03-02T10:00:00.000Z',
       reportedValue: '60000',

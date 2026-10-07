@@ -1,0 +1,193 @@
+import { expect, test } from '../_support/app-test';
+import { BillingInvoicesDriver } from '../_support/drivers/billing-invoices.driver';
+import { InvoiceDetailDriver } from '../_support/drivers/invoice-detail.driver';
+import { startInLanguage } from '../_support/language';
+import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
+import { createInvoicesModel } from './billing.scenarios';
+
+// The console reads its language when it starts. Every screen of the invoices has
+// its text in French, its dates and amounts as the locale writes them, and no
+// English word where a key would be missing. What the API wrote, a label of a
+// line or the arithmetic of a price, is the API's and stays as it came.
+
+test.describe('the invoices, read in French', () => {
+  test.beforeEach(async ({ page }) => {
+    await startInLanguage(page, 'fr');
+    await installBillingAppMocks(page, createInvoicesModel());
+    // Waits for the title: the first load reloads once on its own under the
+    // mocks, and the tests go on to navigate, which that reload would interrupt.
+    await new BillingInvoicesDriver(page).goto('', 'Factures');
+  });
+
+  test('the list, its columns, its statuses, its filters and its export', async ({
+    page,
+  }) => {
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Factures' }),
+    ).toBeVisible();
+    for (const column of [
+      'Client',
+      'Facture',
+      'Période de service',
+      'Total',
+      'Statut',
+      'Échéance de paiement',
+      'Transmission',
+    ]) {
+      await expect(
+        page.getByRole('columnheader', { exact: true, name: column }),
+      ).toBeVisible();
+    }
+    await expect(page.getByTestId('invoices-count')).toHaveText(
+      /^\d+ factures affichées$/,
+    );
+    // The status is read in words, the amount and the date as French writes them.
+    const list = new BillingInvoicesDriver(page);
+    await expect(
+      list.statusBadges().filter({ hasText: 'Bloquée' }).first(),
+    ).toBeVisible();
+    await expect(
+      list.statusBadges().filter({ hasText: 'Payée' }).first(),
+    ).toBeVisible();
+    await expect(page.getByRole('table')).toContainText(/\d,\d{2}\s\$US/);
+    await expect(page.getByRole('table')).toContainText(
+      /\d+ \p{L}+\.? 20\d\d/u,
+    );
+
+    await page.getByRole('button', { exact: true, name: 'Exporter' }).click();
+    await expect(page.getByRole('menuitem')).toHaveText([
+      'CSV par ligne de facture',
+      'CSV par facture',
+      'NDJSON, une facture par ligne',
+    ]);
+    await page.keyboard.press('Escape');
+
+    await page.getByRole('button', { name: /^Filtres/ }).click();
+    const panel = page.getByRole('dialog');
+    await expect(panel).toContainText('Statut');
+    await expect(panel).toContainText('Brouillon');
+    await expect(panel).toContainText('En attente de votre ERP');
+    await expect(panel).toContainText('Brouillons bloqués uniquement');
+    await expect(panel).toContainText('Avant le');
+  });
+
+  test('a held draft, its hold, its lines and what its actions ask', async ({
+    page,
+  }) => {
+    await page.goto('/billing/invoices/inv-h1');
+
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      / · facture du \d+ \p{L}+\.? 20\d\d \(UTC\)$/u,
+    );
+    await expect(page.getByTestId('hold-banner')).toContainText('Bloquée :');
+    await expect(page.getByTestId('hold-banner')).toContainText(
+      'La facture a été composée mais pas émise',
+    );
+    const invoice = new InvoiceDetailDriver(page);
+    await expect(invoice.actionButtons()).toHaveText([
+      'Débloquer la facture',
+      'Recomposer',
+      'Annuler la facture',
+    ]);
+    await expect(invoice.linesCard('Lignes')).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: /^Voir \d+ rapports? d’usage$/ }).first(),
+    ).toBeVisible();
+    await expect(page.getByTestId('line-fingerprint').first()).toContainText(
+      /^Rapports \d+–\d+ · \d+ lignes? · Σ /,
+    );
+
+    await page
+      .getByTestId('invoice-actions')
+      .getByRole('button', { exact: true, name: 'Débloquer la facture' })
+      .click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText(
+      'Accepter les montants tels que composés',
+    );
+    await expect(dialog.getByLabel(/^Motif/)).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { exact: true, name: 'Débloquer' }),
+    ).toBeDisabled();
+    await dialog.getByLabel(/^Motif/).fill('contrôlé à la main');
+    await expect(
+      dialog.getByRole('button', { exact: true, name: 'Débloquer' }),
+    ).toBeEnabled();
+  });
+
+  test('an invoice that waits for the ERP is marked paid from a dialog in French', async ({
+    page,
+  }) => {
+    await page.goto('/billing/invoices/inv-m1');
+
+    await page
+      .getByTestId('invoice-actions')
+      .getByRole('button', { exact: true, name: 'Marquer comme payée' })
+      .click();
+    const dialog = page.getByRole('dialog');
+    await expect(
+      dialog.getByRole('heading', { name: 'Marquer comme payée' }),
+    ).toBeVisible();
+    await expect(dialog.getByLabel('Référence externe')).toBeVisible();
+    await expect(dialog.getByLabel('Payée le (UTC)')).toBeVisible();
+    await expect(dialog.getByLabel('Note')).toBeVisible();
+    await expect(dialog).toContainText('Facultatif');
+  });
+
+  test('the usage behind a line, window by window', async ({ page }) => {
+    await page.goto('/billing/invoices/inv-p1/lines/inv-p1-line-1');
+
+    await expect(page.getByTestId('line-reports')).toBeVisible();
+    await expect(page.getByText('Cette ligne', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('link', { exact: true, name: 'Retour à la facture' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { exact: true, name: 'Exporter en CSV' }),
+    ).toBeVisible();
+    for (const column of ['Rapport', 'Reçu le', 'Mode', 'Compteur', 'Limite']) {
+      await expect(
+        page.getByRole('columnheader', { exact: true, name: column }).first(),
+      ).toBeVisible();
+    }
+    await expect(page.getByTestId('line-reports')).toContainText(
+      /\d+ rapports?/,
+    );
+    // How a report moved the counter is said in French, not as the API wrote it.
+    await expect(page.getByTestId('line-reports')).toContainText('Ajout');
+    await expect(page.getByTestId('line-reports')).not.toContainText('append');
+  });
+
+  test('the handoff queue, its tabs and its acknowledgement', async ({
+    page,
+  }) => {
+    await page.goto('/billing/handoff');
+
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Transmission' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('tab', { exact: true, name: 'En attente' }),
+    ).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.getByRole('tab', { exact: true, name: 'Acquittées' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('columnheader', { exact: true, name: 'Statut' }),
+    ).toBeVisible();
+    await expect(page.getByTestId('handoff-count')).toHaveText(
+      /^\d+ factures? affichées?$/,
+    );
+
+    await page
+      .getByRole('button', { exact: true, name: 'Acquitter' })
+      .first()
+      .click();
+    const dialog = page.getByRole('dialog', { name: 'Acquitter la facture' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel('Référence externe')).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { exact: true, name: 'Annuler' }),
+    ).toBeVisible();
+  });
+});

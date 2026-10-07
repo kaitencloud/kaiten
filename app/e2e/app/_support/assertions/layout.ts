@@ -32,6 +32,23 @@ export async function expectScrollsInside(table: Locator) {
 }
 
 /**
+ * A table that fits the container it is in: nothing of it is past the container's
+ * edge, so no column is cut off and there is nothing to scroll sideways. It is the
+ * opposite of `expectScrollsInside`, for a screen that has the room for its columns.
+ */
+export async function expectFitsItsContainer(table: Locator) {
+  const container = table.locator(
+    'xpath=ancestor::*[@data-slot="table-container"][1]',
+  );
+  const { clientWidth, scrollWidth } = await container.evaluate((node) => ({
+    clientWidth: node.clientWidth,
+    scrollWidth: node.scrollWidth,
+  }));
+
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+}
+
+/**
  * What a container holds is wholly inside it, on the horizontal axis: a row of
  * buttons that is wider than the card it is in is cut off by the card, or spills
  * out of it, and the page does not scroll to say so.

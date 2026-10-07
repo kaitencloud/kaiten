@@ -259,6 +259,7 @@ export function buildUsageReport({
   limitValue,
   overageDelta,
   overagePercent = 100,
+  properties,
   reportSeq,
   reportedAt,
   reportedValue,
@@ -273,6 +274,8 @@ export function buildUsageReport({
   limitValue?: string;
   overageDelta: string;
   overagePercent?: number;
+  /** What the report was sent with, which the API keeps when it was stored. */
+  properties?: Record<string, unknown>;
   reportSeq: number;
   reportedAt: string;
   reportedValue: string;
@@ -292,6 +295,7 @@ export function buildUsageReport({
     limitValue,
     overageDelta,
     overagePercent: limitValue === undefined ? undefined : overagePercent,
+    properties,
     reportSeq,
     reportedAt,
     reportedValue,
