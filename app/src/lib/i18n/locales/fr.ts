@@ -4140,6 +4140,55 @@ export default {
         shown_other: '{{count}} factures affichées',
         loadMore: 'Charger plus',
       },
+      DeletionRefusal: {
+        title: {
+          instance: 'Cette instance ne peut pas être supprimée',
+          customer: 'Ce client ne peut pas être supprimé',
+          entitlement: 'Ce droit ne peut pas être supprimé',
+        },
+        description: {
+          instance:
+            'La facturation dépend encore de cette instance : elle a été conservée. Rien n’a été supprimé.',
+          customer:
+            'La facturation dépend encore de ce client : il a été conservé. Rien n’a été supprimé.',
+          entitlement:
+            'Quelque chose accorde, compte ou facture encore ce droit : il a été conservé. Rien n’a été supprimé.',
+        },
+        subscriptionTitle: 'Abonnement',
+        subscriptionLive: 'L’abonnement est toujours en cours.',
+        subscriptionEnded:
+          'L’abonnement est terminé, mais certaines de ses factures ne sont pas réglées.',
+        openSubscription: 'Ouvrir l’abonnement',
+        customerLive:
+          'L’abonnement d’une de ses instances est toujours en cours.',
+        customerNoneLive:
+          'Aucun de ses abonnements n’est en cours, mais certaines factures ne sont pas réglées.',
+        openInstances: 'Ouvrir le client',
+        unsettledTitle_one: '{{count}} facture non réglée',
+        unsettledTitle_other: '{{count}} factures non réglées',
+        unsettledHint:
+          'Réglez-les une à une (payée, annulée ou passée en perte), puis réessayez.',
+        referencesTitle: 'Encore utilisé',
+        references: {
+          licenseGrants_one: 'Accordé par {{count}} version de licence',
+          licenseGrants_other: 'Accordé par {{count}} versions de licence',
+          usageCounters_one: 'Usage enregistré sur {{count}} instance',
+          usageCounters_other: 'Usage enregistré sur {{count}} instances',
+          licensePrices_one: 'Mesuré par {{count}} prix de licence',
+          licensePrices_other: 'Mesuré par {{count}} prix de licence',
+          addonPrices_one: 'Mesuré par {{count}} prix d’option',
+          addonPrices_other: 'Mesuré par {{count}} prix d’option',
+          addonGrants_one: 'Accordé par {{count}} option',
+          addonGrants_other: 'Accordé par {{count}} options',
+          boostGrants_one: 'Accordé par {{count}} boost de bon de réduction',
+          boostGrants_other: 'Accordé par {{count}} boosts de bon de réduction',
+        },
+        removeFirst:
+          'Retirez ces références, puis supprimez à nouveau le droit.',
+        hideInstead:
+          'Un prix ou un boost de bon de réduction ne peut plus être retiré une fois créé : ce droit ne peut donc plus être supprimé. Pour ne plus l’afficher dans les composants destinés aux clients, désactivez « Visible côté client » sur sa page.',
+        openEntitlement: 'Ouvrir le droit',
+      },
     },
     AuditTrail: {
       events: {
