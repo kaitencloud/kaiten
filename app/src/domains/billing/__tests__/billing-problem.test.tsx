@@ -1,5 +1,6 @@
 import type { AnyFormApi } from '@tanstack/react-form';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 import { describe, expect, it } from 'vite-plus/test';
 import { useAppForm } from '@/hooks/form';
@@ -319,6 +320,66 @@ describe('setProblemFieldError', () => {
       'aria-invalid',
       'false',
     );
+  });
+
+  it('carries what else the refusal says, next to its message, for what is shown beside the field', async () => {
+    const form = await mountDialog();
+
+    act(() => {
+      setProblemFieldError(form, 'note', 'frozen', { code: 'X.Frozen' });
+    });
+
+    await screen.findByText('frozen');
+    expect(form.getFieldMeta('note')?.errorMap.onServer).toEqual({
+      code: 'X.Frozen',
+      message: 'frozen',
+    });
+  });
+
+  // The refusal is about what was typed. A form that stayed invalid after the person
+  // fixed it would not let them send it again.
+  it('goes when the field changes, and the form can be sent again', async () => {
+    const form = await mountDialog();
+    act(() => {
+      setProblemFieldError(form, 'note', 'a note is at most 50 characters');
+    });
+    await screen.findByText('a note is at most 50 characters');
+    expect(form.state.isValid).toBe(false);
+
+    await userEvent.type(screen.getByLabelText('Note'), 'shorter');
+
+    await waitFor(() =>
+      expect(screen.queryByText('a note is at most 50 characters')).toBeNull(),
+    );
+    expect(form.state.isValid).toBe(true);
+    expect(screen.getByLabelText('Note')).toHaveAttribute('aria-invalid', 'false');
+  });
+
+  it('stays while the field is as it was, and does not touch the others', async () => {
+    const form = await mountDialog();
+    act(() => {
+      setProblemFieldError(form, 'note', 'a note is at most 50 characters');
+    });
+    await screen.findByText('a note is at most 50 characters');
+
+    await userEvent.type(screen.getByLabelText('Reference'), 'ref-1');
+
+    expect(screen.getByText('a note is at most 50 characters')).toBeInTheDocument();
+  });
+
+  it('is replaced by a newer refusal of the same field, which goes with the next change', async () => {
+    const form = await mountDialog();
+    act(() => {
+      setProblemFieldError(form, 'note', 'first');
+      setProblemFieldError(form, 'note', 'second');
+    });
+    expect(await screen.findByText('second')).toBeInTheDocument();
+    expect(screen.queryByText('first')).toBeNull();
+
+    await userEvent.type(screen.getByLabelText('Note'), 'x');
+
+    await waitFor(() => expect(screen.queryByText('second')).toBeNull());
+    expect(form.state.isValid).toBe(true);
   });
 });
 

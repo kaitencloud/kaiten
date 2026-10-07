@@ -39,12 +39,23 @@ function fieldFor(
   return undefined;
 }
 
+// What each form has put on each of its fields, to take it back: a field has one
+// refusal at a time, and a newer one replaces the older.
+const shownRefusals = new WeakMap<AnyFormApi, Map<string, () => void>>();
+
+const sameValue = (left: unknown, right: unknown) =>
+  Object.is(left, right) || JSON.stringify(left) === JSON.stringify(right);
+
 /**
  * Shows an error of the API as the error of one field of a form, and marks the
  * field touched so that it is read. The message is shown as it is. For a refusal
  * whose field the caller knows already: `applyProblemFieldErrors` is the one for
  * a problem that locates its own. `extra` is what else the error carries (the code
  * of the refusal, for what is shown beside the field to read), next to its message.
+ *
+ * The refusal is about what was typed, so it goes when that changes, as the checks
+ * of the form do: the field is no longer wrong by what the API said, and a form that
+ * stayed invalid after the person fixed it would not let them send it again.
  */
 export function setProblemFieldError(
   form: AnyFormApi,
@@ -52,11 +63,32 @@ export function setProblemFieldError(
   message: string,
   extra: Record<string, unknown> = {},
 ) {
+  const shownFor = form.getFieldValue(field);
+  const shown = shownRefusals.get(form) ?? new Map<string, () => void>();
+  shownRefusals.set(form, shown);
+  shown.get(field)?.();
+
   form.setFieldMeta(field, (meta) => ({
     ...meta,
     errorMap: { ...meta.errorMap, onServer: { ...extra, message } },
     isTouched: true,
   }));
+
+  const subscription = form.store.subscribe(() => {
+    if (sameValue(form.getFieldValue(field), shownFor)) {
+      return;
+    }
+    forget();
+    form.setFieldMeta(field, (meta) => ({
+      ...meta,
+      errorMap: { ...meta.errorMap, onServer: undefined },
+    }));
+  });
+  function forget() {
+    subscription.unsubscribe();
+    shown.delete(field);
+  }
+  shown.set(field, forget);
 }
 
 /**
