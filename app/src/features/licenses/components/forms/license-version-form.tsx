@@ -14,6 +14,8 @@ type LicenseVersionFormProps = {
   baseLicense?: License;
   onSuccess?: () => void;
   onCancel?: () => void;
+  /** The version is offered as a draft, which is how a version is made to be changed. */
+  startAsDraft?: boolean;
 };
 
 export function LicenseVersionForm({
@@ -23,6 +25,7 @@ export function LicenseVersionForm({
   baseLicense,
   onSuccess,
   onCancel,
+  startAsDraft,
 }: LicenseVersionFormProps) {
   const model = useLicenseVersionForm({
     availableFamilies,
@@ -31,6 +34,7 @@ export function LicenseVersionForm({
     onCancel,
     onSuccess,
     selectedLicenseSlug,
+    startAsDraft,
   });
 
   return <LicenseVersionFormLayout {...model} />;

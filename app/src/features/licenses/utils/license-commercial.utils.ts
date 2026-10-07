@@ -1,4 +1,4 @@
-import type { License } from '@/api-client';
+import type { License, LicenseWritable } from '@/api-client';
 
 /**
  * How a license version is sold, beside what it grants: its pricing type, the
@@ -42,3 +42,39 @@ export const getTrialPeriodDays = (
   license.trialPeriodDays && license.trialPeriodDays > 0
     ? license.trialPeriodDays
     : undefined;
+
+/**
+ * The commercial terms a new version starts with: those of the version it starts
+ * from, as it starts with its description and its grants. Only what is set is
+ * sent: the API gives a new version the defaults (sold on request, no trial, no
+ * payment method, no URL), and a trial is at least a day when it is given on
+ * create.
+ */
+export function getCommercialFieldsToCopy(
+  license: Pick<
+    License,
+    | 'pricingType'
+    | 'requiresPaymentMethod'
+    | 'selfServeCtaUrl'
+    | 'trialPeriodDays'
+  >,
+): Pick<
+  LicenseWritable,
+  | 'pricingType'
+  | 'requiresPaymentMethod'
+  | 'selfServeCtaUrl'
+  | 'trialPeriodDays'
+> {
+  const trial = getTrialPeriodDays(license);
+
+  return {
+    ...(getPricingType(license) === 'CUSTOM'
+      ? {}
+      : { pricingType: getPricingType(license) }),
+    ...(license.requiresPaymentMethod ? { requiresPaymentMethod: true } : {}),
+    ...(license.selfServeCtaUrl
+      ? { selfServeCtaUrl: license.selfServeCtaUrl }
+      : {}),
+    ...(trial === undefined ? {} : { trialPeriodDays: trial }),
+  };
+}

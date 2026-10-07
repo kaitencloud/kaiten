@@ -13,6 +13,7 @@ import {
   priceFormValuesToUpdateBody,
   priceToFormValues,
 } from '../../schemas/license-price.schema';
+import { getVersionFreezeReason } from '../../utils/license-freeze.utils';
 import {
   getDefaultPrice,
   getNextDisplayOrder,
@@ -33,6 +34,12 @@ const FIELDS_BY_LOCATION = {
 };
 
 type UsePriceFormOptions = {
+  /**
+   * Called when the API refuses because the version cannot be changed where it
+   * is (billed, published, archived), with what it refused with: there is
+   * nothing to correct in the form, and a new version is the way.
+   */
+  onFrozen: (error: unknown) => void;
   /** Called once the API accepted the price. */
   onDone: () => void;
   /** The price being edited; a new one when left out. */
@@ -52,6 +59,7 @@ type UsePriceFormOptions = {
 export function usePriceForm({
   licenseSlug,
   onDone,
+  onFrozen,
   price,
   pricing,
 }: UsePriceFormOptions) {
@@ -85,12 +93,13 @@ export function usePriceForm({
         }
         onDone();
       } catch (error) {
-        const placed = applyProblemFieldErrors(
-          formApi,
-          handleBillingProblem(error),
-          FIELDS_BY_LOCATION,
-        );
-        if (!placed) {
+        const problem = handleBillingProblem(error);
+        if (getVersionFreezeReason(problem.code)) {
+          onFrozen(error);
+
+          return;
+        }
+        if (!applyProblemFieldErrors(formApi, problem, FIELDS_BY_LOCATION)) {
           setFailure(error);
         }
       }

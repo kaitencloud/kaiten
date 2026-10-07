@@ -6,11 +6,17 @@ import {
   LicensePricesTab,
   licenseEntitlementsQueryOptions,
   licensePricesQueryOptions,
+  licenseQueryOptions,
 } from '@/features/licenses';
 import i18n from '@/lib/i18n/config';
 
 // `?price=new` opens the drawer on a new price, `?price=<id>` on that price.
-const pricesSearchSchema = z.object({ price: z.string().optional() });
+// `?copyFrom=<version>` is left by a copy of that version's prices that stopped
+// halfway, and offers to finish it.
+const pricesSearchSchema = z.object({
+  copyFrom: z.string().optional(),
+  price: z.string().optional(),
+});
 
 export const Route = createFileRoute('/licenses/$licenseSlug/prices')({
   component: LicensePricesRoute,
@@ -27,7 +33,8 @@ export const Route = createFileRoute('/licenses/$licenseSlug/prices')({
 
     return { getTitle: () => i18n.t('Pages.Licenses.Prices.title') };
   },
-  loader: async ({ context, params: { licenseSlug } }) => {
+  loaderDeps: ({ search: { copyFrom } }) => ({ copyFrom }),
+  loader: async ({ context, deps: { copyFrom }, params: { licenseSlug } }) => {
     await Promise.all([
       context.queryClient.ensureQueryData(
         licensePricesQueryOptions(licenseSlug),
@@ -36,13 +43,29 @@ export const Route = createFileRoute('/licenses/$licenseSlug/prices')({
         licenseEntitlementsQueryOptions(licenseSlug),
       ),
       context.queryClient.ensureQueryData(entitlementsQueryOptions),
+      // The version a copy of prices comes from: what is left to copy is read
+      // from it. Its absence is not a failure of this tab.
+      copyFrom
+        ? Promise.all([
+            context.queryClient.ensureQueryData(licenseQueryOptions(copyFrom)),
+            context.queryClient.ensureQueryData(
+              licensePricesQueryOptions(copyFrom),
+            ),
+          ]).catch(() => undefined)
+        : undefined,
     ]);
   },
 });
 
 function LicensePricesRoute() {
   const { licenseSlug } = Route.useParams();
-  const { price } = Route.useSearch();
+  const { copyFrom, price } = Route.useSearch();
 
-  return <LicensePricesTab licenseSlug={licenseSlug} priceParam={price} />;
+  return (
+    <LicensePricesTab
+      copyFrom={copyFrom}
+      licenseSlug={licenseSlug}
+      priceParam={price}
+    />
+  );
 }
