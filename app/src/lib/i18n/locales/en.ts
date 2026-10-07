@@ -979,6 +979,32 @@ export default {
           updated: 'Price updated',
           deprecated: 'Price deprecated',
         },
+        Preview: {
+          open: 'Preview invoice',
+          unavailable:
+            'Add an active flat fee first: an invoice always starts from one.',
+          title: 'Preview an invoice',
+          description:
+            'What a subscription to {{name}}, version {{version}}, would be billed at its next renewal. Nothing is created.',
+          hint: 'Run the preview to see the invoice.',
+          run: 'Run preview',
+          Labels: {
+            base: 'Base price',
+            samples: 'Sample usage',
+          },
+          Descriptions: {
+            base: 'The flat fee the invoice starts from.',
+            samples:
+              'What each entitlement used over the period that ends, in its own units. Leave a field empty for no usage.',
+          },
+          Placeholders: {
+            quantity: '0',
+          },
+          Errors: {
+            quantity:
+              'Enter a quantity: zero or more, with a point for decimals.',
+          },
+        },
         Table: {
           Columns: {
             price: 'Price',
@@ -3341,7 +3367,7 @@ export default {
         bannerDescription:
           'This is what the invoice would come to at a boundary now. Nothing is saved, sent or billed.',
         resultLabel: 'Invoice preview',
-        composed: 'Kind: {{kind}}. Composed {{asOf}}.',
+        composed: '{{kind}} invoice, composed {{asOf}}.',
       },
     },
     AuditTrail: {

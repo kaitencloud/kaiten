@@ -995,6 +995,32 @@ export default {
           updated: 'Prix mis à jour',
           deprecated: 'Prix déprécié',
         },
+        Preview: {
+          open: 'Aperçu de facture',
+          unavailable:
+            'Ajoutez d’abord un forfait actif : une facture part toujours d’un forfait.',
+          title: 'Aperçu d’une facture',
+          description:
+            'Ce que facturerait, à son prochain renouvellement, un abonnement à {{name}}, version {{version}}. Rien n’est créé.',
+          hint: 'Lancez l’aperçu pour voir la facture.',
+          run: 'Lancer l’aperçu',
+          Labels: {
+            base: 'Prix de base',
+            samples: 'Usage simulé',
+          },
+          Descriptions: {
+            base: 'Le forfait dont part la facture.',
+            samples:
+              'Ce que chaque droit a consommé sur la période qui se termine, dans ses propres unités. Laissez un champ vide pour aucun usage.',
+          },
+          Placeholders: {
+            quantity: '0',
+          },
+          Errors: {
+            quantity:
+              'Saisissez une quantité : zéro ou plus, avec un point pour les décimales.',
+          },
+        },
         Table: {
           Columns: {
             price: 'Prix',
@@ -3407,7 +3433,7 @@ export default {
         bannerDescription:
           'Voici ce que serait la facture à une échéance maintenant. Rien n’est enregistré, envoyé ni facturé.',
         resultLabel: 'Aperçu de facture',
-        composed: 'Type : {{kind}}. Composé le {{asOf}}.',
+        composed: 'Facture de type {{kind}}, composée le {{asOf}}.',
       },
     },
     AuditTrail: {
