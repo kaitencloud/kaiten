@@ -248,7 +248,7 @@ func TestPastDue(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	s := newSold(t, flatFee("2900", "MONTHLY"))
 	started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
-	overdue := lifecycle.NewOverdue(uow.NewUnitOfWork(testDb.DbPool))
+	overdue := lifecycle.NewOverdue(uow.NewUnitOfWork(testDb.DbPool), 2*time.Hour)
 
 	moved, err := overdue.Pass(t.Context(), 100)
 	require.NoError(t, err)

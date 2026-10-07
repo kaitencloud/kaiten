@@ -9,7 +9,10 @@ WHERE i.id IN (SELECT q.id
                FROM instance_invoice q
                WHERE q.provider_kind <> 'NOOP'
                  AND q.provider_kind::text = ANY (sqlc.arg(kinds)::text[])
-                 AND q.status IN ('DRAFT', 'PUSH_FAILED')
+                 -- An issued invoice the provider charges stays in the queue
+                 -- until the charge's outcome is known.
+                 AND (q.status IN ('DRAFT', 'PUSH_FAILED')
+                   OR (q.status = 'PUSHED' AND q.collection_method = 'CHARGE_AUTOMATICALLY'))
                  AND q.hold_reason IS NULL
                  AND q.next_push_at <= sqlc.arg(now)
                ORDER BY q.next_push_at
@@ -80,7 +83,10 @@ SET status                  = 'PUSHED',
     handoff_status          = sqlc.arg(handoff_status),
     pushed_at               = sqlc.arg(now),
     synced_at               = sqlc.arg(now),
-    next_push_at            = NULL,
+    -- Charged automatically: still in the push queue, for the charge, under
+    -- the run's lease; a run that dies before the charge leaves it due.
+    next_push_at            = CASE WHEN collection_method = 'CHARGE_AUTOMATICALLY'
+                                   THEN sqlc.arg(now)::timestamp + interval '10 minutes' END,
     last_push_error         = NULL,
     updated_at              = sqlc.arg(now)
 WHERE id = sqlc.arg(id)
@@ -132,6 +138,7 @@ UPDATE instance_invoice
 SET status          = 'PAID',
     paid_at         = sqlc.arg(paid_at),
     provider_status = 'paid',
+    next_push_at    = NULL,
     synced_at       = sqlc.arg(now),
     updated_at      = sqlc.arg(now)
 WHERE id = sqlc.arg(id)
@@ -303,7 +310,10 @@ SELECT
     WHERE b.organization_id = sqlc.arg(organization_id) AND b.status = 'PAST_DUE')::bigint AS past_due,
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = sqlc.arg(organization_id) AND i.status IN ('MANUAL', 'PUSHED', 'PAYMENT_FAILED')
-      AND i.due_at < sqlc.arg(now))::bigint AS overdue,
+      AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+              THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
+                OR i.issued_at < sqlc.arg(auto_collection_before)::timestamp
+              ELSE i.due_at < sqlc.arg(now)::timestamp END))::bigint AS overdue,
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = sqlc.arg(organization_id) AND i.handoff_status = 'PENDING')::bigint AS handoff_pending,
   (SELECT min(i.issued_at) FROM instance_invoice i
@@ -341,3 +351,93 @@ WHERE cb.organization_id = sqlc.arg(organization_id)
   AND cb.provider_kind = sqlc.arg(provider_kind)
 ORDER BY cb.created_at
 LIMIT 1;
+
+
+
+-- name: MarkChargeUnknown :one
+-- A charge whose outcome is unknown (the provider did not answer): the
+-- invoice stays PUSHED and the charge is retried, under the same key, after a
+-- backoff. It counts as a push attempt, so the backoff and the alert apply.
+UPDATE instance_invoice
+SET push_attempts   = push_attempts + 1,
+    last_push_error = sqlc.arg(last_push_error),
+    next_push_at    = sqlc.arg(next_push_at),
+    updated_at      = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
+  AND status = 'PUSHED'
+  AND collection_method = 'CHARGE_AUTOMATICALLY'
+RETURNING *;
+
+
+-- name: ApplyPaymentFailed :one
+-- An automatic charge refused (declined, expired, nothing to charge) or
+-- awaiting the customer's authentication: the provider keeps the invoice open,
+-- the customer pays on its hosted page or the provider retries.
+UPDATE instance_invoice
+SET status             = 'PAYMENT_FAILED',
+    payment_failed_at  = sqlc.arg(failed_at),
+    last_payment_error = sqlc.arg(last_payment_error),
+    provider_status    = 'open',
+    next_push_at       = NULL,
+    synced_at          = sqlc.arg(now),
+    updated_at         = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
+  AND status = 'PUSHED'
+RETURNING *;
+
+
+-- name: SetPaymentMethod :one
+-- The labels of the customer's default payment method in a provider, as the
+-- provider reports them. Never card data.
+UPDATE customer_billing
+SET default_payment_method_id  = sqlc.arg(payment_method_id),
+    payment_method_brand       = sqlc.narg(brand),
+    payment_method_last4       = sqlc.narg(last4),
+    payment_method_exp_month   = sqlc.narg(exp_month),
+    payment_method_exp_year    = sqlc.narg(exp_year),
+    payment_method_status      = 'ACTIVE',
+    payment_method_attached_at = CASE WHEN default_payment_method_id IS DISTINCT FROM sqlc.arg(payment_method_id)
+                                        OR payment_method_attached_at IS NULL
+                                      THEN sqlc.arg(now)::timestamp ELSE payment_method_attached_at END,
+    synced_at                  = sqlc.arg(now),
+    updated_at                 = sqlc.arg(now)
+WHERE organization_id = sqlc.arg(organization_id)
+  AND customer_id = sqlc.arg(customer_id)
+  AND provider_kind = sqlc.arg(provider_kind)
+RETURNING *;
+
+
+-- name: ClearPaymentMethod :one
+UPDATE customer_billing
+SET default_payment_method_id  = NULL,
+    payment_method_brand       = NULL,
+    payment_method_last4       = NULL,
+    payment_method_exp_month   = NULL,
+    payment_method_exp_year    = NULL,
+    payment_method_status      = 'NONE',
+    payment_method_attached_at = NULL,
+    synced_at                  = sqlc.arg(now),
+    updated_at                 = sqlc.arg(now)
+WHERE organization_id = sqlc.arg(organization_id)
+  AND customer_id = sqlc.arg(customer_id)
+  AND provider_kind = sqlc.arg(provider_kind)
+RETURNING *;
+
+
+-- name: MarkPaymentMethodStatus :exec
+-- A charge told the payment method is no longer usable (EXPIRED, FAILED).
+UPDATE customer_billing
+SET payment_method_status = sqlc.arg(status),
+    updated_at            = sqlc.arg(now)
+WHERE organization_id = sqlc.arg(organization_id)
+  AND customer_id = sqlc.arg(customer_id)
+  AND provider_kind = sqlc.arg(provider_kind)
+  AND payment_method_status <> 'NONE';
+
+
+-- name: GetCustomerBillingByExternalID :one
+SELECT *
+FROM customer_billing
+WHERE organization_id = sqlc.arg(organization_id)
+  AND provider_kind = sqlc.arg(provider_kind)
+  AND external_customer_id = sqlc.arg(external_customer_id);
