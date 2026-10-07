@@ -168,10 +168,18 @@ func schemaFingerprint(ctx context.Context, t *testing.T, pool *pgxpool.Pool) st
 			WHERE n.nspname = 'public' AND t.typname NOT LIKE $1
 			GROUP BY t.typname
 			ORDER BY 1`},
+		// pg_get_functiondef refuses an aggregate, which is described by its
+		// definition instead.
 		{"functions", `
-			SELECT pg_get_functiondef(p.oid)
+			SELECT CASE
+			         WHEN p.prokind = 'a' THEN format('aggregate %s(%s) sfunc=%s stype=%s initcond=%s',
+			           p.proname, pg_get_function_arguments(p.oid), a.aggtransfn::regproc,
+			           format_type(a.aggtranstype, NULL), a.agginitval)
+			         ELSE pg_get_functiondef(p.oid)
+			       END
 			FROM pg_proc p
 			JOIN pg_namespace n ON n.oid = p.pronamespace
+			LEFT JOIN pg_aggregate a ON a.aggfnoid = p.oid
 			WHERE n.nspname = 'public' AND p.proname NOT LIKE $1
 			ORDER BY 1`},
 		{"triggers", `

@@ -253,6 +253,9 @@ func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boun
 		if err := invoices.AnnounceComposed(ctx, c.outbox, inserted); err != nil {
 			return Outcome{}, err
 		}
+		if err := metering.Consume(ctx, c.deps.Discounts, sub.OrganizationID, composition, now); err != nil {
+			return Outcome{}, err
+		}
 		row = &inserted
 	}
 
@@ -444,7 +447,28 @@ func (c *Closer) compose(ctx context.Context, q *db.Queries, sub db.InstanceBill
 	if err != nil {
 		return rating.Composition{}, nil, overflow(err)
 	}
+	discounts, err := c.discounts(ctx, sub, boundary)
+	if err != nil {
+		return rating.Composition{}, nil, err
+	}
+	composition, err = rating.ApplyDiscounts(composition, discounts, money.Currency(sub.Currency))
+	if err != nil {
+		return rating.Composition{}, nil, overflow(err)
+	}
 	return composition, hold, nil
+}
+
+// discounts reads the PRICE vouchers that may apply to the invoice of a
+// boundary: redeemed by then.
+func (c *Closer) discounts(ctx context.Context, sub db.InstanceBilling, boundary time.Time) ([]rating.Discount, error) {
+	if sub.InstanceID == nil || c.deps.Discounts == nil {
+		return nil, nil
+	}
+	redeemed, err := c.deps.Discounts.Discounts(ctx, sub.OrganizationID, *sub.InstanceID, boundary)
+	if err != nil {
+		return nil, err
+	}
+	return metering.Discounts(redeemed), nil
 }
 
 func overflow(err error) error {
@@ -626,6 +650,9 @@ func (c *Closer) Finalize(ctx context.Context, q *db.Queries, sub db.InstanceBil
 		return nil, db.InstanceBilling{}, err
 	}
 	if err := invoices.AnnounceComposed(ctx, c.outbox, invoice); err != nil {
+		return nil, db.InstanceBilling{}, err
+	}
+	if err := metering.Consume(ctx, c.deps.Discounts, sub.OrganizationID, composition, now); err != nil {
 		return nil, db.InstanceBilling{}, err
 	}
 	canceled, err := q.CancelSubscription(ctx, db.CancelSubscriptionParams{
