@@ -620,6 +620,11 @@ func NextBoundary(anchor, boundary time.Time, months int) time.Time {
 // when it bills in arrears, nothing refunded of a base paid in advance. The
 // subscription's metered pairs must have been sealed at at.
 func (c *Closer) Finalize(ctx context.Context, q *db.Queries, sub db.InstanceBilling, at time.Time, reason *string, actor uuid.UUID, now time.Time) (*db.InstanceInvoice, db.InstanceBilling, error) {
+	// The identity on the invoice is the live one (§5.7), as at a close.
+	sub, err := q.RefreshSubscriptionSnapshot(ctx, sub.ID)
+	if err != nil {
+		return nil, db.InstanceBilling{}, err
+	}
 	base, err := c.basePrice(ctx, sub)
 	if err != nil {
 		return nil, db.InstanceBilling{}, err
