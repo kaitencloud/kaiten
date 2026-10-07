@@ -6,7 +6,7 @@
 | --- | --- | --- | --- |
 | `e2e/app/` | Application | `playwright.app.config.ts` | Drives the real console in Chromium, signed in by bypass, with the API served by Mock Service Worker (MSW). |
 | `e2e/tests/` | Storybook | `playwright.config.ts` | Visual regression: compares screenshots of stable stories with committed baselines. |
-| `e2e/stack/` | Authenticated stack | `playwright.stack.config.ts` | Real API, PostgreSQL, gateway, signed local identity and SSE; and the billing screens against invoices the API composed itself. |
+| `e2e/stack/` | Authenticated stack | `playwright.stack.config.ts` | Real API, PostgreSQL, gateway, signed local identity and SSE; and the billing screens against what the API composes and decides itself. |
 
 Interactions of an isolated component do not belong in Playwright. Write them as a story with a `play` function, run by `pnpm run test:stories`. The [testing documentation](../docs/06-testing/README.md) says how to choose between the kinds of test, and [integration tests](../docs/06-testing/integration-tests.md) explains how each suite runs.
 
@@ -17,7 +17,7 @@ Every command on this page runs from `app/`. Install Chromium once with `pnpm ex
 | Command | What it does |
 | --- | --- |
 | `pnpm run test:e2e:app` | Runs the application suite. Playwright starts the dev server itself on port 3100, which must be free. |
-| `pnpm run test:e2e:stack` | Builds an isolated Compose stack, runs the five authenticated smokes and the one about billing, and removes its data. Needs Docker. |
+| `pnpm run test:e2e:stack` | Builds an isolated Compose stack, runs the five authenticated smokes and the four about billing, and removes its data. Needs Docker. |
 | `pnpm run test:e2e:dev-mock` | Runs the real dev mock command and verifies its seeded world after reload. No stack. |
 | `pnpm run test:cel-engine:browser` | After `build:wasm`, tests the app's loader and half-typed CEL rules in Chromium. |
 | `pnpm run test:e2e` | Runs the Storybook suite. Every test is skipped unless `CI` or `VISUAL_TESTS=true` is set. |
@@ -65,7 +65,7 @@ e2e/
 │   │   ├── app-test.ts       # `test` and `expect` for specs, with optional V8 coverage
 │   │   ├── coverage.ts
 │   │   ├── language.ts       # `startInLanguage`: makes every page the test loads start in a language, for a spec that goes on to navigate; `persistLanguage`: stores it for a page already loaded, to reload and assert
-│   │   ├── assertions/       # shared expectations: toasts, accessibility, a dialog's focus trap, a page with no sideways scroll, a table that fits its container, a control that stays inside its card, tracked events, and `recordWrites`, the writes a page sent (given `['GET']`, the reads, with their query)
+│   │   ├── assertions/       # shared expectations: toasts, accessibility, a dialog's focus trap, a page with no sideways scroll, a table that fits its container, a control that stays inside its card, tracked events, `recordWrites`, the writes a page sent (given `['GET']`, the reads, with their query), and `delayRequests`, which holds the requests that match back for a while so that a spec can look at the screen before the API has answered
 │   │   ├── session-scopes.ts # `signInWithScopes`: signs the page in as a session whose token carries given scopes, to check what a person who may not write sees
 │   │   ├── contracts/        # parseContract: checks a model's data against the generated Zod schemas; parseAuditEventContract: the same for an audit trail event, by its name
 │   │   ├── drivers/          # page objects for screens, dialogs and forms
@@ -85,7 +85,7 @@ e2e/
 The packs under `e2e/app/` fall in three groups:
 
 - **Objects**, one folder each: `customers/`, `entitlements/`, `feature-flags/`, `instances/`, `licenses/`, `connectors/`.
-- **Billing**: `billing/` holds the scenarios of the billing capabilities (`BillingAppModel`) that every billing screen gates on, the invoices the specs read (`invoice-fixtures.ts`, `billing.scenarios.ts`), and the specs of the navigation, of what a billing link explains where billing is not there, and of the invoices of the organization: the list with its filters and export, one invoice and its actions, the usage behind a line, the handoff queue and the refusals of the API. The model of the invoices (`BillingInvoices`, behind `src/e2e/msw/billing-invoice-handlers.ts`) filters, pages, changes state and refuses as the API does, with its codes, and a spec arms a refusal on it with `armProblem`. The packs of the billing screens still to come join it as they are built. The screens of a license version's prices live in `licenses/`, with the model of what a version sells (`LicenseAppModel`: grants, prices, the invoice preview composed as the API does it, and the freezes of a billed version).
+- **Billing**: `billing/` holds the scenarios of the billing capabilities (`BillingAppModel`) that every billing screen gates on, the invoices the specs read (`invoice-fixtures.ts`, `billing.scenarios.ts`), and the specs of the navigation, of what a billing link explains where billing is not there, and of the invoices of the organization: the list with its filters and export, one invoice and its actions, the usage behind a line, the handoff queue and the refusals of the API. The model of the invoices (`BillingInvoices`, behind `src/e2e/msw/billing-invoice-handlers.ts`) filters, pages, changes state and refuses as the API does, with its codes, and a spec arms a refusal on it with `armProblem`. The billing of an instance reads on the world of `billed-instances.ts` (the subscriptions, the upcoming invoice that would be held, the invoices, the journal of usage and where the retention begins; its clock is frozen so that periods are the same whatever day a spec runs) through `BillingSubscriptions`, which refuses a subscribe in the order and with the codes of the API, and the settings and the export of the data of the organization have their specs here too (`billing.settings.spec.ts`, `billing.data-export.spec.ts`). The screens of an instance, a customer and an entitlement that bill are specs of their own packs (`instances.billing`, `instances.subscribe`, `instances.usage-history`, `instances.freeze`, `customers.billing` and the three `delete-refusal`), on the slots of the billing and of the object together. The screens of a license version's prices live in `licenses/`, with the model of what a version sells (`LicenseAppModel`: grants, prices, the invoice preview composed as the API does it, and the freezes of a billed version).
 - **A workspace**: `release-management/` covers releases, components and deployment zones together, because they form one workspace with shared state.
 - **Read-only and cross-cutting checks**: `audit-trail/`, `dashboard/`, `notifications/`, `accessibility/` (axe, the focus trap of dialogs), `i18n/` and `mobile/` (a Pixel 5 viewport, and the 375 px width billing screens are checked at).
 
@@ -133,9 +133,11 @@ To test a failure, arm the model so that its next call fails, as `e2e/app/custom
 model.setNextCreateError(500); // the next create call answers with a 500
 ```
 
-Most models keep the pending errors in an `ErrorInjector` (`e2e/app/_support/model/error-injector.ts`), which fails a call with a status. A refusal that the screen reads, with its code and its `detail`, is armed with `setNextProblem` on the license model (`model.setNextProblem('createPrice', { code, detail, status })`); `after` lets that many calls through first, to stop a sequence of calls halfway.
+Most models keep the pending errors in an `ErrorInjector` (`e2e/app/_support/model/error-injector.ts`), which fails a call with a status. A refusal that the screen reads, with its code and its `detail`, is armed with `setNextProblem` on the license model (`model.setNextProblem('createPrice', { code, detail, status })`) and with `armProblem` on the models of the invoices, of the subscriptions and the billing defaults (`model.subscriptions.armProblem('subscribeInstance', { code, detail, status })`), of the usage history (`instances.usageHistory.armProblem('listUsageReports', ...)`) and of the customers (`customers.armProblem('update', ...)`); `after` lets that many calls through first, to stop a sequence of calls halfway.
 
-What a screen sends is as much part of the behaviour as what it shows (an amount typed as `49.00` goes out as `4900`): `recordWrites(page, /^\/api\/licenses\/[^/]+\/prices$/)` from `app-test` returns the writes a page sends, with their JSON bodies, to assert once the call has answered.
+What a screen sends is as much part of the behaviour as what it shows (an amount typed as `49.00` goes out as `4900`): `recordWrites(page, /^\/api\/licenses\/[^/]+\/prices$/)` from `app-test` returns the writes a page sends, with their JSON bodies, to assert once the call has answered. The mocks answer at once, which hides what happens in between (a row that left a list before its delete was refused, a button pressed twice): `delayRequests(page, { methods: ['DELETE'], ms: 1_000, pathname: /\/api\/entitlements\/[^/]+$/ })`, installed before `goto`, holds the matching calls back.
+
+A page keeps the first model it is given for a slot: installing a second one for the same slot is ignored. A spec that arms a model (`armProblem` on the billing subscriptions, the invoices, the usage history or the customers) therefore installs it itself, and not in a shared `beforeEach` that already installed an unarmed one.
 
 ## Mock a new area
 
@@ -199,7 +201,7 @@ and reload, missing/insufficient credentials, cross-tenant isolation, release
 deployment read through REST and GraphQL, real notification SSE by cookie, and
 organization switching. The switch uses the app's real local-account picker.
 
-`billing-console.stack.spec.ts` is the one spec of the suite about billing. What
+`billing-console.stack.spec.ts` is about the invoices. What
 only a real closing can prove is that an invoice is billed to whom the customer
 was when it was composed, so the spec has the API compose them: a customer on a
 published monthly license, subscribed a period back, renamed between the two
@@ -212,6 +214,22 @@ number of the accounting system, and finds it acknowledged in the queue under
 that number. It skips itself on the 29th, 30th and 31st, when a month ago is not
 a day. The stack runs the API with `docker/config/api.yaml`, which turns billing
 on.
+
+`billing-subscribe.stack.spec.ts` is about what a person does with billing from
+the console, where the rules are the server's. A customer with no billing e-mail
+and an instance on a published monthly license are set up through the API. The
+console subscribes the instance with a start ten days back, sets the e-mail of
+the customer from the dialog and the payment terms of the contract, and the spec
+reads both back from the API; it then tries to delete the instance, which the API
+refuses while it bills, and checks what the console says. A second test saves the
+defaults of the organization, reads them back and puts them back, after the field
+has refused 366 days in words and sent nothing (the API holds 0 to 365). A third
+reports usage through the API and reads it in the usage history of the
+entitlement: the counter from report to report, the export, and the notice that
+offers the first day the API keeps when a period begins before its retention.
+`stack-api.ts` holds what the two billing specs share: the address of the API,
+the credentials of the first dev user, the sign-in of the console and the write
+of a setup that has to be accepted.
 
 The runner removes its containers, volumes, network and temporary credentials
 in `finally`; existing local stacks are independent. Failed traces/screenshots
