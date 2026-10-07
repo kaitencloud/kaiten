@@ -370,8 +370,9 @@ test.describe('where the preview cannot run', () => {
     // The draft has no price at all: an invoice has nothing to start from.
     await prices.goto('pro-v4', 'Pro');
 
+    // Disabled, and still reached by the keyboard: it says why on hover and on focus.
     await expect(preview.openButton()).toBeDisabled();
-    await preview.openButton().locator('..').hover();
+    await preview.openButton().focus();
     await expect(page.getByRole('tooltip')).toContainText(
       'Add an active flat fee first',
     );

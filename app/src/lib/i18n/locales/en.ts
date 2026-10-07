@@ -1028,6 +1028,7 @@ export default {
               'The price the catalogue and the invoice preview use for this billing period. A period has one.',
           },
           Placeholders: {
+            amount: '0.00',
             currency: 'Select a currency',
             currencySearch: 'Search a currency',
             label: 'Pro, monthly',
