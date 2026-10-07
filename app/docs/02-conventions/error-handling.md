@@ -75,7 +75,9 @@ error-reporting service is wired.
 | An input cannot be sent or is refused before the request | A message next to the field |
 
 **Route errors.** `main.tsx` sets `RouteError` (`app/src/components/route/route-error.tsx`)
-as the router's `defaultErrorComponent`, and no route overrides it. What it renders
+as the router's `defaultErrorComponent`, and only one route overrides it: the billing
+route of one invoice, which shows the billing API's refusal in its own words with
+`BillingRouteError` (see [Billing refusals](#billing-refusals)). What `RouteError` renders
 depends on what was thrown:
 
 | Thrown value | Rendered |
@@ -270,7 +272,7 @@ instead. See [query key invalidation](./query-key-invalidation.md).
 
 ## Billing refusals
 
-The billing calls answer a problem document with a stable `code` and a `detail`. The console shows the `detail` as written and keeps no `Errors.api.<code>` translation per code: `check:api-error-i18n` covers only the generic categories above. `ProblemAlert` (`app/src/domains/billing/components/`) is what a billing dialog renders: the `detail`, or a generic message with the `code` in a monospace hint when there is none. `handleBillingProblem` (`app/src/domains/billing/logic/billing-problem.ts`) recognises the few codes that change what a screen does, such as a missing scope (a banner naming it), billing being off, a 503 (nothing was changed, with a retry) and a boundary being closed (`Retry-After`), and `applyProblemFieldErrors` puts the field errors of a 422 on a form. Billing mutations never use the optimistic helpers: a refusal must not show as a success. See [billing](../../src/domains/billing/README.md).
+The billing calls answer a problem document with a stable `code` and a `detail`. The console shows the `detail` as written and keeps no `Errors.api.<code>` translation per code: `check:api-error-i18n` covers only the generic categories above. `ProblemAlert` (`app/src/domains/billing/components/`) is what a billing dialog renders: the `detail`, or a generic message with the `code` in a monospace hint when there is none. `handleBillingProblem` (`app/src/domains/billing/logic/billing-problem.ts`) recognises the few codes that change what a screen does, such as a missing scope (a banner naming it), billing being off, a 503 (nothing was changed, with a retry) and a boundary being closed (`Retry-After`), and `applyProblemFieldErrors` puts the field errors of a 422 on a form. Billing mutations never use the optimistic helpers: a refusal must not show as a success. A route that reads one record uses `BillingRouteError` as its `errorComponent` (the refusal in the API's words, a 404 as a page that does not exist, a Retry that invalidates the router), a read inside a page `RetryableProblem`, and a refusal shown in a dialog takes the focus with `ProblemAlert autoFocus`, since the confirmation was disabled while the API answered and dropped the focus with it. See [billing](../../src/domains/billing/README.md).
 
 ## Errors that are not failures
 

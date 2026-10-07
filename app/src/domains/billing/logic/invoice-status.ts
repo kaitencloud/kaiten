@@ -41,6 +41,10 @@ const STATUS_LABEL_KEYS = {
   VOID: 'Features.Billing.InvoiceStatus.VOID',
 } as const satisfies Record<InvoiceStatus, string>;
 
+/** The words of a stored status, with none of what an invoice derives from its dates or its hold. */
+export const getInvoiceStatusLabelKey = (status: InvoiceStatus) =>
+  STATUS_LABEL_KEYS[status];
+
 const STATUS_TONES = {
   DRAFT: 'outline',
   MANUAL: 'default',
@@ -61,6 +65,13 @@ const HOLD_REASON_LABEL_KEYS = {
 
 export const getHoldReasonLabelKey = (reason: HoldReason) =>
   HOLD_REASON_LABEL_KEYS[reason];
+
+/**
+ * Whether the console has words for the check that held a draft. One the API
+ * adds is not known until it has a label here, and is shown as the API named it.
+ */
+export const isKnownHoldReason = (reason: string): reason is HoldReason =>
+  Object.hasOwn(HOLD_REASON_LABEL_KEYS, reason);
 
 /** The fields of an invoice that decide how its status reads. */
 export type InvoiceStatusInput = Pick<

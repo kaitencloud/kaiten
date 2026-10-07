@@ -116,6 +116,8 @@ export const Route = createFileRoute('/licenses/$licenseSlug/')({
 
 `beforeLoad` runs before the loader and gives the breadcrumb its title; its `ensureQueryData` fills the cache, so the loader's call returns at once and the component reads the same query with `useSuspenseQuery`. The layout loads the version, which its title and its tabs need, and passes the search parameters it declares to the page as props. Each tab loads what it shows itself, in parallel with the code splitting of its component: a tab whose data the session may not read, or that exists only where billing does, never blanks the page around it.
 
+A loader that only warms a query the page reads without suspending, because the page has the states for it (a skeleton, the refusal with a Retry, an empty state), calls `prefetchQuery` or `prefetchInfiniteQuery` instead of `ensureQueryData`: a prefetch never throws, so a refusal does not replace the page by the error component of the route. The page shows it, with the screen around it intact. The invoices, the reports behind an invoice line and the handoff queue of `app/src/routes/billing/` do it, and their query options set `retryOnMount: false` so that the page shows the refusal the loader met instead of asking once more behind it. A record the page cannot show without (an invoice) is still `ensureQueryData`, and a refusal of it is the `errorComponent` of the route.
+
 ### A detail page with tabs
 
 A detail page with tabs is a layout route (`route.tsx`) that renders the page around an `<Outlet />`, and one file per tab beside it:
@@ -229,13 +231,13 @@ A `route.tsx` file has no URL segment of its own: it is the layout of the routes
 
 ## Errors and not-found
 
-A route does not declare its own `errorComponent`. `createRouter` in `app/src/main.tsx` sets the defaults for every route:
+A route does not declare its own `errorComponent`, with one exception below. `createRouter` in `app/src/main.tsx` sets the defaults for every route:
 
 - `defaultErrorComponent` renders `RouteError` (`app/src/components/route/route-error.tsx`). An error that is an API 404 (a missing entity) shows the not-found page, and one that is an API 403 (a read the session is refused) the restricted-access page. Any other error shows a card with the message, a "Go Home" button and a "Try Again" button that runs `router.invalidate()`, which reloads the loaders and resets the error boundary.
 - `defaultNotFoundComponent` renders `NotFound`. It answers a URL that matches no route and a loader that throws `notFound()`, as the deployment zone edit route does for an unknown slug.
 - `defaultPendingComponent` renders `RoutePending`.
 
-A route that needs its own boundary sets `errorComponent` and renders `RouteError`, which takes an `error` and an optional `reset`.
+A route that needs its own boundary sets `errorComponent`. It can render `RouteError`, which takes an `error` and an optional `reset`, or a component of its own when the default card says too little. `app/src/routes/billing/invoices/$invoiceId/route.tsx` is the one route that does: a refusal of the billing API carries a `detail` in its own words and a trace id that the person needs, so it sets `BillingRouteError` (`app/src/domains/billing/components/billing-route-error.tsx`), which renders `NotFound` for a 404 and the refusal with a Retry for anything else. A route that reads one record for a screen that has states of its own (a skeleton, a refusal with a Retry, an empty state) does not need a boundary at all: it prefetches, as [A detail page: `beforeLoad` and several queries](#a-detail-page-beforeload-and-several-queries) describes.
 
 ## Tests
 

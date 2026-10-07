@@ -110,14 +110,22 @@ export function getRetryAfterMs(error: unknown, now = Date.now()): number {
 
 const MISSING_SCOPE = /missing required scope:\s*([a-z]+:[a-z0-9_*]+)/i;
 
-function retentionStartOf(errors: ErrorDetail[]): string | undefined {
+/**
+ * A text member of the `value` of the first error of a problem: where the API
+ * puts what a refusal is about (`retentionStart` of a usage that is no longer
+ * kept, `replacementInvoiceId` of an invoice that was already recomposed).
+ */
+export function getProblemValueMember(
+  errors: readonly ErrorDetail[],
+  member: string,
+): string | undefined {
   const value = errors[0]?.value;
-  const start =
+  const found =
     typeof value === 'object' && value !== null
-      ? (value as { retentionStart?: unknown }).retentionStart
+      ? (value as Record<string, unknown>)[member]
       : undefined;
 
-  return typeof start === 'string' ? start : undefined;
+  return typeof found === 'string' ? found : undefined;
 }
 
 // What to say of a failure that is not a problem document. Only a problem is the
@@ -203,7 +211,10 @@ export function handleBillingProblem(error: unknown): BillingProblem {
     case 'boundary-pending':
       return { ...read, retryAfterMs: getRetryAfterMs(error) };
     case 'outside-retention':
-      return { ...read, retentionStart: retentionStartOf(errors) };
+      return {
+        ...read,
+        retentionStart: getProblemValueMember(errors, 'retentionStart'),
+      };
     case 'generic':
       return read;
   }

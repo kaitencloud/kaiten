@@ -90,6 +90,24 @@ export function formatInstant(
   return text ? `${text} ${UTC_MARKER}` : DEFAULT_FALLBACK;
 }
 
+const TIME_OPTIONS: Intl.DateTimeFormatOptions = {
+  timeStyle: 'short',
+  timeZone: 'UTC',
+};
+
+/**
+ * The time of day of an instant, in UTC and marked: `10:00 AM (UTC)`. For a cell
+ * that gives the day on one line and the time under it.
+ */
+export function formatUtcTime(
+  value: string | undefined | null,
+  locale: string = getAppLocale(),
+): string {
+  const text = formatDateTimeForLocale(value, locale, TIME_OPTIONS, '');
+
+  return text ? `${text} ${UTC_MARKER}` : DEFAULT_FALLBACK;
+}
+
 /**
  * The UTC day an instant falls on, marked: `Mar 1, 2027 (UTC)`. For a boundary
  * that is a day rather than a moment, such as where the kept usage begins.

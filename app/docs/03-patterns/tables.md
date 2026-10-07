@@ -10,6 +10,7 @@ The console shows lists of rows with `DataTable` from `@/functionals/table`, bui
 | A table inside a card of a detail page | `TableCard` with `TableCard.Table` | `app/src/features/feature-flags/components/feature-flag-detail/variants-tab.tsx` |
 | Related items listed from a cell or a counter | `TableLinkedItemsDialog` | `app/src/features/customers/components/customer-instances-display.tsx` |
 | A JSON value shown from a cell | `TableJsonDialog` | `app/src/features/feature-flags/components/feature-flag-table.tsx` |
+| A list the server filters and pages | `DataTable` with `pagination={false}`, filters in the URL and a "Load more" button | `app/src/features/billing/components/invoices/invoices-list.tsx` |
 
 ## A list page
 
@@ -223,6 +224,34 @@ TanStack's own `grouping` is not registered: its group rows are synthetic (their
 - `TableCard.Toolbar` sits between the header and the table and takes any controls. It does not use the `filters` functional: a list that needs filter chips and advanced rules is a `FilterTableLayout`. The audit trail tab of an instance shows a toolbar with its own filters: `app/src/features/instances/components/instance-detail/tabs/audit-trail/instance-detail-audit-trail-tab.tsx`.
 - `TableCard.Table` forwards a subset of the `DataTable` props: `columns`, `data`, `variant`, `emptyMessage`, `pagination`, `getPath`, `linkColumnId`, `onClickRow`, `isRowClickable`, `getRowClassName`, `tableClassName`, plus `contentClassName`. When a table in a card needs more (`getSubRows`, `getRowId`, `bodyScrollable`), put a `DataTable` in `TableCard.Content` instead.
 - The composition follows the convention of [composition](./composition.md): a root and named parts, not a long list of props.
+
+## A list the server filters and pages
+
+The lists above load every row and filter, sort and page them in the browser. That only works for a list of the size of a catalog. A list that grows with time, such as the invoices of an organization or the usage reports of a metered line, is paged by the API, which also does the filtering: the screen reads one page, and a filter run on that page would miss the rest. These lists follow another shape:
+
+```tsx
+// app/src/features/billing/components/invoices/invoices-list.tsx (abridged)
+const query = useInfiniteQuery(invoicesQueryOptions(filters));
+const invoices = useMemo(
+  () => query.data?.pages.flatMap((page) => page.items) ?? [],
+  [query.data],
+);
+
+<InvoicesTable bodyScrollable className="h-full" invoices={invoices} />
+{query.hasNextPage ? (
+  <Button onClick={() => void query.fetchNextPage()}>
+    {t('Pages.Billing.Invoices.loadMore')}
+  </Button>
+) : null}
+```
+
+- **The filters are the API's, and they live in the URL.** The route reads them with `validateSearch`, hands them to the page and writes them back with `navigate({ search })`, so that a list can be linked to and survives a reload. The same object is the query the list sends and, where there is one, the query of its export. A value that is no filter is dropped field by field, so that a bad link opens the list with the rest.
+- **The query is infinite**, under the key the generated options give the operation, so that the invalidation helpers reach it under any filter. The first page is warmed by the loader with `prefetchInfiniteQuery`, which never throws; with `retryOnMount: false` a refusal the loader met is the answer the page shows, once.
+- **`pagination={false}` and no sort.** The pager of `DataTable` pages the rows already loaded, and a column that sorts them would put the rest of the list in the wrong place. The order is the API's.
+- **"Load more", and what it counts.** The button reads the next page with the same filters and the rows already read stay where they are. Say how many were read ("50 invoices shown") with `aria-live="polite"`, never how many there are: the API does not say.
+- **The states are the page's.** A skeleton while the first page is on the way, the error with the API's own words and a Retry (a refusal of the next page is shown under the rows that were read), an empty state that says whether a filter is why, and the table. Use a bounded `DataTable` with `bodyScrollable` inside `Page className="h-full min-h-0 overflow-hidden"`, as the paragraph on lists above does, rather than a `ScrollArea` around the page: a scroll area lets its content grow to its natural width, which can push the columns out of the screen. The three lists of the billing feature draw these states with `PagedListSkeleton`, `ListEmptyState` and `LoadMoreFooter` (`app/src/features/billing/components/paged-list/`) instead of three copies. They stay in the feature until a second one pages a list, then they move up a layer: see [extract late](../AI_CONTEXT.md#principles).
+
+The usage reports behind an invoice line are the same shape inside cards (`app/src/features/billing/components/line-drilldown/`): the rows read are grouped by the window they counted in, one `TableCard` per window.
 
 ## Pagination and empty states
 

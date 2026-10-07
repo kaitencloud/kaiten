@@ -17,6 +17,7 @@ import { Route as ReleasesRouteRouteImport } from './routes/releases/route'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as AuditTrailIndexRouteImport } from './routes/audit-trail/index'
+import { Route as BillingIndexRouteImport } from './routes/billing/index'
 import { Route as CustomersIndexRouteImport } from './routes/customers/index'
 import { Route as CustomersCustomerSlugRouteRouteImport } from './routes/customers/$customerSlug/route'
 import { Route as CustomersInstancesRouteRouteImport } from './routes/customers/instances/route'
@@ -40,6 +41,9 @@ import { Route as ReleasesDeploymentsRouteRouteImport } from './routes/releases/
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsMetadataRouteImport } from './routes/settings/metadata'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
+import { Route as BillingHandoffIndexRouteImport } from './routes/billing/handoff/index'
+import { Route as BillingInvoicesIndexRouteImport } from './routes/billing/invoices/index'
+import { Route as BillingInvoicesInvoiceIdRouteRouteImport } from './routes/billing/invoices/$invoiceId/route'
 import { Route as CustomersCustomerSlugIndexRouteImport } from './routes/customers/$customerSlug/index'
 import { Route as CustomersCustomerSlugEditRouteImport } from './routes/customers/$customerSlug/edit'
 import { Route as CustomersInstancesIndexRouteImport } from './routes/customers/instances/index'
@@ -71,6 +75,7 @@ import { Route as ReleasesReleaseSlugDeploymentZonesRouteImport } from './routes
 import { Route as ReleasesDeploymentZoneIndexRouteImport } from './routes/releases/deployment-zone/index'
 import { Route as ReleasesDeploymentZonesZoneSlugRouteRouteImport } from './routes/releases/deployment-zones_/$zoneSlug/route'
 import { Route as ReleasesNewIndexRouteImport } from './routes/releases/new/index'
+import { Route as BillingInvoicesInvoiceIdIndexRouteImport } from './routes/billing/invoices/$invoiceId/index'
 import { Route as CustomersInstancesInstanceSlugIndexRouteImport } from './routes/customers/instances/$instanceSlug/index'
 import { Route as CustomersInstancesInstanceSlugAuditTrailRouteImport } from './routes/customers/instances/$instanceSlug/audit-trail'
 import { Route as CustomersInstancesInstanceSlugEditRouteImport } from './routes/customers/instances/$instanceSlug/edit'
@@ -88,6 +93,7 @@ import { Route as ReleasesDeploymentZonesNewIndexRouteImport } from './routes/re
 import { Route as ReleasesDeploymentZonesZoneSlugIndexRouteImport } from './routes/releases/deployment-zones_/$zoneSlug/index'
 import { Route as ReleasesDeploymentZonesZoneSlugPeersRouteImport } from './routes/releases/deployment-zones_/$zoneSlug/peers'
 import { Route as ReleasesDeploymentsNewIndexRouteImport } from './routes/releases/deployments/new/index'
+import { Route as BillingInvoicesInvoiceIdLinesLineIdRouteImport } from './routes/billing/invoices/$invoiceId/lines/$lineId'
 import { Route as CustomersCustomerSlugInstancesNewIndexRouteImport } from './routes/customers/$customerSlug/instances/new/index'
 import { Route as IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRouteImport } from './routes/integrations/service-accounts/$serviceAccountSlug/tokens/new/index'
 
@@ -130,6 +136,11 @@ const AuditTrailIndexRoute = AuditTrailIndexRouteImport.update({
   id: '/audit-trail/',
   path: '/audit-trail/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const BillingIndexRoute = BillingIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => BillingRouteRoute,
 } as any)
 const CustomersIndexRoute = CustomersIndexRouteImport.update({
   id: '/',
@@ -256,6 +267,22 @@ const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
   path: '/settings/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BillingHandoffIndexRoute = BillingHandoffIndexRouteImport.update({
+  id: '/handoff/',
+  path: '/handoff/',
+  getParentRoute: () => BillingRouteRoute,
+} as any)
+const BillingInvoicesIndexRoute = BillingInvoicesIndexRouteImport.update({
+  id: '/invoices/',
+  path: '/invoices/',
+  getParentRoute: () => BillingRouteRoute,
+} as any)
+const BillingInvoicesInvoiceIdRouteRoute =
+  BillingInvoicesInvoiceIdRouteRouteImport.update({
+    id: '/invoices/$invoiceId',
+    path: '/invoices/$invoiceId',
+    getParentRoute: () => BillingRouteRoute,
+  } as any)
 const CustomersCustomerSlugIndexRoute =
   CustomersCustomerSlugIndexRouteImport.update({
     id: '/',
@@ -435,6 +462,12 @@ const ReleasesNewIndexRoute = ReleasesNewIndexRouteImport.update({
   path: '/new/',
   getParentRoute: () => ReleasesRouteRoute,
 } as any)
+const BillingInvoicesInvoiceIdIndexRoute =
+  BillingInvoicesInvoiceIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => BillingInvoicesInvoiceIdRouteRoute,
+  } as any)
 const CustomersInstancesInstanceSlugIndexRoute =
   CustomersInstancesInstanceSlugIndexRouteImport.update({
     id: '/',
@@ -537,6 +570,12 @@ const ReleasesDeploymentsNewIndexRoute =
     path: '/new/',
     getParentRoute: () => ReleasesDeploymentsRouteRoute,
   } as any)
+const BillingInvoicesInvoiceIdLinesLineIdRoute =
+  BillingInvoicesInvoiceIdLinesLineIdRouteImport.update({
+    id: '/lines/$lineId',
+    path: '/lines/$lineId',
+    getParentRoute: () => BillingInvoicesInvoiceIdRouteRoute,
+  } as any)
 const CustomersCustomerSlugInstancesNewIndexRoute =
   CustomersCustomerSlugInstancesNewIndexRouteImport.update({
     id: '/instances/new/',
@@ -554,7 +593,7 @@ const IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/billing': typeof BillingRouteRoute
+  '/billing': typeof BillingRouteRouteWithChildren
   '/customers': typeof CustomersRouteRouteWithChildren
   '/entitlements': typeof EntitlementsRouteRouteWithChildren
   '/releases': typeof ReleasesRouteRouteWithChildren
@@ -575,6 +614,7 @@ export interface FileRoutesByFullPath {
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
+  '/billing/': typeof BillingIndexRoute
   '/customers/': typeof CustomersIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/entitlements/': typeof EntitlementsIndexRoute
@@ -584,6 +624,7 @@ export interface FileRoutesByFullPath {
   '/notifications/': typeof NotificationsIndexRoute
   '/releases/': typeof ReleasesIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/billing/invoices/$invoiceId': typeof BillingInvoicesInvoiceIdRouteRouteWithChildren
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugRouteRouteWithChildren
   '/releases/deployment-zones/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugRouteRouteWithChildren
   '/customers/$customerSlug/edit': typeof CustomersCustomerSlugEditRoute
@@ -599,6 +640,8 @@ export interface FileRoutesByFullPath {
   '/licenses/$licenseSlug/prices': typeof LicensesLicenseSlugPricesRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
+  '/billing/handoff/': typeof BillingHandoffIndexRoute
+  '/billing/invoices/': typeof BillingInvoicesIndexRoute
   '/customers/$customerSlug/': typeof CustomersCustomerSlugIndexRoute
   '/customers/instances/': typeof CustomersInstancesIndexRoute
   '/customers/new/': typeof CustomersNewIndexRoute
@@ -622,6 +665,7 @@ export interface FileRoutesByFullPath {
   '/releases/deployment-zones/$zoneSlug/deploy': typeof ReleasesDeploymentZonesZoneSlugDeployRoute
   '/releases/deployment-zones/$zoneSlug/edit': typeof ReleasesDeploymentZonesZoneSlugEditRoute
   '/releases/deployment-zones/$zoneSlug/peers': typeof ReleasesDeploymentZonesZoneSlugPeersRoute
+  '/billing/invoices/$invoiceId/': typeof BillingInvoicesInvoiceIdIndexRoute
   '/customers/instances/$instanceSlug/': typeof CustomersInstancesInstanceSlugIndexRoute
   '/customers/instances/new/': typeof CustomersInstancesNewIndexRoute
   '/integrations/service-accounts/new/': typeof IntegrationsServiceAccountsNewIndexRoute
@@ -632,12 +676,12 @@ export interface FileRoutesByFullPath {
   '/releases/deployment-zones/new/': typeof ReleasesDeploymentZonesNewIndexRoute
   '/releases/deployment-zones/$zoneSlug/': typeof ReleasesDeploymentZonesZoneSlugIndexRoute
   '/releases/deployments/new/': typeof ReleasesDeploymentsNewIndexRoute
+  '/billing/invoices/$invoiceId/lines/$lineId': typeof BillingInvoicesInvoiceIdLinesLineIdRoute
   '/customers/$customerSlug/instances/new/': typeof CustomersCustomerSlugInstancesNewIndexRoute
   '/integrations/service-accounts/$serviceAccountSlug/tokens/new/': typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/billing': typeof BillingRouteRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
@@ -646,6 +690,7 @@ export interface FileRoutesByTo {
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/audit-trail': typeof AuditTrailIndexRoute
+  '/billing': typeof BillingIndexRoute
   '/customers': typeof CustomersIndexRoute
   '/dashboard': typeof DashboardIndexRoute
   '/entitlements': typeof EntitlementsIndexRoute
@@ -668,6 +713,8 @@ export interface FileRoutesByTo {
   '/licenses/$licenseSlug/prices': typeof LicensesLicenseSlugPricesRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
+  '/billing/handoff': typeof BillingHandoffIndexRoute
+  '/billing/invoices': typeof BillingInvoicesIndexRoute
   '/customers/$customerSlug': typeof CustomersCustomerSlugIndexRoute
   '/customers/instances': typeof CustomersInstancesIndexRoute
   '/customers/new': typeof CustomersNewIndexRoute
@@ -691,6 +738,7 @@ export interface FileRoutesByTo {
   '/releases/deployment-zones/$zoneSlug/deploy': typeof ReleasesDeploymentZonesZoneSlugDeployRoute
   '/releases/deployment-zones/$zoneSlug/edit': typeof ReleasesDeploymentZonesZoneSlugEditRoute
   '/releases/deployment-zones/$zoneSlug/peers': typeof ReleasesDeploymentZonesZoneSlugPeersRoute
+  '/billing/invoices/$invoiceId': typeof BillingInvoicesInvoiceIdIndexRoute
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugIndexRoute
   '/customers/instances/new': typeof CustomersInstancesNewIndexRoute
   '/integrations/service-accounts/new': typeof IntegrationsServiceAccountsNewIndexRoute
@@ -701,13 +749,14 @@ export interface FileRoutesByTo {
   '/releases/deployment-zones/new': typeof ReleasesDeploymentZonesNewIndexRoute
   '/releases/deployment-zones/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugIndexRoute
   '/releases/deployments/new': typeof ReleasesDeploymentsNewIndexRoute
+  '/billing/invoices/$invoiceId/lines/$lineId': typeof BillingInvoicesInvoiceIdLinesLineIdRoute
   '/customers/$customerSlug/instances/new': typeof CustomersCustomerSlugInstancesNewIndexRoute
   '/integrations/service-accounts/$serviceAccountSlug/tokens/new': typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/billing': typeof BillingRouteRoute
+  '/billing': typeof BillingRouteRouteWithChildren
   '/customers': typeof CustomersRouteRouteWithChildren
   '/entitlements': typeof EntitlementsRouteRouteWithChildren
   '/releases': typeof ReleasesRouteRouteWithChildren
@@ -728,6 +777,7 @@ export interface FileRoutesById {
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
+  '/billing/': typeof BillingIndexRoute
   '/customers/': typeof CustomersIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/entitlements/': typeof EntitlementsIndexRoute
@@ -737,6 +787,7 @@ export interface FileRoutesById {
   '/notifications/': typeof NotificationsIndexRoute
   '/releases/': typeof ReleasesIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/billing/invoices/$invoiceId': typeof BillingInvoicesInvoiceIdRouteRouteWithChildren
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugRouteRouteWithChildren
   '/releases/deployment-zones_/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugRouteRouteWithChildren
   '/customers/$customerSlug/edit': typeof CustomersCustomerSlugEditRoute
@@ -752,6 +803,8 @@ export interface FileRoutesById {
   '/licenses/$licenseSlug/prices': typeof LicensesLicenseSlugPricesRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
+  '/billing/handoff/': typeof BillingHandoffIndexRoute
+  '/billing/invoices/': typeof BillingInvoicesIndexRoute
   '/customers/$customerSlug/': typeof CustomersCustomerSlugIndexRoute
   '/customers/instances/': typeof CustomersInstancesIndexRoute
   '/customers/new/': typeof CustomersNewIndexRoute
@@ -775,6 +828,7 @@ export interface FileRoutesById {
   '/releases/deployment-zones/$zoneSlug/deploy': typeof ReleasesDeploymentZonesZoneSlugDeployRoute
   '/releases/deployment-zones/$zoneSlug/edit': typeof ReleasesDeploymentZonesZoneSlugEditRoute
   '/releases/deployment-zones_/$zoneSlug/peers': typeof ReleasesDeploymentZonesZoneSlugPeersRoute
+  '/billing/invoices/$invoiceId/': typeof BillingInvoicesInvoiceIdIndexRoute
   '/customers/instances/$instanceSlug/': typeof CustomersInstancesInstanceSlugIndexRoute
   '/customers/instances/new/': typeof CustomersInstancesNewIndexRoute
   '/integrations/service-accounts/new/': typeof IntegrationsServiceAccountsNewIndexRoute
@@ -785,6 +839,7 @@ export interface FileRoutesById {
   '/releases/deployment-zones/new/': typeof ReleasesDeploymentZonesNewIndexRoute
   '/releases/deployment-zones_/$zoneSlug/': typeof ReleasesDeploymentZonesZoneSlugIndexRoute
   '/releases/deployments/new/': typeof ReleasesDeploymentsNewIndexRoute
+  '/billing/invoices/$invoiceId/lines/$lineId': typeof BillingInvoicesInvoiceIdLinesLineIdRoute
   '/customers/$customerSlug/instances/new/': typeof CustomersCustomerSlugInstancesNewIndexRoute
   '/integrations/service-accounts/$serviceAccountSlug/tokens/new/': typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute
 }
@@ -813,6 +868,7 @@ export interface FileRouteTypes {
     | '/settings/metadata'
     | '/settings/notifications'
     | '/audit-trail/'
+    | '/billing/'
     | '/customers/'
     | '/dashboard/'
     | '/entitlements/'
@@ -822,6 +878,7 @@ export interface FileRouteTypes {
     | '/notifications/'
     | '/releases/'
     | '/settings/'
+    | '/billing/invoices/$invoiceId'
     | '/customers/instances/$instanceSlug'
     | '/releases/deployment-zones/$zoneSlug'
     | '/customers/$customerSlug/edit'
@@ -837,6 +894,8 @@ export interface FileRouteTypes {
     | '/licenses/$licenseSlug/prices'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
+    | '/billing/handoff/'
+    | '/billing/invoices/'
     | '/customers/$customerSlug/'
     | '/customers/instances/'
     | '/customers/new/'
@@ -860,6 +919,7 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones/$zoneSlug/deploy'
     | '/releases/deployment-zones/$zoneSlug/edit'
     | '/releases/deployment-zones/$zoneSlug/peers'
+    | '/billing/invoices/$invoiceId/'
     | '/customers/instances/$instanceSlug/'
     | '/customers/instances/new/'
     | '/integrations/service-accounts/new/'
@@ -870,12 +930,12 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones/new/'
     | '/releases/deployment-zones/$zoneSlug/'
     | '/releases/deployments/new/'
+    | '/billing/invoices/$invoiceId/lines/$lineId'
     | '/customers/$customerSlug/instances/new/'
     | '/integrations/service-accounts/$serviceAccountSlug/tokens/new/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/billing'
     | '/sign-in'
     | '/sign-up'
     | '/releases/components'
@@ -884,6 +944,7 @@ export interface FileRouteTypes {
     | '/settings/metadata'
     | '/settings/notifications'
     | '/audit-trail'
+    | '/billing'
     | '/customers'
     | '/dashboard'
     | '/entitlements'
@@ -906,6 +967,8 @@ export interface FileRouteTypes {
     | '/licenses/$licenseSlug/prices'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
+    | '/billing/handoff'
+    | '/billing/invoices'
     | '/customers/$customerSlug'
     | '/customers/instances'
     | '/customers/new'
@@ -929,6 +992,7 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones/$zoneSlug/deploy'
     | '/releases/deployment-zones/$zoneSlug/edit'
     | '/releases/deployment-zones/$zoneSlug/peers'
+    | '/billing/invoices/$invoiceId'
     | '/customers/instances/$instanceSlug'
     | '/customers/instances/new'
     | '/integrations/service-accounts/new'
@@ -939,6 +1003,7 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones/new'
     | '/releases/deployment-zones/$zoneSlug'
     | '/releases/deployments/new'
+    | '/billing/invoices/$invoiceId/lines/$lineId'
     | '/customers/$customerSlug/instances/new'
     | '/integrations/service-accounts/$serviceAccountSlug/tokens/new'
   id:
@@ -965,6 +1030,7 @@ export interface FileRouteTypes {
     | '/settings/metadata'
     | '/settings/notifications'
     | '/audit-trail/'
+    | '/billing/'
     | '/customers/'
     | '/dashboard/'
     | '/entitlements/'
@@ -974,6 +1040,7 @@ export interface FileRouteTypes {
     | '/notifications/'
     | '/releases/'
     | '/settings/'
+    | '/billing/invoices/$invoiceId'
     | '/customers/instances/$instanceSlug'
     | '/releases/deployment-zones_/$zoneSlug'
     | '/customers/$customerSlug/edit'
@@ -989,6 +1056,8 @@ export interface FileRouteTypes {
     | '/licenses/$licenseSlug/prices'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
+    | '/billing/handoff/'
+    | '/billing/invoices/'
     | '/customers/$customerSlug/'
     | '/customers/instances/'
     | '/customers/new/'
@@ -1012,6 +1081,7 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones/$zoneSlug/deploy'
     | '/releases/deployment-zones/$zoneSlug/edit'
     | '/releases/deployment-zones_/$zoneSlug/peers'
+    | '/billing/invoices/$invoiceId/'
     | '/customers/instances/$instanceSlug/'
     | '/customers/instances/new/'
     | '/integrations/service-accounts/new/'
@@ -1022,13 +1092,14 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones/new/'
     | '/releases/deployment-zones_/$zoneSlug/'
     | '/releases/deployments/new/'
+    | '/billing/invoices/$invoiceId/lines/$lineId'
     | '/customers/$customerSlug/instances/new/'
     | '/integrations/service-accounts/$serviceAccountSlug/tokens/new/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  BillingRouteRoute: typeof BillingRouteRoute
+  BillingRouteRoute: typeof BillingRouteRouteWithChildren
   CustomersRouteRoute: typeof CustomersRouteRouteWithChildren
   EntitlementsRouteRoute: typeof EntitlementsRouteRouteWithChildren
   ReleasesRouteRoute: typeof ReleasesRouteRouteWithChildren
@@ -1112,6 +1183,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/audit-trail/'
       preLoaderRoute: typeof AuditTrailIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/billing/': {
+      id: '/billing/'
+      path: '/'
+      fullPath: '/billing/'
+      preLoaderRoute: typeof BillingIndexRouteImport
+      parentRoute: typeof BillingRouteRoute
     }
     '/customers/': {
       id: '/customers/'
@@ -1273,6 +1351,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/notifications'
       preLoaderRoute: typeof SettingsNotificationsRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/billing/handoff/': {
+      id: '/billing/handoff/'
+      path: '/handoff'
+      fullPath: '/billing/handoff/'
+      preLoaderRoute: typeof BillingHandoffIndexRouteImport
+      parentRoute: typeof BillingRouteRoute
+    }
+    '/billing/invoices/': {
+      id: '/billing/invoices/'
+      path: '/invoices'
+      fullPath: '/billing/invoices/'
+      preLoaderRoute: typeof BillingInvoicesIndexRouteImport
+      parentRoute: typeof BillingRouteRoute
+    }
+    '/billing/invoices/$invoiceId': {
+      id: '/billing/invoices/$invoiceId'
+      path: '/invoices/$invoiceId'
+      fullPath: '/billing/invoices/$invoiceId'
+      preLoaderRoute: typeof BillingInvoicesInvoiceIdRouteRouteImport
+      parentRoute: typeof BillingRouteRoute
     }
     '/customers/$customerSlug/': {
       id: '/customers/$customerSlug/'
@@ -1491,6 +1590,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReleasesNewIndexRouteImport
       parentRoute: typeof ReleasesRouteRoute
     }
+    '/billing/invoices/$invoiceId/': {
+      id: '/billing/invoices/$invoiceId/'
+      path: '/'
+      fullPath: '/billing/invoices/$invoiceId/'
+      preLoaderRoute: typeof BillingInvoicesInvoiceIdIndexRouteImport
+      parentRoute: typeof BillingInvoicesInvoiceIdRouteRoute
+    }
     '/customers/instances/$instanceSlug/': {
       id: '/customers/instances/$instanceSlug/'
       path: '/'
@@ -1610,6 +1716,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReleasesDeploymentsNewIndexRouteImport
       parentRoute: typeof ReleasesDeploymentsRouteRoute
     }
+    '/billing/invoices/$invoiceId/lines/$lineId': {
+      id: '/billing/invoices/$invoiceId/lines/$lineId'
+      path: '/lines/$lineId'
+      fullPath: '/billing/invoices/$invoiceId/lines/$lineId'
+      preLoaderRoute: typeof BillingInvoicesInvoiceIdLinesLineIdRouteImport
+      parentRoute: typeof BillingInvoicesInvoiceIdRouteRoute
+    }
     '/customers/$customerSlug/instances/new/': {
       id: '/customers/$customerSlug/instances/new/'
       path: '/instances/new'
@@ -1626,6 +1739,42 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface BillingInvoicesInvoiceIdRouteRouteChildren {
+  BillingInvoicesInvoiceIdIndexRoute: typeof BillingInvoicesInvoiceIdIndexRoute
+  BillingInvoicesInvoiceIdLinesLineIdRoute: typeof BillingInvoicesInvoiceIdLinesLineIdRoute
+}
+
+const BillingInvoicesInvoiceIdRouteRouteChildren: BillingInvoicesInvoiceIdRouteRouteChildren =
+  {
+    BillingInvoicesInvoiceIdIndexRoute: BillingInvoicesInvoiceIdIndexRoute,
+    BillingInvoicesInvoiceIdLinesLineIdRoute:
+      BillingInvoicesInvoiceIdLinesLineIdRoute,
+  }
+
+const BillingInvoicesInvoiceIdRouteRouteWithChildren =
+  BillingInvoicesInvoiceIdRouteRoute._addFileChildren(
+    BillingInvoicesInvoiceIdRouteRouteChildren,
+  )
+
+interface BillingRouteRouteChildren {
+  BillingIndexRoute: typeof BillingIndexRoute
+  BillingInvoicesInvoiceIdRouteRoute: typeof BillingInvoicesInvoiceIdRouteRouteWithChildren
+  BillingHandoffIndexRoute: typeof BillingHandoffIndexRoute
+  BillingInvoicesIndexRoute: typeof BillingInvoicesIndexRoute
+}
+
+const BillingRouteRouteChildren: BillingRouteRouteChildren = {
+  BillingIndexRoute: BillingIndexRoute,
+  BillingInvoicesInvoiceIdRouteRoute:
+    BillingInvoicesInvoiceIdRouteRouteWithChildren,
+  BillingHandoffIndexRoute: BillingHandoffIndexRoute,
+  BillingInvoicesIndexRoute: BillingInvoicesIndexRoute,
+}
+
+const BillingRouteRouteWithChildren = BillingRouteRoute._addFileChildren(
+  BillingRouteRouteChildren,
+)
 
 interface CustomersCustomerSlugRouteRouteChildren {
   CustomersCustomerSlugEditRoute: typeof CustomersCustomerSlugEditRoute
@@ -1965,7 +2114,7 @@ const LicensesLicenseSlugRouteRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  BillingRouteRoute: BillingRouteRoute,
+  BillingRouteRoute: BillingRouteRouteWithChildren,
   CustomersRouteRoute: CustomersRouteRouteWithChildren,
   EntitlementsRouteRoute: EntitlementsRouteRouteWithChildren,
   ReleasesRouteRoute: ReleasesRouteRouteWithChildren,

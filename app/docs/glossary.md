@@ -48,6 +48,22 @@ How a license version is sold: its `pricingType` (`FREE`, `PAID` or `CUSTOM`), t
 
 A license version whose grants and prices can no longer change where they are. A live subscription freezes the grants and the prices of the version it bills (`*.BillingActive`), the prices of a published version are immutable (`UpdateLicensePrice.VersionNotDraft`) and an archived version takes no new price (`CreateLicensePrice.VersionArchived`). Every such refusal has the same way out, a new version, which the console offers. No field of a version says it is billed, so the refusal is the only signal.
 
+### Invoice
+
+What the API composes for a subscription at each boundary of its billing period (`/invoices`): a kind (`ACTIVATION`, `RENEWAL` or `FINAL`), the lines it bills with their service periods, and totals that are fields of the invoice, which the console never adds up. Its `status` is `DRAFT`, `MANUAL` (issued, for the organization to collect), `PUSHED`, `PUSH_FAILED`, `PAYMENT_FAILED`, `PAID`, `UNCOLLECTIBLE` or `VOID`; the console reads `MANUAL` as "Ready to bill", never as a failure, and derives "overdue" for an unpaid invoice past its due date. Who it was composed for (customer, instance, license) is a snapshot that outlives them. An issued invoice is never edited: a correction is a void invoice and its replacement, which point to each other. Code: `app/src/features/billing/` and `app/src/domains/billing/`.
+
+### Hold
+
+A draft whose usage journal failed a consistency check after the period closed (`holdReason`): it is composed but not issued, because billing does not bill an amount it cannot vouch for. It leaves the hold by being released (the amounts are accepted as composed, with a reason), recomposed from the journal as it is now, or voided. Code: `app/src/features/billing/components/invoice-detail/`.
+
+### Handoff queue
+
+How an invoice that no payment provider collects reaches the organization's accounting system: it waits in a queue (`PENDING`) that a job or the CLI reads and takes under a lease (a claim), and is acknowledged once booked, with the number the accounting system gave it (`externalReference`). The console shows the queue and lets a person acknowledge an invoice they booked themselves; it never claims one. Code: `app/src/features/billing/components/handoff/`.
+
+### Line fingerprint
+
+What an invoice keeps of the usage a metered line was measured from (`metering.ledger`): the numbers of the first and last report, how many there are and what they sum to. It still reads once the reports themselves are purged after the retention, which is what the usage page of a line shows instead of them. The reports are grouped by **reset window**, the period an entitlement counts over (a month, a day), and the quantity of a line is the sum of its windows, each floored at zero. Code: `app/src/features/billing/components/line-drilldown/`.
+
 ### Entitlement
 
 A capability or a limit that a license can grant, defined once per organization. Its `type` is `BOOLEAN` (on or off), `NUMBER` (a quantity), `CONFIG` (a structured value) or `NUMBER_AI_CREDIT`. A license grants it with a value, which the contract calls a license entitlement. For a `NUMBER`, the value is a cap: unlimited, hard, or exceedable by a set percentage (`limitCapExceededOveragePercent`). The usage of a `NUMBER` entitlement is reported per instance, and can reset on a period (`resetPeriod`). Feature: `app/src/features/entitlements/`.

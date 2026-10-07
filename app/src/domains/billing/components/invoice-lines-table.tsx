@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { InvoiceLine } from '@/api-client';
 import { Badge } from '@/components/ui/badge';
@@ -15,13 +15,25 @@ type InvoiceLinesTableProps = {
   currency: string;
   /** The lines of an invoice or of a preview, in the order the API sent them. */
   lines: InvoiceLine[];
+  /**
+   * What a screen adds under a line, which only that screen knows: the
+   * fingerprint of the usage behind a metered line and the way to its reports.
+   * A preview has none.
+   */
+  renderLineDetail?: (line: InvoiceLine) => ReactNode;
 };
 
 // A line says what it bills (its label and its type), how it was worked out (the
 // API's own description of the arithmetic, shown as written), the period it
 // bills and what that comes to. The amount is a field of the line: nothing here
 // multiplies a quantity by a price.
-function LineCell({ line }: { line: InvoiceLine }) {
+function LineCell({
+  line,
+  renderLineDetail,
+}: {
+  line: InvoiceLine;
+  renderLineDetail?: (line: InvoiceLine) => ReactNode;
+}) {
   const { t } = useTranslation();
 
   return (
@@ -42,6 +54,7 @@ function LineCell({ line }: { line: InvoiceLine }) {
         ) : null}
       </div>
       <p className="text-xs text-muted-foreground">{line.description}</p>
+      {renderLineDetail?.(line)}
     </div>
   );
 }
@@ -56,6 +69,7 @@ export function InvoiceLinesTable({
   className,
   currency,
   lines,
+  renderLineDetail,
 }: InvoiceLinesTableProps) {
   const { t } = useTranslation();
 
@@ -65,7 +79,9 @@ export function InvoiceLinesTable({
         id: 'line',
         enableSorting: false,
         header: t('Features.Billing.InvoiceLines.Columns.line'),
-        cell: ({ row }) => <LineCell line={row.original} />,
+        cell: ({ row }) => (
+          <LineCell line={row.original} renderLineDetail={renderLineDetail} />
+        ),
       },
       {
         id: 'servicePeriod',
@@ -94,7 +110,7 @@ export function InvoiceLinesTable({
         ),
       },
     ],
-    [currency, t],
+    [currency, renderLineDetail, t],
   );
 
   return (

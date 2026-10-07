@@ -3065,12 +3065,324 @@ export default {
       title: 'Facturation',
       Invoices: {
         title: 'Factures',
+        subtitle:
+          'Toutes les factures de votre organisation, tous clients et instances confondus.',
+        loading: 'Chargement des factures',
+        shown_one: '{{count}} facture affichée',
+        shown_other: '{{count}} factures affichées',
+        loadMore: 'Charger plus',
         Lines: {
           title: 'Lignes',
+        },
+        Empty: {
+          title: 'Aucune facture pour le moment',
+          description:
+            'Une facture est composée lorsqu’un abonnement atteint une échéance. Abonnez une instance pour commencer à facturer.',
+          instances: 'Aller aux instances',
+          filteredTitle: 'Aucune facture ne correspond à ces filtres',
+          filteredDescription:
+            'Retirez un filtre ou élargissez la période pour en voir davantage.',
+        },
+        Filters: {
+          button: 'Filtres',
+          panelLabel: 'Filtres des factures',
+          clear: 'Effacer les filtres',
+          remove: 'Retirer le filtre {{filter}}',
+          chip: '{{field}} : {{value}}',
+          status: 'Statut',
+          kind: 'Type',
+          provider: 'Fournisseur',
+          handoff: 'Transmission',
+          overdue: 'En retard',
+          overdueOnly: 'Factures en retard uniquement',
+          held: 'Bloquées',
+          heldOnly: 'Brouillons bloqués uniquement',
+          customer: 'Client',
+          instance: 'Instance',
+          slugPlaceholder: 'slug',
+          boundary: 'Échéance',
+          issued: 'Émission',
+          from: 'Du',
+          before: 'Avant le',
+          openEnd: 'sans limite',
+          periodInvalid: 'La période doit se terminer après son début.',
+        },
+        Export: {
+          button: 'Exporter',
+          csvLines: 'CSV par ligne de facture',
+          csvInvoices: 'CSV par facture',
+          ndjson: 'NDJSON, une facture par ligne',
+        },
+        Toasts: {
+          released: 'Facture débloquée',
+          paid: 'Facture marquée comme payée',
+          writtenOff: 'Facture passée en perte',
+          voided: 'Facture annulée',
+          recomposed: 'Facture recomposée',
+          replaced: 'Facture de remplacement composée',
+        },
+        Detail: {
+          title: '{{kind}} · facture du {{date}}',
+          subtitle: '{{customer}} · {{instance}}',
+          Actions: {
+            menu: 'Actions',
+            markPaid: 'Marquer comme payée',
+            recompose: 'Recomposer',
+            releaseHold: 'Débloquer la facture',
+            void: 'Annuler la facture',
+            writeOff: 'Passer en perte',
+            purgedUsage:
+              'L’usage de cette période n’est plus conservé (avant le {{date}}) : une recomposition omettrait ses lignes d’usage.',
+            instanceDeleted:
+              'L’instance de cette facture a été supprimée : rien ne peut être recomposé pour elle.',
+          },
+          Chain: {
+            label: 'Chaîne de remplacement',
+            replaces: 'Remplace',
+            replacedBy: 'Remplacée par',
+          },
+          Hold: {
+            title: 'Bloquée : {{reason}}',
+            description:
+              'Après la clôture de la période, le journal d’usage de cette facture a échoué à un contrôle de cohérence. La facture a été composée mais pas émise : la facturation ne facture pas un montant dont elle ne peut pas répondre.',
+            Columns: {
+              meter: 'Compteur',
+              check: 'Contrôle',
+              expected: 'Attendu',
+              found: 'Constaté',
+              reports: 'Rapports',
+              counter: 'Rapport du compteur',
+            },
+            release_NOOP:
+              'Le déblocage accepte les montants tels que composés. La facture est émise sans fournisseur de paiement et attend votre ERP dans la file de transmission.',
+            release_STRIPE:
+              'Le déblocage accepte les montants tels que composés. La facture est envoyée à Stripe, qui l’encaisse.',
+            recompose:
+              'La recomposition compose à nouveau la facture à partir du journal d’usage tel qu’il est maintenant, avec le fournisseur actuel de l’abonnement.',
+          },
+          Summary: {
+            title: 'Résumé',
+            kind: 'Type',
+            boundary: 'Échéance',
+            period: 'Période de service',
+            provider: 'Fournisseur',
+            issued: 'Émise le',
+            due: 'Échéance de paiement',
+            dueValue_one: '{{date}} · {{count}} jour pour payer',
+            dueValue_other: '{{date}} · {{count}} jours pour payer',
+            paid: 'Payée le',
+            writtenOff: 'Passée en perte le',
+            voided: 'Annulée le',
+            voidReason: 'Motif d’annulation',
+            released: 'Blocage levé',
+            releasedValue:
+              '{{date}}, par une personne, pour ce motif : {{reason}}',
+            releasedAutomatically:
+              '{{date}}, automatiquement : un contrôle ultérieur a jugé le journal d’usage sain',
+          },
+          Lines: {
+            title: 'Lignes',
+            viewReports_one: 'Voir {{count}} rapport d’usage',
+            viewReports_other: 'Voir {{count}} rapports d’usage',
+          },
+          Handoff: {
+            title: 'Transmission',
+            waiting:
+              'Un job ou la CLI la prend dans la file, la comptabilise et l’acquitte.',
+            waiting_VOID:
+              'Cette facture est annulée et sa transmission reste en attente : le système qui lit la file la voit comme annulée, et l’acquitte.',
+            waiting_UNCOLLECTIBLE:
+              'Cette facture a été passée en perte et sa transmission reste en attente : le système qui lit la file la voit comme passée en perte, et l’acquitte.',
+            claims: 'Réservations',
+            leasedUntil: 'Réservée jusqu’au',
+            reference: 'Référence ERP',
+            noReference: 'Acquittée sans référence',
+            acknowledgedAt: 'Acquittée le',
+          },
+          Identity: {
+            title: 'Facturée à',
+            description:
+              'Tel qu’au moment de la composition de la facture. Un changement de nom depuis ne la modifie pas.',
+            customer: 'Client',
+            instance: 'Instance',
+            license: 'Licence',
+            billingEmail: 'E-mail de facturation',
+            customerInvoices: 'Factures de ce client',
+            instanceInvoices: 'Factures de cette instance',
+          },
+          MarkPaid: {
+            title: 'Marquer comme payée',
+            description:
+              'Enregistrez que cette facture a été payée. Les heures sont lues en UTC.',
+            descriptionPending:
+              'Enregistrez que cette facture a été payée. Cela acquitte aussi la facture dans la file de transmission, sous la référence indiquée.',
+            reference: 'Référence externe',
+            referenceHint:
+              'Le numéro de la facture dans votre ERP, {{max}} caractères au plus. Facultatif.',
+            paidAt: 'Payée le (UTC)',
+            paidAtHint: 'Maintenant ou avant. Laissez vide pour maintenant.',
+            note: 'Note',
+            noteHint:
+              'Par exemple la référence du virement. Elle n’est conservée que dans l’événement de paiement.',
+            confirm: 'Marquer comme payée',
+          },
+          Release: {
+            title: 'Débloquer la facture',
+            description:
+              'Accepter les montants tels que composés, bien que le journal d’usage n’ait pas pu les garantir. La facture est ensuite émise.',
+            reason: 'Motif',
+            reasonHint:
+              'Pourquoi les montants sont fiables. Conservé avec votre nom dans le journal d’audit.',
+            effect_NOOP:
+              'La facture est émise sans fournisseur de paiement et attend votre ERP dans la file de transmission.',
+            effect_STRIPE: 'La facture est envoyée à Stripe, qui l’encaisse.',
+            confirm: 'Débloquer',
+          },
+          Recompose: {
+            title: 'Recomposer la facture',
+            descriptionHeld:
+              'Composer à nouveau ce brouillon bloqué à partir du journal d’usage tel qu’il est maintenant.',
+            descriptionVoid:
+              'Composer une facture de remplacement pour l’échéance que cette facture annulée facturait.',
+            effectHeld:
+              'Le brouillon est réécrit sur place. Si le journal est sain, la facture est émise avec le fournisseur actuel de l’abonnement.',
+            effectVoid:
+              'La remplaçante est émise avec le fournisseur actuel de l’abonnement, et cette facture pointe vers elle.',
+            confirm: 'Recomposer',
+          },
+          Void: {
+            title: 'Annuler la facture',
+            descriptionNoop:
+              'L’annulation retire la facture de l’échéance qu’elle facturait, qu’une recomposition peut ensuite remplir. Une transmission en attente reste en attente, avec l’annulation dans sa charge utile.',
+            descriptionProvider:
+              'La facture est d’abord annulée chez votre fournisseur de paiement, puis ici. Cette action est irréversible.',
+            reason: 'Motif',
+            confirm: 'Annuler la facture',
+          },
+          VoidThenRecompose: {
+            title: 'Annuler et recomposer',
+            description:
+              'Cette facture n’est pas un brouillon bloqué : elle ne peut pas être modifiée. Elle est annulée, puis une remplaçante est composée à partir du journal d’usage tel qu’il est maintenant. Un seul motif couvre les deux.',
+            confirm: 'Annuler et recomposer',
+          },
+          WriteOff: {
+            title: 'Passer la facture en perte',
+            description:
+              'Renoncer à encaisser cette facture. Elle devient irrécouvrable, ce qui est définitif. Une transmission en attente reste en attente.',
+            reason: 'Motif',
+            confirm: 'Passer en perte',
+          },
+        },
+        Drilldown: {
+          subtitle: 'Usage derrière une ligne de cette facture : {{invoice}}',
+          backToInvoice: 'Retour à la facture',
+          region: 'Rapports d’usage de la ligne',
+          export: 'Exporter en CSV',
+          loading: 'Chargement des rapports d’usage',
+          Empty: {
+            title: 'Aucun rapport d’usage',
+            description:
+              'Aucun rapport n’a été accepté pendant la période de cette ligne.',
+          },
+          Summary: {
+            title: 'Cette ligne',
+            period: 'Période de service',
+            measured: 'Quantité mesurée',
+            billed: 'Quantité facturée',
+            saleUnit: 'Unités mesurées par unité de vente',
+            windows: 'Fenêtres de remise à zéro',
+            windowsValue_one: '{{count}} fenêtre',
+            windowsValue_other: '{{count}} fenêtres',
+            windowsFloored_one:
+              '{{count}} fenêtre a un mouvement négatif, comptée pour 0',
+            windowsFloored_other:
+              '{{count}} fenêtres ont un mouvement négatif, comptées pour 0',
+            amount: 'Montant de la ligne',
+          },
+          Columns: {
+            report: 'Rapport',
+            reportedAt: 'Reçu le',
+            behavior: 'Mode',
+            counter: 'Compteur',
+            delta: 'Variation',
+            overageDelta: 'Variation du dépassement',
+            limit: 'Limite',
+            transaction: 'Transaction',
+            properties: 'Propriétés',
+          },
+          Behavior: {
+            append: 'Ajout',
+            set: 'Remplacement',
+          },
+          unlimited: 'Sans limite',
+          limitChanged: 'Limite modifiée',
+          lifetime: 'Toute la durée de vie',
+          windowUsage_one: '{{count}} rapport · usage {{sum}}',
+          windowUsage_other: '{{count}} rapports · usage {{sum}}',
+          windowOverage_one: '{{count}} rapport · dépassement {{sum}}',
+          windowOverage_other: '{{count}} rapports · dépassement {{sum}}',
+          windowPartial_one:
+            '{{count}} rapport pour l’instant · d’autres à charger',
+          windowPartial_other:
+            '{{count}} rapports pour l’instant · d’autres à charger',
+          propertiesTitle: 'Propriétés du rapport {{report}}',
+          propertiesOpen: 'Afficher les propriétés du rapport {{report}}',
+          shown_one: '{{count}} rapport affiché',
+          shown_other: '{{count}} rapports affichés',
+          loadMore: 'Charger plus de rapports',
+          OutsideRetention: {
+            title: 'Les rapports de cette ligne ne sont plus conservés',
+            description:
+              'L’usage derrière cette ligne est plus ancien que l’historique conservé par votre organisation. La facture en a gardé l’empreinte : les rapports dont elle a été mesurée et leur somme.',
+            kept: 'Ce que la facture a conservé',
+          },
         },
       },
       Handoff: {
         title: 'Transmission',
+        subtitle:
+          'Les factures en attente de votre ERP, les plus anciennes d’abord. Un job ou la CLI les prend dans la file et les acquitte une fois comptabilisées.',
+        Tabs: {
+          label: 'Partie de la file',
+          pending: 'En attente',
+          acknowledged: 'Acquittées',
+        },
+        loading: 'Chargement de la file',
+        shown_one: '{{count}} facture affichée',
+        shown_other: '{{count}} factures affichées',
+        loadMore: 'Charger plus',
+        Columns: {
+          issued: 'Émise le',
+          booked: 'Comptabilisée',
+          claims: 'Réservations',
+        },
+        claims_one: '{{count}} réservation',
+        claims_other: '{{count}} réservations',
+        reservedUntil: 'Réservée jusqu’au {{date}}',
+        noReference: 'Sans référence',
+        acknowledge: 'Acquitter',
+        Empty: {
+          pendingTitle: 'Rien n’attend votre ERP',
+          pendingDescription:
+            'Les factures qu’aucun fournisseur de paiement n’encaisse attendent ici qu’un job ou un terminal les prenne. Pour les prendre depuis un terminal, lancez :',
+          acknowledgedTitle: 'Rien n’a encore été acquitté',
+          acknowledgedDescription:
+            'Les factures comptabilisées dans votre ERP apparaissent ici une fois acquittées.',
+        },
+        Acknowledge: {
+          title: 'Acquitter la facture',
+          description:
+            'Enregistrez que votre ERP a comptabilisé cette facture. Ne le faites que pour une facture que vous avez comptabilisée vous-même : un job ou la CLI acquitte celles qu’il prend.',
+          leased:
+            'Un consommateur détient cette facture jusqu’au {{date}}. L’acquitter maintenant peut la comptabiliser deux fois.',
+          reference: 'Référence externe',
+          referenceHint:
+            'Le numéro de la facture dans votre ERP, {{max}} caractères au plus. Facultatif.',
+          confirm: 'Acquitter',
+        },
+        Toasts: {
+          acknowledged: 'Facture acquittée',
+        },
       },
     },
     Addons: {
@@ -3584,6 +3896,58 @@ export default {
           'Voici ce que serait la facture à une échéance maintenant. Rien n’est enregistré, envoyé ni facturé.',
         resultLabel: 'Aperçu de facture',
         composed: 'Facture de type {{kind}}, composée le {{asOf}}.',
+      },
+      Fingerprint: {
+        empty: 'Aucun rapport d’usage sur cette période.',
+        summary_one: 'Rapport {{first}} · {{count}} ligne · Σ {{sum}}',
+        summary_other:
+          'Rapports {{first}}–{{last}} · {{count}} lignes · Σ {{sum}}',
+      },
+      HandoffStatus: {
+        PENDING: 'En attente de votre ERP',
+        ACKNOWLEDGED: 'Acquittée',
+        NOT_REQUIRED: 'Non requise',
+      },
+      Invoices: {
+        notIssued: 'Non émise',
+        Columns: {
+          customer: 'Client',
+          invoice: 'Facture',
+          period: 'Période de service',
+          total: 'Total',
+          status: 'Statut',
+          due: 'Échéance de paiement',
+          provider: 'Fournisseur',
+          handoff: 'Transmission',
+        },
+      },
+      MarkPaid: {
+        Errors: {
+          referenceTooLong: 'La référence est trop longue',
+          noteTooLong: 'La note est trop longue',
+          paidAtInvalid: 'Saisissez une date et une heure valides',
+          paidAtInFuture: 'Le paiement ne peut pas être dans le futur',
+        },
+      },
+      Overage: {
+        unlimited: 'Aucune limite',
+        limit: 'Limite {{limit}} (+{{percent}} % accepté)',
+        reports_one: '{{count}} rapport',
+        reports_other: '{{count}} rapports',
+        measured: 'Usage {{usage}}, dont {{overage}} au-dessus de la limite',
+        limitsLabel: 'Limites appliquées',
+      },
+      ProviderKind: {
+        NOOP: 'Manuel',
+        STRIPE: 'Stripe',
+      },
+      Reason: {
+        description:
+          'Obligatoire, {{max}} caractères au plus. Conservé avec votre nom dans le journal d’audit.',
+        Errors: {
+          required: 'Un motif est obligatoire',
+          tooLong: 'Le motif est trop long',
+        },
       },
     },
     AuditTrail: {

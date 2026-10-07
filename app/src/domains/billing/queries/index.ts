@@ -5,6 +5,7 @@ export {
   requireBillingCapability,
   useBillingCapabilities,
 } from './billing-capabilities';
+export { downloadInvoiceExport } from './download-invoice-export';
 export {
   invalidateBillingSettingsQueries,
   invalidateInstanceBillingQueries,
