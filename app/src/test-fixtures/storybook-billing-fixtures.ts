@@ -1,3 +1,4 @@
+import type { InvoicePreview } from '@/api-client';
 import { ApiError } from '@/lib/errors';
 
 export { billingCapabilitiesProfiles } from '../../e2e/app/_support/model/billing-capabilities';
@@ -20,3 +21,58 @@ export const storyBillingProblem = (
     response: new Response(null, { status }),
     status,
   });
+
+const SERVICE_PERIOD = {
+  serviceFrom: '2027-03-01T00:00:00Z',
+  serviceTo: '2027-04-01T00:00:00Z',
+};
+
+/**
+ * The preview of a RENEWAL invoice as the API composes it: an overage line, a
+ * usage line capped at what the license accepts, and the base, with the totals
+ * the API states.
+ */
+export const storyInvoicePreview: InvoicePreview = {
+  asOf: '2027-03-01T10:00:00Z',
+  boundaryAt: '2027-03-01T10:00:00Z',
+  currency: 'USD',
+  discountTotal: 0,
+  kind: 'RENEWAL',
+  licenseSlug: 'pro-v2',
+  lines: [
+    {
+      amount: 579,
+      description:
+        '72,345 above the allowance (100,000): 0.72345 × $8.00 per 100k traces',
+      label: 'Traces, overage',
+      quantity: '0.72345',
+      seq: 1,
+      type: 'OVERAGE',
+      ...SERVICE_PERIOD,
+    },
+    {
+      amount: 840,
+      capped: true,
+      description:
+        '4.2 × $2.00 per 1M tokens; capped at what the license accepts',
+      label: 'GPT-4 tokens',
+      quantity: '4.2',
+      seq: 2,
+      type: 'USAGE',
+      ...SERVICE_PERIOD,
+    },
+    {
+      amount: 2900,
+      description: '1 × $29.00',
+      label: 'Pro, base',
+      quantity: '1',
+      seq: 3,
+      type: 'BASE',
+      ...SERVICE_PERIOD,
+    },
+  ],
+  status: 'PREVIEW',
+  subtotal: 4319,
+  total: 4319,
+  wouldHold: [],
+};

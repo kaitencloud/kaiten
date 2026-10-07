@@ -3253,6 +3253,34 @@ export default {
           cancellationScheduled: 'Réactivez d’abord l’abonnement',
         },
       },
+      InvoiceKind: {
+        ACTIVATION: 'Activation',
+        RENEWAL: 'Renouvellement',
+        FINAL: 'Finale',
+      },
+      InvoiceLines: {
+        capped: 'Plafonnée',
+        cappedExplanation:
+          'L’échantillon dépasse ce que la licence accepte. Les rapports au-delà du plafond sont rejetés : l’excédent n’est donc pas facturé.',
+        empty: 'Cette facture n’a aucune ligne.',
+        Columns: {
+          line: 'Ligne',
+          servicePeriod: 'Période de service',
+          amount: 'Montant',
+        },
+      },
+      InvoiceTotals: {
+        subtotal: 'Sous-total',
+        discounts: 'Remises',
+        total: 'Total',
+      },
+      InvoicePreview: {
+        bannerTitle: 'Aperçu, pas une facture',
+        bannerDescription:
+          'Voici ce que serait la facture à une échéance maintenant. Rien n’est enregistré, envoyé ni facturé.',
+        resultLabel: 'Aperçu de facture',
+        composed: 'Type : {{kind}}. Composé le {{asOf}}.',
+      },
     },
     AuditTrail: {
       events: {

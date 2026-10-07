@@ -23,6 +23,11 @@ export {
   handleBillingProblem,
 } from './billing-problem';
 export {
+  getInvoiceKindLabelKey,
+  INVOICE_KINDS,
+  type InvoiceKind,
+} from './invoice-kind';
+export {
   describeInvoiceLine,
   INVOICE_LINE_TYPES,
   type InvoiceLineKind,

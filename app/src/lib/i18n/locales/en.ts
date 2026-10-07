@@ -3190,6 +3190,34 @@ export default {
           cancellationScheduled: 'Reactivate the subscription first',
         },
       },
+      InvoiceKind: {
+        ACTIVATION: 'Activation',
+        RENEWAL: 'Renewal',
+        FINAL: 'Final',
+      },
+      InvoiceLines: {
+        capped: 'Capped',
+        cappedExplanation:
+          'The sample is above what the license accepts. Reports over the cap are rejected, so the excess is not billed.',
+        empty: 'This invoice has no lines.',
+        Columns: {
+          line: 'Line',
+          servicePeriod: 'Service period',
+          amount: 'Amount',
+        },
+      },
+      InvoiceTotals: {
+        subtotal: 'Subtotal',
+        discounts: 'Discounts',
+        total: 'Total',
+      },
+      InvoicePreview: {
+        bannerTitle: 'Preview, not an invoice',
+        bannerDescription:
+          'This is what the invoice would come to at a boundary now. Nothing is saved, sent or billed.',
+        resultLabel: 'Invoice preview',
+        composed: 'Kind: {{kind}}. Composed {{asOf}}.',
+      },
     },
     AuditTrail: {
       events: {
