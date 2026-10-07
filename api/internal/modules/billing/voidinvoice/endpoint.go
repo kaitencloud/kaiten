@@ -37,7 +37,7 @@ func RegisterEndpoint(api huma.API, app Voider) {
 		Method:      http.MethodPost,
 		Path:        "/invoices/{invoiceId}/void",
 		Summary:     "Void an invoice",
-		Description: "Voids an invoice not yet settled -- a DRAFT, held or not, or a MANUAL one -- which frees its boundary for a recompose. A paid or written-off invoice cannot be voided. A handoff still pending stays so, and its consumer sees the VOID. Voiding a VOID invoice again answers it unchanged. Requires billing to be enabled for the organization.",
+		Description: "Voids an invoice not yet settled -- a DRAFT, held or not, a MANUAL one, or one a payment provider issued -- which frees its boundary for a recompose. A provider's invoice is voided there first, and here only once the provider confirms (503 VoidInvoice.ProviderUnavailable leaves it unchanged); one the provider reports paid is refused. A paid or written-off invoice cannot be voided. A handoff still pending stays so, and its consumer sees the VOID. Voiding a VOID invoice again answers it unchanged. Requires billing to be enabled for the organization.",
 		Tags:        []string{"billing"},
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
