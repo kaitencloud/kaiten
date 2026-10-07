@@ -17,6 +17,7 @@ import {
   createManyInvoicesModel,
   createManyReportsModel,
   createMismatchedTotalsModel,
+  createSubscriptionsModel,
 } from '../billing/billing.scenarios';
 import { createDisconnectedAttioModel } from '../connectors/connectors.scenarios';
 import { createDashboardReadModel } from '../dashboard/dashboard.scenarios';
@@ -25,6 +26,7 @@ import {
   createMixedObjectsFeedModel,
 } from '../notifications/notifications.scenarios';
 import {
+  createBillingCustomersModel,
   createCustomersListModel,
   createDeletableCustomerModel,
   createEditableCustomerModel,
@@ -36,6 +38,8 @@ import {
   createEmptyEntitlementsModel,
   createEntitlementsListModel,
   createPeriodicEntitlementModel,
+  createReferencedEntitlementModel,
+  createReferencedLastEntitlementModel,
   createUnitEntitlementModel,
   createIconedEntitlementModel,
 } from '../entitlements/entitlements.scenarios';
@@ -48,6 +52,7 @@ import {
   createObjectFeatureFlagModel,
 } from '../feature-flags/feature-flags.scenarios';
 import {
+  createBilledInstancesModel,
   createCustomerScopedInstanceModel,
   createDeletableInstanceModel,
   createDeployableInstanceModel,
@@ -81,6 +86,17 @@ export type ScenarioCheck = readonly [name: string, factory: () => unknown];
 
 export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   ['connectors/createDisconnectedAttioModel', createDisconnectedAttioModel],
+  ['billing/createSubscriptionsModel', createSubscriptionsModel],
+  ['customers/createBillingCustomersModel', createBillingCustomersModel],
+  [
+    'entitlements/createReferencedEntitlementModel',
+    createReferencedEntitlementModel,
+  ],
+  [
+    'entitlements/createReferencedLastEntitlementModel',
+    createReferencedLastEntitlementModel,
+  ],
+  ['instances/createBilledInstancesModel', createBilledInstancesModel],
   ['dashboard/createDashboardReadModel', createDashboardReadModel],
   ['notifications/createNotificationsFeedModel', createNotificationsFeedModel],
   ['notifications/createMixedObjectsFeedModel', createMixedObjectsFeedModel],

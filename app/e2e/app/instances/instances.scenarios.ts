@@ -1,4 +1,8 @@
-import type { Instance, LicenseEntitlement } from '@/api-client';
+import type {
+  EntitlementUsage,
+  Instance,
+  LicenseEntitlement,
+} from '@/api-client';
 import {
   buildCustomer,
   buildDeploymentZone,
@@ -6,6 +10,15 @@ import {
   TEST_USER,
 } from '../_support/fixtures';
 import { InstanceAppModel } from '../_support/model/instance-app-model';
+import {
+  ACME_LEGACY_OPEN_INVOICE_ID,
+  acmeProductionUsageReports,
+  API_CALLS_ID,
+  ENTERPRISE_LICENSE_ID,
+  PREVIEW_LICENSE_ID,
+  RETENTION_START,
+  STARTER_LICENSE_ID,
+} from '../billing/billed-instances';
 
 const buildInstance = ({
   createdAt = '2026-03-02T09:00:00.000Z',
@@ -402,5 +415,168 @@ export function createDeletableInstanceModel() {
       }),
     ],
     licenses: [starter],
+  });
+}
+
+const buildCountUsage = ({
+  entitlementId,
+  entitlementSlug,
+  licenseId,
+  licenseSlug,
+  limit,
+  value,
+}: {
+  entitlementId: string;
+  entitlementSlug: string;
+  licenseId: string;
+  licenseSlug: string;
+  limit: number;
+  value: number;
+}): EntitlementUsage => ({
+  entitlementId,
+  entitlementSlug,
+  licenseId,
+  licenseSlug,
+  limit: { type: 'number', value: limit },
+  value: { type: 'number', value },
+});
+
+/**
+ * The instances of Acme and Beta, as the specs of billing meet them (the billing
+ * slot of `createSubscriptionsModel` is about the same four): Acme Production
+ * bills, so its customer and license are frozen and it cannot be deleted; Acme
+ * Legacy ended its subscription and has an invoice not settled; Beta Staging bills
+ * nothing yet and runs a version on sale; Beta Lab runs a version that is a draft.
+ * Acme Production has the journal of its calls, which the organization keeps 18
+ * months of. Acme has a billing e-mail and Beta has none.
+ */
+export function createBilledInstancesModel() {
+  const acme = buildCustomer({
+    billingEmail: 'ap@acme.com',
+    id: 'customer-acme',
+    name: 'Acme Corp',
+    slug: 'acme-corp',
+  });
+  const beta = buildCustomer({
+    id: 'customer-beta',
+    name: 'Beta Industries',
+    slug: 'beta-industries',
+  });
+  const enterprise = buildLicense({
+    description: 'Enterprise production license',
+    id: ENTERPRISE_LICENSE_ID,
+    lifecycleState: 'PUBLISHED',
+    name: 'Enterprise',
+    slug: 'enterprise',
+    type: 'PAID',
+    version: '2026.1',
+  });
+  const growth = buildLicense({
+    description: 'Growth plan for scaling environments',
+    id: 'license-growth',
+    lifecycleState: 'PUBLISHED',
+    name: 'Growth',
+    slug: 'growth',
+    type: 'PAID',
+    version: '2026.2',
+  });
+  const starter = buildLicense({
+    description: 'Starter plan for staging environments',
+    id: STARTER_LICENSE_ID,
+    lifecycleState: 'PUBLISHED',
+    name: 'Starter',
+    slug: 'starter',
+    type: 'PAID',
+    version: '2026.1',
+  });
+  const preview = buildLicense({
+    description: 'A version that is not on sale yet',
+    id: PREVIEW_LICENSE_ID,
+    lifecycleState: 'DRAFT',
+    name: 'Preview',
+    slug: 'preview',
+    type: 'PAID',
+    version: '2027.1',
+  });
+  const instanceOf = (
+    customer: typeof acme,
+    license: typeof enterprise,
+    name: string,
+    slug: string,
+  ) =>
+    buildInstance({
+      customerId: customer.id,
+      customerSlug: customer.slug ?? '',
+      description: `${name} environment`,
+      id: `instance-${slug}`,
+      licenseId: license.id,
+      licenseSlug: license.slug ?? '',
+      name,
+      slug,
+    });
+
+  return new InstanceAppModel({
+    billingBlocks: {
+      'acme-legacy': {
+        status: 'CANCELED',
+        unpaidInvoiceIds: [ACME_LEGACY_OPEN_INVOICE_ID],
+      },
+      'acme-production': { status: 'ACTIVE', unpaidInvoiceIds: [] },
+    },
+    customers: [acme, beta],
+    entitlementUsagesByInstance: {
+      'acme-production': [
+        buildCountUsage({
+          entitlementId: API_CALLS_ID,
+          entitlementSlug: 'api-calls',
+          licenseId: enterprise.id,
+          licenseSlug: 'enterprise',
+          limit: 1_000_000,
+          value: 13_000,
+        }),
+        buildCountUsage({
+          entitlementId: 'entitlement-storage-gb',
+          entitlementSlug: 'storage-gb',
+          licenseId: enterprise.id,
+          licenseSlug: 'enterprise',
+          limit: 500,
+          value: 120,
+        }),
+      ],
+    },
+    instances: [
+      instanceOf(acme, enterprise, 'Acme Production', 'acme-production'),
+      instanceOf(acme, enterprise, 'Acme Legacy', 'acme-legacy'),
+      instanceOf(beta, starter, 'Beta Staging', 'beta-staging'),
+      instanceOf(beta, preview, 'Beta Lab', 'beta-lab'),
+    ],
+    licenseEntitlements: [
+      buildLicenseEntitlement({
+        entitlementName: 'API Calls',
+        entitlementSlug: 'api-calls',
+        licenseId: enterprise.id,
+        licenseSlug: 'enterprise',
+        value: { type: 'number', value: 1_000_000 },
+      }),
+      buildLicenseEntitlement({
+        entitlementName: 'Storage GB',
+        entitlementSlug: 'storage-gb',
+        licenseId: enterprise.id,
+        licenseSlug: 'enterprise',
+        value: { type: 'number', value: 500 },
+      }),
+      buildLicenseEntitlement({
+        entitlementName: 'SSO',
+        entitlementSlug: 'sso',
+        licenseId: enterprise.id,
+        licenseSlug: 'enterprise',
+        value: { type: 'boolean', value: true },
+      }),
+    ],
+    licenses: [enterprise, growth, starter, preview],
+    retentionStart: RETENTION_START,
+    usageReports: {
+      'acme-production': { 'api-calls': acmeProductionUsageReports() },
+    },
   });
 }
