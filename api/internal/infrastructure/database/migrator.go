@@ -49,6 +49,12 @@ func openDB(connString string) (*sql.DB, error) {
 // a Helm pre-upgrade hook overlapping an operator's manual `migrate up`, or
 // multiple replicas racing on startup) serialize instead of corrupting
 // goose_db_version.
+//
+// Out-of-order versions are applied rather than refused. A migration written on
+// a branch keeps the timestamp it was created with, so one that merges after a
+// later-dated migration has already been deployed would otherwise fail every
+// upgrade with "missing (out-of-order) migration". 20260902000000_license_family
+// is such a migration: it merged after 20260916000000_notifications had shipped.
 func newProvider(db *sql.DB) (*goose.Provider, error) {
 	fsys, err := fs.Sub(embedMigrations, "migrations")
 	if err != nil {
@@ -65,6 +71,7 @@ func newProvider(db *sql.DB) (*goose.Provider, error) {
 		db,
 		fsys,
 		goose.WithSessionLocker(sessionLocker),
+		goose.WithAllowOutofOrder(true),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create migration provider: %w", err)
