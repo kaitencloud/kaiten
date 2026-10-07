@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vite-plus/test';
+import {
+  SESSION_SCOPES,
+  sessionTokenWithScopes,
+} from '../../../e2e/app/_support/session-scopes';
 import { decodeGrantedScopes, hasScope } from '../granted-scopes';
 
 const encode = (value: unknown) =>
@@ -11,6 +15,17 @@ const jwt = (claims: unknown) =>
   `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode(claims)}.signature`;
 
 describe('decodeGrantedScopes', () => {
+  it('reads the token the application suite signs a session in with', () => {
+    // The seam of the E2E suite: the console falls back to the `__session`
+    // cookie, and a spec puts the scopes of a person in its claim.
+    expect(
+      decodeGrantedScopes(sessionTokenWithScopes(SESSION_SCOPES.reader)),
+    ).toEqual([...SESSION_SCOPES.reader]);
+    expect(
+      decodeGrantedScopes(sessionTokenWithScopes(SESSION_SCOPES.admin)),
+    ).toEqual(['read:*', 'write:*']);
+  });
+
   it('reads the scopes claim of a token', () => {
     expect(
       decodeGrantedScopes(jwt({ scopes: ['read:billing', 'write:licenses'] })),
