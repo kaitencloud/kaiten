@@ -67,6 +67,18 @@ func editInstanceStartLicenseDate(t *testing.T, instance *instanceschema.Instanc
 	require.NoError(t, err)
 }
 
+// requireNowMidWindow fails unless now is at least a day inside w. The server
+// picks its window from the database clock, which can run a few milliseconds
+// behind this test process: with a window edge that close to now, the server
+// and the test would disagree on the window. A fixture that derives its start
+// date from now offsets it by days as well as months, so now lands mid-window.
+func requireNowMidWindow(t *testing.T, w period.Window) {
+	t.Helper()
+	now := time.Now().UTC()
+	require.True(t, now.Sub(w.Start) > 24*time.Hour && w.End.Sub(now) > 24*time.Hour,
+		"now (%v) must be at least a day inside the window [%v, %v)", now, w.Start, w.End)
+}
+
 func TestReportEntitlementUsageMetric_LicenseStart(t *testing.T) {
 	t.Run("WhenLicenseStartAnchor_PhasesOffInstanceStartLicenseDate_NotCalendar", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
@@ -106,17 +118,21 @@ func TestReportEntitlementUsageMetric_LicenseStart(t *testing.T) {
 
 		// start_license_date in the future relative to now: the active window
 		// has a negative index (see period.Current's negative-index handling).
+		// The extra 15 days keep now mid-window: exactly six months ahead would
+		// start the window on the test's own now (see requireNowMidWindow).
 		// Truncated to millisecond precision to match the TIMESTAMP(3) column
 		// -- otherwise the DB round-trip would silently drop sub-millisecond
 		// precision that this test's own expectation still carries.
-		futureStart := time.Now().UTC().AddDate(0, 6, 0).Truncate(time.Millisecond)
+		futureStart := time.Now().UTC().AddDate(0, 6, 15).Truncate(time.Millisecond)
 		instance := newInstanceWithStartLicenseDate(t, futureStart)
 		entitlement := newPeriodicEntitlement(t, period.Month, period.LicenseStart)
 		assignEntitlementToLicense(t, instance.LicenseSlug, entitlement.Slug, 1000)
 
 		wantWindow, err := period.Current(time.Now().UTC(), period.Month, period.LicenseStart, futureStart)
 		require.NoError(t, err)
-		require.True(t, wantWindow.Start.Before(futureStart), "the active window must be a negative index before start_license_date")
+		require.True(t, wantWindow.Start.Before(futureStart),
+			"window start %v must be before start_license_date %v (a negative index)", wantWindow.Start, futureStart)
+		requireNowMidWindow(t, wantWindow)
 
 		payload := map[string]any{"value": map[string]any{"type": "number", "value": 3}, "behavior": "append"}
 		req := commonfixture.NewJSONRequest(t, "POST", "/api/instances/"+instance.Slug+"/entitlements/"+entitlement.Slug+"/usage", payload)
@@ -127,29 +143,36 @@ func TestReportEntitlementUsageMetric_LicenseStart(t *testing.T) {
 
 		row := getUsageRow(t, instance.ID, entitlement.ID)
 		require.True(t, row.PeriodStart.Valid)
-		require.True(t, row.PeriodStart.Time.Equal(wantWindow.Start))
+		require.True(t, row.PeriodStart.Time.Equal(wantWindow.Start),
+			"period_start = %v, want the negative-index window start %v", row.PeriodStart.Time, wantWindow.Start)
 	})
 
 	t.Run("WhenStartLicenseDateChanges_RollsOverOnNextReportWithNonDerivableEnd", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 
+		// Both start dates are offset by days as well as months: now stays
+		// mid-window under either phase (see requireNowMidWindow), and the two
+		// phases differ by days rather than by the milliseconds between two
+		// time.Now() calls.
 		// Truncated to millisecond precision to match the TIMESTAMP(3) column.
-		originalStart := time.Now().UTC().AddDate(0, -1, 0).Truncate(time.Millisecond)
+		originalStart := time.Now().UTC().AddDate(0, -1, -10).Truncate(time.Millisecond)
 		instance := newInstanceWithStartLicenseDate(t, originalStart)
 		entitlement := newPeriodicEntitlement(t, period.Month, period.LicenseStart)
 		assignEntitlementToLicense(t, instance.LicenseSlug, entitlement.Slug, 1000)
 
 		firstWindow, err := period.Current(time.Now().UTC(), period.Month, period.LicenseStart, originalStart)
 		require.NoError(t, err)
+		requireNowMidWindow(t, firstWindow)
 		seedUsageRow(t, instance.Slug, entitlement.Slug, 55, 2, &firstWindow.Start)
 
 		// Re-phase the instance: the stored period_start no longer aligns to
 		// any window boundary under the new start_license_date.
-		newStart := time.Now().UTC().AddDate(0, -3, 0).Truncate(time.Millisecond)
+		newStart := time.Now().UTC().AddDate(0, -3, -20).Truncate(time.Millisecond)
 		editInstanceStartLicenseDate(t, instance, newStart)
 
 		newWindow, err := period.Current(time.Now().UTC(), period.Month, period.LicenseStart, newStart)
 		require.NoError(t, err)
+		requireNowMidWindow(t, newWindow)
 
 		payload := map[string]any{"value": map[string]any{"type": "number", "value": 1}, "behavior": "append"}
 		req := commonfixture.NewJSONRequest(t, "POST", "/api/instances/"+instance.Slug+"/entitlements/"+entitlement.Slug+"/usage", payload)
@@ -162,13 +185,16 @@ func TestReportEntitlementUsageMetric_LicenseStart(t *testing.T) {
 		require.Len(t, payloads, 1)
 		require.False(t, payloads[0].IsSynthetic)
 		require.NotNil(t, payloads[0].ClosedPeriodStart)
-		require.True(t, payloads[0].ClosedPeriodStart.Equal(firstWindow.Start))
+		require.True(t, payloads[0].ClosedPeriodStart.Equal(firstWindow.Start),
+			"closed_period_start = %v, want the seeded window start %v", *payloads[0].ClosedPeriodStart, firstWindow.Start)
 		require.Nil(t, payloads[0].ClosedPeriodEnd, "the old window's end is not derivable under the new phase")
 		require.Equal(t, 55.0, payloads[0].Value)
 		require.EqualValues(t, 2, payloads[0].EventCount)
-		require.True(t, payloads[0].NewPeriodStart.Equal(newWindow.Start))
+		require.True(t, payloads[0].NewPeriodStart.Equal(newWindow.Start),
+			"new_period_start = %v, want the re-phased window start %v", payloads[0].NewPeriodStart, newWindow.Start)
 
 		row := getUsageRow(t, instance.ID, entitlement.ID)
-		require.True(t, row.PeriodStart.Time.Equal(newWindow.Start))
+		require.True(t, row.PeriodStart.Time.Equal(newWindow.Start),
+			"period_start = %v, want the re-phased window start %v", row.PeriodStart.Time, newWindow.Start)
 	})
 }
