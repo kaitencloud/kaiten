@@ -16,6 +16,7 @@ import { useBillingCapabilities, useCanPerform } from '@/domains/billing';
 import {
   getPricingType,
   getTrialPeriodDays,
+  isHttpUrl,
   PRICING_TYPE_LABEL_KEYS,
 } from '../../utils/license-commercial.utils';
 
@@ -111,14 +112,19 @@ export function LicenseCommercialCard({ license }: LicenseCommercialCardProps) {
           </Field>
           <Field label={t('Pages.Licenses.Commercial.Fields.ctaUrl')}>
             {license.selfServeCtaUrl ? (
-              <a
-                className="break-all text-primary-subtle-foreground underline-offset-4 hover:underline"
-                href={license.selfServeCtaUrl}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                {license.selfServeCtaUrl}
-              </a>
+              // The API only takes an http(s) URL; a link is made of nothing else.
+              isHttpUrl(license.selfServeCtaUrl) ? (
+                <a
+                  className="break-all text-primary-subtle-foreground underline-offset-4 hover:underline"
+                  href={license.selfServeCtaUrl}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  {license.selfServeCtaUrl}
+                </a>
+              ) : (
+                <span className="break-all">{license.selfServeCtaUrl}</span>
+              )
             ) : (
               <span className="text-muted-foreground">-</span>
             )}
