@@ -622,6 +622,33 @@ func (q *Queries) ClearPaymentMethod(ctx context.Context, arg ClearPaymentMethod
 	return i, err
 }
 
+const countAutomaticCollection = `-- name: CountAutomaticCollection :one
+SELECT count(*)::bigint AS subscriptions
+FROM instance_billing ib
+LEFT JOIN organization_billing_settings s ON s.organization_id = ib.organization_id
+WHERE ib.organization_id = $1
+  AND ib.customer_id = $2
+  AND ib.provider_kind = $3
+  AND ib.status <> 'CANCELED'
+  AND coalesce(ib.collection_method, s.default_collection_method, 'SEND_INVOICE') = 'CHARGE_AUTOMATICALLY'
+`
+
+type CountAutomaticCollectionParams struct {
+	OrganizationID uuid.UUID           `json:"organization_id"`
+	CustomerID     *uuid.UUID          `json:"customer_id"`
+	ProviderKind   BillingProviderKind `json:"provider_kind"`
+}
+
+// The live subscriptions of a customer, in a provider, whose invoices it
+// charges: their effective collection method is CHARGE_AUTOMATICALLY, their
+// own or the organization's default.
+func (q *Queries) CountAutomaticCollection(ctx context.Context, arg CountAutomaticCollectionParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAutomaticCollection, arg.OrganizationID, arg.CustomerID, arg.ProviderKind)
+	var subscriptions int64
+	err := row.Scan(&subscriptions)
+	return subscriptions, err
+}
+
 const countProviderRouting = `-- name: CountProviderRouting :one
 SELECT
   (SELECT count(*) FROM instance_billing ib
@@ -675,6 +702,37 @@ func (q *Queries) GetAnyCustomerBillingID(ctx context.Context, arg GetAnyCustome
 	var external_customer_id string
 	err := row.Scan(&external_customer_id)
 	return external_customer_id, err
+}
+
+const getBillingCustomerBySlug = `-- name: GetBillingCustomerBySlug :one
+SELECT c.id, c.slug, c.name, c.billing_email
+FROM customer c
+WHERE c.organization_id = $1
+  AND c.slug = $2
+`
+
+type GetBillingCustomerBySlugParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+type GetBillingCustomerBySlugRow struct {
+	ID           uuid.UUID `json:"id"`
+	Slug         string    `json:"slug"`
+	Name         string    `json:"name"`
+	BillingEmail *string   `json:"billing_email"`
+}
+
+func (q *Queries) GetBillingCustomerBySlug(ctx context.Context, arg GetBillingCustomerBySlugParams) (GetBillingCustomerBySlugRow, error) {
+	row := q.db.QueryRow(ctx, getBillingCustomerBySlug, arg.OrganizationID, arg.Slug)
+	var i GetBillingCustomerBySlugRow
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Name,
+		&i.BillingEmail,
+	)
+	return i, err
 }
 
 const getCustomerBilling = `-- name: GetCustomerBilling :one
@@ -919,6 +977,30 @@ func (q *Queries) GetInvoiceByID(ctx context.Context, id uuid.UUID) (InstanceInv
 	return i, err
 }
 
+const getLiveSubscriptionCurrency = `-- name: GetLiveSubscriptionCurrency :one
+SELECT ib.currency::text AS currency
+FROM instance_billing ib
+WHERE ib.organization_id = $1
+  AND ib.customer_id = $2
+  AND ib.status <> 'CANCELED'
+ORDER BY ib.created_at
+LIMIT 1
+`
+
+type GetLiveSubscriptionCurrencyParams struct {
+	OrganizationID uuid.UUID  `json:"organization_id"`
+	CustomerID     *uuid.UUID `json:"customer_id"`
+}
+
+// The currency of a live subscription of the customer: what a payment
+// method saved for it is set up in.
+func (q *Queries) GetLiveSubscriptionCurrency(ctx context.Context, arg GetLiveSubscriptionCurrencyParams) (string, error) {
+	row := q.db.QueryRow(ctx, getLiveSubscriptionCurrency, arg.OrganizationID, arg.CustomerID)
+	var currency string
+	err := row.Scan(&currency)
+	return currency, err
+}
+
 const getSyncState = `-- name: GetSyncState :one
 SELECT organization_id, provider_kind, cursor, cursor_created_at, last_synced_at, last_sync_status, last_sync_error, consecutive_failures, last_full_sweep_at, created_at, updated_at
 FROM billing_sync_state
@@ -948,6 +1030,57 @@ func (q *Queries) GetSyncState(ctx context.Context, arg GetSyncStateParams) (Bil
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listCustomerBilling = `-- name: ListCustomerBilling :many
+SELECT customer_id, organization_id, provider_kind, external_customer_id, web_url, synced_at, last_error, created_at, updated_at, default_payment_method_id, payment_method_brand, payment_method_last4, payment_method_exp_month, payment_method_exp_year, payment_method_status, payment_method_attached_at
+FROM customer_billing
+WHERE organization_id = $1
+  AND customer_id = $2
+ORDER BY provider_kind
+`
+
+type ListCustomerBillingParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	CustomerID     uuid.UUID `json:"customer_id"`
+}
+
+// A customer's side in each provider, with its payment-method labels.
+func (q *Queries) ListCustomerBilling(ctx context.Context, arg ListCustomerBillingParams) ([]CustomerBilling, error) {
+	rows, err := q.db.Query(ctx, listCustomerBilling, arg.OrganizationID, arg.CustomerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CustomerBilling
+	for rows.Next() {
+		var i CustomerBilling
+		if err := rows.Scan(
+			&i.CustomerID,
+			&i.OrganizationID,
+			&i.ProviderKind,
+			&i.ExternalCustomerID,
+			&i.WebUrl,
+			&i.SyncedAt,
+			&i.LastError,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DefaultPaymentMethodID,
+			&i.PaymentMethodBrand,
+			&i.PaymentMethodLast4,
+			&i.PaymentMethodExpMonth,
+			&i.PaymentMethodExpYear,
+			&i.PaymentMethodStatus,
+			&i.PaymentMethodAttachedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listOpenProviderInvoices = `-- name: ListOpenProviderInvoices :many

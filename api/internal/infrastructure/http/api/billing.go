@@ -2,6 +2,12 @@ package api
 
 import (
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/completepaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createpaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createportalsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/detachpaymentmethod"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getcustomerbilling"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/paymentmethods"
 
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ackhandoff"
@@ -47,6 +53,12 @@ func registerBilling(core, platform huma.API, app kaiten.Billing, platformApp ka
 	getbillinghealth.RegisterEndpoint(core, app)
 	syncprovider.RegisterEndpoint(core, app)
 	syncinvoice.RegisterEndpoint(core, app)
+	getcustomerbilling.RegisterEndpoint(core, app)
+	createpaymentmethodsession.RegisterEndpoint(core, app)
+	completepaymentmethodsession.RegisterEndpoint(core, app)
+	createportalsession.RegisterEndpoint(core, app)
+	detachpaymentmethod.RegisterEndpoint(core, app)
+	paymentmethods.RegisterWebhooks(core)
 	retryinvoicepush.RegisterEndpoint(core, app)
 	syncing.RegisterWebhooks(core)
 	providerconnector.RegisterWebhooks(core)
