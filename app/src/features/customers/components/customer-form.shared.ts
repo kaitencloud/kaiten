@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { CustomerWritable, Customer } from '@/api-client';
 import { zCustomer } from '@/api-client/zod.gen';
+import { billingEmailSchema } from '@/domains/customer-management';
 
 const customerDomainSchema = z
   .string()
@@ -25,6 +26,8 @@ export const customerFormSchema = zCustomer
       message: 'Pages.Customers.Mutation.Form.Errors.name',
     }),
     domain: customerDomainSchema,
+    // Optional, and empty to have none: at most 254 characters, as the API takes it.
+    billingEmail: billingEmailSchema,
     // Optional — left empty, the API generates the slug. Create-only: update
     // rejects a slug that differs from the current one with a 422 (the API's
     // Customer schema is shared across create/update/read, so this is
@@ -38,6 +41,7 @@ export const initialCustomerFormValues: CustomerFormValues = {
   name: '',
   externalCustomerId: '',
   domain: '',
+  billingEmail: '',
   slug: '',
 };
 
@@ -47,6 +51,7 @@ export const customerToFormValues = (
   name: customer.name,
   externalCustomerId: customer.externalCustomerId ?? '',
   domain: customer.domain ?? '',
+  billingEmail: customer.billingEmail ?? '',
   slug: customer.slug ?? '',
 });
 
@@ -61,6 +66,8 @@ export const customerFormValuesToCreateBody = (
   name: values.name,
   externalCustomerId: toOptionalField(values.externalCustomerId),
   domain: toOptionalField(values.domain),
+  // A customer is created with an address or without one.
+  billingEmail: toOptionalField(values.billingEmail.trim()),
   slug: toOptionalField(values.slug),
 });
 
@@ -74,4 +81,20 @@ export const customerFormValuesToUpdateBody = (
   name: values.name,
   externalCustomerId: toOptionalField(values.externalCustomerId),
   domain: toOptionalField(values.domain),
+  // An update keeps the stored address when the member is left out and removes it
+  // for an empty string, so what the form holds is always sent: the address it
+  // was opened with, or the one that was typed, or nothing to clear it. Never null.
+  billingEmail: values.billingEmail.trim(),
 });
+
+/**
+ * Where a refusal of the API is shown on the form: the address, whose check the
+ * form repeats, is refused by the API with a code of its own on create and update.
+ * Anything else is a toast.
+ */
+export const CUSTOMER_REFUSAL_FIELDS = {
+  byCode: {
+    'CreateCustomer.InvalidBillingEmail': 'billingEmail',
+    'UpdateCustomer.InvalidBillingEmail': 'billingEmail',
+  },
+} as const;

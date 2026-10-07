@@ -5,11 +5,14 @@ import { generateSlug } from '@/functionals/slug';
 type CustomerFormFieldsProps = {
   form: any;
   isEditing?: boolean;
+  /** Offered where billing exists: the address the invoices of the customer carry. */
+  showBillingEmail?: boolean;
 };
 
 export const CustomerFormFields = ({
   form,
   isEditing = false,
+  showBillingEmail = false,
 }: CustomerFormFieldsProps) => {
   const { t } = useTranslation();
 
@@ -70,6 +73,22 @@ export const CustomerFormFields = ({
           />
         )}
       </form.AppField>
+
+      {showBillingEmail ? (
+        <form.AppField name="billingEmail">
+          {(field: any) => (
+            <field.TextField
+              label={t('Pages.Customers.Mutation.Form.Labels.billingEmail')}
+              placeholder={t(
+                'Pages.Customers.Mutation.Form.Placeholders.billingEmail',
+              )}
+              description={t(
+                'Pages.Customers.Mutation.Form.Descriptions.billingEmail',
+              )}
+            />
+          )}
+        </form.AppField>
+      ) : null}
     </Suspense>
   );
 };
