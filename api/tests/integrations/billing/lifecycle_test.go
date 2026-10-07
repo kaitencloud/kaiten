@@ -154,6 +154,22 @@ func TestCancelAndReactivate(t *testing.T) {
 			"/api/instances/"+s.instance.Slug+"/billing/reactivate", nil))
 	})
 
+	t.Run("Immediately_TheFinalInvoiceCarriesTheLiveNames", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		exec(t, `UPDATE instance SET name = 'Renamed prod' WHERE id = $1`, s.instance.ID)
+		exec(t, `UPDATE customer SET name = 'Renamed customer' WHERE id = (SELECT customer_id FROM instance WHERE id = $1)`, s.instance.ID)
+
+		canceled := cancel(t, s.instance.Slug, map[string]any{"mode": "IMMEDIATE"})
+		require.NotNil(t, canceled.FinalInvoice)
+		var instanceName, customerName string
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+			`SELECT instance_name, customer_name FROM instance_invoice WHERE id = $1`, canceled.FinalInvoice.ID).Scan(&instanceName, &customerName))
+		require.Equal(t, "Renamed prod", instanceName)
+		require.Equal(t, "Renamed customer", customerName)
+	})
+
 	t.Run("AnEndedPeriodNotYetClosed_RefusesChanges", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 		s := newSold(t, flatFee("2900", "MONTHLY"))
