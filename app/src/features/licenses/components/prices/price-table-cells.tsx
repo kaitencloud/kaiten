@@ -27,7 +27,7 @@ export function PriceLabelCell({
   const label = getPriceLabel(price, entitlement, t);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2 whitespace-normal">
       <span className="font-medium">{label}</span>
       {price.isDefault ? (
         <Badge className="gap-1" variant="default">
@@ -66,7 +66,9 @@ export function PriceMeterCell({
   }
 
   return (
-    <div className="min-w-0">
+    // A cell of the table does not wrap, and what an overage bills against is a
+    // sentence: left alone it widens the table beyond the page.
+    <div className="max-w-64 min-w-0 whitespace-normal">
       <p className="truncate">
         {entitlement?.name ?? price.metered.entitlementSlug}
       </p>
@@ -96,7 +98,7 @@ export function PriceStatusCell({ price }: { price: Price }) {
   const { i18n, t } = useTranslation();
 
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-0.5 whitespace-normal">
       <Badge variant={price.status === 'ACTIVE' ? 'success' : 'outline'}>
         {t(PRICE_STATUS_LABEL_KEYS[price.status])}
       </Badge>
