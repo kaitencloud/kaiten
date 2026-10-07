@@ -88,3 +88,18 @@ func (Adapter) CreateBillingPortalSession(context.Context, provider.Ref, string,
 func (Adapter) DetachPaymentMethod(context.Context, provider.Ref, string) error {
 	return provider.ErrUnsupported
 }
+
+// Pay implements provider.Adapter: not supported.
+func (Adapter) Pay(context.Context, provider.Ref, string, provider.NormalizedInvoice) (provider.PaymentOutcome, error) {
+	return provider.PaymentOutcome{}, provider.ErrUnsupported
+}
+
+// DefaultPaymentMethod implements provider.Adapter: not supported.
+func (Adapter) DefaultPaymentMethod(context.Context, provider.Ref, string) (*provider.PaymentMethod, error) {
+	return nil, provider.ErrUnsupported
+}
+
+// SetDefaultPaymentMethod implements provider.Adapter: not supported.
+func (Adapter) SetDefaultPaymentMethod(context.Context, provider.Ref, string, string) (provider.PaymentMethod, error) {
+	return provider.PaymentMethod{}, provider.ErrUnsupported
+}

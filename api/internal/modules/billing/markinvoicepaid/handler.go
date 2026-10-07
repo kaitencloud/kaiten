@@ -97,7 +97,7 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID uuid.UUID, cmd Command)
 		}
 		result = &invoice
 		// The subscription leaves PAST_DUE once nothing of it is overdue.
-		if _, err := lifecycle.Reevaluate(ctx, q, u.outbox, sub, user.ID, updated.UpdatedAt.Time.UTC()); err != nil {
+		if _, err := lifecycle.Reevaluate(ctx, q, u.outbox, sub, user.ID, updated.UpdatedAt.Time.UTC(), u.deps.AutoCollectionGrace); err != nil {
 			return err
 		}
 		if err := invoices.Announce(ctx, u.outbox, user.OrganizationID, events.InstanceInvoicePaid, invoices.PaidInvoice{
