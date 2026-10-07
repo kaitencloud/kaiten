@@ -76,3 +76,11 @@ export const storyInvoicePreview: InvoicePreview = {
   total: 4319,
   wouldHold: [],
 };
+
+// The invoices of the stories are built as the mocks build them, so that what a
+// story shows is what the console is tested against.
+export {
+  buildInvoice,
+  buildInvoiceLine,
+  buildUsageReport,
+} from '../../e2e/app/_support/fixtures/build-invoice';

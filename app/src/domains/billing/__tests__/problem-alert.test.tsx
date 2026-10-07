@@ -167,6 +167,66 @@ describe('ProblemAlert', () => {
 
     expect(screen.getByText('Failed to fetch')).toBeInTheDocument();
   });
+
+  // A dialog disables its confirmation while the API answers, and the button
+  // that held the focus loses it with it: the refusal takes it over.
+  it('takes the focus when asked to, without joining the tab order', () => {
+    render(
+      <ProblemAlert
+        autoFocus
+        error={apiError(409, { detail: 'the invoice changed', status: 409 })}
+      />,
+    );
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveFocus();
+    expect(alert).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('takes the focus again for a second refusal that replaces the first', () => {
+    const { rerender } = render(
+      <ProblemAlert
+        autoFocus
+        error={apiError(409, { detail: 'the invoice changed', status: 409 })}
+      />,
+    );
+    (document.activeElement as HTMLElement).blur();
+
+    rerender(
+      <ProblemAlert
+        autoFocus
+        error={apiError(409, { detail: 'the invoice changed again', status: 409 })}
+      />,
+    );
+
+    expect(screen.getByRole('alert')).toHaveFocus();
+  });
+
+  it('leaves the focus alone unless asked', () => {
+    render(
+      <ProblemAlert
+        error={apiError(409, { detail: 'the invoice changed', status: 409 })}
+      />,
+    );
+
+    expect(screen.getByRole('alert')).not.toHaveFocus();
+    expect(screen.getByRole('alert')).not.toHaveAttribute('tabindex');
+  });
+
+  it('does so for the banner of a missing scope as well', () => {
+    render(
+      <ProblemAlert
+        autoFocus
+        error={apiError(403, {
+          code: 'Auth.MissingScope',
+          detail: 'missing required scope: write:billing',
+          status: 403,
+        })}
+      />,
+    );
+
+    expect(screen.getByRole('alert')).toHaveFocus();
+  });
 });
 
 describe('MissingScopeBanner', () => {

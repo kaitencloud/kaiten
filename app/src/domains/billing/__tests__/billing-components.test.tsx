@@ -143,6 +143,26 @@ describe('ServicePeriod', () => {
 
     expect(screen.getByText(/^Mar 1\s.\s?Apr 1, 2027 \(UTC\)$/)).toBeInTheDocument();
   });
+
+  it('puts the two ends one above the other, for a cell of a table', () => {
+    render(
+      <ServicePeriod
+        from="2027-03-01T10:00:00.000Z"
+        stacked
+        to="2027-04-01T10:00:00.000Z"
+      />,
+    );
+
+    // The dash ends the first line, and the end with its marker is kept whole.
+    expect(screen.getByText(/^Mar 1, 2027, 10:00\sAM\s?.$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Apr 1, 2027, 10:00\sAM \(UTC\)$/)).toBeInTheDocument();
+  });
+
+  it('stays one line where it has no end to show, stacked or not', () => {
+    render(<ServicePeriod from="2027-03-01T00:00:00.000Z" stacked to={undefined} />);
+
+    expect(screen.getByText('—')).toBeInTheDocument();
+  });
 });
 
 describe('InvoiceStatusBadge', () => {
