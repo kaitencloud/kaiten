@@ -12,6 +12,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/sweep"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ackhandoff"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/cancelplanchange"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/cancelsubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/claimhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
@@ -21,16 +23,20 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getupcominginvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinstanceinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoicelinereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/reactivatesubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/recomposeinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/releaseinvoicehold"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/scheduleplanchange"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updatebillingsettings"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updateinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/voidinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/writeoffinvoice"
 )
@@ -62,6 +68,11 @@ type UseCases struct {
 	ExportInvoices         *exportinvoices.UseCase
 	ListInvoiceLineReports *listinvoicelinereports.UseCase
 	GetBillingCapabilities *getbillingcapabilities.UseCase
+	CancelSubscription     *cancelsubscription.UseCase
+	ReactivateSubscription *reactivatesubscription.UseCase
+	SchedulePlanChange     *scheduleplanchange.UseCase
+	CancelPlanChange       *cancelplanchange.UseCase
+	UpdateInstanceBilling  *updateinstancebilling.UseCase
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -95,6 +106,11 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		ExportInvoices:         exportinvoices.NewUseCase(deps),
 		ListInvoiceLineReports: listinvoicelinereports.NewUseCase(deps),
 		GetBillingCapabilities: getbillingcapabilities.NewUseCase(deps, svc.Config.Usage.IdempotencyWindow),
+		CancelSubscription:     cancelsubscription.NewUseCase(deps, closer),
+		ReactivateSubscription: reactivatesubscription.NewUseCase(deps),
+		SchedulePlanChange:     scheduleplanchange.NewUseCase(deps),
+		CancelPlanChange:       cancelplanchange.NewUseCase(deps),
+		UpdateInstanceBilling:  updateinstancebilling.NewUseCase(deps),
 	}
 
 	// The billing jobs run only where billing is on and background work runs.
@@ -105,6 +121,13 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		}, batchSize(cfg.PeriodClose.BatchSize))
 		job.Start(context.Background())
 		svc.WorkerRegistry.OnStop(job.Stop)
+
+		overdue := lifecycle.NewJob(svc.Pool, lifecycle.NewOverdue(svc.Uof), sweep.Config{
+			InitialDelay: orDefault(cfg.InitialDelay, time.Minute),
+			Interval:     orDefault(cfg.Lifecycle.Interval, 15*time.Minute),
+		}, batchSize(cfg.PeriodClose.BatchSize))
+		overdue.Start(context.Background())
+		svc.WorkerRegistry.OnStop(overdue.Stop)
 	}
 	return useCases
 }

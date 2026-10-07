@@ -59,7 +59,7 @@ func (q *Queries) GetBillingCustomer(ctx context.Context, arg GetBillingCustomer
 }
 
 const getBillingLicense = `-- name: GetBillingLicense :one
-SELECT l.id, l.slug, l.name, l.lifecycle_state
+SELECT l.id, l.slug, l.name, l.lifecycle_state, l.trial_period_days
 FROM license l
 WHERE l.organization_id = $1
   AND l.id = $2
@@ -71,10 +71,11 @@ type GetBillingLicenseParams struct {
 }
 
 type GetBillingLicenseRow struct {
-	ID             uuid.UUID             `json:"id"`
-	Slug           string                `json:"slug"`
-	Name           string                `json:"name"`
-	LifecycleState LicenseLifecycleState `json:"lifecycle_state"`
+	ID              uuid.UUID             `json:"id"`
+	Slug            string                `json:"slug"`
+	Name            string                `json:"name"`
+	LifecycleState  LicenseLifecycleState `json:"lifecycle_state"`
+	TrialPeriodDays *int32                `json:"trial_period_days"`
 }
 
 func (q *Queries) GetBillingLicense(ctx context.Context, arg GetBillingLicenseParams) (GetBillingLicenseRow, error) {
@@ -85,12 +86,13 @@ func (q *Queries) GetBillingLicense(ctx context.Context, arg GetBillingLicensePa
 		&i.Slug,
 		&i.Name,
 		&i.LifecycleState,
+		&i.TrialPeriodDays,
 	)
 	return i, err
 }
 
 const getInstanceBilling = `-- name: GetInstanceBilling :one
-SELECT id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id
+SELECT id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at
 FROM instance_billing ib
 WHERE ib.organization_id = $1
   AND ib.instance_id = $2
@@ -136,6 +138,7 @@ func (q *Queries) GetInstanceBilling(ctx context.Context, arg GetInstanceBilling
 		&i.CreatedByID,
 		&i.UpdatedAt,
 		&i.UpdatedByID,
+		&i.TrialEndsAt,
 	)
 	return i, err
 }
@@ -177,15 +180,15 @@ const insertInstanceBilling = `-- name: InsertInstanceBilling :one
 INSERT INTO instance_billing (organization_id, instance_id, customer_id, instance_slug, instance_name,
                               customer_slug, customer_name, status, provider_kind, collection_method,
                               days_until_due, base_license_price_id, billing_period, currency, anchor_at,
-                              started_at, current_period_start, current_period_end, created_by_id,
-                              updated_by_id)
+                              started_at, current_period_start, current_period_end, trial_ends_at,
+                              created_by_id, updated_by_id)
 VALUES ($1, $2, $3, $4,
         $5, $6, $7, $8,
         $9, $10, $11,
         $12, $13, $14, $15,
         $15, $15, $16, $17,
-        $17)
-RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id
+        $18, $18)
+RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at
 `
 
 type InsertInstanceBillingParams struct {
@@ -205,6 +208,7 @@ type InsertInstanceBillingParams struct {
 	Currency           string                `json:"currency"`
 	AnchorAt           pgtype.Timestamp      `json:"anchor_at"`
 	CurrentPeriodEnd   pgtype.Timestamp      `json:"current_period_end"`
+	TrialEndsAt        pgtype.Timestamp      `json:"trial_ends_at"`
 	UserID             uuid.UUID             `json:"user_id"`
 }
 
@@ -226,6 +230,7 @@ func (q *Queries) InsertInstanceBilling(ctx context.Context, arg InsertInstanceB
 		arg.Currency,
 		arg.AnchorAt,
 		arg.CurrentPeriodEnd,
+		arg.TrialEndsAt,
 		arg.UserID,
 	)
 	var i InstanceBilling
@@ -260,12 +265,13 @@ func (q *Queries) InsertInstanceBilling(ctx context.Context, arg InsertInstanceB
 		&i.CreatedByID,
 		&i.UpdatedAt,
 		&i.UpdatedByID,
+		&i.TrialEndsAt,
 	)
 	return i, err
 }
 
 const lockInstanceBilling = `-- name: LockInstanceBilling :one
-SELECT id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id
+SELECT id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at
 FROM instance_billing ib
 WHERE ib.organization_id = $1
   AND ib.instance_id = $2
@@ -311,6 +317,7 @@ func (q *Queries) LockInstanceBilling(ctx context.Context, arg LockInstanceBilli
 		&i.CreatedByID,
 		&i.UpdatedAt,
 		&i.UpdatedByID,
+		&i.TrialEndsAt,
 	)
 	return i, err
 }
@@ -369,6 +376,7 @@ SET customer_id           = $1,
     started_at            = $13,
     current_period_start  = $13,
     current_period_end    = $14,
+    trial_ends_at         = $15,
     cancel_at_period_end  = FALSE,
     cancel_requested_at   = NULL,
     canceled_at           = NULL,
@@ -376,12 +384,12 @@ SET customer_id           = $1,
     past_due_since        = NULL,
     scheduled_license_price_id = NULL,
     scheduled_at          = NULL,
-    updated_by_id         = $15,
-    updated_at            = $16
-WHERE id = $17
-  AND organization_id = $18
+    updated_by_id         = $16,
+    updated_at            = $17
+WHERE id = $18
+  AND organization_id = $19
   AND status = 'CANCELED'
-RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id
+RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at
 `
 
 type ResubscribeInstanceBillingParams struct {
@@ -399,6 +407,7 @@ type ResubscribeInstanceBillingParams struct {
 	Currency           string                `json:"currency"`
 	AnchorAt           pgtype.Timestamp      `json:"anchor_at"`
 	CurrentPeriodEnd   pgtype.Timestamp      `json:"current_period_end"`
+	TrialEndsAt        pgtype.Timestamp      `json:"trial_ends_at"`
 	UserID             uuid.UUID             `json:"user_id"`
 	Now                pgtype.Timestamp      `json:"now"`
 	ID                 uuid.UUID             `json:"id"`
@@ -423,6 +432,7 @@ func (q *Queries) ResubscribeInstanceBilling(ctx context.Context, arg Resubscrib
 		arg.Currency,
 		arg.AnchorAt,
 		arg.CurrentPeriodEnd,
+		arg.TrialEndsAt,
 		arg.UserID,
 		arg.Now,
 		arg.ID,
@@ -460,6 +470,7 @@ func (q *Queries) ResubscribeInstanceBilling(ctx context.Context, arg Resubscrib
 		&i.CreatedByID,
 		&i.UpdatedAt,
 		&i.UpdatedByID,
+		&i.TrialEndsAt,
 	)
 	return i, err
 }

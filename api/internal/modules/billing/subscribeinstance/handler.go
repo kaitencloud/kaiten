@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/money"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
@@ -33,6 +34,8 @@ type Command struct {
 	CollectionMethod *string
 	DaysUntilDue     *int32
 	StartAt          *time.Time
+	// TrialDays nil takes the licence's trial; 0 is none.
+	TrialDays *int32
 }
 
 // StartedSubscription is what a subscribe answers: the subscription, and the
@@ -58,8 +61,9 @@ func NewUseCase(deps access.Deps) *UseCase {
 }
 
 // Execute subscribes an instance to a FLAT_FEE price of its licence version.
-// Its periods are counted from the anchor; a base price that bills in advance
-// issues the first period's invoice in the same transaction. A CANCELED
+// With a trial it starts in TRIAL and bills nothing until the trial ends.
+// Without one its periods are counted from the anchor, and a base price that
+// bills in advance issues the first period's invoice in the same transaction. A CANCELED
 // subscription is subscribed again on the same row. From then on the
 // instance's customer and licence are frozen.
 func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command) (*StartedSubscription, error) {
@@ -110,6 +114,16 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		case base.Status != prices.StatusActive:
 			return kaitenerrors.UnprocessableEntity(operation+".PriceDeprecated", "a deprecated price is no longer offered")
 		}
+		trialDays := int32(0)
+		if license.TrialPeriodDays != nil {
+			trialDays = *license.TrialPeriodDays
+		}
+		if cmd.TrialDays != nil {
+			if *cmd.TrialDays < 0 {
+				return kaitenerrors.UnprocessableEntity(operation+".InvalidTrialDays", "trialDays is 0 (no trial) or more")
+			}
+			trialDays = *cmd.TrialDays
+		}
 		if cmd.DaysUntilDue != nil && (*cmd.DaysUntilDue < 0 || *cmd.DaysUntilDue > 365) {
 			return kaitenerrors.UnprocessableEntity(operation+".InvalidDaysUntilDue", "daysUntilDue is between 0 and 365")
 		}
@@ -132,6 +146,14 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		}
 		anchor = anchor.Truncate(time.Second)
 		periodEnd := rating.AddMonthsClamped(anchor, months)
+		status := db.InstanceBillingStatusACTIVE
+		var trialEndsAt pgtype.Timestamp
+		if trialDays > 0 {
+			// During the trial the period is the trial; nothing is billed
+			// before it ends.
+			periodEnd = anchor.Add(time.Duration(trialDays) * 24 * time.Hour)
+			status, trialEndsAt = db.InstanceBillingStatusTRIAL, invoices.Timestamp(periodEnd)
+		}
 
 		customer, err := q.GetBillingCustomer(ctx, db.GetBillingCustomerParams{OrganizationID: user.OrganizationID, ID: instance.CustomerID})
 		if err != nil {
@@ -146,20 +168,21 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		if resubscribe {
 			row, err = q.ResubscribeInstanceBilling(ctx, db.ResubscribeInstanceBillingParams{
 				CustomerID: &customer.ID, InstanceSlug: instance.Slug, InstanceName: instance.Name,
-				CustomerSlug: customer.Slug, CustomerName: customer.Name, Status: db.InstanceBillingStatusACTIVE,
+				CustomerSlug: customer.Slug, CustomerName: customer.Name, Status: status,
 				ProviderKind: db.BillingProviderKindNOOP, CollectionMethod: method, DaysUntilDue: cmd.DaysUntilDue,
 				BaseLicensePriceID: base.ID, BillingPeriod: db.BillingPeriod(*base.BillingPeriod), Currency: base.Currency,
-				AnchorAt: invoices.Timestamp(anchor), CurrentPeriodEnd: invoices.Timestamp(periodEnd),
+				AnchorAt: invoices.Timestamp(anchor), CurrentPeriodEnd: invoices.Timestamp(periodEnd), TrialEndsAt: trialEndsAt,
 				UserID: user.ID, Now: invoices.Timestamp(now), ID: existing.ID, OrganizationID: user.OrganizationID,
 			})
 		} else {
 			row, err = q.InsertInstanceBilling(ctx, db.InsertInstanceBillingParams{
 				OrganizationID: user.OrganizationID, InstanceID: &instance.ID, CustomerID: &customer.ID,
 				InstanceSlug: instance.Slug, InstanceName: instance.Name, CustomerSlug: customer.Slug,
-				CustomerName: customer.Name, Status: db.InstanceBillingStatusACTIVE, ProviderKind: db.BillingProviderKindNOOP,
+				CustomerName: customer.Name, Status: status, ProviderKind: db.BillingProviderKindNOOP,
 				CollectionMethod: method, DaysUntilDue: cmd.DaysUntilDue, BaseLicensePriceID: base.ID,
 				BillingPeriod: db.BillingPeriod(*base.BillingPeriod), Currency: base.Currency,
-				AnchorAt: invoices.Timestamp(anchor), CurrentPeriodEnd: invoices.Timestamp(periodEnd), UserID: user.ID,
+				AnchorAt: invoices.Timestamp(anchor), CurrentPeriodEnd: invoices.Timestamp(periodEnd), TrialEndsAt: trialEndsAt,
+				UserID: user.ID,
 			})
 		}
 		if err != nil {
@@ -174,6 +197,11 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 
 		// The first period's invoice: the base price in advance, when it bills
 		// in advance. An all-arrears subscription has no ACTIVATION invoice.
+		if status == db.InstanceBillingStatusTRIAL {
+			return u.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
+				user.OrganizationID, events.InstanceBillingStarted.Name, events.InstanceBillingStarted.Type,
+				BillingStarted{InstanceBilling: *billing, Resubscribed: resubscribe}, nil))
+		}
 		composition, err := rating.Compose(rating.Input{
 			Kind: rating.KindActivation, Currency: money.Currency(base.Currency), LicenseName: license.Name, Base: metering.Price(*base),
 			Metered: nil, Measures: nil,
