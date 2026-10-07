@@ -819,6 +819,63 @@ export default {
     Licenses: {
       title: 'Licenses',
       subtitle: 'Manage licenses and entitlement limits',
+      Commercial: {
+        cardTitle: 'Commercial terms',
+        cardDescription: 'How this version is sold.',
+        dialogTitle: 'Edit commercial terms',
+        dialogDescription:
+          'How {{name}}, version {{version}}, is sold. Nothing else about the version changes.',
+        Fields: {
+          pricingType: 'Pricing type',
+          trial: 'Free trial',
+          paymentMethod: 'Payment method',
+          ctaUrl: 'Call-to-action URL',
+        },
+        PricingTypes: {
+          FREE: 'Free',
+          PAID: 'Paid',
+          CUSTOM: 'Custom',
+        },
+        Values: {
+          noTrial: 'No trial',
+          trialDays_one: '{{count}} day',
+          trialDays_other: '{{count}} days',
+          paymentRequired: 'Captured at sign-up',
+          paymentNotRequired: 'Not required',
+        },
+        Form: {
+          save: 'Save',
+          Labels: {
+            pricingType: 'Pricing type',
+            trial: 'Trial length (days)',
+            paymentMethod: 'Require a payment method at sign-up',
+            ctaUrl: 'Call-to-action URL',
+          },
+          Descriptions: {
+            pricingType:
+              'Free and paid versions can be bought self-serve; a custom one sends a buyer to the call-to-action URL or to a conversation.',
+            trial:
+              'A subscription to this version starts with this trial. Leave empty for no trial.',
+            paymentMethod:
+              'Self-serve sign-up captures a payment method before it activates.',
+            ctaUrl:
+              'Where a buyer is sent when this version cannot be bought self-serve: an http or https URL of at most 2,048 characters. Leave empty for none.',
+          },
+          Placeholders: {
+            trial: '14',
+            ctaUrl: 'https://acme.test/contact',
+          },
+          Errors: {
+            trialMin: 'Must be at least 1',
+            trialWhole: 'Enter a whole number of days',
+            urlScheme: 'Enter an http or https URL',
+            urlLength: 'At most 2,048 characters',
+          },
+        },
+        Toasts: {
+          updated: 'Commercial terms updated',
+        },
+      },
       Prices: {
         title: 'Prices',
         tabDescription:
@@ -1128,6 +1185,14 @@ export default {
             'The version goes on sale and can be set as the default. A license without a default version serves its newest published one, which may be this one.',
           confirm: 'Publish',
           success: 'Version published',
+          Billing: {
+            prices:
+              'Its prices become immutable: from then on they can only be deprecated.',
+            grants:
+              'Its entitlements are frozen as soon as a subscription bills this version.',
+            others:
+              'Subscriptions on other versions are not affected, and nothing is archived.',
+          },
         },
         archive: {
           label: 'Archive',
@@ -1169,6 +1234,7 @@ export default {
           version: 'Version',
           type: 'Type',
           lifecycleState: 'State',
+          pricingType: 'Pricing',
           default: 'Default',
           instances: 'Instances',
           actions: 'Actions',

@@ -20,6 +20,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useBillingCapabilities } from '@/domains/billing';
 import {
   type TransitionVariables,
   useLicenseLifecycleTransition,
@@ -72,6 +73,111 @@ function keepClickOffTheRow(event: MouseEvent) {
 type Confirmation = TransitionVariables &
   Pick<LicenseLifecycleActionProps['license'], 'name' | 'version'>;
 
+type Look = (typeof APPEARANCES)[keyof typeof APPEARANCES];
+
+// The family's default cannot be archived. The action stays visible but
+// disabled, with the way out on hover and focus, as set-as-default does for an
+// unpublished version.
+function BlockedLifecycleAction({
+  Icon,
+  label,
+  look,
+}: {
+  Icon: LucideIcon;
+  label: string;
+  look: Look;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span tabIndex={0} className={look.wrapperClassName}>
+            <Button
+              type="button"
+              variant={look.variant}
+              size="sm"
+              className={look.disabledClassName}
+              disabled
+            >
+              <Icon className="size-3" />
+              {label}
+            </Button>
+          </span>
+        }
+      />
+      <TooltipContent>
+        {t('Pages.Licenses.LifecycleActions.archiveDefaultUnavailable')}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+// What publishing changes for what the version sells, where there is something
+// sold: its prices stop being editable, its grants freeze once a subscription
+// bills it, and nothing else is touched.
+function PublishBillingNote() {
+  const { t } = useTranslation();
+
+  return (
+    <ul className="list-disc space-y-1 pl-5 text-left text-sm text-muted-foreground">
+      <li>{t('Pages.Licenses.LifecycleActions.publish.Billing.prices')}</li>
+      <li>{t('Pages.Licenses.LifecycleActions.publish.Billing.grants')}</li>
+      <li>{t('Pages.Licenses.LifecycleActions.publish.Billing.others')}</li>
+    </ul>
+  );
+}
+
+// What the confirmation says of the transition it was opened for, and what
+// confirming does.
+function LifecycleConfirmation({
+  asked,
+  onConfirm,
+}: {
+  asked: Confirmation;
+  onConfirm: () => void;
+}) {
+  const { t } = useTranslation();
+  const { isEnabled: hasBilling } = useBillingCapabilities();
+
+  return (
+    <AlertDialogContent size="sm">
+      <AlertDialogHeader>
+        <AlertDialogTitle>
+          {t(`Pages.Licenses.LifecycleActions.${asked.transition}.title`, {
+            name: asked.name,
+            version: asked.version,
+          })}
+        </AlertDialogTitle>
+        <AlertDialogDescription>
+          {t(`Pages.Licenses.LifecycleActions.${asked.transition}.description`)}
+        </AlertDialogDescription>
+        {asked.transition === 'publish' && hasBilling ? (
+          <PublishBillingNote />
+        ) : null}
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel variant="outline">
+          {t('Common.cancel')}
+        </AlertDialogCancel>
+        <AlertDialogClose
+          render={
+            <AlertDialogAction
+              variant={
+                asked.transition === 'archive' ? 'destructive' : 'default'
+              }
+              onClick={onConfirm}
+            >
+              {t(`Pages.Licenses.LifecycleActions.${asked.transition}.confirm`)}
+            </AlertDialogAction>
+          }
+        />
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  );
+}
+
 // Publish, archive or unarchive a version: the one transition its state
 // accepts, confirmed first, since each changes what the family serves and
 // notifies webhook subscribers.
@@ -97,34 +203,10 @@ export function LicenseLifecycleAction({
   const look = APPEARANCES[appearance];
   const label = t(`Pages.Licenses.LifecycleActions.${transition}.label`);
 
-  // The family's default cannot be archived. The action stays visible but
-  // disabled, with the way out on hover and focus, as set-as-default does for
-  // an unpublished version. An open confirmation stays open until answered,
-  // even if the version became the default meanwhile: the API then refuses.
+  // An open confirmation stays open until answered, even if the version became
+  // the default meanwhile: the API then refuses.
   if (!open && isLifecycleTransitionBlocked(license)) {
-    return (
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <span tabIndex={0} className={look.wrapperClassName}>
-              <Button
-                type="button"
-                variant={look.variant}
-                size="sm"
-                className={look.disabledClassName}
-                disabled
-              >
-                <Icon className="size-3" />
-                {label}
-              </Button>
-            </span>
-          }
-        />
-        <TooltipContent>
-          {t('Pages.Licenses.LifecycleActions.archiveDefaultUnavailable')}
-        </TooltipContent>
-      </Tooltip>
-    );
+    return <BlockedLifecycleAction Icon={Icon} label={label} look={look} />;
   }
 
   return (
@@ -157,45 +239,15 @@ export function LicenseLifecycleAction({
           </Button>
         }
       />
-      <AlertDialogContent size="sm">
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            {t(`Pages.Licenses.LifecycleActions.${asked.transition}.title`, {
-              name: asked.name,
-              version: asked.version,
-            })}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {t(
-              `Pages.Licenses.LifecycleActions.${asked.transition}.description`,
-            )}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel variant="outline">
-            {t('Common.cancel')}
-          </AlertDialogCancel>
-          <AlertDialogClose
-            render={
-              <AlertDialogAction
-                variant={
-                  asked.transition === 'archive' ? 'destructive' : 'default'
-                }
-                onClick={() =>
-                  run({
-                    licenseSlug: asked.licenseSlug,
-                    transition: asked.transition,
-                  })
-                }
-              >
-                {t(
-                  `Pages.Licenses.LifecycleActions.${asked.transition}.confirm`,
-                )}
-              </AlertDialogAction>
-            }
-          />
-        </AlertDialogFooter>
-      </AlertDialogContent>
+      <LifecycleConfirmation
+        asked={asked}
+        onConfirm={() =>
+          run({
+            licenseSlug: asked.licenseSlug,
+            transition: asked.transition,
+          })
+        }
+      />
     </AlertDialog>
   );
 }

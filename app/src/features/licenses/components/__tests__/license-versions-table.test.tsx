@@ -1,6 +1,10 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
-import type { AnchorHTMLAttributes } from 'react';
+import type { AnchorHTMLAttributes, ReactElement, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { server } from '@/__tests__/msw-server';
+import { handleGetBillingCapabilities } from '@/api-client/msw.gen';
+import { billingCapabilitiesProfiles } from '../../../../../e2e/app/_support/model/billing-capabilities';
 import type { LicenseWithInstances } from '../../types';
 import { LicenseVersionsTable } from '../license-versions-table';
 
@@ -50,6 +54,10 @@ vi.mock('react-i18next', () => ({
         'Pages.Licenses.VersionsTable.Columns.default': 'Default',
         'Pages.Licenses.VersionsTable.Columns.instances': 'Instances',
         'Pages.Licenses.VersionsTable.Columns.lifecycleState': 'State',
+        'Pages.Licenses.VersionsTable.Columns.pricingType': 'Pricing',
+        'Pages.Licenses.Commercial.PricingTypes.CUSTOM': 'Custom',
+        'Pages.Licenses.Commercial.PricingTypes.FREE': 'Free',
+        'Pages.Licenses.Commercial.PricingTypes.PAID': 'Billed',
         'Pages.Licenses.VersionsTable.Columns.versionName': 'Version name',
         'Pages.Licenses.VersionsTable.Columns.type': 'Type',
         'Pages.Licenses.VersionsTable.Columns.version': 'Version',
@@ -102,13 +110,23 @@ const licenses: LicenseWithInstances[] = [
   } as LicenseWithInstances,
 ];
 
+let queryClient: QueryClient;
+
+// The table reads whether billing is on, which the shell reads once for the page.
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+);
+
+const renderTable = (table: ReactElement) => render(table, { wrapper });
+
 describe('LicenseVersionsTable', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    queryClient = new QueryClient();
   });
 
   it('renders expected columns', () => {
-    render(<LicenseVersionsTable licenses={licenses} />);
+    renderTable(<LicenseVersionsTable licenses={licenses} />);
 
     expect(
       screen.getByRole('columnheader', { name: 'Version name' }),
@@ -135,7 +153,7 @@ describe('LicenseVersionsTable', () => {
 
   // Even a lone version can be published, archived or unarchived.
   it('keeps the actions column for a family with a single version', () => {
-    render(<LicenseVersionsTable licenses={licenses.slice(0, 1)} />);
+    renderTable(<LicenseVersionsTable licenses={licenses.slice(0, 1)} />);
 
     expect(
       screen.getByRole('columnheader', { name: 'Actions' }),
@@ -146,14 +164,14 @@ describe('LicenseVersionsTable', () => {
   // The state is what tells a vendor which versions the family can serve,
   // and which ones the set-as-default action will be withheld from.
   it('shows each version\'s lifecycle state', () => {
-    render(<LicenseVersionsTable licenses={licenses} />);
+    renderTable(<LicenseVersionsTable licenses={licenses} />);
 
     expect(screen.getByText('Published')).toBeInTheDocument();
     expect(screen.getByText('Archived')).toBeInTheDocument();
   });
 
   it('links each version to its license page, from its name or anywhere on its row', () => {
-    render(<LicenseVersionsTable licenses={licenses} />);
+    renderTable(<LicenseVersionsTable licenses={licenses} />);
 
     expect(screen.getByRole('link', { name: 'GA' })).toHaveAttribute(
       'href',
@@ -171,7 +189,7 @@ describe('LicenseVersionsTable', () => {
   // A disabled button ignores the pointer, so the click lands on its wrapper;
   // it is still a click on the row's actions, not on the row.
   it('does not open the version when a click lands in its actions', () => {
-    render(<LicenseVersionsTable licenses={licenses.slice(0, 1)} />);
+    renderTable(<LicenseVersionsTable licenses={licenses.slice(0, 1)} />);
 
     fireEvent.click(screen.getByText('Row action'));
     fireEvent.click(screen.getByTestId('disabled-action-wrapper'));
@@ -180,7 +198,7 @@ describe('LicenseVersionsTable', () => {
   });
 
   it('neither links nor navigates when slug is missing', () => {
-    render(<LicenseVersionsTable licenses={licenses} />);
+    renderTable(<LicenseVersionsTable licenses={licenses} />);
 
     expect(
       screen.queryByRole('link', { name: 'Legacy' }),
@@ -192,8 +210,50 @@ describe('LicenseVersionsTable', () => {
   });
 
   it('hides pagination controls because pagination is explicitly disabled', () => {
-    render(<LicenseVersionsTable licenses={licenses} />);
+    renderTable(<LicenseVersionsTable licenses={licenses} />);
 
     expect(screen.queryByText('Rows per page')).not.toBeInTheDocument();
+  });
+
+  describe('how each version is sold', () => {
+    it('has no such column where billing is not there, which would read Custom everywhere', () => {
+      renderTable(<LicenseVersionsTable licenses={licenses} />);
+
+      expect(
+        screen.queryByRole('columnheader', { name: 'Pricing' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows the pricing type of each version where billing is on', async () => {
+      server.use(
+        handleGetBillingCapabilities({
+          body: billingCapabilitiesProfiles.stack(),
+        }),
+      );
+      const sold = [
+        { ...licenses[0], pricingType: 'PAID' },
+        { ...licenses[1], pricingType: 'FREE' },
+      ] as LicenseWithInstances[];
+
+      renderTable(<LicenseVersionsTable licenses={sold} />);
+
+      expect(
+        await screen.findByRole('columnheader', { name: 'Pricing' }),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Billed')).toBeInTheDocument();
+      expect(screen.getByText('Free')).toBeInTheDocument();
+    });
+
+    it('reads a version the API sent no pricing type for as the API creates one: custom', async () => {
+      server.use(
+        handleGetBillingCapabilities({
+          body: billingCapabilitiesProfiles.stack(),
+        }),
+      );
+
+      renderTable(<LicenseVersionsTable licenses={licenses.slice(0, 1)} />);
+
+      expect(await screen.findByText('Custom')).toBeInTheDocument();
+    });
   });
 });

@@ -10,6 +10,7 @@ import {
   getProblemCode,
   getRetryAfterMs,
   handleBillingProblem,
+  setProblemFieldError,
 } from '../logic';
 
 const apiError = (
@@ -253,6 +254,25 @@ async function mountDialog() {
   }
   return form;
 }
+
+describe('setProblemFieldError', () => {
+  it('shows the message of the API under the field it is about, which reads as touched', async () => {
+    const form = await mountDialog();
+
+    act(() => {
+      setProblemFieldError(form, 'note', 'a note is at most 50 characters');
+    });
+
+    expect(
+      await screen.findByText('a note is at most 50 characters'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Note')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Reference')).toHaveAttribute(
+      'aria-invalid',
+      'false',
+    );
+  });
+});
 
 describe('applyProblemFieldErrors', () => {
   const invalid = handleBillingProblem(

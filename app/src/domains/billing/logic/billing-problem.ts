@@ -241,6 +241,24 @@ function fieldFor(
 }
 
 /**
+ * Shows an error of the API as the error of one field of a form, and marks the
+ * field touched so that it is read. The message is shown as it is. For a refusal
+ * whose field the caller knows already: `applyProblemFieldErrors` is the one for
+ * a problem that locates its own.
+ */
+export function setProblemFieldError(
+  form: AnyFormApi,
+  field: string,
+  message: string,
+) {
+  form.setFieldMeta(field, (meta) => ({
+    ...meta,
+    errorMap: { ...meta.errorMap, onServer: { message } },
+    isTouched: true,
+  }));
+}
+
+/**
  * Puts the field errors of a 422 on the form's fields: `errors[].location` of
  * the problem (`body.externalReference`, `body.sampleUsage[0].value`) goes to
  * the field `fieldsByLocation` names for it, keyed with or without the `body.`
@@ -267,14 +285,7 @@ export function applyProblemFieldErrors(
       continue;
     }
     placed += 1;
-    form.setFieldMeta(field, (meta) => ({
-      ...meta,
-      errorMap: {
-        ...meta.errorMap,
-        onServer: { message: error.message ?? problem.detail ?? '' },
-      },
-      isTouched: true,
-    }));
+    setProblemFieldError(form, field, error.message ?? problem.detail ?? '');
   }
 
   return placed === problem.errors.length;
