@@ -1,17 +1,19 @@
-import { Link, Navigate, useNavigate } from '@tanstack/react-router';
-import { Lock, Plus } from 'lucide-react';
+import { Navigate, useNavigate } from '@tanstack/react-router';
+import { Lock } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Price } from '@/api-client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { useActionAccess } from '@/domains/billing';
 import { TableCard } from '@/functionals/table';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { useLicensePricing } from '../../hooks/use-license-pricing';
 import { getPriceLabel } from '../../utils/license-price-display';
+import { getPreviewBases } from '../../utils/license-price-preview.utils';
 import { canEditPrice } from '../../utils/license-price.utils';
 import { DeprecatePriceDialog } from './deprecate-price-dialog';
+import { LicenseInvoicePreviewDialog } from './license-invoice-preview-dialog';
+import { LicensePricesActions } from './license-prices-actions';
 import { PriceDrawer } from './price-drawer';
 import { PriceSummary } from './price-summary';
 import { PriceTable } from './price-table';
@@ -51,6 +53,7 @@ export function LicensePricesTab({
   const mayCreate = create.allowed;
   const mayUpdate = update.allowed;
   const [toDeprecate, setToDeprecate] = useState<Price | null>(null);
+  const [previewing, setPreviewing] = useState(false);
 
   const closeDrawer = () => {
     void navigate({
@@ -99,25 +102,12 @@ export function LicensePricesTab({
               </TableCard.HeaderSubtitle>
             </TableCard.HeaderHeading>
           </TableCard.HeaderLeading>
-          {rules.canAdd && mayCreate ? (
-            <TableCard.HeaderActions>
-              <Button
-                nativeButton={false}
-                render={
-                  <Link
-                    params={{ licenseSlug }}
-                    search={{ price: 'new' }}
-                    to="/licenses/$licenseSlug/prices"
-                  >
-                    <Plus className="size-4" />
-                    {t('Pages.Licenses.Prices.Actions.add')}
-                  </Link>
-                }
-                role="link"
-                size="sm"
-              />
-            </TableCard.HeaderActions>
-          ) : null}
+          <LicensePricesActions
+            canPreview={getPreviewBases(prices).length > 0}
+            licenseSlug={licenseSlug}
+            onPreview={() => setPreviewing(true)}
+            rules={rules}
+          />
         </TableCard.Header>
         <div className="space-y-3 px-6 pb-3">
           <PriceSummary
@@ -156,6 +146,13 @@ export function LicensePricesTab({
           params={{ licenseSlug }}
           replace
           to="/licenses/$licenseSlug/prices"
+        />
+      ) : null}
+      {previewing ? (
+        <LicenseInvoicePreviewDialog
+          licenseSlug={licenseSlug}
+          onClose={() => setPreviewing(false)}
+          pricing={pricing}
         />
       ) : null}
       {toDeprecate ? (

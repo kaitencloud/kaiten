@@ -200,7 +200,9 @@ describe('InvoicePreviewResult', () => {
     render(<InvoicePreviewResult preview={preview} />);
 
     const result = screen.getByRole('region', { name: 'Invoice preview' });
-    expect(within(result).getByText(/Kind: Renewal\./)).toBeInTheDocument();
+    expect(
+      within(result).getByText(/^Renewal invoice, composed /),
+    ).toBeInTheDocument();
     expect(within(result).getByText('Traces, overage')).toBeInTheDocument();
     expect(within(result).getByText('Pro, base')).toBeInTheDocument();
     // The subtotal and the total are both the API's 3479.

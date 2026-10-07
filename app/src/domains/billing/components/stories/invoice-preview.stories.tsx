@@ -32,7 +32,7 @@ export const Result: Story = {
     await expect(await canvas.findByText('Traces, overage')).toBeVisible();
     await expect(canvas.getByText('$5.79')).toBeVisible();
     await expect(canvas.getByText('Capped')).toBeVisible();
-    await expect(canvas.getByText(/Kind: Renewal/)).toBeVisible();
+    await expect(canvas.getByText(/^Renewal invoice, composed /)).toBeVisible();
     await expect(canvas.getAllByText('Mar 1 – Apr 1, 2027 (UTC)')).toHaveLength(3);
     await expect(canvas.getAllByText('$43.19')).toHaveLength(2);
   },

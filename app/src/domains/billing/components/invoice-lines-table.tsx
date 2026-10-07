@@ -25,7 +25,9 @@ function LineCell({ line }: { line: InvoiceLine }) {
   const { t } = useTranslation();
 
   return (
-    <div className="min-w-0 space-y-1 py-1">
+    // A cell of the table does not wrap, and the arithmetic of a line is a long
+    // sentence: left alone it would push the amount out of the dialog it is in.
+    <div className="min-w-0 space-y-1 py-1 whitespace-normal">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{line.label}</span>
         <InvoiceLineTypeBadge type={line.type} />
