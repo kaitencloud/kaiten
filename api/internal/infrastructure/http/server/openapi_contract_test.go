@@ -99,16 +99,25 @@ func assertEveryOperationDeclaresItsScope(t *testing.T, oapi *huma.OpenAPI, expe
 		count++
 		require.NotEmpty(t, op.Security, "%s %s (%s) declares no security requirement", method, path, op.OperationID)
 
-		// The public SDK surface takes a publishable key, which carries no scope:
-		// its operations declare that scheme alone, and nothing outside it may.
-		onPublicPath := strings.HasPrefix(path, kaitenhuma.PublicPathPrefix+"/")
-		scopes, isPublishable := op.Security[0][kaitenhuma.PublishableKeyAuth]
-		require.Equal(t, onPublicPath, isPublishable,
-			"%s %s: the publishableKey scheme belongs to the operations under %s/ and only to them", method, path, kaitenhuma.PublicPathPrefix)
-		if isPublishable {
-			require.Len(t, op.Security, 1, "%s %s must accept a publishable key and nothing else", method, path)
-			require.Len(t, op.Security[0], 1, "%s %s must accept a publishable key and nothing else", method, path)
-			require.Empty(t, scopes, "%s %s: a publishable key carries no scope to require", method, path)
+		// The public SDK surface takes credentials that carry no scope -- a
+		// publishable key on /public, a customer session on /public/session --
+		// and each declares its scheme alone, on its paths and only there.
+		onSessionPath := strings.HasPrefix(path, kaitenhuma.SessionPathPrefix+"/")
+		onPublicPath := strings.HasPrefix(path, kaitenhuma.PublicPathPrefix+"/") && !onSessionPath
+		for _, surface := range []struct {
+			scheme string
+			on     bool
+		}{{kaitenhuma.PublishableKeyAuth, onPublicPath}, {kaitenhuma.CustomerSessionAuth, onSessionPath}} {
+			scopes, declared := op.Security[0][surface.scheme]
+			require.Equal(t, surface.on, declared,
+				"%s %s: the %s scheme belongs to its own public paths and only to them", method, path, surface.scheme)
+			if declared {
+				require.Len(t, op.Security, 1, "%s %s must accept its one public credential and nothing else", method, path)
+				require.Len(t, op.Security[0], 1, "%s %s must accept its one public credential and nothing else", method, path)
+				require.Empty(t, scopes, "%s %s: a public credential carries no scope to require", method, path)
+			}
+		}
+		if onPublicPath || onSessionPath {
 			return
 		}
 

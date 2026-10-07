@@ -35,11 +35,12 @@ spec:
     maxAge: 100s
 ---
 {{- end }}
-# ---- API: the public SDK surface (pk_) — CORS only ----
+# ---- API: the public SDK surface (pk_, kst_) — CORS only ----
 # Its own policy, because the console's (one origin, credentials) would refuse
 # every vendor origin. Any origin, never credentials: no cookie is read or set
-# on /api/public. The per-key origin allowlist is enforced by the API on the
-# actual request -- a preflight carries no key to check it against.
+# on /api/public -- a customer session travels in Authorization. The origin
+# allowlists are enforced by the API on the actual request -- a preflight
+# carries no credential to check them against.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: SecurityPolicy
 metadata:
@@ -54,8 +55,8 @@ spec:
       name: {{ include "kaiten.apiFullname" . }}-public-sdk
   cors:
     allowOrigins: ["*"]
-    allowMethods: [GET, OPTIONS]
-    allowHeaders: [Content-Type, X-Kaiten-Publishable-Key]
+    allowMethods: [GET, POST, PUT, OPTIONS]
+    allowHeaders: [Content-Type, Authorization, X-Kaiten-Publishable-Key]
     allowCredentials: false
     maxAge: 600s
 ---

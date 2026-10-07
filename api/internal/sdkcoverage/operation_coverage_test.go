@@ -147,6 +147,9 @@ var awaitingSDKOperations = map[string]string{
 	"listPublishableKeys":  awaitsBilling,
 	"updatePublishableKey": awaitsBilling,
 	"revokePublishableKey": awaitsBilling,
+
+	"createCustomerSession": awaitsBilling,
+	"revokeCustomerSession": awaitsBilling,
 }
 
 func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
@@ -358,11 +361,11 @@ func shouldSkipSDKPath(path string) bool {
 	switch path {
 	case "/ofrep/v1/evaluate/flags", "/ofrep/v1/evaluate/flags/{key}", "/openfeature/v0/manifest":
 		return true
-	// The public SDK surface is read with a publishable key, by
-	// @kaitencloud/client in a browser. This SDK authenticates with an
-	// organization credential, which the route refuses: there is nothing for it
-	// to call.
-	case "/public/catalog":
+	// The public SDK surface is called with a publishable key or a customer
+	// session, by @kaitencloud/client in a browser. This SDK authenticates with
+	// an organization credential, which those routes refuse: there is nothing
+	// for it to call. Minting the sessions is on the Core API, above.
+	case "/public/catalog", "/public/session/checkout", "/public/session/invoices":
 		return true
 	// Connector machinery: consumed by connector workers and by Kaiten's own
 	// console (registration, activation, settings, per-entity integration
