@@ -10,6 +10,8 @@ function fakeForm(fields: string[]) {
   );
   const form = {
     getFieldMeta: (field: string) => meta.get(field),
+    getFieldValue: () => undefined,
+    store: { subscribe: () => ({ unsubscribe: () => {} }) },
     setFieldMeta: vi.fn(
       (
         field: string,

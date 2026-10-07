@@ -418,6 +418,8 @@ describe('InstanceForm', () => {
     const submit = async (changes: Record<string, unknown>) => {
       const marked: Array<{ field: string; error: unknown }> = [];
       const formApi = {
+        getFieldValue: () => undefined,
+        store: { subscribe: () => ({ unsubscribe: () => {} }) },
         setFieldMeta: (
           field: string,
           update: (meta: { errorMap: Record<string, unknown> }) => {
