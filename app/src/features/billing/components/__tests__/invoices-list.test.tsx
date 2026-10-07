@@ -12,10 +12,10 @@ import {
   refusal,
   renderWithClient,
   useBillingTexts,
-} from './billing-test-support';
+} from '@/test-fixtures/billing-test-support';
 
 vi.mock('@tanstack/react-router', async () =>
-  (await import('./billing-test-support')).createRouterModule(vi.fn()),
+  (await import('@/test-fixtures/billing-test-support')).createRouterModule(vi.fn()),
 );
 
 useBillingTexts();

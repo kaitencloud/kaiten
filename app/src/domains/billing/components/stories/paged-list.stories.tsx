@@ -9,7 +9,7 @@ import {
 } from '../paged-list';
 
 const meta = {
-  title: 'Features/Billing/PagedList',
+  title: 'Domains/Billing/PagedList',
   parameters: { layout: 'padded' },
   tags: ['autodocs'],
 } satisfies Meta;

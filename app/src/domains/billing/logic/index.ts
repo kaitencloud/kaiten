@@ -24,6 +24,7 @@ export {
   handleBillingProblem,
   setProblemFieldError,
 } from './billing-problem';
+export { placeRefusalOnFields, type RefusalFields } from './place-refusal';
 export {
   getHandoffStatusLabelKey,
   HANDOFF_STATUSES,
