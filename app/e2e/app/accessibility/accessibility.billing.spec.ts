@@ -1,6 +1,10 @@
-import type { Locator, Page } from '@playwright/test';
 import { expect, test } from '../_support/app-test';
-import { expectNoAccessibilityViolations } from '../_support/assertions/accessibility';
+import {
+  expectDialogAccessible,
+  expectNoAccessibilityViolations,
+  settle,
+  useLightTheme,
+} from '../_support/assertions/accessibility';
 import { expectFocusTrapped } from '../_support/assertions/focus';
 import { BillingHandoffDriver } from '../_support/drivers/billing-handoff.driver';
 import { BillingInvoicesDriver } from '../_support/drivers/billing-invoices.driver';
@@ -16,52 +20,6 @@ import {
 // meets them: no violation on the page, status read in words and never in colour
 // alone, each dialog keeping the focus inside while it is open and closing on
 // Escape.
-
-/**
- * Waits for the animations and transitions that end, which axe would otherwise read
- * half-way: a dialog fades in, and the contrast of its text is that of a text still
- * being drawn. The ones that never end are left alone: a spinner that loops, an
- * effect that follows the scroll of a container. A bound keeps any other from
- * holding the page up.
- */
-async function settle(page: Page) {
-  await page.evaluate(async () => {
-    const ends = document
-      .getAnimations()
-      .filter(
-        (animation) =>
-          animation.timeline === document.timeline &&
-          animation.effect?.getComputedTiming().iterations !== Infinity,
-      )
-      .map((animation) => animation.finished.catch(() => undefined));
-
-    await Promise.race([
-      Promise.all(ends),
-      new Promise((resolve) => setTimeout(resolve, 2_000)),
-    ]);
-  });
-}
-
-/** A dialog that is open: no violation on the page, the focus held, closed by Escape. */
-async function expectDialogAccessible(page: Page, dialog: Locator) {
-  await settle(page);
-  await expectNoAccessibilityViolations(page);
-  await expectFocusTrapped(page, dialog);
-  await page.keyboard.press('Escape');
-  await expect(dialog).toHaveCount(0);
-}
-
-/**
- * Switches the console to the light theme. It starts dark, and the tokens of the
- * other theme are the ones under the root class that is left off. Elements
- * transition their colors, which axe would read half-way: it waits for them.
- */
-async function useLightTheme(page: Page) {
-  await page.evaluate(() => {
-    document.documentElement.classList.remove('dark');
-  });
-  await settle(page);
-}
 
 test.describe('accessibility of the invoices of the organization', () => {
   test.beforeEach(async ({ page }) => {
