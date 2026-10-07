@@ -1,12 +1,47 @@
 import type { TFunction } from 'i18next';
 import type { Entitlement, LicenseEntitlement, Price } from '@/api-client';
 import { RESET_PERIOD_UNIT_KEYS } from './license-price-labels';
-import { getGrantAllowance } from './license-price.utils';
+import { type GrantAllowance, getGrantAllowance } from './license-price.utils';
 
 type MeterLabels = Pick<
   Entitlement,
   'aggregationMethod' | 'name' | 'resetPeriod' | 'unitPlural'
 >;
+
+/**
+ * What an overage bills against, in words: "Bills above 100,000 traces/month, up
+ * to 200,000". The allowance is the limit the version grants and the most its
+ * enforcement accepts above it.
+ */
+export function describeAllowance(
+  allowance: GrantAllowance,
+  entitlement: Pick<Entitlement, 'name' | 'unitPlural'> | undefined,
+  period: string,
+  slug: string,
+  t: TFunction,
+  locale: string,
+): string {
+  return t('Pages.Licenses.Prices.Meter.overage', {
+    cap: allowance.cap.toLocaleString(locale),
+    limit: allowance.limit.toLocaleString(locale),
+    period,
+    unit: entitlement?.unitPlural ?? entitlement?.name ?? slug,
+  });
+}
+
+/**
+ * What a usage price counts and when the count starts again. Only a sum or a
+ * count is metered; a number is summed unless it says it is counted.
+ */
+export function describeUsage(
+  entitlement: Pick<Entitlement, 'aggregationMethod'> | undefined,
+  period: string,
+  t: TFunction,
+): string {
+  return entitlement?.aggregationMethod === 'COUNT'
+    ? t('Pages.Licenses.Prices.Meter.usageCount', { period })
+    : t('Pages.Licenses.Prices.Meter.usageSum', { period });
+}
 
 /**
  * What a metered price measures, in a line under its entitlement. An overage
@@ -31,24 +66,16 @@ export function describeMeter(
     const allowance = getGrantAllowance(grant);
 
     return allowance && period
-      ? t('Pages.Licenses.Prices.Meter.overage', {
-          cap: allowance.cap.toLocaleString(locale),
-          limit: allowance.limit.toLocaleString(locale),
+      ? describeAllowance(
+          allowance,
+          entitlement,
           period,
-          unit:
-            entitlement?.unitPlural ??
-            entitlement?.name ??
-            price.metered.entitlementSlug,
-        })
+          price.metered.entitlementSlug,
+          t,
+          locale,
+        )
       : t('Pages.Licenses.Prices.Meter.overageUnknown');
   }
 
-  if (!period) {
-    return undefined;
-  }
-
-  // Only a sum or a count is metered; a number is summed unless it says otherwise.
-  return entitlement?.aggregationMethod === 'COUNT'
-    ? t('Pages.Licenses.Prices.Meter.usageCount', { period })
-    : t('Pages.Licenses.Prices.Meter.usageSum', { period });
+  return period ? describeUsage(entitlement, period, t) : undefined;
 }

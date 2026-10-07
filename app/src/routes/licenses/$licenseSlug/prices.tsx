@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { z } from 'zod';
 import { BillingNotFound, requireBillingCapability } from '@/domains/billing';
 import {
   entitlementsQueryOptions,
@@ -8,8 +9,12 @@ import {
 } from '@/features/licenses';
 import i18n from '@/lib/i18n/config';
 
+// `?price=new` opens the drawer on a new price, `?price=<id>` on that price.
+const pricesSearchSchema = z.object({ price: z.string().optional() });
+
 export const Route = createFileRoute('/licenses/$licenseSlug/prices')({
   component: LicensePricesRoute,
+  validateSearch: (search) => pricesSearchSchema.parse(search),
   // Shown in place of the tab where billing is not there, so that a link to it
   // explains why instead of failing.
   notFoundComponent: BillingNotFound,
@@ -37,6 +42,7 @@ export const Route = createFileRoute('/licenses/$licenseSlug/prices')({
 
 function LicensePricesRoute() {
   const { licenseSlug } = Route.useParams();
+  const { price } = Route.useSearch();
 
-  return <LicensePricesTab licenseSlug={licenseSlug} />;
+  return <LicensePricesTab licenseSlug={licenseSlug} priceParam={price} />;
 }

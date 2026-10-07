@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { useBillingCapabilities } from '@/domains/billing';
 import { useDeleteLicenseDraft } from '../hooks/use-delete-license-draft';
 import { getLicenseLifecycleState } from '../utils/license-lifecycle.utils';
 
@@ -48,6 +49,8 @@ export function LicenseDeleteDraftAction({
   onDeleted,
 }: LicenseDeleteDraftActionProps) {
   const { t } = useTranslation();
+  // A draft is deleted with its prices, which only exist where billing is on.
+  const { isEnabled: hasBilling } = useBillingCapabilities();
   const { deleteDraft, isPending } = useDeleteLicenseDraft(onDeleted);
   const [target, setTarget] = useState<Target | null>(null);
   const look = APPEARANCES[appearance];
@@ -95,7 +98,11 @@ export function LicenseDeleteDraftAction({
             })}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {t('Pages.Licenses.DeleteDraft.description')}
+            {t(
+              hasBilling
+                ? 'Pages.Licenses.DeleteDraft.descriptionBilling'
+                : 'Pages.Licenses.DeleteDraft.description',
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

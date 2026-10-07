@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { useCanPerform } from '../hooks';
+import { useActionAccess, useCanPerform } from '../hooks';
 
 const getAuthToken = vi.hoisted(() => vi.fn());
 
@@ -87,5 +87,43 @@ describe('useCanPerform', () => {
     const { result } = render();
 
     await waitFor(() => expect(result.current).toEqual({ read: true, write: true }));
+  });
+});
+
+describe('useActionAccess', () => {
+  const renderAccess = () => {
+    const client = new QueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
+    return renderHook(() => useActionAccess('invoice.markPaid'), { wrapper });
+  };
+
+  it('says it does not know yet while the token is being read, which is not a refusal', () => {
+    getAuthToken.mockReturnValue(new Promise(() => {}));
+
+    const { result } = renderAccess();
+
+    expect(result.current).toEqual({ allowed: false, isPending: true });
+  });
+
+  it('says it knows once it has read the token, and what the scopes cover', async () => {
+    getAuthToken.mockResolvedValue(jwt({ scopes: ['read:billing'] }));
+
+    const { result } = renderAccess();
+
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+    expect(result.current.allowed).toBe(false);
+  });
+
+  it('allows what the scopes cover', async () => {
+    getAuthToken.mockResolvedValue(jwt({ scopes: ['write:billing'] }));
+
+    const { result } = renderAccess();
+
+    await waitFor(() =>
+      expect(result.current).toEqual({ allowed: true, isPending: false }),
+    );
   });
 });

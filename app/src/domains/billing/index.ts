@@ -16,7 +16,7 @@ export {
   ServicePeriod,
   SubscriptionStatusBadge,
 } from './components';
-export { useCanPerform } from './hooks';
+export { type ActionAccess, useActionAccess, useCanPerform } from './hooks';
 export {
   applyProblemFieldErrors,
   BILLING_ACTIONS,

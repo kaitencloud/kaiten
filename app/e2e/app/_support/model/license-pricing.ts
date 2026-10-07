@@ -451,7 +451,9 @@ export class LicensePricing {
       billingTiming: draft.billingTiming,
       createdAt: timestamps.createdAt,
       currency: draft.currency,
-      displayLabel: draft.displayLabel || undefined,
+      // The API stores what it is given: a label cleared by an update comes
+      // back as the empty string, and only an omitted one is absent.
+      displayLabel: draft.displayLabel,
       displayOrder: draft.displayOrder,
       id,
       isDefault: draft.isDefault,
