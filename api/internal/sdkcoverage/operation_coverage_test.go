@@ -135,7 +135,13 @@ var awaitingSDKOperations = map[string]string{
 	"retryInvoicePush":         awaitsBilling,
 	"syncBillingProvider":      awaitsBilling,
 	"syncInvoice":              awaitsBilling,
-	"getBillingHealth":         awaitsBilling,
+
+	"getCustomerBilling":           awaitsBilling,
+	"createPaymentMethodSession":   awaitsBilling,
+	"completePaymentMethodSession": awaitsBilling,
+	"createPortalSession":          awaitsBilling,
+	"detachPaymentMethod":          awaitsBilling,
+	"getBillingHealth":             awaitsBilling,
 }
 
 func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {

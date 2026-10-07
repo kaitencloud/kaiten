@@ -198,7 +198,7 @@ func TestProviderSync(t *testing.T) {
 			return i.Status == "PUSHED" && i.Provider.ReconciliationStatus != nil
 		}, "pushed")
 
-		fake.Pay(*pushed.Provider.ExternalInvoiceID)
+		fake.PayInProvider(*pushed.Provider.ExternalInvoiceID)
 		report := sync(t)
 		require.Len(t, report.Providers, 1)
 		require.Equal(t, "SUCCESS", report.Providers[0].Status)
@@ -322,7 +322,7 @@ func TestProviderVoid(t *testing.T) {
 		fake := providers.use(t, false)
 		_, started := pushedSubscription(t)
 		pushed := waitStatus(t, started.ActivationInvoice.ID, "PUSHED")
-		fake.Pay(*pushed.Provider.ExternalInvoiceID)
+		fake.PayInProvider(*pushed.Provider.ExternalInvoiceID)
 		require.Equal(t, "VoidInvoice.InvalidStatus", problemCodeOn(t, providerServer, fiber.StatusConflict, "POST",
 			"/api/invoices/"+pushed.ID.String()+"/void", map[string]any{"reason": "late"}))
 	})
