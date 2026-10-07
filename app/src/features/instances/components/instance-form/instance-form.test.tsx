@@ -22,6 +22,8 @@ const mockRouterNavigate = vi.fn();
 const instanceInformationFieldsSpy = vi.fn();
 const startAttioSyncWatcherSpy = vi.fn();
 const toastSuccessSpy = vi.fn();
+const toastErrorSpy = vi.fn();
+const goToStepSpy = vi.fn();
 const setQueryDataSpy = vi.fn();
 const mockQueryClient = {
   setQueryData: (...args: unknown[]) => setQueryDataSpy(...args),
@@ -40,7 +42,7 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('sonner', () => ({
   toast: {
-    error: vi.fn(),
+    error: (...args: unknown[]) => toastErrorSpy(...args),
     success: (...args: unknown[]) => toastSuccessSpy(...args),
   },
 }));
@@ -121,6 +123,7 @@ vi.mock('@/functionals/step-stack', () => ({
   StepStackPrevious: ({ children }: { children: React.ReactNode }) => children,
   StepStackStep: ({ children }: { children: React.ReactNode }) => children,
   useStepStack: () => ({
+    goToStep: (...args: unknown[]) => goToStepSpy(...args),
     nextStep: vi.fn(),
   }),
 }));
@@ -149,6 +152,7 @@ vi.mock('../../hooks/instance-query-invalidation', () => ({
 
 const customer = { id: 'customer-1', name: 'Acme Corp' } as Customer;
 const license = { id: 'license-1', name: 'Starter', slug: 'starter' } as License;
+const growth = { id: 'license-2', name: 'Growth', slug: 'growth' } as License;
 
 type Write =
   | { op: 'create'; body: unknown }
@@ -168,7 +172,7 @@ function serveInstanceApi() {
       api.customerListReads += 1;
       return HttpResponse.json({ hasMore: false, items: [customer] });
     }),
-    handleGetLicenses({ body: { hasMore: false, items: [license] } }),
+    handleGetLicenses({ body: { hasMore: false, items: [license, growth] } }),
     handleListDeploymentZones({ body: { hasMore: false, items: [] } }),
     // The form soft-fetches the active MetadataField list to decide whether
     // the metadata step exists. Empty here: this suite covers the
@@ -237,6 +241,8 @@ describe('InstanceForm', () => {
     mockRouterNavigate.mockReset();
     startAttioSyncWatcherSpy.mockReset();
     toastSuccessSpy.mockReset();
+    toastErrorSpy.mockReset();
+    goToStepSpy.mockReset();
   });
 
   // PATCH /instances rejects an empty lifecycleStage (minLength 1) and reads an
@@ -375,5 +381,136 @@ describe('InstanceForm', () => {
     expect(toastSuccessSpy).toHaveBeenCalledWith(
       'Pages.Customers.Instances.Mutation.Form.createSuccess',
     );
+  });
+  // While the subscription of an instance lives, the API refuses a change of its
+  // customer or its license (409 UpdateInstance.BillingActive) and does not say
+  // which: the form marks the ones that were changed, and takes the person back
+  // to the first of them, since the submit is on the last step.
+  describe('the customer and the license of an instance that bills', () => {
+    const billedInstance = {
+      customerId: 'customer-1',
+      customerSlug: 'acme',
+      description: 'Acme production',
+      endLicenseDate: '2026-12-31T00:00:00.000Z',
+      id: 'instance-1',
+      licenseId: 'license-1',
+      licenseSlug: 'starter',
+      metadata: {},
+      name: 'Acme Instance',
+      slug: 'acme-instance',
+      startLicenseDate: '2026-01-01T00:00:00.000Z',
+      status: 'HEALTHY',
+    } as never;
+
+    const FROZEN_DETAIL =
+      'Instance "acme-instance" has a live subscription: its customer and license cannot change until it is canceled';
+
+    const refuseUpdate = (status = 409, code = 'UpdateInstance.BillingActive') =>
+      server.use(
+        handleUpdateInstance(() =>
+          HttpResponse.json(
+            { code, detail: FROZEN_DETAIL, status },
+            { status },
+          ),
+        ),
+      );
+
+    const submit = async (changes: Record<string, unknown>) => {
+      const marked: Array<{ field: string; error: unknown }> = [];
+      const formApi = {
+        setFieldMeta: (
+          field: string,
+          update: (meta: { errorMap: Record<string, unknown> }) => {
+            errorMap: Record<string, unknown>;
+          },
+        ) => {
+          marked.push({ field, error: update({ errorMap: {} }).errorMap.onServer });
+        },
+      };
+      await renderForm(
+        <InstanceForm instance={billedInstance} onSuccess={vi.fn()} />,
+      );
+
+      await act(() =>
+        capturedFormOptions.onSubmit({
+          formApi,
+          value: {
+            customerId: 'customer-1',
+            deploymentZoneId: '',
+            description: 'Acme production',
+            licenseDate: {
+              from: new Date('2026-01-01T00:00:00.000Z'),
+              to: new Date('2026-12-31T00:00:00.000Z'),
+            },
+            licenseSlug: 'starter',
+            metadata: {},
+            name: 'Acme Instance',
+            ...changes,
+          },
+        } as never),
+      );
+
+      return marked;
+    };
+
+    it('marks the customer that was changed, with the words of the API, and goes back to its step', async () => {
+      refuseUpdate();
+
+      const marked = await submit({ customerId: 'customer-2' });
+
+      expect(marked).toEqual([
+        {
+          error: { code: 'UpdateInstance.BillingActive', message: FROZEN_DETAIL },
+          field: 'customerId',
+        },
+      ]);
+      expect(goToStepSpy).toHaveBeenCalledWith(0);
+      expect(toastErrorSpy).not.toHaveBeenCalled();
+    });
+
+    it('marks the license that was changed, and goes back to the step of the license', async () => {
+      refuseUpdate();
+
+      const marked = await submit({ licenseSlug: 'growth' });
+
+      expect(marked.map(({ field }) => field)).toEqual(['licenseSlug']);
+      expect(goToStepSpy).toHaveBeenCalledWith(1);
+    });
+
+    it('marks both when both were changed, and goes to the first', async () => {
+      refuseUpdate();
+
+      const marked = await submit({
+        customerId: 'customer-2',
+        licenseSlug: 'growth',
+      });
+
+      expect(marked.map(({ field }) => field)).toEqual([
+        'customerId',
+        'licenseSlug',
+      ]);
+      expect(goToStepSpy).toHaveBeenCalledTimes(1);
+      expect(goToStepSpy).toHaveBeenCalledWith(0);
+    });
+
+    it('keeps the toast when no frozen field was changed, since there is none to mark', async () => {
+      refuseUpdate();
+
+      const marked = await submit({ name: 'Acme Instance EU' });
+
+      expect(marked).toEqual([]);
+      expect(goToStepSpy).not.toHaveBeenCalled();
+      expect(toastErrorSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the toast for any other refusal, and marks nothing', async () => {
+      refuseUpdate(422, 'UpdateInstance.LicenseArchived');
+
+      const marked = await submit({ licenseSlug: 'growth' });
+
+      expect(marked).toEqual([]);
+      expect(goToStepSpy).not.toHaveBeenCalled();
+      expect(toastErrorSpy).toHaveBeenCalledTimes(1);
+    });
   });
 });

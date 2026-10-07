@@ -274,16 +274,18 @@ function fieldFor(
  * Shows an error of the API as the error of one field of a form, and marks the
  * field touched so that it is read. The message is shown as it is. For a refusal
  * whose field the caller knows already: `applyProblemFieldErrors` is the one for
- * a problem that locates its own.
+ * a problem that locates its own. `extra` is what else the error carries (the code
+ * of the refusal, for what is shown beside the field to read), next to its message.
  */
 export function setProblemFieldError(
   form: AnyFormApi,
   field: string,
   message: string,
+  extra: Record<string, unknown> = {},
 ) {
   form.setFieldMeta(field, (meta) => ({
     ...meta,
-    errorMap: { ...meta.errorMap, onServer: { message } },
+    errorMap: { ...meta.errorMap, onServer: { ...extra, message } },
     isTouched: true,
   }));
 }

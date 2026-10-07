@@ -10,6 +10,7 @@ import {
   formatLicenseOptionLabel,
   getAssignableLicenses,
 } from '../../utils/instance-license-options.utils';
+import { FrozenFieldNotice } from './instance-form-frozen-notice';
 
 type InstanceInformationFieldsProps = {
   // The lifecycle stage can only be taken back to none before the instance
@@ -21,6 +22,9 @@ type InstanceInformationFieldsProps = {
   customerFieldDisabled?: boolean;
   form: any;
   customers: Array<Pick<Customer, 'id' | 'name'>>;
+  // The instance being edited: its customer may be frozen by its subscription, in
+  // which case a refusal leads to it.
+  instanceSlug?: string;
   // The slug is only editable on the creation form — the update body does not
   // accept it. Hidden by default so the shared detail card stays unchanged.
   showSlug?: boolean;
@@ -31,6 +35,7 @@ export const InstanceInformationFields = ({
   customerFieldDisabled = false,
   form,
   customers,
+  instanceSlug,
   showSlug = false,
 }: InstanceInformationFieldsProps) => {
   const { t } = useTranslation();
@@ -108,6 +113,13 @@ export const InstanceInformationFields = ({
           />
         )}
       </form.AppField>
+      {instanceSlug ? (
+        <FrozenFieldNotice
+          field="customerId"
+          form={form}
+          instanceSlug={instanceSlug}
+        />
+      ) : null}
       <form.AppField name="lifecycleStage">
         {(field: any) => (
           <field.ComboboxField
@@ -142,12 +154,16 @@ type InstanceLicenseFieldsProps = {
   // instance stays on its version after the version is withdrawn from sale.
   currentLicenseSlug?: string;
   form: any;
+  // The instance being edited: its license may be frozen by its subscription, in
+  // which case a refusal leads to it.
+  instanceSlug?: string;
   licenses: License[];
 };
 
 export const InstanceLicenseFields = ({
   currentLicenseSlug,
   form,
+  instanceSlug,
   licenses,
 }: InstanceLicenseFieldsProps) => {
   const { t } = useTranslation();
@@ -179,6 +195,13 @@ export const InstanceLicenseFields = ({
           />
         )}
       </form.AppField>
+      {instanceSlug ? (
+        <FrozenFieldNotice
+          field="licenseSlug"
+          form={form}
+          instanceSlug={instanceSlug}
+        />
+      ) : null}
       <form.AppField name="licenseDate">
         {(field: any) => (
           <field.DateRangePickerField

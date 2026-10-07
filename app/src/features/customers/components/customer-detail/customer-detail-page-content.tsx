@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { deleteCustomerMutation } from '@/api-client/@tanstack/react-query.gen';
+import { useDeletionRefusal } from '@/domains/billing';
 import { AttioSyncCard, useAttioSyncCardVisible } from '@/domains/crm-sync';
 import {
   forgetDeletedCustomerQueries,
@@ -41,6 +42,9 @@ export function CustomerDetailPageContent({
   );
   const instancesQuery = useInstancesWithRelations();
   const { mayReadInvoices } = useCustomerBilling();
+  // A customer that bills cannot be deleted: the dialog says what to settle
+  // first. It is on the page of the customer, so it links to nothing of its own.
+  const deletion = useDeletionRefusal();
 
   const activeInstances = (instancesQuery.data?.instances?.items ?? []).filter(
     (instance) => instance.customer.slug === customerSlug,
@@ -57,8 +61,10 @@ export function CustomerDetailPageContent({
       await navigate({ to: '/customers' });
       await forgetDeletedCustomerQueries(queryClient, customerSlug);
     },
-    onError: () => {
-      toast.error(t('Common.deleteError'));
+    onError: (error) => {
+      if (!deletion.showRefusal(error)) {
+        toast.error(t('Common.deleteError'));
+      }
     },
   });
 
@@ -104,6 +110,7 @@ export function CustomerDetailPageContent({
         ) : null}
       </Page>
 
+      {deletion.dialog}
       {children}
     </>
   );
