@@ -54,6 +54,11 @@ const platformPathPrefix = "/platform"
 // publishable key alone. Kept in step with kaitenhuma.PublicPathPrefix.
 const publicPathPrefix = "/public"
 
+// sessionPathPrefix is the session routes' namespace, inside publicPathPrefix
+// and authenticated by a customer session alone. Kept in step with
+// kaitenhuma.SessionPathPrefix.
+const sessionPathPrefix = "/public/session"
+
 var (
 	loadOnce sync.Once
 	loadPkgs []*packages.Package
@@ -274,6 +279,7 @@ var registrarOperationArg = map[string]int{
 	"RegisterPlatform":                1,
 	"RegisterPlatformForOrganization": 1,
 	"RegisterPublishable":             1,
+	"RegisterSession":                 1,
 }
 
 // scopelessRegistrars are the registrars that take no scope, and why. A
@@ -284,6 +290,7 @@ var registrarOperationArg = map[string]int{
 // tolerating a missing argument.
 var scopelessRegistrars = map[string]string{
 	"RegisterPublishable": "a pk_ authorizes the /public routes by being one; it carries no scope",
+	"RegisterSession":     "a kst_ is bound to its customer, which its routes filter on; it carries no scope",
 }
 
 // registrarPathNamespace is the path namespace each registrar's operations
@@ -294,6 +301,7 @@ var registrarPathNamespace = map[string]string{
 	"RegisterPlatform":                platformPathPrefix,
 	"RegisterPlatformForOrganization": platformPathPrefix,
 	"RegisterPublishable":             publicPathPrefix,
+	"RegisterSession":                 sessionPathPrefix,
 }
 
 // Fails when an operation is registered with the wrong registrar for the path it
@@ -367,8 +375,9 @@ func TestCoreAndPlatformRegistrarsPartitionThePaths(t *testing.T) {
 					return true
 				}
 
+				// The most specific namespace wins: /public/session is inside /public.
 				gotNamespace := ""
-				for _, prefix := range []string{platformPathPrefix, publicPathPrefix} {
+				for _, prefix := range []string{platformPathPrefix, publicPathPrefix, sessionPathPrefix} {
 					if path == prefix || strings.HasPrefix(path, prefix+"/") {
 						gotNamespace = prefix
 					}
@@ -382,7 +391,8 @@ func TestCoreAndPlatformRegistrarsPartitionThePaths(t *testing.T) {
 				if gotNamespace != wantNamespace {
 					violations = append(violations, fmt.Sprintf(
 						"%s: operation %q is registered with %s, whose operations live under %q, but its path %q is under %q -- "+
-							"each credential class owns its namespace (Core: neither /platform nor /public; Platform: /platform; publishable key: /public), "+
+							"each credential class owns its namespace (Core: neither /platform nor /public; Platform: /platform; "+
+							"publishable key: /public outside /public/session; customer session: /public/session), "+
 							"so an operation outside its own would accept a credential its URL does not announce; move the path or change the registrar",
 						pos, id, name, displayNamespace(wantNamespace), path, displayNamespace(gotNamespace),
 					))
@@ -410,6 +420,7 @@ var callerConstructorForRegistrar = map[string]string{
 	"RegisterPlatform":                "Platform",
 	"RegisterPlatformForOrganization": "Platform",
 	"RegisterPublishable":             "PublishableKey",
+	"RegisterSession":                 "CustomerSession",
 }
 
 // Fails when a registered operation's handler does not open by resolving a
@@ -587,9 +598,10 @@ func callerConstructorsCalled(info *types.Info, body *ast.BlockStmt) map[string]
 // establishes nothing, and an operation reaching for it is the leak
 // inprocess_isolation_test.go exists to catch, not a way to satisfy this test.
 var callerConstructorNames = map[string]struct{}{
-	"Organization":   {},
-	"Platform":       {},
-	"PublishableKey": {},
+	"Organization":    {},
+	"Platform":        {},
+	"PublishableKey":  {},
+	"CustomerSession": {},
 }
 
 // publicFiberRoutes records the Fiber routes reachable with no authorization at

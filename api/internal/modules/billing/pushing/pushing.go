@@ -194,7 +194,7 @@ func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) e
 			return err
 		}
 		if affected == 0 {
-			p.compensate(ctx, conn, row.ID, externalID)
+			p.compensateIfVoided(ctx, conn, row.ID, externalID)
 			return nil
 		}
 	}
@@ -227,7 +227,7 @@ func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) e
 	}
 	if pushed == nil {
 		// Voided while it was finalized: the provider's invoice goes too.
-		p.compensate(ctx, conn, row.ID, externalID)
+		p.compensateIfVoided(ctx, conn, row.ID, externalID)
 		return nil
 	}
 
@@ -381,11 +381,31 @@ func (p *Pusher) lines(ctx context.Context, q *db.Queries, conn *provider.Connec
 			return false, err
 		}
 		if affected == 0 {
-			p.compensate(ctx, conn, row.ID, invoiceID)
+			p.compensateIfVoided(ctx, conn, row.ID, invoiceID)
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+// compensateIfVoided compensates a write that found the invoice no longer
+// pushable -- but only when that is because the invoice was voided. The same
+// lost write also happens when another run of the same invoice got there
+// first (a retry-push, a queue pass whose lease lapsed): that run's provider
+// invoice is the invoice, and voiding it would void a real one.
+func (p *Pusher) compensateIfVoided(ctx context.Context, conn *provider.Connection, invoiceID uuid.UUID, externalID string) {
+	current, err := p.deps.Queries(ctx).GetInvoiceByID(ctx, invoiceID)
+	if err != nil {
+		slog.WarnContext(ctx, "could not tell whether an invoice was voided during its push; leaving the provider's copy",
+			"invoice_id", invoiceID, "error", err)
+		return
+	}
+	if current.Status != db.InvoiceStatusVOID {
+		slog.WarnContext(ctx, "another run pushed this invoice meanwhile; this run stops", "invoice_id", invoiceID,
+			"status", current.Status)
+		return
+	}
+	p.compensate(ctx, conn, invoiceID, externalID)
 }
 
 // compensate removes from the provider what a run created for an invoice
