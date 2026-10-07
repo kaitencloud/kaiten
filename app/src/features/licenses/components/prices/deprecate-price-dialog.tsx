@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Price } from '@/api-client';
+import type { Entitlement, Price } from '@/api-client';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -13,11 +13,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { ProblemAlert } from '@/domains/billing';
 import { useLicensePriceMutations } from '../../hooks/use-license-price-mutations';
+import { getPriceLabel } from '../../utils/license-price-display';
 
 type DeprecatePriceDialogProps = {
+  /** The entitlement a metered price measures is what it is called after, with no label. */
+  entitlementBySlug: ReadonlyMap<string, Entitlement>;
   licenseSlug: string;
-  /** The label the price is called by on screen. */
-  label: string;
   onClose: () => void;
   price: Price;
 };
@@ -31,7 +32,7 @@ type DeprecatePriceDialogProps = {
  * shows in the dialog, which stays open.
  */
 export function DeprecatePriceDialog({
-  label,
+  entitlementBySlug,
   licenseSlug,
   onClose,
   price,
@@ -39,6 +40,13 @@ export function DeprecatePriceDialog({
   const { t } = useTranslation();
   const { deprecate } = useLicensePriceMutations(licenseSlug);
   const [error, setError] = useState<unknown>(null);
+  const label = getPriceLabel(
+    price,
+    price.metered
+      ? entitlementBySlug.get(price.metered.entitlementSlug)
+      : undefined,
+    t,
+  );
 
   async function confirm() {
     setError(null);
