@@ -99,6 +99,19 @@ func assertEveryOperationDeclaresItsScope(t *testing.T, oapi *huma.OpenAPI, expe
 		count++
 		require.NotEmpty(t, op.Security, "%s %s (%s) declares no security requirement", method, path, op.OperationID)
 
+		// The public SDK surface takes a publishable key, which carries no scope:
+		// its operations declare that scheme alone, and nothing outside it may.
+		onPublicPath := strings.HasPrefix(path, kaitenhuma.PublicPathPrefix+"/")
+		scopes, isPublishable := op.Security[0][kaitenhuma.PublishableKeyAuth]
+		require.Equal(t, onPublicPath, isPublishable,
+			"%s %s: the publishableKey scheme belongs to the operations under %s/ and only to them", method, path, kaitenhuma.PublicPathPrefix)
+		if isPublishable {
+			require.Len(t, op.Security, 1, "%s %s must accept a publishable key and nothing else", method, path)
+			require.Len(t, op.Security[0], 1, "%s %s must accept a publishable key and nothing else", method, path)
+			require.Empty(t, scopes, "%s %s: a publishable key carries no scope to require", method, path)
+			return
+		}
+
 		scopes, ok := op.Security[0][expectedScheme]
 		require.True(t, ok, "%s %s must require the %q scheme", method, path, expectedScheme)
 		require.NotEmpty(t, scopes, "%s %s must say which scope it needs", method, path)

@@ -6701,6 +6701,357 @@ components:
         - providerKind
         - consecutiveFailures
       type: object
+    PublicAddOn:
+      additionalProperties: false
+      properties:
+        addonId:
+          format: uuid
+          type: string
+        addonSlug:
+          examples:
+            - extra-seats-v1
+          type: string
+        compatibleLicenseFamilies:
+          description: Public licence families this add-on fits
+          items:
+            type: string
+          type: array
+        description:
+          type: string
+        entitlements:
+          description: User-facing entitlements one unit grants
+          items:
+            $ref: "#/components/schemas/PublicAddOnEntitlement"
+          type: array
+        familySlug:
+          examples:
+            - extra-seats
+          type: string
+        maxQuantity:
+          description: Most units one instance may attach; null when unbounded
+          format: int32
+          type:
+            - integer
+            - "null"
+        name:
+          type: string
+        prices:
+          items:
+            $ref: "#/components/schemas/PublicPrice"
+          type: array
+        pricingType:
+          enum:
+            - FREE
+            - PAID
+            - CUSTOM
+          type: string
+      required:
+        - familySlug
+        - addonSlug
+        - addonId
+        - name
+        - description
+        - pricingType
+        - maxQuantity
+        - prices
+        - entitlements
+        - compatibleLicenseFamilies
+      type: object
+    PublicAddOnEntitlement:
+      additionalProperties: false
+      properties:
+        limitCapExceededOveragePercent:
+          format: int32
+          type: integer
+        name:
+          type: string
+        overrideBehavior:
+          description: "How the grant combines with the plan's: added to it, replacing it, or the larger of the two"
+          enum:
+            - ADD
+            - OVERRIDE
+            - MAX
+          type: string
+        slug:
+          type: string
+        type:
+          enum:
+            - BOOLEAN
+            - NUMBER
+            - CONFIG
+          type: string
+        value: {}
+      required:
+        - slug
+        - name
+        - type
+        - value
+        - overrideBehavior
+      type: object
+    PublicCatalog:
+      additionalProperties: false
+      properties:
+        addOns:
+          description: The default version of each public add-on family; empty when include omits addons
+          items:
+            $ref: "#/components/schemas/PublicAddOn"
+          type: array
+        capabilities:
+          $ref: "#/components/schemas/PublicCatalogCapabilities"
+        plans:
+          description: The default version of each public licence family, by family slug
+          items:
+            $ref: "#/components/schemas/PublicPlan"
+          type: array
+      required:
+        - plans
+        - addOns
+        - capabilities
+      type: object
+    PublicCatalogCapabilities:
+      additionalProperties: false
+      properties:
+        checkout:
+          description: "Whether self-serve checkout is available through the public surface. False in this release: checkout ships with customer sessions."
+          type: boolean
+        paymentMethods:
+          description: Whether the organization's billing provider captures payment methods
+          type: boolean
+      required:
+        - checkout
+        - paymentMethods
+      type: object
+    PublicMeter:
+      additionalProperties: false
+      properties:
+        entitlementSlug:
+          examples:
+            - tokens
+          type: string
+        saleUnitFactor:
+          description: Measured units in one sale unit
+          examples:
+            - "10000"
+          type: string
+        saleUnitPlural:
+          examples:
+            - 10k tokens
+          type: string
+        saleUnitSingular:
+          examples:
+            - 10k tokens
+          type: string
+      required:
+        - entitlementSlug
+        - saleUnitFactor
+      type: object
+    PublicPlan:
+      additionalProperties: false
+      properties:
+        compatibleAddonFamilies:
+          description: Public add-on families whose listed version fits this plan
+          items:
+            type: string
+          type: array
+        currency:
+          description: ISO 4217 code of the plan's prices; null when it has none
+          examples:
+            - EUR
+          type:
+            - string
+            - "null"
+        description:
+          type: string
+        entitlements:
+          description: User-facing entitlements the plan grants, in display order
+          items:
+            $ref: "#/components/schemas/PublicPlanEntitlement"
+          type: array
+        familySlug:
+          examples:
+            - pro
+          type: string
+        licenseId:
+          format: uuid
+          type: string
+        licenseSlug:
+          description: The version's own slug
+          examples:
+            - pro-v3
+          type: string
+        lifecycleState:
+          description: "Always PUBLISHED: only the default version is listed, and a default version is published"
+          enum:
+            - PUBLISHED
+          type: string
+        name:
+          examples:
+            - Pro
+          type: string
+        prices:
+          description: ACTIVE prices, in display order
+          items:
+            $ref: "#/components/schemas/PublicPrice"
+          type: array
+        pricingType:
+          description: "CUSTOM: priced on request; render selfServeCtaUrl"
+          enum:
+            - FREE
+            - PAID
+            - CUSTOM
+          type: string
+        requiresPaymentMethod:
+          description: A card is captured before subscribing, even when nothing is due
+          type: boolean
+        selfServe:
+          description: "Whether a customer can subscribe to this plan alone: not CUSTOM, with a default ACTIVE flat-fee price, and either FREE or sold through a provider that captures payment methods. Otherwise render selfServeCtaUrl."
+          type: boolean
+        selfServeCtaUrl:
+          description: Where to send a customer who cannot subscribe alone ("Contact us")
+          type:
+            - string
+            - "null"
+        trialPeriodDays:
+          description: Length of the free trial; null when the plan has none
+          format: int32
+          type:
+            - integer
+            - "null"
+      required:
+        - familySlug
+        - licenseSlug
+        - licenseId
+        - name
+        - description
+        - lifecycleState
+        - pricingType
+        - trialPeriodDays
+        - requiresPaymentMethod
+        - selfServe
+        - selfServeCtaUrl
+        - currency
+        - prices
+        - compatibleAddonFamilies
+        - entitlements
+      type: object
+    PublicPlanEntitlement:
+      additionalProperties: false
+      properties:
+        description:
+          type: string
+        displayOrder:
+          format: int32
+          type: integer
+        icon:
+          type: string
+        limitCapExceededOveragePercent:
+          description: "How far usage may exceed a NUMBER grant before it is refused: 0 is a hard limit, -1 is unlimited; absent for other types"
+          format: int32
+          type: integer
+        name:
+          examples:
+            - Seats
+          type: string
+        saleUnitFactor:
+          type: string
+        saleUnitPlural:
+          type: string
+        saleUnitSingular:
+          type: string
+        slug:
+          examples:
+            - seats
+          type: string
+        type:
+          enum:
+            - BOOLEAN
+            - NUMBER
+            - CONFIG
+          type: string
+        unitPlural:
+          examples:
+            - seats
+          type: string
+        unitSingular:
+          examples:
+            - seat
+          type: string
+        unlimited:
+          description: A NUMBER grant with no limit
+          type: boolean
+        value:
+          description: "The granted value: a boolean, a number, or a configuration object"
+      required:
+        - slug
+        - name
+        - type
+        - value
+        - unlimited
+        - displayOrder
+      type: object
+    PublicPrice:
+      additionalProperties: false
+      properties:
+        billingModel:
+          description: "FLAT_FEE: per billing period. USAGE_BASED: per sale unit of usage. OVERAGE: per sale unit of usage above the limit. Never sum metered prices into a headline."
+          enum:
+            - FLAT_FEE
+            - USAGE_BASED
+            - OVERAGE
+          type: string
+        billingPeriod:
+          description: The period a FLAT_FEE price is charged for; absent on metered prices
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        billingTiming:
+          enum:
+            - ADVANCE
+            - ARREARS
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        displayLabel:
+          examples:
+            - Pro plan
+          type: string
+        displayOrder:
+          format: int32
+          type: integer
+        id:
+          format: uuid
+          type: string
+        isDefault:
+          description: The FLAT_FEE price shown for its billing period
+          type: boolean
+        metered:
+          $ref: "#/components/schemas/PublicMeter"
+          description: What a metered price measures; absent on FLAT_FEE prices
+        unitAmount:
+          description: The amount in minor units, when it is a whole number of them; absent otherwise (render unitAmountDecimal)
+          examples:
+            - 2900
+          format: int64
+          type: integer
+        unitAmountDecimal:
+          description: The amount in minor units, up to 12 decimal places
+          examples:
+            - "2900"
+          type: string
+      required:
+        - id
+        - billingModel
+        - billingTiming
+        - currency
+        - unitAmountDecimal
+        - displayOrder
+        - isDefault
+      type: object
     PublicSurface:
       additionalProperties: false
       properties:
@@ -6708,6 +7059,152 @@ components:
           type: boolean
       required:
         - enabled
+      type: object
+    PublishableKey:
+      additionalProperties: false
+      properties:
+        allowedOrigins:
+          description: "Browser origins allowed to send the key. Empty: no browser origin may; requests without an Origin header (server-side rendering) still may."
+          examples:
+            - - https://www.example.com
+          items:
+            type: string
+          type: array
+        createdAt:
+          format: date-time
+          readOnly: true
+          type: string
+        id:
+          description: Unique identifier of the key
+          readOnly: true
+          type: string
+        keyHint:
+          description: The last four characters of the key
+          examples:
+            - x9Qa
+          readOnly: true
+          type: string
+        label:
+          description: What the key is for, to tell keys apart
+          examples:
+            - Marketing site
+          type: string
+        lastUsedAt:
+          description: When the key last authenticated a request, to the minute
+          format: date-time
+          readOnly: true
+          type: string
+        revokedAt:
+          description: When the key was revoked; absent while it is live
+          format: date-time
+          readOnly: true
+          type: string
+        updatedAt:
+          format: date-time
+          readOnly: true
+          type: string
+      required:
+        - id
+        - label
+        - keyHint
+        - allowedOrigins
+        - createdAt
+        - updatedAt
+      type: object
+    PublishableKeyCreated:
+      additionalProperties: false
+      properties:
+        allowedOrigins:
+          description: "Browser origins allowed to send the key. Empty: no browser origin may; requests without an Origin header (server-side rendering) still may."
+          examples:
+            - - https://www.example.com
+          items:
+            type: string
+          type: array
+        createdAt:
+          format: date-time
+          readOnly: true
+          type: string
+        id:
+          description: Unique identifier of the key
+          readOnly: true
+          type: string
+        key:
+          description: "The key itself. Shown once: only its digest is stored."
+          examples:
+            - pk_3q2-7wEXAMPLEkeyBodyOfFortyThreeCharactersXyz
+          readOnly: true
+          type: string
+        keyHint:
+          description: The last four characters of the key
+          examples:
+            - x9Qa
+          readOnly: true
+          type: string
+        label:
+          description: What the key is for, to tell keys apart
+          examples:
+            - Marketing site
+          type: string
+        lastUsedAt:
+          description: When the key last authenticated a request, to the minute
+          format: date-time
+          readOnly: true
+          type: string
+        revokedAt:
+          description: When the key was revoked; absent while it is live
+          format: date-time
+          readOnly: true
+          type: string
+        updatedAt:
+          format: date-time
+          readOnly: true
+          type: string
+      required:
+        - key
+        - id
+        - label
+        - keyHint
+        - allowedOrigins
+        - createdAt
+        - updatedAt
+      type: object
+    PublishableKeyDraft:
+      additionalProperties: false
+      properties:
+        allowedOrigins:
+          description: "Browser origins allowed to send the key, as scheme://host[:port]: https, or http for localhost. Empty: no browser origin may."
+          examples:
+            - - https://www.example.com
+          items:
+            type: string
+          maxItems: 50
+          type: array
+        label:
+          description: What the key is for
+          examples:
+            - Marketing site
+          maxLength: 100
+          minLength: 1
+          type: string
+      required:
+        - label
+        - allowedOrigins
+      type: object
+    PublishableKeyPatch:
+      additionalProperties: false
+      properties:
+        allowedOrigins:
+          description: Replaces the allowed browser origins. Takes effect on the next request.
+          items:
+            type: string
+          maxItems: 50
+          type: array
+        label:
+          description: What the key is for
+          maxLength: 100
+          minLength: 1
+          type: string
       type: object
     PushFailedInvoice:
       additionalProperties: false
@@ -9092,6 +9589,7 @@ components:
         - read:metadata_fields
         - read:notifications
         - read:organizations
+        - read:publishable_keys
         - read:releases
         - read:tokens
         - read:voucher_redemptions
@@ -9109,11 +9607,17 @@ components:
         - write:metadata_fields
         - write:notifications
         - write:organizations
+        - write:publishable_keys
         - write:releases
         - write:tokens
         - write:voucher_redemptions
         - write:vouchers
         - write:webhooks
+    publishableKey:
+      description: "A Kaiten publishable key (`pk_...`). Not a secret: it ships in web pages, and authorizes reading the organization's public catalogue and nothing else. A browser request must come from one of the key's allowed origins. Never send it as `Authorization`; a request carrying `Authorization` is refused."
+      in: header
+      name: X-Kaiten-Publishable-Key
+      type: apiKey
 info:
   contact:
     email: support@kaiten.sh
@@ -20925,6 +21429,335 @@ paths:
       summary: Get OpenFeature manifest
       tags:
         - OpenFeature
+  /public/catalog:
+    get:
+      description: "What a pricing page shows: for each licence family the organization made public, its default version with its ACTIVE prices and user-facing entitlements, and the same for public add-on families. Read with a publishable key (X-Kaiten-Publishable-Key); the organization is the key's. Amounts are in minor units; never sum metered prices into a headline. Cacheable for 60 seconds."
+      operationId: getPublicCatalog
+      parameters:
+        - description: Only this licence family
+          explode: false
+          in: query
+          name: familySlug
+          schema:
+            description: Only this licence family
+            examples:
+              - pro
+            type: string
+        - description: addons (the default) lists the public add-ons too; none leaves them out
+          explode: false
+          in: query
+          name: include
+          schema:
+            description: addons (the default) lists the public add-ons too; none leaves them out
+            items:
+              enum:
+                - addons
+                - none
+              type: string
+            type:
+              - array
+              - "null"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicCatalog"
+          description: OK
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - publishableKey: []
+      summary: Get the public catalogue
+      tags:
+        - public
+  /publishable-keys:
+    get:
+      description: The organization's publishable keys, newest first. The keys themselves are never returned, only their last four characters.
+      operationId: listPublishableKeys
+      parameters:
+        - description: Also list revoked keys
+          explode: false
+          in: query
+          name: includeRevoked
+          schema:
+            description: Also list revoked keys
+            type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/PublishableKey"
+                type: array
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:publishable_keys
+      summary: List publishable keys
+      tags:
+        - publishable-keys
+    post:
+      description: Issues a pk_ key for a web page to read the organization's public catalogue (GET /api/public/catalog) and nothing else. The key is returned once; only its digest is stored.
+      operationId: createPublishableKey
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishableKeyDraft"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublishableKeyCreated"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:publishable_keys
+      summary: Create a publishable key
+      tags:
+        - publishable-keys
+  /publishable-keys/{keyId}:
+    patch:
+      description: Changes a live key's label or allowed origins. A revoked key answers 409.
+      operationId: updatePublishableKey
+      parameters:
+        - description: Publishable key id
+          in: path
+          name: keyId
+          required: true
+          schema:
+            description: Publishable key id
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishableKeyPatch"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublishableKey"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:publishable_keys
+      summary: Update a publishable key
+      tags:
+        - publishable-keys
+  /publishable-keys/{keyId}/revoke:
+    post:
+      description: The key stops authenticating on the next request. Idempotent; revocation is final.
+      operationId: revokePublishableKey
+      parameters:
+        - description: Publishable key id
+          in: path
+          name: keyId
+          required: true
+          schema:
+            description: Publishable key id
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublishableKey"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:publishable_keys
+      summary: Revoke a publishable key
+      tags:
+        - publishable-keys
   /releases:
     get:
       description: Returns a cursor-paginated page of releases for the current organization.

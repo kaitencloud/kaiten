@@ -2,6 +2,8 @@ package huma
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -16,6 +18,18 @@ const BearerAuth = "bearerAuth"
 // cross the two credential classes by accident: the distinction survives out of
 // the OpenAPI document and into every SDK.
 const PlatformAuth = "platformAuth"
+
+// PublishableKeyAuth is the public SDK surface's scheme: a publishable key
+// (pk_) in the X-Kaiten-Publishable-Key header. A third scheme rather than a
+// variant of bearerAuth, for the reason PlatformAuth is one: a generated client
+// cannot send the wrong credential class to the wrong surface by accident.
+const PublishableKeyAuth = "publishableKey"
+
+// PublicPathPrefix is the public surface's path namespace, relative to the /api
+// group. Every operation registered with RegisterPublishable lives under it,
+// and nothing else does -- the gateway routes it without authentication and the
+// server authenticates it with the publishable key alone.
+const PublicPathPrefix = "/public"
 
 // ScopesExtension is the vendor extension under which the Core document's
 // security scheme lists every scope an organization credential can carry
@@ -57,6 +71,18 @@ var platformScheme = &huma.SecurityScheme{
 		"are the ones the token must carry.",
 }
 
+// publishableKeyScheme describes how a web page authenticates to the public
+// surface.
+var publishableKeyScheme = &huma.SecurityScheme{
+	Type: "apiKey",
+	In:   "header",
+	Name: "X-Kaiten-Publishable-Key",
+	Description: "A Kaiten publishable key (`pk_...`). Not a secret: it ships in web pages, " +
+		"and authorizes reading the organization's public catalogue and nothing else. " +
+		"A browser request must come from one of the key's allowed origins. " +
+		"Never send it as `Authorization`; a request carrying `Authorization` is refused.",
+}
+
 // ConfigureSecurity declares the bearer scheme and makes it the
 // document-level default, so a generated client is born authenticated
 // instead of every SDK re-inventing the plumbing by hand.
@@ -69,6 +95,7 @@ func ConfigureSecurity(config huma.Config) huma.Config {
 		config.Components.SecuritySchemes = map[string]*huma.SecurityScheme{}
 	}
 	config.Components.SecuritySchemes[BearerAuth] = bearerScheme
+	config.Components.SecuritySchemes[PublishableKeyAuth] = publishableKeyScheme
 	config.Security = []map[string][]string{{BearerAuth: {}}}
 	return config
 }
@@ -149,6 +176,32 @@ func RegisterPlatform[I, O any](
 	// log record rather than an audit_trail row.
 	op.Middlewares = append(op.Middlewares, AuditPlatformAction())
 	op.Security = append(op.Security, PlatformScopeRequirement(requiredScope))
+	huma.Register(api, op, handler)
+}
+
+// RegisterPublishable registers an operation of the public SDK surface, read
+// with a publishable key.
+//
+// It takes no scope, and that is the design rather than an omission: a pk_
+// carries none, because what bounds it is the route family. Its operations are
+// the whole of what a key can reach, so the review gate is this registrar --
+// tests/architecture/entry_point_scope_test.go asserts its handlers resolve
+// caller.PublishableKey, and that its paths and only its paths are under
+// PublicPathPrefix.
+//
+// It panics for a path outside PublicPathPrefix: the gateway and the server
+// authenticate that prefix with the publishable key alone, so an operation
+// registered here elsewhere would be reachable with a credential it does not
+// declare.
+func RegisterPublishable[I, O any](
+	api huma.API,
+	op huma.Operation,
+	handler func(context.Context, *I) (*O, error),
+) {
+	if !strings.HasPrefix(op.Path, PublicPathPrefix+"/") {
+		panic(fmt.Sprintf("RegisterPublishable: operation %q has path %q, outside %s/", op.OperationID, op.Path, PublicPathPrefix))
+	}
+	op.Security = []map[string][]string{{PublishableKeyAuth: {}}}
 	huma.Register(api, op, handler)
 }
 

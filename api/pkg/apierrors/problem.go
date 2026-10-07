@@ -217,6 +217,8 @@ func KindFromStatus(status int) Kind {
 		return KindInternal
 	case http.StatusServiceUnavailable:
 		return KindUnavailable
+	case http.StatusTooManyRequests:
+		return KindTooManyRequests
 	default:
 		return KindUnknown
 	}
