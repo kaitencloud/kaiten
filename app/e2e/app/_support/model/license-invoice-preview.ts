@@ -60,7 +60,7 @@ export type PreviewInput = {
 };
 
 /** `date` moved by `months`, the day clamped to the target month's last. */
-function addMonthsClamped(date: Date, months: number): Date {
+export function addMonthsClamped(date: Date, months: number): Date {
   const first = new Date(
     Date.UTC(
       date.getUTCFullYear(),

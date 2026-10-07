@@ -28,6 +28,11 @@ import {
   createLicenses,
 } from './catalog';
 import { createBillingCapabilities, createBillingInvoices } from './billing';
+import {
+  createBillingBlocks,
+  createBillingSubscriptions,
+} from './subscriptions';
+import { createRetentionStart, createUsageReports } from './usage-history';
 import { bySlug } from './by-slug';
 import { createFeatureFlags } from './feature-flags';
 import {
@@ -165,7 +170,14 @@ const deployedInstances = ({
  */
 export function createDevMockConfig(): E2EMswConfig {
   const world = createDevWorld();
+  const billingInvoices = createBillingInvoices(world);
+  const billingSubscriptions = createBillingSubscriptions(world);
+  const billingBlocks = createBillingBlocks(
+    billingSubscriptions.subscriptions,
+    billingInvoices.invoices,
+  );
   const instances = new InstanceAppModel({
+    billingBlocks: billingBlocks.instances,
     customers: world.customers,
     deploymentZones: world.deploymentZones,
     entitlementUsagesByInstance: world.entitlementUsagesByInstance,
@@ -173,6 +185,8 @@ export function createDevMockConfig(): E2EMswConfig {
     licenseEntitlements: world.licenseEntitlements,
     licenses: world.licenses,
     metadataFields: INSTANCE_METADATA_FIELDS,
+    retentionStart: createRetentionStart(),
+    usageReports: createUsageReports(),
   });
 
   return {
@@ -181,12 +195,14 @@ export function createDevMockConfig(): E2EMswConfig {
     ).serializeForMsw(),
     billing: new BillingAppModel({
       capabilities: createBillingCapabilities(),
-      ...createBillingInvoices(world),
+      ...billingInvoices,
+      ...billingSubscriptions,
     }).serializeForMsw(),
     connectors: new ConnectorAppModel({
       syncedRecords: syncedWithAttio(world),
     }).serializeForMsw(),
     customers: new CustomerAppModel({
+      billingBlocks: billingBlocks.customers,
       customers: world.customers,
       instances: instances.getInstancesWithRelations().instances.items,
     }).serializeForMsw(),

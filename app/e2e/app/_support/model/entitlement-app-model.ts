@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Entitlement } from '@/api-client';
 import { zEntitlement } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
+import { BillingProblem } from './billing-problem';
 import { ErrorInjector } from './error-injector';
 
 type EntitlementRecord = Entitlement;
@@ -16,8 +17,27 @@ const slugify = (value: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
+/**
+ * What still references an entitlement, which keeps it from being deleted: the
+ * grants of the licenses, the usage counters, and the prices that meter it. The
+ * API counts what the release has; a count it does not carry is left out.
+ */
+export type EntitlementReferences = Partial<
+  Record<
+    | 'addonGrants'
+    | 'addonPrices'
+    | 'boostGrants'
+    | 'licenseGrants'
+    | 'licensePrices'
+    | 'usageCounters',
+    number
+  >
+>;
+
 export type EntitlementAppModelSeed = {
   entitlements?: EntitlementRecord[];
+  /** The entitlements that are still referenced, by slug: deleting one is refused. */
+  references?: Record<string, EntitlementReferences>;
 };
 
 export type SerializedEntitlementAppModel =
@@ -30,12 +50,14 @@ export type SerializedEntitlementAppModel =
 export class EntitlementAppModel {
   private clock = Date.parse('2026-03-01T08:00:00.000Z');
   private entitlements: EntitlementRecord[];
+  private references: Record<string, EntitlementReferences>;
   private sequence: number;
   private readonly errors = new ErrorInjector<EntitlementErrorOp>();
 
   static fromSerialized(state: SerializedEntitlementAppModel) {
     const model = new EntitlementAppModel({
       entitlements: state.entitlements,
+      references: state.references,
     });
     model.clock = state.clock;
     model.sequence = state.sequence;
@@ -48,11 +70,13 @@ export class EntitlementAppModel {
       clock: this.clock,
       entitlements: clone(this.entitlements),
       pendingErrors: this.errors.snapshot(),
+      references: clone(this.references),
       sequence: this.sequence,
     };
   }
 
   constructor(seed: EntitlementAppModelSeed = {}) {
+    this.references = clone(seed.references ?? {});
     this.entitlements = parseContract(
       z.array(zEntitlement),
       seed.entitlements ?? [],
@@ -193,6 +217,24 @@ export class EntitlementAppModel {
 
     if (index < 0) {
       throw new Error(`Entitlement "${slug}" not found`);
+    }
+
+    const references = this.references[slug];
+    if (references && Object.values(references).some((count) => count > 0)) {
+      throw new BillingProblem(
+        409,
+        'DeleteEntitlement.InUseConflict',
+        `Entitlement "${slug}" is still granted, counted or priced and cannot be deleted`,
+        {
+          errors: [
+            {
+              location: 'entitlement',
+              message: 'what still references the entitlement',
+              value: references,
+            },
+          ],
+        },
+      );
     }
 
     this.entitlements.splice(index, 1);

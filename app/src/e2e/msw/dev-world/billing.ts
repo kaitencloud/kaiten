@@ -27,7 +27,7 @@ export const createBillingCapabilities = (): BillingCapabilities =>
 // A usage report names the records it was made for by UUID. The world refers to
 // itself by slug, so the id of a record in a report is derived from it, the same
 // each time and distinct for each.
-function uuidFor(seed: string): string {
+export function uuidFor(seed: string): string {
   const hex = (salt: number) => {
     let hash = 0x811c9dc5 ^ salt;
     for (const char of seed) {
@@ -70,11 +70,11 @@ const identityOf = (
   };
 };
 
-type Period = { from: string; to: string };
+export type Period = { from: string; to: string };
 
 // Billing periods start at midnight UTC, as a subscription anchored on a day
 // does, so that a period reads `Sep 1 – Oct 1, 2026 (UTC)` and not with a time.
-const dayStart = (daysBefore: number, months = 0): string => {
+export const dayStart = (daysBefore: number, months = 0): string => {
   const now = new Date();
 
   return new Date(
@@ -90,7 +90,7 @@ const daysAgo = (days: number) => dayStart(days);
 const daysFromNow = (days: number) => dayStart(-days);
 
 /** A month, from `daysBefore` days ago. */
-const monthFrom = (daysBefore: number): Period => ({
+export const monthFrom = (daysBefore: number): Period => ({
   from: dayStart(daysBefore),
   to: dayStart(daysBefore, 1),
 });
