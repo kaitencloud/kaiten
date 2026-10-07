@@ -6,6 +6,7 @@ export {
   BillingRouteError,
   BillingUnavailable,
   DeletionRefusalDialog,
+  ExportInvoicesMenu,
   HandoffStatusLabel,
   InvoiceCustomerCell,
   InvoiceKindCell,

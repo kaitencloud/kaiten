@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import type { QueuedInvoice } from '@/api-client';
 import { handleExportInvoices } from '@/api-client/msw.gen';
-import { ExportInvoicesMenu } from '../invoices/export-invoices-menu';
+import { ExportInvoicesMenu } from '@/domains/billing';
 import { InvoiceFiltersToolbar } from '../invoices/invoice-filters-toolbar';
 import { HandoffEmpty } from '../handoff/handoff-empty';
 import { HandoffTable } from '../handoff/handoff-table';

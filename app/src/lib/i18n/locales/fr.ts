@@ -3231,12 +3231,6 @@ export default {
           issued: 'Émission',
           openEnd: 'sans limite',
         },
-        Export: {
-          button: 'Exporter',
-          csvLines: 'CSV par ligne de facture',
-          csvInvoices: 'CSV par facture',
-          ndjson: 'NDJSON, une facture par ligne',
-        },
         Toasts: {
           released: 'Facture débloquée',
           paid: 'Facture marquée comme payée',
@@ -4131,6 +4125,12 @@ export default {
         from: 'Du',
         before: 'Avant le',
         periodInvalid: 'La période doit se terminer après son début.',
+      },
+      InvoiceExport: {
+        button: 'Exporter',
+        csvLines: 'CSV par ligne de facture',
+        csvInvoices: 'CSV par facture',
+        ndjson: 'NDJSON, une facture par ligne',
       },
       InvoicesCard: {
         title: 'Factures',

@@ -2,6 +2,7 @@ export { BillingNotFound } from './billing-not-found';
 export { BillingRouteError } from './billing-route-error';
 export { BillingUnavailable } from './billing-unavailable';
 export { DeletionRefusalDialog } from './deletion-refusal-dialog';
+export { ExportInvoicesMenu } from './export-invoices-menu';
 export { HandoffStatusLabel } from './handoff-status-label';
 export {
   InvoiceCustomerCell,

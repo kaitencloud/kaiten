@@ -1,11 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import {
-  downloadInvoiceExport,
-  type InvoiceExportFilters,
-  type InvoiceExportVariant,
-} from '@/domains/billing';
 import { getApiErrorMessage } from '@/lib/errors';
+import type {
+  InvoiceExportFilters,
+  InvoiceExportVariant,
+} from '../logic/invoice-export';
+import { downloadInvoiceExport } from '../queries/download-invoice-export';
 
 /**
  * Saves the invoices a list selects as a file: a request like another, with its
