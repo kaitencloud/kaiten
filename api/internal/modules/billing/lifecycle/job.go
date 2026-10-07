@@ -94,11 +94,24 @@ func (o *Overdue) one(ctx context.Context, id, organizationID uuid.UUID) (change
 }
 
 // NewJob is the billing-lifecycle job.
-func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize int) *sweep.Job {
+// daily is work the job does on its first pass of each UTC day (payment
+// methods expiring).
+type daily interface {
+	Pass(ctx context.Context) (int, error)
+}
+
+func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize int, everyDay ...daily) *sweep.Job {
 	return sweep.New("billing-lifecycle", pool, lockID, cfg, func(ctx context.Context, _ *pgxpool.Conn) error {
 		moved, err := overdue.Pass(ctx, batchSize)
 		if moved > 0 {
 			slog.InfoContext(ctx, "subscriptions moved in or out of PAST_DUE", "moved", moved)
+		}
+		for _, work := range everyDay {
+			n, dailyErr := work.Pass(ctx)
+			if n > 0 {
+				slog.InfoContext(ctx, "payment methods announced as expiring", "count", n)
+			}
+			err = errors.Join(err, dailyErr)
 		}
 		return err
 	})
