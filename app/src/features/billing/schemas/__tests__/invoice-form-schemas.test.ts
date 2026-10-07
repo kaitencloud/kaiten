@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
+import { dateTimeInputToInstant } from '@/lib/date-time-input';
 import {
   acknowledgeHandoffFormSchema,
   acknowledgeHandoffValuesToBody,
@@ -7,7 +8,6 @@ import {
 import { EXTERNAL_REFERENCE_MAX_LENGTH } from '../external-reference';
 import { REASON_MAX_LENGTH } from '../invoice-reason';
 import {
-  dateTimeInputToInstant,
   initialMarkPaidValues,
   markPaidFormSchema,
   markPaidValuesToBody,
