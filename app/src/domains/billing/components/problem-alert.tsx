@@ -2,10 +2,13 @@ import { TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { useAlertFocus } from '../hooks/use-alert-focus';
 import { formatUtcDate, handleBillingProblem } from '../logic';
 import { MissingScopeBanner } from './missing-scope-banner';
 
 type ProblemAlertProps = {
+  /** Takes the focus when it appears: for a dialog, whose confirmation was disabled while it worked. */
+  autoFocus?: boolean;
   className?: string;
   /** What a billing call threw: an `ApiError`, a problem document, anything. */
   error: unknown;
@@ -21,13 +24,23 @@ type ProblemAlertProps = {
  * a missing scope is a banner that names it, and a 503 says nothing was changed
  * and offers a retry, never an optimistic result.
  */
-export function ProblemAlert({ className, error, onRetry }: ProblemAlertProps) {
+export function ProblemAlert({
+  autoFocus = false,
+  className,
+  error,
+  onRetry,
+}: ProblemAlertProps) {
   const { i18n, t } = useTranslation();
   const problem = handleBillingProblem(error);
+  const alertRef = useAlertFocus(autoFocus, error);
 
   if (problem.kind === 'missing-scope') {
     return (
-      <MissingScopeBanner className={className} scope={problem.missingScope} />
+      <MissingScopeBanner
+        autoFocus={autoFocus}
+        className={className}
+        scope={problem.missingScope}
+      />
     );
   }
 
@@ -35,7 +48,13 @@ export function ProblemAlert({ className, error, onRetry }: ProblemAlertProps) {
   const retryable = problem.kind === 'transient' && onRetry;
 
   return (
-    <Alert className={className} data-kind={problem.kind} variant="destructive">
+    <Alert
+      className={className}
+      data-kind={problem.kind}
+      ref={alertRef}
+      tabIndex={autoFocus ? -1 : undefined}
+      variant="destructive"
+    >
       <TriangleAlert />
       <AlertTitle>{t('Features.Billing.Problems.title')}</AlertTitle>
       <AlertDescription>
