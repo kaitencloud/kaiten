@@ -51,6 +51,7 @@ export {
   isClosedBillingGate,
   isInvoiceOverdue,
   isKnownInvoiceLineType,
+  setProblemFieldError,
   SUBSCRIPTION_ACTIONS,
   SUBSCRIPTION_STATUSES,
   type SubscriptionAction,

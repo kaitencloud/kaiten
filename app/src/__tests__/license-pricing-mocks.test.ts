@@ -327,6 +327,33 @@ describe('the prices of a license version, as the mocks serve them', () => {
     });
     expect(next.status).toBe(200);
   });
+
+  it('answers a forced refusal of the update of a license once, as a problem document', async () => {
+    const model = createPricedCatalogModel();
+    model.setNextProblem('updateLicense', {
+      code: 'UpdateLicense.InvalidSelfServeCtaUrl',
+      detail: 'selfServeCtaUrl must be an http(s) URL',
+      status: 422,
+    });
+    install(model);
+    const body = {
+      description: 'Pro',
+      isDefault: false,
+      name: 'Pro',
+      type: 'PAID',
+    };
+
+    const forced = await send('PUT', '/licenses/pro-v4', body);
+    const next = await send('PUT', '/licenses/pro-v4', body);
+
+    expect(forced.status).toBe(422);
+    expect(await forced.json()).toMatchObject({
+      code: 'UpdateLicense.InvalidSelfServeCtaUrl',
+      detail: 'selfServeCtaUrl must be an http(s) URL',
+    });
+    // An update answers with no content.
+    expect(next.status).toBe(204);
+  });
 });
 
 describe('the invoice preview of a license version, as the mocks compose it', () => {

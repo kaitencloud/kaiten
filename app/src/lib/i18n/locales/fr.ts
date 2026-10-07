@@ -832,6 +832,63 @@ export default {
     Licenses: {
       title: 'Licences',
       subtitle: 'Gérez les licences et les limites de droits',
+      Commercial: {
+        cardTitle: 'Conditions commerciales',
+        cardDescription: 'Comment cette version est vendue.',
+        dialogTitle: 'Modifier les conditions commerciales',
+        dialogDescription:
+          'Comment {{name}}, version {{version}}, est vendue. Rien d’autre ne change dans la version.',
+        Fields: {
+          pricingType: 'Type de tarification',
+          trial: 'Essai gratuit',
+          paymentMethod: 'Moyen de paiement',
+          ctaUrl: 'URL d’appel à l’action',
+        },
+        PricingTypes: {
+          FREE: 'Gratuit',
+          PAID: 'Payant',
+          CUSTOM: 'Sur mesure',
+        },
+        Values: {
+          noTrial: 'Pas d’essai',
+          trialDays_one: '{{count}} jour',
+          trialDays_other: '{{count}} jours',
+          paymentRequired: 'Saisi à l’inscription',
+          paymentNotRequired: 'Non requis',
+        },
+        Form: {
+          save: 'Enregistrer',
+          Labels: {
+            pricingType: 'Type de tarification',
+            trial: 'Durée de l’essai (jours)',
+            paymentMethod: 'Exiger un moyen de paiement à l’inscription',
+            ctaUrl: 'URL d’appel à l’action',
+          },
+          Descriptions: {
+            pricingType:
+              'Une version gratuite ou payante peut être achetée en libre-service ; une version sur mesure envoie l’acheteur vers l’URL d’appel à l’action ou vers une conversation.',
+            trial:
+              'Un abonnement à cette version démarre avec cet essai. Laissez vide pour aucun essai.',
+            paymentMethod:
+              'L’inscription en libre-service saisit un moyen de paiement avant de s’activer.',
+            ctaUrl:
+              'Où l’acheteur est envoyé quand cette version ne peut pas être achetée en libre-service : une URL http ou https de 2 048 caractères au plus. Laissez vide pour aucune.',
+          },
+          Placeholders: {
+            trial: '14',
+            ctaUrl: 'https://acme.test/contact',
+          },
+          Errors: {
+            trialMin: 'Doit être d’au moins 1',
+            trialWhole: 'Saisissez un nombre entier de jours',
+            urlScheme: 'Saisissez une URL http ou https',
+            urlLength: '2 048 caractères au plus',
+          },
+        },
+        Toasts: {
+          updated: 'Conditions commerciales mises à jour',
+        },
+      },
       Prices: {
         title: 'Prix',
         tabDescription:
@@ -1146,6 +1203,14 @@ export default {
             'La version est mise en vente et peut devenir la version par défaut. Une licence sans version par défaut sert sa version publiée la plus récente, qui peut être celle-ci.',
           confirm: 'Publier',
           success: 'Version publiée',
+          Billing: {
+            prices:
+              'Ses prix deviennent immuables : ils ne pourront plus qu’être dépréciés.',
+            grants:
+              'Ses droits sont gelés dès qu’un abonnement facture cette version.',
+            others:
+              'Les abonnements des autres versions ne sont pas touchés, et rien n’est archivé.',
+          },
         },
         archive: {
           label: 'Archiver',
@@ -1187,6 +1252,7 @@ export default {
           version: 'Version',
           type: 'Type',
           lifecycleState: 'État',
+          pricingType: 'Tarification',
           default: 'Par défaut',
           instances: 'Instances',
           actions: 'Actions',

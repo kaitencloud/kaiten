@@ -76,4 +76,32 @@ export class LicensesListDriver {
       }),
     ).toBeVisible();
   }
+
+  /** A column of a family's versions table, by its header. */
+  columnHeader(familyName: string, column: string): Locator {
+    return this.family(familyName).getByRole('columnheader', {
+      name: column,
+      exact: true,
+    });
+  }
+
+  /** What one version's row shows under a column of the table. */
+  async versionCell(
+    familyName: string,
+    versionName: string,
+    column: string,
+  ): Promise<Locator> {
+    const headers = (
+      await this.family(familyName).getByRole('columnheader').allInnerTexts()
+    ).map((text) => text.trim());
+    const index = headers.indexOf(column);
+    expect(
+      index,
+      `a "${column}" column in ${headers.join(', ')}`,
+    ).toBeGreaterThan(-1);
+
+    return this.versionRow(familyName, versionName)
+      .getByRole('cell')
+      .nth(index);
+  }
 }

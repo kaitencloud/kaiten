@@ -13,6 +13,7 @@ import {
   type AddEntitlementPayload,
   LicenseEntitlementsCard,
 } from '../entitlements/license-entitlements-card';
+import { LicenseCommercialCard } from '../commercial';
 import { LicenseDetailsCard } from './license-details-card';
 import {
   useLicenseDetailData,
@@ -121,6 +122,8 @@ export function LicenseOverviewTab({ licenseSlug }: LicenseOverviewTabProps) {
         onDraftDeleted={() => router.navigate({ to: '/licenses' })}
         t={t}
       />
+
+      <LicenseCommercialCard license={license} />
 
       <LicenseEntitlementsCard
         entitlements={entitlements}

@@ -1,4 +1,5 @@
 export {
+  LicenseCommercialDialog,
   LicenseDetailPage,
   LicenseForm,
   LicenseOverviewTab,

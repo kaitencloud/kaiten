@@ -27,6 +27,8 @@ export { LicenseProblem } from './license-problem';
 
 export type LicenseTransition = 'publish' | 'archive' | 'unarchive';
 type LicenseErrorOp = 'create' | 'update' | LicenseTransition;
+/** What the model of the catalogue arms to fail with a problem document, besides pricing's. */
+type LicenseProblemOperation = 'updateLicense';
 type LifecycleState = NonNullable<License['lifecycleState']>;
 // The generated read type marks server-owned fields readonly; the model is the
 // server here, so it keeps its rows writable.
@@ -88,6 +90,7 @@ export type LicenseAppModelSeed = PricingSeed & {
 };
 
 export type SerializedLicenseAppModel = {
+  armedProblems?: Array<[LicenseProblemOperation, ArmedProblem]>;
   clock: number;
   entitlements: Entitlement[];
   licenses: License[];
@@ -152,6 +155,7 @@ export class LicenseAppModel {
   private licenses: LicenseRecord[];
   private pricing: LicensePricing;
   private sequence: number;
+  private readonly armed = new Map<LicenseProblemOperation, ArmedProblem>();
   private readonly errors = new ErrorInjector<LicenseErrorOp>();
 
   static fromSerialized(state: SerializedLicenseAppModel) {
@@ -162,6 +166,9 @@ export class LicenseAppModel {
     model.clock = state.clock;
     model.sequence = state.sequence;
     model.errors.restore(state.pendingErrors);
+    for (const [operation, problem] of state.armedProblems ?? []) {
+      model.armed.set(operation, problem);
+    }
     model.pricing = LicensePricing.fromSerialized(
       model.pricingHost(),
       state.pricing,
@@ -171,6 +178,7 @@ export class LicenseAppModel {
 
   serializeForMsw(): SerializedLicenseAppModel {
     return {
+      armedProblems: [...this.armed.entries()],
       clock: this.clock,
       entitlements: clone(this.entitlements),
       licenses: clone(this.licenses),
@@ -221,9 +229,25 @@ export class LicenseAppModel {
     this.errors.setNextError(op, status);
   }
 
-  /** Arm the next call of a pricing operation to fail with a problem document. One-shot. */
-  setNextProblem(op: PricingProblemOperation, problem: ArmedProblem) {
+  /** Arm the next call of an operation to fail with a problem document. One-shot. */
+  setNextProblem(
+    op: LicenseProblemOperation | PricingProblemOperation,
+    problem: ArmedProblem,
+  ) {
+    if (op === 'updateLicense') {
+      this.armed.set(op, problem);
+
+      return;
+    }
     this.pricing.armProblem(op, problem);
+  }
+
+  private consumeProblem(op: LicenseProblemOperation) {
+    const problem = this.armed.get(op);
+    if (problem) {
+      this.armed.delete(op);
+      throw new LicenseProblem(problem.status, problem.code, problem.detail);
+    }
   }
 
   /** Makes a version billed by a live subscription: its grants and prices are frozen. */
@@ -379,6 +403,7 @@ export class LicenseAppModel {
   /** PUT: the fields an update may change. The state is only echoed. */
   updateLicense(slug: string, body: LicenseWritable): License {
     this.errors.consume('update');
+    this.consumeProblem('updateLicense');
     const license = this.find(slug);
 
     if (
