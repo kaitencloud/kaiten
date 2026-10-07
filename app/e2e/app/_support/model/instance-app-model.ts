@@ -26,7 +26,13 @@ import {
   zPatchInstanceBody,
 } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
+import { BillingProblem } from './billing-problem';
 import { ErrorInjector } from './error-injector';
+import {
+  InstanceUsageHistory,
+  type InstanceUsageHistorySeed,
+  type SerializedInstanceUsageHistory,
+} from './instance-usage-history';
 import { listLicenseFamilyViews } from './license-families';
 
 type CustomerListEntry =
@@ -43,7 +49,19 @@ const DEFAULT_ACTOR = {
   name: 'E2E Tester',
 } as const;
 
-export type InstanceAppModelSeed = {
+/**
+ * What the subscription of an instance leaves in the way of changing it or
+ * deleting it: its status while it lives or has just ended, and the invoices
+ * that are not settled yet.
+ */
+export type InstanceBillingBlock = {
+  status: 'ACTIVE' | 'CANCELED' | 'PAST_DUE' | 'TRIAL';
+  unpaidInvoiceIds: string[];
+};
+
+export type InstanceAppModelSeed = InstanceUsageHistorySeed & {
+  /** The instances the billing refuses to change or delete, by slug. */
+  billingBlocks?: Record<string, InstanceBillingBlock>;
   customers?: Customer[];
   // Zones the instance list and detail page offer as deploy / migrate targets.
   deploymentZones?: DeploymentZone[];
@@ -56,10 +74,14 @@ export type InstanceAppModelSeed = {
   licenses?: License[];
 };
 
-export type SerializedInstanceAppModel = Required<InstanceAppModelSeed> & {
+export type SerializedInstanceAppModel = Required<
+  Omit<InstanceAppModelSeed, keyof InstanceUsageHistorySeed>
+> & {
   clock: number;
   pendingErrors: Array<[InstanceErrorOp, number]>;
   sequence: number;
+  /** The usage history; a state stored before it existed has none. */
+  usageHistory?: SerializedInstanceUsageHistory;
 };
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -74,6 +96,7 @@ const slugify = (value: string) =>
 const toGraphqlLicenseType = (value: License['type']) => value;
 
 export class InstanceAppModel {
+  private billingBlocks: Record<string, InstanceBillingBlock>;
   private clock = Date.parse('2026-03-01T08:00:00.000Z');
   private customers: Customer[];
   private deploymentZones: DeploymentZone[];
@@ -83,6 +106,8 @@ export class InstanceAppModel {
   private licenseEntitlements: LicenseEntitlement[];
   private licenses: License[];
   private sequence: number;
+  /** The journal of the entitlements of the instances, and what the organization keeps of it. */
+  usageHistory: InstanceUsageHistory;
   private readonly errors = new ErrorInjector<InstanceErrorOp>();
 
   /**
@@ -94,6 +119,7 @@ export class InstanceAppModel {
 
   static fromSerialized(state: SerializedInstanceAppModel) {
     const model = new InstanceAppModel({
+      billingBlocks: state.billingBlocks,
       customers: state.customers,
       deploymentZones: state.deploymentZones,
       metadataFields: state.metadataFields,
@@ -105,11 +131,17 @@ export class InstanceAppModel {
     model.clock = state.clock;
     model.sequence = state.sequence;
     model.errors.restore(state.pendingErrors);
+    if (state.usageHistory) {
+      model.usageHistory = InstanceUsageHistory.fromSerialized(
+        state.usageHistory,
+      );
+    }
     return model;
   }
 
   serializeForMsw(): SerializedInstanceAppModel {
     return {
+      billingBlocks: clone(this.billingBlocks),
       clock: this.clock,
       customers: clone(this.customers),
       deploymentZones: clone(this.deploymentZones),
@@ -120,10 +152,16 @@ export class InstanceAppModel {
       licenses: clone(this.licenses),
       pendingErrors: this.errors.snapshot(),
       sequence: this.sequence,
+      usageHistory: this.usageHistory.serialize(),
     };
   }
 
   constructor(seed: InstanceAppModelSeed = {}) {
+    this.billingBlocks = clone(seed.billingBlocks ?? {});
+    this.usageHistory = new InstanceUsageHistory({
+      retentionStart: seed.retentionStart,
+      usageReports: seed.usageReports,
+    });
     this.customers = parseContract(
       z.array(zCustomer),
       seed.customers ?? [],
@@ -353,6 +391,20 @@ export class InstanceAppModel {
     const currentInstance = this.instances[instanceIndex];
     const customer = this.findCustomerById(input.customerId);
     const license = this.findLicense(input.licenseId);
+    // A live subscription freezes the customer and the license of the instance.
+    const block = this.billingBlocks[instanceSlug];
+    if (
+      block &&
+      block.status !== 'CANCELED' &&
+      (input.customerId !== currentInstance.customerId ||
+        input.licenseId !== currentInstance.licenseId)
+    ) {
+      throw new BillingProblem(
+        409,
+        'UpdateInstance.BillingActive',
+        `Instance "${instanceSlug}" has a live subscription: its customer and license cannot change until it is canceled`,
+      );
+    }
     const updatedInstance: Instance = {
       ...currentInstance,
       customerId: customer.id,
@@ -389,9 +441,91 @@ export class InstanceAppModel {
       throw new Error(`Instance "${instanceSlug}" not found`);
     }
 
+    // A subscription that lives, or an invoice not settled, keeps the instance.
+    const block = this.billingBlocks[instanceSlug];
+    if (
+      block &&
+      (block.status !== 'CANCELED' || block.unpaidInvoiceIds.length > 0)
+    ) {
+      throw new BillingProblem(
+        409,
+        'DeleteInstance.BillingActive',
+        `Instance "${instanceSlug}" is billed: cancel its subscription and settle its invoices first`,
+        {
+          errors: [
+            {
+              location: 'instance',
+              message:
+                "the subscription's status and the invoices not settled yet",
+              value: {
+                status: block.status,
+                unpaidInvoiceIds: block.unpaidInvoiceIds,
+              },
+            },
+          ],
+        },
+      );
+    }
+
     // Deleting an instance is a hard delete server-side, so the mock drops
     // the row rather than flagging it.
     this.instances.splice(instanceIndex, 1);
+  }
+
+  /**
+   * Whether the journal of `entitlementSlug` of `instanceSlug` can be read: the
+   * instance has to exist, and the entitlement has to be one it reports on.
+   */
+  private knowsUsagePair(
+    instanceSlug: string,
+    entitlementSlug: string,
+  ): 'ok' | 'instance' | 'entitlement' {
+    if (!this.instances.some((instance) => instance.slug === instanceSlug)) {
+      return 'instance';
+    }
+    const known =
+      (this.entitlementUsagesByInstance[instanceSlug] ?? []).some(
+        (usage) => usage.entitlementSlug === entitlementSlug,
+      ) || this.usageHistory.hasPair(instanceSlug, entitlementSlug);
+
+    return known ? 'ok' : 'entitlement';
+  }
+
+  /** `GET /instances/{instanceSlug}/entitlements/{entitlementSlug}/usage/reports`. */
+  listUsageReports(
+    instanceSlug: string,
+    entitlementSlug: string,
+    query: Parameters<InstanceUsageHistory['listUsageReports']>[2],
+  ) {
+    return this.usageHistory.listUsageReports(
+      instanceSlug,
+      entitlementSlug,
+      query,
+      (instance, entitlement) => this.knowsUsagePair(instance, entitlement),
+    );
+  }
+
+  /** `GET /instances/{instanceSlug}/entitlements/{entitlementSlug}/usage/reports/export`. */
+  exportUsageReports(
+    instanceSlug: string,
+    entitlementSlug: string,
+    query: Parameters<InstanceUsageHistory['exportUsageReports']>[2],
+  ) {
+    return this.usageHistory.exportUsageReports(
+      instanceSlug,
+      entitlementSlug,
+      query,
+      (instance, entitlement) => this.knowsUsagePair(instance, entitlement),
+    );
+  }
+
+  /** `GET /usage/reports/export`. */
+  exportOrganizationUsageReports(
+    query: Parameters<
+      InstanceUsageHistory['exportOrganizationUsageReports']
+    >[0],
+  ) {
+    return this.usageHistory.exportOrganizationUsageReports(query);
   }
 
   private toInstanceListRow(instance: Instance): InstanceListRow {

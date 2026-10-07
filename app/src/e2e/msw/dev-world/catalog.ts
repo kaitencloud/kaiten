@@ -27,10 +27,15 @@ export const attioLink = (
   },
 });
 
-/** Three customers with instances, and Gamma Labs, signed this week, with none yet. */
+/**
+ * Three customers with instances, and Gamma Labs, signed this week, whose first
+ * instance is not billed yet. Acme and Globex have a billing e-mail; Beta and
+ * Gamma have none.
+ */
 export const createCustomers = (): Customer[] => [
   {
     ...buildCustomer({
+      billingEmail: 'ap@acme.com',
       createdAt: daysAgo(420),
       domain: 'acme.com',
       externalCustomerId: 'crm-acme-001',
@@ -50,6 +55,7 @@ export const createCustomers = (): Customer[] => [
   }),
   {
     ...buildCustomer({
+      billingEmail: 'billing@globex.com',
       createdAt: daysAgo(45),
       domain: 'globex.com',
       externalCustomerId: 'crm-globex-003',

@@ -328,6 +328,41 @@ export class BillingInvoices {
     this.armed.set(operation, problem);
   }
 
+  /** The days an invoice issued from now on is due after its issue: the organization's terms. */
+  setDefaultDaysUntilDue(days: number) {
+    this.defaultDaysUntilDue = days;
+  }
+
+  /**
+   * Adds an invoice the API composed, such as the activation of a subscription,
+   * which the subscriptions of the mocks issue. The invoice is checked against
+   * the contract.
+   */
+  addInvoice(invoice: Invoice): Invoice {
+    const [checked] = parseContract(
+      z.array(zInvoice),
+      [invoice],
+      'BillingInvoices.addInvoice',
+    );
+    this.invoices.push(clone(checked));
+
+    return clone(checked);
+  }
+
+  /** Whether an invoice of this kind already bills the period that starts at `boundaryAt`. */
+  hasBoundary(
+    instanceSlug: string,
+    kind: Invoice['kind'],
+    boundaryAt: string,
+  ): boolean {
+    return this.invoices.some(
+      (invoice) =>
+        invoice.instanceSlug === instanceSlug &&
+        invoice.kind === kind &&
+        Date.parse(invoice.boundaryAt) === Date.parse(boundaryAt),
+    );
+  }
+
   private consume(operation: InvoiceProblemOperation) {
     const problem = this.armed.get(operation);
     if (!problem) {
