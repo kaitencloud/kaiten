@@ -5,6 +5,7 @@ export {
   invalidateLicenseQueries,
   licenseEntitlementsQueryOptions,
   licenseFamiliesQueryOptions,
+  licensePricesQueryOptions,
   licenseQueryOptions,
   licensesQueryOptions,
   licensesWithInstancesBaseQueryKey,
