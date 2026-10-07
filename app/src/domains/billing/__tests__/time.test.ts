@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it } from 'vite-plus/test';
-import { formatInstant, formatServicePeriod, formatUtcDate } from '../logic';
+import {
+  formatInstant,
+  formatServicePeriod,
+  formatUtcDate,
+  formatUtcTime,
+} from '../logic';
 
 // Intl writes a thin space around the dash of a range and a no-break space
 // before the time of day; the tests read both as plain spaces.
@@ -96,5 +101,26 @@ describe('formatUtcDate', () => {
     );
     expect(formatUtcDate(undefined, 'en')).toBe('—');
     expect(formatUtcDate('not a date', 'en')).toBe('—');
+  });
+});
+
+describe('formatUtcTime', () => {
+  it.each(['Europe/Paris', 'America/Los_Angeles', 'UTC'])(
+    'writes the UTC time of an instant, marked, from %s',
+    (zone) => {
+      process.env.TZ = zone;
+
+      expect(plain(formatUtcTime('2026-11-01T18:17:25Z', 'en'))).toBe(
+        '6:17 PM (UTC)',
+      );
+    },
+  );
+
+  it('follows the language, and shows a dash for what is not a date', () => {
+    expect(plain(formatUtcTime('2026-11-01T18:17:25Z', 'fr'))).toBe(
+      '18:17 (UTC)',
+    );
+    expect(formatUtcTime(undefined, 'en')).toBe('—');
+    expect(formatUtcTime('not a date', 'en')).toBe('—');
   });
 });

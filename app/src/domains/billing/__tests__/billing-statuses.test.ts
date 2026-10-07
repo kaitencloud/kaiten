@@ -7,6 +7,7 @@ import {
   INVOICE_LINE_TYPES,
   INVOICE_STATUSES,
   isInvoiceOverdue,
+  isKnownHoldReason,
   type InvoiceStatus,
   type InvoiceStatusInput,
   SUBSCRIPTION_ACTIONS,
@@ -225,5 +226,21 @@ describe('subscription actions', () => {
         [...SUBSCRIPTION_ACTIONS].sort(),
       );
     }
+  });
+});
+
+describe('the checks that hold a draft', () => {
+  it('knows the three checks the contract has, and none the API might add', () => {
+    for (const reason of [
+      'LEDGER_SEQUENCE_GAP',
+      'LEDGER_CHAIN_BREAK',
+      'LEDGER_COUNTER_MISMATCH',
+    ]) {
+      expect(isKnownHoldReason(reason), reason).toBe(true);
+    }
+    expect(isKnownHoldReason('LEDGER_NEW_CHECK')).toBe(false);
+    expect(isKnownHoldReason('')).toBe(false);
+    // What an object inherits is not a check.
+    expect(isKnownHoldReason('toString')).toBe(false);
   });
 });
