@@ -78,6 +78,17 @@ const (
 	// DEPLOYMENT NOTE: like Billing, read:addons and write:addons have to be
 	// added to the identity provider's JWT template.
 	Addons Module = "addons"
+	// Vouchers gates the voucher catalogue, the listing of redemptions and
+	// their revocation.
+	Vouchers Module = "vouchers"
+	// VoucherRedemptions gates validating and redeeming a code, and reading an
+	// instance's redemptions: a backend that redeems codes for its customers
+	// does not need to be able to create them.
+	//
+	// DEPLOYMENT NOTE: like Billing, the read: and write: scopes of Vouchers
+	// and VoucherRedemptions have to be added to the identity provider's JWT
+	// template.
+	VoucherRedemptions Module = "voucher_redemptions"
 )
 
 // allModules is the single source of truth for valid modules
@@ -99,6 +110,8 @@ var allModules = []Module{
 	Notifications,
 	Billing,
 	Addons,
+	Vouchers,
+	VoucherRedemptions,
 }
 
 // Error codes a scope refusal answers with. They live here, next to the scopes

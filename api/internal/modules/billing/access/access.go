@@ -23,6 +23,9 @@ type Deps struct {
 	Usage     ports.UsageSource
 	// Addons is the add-ons an instance holds, which its invoices bill.
 	Addons ports.AddonSource
+	// Discounts is the PRICE vouchers an instance redeemed, which its
+	// invoices apply.
+	Discounts ports.DiscountSource
 }
 
 // Caller is the user a request acts for, past the billing gate.

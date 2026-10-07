@@ -23,6 +23,8 @@ export const API_SCOPE_RESOURCES = [
   'organizations',
   'releases',
   'tokens',
+  'voucher_redemptions',
+  'vouchers',
   'webhooks',
 ] as const;
 
@@ -47,6 +49,8 @@ export const API_SCOPES = [
   'read:organizations',
   'read:releases',
   'read:tokens',
+  'read:voucher_redemptions',
+  'read:vouchers',
   'read:webhooks',
   'write:addons',
   'write:billing',
@@ -62,6 +66,8 @@ export const API_SCOPES = [
   'write:organizations',
   'write:releases',
   'write:tokens',
+  'write:voucher_redemptions',
+  'write:vouchers',
   'write:webhooks',
 ] as const;
 

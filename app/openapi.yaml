@@ -2265,6 +2265,20 @@ components:
       required:
         - key
       type: object
+    ExhaustedEvent:
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        maxRedemptions:
+          format: int32
+          type: integer
+        name:
+          type: string
+      required:
+        - id
+        - name
+      type: object
     FeatureFlag:
       additionalProperties: false
       properties:
@@ -2361,6 +2375,30 @@ components:
         - flag_slug
         - flag_id
         - reason
+      type: object
+    Grant:
+      additionalProperties: false
+      properties:
+        entitlementSlug:
+          examples:
+            - tokens
+          type: string
+        modifierType:
+          description: SET replaces the value, ADD adds to it, MULTIPLY multiplies it, UNLIMITED lifts the limit
+          enum:
+            - SET
+            - ADD
+            - MULTIPLY
+            - UNLIMITED
+          type: string
+        modifierValue:
+          description: "A decimal: >= 0 for SET, > 0 for ADD and MULTIPLY, absent for UNLIMITED"
+          examples:
+            - "2"
+          type: string
+      required:
+        - entitlementSlug
+        - modifierType
       type: object
     HandoffAcknowledgement:
       additionalProperties: false
@@ -3605,7 +3643,7 @@ components:
           description: The add-on price an ADDON line bills
           type: string
         amount:
-          description: round_half_up(quantity × unitAmountDecimal), in minor units
+          description: round_half_up(quantity × unitAmountDecimal), in minor units; negative on a DISCOUNT line
           examples:
             - 2440
           format: int64
@@ -3631,6 +3669,9 @@ components:
           examples:
             - 3.05 × 8.00 EUR (per 10k tokens); 130,500 used; 30,500 above the applied limit (100,000)
           type: string
+        discount:
+          $ref: "#/components/schemas/InvoiceLineDiscount"
+          description: How a DISCOUNT line was computed
         entitlementId:
           description: The metered entitlement, on USAGE and OVERAGE lines
           type: string
@@ -3642,6 +3683,9 @@ components:
           type: string
         instanceAddonId:
           description: The instance's attachment an ADDON line bills
+          type: string
+        instanceVoucherId:
+          description: The redemption a DISCOUNT line applies
           type: string
         label:
           description: The price's display label, else a derived one
@@ -3675,7 +3719,7 @@ components:
           format: date-time
           type: string
         type:
-          description: "BASE: the subscription's FLAT_FEE price. ADDON: an add-on's FLAT_FEE price times the quantity held at the boundary. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit. DISCOUNT: a voucher's discount, negative."
+          description: "BASE: the subscription's FLAT_FEE price. ADDON: an add-on's FLAT_FEE price times the quantity held at the boundary. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit. DISCOUNT: a PRICE voucher's discount, negative."
           enum:
             - BASE
             - ADDON
@@ -3688,6 +3732,9 @@ components:
           examples:
             - "800"
           type: string
+        voucherId:
+          description: The voucher a DISCOUNT line applies
+          type: string
       required:
         - seq
         - type
@@ -3697,6 +3744,53 @@ components:
         - serviceTo
         - quantity
         - amount
+      type: object
+    InvoiceLineDiscount:
+      additionalProperties: false
+      properties:
+        application:
+          description: Which invoice of the redemption this is, from 1
+          format: int32
+          type: integer
+        applicationsMax:
+          description: How many invoices the redemption discounts; absent for FOREVER
+          format: int32
+          type: integer
+        appliesTo:
+          enum:
+            - LICENSE_BASE
+            - ADDONS
+            - BOTH
+            - SELECTED_PRICES
+          type: string
+        base:
+          description: What its targets still amounted to before it, exact, in minor units
+          type: string
+        currency:
+          type: string
+        discountType:
+          enum:
+            - PERCENTAGE
+            - FIXED_AMOUNT
+          type: string
+        discountValue:
+          description: The percentage, or the amount in minor units
+          type: string
+        targetSeqs:
+          description: The lines it discounts
+          items:
+            format: int64
+            type: integer
+          type:
+            - array
+            - "null"
+      required:
+        - discountType
+        - discountValue
+        - appliesTo
+        - targetSeqs
+        - base
+        - application
       type: object
     InvoiceLineLedger:
       additionalProperties: false
@@ -4890,6 +4984,22 @@ components:
           type: object
       required:
         - jsonSchema
+      type: object
+    MinimumAmount:
+      additionalProperties: false
+      properties:
+        currency:
+          examples:
+            - EUR
+          type: string
+        unitAmountDecimal:
+          description: In minor units
+          examples:
+            - "2900"
+          type: string
+      required:
+        - currency
+        - unitAmountDecimal
       type: object
     NewAddon:
       additionalProperties: false
@@ -6193,6 +6303,94 @@ components:
             - array
             - "null"
       type: object
+    RedeemableCode:
+      additionalProperties: false
+      properties:
+        code:
+          examples:
+            - SUMMER-2026-LAUNCH
+          maxLength: 64
+          minLength: 1
+          type: string
+      required:
+        - code
+      type: object
+    Redemption:
+      additionalProperties: false
+      properties:
+        applicationsCount:
+          description: Invoices a PRICE voucher discounted
+          format: int32
+          type: integer
+        applicationsMax:
+          description: 1 for ONE_TIME, durationInPeriods for REPEATING; absent for FOREVER
+          format: int32
+          type: integer
+        codeHint:
+          type: string
+        effectiveExpiresAt:
+          description: When a boost stops applying; absent for a PRICE voucher, counted in invoices, and for FOREVER
+          format: date-time
+          type: string
+        effectiveStartsAt:
+          format: date-time
+          type: string
+        expiredAt:
+          format: date-time
+          type: string
+        id:
+          readOnly: true
+          type: string
+        instanceSlug:
+          type: string
+        redeemedAt:
+          format: date-time
+          type: string
+        revokedAt:
+          format: date-time
+          type: string
+        revokedReason:
+          type: string
+        status:
+          enum:
+            - ACTIVE
+            - EXPIRED
+            - REVOKED
+          type: string
+        voucherId:
+          type: string
+        voucherName:
+          type: string
+        voucherType:
+          enum:
+            - PRICE
+            - ENTITLEMENT_BOOST
+          type: string
+      required:
+        - id
+        - voucherId
+        - voucherName
+        - voucherType
+        - codeHint
+        - instanceSlug
+        - redeemedAt
+        - effectiveStartsAt
+        - applicationsCount
+        - status
+      type: object
+    RedemptionRules:
+      additionalProperties: false
+      properties:
+        annualOnly:
+          description: Only for an instance with a live ANNUAL subscription
+          type: boolean
+        firstTimeOnly:
+          description: Only for a customer none of whose instances has paid an invoice
+          type: boolean
+        minimumSubscriptionAmount:
+          $ref: "#/components/schemas/MinimumAmount"
+          description: Only for a live subscription whose base price is at least this
+      type: object
     Release:
       additionalProperties: false
       properties:
@@ -6443,6 +6641,17 @@ components:
             - $ref: "#/components/schemas/ConfigEntitlementValue"
       required:
         - value
+      type: object
+    RevocationReason:
+      additionalProperties: false
+      properties:
+        reason:
+          examples:
+            - Granted by mistake
+          maxLength: 500
+          type: string
+      required:
+        - reason
       type: object
     RolloutDate:
       additionalProperties: false
@@ -7363,6 +7572,40 @@ components:
       required:
         - id
       type: object
+    Validity:
+      additionalProperties: false
+      properties:
+        reason:
+          description: The first failing check
+          enum:
+            - NOT_FOUND
+            - NOT_ACTIVE
+            - NOT_YET_VALID
+            - EXPIRED
+            - EXHAUSTED
+            - ALREADY_REDEEMED
+            - NOT_ELIGIBLE
+            - CURRENCY_MISMATCH
+          type: string
+        rule:
+          description: "With NOT_ELIGIBLE: the eligibility rule"
+          enum:
+            - RESTRICTED_CUSTOMER
+            - LICENSE_NOT_APPLICABLE
+            - ADDON_NOT_APPLICABLE
+            - FIRST_TIME_ONLY
+            - ANNUAL_ONLY
+            - MINIMUM_SUBSCRIPTION_AMOUNT
+            - NOTHING_TO_BOOST
+          type: string
+        valid:
+          type: boolean
+        voucher:
+          $ref: "#/components/schemas/Voucher"
+          description: The voucher, without its code, when the code names one
+      required:
+        - valid
+      type: object
     Variant:
       additionalProperties: false
       properties:
@@ -7509,6 +7752,271 @@ components:
         - createdAt
         - updatedAt
       type: object
+    Voucher:
+      additionalProperties: false
+      properties:
+        applicableAddonIds:
+          description: Only instances holding one of these add-on versions can redeem it; any when empty
+          items:
+            type: string
+          type: array
+        applicableAddonPriceIds:
+          items:
+            type: string
+          type: array
+        applicableLicenseIds:
+          description: Only instances on these licence versions can redeem it; any when empty
+          items:
+            type: string
+          type: array
+        applicableLicensePriceIds:
+          items:
+            type: string
+          type: array
+        code:
+          description: The code to redeem. Returned to read:vouchers callers only; never in an event.
+          examples:
+            - SUMMER-2026-LAUNCH
+          type: string
+        codeHint:
+          description: The last four characters of the normalized code
+          examples:
+            - UNCH
+          type: string
+        createdAt:
+          format: date-time
+          readOnly: true
+          type: string
+        currency:
+          description: The currency of a FIXED_AMOUNT discount
+          examples:
+            - EUR
+          type: string
+        description:
+          type: string
+        duration:
+          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST: how long a redemption lasts, in the subscription's billing periods."
+          enum:
+            - ONE_TIME
+            - REPEATING
+            - FOREVER
+          type: string
+        durationInPeriods:
+          format: int32
+          type: integer
+        expiresAt:
+          format: date-time
+          type: string
+        grants:
+          description: What an ENTITLEMENT_BOOST changes
+          items:
+            $ref: "#/components/schemas/Grant"
+          type: array
+        id:
+          readOnly: true
+          type: string
+        maxRedemptions:
+          format: int32
+          type: integer
+        name:
+          examples:
+            - Summer launch
+          type: string
+        priceAppliesTo:
+          enum:
+            - LICENSE_BASE
+            - ADDONS
+            - BOTH
+            - SELECTED_PRICES
+          type: string
+        priceDiscountType:
+          enum:
+            - PERCENTAGE
+            - FIXED_AMOUNT
+          type: string
+        priceDiscountValue:
+          description: A percentage in (0, 100], or an integer amount in minor units of currency
+          examples:
+            - "30"
+          type: string
+        redemptionRules:
+          $ref: "#/components/schemas/RedemptionRules"
+        redemptionsCount:
+          format: int32
+          type: integer
+        restrictedCustomerSlug:
+          description: Only this customer's instances can redeem it
+          type: string
+        startsAt:
+          format: date-time
+          type: string
+        status:
+          enum:
+            - DRAFT
+            - ACTIVE
+            - EXPIRED
+            - EXHAUSTED
+            - ARCHIVED
+          type: string
+        updatedAt:
+          format: date-time
+          readOnly: true
+          type: string
+        voucherType:
+          enum:
+            - PRICE
+            - ENTITLEMENT_BOOST
+          type: string
+      required:
+        - id
+        - codeHint
+        - name
+        - voucherType
+        - status
+        - duration
+        - redemptionsCount
+        - applicableLicensePriceIds
+        - applicableAddonPriceIds
+        - grants
+        - applicableLicenseIds
+        - applicableAddonIds
+        - redemptionRules
+        - createdAt
+        - updatedAt
+      type: object
+    VoucherCheck:
+      additionalProperties: false
+      properties:
+        code:
+          examples:
+            - SUMMER-2026-LAUNCH
+          maxLength: 64
+          minLength: 1
+          type: string
+        instanceSlug:
+          description: Also run the checks that need the redeeming instance
+          type: string
+      required:
+        - code
+      type: object
+    VoucherCode:
+      additionalProperties: false
+      properties:
+        code:
+          examples:
+            - SUMMER-2026-LAUNCH
+          maxLength: 64
+          minLength: 1
+          type: string
+      required:
+        - code
+      type: object
+    VoucherDraft:
+      additionalProperties: false
+      properties:
+        applicableAddonIds:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        applicableAddonPriceIds:
+          description: "With SELECTED_PRICES: the add-on prices it discounts"
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        applicableLicenseIds:
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        applicableLicensePriceIds:
+          description: "With SELECTED_PRICES: the licence prices it discounts"
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        code:
+          description: "8 to 64 of [A-Za-z0-9_-]. Generated when absent: 16 characters, 80 random bits. Matched without case or separators."
+          examples:
+            - SUMMER-2026-LAUNCH
+          type: string
+        currency:
+          description: Required with FIXED_AMOUNT, refused otherwise
+          examples:
+            - EUR
+          type: string
+        description:
+          maxLength: 2000
+          type: string
+        duration:
+          enum:
+            - ONE_TIME
+            - REPEATING
+            - FOREVER
+          type: string
+        durationInPeriods:
+          description: Required with REPEATING, refused otherwise
+          format: int32
+          type: integer
+        expiresAt:
+          format: date-time
+          type: string
+        grants:
+          description: Required on an ENTITLEMENT_BOOST, refused on a PRICE voucher
+          items:
+            $ref: "#/components/schemas/Grant"
+          type:
+            - array
+            - "null"
+        maxRedemptions:
+          format: int32
+          minimum: 1
+          type: integer
+        name:
+          examples:
+            - Summer launch
+          maxLength: 200
+          minLength: 1
+          type: string
+        priceAppliesTo:
+          enum:
+            - LICENSE_BASE
+            - ADDONS
+            - BOTH
+            - SELECTED_PRICES
+          type: string
+        priceDiscountType:
+          enum:
+            - PERCENTAGE
+            - FIXED_AMOUNT
+          type: string
+        priceDiscountValue:
+          description: A percentage in (0, 100], or an integer amount in minor units
+          examples:
+            - "30"
+          type: string
+        redemptionRules:
+          $ref: "#/components/schemas/RedemptionRules"
+        restrictedCustomerSlug:
+          type: string
+        startsAt:
+          format: date-time
+          type: string
+        voucherType:
+          enum:
+            - PRICE
+            - ENTITLEMENT_BOOST
+          type: string
+      required:
+        - name
+        - voucherType
+        - duration
+      type: object
   securitySchemes:
     bearerAuth:
       bearerFormat: JWT
@@ -7530,6 +8038,8 @@ components:
         - read:organizations
         - read:releases
         - read:tokens
+        - read:voucher_redemptions
+        - read:vouchers
         - read:webhooks
         - write:addons
         - write:billing
@@ -7545,6 +8055,8 @@ components:
         - write:organizations
         - write:releases
         - write:tokens
+        - write:voucher_redemptions
+        - write:vouchers
         - write:webhooks
 info:
   contact:
@@ -15026,6 +15538,255 @@ paths:
       summary: List an instance's invoices
       tags:
         - billing
+  /instances/{instanceSlug}/vouchers:
+    get:
+      description: The vouchers an instance redeemed, newest first. Requires billing to be enabled for the organization.
+      operationId: listInstanceVouchers
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+        - explode: false
+          in: query
+          name: status
+          schema:
+            enum:
+              - ACTIVE
+              - EXPIRED
+              - REVOKED
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Redemption"
+                type: array
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:voucher_redemptions
+      summary: List an instance's vouchers
+      tags:
+        - vouchers
+  /instances/{instanceSlug}/vouchers/redeem:
+    post:
+      description: Redeems a voucher for an instance. A boost applies from the next read or report, for its duration; a PRICE voucher discounts the subscription's next invoices. Emits INSTANCE_VOUCHER_REDEEMED, and VOUCHER_EXHAUSTED with the last redemption. Requires billing to be enabled for the organization.
+      operationId: redeemVoucher
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedeemableCode"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Redemption"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:voucher_redemptions
+      summary: Redeem a voucher
+      tags:
+        - vouchers
+  /instances/{instanceSlug}/vouchers/{instanceVoucherId}/revoke:
+    post:
+      description: "Stops a redemption from applying: a boost ends at once, a discount applies to no further invoice. Invoices already issued are untouched. Emits INSTANCE_VOUCHER_REVOKED. Requires billing to be enabled for the organization."
+      operationId: revokeInstanceVoucher
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+        - description: Redemption id
+          in: path
+          name: instanceVoucherId
+          required: true
+          schema:
+            description: Redemption id
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevocationReason"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Redemption"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:vouchers
+      summary: Revoke a redemption
+      tags:
+        - vouchers
   /integration/{adapter}/customer/{externalId}:
     get:
       description: Resolve a customer through one of its integrations using adapter + external ID.
@@ -19594,6 +20355,652 @@ paths:
       summary: Mark notifications read
       tags:
         - notifications
+  /vouchers:
+    get:
+      description: The organization's vouchers, newest first, with their codes. Requires billing to be enabled for the organization.
+      operationId: listVouchers
+      parameters:
+        - explode: false
+          in: query
+          name: status
+          schema:
+            enum:
+              - DRAFT
+              - ACTIVE
+              - EXPIRED
+              - EXHAUSTED
+              - ARCHIVED
+            type: string
+        - explode: false
+          in: query
+          name: voucherType
+          schema:
+            enum:
+              - PRICE
+              - ENTITLEMENT_BOOST
+            type: string
+        - explode: false
+          in: query
+          name: restrictedCustomerSlug
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Voucher"
+                type: array
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:vouchers
+      summary: List vouchers
+      tags:
+        - vouchers
+    post:
+      description: "Creates a DRAFT voucher: a PRICE discount or an ENTITLEMENT_BOOST. The code is generated when none is given, and returned. Emits VOUCHER_CREATED, without the code. Requires billing to be enabled for the organization."
+      operationId: createVoucher
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoucherDraft"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Voucher"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:vouchers
+      summary: Create a voucher
+      tags:
+        - vouchers
+  /vouchers/lookup:
+    post:
+      description: Finds the voucher a code names, matched without case or separators. The code travels in the body, never in a URL. Requires billing to be enabled for the organization.
+      operationId: lookupVoucher
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoucherCode"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Voucher"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:vouchers
+      summary: Find a voucher by code
+      tags:
+        - vouchers
+  /vouchers/validate:
+    post:
+      description: "Runs the redemption checks without redeeming: the voucher's own, and, with instanceSlug, the instance's. Answers 200 with valid, and the first failing reason (and eligibility rule) otherwise. Requires billing to be enabled for the organization."
+      operationId: validateVoucher
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoucherCheck"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Validity"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:voucher_redemptions
+      summary: Validate a voucher code
+      tags:
+        - vouchers
+  /vouchers/{voucherId}:
+    get:
+      description: One voucher, with its code. Requires billing to be enabled for the organization.
+      operationId: getVoucher
+      parameters:
+        - description: Voucher id
+          in: path
+          name: voucherId
+          required: true
+          schema:
+            description: Voucher id
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Voucher"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:vouchers
+      summary: Get a voucher
+      tags:
+        - vouchers
+    put:
+      description: Replaces a DRAFT voucher, but its type. An ACTIVE voucher takes a new name, description, expiresAt and maxRedemptions (at least redemptionsCount); its other members must stay as they are (409 UpdateVoucher.NotEditable). Emits VOUCHER_UPDATED. Requires billing to be enabled for the organization.
+      operationId: updateVoucher
+      parameters:
+        - description: Voucher id
+          in: path
+          name: voucherId
+          required: true
+          schema:
+            description: Voucher id
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoucherDraft"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Voucher"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:vouchers
+      summary: Update a voucher
+      tags:
+        - vouchers
+  /vouchers/{voucherId}/archive:
+    post:
+      description: Stops a voucher from being redeemed. Redemptions already made keep applying until revoked. Emits VOUCHER_ARCHIVED. Requires billing to be enabled for the organization.
+      operationId: archiveVoucher
+      parameters:
+        - description: Voucher id
+          in: path
+          name: voucherId
+          required: true
+          schema:
+            description: Voucher id
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Voucher"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:vouchers
+      summary: Archive a voucher
+      tags:
+        - vouchers
+  /vouchers/{voucherId}/publish:
+    post:
+      description: Makes a DRAFT voucher redeemable (409 PublishVoucher.NotADraft otherwise). Emits VOUCHER_PUBLISHED. Requires billing to be enabled for the organization.
+      operationId: publishVoucher
+      parameters:
+        - description: Voucher id
+          in: path
+          name: voucherId
+          required: true
+          schema:
+            description: Voucher id
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Voucher"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - write:vouchers
+      summary: Publish a voucher
+      tags:
+        - vouchers
+  /vouchers/{voucherId}/redemptions:
+    get:
+      description: Every redemption of a voucher, newest first. Requires billing to be enabled for the organization.
+      operationId: listVoucherRedemptions
+      parameters:
+        - description: Voucher id
+          in: path
+          name: voucherId
+          required: true
+          schema:
+            description: Voucher id
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Redemption"
+                type: array
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - bearerAuth:
+            - read:vouchers
+      summary: List a voucher's redemptions
+      tags:
+        - vouchers
 security:
   - bearerAuth: []
 servers:
@@ -22134,6 +23541,123 @@ webhooks:
       tags:
         - webhooks
         - instances
+  com.kaiten.instance.voucher.v1.expired:
+    post:
+      description: Triggered when a PRICE redemption has discounted its last invoice.
+      operationId: onInstanceVoucherExpired
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Redemption"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_VOUCHER_EXPIRED
+                  examples:
+                    - INSTANCE_VOUCHER_EXPIRED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.voucher.v1.expired
+                  examples:
+                    - com.kaiten.instance.voucher.v1.expired
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Voucher Expired Webhook
+      tags:
+        - webhooks
+        - vouchers
+  com.kaiten.instance.voucher.v1.redeemed:
+    post:
+      description: Triggered when an instance redeems a voucher.
+      operationId: onInstanceVoucherRedeemed
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Redemption"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_VOUCHER_REDEEMED
+                  examples:
+                    - INSTANCE_VOUCHER_REDEEMED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.voucher.v1.redeemed
+                  examples:
+                    - com.kaiten.instance.voucher.v1.redeemed
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Voucher Redeemed Webhook
+      tags:
+        - webhooks
+        - vouchers
+  com.kaiten.instance.voucher.v1.revoked:
+    post:
+      description: Triggered when a redemption is revoked.
+      operationId: onInstanceVoucherRevoked
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Redemption"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_VOUCHER_REVOKED
+                  examples:
+                    - INSTANCE_VOUCHER_REVOKED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.voucher.v1.revoked
+                  examples:
+                    - com.kaiten.instance.voucher.v1.revoked
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Voucher Revoked Webhook
+      tags:
+        - webhooks
+        - vouchers
   com.kaiten.license.entitlement.v1.assigned:
     post:
       description: Triggered when an entitlement is assigned to a license.
@@ -22992,3 +24516,198 @@ webhooks:
       tags:
         - webhooks
         - releases
+  com.kaiten.voucher.v1.archived:
+    post:
+      description: Triggered when a voucher is archived.
+      operationId: onVoucherArchived
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Voucher"
+                name:
+                  description: Event name
+                  enum:
+                    - VOUCHER_ARCHIVED
+                  examples:
+                    - VOUCHER_ARCHIVED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.voucher.v1.archived
+                  examples:
+                    - com.kaiten.voucher.v1.archived
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Voucher Archived Webhook
+      tags:
+        - webhooks
+        - vouchers
+  com.kaiten.voucher.v1.created:
+    post:
+      description: Triggered when a voucher is created. The code is never in the payload.
+      operationId: onVoucherCreated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Voucher"
+                name:
+                  description: Event name
+                  enum:
+                    - VOUCHER_CREATED
+                  examples:
+                    - VOUCHER_CREATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.voucher.v1.created
+                  examples:
+                    - com.kaiten.voucher.v1.created
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Voucher Created Webhook
+      tags:
+        - webhooks
+        - vouchers
+  com.kaiten.voucher.v1.exhausted:
+    post:
+      description: Triggered by the redemption that reaches maxRedemptions.
+      operationId: onVoucherExhausted
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/ExhaustedEvent"
+                name:
+                  description: Event name
+                  enum:
+                    - VOUCHER_EXHAUSTED
+                  examples:
+                    - VOUCHER_EXHAUSTED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.voucher.v1.exhausted
+                  examples:
+                    - com.kaiten.voucher.v1.exhausted
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Voucher Exhausted Webhook
+      tags:
+        - webhooks
+        - vouchers
+  com.kaiten.voucher.v1.published:
+    post:
+      description: Triggered when a draft voucher becomes redeemable.
+      operationId: onVoucherPublished
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Voucher"
+                name:
+                  description: Event name
+                  enum:
+                    - VOUCHER_PUBLISHED
+                  examples:
+                    - VOUCHER_PUBLISHED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.voucher.v1.published
+                  examples:
+                    - com.kaiten.voucher.v1.published
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Voucher Published Webhook
+      tags:
+        - webhooks
+        - vouchers
+  com.kaiten.voucher.v1.updated:
+    post:
+      description: Triggered when a voucher changes.
+      operationId: onVoucherUpdated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Voucher"
+                name:
+                  description: Event name
+                  enum:
+                    - VOUCHER_UPDATED
+                  examples:
+                    - VOUCHER_UPDATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.voucher.v1.updated
+                  examples:
+                    - com.kaiten.voucher.v1.updated
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Voucher Updated Webhook
+      tags:
+        - webhooks
+        - vouchers

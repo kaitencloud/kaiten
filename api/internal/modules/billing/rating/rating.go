@@ -42,10 +42,11 @@ const (
 type LineType string
 
 const (
-	LineBase    LineType = "BASE"
-	LineAddon   LineType = "ADDON"
-	LineUsage   LineType = "USAGE"
-	LineOverage LineType = "OVERAGE"
+	LineBase     LineType = "BASE"
+	LineAddon    LineType = "ADDON"
+	LineUsage    LineType = "USAGE"
+	LineOverage  LineType = "OVERAGE"
+	LineDiscount LineType = "DISCOUNT"
 )
 
 // typeRank orders lines that share a service start: BASE, add-ons, USAGE,
@@ -228,11 +229,20 @@ func MeteredLines(in Input) ([]InvoiceLine, error) {
 }
 
 // Assemble orders lines by service start, type, the price's display order
-// and its id, numbers them from 1, and totals them. A recompose assembles the
-// lines it kept with the ones it measured again.
+// and its id, numbers them from 1, and totals them. DISCOUNT lines keep their
+// order, after the others. A recompose assembles the lines it kept with the
+// ones it measured again.
 func Assemble(lines []InvoiceLine) (Composition, error) {
-	sort.SliceStable(lines, func(i, j int) bool {
-		a, b := lines[i], lines[j]
+	var priced, discounts []InvoiceLine
+	for _, line := range lines {
+		if line.Type == LineDiscount {
+			discounts = append(discounts, line)
+		} else {
+			priced = append(priced, line)
+		}
+	}
+	sort.SliceStable(priced, func(i, j int) bool {
+		a, b := priced[i], priced[j]
 		if !a.ServiceFrom.Equal(b.ServiceFrom) {
 			return a.ServiceFrom.Before(b.ServiceFrom)
 		}
@@ -245,15 +255,21 @@ func Assemble(lines []InvoiceLine) (Composition, error) {
 		return a.priceKey() < b.priceKey()
 	})
 
-	var subtotal int64
-	for i := range lines {
-		lines[i].Seq = i + 1
-		if lines[i].Amount > math.MaxInt64-subtotal {
+	var subtotal, discountTotal int64
+	for i := range priced {
+		priced[i].Seq = i + 1
+		if priced[i].Amount > math.MaxInt64-subtotal {
 			return Composition{}, ErrAmountOverflow
 		}
-		subtotal += lines[i].Amount
+		subtotal += priced[i].Amount
 	}
-	return Composition{Lines: lines, Subtotal: subtotal, DiscountTotal: 0, Total: subtotal}, nil
+	for i := range discounts {
+		discounts[i].Seq = len(priced) + i + 1
+		discountTotal -= discounts[i].Amount
+	}
+	return Composition{
+		Lines: append(priced, discounts...), Subtotal: subtotal, DiscountTotal: discountTotal, Total: subtotal - discountTotal,
+	}, nil
 }
 
 // appendLine drops a line whose service period would be empty.
@@ -285,6 +301,8 @@ func baseLine(in Input, service Period) (InvoiceLine, error) {
 		AddonPriceID:      nil,
 		AddonID:           nil,
 		InstanceAddonID:   nil,
+		VoucherID:         nil,
+		InstanceVoucherID: nil,
 		EntitlementID:     nil,
 		EntitlementSlug:   nil,
 		Label:             truncate(label),
@@ -296,6 +314,7 @@ func baseLine(in Input, service Period) (InvoiceLine, error) {
 		Amount:            amount,
 		Metering:          nil,
 		Overage:           nil,
+		Discount:          nil,
 		Capped:            false,
 		displayOrder:      in.Base.DisplayOrder,
 	}, nil
@@ -323,6 +342,8 @@ func addonLine(in Input, addon AddonCharge, service Period) (InvoiceLine, error)
 		AddonPriceID:      &price,
 		AddonID:           &addonID,
 		InstanceAddonID:   &attachment,
+		VoucherID:         nil,
+		InstanceVoucherID: nil,
 		EntitlementID:     nil,
 		EntitlementSlug:   nil,
 		Label:             truncate(label),
@@ -334,6 +355,7 @@ func addonLine(in Input, addon AddonCharge, service Period) (InvoiceLine, error)
 		Amount:            amount,
 		Metering:          nil,
 		Overage:           nil,
+		Discount:          nil,
 		Capped:            false,
 		displayOrder:      addon.Price.DisplayOrder,
 	}, nil
@@ -422,6 +444,8 @@ func meteredLine(in Input, price Price) (InvoiceLine, bool, error) {
 		AddonPriceID:      nil,
 		AddonID:           nil,
 		InstanceAddonID:   nil,
+		VoucherID:         nil,
+		InstanceVoucherID: nil,
 		EntitlementID:     &entitlementID,
 		EntitlementSlug:   &entitlementSlug,
 		Label:             truncate(label),
@@ -439,6 +463,7 @@ func meteredLine(in Input, price Price) (InvoiceLine, bool, error) {
 			Ledger:                  measure.Ledger,
 		},
 		Overage:      overage,
+		Discount:     nil,
 		Capped:       measure.Capped,
 		displayOrder: price.DisplayOrder,
 	}, true, nil
