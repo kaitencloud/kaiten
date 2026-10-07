@@ -92,6 +92,16 @@ describe('saving a file', () => {
       expect(anchor?.download).toBe('invoices.csv');
     });
 
+    it('saves a body typed as text as a file as well', async () => {
+      // The generated SDK types the body of a CSV export as a string.
+      await downloadBlob(async () => ({ data: 'id,total\n' }), 'invoices.csv');
+
+      const [blob] = vi.mocked(URL.createObjectURL).mock.calls[0];
+      expect(blob).toBeInstanceOf(Blob);
+      expect(await (blob as Blob).text()).toBe('id,total\n');
+      expect(anchor?.download).toBe('invoices.csv');
+    });
+
     it('falls back to the name it was given', async () => {
       await downloadBlob(async () => ({ data: new Blob(['x']) }), 'invoices.csv');
 
