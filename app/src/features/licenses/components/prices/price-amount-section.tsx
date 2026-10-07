@@ -94,7 +94,7 @@ export const PriceAmountSection = withForm({
                   ? t('Pages.Licenses.Prices.Form.Labels.amountPer', { unit })
                   : t('Pages.Licenses.Prices.Form.Labels.amount')
               }
-              placeholder="0.00"
+              placeholder={t('Pages.Licenses.Prices.Form.Placeholders.amount')}
               required
             />
           )}
