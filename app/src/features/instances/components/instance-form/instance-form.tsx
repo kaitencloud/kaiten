@@ -1,6 +1,6 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
-import { useId, useMemo } from 'react';
+import { useId, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { Customer, DeploymentZone, Instance, License } from '@/api-client';
@@ -14,7 +14,14 @@ import type { MetadataFieldDescriptor } from '@/functionals/metadata-fields';
 import { StackedFormDialogDirtyState } from '@/functionals/stacked-form-dialog';
 import { StepStack, type StepStackOrientation } from '@/functionals/step-stack';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
+import { setProblemFieldError } from '@/domains/billing';
 import { getApiErrorMessage } from '@/lib/errors';
+import {
+  FROZEN_FIELD_STEPS,
+  getChangedFrozenFields,
+  INSTANCE_FROZEN_CODE,
+  readFrozenRefusal,
+} from '../../utils/instance-frozen.utils';
 import {
   initialInstanceFormValues,
   instanceFormSchema,
@@ -23,6 +30,7 @@ import {
   instanceLifecycleStageToPatchBody,
   instanceToFormValues,
 } from '../../utils/instance-form.shared';
+import type { InstanceFormStepsHandle } from './instance-form-frozen-notice';
 import { InstanceFormSteps } from './instance-form-steps';
 import { useInstanceFormMutations } from './use-instance-form-mutations';
 
@@ -83,13 +91,16 @@ const InstanceFormContent = ({
 
   const { createMutation, lifecycleMutation, updateMutation } =
     useInstanceFormMutations(instance);
+  // The submit is on the last step, and a refusal about a field on an earlier
+  // one has to take the person there.
+  const stepsRef = useRef<InstanceFormStepsHandle>(null);
 
   const form = useAppForm({
     defaultValues: getDefaultValues(instance, lockedCustomer),
     validators: {
       onChange: instanceFormSchema,
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: async ({ formApi, value }) => {
       try {
         const nextLifecycleStage = (value.lifecycleStage ?? '').trim();
 
@@ -148,6 +159,23 @@ const InstanceFormContent = ({
           router.navigate({ to: '/customers/instances' });
         }
       } catch (e) {
+        // While the subscription of the instance lives, its customer and license
+        // are frozen: the refusal goes on the field that was changed, with the way
+        // to the subscription, and the person is taken to its step. It keeps the
+        // toast when no frozen field was changed, since there is none to mark.
+        const frozen = instance ? readFrozenRefusal(e) : undefined;
+        const fields =
+          instance && frozen ? getChangedFrozenFields(value, instance) : [];
+        if (frozen && fields.length > 0) {
+          for (const field of fields) {
+            setProblemFieldError(formApi, field, frozen.detail, {
+              code: INSTANCE_FROZEN_CODE,
+            });
+          }
+          stepsRef.current?.goToStep(FROZEN_FIELD_STEPS[fields[0]]);
+
+          return;
+        }
         toast.error(getApiErrorMessage(e));
       }
     },
@@ -171,6 +199,7 @@ const InstanceFormContent = ({
             licenses={licenses}
             lockedCustomer={lockedCustomer}
             metadataFields={metadataFields}
+            stepsRef={stepsRef}
           />
         </StepStack>
       </form.AppForm>

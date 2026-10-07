@@ -8,6 +8,7 @@ import {
   patchInstanceMutation,
   updateInstanceMutation,
 } from '@/api-client/@tanstack/react-query.gen';
+import { readDeletionRefusal } from '@/domains/billing';
 import { startAttioSyncWatcher } from '@/domains/crm-sync';
 import {
   getInstanceStatusLabel,
@@ -36,8 +37,12 @@ export const useInstanceDetailMutations = (
     onSuccess: () => {
       toast.success(t('Pages.Customers.Instances.Mutation.deleteSuccess'));
     },
-    onError: () => {
-      toast.error(t('Common.deleteError', 'Error deleting instance'));
+    // A refusal that says what stands in the way (a subscription that lives, an
+    // invoice not settled) is shown by the page in a dialog, not as a toast.
+    onError: (error) => {
+      if (!readDeletionRefusal(error)) {
+        toast.error(t('Common.deleteError', 'Error deleting instance'));
+      }
     },
   });
 

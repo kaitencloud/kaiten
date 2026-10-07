@@ -25,11 +25,25 @@ const filterListData = <T extends { id: string }>(
  *
  * Handles: cancel queries → snapshot → filter item → rollback on error → invalidate on settle.
  */
-export function optimisticDeleteCallbacks<T extends { id: string }>(
+export function optimisticDeleteCallbacks<
+  T extends { id: string },
+  TVariables = unknown,
+>(
   queryClient: QueryClient,
   queryKey: QueryKey,
   id: string,
   messages: { success: string; error: string },
+  options: {
+    /**
+     * Called with the failure and the variables of the delete, after the list is
+     * put back: true when the caller shows it itself (a dialog that says what
+     * keeps the record), and then there is no toast. The variables name the record
+     * the delete was for, and that is where to read it from: the component that
+     * asked may show another record by the time the API answers, since the row it
+     * is in leaves the list and a row is keyed by its position.
+     */
+    handleError?: (error: unknown, variables: TVariables) => boolean;
+  } = {},
 ) {
   return {
     onMutate: async (): Promise<OptimisticContext> => {
@@ -42,14 +56,16 @@ export function optimisticDeleteCallbacks<T extends { id: string }>(
       return { previousData };
     },
     onError: (
-      _error: unknown,
-      _variables: unknown,
+      error: unknown,
+      variables: TVariables,
       context: OptimisticContext | undefined,
     ) => {
       if (context?.previousData) {
         queryClient.setQueryData(queryKey, context.previousData);
       }
-      toast.error(messages.error);
+      if (!options.handleError?.(error, variables)) {
+        toast.error(messages.error);
+      }
     },
     onSuccess: () => {
       toast.success(messages.success);

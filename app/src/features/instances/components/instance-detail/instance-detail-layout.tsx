@@ -4,6 +4,7 @@ import { Pencil } from 'lucide-react';
 import type { PropsWithChildren } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DestructiveActionButton } from '@/components/destructive-action-button';
+import { useDeletionRefusal } from '@/domains/billing';
 import { DetailEntityLayout } from '@/functionals/detail-entity-layout';
 import { EditableTitle, Page } from '@/functionals/page';
 import { dataModelIcons } from '@/lib/data-model-icons';
@@ -40,6 +41,8 @@ export const InstanceDetailLayout = ({
     updateInstanceStatus,
     isUpdatingStatus,
   } = useInstanceDetail();
+  // An instance that bills cannot be deleted: the dialog says what to settle first.
+  const deletion = useDeletionRefusal(instance.slug ?? instanceId);
 
   const handleRename = async (name: string) => {
     await updateInstance(
@@ -125,7 +128,17 @@ export const InstanceDetailLayout = ({
                 cancelLabel={t('Common.cancel')}
                 confirmLabel={t('Common.confirm')}
                 onConfirm={async () => {
-                  await deleteInstance();
+                  try {
+                    await deleteInstance();
+                  } catch (error) {
+                    // A refusal that says what stands in the way is explained in a
+                    // dialog, and the instance stays; any other failure was
+                    // already shown, and is raised as it was.
+                    if (deletion.showRefusal(error)) {
+                      return;
+                    }
+                    throw error;
+                  }
                   // Leave before reconciling the cache. This route observes the
                   // instance through useSuspenseQuery, so dropping or
                   // revalidating its detail query while still mounted fetches a
@@ -149,6 +162,7 @@ export const InstanceDetailLayout = ({
         <DetailEntityLayout.Tabs activeTab={activeTab} items={items} />
         <DetailEntityLayout.Content>{children}</DetailEntityLayout.Content>
       </DetailEntityLayout.Body>
+      {deletion.dialog}
     </DetailEntityLayout>
   );
 };

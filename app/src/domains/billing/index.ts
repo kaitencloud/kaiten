@@ -41,6 +41,7 @@ export {
   useActionAccess,
   useAlertFocus,
   useCanPerform,
+  useDeletionRefusal,
   useInvoiceActionAccess,
   useUsageReports,
 } from './hooks';
