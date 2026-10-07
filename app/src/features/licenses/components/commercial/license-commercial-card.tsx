@@ -112,7 +112,7 @@ export function LicenseCommercialCard({ license }: LicenseCommercialCardProps) {
           <Field label={t('Pages.Licenses.Commercial.Fields.ctaUrl')}>
             {license.selfServeCtaUrl ? (
               <a
-                className="break-all text-primary underline-offset-4 hover:underline"
+                className="break-all text-primary-subtle-foreground underline-offset-4 hover:underline"
                 href={license.selfServeCtaUrl}
                 rel="noopener noreferrer"
                 target="_blank"
