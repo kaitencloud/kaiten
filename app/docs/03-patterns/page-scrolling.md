@@ -50,7 +50,7 @@ Reasons for the `scroll` layout:
 
 ## Where it is used
 
-Two pages use `layout="scroll"`: the notifications feed and the notification preferences (`app/src/features/notifications/components/`). Most list pages use `<Page className="h-full min-h-0 overflow-hidden">` around a table that scrolls its own body (see [Tables](#tables)) or a native `overflow-auto` container. Detail and form pages vary. Some use a plain `<Page>`, often with `space-y-*`. `DetailEntityLayout` (`app/src/functionals/detail-entity-layout/`) uses `h-full overflow-hidden`; its Content region scrolls while Top and Tabs stay fixed.
+Three pages use `layout="scroll"`: the notifications feed and the notification preferences (`app/src/features/notifications/components/`), and the billing settings (`app/src/features/settings/billing/components/billing-settings-page-content.tsx`), a stack of cards. Most list pages use `<Page className="h-full min-h-0 overflow-hidden">` around a table that scrolls its own body (see [Tables](#tables)) or a native `overflow-auto` container. Detail and form pages vary. Some use a plain `<Page>`, often with `space-y-*`. `DetailEntityLayout` (`app/src/functionals/detail-entity-layout/`) uses `h-full overflow-hidden`; its Content region scrolls while Top and Tabs stay fixed.
 
 Use `layout="scroll"` for a new page with a scrolling body that is not a table.
 
@@ -75,4 +75,4 @@ The pages that list rows in a table are built this way. See [tables](./tables.md
 
 ## Overlays
 
-`ScrollArea` gives a bounded overlay (popover, dropdown, dialog, sheet) the same thin scrollbar. The notification panel does it: `app/src/features/notifications/components/notification-panel.tsx`. Some existing containers use a native `overflow-y-auto` instead; prefer `ScrollArea` for a new scrolling zone.
+`ScrollArea` gives a bounded overlay (popover, dropdown, dialog, sheet) the same thin scrollbar. The notification panel does it: `app/src/features/notifications/components/notification-panel.tsx`. Some existing containers use a native `overflow-y-auto` instead; prefer `ScrollArea` for a new scrolling zone. The exception is a zone that holds a table: a scroll area lets its content grow to its natural width, so the table would stop scrolling inside its own container and push its columns out of a phone's screen. The usage history drawer (`app/src/features/instances/components/instance-detail/tabs/entitlements/usage-history/usage-history-drawer.tsx`) keeps a native container for that reason.
