@@ -11,6 +11,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/exportinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingcapabilities"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillinghealth"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
@@ -24,9 +25,13 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/reactivatesubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/recomposeinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/releaseinvoicehold"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/retryinvoicepush"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/scheduleplanchange"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncing"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncinvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncprovider"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updatebillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updateinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/voidinvoice"
@@ -38,6 +43,11 @@ import (
 // surface as its own one-method interface.
 func registerBilling(core, platform huma.API, app kaiten.Billing, platformApp kaiten.Platform) {
 	getbillingcapabilities.RegisterEndpoint(core, app)
+	getbillinghealth.RegisterEndpoint(core, app)
+	syncprovider.RegisterEndpoint(core, app)
+	syncinvoice.RegisterEndpoint(core, app)
+	retryinvoicepush.RegisterEndpoint(core, app)
+	syncing.RegisterWebhooks(core)
 	getbillingsettings.RegisterEndpoint(core, app)
 	updatebillingsettings.RegisterEndpoint(core, app)
 	subscribeinstance.RegisterEndpoint(core, app)
