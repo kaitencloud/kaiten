@@ -8,6 +8,11 @@ import {
   type SerializedBillingInvoices,
 } from './billing-invoices';
 import { BillingProblem } from './billing-problem';
+import {
+  BillingSubscriptions,
+  type BillingSubscriptionsSeed,
+  type SerializedBillingSubscriptions,
+} from './billing-subscriptions';
 
 export { BillingProblem } from './billing-problem';
 
@@ -51,31 +56,36 @@ export const CAPABILITIES_OUTAGES = {
   hang: { kind: 'hang' },
 } as const satisfies Record<string, CapabilitiesOutage>;
 
-export type BillingAppModelSeed = BillingInvoicesSeed & {
-  /** What `GET /billing/capabilities` answers; billing on with NoOp by default. */
-  capabilities?: BillingCapabilities;
-};
+export type BillingAppModelSeed = BillingInvoicesSeed &
+  BillingSubscriptionsSeed & {
+    /** What `GET /billing/capabilities` answers; billing on with NoOp by default. */
+    capabilities?: BillingCapabilities;
+  };
 
 export type SerializedBillingAppModel = {
   capabilities: BillingCapabilities;
   /** The invoices and their queue; a state stored before they existed has none. */
   invoices?: SerializedBillingInvoices;
   outage: CapabilitiesOutage | null;
+  /** The subscriptions and the billing defaults; a state stored before they existed has none. */
+  subscriptions?: SerializedBillingSubscriptions;
 };
 
 /**
  * Billing as the Core API exposes it to the console: the capabilities every
  * billing screen gates on (whether billing answers at all, who can collect
- * invoices, which parts of the release ship) and the invoices of the
- * organization with their handoff queue. The subscriptions and settings of the
- * screens that follow are added to this model, so that what one screen changes
- * shows on the others.
+ * invoices, which parts of the release ship), the invoices of the organization
+ * with their handoff queue, and the subscriptions of its instances with the
+ * billing defaults. They are one model, so that what one screen changes shows
+ * on the others: a subscribe issues an invoice the list of invoices then shows.
  */
 export class BillingAppModel {
   private capabilities: BillingCapabilities;
   private outage: CapabilitiesOutage | null = null;
   /** The invoices, the handoff queue and the usage behind the metered lines. */
   invoices: BillingInvoices;
+  /** The subscriptions of the instances, what they will issue next and the billing defaults. */
+  subscriptions: BillingSubscriptions;
 
   static fromSerialized(state: SerializedBillingAppModel) {
     const model = new BillingAppModel({ capabilities: state.capabilities });
@@ -83,6 +93,9 @@ export class BillingAppModel {
     if (state.invoices) {
       model.invoices = BillingInvoices.fromSerialized(state.invoices);
     }
+    model.subscriptions = state.subscriptions
+      ? BillingSubscriptions.fromSerialized(model.invoices, state.subscriptions)
+      : new BillingSubscriptions(model.invoices);
     return model;
   }
 
@@ -91,6 +104,7 @@ export class BillingAppModel {
       capabilities: clone(this.capabilities),
       invoices: this.invoices.serialize(),
       outage: clone(this.outage),
+      subscriptions: this.subscriptions.serialize(),
     };
   }
 
@@ -101,6 +115,7 @@ export class BillingAppModel {
       'BillingAppModel seed.capabilities',
     );
     this.invoices = new BillingInvoices(seed);
+    this.subscriptions = new BillingSubscriptions(this.invoices, seed);
   }
 
   /** The body of `GET /billing/capabilities`, or the refusal the model is set to give. */

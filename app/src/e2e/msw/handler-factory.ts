@@ -2,6 +2,7 @@
 import type { DefaultBodyType, PathParams, RequestHandler } from 'msw';
 import { HttpResponse, type HttpResponseResolver, http } from 'msw/http';
 import type { ErrorDetail } from '@/api-client';
+import { BillingProblem } from '../../../e2e/app/_support/model/billing-problem';
 import {
   extractOperationName,
   messageForError,
@@ -67,6 +68,20 @@ export const problemJson = (
     },
   );
 
+/**
+ * The answer to a call a model refused with a problem document (`BillingProblem`):
+ * its status, its code, its field errors and the `Retry-After` it carries.
+ */
+export const billingProblemResponse = (problem: BillingProblem) =>
+  problemJson(problem.httpStatus, problem.message, problem.code, {
+    errorId: problem.errorId,
+    errors: problem.errors,
+    headers:
+      problem.retryAfterSeconds === undefined
+        ? undefined
+        : { 'Retry-After': String(problem.retryAfterSeconds) },
+  });
+
 export const parseRequestJson = async <T>(request: Request): Promise<T> => {
   const body = await request.json();
   return body as T;
@@ -99,6 +114,11 @@ export const withErrorHandling = <
       return result;
     } catch (error) {
       persistError?.();
+      // A refusal the model words as the API does, with its code and its field
+      // errors, which the console shows as the API's own reason.
+      if (error instanceof BillingProblem) {
+        return billingProblemResponse(error);
+      }
       return HttpResponse.json(
         { message: messageForError(error, errorMessage) },
         { status: statusForError(error) },

@@ -2,6 +2,7 @@ import type { DefaultBodyType, PathParams } from 'msw';
 import type { HttpResponseResolver } from 'msw/http';
 import { BillingProblem } from '../../../e2e/app/_support/model/billing-problem';
 import {
+  billingProblemResponse,
   messageForError,
   problemJson,
   statusForError,
@@ -22,14 +23,7 @@ export const withProblems =
       return await handler(info);
     } catch (error) {
       if (error instanceof BillingProblem) {
-        return problemJson(error.httpStatus, error.message, error.code, {
-          errorId: error.errorId,
-          errors: error.errors,
-          headers:
-            error.retryAfterSeconds === undefined
-              ? undefined
-              : { 'Retry-After': String(error.retryAfterSeconds) },
-        });
+        return billingProblemResponse(error);
       }
       return problemJson(
         statusForError(error),

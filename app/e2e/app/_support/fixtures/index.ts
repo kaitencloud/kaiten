@@ -13,3 +13,8 @@ export { buildCustomer, TEST_USER } from './build-customer';
 export { buildDeploymentZone } from './build-deployment-zone';
 export { buildLicense } from './build-license';
 export { buildEntitlement, buildGrant, buildPrice } from './build-pricing';
+export {
+  buildSubscription,
+  buildUpcomingInvoice,
+  PRO_MONTHLY_PRICE,
+} from './build-subscription';
