@@ -10,10 +10,12 @@ import {
   useInstancesWithRelations,
 } from '@/domains/customer-management';
 import { Page } from '@/functionals/page';
+import { useCustomerBilling } from '../../hooks/use-customer-billing';
 import { customerQueryOptions } from '../../queries/customer-query-options';
 import { CustomerDetailHeader } from './customer-detail-header';
 import { CustomerDetailsCard } from './customer-details-card';
 import { CustomerInstancesCard } from './customer-instances-card';
+import { CustomerInvoicesCard } from './customer-invoices-card';
 
 type CustomerDetailPageContentProps = {
   children?: ReactNode;
@@ -38,6 +40,7 @@ export function CustomerDetailPageContent({
     customer.integrations,
   );
   const instancesQuery = useInstancesWithRelations();
+  const { mayReadInvoices } = useCustomerBilling();
 
   const activeInstances = (instancesQuery.data?.instances?.items ?? []).filter(
     (instance) => instance.customer.slug === customerSlug,
@@ -95,6 +98,10 @@ export function CustomerDetailPageContent({
           customerSlug={customerSlug}
           instances={activeInstances}
         />
+
+        {mayReadInvoices ? (
+          <CustomerInvoicesCard customerSlug={customerSlug} />
+        ) : null}
       </Page>
 
       {children}
