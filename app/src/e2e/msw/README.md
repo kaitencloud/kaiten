@@ -8,6 +8,15 @@ operation's handler generated from the OpenAPI contract (`@/api-client/msw.gen`)
 so its path, params and body are typed; GraphQL and the notification stream,
 which the contract does not describe, are written by hand.
 
+Billing is served by three files: `billing-handlers.ts` (the capabilities, and
+the assembly of the invoice handlers; the prices and the preview of a license
+version are the license handlers'), `billing-invoice-handlers.ts` (the invoices,
+their lines' usage reports, the exports and the handoff queue, which read the
+filters, the cursor and the paging of the request as the API does) and `billing-problems.ts`,
+which renders a refusal of the model as `application/problem+json`, with the code,
+the detail, the trace id and `Retry-After` the API would send. The state behind
+them is `BillingInvoices`, in `e2e/app/_support/model/billing-invoices.ts`.
+
 `page-network.ts` runs the same handlers in the page, patching `fetch` and
 `XMLHttpRequest`: the stories use it, and the bootstrap when a browser refuses
 the service worker (the notification stream, an `EventSource`, is then left
