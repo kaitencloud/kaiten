@@ -9,6 +9,9 @@ import {
   createBillingFullModel,
   createBillingOutageModel,
   createBillingStackModel,
+  createEmptyInvoicesModel,
+  createInvoicesModel,
+  createManyInvoicesModel,
 } from '../billing/billing.scenarios';
 import { createDisconnectedAttioModel } from '../connectors/connectors.scenarios';
 import { createDashboardReadModel } from '../dashboard/dashboard.scenarios';
@@ -114,6 +117,17 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     "billing/createBillingOutageModel('hang')",
     () => createBillingOutageModel('hang'),
   ],
+  ['billing/createInvoicesModel', createInvoicesModel],
+  [
+    'billing/createInvoicesModel({ stripe: true })',
+    () => createInvoicesModel({ stripe: true }),
+  ],
+  [
+    "billing/createInvoicesModel({ retentionStart: '2026-04-01T00:00:00.000Z' })",
+    () => createInvoicesModel({ retentionStart: '2026-04-01T00:00:00.000Z' }),
+  ],
+  ['billing/createEmptyInvoicesModel', createEmptyInvoicesModel],
+  ['billing/createManyInvoicesModel', createManyInvoicesModel],
   ['customers/createCustomersListModel', createCustomersListModel],
   ['customers/createEditableCustomerModel', createEditableCustomerModel],
   ['customers/createDeletableCustomerModel', createDeletableCustomerModel],
