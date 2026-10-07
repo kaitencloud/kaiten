@@ -24,6 +24,9 @@ const entitlementSlugs = new Set(
   slot(config.entitlements).entitlements.map(({ slug }) => slug),
 );
 const instanceSlugs = new Set(instanceSlot.instances.map(({ slug }) => slug));
+const customerSlugs = new Set(
+  slot(config.customers).customers?.map(({ slug }) => slug),
+);
 const zoneIds = new Set(releaseManagement.deploymentZones.map(({ id }) => id));
 const releaseIds = new Set(releaseManagement.releases.map(({ id }) => id));
 
@@ -151,6 +154,104 @@ describe('dev world', () => {
     for (const slug of slot(config.licenses).pricing.billedVersions) {
       expect(licenseSlugs).toContain(slug);
     }
+  });
+
+  it('subscribes only instances of the world, to a flat fee of the version they run', () => {
+    const { catalogue, subscriptions } = slot(slot(config.billing).subscriptions);
+    const licenseOfInstance = new Map(
+      catalogue.instances.map(({ instanceSlug, licenseSlug }) => [
+        instanceSlug,
+        licenseSlug,
+      ]),
+    );
+
+    expect(subscriptions.length).toBeGreaterThan(0);
+    for (const subscription of subscriptions) {
+      expect(instanceSlugs).toContain(subscription.instanceSlug);
+      expect(customerSlugs).toContain(subscription.customerSlug);
+      const licenseSlug = licenseOfInstance.get(subscription.instanceSlug) ?? '';
+      const price = catalogue.prices[licenseSlug]?.find(
+        ({ id }) => id === subscription.basePrice.id,
+      );
+      expect(
+        price,
+        `${subscription.instanceSlug} is pinned to a price its version does not have`,
+      ).toBeDefined();
+      expect(price?.billingModel).toBe('FLAT_FEE');
+    }
+  });
+
+  it('keeps a subscription that ended and an instance to subscribe, so that every state of the tab can be tried', () => {
+    const { catalogue, subscriptions, upcoming } = slot(
+      slot(config.billing).subscriptions,
+    );
+    const subscribed = new Set(subscriptions.map(({ instanceSlug }) => instanceSlug));
+
+    expect(subscriptions.map(({ status }) => status)).toEqual(
+      expect.arrayContaining(['ACTIVE', 'CANCELED']),
+    );
+    // One that nobody bills yet, on a version that is on sale and has a price.
+    expect(
+      catalogue.instances.some(
+        ({ instanceSlug, licenseSlug, licenseState }) =>
+          !subscribed.has(instanceSlug) &&
+          licenseState === 'PUBLISHED' &&
+          (catalogue.prices[licenseSlug] ?? []).some(
+            ({ billingModel, status }) =>
+              billingModel === 'FLAT_FEE' && status === 'ACTIVE',
+          ),
+      ),
+    ).toBe(true);
+    // What the next boundary issues is told only of a subscription that lives.
+    for (const slug of Object.keys(upcoming)) {
+      expect(
+        subscriptions.find(({ instanceSlug }) => instanceSlug === slug)?.status,
+      ).toBe('ACTIVE');
+    }
+  });
+
+  it('keeps from deletion what bills, and tells which invoices are not settled', () => {
+    const { billingBlocks } = instanceSlot;
+    const { subscriptions } = slot(slot(config.billing).subscriptions);
+    const subscribed = new Set(subscriptions.map(({ instanceSlug }) => instanceSlug));
+
+    for (const [slug, block] of Object.entries(billingBlocks ?? {})) {
+      expect(subscribed).toContain(slug);
+      expect(['ACTIVE', 'CANCELED', 'TRIAL', 'PAST_DUE']).toContain(block.status);
+    }
+    for (const [slug, block] of Object.entries(
+      slot(config.customers).billingBlocks ?? {},
+    )) {
+      expect(customerSlugs).toContain(slug);
+      expect(block.unpaidInvoiceIds.length > 0 || block.live).toBe(true);
+    }
+  });
+
+  it('keeps a journal of usage only for counters the instances report, more than a page of it for one, inside what is kept', () => {
+    const { retentionStart, usageReports } = slot(instanceSlot.usageHistory);
+    const sizes: number[] = [];
+
+    expect(retentionStart).toBeDefined();
+    for (const [instance, byEntitlement] of Object.entries(usageReports)) {
+      expect(instanceSlugs).toContain(instance);
+      for (const [entitlement, reports] of Object.entries(byEntitlement)) {
+        expect(entitlementSlugs).toContain(entitlement);
+        sizes.push(reports.length);
+        const seqs = reports.map(({ reportSeq }) => reportSeq);
+        expect(seqs).toEqual([...seqs].sort((left, right) => left - right));
+        expect(new Set(seqs).size).toBe(seqs.length);
+      }
+    }
+    expect(Math.max(...sizes)).toBeGreaterThan(100);
+  });
+
+  it('gives a customer a billing e-mail, and leaves another without one', () => {
+    const emails = slot(config.customers).customers?.map(
+      ({ billingEmail }) => billingEmail,
+    );
+
+    expect(emails?.some(Boolean)).toBe(true);
+    expect(emails?.some((email) => !email)).toBe(true);
   });
 
   it('counts on the dashboard what the lists show', () => {
