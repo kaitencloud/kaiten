@@ -509,3 +509,46 @@ test.describe('the billing e-mail of the customer, in the dialog that subscribes
     await expect(billing.started()).toBeVisible();
   });
 });
+
+test.describe('a refusal of the billing e-mail, in the dialog that subscribes', () => {
+  // Its own describe: the customers answer from the model armed here, and the
+  // first model installed for a page is the one that answers.
+  test.beforeEach(async ({ page }) => {
+    await new InstanceBillingDriver(page).freezeTime();
+    await installInstanceAppMocks(page, createBilledInstancesModel());
+  });
+
+  test('shows a refusal of the API under the field, in its own words, and takes the focus the disabled field dropped', async ({
+    page,
+  }) => {
+    const billing = new InstanceBillingDriver(page);
+    const customers = createBillingCustomersModel();
+    customers.armProblem('update', {
+      code: 'UpdateCustomer.InvalidBillingEmail',
+      detail: 'billingEmail must be an address the accounting system accepts',
+      status: 422,
+    });
+    await installCustomerAppMocks(page, customers);
+    await installBillingAppMocks(page, createSubscriptionsModel());
+    await billing.goto('beta-staging');
+    await billing.openSubscribe();
+
+    await billing.billingEmailField().fill('ap@beta.test');
+    await billing.billingEmailField().press('Enter');
+
+    const refusal = billing.billingEmailNotice().getByRole('alert');
+    await expect(refusal).toContainText(
+      'billingEmail must be an address the accounting system accepts',
+    );
+    // The field and the button were disabled while the API answered, and the
+    // keyboard would have landed on nothing: the refusal takes the focus.
+    await expect(refusal).toBeFocused();
+    await expect(billing.billingEmailField()).toHaveValue('ap@beta.test');
+    await expect(billing.started()).toHaveCount(0);
+
+    // Nothing was set, so it can be sent again, and goes through.
+    await billing.billingEmailField().press('Enter');
+
+    await expectToast(page, 'Billing e-mail saved');
+  });
+});

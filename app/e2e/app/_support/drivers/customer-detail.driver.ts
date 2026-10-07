@@ -17,6 +17,40 @@ export class CustomerDetailDriver {
     await expect(this.page.getByText('Customer details')).toBeVisible();
   }
 
+  /** A row of the card of the customer's details by its label: the row, which holds its value. */
+  detailsRow(label: string): Locator {
+    return this.page
+      .locator('main')
+      .locator('div')
+      .filter({ has: this.page.getByText(label, { exact: true }) })
+      .last();
+  }
+
+  /** The card of the invoices of the customer: absent where billing is. */
+  invoicesCard(): Locator {
+    return this.page
+      .locator('[data-slot="card-title"]')
+      .filter({ hasText: /^Invoices$/ })
+      .locator('xpath=ancestor::*[@data-slot="card"][1]')
+      .first();
+  }
+
+  invoicesCount(): Locator {
+    return this.page.getByTestId('customer-invoices-count');
+  }
+
+  invoicesEmpty(): Locator {
+    return this.page.getByTestId('customer-invoices-empty');
+  }
+
+  invoicesError(): Locator {
+    return this.page.getByTestId('customer-invoices-error');
+  }
+
+  loadMoreInvoices(): Locator {
+    return this.invoicesCard().getByRole('button', { name: 'Load more' });
+  }
+
   editButton(): Locator {
     return this.page.getByRole('link', { name: 'Edit', exact: true });
   }

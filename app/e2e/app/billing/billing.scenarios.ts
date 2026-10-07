@@ -16,6 +16,7 @@ import {
 } from '../_support/model/billing-capabilities';
 import {
   ACME_LEGACY_SUBSCRIPTION,
+  ACME_PRODUCTION,
   ACME_PRODUCTION_SUBSCRIPTION,
   acmeInvoices,
   acmeProductionUpcoming,
@@ -424,5 +425,49 @@ export function createSubscriptionsModel() {
     invoices: acmeInvoices(),
     subscriptions: [ACME_PRODUCTION_SUBSCRIPTION, ACME_LEGACY_SUBSCRIPTION],
     upcoming: { 'acme-production': acmeProductionUpcoming() },
+  });
+}
+
+/**
+ * Acme with more invoices than a page holds: sixty settled ones of its
+ * production instance, which the page of the customer reads fifty at a time. The
+ * newest is `inv-acme-bulk-60`.
+ */
+export function createManyAcmeInvoicesModel() {
+  const invoices = Array.from({ length: 60 }, (_, index) => {
+    const number = index + 1;
+    const id = `inv-acme-bulk-${String(number).padStart(2, '0')}`;
+    const boundaryAt = new Date(
+      Date.UTC(2025, 0, 1) + number * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    return buildInvoice({
+      boundaryAt,
+      createdAt: boundaryAt,
+      id,
+      identity: ACME_PRODUCTION,
+      lines: [
+        buildInvoiceLine({
+          amount: 49900,
+          description: '1 × $499.00 per month',
+          invoiceId: id,
+          label: 'Enterprise, monthly',
+          seq: 1,
+          serviceFrom: boundaryAt,
+          serviceTo: new Date(
+            Date.parse(boundaryAt) + 30 * 24 * 60 * 60 * 1000,
+          ).toISOString(),
+          type: 'BASE',
+          unitAmountDecimal: '49900',
+        }),
+      ],
+      paidAt: boundaryAt,
+      status: 'PAID',
+    });
+  });
+
+  return new BillingAppModel({
+    capabilities: billingCapabilitiesProfiles.stack(),
+    invoices,
   });
 }
