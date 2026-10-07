@@ -124,10 +124,18 @@ Everything below is billing's: it appears only where `GET /billing/capabilities`
   - `licenses.read.spec.ts`: a family with the state and the transition of each version, and the Pricing column with and without billing.
   - `licenses.lifecycle.spec.ts`: publish, cancel, archive and unarchive, the withheld archive of the default, the reason the API gives when a version moved, and what the confirmation to publish says with and without billing.
   - `licenses.versions.spec.ts`: a draft version, a published version, a version from the suggested values.
-  - `licenses.prices.spec.ts`: the Prices tab (order, summary, states, where billing is not there), adding a price of each shape and reading the body sent, the meter picker and the overage rules, editing, and deprecating.
+  - `prices.read.spec.ts`: the Prices tab (order, summary, states, the tab beside the overview).
+  - `prices.create.spec.ts`: adding a price of each shape and reading the body sent, the meter picker and the overage rules, the drawer in the URL.
+  - `prices.update.spec.ts`: editing a price of a draft, and what a published version offers instead.
+  - `prices.deprecate.spec.ts`: deprecating a price, after a confirmation that says what it changes.
+  - `prices.unavailable.spec.ts`: where billing is not there, no tab and an explanation on a deep link.
   - `licenses.preview.spec.ts`: the invoice preview, with usage and without, within the allowance and above the cap, refused on a sample and refused otherwise, with several flat fees, on a draft.
   - `licenses.commercial.spec.ts`: the commercial terms, shown, edited, refused before sending and by the API, cleared.
-  - `licenses.billing-active.spec.ts`: a version that cannot be changed any more, the new version that answers it, and a copy of prices that stops halfway and is finished.
+  - `licenses.billing-active.spec.ts`: a version that cannot be changed any more, and the dialog that says what the API said and offers a new version.
+  - `licenses.new-version.spec.ts`: the new version that answers it, with its entitlements and its prices (or without them, when the person declines), and a copy of prices that stops halfway and is finished.
+  - `licenses.grants.spec.ts`: a grant an active price meters, kept with the reason the API gives until the price is deprecated.
+  - `licenses.delete-draft.spec.ts`: a draft deleted with its prices, in the order the API asks for, with its grants and the version left in place when a price cannot be retired.
+  - Beside them, `app/e2e/app/accessibility/accessibility.licenses.spec.ts` (the Prices tab in both themes, the commercial terms and each dialog: no axe violation, the focus held, Escape to close) and `app/e2e/app/mobile/mobile.licenses.spec.ts` (375 px: no sideways scroll, the tables scroll in their container, the dialogs fit).
 
 ## Public API
 
