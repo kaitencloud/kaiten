@@ -5,10 +5,12 @@ export {
 } from './instance-deployment';
 export {
   InstanceDetailAuditTrailTab,
+  InstanceDetailBillingTab,
   InstanceDetailEntitlementsTab,
   InstanceDetailLayout,
   InstanceDetailOverviewTab,
   InstanceDetailProvider,
+  SubscribeInstanceDialog,
   useInstanceDetail,
 } from './instance-detail';
 export { InstanceForm, InstanceFormDialog } from './instance-form';

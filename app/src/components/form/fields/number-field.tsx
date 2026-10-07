@@ -3,6 +3,12 @@ import FormControl from '@/components/form/form-control';
 import { NumberInput } from '@/components/ui/number-input';
 
 type NumberFieldProps = {
+  /**
+   * Keep a number typed outside `min` and `max` and let the schema refuse it with
+   * its own words, instead of changing it to the nearest bound behind the person's
+   * back. The steppers still stop at the bounds.
+   */
+  allowOutOfRange?: boolean;
   className?: string;
   label: string;
   required?: boolean;
@@ -16,6 +22,7 @@ type NumberFieldProps = {
 };
 
 const NumberField = ({
+  allowOutOfRange,
   className,
   label,
   required,
@@ -38,6 +45,7 @@ const NumberField = ({
       {(field) => (
         <FormControl>
           <NumberInput
+            allowOutOfRange={allowOutOfRange}
             value={Number.isFinite(field.value) ? field.value : null}
             min={min}
             max={max}

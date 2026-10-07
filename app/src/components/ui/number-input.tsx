@@ -4,6 +4,12 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 type NumberInputProps = {
+  /**
+   * Keep a value typed outside `min` and `max` instead of clamping it on commit,
+   * so that the form around it can say it is out of range. The steppers still stop
+   * at the bounds.
+   */
+  allowOutOfRange?: boolean;
   className?: string;
   value?: number | null;
   defaultValue?: number;
@@ -24,6 +30,7 @@ type NumberInputProps = {
 };
 
 export function NumberInput({
+  allowOutOfRange,
   className,
   value,
   defaultValue,
@@ -45,6 +52,7 @@ export function NumberInput({
   const inputId = React.useId();
   return (
     <NumberField.Root
+      allowOutOfRange={allowOutOfRange}
       className="w-full"
       id={id ?? inputId}
       value={value}

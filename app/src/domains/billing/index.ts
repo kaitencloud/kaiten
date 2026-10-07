@@ -35,6 +35,7 @@ export {
 export {
   type ActionAccess,
   useActionAccess,
+  useAlertFocus,
   useCanPerform,
   useInvoiceActionAccess,
 } from './hooks';
@@ -117,7 +118,9 @@ export {
   isInvoiceOverdue,
   isKnownHoldReason,
   isKnownInvoiceLineType,
+  isValidDaysUntilDue,
   joinPriceAmount,
+  MAX_DAYS_UNTIL_DUE,
   placeRefusalOnFields,
   readRecomposeRefusal,
   type RecomposeRefusal,

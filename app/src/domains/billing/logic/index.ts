@@ -114,6 +114,7 @@ export {
   PRICE_STATUS_LABEL_KEYS,
   RESET_PERIOD_UNIT_KEYS,
 } from './price-labels';
+export { isValidDaysUntilDue, MAX_DAYS_UNTIL_DUE } from './payment-terms';
 export {
   getPriceAmountParts,
   getPriceLabel,
