@@ -71,6 +71,7 @@ func TestMain(m *testing.M) {
 			cfg.Billing.Push.Interval = 50 * time.Millisecond
 			cfg.Billing.Push.MaxBackoff = 200 * time.Millisecond
 			cfg.Billing.Push.AlertAfterAttempts = 2
+			cfg.Billing.AutoCollectionGrace = 2 * time.Hour
 		},
 		ConnectorEntitlements: entitlements,
 		Stripe:                billingstripe.Options{BaseURL: fake.URL(), HTTPClient: fake.Client()},
