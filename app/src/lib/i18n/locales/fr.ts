@@ -3775,6 +3775,97 @@ export default {
           confirmButton: 'Réinitialiser les paramètres',
         },
       },
+      Billing: {
+        title: 'Facturation',
+        subtitle:
+          'Qui encaisse vos factures, les valeurs par défaut d’un abonnement et la durée de conservation de l’usage.',
+        cardDescription:
+          'Qui encaisse vos factures, les valeurs par défaut d’un abonnement et la durée de conservation de l’usage.',
+        configureButton: 'Ouvrir les réglages de facturation',
+        loading: 'Chargement des réglages de facturation',
+        Providers: {
+          title: 'Fournisseurs de paiement',
+          description: 'Qui encaisse les factures de votre organisation.',
+          available: 'Disponible',
+          connected: 'Connecté',
+          notConnected: 'Non connecté',
+          Noop: {
+            title: 'Transmission manuelle',
+            description:
+              'Rien à connecter. Kaiten enregistre chaque facture et la transmet à votre propre système, comme votre ERP, par la file de transmission ; vous l’encaissez comme aujourd’hui.',
+            handoff: 'Ouvrir la file de transmission',
+          },
+          Stripe: {
+            description:
+              'Encaisse les factures des abonnements qui l’utilisent.',
+          },
+        },
+        Defaults: {
+          title: 'Valeurs par défaut des abonnements',
+          description:
+            'Un abonnement qui ne précise pas ses propres conditions prend celles-ci. Elles s’appliquent aux factures émises à partir de maintenant : une facture déjà émise garde les conditions de son émission.',
+          save: 'Enregistrer les valeurs par défaut',
+          saved: 'Valeurs par défaut de facturation enregistrées',
+          readOnly:
+            'Votre session peut lire ces valeurs par défaut, mais pas les modifier.',
+          Labels: {
+            collectionMethod: 'Mode d’encaissement',
+            daysUntilDue: 'Délai de paiement (jours)',
+            handoffStripeInvoices: 'Transmettre les factures Stripe',
+          },
+          Descriptions: {
+            collectionMethod:
+              'La façon d’encaisser une facture quand son abonnement ne le précise pas.',
+            daysUntilDue:
+              'Nombre de jours entre l’émission d’une facture et son échéance, de 0 à 365.',
+            handoffStripeInvoices:
+              'Place aussi dans la file de transmission les factures émises par un fournisseur de paiement, pour une comptabilité qui veut toutes les factures.',
+          },
+          CollectionMethod: {
+            SEND_INVOICE: 'Envoyer la facture',
+            CHARGE_AUTOMATICALLY: 'Prélever automatiquement',
+            unavailable: '{{method}} (nécessite un fournisseur de paiement)',
+          },
+          Errors: {
+            daysUntilDue: 'Saisissez un nombre entier de jours, de 0 à 365',
+          },
+        },
+        Retention: {
+          title: 'Conservation de l’usage',
+          description:
+            'La durée pendant laquelle les rapports d’usage derrière vos factures sont conservés.',
+          months_one: 'Les rapports d’usage sont conservés {{count}} mois.',
+          months_other: 'Les rapports d’usage sont conservés {{count}} mois.',
+          unlimited:
+            'Aucune limite de durée n’est indiquée pour les rapports d’usage de ce déploiement.',
+          idempotency_one:
+            'Un rapport renvoyé avec le même identifiant de transaction est ignoré pendant {{count}} jour.',
+          idempotency_other:
+            'Un rapport renvoyé avec le même identifiant de transaction est ignoré pendant {{count}} jours.',
+        },
+      },
+      DataExport: {
+        title: 'Exportez vos données',
+        description:
+          'Supprimer une organisation efface ce que la facturation a enregistré pour elle, le journal d’usage compris, et Kaiten n’est pas votre outil de comptabilité. Exportez ce que vous devez conserver avant de le faire.',
+        Invoices: {
+          title: 'Factures',
+          description:
+            'Toutes les factures de l’organisation, avec leurs lignes.',
+        },
+        Usage: {
+          title: 'Rapports d’usage',
+          description_one:
+            'Les rapports de toutes les instances, un fichier par mois. Kaiten conserve {{count}} mois d’usage.',
+          description_other:
+            'Les rapports de toutes les instances, un fichier par mois. Kaiten conserve {{count}} mois d’usage.',
+          descriptionUnknown:
+            'Les rapports de toutes les instances, un fichier par mois. Les {{count}} derniers mois sont listés ; une période plus ancienne s’exporte par l’API.',
+          list: 'Mois d’usage',
+          export: 'Exporter en CSV',
+          exportMonth: 'Exporter l’usage de {{month}} en CSV',
+        },
+      },
       Metadata: {
         title: 'Champs de métadonnées',
         subtitle:
