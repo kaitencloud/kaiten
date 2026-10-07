@@ -5,6 +5,8 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ackhandoff"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/cancelplanchange"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/cancelsubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/claimhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/exportinvoices"
@@ -19,10 +21,14 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoicelinereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/reactivatesubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/recomposeinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/releaseinvoicehold"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/scheduleplanchange"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updatebillingsettings"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updateinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/voidinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/writeoffinvoice"
 )
@@ -37,6 +43,12 @@ func registerBilling(core, platform huma.API, app kaiten.Billing, platformApp ka
 	subscribeinstance.RegisterEndpoint(core, app)
 	subscribeinstance.RegisterWebhook(core)
 	getinstancebilling.RegisterEndpoint(core, app)
+	updateinstancebilling.RegisterEndpoint(core, app)
+	cancelsubscription.RegisterEndpoint(core, app)
+	reactivatesubscription.RegisterEndpoint(core, app)
+	scheduleplanchange.RegisterEndpoint(core, app)
+	cancelplanchange.RegisterEndpoint(core, app)
+	subscriptions.RegisterWebhooks(core)
 	getupcominginvoice.RegisterEndpoint(core, app)
 	listinvoices.RegisterEndpoint(core, app)
 	listinstanceinvoices.RegisterEndpoint(core, app)

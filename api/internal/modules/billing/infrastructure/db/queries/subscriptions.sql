@@ -31,7 +31,7 @@ WHERE c.organization_id = sqlc.arg(organization_id)
 
 
 -- name: GetBillingLicense :one
-SELECT l.id, l.slug, l.name, l.lifecycle_state
+SELECT l.id, l.slug, l.name, l.lifecycle_state, l.trial_period_days
 FROM license l
 WHERE l.organization_id = sqlc.arg(organization_id)
   AND l.id = sqlc.arg(id);
@@ -57,14 +57,14 @@ FOR UPDATE;
 INSERT INTO instance_billing (organization_id, instance_id, customer_id, instance_slug, instance_name,
                               customer_slug, customer_name, status, provider_kind, collection_method,
                               days_until_due, base_license_price_id, billing_period, currency, anchor_at,
-                              started_at, current_period_start, current_period_end, created_by_id,
-                              updated_by_id)
+                              started_at, current_period_start, current_period_end, trial_ends_at,
+                              created_by_id, updated_by_id)
 VALUES (sqlc.arg(organization_id), sqlc.arg(instance_id), sqlc.arg(customer_id), sqlc.arg(instance_slug),
         sqlc.arg(instance_name), sqlc.arg(customer_slug), sqlc.arg(customer_name), sqlc.arg(status),
         sqlc.arg(provider_kind), sqlc.narg(collection_method), sqlc.narg(days_until_due),
         sqlc.arg(base_license_price_id), sqlc.arg(billing_period), sqlc.arg(currency), sqlc.arg(anchor_at),
-        sqlc.arg(anchor_at), sqlc.arg(anchor_at), sqlc.arg(current_period_end), sqlc.arg(user_id),
-        sqlc.arg(user_id))
+        sqlc.arg(anchor_at), sqlc.arg(anchor_at), sqlc.arg(current_period_end), sqlc.narg(trial_ends_at),
+        sqlc.arg(user_id), sqlc.arg(user_id))
 RETURNING *;
 
 
@@ -88,6 +88,7 @@ SET customer_id           = sqlc.arg(customer_id),
     started_at            = sqlc.arg(anchor_at),
     current_period_start  = sqlc.arg(anchor_at),
     current_period_end    = sqlc.arg(current_period_end),
+    trial_ends_at         = sqlc.narg(trial_ends_at),
     cancel_at_period_end  = FALSE,
     cancel_requested_at   = NULL,
     canceled_at           = NULL,

@@ -477,6 +477,7 @@ type InstanceBilling struct {
 	CreatedByID             uuid.UUID             `json:"created_by_id"`
 	UpdatedAt               pgtype.Timestamp      `json:"updated_at"`
 	UpdatedByID             uuid.UUID             `json:"updated_by_id"`
+	TrialEndsAt             pgtype.Timestamp      `json:"trial_ends_at"`
 }
 
 type InstanceInvoice struct {

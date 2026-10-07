@@ -47,6 +47,14 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, priceID uuid.
 		if stored == nil {
 			return kaitenerrors.NotFoundf(operation+".NotFound", "price %s not found on license %q", priceID, licenseSlug)
 		}
+		target, err := queries.PriceIsPlanChangeTarget(ctx, db.PriceIsPlanChangeTargetParams{OrganizationID: user.OrganizationID, PriceID: &priceID})
+		if err != nil {
+			return err
+		}
+		if target {
+			return kaitenerrors.Conflict(operation+".PlanChangeTarget",
+				"a subscription is scheduled to move to this price at its next boundary; cancel the change first")
+		}
 		_, err = queries.DeprecateLicensePrice(ctx, db.DeprecateLicensePriceParams{
 			UserID: user.ID, OrganizationID: user.OrganizationID, LicenseID: version.ID, ID: priceID,
 		})

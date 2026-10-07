@@ -527,3 +527,26 @@ func (q *Queries) LockLicenseFamilyOfLicense(ctx context.Context, arg LockLicens
 	err := row.Scan(&id)
 	return id, err
 }
+
+const setLicenseFamilyPublic = `-- name: SetLicenseFamilyPublic :one
+UPDATE license_family
+SET is_public = $1
+WHERE organization_id = $2
+  AND slug = $3
+RETURNING id
+`
+
+type SetLicenseFamilyPublicParams struct {
+	IsPublic       bool      `json:"is_public"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+// Lists the family in the public catalogue, or takes it out. updated_at is
+// left alone: it says when a version was last added.
+func (q *Queries) SetLicenseFamilyPublic(ctx context.Context, arg SetLicenseFamilyPublicParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, setLicenseFamilyPublic, arg.IsPublic, arg.OrganizationID, arg.Slug)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}

@@ -85,6 +85,15 @@ type Billing struct {
 	// journal has no late reports, so none is needed by default.
 	CloseGrace  time.Duration      `mapstructure:"close_grace" validate:"gte=0"`
 	PeriodClose BillingPeriodClose `mapstructure:"period_close"`
+	Lifecycle   BillingLifecycle   `mapstructure:"lifecycle"`
+}
+
+// BillingLifecycle schedules the pass that moves subscriptions in and out of
+// PAST_DUE as their invoices become overdue or are settled.
+type BillingLifecycle struct {
+	// Interval below 0 disables the pass; settling an invoice still clears
+	// PAST_DUE at once.
+	Interval time.Duration
 }
 
 // BillingPeriodClose schedules the pass that closes the subscriptions whose
@@ -346,6 +355,7 @@ var settings = []struct {
 	{"billing.close_grace", "KAITEN_BILLING_CLOSE_GRACE", "0s", false},
 	{"billing.period_close.interval", "KAITEN_BILLING_PERIOD_CLOSE_INTERVAL", "5m", false},
 	{"billing.period_close.batch_size", "KAITEN_BILLING_CLOSE_BATCH_SIZE", 100, false},
+	{"billing.lifecycle.interval", "KAITEN_BILLING_LIFECYCLE_INTERVAL", "15m", false},
 }
 
 const (
