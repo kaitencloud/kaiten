@@ -64,6 +64,24 @@ describe('RetryableProblem', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
+  it('offers no retry for a period whose usage is no longer kept: asking again changes nothing', () => {
+    render(
+      <RetryableProblem
+        error={apiError(422, {
+          code: 'GetUpcomingInvoice.OutsideRetention',
+          detail: 'the usage of this period is no longer kept',
+          status: 422,
+        })}
+        onRetry={() => {}}
+      />,
+    );
+
+    expect(
+      screen.getByText('the usage of this period is no longer kept'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  });
+
   it('offers no retry to a session that lacks the scope: asking again changes nothing', () => {
     render(
       <RetryableProblem

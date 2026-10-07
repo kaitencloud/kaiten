@@ -5,6 +5,8 @@ export {
 export { InstanceDetailLayout } from './instance-detail-layout';
 export {
   InstanceDetailAuditTrailTab,
+  InstanceDetailBillingTab,
   InstanceDetailEntitlementsTab,
   InstanceDetailOverviewTab,
+  SubscribeInstanceDialog,
 } from './tabs';

@@ -11,7 +11,7 @@ import { instanceDetailsFormValuesToInstanceInput } from '../../utils/instance-f
 import { InstanceStatusEditor } from '../instance-status-editor';
 import { useInstanceDetail } from './instance-detail-context';
 import { InstanceDetailQuickStats } from './instance-detail-quick-stats';
-import { useInstanceDetailTabs } from './instance-detail-tabs';
+import { useInstanceDetailTabs } from './use-instance-detail-tabs';
 
 type InstanceDetailLayoutProps = PropsWithChildren<{
   instanceId: string;

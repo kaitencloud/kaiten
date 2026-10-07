@@ -78,6 +78,7 @@ import { Route as ReleasesNewIndexRouteImport } from './routes/releases/new/inde
 import { Route as BillingInvoicesInvoiceIdIndexRouteImport } from './routes/billing/invoices/$invoiceId/index'
 import { Route as CustomersInstancesInstanceSlugIndexRouteImport } from './routes/customers/instances/$instanceSlug/index'
 import { Route as CustomersInstancesInstanceSlugAuditTrailRouteImport } from './routes/customers/instances/$instanceSlug/audit-trail'
+import { Route as CustomersInstancesInstanceSlugBillingRouteRouteImport } from './routes/customers/instances/$instanceSlug/billing/route'
 import { Route as CustomersInstancesInstanceSlugEditRouteImport } from './routes/customers/instances/$instanceSlug/edit'
 import { Route as CustomersInstancesInstanceSlugEntitlementsRouteImport } from './routes/customers/instances/$instanceSlug/entitlements'
 import { Route as CustomersInstancesNewIndexRouteImport } from './routes/customers/instances/new/index'
@@ -95,6 +96,8 @@ import { Route as ReleasesDeploymentZonesZoneSlugPeersRouteImport } from './rout
 import { Route as ReleasesDeploymentsNewIndexRouteImport } from './routes/releases/deployments/new/index'
 import { Route as BillingInvoicesInvoiceIdLinesLineIdRouteImport } from './routes/billing/invoices/$invoiceId/lines/$lineId'
 import { Route as CustomersCustomerSlugInstancesNewIndexRouteImport } from './routes/customers/$customerSlug/instances/new/index'
+import { Route as CustomersInstancesInstanceSlugBillingIndexRouteImport } from './routes/customers/instances/$instanceSlug/billing/index'
+import { Route as CustomersInstancesInstanceSlugBillingSubscribeRouteImport } from './routes/customers/instances/$instanceSlug/billing/subscribe'
 import { Route as IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRouteImport } from './routes/integrations/service-accounts/$serviceAccountSlug/tokens/new/index'
 
 const IndexRoute = IndexRouteImport.update({
@@ -480,6 +483,12 @@ const CustomersInstancesInstanceSlugAuditTrailRoute =
     path: '/audit-trail',
     getParentRoute: () => CustomersInstancesInstanceSlugRouteRoute,
   } as any)
+const CustomersInstancesInstanceSlugBillingRouteRoute =
+  CustomersInstancesInstanceSlugBillingRouteRouteImport.update({
+    id: '/billing',
+    path: '/billing',
+    getParentRoute: () => CustomersInstancesInstanceSlugRouteRoute,
+  } as any)
 const CustomersInstancesInstanceSlugEditRoute =
   CustomersInstancesInstanceSlugEditRouteImport.update({
     id: '/edit',
@@ -582,6 +591,18 @@ const CustomersCustomerSlugInstancesNewIndexRoute =
     path: '/instances/new/',
     getParentRoute: () => CustomersCustomerSlugRouteRoute,
   } as any)
+const CustomersInstancesInstanceSlugBillingIndexRoute =
+  CustomersInstancesInstanceSlugBillingIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => CustomersInstancesInstanceSlugBillingRouteRoute,
+  } as any)
+const CustomersInstancesInstanceSlugBillingSubscribeRoute =
+  CustomersInstancesInstanceSlugBillingSubscribeRouteImport.update({
+    id: '/subscribe',
+    path: '/subscribe',
+    getParentRoute: () => CustomersInstancesInstanceSlugBillingRouteRoute,
+  } as any)
 const IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute =
   IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRouteImport.update(
     {
@@ -658,6 +679,7 @@ export interface FileRoutesByFullPath {
   '/releases/$releaseSlug/': typeof ReleasesReleaseSlugIndexRoute
   '/releases/deployment-zone/': typeof ReleasesDeploymentZoneIndexRoute
   '/releases/new/': typeof ReleasesNewIndexRoute
+  '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingRouteRouteWithChildren
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
   '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRoute
@@ -677,7 +699,9 @@ export interface FileRoutesByFullPath {
   '/releases/deployment-zones/$zoneSlug/': typeof ReleasesDeploymentZonesZoneSlugIndexRoute
   '/releases/deployments/new/': typeof ReleasesDeploymentsNewIndexRoute
   '/billing/invoices/$invoiceId/lines/$lineId': typeof BillingInvoicesInvoiceIdLinesLineIdRoute
+  '/customers/instances/$instanceSlug/billing/subscribe': typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
   '/customers/$customerSlug/instances/new/': typeof CustomersCustomerSlugInstancesNewIndexRoute
+  '/customers/instances/$instanceSlug/billing/': typeof CustomersInstancesInstanceSlugBillingIndexRoute
   '/integrations/service-accounts/$serviceAccountSlug/tokens/new/': typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute
 }
 export interface FileRoutesByTo {
@@ -750,7 +774,9 @@ export interface FileRoutesByTo {
   '/releases/deployment-zones/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugIndexRoute
   '/releases/deployments/new': typeof ReleasesDeploymentsNewIndexRoute
   '/billing/invoices/$invoiceId/lines/$lineId': typeof BillingInvoicesInvoiceIdLinesLineIdRoute
+  '/customers/instances/$instanceSlug/billing/subscribe': typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
   '/customers/$customerSlug/instances/new': typeof CustomersCustomerSlugInstancesNewIndexRoute
+  '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingIndexRoute
   '/integrations/service-accounts/$serviceAccountSlug/tokens/new': typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute
 }
 export interface FileRoutesById {
@@ -821,6 +847,7 @@ export interface FileRoutesById {
   '/releases/$releaseSlug/': typeof ReleasesReleaseSlugIndexRoute
   '/releases/deployment-zone/': typeof ReleasesDeploymentZoneIndexRoute
   '/releases/new/': typeof ReleasesNewIndexRoute
+  '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingRouteRouteWithChildren
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
   '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRoute
@@ -840,7 +867,9 @@ export interface FileRoutesById {
   '/releases/deployment-zones_/$zoneSlug/': typeof ReleasesDeploymentZonesZoneSlugIndexRoute
   '/releases/deployments/new/': typeof ReleasesDeploymentsNewIndexRoute
   '/billing/invoices/$invoiceId/lines/$lineId': typeof BillingInvoicesInvoiceIdLinesLineIdRoute
+  '/customers/instances/$instanceSlug/billing/subscribe': typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
   '/customers/$customerSlug/instances/new/': typeof CustomersCustomerSlugInstancesNewIndexRoute
+  '/customers/instances/$instanceSlug/billing/': typeof CustomersInstancesInstanceSlugBillingIndexRoute
   '/integrations/service-accounts/$serviceAccountSlug/tokens/new/': typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute
 }
 export interface FileRouteTypes {
@@ -912,6 +941,7 @@ export interface FileRouteTypes {
     | '/releases/$releaseSlug/'
     | '/releases/deployment-zone/'
     | '/releases/new/'
+    | '/customers/instances/$instanceSlug/billing'
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
     | '/customers/instances/$instanceSlug/entitlements'
@@ -931,7 +961,9 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones/$zoneSlug/'
     | '/releases/deployments/new/'
     | '/billing/invoices/$invoiceId/lines/$lineId'
+    | '/customers/instances/$instanceSlug/billing/subscribe'
     | '/customers/$customerSlug/instances/new/'
+    | '/customers/instances/$instanceSlug/billing/'
     | '/integrations/service-accounts/$serviceAccountSlug/tokens/new/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -1004,7 +1036,9 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones/$zoneSlug'
     | '/releases/deployments/new'
     | '/billing/invoices/$invoiceId/lines/$lineId'
+    | '/customers/instances/$instanceSlug/billing/subscribe'
     | '/customers/$customerSlug/instances/new'
+    | '/customers/instances/$instanceSlug/billing'
     | '/integrations/service-accounts/$serviceAccountSlug/tokens/new'
   id:
     | '__root__'
@@ -1074,6 +1108,7 @@ export interface FileRouteTypes {
     | '/releases/$releaseSlug/'
     | '/releases/deployment-zone/'
     | '/releases/new/'
+    | '/customers/instances/$instanceSlug/billing'
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
     | '/customers/instances/$instanceSlug/entitlements'
@@ -1093,7 +1128,9 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones_/$zoneSlug/'
     | '/releases/deployments/new/'
     | '/billing/invoices/$invoiceId/lines/$lineId'
+    | '/customers/instances/$instanceSlug/billing/subscribe'
     | '/customers/$customerSlug/instances/new/'
+    | '/customers/instances/$instanceSlug/billing/'
     | '/integrations/service-accounts/$serviceAccountSlug/tokens/new/'
   fileRoutesById: FileRoutesById
 }
@@ -1611,6 +1648,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomersInstancesInstanceSlugAuditTrailRouteImport
       parentRoute: typeof CustomersInstancesInstanceSlugRouteRoute
     }
+    '/customers/instances/$instanceSlug/billing': {
+      id: '/customers/instances/$instanceSlug/billing'
+      path: '/billing'
+      fullPath: '/customers/instances/$instanceSlug/billing'
+      preLoaderRoute: typeof CustomersInstancesInstanceSlugBillingRouteRouteImport
+      parentRoute: typeof CustomersInstancesInstanceSlugRouteRoute
+    }
     '/customers/instances/$instanceSlug/edit': {
       id: '/customers/instances/$instanceSlug/edit'
       path: '/edit'
@@ -1730,6 +1774,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomersCustomerSlugInstancesNewIndexRouteImport
       parentRoute: typeof CustomersCustomerSlugRouteRoute
     }
+    '/customers/instances/$instanceSlug/billing/': {
+      id: '/customers/instances/$instanceSlug/billing/'
+      path: '/'
+      fullPath: '/customers/instances/$instanceSlug/billing/'
+      preLoaderRoute: typeof CustomersInstancesInstanceSlugBillingIndexRouteImport
+      parentRoute: typeof CustomersInstancesInstanceSlugBillingRouteRoute
+    }
+    '/customers/instances/$instanceSlug/billing/subscribe': {
+      id: '/customers/instances/$instanceSlug/billing/subscribe'
+      path: '/subscribe'
+      fullPath: '/customers/instances/$instanceSlug/billing/subscribe'
+      preLoaderRoute: typeof CustomersInstancesInstanceSlugBillingSubscribeRouteImport
+      parentRoute: typeof CustomersInstancesInstanceSlugBillingRouteRoute
+    }
     '/integrations/service-accounts/$serviceAccountSlug/tokens/new/': {
       id: '/integrations/service-accounts/$serviceAccountSlug/tokens/new/'
       path: '/$serviceAccountSlug/tokens/new'
@@ -1795,7 +1853,26 @@ const CustomersCustomerSlugRouteRouteWithChildren =
     CustomersCustomerSlugRouteRouteChildren,
   )
 
+interface CustomersInstancesInstanceSlugBillingRouteRouteChildren {
+  CustomersInstancesInstanceSlugBillingSubscribeRoute: typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
+  CustomersInstancesInstanceSlugBillingIndexRoute: typeof CustomersInstancesInstanceSlugBillingIndexRoute
+}
+
+const CustomersInstancesInstanceSlugBillingRouteRouteChildren: CustomersInstancesInstanceSlugBillingRouteRouteChildren =
+  {
+    CustomersInstancesInstanceSlugBillingSubscribeRoute:
+      CustomersInstancesInstanceSlugBillingSubscribeRoute,
+    CustomersInstancesInstanceSlugBillingIndexRoute:
+      CustomersInstancesInstanceSlugBillingIndexRoute,
+  }
+
+const CustomersInstancesInstanceSlugBillingRouteRouteWithChildren =
+  CustomersInstancesInstanceSlugBillingRouteRoute._addFileChildren(
+    CustomersInstancesInstanceSlugBillingRouteRouteChildren,
+  )
+
 interface CustomersInstancesInstanceSlugRouteRouteChildren {
+  CustomersInstancesInstanceSlugBillingRouteRoute: typeof CustomersInstancesInstanceSlugBillingRouteRouteWithChildren
   CustomersInstancesInstanceSlugAuditTrailRoute: typeof CustomersInstancesInstanceSlugAuditTrailRoute
   CustomersInstancesInstanceSlugEditRoute: typeof CustomersInstancesInstanceSlugEditRoute
   CustomersInstancesInstanceSlugEntitlementsRoute: typeof CustomersInstancesInstanceSlugEntitlementsRoute
@@ -1804,6 +1881,8 @@ interface CustomersInstancesInstanceSlugRouteRouteChildren {
 
 const CustomersInstancesInstanceSlugRouteRouteChildren: CustomersInstancesInstanceSlugRouteRouteChildren =
   {
+    CustomersInstancesInstanceSlugBillingRouteRoute:
+      CustomersInstancesInstanceSlugBillingRouteRouteWithChildren,
     CustomersInstancesInstanceSlugAuditTrailRoute:
       CustomersInstancesInstanceSlugAuditTrailRoute,
     CustomersInstancesInstanceSlugEditRoute:

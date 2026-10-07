@@ -549,13 +549,141 @@ export default {
         Detail: {
           editName: 'Edit name',
           Billing: {
+            loading: 'Loading billing',
+            NotSubscribed: {
+              title: 'Not subscribed',
+              description:
+                'No subscription bills this instance yet. Subscribe it to a price of its license to start invoicing.',
+            },
             Subscribe: {
               title: 'Subscribe',
+              open: 'Subscribe',
+              dialogTitle: 'Subscribe {{name}}',
+              description:
+                'Pin this instance to a price of its license and start billing it. Invoices are recorded here and handed to your own system.',
+              confirm: 'Subscribe',
+              provider: 'Payment provider',
+              providerHint:
+                'Invoices are recorded here and handed to your ERP. Nothing is collected from the customer.',
+              basePrice: 'Base price',
+              basePriceHint:
+                'The flat fee this subscription is pinned to. Only the active flat fees of the license version are offered.',
+              priceOption: '{{label}} · {{price}} · {{timing}}',
+              daysUntilDue: 'Payment terms (days)',
+              daysUntilDueHint:
+                'Days between issuing an invoice and its due date. Leave empty to use the terms of your organization.',
+              daysUntilDuePlaceholder: 'Organization default: {{days}}',
+              daysUntilDuePlaceholderUnknown: 'Organization default',
+              startAt: 'Billing starts (UTC)',
+              startAtHint:
+                'Leave empty to start now. A contract that began earlier can start up to one billing period back, never in the future.',
+              licenseNotPublished:
+                'This instance runs {{name}} v{{version}} ({{state}}). Only a published license version can be subscribed to.',
+              licenseNotPublishedDialog:
+                '{{name}} v{{version}} is not published, and only a published license version can be subscribed to. Move the instance to a published version first.',
+              noBasePrice:
+                '{{name}} v{{version}} has no active flat fee to subscribe to. Add one on the license first.',
+              Summary: {
+                now: 'The first invoice is issued as soon as the subscription starts.',
+                arrears:
+                  'Nothing is invoiced until the first period closes: the first invoice is issued on {{date}}.',
+                arrearsDue:
+                  'The first period already closed on {{date}}: its invoice is issued shortly after the subscription starts.',
+              },
+              Started: {
+                title: 'Subscription started',
+                period: 'Current period:',
+                activation: 'Activation invoice:',
+                viewInvoice: 'View the invoice',
+                noActivation:
+                  'Nothing is invoiced yet: the first invoice is issued on {{date}}.',
+              },
+              BillingEmail: {
+                title: '{{customer}} has no billing e-mail',
+                description:
+                  'Invoices carry this address for your accounting system. Set it now, or later from the customer page.',
+                label: 'Billing e-mail',
+                placeholder: 'billing@example.com',
+                save: 'Save e-mail',
+                saved: 'Billing e-mail saved',
+              },
+              Errors: {
+                basePrice: 'Choose a base price',
+                daysUntilDue: 'Enter a whole number of days, from 0 to 365',
+                startAt: 'Enter a valid date and time',
+                startAtFuture: 'Billing cannot start in the future',
+                startAtTooEarly:
+                  'Billing cannot start more than one billing period ago',
+              },
+            },
+            Subscription: {
+              title: 'Subscription',
+              description: 'How this instance is billed.',
+              descriptionEnded:
+                'This subscription has ended. Subscribe the instance again to resume billing.',
+              fields: {
+                status: 'Status',
+                pastDueSince: 'Past due since',
+                provider: 'Provider',
+                collection: 'Collection',
+                terms: 'Payment terms',
+                basePrice: 'Base price',
+                currentPeriod: 'Current period',
+                canceledAt: 'Canceled on',
+                cancellationReason: 'Reason',
+                nextBoundary: 'Next boundary',
+                startedAt: 'Started',
+              },
+              collectionMethod: {
+                CHARGE_AUTOMATICALLY: 'Charged automatically',
+                SEND_INVOICE: 'Invoice sent to the customer',
+              },
+              termsSource: {
+                contract: 'This contract',
+                organization: 'Organization default',
+              },
+              daysUntilDue_one: 'Payable within {{count}} day',
+              daysUntilDue_other: 'Payable within {{count}} days',
+              priceLine: '{{price}} · {{timing}}',
+              nextBoundaryHint:
+                'The period ends then and its invoice is composed.',
+            },
+            Upcoming: {
+              title: 'Upcoming invoice',
+              description:
+                'What the next boundary will issue, composed from the usage so far. Nothing is saved or billed.',
+              loading: 'Loading the upcoming invoice',
+              view: 'View the lines',
+              kind: 'Type',
+              issuedAt: 'Issued at',
+              period: 'Service period',
+              lines: 'Lines',
+              lineCount_one: '{{count}} line',
+              lineCount_other: '{{count}} lines',
+              total: 'Total',
+              asOf: 'Composed {{date}} from the usage so far.',
+              dialogTitle: 'Upcoming invoice',
+              dialogDescription:
+                'The invoice the next boundary would issue. It is a preview: nothing is saved, sent or billed.',
+              WouldHold: {
+                title: 'This invoice would be held',
+                description:
+                  'The usage journal of these meters fails a check, and billing does not issue an invoice it cannot vouch for:',
+                item: '{{entitlement}}: {{reason}}.',
+                unknownEntitlement: 'An entitlement',
+                history: 'See its usage history',
+              },
+            },
+            Invoices: {
+              description:
+                'Every invoice of this instance, across the times it was subscribed, newest first.',
+              empty: 'No invoice has been issued for this instance yet.',
             },
           },
           tabs: {
             overview: 'Overview',
             entitlements: 'Entitlements & Usage',
+            billing: 'Billing',
             auditTrail: 'Audit Trail',
           },
           status: {

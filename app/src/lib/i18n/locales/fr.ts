@@ -561,13 +561,142 @@ export default {
         Detail: {
           editName: 'Modifier le nom',
           Billing: {
+            loading: 'Chargement de la facturation',
+            NotSubscribed: {
+              title: 'Non abonnée',
+              description:
+                'Aucun abonnement ne facture encore cette instance. Souscrivez-la à un prix de sa licence pour commencer à facturer.',
+            },
             Subscribe: {
               title: 'Souscrire',
+              open: 'Souscrire',
+              dialogTitle: 'Souscrire un abonnement pour {{name}}',
+              description:
+                'Rattachez cette instance à un prix de sa licence et commencez à la facturer. Les factures sont enregistrées ici puis transmises à votre propre système.',
+              confirm: 'Souscrire',
+              provider: 'Fournisseur de paiement',
+              providerHint:
+                'Les factures sont enregistrées ici puis transmises à votre ERP. Rien n’est encaissé auprès du client.',
+              basePrice: 'Prix de base',
+              basePriceHint:
+                'Le forfait auquel cet abonnement est rattaché. Seuls les forfaits actifs de la version de licence sont proposés.',
+              priceOption: '{{label}} · {{price}} · {{timing}}',
+              daysUntilDue: 'Délai de paiement (jours)',
+              daysUntilDueHint:
+                'Nombre de jours entre l’émission d’une facture et son échéance. Laissez vide pour appliquer le délai de votre organisation.',
+              daysUntilDuePlaceholder: 'Défaut de l’organisation : {{days}}',
+              daysUntilDuePlaceholderUnknown: 'Défaut de l’organisation',
+              startAt: 'Début de la facturation (UTC)',
+              startAtHint:
+                'Laissez vide pour démarrer maintenant. Un contrat commencé plus tôt peut démarrer jusqu’à une période de facturation en arrière, jamais dans le futur.',
+              licenseNotPublished:
+                'Cette instance utilise {{name}} v{{version}} ({{state}}). Seule une version de licence publiée peut faire l’objet d’un abonnement.',
+              licenseNotPublishedDialog:
+                '{{name}} v{{version}} n’est pas publiée, et seule une version de licence publiée peut faire l’objet d’un abonnement. Passez d’abord l’instance sur une version publiée.',
+              noBasePrice:
+                '{{name}} v{{version}} n’a aucun forfait actif auquel souscrire. Ajoutez-en un sur la licence d’abord.',
+              Summary: {
+                now: 'La première facture est émise dès le démarrage de l’abonnement.',
+                arrears:
+                  'Rien n’est facturé avant la clôture de la première période : la première facture est émise le {{date}}.',
+                arrearsDue:
+                  'La première période s’est déjà close le {{date}} : sa facture est émise peu après le démarrage de l’abonnement.',
+              },
+              Started: {
+                title: 'Abonnement démarré',
+                period: 'Période en cours :',
+                activation: 'Facture d’activation :',
+                viewInvoice: 'Voir la facture',
+                noActivation:
+                  'Rien n’est encore facturé : la première facture est émise le {{date}}.',
+              },
+              BillingEmail: {
+                title: '{{customer}} n’a pas d’e-mail de facturation',
+                description:
+                  'Les factures portent cette adresse pour votre comptabilité. Renseignez-la maintenant, ou plus tard depuis la page du client.',
+                label: 'E-mail de facturation',
+                placeholder: 'facturation@exemple.fr',
+                save: 'Enregistrer l’e-mail',
+                saved: 'E-mail de facturation enregistré',
+              },
+              Errors: {
+                basePrice: 'Choisissez un prix de base',
+                daysUntilDue: 'Saisissez un nombre entier de jours, de 0 à 365',
+                startAt: 'Saisissez une date et une heure valides',
+                startAtFuture:
+                  'La facturation ne peut pas démarrer dans le futur',
+                startAtTooEarly:
+                  'La facturation ne peut pas démarrer plus d’une période de facturation en arrière',
+              },
+            },
+            Subscription: {
+              title: 'Abonnement',
+              description: 'La façon dont cette instance est facturée.',
+              descriptionEnded:
+                'Cet abonnement est terminé. Souscrivez à nouveau pour reprendre la facturation de l’instance.',
+              fields: {
+                status: 'Statut',
+                pastDueSince: 'En retard depuis',
+                provider: 'Fournisseur',
+                collection: 'Encaissement',
+                terms: 'Délai de paiement',
+                basePrice: 'Prix de base',
+                currentPeriod: 'Période en cours',
+                canceledAt: 'Annulé le',
+                cancellationReason: 'Motif',
+                nextBoundary: 'Prochaine échéance',
+                startedAt: 'Démarré le',
+              },
+              collectionMethod: {
+                CHARGE_AUTOMATICALLY: 'Prélevé automatiquement',
+                SEND_INVOICE: 'Facture envoyée au client',
+              },
+              termsSource: {
+                contract: 'Ce contrat',
+                organization: 'Défaut de l’organisation',
+              },
+              daysUntilDue_one: 'Payable sous {{count}} jour',
+              daysUntilDue_other: 'Payable sous {{count}} jours',
+              priceLine: '{{price}} · {{timing}}',
+              nextBoundaryHint:
+                'La période se termine alors et sa facture est composée.',
+            },
+            Upcoming: {
+              title: 'Prochaine facture',
+              description:
+                'Ce que la prochaine échéance émettra, composé d’après l’usage à ce jour. Rien n’est enregistré ni facturé.',
+              loading: 'Chargement de la prochaine facture',
+              view: 'Voir les lignes',
+              kind: 'Type',
+              issuedAt: 'Émise le',
+              period: 'Période de service',
+              lines: 'Lignes',
+              lineCount_one: '{{count}} ligne',
+              lineCount_other: '{{count}} lignes',
+              total: 'Total',
+              asOf: 'Composée {{date}} d’après l’usage à ce jour.',
+              dialogTitle: 'Prochaine facture',
+              dialogDescription:
+                'La facture que la prochaine échéance émettrait. C’est un aperçu : rien n’est enregistré, envoyé ni facturé.',
+              WouldHold: {
+                title: 'Cette facture serait bloquée',
+                description:
+                  'Le journal d’usage de ces compteurs échoue à un contrôle, et la facturation n’émet pas une facture dont elle ne peut pas répondre :',
+                item: '{{entitlement}} : {{reason}}.',
+                unknownEntitlement: 'Un droit',
+                history: 'Voir son historique d’usage',
+              },
+            },
+            Invoices: {
+              description:
+                'Toutes les factures de cette instance, sur l’ensemble des périodes où elle a été abonnée, de la plus récente à la plus ancienne.',
+              empty: 'Aucune facture n’a encore été émise pour cette instance.',
             },
           },
           tabs: {
             overview: 'Overview',
             entitlements: 'Entitlements & Usage',
+            billing: 'Facturation',
             auditTrail: 'Journal d’audit',
           },
           status: {
