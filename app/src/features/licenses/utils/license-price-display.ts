@@ -1,7 +1,10 @@
 import type { TFunction } from 'i18next';
 import type { Entitlement, Price } from '@/api-client';
 import { formatUnitAmountDecimal } from '@/lib/money';
-import { BILLING_PERIOD_SUFFIX_KEYS } from './license-price-labels';
+import {
+  BILLING_MODEL_LABEL_KEYS,
+  BILLING_PERIOD_SUFFIX_KEYS,
+} from './license-price-labels';
 import { getPriceUnitLabel } from './license-price.utils';
 
 /** A price as it is read: its amount, and what the amount is for. */
@@ -50,6 +53,26 @@ export function getPriceAmountParts(
       ? t(BILLING_PERIOD_SUFFIX_KEYS[price.billingPeriod])
       : '',
   };
+}
+
+/**
+ * What a price is called on screen: its label, else what it bills, as the API
+ * words the line of an invoice: the entitlement a metered price measures, and a
+ * flat fee by its shape.
+ */
+export function getPriceLabel(
+  price: Pick<Price, 'billingModel' | 'displayLabel' | 'metered'>,
+  entitlement: Pick<Entitlement, 'name'> | undefined,
+  t: TFunction,
+): string {
+  if (price.displayLabel) {
+    return price.displayLabel;
+  }
+  if (price.metered) {
+    return entitlement?.name ?? price.metered.entitlementSlug;
+  }
+
+  return t(BILLING_MODEL_LABEL_KEYS[price.billingModel]);
 }
 
 /** The same as one string: "$29.00/month", "$1.50 per 1k requests". */

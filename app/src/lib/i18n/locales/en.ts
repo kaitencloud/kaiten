@@ -893,6 +893,92 @@ export default {
           usageSum: 'Summed, resets every {{period}}',
           usageCount: 'Counted, resets every {{period}}',
         },
+        Actions: {
+          add: 'Add price',
+          edit: 'Edit',
+          editAria: 'Edit {{label}}',
+          deprecate: 'Deprecate',
+          deprecateAria: 'Deprecate {{label}}',
+        },
+        Drawer: {
+          titleNew: 'New price',
+          titleEdit: 'Edit price',
+          description:
+            '{{name}}, version {{version}}. A price becomes one line of an invoice.',
+          create: 'Create price',
+          update: 'Save price',
+        },
+        Form: {
+          Labels: {
+            model: 'Shape',
+            timing: 'Billing timing',
+            period: 'Billing period',
+            currency: 'Currency',
+            label: 'Label on the invoice',
+            meter: 'Metered entitlement',
+            amount: 'Amount',
+            amountPer: 'Amount per {{unit}}',
+            isDefault: 'Default price of this period',
+          },
+          Descriptions: {
+            modelLocked:
+              'The shape of a price cannot change once it exists. Deprecate it and add another to change it.',
+            timingLocked:
+              'A metered price is always billed in arrears: usage cannot be billed before it happens.',
+            period: 'How often the fee is billed.',
+            currency:
+              'A version bills in one currency, fixed by its first price.',
+            currencyLocked:
+              'This version bills in {{currency}}, fixed by its first price.',
+            label:
+              'The name of the invoice line. Left empty, Kaiten derives one.',
+            amountFlat:
+              'Billed once per period. Type the amount in the currency’s own unit (for example 49.00).',
+            amountUsage:
+              'Applied from the first unit. Type the amount in the currency’s own unit (for example 0.075).',
+            amountOverage:
+              'Applied only to the units above the limit. Type the amount in the currency’s own unit (for example 0.075).',
+            isDefault:
+              'The price the catalogue and the invoice preview use for this billing period. A period has one.',
+          },
+          Placeholders: {
+            currency: 'Select a currency',
+            currencySearch: 'Search a currency',
+            label: 'Pro, monthly',
+          },
+          Meter: {
+            none: 'This version grants no entitlement a price can meter. Grant a counted or summed number that resets, then come back.',
+            stock: 'A stock: it never resets, so it cannot be metered.',
+            stockHint:
+              'A stock, such as seats or storage, is sold as an add-on with a quantity, not metered. Add-ons are not part of this console yet.',
+            overageUnreachable:
+              'Overage cannot occur on this grant: its limit is hard or unlimited.',
+          },
+          livePreview: 'Reads as {{price}}',
+          Errors: {
+            label: 'The label is at most 200 characters.',
+            currency: 'Pick a currency Kaiten supports.',
+            amount:
+              'Enter a valid amount: zero or more, with at most 12 decimals past the currency’s own and 12 digits in its smallest unit.',
+            meter: 'Pick the entitlement this price measures.',
+            period: 'Pick the billing period.',
+          },
+        },
+        Deprecate: {
+          title: 'Deprecate “{{label}}”?',
+          descriptionFlat:
+            'Subscriptions already pinned to this price keep being billed from it. It is no longer offered to new subscriptions, nor as the target of a plan change. This cannot be undone.',
+          descriptionMetered:
+            'This price produces no line from the next invoice on, and it is no longer offered. What it already billed is unchanged. This cannot be undone.',
+          defaultNote:
+            'It is the default price of its period: deprecating it clears the default flag in the same write.',
+          confirm: 'Deprecate',
+        },
+        Toasts: {
+          created: 'Price created',
+          updated: 'Price updated',
+          deprecated: 'Price deprecated',
+        },
         Table: {
           Columns: {
             price: 'Price',
@@ -1046,6 +1132,8 @@ export default {
         title: 'Delete the draft {{name}} v{{version}}?',
         description:
           'The draft and the entitlements it grants are deleted. It was never on sale, so no customer loses it. An instance still on it prevents the deletion.',
+        descriptionBilling:
+          'The draft, its prices and the entitlements it grants are deleted. It was never on sale, so no customer loses it. An instance still on it prevents the deletion.',
         confirm: 'Delete',
         success: 'Draft deleted',
       },

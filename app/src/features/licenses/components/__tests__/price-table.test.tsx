@@ -1,15 +1,44 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
-import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test';
+import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vite-plus/test';
 import { testI18n } from '@/__tests__/test-i18n';
+import type { License, Price } from '@/api-client';
 import en from '@/lib/i18n/locales/en';
 import fr from '@/lib/i18n/locales/fr';
+import { grantedScopesQueryKey } from '@/lib/granted-scopes';
 import {
   buildEntitlement,
   buildGrant,
   buildLicense,
   buildPrice,
 } from '../../../../../e2e/app/_support/fixtures';
+import { getPriceRules } from '../../utils/license-price.utils';
 import { PriceTable } from '../prices/price-table';
+
+// A link is only an anchor here: where it leads is what the tests read.
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    children,
+    params,
+    search,
+    to,
+    ...props
+  }: {
+    children: ReactNode;
+    params: { licenseSlug: string };
+    search: { price: string };
+    to: string;
+  }) => (
+    <a
+      {...props}
+      href={`${to.replace('$licenseSlug', params.licenseSlug)}?price=${search.price}`}
+    >
+      {children}
+    </a>
+  ),
+}));
 
 beforeAll(async () => {
   testI18n.addResourceBundle('en', 'translation', en, true, true);
@@ -68,21 +97,48 @@ const PRICES = [
   }),
 ];
 
-const renderTable = (prices = PRICES) =>
-  render(
-    <PriceTable
-      entitlementBySlug={new Map([['traces', traces]])}
-      grantBySlug={
-        new Map([
-          [
-            'traces',
-            buildGrant({ entitlement: traces, license, overagePercent: 100, value: 100_000 }),
-          ],
-        ])
-      }
-      prices={prices}
-    />,
+type RenderOptions = {
+  onDeprecate?: (price: Price) => void;
+  prices?: Price[];
+  /** `null`: the token says nothing of scopes, so every action is offered. */
+  scopes?: string[] | null;
+  state?: NonNullable<License['lifecycleState']>;
+};
+
+const renderTable = ({
+  onDeprecate = () => undefined,
+  prices = PRICES,
+  scopes = null,
+  state = 'PUBLISHED',
+}: RenderOptions = {}) => {
+  const queryClient = new QueryClient();
+  queryClient.setQueryData(grantedScopesQueryKey, scopes);
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <PriceTable
+        entitlementBySlug={new Map([['traces', traces]])}
+        grantBySlug={
+          new Map([
+            [
+              'traces',
+              buildGrant({
+                entitlement: traces,
+                license,
+                overagePercent: 100,
+                value: 100_000,
+              }),
+            ],
+          ])
+        }
+        licenseSlug="pro-v2"
+        onDeprecate={onDeprecate}
+        prices={prices}
+        rules={getPriceRules({ lifecycleState: state })}
+      />
+    </QueryClientProvider>,
   );
+};
 
 const rowOf = (name: string) =>
   screen
@@ -136,9 +192,68 @@ describe('PriceTable', () => {
   });
 
   it('says so when the version has no price', () => {
-    renderTable([]);
+    renderTable({ prices: [] });
 
     expect(screen.getByText('This version has no price yet.')).toBeInTheDocument();
+  });
+
+  describe('actions', () => {
+    it('offers to deprecate an active price of a published version, and nothing else', () => {
+      renderTable();
+
+      const row = within(rowOf('Pro, monthly'));
+      expect(
+        row.getByRole('button', { name: 'Deprecate Pro, monthly' }),
+      ).toBeInTheDocument();
+      expect(row.queryByRole('link', { name: /Edit/ })).toBeNull();
+    });
+
+    it('offers no action on a deprecated price', () => {
+      renderTable();
+
+      const row = within(rowOf('Pro, annual'));
+      expect(row.queryByRole('button')).toBeNull();
+      expect(row.queryByRole('link')).toBeNull();
+    });
+
+    it('lets the price of a draft be edited, by a link the drawer opens from', () => {
+      renderTable({ state: 'DRAFT' });
+
+      const link = within(rowOf('Pro, monthly')).getByRole('link', {
+        name: 'Edit Pro, monthly',
+      });
+      expect(link).toHaveAttribute('href', '/licenses/pro-v2/prices?price=p-base');
+    });
+
+    it('offers neither edit nor deprecation on an archived version, but the deprecation of an active price', () => {
+      renderTable({ state: 'ARCHIVED' });
+
+      const row = within(rowOf('Traces, overage'));
+      expect(row.queryByRole('link')).toBeNull();
+      expect(
+        row.getByRole('button', { name: 'Deprecate Traces, overage' }),
+      ).toBeInTheDocument();
+    });
+
+    it('hands the price to deprecate to the page', async () => {
+      const onDeprecate = vi.fn();
+      renderTable({ onDeprecate });
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Deprecate Traces, overage' }),
+      );
+
+      expect(onDeprecate).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'p-over' }),
+      );
+    });
+
+    it('shows no action to a session that may only read licenses', () => {
+      renderTable({ scopes: ['read:licenses'], state: 'DRAFT' });
+
+      expect(screen.queryByRole('button', { name: /Deprecate/ })).toBeNull();
+      expect(screen.queryByRole('link', { name: /Edit/ })).toBeNull();
+    });
   });
 
   it('reads in French', async () => {

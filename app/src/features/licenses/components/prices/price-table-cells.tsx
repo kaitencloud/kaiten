@@ -9,9 +9,9 @@ import {
   BILLING_TIMING_LABEL_KEYS,
   PRICE_STATUS_LABEL_KEYS,
 } from '../../utils/license-price-labels';
+import { getPriceLabel } from '../../utils/license-price-display';
 import { describeMeter } from '../../utils/license-price-meter';
 import { isMeteredModel } from '../../utils/license-price.utils';
-import { PriceAmount } from './price-amount';
 
 // A price with no label of its own is shown under what it bills, as the API
 // words the line of an invoice: the meter's name, "Traces, overage" for an
@@ -24,11 +24,7 @@ export function PriceLabelCell({
   price: Price;
 }) {
   const { t } = useTranslation();
-  const label =
-    price.displayLabel ||
-    (price.metered
-      ? (entitlement?.name ?? price.metered.entitlementSlug)
-      : t(BILLING_MODEL_LABEL_KEYS[price.billingModel]));
+  const label = getPriceLabel(price, entitlement, t);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -79,16 +75,6 @@ export function PriceMeterCell({
       </p>
     </div>
   );
-}
-
-export function PriceAmountCell({
-  entitlement,
-  price,
-}: {
-  entitlement?: Entitlement;
-  price: Price;
-}) {
-  return <PriceAmount entitlement={entitlement} price={price} />;
 }
 
 // A flat fee is billed for a period, in advance unless it says otherwise; a

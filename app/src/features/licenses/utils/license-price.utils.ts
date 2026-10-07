@@ -132,6 +132,24 @@ export function getPriceUnitLabel(
   }`;
 }
 
+/**
+ * What a price created on `entitlement` would capture of it: the sale unit it
+ * names, or one base unit when it names none. The API captures it once, when the
+ * price is created, and never reads it again.
+ */
+export function meterOfEntitlement(
+  entitlement: Pick<
+    Entitlement,
+    'saleUnitFactor' | 'saleUnitSingular' | 'slug' | 'id'
+  >,
+): PriceMeter {
+  return {
+    entitlementSlug: entitlement.slug ?? entitlement.id,
+    saleUnitFactor: String(entitlement.saleUnitFactor ?? 1),
+    saleUnitSingular: entitlement.saleUnitSingular,
+  };
+}
+
 // --- What a price may meter --------------------------------------------------
 
 export type ResetPeriod = NonNullable<Entitlement['resetPeriod']>;

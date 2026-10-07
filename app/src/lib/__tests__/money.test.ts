@@ -174,6 +174,19 @@ describe('majorToMinorDecimal', () => {
     expect(majorToMinorDecimal('0.0000000000001', 'JPY')).toBeNull();
   });
 
+  it('accepts as many digits before the point as the API does, in minor units, and no more', () => {
+    // 12 digits of cents is 10 of dollars, and 12 of yen.
+    expect(majorToMinorDecimal('9999999999.99', 'USD')).toBe('999999999999');
+    expect(majorToMinorDecimal('10000000000', 'USD')).toBeNull();
+    expect(majorToMinorDecimal('99999999999.99', 'USD')).toBeNull();
+    expect(majorToMinorDecimal('999999999999', 'JPY')).toBe('999999999999');
+    expect(majorToMinorDecimal('1000000000000', 'JPY')).toBeNull();
+    // The digits after the point do not count against the ones before it.
+    expect(majorToMinorDecimal('9999999999.9999999', 'USD')).toBe(
+      '999999999999.99999',
+    );
+  });
+
   it.each(['', '.', 'abc', '-1', '1.2.3', '1e3', '$5', ' '])(
     'refuses %j',
     (input) => {

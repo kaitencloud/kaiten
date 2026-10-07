@@ -1,9 +1,16 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Entitlement, LicenseEntitlement, Price } from '@/api-client';
-import { type ColumnDef, DataTable } from '@/functionals/table';
 import {
-  PriceAmountCell,
+  type ColumnDef,
+  createActionsColumn,
+  DataTable,
+} from '@/functionals/table';
+import { getPriceLabel } from '../../utils/license-price-display';
+import type { PriceRules } from '../../utils/license-price.utils';
+import { PriceAmount } from './price-amount';
+import { PriceRowActions } from './price-row-actions';
+import {
   PriceBilledCell,
   PriceLabelCell,
   PriceMeterCell,
@@ -14,8 +21,11 @@ import {
 type PriceTableProps = {
   entitlementBySlug: ReadonlyMap<string, Entitlement>;
   grantBySlug: ReadonlyMap<string, LicenseEntitlement>;
+  licenseSlug: string;
+  onDeprecate: (price: Price) => void;
   /** The prices of the version, in display order. */
   prices: Price[];
+  rules: PriceRules;
 };
 
 const entitlementOf = (
@@ -26,19 +36,21 @@ const entitlementOf = (
     ? entitlementBySlug.get(price.metered.entitlementSlug)
     : undefined;
 
-/**
- * The prices of a license version, in the order the API gives them: display
- * order, then id. A deprecated price stays in the list, dimmed, with the day it
- * was retired, since subscriptions pinned to it keep being billed from it.
- */
-export function PriceTable({
+type PriceColumnsOptions = Omit<PriceTableProps, 'prices'>;
+
+// What the table says of a price, a column each: what it is called, its shape,
+// what it meters, what it charges, how it is billed, its status, and what can be
+// done to it.
+function usePriceColumns({
   entitlementBySlug,
   grantBySlug,
-  prices,
-}: PriceTableProps) {
+  licenseSlug,
+  onDeprecate,
+  rules,
+}: PriceColumnsOptions) {
   const { t } = useTranslation();
 
-  const columns = useMemo<ColumnDef<Price>[]>(
+  return useMemo<ColumnDef<Price>[]>(
     () => [
       {
         id: 'label',
@@ -78,7 +90,7 @@ export function PriceTable({
         enableSorting: false,
         header: t('Pages.Licenses.Prices.Table.Columns.amount'),
         cell: ({ row }) => (
-          <PriceAmountCell
+          <PriceAmount
             entitlement={entitlementOf(row.original, entitlementBySlug)}
             price={row.original}
           />
@@ -96,9 +108,32 @@ export function PriceTable({
         header: t('Pages.Licenses.Prices.Table.Columns.status'),
         cell: ({ row }) => <PriceStatusCell price={row.original} />,
       },
+      createActionsColumn<Price>((price) => (
+        <PriceRowActions
+          label={getPriceLabel(
+            price,
+            entitlementOf(price, entitlementBySlug),
+            t,
+          )}
+          licenseSlug={licenseSlug}
+          onDeprecate={onDeprecate}
+          price={price}
+          rules={rules}
+        />
+      )),
     ],
-    [entitlementBySlug, grantBySlug, t],
+    [entitlementBySlug, grantBySlug, licenseSlug, onDeprecate, rules, t],
   );
+}
+
+/**
+ * The prices of a license version, in the order the API gives them: display
+ * order, then id. A deprecated price stays in the list, dimmed, with the day it
+ * was retired, since subscriptions pinned to it keep being billed from it.
+ */
+export function PriceTable({ prices, ...columnOptions }: PriceTableProps) {
+  const { t } = useTranslation();
+  const columns = usePriceColumns(columnOptions);
 
   return (
     <DataTable
