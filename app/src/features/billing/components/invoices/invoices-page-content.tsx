@@ -1,9 +1,13 @@
 import { useTranslation } from 'react-i18next';
-import { useBillingCapabilities, useCanPerform } from '@/domains/billing';
+import {
+  ExportInvoicesMenu,
+  useBillingCapabilities,
+  useCanPerform,
+} from '@/domains/billing';
 import { Page } from '@/functionals/page';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import type { InvoiceFilters } from '../../schemas/invoice-filters.schema';
-import { ExportInvoicesMenu } from './export-invoices-menu';
+import { invoiceFiltersToQuery } from '../../utils/invoice-filters';
 import { InvoiceFiltersToolbar } from './invoice-filters-toolbar';
 import { InvoicesList } from './invoices-list';
 
@@ -51,7 +55,9 @@ export function InvoicesPageContent({
           </Page.Heading>
         </Page.Leading>
         <Page.Actions>
-          {canExport ? <ExportInvoicesMenu filters={filters} /> : null}
+          {canExport ? (
+            <ExportInvoicesMenu filters={invoiceFiltersToQuery(filters)} />
+          ) : null}
         </Page.Actions>
       </Page.Header>
       <InvoiceFiltersToolbar
