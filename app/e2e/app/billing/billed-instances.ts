@@ -29,7 +29,7 @@ const ACME = { name: 'Acme Corp', slug: 'acme-corp' } as const;
 const BETA = { name: 'Beta Industries', slug: 'beta-industries' } as const;
 
 export const ACME_PRODUCTION_ID = 'instance-acme-production';
-export const API_CALLS_ID = '8a1d4c3e-7b52-4a8c-b1f0-6e2d9c4a7f33';
+export const CALLS_ENTITLEMENT_ID = '8a1d4c3e-7b52-4a8c-b1f0-6e2d9c4a7f33';
 export const ENTERPRISE_LICENSE_ID = 'license-enterprise';
 export const STARTER_LICENSE_ID = 'license-starter';
 export const PREVIEW_LICENSE_ID = 'license-preview';
@@ -171,7 +171,7 @@ export function acmeProductionUpcoming() {
       buildInvoiceLine({
         amount: 420,
         description: '4,200 × $0.001 per call',
-        entitlementId: API_CALLS_ID,
+        entitlementId: CALLS_ENTITLEMENT_ID,
         entitlementSlug: 'api-calls',
         invoiceId: 'upcoming',
         label: 'API calls, overage',
@@ -199,7 +199,7 @@ export function acmeProductionUpcoming() {
     subtotal: 50320,
     total: 50320,
     wouldHold: [
-      { entitlementId: API_CALLS_ID, invariant: 'LEDGER_SEQUENCE_GAP' },
+      { entitlementId: CALLS_ENTITLEMENT_ID, invariant: 'LEDGER_SEQUENCE_GAP' },
     ],
   });
 }
@@ -302,7 +302,7 @@ export function acmeProductionUsageReports(): UsageReport[] {
 
     return buildUsageReport({
       delta: '100',
-      entitlementId: API_CALLS_ID,
+      entitlementId: CALLS_ENTITLEMENT_ID,
       limitValue: seq < 60 ? '100000' : '150000',
       overageDelta: '0',
       properties:

@@ -13,7 +13,7 @@ import { InstanceAppModel } from '../_support/model/instance-app-model';
 import {
   ACME_LEGACY_OPEN_INVOICE_ID,
   acmeProductionUsageReports,
-  API_CALLS_ID,
+  CALLS_ENTITLEMENT_ID,
   ENTERPRISE_LICENSE_ID,
   PREVIEW_LICENSE_ID,
   RETENTION_START,
@@ -527,7 +527,7 @@ export function createBilledInstancesModel() {
     entitlementUsagesByInstance: {
       'acme-production': [
         buildCountUsage({
-          entitlementId: API_CALLS_ID,
+          entitlementId: CALLS_ENTITLEMENT_ID,
           entitlementSlug: 'api-calls',
           licenseId: enterprise.id,
           licenseSlug: 'enterprise',
