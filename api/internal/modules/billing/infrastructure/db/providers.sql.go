@@ -649,6 +649,31 @@ func (q *Queries) CountAutomaticCollection(ctx context.Context, arg CountAutomat
 	return subscriptions, err
 }
 
+const countOpenProviderInvoicesOfCustomer = `-- name: CountOpenProviderInvoicesOfCustomer :one
+SELECT count(*)::bigint
+FROM instance_invoice
+WHERE organization_id = $1
+  AND provider_kind = $2
+  AND external_customer_id = $3::text
+  AND status IN ('DRAFT', 'PUSH_FAILED', 'PUSHED', 'PAYMENT_FAILED')
+`
+
+type CountOpenProviderInvoicesOfCustomerParams struct {
+	OrganizationID     uuid.UUID           `json:"organization_id"`
+	ProviderKind       BillingProviderKind `json:"provider_kind"`
+	ExternalCustomerID string              `json:"external_customer_id"`
+}
+
+// Invoices that still reference a provider customer: in push with its id, or
+// issued there and unsettled. While any does, a customer deleted in the
+// provider is not re-created (§12.1 rule 6).
+func (q *Queries) CountOpenProviderInvoicesOfCustomer(ctx context.Context, arg CountOpenProviderInvoicesOfCustomerParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOpenProviderInvoicesOfCustomer, arg.OrganizationID, arg.ProviderKind, arg.ExternalCustomerID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countProviderRouting = `-- name: CountProviderRouting :one
 SELECT
   (SELECT count(*) FROM instance_billing ib
@@ -2150,7 +2175,23 @@ ON CONFLICT (customer_id, provider_kind) DO UPDATE
       web_url              = EXCLUDED.web_url,
       synced_at            = EXCLUDED.synced_at,
       last_error           = NULL,
-      updated_at           = CURRENT_TIMESTAMP
+      updated_at           = CURRENT_TIMESTAMP,
+      -- A customer re-created in the provider has none of the old one's
+      -- payment methods.
+      default_payment_method_id  = CASE WHEN customer_billing.external_customer_id = EXCLUDED.external_customer_id
+                                        THEN customer_billing.default_payment_method_id END,
+      payment_method_brand       = CASE WHEN customer_billing.external_customer_id = EXCLUDED.external_customer_id
+                                        THEN customer_billing.payment_method_brand END,
+      payment_method_last4       = CASE WHEN customer_billing.external_customer_id = EXCLUDED.external_customer_id
+                                        THEN customer_billing.payment_method_last4 END,
+      payment_method_exp_month   = CASE WHEN customer_billing.external_customer_id = EXCLUDED.external_customer_id
+                                        THEN customer_billing.payment_method_exp_month END,
+      payment_method_exp_year    = CASE WHEN customer_billing.external_customer_id = EXCLUDED.external_customer_id
+                                        THEN customer_billing.payment_method_exp_year END,
+      payment_method_attached_at = CASE WHEN customer_billing.external_customer_id = EXCLUDED.external_customer_id
+                                        THEN customer_billing.payment_method_attached_at END,
+      payment_method_status      = CASE WHEN customer_billing.external_customer_id = EXCLUDED.external_customer_id
+                                        THEN customer_billing.payment_method_status ELSE 'NONE' END
 `
 
 type UpsertCustomerBillingParams struct {
