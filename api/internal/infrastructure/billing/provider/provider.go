@@ -301,9 +301,11 @@ type Invoice struct {
 	HostedURL          string
 	PDFURL             string
 	FinalizedAt        *time.Time
-	PaidAt             *time.Time
-	UncollectibleAt    *time.Time
-	VoidedAt           *time.Time
+	// DueAt is the provider's due date, once it has one (§12.4 rule 4).
+	DueAt           *time.Time
+	PaidAt          *time.Time
+	UncollectibleAt *time.Time
+	VoidedAt        *time.Time
 	// AttemptCount counts the provider's collection attempts;
 	// LastPaymentError is the latest one's failure code.
 	AttemptCount     int
