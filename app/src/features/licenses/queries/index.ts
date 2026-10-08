@@ -11,3 +11,8 @@ export {
   licensesWithInstancesBaseQueryKey,
   licensesWithInstancesQueryOptions,
 } from './license-query-options';
+export {
+  type PlanChangeInstance,
+  planChangeInstancesBaseQueryKey,
+  planChangeInstancesQueryOptions,
+} from './plan-change-instances';
