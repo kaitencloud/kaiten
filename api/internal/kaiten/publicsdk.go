@@ -5,12 +5,18 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/completepaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createpaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createportalsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatepublishablekey"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/completesessionpaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createpublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessioncheckout"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionpaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionportalsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listpublishablekeys"
@@ -97,6 +103,33 @@ func (p PublicSDK) RevokeCustomerSession(ctx context.Context, cl caller.Organiza
 		return err
 	}
 	return p.uc.RevokeCustomerSession.Execute(bindOrganization(ctx, cl), sessionID)
+}
+
+// CreateSessionPaymentMethodSession, CompleteSessionPaymentMethodSession and
+// CreateSessionPortalSession act on the session's customer, from the caller,
+// never from the request; return URLs are held to the session's origins.
+func (p PublicSDK) CreateSessionPaymentMethodSession(ctx context.Context, cl caller.CustomerSessionCaller,
+	request createsessionpaymentmethodsession.NewSessionPaymentMethodSession,
+) (*createpaymentmethodsession.PaymentMethodSession, error) {
+	return p.uc.CreateSessionPaymentMethodSession.Execute(bindCustomerSession(ctx, cl), createsessionpaymentmethodsession.Session{
+		CustomerSlug: cl.CustomerSlug(), AllowedOrigins: cl.AllowedOrigins(),
+	}, request)
+}
+
+func (p PublicSDK) CompleteSessionPaymentMethodSession(ctx context.Context, cl caller.CustomerSessionCaller,
+	setupSessionID string,
+) (*completepaymentmethodsession.CompletedPaymentMethodSession, error) {
+	return p.uc.CompleteSessionPaymentMethodSession.Execute(bindCustomerSession(ctx, cl), completesessionpaymentmethodsession.Session{
+		CustomerSlug: cl.CustomerSlug(),
+	}, setupSessionID)
+}
+
+func (p PublicSDK) CreateSessionPortalSession(ctx context.Context, cl caller.CustomerSessionCaller,
+	request createsessionportalsession.NewSessionPortalSession,
+) (*createportalsession.PortalSession, error) {
+	return p.uc.CreateSessionPortalSession.Execute(bindCustomerSession(ctx, cl), createsessionportalsession.Session{
+		CustomerSlug: cl.CustomerSlug(), AllowedOrigins: cl.AllowedOrigins(),
+	}, request)
 }
 
 // CreateSessionCheckout and ListSessionInvoices take a customer session caller,

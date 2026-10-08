@@ -11,9 +11,12 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatepublishablekey"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/completesessionpaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createpublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessioncheckout"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionpaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionportalsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listpublishablekeys"
@@ -46,6 +49,10 @@ type UseCases struct {
 
 	CreateSessionCheckout *createsessioncheckout.UseCase
 	ListSessionInvoices   *listsessioninvoices.UseCase
+
+	CreateSessionPaymentMethodSession   *createsessionpaymentmethodsession.UseCase
+	CompleteSessionPaymentMethodSession *completesessionpaymentmethodsession.UseCase
+	CreateSessionPortalSession          *createsessionportalsession.UseCase
 }
 
 // Ports are the other modules' operations the session routes run: a checkout
@@ -59,6 +66,7 @@ type Ports struct {
 	Invoices        createsessioncheckout.InvoiceReader
 	BillingEmails   createsessioncheckout.BillingEmailSetter
 	SessionInvoices listsessioninvoices.Invoices
+	OpenPortal      createsessionportalsession.Opener
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -85,5 +93,9 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 			Invoices: from.Invoices, BillingEmails: from.BillingEmails,
 		}),
 		ListSessionInvoices: listsessioninvoices.NewUseCase(from.SessionInvoices),
+
+		CreateSessionPaymentMethodSession:   createsessionpaymentmethodsession.NewUseCase(from.OpenSetup),
+		CompleteSessionPaymentMethodSession: completesessionpaymentmethodsession.NewUseCase(from.CompleteSetup),
+		CreateSessionPortalSession:          createsessionportalsession.NewUseCase(from.OpenPortal),
 	}
 }

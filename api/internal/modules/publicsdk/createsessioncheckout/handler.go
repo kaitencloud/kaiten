@@ -24,7 +24,6 @@ package createsessioncheckout
 import (
 	"context"
 	"errors"
-	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -171,7 +170,7 @@ func (u *UseCase) Execute(ctx context.Context, session Session, request SessionC
 			"a checkout subscribes one instance: mint the session with an instanceSlug")
 	}
 	instanceSlug := *session.InstanceSlug
-	if request.ReturnURL != nil && !allowedReturn(*request.ReturnURL, session.AllowedOrigins) {
+	if request.ReturnURL != nil && !sessions.AllowedReturn(*request.ReturnURL, session.AllowedOrigins) {
 		return nil, invalidReturnURL()
 	}
 
@@ -396,16 +395,6 @@ func paymentOf(invoice invoices.Invoice) *Payment {
 		// charge has no answer yet. The queue carries on either way.
 		return &Payment{Status: PaymentProcessing, HostedInvoiceURL: hosted}
 	}
-}
-
-// allowedReturn reports whether a return URL is on one of the origins the
-// session may be used from.
-func allowedReturn(raw string, origins []string) bool {
-	u, err := url.Parse(raw)
-	if err != nil || u.Scheme == "" || u.Host == "" {
-		return false
-	}
-	return slices.Contains(origins, strings.ToLower(u.Scheme+"://"+u.Host))
 }
 
 // translate answers what the operations a checkout runs refuse as the

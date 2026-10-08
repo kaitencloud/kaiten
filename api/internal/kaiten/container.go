@@ -221,6 +221,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 			Invoices:        billingModule.GetInvoice,
 			BillingEmails:   customerModule.UpdateCustomer,
 			SessionInvoices: billingModule.SessionInvoices,
+			OpenPortal:      billingModule.CreatePortalSession,
 		}),
 		Releases: releases.NewUseCases(svc),
 		Users:    users.NewUseCases(svc),
