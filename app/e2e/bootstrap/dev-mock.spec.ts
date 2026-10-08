@@ -26,6 +26,9 @@ test('dev:mock boots its own world and reads it after reload without a stack', a
 test('dev:mock answers every request of the billing screens of the instances, the customers and the settings', async ({
   page,
 }) => {
+  // Six screens, each compiled by the dev server on its first visit: a cold
+  // server on a CI runner takes longer than the default 30 seconds.
+  test.setTimeout(120_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => {
