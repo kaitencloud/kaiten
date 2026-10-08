@@ -4,7 +4,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Plus, RotateCcw, X } from 'lucide-react';
+import { Plus, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   FILTER_OPERATOR_LABELS,
@@ -13,6 +13,7 @@ import {
 import type { FilterToolbarFiltersRowProps } from '../../types/toolbar.types';
 import { AdvancedFiltersPopover } from '../advanced';
 import {
+  FilterChip,
   FilterPickerMenu,
   getFilterBadgeLabel,
   NormalFilterPopover,
@@ -50,9 +51,15 @@ export function FilterToolbarFiltersRow({
     );
 
     return (
-      <div
+      <FilterChip
         key={field.id}
-        className="bg-secondary text-secondary-foreground inline-flex h-9 items-center gap-1 rounded-full px-3"
+        onRemove={() => {
+          controller.normal.removeFilter(field.id);
+          if (openNormalFilterId === field.id) {
+            setOpenNormalFilterId(null);
+          }
+        }}
+        removeLabel={removeAriaLabel}
       >
         <NormalFilterPopover
           field={field}
@@ -75,20 +82,7 @@ export function FilterToolbarFiltersRow({
             </button>
           }
         />
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground"
-          onClick={() => {
-            controller.normal.removeFilter(field.id);
-            if (openNormalFilterId === field.id) {
-              setOpenNormalFilterId(null);
-            }
-          }}
-          aria-label={removeAriaLabel}
-        >
-          <X className="size-3.5" />
-        </button>
-      </div>
+      </FilterChip>
     );
   }
 

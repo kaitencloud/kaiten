@@ -119,11 +119,6 @@ export class BillingInvoicesDriver extends FilterToolbarDriver {
 
   // --- The scope -----------------------------------------------------------------
 
-  /** The chip of the customer or the instance the URL scopes the list to. */
-  scopeChip(key: 'customerSlug' | 'instanceSlug'): Locator {
-    return this.page.locator(`[data-scope="${key}"]`);
-  }
-
   /** Takes the scope off, from the button of its chip: `chip` is what the chip says. */
   async removeScope(chip: string) {
     await this.page
