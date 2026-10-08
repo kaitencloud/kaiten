@@ -188,7 +188,14 @@ describe('dev world', () => {
     const subscribed = new Set(subscriptions.map(({ instanceSlug }) => instanceSlug));
 
     expect(subscriptions.map(({ status }) => status)).toEqual(
-      expect.arrayContaining(['ACTIVE', 'CANCELED']),
+      expect.arrayContaining(['ACTIVE', 'CANCELED', 'PAST_DUE', 'TRIAL']),
+    );
+    // A cancellation waiting for the boundary, and a plan change waiting for it.
+    expect(subscriptions.some(({ cancelAtPeriodEnd }) => cancelAtPeriodEnd)).toBe(
+      true,
+    );
+    expect(subscriptions.some(({ scheduledChange }) => scheduledChange)).toBe(
+      true,
     );
     // One that nobody bills yet, on a version that is on sale and has a price.
     expect(
@@ -205,8 +212,11 @@ describe('dev world', () => {
     // What the next boundary issues is told only of a subscription that lives.
     for (const slug of Object.keys(upcoming)) {
       expect(
+        ['ACTIVE', 'PAST_DUE', 'TRIAL'],
+        `${slug} has an upcoming invoice and does not live`,
+      ).toContain(
         subscriptions.find(({ instanceSlug }) => instanceSlug === slug)?.status,
-      ).toBe('ACTIVE');
+      );
     }
   });
 

@@ -21,6 +21,7 @@ import {
   handleUnarchiveLicense,
   handleUpdateLicense,
   handleUpdateLicenseEntitlement,
+  handleUpdateLicenseFamily,
   handleUpdateLicensePrice,
 } from '@/api-client/msw.gen';
 import type { Price } from '@/api-client';
@@ -185,6 +186,16 @@ export const licenseHandlers = (
       HttpResponse.json({
         hasMore: false,
         items: model.listLicenseFamilies(),
+      }),
+    ),
+    handleUpdateLicenseFamily(
+      withProblems(async ({ params, request }) => {
+        const family = model.updateLicenseFamily(
+          params.familySlug,
+          await request.json(),
+        );
+        persist();
+        return HttpResponse.json(family);
       }),
     ),
     handleCreateLicense(

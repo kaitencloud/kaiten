@@ -71,8 +71,11 @@ export function billingCapabilities(
 /**
  * The capability profiles the mocks serve. Which one a suite picks is a
  * statement about what the console runs against:
- * - `stack`: what the API of the local stack serves, billing on with NoOp and no
- *   part of the release past the base loop; the profile of `dev:mock`;
+ * - `stack`: what the API of the local stack serves for the screens the console
+ *   has: billing on with NoOp, and the lifecycle and the trials that release
+ *   ships. The API serves the add-ons and the vouchers too, and this profile
+ *   leaves them off: the console has no screen for them yet, and the navigation
+ *   would list pages that do not exist. It is the profile of `dev:mock`;
  * - `full`: Stripe connected and every part of billing shipped;
  * - `disabled`: billing off, for the reason the API gives. A disabled
  *   deployment still lists NoOp and the idempotency window: only `enabled`,
@@ -95,5 +98,9 @@ export const billingCapabilitiesProfiles = {
       usageHistoryRetentionMonths: 6,
     }),
   // The stack keeps 18 months of usage: what its API answers.
-  stack: () => billingCapabilities({ usageHistoryRetentionMonths: 18 }),
+  stack: () =>
+    billingCapabilities({
+      features: { ...NO_BILLING_FEATURES, lifecycle: true, trials: true },
+      usageHistoryRetentionMonths: 18,
+    }),
 } as const;

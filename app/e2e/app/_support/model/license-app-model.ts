@@ -5,6 +5,7 @@ import type {
   LicenseEntitlement,
   LicenseEntitlementWritable,
   LicenseFamilyView,
+  LicenseFamilyVisibility,
   LicensePriceChanges,
   LicenseWritable,
   NewLicensePrice,
@@ -28,7 +29,7 @@ export { LicenseProblem } from './license-problem';
 export type LicenseTransition = 'publish' | 'archive' | 'unarchive';
 type LicenseErrorOp = 'create' | 'update' | LicenseTransition;
 /** What the model of the catalogue arms to fail with a problem document, besides pricing's. */
-type LicenseProblemOperation = 'updateLicense';
+type LicenseProblemOperation = 'updateLicense' | 'updateLicenseFamily';
 type LifecycleState = NonNullable<License['lifecycleState']>;
 // The generated read type marks server-owned fields readonly; the model is the
 // server here, so it keeps its rows writable.
@@ -87,6 +88,8 @@ export type LicenseAppModelSeed = PricingSeed & {
   /** The entitlement catalogue the detail page and the version form read. */
   entitlements?: Entitlement[];
   licenses?: License[];
+  /** The families listed in the public catalogue, by id; the others are private. */
+  publicFamilyIds?: string[];
 };
 
 export type SerializedLicenseAppModel = {
@@ -96,6 +99,8 @@ export type SerializedLicenseAppModel = {
   licenses: License[];
   pendingErrors: Array<[LicenseErrorOp, number]>;
   pricing: SerializedPricing;
+  /** The families listed in the public catalogue; a state stored before they could be has none. */
+  publicFamilyIds?: string[];
   sequence: number;
 };
 
@@ -154,6 +159,7 @@ export class LicenseAppModel {
   private entitlements: Entitlement[];
   private licenses: LicenseRecord[];
   private pricing: LicensePricing;
+  private publicFamilyIds: Set<string>;
   private sequence: number;
   private readonly armed = new Map<LicenseProblemOperation, ArmedProblem>();
   private readonly errors = new ErrorInjector<LicenseErrorOp>();
@@ -162,6 +168,7 @@ export class LicenseAppModel {
     const model = new LicenseAppModel({
       entitlements: state.entitlements,
       licenses: state.licenses,
+      publicFamilyIds: state.publicFamilyIds,
     });
     model.clock = state.clock;
     model.sequence = state.sequence;
@@ -184,6 +191,7 @@ export class LicenseAppModel {
       licenses: clone(this.licenses),
       pendingErrors: this.errors.snapshot(),
       pricing: this.pricing.serialize(),
+      publicFamilyIds: [...this.publicFamilyIds],
       sequence: this.sequence,
     };
   }
@@ -200,6 +208,7 @@ export class LicenseAppModel {
       'LicenseAppModel seed.licenses',
     );
     this.sequence = this.licenses.length + 1;
+    this.publicFamilyIds = new Set(seed.publicFamilyIds ?? []);
     this.pricing = new LicensePricing(this.pricingHost(), {
       billedVersions: seed.billedVersions,
       grants: seed.grants,
@@ -234,7 +243,7 @@ export class LicenseAppModel {
     op: LicenseProblemOperation | PricingProblemOperation,
     problem: ArmedProblem,
   ) {
-    if (op === 'updateLicense') {
+    if (op === 'updateLicense' || op === 'updateLicenseFamily') {
       this.armed.set(op, problem);
 
       return;
@@ -314,7 +323,32 @@ export class LicenseAppModel {
 
   /** GET /license-families: each family and the version it resolves to. */
   listLicenseFamilies(): LicenseFamilyView[] {
-    return listLicenseFamilyViews(this.licenses);
+    return listLicenseFamilyViews(this.licenses, this.publicFamilyIds);
+  }
+
+  /** PATCH /license-families/{familySlug}: lists the family in the public catalogue, or takes it out. */
+  updateLicenseFamily(
+    familySlug: string,
+    body: LicenseFamilyVisibility,
+  ): LicenseFamilyView {
+    this.consumeProblem('updateLicenseFamily');
+    const family = this.listLicenseFamilies().find(
+      (candidate) => candidate.slug === familySlug,
+    );
+    if (!family) {
+      throw new LicenseProblem(
+        404,
+        'UpdateLicenseFamily.NotFound',
+        `license family "${familySlug}" not found`,
+      );
+    }
+    if (body.isPublic) {
+      this.publicFamilyIds.add(family.id);
+    } else {
+      this.publicFamilyIds.delete(family.id);
+    }
+
+    return { ...family, isPublic: body.isPublic };
   }
 
   listEntitlements(): Entitlement[] {
