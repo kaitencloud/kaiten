@@ -3,18 +3,20 @@ import type { Entitlement } from '@/api-client';
 import { Badge } from '@/components/ui/badge';
 import FormField from '@/components/form/fields/form-field';
 import RequiredMark from '@/components/form/required-mark';
-import { RESET_PERIOD_UNIT_KEYS } from '../../utils/license-price-labels';
 import {
   describeAllowance,
   describeUsage,
 } from '../../utils/license-price-meter';
 import {
-  type BillingModel,
-  getPriceUnitLabel,
   type MeterOption,
   meterOfEntitlement,
 } from '../../utils/license-price.utils';
 import { PriceOptionButton } from './price-option-button';
+import {
+  RESET_PERIOD_UNIT_KEYS,
+  type BillingModel,
+  getPriceUnitLabel,
+} from '@/domains/billing';
 
 type PriceMeterPickerProps = {
   model: BillingModel;
@@ -90,7 +92,7 @@ export function PriceMeterPicker({
       trailing={
         option.disabledReason === 'stock' ? null : (
           <Badge variant="outline">
-            {t('Pages.Licenses.Prices.perUnit', {
+            {t('Features.Billing.Price.perUnit', {
               unit: unitOf(option.entitlement, formatFactor),
             })}
           </Badge>

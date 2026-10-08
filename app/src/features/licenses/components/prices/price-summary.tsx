@@ -1,10 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { Entitlement, Price } from '@/api-client';
-import {
-  getPriceAmountParts,
-  joinPriceAmount,
-} from '../../utils/license-price-display';
 import { isActivePrice, isMeteredModel } from '../../utils/license-price.utils';
+import { getPriceAmountParts, joinPriceAmount } from '@/domains/billing';
 
 type PriceSummaryProps = {
   className?: string;

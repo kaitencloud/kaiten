@@ -1,17 +1,17 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { useLicensePricing } from '../../hooks/use-license-pricing';
-import {
-  getPriceAmountParts,
-  getPriceLabel,
-  joinPriceAmount,
-} from '../../utils/license-price-display';
 import { describeMeter } from '../../utils/license-price-meter';
 import {
   getPreviewBases,
   getPreviewMeters,
 } from '../../utils/license-price-preview.utils';
 import type { PreviewBaseOption, PreviewSampleField } from './preview-fields';
+import {
+  getPriceAmountParts,
+  getPriceLabel,
+  joinPriceAmount,
+} from '@/domains/billing';
 
 /**
  * What the preview form offers of a version: the flat fees an invoice can start

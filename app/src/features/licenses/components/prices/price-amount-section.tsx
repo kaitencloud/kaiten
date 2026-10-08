@@ -3,11 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { withForm } from '@/hooks/form';
 import { majorToMinorDecimal } from '@/lib/money';
 import {
-  getPriceAmountParts,
-  joinPriceAmount,
-} from '../../utils/license-price-display';
-import {
-  getPriceUnitLabel,
   isMeteredModel,
   meterOfEntitlement,
 } from '../../utils/license-price.utils';
@@ -18,6 +13,11 @@ import {
   pickableOption,
 } from './price-meter-options';
 import { PriceMeterField } from './price-meter-picker';
+import {
+  getPriceAmountParts,
+  joinPriceAmount,
+  getPriceUnitLabel,
+} from '@/domains/billing';
 
 type PriceAmountSectionProps = {
   source: PriceMeterSource;

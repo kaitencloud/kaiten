@@ -52,7 +52,7 @@ app/src/features/licenses/
 ├── store/                              # TanStack Store: draft grants, card editing state, version form
 ├── types/index.ts                      # LicenseWithInstances, LicenseGroup
 ├── utils/                              # families, lifecycle, grants (read model and write bodies), version names,
-│                                       # prices (rules, labels, meters, preview, copy), commercial terms, freeze
+│                                       # prices (rules, meters, preview, copy; their words and amounts are `@/domains/billing`), commercial terms, freeze
 └── index.ts
 ```
 
@@ -117,7 +117,7 @@ Everything below is billing's: it appears only where `GET /billing/capabilities`
   - `app/src/features/licenses/hooks/__tests__/`: `use-license-entitlements-draft`, `use-license-save` and `use-delete-license-draft` (the order of the writes that delete a draft).
   - `app/src/features/licenses/schemas/__tests__/`: the form schemas and the mappers of the bodies of a price, an invoice preview and the commercial terms.
   - `app/src/features/licenses/store/__tests__/`: `license-entitlements-card-store` and `license-entitlements-draft-store`.
-  - `app/src/features/licenses/utils/__tests__/`: `license-entitlement-write.utils`, `license-entitlements.utils`, `license-lifecycle.utils`, `license-list.utils`, `license-version-name.utils`, and for prices `license-price.utils` (rules, meters, units), `license-price-preview.utils`, `license-price-copy.utils`, `license-freeze.utils`, `license-commercial.utils` and `license-version-destination.utils`.
+  - `app/src/features/licenses/utils/__tests__/`: `license-entitlement-write.utils`, `license-entitlements.utils`, `license-lifecycle.utils`, `license-list.utils`, `license-version-name.utils`, and for prices `license-price.utils` (rules and meters), `license-price-preview.utils`, `license-price-copy.utils`, `license-freeze.utils`, `license-commercial.utils` and `license-version-destination.utils`.
   - `app/src/__tests__/license-pricing-mocks.test.ts` reads, off the wire, what the mocks of the license module answer about prices and the invoice preview: they refuse as the API does, with its codes, because the console is tested against them.
 - Stories: `app/src/features/licenses/components/stories/license-table.stories.tsx` (`Features/Licenses/LicenseList`: `Default`, `Empty`, `WithoutInstances`). The `Default` data has a draft, a published default and an archived version in one family. The visual regression suite does not cover these stories.
 - E2E: `app/e2e/app/licenses/`, with their data in `licenses.scenarios.ts` (the catalogues of `pro`: a priced one, a billed one, a draft with prices, a draft with two flat fees) and the drivers of `app/e2e/app/_support/drivers/license-*.driver.ts`:

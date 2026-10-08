@@ -6,10 +6,9 @@ import { toast } from 'sonner';
 import type { Entitlement, Price } from '@/api-client';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { ProblemAlert } from '@/domains/billing';
+import { ProblemAlert, getPriceLabel } from '@/domains/billing';
 import { useLicensePriceCopy } from '../../hooks/use-license-price-copy';
 import { licenseQueryOptions, licensePricesQueryOptions } from '../../queries';
-import { getPriceLabel } from '../../utils/license-price-display';
 import {
   getCopyFailure,
   getPriceCopyState,

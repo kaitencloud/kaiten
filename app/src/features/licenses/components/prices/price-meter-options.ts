@@ -1,10 +1,10 @@
 import type { Entitlement, LicenseEntitlement, Price } from '@/api-client';
 import {
-  type BillingModel,
   getMeterOptions,
   type MeterOption,
   sortMeterOptions,
 } from '../../utils/license-price.utils';
+import { type BillingModel } from '@/domains/billing';
 
 /** What the form of a price reads of the version to offer what it may meter. */
 export type PriceMeterSource = {

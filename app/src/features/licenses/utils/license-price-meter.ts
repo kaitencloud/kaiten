@@ -1,7 +1,7 @@
 import type { TFunction } from 'i18next';
 import type { Entitlement, LicenseEntitlement, Price } from '@/api-client';
-import { RESET_PERIOD_UNIT_KEYS } from './license-price-labels';
 import { type GrantAllowance, getGrantAllowance } from './license-price.utils';
+import { RESET_PERIOD_UNIT_KEYS } from '@/domains/billing';
 
 type MeterLabels = Pick<
   Entitlement,

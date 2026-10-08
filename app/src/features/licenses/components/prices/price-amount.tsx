@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { Entitlement, Price } from '@/api-client';
 import { cn } from '@/lib/utils';
-import { getPriceAmountParts } from '../../utils/license-price-display';
+import { getPriceAmountParts } from '@/domains/billing';
 
 type PriceAmountProps = {
   className?: string;

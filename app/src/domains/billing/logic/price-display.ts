@@ -1,11 +1,10 @@
 import type { TFunction } from 'i18next';
-import type { Entitlement, Price } from '@/api-client';
+import type { Entitlement, Price, PriceMeter } from '@/api-client';
 import { formatUnitAmountDecimal } from '@/lib/money';
 import {
   BILLING_MODEL_LABEL_KEYS,
   BILLING_PERIOD_SUFFIX_KEYS,
-} from './license-price-labels';
-import { getPriceUnitLabel } from './license-price.utils';
+} from './price-labels';
 
 /** A price as it is read: its amount, and what the amount is for. */
 export type PriceAmountParts = {
@@ -18,6 +17,32 @@ type EntitlementLabels = Pick<
   Entitlement,
   'name' | 'unitPlural' | 'unitSingular'
 >;
+
+/**
+ * What one sale unit of a metered price is called: the sale unit the
+ * entitlement names ("1k requests") when the price was captured with one, else
+ * the number of base units it stands for ("100,000 traces"), and the base unit
+ * alone when a sale unit is one of them ("call").
+ */
+export function getPriceUnitLabel(
+  meter: PriceMeter,
+  entitlement: EntitlementLabels | undefined,
+  formatFactor: (factor: number) => string,
+): string {
+  if (meter.saleUnitSingular) {
+    return meter.saleUnitSingular;
+  }
+  const factor = Number(meter.saleUnitFactor);
+  if (!Number.isFinite(factor) || factor === 1) {
+    return (
+      entitlement?.unitSingular ?? entitlement?.name ?? meter.entitlementSlug
+    );
+  }
+
+  return `${formatFactor(factor)} ${
+    entitlement?.unitPlural ?? entitlement?.name ?? meter.entitlementSlug
+  }`;
+}
 
 /**
  * An amount of a price, written from its decimal string in minor units with every
@@ -44,7 +69,7 @@ export function getPriceAmountParts(
       factor.toLocaleString(locale),
     );
 
-    return { amount, suffix: t('Pages.Licenses.Prices.perUnit', { unit }) };
+    return { amount, suffix: t('Features.Billing.Price.perUnit', { unit }) };
   }
 
   return {

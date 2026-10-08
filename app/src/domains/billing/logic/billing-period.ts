@@ -1,17 +1,4 @@
-import type { Price } from '@/api-client';
-
-/** How a flat fee is charged over time (`Price.billingPeriod`). */
-export type BillingPeriod = NonNullable<Price['billingPeriod']>;
-
-/** How a price is charged against its period (`Price.billingTiming`). */
-export type BillingTiming = Price['billingTiming'];
-
-export const BILLING_PERIODS = [
-  'MONTHLY',
-  'QUARTERLY',
-  'SEMI_ANNUAL',
-  'ANNUAL',
-] as const satisfies readonly BillingPeriod[];
+import type { BillingPeriod, BillingTiming } from './price-types';
 
 /** Months in a billing period: what the API counts its periods in. */
 export const BILLING_PERIOD_MONTHS = {
@@ -20,42 +7,6 @@ export const BILLING_PERIOD_MONTHS = {
   QUARTERLY: 3,
   SEMI_ANNUAL: 6,
 } as const satisfies Record<BillingPeriod, number>;
-
-// The words of a price are the license page's, so that a price reads the same
-// wherever it is shown: one vocabulary, in both languages.
-const BILLING_PERIOD_LABEL_KEYS = {
-  ANNUAL: 'Pages.Licenses.Prices.Periods.ANNUAL',
-  MONTHLY: 'Pages.Licenses.Prices.Periods.MONTHLY',
-  QUARTERLY: 'Pages.Licenses.Prices.Periods.QUARTERLY',
-  SEMI_ANNUAL: 'Pages.Licenses.Prices.Periods.SEMI_ANNUAL',
-} as const satisfies Record<BillingPeriod, string>;
-
-/** The translation key of a billing period ("Monthly"). */
-export function getBillingPeriodLabelKey(period: BillingPeriod): string {
-  return BILLING_PERIOD_LABEL_KEYS[period];
-}
-
-const BILLING_PERIOD_SUFFIX_KEYS = {
-  ANNUAL: 'Pages.Licenses.Prices.PeriodSuffix.ANNUAL',
-  MONTHLY: 'Pages.Licenses.Prices.PeriodSuffix.MONTHLY',
-  QUARTERLY: 'Pages.Licenses.Prices.PeriodSuffix.QUARTERLY',
-  SEMI_ANNUAL: 'Pages.Licenses.Prices.PeriodSuffix.SEMI_ANNUAL',
-} as const satisfies Record<BillingPeriod, string>;
-
-/** The translation key of what follows an amount charged over a period ("/month"): it sticks to the amount. */
-export function getBillingPeriodSuffixKey(period: BillingPeriod): string {
-  return BILLING_PERIOD_SUFFIX_KEYS[period];
-}
-
-const BILLING_TIMING_LABEL_KEYS = {
-  ADVANCE: 'Pages.Licenses.Prices.Timings.ADVANCE.label',
-  ARREARS: 'Pages.Licenses.Prices.Timings.ARREARS.label',
-} as const satisfies Record<BillingTiming, string>;
-
-/** The translation key of when a price is billed against its period ("In advance"). */
-export function getBillingTimingLabelKey(timing: BillingTiming): string {
-  return BILLING_TIMING_LABEL_KEYS[timing];
-}
 
 /**
  * `date` moved by `months`, in UTC, with the day clamped to the last of the

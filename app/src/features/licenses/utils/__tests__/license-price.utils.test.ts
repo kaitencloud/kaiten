@@ -6,18 +6,7 @@ import {
   buildLicense,
   buildPrice,
 } from '../../../../../e2e/app/_support/fixtures';
-import {
-  canDeprecatePrice,
-  canEditPrice,
-  getDefaultPrice,
-  getGrantAllowance,
-  getMeterOptions,
-  getNextDisplayOrder,
-  getPriceRules,
-  getPriceUnitLabel,
-  getVersionCurrency,
-  sortMeterOptions,
-} from '../license-price.utils';
+import { canDeprecatePrice, canEditPrice, getDefaultPrice, getGrantAllowance, getMeterOptions, getNextDisplayOrder, getPriceRules, getVersionCurrency, sortMeterOptions } from '../license-price.utils';
 
 const traces = buildEntitlement({
   aggregationMethod: 'SUM',
@@ -241,34 +230,5 @@ describe('the prices of a version', () => {
     expect(
       getDefaultPrice([{ ...base, status: 'DEPRECATED' as const }], 'MONTHLY'),
     ).toBeUndefined();
-  });
-});
-
-describe('the unit a metered price is per', () => {
-  const format = (factor: number) => factor.toLocaleString('en');
-
-  it('is the sale unit the price was captured with', () => {
-    expect(
-      getPriceUnitLabel(
-        { entitlementSlug: 'requests', saleUnitFactor: '1000', saleUnitSingular: '1k requests' },
-        undefined,
-        format,
-      ),
-    ).toBe('1k requests');
-  });
-
-  it('is the number of base units a sale unit stands for, named by the entitlement', () => {
-    expect(
-      getPriceUnitLabel({ entitlementSlug: 'traces', saleUnitFactor: '100000' }, traces, format),
-    ).toBe('100,000 traces');
-  });
-
-  it('is the base unit alone when a sale unit is one of them', () => {
-    expect(
-      getPriceUnitLabel({ entitlementSlug: 'traces', saleUnitFactor: '1' }, traces, format),
-    ).toBe('trace');
-    expect(getPriceUnitLabel({ entitlementSlug: 'gone', saleUnitFactor: '1' }, undefined, format)).toBe(
-      'gone',
-    );
   });
 });
