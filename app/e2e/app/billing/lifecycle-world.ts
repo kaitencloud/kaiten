@@ -1,4 +1,10 @@
-import type { Customer, InstanceAddon, Invoice, License } from '@/api-client';
+import type {
+  BillingCapabilities,
+  Customer,
+  InstanceAddon,
+  Invoice,
+  License,
+} from '@/api-client';
 import {
   buildCustomer,
   buildLicense,
@@ -261,9 +267,10 @@ function lifecycleCatalogue(): BillingCatalogue {
 }
 
 /**
- * The billing of the lifecycle world, on the capabilities of the local stack:
+ * The billing of the lifecycle world, on the capabilities of the local stack unless a
+ * spec gives others (a release with no trial, or none of the lifecycle):
  * - Initech Production lives, with the invoice of the next boundary composed;
- * - Initech Trial is in the sixth day before its trial ends (14 days from 29 Sep);
+ * - Initech Trial began on 29 Sep for 14 days, and has six days left on 7 Oct;
  * - Initech Late is past due since 1 Sep, for the first invoice it never paid;
  * - Initech Leaving is set to cancel at the end of its period;
  * - Initech Moving is set to move to Pro v3, monthly, at the end of its period;
@@ -271,10 +278,12 @@ function lifecycleCatalogue(): BillingCatalogue {
  * - Initech Fresh was never subscribed, on a version that carries a trial;
  * - Hooli Production ended its subscription in September.
  */
-export function createLifecycleBillingModel() {
+export function createLifecycleBillingModel(
+  capabilities: BillingCapabilities = billingCapabilitiesProfiles.stack(),
+) {
   return new BillingAppModel({
     addons: { 'initech-seats': [SEATS_ADDON] },
-    capabilities: billingCapabilitiesProfiles.stack(),
+    capabilities,
     catalogue: lifecycleCatalogue(),
     invoices: lifecycleInvoices(),
     subscriptions: [
