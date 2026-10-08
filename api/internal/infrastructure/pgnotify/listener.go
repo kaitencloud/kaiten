@@ -185,7 +185,12 @@ func (l *Listener) connectAndListen(ctx context.Context) (*pgx.Conn, error) {
 // (re-issuing LISTEN for every registered channel) if the connection drops
 // for any reason other than ctx being cancelled by Stop.
 func (l *Listener) run(ctx context.Context, conn *pgx.Conn) {
-	defer func() { _ = conn.Close(context.Background()) }()
+	defer func() {
+		// conn is nil when Stop lands while reconnect is still retrying.
+		if conn != nil {
+			_ = conn.Close(context.Background())
+		}
+	}()
 
 	for {
 		notification, err := conn.WaitForNotification(ctx)
