@@ -129,7 +129,7 @@ test.describe('subscribing an instance', () => {
     );
     await expect(billing.subscriptionCard()).toContainText('Active');
     await expect(billing.notSubscribed()).toHaveCount(0);
-    await expect(billing.invoicesCount()).toHaveText('1 invoice shown');
+    await expect(billing.invoiceRows()).toHaveCount(1);
   });
 
   test('says the first invoice waits for the first period to close for a price billed in arrears, and when', async ({

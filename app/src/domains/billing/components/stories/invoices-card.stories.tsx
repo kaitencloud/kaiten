@@ -75,8 +75,7 @@ const card = (query: UseInfiniteQueryResult<InfiniteData<PageInvoiceSummary>>) =
   </StorybookRouter>
 );
 
-// The invoices of one subject, a page at a time: how many were read, never how
-// many there are, and the way to read more.
+// The invoices of one subject, a page at a time, and the way to read more.
 export const Populated: Story = {
   render: () =>
     card(
@@ -91,8 +90,7 @@ export const Populated: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(await canvas.findByTestId('card-count')).toHaveTextContent('2 invoices shown');
-    await expect(canvas.getByText('initech-staging')).toBeVisible();
+    await expect(await canvas.findByText('initech-staging')).toBeVisible();
     await userEvent.click(canvas.getByRole('button', { name: 'Load more' }));
     await expect(fetchNextPage).toHaveBeenCalledTimes(1);
   },

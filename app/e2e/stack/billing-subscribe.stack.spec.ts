@@ -190,7 +190,7 @@ test('subscribes an instance from the console ten days back, sets the billing e-
   await expect(billing.subscriptionCard()).toContainText(
     'Payable within 45 days',
   );
-  await expect(billing.invoicesCount()).toHaveText('1 invoice shown');
+  await expect(billing.invoiceRows()).toHaveCount(1);
 
   // An instance that bills is kept: the API refuses, and the console says what
   // stands in the way, with the way to it.
@@ -309,7 +309,7 @@ test('reads the usage history of an entitlement from the real journal, tells wha
   );
   await expect(history.drawer()).toBeVisible();
 
-  await expect(history.count()).toHaveText('3 reports shown');
+  await expect(history.rows()).toHaveCount(3);
   await expect(history.rows()).toHaveCount(3);
   // The counter goes from report to report: 0 to 10, 10 to 30, 30 to 60.
   await expect(history.rows().nth(0)).toContainText('0 → 10');
@@ -336,7 +336,7 @@ test('reads the usage history of an entitlement from the real journal, tells wha
   );
   await history.outsideRetention().getByRole('button').click();
 
-  await expect(history.count()).toHaveText('3 reports shown');
+  await expect(history.rows()).toHaveCount(3);
   await expect
     .poll(() => new URL(page.url()).searchParams.get('from'))
     .toMatch(/^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/);

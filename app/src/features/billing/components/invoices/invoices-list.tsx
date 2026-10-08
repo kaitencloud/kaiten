@@ -131,11 +131,6 @@ export function InvoicesList({
         />
       </div>
       <LoadMoreFooter
-        className="pb-1"
-        countLabel={t('Pages.Billing.Invoices.shown', {
-          count: invoices.length,
-        })}
-        countTestId="invoices-count"
         loadMoreLabel={t('Pages.Billing.Invoices.loadMore')}
         query={query}
       />

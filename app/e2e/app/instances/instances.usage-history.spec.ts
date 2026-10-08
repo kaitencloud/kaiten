@@ -41,13 +41,13 @@ test.describe('the usage history of an entitlement', () => {
     await expect(history.drawer()).toContainText(
       'API Calls on Acme Production',
     );
-    await expect(history.count()).toHaveText('100 reports shown');
+    await expect(history.rows()).toHaveCount(100);
     await expect(history.rows()).toHaveCount(100);
     await expect(history.rows().first()).toContainText('Append');
 
     await history.loadMore().click();
 
-    await expect(history.count()).toHaveText('130 reports shown');
+    await expect(history.rows()).toHaveCount(130);
     await expect(history.rows()).toHaveCount(130);
     await expect(history.loadMore()).toHaveCount(0);
     // The second page asks for what comes after the last report of the first.
@@ -93,7 +93,7 @@ test.describe('the usage history of an entitlement', () => {
     await history.setPeriod('2026-09-20', '2026-09-25');
 
     // Five days of one report every five hours, from the day they start to the one they end before.
-    await expect(history.count()).toHaveText('24 reports shown');
+    await expect(history.rows()).toHaveCount(24);
     const last = searchOf(reads.at(-1) ?? {});
     expect(last.get('from')).toBe('2026-09-20T00:00:00.000Z');
     expect(last.get('to')).toBe('2026-09-25T00:00:00.000Z');
@@ -116,7 +116,7 @@ test.describe('the usage history of an entitlement', () => {
     await history.gotoEntitlements('acme-production');
     await history.open('API Calls');
     await history.beforeField().fill('2026-09-20');
-    await expect(history.count()).toHaveText('50 reports shown');
+    await expect(history.rows()).toHaveCount(50);
     const before = reads.length;
 
     await history.fromField().fill('2026-09-25');
@@ -125,7 +125,7 @@ test.describe('the usage history of an entitlement', () => {
       history.drawer().getByText('The period must end after it starts.'),
     ).toBeVisible();
     expect(reads).toHaveLength(before);
-    await expect(history.count()).toHaveText('50 reports shown');
+    await expect(history.rows()).toHaveCount(50);
   });
 
   test('exports every report of the period as a CSV, under a name of its own, and not only the pages that were read', async ({
@@ -137,7 +137,7 @@ test.describe('the usage history of an entitlement', () => {
 
     await history.gotoEntitlements('acme-production');
     await history.open('API Calls');
-    await expect(history.count()).toHaveText('100 reports shown');
+    await expect(history.rows()).toHaveCount(100);
 
     const download = page.waitForEvent('download');
     await history.exportButton().click();
@@ -206,7 +206,7 @@ test.describe('the usage history of an entitlement', () => {
       page,
       'the range spans more than 366 days; split it',
     );
-    await expect(history.count()).toHaveText('100 reports shown');
+    await expect(history.rows()).toHaveCount(100);
   });
 
   test('says that the period reaches before what is kept, how long that is, and starts where it begins', async ({
@@ -228,7 +228,7 @@ test.describe('the usage history of an entitlement', () => {
 
     await expect(history.outsideRetention()).toHaveCount(0);
     await expect(history.fromField()).toHaveValue('2025-04-08');
-    await expect(history.count()).toHaveText('100 reports shown');
+    await expect(history.rows()).toHaveCount(100);
   });
 
   test('shows a refusal in the drawer, with a way to ask again', async ({
@@ -251,7 +251,7 @@ test.describe('the usage history of an entitlement', () => {
     );
     await history.error().getByRole('button', { name: 'Retry' }).click();
 
-    await expect(history.count()).toHaveText('100 reports shown');
+    await expect(history.rows()).toHaveCount(100);
   });
 });
 
@@ -270,7 +270,7 @@ test.describe('the address of the usage history', () => {
     await history.gotoEntitlements('acme-production', '?history=api-calls');
 
     await expect(history.drawer()).toBeVisible();
-    await expect(history.count()).toHaveText('100 reports shown');
+    await expect(history.rows()).toHaveCount(100);
     await history.close();
     await expect(page).toHaveURL(/\/entitlements$/);
 
@@ -293,7 +293,7 @@ test.describe('the address of the usage history', () => {
     );
 
     // Opened on the period the link names, in what it asked and in the fields.
-    await expect(history.count()).toHaveText('24 reports shown');
+    await expect(history.rows()).toHaveCount(24);
     expect(searchOf(reads[0]).get('from')).toBe('2026-09-20T00:00:00.000Z');
     expect(searchOf(reads[0]).get('to')).toBe('2026-09-25T00:00:00.000Z');
     await expect(history.fromField()).toHaveValue('2026-09-20');
@@ -359,7 +359,7 @@ test.describe('the usage history where billing is off', () => {
     await history.gotoEntitlements('acme-production');
     await history.open('API Calls');
 
-    await expect(history.count()).toHaveText('100 reports shown');
+    await expect(history.rows()).toHaveCount(100);
 
     await history.fromField().fill('2025-01-01');
 

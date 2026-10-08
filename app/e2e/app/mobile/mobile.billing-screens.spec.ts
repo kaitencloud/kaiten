@@ -55,7 +55,7 @@ test.describe('the billing of an instance, on the narrowest phone', () => {
     const billing = new InstanceBillingDriver(page);
 
     await billing.goto('acme-production');
-    await expect(billing.invoicesCount()).toHaveText('2 invoices shown');
+    await expect(billing.invoiceRows()).toHaveCount(2);
 
     await expectNoHorizontalScroll(page, WIDTH);
     await expectWithinScreen(billing.subscriptionCard());
@@ -118,7 +118,7 @@ test.describe('the usage history, on the narrowest phone', () => {
 
     await history.gotoEntitlements('acme-production');
     await history.open('API Calls');
-    await expect(history.count()).toHaveText('100 reports shown');
+    await expect(history.rows()).toHaveCount(100);
 
     // The drawer slides in from the side: it is measured where it comes to rest.
     await settle(page);
@@ -163,7 +163,7 @@ test.describe('a customer and the settings of billing, on the narrowest phone', 
     await installCustomerAppMocks(page, createBillingCustomersModel());
 
     await detail.goto('acme-corp');
-    await expect(detail.invoicesCount()).toHaveText('4 invoices shown');
+    await expect(detail.invoiceRows()).toHaveCount(4);
 
     await expectNoHorizontalScroll(page, WIDTH);
     await expectWithinScreen(detail.invoicesCard());

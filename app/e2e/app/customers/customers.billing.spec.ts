@@ -194,7 +194,7 @@ test.describe('the invoices of a customer', () => {
 
     await detail.goto('acme-corp');
 
-    await expect(detail.invoicesCount()).toHaveText('4 invoices shown');
+    await expect(detail.invoiceRows()).toHaveCount(4);
     // The first column says whose each invoice is: its customer and its instance.
     await expect(detail.invoicesCard()).toContainText('acme-production');
     await expect(detail.invoicesCard()).toContainText('acme-legacy');
@@ -220,10 +220,10 @@ test.describe('the invoices of a customer', () => {
 
     await detail.goto('acme-corp');
 
-    await expect(detail.invoicesCount()).toHaveText('50 invoices shown');
+    await expect(detail.invoiceRows()).toHaveCount(50);
     await detail.loadMoreInvoices().click();
 
-    await expect(detail.invoicesCount()).toHaveText('60 invoices shown');
+    await expect(detail.invoiceRows()).toHaveCount(60);
     await expect(detail.loadMoreInvoices()).toHaveCount(0);
     expect(new URLSearchParams(reads[0].search).get('customerSlug')).toBe(
       'acme-corp',
@@ -269,7 +269,7 @@ test.describe('the invoices of a customer', () => {
     );
     await detail.invoicesError().getByRole('button', { name: 'Retry' }).click();
 
-    await expect(detail.invoicesCount()).toHaveText('4 invoices shown');
+    await expect(detail.invoiceRows()).toHaveCount(4);
   });
 });
 

@@ -14,54 +14,43 @@ type PagedQuery = {
 
 type LoadMoreFooterProps = {
   className?: string;
-  /**
-   * How many rows were read, in words ("50 invoices shown"). Never how many there
-   * are: the API does not say, and a page is not the whole list.
-   */
-  countLabel: string;
-  countTestId: string;
   loadMoreLabel: string;
   query: PagedQuery;
 };
 
 /**
- * The foot of a list the server pages: how many rows were read, announced politely
- * as it grows, and the button that reads the next page with the same filters. The
- * rows already read stay where they are; a refusal of the next page is shown above
- * the count, under the rows, and the button stays so that it can be asked again.
+ * The foot of a feed the server pages, as the notifications feed draws its own: a
+ * centred "Load more" under the rows, while there are more to read, which reads the
+ * next page with the same filters. The rows already read stay where they are; a
+ * refusal of the next page is shown above the button, under the rows, and the
+ * button stays so that it can be asked again. It never says how many rows were
+ * read: the API does not say how many there are, and a count of a page reads as one
+ * of the list.
  */
 export function LoadMoreFooter({
   className,
-  countLabel,
-  countTestId,
   loadMoreLabel,
   query,
 }: LoadMoreFooterProps) {
   return (
     <>
       {query.isFetchNextPageError ? <ProblemAlert error={query.error} /> : null}
-      <div className={cn('flex items-center justify-between gap-3', className)}>
-        <p
-          aria-live="polite"
-          className="text-sm text-muted-foreground"
-          data-testid={countTestId}
-        >
-          {countLabel}
-        </p>
-        {query.hasNextPage ? (
+      {query.hasNextPage ? (
+        <div className={cn('flex justify-center py-3', className)}>
           <Button
             disabled={query.isFetchingNextPage}
             onClick={() => void query.fetchNextPage()}
+            size="sm"
             type="button"
             variant="outline"
           >
             {query.isFetchingNextPage ? (
-              <Loader2 className="animate-spin" />
+              <Loader2 aria-hidden className="animate-spin" />
             ) : null}
             {loadMoreLabel}
           </Button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </>
   );
 }

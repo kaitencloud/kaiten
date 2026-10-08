@@ -26,17 +26,20 @@ export class CustomerDetailDriver {
       .last();
   }
 
-  /** The card of the invoices of the customer: absent where billing is. */
-  invoicesCard(): Locator {
+  /** The card of the invoices of the customer: absent where billing is. Its title is the language the page is read in. */
+  invoicesCard(title = 'Invoices'): Locator {
     return this.page
       .locator('[data-slot="card-title"]')
-      .filter({ hasText: /^Invoices$/ })
+      .filter({ hasText: new RegExp(`^${title}$`) })
       .locator('xpath=ancestor::*[@data-slot="card"][1]')
       .first();
   }
 
-  invoicesCount(): Locator {
-    return this.page.getByTestId('customer-invoices-count');
+  /** The rows of the card of the invoices of the customer. */
+  invoiceRows(title?: string): Locator {
+    return this.invoicesCard(title)
+      .getByRole('row')
+      .filter({ hasNot: this.page.getByRole('columnheader') });
   }
 
   invoicesEmpty(): Locator {

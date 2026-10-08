@@ -95,9 +95,6 @@ describe('the invoices of a customer', () => {
     expect(asked[0].get('customerSlug')).toBe('acme');
     expect(asked[0].get('limit')).toBe('50');
     expect(asked[0].has('cursor')).toBe(false);
-    expect(screen.getByTestId('customer-invoices-count')).toHaveTextContent(
-      '1 invoice shown',
-    );
   });
 
   it('keeps the column that says which instance an invoice is for', async () => {

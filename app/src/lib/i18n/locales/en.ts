@@ -840,8 +840,6 @@ export default {
                 title: 'No usage reports',
                 description: 'No report was accepted during this period.',
               },
-              shown_one: '{{count}} report shown',
-              shown_other: '{{count}} reports shown',
               loadMore: 'Load more reports',
               OutsideRetention: {
                 title_one: 'Beyond your retention of {{count}} month',
@@ -3137,8 +3135,6 @@ export default {
         subtitle:
           'Every invoice of your organization, across its customers and instances.',
         loading: 'Loading invoices',
-        shown_one: '{{count}} invoice shown',
-        shown_other: '{{count}} invoices shown',
         loadMore: 'Load more',
         Lines: {
           title: 'Lines',
@@ -3366,8 +3362,6 @@ export default {
           windowOverage_other: '{{count}} reports · overage {{sum}}',
           windowPartial_one: '{{count}} report so far · more to load',
           windowPartial_other: '{{count}} reports so far · more to load',
-          shown_one: '{{count}} report shown',
-          shown_other: '{{count}} reports shown',
           loadMore: 'Load more reports',
           OutsideRetention: {
             title: 'The reports of this line are no longer kept',
@@ -3387,8 +3381,6 @@ export default {
           acknowledged: 'Acknowledged',
         },
         loading: 'Loading the queue',
-        shown_one: '{{count}} invoice shown',
-        shown_other: '{{count}} invoices shown',
         loadMore: 'Load more',
         Columns: {
           issued: 'Issued',
@@ -4150,8 +4142,6 @@ export default {
         title: 'Invoices',
         loading: 'Loading invoices',
         emptyTitle: 'No invoices yet',
-        shown_one: '{{count}} invoice shown',
-        shown_other: '{{count}} invoices shown',
         loadMore: 'Load more',
       },
       DeletionRefusal: {

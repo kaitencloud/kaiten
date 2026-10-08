@@ -104,10 +104,6 @@ export class LineDrilldownDriver {
 
   // --- The paging --------------------------------------------------------------
 
-  count(): Locator {
-    return this.page.getByTestId('line-reports-count');
-  }
-
   loadMore(): Locator {
     return this.page.getByRole('button', {
       name: 'Load more reports',

@@ -114,7 +114,7 @@ const invoice = (id: string, total: number): InvoiceSummary => ({
   updatedAt: '2027-03-01T00:00:00.000Z',
 });
 
-// The invoices of a customer, across its instances, with how many were read.
+// The invoices of a customer, across its instances.
 export const Invoices: Story = {
   parameters: {
     msw: {
@@ -131,10 +131,8 @@ export const Invoices: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(await canvas.findByTestId('customer-invoices-count')).toHaveTextContent(
-      '2 invoices shown',
-    );
-    await expect(canvas.getByText('$129.00')).toBeVisible();
+    await expect(await canvas.findByText('$129.00')).toBeVisible();
+    await expect(canvas.getByText('$49.00')).toBeVisible();
   },
 };
 

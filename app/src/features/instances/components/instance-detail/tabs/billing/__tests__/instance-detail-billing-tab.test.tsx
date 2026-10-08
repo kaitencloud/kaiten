@@ -298,8 +298,12 @@ describe('a subscription', () => {
     );
     renderTab();
 
-    const count = await screen.findByTestId('instance-invoices-count');
-    expect(count).toHaveTextContent('2 invoices shown');
+    await screen.findByRole('columnheader', { name: 'Status' });
+    expect(
+      screen
+        .getAllByRole('link')
+        .filter((link) => link.getAttribute('href')?.startsWith('/billing/invoices/')),
+    ).toHaveLength(2);
     const headers = screen.getAllByRole('columnheader').map((header) => header.textContent);
     expect(headers).not.toContain('Customer');
     expect(headers).toContain('Status');

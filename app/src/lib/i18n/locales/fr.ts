@@ -855,8 +855,6 @@ export default {
                 description:
                   'Aucun rapport n’a été accepté pendant cette période.',
               },
-              shown_one: '{{count}} rapport affiché',
-              shown_other: '{{count}} rapports affichés',
               loadMore: 'Charger plus de rapports',
               OutsideRetention: {
                 title_one: 'Au-delà de votre rétention de {{count}} mois',
@@ -3189,8 +3187,6 @@ export default {
         subtitle:
           'Toutes les factures de votre organisation, tous clients et instances confondus.',
         loading: 'Chargement des factures',
-        shown_one: '{{count}} facture affichée',
-        shown_other: '{{count}} factures affichées',
         loadMore: 'Charger plus',
         Lines: {
           title: 'Lignes',
@@ -3420,8 +3416,6 @@ export default {
             '{{count}} rapport pour l’instant · d’autres à charger',
           windowPartial_other:
             '{{count}} rapports pour l’instant · d’autres à charger',
-          shown_one: '{{count}} rapport affiché',
-          shown_other: '{{count}} rapports affichés',
           loadMore: 'Charger plus de rapports',
           OutsideRetention: {
             title: 'Les rapports de cette ligne ne sont plus conservés',
@@ -3441,8 +3435,6 @@ export default {
           acknowledged: 'Acquittées',
         },
         loading: 'Chargement de la file',
-        shown_one: '{{count}} facture affichée',
-        shown_other: '{{count}} factures affichées',
         loadMore: 'Charger plus',
         Columns: {
           issued: 'Émise le',
@@ -4221,8 +4213,6 @@ export default {
         title: 'Factures',
         loading: 'Chargement des factures',
         emptyTitle: 'Aucune facture pour le moment',
-        shown_one: '{{count}} facture affichée',
-        shown_other: '{{count}} factures affichées',
         loadMore: 'Charger plus',
       },
       DeletionRefusal: {
