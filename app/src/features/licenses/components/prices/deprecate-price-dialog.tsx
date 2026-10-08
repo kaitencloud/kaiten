@@ -11,8 +11,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { ProblemAlert, getPriceLabel } from '@/domains/billing';
+import { ProblemAlert, getPriceLabel, getProblemCode } from '@/domains/billing';
 import { useLicensePriceMutations } from '../../hooks/use-license-price-mutations';
+import { PlanChangeTargetInstances } from './plan-change-target-instances';
+
+/** The refusal that says a subscription is scheduled to move to the price. */
+const PLAN_CHANGE_TARGET = 'DeprecateLicensePrice.PlanChangeTarget';
 
 type DeprecatePriceDialogProps = {
   /** The entitlement a metered price measures is what it is called after, with no label. */
@@ -28,7 +32,9 @@ type DeprecatePriceDialogProps = {
  * keep being billed from it, it is no longer offered to new subscriptions or to
  * a plan change, a metered price produces no line from the next invoice, and a
  * default price stops being the default in the same write. A refusal of the API
- * shows in the dialog, which stays open.
+ * shows in the dialog, which stays open. A price that a plan change is scheduled to
+ * move to cannot be deprecated until the change is cancelled: the refusal says so,
+ * and the dialog lists the instances concerned, each with a link to its subscription.
  */
 export function DeprecatePriceDialog({
   entitlementBySlug,
@@ -80,6 +86,9 @@ export function DeprecatePriceDialog({
           </p>
         ) : null}
         {error ? <ProblemAlert error={error} onRetry={confirm} /> : null}
+        {error && getProblemCode(error) === PLAN_CHANGE_TARGET ? (
+          <PlanChangeTargetInstances priceId={price.id} />
+        ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel variant="outline">
             {t('Common.cancel')}

@@ -96,6 +96,8 @@ const storybookTestExclude = [
   'src/features/instances/components/stories/instance-billing-dialogs.stories.tsx',
   'src/features/instances/components/stories/instance-form-dialog.stories.tsx',
   'src/features/instances/components/stories/instance-overview-and-audit.stories.tsx',
+  'src/features/licenses/components/stories/deprecate-price-dialog.stories.tsx',
+  'src/features/licenses/components/stories/license-family-visibility.stories.tsx',
   'src/features/licenses/components/stories/license-table.stories.tsx',
   'src/features/releases/components/stories/release-form.stories.tsx',
   'src/features/releases/components/stories/release-table.stories.tsx',

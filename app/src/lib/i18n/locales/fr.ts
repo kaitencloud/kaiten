@@ -1230,6 +1230,13 @@ export default {
     Licenses: {
       title: 'Licences',
       subtitle: 'Gérez les licences et les limites de droits',
+      Public: {
+        label: 'Catalogue public',
+        switchLabel: 'Lister {{name}} dans le catalogue public',
+        badge: 'Public',
+        listed: 'La famille est listée dans le catalogue public',
+        unlisted: 'La famille n’est plus listée dans le catalogue public',
+      },
       Freeze: {
         billed: {
           title: 'Cette version est facturée',
@@ -1417,6 +1424,12 @@ export default {
           },
         },
         Deprecate: {
+          PlanChangeTarget: {
+            looking: 'Recherche des instances concernées…',
+            instances:
+              'Ces instances sont programmées pour passer à ce prix. Annulez le changement dans l’onglet Facturation de chacune, puis dépréciez le prix :',
+            moves: '({{customer}}, à partir du {{date}})',
+          },
           title: 'Déprécier « {{label}} » ?',
           descriptionFlat:
             'Les abonnements déjà épinglés à ce prix continuent d’être facturés à partir de lui. Il n’est plus proposé aux nouvelles souscriptions, ni comme cible d’un changement de plan. Cette action est irréversible.',
