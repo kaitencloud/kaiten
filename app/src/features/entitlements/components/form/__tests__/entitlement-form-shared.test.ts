@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import type { Entitlement, EntitlementWritable } from '@/api-client';
 import {
   entitlementFormSchema,
+  entitlementIdentityStepSchema,
   getEntitlementFormDefaults,
   initialEntitlementFormValues,
 } from '../entitlement-form.shared';
@@ -312,5 +313,65 @@ describe('entitlementFormSchema displayOrder', () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe('entitlementFormSchema slug', () => {
+  const validBase = { ...initialEntitlementFormValues, name: 'Test' };
+
+  it('lets the slug be blank so the API generates it', () => {
+    expect(
+      entitlementFormSchema.safeParse({ ...validBase, slug: '' }).success,
+    ).toBe(true);
+  });
+
+  it('accepts a slug in the format of the API', () => {
+    expect(
+      entitlementFormSchema.safeParse({ ...validBase, slug: 'storage-reads' })
+        .success,
+    ).toBe(true);
+  });
+
+  it('rejects a slug the API would refuse', () => {
+    expect(
+      entitlementFormSchema.safeParse({ ...validBase, slug: 'Storage Reads' })
+        .success,
+    ).toBe(false);
+  });
+});
+
+// The slug sits on the first step: an invalid one has to hold the wizard there,
+// otherwise the last step would end on a disabled button with no visible cause.
+describe('entitlementIdentityStepSchema slug', () => {
+  const step = { name: 'Test', description: '', groupSlugs: [], slug: '' };
+
+  it('passes with a blank or a valid slug', () => {
+    expect(entitlementIdentityStepSchema.safeParse(step).success).toBe(true);
+    expect(
+      entitlementIdentityStepSchema.safeParse({ ...step, slug: 'reads-v2' })
+        .success,
+    ).toBe(true);
+  });
+
+  it('fails with an invalid slug', () => {
+    expect(
+      entitlementIdentityStepSchema.safeParse({ ...step, slug: '-reads' })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe('getEntitlementFormDefaults slug', () => {
+  it('starts a new entitlement with a blank slug', () => {
+    expect(getEntitlementFormDefaults().slug).toBe('');
+    expect(initialEntitlementFormValues.slug).toBe('');
+  });
+
+  // The slug is fixed after creation: the form shows the stored one itself and
+  // keeps it out of its values, so it never reaches the validation or the PUT.
+  it('keeps the stored slug out of the values when editing', () => {
+    expect(getEntitlementFormDefaults(numberEntitlementWithUnits).slug).toBe(
+      '',
+    );
   });
 });

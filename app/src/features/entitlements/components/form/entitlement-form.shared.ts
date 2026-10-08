@@ -6,6 +6,7 @@ import {
   resetAnchorSchema,
   resetPeriodSchema,
 } from './entitlement-reset-period.shared';
+import { entitlementSlugSchema } from './entitlement-slug.shared';
 
 // The generated schema already enforces a non-empty name; the override only
 // attaches the translated error message.
@@ -36,6 +37,7 @@ export const entitlementIdentityStepSchema = zEntitlementWritable
   })
   .extend({
     name: entitlementNameSchema,
+    slug: entitlementSlugSchema,
   });
 
 export const entitlementFormSchema = zEntitlementWritable
@@ -51,6 +53,8 @@ export const entitlementFormSchema = zEntitlementWritable
   })
   .extend({
     name: entitlementNameSchema,
+    // Optional: left blank, the API generates the slug from the name.
+    slug: entitlementSlugSchema,
     unitSingular: unitLabelSchema,
     unitPlural: unitLabelSchema,
     saleUnitSingular: unitLabelSchema,
@@ -114,6 +118,7 @@ export type EntitlementSelectOption = {
 
 export const initialEntitlementFormValues: EntitlementFormValues = {
   name: '',
+  slug: '',
   description: '',
   type: 'NUMBER',
   aggregationMethod: 'SUM',
@@ -169,6 +174,10 @@ export const getEntitlementFormDefaults = (
       ) ?? [],
     icon: entitlement.icon ?? undefined,
     name: entitlement.name,
+    // Blank on purpose: the slug is fixed once the entitlement exists, so the
+    // field shows the stored one without feeding it into the validation or the
+    // PUT (a slug that predates today's rules would otherwise block every edit).
+    slug: '',
     type: entitlement.type,
     userFacing: entitlement.userFacing ?? false,
     displayOrder: entitlement.displayOrder ?? 0,

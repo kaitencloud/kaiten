@@ -95,6 +95,18 @@ export class EntitlementAppModel {
   createEntitlement(body: Partial<EntitlementRecord>): EntitlementRecord {
     this.errors.consume('create');
 
+    // Like the API, a slug sent by the caller is kept as it is and a taken one
+    // is a conflict. Without one the slug comes from the name; the API also
+    // appends random characters, which this deterministic model leaves out.
+    if (body.slug && this.entitlements.some((e) => e.slug === body.slug)) {
+      throw Object.assign(
+        new Error(
+          `Entitlement with slug "${body.slug}" already exists in this organization`,
+        ),
+        { httpStatus: 409 },
+      );
+    }
+
     const timestamp = this.nextTimestamp();
     const entitlement: EntitlementRecord = {
       aggregationMethod: body.aggregationMethod ?? 'COUNT',
@@ -103,7 +115,7 @@ export class EntitlementAppModel {
       icon: body.icon ?? undefined,
       id: `entitlement-${this.sequence}`,
       name: body.name ?? `Entitlement ${this.sequence}`,
-      slug: slugify(body.name ?? `entitlement-${this.sequence}`),
+      slug: body.slug || slugify(body.name ?? `entitlement-${this.sequence}`),
       type: body.type ?? 'NUMBER',
       updatedAt: timestamp,
       userFacing: body.userFacing ?? false,
@@ -140,6 +152,18 @@ export class EntitlementAppModel {
     }
 
     const current = this.entitlements[index];
+
+    // Like the API, an entitlement is never renamed: a PUT leaves the slug out
+    // or echoes the current one. Modelled here so the e2e suite catches a form
+    // that sends the slug of an edit.
+    if (body.slug && body.slug !== slug) {
+      throw Object.assign(
+        new Error(
+          'UpdateEntitlement.SlugNotRenameable: slug cannot be changed through this endpoint; omit it or send the current slug',
+        ),
+        { httpStatus: 422 },
+      );
+    }
 
     // One-way door, like the API: once a cadence is stored, a full-replace PUT
     // must echo the exact same pair back. Omitting it is an attempted removal,

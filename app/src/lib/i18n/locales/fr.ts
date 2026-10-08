@@ -1545,6 +1545,7 @@ export default {
           mainTitle: 'Informations principales',
           Labels: {
             name: 'Nom',
+            slug: 'Slug',
             description: 'Description',
             groups: 'Groupes',
             type: 'Type',
@@ -1567,6 +1568,7 @@ export default {
           },
           Placeholders: {
             name: 'Nom du droit',
+            slug: 'appels-api',
             description: 'Description du droit',
             groups: 'Rechercher ou créer des groupes',
             groupSearch: 'Rechercher des groupes',
@@ -1583,6 +1585,12 @@ export default {
           },
           Descriptions: {
             name: 'Le nom du droit',
+            slugGenerated:
+              'Facultatif. Laissé vide, il est construit à partir du nom (minuscules, mots reliés par des tirets) suivi de 6 caractères aléatoires, ex. « {{example}} ». Il ne pourra plus être modifié.',
+            slugSet:
+              'Utilisé tel quel : lettres minuscules, chiffres et tirets (2 à 100 caractères), unique dans votre organisation. Il ne pourra plus être modifié.',
+            slugLocked:
+              'Défini à la création du droit, il ne peut plus changer.',
             description: 'Une description détaillée de ce que ce droit fournit',
             groups:
               'Associez ce droit à un ou plusieurs groupes pour le filtrage et le reporting.',
@@ -1624,6 +1632,7 @@ export default {
           },
           Errors: {
             name: 'Le nom est requis',
+            slug: 'Utilisez uniquement des lettres minuscules, des chiffres et des tirets (2 à 100 caractères), sans tiret au début ni à la fin',
             unitPair: "Renseignez le singulier et le pluriel de l'unité",
             saleUnitTrio:
               "Renseignez les libellés de l'unité de vente et le facteur de conversion ensemble",

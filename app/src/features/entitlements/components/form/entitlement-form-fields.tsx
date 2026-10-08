@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { EntitlementGroupSelector } from '../groups/entitlement-group-selector';
 import { EntitlementResetPeriodFields } from './entitlement-reset-period-fields';
+import { EntitlementSlugField } from './entitlement-slug-field';
 import { EntitlementUnitFields } from './entitlement-unit-fields';
 
 type EntitlementSelectOption = {
@@ -48,11 +49,13 @@ const getSelectOptionValue = (option: unknown) => {
 
 type EntitlementIdentityFieldsProps = {
   className?: string;
+  entitlement?: Entitlement;
   form: any;
 };
 
 export function EntitlementIdentityFields({
   className,
+  entitlement,
   form,
 }: EntitlementIdentityFieldsProps) {
   const { t } = useTranslation();
@@ -73,6 +76,7 @@ export function EntitlementIdentityFields({
           />
         )}
       </form.AppField>
+      <EntitlementSlugField entitlement={entitlement} form={form} />
       <form.AppField name="icon">
         {() => (
           <FormField<string | undefined>

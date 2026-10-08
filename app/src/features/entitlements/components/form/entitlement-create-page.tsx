@@ -181,6 +181,7 @@ function IdentityStepNextButton({
       {(values: EntitlementFormValues) => {
         const { success } = entitlementIdentityStepSchema.safeParse({
           name: values.name,
+          slug: values.slug,
           description: values.description,
           groupSlugs: values.groupSlugs,
           icon: values.icon,

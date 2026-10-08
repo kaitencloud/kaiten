@@ -16,9 +16,11 @@ export class EntitlementFormDriver {
    * non-NUMBER edit has no type step and submits from the single step.
    */
   async clickNext() {
-    await this.scope()
-      .getByRole('button', { name: 'Next', exact: true })
-      .click();
+    await this.nextButton().click();
+  }
+
+  nextButton(): Locator {
+    return this.scope().getByRole('button', { name: 'Next', exact: true });
   }
 
   updateButton(): Locator {
@@ -30,6 +32,10 @@ export class EntitlementFormDriver {
 
   nameField(): Locator {
     return this.scope().getByLabel('Name', { exact: true });
+  }
+
+  slugField(): Locator {
+    return this.scope().getByLabel('Slug', { exact: true });
   }
 
   descriptionField(): Locator {
