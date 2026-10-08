@@ -32,8 +32,3 @@ export function readHandoffSearch(
 /** The part of the queue a search asks for: none reads as what waits. */
 export const handoffStatusOf = (search: HandoffSearch): HandoffQueueStatus =>
   search.status ?? DEFAULT_HANDOFF_STATUS;
-
-/** The search that opens a part of the queue. What waits is the bare path. */
-export const toHandoffSearch = (status: HandoffQueueStatus): HandoffSearch => ({
-  status: status === DEFAULT_HANDOFF_STATUS ? undefined : status,
-});

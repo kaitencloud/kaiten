@@ -170,7 +170,7 @@ In the code:
 - the view mode of the feature flag list (`?view=list`);
 - the status filter of the notifications;
 - the scope of a list that the API applies, such as the customer or the instance of the invoices (`validateSearch` drops what does not read as a slug): see [tables](./tables.md#a-list-page). The filters of such a list stay in the browser and out of the URL, like those of any other list;
-- the active tab of a page, which is a child route (`RouteTabs`, `DetailEntityLayout.Tabs`);
+- the active tab of a page, which is a child route or, where the tabs are one route, its search (`RouteTabs`, `DetailEntityLayout.Tabs`; the handoff queue has `?status=`);
 - the edit mode of a detail page (`?mode=configure`, see [dialog via route](./dialog-via-route.md#the-modeconfigure-edit-mode)).
 
 The sort and the page of a table live in the state of `DataTable`, not in the URL. Transient state, such as which dialog is open, stays in a store or in `useState`, unless a route renders the dialog.

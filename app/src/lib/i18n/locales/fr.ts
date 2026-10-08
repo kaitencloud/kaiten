@@ -3437,12 +3437,9 @@ export default {
         subtitle:
           'Les factures en attente de votre ERP, les plus anciennes d’abord. Un job ou la CLI les prend dans la file et les acquitte une fois comptabilisées.',
         Tabs: {
-          label: 'Partie de la file',
           pending: 'En attente',
           acknowledged: 'Acquittées',
         },
-        loading: 'Chargement de la file',
-        loadMore: 'Charger plus',
         Columns: {
           issued: 'Émise le',
           booked: 'Comptabilisée',
@@ -3460,6 +3457,9 @@ export default {
           acknowledgedTitle: 'Rien n’a encore été acquitté',
           acknowledgedDescription:
             'Les factures comptabilisées dans votre ERP apparaissent ici une fois acquittées.',
+          filteredTitle: 'Aucune facture ne correspond à ces filtres',
+          filteredDescription: 'Effacez les filtres pour en voir davantage.',
+          clearFilters: 'Effacer les filtres',
         },
         Acknowledge: {
           title: 'Acquitter la facture',
