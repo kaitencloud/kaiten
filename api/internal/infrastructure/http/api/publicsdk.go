@@ -8,6 +8,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createpublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessioncheckout"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listpublishablekeys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listsessioninvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokecustomersession"
@@ -28,4 +29,5 @@ func registerPublicSDK(core huma.API, app kaiten.PublicSDK) {
 	revokecustomersession.RegisterEndpoint(core, app)
 	createsessioncheckout.RegisterEndpoint(core, app)
 	listsessioninvoices.RegisterEndpoint(core, app)
+	keys.RegisterWebhooks(core)
 }
