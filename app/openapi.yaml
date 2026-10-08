@@ -5715,6 +5715,35 @@ components:
       required:
         - returnUrl
       type: object
+    NewSessionPaymentMethodSession:
+      additionalProperties: false
+      properties:
+        currency:
+          description: The currency the payment method is set up in; required when the customer has no live subscription, whose currency is used otherwise
+          examples:
+            - EUR
+          type: string
+        returnUrl:
+          description: Where the setup page sends the customer back, with kaiten_setup_session appended. Its origin must be one the organization's publishable keys allow.
+          examples:
+            - https://app.example.test/billing
+          format: uri
+          type: string
+      required:
+        - returnUrl
+      type: object
+    NewSessionPortalSession:
+      additionalProperties: false
+      properties:
+        returnUrl:
+          description: Where the portal sends the customer back. Its origin must be one the organization's publishable keys allow.
+          examples:
+            - https://app.example.test/billing
+          format: uri
+          type: string
+      required:
+        - returnUrl
+      type: object
     NewSubscription:
       additionalProperties: false
       properties:
@@ -22240,6 +22269,238 @@ paths:
       security:
         - publishableKey: []
       summary: Get the public catalogue
+      tags:
+        - public
+  /public/session/billing/payment-method-session:
+    post:
+      description: Opens the payment provider's hosted page where the session's customer saves a payment method, for its invoices to be charged automatically. Send the customer to url; when it comes back, with kaiten_setup_session in the query, complete the session. Kaiten never sees card data.
+      operationId: createSessionPaymentMethodSession
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewSessionPaymentMethodSession"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentMethodSession"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - customerSession: []
+      summary: Open a page to save a payment method
+      tags:
+        - public
+  /public/session/billing/payment-method-session/{sessionId}/complete:
+    post:
+      description: Checks the setup session with the payment provider and makes its payment method the one the customer's invoices are charged to. Safe to repeat. A session of another customer answers not found; one the customer has not completed, a conflict. When the browser never comes back, the provider sync adopts the payment method within one interval.
+      operationId: completeSessionPaymentMethodSession
+      parameters:
+        - description: "The setup session's id: the kaiten_setup_session the customer came back with"
+          in: path
+          name: sessionId
+          required: true
+          schema:
+            description: "The setup session's id: the kaiten_setup_session the customer came back with"
+            maxLength: 255
+            minLength: 1
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompletedPaymentMethodSession"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - customerSession: []
+      summary: Complete a payment method page
+      tags:
+        - public
+  /public/session/billing/portal-session:
+    post:
+      description: Opens the payment provider's hosted portal, where the session's customer manages its payment methods and billing details. What it changes there reaches Kaiten through the provider sync.
+      operationId: createSessionPortalSession
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewSessionPortalSession"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalSession"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - customerSession: []
+      summary: Open the payment provider's customer portal
       tags:
         - public
   /public/session/checkout:
