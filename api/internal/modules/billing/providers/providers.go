@@ -116,7 +116,11 @@ func EnsureCustomer(ctx context.Context, q *db.Queries, conn *provider.Connectio
 }
 
 // Normalize describes a stored invoice to its provider, with the lines it
-// holds. daysUntilDue applies to SEND_INVOICE.
+// holds; daysUntilDue applies to SEND_INVOICE. DISCOUNT lines are not lines
+// there: each of their allocations is a provider discount
+// (Discounts), borne by its target line (NormalizedLine.Discounts, with the
+// provider's id once recorded on the DISCOUNT line), so that no line is ever
+// negative (CR-001).
 func Normalize(row db.InstanceInvoice, externalCustomerID string, daysUntilDue *int32) (provider.NormalizedInvoice, []rating.InvoiceLine, error) {
 	var lines []rating.InvoiceLine
 	if err := json.Unmarshal(row.Lines, &lines); err != nil {
@@ -125,7 +129,7 @@ func Normalize(row db.InstanceInvoice, externalCustomerID string, daysUntilDue *
 	normalized := provider.NormalizedInvoice{
 		KaitenInvoiceID: row.ID, ExternalCustomerID: externalCustomerID, Kind: string(row.Kind),
 		BoundaryAt: row.BoundaryAt.Time.UTC(), Currency: row.Currency, CollectionMethod: string(row.CollectionMethod),
-		DaysUntilDue: nil, Lines: make([]provider.NormalizedLine, 0, len(lines)), TotalMinor: row.TotalMinor,
+		DaysUntilDue: nil, Lines: make([]provider.NormalizedLine, 0, len(lines)), Discounts: nil, TotalMinor: row.TotalMinor,
 		Metadata: map[string]string{
 			"kaiten_invoice_id": row.ID.String(), "kaiten_organization_id": row.OrganizationID.String(),
 			"kaiten_instance_billing_id": row.InstanceBillingID.String(), "kind": string(row.Kind),
@@ -135,16 +139,54 @@ func Normalize(row db.InstanceInvoice, externalCustomerID string, daysUntilDue *
 	if row.CollectionMethod == db.CollectionMethodSENDINVOICE {
 		normalized.DaysUntilDue = daysUntilDue
 	}
+	borne := map[int][]provider.LineDiscount{}
 	for _, line := range lines {
 		if line.ID == nil {
 			return provider.NormalizedInvoice{}, nil, fmt.Errorf("line %d of invoice %s has no id", line.Seq, row.ID)
 		}
+		if line.Type != rating.LineDiscount || line.Discount == nil {
+			continue
+		}
+		var voucher uuid.UUID
+		if line.VoucherID != nil {
+			voucher = *line.VoucherID
+		}
+		for i, a := range line.Discount.Allocations {
+			normalized.Discounts = append(normalized.Discounts, provider.NormalizedDiscount{
+				LineID: *line.ID, Seq: line.Seq, TargetSeq: a.TargetSeq, AmountMinor: a.Amount, Label: line.Label, VoucherID: voucher,
+			})
+			external := ""
+			if line.Provider != nil && i < len(line.Provider.CouponIDs) {
+				external = line.Provider.CouponIDs[i]
+			}
+			borne[a.TargetSeq] = append(borne[a.TargetSeq], provider.LineDiscount{Seq: line.Seq, ExternalID: external, AmountMinor: a.Amount})
+		}
+	}
+	for _, line := range lines {
+		if line.Type == rating.LineDiscount {
+			continue
+		}
 		normalized.Lines = append(normalized.Lines, provider.NormalizedLine{
 			LineID: *line.ID, Seq: line.Seq, AmountMinor: line.Amount, Description: line.Label + " — " + line.Description,
-			ServiceFrom: line.ServiceFrom, ServiceTo: line.ServiceTo,
+			ServiceFrom: line.ServiceFrom, ServiceTo: line.ServiceTo, Discounts: borne[line.Seq], Recreation: 0,
 		})
 	}
 	return normalized, lines, nil
+}
+
+// UnallocatedDiscount is a DISCOUNT line composed before allocations
+// existed: it cannot reach a provider without being negative, so the push
+// refuses it, and a void and recompose gives it its allocations.
+func UnallocatedDiscount(lines []rating.InvoiceLine) error {
+	for _, line := range lines {
+		if line.Type == rating.LineDiscount && line.Amount != 0 && (line.Discount == nil || len(line.Discount.Allocations) == 0) {
+			return &provider.Error{
+				Class: provider.ClassRejected, Code: "discount_unallocated", Param: "", RequestID: "",
+				Message: fmt.Sprintf("DISCOUNT line %d has no allocations; void and recompose the invoice", line.Seq),
+			}
+		}
+	}
+	return nil
 }
 
 // RequirePaymentMethod refuses automatic collection for a customer without

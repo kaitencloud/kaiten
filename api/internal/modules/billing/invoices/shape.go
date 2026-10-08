@@ -96,11 +96,31 @@ type ProviderRecord struct {
 
 // Reconciliation is what differs between an invoice and its provider's copy.
 type Reconciliation struct {
-	Lines             []LineDifference `json:"lines" nullable:"false"`
-	MissingInProvider []uuid.UUID      `json:"missingInProvider" nullable:"false" doc:"Kaiten lines the provider does not have"`
-	ExtraInProvider   []string         `json:"extraInProvider" nullable:"false" doc:"Provider lines Kaiten does not have"`
-	Totals            TotalsDifference `json:"totals"`
-	InclusiveTax      bool             `json:"inclusiveTax" doc:"Whether the provider's subtotal was compared, its tax being included in the amounts"`
+	Lines             []LineDifference     `json:"lines" nullable:"false"`
+	MissingInProvider []uuid.UUID          `json:"missingInProvider" nullable:"false" doc:"Kaiten lines the provider does not have"`
+	ExtraInProvider   []string             `json:"extraInProvider" nullable:"false" doc:"Provider lines Kaiten does not have"`
+	Discounts         []DiscountDifference `json:"discounts" nullable:"false" doc:"Allocations of DISCOUNT lines the provider applied with another amount, or not at all"`
+	ExtraDiscounts    []ExtraDiscount      `json:"extraDiscounts" nullable:"false" doc:"Discounts the provider applied that Kaiten did not create, such as a coupon added in its dashboard"`
+	Totals            TotalsDifference     `json:"totals"`
+	InclusiveTax      bool                 `json:"inclusiveTax" doc:"Whether the provider's subtotal less its discounts was compared, its tax being included in the amounts"`
+}
+
+// DiscountDifference is an allocation of a DISCOUNT line whose amount, on
+// its target line in the provider, differs.
+type DiscountDifference struct {
+	LineID         uuid.UUID `json:"lineId" doc:"The DISCOUNT line"`
+	Seq            int       `json:"seq"`
+	TargetSeq      int       `json:"targetSeq"`
+	KaitenAmount   int64     `json:"kaitenAmount"`
+	ProviderAmount int64     `json:"providerAmount" doc:"0 when the provider did not apply it"`
+	CouponID       string    `json:"couponId" doc:"The provider's discount, empty when none was recorded"`
+}
+
+// ExtraDiscount is a discount on a provider line that Kaiten did not create.
+type ExtraDiscount struct {
+	ExternalLineID string `json:"externalLineId"`
+	DiscountID     string `json:"discountId"`
+	Amount         int64  `json:"amount"`
 }
 
 // LineDifference is a line whose amounts differ.
@@ -117,6 +137,7 @@ type TotalsDifference struct {
 	KaitenTotal               int64  `json:"kaitenTotal"`
 	ProviderTotalExcludingTax int64  `json:"providerTotalExcludingTax"`
 	ProviderSubtotal          *int64 `json:"providerSubtotal,omitempty"`
+	ProviderTotalDiscount     *int64 `json:"providerTotalDiscount,omitempty" doc:"With inclusive tax: the provider's discounts, taken off its subtotal"`
 }
 
 // PushedInvoice is the payload of INSTANCE_INVOICE_PUSHED.

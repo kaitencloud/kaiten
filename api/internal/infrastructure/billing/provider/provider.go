@@ -115,8 +115,21 @@ type Adapter interface {
 	FindInvoice(ctx context.Context, ref Ref, externalCustomerID string, kaitenInvoiceID uuid.UUID) (*Invoice, error)
 	// CreateDraft creates the provider's draft for an invoice.
 	CreateDraft(ctx context.Context, ref Ref, invoice NormalizedInvoice) (Invoice, error)
-	// AddLine adds one line to a draft and returns the provider's line id.
+	// AddDiscount creates the provider's discount for one allocation of a
+	// DISCOUNT line, before the line that bears it is added, and returns its
+	// id. It is idempotent on (invoice, discount line, target) beyond any key
+	// horizon: one already there with the same amount is adopted; one with
+	// another amount is an *Error of ClassRejected, code coupon_conflict.
+	AddDiscount(ctx context.Context, ref Ref, externalInvoiceID string, invoice NormalizedInvoice, discount NormalizedDiscount) (string, error)
+	// AddLine adds one line to a draft, bearing its discounts, and returns
+	// the provider's line id. A line is never negative.
 	AddLine(ctx context.Context, ref Ref, externalInvoiceID string, invoice NormalizedInvoice, line NormalizedLine) (string, error)
+	// DeleteLine removes a line from a draft; one already gone is a success.
+	DeleteLine(ctx context.Context, ref Ref, externalInvoiceID, externalLineID string) error
+	// DeleteDiscount removes a discount the push created, once the invoice
+	// that bears it is finalized or removed; one already gone is a success.
+	// Never called while the invoice is a draft.
+	DeleteDiscount(ctx context.Context, ref Ref, externalDiscountID string) error
 	// Finalize issues a draft.
 	Finalize(ctx context.Context, ref Ref, externalInvoiceID string, invoice NormalizedInvoice) (Invoice, error)
 	// GetInvoice reads an invoice by id, with its lines. A deleted draft
@@ -220,12 +233,17 @@ type NormalizedInvoice struct {
 	CollectionMethod   string
 	// DaysUntilDue applies to SEND_INVOICE.
 	DaysUntilDue *int32
-	Lines        []NormalizedLine
-	TotalMinor   int64
-	Metadata     map[string]string
+	// Lines are the lines a provider holds: every line but the DISCOUNT
+	// ones, which reach it as Discounts borne by their targets (CR-001).
+	Lines []NormalizedLine
+	// Discounts are the DISCOUNT lines' allocations, by DISCOUNT seq then
+	// target seq.
+	Discounts  []NormalizedDiscount
+	TotalMinor int64
+	Metadata   map[string]string
 }
 
-// NormalizedLine is one invoice line: an amount, negative for a discount.
+// NormalizedLine is one invoice line other than a discount: never negative.
 type NormalizedLine struct {
 	LineID      uuid.UUID
 	Seq         int
@@ -233,6 +251,33 @@ type NormalizedLine struct {
 	Description string
 	ServiceFrom time.Time
 	ServiceTo   time.Time
+	// Discounts are the provider discounts the line bears, by DISCOUNT seq.
+	Discounts []LineDiscount
+	// Recreation counts the times the line was removed from the draft and
+	// added again (its discounts were not the expected ones); its create
+	// call gets a key of its own.
+	Recreation int
+}
+
+// NormalizedDiscount is one allocation of a DISCOUNT line: the part of it
+// one target line bears.
+type NormalizedDiscount struct {
+	// LineID and Seq are the DISCOUNT line's.
+	LineID      uuid.UUID
+	Seq         int
+	TargetSeq   int
+	AmountMinor int64
+	// Label is the DISCOUNT line's label, shown by the provider.
+	Label     string
+	VoucherID uuid.UUID
+}
+
+// LineDiscount is a provider discount on a line.
+type LineDiscount struct {
+	// Seq is the DISCOUNT line it comes from.
+	Seq         int
+	ExternalID  string
+	AmountMinor int64
 }
 
 // Status is a provider invoice's status, as Kaiten mirrors it.
@@ -263,9 +308,11 @@ type Invoice struct {
 	// LastPaymentError is the latest one's failure code.
 	AttemptCount     int
 	LastPaymentError string
-	// TotalExcludingTax and Subtotal are compared by reconciliation.
+	// TotalExcludingTax (after discounts, before tax), Subtotal (before
+	// discounts) and TotalDiscount are compared by reconciliation.
 	TotalExcludingTax int64
 	Subtotal          int64
+	TotalDiscount     int64
 	Currency          string
 	Lines             []Line
 }
@@ -276,8 +323,12 @@ type Line struct {
 	// KaitenLineID is the Kaiten line it was created for; uuid.Nil for a
 	// line added in the provider.
 	KaitenLineID uuid.UUID
-	AmountMinor  int64
-	Currency     string
+	// AmountMinor is the line's gross amount, before its discounts.
+	AmountMinor int64
+	Currency    string
+	// Discounts are the discounts applied to the line, Kaiten's and any
+	// added in the provider, with the amount each took off it. Seq is 0.
+	Discounts []LineDiscount
 }
 
 // Event is one change in the provider's feed. Events are a change feed only:
