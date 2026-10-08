@@ -40,6 +40,7 @@ import {
 const getAuthToken = vi.hoisted(() => vi.fn());
 const detail = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
 const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
+const navigate = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/auth-token', () => ({ getAuthToken }));
 vi.mock('sonner', () => ({ toast }));
@@ -67,7 +68,7 @@ vi.mock('@tanstack/react-router', () => ({
       {children}
     </a>
   ),
-  useNavigate: () => vi.fn(),
+  useNavigate: () => navigate,
   useRouter: () => ({
     buildLocation: ({ params, to }: { params: { invoiceId: string }; to: string }) => ({
       pathname: to.replace('$invoiceId', params.invoiceId),
@@ -85,6 +86,7 @@ beforeEach(() => {
   vi.setSystemTime(NOW);
   toast.error.mockReset();
   toast.success.mockReset();
+  navigate.mockReset();
   getAuthToken.mockResolvedValue(
     sessionToken(['read:billing', 'write:billing', 'read:licenses']),
   );
@@ -407,7 +409,7 @@ describe('a cancellation scheduled for the end of the period', () => {
     await waitFor(() => expect(screen.queryByTestId('cancellation-notice')).toBeNull());
   });
 
-  it('tells in a toast that it ended meanwhile, and offers to subscribe again', async () => {
+  it('tells in a toast that it ended meanwhile, with the way to subscribe again, and shows the tab as it is now', async () => {
     serve(SCHEDULED_TO_CANCEL());
     server.use(
       handleReactivateSubscription(() => {
@@ -424,10 +426,18 @@ describe('a cancellation scheduled for the end of the period', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Reactivate' }));
 
     await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith('the subscription is already canceled'),
+      expect(toast.error).toHaveBeenCalledWith('the subscription is already canceled', {
+        action: { label: 'Subscribe again', onClick: expect.any(Function) },
+      }),
     );
     expect(await screen.findByRole('link', { name: 'Subscribe' })).toBeInTheDocument();
     expect(screen.queryByTestId('cancellation-notice')).toBeNull();
+    // The button of the toast leads to the dialog that subscribes.
+    toast.error.mock.calls[0][1].action.onClick();
+    expect(navigate).toHaveBeenCalledWith({
+      params: { instanceSlug: 'globex-production' },
+      to: '/customers/instances/$instanceSlug/billing/subscribe',
+    });
   });
 
   it('waits out a period that is being closed, says so in the notice, and sends the request again', async () => {

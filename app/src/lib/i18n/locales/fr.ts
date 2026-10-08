@@ -713,6 +713,7 @@ export default {
             Reactivate: {
               action: 'Réactiver',
               success: 'L’annulation a été retirée',
+              subscribeAgain: 'Souscrire de nouveau',
             },
             Notices: {
               Trial: {

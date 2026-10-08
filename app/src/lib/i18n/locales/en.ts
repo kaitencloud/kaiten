@@ -700,6 +700,7 @@ export default {
             Reactivate: {
               action: 'Reactivate',
               success: 'The cancellation was taken back',
+              subscribeAgain: 'Subscribe again',
             },
             Notices: {
               Trial: {

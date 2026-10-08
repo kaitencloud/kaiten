@@ -275,6 +275,34 @@ test.describe('the Billing tab of a subscription going through something', () =>
       );
     });
 
+    test('tells in a toast that it ended meanwhile, and leads to the dialog that subscribes it again', async ({
+      page,
+    }) => {
+      const billing = new InstanceBillingDriver(page);
+      const lifecycle = new InstanceLifecycleDriver(page);
+      const model = createLifecycleBillingModel();
+      model.subscriptions.armProblem('reactivateSubscription', {
+        code: 'ReactivateSubscription.Canceled',
+        detail: 'the subscription is already canceled',
+        status: 409,
+      });
+      await installBillingAppMocks(page, model);
+      await billing.goto('initech-leaving');
+
+      await lifecycle.reactivateButton().click();
+
+      await expectToast(page, 'the subscription is already canceled');
+      await page
+        .locator('[data-sonner-toast]')
+        .getByRole('button', { name: 'Subscribe again' })
+        .click();
+
+      await expect(page).toHaveURL(
+        /\/customers\/instances\/initech-leaving\/billing\/subscribe$/,
+      );
+      await expect(lifecycle.dialog()).toBeVisible();
+    });
+
     test('says a period being closed is being closed, and sends the request again by itself', async ({
       page,
     }) => {
