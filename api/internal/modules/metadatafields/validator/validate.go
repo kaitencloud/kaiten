@@ -250,11 +250,22 @@ func loadOrBuildResolvedSchema(
 	}
 
 	activeFields := make([]db.MetadataField, 0, len(fields))
+	activeKeys := make(map[string]struct{}, len(fields))
 	for _, f := range fields {
-		if f.ArchivedAt.Valid {
-			resolved.archivedKeys[f.Key] = struct{}{}
-		} else {
+		if !f.ArchivedAt.Valid {
 			activeFields = append(activeFields, f)
+			activeKeys[f.Key] = struct{}{}
+		}
+	}
+
+	// A key is archived only while no active field carries it.
+	// uq_metadata_field_key_active lets a field be declared again under the key
+	// of one that was archived, and from then on the new field is the contract:
+	// counting the key as archived too would refuse it on every create, and
+	// re-inject a value the active schema never validated on every update.
+	for _, f := range fields {
+		if _, active := activeKeys[f.Key]; f.ArchivedAt.Valid && !active {
+			resolved.archivedKeys[f.Key] = struct{}{}
 		}
 	}
 
