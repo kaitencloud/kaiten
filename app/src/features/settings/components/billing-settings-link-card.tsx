@@ -21,7 +21,7 @@ export function BillingSettingsLinkCard() {
     <SettingsLinkCard
       buttonLabel={t('Pages.Settings.Billing.configureButton')}
       description={t('Pages.Settings.Billing.cardDescription')}
-      icon={dataModelIcons.invoice}
+      icon={dataModelIcons.billing}
       title={t('Pages.Settings.Billing.title')}
       to="/settings/billing"
     />
