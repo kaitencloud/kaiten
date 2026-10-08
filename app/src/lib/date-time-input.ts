@@ -18,3 +18,16 @@ export function dateTimeInputToInstant(value: string): string | null {
 
   return Number.isNaN(instant.getTime()) ? null : instant.toISOString();
 }
+
+/**
+ * The text a `datetime-local` input holds for an instant, in UTC and to the
+ * minute (`2027-03-03T10:00`), or an empty text for a value that is not an
+ * instant: what a form puts in the field to start from a date it knows.
+ */
+export function instantToDateTimeInput(instant: string | undefined): string {
+  const date = instant ? new Date(instant) : null;
+
+  return date && !Number.isNaN(date.getTime())
+    ? date.toISOString().slice(0, 16)
+    : '';
+}
