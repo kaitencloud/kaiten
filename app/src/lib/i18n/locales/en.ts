@@ -3135,7 +3135,6 @@ export default {
         subtitle:
           'Every invoice of your organization, across its customers and instances.',
         loading: 'Loading invoices',
-        loadMore: 'Load more',
         Lines: {
           title: 'Lines',
         },
@@ -4142,7 +4141,6 @@ export default {
         title: 'Invoices',
         loading: 'Loading invoices',
         emptyTitle: 'No invoices yet',
-        loadMore: 'Load more',
       },
       DeletionRefusal: {
         title: {

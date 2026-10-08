@@ -32,5 +32,8 @@ export { ProviderBadge } from './provider-badge';
 export { RetryableProblem } from './retryable-problem';
 export { ServicePeriod } from './service-period';
 export { SubscriptionStatusBadge } from './subscription-status-badge';
-export { rightAlignedHeader } from './table-headers';
+export {
+  rightAlignedHeader,
+  rightAlignedSortableHeader,
+} from './table-headers';
 export { useUsageReportColumns } from './usage-report-columns';

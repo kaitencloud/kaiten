@@ -34,13 +34,17 @@ test.describe('the invoices, read in French', () => {
       'Échéance de paiement',
       'Transmission',
     ]) {
+      // A header that sorts is named by its button, so the text says which it is.
       await expect(
-        page.getByRole('columnheader', { exact: true, name: column }),
+        page
+          .getByRole('columnheader')
+          .filter({ hasText: new RegExp(`^${column}$`) }),
       ).toBeVisible();
     }
     // The status is read in words, the amount and the date as French writes them.
     const list = new BillingInvoicesDriver(page);
     await expect(list.rows().first()).toBeVisible();
+    await list.showRowsPerPage(20, 'Lignes par page');
     await expect(
       list.statusBadges().filter({ hasText: 'Bloquée' }).first(),
     ).toBeVisible();

@@ -1,8 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { InfiniteData, UseInfiniteQueryResult } from '@tanstack/react-query';
+import type { UseQueryResult } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vite-plus/test';
-import type { PageInvoiceSummary } from '@/api-client';
+import type { InvoiceSummary, PageInvoiceSummary } from '@/api-client';
 import { ApiError } from '@/lib/errors';
 import {
   invoiceRow,
@@ -19,27 +19,18 @@ vi.mock('@tanstack/react-router', async () =>
 
 useBillingTexts();
 
-type Query = UseInfiniteQueryResult<InfiniteData<PageInvoiceSummary>>;
+type Query = UseQueryResult<PageInvoiceSummary, unknown>;
 
 /** The parts of a query the card reads. */
 const query = (overrides: Partial<Query> = {}) =>
   ({
     data: undefined,
     error: null,
-    fetchNextPage: vi.fn(),
-    hasNextPage: false,
     isError: false,
-    isFetchNextPageError: false,
-    isFetchingNextPage: false,
     isPending: false,
     refetch: vi.fn(),
     ...overrides,
   }) as unknown as Query;
-
-const dataOf = (...pages: PageInvoiceSummary[]) => ({
-  pageParams: pages.map(() => undefined),
-  pages,
-});
 
 const NONE = [] as const;
 
@@ -53,8 +44,18 @@ const card = (q: Query) => (
   />
 );
 
+/** `count` invoices of one customer, one a day from the first of March. */
+const invoices = (count: number): InvoiceSummary[] =>
+  Array.from({ length: count }, (_, index) =>
+    invoiceRow(`inv-${index + 1}`, 'Acme', {
+      boundaryAt: new Date(Date.UTC(2027, 2, index + 1)).toISOString(),
+    }),
+  );
+
+const bodyRows = () => screen.getAllByRole('row').slice(1);
+
 describe('the invoices of a subject', () => {
-  it('shows a busy region named by what is being read while the first page loads', () => {
+  it('shows a busy region named by what is being read while the invoices load', () => {
     render(card(query({ isPending: true })));
 
     expect(
@@ -64,7 +65,7 @@ describe('the invoices of a subject', () => {
   });
 
   it('says why there is none, in the words of the screen it is on', () => {
-    render(card(query({ data: dataOf(pageOf([])) })));
+    render(card(query({ data: pageOf([]) })));
 
     const empty = screen.getByTestId('things-empty');
     expect(within(empty).getByText('No invoices yet')).toBeInTheDocument();
@@ -92,15 +93,13 @@ describe('the invoices of a subject', () => {
     expect(refetch).toHaveBeenCalled();
   });
 
-  it('keeps the rows it has when a later page cannot be read', () => {
+  it('keeps the rows it has when a refresh fails', () => {
     render(
       card(
         query({
-          data: dataOf(pageOf([invoiceRow('inv-1', 'Acme')], 'next')),
+          data: pageOf([invoiceRow('inv-1', 'Acme')]),
           error: new ApiError({ data: { detail: 'Slow', status: 503 }, status: 503 }),
-          hasNextPage: true,
           isError: true,
-          isFetchNextPageError: true,
         }),
       ),
     );
@@ -109,25 +108,49 @@ describe('the invoices of a subject', () => {
     expect(screen.queryByTestId('things-error')).toBeNull();
   });
 
-  it('lists the invoices read, says no count of them and offers the next page', async () => {
-    const fetchNextPage = vi.fn();
-    render(
-      card(
-        query({
-          data: dataOf(
-            pageOf([invoiceRow('inv-1', 'Acme'), invoiceRow('inv-2', 'Acme')], 'next'),
-            pageOf([invoiceRow('inv-3', 'Acme')]),
-          ),
-          fetchNextPage,
-          hasNextPage: true,
-        }),
-      ),
+  it('lists every invoice it holds, with no count of them and no "Load more"', () => {
+    render(card(query({ data: pageOf(invoices(3)) })));
+
+    expect(bodyRows()).toHaveLength(3);
+    expect(screen.queryByText(/invoices? shown/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
+  });
+
+  it('pages the invoices in the browser, ten to a page, newest first', async () => {
+    render(card(query({ data: pageOf(invoices(12)) })));
+
+    expect(bodyRows()).toHaveLength(10);
+    expect(within(bodyRows()[0]).getByRole('link')).toHaveAttribute(
+      'href',
+      '/billing/invoices/inv-12',
+    );
+    expect(screen.getByText('Showing 1-10 of 12 records')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(bodyRows()).toHaveLength(2);
+    expect(within(bodyRows()[0]).getByRole('link')).toHaveAttribute(
+      'href',
+      '/billing/invoices/inv-2',
+    );
+    expect(screen.getByText('Showing 11-12 of 12 records')).toBeInTheDocument();
+  });
+
+  it('sorts by the column of a header, the boundary newest first as it opens', async () => {
+    render(card(query({ data: pageOf(invoices(3)) })));
+
+    const firstLink = () =>
+      within(bodyRows()[0]).getByRole('link').getAttribute('href');
+    expect(firstLink()).toBe('/billing/invoices/inv-3');
+    expect(
+      screen.getByRole('columnheader', { name: /Invoice/ }),
+    ).toHaveAttribute('aria-sort', 'descending');
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Sorted descending: Invoice' }),
     );
 
-    expect(screen.getAllByRole('row')).toHaveLength(4);
-    expect(screen.queryByText(/invoices? shown/)).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Load more' }));
-    expect(fetchNextPage).toHaveBeenCalled();
+    expect(firstLink()).toBe('/billing/invoices/inv-1');
   });
 
   it('leaves out the columns the page already says', () => {
@@ -136,7 +159,7 @@ describe('the invoices of a subject', () => {
         description="d"
         emptyDescription="e"
         hiddenColumns={['invoice', 'provider']}
-        query={query({ data: dataOf(pageOf([invoiceRow('inv-1', 'Acme')])) })}
+        query={query({ data: pageOf([invoiceRow('inv-1', 'Acme')]) })}
         testIdPrefix="things"
       />,
     );

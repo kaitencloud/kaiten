@@ -1,19 +1,18 @@
-import type {
-  InfiniteData,
-  UseInfiniteQueryResult,
-} from '@tanstack/react-query';
-import { type ReactNode, useMemo } from 'react';
+import type { UseQueryResult } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PageInvoiceSummary } from '@/api-client';
 import { TableCard } from '@/functionals/table';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { InvoicesTable, type InvoicesTableColumn } from './invoices-table';
-import {
-  ListEmptyState,
-  LoadMoreFooter,
-  PagedListSkeleton,
-} from './paged-list';
+import { ListEmptyState, PagedListSkeleton } from './paged-list';
 import { RetryableProblem } from './retryable-problem';
+
+/** What the card reads of the query its page brings. */
+type InvoicesQueryResult = Pick<
+  UseQueryResult<PageInvoiceSummary, unknown>,
+  'data' | 'error' | 'isError' | 'isPending' | 'refetch'
+>;
 
 type InvoicesCardProps = {
   /** What the card says it lists: "The invoices of this instance's subscription." */
@@ -24,16 +23,16 @@ type InvoicesCardProps = {
   hiddenColumns: readonly InvoicesTableColumn[];
   /** A prefix for the test ids of the card, so that two lists on a page stay apart. */
   testIdPrefix: string;
-  /** The invoices, read a page at a time by the page that shows them. */
-  query: UseInfiniteQueryResult<InfiniteData<PageInvoiceSummary>>;
+  /** The invoices, every page of them, read by the page that shows them. */
+  query: InvoicesQueryResult;
 };
 
 /**
  * The invoices of one subject, instance or customer, in a card of its page: the
- * same table as the organization's list, read a page at a time with the same
- * "Load more". The page brings the query, so that it decides what it lists and
- * what refreshes it; the card draws its four states, loading, refused with a way
- * to ask again, empty and populated, and never adds anything up.
+ * same table as the organization's list, sorted and paged in the browser since
+ * the card holds them all. The page brings the query, so that it decides what it
+ * lists and what refreshes it; the card draws its four states, loading, refused
+ * with a way to ask again, empty and populated, and never adds anything up.
  */
 export function InvoicesCard({
   description,
@@ -44,10 +43,7 @@ export function InvoicesCard({
 }: InvoicesCardProps) {
   const { t } = useTranslation();
   const Icon = dataModelIcons.invoice;
-  const invoices = useMemo(
-    () => query.data?.pages.flatMap((page) => page.items) ?? [],
-    [query.data],
-  );
+  const invoices = query.data?.items ?? [];
 
   // The states that are not the table sit inside the card's own gutter and end
   // with its own space: the card owns them, and none of them pads itself for it.
@@ -87,17 +83,11 @@ export function InvoicesCard({
     }
 
     return (
-      <>
-        <InvoicesTable
-          hiddenColumns={hiddenColumns}
-          invoices={invoices}
-          variant="simple"
-        />
-        <LoadMoreFooter
-          loadMoreLabel={t('Features.Billing.InvoicesCard.loadMore')}
-          query={query}
-        />
-      </>
+      <InvoicesTable
+        hiddenColumns={hiddenColumns}
+        invoices={invoices}
+        variant="simple"
+      />
     );
   }
 

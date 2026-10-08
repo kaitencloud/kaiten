@@ -12,6 +12,9 @@ import {
   type ListDeploymentZonesResponse,
   type ListEntitlementGroupsResponse,
   type ListEntitlementsResponse,
+  type ListInstanceInvoicesResponse,
+  type ListInvoicesData,
+  type ListInvoicesResponse,
   type ListLicenseFamiliesResponse,
   type ListReleasesResponse,
   listComponents,
@@ -19,6 +22,8 @@ import {
   listDeploymentZones,
   listEntitlementGroups,
   listEntitlements,
+  listInstanceInvoices,
+  listInvoices,
   listLicenseFamilies,
   listReleases,
 } from '@/api-client';
@@ -32,6 +37,8 @@ import {
   listDeploymentZonesOptions,
   listEntitlementGroupsOptions,
   listEntitlementsOptions,
+  listInstanceInvoicesOptions,
+  listInvoicesOptions,
   listLicenseFamiliesOptions,
   listReleasesOptions,
 } from '@/api-client/@tanstack/react-query.gen';
@@ -45,8 +52,24 @@ import { fetchAllPages, MAX_PAGE_SIZE } from './pagination';
 
 type QueryContext = { signal: AbortSignal };
 
-const pageRequest = (cursor: string | undefined, signal: AbortSignal) => ({
-  query: { cursor, limit: MAX_PAGE_SIZE },
+/**
+ * The filters of the list of invoices: what narrows it, never where it is read
+ * from (the cursor and the page size are the walk's) nor what reorders it
+ * (`updatedSince` reads the changes in the order they were made).
+ */
+export type InvoicesQuery = Omit<
+  NonNullable<ListInvoicesData['query']>,
+  'cursor' | 'limit' | 'updatedSince'
+>;
+
+// What a list is asked for besides its page: the filters of the operation, which
+// every request of the walk repeats.
+const pageRequest = <TQuery extends object>(
+  cursor: string | undefined,
+  signal: AbortSignal,
+  query?: TQuery,
+) => ({
+  query: { ...query, cursor, limit: MAX_PAGE_SIZE },
   signal,
   throwOnError: true as const,
 });
@@ -134,12 +157,43 @@ export const allFeatureFlagsOptions = () => ({
   }),
 });
 
+export const allInstanceInvoicesOptions = (instanceSlug: string) => ({
+  ...listInstanceInvoicesOptions({ path: { instanceSlug } }),
+  queryFn: async ({
+    signal,
+  }: QueryContext): Promise<ListInstanceInvoicesResponse> => ({
+    hasMore: false,
+    items: await fetchAllPages(
+      async (cursor) =>
+        (
+          await listInstanceInvoices({
+            ...pageRequest(cursor, signal),
+            path: { instanceSlug },
+          })
+        ).data,
+      signal,
+    ),
+  }),
+});
+
 export const allInstancesOptions = () => ({
   ...getInstancesOptions(),
   queryFn: async ({ signal }: QueryContext): Promise<GetInstancesResponse> => ({
     hasMore: false,
     items: await fetchAllPages(
       async (cursor) => (await getInstances(pageRequest(cursor, signal))).data,
+      signal,
+    ),
+  }),
+});
+
+export const allInvoicesOptions = (query: InvoicesQuery = {}) => ({
+  ...listInvoicesOptions({ query }),
+  queryFn: async ({ signal }: QueryContext): Promise<ListInvoicesResponse> => ({
+    hasMore: false,
+    items: await fetchAllPages(
+      async (cursor) =>
+        (await listInvoices(pageRequest(cursor, signal, query))).data,
       signal,
     ),
   }),

@@ -12,12 +12,10 @@ export const Route = createFileRoute('/billing/invoices/')({
   component: InvoicesRoute,
   validateSearch: (search) => readInvoiceFilters(search),
   loaderDeps: ({ search }) => ({ filters: search }),
-  // Warms the first page without failing the route: a refusal is shown by the
-  // list, with the filters still in place and a way to ask again.
+  // Warms the list without failing the route: a refusal is shown by the list,
+  // with the filters still in place and a way to ask again.
   loader: async ({ context, deps }) => {
-    await context.queryClient.prefetchInfiniteQuery(
-      invoicesQueryOptions(deps.filters),
-    );
+    await context.queryClient.prefetchQuery(invoicesQueryOptions(deps.filters));
   },
   beforeLoad: () => ({
     getTitle: () => i18n.t('Pages.Billing.Invoices.title'),

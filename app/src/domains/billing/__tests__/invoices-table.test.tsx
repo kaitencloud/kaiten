@@ -1,4 +1,5 @@
 import { render, renderHook, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { AnchorHTMLAttributes } from 'react';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vite-plus/test';
 import { testI18n } from '@/__tests__/test-i18n';
@@ -142,14 +143,14 @@ describe('InvoicesTable', () => {
       />,
     );
 
-    expect(
-      screen.queryByRole('columnheader', { name: 'Customer' }),
-    ).toBeNull();
-    expect(screen.queryByRole('columnheader', { name: 'Provider' })).toBeNull();
-    expect(screen.queryByRole('columnheader', { name: 'Handoff' })).toBeNull();
-    expect(
-      screen.getByRole('columnheader', { name: 'Invoice' }),
-    ).toBeInTheDocument();
+    // A header that sorts is named by its button, so the text is what says which.
+    const headers = screen
+      .getAllByRole('columnheader')
+      .map((header) => header.textContent);
+    expect(headers).not.toContain('Customer');
+    expect(headers).not.toContain('Provider');
+    expect(headers).not.toContain('Handoff');
+    expect(headers).toContain('Invoice');
     // The row still leads to its invoice, from the column that is left.
     expect(screen.getByRole('link', { name: /Renewal/ })).toHaveAttribute(
       'href',
@@ -157,12 +158,145 @@ describe('InvoicesTable', () => {
     );
   });
 
-  it('sorts nothing: the server orders a list it pages', () => {
+  it('opens ordered by the boundary each invoice bills, newest first, and says so on that header', () => {
+    render(
+      <InvoicesTable
+        invoices={[
+          invoice({ boundaryAt: '2027-01-01T00:00:00.000Z', id: 'inv-jan' }),
+          invoice({ boundaryAt: '2027-03-01T00:00:00.000Z', id: 'inv-mar' }),
+          invoice({ boundaryAt: '2027-02-01T00:00:00.000Z', id: 'inv-feb' }),
+        ]}
+      />,
+    );
+
+    expect(
+      screen
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => within(row).getAllByRole('link')[0].getAttribute('href')),
+    ).toEqual([
+      '/billing/invoices/inv-mar',
+      '/billing/invoices/inv-feb',
+      '/billing/invoices/inv-jan',
+    ]);
+    expect(
+      screen.getByRole('columnheader', { name: /Invoice/ }),
+    ).toHaveAttribute('aria-sort', 'descending');
+  });
+
+  it('sorts by who an invoice is for, the service period, the total and the due date, and leaves the status, the provider and the handoff to the filters', () => {
     render(<InvoicesTable invoices={[invoice()]} />);
 
-    for (const header of screen.getAllByRole('columnheader')) {
-      expect(header).not.toHaveAttribute('aria-sort');
-    }
+    const sorted = screen
+      .getAllByRole('columnheader')
+      .filter((header) => header.hasAttribute('aria-sort'))
+      .map((header) => header.textContent);
+
+    expect(sorted).toEqual(['Customer', 'Invoice', 'Service period', 'Total', 'Due']);
+  });
+
+  it('sorts the totals by amount, and the invoices that were not issued after the ones that were', async () => {
+    render(
+      <InvoicesTable
+        invoices={[
+          invoice({ id: 'inv-big', total: 250000 }),
+          invoice({ id: 'inv-small', total: 900 }),
+          invoice({ dueAt: undefined, id: 'inv-draft', status: 'DRAFT', total: 12000 }),
+        ]}
+      />,
+    );
+    const ids = () =>
+      screen
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => within(row).getAllByRole('link')[0].getAttribute('href'));
+
+    // An amount sorts largest first, and smallest first when asked again.
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Not sorted, click to sort: Total' }),
+    );
+    expect(ids()).toEqual([
+      '/billing/invoices/inv-big',
+      '/billing/invoices/inv-draft',
+      '/billing/invoices/inv-small',
+    ]);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Sorted descending: Total' }),
+    );
+    expect(ids()).toEqual([
+      '/billing/invoices/inv-small',
+      '/billing/invoices/inv-draft',
+      '/billing/invoices/inv-big',
+    ]);
+
+    // The invoice that was not issued has no due date, and goes last whichever way
+    // the dates go.
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Not sorted, click to sort: Due' }),
+    );
+    expect(ids().at(-1)).toBe('/billing/invoices/inv-draft');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Sorted descending: Due' }),
+    );
+    expect(ids().at(-1)).toBe('/billing/invoices/inv-draft');
+  });
+
+  it('sorts the totals of one currency by amount, and never puts an amount among those of another currency', async () => {
+    render(
+      <InvoicesTable
+        invoices={[
+          invoice({ currency: 'USD', id: 'inv-usd-big', total: 250000 }),
+          invoice({ currency: 'JPY', id: 'inv-jpy', total: 5000 }),
+          invoice({ currency: 'USD', id: 'inv-usd-small', total: 900 }),
+          invoice({ currency: 'EUR', id: 'inv-eur', total: 12000 }),
+        ]}
+      />,
+    );
+    const ids = () =>
+      screen
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => within(row).getAllByRole('link')[0].getAttribute('href'));
+
+    // The currencies are in order, and the amounts only within one: 5,000 of JPY is
+    // not 5,000 of EUR cents, so the yen is not placed among the dollars by its number.
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Not sorted, click to sort: Total' }),
+    );
+    expect(ids()).toEqual([
+      '/billing/invoices/inv-usd-big',
+      '/billing/invoices/inv-usd-small',
+      '/billing/invoices/inv-jpy',
+      '/billing/invoices/inv-eur',
+    ]);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Sorted descending: Total' }),
+    );
+    expect(ids()).toEqual([
+      '/billing/invoices/inv-eur',
+      '/billing/invoices/inv-jpy',
+      '/billing/invoices/inv-usd-small',
+      '/billing/invoices/inv-usd-big',
+    ]);
+  });
+
+  it('pages the rows in the browser, ten to a page', async () => {
+    render(
+      <InvoicesTable
+        invoices={Array.from({ length: 23 }, (_, index) =>
+          invoice({ id: `inv-${index + 1}` }),
+        )}
+      />,
+    );
+
+    expect(screen.getAllByRole('row')).toHaveLength(11);
+    expect(screen.getByText('Showing 1-10 of 23 records')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(screen.getAllByRole('row')).toHaveLength(4);
+    expect(screen.getByText('Showing 21-23 of 23 records')).toBeInTheDocument();
   });
 
   it('says why there is nothing to show, in the words of its screen', () => {

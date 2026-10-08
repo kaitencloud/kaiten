@@ -174,11 +174,13 @@ export function createEmptyInvoicesModel() {
 }
 
 /**
- * More invoices than a page holds: sixty settled ones, which the list reads
- * fifty at a time. The newest is `inv-bulk-60`.
+ * More invoices than a page holds: sixty settled ones by default, which the
+ * console pages ten to a page in the browser; with more than 200 the API sends
+ * them in several pages too, and the console reads every one. The newest is
+ * `inv-bulk-` and the count.
  */
-export function createManyInvoicesModel() {
-  const invoices = Array.from({ length: 60 }, (_, index) => {
+export function createManyInvoicesModel(count = 60) {
+  const invoices = Array.from({ length: count }, (_, index) => {
     const number = index + 1;
     const id = `inv-bulk-${String(number).padStart(2, '0')}`;
     const boundaryAt = new Date(
