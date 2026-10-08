@@ -3,8 +3,8 @@ import { buildPrice } from '../../../../e2e/app/_support/fixtures';
 import { daysAgo } from './dates';
 
 /**
- * What the licenses of the world bill. Prices hang on a license version: Starter
- * 2026 sells a monthly and an annual flat fee, with its API calls rated per
+ * What the licenses of the world bill. Prices hang on a license version: Trial
+ * sells nothing, as a flat fee of zero; Starter 2026 sells a monthly and an annual flat fee, with its API calls rated per
  * call on top; Business sells the same two fees and bills the calls above its
  * allowance; Starter 2027 is a draft with its first price to review. Enterprise
  * is sold on request, and its prices are the ones its contracts are pinned to:
@@ -25,6 +25,19 @@ export const createLicensePrices = (
     licenses.find((license) => license.slug === slug)?.id ?? slug;
 
   return {
+    // The trial is free: a zero-amount flat fee, which is what a plan that bills
+    // nothing sells (a subscription is pinned to a flat fee).
+    trial: [
+      buildPrice({
+        billingPeriod: 'MONTHLY',
+        createdAt: daysAgo(400),
+        displayLabel: 'Trial, free',
+        displayOrder: 1,
+        id: `${idOf('trial')}-monthly`,
+        isDefault: true,
+        unitAmountDecimal: '0',
+      }),
+    ],
     enterprise: [
       buildPrice({
         billingPeriod: 'MONTHLY',

@@ -35,6 +35,7 @@ export function buildSubscription({
   anchorAt,
   basePrice = PRO_MONTHLY_PRICE,
   cancelAtPeriodEnd = false,
+  cancelRequestedAt,
   canceledAt,
   cancellationReason,
   currentPeriodEnd,
@@ -47,12 +48,16 @@ export function buildSubscription({
   instanceName = 'Initech Production',
   instanceSlug = 'initech-prod',
   pastDueSince,
+  scheduledChange,
   startedAt,
   status = 'ACTIVE',
+  trialEndsAt,
 }: {
   anchorAt: string;
   basePrice?: Price;
   cancelAtPeriodEnd?: boolean;
+  /** When the cancellation scheduled for the end of the period was asked for. */
+  cancelRequestedAt?: string;
   canceledAt?: string;
   cancellationReason?: string;
   currentPeriodEnd?: string;
@@ -66,8 +71,12 @@ export function buildSubscription({
   instanceName?: string;
   instanceSlug?: string;
   pastDueSince?: string;
+  /** A plan change waiting for the next boundary. */
+  scheduledChange?: InstanceBilling['scheduledChange'];
   startedAt?: string;
   status?: InstanceBilling['status'];
+  /** When the trial ends, or ended: a TRIAL period is the trial, so its end is the period's. */
+  trialEndsAt?: string;
 }): InstanceBilling {
   const period = basePrice.billingPeriod ?? 'MONTHLY';
   const start = currentPeriodStart ?? anchorAt;
@@ -77,6 +86,7 @@ export function buildSubscription({
     basePrice,
     billingPeriod: period,
     cancelAtPeriodEnd,
+    cancelRequestedAt,
     canceledAt,
     cancellationReason,
     collectionMethod: 'SEND_INVOICE',
@@ -94,8 +104,10 @@ export function buildSubscription({
     instanceSlug,
     pastDueSince,
     providerKind: 'NOOP',
+    scheduledChange,
     startedAt: startedAt ?? anchorAt,
     status,
+    trialEndsAt,
     updatedAt: startedAt ?? anchorAt,
   };
 }

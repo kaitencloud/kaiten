@@ -1,12 +1,19 @@
 import { HttpResponse } from 'msw/http';
 import {
+  handleCancelPlanChange,
+  handleCancelSubscription,
+  handleDetachInstanceAddon,
   handleGetBillingSettings,
   handleGetInstanceBilling,
   handleGetUpcomingInvoice,
+  handleListInstanceAddons,
   handleListInstanceInvoices,
   handleListLicensePrices,
+  handleReactivateSubscription,
+  handleSchedulePlanChange,
   handleSubscribeInstance,
   handleUpdateBillingSettings,
+  handleUpdateInstanceBilling,
 } from '@/api-client/msw.gen';
 import type { Price } from '@/api-client';
 import type { BillingAppModel } from '../../../e2e/app/_support/model/billing-app-model';
@@ -24,10 +31,11 @@ const oneOf = <T extends string>(
 ): T | undefined => values.find((candidate) => candidate === value);
 
 /**
- * The subscriptions of the instances: reading one, subscribing an instance, the
- * invoice its next boundary will issue and the invoices it already issued, and
- * the billing defaults of the organization. Each answers as the API does, with
- * the refusals it gives.
+ * The subscriptions of the instances: reading one, subscribing an instance,
+ * cancelling it, taking the cancellation back, scheduling and dropping a plan
+ * change, changing its terms, the invoice its next boundary will issue and the
+ * invoices it already issued, the add-ons it holds, and the billing defaults of
+ * the organization. Each answers as the API does, with the refusals it gives.
  *
  * The prices of a license version are served as a fallback: the slot of the
  * licenses owns them when it is installed, and the slot of the billing answers
@@ -56,6 +64,72 @@ export const billingSubscriptionHandlers = (
         );
         persist();
         return HttpResponse.json(started, { status: 201 });
+      }),
+    ),
+    handleCancelSubscription(
+      withProblems(async ({ params, request }) => {
+        const canceled = subscriptions.cancelSubscription(
+          params.instanceSlug,
+          await request.json(),
+        );
+        persist();
+        return HttpResponse.json(canceled);
+      }),
+    ),
+    handleReactivateSubscription(
+      withProblems(({ params }) => {
+        const reactivated = subscriptions.reactivateSubscription(
+          params.instanceSlug,
+        );
+        persist();
+        return HttpResponse.json(reactivated);
+      }),
+    ),
+    handleSchedulePlanChange(
+      withProblems(async ({ params, request }) => {
+        const scheduled = subscriptions.schedulePlanChange(
+          params.instanceSlug,
+          await request.json(),
+        );
+        persist();
+        return HttpResponse.json(scheduled);
+      }),
+    ),
+    handleCancelPlanChange(
+      withProblems(({ params }) => {
+        const dropped = subscriptions.cancelPlanChange(params.instanceSlug);
+        persist();
+        return HttpResponse.json(dropped);
+      }),
+    ),
+    handleUpdateInstanceBilling(
+      withProblems(async ({ params, request }) => {
+        const updated = subscriptions.updateTerms(
+          params.instanceSlug,
+          await request.json(),
+        );
+        persist();
+        return HttpResponse.json(updated);
+      }),
+    ),
+    handleListInstanceAddons(
+      withProblems(({ params, request }) =>
+        HttpResponse.json(
+          subscriptions.listInstanceAddons(
+            params.instanceSlug,
+            new URL(request.url).searchParams.get('includeRemoved') === 'true',
+          ),
+        ),
+      ),
+    ),
+    handleDetachInstanceAddon(
+      withProblems(({ params }) => {
+        subscriptions.detachInstanceAddon(
+          params.instanceSlug,
+          params.addonSlug,
+        );
+        persist();
+        return new HttpResponse(null, { status: 204 });
       }),
     ),
     handleGetUpcomingInvoice(

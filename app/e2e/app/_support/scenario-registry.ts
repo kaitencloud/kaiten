@@ -19,6 +19,11 @@ import {
   createMismatchedTotalsModel,
   createSubscriptionsModel,
 } from '../billing/billing.scenarios';
+import {
+  createLifecycleBillingModel,
+  createLifecycleInstancesModel,
+  createLifecycleLicensesModel,
+} from '../billing/lifecycle-world';
 import { createDisconnectedAttioModel } from '../connectors/connectors.scenarios';
 import { createDashboardReadModel } from '../dashboard/dashboard.scenarios';
 import {
@@ -84,6 +89,9 @@ export type ScenarioCheck = readonly [name: string, factory: () => unknown];
 export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   ['connectors/createDisconnectedAttioModel', createDisconnectedAttioModel],
   ['billing/createSubscriptionsModel', createSubscriptionsModel],
+  ['billing/createLifecycleBillingModel', createLifecycleBillingModel],
+  ['billing/createLifecycleInstancesModel', createLifecycleInstancesModel],
+  ['billing/createLifecycleLicensesModel', createLifecycleLicensesModel],
   ['customers/createBillingCustomersModel', createBillingCustomersModel],
   [
     'entitlements/createReferencedEntitlementModel',
