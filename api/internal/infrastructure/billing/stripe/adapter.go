@@ -234,9 +234,14 @@ func (a *Adapter) CreateDraft(ctx context.Context, ref provider.Ref, in provider
 }
 
 // AddLine implements provider.Adapter: one invoice item, attached to the
-// draft by id, carrying the line's integer amount (negative for a discount)
-// and its service period in seconds.
+// draft by id, carrying the line's integer amount, its service period in
+// seconds and the coupons of the discounts it bears, in DISCOUNT seq order.
+// No item is ever negative: Stripe refuses one under automatic tax, and a
+// discount reaches Stripe as a coupon (CR-001).
 func (a *Adapter) AddLine(ctx context.Context, ref provider.Ref, externalInvoiceID string, in provider.NormalizedInvoice, line provider.NormalizedLine) (string, error) {
+	if line.AmountMinor < 0 {
+		return "", fmt.Errorf("stripe: refusing a negative invoice item for line %d", line.Seq)
+	}
 	sc, settings, err := a.connect(ref)
 	if err != nil {
 		return "", err
@@ -264,7 +269,14 @@ func (a *Adapter) AddLine(ctx context.Context, ref provider.Ref, externalInvoice
 			"kaiten_line_seq": strconv.Itoa(line.Seq),
 		},
 	}
-	params.SetIdempotencyKey(in.KaitenInvoiceID.String() + ":line:" + strconv.Itoa(line.Seq))
+	for _, d := range line.Discounts {
+		params.Discounts = append(params.Discounts, &stripego.InvoiceItemCreateDiscountParams{Coupon: stripego.String(d.ExternalID)})
+	}
+	key := in.KaitenInvoiceID.String() + ":line:" + strconv.Itoa(line.Seq)
+	if line.Recreation > 0 {
+		key += ":r" + strconv.Itoa(line.Recreation)
+	}
+	params.SetIdempotencyKey(key)
 	created, err := sc.V1InvoiceItems.Create(ctx, params)
 	if err != nil {
 		return "", classify(err, objectInvoice)
@@ -444,6 +456,11 @@ func (a *Adapter) read(ctx context.Context, sc *stripego.Client, inv *stripego.I
 		HostedURL: inv.HostedInvoiceURL, PDFURL: inv.InvoicePDF, AttemptCount: int(inv.AttemptCount),
 		TotalExcludingTax: inv.TotalExcludingTax, Subtotal: inv.Subtotal, Currency: strings.ToUpper(string(inv.Currency)),
 	}
+	for _, d := range inv.TotalDiscountAmounts {
+		if d != nil {
+			out.TotalDiscount += d.Amount
+		}
+	}
 	if inv.Customer != nil {
 		out.ExternalCustomerID = inv.Customer.ID
 	}
@@ -465,13 +482,18 @@ func (a *Adapter) read(ctx context.Context, sc *stripego.Client, inv *stripego.I
 	return out, nil
 }
 
+// lines reads an invoice's lines. The lines embedded in the invoice serve
+// when they are all there and nothing is discounted; otherwise they are
+// listed, with their discounts expanded so that each discount amount names
+// its coupon.
 func (a *Adapter) lines(ctx context.Context, sc *stripego.Client, inv *stripego.Invoice) ([]provider.Line, error) {
 	var raw []*stripego.InvoiceLineItem
-	if inv.Lines != nil && !inv.Lines.HasMore {
+	if inv.Lines != nil && !inv.Lines.HasMore && len(inv.TotalDiscountAmounts) == 0 {
 		raw = inv.Lines.Data
 	} else {
 		params := &stripego.InvoiceListLinesParams{Invoice: stripego.String(inv.ID)}
 		params.Limit = stripego.Int64(100)
+		params.AddExpand("data.discounts")
 		for line, err := range sc.V1Invoices.ListLines(ctx, params).All(ctx) {
 			if err != nil {
 				return nil, classify(err, objectInvoice)
@@ -491,7 +513,7 @@ func (a *Adapter) lines(ctx context.Context, sc *stripego.Client, inv *stripego.
 		}
 		out = append(out, provider.Line{
 			ExternalLineID: external, KaitenLineID: kaitenLine, AmountMinor: line.Amount,
-			Currency: strings.ToUpper(string(line.Currency)),
+			Currency: strings.ToUpper(string(line.Currency)), Discounts: lineDiscounts(line),
 		})
 	}
 	return out, nil
