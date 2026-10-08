@@ -83,16 +83,21 @@ test.describe('subscribing an instance', () => {
     );
     await expect(billing.started()).toContainText('Activation invoice:');
     await expect(billing.started()).toContainText('$29.00');
-    // What went out is the price, who the invoices are for, and nothing this release does not take.
+    // What went out is the price, who the invoices are for, and the trial said to
+    // be none: the release has trials, and the license of this instance carries none,
+    // so that nothing applies behind the back of the person who read the form.
     expect(writes).toHaveLength(1);
     expect(writes[0]).toMatchObject({
-      body: { basePriceId: 'price-starter-monthly', providerKind: 'NOOP' },
+      body: {
+        basePriceId: 'price-starter-monthly',
+        providerKind: 'NOOP',
+        trialDays: 0,
+      },
       method: 'POST',
       pathname: '/api/instances/beta-staging/billing',
     });
     for (const member of [
       'collectionMethod',
-      'trialDays',
       'addOns',
       'voucherCode',
       'daysUntilDue',
@@ -174,6 +179,7 @@ test.describe('subscribing an instance', () => {
       daysUntilDue: 60,
       providerKind: 'NOOP',
       startAt: '2026-09-30T09:30:00.000Z',
+      trialDays: 0,
     });
     await billing.close();
     const card = billing.subscriptionCard();

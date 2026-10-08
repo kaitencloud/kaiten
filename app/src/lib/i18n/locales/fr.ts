@@ -589,6 +589,11 @@ export default {
                 'Nombre de jours entre l’émission d’une facture et son échéance. Laissez vide pour appliquer le délai de votre organisation.',
               daysUntilDuePlaceholder: 'Défaut de l’organisation : {{days}}',
               daysUntilDuePlaceholderUnknown: 'Défaut de l’organisation',
+              trialDays: 'Essai (jours)',
+              trialDaysHint:
+                'Rien n’est facturé pendant l’essai, et son usage n’est jamais facturé. La première facture est émise à sa fin ; 0 démarre la facturation tout de suite. La licence peut porter un défaut.',
+              trialDaysArrears:
+                'Un essai n’est pas proposé sur une offre facturée à terme échu : l’abonnement démarre sans essai.',
               startAt: 'Début de la facturation (UTC)',
               startAtHint:
                 'Laissez vide pour démarrer maintenant. Un contrat commencé plus tôt peut démarrer jusqu’à une période de facturation en arrière, jamais dans le futur.',
@@ -599,6 +604,8 @@ export default {
               noBasePrice:
                 '{{name}} v{{version}} n’a aucun forfait actif auquel souscrire. Ajoutez-en un sur la licence d’abord.',
               Summary: {
+                trial:
+                  'Aucune facture maintenant. La première facture est émise à la fin de l’essai, le {{date}}.',
                 now: 'La première facture est émise dès le démarrage de l’abonnement.',
                 arrears:
                   'Rien n’est facturé avant la clôture de la première période : la première facture est émise le {{date}}.',
@@ -607,6 +614,8 @@ export default {
               },
               Started: {
                 title: 'Abonnement démarré',
+                trial:
+                  'L’essai dure jusqu’au {{date}}, et la première facture est émise alors.',
                 period: 'Période en cours :',
                 activation: 'Facture d’activation :',
                 viewInvoice: 'Voir la facture',
@@ -625,6 +634,7 @@ export default {
               Errors: {
                 basePrice: 'Choisissez un prix de base',
                 daysUntilDue: 'Saisissez un nombre entier de jours, de 0 à 365',
+                trialDays: 'Saisissez un nombre entier de jours, de 0 à 365',
                 startAt: 'Saisissez une date et une heure valides',
                 startAtFuture:
                   'La facturation ne peut pas démarrer dans le futur',
