@@ -21,8 +21,9 @@ type ProblemAlertProps = {
  * The `detail` of the API's problem document is shown as it is, and nothing is
  * translated per code: a code with no `detail` falls back to a generic message
  * with the `code` in a monospace hint. A few failures change what is offered:
- * a missing scope is a banner that names it, and a 503 says nothing was changed
- * and offers a retry, never an optimistic result.
+ * a missing scope is a banner that names it, a 503 says nothing was changed and
+ * offers a retry, never an optimistic result, and so does a period that is being
+ * closed (409 `*.BoundaryPending`), which a minute settles.
  */
 export function ProblemAlert({
   autoFocus = false,
@@ -45,7 +46,10 @@ export function ProblemAlert({
   }
 
   const hasDetail = Boolean(problem.detail);
-  const retryable = problem.kind === 'transient' && onRetry;
+  // Nothing was changed by either, and asking again is what they invite.
+  const retryable =
+    (problem.kind === 'transient' || problem.kind === 'boundary-pending') &&
+    onRetry;
 
   return (
     <Alert
@@ -70,6 +74,9 @@ export function ProblemAlert({
               ? t('Features.Billing.Problems.providerUnreachable')
               : t('Features.Billing.Problems.transient')}
           </p>
+        ) : null}
+        {problem.kind === 'boundary-pending' ? (
+          <p>{t('Features.Billing.Problems.boundaryPending')}</p>
         ) : null}
         {problem.retentionStart ? (
           <p>

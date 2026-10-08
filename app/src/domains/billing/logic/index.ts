@@ -129,6 +129,12 @@ export {
 } from './price-labels';
 export { isValidDaysUntilDue, MAX_DAYS_UNTIL_DUE } from './payment-terms';
 export {
+  canStartWithTrial,
+  getTrialEnd,
+  isValidTrialDays,
+  MAX_TRIAL_DAYS,
+} from './trial';
+export {
   getPriceAmountParts,
   getPriceLabel,
   getPriceUnitLabel,

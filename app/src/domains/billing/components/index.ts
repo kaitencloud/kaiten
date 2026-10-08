@@ -1,4 +1,5 @@
 export { BillingNotFound } from './billing-not-found';
+export { BoundaryClosingNotice } from './boundary-closing-notice';
 export { BillingRouteError } from './billing-route-error';
 export { BillingUnavailable } from './billing-unavailable';
 export { DeletionRefusalDialog } from './deletion-refusal-dialog';

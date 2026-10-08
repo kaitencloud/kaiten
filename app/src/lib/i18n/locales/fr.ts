@@ -4021,6 +4021,13 @@ export default {
         transient: 'Rien n’a été modifié. Vous pouvez réessayer.',
         providerUnreachable:
           'Le fournisseur de paiement est injoignable. Rien n’a été modifié.',
+        boundaryPending:
+          'La période de cet abonnement est terminée et en cours de clôture. Rien n’a été modifié. Réessayez dans une minute.',
+        BoundaryClosing: {
+          title: 'Clôture de la période…',
+          description:
+            'La période de cet abonnement est terminée et en cours de clôture. Votre demande est renvoyée dans un instant.',
+        },
         reference: 'Référence {{id}}',
         outsideRetention: 'L’usage antérieur au {{date}} n’est plus conservé.',
       },

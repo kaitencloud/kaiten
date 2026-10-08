@@ -3952,6 +3952,13 @@ export default {
         transient: 'Nothing was changed. You can try again.',
         providerUnreachable:
           'The payment provider could not be reached. Nothing was changed.',
+        boundaryPending:
+          'The period of this subscription has ended and is being closed. Nothing was changed. Try again in a minute.',
+        BoundaryClosing: {
+          title: 'Closing the period…',
+          description:
+            'The period of this subscription has ended and is being closed. Your request is sent again in a moment.',
+        },
         reference: 'Reference {{id}}',
         outsideRetention: 'Usage before {{date}} is no longer kept.',
       },
