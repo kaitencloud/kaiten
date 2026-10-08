@@ -51,6 +51,12 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+// The dialog lists every event of the catalogue, a hundred and more, and each
+// change of the form renders them again: a test that fills the form and sends it
+// takes about a second here and several on a loaded CI runner, past the default
+// ten.
+const FORM_TEST_TIMEOUT_MS = 30_000;
+
 describe('CreateWebhookDialog', () => {
   function renderDialog(
     props?: Partial<ComponentProps<typeof CreateWebhookDialog>>,
@@ -124,7 +130,7 @@ describe('CreateWebhookDialog', () => {
     });
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
+  }, FORM_TEST_TIMEOUT_MS);
 
   it('prevents native form submission from reloading the page', async () => {
     const user = userEvent.setup();
@@ -152,5 +158,5 @@ describe('CreateWebhookDialog', () => {
 
     expect(submitEvent.defaultPrevented).toBe(true);
     await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
-  });
+  }, FORM_TEST_TIMEOUT_MS);
 });
