@@ -8,6 +8,7 @@ import {
   getLicenseQueryKey,
   getUpcomingInvoiceQueryKey,
   listHandoffQueryKey,
+  listInstanceAddonsQueryKey,
   listInstanceInvoicesQueryKey,
   listInvoicesQueryKey,
   listLicensePricesQueryKey,
@@ -25,11 +26,11 @@ import { invalidateInstanceQueries } from '@/domains/customer-management';
  */
 
 /**
- * An instance's subscription changed (subscribed, cancelled, reactivated, its
- * terms or provider changed): its subscription, its upcoming invoice, its
- * invoices and the organization's list, the effective usage its entitlements
- * show, and the instance itself, whose customer and license are frozen while the
- * subscription lives.
+ * An instance's subscription changed (subscribed, cancelled, reactivated, moved
+ * to another plan, its terms or provider changed): its subscription, its upcoming
+ * invoice, its invoices and the organization's list, the add-ons it holds, the
+ * effective usage its entitlements show, and the instance itself, whose customer
+ * and license are frozen while the subscription lives.
  */
 export async function invalidateInstanceBillingQueries(
   queryClient: QueryClient,
@@ -48,6 +49,9 @@ export async function invalidateInstanceBillingQueries(
       queryKey: listInstanceInvoicesQueryKey({ path }),
     }),
     queryClient.invalidateQueries({ queryKey: listInvoicesQueryKey() }),
+    queryClient.invalidateQueries({
+      queryKey: listInstanceAddonsQueryKey({ path }),
+    }),
     queryClient.invalidateQueries({
       queryKey: getEntitlementsUsageMetricsQueryKey({ path }),
     }),

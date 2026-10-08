@@ -96,6 +96,30 @@ describe('ProblemAlert', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
+  it('says a period being closed changed nothing and a minute settles it, and offers a retry', async () => {
+    const onRetry = vi.fn();
+    render(
+      <ProblemAlert
+        error={apiError(409, {
+          code: 'CancelSubscription.BoundaryPending',
+          detail: 'the subscription’s period has ended and is being closed; retry in a minute',
+          status: 409,
+        })}
+        onRetry={onRetry}
+      />,
+    );
+
+    // The detail is the API's; the console adds that nothing was changed and what to do.
+    expect(
+      screen.getByText(/the subscription’s period has ended and is being closed/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Nothing was changed\. Try again in a minute\./),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
   it('says it is the provider that is unreachable when it is', () => {
     render(
       <ProblemAlert

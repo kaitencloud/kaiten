@@ -9,6 +9,7 @@ import {
   getInvoiceQueryKey,
   getLicenseQueryKey,
   getUpcomingInvoiceQueryKey,
+  listInstanceAddonsQueryKey,
   listLicensePricesQueryKey,
 } from '@/api-client/@tanstack/react-query.gen';
 import {
@@ -61,11 +62,13 @@ describe('invalidateInstanceBillingQueries', () => {
       organizationInvoices,
       customerInvoices,
       instanceScopedInvoices,
+      listInstanceAddonsQueryKey({ path }),
       getEntitlementsUsageMetricsQueryKey({ path }),
       getInstanceQueryKey({ path }),
     ];
     const untouched = [
       getInstanceBillingQueryKey({ path: otherPath }),
+      listInstanceAddonsQueryKey({ path: otherPath }),
       otherInstanceCardInvoices,
       getInstanceQueryKey({ path: otherPath }),
       waitingQueue,

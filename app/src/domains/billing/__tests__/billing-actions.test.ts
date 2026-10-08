@@ -96,6 +96,32 @@ describe('billing actions', () => {
     expect(canPerformAction(U_SALES, 'customer.updateBillingEmail')).toBe(false);
   });
 
+  it('gates the life of a subscription on the scope of billing, and what a cancellation offers beside it on its own', () => {
+    for (const action of [
+      'subscription.cancel',
+      'subscription.reactivate',
+      'subscription.schedulePlanChange',
+      'subscription.cancelPlanChange',
+      'subscription.updateTerms',
+    ] as const) {
+      expect(getActionScopes(action), action).toEqual(['write:billing']);
+      expect(canPerformAction(U_READER, action), action).toBe(false);
+      expect(canPerformAction(U_SALES, action), action).toBe(true);
+    }
+    // Removing the add-ons and ending the license are the instance's, not billing's.
+    expect(getActionScopes('instance.addons.list')).toEqual(['read:instances']);
+    expect(getActionScopes('instance.addons.detach')).toEqual(['write:instances']);
+    expect(getActionScopes('instance.update')).toEqual(['write:instances']);
+    expect(canPerformAction(U_READER, 'instance.addons.list')).toBe(true);
+    expect(canPerformAction(U_READER, 'instance.addons.detach')).toBe(false);
+  });
+
+  it('lists a family in the public catalogue with the scope of the licenses', () => {
+    expect(getActionScopes('licenseFamily.setPublic')).toEqual(['write:licenses']);
+    expect(canPerformAction(U_READER, 'licenseFamily.setPublic')).toBe(false);
+    expect(canPerformAction(U_SALES, 'licenseFamily.setPublic')).toBe(false);
+  });
+
   it('offers an administrator everything', () => {
     expect(actions.filter((action) => !canPerformAction(U_ADMIN, action))).toEqual(
       [],
