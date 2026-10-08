@@ -156,6 +156,23 @@ describe('dev world', () => {
     }
   });
 
+  it('lists in the public catalogue the family that is sold self-serve, and no other', () => {
+    const { licenses, publicFamilyIds } = slot(config.licenses);
+    const families = new Set(licenses.map(({ familyId }) => familyId));
+
+    expect(publicFamilyIds).toEqual(['family-starter']);
+    expect(families).toContain('family-starter');
+    // It has a published default version, which is what the catalogue serves.
+    expect(
+      licenses.some(
+        (license) =>
+          license.familyId === 'family-starter' &&
+          license.isDefault &&
+          license.lifecycleState === 'PUBLISHED',
+      ),
+    ).toBe(true);
+  });
+
   it('subscribes only instances of the world, to a flat fee of the version they run', () => {
     const { catalogue, subscriptions } = slot(slot(config.billing).subscriptions);
     const licenseOfInstance = new Map(
