@@ -7,6 +7,7 @@ import en from '@/lib/i18n/locales/en';
 import fr from '@/lib/i18n/locales/fr';
 import {
   BillingUnavailable,
+  BoundaryClosingNotice,
   InvoiceLineTypeBadge,
   InvoiceStatusBadge,
   Money,
@@ -285,5 +286,24 @@ describe('InvoiceLineTypeBadge', () => {
 
     expect(screen.getByText('Other').parentElement).toHaveFocus();
     expect(await screen.findByRole('tooltip')).toHaveTextContent('CREDIT');
+  });
+});
+
+describe('BoundaryClosingNotice', () => {
+  it('says the period is being closed and the request is sent again, as a status and not an error', () => {
+    render(<BoundaryClosingNotice />);
+
+    const notice = screen.getByRole('status');
+    expect(notice).toHaveTextContent('Closing the period…');
+    expect(notice).toHaveTextContent('Your request is sent again in a moment.');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('says it in French too', async () => {
+    await testI18n.changeLanguage('fr');
+    render(<BoundaryClosingNotice />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('Clôture de la période…');
+    await testI18n.changeLanguage('en');
   });
 });

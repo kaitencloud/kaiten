@@ -34,6 +34,19 @@ export const BILLING_ACTIONS = {
   'subscription.subscribe': 'subscribeInstance',
   'subscription.upcomingInvoice': 'getUpcomingInvoice',
   'subscription.invoices': 'listInstanceInvoices',
+  // Its life: ending it, taking the ending back, moving it to another plan at the
+  // next boundary, and the terms its invoices are issued on.
+  'subscription.cancel': 'cancelSubscription',
+  'subscription.reactivate': 'reactivateSubscription',
+  'subscription.schedulePlanChange': 'schedulePlanChange',
+  'subscription.cancelPlanChange': 'cancelPlanChange',
+  'subscription.updateTerms': 'updateInstanceBilling',
+  // What the cancellation of a subscription offers to do to its instance beside it.
+  'instance.addons.list': 'listInstanceAddons',
+  'instance.addons.detach': 'detachInstanceAddon',
+  'instance.update': 'updateInstance',
+  // Listing a family of licenses in the public catalogue.
+  'licenseFamily.setPublic': 'updateLicenseFamily',
   // Invoices of the organization.
   'invoices.list': 'listInvoices',
   'invoices.export': 'exportInvoices',
