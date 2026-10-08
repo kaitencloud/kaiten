@@ -38,8 +38,9 @@ import type {
 // CUSTOMER_CREATION_REJECTED read as rejected.
 //
 // Nor is a revocation a refusal: INSTANCE_VOUCHER_REVOKED is a person taking a
-// redemption back, a removal like a deletion, so it reads as a plain read
-// rather than as rejected from its last word.
+// redemption back, and PUBLISHABLE_KEY_REVOKED a person retiring a key, removals
+// like a deletion, so they read as a plain read rather than as rejected from
+// their last word.
 const KNOWN_CATEGORIES = {
   ENTITLEMENT_VALUE_GET: 'read',
   ENTITLEMENT_USAGE_REPORT_ACCEPTED: 'accepted',
@@ -51,6 +52,7 @@ const KNOWN_CATEGORIES = {
   INSTANCE_INVOICE_RECONCILIATION_MISMATCH: 'warning',
   CUSTOMER_PAYMENT_METHOD_EXPIRING: 'warning',
   INSTANCE_VOUCHER_REVOKED: 'read',
+  PUBLISHABLE_KEY_REVOKED: 'read',
 } as const satisfies Partial<Record<AuditEventName, AuditEventCategory>>;
 
 // Any other event is coloured from its last word, so that failures read red and
