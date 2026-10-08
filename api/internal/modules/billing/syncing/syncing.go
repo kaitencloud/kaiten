@@ -305,7 +305,7 @@ func (s *Syncer) apply(ctx context.Context, conn *provider.Connection, row db.In
 	}
 	if !deleted && row.ReconciliationStatus == nil && row.Status != db.InvoiceStatusDRAFT &&
 		row.Status != db.InvoiceStatusPUSHFAILED && row.Status != db.InvoiceStatusVOID {
-		if err := pushing.Reconcile(ctx, s.deps, s.outbox, row, read, conn.InclusiveTax); err != nil {
+		if err := pushing.Settle(ctx, s.deps, s.outbox, conn, row, read, s.timeout); err != nil {
 			return row, err
 		}
 		if latest, err := q.GetInvoiceByID(ctx, row.ID); err == nil {
