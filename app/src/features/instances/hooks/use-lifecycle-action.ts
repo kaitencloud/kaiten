@@ -13,10 +13,18 @@ import { isOutOfDate } from './use-subscription-lifecycle';
  * longer as the screen showed it is told in a toast instead: the screen is refreshed
  * by it, and the notice the button stood in is gone before the words could be read.
  * Nothing is optimistic: what the screen shows is what the API answered.
+ *
+ * `refusalAction` gives the toast of such a refusal a button of its own, for the
+ * refusals that have an obvious next step.
  */
 export function useLifecycleAction<T>(
   run: () => Promise<T>,
   onDone?: (result: T) => void,
+  options: {
+    refusalAction?: (
+      error: unknown,
+    ) => { label: string; onClick: () => void } | undefined;
+  } = {},
 ) {
   const { closing, send } = useBoundaryRetry();
   const [failure, setFailure] = useState<unknown>(null);
@@ -34,7 +42,13 @@ export function useLifecycleAction<T>(
       onDone?.(await send(run));
     } catch (error) {
       if (isOutOfDate(error)) {
-        toast.error(getApiErrorMessage(error));
+        const action = options.refusalAction?.(error);
+
+        if (action) {
+          toast.error(getApiErrorMessage(error), { action });
+        } else {
+          toast.error(getApiErrorMessage(error));
+        }
       } else {
         setFailure(error);
       }
