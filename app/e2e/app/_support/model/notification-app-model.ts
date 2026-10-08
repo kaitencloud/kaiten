@@ -82,6 +82,32 @@ const CATALOG = [
     label: 'Component added',
     group: 'deployments',
   },
+  // Billing: the notification of a subscription links to the Billing tab of its
+  // instance, and that of an invoice held to the invoice.
+  {
+    eventName: 'INSTANCE_BILLING_STARTED',
+    eventType: 'com.kaiten.instance.billing.v1.started',
+    label: 'Subscription started',
+    group: 'billing',
+  },
+  {
+    eventName: 'INSTANCE_BILLING_STATUS_CHANGED',
+    eventType: 'com.kaiten.instance.billing.v1.status_changed',
+    label: 'Subscription status changed',
+    group: 'billing',
+  },
+  {
+    eventName: 'INSTANCE_BILLING_CANCELED',
+    eventType: 'com.kaiten.instance.billing.v1.canceled',
+    label: 'Subscription canceled',
+    group: 'billing',
+  },
+  {
+    eventName: 'INSTANCE_INVOICE_HELD',
+    eventType: 'com.kaiten.instance.invoice.v1.held',
+    label: 'Invoice held',
+    group: 'billing',
+  },
 ] as const;
 
 const CHANNELS = ['in_app'] as const;

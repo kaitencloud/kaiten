@@ -98,8 +98,11 @@ export class NotificationsDriver {
   preferenceGroup(groupLabel: string): Locator {
     // Its name is the title followed by the group's description, which can
     // name another group ("… across your instances"): match the start only.
+    // Not the entry of the side navigation that has the same name as the group of billing.
     const escaped = groupLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return this.page.getByRole('button', { name: new RegExp(`^${escaped}`) });
+    return this.page
+      .getByRole('button', { name: new RegExp(`^${escaped}`) })
+      .and(this.page.locator('[data-slot="accordion-trigger"]'));
   }
 
   async expectBellUnreadCount(count: number) {
