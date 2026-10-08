@@ -9,7 +9,10 @@ import {
  * because it matches the slug a customer or an instance has now as well as the one
  * an invoice was composed under, which a text match on the rows cannot do.
  */
-export type InvoicesScope = Pick<InvoicesQuery, 'customerSlug' | 'instanceSlug'>;
+export type InvoicesScope = Pick<
+  InvoicesQuery,
+  'customerSlug' | 'instanceSlug'
+>;
 
 /**
  * The invoices of a scope (none: every invoice of the organization), every page of

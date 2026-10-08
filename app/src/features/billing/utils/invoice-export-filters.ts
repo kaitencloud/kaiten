@@ -59,13 +59,11 @@ function knownAll<T extends string>(
   values: readonly T[],
   selection: string,
 ): T[] {
-  return selection
-    .split(FILTER_MULTI_SELECT_SEPARATOR)
-    .flatMap((picked) => {
-      const value = known(values, picked);
+  return selection.split(FILTER_MULTI_SELECT_SEPARATOR).flatMap((picked) => {
+    const value = known(values, picked);
 
-      return value ? [value] : [];
-    });
+    return value ? [value] : [];
+  });
 }
 
 /**
