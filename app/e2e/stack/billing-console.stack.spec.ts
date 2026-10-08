@@ -1,14 +1,8 @@
-import { readFileSync } from 'node:fs';
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type Page,
-} from '@playwright/test';
-import type { DevToken } from '../../src/lib/local-auth';
+import { expect, test } from '@playwright/test';
 import { BillingHandoffDriver } from '../app/_support/drivers/billing-handoff.driver';
 import { BillingInvoicesDriver } from '../app/_support/drivers/billing-invoices.driver';
 import { InvoiceDetailDriver } from '../app/_support/drivers/invoice-detail.driver';
+import { accepted, api, headers, signIn } from './stack-api';
 
 // The invoices of the console against the real API: what only a real closing can
 // prove. Under Mock Service Worker the console reads what the mock was told to
@@ -16,31 +10,6 @@ import { InvoiceDetailDriver } from '../app/_support/drivers/invoice-detail.driv
 // subscription whose customer was renamed in between, and the console shows them.
 // Nothing in the console starts a closing, so the spec asks for one through the
 // API, as the period-close job does on its own pass.
-
-const tokens: DevToken[] = JSON.parse(
-  readFileSync(process.env.STACK_TOKENS_FILE!, 'utf8'),
-);
-const actor = tokens[0]!;
-const api = process.env.STACK_API_URL!;
-const headers = { Authorization: `Bearer ${actor.token}` };
-
-async function signIn(page: Page) {
-  await page.addInitScript((token) => {
-    if (!localStorage.getItem('kaiten_dev_token')) {
-      localStorage.setItem('kaiten_dev_token', token);
-    }
-  }, actor.token);
-}
-
-/** A write of the setup: it has to be accepted, or the spec has nothing to read. */
-async function accepted<T>(
-  response: Awaited<ReturnType<APIRequestContext['post']>>,
-  status = 201,
-): Promise<T> {
-  expect(response.status(), await response.text()).toBe(status);
-
-  return status === 204 ? (undefined as T) : ((await response.json()) as T);
-}
 
 /** The instant a month before `now`, as the API reads "at most one billing period ago", plus a margin. */
 function aMonthAgo(now: Date, marginSeconds: number): Date {
