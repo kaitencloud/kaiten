@@ -93,6 +93,7 @@ const storybookTestExclude = [
   'src/features/feature-flags/components/feature-flag-form/stories/feature-flag-form.stories.tsx',
   'src/features/feature-flags/targeting/components/stories/targeting-form-dialog.stories.tsx',
   'src/features/feature-flags/variants/components/stories/variant-list.stories.tsx',
+  'src/features/instances/components/stories/instance-billing-dialogs.stories.tsx',
   'src/features/instances/components/stories/instance-form-dialog.stories.tsx',
   'src/features/instances/components/stories/instance-overview-and-audit.stories.tsx',
   'src/features/licenses/components/stories/license-table.stories.tsx',

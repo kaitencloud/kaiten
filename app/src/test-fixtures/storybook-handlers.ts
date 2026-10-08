@@ -1,8 +1,32 @@
+import {
+  handleGetCustomer,
+  handleGetEntitlementsUsageMetrics,
+  handleGetInstance,
+  handleGetLicense,
+  handleGetLicenseEntitlements,
+  handleGetLicenses,
+  handleListCustomers,
+  handleListDeploymentZones,
+  handleListEntitlements,
+  handleListReleases,
+} from '@/api-client/msw.gen';
 import type {
   MetadataResourceType,
   MetadataSettingsField,
 } from '@/domains/metadata-fields';
 import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
+import {
+  storyCustomers,
+  storyDeploymentZones,
+  storyEntitlements,
+  storyEntitlementUsages,
+  storyInstanceMetadataFields,
+  storyInstances,
+  storyLicenseEntitlements,
+  storyLicenses,
+  storyOverviewReleases,
+  storyReleases,
+} from './storybook-fixtures';
 
 /**
  * Handlers the stories share, for `parameters.msw.handlers` (see
@@ -32,3 +56,32 @@ export const metadataFieldsHandler = (
       },
     }),
   });
+
+/**
+ * Everything the detail page of the first story instance reads: the instance with
+ * its customer and license, the usage and the grants, the catalogues, the zones and
+ * releases, and the instance metadata fields. For a story that renders a part of the
+ * page under `InstanceDetailProvider`.
+ */
+export const instanceDetailHandlers = [
+  handleGetInstance({ body: storyInstances[0] }),
+  handleGetCustomer({ body: storyCustomers[0] }),
+  handleGetLicense({ body: storyLicenses[0] }),
+  handleGetEntitlementsUsageMetrics({ body: storyEntitlementUsages }),
+  handleGetLicenseEntitlements(onePage(storyLicenseEntitlements)),
+  handleListEntitlements(onePage(storyEntitlements)),
+  handleListDeploymentZones(onePage(storyDeploymentZones)),
+  handleListReleases(onePage(storyReleases)),
+  handleListCustomers(onePage(storyCustomers)),
+  handleGetLicenses(onePage(storyLicenses)),
+  graphqlOperationHandler({
+    GetReleaseManagementOverview: () => ({
+      releases: {
+        hasMore: false,
+        items: storyOverviewReleases,
+        nextCursor: null,
+      },
+    }),
+  }),
+  metadataFieldsHandler({ INSTANCE: storyInstanceMetadataFields }),
+];

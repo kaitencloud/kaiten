@@ -8,7 +8,9 @@ import { useInstanceDetail } from '../../instance-detail-context';
 import { InstanceInvoicesCard } from './instance-invoices-card';
 import { NotSubscribedCard } from './not-subscribed-card';
 import { SubscribeAction } from './subscribe-action';
+import { SubscriptionActions } from './subscription-actions';
 import { SubscriptionCard } from './subscription-card';
+import { SubscriptionNotices } from './notices/subscription-notices';
 import { UpcomingInvoiceCard } from './upcoming-invoice-card';
 
 type InstanceDetailBillingTabProps = {
@@ -18,11 +20,13 @@ type InstanceDetailBillingTabProps = {
 
 /**
  * The billing of one instance: whether it is subscribed and how, what its next
- * boundary will issue, and the invoices it has had. It reads its own data, so
- * that a refusal of billing (the scope is missing, the API is down) is shown
- * here, with a way to ask again, and never blanks the page around it. An
- * instance that was never subscribed is a state of the tab, not an error, and one
- * whose subscription ended can be subscribed again.
+ * boundary will issue, and the invoices it has had; what the subscription is going
+ * through (a trial, an overdue invoice, a cancellation or a plan change waiting for
+ * the boundary) is said above its card, and what may be done to it under the card.
+ * It reads its own data, so that a refusal of billing (the scope is missing, the API
+ * is down) is shown here, with a way to ask again, and never blanks the page around
+ * it. An instance that was never subscribed is a state of the tab, not an error, and
+ * one whose subscription ended can be subscribed again.
  */
 export function InstanceDetailBillingTab({
   children,
@@ -66,11 +70,23 @@ export function InstanceDetailBillingTab({
 
     return (
       <div className="grid grid-cols-1 items-start gap-4 lg:gap-6 xl:grid-cols-2">
+        <SubscriptionNotices
+          instanceSlug={instanceSlug}
+          subscription={subscription}
+        />
         <SubscriptionCard
           actions={
             ended ? (
               <SubscribeAction instanceSlug={instanceSlug} license={license} />
             ) : undefined
+          }
+          footer={
+            ended ? undefined : (
+              <SubscriptionActions
+                instanceSlug={instanceSlug}
+                subscription={subscription}
+              />
+            )
           }
           subscription={subscription}
         />

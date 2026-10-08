@@ -4,12 +4,15 @@ export {
   InstanceDeploymentTableAction,
 } from './instance-deployment';
 export {
+  CancelSubscriptionDialog,
   InstanceDetailAuditTrailTab,
   InstanceDetailBillingTab,
   InstanceDetailEntitlementsTab,
   InstanceDetailLayout,
   InstanceDetailOverviewTab,
   InstanceDetailProvider,
+  PaymentTermsDialog,
+  SchedulePlanChangeDialog,
   SubscribeInstanceDialog,
   useInstanceDetail,
 } from './instance-detail';

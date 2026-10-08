@@ -98,7 +98,10 @@ import { Route as ReleasesDeploymentsNewIndexRouteImport } from './routes/releas
 import { Route as BillingInvoicesInvoiceIdLinesLineIdRouteImport } from './routes/billing/invoices/$invoiceId/lines/$lineId'
 import { Route as CustomersCustomerSlugInstancesNewIndexRouteImport } from './routes/customers/$customerSlug/instances/new/index'
 import { Route as CustomersInstancesInstanceSlugBillingIndexRouteImport } from './routes/customers/instances/$instanceSlug/billing/index'
+import { Route as CustomersInstancesInstanceSlugBillingCancelRouteImport } from './routes/customers/instances/$instanceSlug/billing/cancel'
+import { Route as CustomersInstancesInstanceSlugBillingPlanChangeRouteImport } from './routes/customers/instances/$instanceSlug/billing/plan-change'
 import { Route as CustomersInstancesInstanceSlugBillingSubscribeRouteImport } from './routes/customers/instances/$instanceSlug/billing/subscribe'
+import { Route as CustomersInstancesInstanceSlugBillingTermsRouteImport } from './routes/customers/instances/$instanceSlug/billing/terms'
 import { Route as IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRouteImport } from './routes/integrations/service-accounts/$serviceAccountSlug/tokens/new/index'
 
 const IndexRoute = IndexRouteImport.update({
@@ -603,10 +606,28 @@ const CustomersInstancesInstanceSlugBillingIndexRoute =
     path: '/',
     getParentRoute: () => CustomersInstancesInstanceSlugBillingRouteRoute,
   } as any)
+const CustomersInstancesInstanceSlugBillingCancelRoute =
+  CustomersInstancesInstanceSlugBillingCancelRouteImport.update({
+    id: '/cancel',
+    path: '/cancel',
+    getParentRoute: () => CustomersInstancesInstanceSlugBillingRouteRoute,
+  } as any)
+const CustomersInstancesInstanceSlugBillingPlanChangeRoute =
+  CustomersInstancesInstanceSlugBillingPlanChangeRouteImport.update({
+    id: '/plan-change',
+    path: '/plan-change',
+    getParentRoute: () => CustomersInstancesInstanceSlugBillingRouteRoute,
+  } as any)
 const CustomersInstancesInstanceSlugBillingSubscribeRoute =
   CustomersInstancesInstanceSlugBillingSubscribeRouteImport.update({
     id: '/subscribe',
     path: '/subscribe',
+    getParentRoute: () => CustomersInstancesInstanceSlugBillingRouteRoute,
+  } as any)
+const CustomersInstancesInstanceSlugBillingTermsRoute =
+  CustomersInstancesInstanceSlugBillingTermsRouteImport.update({
+    id: '/terms',
+    path: '/terms',
     getParentRoute: () => CustomersInstancesInstanceSlugBillingRouteRoute,
   } as any)
 const IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute =
@@ -706,7 +727,10 @@ export interface FileRoutesByFullPath {
   '/releases/deployment-zones/$zoneSlug/': typeof ReleasesDeploymentZonesZoneSlugIndexRoute
   '/releases/deployments/new/': typeof ReleasesDeploymentsNewIndexRoute
   '/billing/invoices/$invoiceId/lines/$lineId': typeof BillingInvoicesInvoiceIdLinesLineIdRoute
+  '/customers/instances/$instanceSlug/billing/cancel': typeof CustomersInstancesInstanceSlugBillingCancelRoute
+  '/customers/instances/$instanceSlug/billing/plan-change': typeof CustomersInstancesInstanceSlugBillingPlanChangeRoute
   '/customers/instances/$instanceSlug/billing/subscribe': typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
+  '/customers/instances/$instanceSlug/billing/terms': typeof CustomersInstancesInstanceSlugBillingTermsRoute
   '/customers/$customerSlug/instances/new/': typeof CustomersCustomerSlugInstancesNewIndexRoute
   '/customers/instances/$instanceSlug/billing/': typeof CustomersInstancesInstanceSlugBillingIndexRoute
   '/integrations/service-accounts/$serviceAccountSlug/tokens/new/': typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute
@@ -782,7 +806,10 @@ export interface FileRoutesByTo {
   '/releases/deployment-zones/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugIndexRoute
   '/releases/deployments/new': typeof ReleasesDeploymentsNewIndexRoute
   '/billing/invoices/$invoiceId/lines/$lineId': typeof BillingInvoicesInvoiceIdLinesLineIdRoute
+  '/customers/instances/$instanceSlug/billing/cancel': typeof CustomersInstancesInstanceSlugBillingCancelRoute
+  '/customers/instances/$instanceSlug/billing/plan-change': typeof CustomersInstancesInstanceSlugBillingPlanChangeRoute
   '/customers/instances/$instanceSlug/billing/subscribe': typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
+  '/customers/instances/$instanceSlug/billing/terms': typeof CustomersInstancesInstanceSlugBillingTermsRoute
   '/customers/$customerSlug/instances/new': typeof CustomersCustomerSlugInstancesNewIndexRoute
   '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingIndexRoute
   '/integrations/service-accounts/$serviceAccountSlug/tokens/new': typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute
@@ -876,7 +903,10 @@ export interface FileRoutesById {
   '/releases/deployment-zones_/$zoneSlug/': typeof ReleasesDeploymentZonesZoneSlugIndexRoute
   '/releases/deployments/new/': typeof ReleasesDeploymentsNewIndexRoute
   '/billing/invoices/$invoiceId/lines/$lineId': typeof BillingInvoicesInvoiceIdLinesLineIdRoute
+  '/customers/instances/$instanceSlug/billing/cancel': typeof CustomersInstancesInstanceSlugBillingCancelRoute
+  '/customers/instances/$instanceSlug/billing/plan-change': typeof CustomersInstancesInstanceSlugBillingPlanChangeRoute
   '/customers/instances/$instanceSlug/billing/subscribe': typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
+  '/customers/instances/$instanceSlug/billing/terms': typeof CustomersInstancesInstanceSlugBillingTermsRoute
   '/customers/$customerSlug/instances/new/': typeof CustomersCustomerSlugInstancesNewIndexRoute
   '/customers/instances/$instanceSlug/billing/': typeof CustomersInstancesInstanceSlugBillingIndexRoute
   '/integrations/service-accounts/$serviceAccountSlug/tokens/new/': typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute
@@ -971,7 +1001,10 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones/$zoneSlug/'
     | '/releases/deployments/new/'
     | '/billing/invoices/$invoiceId/lines/$lineId'
+    | '/customers/instances/$instanceSlug/billing/cancel'
+    | '/customers/instances/$instanceSlug/billing/plan-change'
     | '/customers/instances/$instanceSlug/billing/subscribe'
+    | '/customers/instances/$instanceSlug/billing/terms'
     | '/customers/$customerSlug/instances/new/'
     | '/customers/instances/$instanceSlug/billing/'
     | '/integrations/service-accounts/$serviceAccountSlug/tokens/new/'
@@ -1047,7 +1080,10 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones/$zoneSlug'
     | '/releases/deployments/new'
     | '/billing/invoices/$invoiceId/lines/$lineId'
+    | '/customers/instances/$instanceSlug/billing/cancel'
+    | '/customers/instances/$instanceSlug/billing/plan-change'
     | '/customers/instances/$instanceSlug/billing/subscribe'
+    | '/customers/instances/$instanceSlug/billing/terms'
     | '/customers/$customerSlug/instances/new'
     | '/customers/instances/$instanceSlug/billing'
     | '/integrations/service-accounts/$serviceAccountSlug/tokens/new'
@@ -1140,7 +1176,10 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones_/$zoneSlug/'
     | '/releases/deployments/new/'
     | '/billing/invoices/$invoiceId/lines/$lineId'
+    | '/customers/instances/$instanceSlug/billing/cancel'
+    | '/customers/instances/$instanceSlug/billing/plan-change'
     | '/customers/instances/$instanceSlug/billing/subscribe'
+    | '/customers/instances/$instanceSlug/billing/terms'
     | '/customers/$customerSlug/instances/new/'
     | '/customers/instances/$instanceSlug/billing/'
     | '/integrations/service-accounts/$serviceAccountSlug/tokens/new/'
@@ -1801,11 +1840,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomersInstancesInstanceSlugBillingIndexRouteImport
       parentRoute: typeof CustomersInstancesInstanceSlugBillingRouteRoute
     }
+    '/customers/instances/$instanceSlug/billing/cancel': {
+      id: '/customers/instances/$instanceSlug/billing/cancel'
+      path: '/cancel'
+      fullPath: '/customers/instances/$instanceSlug/billing/cancel'
+      preLoaderRoute: typeof CustomersInstancesInstanceSlugBillingCancelRouteImport
+      parentRoute: typeof CustomersInstancesInstanceSlugBillingRouteRoute
+    }
+    '/customers/instances/$instanceSlug/billing/plan-change': {
+      id: '/customers/instances/$instanceSlug/billing/plan-change'
+      path: '/plan-change'
+      fullPath: '/customers/instances/$instanceSlug/billing/plan-change'
+      preLoaderRoute: typeof CustomersInstancesInstanceSlugBillingPlanChangeRouteImport
+      parentRoute: typeof CustomersInstancesInstanceSlugBillingRouteRoute
+    }
     '/customers/instances/$instanceSlug/billing/subscribe': {
       id: '/customers/instances/$instanceSlug/billing/subscribe'
       path: '/subscribe'
       fullPath: '/customers/instances/$instanceSlug/billing/subscribe'
       preLoaderRoute: typeof CustomersInstancesInstanceSlugBillingSubscribeRouteImport
+      parentRoute: typeof CustomersInstancesInstanceSlugBillingRouteRoute
+    }
+    '/customers/instances/$instanceSlug/billing/terms': {
+      id: '/customers/instances/$instanceSlug/billing/terms'
+      path: '/terms'
+      fullPath: '/customers/instances/$instanceSlug/billing/terms'
+      preLoaderRoute: typeof CustomersInstancesInstanceSlugBillingTermsRouteImport
       parentRoute: typeof CustomersInstancesInstanceSlugBillingRouteRoute
     }
     '/integrations/service-accounts/$serviceAccountSlug/tokens/new/': {
@@ -1874,14 +1934,23 @@ const CustomersCustomerSlugRouteRouteWithChildren =
   )
 
 interface CustomersInstancesInstanceSlugBillingRouteRouteChildren {
+  CustomersInstancesInstanceSlugBillingCancelRoute: typeof CustomersInstancesInstanceSlugBillingCancelRoute
+  CustomersInstancesInstanceSlugBillingPlanChangeRoute: typeof CustomersInstancesInstanceSlugBillingPlanChangeRoute
   CustomersInstancesInstanceSlugBillingSubscribeRoute: typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
+  CustomersInstancesInstanceSlugBillingTermsRoute: typeof CustomersInstancesInstanceSlugBillingTermsRoute
   CustomersInstancesInstanceSlugBillingIndexRoute: typeof CustomersInstancesInstanceSlugBillingIndexRoute
 }
 
 const CustomersInstancesInstanceSlugBillingRouteRouteChildren: CustomersInstancesInstanceSlugBillingRouteRouteChildren =
   {
+    CustomersInstancesInstanceSlugBillingCancelRoute:
+      CustomersInstancesInstanceSlugBillingCancelRoute,
+    CustomersInstancesInstanceSlugBillingPlanChangeRoute:
+      CustomersInstancesInstanceSlugBillingPlanChangeRoute,
     CustomersInstancesInstanceSlugBillingSubscribeRoute:
       CustomersInstancesInstanceSlugBillingSubscribeRoute,
+    CustomersInstancesInstanceSlugBillingTermsRoute:
+      CustomersInstancesInstanceSlugBillingTermsRoute,
     CustomersInstancesInstanceSlugBillingIndexRoute:
       CustomersInstancesInstanceSlugBillingIndexRoute,
   }

@@ -72,10 +72,14 @@ export class InstanceBillingDriver {
     return this.card('Upcoming invoice');
   }
 
-  /** A row of a card by its label: the row, which holds its value. */
+  /**
+   * A row of a card by its label: the row, which holds its value. What may be done to
+   * the subscription is under the rows and has links named like some of them (the
+   * payment terms): it is not a row.
+   */
   row(card: Locator, label: string): Locator {
     return card
-      .locator('div')
+      .locator('div:not([data-testid="subscription-actions"])')
       .filter({ has: this.page.getByText(label, { exact: true }) })
       .last();
   }

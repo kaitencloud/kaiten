@@ -1,4 +1,5 @@
 export {
+  CancelSubscriptionDialog,
   InstanceDetailAuditTrailTab,
   InstanceDetailBillingTab,
   InstanceDetailEntitlementsTab,
@@ -7,6 +8,8 @@ export {
   InstanceDetailProvider,
   InstanceFormDialog,
   InstancesPageContent,
+  PaymentTermsDialog,
+  SchedulePlanChangeDialog,
   SubscribeInstanceDialog,
 } from './components';
 export { ensureInstanceDetailData, instanceQueryOptions } from './hooks';
