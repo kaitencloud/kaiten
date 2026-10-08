@@ -19,6 +19,9 @@ type InvoiceTotalsProps = {
  * came: the console never adds the lines up, so the three can disagree with the
  * lines above them only if the API's do. A discount reads as the negative it is
  * on the invoice, and a total with no discount is shown without one.
+ *
+ * Under the table of the lines, the amounts end where the column of amounts does:
+ * the `simple` table insets its last column by 24px (`pr-6`), and so do the totals.
  */
 export function InvoiceTotals({
   className,
@@ -32,7 +35,7 @@ export function InvoiceTotals({
   return (
     <dl
       className={cn(
-        'ml-auto grid w-full max-w-xs grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm',
+        'ml-auto grid w-full max-w-xs grid-cols-[1fr_auto] gap-x-6 gap-y-1 pr-6 text-sm',
         className,
       )}
       data-testid="invoice-totals"

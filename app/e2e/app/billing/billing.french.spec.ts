@@ -97,6 +97,12 @@ test.describe('the invoices, read in French', () => {
       'La facture a été composée mais pas émise',
     );
     const invoice = new InvoiceDetailDriver(page);
+    // The boundary is not called what the due date is: the strip says "Échéance de
+    // paiement", the summary the boundary and since when the draft is held.
+    await expect(invoice.summary('Résumé')).toContainText(
+      'Échéance de facturation',
+    );
+    await expect(invoice.summary('Résumé')).toContainText('Bloquée depuis');
     await expect(invoice.actionButtons()).toHaveText([
       'Débloquer la facture',
       'Recomposer',

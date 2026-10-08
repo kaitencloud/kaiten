@@ -3243,7 +3243,6 @@ export default {
               'L’instance de cette facture a été supprimée : rien ne peut être recomposé pour elle.',
           },
           Chain: {
-            label: 'Chaîne de remplacement',
             replaces: 'Remplace',
             replacedBy: 'Remplacée par',
           },
@@ -3284,6 +3283,7 @@ export default {
             title: 'Résumé',
             boundary: 'Échéance de facturation',
             provider: 'Fournisseur',
+            heldSince: 'Bloquée depuis',
             issued: 'Émise le',
             terms: 'Conditions de paiement',
             termsValue_one: '{{count}} jour',
@@ -3309,6 +3309,7 @@ export default {
               'Cette facture est annulée et sa transmission reste en attente : le système qui lit la file la voit comme annulée, et l’acquitte.',
             waiting_UNCOLLECTIBLE:
               'Cette facture a été passée en perte et sa transmission reste en attente : le système qui lit la file la voit comme passée en perte, et l’acquitte.',
+            status: 'Statut',
             claims: 'Réservations',
             leasedUntil: 'Réservée jusqu’au',
             reference: 'Référence ERP',

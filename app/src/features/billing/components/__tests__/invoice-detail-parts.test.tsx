@@ -21,7 +21,7 @@ import {
 } from '../../../../../e2e/app/_support/fixtures/build-invoice';
 import { HoldBanner } from '../invoice-detail/hold-banner';
 import { InvoiceActionButtons } from '../invoice-detail/invoice-action-buttons';
-import { InvoiceChain } from '../invoice-detail/invoice-chain';
+import { InvoiceChainRows } from '../invoice-detail/invoice-chain-rows';
 import { InvoiceHandoffBlock } from '../invoice-detail/invoice-handoff-block';
 import { InvoiceLineDetail } from '../invoice-detail/invoice-line-detail';
 import { InvoiceSummaryCard } from '../invoice-detail/invoice-summary-card';
@@ -273,28 +273,41 @@ describe('the banner of a held draft', () => {
 });
 
 describe('the chain of replacements', () => {
-  it('is absent from an invoice that replaces nothing and was replaced by nothing', () => {
-    render(<InvoiceChain invoice={base()} />);
+  it('adds no row to an invoice that replaces nothing and was replaced by nothing', () => {
+    const { container } = render(<InvoiceChainRows invoice={base()} />);
 
-    expect(screen.queryByTestId('invoice-chain')).toBeNull();
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('leads to the replacement, and from a replacement back to the invoice it replaces', () => {
     const { rerender } = render(
-      <InvoiceChain invoice={base({ replacedByInvoiceId: 'inv-2' })} />,
+      <InvoiceChainRows invoice={base({ replacedByInvoiceId: 'inv-2' })} />,
     );
     expect(screen.getByRole('link', { name: 'inv-2' })).toHaveAttribute(
       'href',
       '/billing/invoices/inv-2',
     );
     expect(screen.getByText('Replaced by')).toBeInTheDocument();
+    expect(screen.queryByText('Replaces')).toBeNull();
 
-    rerender(<InvoiceChain invoice={base({ replacesInvoiceId: 'inv-0' })} />);
+    rerender(<InvoiceChainRows invoice={base({ replacesInvoiceId: 'inv-0' })} />);
     expect(screen.getByRole('link', { name: 'inv-0' })).toHaveAttribute(
       'href',
       '/billing/invoices/inv-0',
     );
     expect(screen.getByText('Replaces')).toBeInTheDocument();
+    expect(screen.queryByText('Replaced by')).toBeNull();
+  });
+
+  it('has a row for each way when an invoice replaces one and was replaced by another', () => {
+    render(
+      <InvoiceChainRows
+        invoice={base({ replacedByInvoiceId: 'inv-2', replacesInvoiceId: 'inv-0' })}
+      />,
+    );
+
+    expect(screen.getByTestId('invoice-replaces')).toHaveTextContent('inv-0');
+    expect(screen.getByTestId('invoice-replaced-by')).toHaveTextContent('inv-2');
   });
 });
 
@@ -351,6 +364,56 @@ describe('where an invoice stands in the handoff queue', () => {
     expect(screen.getByTestId('invoice-handoff')).toHaveTextContent(
       'A job or the CLI takes it from the queue, books it and acknowledges it.',
     );
+  });
+
+  it('puts what the queue does in its description, and where the invoice stands in a row', () => {
+    render(
+      <InvoiceHandoffBlock
+        invoice={base({ handoff: { claimCount: 1, status: 'PENDING' } })}
+      />,
+    );
+
+    const block = screen.getByTestId('invoice-handoff');
+    expect(
+      within(block).getByText(
+        'A job or the CLI takes it from the queue, books it and acknowledges it.',
+      ),
+    ).toHaveAttribute('data-slot', 'card-description');
+    expect(within(block).getByText('Status').nextElementSibling).toHaveTextContent(
+      'Waiting for your ERP',
+    );
+  });
+
+  it('has no description for an invoice that was acknowledged: the queue has nothing left to do with it', () => {
+    render(
+      <InvoiceHandoffBlock
+        invoice={base({
+          handoff: {
+            acknowledgedAt: '2027-03-05T09:00:00.000Z',
+            claimCount: 1,
+            externalReference: 'ERP-1042',
+            status: 'ACKNOWLEDGED',
+          },
+        })}
+      />,
+    );
+
+    const block = screen.getByTestId('invoice-handoff');
+    expect(block.querySelector('[data-slot="card-description"]')).toBeNull();
+    expect(within(block).getByText('Status').nextElementSibling).toHaveTextContent(
+      'Acknowledged',
+    );
+  });
+
+  it('takes the columns the page gives it', () => {
+    render(
+      <InvoiceHandoffBlock
+        className="lg:col-span-2"
+        invoice={base({ handoff: { claimCount: 0, status: 'PENDING' } })}
+      />,
+    );
+
+    expect(screen.getByTestId('invoice-handoff')).toHaveClass('lg:col-span-2');
   });
 
   it('does not say a lease that ran out holds the invoice', () => {
@@ -576,10 +639,43 @@ describe('the summary of an invoice', () => {
     expect(screen.queryByText('Due')).toBeNull();
   });
 
-  it('says why a void invoice was voided, and not when: the strip says when', () => {
+  it('says since when a draft is held, and nothing of it once the hold is released or for an invoice that was never held', () => {
+    const { rerender } = render(
+      <InvoiceSummaryCard
+        invoice={base({
+          hold: { heldAt: '2027-03-02T08:15:00.000Z' },
+          holdReason: 'LEDGER_SEQUENCE_GAP',
+          issuedAt: null,
+          status: 'DRAFT',
+        })}
+      />,
+    );
+    expect(screen.getByText('Held since')).toBeInTheDocument();
+    expect(
+      screen.getByText('Mar 2, 2027, 8:15 AM (UTC)'),
+    ).toBeInTheDocument();
+
+    rerender(
+      <InvoiceSummaryCard
+        invoice={base({
+          hold: {
+            heldAt: '2027-03-02T08:15:00.000Z',
+            releasedAt: '2027-03-04T09:00:00.000Z',
+          },
+        })}
+      />,
+    );
+    expect(screen.queryByText('Held since')).toBeNull();
+
+    rerender(<InvoiceSummaryCard invoice={base()} />);
+    expect(screen.queryByText('Held since')).toBeNull();
+  });
+
+  it('says why a void invoice was voided, and which invoice replaced it', () => {
     render(
       <InvoiceSummaryCard
         invoice={base({
+          replacedByInvoiceId: 'inv-2',
           status: 'VOID',
           voidReason: 'Duplicate of inv-9',
           voidedAt: '2027-03-09T10:00:00.000Z',
@@ -590,6 +686,10 @@ describe('the summary of an invoice', () => {
     expect(screen.getByText('Void reason')).toBeInTheDocument();
     expect(screen.getByText('Duplicate of inv-9')).toBeInTheDocument();
     expect(screen.queryByText(/Mar 9, 2027/)).toBeNull();
+    expect(screen.getByRole('link', { name: 'inv-2' })).toHaveAttribute(
+      'href',
+      '/billing/invoices/inv-2',
+    );
   });
 
   it('says whether a hold was released by a person, with their reason, or by a later check', () => {

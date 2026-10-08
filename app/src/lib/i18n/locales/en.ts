@@ -3191,7 +3191,6 @@ export default {
               'The instance of this invoice was deleted, so nothing can be recomposed for it.',
           },
           Chain: {
-            label: 'Replacement chain',
             replaces: 'Replaces',
             replacedBy: 'Replaced by',
           },
@@ -3232,6 +3231,7 @@ export default {
             title: 'Summary',
             boundary: 'Boundary',
             provider: 'Provider',
+            heldSince: 'Held since',
             issued: 'Issued',
             terms: 'Payment terms',
             termsValue_one: '{{count}} day',
@@ -3256,6 +3256,7 @@ export default {
               'This invoice is void and its handoff stays pending: the system that reads the queue sees it as void, and acknowledges it.',
             waiting_UNCOLLECTIBLE:
               'This invoice was written off and its handoff stays pending: the system that reads the queue sees it as written off, and acknowledges it.',
+            status: 'Status',
             claims: 'Claims',
             leasedUntil: 'Reserved until',
             reference: 'ERP reference',
