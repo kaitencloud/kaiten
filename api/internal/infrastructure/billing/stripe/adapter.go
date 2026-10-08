@@ -18,6 +18,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -127,8 +128,23 @@ func (a *Adapter) EnsureCustomer(ctx context.Context, ref provider.Ref, customer
 	}
 	keyRoot := ref.OrganizationID.String() + ":customer:" + customer.CustomerID.String()
 
+	// An earlier attempt may have created the customer and lost the answer
+	// beyond Stripe's 24-hour key horizon, when its key no longer replays:
+	// the customer is found by the Kaiten ids it carries and adopted, never
+	// created twice (S09-G07).
 	if customer.ExternalID == "" {
-		params := &stripego.CustomerCreateParams{Name: stripego.String(customer.Name), Metadata: customer.Metadata}
+		customer.ExternalID = a.findCustomer(ctx, sc, ref.OrganizationID, customer.CustomerID)
+	}
+
+	if customer.ExternalID == "" {
+		metadata := map[string]string{}
+		for k, v := range customer.Metadata {
+			metadata[k] = v
+		}
+		// What findCustomer searches on, whatever the caller sent.
+		metadata["kaiten_customer_id"] = customer.CustomerID.String()
+		metadata["kaiten_organization_id"] = ref.OrganizationID.String()
+		params := &stripego.CustomerCreateParams{Name: stripego.String(customer.Name), Metadata: metadata}
 		if customer.Email != "" {
 			params.Email = stripego.String(customer.Email)
 		}
@@ -163,6 +179,27 @@ func (a *Adapter) EnsureCustomer(ctx context.Context, ref provider.Ref, customer
 		}
 	}
 	return provider.CustomerRecord{ExternalID: existing.ID, WebURL: dashboardURL(settings.Livemode(), "customers", existing.ID)}, nil
+}
+
+// findCustomer is the live Stripe customer created for a Kaiten customer of
+// the organization, found by the metadata it was created with; "" when there
+// is none, or when search cannot answer (Stripe does not offer it in every
+// region): then the caller creates the customer, as it would have.
+func (a *Adapter) findCustomer(ctx context.Context, sc *stripego.Client, organizationID, customerID uuid.UUID) string {
+	params := &stripego.CustomerSearchParams{SearchParams: stripego.SearchParams{
+		Query: "metadata['kaiten_customer_id']:'" + customerID.String() + "' AND metadata['kaiten_organization_id']:'" + organizationID.String() + "'",
+		Limit: stripego.Int64(10),
+	}}
+	for found, err := range sc.V1Customers.Search(ctx, params).All(ctx) {
+		if err != nil {
+			slog.DebugContext(ctx, "stripe: customer search unavailable; creating the customer", "error", classify(err, objectNone))
+			return ""
+		}
+		if !found.Deleted {
+			return found.ID
+		}
+	}
+	return ""
 }
 
 // FindInvoice implements provider.Adapter: the customer's draft or open

@@ -42,6 +42,7 @@ const (
 	OpListCustomers    = "ListCustomers"
 	OpCreateCustomer   = "CreateCustomer"
 	OpRetrieveCustomer = "RetrieveCustomer"
+	OpSearchCustomers  = "SearchCustomers"
 	OpUpdateCustomer   = "UpdateCustomer"
 	OpCreateInvoice    = "CreateInvoice"
 	OpListInvoices     = "ListInvoices"
