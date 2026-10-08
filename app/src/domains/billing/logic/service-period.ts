@@ -125,6 +125,20 @@ export function formatUtcTime(
 }
 
 /**
+ * A time or a period written by this module, apart from the marker that ends it:
+ * for a screen that sets the zone in smaller type beside a figure, as the strip
+ * of an invoice does. A text that has no marker (a boundary that is missing) comes
+ * back whole, with an empty marker.
+ */
+export function splitUtcMarker(text: string): { marker: string; text: string } {
+  const suffix = ` ${UTC_MARKER}`;
+
+  return text.endsWith(suffix)
+    ? { marker: UTC_MARKER, text: text.slice(0, -suffix.length) }
+    : { marker: '', text };
+}
+
+/**
  * The UTC day an instant falls on, marked: `Mar 1, 2027 (UTC)`. For a boundary
  * that is a day rather than a moment, such as where the kept usage begins.
  */

@@ -9,9 +9,9 @@ export type InvoiceActionName =
   | 'Write off';
 
 /**
- * One invoice: its header, its lines with what stands behind them, its summary,
- * handoff and identity, and the actions its status offers with the dialogs they
- * open. The actions are buttons from the width of a tablet and one menu below it;
+ * One invoice: its header, the strip of its three figures, its lines with what
+ * stands behind them, its summary, handoff and identity, and the actions its
+ * status offers with the dialogs they open. The actions are buttons from the width of a tablet and one menu below it;
  * the driver uses the buttons, and `menu` the menu.
  */
 export class InvoiceDetailDriver {
@@ -34,6 +34,24 @@ export class InvoiceDetailDriver {
 
   providerBadge(): Locator {
     return this.page.locator('div[data-provider]').first();
+  }
+
+  // --- The figures under the header ------------------------------------------
+
+  /** The row of the three figures: the total, the due date and the service period. */
+  stats(): Locator {
+    return this.page.locator('[data-slot="stat-card-row"]');
+  }
+
+  /** One card of the strip, by its label in the language the page is read in. */
+  stat(label: string): Locator {
+    return this.stats()
+      .locator('[data-slot="stat-card"]')
+      .filter({
+        has: this.page.locator('[data-slot="stat-card-label"]', {
+          hasText: new RegExp(`^${label}$`),
+        }),
+      });
   }
 
   // --- The lines ---------------------------------------------------------------

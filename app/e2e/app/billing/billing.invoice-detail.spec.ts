@@ -9,9 +9,9 @@ import {
 } from './billing.scenarios';
 
 // One invoice, as the API composed it: what it bills line by line, in what
-// status, for whom, and where it stands. Nothing on the page is added up or
-// worked out by the console, and an invoice that was voided or replaced points
-// to the other.
+// status, for whom, and where it stands. No amount on the page is added up by the
+// console (the one thing it works out is a date: how far the due day is), and an
+// invoice that was voided or replaced points to the other.
 
 test.describe('an invoice', () => {
   test('is titled by its kind and the boundary it bills, with its status and who collects it', async ({
@@ -186,7 +186,7 @@ test.describe('an invoice', () => {
     await expect(invoice.fingerprint('Pro, monthly')).toHaveCount(0);
   });
 
-  test('says when it was issued, when it is due and how long after it was issued', async ({
+  test('says which boundary it was composed at, when it was issued and on which terms', async ({
     page,
   }) => {
     const invoice = new InvoiceDetailDriver(page);
@@ -194,38 +194,49 @@ test.describe('an invoice', () => {
 
     await invoice.goto('inv-p1');
 
-    await expect(invoice.summary()).toContainText('Renewal');
     await expect(invoice.summary()).toContainText(
       'Apr 1, 2026, 12:00 AM (UTC)',
     );
     await expect(invoice.summary()).toContainText(
       'Apr 1, 2026, 12:04 AM (UTC)',
     );
-    await expect(invoice.summary()).toContainText('14 days to pay');
+    await expect(invoice.summary()).toContainText('Payment terms');
+    await expect(invoice.summary()).toContainText('14 days');
     await expect(invoice.summary()).toContainText('Manual');
+    // What the strip says is not said twice: not the due date, nor the period.
+    await expect(invoice.summary()).not.toContainText('Due');
+    await expect(invoice.summary()).not.toContainText('Service period');
   });
 
-  test('says how it ended: paid, written off, voided with the reason', async ({
+  test('says why a void invoice was voided, and not when: the strip says when', async ({
     page,
   }) => {
     const invoice = new InvoiceDetailDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await invoice.goto('inv-d1');
-    await expect(invoice.statusBadge()).toHaveText('Paid');
-    await expect(invoice.summary()).toContainText(
-      'Feb 10, 2026, 10:00 AM (UTC)',
-    );
+    await invoice.goto('inv-v2');
 
-    await invoice.goto('inv-u1');
-    await expect(invoice.statusBadge()).toHaveText('Written off');
-    await expect(invoice.summary()).toContainText(
-      'Jan 20, 2026, 9:00 AM (UTC)',
-    );
+    await expect(invoice.statusBadge()).toHaveText('Void');
+    await expect(invoice.summary()).toContainText('Void reason');
+    await expect(invoice.summary()).toContainText('duplicate');
+    await expect(invoice.summary()).not.toContainText('Oct 5, 2025');
+  });
+
+  test('keeps the day an invoice that ended had fallen due, which its strip no longer states', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    // Issued on February 1 on terms of thirty days.
+    await invoice.goto('inv-d1');
+    await expect(invoice.summary()).toContainText('Due');
+    await expect(invoice.summary()).toContainText('Mar 3, 2026 (UTC)');
+    // When it was paid is the strip's, and is not said twice.
+    await expect(invoice.summary()).not.toContainText('Feb 10, 2026');
 
     await invoice.goto('inv-v2');
-    await expect(invoice.statusBadge()).toHaveText('Void');
-    await expect(invoice.summary()).toContainText('duplicate');
+    await expect(invoice.summary()).toContainText('Oct 31, 2025 (UTC)');
   });
 
   test('shows who it was composed for as it was then, even once the instance was deleted', async ({
@@ -273,6 +284,140 @@ test.describe('an invoice', () => {
     await expect(
       page.getByRole('link', { name: 'Back to Billing' }),
     ).toBeVisible();
+  });
+});
+
+test.describe('the figures under the header', () => {
+  test('are the total, the due date and the service period, in a row of three', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await invoice.goto('inv-p1');
+
+    await expect(
+      invoice.stats().locator('[data-slot="stat-card"]'),
+    ).toHaveCount(3);
+    // The total as the API states it, and how many lines it comes from.
+    await expect(invoice.stat('Total')).toContainText('$27.39');
+    await expect(invoice.stat('Total')).toContainText('3 lines');
+    // The span of its lines, in UTC, under the kind of invoice it is.
+    await expect(invoice.stat('Service period')).toContainText(
+      /Mar 1 – May 1, 2026\s*\(UTC\)/,
+    );
+    await expect(invoice.stat('Service period')).toContainText('Renewal');
+    // Due after today, and how many days after.
+    await expect(invoice.stat('Due')).toContainText('in 20 days');
+  });
+
+  test('sit between the header and the cards, and stay under the header', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await invoice.goto('inv-p1');
+
+    const title = await invoice.title().boundingBox();
+    const figure = await invoice.stat('Total').boundingBox();
+    const summary = await invoice.summary().boundingBox();
+    expect(figure?.y).toBeGreaterThan((title?.y ?? 0) + (title?.height ?? 0));
+    expect(summary?.y).toBeGreaterThan(
+      (figure?.y ?? 0) + (figure?.height ?? 0),
+    );
+  });
+
+  test('say in danger how long an invoice has been overdue', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await invoice.goto('inv-m1');
+
+    await expect(invoice.statusBadge()).toHaveText('Overdue');
+    await expect(invoice.stat('Due')).toContainText(/Mar 31, 2026\s*\(UTC\)/);
+    await expect(invoice.stat('Due')).toContainText(/overdue for \d+ days/);
+    await expect(
+      invoice.stat('Due').locator('[data-slot="stat-card-helper"]'),
+    ).toHaveClass(/text-destructive-subtle-foreground/);
+  });
+
+  test('say a draft was not issued, and have no due date to show', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await invoice.goto('inv-h1');
+
+    await expect(invoice.stat('Due')).toContainText('Not issued');
+    await expect(
+      invoice.stat('Due').locator('[data-slot="stat-card-helper"]'),
+    ).toHaveCount(0);
+  });
+
+  test('say when an invoice that ended did, instead of when it was due', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await invoice.goto('inv-d1');
+    await expect(invoice.statusBadge()).toHaveText('Paid');
+    await expect(invoice.stat('Paid')).toContainText(/Feb 10, 2026\s*\(UTC\)/);
+    await expect(invoice.stat('Paid')).toContainText('10:00 AM (UTC)');
+    await expect(invoice.stat('Due')).toHaveCount(0);
+
+    await invoice.goto('inv-u1');
+    await expect(invoice.statusBadge()).toHaveText('Written off');
+    await expect(invoice.stat('Written off')).toContainText(
+      /Jan 20, 2026\s*\(UTC\)/,
+    );
+    await expect(invoice.stat('Written off')).toContainText('9:00 AM (UTC)');
+
+    await invoice.goto('inv-v2');
+    await expect(invoice.statusBadge()).toHaveText('Void');
+    await expect(invoice.stat('Voided')).toContainText(/Oct 5, 2025\s*\(UTC\)/);
+    await expect(invoice.stat('Voided')).toContainText('9:00 AM (UTC)');
+  });
+
+  test('are two abreast with the period under them on a tablet, and in one row of three from a laptop', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+    await page.setViewportSize({ height: 1000, width: 820 });
+
+    await invoice.goto('inv-p1');
+    let [total, due, period] = await Promise.all([
+      invoice.stat('Total').boundingBox(),
+      invoice.stat('Due').boundingBox(),
+      invoice.stat('Service period').boundingBox(),
+    ]);
+    expect(due?.y).toBeCloseTo(total?.y ?? 0, 0);
+    expect(period?.y).toBeGreaterThan((total?.y ?? 0) + (total?.height ?? 0));
+    expect(period?.x).toBeCloseTo(total?.x ?? 0, 0);
+    expect((period?.x ?? 0) + (period?.width ?? 0)).toBeCloseTo(
+      (due?.x ?? 0) + (due?.width ?? 0),
+      0,
+    );
+    // Two months on one line, with their zone.
+    await expect(invoice.stat('Service period')).toContainText(
+      /Mar 1 – May 1, 2026\s*\(UTC\)/,
+    );
+
+    await page.setViewportSize({ height: 900, width: 1440 });
+    [total, due, period] = await Promise.all([
+      invoice.stat('Total').boundingBox(),
+      invoice.stat('Due').boundingBox(),
+      invoice.stat('Service period').boundingBox(),
+    ]);
+    expect(due?.y).toBeCloseTo(total?.y ?? 0, 0);
+    expect(period?.y).toBeCloseTo(total?.y ?? 0, 0);
+    expect(due?.x).toBeGreaterThan((total?.x ?? 0) + (total?.width ?? 0) - 1);
+    expect(period?.x).toBeGreaterThan((due?.x ?? 0) + (due?.width ?? 0) - 1);
   });
 });
 

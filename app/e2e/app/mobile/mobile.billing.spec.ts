@@ -116,6 +116,47 @@ test.describe('the invoices, on the narrowest phone', () => {
     await expect(invoice.reportsLink('Traces overage')).toBeVisible();
   });
 
+  test('an invoice keeps its header in place and lets its figures scroll away, so that a phone has room to read the cards', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+
+    await invoice.goto('inv-p1');
+    await expect(invoice.stats()).toBeInViewport();
+    await invoice.linesCard().scrollIntoViewIfNeeded();
+
+    // Held in place, the header and three figures would fill the screen of a phone.
+    await expect(invoice.title()).toBeInViewport();
+    await expect(invoice.stats()).not.toBeInViewport();
+    await expect(invoice.linesCard()).toBeInViewport();
+  });
+
+  test('the figures of an invoice are two cards abreast and the period under them, across the screen', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+
+    await invoice.goto('inv-p1');
+    const [total, due, period] = await Promise.all([
+      invoice.stat('Total').boundingBox(),
+      invoice.stat('Due').boundingBox(),
+      invoice.stat('Service period').boundingBox(),
+    ]);
+
+    expect(total?.y).toBeCloseTo(due?.y ?? 0, 0);
+    expect(period?.y).toBeGreaterThan((total?.y ?? 0) + (total?.height ?? 0));
+    expect(period?.x).toBeCloseTo(total?.x ?? 0, 0);
+    expect((period?.x ?? 0) + (period?.width ?? 0)).toBeCloseTo(
+      (due?.x ?? 0) + (due?.width ?? 0),
+      0,
+    );
+    // A period of two months on one line, as long as the screen allows.
+    await expect(invoice.stat('Service period')).toContainText(
+      /Mar 1 – May 1, 2026\s*\(UTC\)/,
+    );
+    await expectNoHorizontalScroll(page, WIDTH);
+  });
+
   test('a held draft, with its banner, keeps the width of the screen', async ({
     page,
   }) => {

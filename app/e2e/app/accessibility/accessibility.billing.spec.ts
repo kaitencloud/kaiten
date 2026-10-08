@@ -164,6 +164,19 @@ test.describe('accessibility of an invoice', () => {
     await expectNoAccessibilityViolations(page);
   });
 
+  test('an overdue invoice, with its due date and how long it has been missed in the tone of an alert, has none either', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+
+    await invoice.goto('inv-m1');
+    await expect(invoice.stat('Due')).toContainText(/overdue for \d+ days/);
+    await expectNoAccessibilityViolations(page);
+
+    await useLightTheme(page);
+    await expectNoAccessibilityViolations(page);
+  });
+
   test('a held draft, with its banner and the meters that failed, has none either', async ({
     page,
   }) => {

@@ -4,6 +4,7 @@ import { invoiceQueryOptions } from '../../queries';
 import { HoldBanner } from './hold-banner';
 import { InvoiceChain } from './invoice-chain';
 import { InvoiceDetailHeader } from './invoice-detail-header';
+import { InvoiceDetailStats } from './invoice-detail-stats';
 import { InvoiceHandoffBlock } from './invoice-handoff-block';
 import { InvoiceIdentityCard } from './invoice-identity-card';
 import { InvoiceLinesCard } from './invoice-lines-card';
@@ -15,12 +16,16 @@ type InvoiceDetailPageProps = {
 
 /**
  * One invoice: what it bills, in what status, for whom, and where it stands, with
- * the actions its status offers. A held draft says why before anything else, a
- * void invoice or its replacement points to the other, and a metered line leads to
- * the usage it came from. Nothing on it is added up or worked out by the console:
- * it reads the invoice as the API composed it, and re-reads it after every action.
- * The stripe-only blocks (hosted links, reconciliation, retrying a push) are not
- * here: they belong to an invoice a payment provider collects.
+ * the actions its status offers. The header stays in place, so that a long invoice
+ * keeps its actions in reach; under it come the three figures that matter first
+ * (the total, the due date, the period), which scroll with the rest: on a phone the
+ * header and a strip of cards held in place would leave no room to read. A held
+ * draft says why before anything else, a void invoice or its replacement points to
+ * the other, and a metered line leads to the usage it came from. Nothing on it is
+ * added up or worked out by the console: it reads the invoice as the API composed
+ * it, and re-reads it after every action. The stripe-only blocks (hosted links,
+ * reconciliation, retrying a push) are not here: they belong to an invoice a
+ * payment provider collects.
  */
 export function InvoiceDetailPage({ invoiceId }: InvoiceDetailPageProps) {
   const { data: invoice } = useSuspenseQuery(invoiceQueryOptions(invoiceId));
@@ -31,7 +36,10 @@ export function InvoiceDetailPage({ invoiceId }: InvoiceDetailPageProps) {
         <InvoiceDetailHeader invoice={invoice} />
       </DetailEntityLayout.Top>
       <DetailEntityLayout.Body>
-        <DetailEntityLayout.Content className="space-y-4 pb-6">
+        {/* No padding above: the body already sits the way an instance's strip
+            does under its header. */}
+        <DetailEntityLayout.Content className="space-y-4 pt-0 pb-6">
+          <InvoiceDetailStats invoice={invoice} />
           {invoice.holdReason ? <HoldBanner invoice={invoice} /> : null}
           <InvoiceChain invoice={invoice} />
           <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-3">
