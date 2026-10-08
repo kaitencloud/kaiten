@@ -2,21 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { StartedSubscription } from '@/api-client';
-import { DialogFormSkeleton } from '@/components/dialog/dialog-form-skeleton';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { RetryableProblem } from '@/domains/billing';
-import {
-  StackedFormDialog,
-  StackedFormDialogFooter,
-  StackedFormDialogPanel,
-} from '@/functionals/stacked-form-dialog';
+import { StackedFormDialog } from '@/functionals/stacked-form-dialog';
 import { subscribablePricesQueryOptions } from '../../../../../queries';
 import {
   getBasePriceOptions,
   getSubscribeBlock,
 } from '../../../../../utils/subscribe-instance.utils';
 import { useInstanceDetail } from '../../../instance-detail-context';
+import { DialogLoading, DialogNotice, DialogProblem } from '../dialog-states';
 import { SubscribeInstanceForm } from './subscribe-instance-form';
 import { SubscribedState } from './subscribed-state';
 
@@ -25,30 +18,7 @@ type SubscribeInstanceDialogProps = {
   onClose: () => void;
 };
 
-function Unavailable({
-  children,
-  onClose,
-}: {
-  children: string;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-
-  return (
-    <>
-      <StackedFormDialogFooter>
-        <Button onClick={onClose} type="button" variant="outline">
-          {t('Common.close')}
-        </Button>
-      </StackedFormDialogFooter>
-      <StackedFormDialogPanel>
-        <Alert data-testid="subscribe-unavailable">
-          <AlertDescription>{children}</AlertDescription>
-        </Alert>
-      </StackedFormDialogPanel>
-    </>
-  );
-}
+const UNAVAILABLE_TEST_ID = 'subscribe-unavailable';
 
 function SubscribeContent({
   onClose,
@@ -67,49 +37,42 @@ function SubscribeContent({
 
   if (getSubscribeBlock(license)) {
     return (
-      <Unavailable onClose={onClose}>
+      <DialogNotice onClose={onClose} testId={UNAVAILABLE_TEST_ID}>
         {t(
           'Pages.Customers.Instances.Detail.Billing.Subscribe.licenseNotPublishedDialog',
           { name: license?.name, version: license?.version },
         )}
-      </Unavailable>
+      </DialogNotice>
     );
   }
   if (prices.isPending) {
-    return <DialogFormSkeleton fields={3} />;
+    return <DialogLoading />;
   }
   if (prices.isError) {
     return (
-      <>
-        <StackedFormDialogFooter>
-          <Button onClick={onClose} type="button" variant="outline">
-            {t('Common.close')}
-          </Button>
-        </StackedFormDialogFooter>
-        <StackedFormDialogPanel>
-          <RetryableProblem
-            error={prices.error}
-            onRetry={() => void prices.refetch()}
-          />
-        </StackedFormDialogPanel>
-      </>
+      <DialogProblem
+        error={prices.error}
+        onClose={onClose}
+        onRetry={() => void prices.refetch()}
+      />
     );
   }
   const options = getBasePriceOptions(prices.data);
   if (options.length === 0) {
     return (
-      <Unavailable onClose={onClose}>
+      <DialogNotice onClose={onClose} testId={UNAVAILABLE_TEST_ID}>
         {t('Pages.Customers.Instances.Detail.Billing.Subscribe.noBasePrice', {
           name: license?.name,
           version: license?.version,
         })}
-      </Unavailable>
+      </DialogNotice>
     );
   }
 
   return (
     <SubscribeInstanceForm
       customer={customer}
+      defaultTrialDays={license?.trialPeriodDays ?? 0}
       instanceSlug={instanceSlug}
       onCancel={onClose}
       onSubscribed={onSubscribed}

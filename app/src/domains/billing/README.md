@@ -47,7 +47,8 @@ here beside the statuses they read: `getInvoiceActions` with
 ```txt
 app/src/domains/billing/
 ├── components/       # Money, ServicePeriod, the status, provider and line-type badges,
-│                     # ProblemAlert, RetryableProblem, MissingScopeBanner, BillingUnavailable,
+│                     # ProblemAlert, BoundaryClosingNotice, RetryableProblem, MissingScopeBanner,
+│                     # BillingUnavailable,
 │                     # BillingNotFound, BillingRouteError, InvoicesTable (its columns in
 │                     # invoices-table-columns) and its cells, the
 │                     # fingerprint and the arithmetic of a metered line (LineFingerprint,
@@ -63,14 +64,16 @@ app/src/domains/billing/
 ├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session;
 │                     # useInvoiceActionAccess, the same for the five actions on an invoice;
 │                     # useAlertFocus, which puts the focus on a refusal or a confirmation; useDeletionRefusal,
-│                     # which explains a deletion billing refused; useExportInvoices;
+│                     # which explains a deletion billing refused; useBoundaryRetry, which waits
+│                     # out a period being closed; useExportInvoices;
 │                     # useUsageReports, over the pages of a list of usage reports
 ├── logic/            # actions and their scopes, availability, problems, the placing of a
 │                     # refusal on the fields of a form (problem-field-errors), statuses,
 │                     # invoice kinds, line types, invoice actions, the refusals of a
 │                     # recompose and of a deletion, handoff, export, retention, usage reports,
-│                     # subscription actions, billing periods, and what a price is called and
-│                     # how its amount is written (price-types, price-labels, price-display)
+│                     # subscription actions, billing periods, the trial of a subscription,
+│                     # and what a price is called and how its amount is written
+│                     # (price-types, price-labels, price-display)
 ├── queries/          # the capabilities, the billing settings, the route guard, invalidation
 │                     # helpers, the pages of the invoices of a subject, the pages of usage
 │                     # reports, the export of the invoices
@@ -128,7 +131,12 @@ page holds, or an export the API streams.
   `lib/optimistic-mutations.ts`, because a refusal must never show as a success.
 - `OPERATION_SCOPES` (`lib/api/operation-scopes.gen.ts`) is generated from the
   `security` of each operation of `app/openapi.yaml`; `BILLING_ACTIONS` names the
-  operation each action calls, and its scope is read from there.
+  operation each action calls, and its scope is read from there. It lists what the
+  screens offer on a subscription (`subscription.cancel`, `.reactivate`,
+  `.schedulePlanChange`, `.cancelPlanChange`, `.updateTerms`), the two operations of an
+  instance a cancellation offers beside it (`instance.addons.list`, `.detach`,
+  `instance.update`: the scopes of the instances, not of billing) and the public
+  listing of a family of licenses (`licenseFamily.setPublic`).
 
 ## Behaviour
 
@@ -194,7 +202,7 @@ page holds, or an export the API streams.
   never shown, only the message of its status. `handleBillingProblem` recognises
   the few codes that change what a screen does: missing scope, billing off, a 503
   (nothing was changed, retry), a boundary being closed (`Retry-After`, a minute
-  when absent) and usage outside the retention. `applyProblemFieldErrors` puts the
+  when absent, see below) and usage outside the retention. `applyProblemFieldErrors` puts the
   field errors of a 422 on the fields of a form, and the problem's `detail` goes
   in a banner when one finds no field.
 - **An invoice preview is shown as it came.** `InvoicePreviewDialog` is the
@@ -278,6 +286,27 @@ page holds, or an export the API streams.
   let them send it again. A newer refusal on the same field replaces the older.
   `applyProblemFieldErrors` and `placeRefusalOnFields` place a problem on the fields
   that its locations or its code name, and answer whether every error found one.
+- **A period being closed is waited out once.** Every write to a live subscription
+  (cancel, reactivate, schedule or drop a plan change, change the payment terms) is
+  refused with a 409 `*.BoundaryPending` while the period it ended is being closed:
+  nothing was changed, and a minute later the close has run. `useBoundaryRetry()`
+  gives a screen `send(request)`: it makes the request, and on that refusal it waits
+  what `Retry-After` says (a minute when the API says nothing, which today it does not),
+  makes the very same request once more, and says `closing` meanwhile, for the screen to
+  show `BoundaryClosingNotice` (a status, not an error) in place of an alert. If the
+  second try fails, whatever the reason, the failure is thrown for the screen to show
+  as any other refusal, with a Retry (`ProblemAlert` offers it for this kind as for a
+  503) that starts a new `send` with a retry of its own. Leaving the screen during the
+  wait drops the retry: nobody is looking at the outcome any more, and a request
+  nobody asked for again is not sent.
+- **A trial has the bounds the console puts on it.** The API takes a trial in days
+  with no upper bound, and a number of days that overflows its duration is refused as
+  an error of the server, so the console bounds the field itself (`MAX_TRIAL_DAYS`,
+  365: the same bound as the payment terms; `isValidTrialDays`). Only a price billed in
+  advance has a trial (`canStartWithTrial`): the trial of a price billed in arrears
+  cannot be closed yet, so the console does not offer one. `getTrialEnd` says when a
+  trial of so many days ends, counted in whole days from the start as the API counts
+  it, for the summary of the dialog that subscribes: it says when, and never how much.
 - **A billing period is counted as the API counts it.** `addMonthsClamped` moves a
   date by whole months in UTC with the day clamped to the last of the month (Jan 31
   plus a month is Feb 28), so that a boundary the console shows is the instant the API
@@ -349,7 +378,10 @@ the fingerprint, the arithmetic of an overage, the refusals (`retryable-problem`
 and `invoice-refusals` for what a recompose was refused for), the rules of the
 invoice actions and the scopes that gate them, the export and the lease of a
 handoff have their own files in `__tests__/`, and
-`components/stories/invoices-table.stories.tsx` shows the table. The screens built on the domain are tested in
+`components/stories/invoices-table.stories.tsx` shows the table. The wait for a
+period being closed (`use-boundary-retry.test.tsx`, on fake timers: the minute, the
+`Retry-After`, the single retry, the unmount) and the bounds of a trial
+(`trial.test.ts`) are tested there too. The screens built on the domain are tested in
 [`features/billing`](../../features/billing/README.md).
 
 ## Public API

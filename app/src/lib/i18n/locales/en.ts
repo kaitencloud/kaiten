@@ -577,6 +577,11 @@ export default {
                 'Days between issuing an invoice and its due date. Leave empty to use the terms of your organization.',
               daysUntilDuePlaceholder: 'Organization default: {{days}}',
               daysUntilDuePlaceholderUnknown: 'Organization default',
+              trialDays: 'Trial (days)',
+              trialDaysHint:
+                'Nothing is billed during the trial, and its usage is never billed. The first invoice is issued when it ends; 0 starts billing at once. The license can carry a default.',
+              trialDaysArrears:
+                'A trial is not offered on a plan billed in arrears: the subscription starts without one.',
               startAt: 'Billing starts (UTC)',
               startAtHint:
                 'Leave empty to start now. A contract that began earlier can start up to one billing period back, never in the future.',
@@ -587,6 +592,8 @@ export default {
               noBasePrice:
                 '{{name}} v{{version}} has no active flat fee to subscribe to. Add one on the license first.',
               Summary: {
+                trial:
+                  'No invoice now. The first invoice is issued at the end of the trial, on {{date}}.',
                 now: 'The first invoice is issued as soon as the subscription starts.',
                 arrears:
                   'Nothing is invoiced until the first period closes: the first invoice is issued on {{date}}.',
@@ -595,6 +602,8 @@ export default {
               },
               Started: {
                 title: 'Subscription started',
+                trial:
+                  'The trial runs until {{date}}, and the first invoice is issued then.',
                 period: 'Current period:',
                 activation: 'Activation invoice:',
                 viewInvoice: 'View the invoice',
@@ -613,6 +622,7 @@ export default {
               Errors: {
                 basePrice: 'Choose a base price',
                 daysUntilDue: 'Enter a whole number of days, from 0 to 365',
+                trialDays: 'Enter a whole number of days, from 0 to 365',
                 startAt: 'Enter a valid date and time',
                 startAtFuture: 'Billing cannot start in the future',
                 startAtTooEarly:

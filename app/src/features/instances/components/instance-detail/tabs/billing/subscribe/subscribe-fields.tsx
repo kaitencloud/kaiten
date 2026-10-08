@@ -3,10 +3,12 @@ import { useTranslation } from 'react-i18next';
 import type { Price } from '@/api-client';
 import {
   BILLING_TIMING_LABEL_KEYS,
+  canStartWithTrial,
   getPriceAmountParts,
   getPriceLabel,
   joinPriceAmount,
   MAX_DAYS_UNTIL_DUE,
+  MAX_TRIAL_DAYS,
   ProviderBadge,
 } from '@/domains/billing';
 
@@ -15,6 +17,8 @@ type SubscribeFieldsProps = {
   defaultDaysUntilDue: number | undefined;
   form: any;
   prices: Price[];
+  /** Whether the release has trials: where it has none the field is not there. */
+  trials: boolean;
 };
 
 /** A price as an option reads: its label, what it charges, over what period, and when. */
@@ -34,13 +38,16 @@ function usePriceLabel() {
 /**
  * The fields that subscribe an instance. The provider is told and not asked: this
  * release collects through the handoff queue only, so there is nothing to choose.
- * The payment terms and the start are optional, and say what an empty field
- * means.
+ * The trial starts at the days the license carries and is there only where the
+ * release has trials, and not for a price that bills in arrears, whose trial the
+ * API cannot close yet: that says so instead. The payment terms and the start are
+ * optional, and say what an empty field means.
  */
 export function SubscribeFields({
   defaultDaysUntilDue,
   form,
   prices,
+  trials,
 }: SubscribeFieldsProps) {
   const { t } = useTranslation();
   const priceLabel = usePriceLabel();
@@ -76,6 +83,44 @@ export function SubscribeFields({
           />
         )}
       </form.AppField>
+      {trials ? (
+        <form.Subscribe selector={(state: any) => state.values.basePriceId}>
+          {(basePriceId: string) => {
+            const price = prices.find(
+              (candidate) => candidate.id === basePriceId,
+            );
+
+            return price && !canStartWithTrial(price.billingTiming) ? (
+              <p
+                className="text-sm text-muted-foreground"
+                data-testid="trial-unavailable"
+              >
+                {t(
+                  'Pages.Customers.Instances.Detail.Billing.Subscribe.trialDaysArrears',
+                )}
+              </p>
+            ) : (
+              <form.AppField name="trialDays">
+                {(field: any) => (
+                  <field.NumberField
+                    // A longer trial is refused in words, and not changed to the longest.
+                    allowOutOfRange
+                    description={t(
+                      'Pages.Customers.Instances.Detail.Billing.Subscribe.trialDaysHint',
+                    )}
+                    label={t(
+                      'Pages.Customers.Instances.Detail.Billing.Subscribe.trialDays',
+                    )}
+                    max={MAX_TRIAL_DAYS}
+                    min={0}
+                    step={1}
+                  />
+                )}
+              </form.AppField>
+            );
+          }}
+        </form.Subscribe>
+      ) : null}
       <form.AppField name="daysUntilDue">
         {(field: any) => (
           <field.NumberField

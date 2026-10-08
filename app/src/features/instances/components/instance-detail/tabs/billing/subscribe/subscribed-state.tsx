@@ -69,7 +69,19 @@ export function SubscribedState({ onClose, started }: SubscribedStateProps) {
               to={started.currentPeriodEnd}
             />
           </p>
-          {invoice ? (
+          {started.status === 'TRIAL' ? (
+            <p className="text-sm">
+              {t(
+                'Pages.Customers.Instances.Detail.Billing.Subscribe.Started.trial',
+                {
+                  date: formatBoundary(
+                    started.trialEndsAt ?? started.currentPeriodEnd,
+                    i18n.language,
+                  ),
+                },
+              )}
+            </p>
+          ) : invoice ? (
             <p className="text-sm">
               {t(
                 'Pages.Customers.Instances.Detail.Billing.Subscribe.Started.activation',

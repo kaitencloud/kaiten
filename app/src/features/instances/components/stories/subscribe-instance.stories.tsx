@@ -2,9 +2,13 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { ReactNode } from 'react';
 import { expect, fn, screen } from 'storybook/test';
 import type { Customer } from '@/api-client';
-import { handleGetBillingSettings } from '@/api-client/msw.gen';
+import {
+  handleGetBillingCapabilities,
+  handleGetBillingSettings,
+} from '@/api-client/msw.gen';
 import { StackedFormDialog } from '@/functionals/stacked-form-dialog';
 import {
+  billingCapabilitiesProfiles,
   buildPrice,
   buildSubscription,
 } from '@/test-fixtures/storybook-billing-fixtures';
@@ -76,9 +80,11 @@ const inDialog = (children: ReactNode) => (
 const form = (
   prices = [MONTHLY, ANNUAL_IN_ARREARS],
   billingEmail?: string,
+  defaultTrialDays?: number,
 ) => (
   <SubscribeInstanceForm
     customer={customer(billingEmail)}
+    defaultTrialDays={defaultTrialDays}
     instanceSlug="acme-production"
     onCancel={fn()}
     onSubscribed={fn()}
@@ -111,6 +117,43 @@ export const CustomerWithABillingEmail: Story = {
   play: async () => {
     await expect(await screen.findByText('Payment provider')).toBeInTheDocument();
     await expect(screen.queryByTestId('billing-email-notice')).toBeNull();
+  },
+};
+
+const settingsHandler = handleGetBillingSettings({
+  body: {
+    defaultCollectionMethod: 'SEND_INVOICE',
+    defaultDaysUntilDue: 30,
+    handoffStripeInvoices: false,
+  },
+});
+
+// Where the release has trials the dialog offers one, prefilled with what the license
+// carries. The summary says that nothing is invoiced now, and when the first invoice is.
+export const WithATrial: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        settingsHandler,
+        handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }),
+      ],
+    },
+  },
+  render: () => inDialog(form([MONTHLY, ANNUAL_IN_ARREARS], 'ap@acme.test', 14)),
+  play: async () => {
+    await expect(await screen.findByLabelText('Trial (days)')).toHaveValue('14');
+    await expect(await screen.findByTestId('subscribe-summary')).toHaveTextContent(
+      'No invoice now. The first invoice is issued at the end of the trial, on',
+    );
+  },
+};
+
+// Without the trials of the release, the dialog does not ask for one.
+export const WithoutTrials: Story = {
+  render: () => inDialog(form([MONTHLY, ANNUAL_IN_ARREARS], 'ap@acme.test', 14)),
+  play: async () => {
+    await expect(await screen.findByText('Payment provider')).toBeInTheDocument();
+    await expect(screen.queryByLabelText('Trial (days)')).toBeNull();
   },
 };
 
