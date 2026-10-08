@@ -40,7 +40,11 @@ type Draft struct {
 	// Pushes: the subscription's provider pushes invoices, so the invoice
 	// waits in the push queue instead of being issued MANUAL.
 	Pushes bool
-	Now    time.Time
+	// PushLeasedUntil composes a pushed invoice already leased, to the request
+	// that is about to push it inline (§12.4 rule 6): the queue leaves it alone
+	// until then, and takes it over after if that request never does.
+	PushLeasedUntil *time.Time
+	Now             time.Time
 }
 
 // Insert writes a composed invoice, issued by the subscription's provider:
@@ -121,6 +125,9 @@ func Insert(ctx context.Context, q *db.Queries, d Draft) (db.InstanceInvoice, er
 		params.Status, params.IssuedAt, params.DaysUntilDue = issued.status, issued.issuedAt, issued.daysUntilDue
 		params.DueAt, params.PaidAt, params.HandoffStatus = issued.dueAt, issued.paidAt, issued.handoff
 		params.NextPushAt = issued.nextPushAt
+		if d.PushLeasedUntil != nil && params.Status == db.InvoiceStatusDRAFT {
+			params.NextPushAt = Timestamp(*d.PushLeasedUntil)
+		}
 	}
 	return q.InsertInvoice(ctx, params)
 }
@@ -343,7 +350,8 @@ func providerRecord(row db.InstanceInvoice) (*ProviderRecord, error) {
 		ExternalCustomerID: row.ExternalCustomerID, ExternalInvoiceID: row.ExternalInvoiceID,
 		InvoiceNumber: row.ProviderInvoiceNumber, Status: row.ProviderStatus, HostedInvoiceURL: row.HostedInvoiceUrl,
 		InvoicePDFURL: row.InvoicePdfUrl, PushAttempts: row.PushAttempts, NextPushAt: TimePtr(row.NextPushAt),
-		LastPushError: row.LastPushError, PushedAt: TimePtr(row.PushedAt), SyncedAt: TimePtr(row.SyncedAt),
+		LastPushError: row.LastPushError, LastPaymentError: row.LastPaymentError,
+		PushedAt: TimePtr(row.PushedAt), SyncedAt: TimePtr(row.SyncedAt),
 		TotalExcludingTax: row.ProviderTotalExcludingTaxMinor, ReconciliationStatus: nil,
 		ReconciledAt: TimePtr(row.ReconciledAt), ReconciliationDetails: nil,
 	}
