@@ -160,6 +160,10 @@ The chip already names the field and such a field has a single operator. `text`,
 - Chip label: "Label: value", or "Label: N selected" beyond two values
   (`Common.selectedCount`), without the operator. A quick-access chip truncates
   its label at 320 px and keeps the full text in its `title`.
+- Accessibility: the list is named after its field (`aria-label`), since nothing
+  else says what it holds. The check beside an `enum_list` option is a mark drawn
+  from the option's own `aria-checked`, not a checkbox: a control inside an
+  option nests one in another, which a screen reader cannot announce.
 
 ## Implementation notes
 
