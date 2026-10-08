@@ -74,7 +74,13 @@ func (s *Static) Resolve(ctx context.Context, organizationID uuid.UUID, kind Kin
 	if !ok {
 		return nil, ErrNotConnected
 	}
-	return resolve(ctx, organizationID)
+	conn, err := resolve(ctx, organizationID)
+	if err != nil || conn == nil {
+		return conn, err
+	}
+	timed := *conn
+	timed.Adapter = instrument(conn.Adapter)
+	return &timed, nil
 }
 
 // Availability implements Registry. A provider registered without a

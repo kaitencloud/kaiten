@@ -48,6 +48,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncprovider"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/telemetry"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updatebillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updateinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/voidinvoice"
@@ -171,6 +172,8 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 
 	// The billing jobs run only where billing is on and background work runs.
 	if cfg.Enabled && svc.BackgroundWorkers && svc.Pool != nil {
+		// The alerts' gauges (§19.2), read where the jobs run.
+		telemetry.RegisterGauges(telemetry.Gauges{Queries: deps.Queries, Now: lifecycle.Now, CloseGrace: cfg.CloseGrace})
 		job := closing.NewJob(svc.Pool, closer, sweep.Config{
 			InitialDelay: orDefault(cfg.InitialDelay, time.Minute),
 			Interval:     orDefault(cfg.PeriodClose.Interval, 5*time.Minute),
