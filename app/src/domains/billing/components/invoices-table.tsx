@@ -1,4 +1,5 @@
 import { useRouter } from '@tanstack/react-router';
+import type { ReactNode } from 'react';
 import type { InvoiceSummary } from '@/api-client';
 import { DataTable } from '@/functionals/table';
 import { cn } from '@/lib/utils';
@@ -14,7 +15,7 @@ type InvoicesTableProps = {
   bodyScrollable?: boolean;
   className?: string;
   /** What to say when there is no invoice, which tells why for the screen it is on. */
-  emptyMessage?: string;
+  emptyMessage?: ReactNode;
   /**
    * Columns the screen leaves out: the customer and the instance, on the page of an
    * instance. The same array from one render to the next, or the columns are rebuilt.

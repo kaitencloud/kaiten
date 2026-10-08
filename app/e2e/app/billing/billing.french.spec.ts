@@ -64,13 +64,24 @@ test.describe('the invoices, read in French', () => {
     ]);
     await page.keyboard.press('Escape');
 
-    await page.getByRole('button', { name: /^Filtres/ }).click();
-    const panel = page.getByRole('dialog');
-    await expect(panel).toContainText('Statut');
-    await expect(panel).toContainText('Brouillon');
-    await expect(panel).toContainText('En attente de votre ERP');
-    await expect(panel).toContainText('Brouillons bloqués uniquement');
-    await expect(panel).toContainText('Avant le');
+    await expect(list.searchField('Client, instance ou facture')).toBeVisible();
+    await page.getByRole('button', { exact: true, name: 'Filtrer' }).click();
+    const menu = page.getByRole('dialog');
+    await expect(menu.getByRole('option')).toHaveText([
+      'Statut',
+      'Type',
+      'Transmission',
+      'En retard',
+      'Bloquées',
+      'Émission',
+      'Début de la période de service',
+    ]);
+    await menu
+      .getByRole('option', { exact: true, name: 'Transmission' })
+      .click();
+    await expect(
+      menu.getByRole('option', { name: 'En attente de votre ERP' }),
+    ).toBeVisible();
   });
 
   test('a held draft, its hold, its lines and what its actions ask', async ({

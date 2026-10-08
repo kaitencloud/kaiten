@@ -3195,7 +3195,6 @@ export default {
         title: 'Factures',
         subtitle:
           'Toutes les factures de votre organisation, tous clients et instances confondus.',
-        loading: 'Chargement des factures',
         Lines: {
           title: 'Lignes',
         },
@@ -3205,29 +3204,29 @@ export default {
             'Une facture est composée lorsqu’un abonnement atteint une échéance. Abonnez une instance pour commencer à facturer.',
           instances: 'Aller aux instances',
           filteredTitle: 'Aucune facture ne correspond à ces filtres',
-          filteredDescription:
-            'Retirez un filtre ou élargissez la période pour en voir davantage.',
+          filteredDescription: 'Effacez les filtres pour en voir davantage.',
+          scopedCustomerTitle: 'Aucune facture pour ce client',
+          scopedInstanceTitle: 'Aucune facture pour cette instance',
+          scopedDescription:
+            'Rien n’a encore été facturé. Une facture est composée lorsqu’un abonnement atteint une échéance.',
+          showAll: 'Afficher toutes les factures',
         },
         Filters: {
-          button: 'Filtres',
-          panelLabel: 'Filtres des factures',
           clear: 'Effacer les filtres',
           remove: 'Retirer le filtre {{filter}}',
           chip: '{{field}} : {{value}}',
+          search: 'Recherche',
+          searchPlaceholder: 'Client, instance ou facture',
           status: 'Statut',
           kind: 'Type',
           provider: 'Fournisseur',
           handoff: 'Transmission',
           overdue: 'En retard',
-          overdueOnly: 'Factures en retard uniquement',
           held: 'Bloquées',
-          heldOnly: 'Brouillons bloqués uniquement',
           customer: 'Client',
           instance: 'Instance',
-          slugPlaceholder: 'slug',
-          boundary: 'Échéance',
           issued: 'Émission',
-          openEnd: 'sans limite',
+          servicePeriod: 'Début de la période de service',
         },
         Toasts: {
           released: 'Facture débloquée',
@@ -4216,6 +4215,9 @@ export default {
         csvLines: 'CSV par ligne de facture',
         csvInvoices: 'CSV par facture',
         ndjson: 'NDJSON, une facture par ligne',
+        unapplied_one: 'Ce filtre n’est pas appliqué au fichier : {{filters}}.',
+        unapplied_other:
+          'Ces filtres ne sont pas appliqués au fichier : {{filters}}.',
       },
       InvoicesCard: {
         title: 'Factures',
