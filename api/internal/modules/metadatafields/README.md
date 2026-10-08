@@ -196,6 +196,12 @@ no active contract: the remaining keys are accepted as raw jsonb and the
 archived-key rules still apply. A payload that is deeply equal to
 `currentMetadata` is accepted without validation.
 
+A key is archived only while no active field carries it. Once a field is
+declared again under the key of an archived one, which the
+`uq_metadata_field_key_active` index allows, the key is active: the new field's
+schema validates it, a create may carry it, and a PUT that omits it drops it
+like any other active key.
+
 ### Preservation on omission
 
 `PUT` replaces the whole resource, so a payload that omits an archived key would
