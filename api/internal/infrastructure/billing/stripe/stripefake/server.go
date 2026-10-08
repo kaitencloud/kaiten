@@ -637,7 +637,7 @@ func paginate(data []any, form url.Values) ([]any, bool) {
 			}
 		}
 	}
-	limit := int(asInt(form.Get("limit")))
+	limit, _ := strconv.Atoi(form.Get("limit"))
 	if limit <= 0 || limit > 100 {
 		limit = 10
 	}
