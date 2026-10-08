@@ -471,6 +471,10 @@ func (a *Adapter) read(ctx context.Context, sc *stripego.Client, inv *stripego.I
 		out.FinalizedAt, out.PaidAt = instant(t.FinalizedAt), instant(t.PaidAt)
 		out.UncollectibleAt, out.VoidedAt = instant(t.MarkedUncollectibleAt), instant(t.VoidedAt)
 	}
+	if inv.DueDate > 0 {
+		due := time.Unix(inv.DueDate, 0).UTC()
+		out.DueAt = &due
+	}
 	if inv.LastFinalizationError != nil {
 		out.LastPaymentError = string(inv.LastFinalizationError.Code)
 	}

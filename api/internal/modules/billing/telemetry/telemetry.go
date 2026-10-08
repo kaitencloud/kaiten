@@ -39,6 +39,7 @@ type instruments struct {
 	compensations metric.Int64Counter
 	mismatches    metric.Int64Counter
 	recreated     metric.Int64Counter
+	dueDateDrift  metric.Int64Counter
 }
 
 var get = sync.OnceValue(func() *instruments {
@@ -68,6 +69,8 @@ var get = sync.OnceValue(func() *instruments {
 			"Invoices whose provider copy differs from Kaiten's at reconciliation, by provider", "{invoice}"),
 		recreated: counter("kaiten.billing.provider.customer_recreated",
 			"Mapped provider customers that were deleted in the provider and created again", "{customer}"),
+		dueDateDrift: counter("kaiten.billing.provider.due_date_drift",
+			"Issued invoices whose due date in the provider differs from Kaiten's by more than a day", "{invoice}"),
 	}
 })
 
@@ -108,6 +111,14 @@ func Mismatched(ctx context.Context, providerKind string) {
 // CustomerRecreated records a provider customer created again.
 func CustomerRecreated(ctx context.Context, providerKind string) {
 	if c := get().recreated; c != nil {
+		c.Add(ctx, 1, provider(providerKind))
+	}
+}
+
+// DueDateDrift records an invoice whose provider due date differs from
+// Kaiten's.
+func DueDateDrift(ctx context.Context, providerKind string) {
+	if c := get().dueDateDrift; c != nil {
 		c.Add(ctx, 1, provider(providerKind))
 	}
 }
