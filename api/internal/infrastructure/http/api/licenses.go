@@ -24,6 +24,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/unarchivelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseentitlement"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicensefamily"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseprice"
 )
 
@@ -71,4 +72,5 @@ func registerLicenses(core huma.API, app kaiten.Licenses) {
 	deprecatelicenseprice.RegisterEndpoint(core, app)
 	deprecatelicenseprice.RegisterWebhook(core)
 	previewlicenseinvoice.RegisterEndpoint(core, app)
+	updatelicensefamily.RegisterEndpoint(core, app)
 }

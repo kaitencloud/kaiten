@@ -50,6 +50,15 @@ const (
 // separation to fall back on.
 const platformPathPrefix = "/platform"
 
+// publicPathPrefix is the public SDK surface's namespace, authenticated by a
+// publishable key alone. Kept in step with kaitenhuma.PublicPathPrefix.
+const publicPathPrefix = "/public"
+
+// sessionPathPrefix is the session routes' namespace, inside publicPathPrefix
+// and authenticated by a customer session alone. Kept in step with
+// kaitenhuma.SessionPathPrefix.
+const sessionPathPrefix = "/public/session"
+
 var (
 	loadOnce sync.Once
 	loadPkgs []*packages.Package
@@ -269,6 +278,30 @@ var registrarOperationArg = map[string]int{
 	"RegisterScoped":                  1,
 	"RegisterPlatform":                1,
 	"RegisterPlatformForOrganization": 1,
+	"RegisterPublishable":             1,
+	"RegisterSession":                 1,
+}
+
+// scopelessRegistrars are the registrars that take no scope, and why. A
+// publishable key carries none: what bounds it is its route family, which this
+// file pins by path (TestCoreAndPlatformRegistrarsPartitionThePaths) and by
+// caller class (TestEveryRegisteredOperationResolvesItsCaller). Listed so the
+// scope walks in facade_boundary_test.go skip it by name rather than by
+// tolerating a missing argument.
+var scopelessRegistrars = map[string]string{
+	"RegisterPublishable": "a pk_ authorizes the /public routes by being one; it carries no scope",
+	"RegisterSession":     "a kst_ is bound to its customer, which its routes filter on; it carries no scope",
+}
+
+// registrarPathNamespace is the path namespace each registrar's operations
+// must live in, and the only registrar allowed there. "" is the Core surface:
+// anything under neither prefix.
+var registrarPathNamespace = map[string]string{
+	"RegisterScoped":                  "",
+	"RegisterPlatform":                platformPathPrefix,
+	"RegisterPlatformForOrganization": platformPathPrefix,
+	"RegisterPublishable":             publicPathPrefix,
+	"RegisterSession":                 sessionPathPrefix,
 }
 
 // Fails when an operation is registered with the wrong registrar for the path it
@@ -325,9 +358,9 @@ func TestCoreAndPlatformRegistrarsPartitionThePaths(t *testing.T) {
 				if !isRegistrar {
 					return true
 				}
-				wantPlatform := name != "RegisterScoped"
+				wantNamespace := registrarPathNamespace[name]
 
-				// Register*(api, operation, scope, handler).
+				// Register*(api, operation, ...).
 				if len(call.Args) <= opArg {
 					return true
 				}
@@ -336,30 +369,32 @@ func TestCoreAndPlatformRegistrarsPartitionThePaths(t *testing.T) {
 				path, ok := operationStringField(pkg.TypesInfo, call.Args[opArg], "Path")
 				if !ok {
 					violations = append(violations, fmt.Sprintf(
-						"%s: %s is passed an operation whose Path is not a compile-time string, so the Core/Platform partition cannot be reviewed statically -- inline the huma.Operation literal with a literal or constant Path",
+						"%s: %s is passed an operation whose Path is not a compile-time string, so the surface partition cannot be reviewed statically -- inline the huma.Operation literal with a literal or constant Path",
 						pos, name,
 					))
 					return true
 				}
 
-				onPlatformPath := path == platformPathPrefix ||
-					strings.HasPrefix(path, platformPathPrefix+"/")
+				// The most specific namespace wins: /public/session is inside /public.
+				gotNamespace := ""
+				for _, prefix := range []string{platformPathPrefix, publicPathPrefix, sessionPathPrefix} {
+					if path == prefix || strings.HasPrefix(path, prefix+"/") {
+						gotNamespace = prefix
+					}
+				}
 
 				id := operationID(pkg.TypesInfo, call.Args[opArg])
 				if id == "" {
 					id = "<no OperationID>"
 				}
 
-				switch {
-				case wantPlatform && !onPlatformPath:
+				if gotNamespace != wantNamespace {
 					violations = append(violations, fmt.Sprintf(
-						"%s: operation %q is registered with RegisterPlatform but its path %q is not under %q -- a platform operation reachable at a Core URL is exactly the confusion the partition exists to prevent; move the path or use RegisterScoped",
-						pos, id, path, platformPathPrefix,
-					))
-				case !wantPlatform && onPlatformPath:
-					violations = append(violations, fmt.Sprintf(
-						"%s: operation %q is registered with RegisterScoped but its path %q is under %q -- it would accept organization credentials on the Platform API surface; use RegisterPlatform or move the path",
-						pos, id, path, platformPathPrefix,
+						"%s: operation %q is registered with %s, whose operations live under %q, but its path %q is under %q -- "+
+							"each credential class owns its namespace (Core: neither /platform nor /public; Platform: /platform; "+
+							"publishable key: /public outside /public/session; customer session: /public/session), "+
+							"so an operation outside its own would accept a credential its URL does not announce; move the path or change the registrar",
+						pos, id, name, displayNamespace(wantNamespace), path, displayNamespace(gotNamespace),
 					))
 				}
 				return true
@@ -384,6 +419,8 @@ var callerConstructorForRegistrar = map[string]string{
 	"RegisterScoped":                  "Organization",
 	"RegisterPlatform":                "Platform",
 	"RegisterPlatformForOrganization": "Platform",
+	"RegisterPublishable":             "PublishableKey",
+	"RegisterSession":                 "CustomerSession",
 }
 
 // Fails when a registered operation's handler does not open by resolving a
@@ -561,8 +598,10 @@ func callerConstructorsCalled(info *types.Info, body *ast.BlockStmt) map[string]
 // establishes nothing, and an operation reaching for it is the leak
 // inprocess_isolation_test.go exists to catch, not a way to satisfy this test.
 var callerConstructorNames = map[string]struct{}{
-	"Organization": {},
-	"Platform":     {},
+	"Organization":    {},
+	"Platform":        {},
+	"PublishableKey":  {},
+	"CustomerSession": {},
 }
 
 // publicFiberRoutes records the Fiber routes reachable with no authorization at
@@ -1082,4 +1121,11 @@ func TestGraphQLResolverSurfaceIsPinned(t *testing.T) {
 // spelling.
 func resolverKey(gqlType, field string) string {
 	return gqlType + "." + strings.ToLower(strings.ReplaceAll(field, "_", ""))
+}
+
+func displayNamespace(prefix string) string {
+	if prefix == "" {
+		return "the Core namespace"
+	}
+	return prefix
 }

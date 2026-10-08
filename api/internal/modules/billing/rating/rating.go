@@ -42,14 +42,16 @@ const (
 type LineType string
 
 const (
-	LineBase    LineType = "BASE"
-	LineUsage   LineType = "USAGE"
-	LineOverage LineType = "OVERAGE"
+	LineBase     LineType = "BASE"
+	LineAddon    LineType = "ADDON"
+	LineUsage    LineType = "USAGE"
+	LineOverage  LineType = "OVERAGE"
+	LineDiscount LineType = "DISCOUNT"
 )
 
 // typeRank orders lines that share a service start: BASE, add-ons, USAGE,
-// OVERAGE. Add-ons are not composed yet but keep their place.
-var typeRank = map[LineType]int{LineBase: 0, LineUsage: 2, LineOverage: 3}
+// OVERAGE.
+var typeRank = map[LineType]int{LineBase: 0, LineAddon: 1, LineUsage: 2, LineOverage: 3}
 
 // Billing models and timings, as prices spell them.
 const (
@@ -129,6 +131,9 @@ type Input struct {
 	Base Price
 	// Metered are the ACTIVE metered prices rated over Arrears.
 	Metered []Price
+	// Addons are the add-ons the instance holds at the boundary, each with the
+	// FLAT_FEE price its period bills.
+	Addons []AddonCharge
 	// Measures holds each meter's measure, by entitlement id. A meter with
 	// none measured nothing.
 	Measures map[uuid.UUID]Measure
@@ -137,6 +142,16 @@ type Input struct {
 	Advance Period
 	// Arrears is the period an ARREARS line bills: the one ending at it.
 	Arrears Period
+}
+
+// AddonCharge is an add-on an instance holds at a boundary: the quantity held
+// then is billed, without proration.
+type AddonCharge struct {
+	InstanceAddonID uuid.UUID
+	AddonID         uuid.UUID
+	Name            string
+	Quantity        int32
+	Price           Price
 }
 
 // Composition is an invoice's lines and totals.
@@ -162,6 +177,25 @@ func Compose(in Input) (Composition, error) {
 		lines = appendLine(lines, line)
 	case !baseInAdvance && (in.Kind == KindRenewal || in.Kind == KindFinal):
 		line, err := baseLine(in, in.Arrears)
+		if err != nil {
+			return Composition{}, err
+		}
+		lines = appendLine(lines, line)
+	}
+
+	for _, addon := range in.Addons {
+		inAdvance := addon.Price.BillingTiming != TimingArrears
+		var service *Period
+		switch {
+		case inAdvance && (in.Kind == KindActivation || in.Kind == KindRenewal):
+			service = &in.Advance
+		case !inAdvance && (in.Kind == KindRenewal || in.Kind == KindFinal):
+			service = &in.Arrears
+		}
+		if service == nil {
+			continue
+		}
+		line, err := addonLine(in, addon, *service)
 		if err != nil {
 			return Composition{}, err
 		}
@@ -195,11 +229,20 @@ func MeteredLines(in Input) ([]InvoiceLine, error) {
 }
 
 // Assemble orders lines by service start, type, the price's display order
-// and its id, numbers them from 1, and totals them. A recompose assembles the
-// lines it kept with the ones it measured again.
+// and its id, numbers them from 1, and totals them. DISCOUNT lines keep their
+// order, after the others. A recompose assembles the lines it kept with the
+// ones it measured again.
 func Assemble(lines []InvoiceLine) (Composition, error) {
-	sort.SliceStable(lines, func(i, j int) bool {
-		a, b := lines[i], lines[j]
+	var priced, discounts []InvoiceLine
+	for _, line := range lines {
+		if line.Type == LineDiscount {
+			discounts = append(discounts, line)
+		} else {
+			priced = append(priced, line)
+		}
+	}
+	sort.SliceStable(priced, func(i, j int) bool {
+		a, b := priced[i], priced[j]
 		if !a.ServiceFrom.Equal(b.ServiceFrom) {
 			return a.ServiceFrom.Before(b.ServiceFrom)
 		}
@@ -209,18 +252,24 @@ func Assemble(lines []InvoiceLine) (Composition, error) {
 		if a.displayOrder != b.displayOrder {
 			return a.displayOrder < b.displayOrder
 		}
-		return a.LicensePriceID.String() < b.LicensePriceID.String()
+		return a.priceKey() < b.priceKey()
 	})
 
-	var subtotal int64
-	for i := range lines {
-		lines[i].Seq = i + 1
-		if lines[i].Amount > math.MaxInt64-subtotal {
+	var subtotal, discountTotal int64
+	for i := range priced {
+		priced[i].Seq = i + 1
+		if priced[i].Amount > math.MaxInt64-subtotal {
 			return Composition{}, ErrAmountOverflow
 		}
-		subtotal += lines[i].Amount
+		subtotal += priced[i].Amount
 	}
-	return Composition{Lines: lines, Subtotal: subtotal, DiscountTotal: 0, Total: subtotal}, nil
+	for i := range discounts {
+		discounts[i].Seq = len(priced) + i + 1
+		discountTotal -= discounts[i].Amount
+	}
+	return Composition{
+		Lines: append(priced, discounts...), Subtotal: subtotal, DiscountTotal: discountTotal, Total: subtotal - discountTotal,
+	}, nil
 }
 
 // appendLine drops a line whose service period would be empty.
@@ -249,6 +298,11 @@ func baseLine(in Input, service Period) (InvoiceLine, error) {
 		BillingModel:      in.Base.BillingModel,
 		BillingTiming:     in.Base.BillingTiming,
 		LicensePriceID:    &price,
+		AddonPriceID:      nil,
+		AddonID:           nil,
+		InstanceAddonID:   nil,
+		VoucherID:         nil,
+		InstanceVoucherID: nil,
 		EntitlementID:     nil,
 		EntitlementSlug:   nil,
 		Label:             truncate(label),
@@ -260,9 +314,64 @@ func baseLine(in Input, service Period) (InvoiceLine, error) {
 		Amount:            amount,
 		Metering:          nil,
 		Overage:           nil,
+		Discount:          nil,
+		Provider:          nil,
 		Capped:            false,
 		displayOrder:      in.Base.DisplayOrder,
 	}, nil
+}
+
+// addonLine bills an add-on's FLAT_FEE price times the quantity held.
+func addonLine(in Input, addon AddonCharge, service Period) (InvoiceLine, error) {
+	quantity := decimal.NewFromInt32(addon.Quantity)
+	amount, err := lineAmount(quantity, addon.Price.UnitAmountDecimal)
+	if err != nil {
+		return InvoiceLine{}, err
+	}
+	label := addon.Price.DisplayLabel
+	if label == "" {
+		label = addon.Name
+	}
+	price, addonID, attachment := addon.Price.ID, addon.AddonID, addon.InstanceAddonID
+	return InvoiceLine{
+		ID:                nil,
+		Seq:               0,
+		Type:              LineAddon,
+		BillingModel:      addon.Price.BillingModel,
+		BillingTiming:     addon.Price.BillingTiming,
+		LicensePriceID:    nil,
+		AddonPriceID:      &price,
+		AddonID:           &addonID,
+		InstanceAddonID:   &attachment,
+		VoucherID:         nil,
+		InstanceVoucherID: nil,
+		EntitlementID:     nil,
+		EntitlementSlug:   nil,
+		Label:             truncate(label),
+		Description:       truncate(arithmetic(quantity, addon.Price.UnitAmountDecimal, in.Currency, "")),
+		ServiceFrom:       service.From,
+		ServiceTo:         service.To,
+		Quantity:          money.FormatDecimal(quantity),
+		UnitAmountDecimal: money.FormatDecimal(addon.Price.UnitAmountDecimal),
+		Amount:            amount,
+		Metering:          nil,
+		Overage:           nil,
+		Discount:          nil,
+		Provider:          nil,
+		Capped:            false,
+		displayOrder:      addon.Price.DisplayOrder,
+	}, nil
+}
+
+// priceKey is the id of the price a line bills, whichever kind it is.
+func (l InvoiceLine) priceKey() string {
+	if l.LicensePriceID != nil {
+		return l.LicensePriceID.String()
+	}
+	if l.AddonPriceID != nil {
+		return l.AddonPriceID.String()
+	}
+	return ""
 }
 
 // meteredLine rates one metered price over the arrears period. A price whose
@@ -326,14 +435,19 @@ func meteredLine(in Input, price Price) (InvoiceLine, bool, error) {
 		description += "; corrections below 0 not credited"
 	}
 
-	entitlementID, entitlementSlug := price.Meter.EntitlementID, price.Meter.EntitlementSlug
+	entitlementID, entitlementSlug, priceID := price.Meter.EntitlementID, price.Meter.EntitlementSlug, price.ID
 	return InvoiceLine{
 		ID:                nil,
 		Seq:               0,
 		Type:              lineType,
 		BillingModel:      price.BillingModel,
 		BillingTiming:     price.BillingTiming,
-		LicensePriceID:    &price.ID,
+		LicensePriceID:    &priceID,
+		AddonPriceID:      nil,
+		AddonID:           nil,
+		InstanceAddonID:   nil,
+		VoucherID:         nil,
+		InstanceVoucherID: nil,
 		EntitlementID:     &entitlementID,
 		EntitlementSlug:   &entitlementSlug,
 		Label:             truncate(label),
@@ -351,6 +465,8 @@ func meteredLine(in Input, price Price) (InvoiceLine, bool, error) {
 			Ledger:                  measure.Ledger,
 		},
 		Overage:      overage,
+		Discount:     nil,
+		Provider:     nil,
 		Capped:       measure.Capped,
 		displayOrder: price.DisplayOrder,
 	}, true, nil

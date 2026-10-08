@@ -175,9 +175,13 @@ structural split. See [browser mock adapter](../src/e2e/msw/README.md).
   undeclared API call, and passes it through. Its inventory and cross-record
   consistency run under Vitest because its domain imports need Vite's env.
 - **Partial notifications on a real stack:** only notifications are mocked;
-  business API and platform flags pass through.
+  business API, platform flags and webhooks pass through.
 
 Integration read-only stubs use the `integrationStubs` slot in strict MSW.
+Without a webhooks stub the webhooks routes answer 404, as on a self-hosted
+deployment, so the console hides them; `installEmptyWebhooksStub` serves them
+empty, as Kaiten Cloud does, and `installWebhooksNotEntitledStub` refuses them,
+as Kaiten Cloud does for an organization whose licence lacks them.
 The dashboard error case is carried by the
 dashboard model. A new scenario factory exported from any `*.scenarios.ts`
 must appear in the registry: `check:e2e-contracts` discovers omitted factories

@@ -4,7 +4,7 @@ INSERT INTO instance_invoice (organization_id, instance_billing_id, customer_id,
                               boundary_at, service_from, service_to, currency, subtotal_minor,
                               discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at,
                               provider_kind, collection_method, issued_at, days_until_due, due_at, paid_at,
-                              replaces_invoice_id, handoff_status, created_at, updated_at)
+                              replaces_invoice_id, handoff_status, next_push_at, created_at, updated_at)
 VALUES (sqlc.arg(organization_id), sqlc.arg(instance_billing_id), sqlc.narg(customer_id), sqlc.arg(instance_slug),
         sqlc.arg(instance_name), sqlc.arg(customer_slug), sqlc.arg(customer_name), sqlc.arg(license_id),
         sqlc.arg(license_slug), sqlc.narg(billing_email), sqlc.arg(kind), sqlc.arg(boundary_at),
@@ -12,7 +12,8 @@ VALUES (sqlc.arg(organization_id), sqlc.arg(instance_billing_id), sqlc.narg(cust
         sqlc.arg(discount_total_minor), sqlc.arg(total_minor), sqlc.arg(lines), sqlc.arg(status),
         sqlc.narg(hold_reason), sqlc.narg(hold_detail), sqlc.narg(held_at), sqlc.arg(provider_kind),
         sqlc.arg(collection_method), sqlc.narg(issued_at), sqlc.narg(days_until_due), sqlc.narg(due_at),
-        sqlc.narg(paid_at), sqlc.narg(replaces_invoice_id), sqlc.arg(handoff_status), sqlc.arg(now), sqlc.arg(now))
+        sqlc.narg(paid_at), sqlc.narg(replaces_invoice_id), sqlc.arg(handoff_status), sqlc.narg(next_push_at),
+        sqlc.arg(now), sqlc.arg(now))
 RETURNING *;
 
 
@@ -38,7 +39,10 @@ WHERE i.organization_id = sqlc.arg(organization_id)
                                     WHERE n.organization_id = i.organization_id AND n.slug = sqlc.narg(instance_slug)::text))
   AND (sqlc.narg(instance_billing_id)::uuid IS NULL OR i.instance_billing_id = sqlc.narg(instance_billing_id)::uuid)
   AND (NOT sqlc.arg(overdue)::boolean
-       OR (i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED') AND i.due_at < sqlc.arg(now)::timestamp))
+       OR (i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED') AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+              THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
+                OR i.issued_at < sqlc.arg(auto_collection_before)::timestamp
+              ELSE i.due_at < sqlc.arg(now)::timestamp END)))
   AND (NOT sqlc.arg(held)::boolean OR i.hold_reason IS NOT NULL)
   AND (sqlc.narg(handoff_status)::handoff_status IS NULL OR i.handoff_status = sqlc.narg(handoff_status)::handoff_status)
   AND (sqlc.narg(issued_from)::timestamp IS NULL OR i.issued_at >= sqlc.narg(issued_from)::timestamp)
@@ -72,7 +76,10 @@ WHERE i.organization_id = sqlc.arg(organization_id)
                                     WHERE n.organization_id = i.organization_id AND n.slug = sqlc.narg(instance_slug)::text))
   AND (sqlc.narg(instance_billing_id)::uuid IS NULL OR i.instance_billing_id = sqlc.narg(instance_billing_id)::uuid)
   AND (NOT sqlc.arg(overdue)::boolean
-       OR (i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED') AND i.due_at < sqlc.arg(now)::timestamp))
+       OR (i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED') AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
+              THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
+                OR i.issued_at < sqlc.arg(auto_collection_before)::timestamp
+              ELSE i.due_at < sqlc.arg(now)::timestamp END)))
   AND (NOT sqlc.arg(held)::boolean OR i.hold_reason IS NOT NULL)
   AND (sqlc.narg(handoff_status)::handoff_status IS NULL OR i.handoff_status = sqlc.narg(handoff_status)::handoff_status)
   AND (sqlc.narg(issued_from)::timestamp IS NULL OR i.issued_at >= sqlc.narg(issued_from)::timestamp)
@@ -156,6 +163,7 @@ SET status       = 'VOID',
     hold_reason  = NULL,
     hold_detail  = NULL,
     held_at      = NULL,
+    next_push_at = NULL,
     updated_at   = sqlc.arg(now)
 WHERE id = sqlc.arg(id)
 RETURNING *;
@@ -183,6 +191,7 @@ SET lines                = sqlc.arg(lines),
     due_at               = sqlc.narg(due_at),
     paid_at              = sqlc.narg(paid_at),
     handoff_status       = sqlc.arg(handoff_status),
+    next_push_at         = sqlc.narg(next_push_at),
     updated_at           = sqlc.arg(now)
 WHERE id = sqlc.arg(id)
 RETURNING *;
@@ -206,3 +215,25 @@ SELECT i.id, i.organization_id, i.instance_billing_id
 FROM instance_invoice i
 WHERE i.id = sqlc.arg(id)
   AND i.hold_reason IS NOT NULL;
+
+
+-- name: ListSessionInvoices :many
+-- One page of what a customer session may read: its customer's invoices by
+-- id -- never by slug, which another customer may since have taken -- and, for
+-- a session bound to an instance, that instance's only. Issued invoices only:
+-- a DRAFT, a held one or one still failing its push is the vendor's business.
+-- Newest boundary first; fetched one row past the page.
+SELECT *
+FROM instance_invoice i
+WHERE i.organization_id = sqlc.arg(organization_id)
+  AND i.customer_id = sqlc.arg(customer_id)
+  AND (sqlc.narg(instance_id)::uuid IS NULL
+       OR i.instance_billing_id IN (SELECT ib.id
+                                    FROM instance_billing ib
+                                    WHERE ib.organization_id = i.organization_id
+                                      AND ib.instance_id = sqlc.narg(instance_id)::uuid))
+  AND i.status IN ('MANUAL', 'PUSHED', 'PAID', 'PAYMENT_FAILED', 'UNCOLLECTIBLE', 'VOID')
+  AND (NOT sqlc.arg(has_cursor)::boolean
+       OR (i.boundary_at, i.id) < (sqlc.arg(cursor_at)::timestamp, sqlc.arg(cursor_id)::uuid))
+ORDER BY i.boundary_at DESC, i.id DESC
+LIMIT sqlc.arg(page_size);

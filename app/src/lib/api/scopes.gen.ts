@@ -9,8 +9,10 @@
 // side.
 
 export const API_SCOPE_RESOURCES = [
+  'addons',
   'billing',
   'components',
+  'customer_sessions',
   'customers',
   'deployment_zones',
   'entitlements',
@@ -20,8 +22,11 @@ export const API_SCOPE_RESOURCES = [
   'metadata_fields',
   'notifications',
   'organizations',
+  'publishable_keys',
   'releases',
   'tokens',
+  'voucher_redemptions',
+  'vouchers',
   'webhooks',
 ] as const;
 
@@ -32,8 +37,10 @@ export const API_SCOPE_PERMISSIONS = ['read', 'write'] as const;
 export type ApiScopePermission = (typeof API_SCOPE_PERMISSIONS)[number];
 
 export const API_SCOPES = [
+  'read:addons',
   'read:billing',
   'read:components',
+  'read:customer_sessions',
   'read:customers',
   'read:deployment_zones',
   'read:entitlements',
@@ -43,11 +50,16 @@ export const API_SCOPES = [
   'read:metadata_fields',
   'read:notifications',
   'read:organizations',
+  'read:publishable_keys',
   'read:releases',
   'read:tokens',
+  'read:voucher_redemptions',
+  'read:vouchers',
   'read:webhooks',
+  'write:addons',
   'write:billing',
   'write:components',
+  'write:customer_sessions',
   'write:customers',
   'write:deployment_zones',
   'write:entitlements',
@@ -57,8 +69,11 @@ export const API_SCOPES = [
   'write:metadata_fields',
   'write:notifications',
   'write:organizations',
+  'write:publishable_keys',
   'write:releases',
   'write:tokens',
+  'write:voucher_redemptions',
+  'write:vouchers',
   'write:webhooks',
 ] as const;
 

@@ -49,5 +49,5 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, params invoi
 	if err != nil {
 		return empty, err
 	}
-	return invoicelist.List(ctx, q, operation, user.OrganizationID, &sub.ID, params, "", clock.Time.UTC())
+	return invoicelist.List(ctx, q, operation, user.OrganizationID, &sub.ID, params, "", clock.Time.UTC(), u.deps.AutoCollectionBefore(clock.Time.UTC()))
 }

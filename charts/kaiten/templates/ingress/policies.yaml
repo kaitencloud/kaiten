@@ -35,6 +35,31 @@ spec:
     maxAge: 100s
 ---
 {{- end }}
+# ---- API: the public SDK surface (pk_, kst_) — CORS only ----
+# Its own policy, because the console's (one origin, credentials) would refuse
+# every vendor origin. Any origin, never credentials: no cookie is read or set
+# on /api/public -- a customer session travels in Authorization. The origin
+# allowlists are enforced by the API on the actual request -- a preflight
+# carries no credential to check them against.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: {{ include "kaiten.apiFullname" . }}-public-sdk
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.apiLabels" . | nindent 4 }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ include "kaiten.apiFullname" . }}-public-sdk
+  cors:
+    allowOrigins: ["*"]
+    allowMethods: [GET, POST, PUT, OPTIONS]
+    allowHeaders: [Content-Type, Authorization, X-Kaiten-Publishable-Key]
+    allowCredentials: false
+    maxAge: 600s
+---
 {{- if or $mw.cors.enabled $mw.forwardAuth.enabled }}
 # ---- API: PAT tokens (ksh_*) — CORS + ExtAuthZ combined in one policy ----
 apiVersion: gateway.envoyproxy.io/v1alpha1

@@ -14,6 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/config"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider/fakeprovider"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider/noop"
 	customerschema "github.com/kaitencloud/kaiten/api/internal/modules/customers/schema"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
@@ -32,6 +35,10 @@ var (
 	disabledServer *tests.TestServer
 	// platformServer authenticates every request as the platform credential.
 	platformServer *tests.TestServer
+	// providerServer bills through a fake payment provider, recorded as
+	// STRIPE, whose push job runs every few milliseconds.
+	providerServer *tests.TestServer
+	providers      = &fakeProviders{fake: fakeprovider.New(provider.KindStripe), connected: true, autoFinalize: true}
 )
 
 func TestMain(m *testing.M) {
@@ -59,7 +66,60 @@ func TestMain(m *testing.M) {
 		PlatformCredential: true,
 	})
 
+	registry := provider.NewStatic(noop.New())
+	registry.Register(providers.fake, providers.resolve)
+	providerServer = tests.NewTestServer(testDb, tests.TestServerOptions{
+		ConfigOverride: func(cfg *config.Config) {
+			cfg.Billing.Enabled = true
+			cfg.Billing.PeriodClose.Interval = -1
+			cfg.Billing.Lifecycle.Interval = -1
+			cfg.Billing.Sync.Interval = -1
+			cfg.Billing.InitialDelay = 20 * time.Millisecond
+			cfg.Billing.Push.Interval = 50 * time.Millisecond
+			cfg.Billing.Push.MaxBackoff = 200 * time.Millisecond
+			cfg.Billing.Push.AlertAfterAttempts = 2
+		},
+		ConnectorEntitlements: entitlements,
+		BillingProviders:      registry,
+	})
+
 	os.Exit(m.Run())
+}
+
+// fakeProviders is the payment provider of providerServer: a fresh fake per
+// test, connected or not, finalizing at once or leaving drafts for review.
+type fakeProviders struct {
+	mu           sync.Mutex
+	fake         *fakeprovider.Fake
+	connected    bool
+	autoFinalize bool
+}
+
+func (p *fakeProviders) resolve(_ context.Context, organizationID uuid.UUID) (*provider.Connection, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.connected {
+		return nil, provider.ErrNotConnected
+	}
+	return &provider.Connection{
+		Adapter: p.fake, Ref: provider.Ref{OrganizationID: organizationID, Settings: nil}, AutoFinalize: p.autoFinalize, InclusiveTax: false,
+	}, nil
+}
+
+// use installs a fresh fake for a test, connected, finalizing at once unless
+// review is asked.
+func (p *fakeProviders) use(t *testing.T, review bool) *fakeprovider.Fake {
+	t.Helper()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.fake, p.connected, p.autoFinalize = fakeprovider.New(provider.KindStripe), true, !review
+	return p.fake
+}
+
+func (p *fakeProviders) connect(connected bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.connected = connected
 }
 
 // switchableEntitlements answers the billing entitlement as a test sets it.

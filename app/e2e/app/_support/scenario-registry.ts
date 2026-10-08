@@ -2,7 +2,6 @@
  * Canonical browser-free inventory of scenario factories and explicit variants.
  * Consumers execute factories; model constructors validate their API seeds.
  */
-import { bulkFlagEvaluation } from './model/platform-flags';
 import { createUsageEventsAuditTrailModel } from '../audit-trail/audit-trail.scenarios';
 import {
   createBillingDisabledModel,
@@ -62,10 +61,7 @@ import {
   createInstancesListModel,
   createTypedMetadataInstanceModel,
 } from '../instances/instances.scenarios';
-import {
-  createSdkServiceAccount,
-  WEBHOOKS_ON,
-} from '../integrations/integrations.scenarios';
+import { createSdkServiceAccount } from '../integrations/integrations.scenarios';
 import {
   createBilledCatalogModel,
   createDraftPricesModel,
@@ -214,7 +210,6 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     createCustomerScopedInstanceModel,
   ],
   ['integrations/createSdkServiceAccount', createSdkServiceAccount],
-  ['integrations/WEBHOOKS_ON', () => bulkFlagEvaluation(WEBHOOKS_ON)],
   ['licenses/createLicenseCatalogModel', createLicenseCatalogModel],
   [
     'release-management/createReleaseManagementReadModel',

@@ -20,12 +20,13 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/money"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/metering"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
-	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -95,33 +96,18 @@ func (c *Closer) CloseOne(ctx context.Context, subscriptionID, actor uuid.UUID) 
 	if !c.due(sub, clock.Time.UTC()) {
 		return Outcome{Closed: false, Invoice: nil, SkipReason: "not due"}, nil
 	}
-	if sub.CancelAtPeriodEnd {
-		return Outcome{}, fmt.Errorf("subscription %s is set to cancel at period end, which this release cannot close", sub.ID)
-	}
 	boundary := sub.CurrentPeriodEnd.Time.UTC()
 
 	// Every report dated before the boundary must have committed before the
 	// period is measured: seal each metered pair first, outside the
-	// transaction, as the usage report takes the same lock.
-	base, err := c.deps.Catalogue.Price(ctx, sub.OrganizationID, sub.BaseLicensePriceID)
-	if err != nil {
-		return Outcome{}, err
-	}
-	if base == nil {
-		return Outcome{}, fmt.Errorf("subscription %s is pinned to price %s, which does not exist", sub.ID, sub.BaseLicensePriceID)
-	}
-	metered, err := c.deps.Catalogue.MeteredPrices(ctx, sub.OrganizationID, base.LicenseID)
-	if err != nil {
-		return Outcome{}, err
-	}
-	if sub.InstanceID != nil {
-		for _, price := range metered {
-			ref := ports.UsageRef{OrganizationID: sub.OrganizationID, InstanceID: *sub.InstanceID, EntitlementID: *price.EntitlementID}
-			if _, err := c.deps.Usage.Seal(ctx, ref, boundary); errors.Is(err, ports.ErrClockBehind) {
-				return Outcome{Closed: false, Invoice: nil, SkipReason: "clock behind"}, nil
-			} else if err != nil {
-				return Outcome{}, err
+	// transaction, as the usage report takes the same lock. A trial ending
+	// bills no usage.
+	if sub.Status != db.InstanceBillingStatusTRIAL {
+		if outcome, err := c.seal(ctx, sub, boundary); err != nil || outcome != nil {
+			if outcome != nil {
+				return *outcome, nil
 			}
+			return Outcome{}, err
 		}
 	}
 
@@ -145,6 +131,59 @@ func (c *Closer) CloseOne(ctx context.Context, subscriptionID, actor uuid.UUID) 
 	return outcome, nil
 }
 
+// seal seals every metered pair of the subscription's base version at
+// through; a deferral when the clock has not reached it.
+func (c *Closer) seal(ctx context.Context, sub db.InstanceBilling, through time.Time) (*Outcome, error) {
+	if sub.InstanceID == nil {
+		return nil, nil
+	}
+	base, err := c.basePrice(ctx, sub)
+	if err != nil {
+		return nil, err
+	}
+	metered, err := c.deps.Catalogue.MeteredPrices(ctx, sub.OrganizationID, base.LicenseID)
+	if err != nil {
+		return nil, err
+	}
+	for _, price := range metered {
+		ref := ports.UsageRef{OrganizationID: sub.OrganizationID, InstanceID: *sub.InstanceID, EntitlementID: *price.EntitlementID}
+		if _, err := c.deps.Usage.Seal(ctx, ref, through); errors.Is(err, ports.ErrClockBehind) {
+			return &Outcome{Closed: false, Invoice: nil, SkipReason: "clock behind"}, nil
+		} else if err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
+}
+
+// Seal seals the subscription's metered pairs at through, outside any
+// transaction: what an immediate cancellation does before it bills.
+func (c *Closer) Seal(ctx context.Context, sub db.InstanceBilling, through time.Time) error {
+	outcome, err := c.seal(ctx, sub, through)
+	if err == nil && outcome != nil {
+		return ports.ErrClockBehind
+	}
+	return err
+}
+
+func (c *Closer) basePrice(ctx context.Context, sub db.InstanceBilling) (*ports.CataloguePrice, error) {
+	base, err := c.deps.Catalogue.Price(ctx, sub.OrganizationID, sub.BaseLicensePriceID)
+	if err != nil {
+		return nil, err
+	}
+	if base == nil {
+		return nil, fmt.Errorf("subscription %s is pinned to price %s, which does not exist", sub.ID, sub.BaseLicensePriceID)
+	}
+	return base, nil
+}
+
+// closeLocked closes the locked subscription's boundary by its state:
+//   - a TRIAL ending converts to ACTIVE, anchored at the trial's end, and
+//     issues the ACTIVATION invoice;
+//   - a period ending with a cancellation scheduled issues the FINAL invoice
+//     (arrears only) and cancels;
+//   - otherwise the RENEWAL bills the elapsed period's arrears and the next
+//     period's advance, applying a scheduled plan change at the boundary.
 func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boundary time.Time, actor uuid.UUID) (Outcome, error) {
 	q := c.deps.Queries(ctx)
 	sub, err := q.LockDueSubscription(ctx, subscriptionID)
@@ -168,13 +207,19 @@ func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boun
 		return Outcome{}, err
 	}
 
-	base, err := c.deps.Catalogue.Price(ctx, sub.OrganizationID, sub.BaseLicensePriceID)
+	base, err := c.basePrice(ctx, sub)
 	if err != nil {
 		return Outcome{}, err
 	}
-	if base == nil {
-		return Outcome{}, fmt.Errorf("subscription %s is pinned to price %s, which does not exist", sub.ID, sub.BaseLicensePriceID)
+	plan, err := c.planFor(ctx, sub, base, boundary)
+	if err != nil {
+		return Outcome{}, err
 	}
+	composition, hold, err := c.compose(ctx, q, sub, plan, boundary, boundary)
+	if err != nil {
+		return Outcome{}, err
+	}
+
 	var billingEmail *string
 	if sub.CustomerID != nil {
 		customer, err := q.GetBillingCustomer(ctx, db.GetBillingCustomerParams{OrganizationID: sub.OrganizationID, ID: *sub.CustomerID})
@@ -183,87 +228,267 @@ func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boun
 		}
 		billingEmail = customer.BillingEmail
 	}
+	terms, err := c.Terms(ctx, q, sub)
+	if err != nil {
+		return Outcome{}, err
+	}
+	// The invoice is filed under the version it billed arrears for, or the
+	// version it starts when it bills none.
+	filedUnder := base
+	if plan.kind == rating.KindActivation {
+		filedUnder = plan.advanceBase
+	}
+	var row *db.InstanceInvoice
+	// A RENEWAL and a FINAL are issued even without a line: the row is the
+	// boundary's record. An all-arrears subscription has no ACTIVATION.
+	if plan.kind != rating.KindActivation || len(composition.Lines) > 0 {
+		inserted, err := invoices.Insert(ctx, q, invoices.Draft{
+			Subscription: sub, LicenseID: filedUnder.LicenseID, LicenseSlug: filedUnder.LicenseSlug, BillingEmail: billingEmail,
+			Kind: plan.kind, BoundaryAt: boundary, Composition: composition,
+			Terms: terms, Hold: hold, ReplacesInvoiceID: nil, Pushes: c.deps.Pushes(sub.ProviderKind), Now: now,
+		})
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := invoices.AnnounceComposed(ctx, c.outbox, inserted); err != nil {
+			return Outcome{}, err
+		}
+		if err := metering.Consume(ctx, c.deps.Discounts, sub.OrganizationID, composition, now); err != nil {
+			return Outcome{}, err
+		}
+		row = &inserted
+	}
 
-	composition, hold, next, err := c.compose(ctx, q, sub, base, boundary, boundary)
-	if err != nil {
+	if err := c.transition(ctx, q, sub, plan, boundary, row, actor, now); err != nil {
 		return Outcome{}, err
 	}
-
-	defaults, err := settings.Read(ctx, q, sub.OrganizationID)
-	if err != nil {
-		return Outcome{}, err
-	}
-	row, err := invoices.Insert(ctx, q, invoices.Draft{
-		Subscription: sub, LicenseID: base.LicenseID, LicenseSlug: base.LicenseSlug, BillingEmail: billingEmail,
-		Kind: rating.KindRenewal, BoundaryAt: boundary, Composition: composition,
-		Terms: subscriptions.Terms(sub, defaults), Hold: hold, ReplacesInvoiceID: nil, Now: now,
-	})
-	if err != nil {
-		return Outcome{}, err
-	}
-	if err := invoices.AnnounceComposed(ctx, c.outbox, row); err != nil {
-		return Outcome{}, err
-	}
-	if err := q.AdvanceSubscriptionPeriod(ctx, db.AdvanceSubscriptionPeriodParams{
-		PeriodStart: invoices.Timestamp(boundary), PeriodEnd: invoices.Timestamp(next),
-		UserID: actor, Now: invoices.Timestamp(now), ID: sub.ID,
-	}); err != nil {
-		return Outcome{}, err
-	}
-	return Outcome{
-		Closed: true,
-		Invoice: &ClosedInvoice{
+	outcome := Outcome{Closed: true, Invoice: nil, SkipReason: ""}
+	if row != nil {
+		outcome.Invoice = &ClosedInvoice{
 			ID: row.ID, InstanceSlug: row.InstanceSlug, Kind: string(row.Kind), BoundaryAt: boundary,
 			Status: string(row.Status), Held: row.HoldReason != nil,
-		},
-		SkipReason: "",
-	}, nil
+		}
+	}
+	return outcome, nil
 }
 
-// compose rates the subscription's period ending at boundary: its usage up
-// to measuredTo in arrears, from the later of the period's start and the
-// instant billing went live, and the next period's base in advance. It
-// returns the composition, the hold its journal calls for, and the next
-// boundary.
-func (c *Closer) compose(ctx context.Context, q *db.Queries, sub db.InstanceBilling, base *ports.CataloguePrice, boundary, measuredTo time.Time) (rating.Composition, *invoices.Hold, time.Time, error) {
-	periodStart := sub.CurrentPeriodStart.Time.UTC()
-	if started := sub.StartedAt.Time.UTC(); started.After(periodStart) {
-		periodStart = started
-	}
-	until := boundary
-	if measuredTo.Before(boundary) {
-		until = measuredTo
-	}
-	if until.Before(periodStart) {
-		until = periodStart
-	}
-	months := rating.PeriodMonths(string(sub.BillingPeriod))
-	next := NextBoundary(sub.AnchorAt.Time.UTC(), boundary, months)
+// plan is what a boundary bills: which base's metered prices and arrears
+// base bill the period that ends, which base bills the one that starts in
+// advance, and when that one ends.
+type plan struct {
+	kind        rating.Kind
+	arrearsBase *ports.CataloguePrice
+	advanceBase *ports.CataloguePrice
+	next        time.Time
+	changing    bool
+}
 
-	meteredPrices, err := c.deps.Catalogue.MeteredPrices(ctx, sub.OrganizationID, base.LicenseID)
+func (c *Closer) planFor(ctx context.Context, sub db.InstanceBilling, base *ports.CataloguePrice, boundary time.Time) (plan, error) {
+	months := rating.PeriodMonths(string(sub.BillingPeriod))
+	switch {
+	case sub.Status == db.InstanceBillingStatusTRIAL:
+		return plan{
+			kind: rating.KindActivation, arrearsBase: nil, advanceBase: base,
+			next: rating.AddMonthsClamped(boundary, months), changing: false,
+		}, nil
+	case sub.CancelAtPeriodEnd:
+		return plan{kind: rating.KindFinal, arrearsBase: base, advanceBase: nil, next: boundary, changing: false}, nil
+	case sub.ScheduledLicensePriceID != nil:
+		target, err := c.deps.Catalogue.Price(ctx, sub.OrganizationID, *sub.ScheduledLicensePriceID)
+		if err != nil {
+			return plan{}, err
+		}
+		if target == nil {
+			return plan{}, fmt.Errorf("subscription %s is scheduled to price %s, which does not exist", sub.ID, *sub.ScheduledLicensePriceID)
+		}
+		return plan{
+			kind: rating.KindRenewal, arrearsBase: base, advanceBase: target,
+			next: rating.AddMonthsClamped(boundary, rating.PeriodMonths(*target.BillingPeriod)), changing: true,
+		}, nil
+	default:
+		return plan{
+			kind: rating.KindRenewal, arrearsBase: base, advanceBase: base,
+			next: NextBoundary(sub.AnchorAt.Time.UTC(), boundary, months), changing: false,
+		}, nil
+	}
+}
+
+// transition moves the subscription past the boundary its invoice billed.
+func (c *Closer) transition(ctx context.Context, q *db.Queries, sub db.InstanceBilling, p plan, boundary time.Time,
+	invoice *db.InstanceInvoice, actor uuid.UUID, now time.Time,
+) error {
+	var invoiceID *uuid.UUID
+	if invoice != nil {
+		invoiceID = &invoice.ID
+	}
+	switch {
+	case p.kind == rating.KindActivation:
+		converted, err := q.ConvertTrial(ctx, db.ConvertTrialParams{
+			AnchorAt: invoices.Timestamp(boundary), PeriodEnd: invoices.Timestamp(p.next),
+			UserID: actor, Now: invoices.Timestamp(now), ID: sub.ID,
+		})
+		if err != nil {
+			return err
+		}
+		return c.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
+			sub.OrganizationID, events.InstanceBillingStatusChanged.Name, events.InstanceBillingStatusChanged.Type,
+			subscriptions.StatusChange{
+				InstanceBillingID: converted.ID, InstanceSlug: converted.InstanceSlug,
+				From: string(sub.Status), To: string(converted.Status), Reason: "TRIAL_ENDED",
+			}, nil))
+	case p.kind == rating.KindFinal:
+		canceled, err := q.CancelSubscription(ctx, db.CancelSubscriptionParams{
+			CanceledAt: invoices.Timestamp(boundary), Reason: nil, UserID: actor, Now: invoices.Timestamp(now), ID: sub.ID,
+		})
+		if err != nil {
+			return err
+		}
+		return lifecycle.AnnounceCanceled(ctx, q, c.outbox, c.deps.Catalogue, canceled, "AT_PERIOD_END", invoiceID)
+	case p.changing:
+		if sub.InstanceID != nil {
+			if err := q.AllowPlanChange(ctx); err != nil {
+				return err
+			}
+			if err := q.MoveInstanceToLicense(ctx, db.MoveInstanceToLicenseParams{
+				LicenseID: p.advanceBase.LicenseID, Now: invoices.Timestamp(now), ID: *sub.InstanceID,
+			}); err != nil {
+				return err
+			}
+		}
+		if _, err := q.ApplyPlanChange(ctx, db.ApplyPlanChangeParams{
+			BillingPeriod: db.BillingPeriod(*p.advanceBase.BillingPeriod), Currency: p.advanceBase.Currency,
+			AnchorAt: invoices.Timestamp(boundary), PeriodEnd: invoices.Timestamp(p.next),
+			UserID: actor, Now: invoices.Timestamp(now), ID: sub.ID,
+		}); err != nil {
+			return err
+		}
+		change := subscriptions.PlanChange{
+			InstanceSlug: sub.InstanceSlug, FromLicenseSlug: p.arrearsBase.LicenseSlug, ToLicenseSlug: p.advanceBase.LicenseSlug,
+			FromPriceID: p.arrearsBase.ID, ToPriceID: p.advanceBase.ID,
+		}
+		if invoiceID != nil {
+			change.InvoiceID = *invoiceID
+		}
+		return c.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
+			sub.OrganizationID, events.InstanceBillingPlanChanged.Name, events.InstanceBillingPlanChanged.Type, change, nil))
+	default:
+		return q.AdvanceSubscriptionPeriod(ctx, db.AdvanceSubscriptionPeriodParams{
+			PeriodStart: invoices.Timestamp(boundary), PeriodEnd: invoices.Timestamp(p.next),
+			UserID: actor, Now: invoices.Timestamp(now), ID: sub.ID,
+		})
+	}
+}
+
+// compose rates the boundary a plan describes: the elapsed period's usage up
+// to measuredTo and its arrears base, from the later of the period's start
+// and the instant billing went live; then the next period's base in advance.
+func (c *Closer) compose(ctx context.Context, q *db.Queries, sub db.InstanceBilling, p plan, boundary, measuredTo time.Time) (rating.Composition, *invoices.Hold, error) {
+	var lines []rating.InvoiceLine
+	var hold *invoices.Hold
+	if p.arrearsBase != nil {
+		periodStart := sub.CurrentPeriodStart.Time.UTC()
+		if started := sub.StartedAt.Time.UTC(); started.After(periodStart) {
+			periodStart = started
+		}
+		until := boundary
+		if measuredTo.Before(boundary) {
+			until = measuredTo
+		}
+		if until.Before(periodStart) {
+			until = periodStart
+		}
+		meteredPrices, err := c.deps.Catalogue.MeteredPrices(ctx, sub.OrganizationID, p.arrearsBase.LicenseID)
+		if err != nil {
+			return rating.Composition{}, nil, err
+		}
+		var measures map[uuid.UUID]rating.Measure
+		measures, hold, err = c.measure(ctx, q, sub, meteredPrices, periodStart, until)
+		if err != nil {
+			return rating.Composition{}, nil, err
+		}
+		rated := make([]rating.Price, len(meteredPrices))
+		for i, price := range meteredPrices {
+			rated[i] = metering.Price(price)
+		}
+		held, err := c.addons(ctx, sub, string(sub.BillingPeriod))
+		if err != nil {
+			return rating.Composition{}, nil, err
+		}
+		arrears, err := rating.Compose(rating.Input{
+			Kind: rating.KindFinal, Currency: money.Currency(sub.Currency), LicenseName: p.arrearsBase.LicenseName,
+			Base: metering.Price(*p.arrearsBase), Metered: rated, Measures: measures, Addons: held,
+			Advance: rating.Period{From: boundary, To: boundary}, Arrears: rating.Period{From: periodStart, To: boundary},
+		})
+		if err != nil {
+			return rating.Composition{}, nil, overflow(err)
+		}
+		lines = append(lines, arrears.Lines...)
+	}
+	if p.advanceBase != nil {
+		period := string(sub.BillingPeriod)
+		if p.advanceBase.BillingPeriod != nil {
+			period = *p.advanceBase.BillingPeriod
+		}
+		held, err := c.addons(ctx, sub, period)
+		if err != nil {
+			return rating.Composition{}, nil, err
+		}
+		advance, err := rating.Compose(rating.Input{
+			Kind: rating.KindActivation, Currency: money.Currency(p.advanceBase.Currency), LicenseName: p.advanceBase.LicenseName,
+			Base: metering.Price(*p.advanceBase), Metered: nil, Measures: nil, Addons: held,
+			Advance: rating.Period{From: boundary, To: p.next}, Arrears: rating.Period{From: boundary, To: boundary},
+		})
+		if err != nil {
+			return rating.Composition{}, nil, overflow(err)
+		}
+		lines = append(lines, advance.Lines...)
+	}
+	composition, err := rating.Assemble(lines)
 	if err != nil {
-		return rating.Composition{}, nil, time.Time{}, err
+		return rating.Composition{}, nil, overflow(err)
 	}
-	measures, hold, err := c.measure(ctx, q, sub, meteredPrices, periodStart, until)
+	discounts, err := c.discounts(ctx, sub, boundary)
 	if err != nil {
-		return rating.Composition{}, nil, time.Time{}, err
+		return rating.Composition{}, nil, err
 	}
-	ratedMetered := make([]rating.Price, len(meteredPrices))
-	for i, price := range meteredPrices {
-		ratedMetered[i] = metering.Price(price)
+	composition, err = rating.ApplyDiscounts(composition, discounts, money.Currency(sub.Currency))
+	if err != nil {
+		return rating.Composition{}, nil, overflow(err)
 	}
-	composition, err := rating.Compose(rating.Input{
-		Kind: rating.KindRenewal, Currency: money.Currency(sub.Currency), LicenseName: base.LicenseName,
-		Base: metering.Price(*base), Metered: ratedMetered, Measures: measures,
-		Advance: rating.Period{From: boundary, To: next}, Arrears: rating.Period{From: periodStart, To: boundary},
-	})
+	return composition, hold, nil
+}
+
+// discounts reads the PRICE vouchers that may apply to the invoice of a
+// boundary: redeemed by then.
+func (c *Closer) discounts(ctx context.Context, sub db.InstanceBilling, boundary time.Time) ([]rating.Discount, error) {
+	if sub.InstanceID == nil || c.deps.Discounts == nil {
+		return nil, nil
+	}
+	redeemed, err := c.deps.Discounts.Discounts(ctx, sub.OrganizationID, *sub.InstanceID, boundary)
+	if err != nil {
+		return nil, err
+	}
+	return metering.Discounts(redeemed), nil
+}
+
+func overflow(err error) error {
 	if errors.Is(err, rating.ErrAmountOverflow) {
-		return rating.Composition{}, nil, time.Time{}, kaitenerrors.Internal("ComposeInvoice.AmountOverflow", "an invoice amount overflows 64-bit minor units")
+		return kaitenerrors.Internal("ComposeInvoice.AmountOverflow", "an invoice amount overflows 64-bit minor units")
 	}
+	return err
+}
+
+// addons reads the add-ons the subscription's instance holds, priced for a
+// period; none once the instance is deleted.
+func (c *Closer) addons(ctx context.Context, sub db.InstanceBilling, period string) ([]rating.AddonCharge, error) {
+	if sub.InstanceID == nil || c.deps.Addons == nil {
+		return nil, nil
+	}
+	held, err := c.deps.Addons.BillableAddons(ctx, sub.OrganizationID, *sub.InstanceID, period)
 	if err != nil {
-		return rating.Composition{}, nil, time.Time{}, err
+		return nil, err
 	}
-	return composition, hold, next, nil
+	return metering.Addons(held, sub.Currency), nil
 }
 
 // Preview composes, without sealing or writing anything, the invoice the
@@ -276,19 +501,24 @@ func (c *Closer) Preview(ctx context.Context, sub db.InstanceBilling) (*rating.I
 		return nil, err
 	}
 	now := clock.Time.UTC()
-	base, err := c.deps.Catalogue.Price(ctx, sub.OrganizationID, sub.BaseLicensePriceID)
+	base, err := c.basePrice(ctx, sub)
 	if err != nil {
 		return nil, err
-	}
-	if base == nil {
-		return nil, fmt.Errorf("subscription %s is pinned to price %s, which does not exist", sub.ID, sub.BaseLicensePriceID)
 	}
 	boundary := sub.CurrentPeriodEnd.Time.UTC()
-	composition, hold, _, err := c.compose(ctx, q, sub, base, boundary, now)
+	p, err := c.planFor(ctx, sub, base, boundary)
 	if err != nil {
 		return nil, err
 	}
-	preview := rating.Preview(rating.KindRenewal, now, boundary, base.LicenseSlug, sub.Currency, composition)
+	composition, hold, err := c.compose(ctx, q, sub, p, boundary, now)
+	if err != nil {
+		return nil, err
+	}
+	slug := base.LicenseSlug
+	if p.kind == rating.KindActivation {
+		slug = p.advanceBase.LicenseSlug
+	}
+	preview := rating.Preview(p.kind, now, boundary, slug, sub.Currency, composition)
 	if hold != nil {
 		for _, pair := range hold.Detail.Pairs {
 			preview.WouldHold = append(preview.WouldHold, rating.InvoiceHold{EntitlementID: pair.EntitlementID, Invariant: string(pair.Invariant)})
@@ -383,4 +613,58 @@ func NextBoundary(anchor, boundary time.Time, months int) time.Time {
 		return rating.AddMonthsClamped(anchor, elapsed+months)
 	}
 	return rating.AddMonthsClamped(boundary, months)
+}
+
+// Finalize cancels the locked subscription at once, at the instant at, after
+// issuing its FINAL invoice: the arrears of [P0, at), the base billed in full
+// when it bills in arrears, nothing refunded of a base paid in advance. The
+// subscription's metered pairs must have been sealed at at.
+func (c *Closer) Finalize(ctx context.Context, q *db.Queries, sub db.InstanceBilling, at time.Time, reason *string, actor uuid.UUID, now time.Time) (*db.InstanceInvoice, db.InstanceBilling, error) {
+	// The identity on the invoice is the live one (§5.7), as at a close.
+	sub, err := q.RefreshSubscriptionSnapshot(ctx, sub.ID)
+	if err != nil {
+		return nil, db.InstanceBilling{}, err
+	}
+	base, err := c.basePrice(ctx, sub)
+	if err != nil {
+		return nil, db.InstanceBilling{}, err
+	}
+	p := plan{kind: rating.KindFinal, arrearsBase: base, advanceBase: nil, next: at, changing: false}
+	composition, hold, err := c.compose(ctx, q, sub, p, at, at)
+	if err != nil {
+		return nil, db.InstanceBilling{}, err
+	}
+	var billingEmail *string
+	if sub.CustomerID != nil {
+		customer, err := q.GetBillingCustomer(ctx, db.GetBillingCustomerParams{OrganizationID: sub.OrganizationID, ID: *sub.CustomerID})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, db.InstanceBilling{}, err
+		}
+		billingEmail = customer.BillingEmail
+	}
+	terms, err := c.Terms(ctx, q, sub)
+	if err != nil {
+		return nil, db.InstanceBilling{}, err
+	}
+	invoice, err := invoices.Insert(ctx, q, invoices.Draft{
+		Subscription: sub, LicenseID: base.LicenseID, LicenseSlug: base.LicenseSlug, BillingEmail: billingEmail,
+		Kind: rating.KindFinal, BoundaryAt: at, Composition: composition, Terms: terms, Hold: hold,
+		ReplacesInvoiceID: nil, Pushes: c.deps.Pushes(sub.ProviderKind), Now: now,
+	})
+	if err != nil {
+		return nil, db.InstanceBilling{}, err
+	}
+	if err := invoices.AnnounceComposed(ctx, c.outbox, invoice); err != nil {
+		return nil, db.InstanceBilling{}, err
+	}
+	if err := metering.Consume(ctx, c.deps.Discounts, sub.OrganizationID, composition, now); err != nil {
+		return nil, db.InstanceBilling{}, err
+	}
+	canceled, err := q.CancelSubscription(ctx, db.CancelSubscriptionParams{
+		CanceledAt: invoices.Timestamp(at), Reason: reason, UserID: actor, Now: invoices.Timestamp(now), ID: sub.ID,
+	})
+	if err != nil {
+		return nil, db.InstanceBilling{}, err
+	}
+	return &invoice, canceled, nil
 }

@@ -36,9 +36,14 @@ export function shellHandlers() {
     handleGetConnectorSettings(() =>
       HttpResponse.json({ message: 'not found' }, { status: 404 }),
     ),
-    handleListNotifications({ body: new NotificationAppModel().listNotifications() }),
+    handleListNotifications({
+      body: new NotificationAppModel().listNotifications(),
+    }),
     // The shell has no events to stream. HTTP 204 stops EventSource reconnects
     // rather than leaving an idle stream open in every unrelated UI test.
-    http.get(/\/api\/v1\/notifications\/stream$/, () => new HttpResponse(null, { status: 204 })),
+    http.get(
+      /\/api\/v1\/notifications\/stream$/,
+      () => new HttpResponse(null, { status: 204 }),
+    ),
   ];
 }

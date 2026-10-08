@@ -23,6 +23,8 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/builtinconnectors"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
+	billingstripe "github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	httpapi "github.com/kaitencloud/kaiten/api/internal/infrastructure/http/api"
@@ -32,6 +34,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/attio"
+	connectorstripe "github.com/kaitencloud/kaiten/api/internal/modules/connectors/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/platform/auth"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/platform/jit"
@@ -55,9 +58,15 @@ type Dependencies struct {
 	// nil in production and filled by setupUsageReporter alongside
 	// ConnectorEntitlements, for the same reason; a test may set it.
 	EntitlementConfig services.EntitlementConfig
-	DB                *pgxpool.Pool
-	Logger            *slog.Logger
-	UsageReporter     services.UsageReporter
+	// BillingProviders resolves the payment providers invoices are issued
+	// through. Nil means NOOP alone; a test may register a fake provider.
+	BillingProviders provider.Registry
+	// Stripe configures the Stripe adapter of the default providers (tests
+	// point it at a fake Stripe); the zero value reaches Stripe.
+	Stripe        billingstripe.Options
+	DB            *pgxpool.Pool
+	Logger        *slog.Logger
+	UsageReporter services.UsageReporter
 }
 
 // Server runs two HTTP stacks in one process.
@@ -268,6 +277,8 @@ func (s *Server) setupApplication() error {
 		UsageReporter:         s.deps.UsageReporter,
 		ConnectorEntitlements: s.deps.ConnectorEntitlements,
 		EntitlementConfig:     s.deps.EntitlementConfig,
+		BillingProviders:      s.deps.BillingProviders,
+		Stripe:                s.deps.Stripe,
 		// A server with no database serves no background work: cmd/docs builds one
 		// purely to walk the route table and generate the OpenAPI documents. This is
 		// the same condition setupRetention applies to the transport-table sweep,
@@ -336,6 +347,7 @@ func (s *Server) registerBuiltInConnectorsIfMigrated(ctx context.Context) error 
 // protocol for it to implement and no startup hook for it to own.
 var builtInConnectorManifests = []builtinconnectors.Manifest{
 	attio.Manifest(),
+	connectorstripe.Manifest(),
 }
 
 // setupRetention starts the background sweep that bounds outbox_events and
@@ -610,11 +622,22 @@ func (s *Server) setupCoreRoutes() (apiGroup, daprGroup fiber.Router) {
 		// to try platform verification. A platform credential presented here is an
 		// organization JWT missing its organization claim, and is refused as one.
 		authorize := s.deps.Auth.Authorization()
+		// The public SDK surface has its own authenticator, and it is the only
+		// one its paths reach: a publishable key is verified here, by digest,
+		// because the gateway routes /api/public with no ext_authz in front.
+		authorizePublishable := s.publishableKeyAuthenticator()
 		apiGroup.Use(func(c fiber.Ctx) error {
 			path := strings.TrimSuffix(c.Path(), "/")
 
 			if IsPublicAPIPath(path) {
 				return c.Next()
+			}
+
+			if IsPublicSDKPath(path) {
+				if authorizePublishable == nil {
+					return fiber.ErrNotFound
+				}
+				return authorizePublishable(c)
 			}
 
 			return authorize(c)
@@ -758,6 +781,26 @@ func IsPublicAPIPath(path string) bool {
 	// predicate must not describe as public.
 
 	return strings.HasPrefix(path, "/api/openapi")
+}
+
+// IsPublicSDKPath reports whether path is on the public SDK surface, which a
+// publishable key authenticates instead of an organization credential. The
+// gateway routes the same prefix with no authentication of its own (charts'
+// <api>-public-sdk HTTPRoute, compose's /api/public route).
+func IsPublicSDKPath(path string) bool {
+	return path == "/api/public" || strings.HasPrefix(path, "/api/public/")
+}
+
+// publishableKeyAuthenticator is the middleware that authenticates the public
+// SDK surface -- publishable keys and customer sessions -- built from the
+// application like the platform one: resolving either is a database read
+// through the publicsdk module. nil only when there is
+// no application to build it from.
+func (s *Server) publishableKeyAuthenticator() fiber.Handler {
+	if s.app == nil {
+		return nil
+	}
+	return auth.NewPublic(s.app.PublishableKeyAuthenticator(), s.app.CustomerSessionAuthenticator()).Authorization()
 }
 
 // IsPublicPlatformAPIPath is IsPublicAPIPath for the internal listener.

@@ -74,7 +74,8 @@ const (
 // the connectors kaiten itself ships name the same strings the bootstrap creates,
 // for the reason this whole package exists.
 const (
-	ConnectorAttioEntitlementSlug = "connector-attio"
+	ConnectorAttioEntitlementSlug  = "connector-attio"
+	ConnectorStripeEntitlementSlug = "connector-stripe"
 )
 
 // BillingEntitlementSlug gates the commercial surface (licence prices, invoice
@@ -151,6 +152,7 @@ var EntitlementSlugs = []string{
 	ServiceAccountTokenReadEntitlementSlug,
 
 	ConnectorAttioEntitlementSlug,
+	ConnectorStripeEntitlementSlug,
 	BillingEntitlementSlug,
 
 	UsageHistoryRetentionEntitlementSlug,
@@ -169,6 +171,7 @@ var EntitlementSlugs = []string{
 // A subset of EntitlementSlugs, and disjoint from MeteredEntitlementSlugs.
 var BooleanEntitlementSlugs = []string{
 	ConnectorAttioEntitlementSlug,
+	ConnectorStripeEntitlementSlug,
 	BillingEntitlementSlug,
 }
 

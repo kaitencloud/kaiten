@@ -70,6 +70,43 @@ const (
 	// be added to the identity provider's JWT template before a signed-in user
 	// can reach a billing screen.
 	Billing Module = "billing"
+	// Addons gates the add-on catalogue: families, versions, their prices,
+	// grants and compatible licence families. Attaching an add-on to an
+	// instance stays on Instances: it changes what the instance is entitled
+	// to, like changing its licence.
+	//
+	// DEPLOYMENT NOTE: like Billing, read:addons and write:addons have to be
+	// added to the identity provider's JWT template.
+	Addons Module = "addons"
+	// Vouchers gates the voucher catalogue, the listing of redemptions and
+	// their revocation.
+	Vouchers Module = "vouchers"
+	// VoucherRedemptions gates validating and redeeming a code, and reading an
+	// instance's redemptions: a backend that redeems codes for its customers
+	// does not need to be able to create them.
+	//
+	// DEPLOYMENT NOTE: like Billing, the read: and write: scopes of Vouchers
+	// and VoucherRedemptions have to be added to the identity provider's JWT
+	// template.
+	VoucherRedemptions Module = "voucher_redemptions"
+	// PublishableKeys gates issuing, listing, editing and revoking the pk_
+	// keys a vendor's web pages use to read its public catalogue. Reading the
+	// catalogue with one needs no scope: a key authorizes that one route and
+	// nothing else.
+	//
+	// DEPLOYMENT NOTE: like Billing, read:publishable_keys and
+	// write:publishable_keys have to be added to the identity provider's JWT
+	// template before the console can manage keys.
+	PublishableKeys Module = "publishable_keys"
+	// CustomerSessions gates minting and revoking the kst_ sessions a vendor's
+	// backend hands to its customers' browsers. Only write: is used -- a
+	// session is never listed. What a session may do needs no scope: it is
+	// bound to its customer, and to the /api/public/session routes.
+	//
+	// DEPLOYMENT NOTE: a vendor backend mints sessions with a ksh_ token, so
+	// write:customer_sessions must be granted to that token; add it to the
+	// identity provider's JWT template too for the console to revoke one.
+	CustomerSessions Module = "customer_sessions"
 )
 
 // allModules is the single source of truth for valid modules
@@ -90,6 +127,11 @@ var allModules = []Module{
 	Memberships,
 	Notifications,
 	Billing,
+	Addons,
+	Vouchers,
+	VoucherRedemptions,
+	PublishableKeys,
+	CustomerSessions,
 }
 
 // Error codes a scope refusal answers with. They live here, next to the scopes

@@ -7,12 +7,20 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ackhandoff"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/cancelplanchange"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/cancelsubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/claimhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/completepaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createpaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createportalsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/detachpaymentmethod"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/exportinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingcapabilities"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillinghealth"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingsettings"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getcustomerbilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getupcominginvoice"
@@ -24,12 +32,18 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/markinvoicepaid"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/reactivatesubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/recomposeinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/releaseinvoicehold"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/retryinvoicepush"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/scheduleplanchange"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncinvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncprovider"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updatebillingsettings"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updateinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/voidinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/writeoffinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
@@ -255,4 +269,123 @@ func (b Billing) GetCapabilities(ctx context.Context, cl caller.OrganizationCall
 	}
 
 	return b.uc.GetBillingCapabilities.Execute(bindOrganization(ctx, cl))
+}
+
+// CancelSubscription cancels at the period's end, or now with a FINAL invoice.
+func (b Billing) CancelSubscription(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug, mode string, reason *string,
+) (*cancelsubscription.CanceledSubscription, error) {
+	if err := cl.Require(cancelsubscription.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.CancelSubscription.Execute(bindOrganization(ctx, cl), instanceSlug, mode, reason)
+}
+
+func (b Billing) ReactivateSubscription(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug string,
+) (*subscriptions.InstanceBilling, error) {
+	if err := cl.Require(reactivatesubscription.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.ReactivateSubscription.Execute(bindOrganization(ctx, cl), instanceSlug)
+}
+
+func (b Billing) SchedulePlanChange(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug string, priceID uuid.UUID,
+) (*subscriptions.InstanceBilling, error) {
+	if err := cl.Require(scheduleplanchange.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.SchedulePlanChange.Execute(bindOrganization(ctx, cl), instanceSlug, priceID)
+}
+
+func (b Billing) CancelPlanChange(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug string,
+) (*subscriptions.InstanceBilling, error) {
+	if err := cl.Require(cancelplanchange.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.CancelPlanChange.Execute(bindOrganization(ctx, cl), instanceSlug)
+}
+
+func (b Billing) UpdateInstanceBilling(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug string, cmd updateinstancebilling.Command,
+) (*subscriptions.InstanceBilling, error) {
+	if err := cl.Require(updateinstancebilling.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return b.uc.UpdateInstanceBilling.Execute(bindOrganization(ctx, cl), instanceSlug, cmd)
+}
+
+func (b Billing) RetryInvoicePush(ctx context.Context, cl caller.OrganizationCaller, invoiceID uuid.UUID) (*invoices.Invoice, error) {
+	if err := cl.Require(retryinvoicepush.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.RetryInvoicePush.Execute(bindOrganization(ctx, cl), invoiceID)
+}
+
+func (b Billing) SyncProvider(ctx context.Context, cl caller.OrganizationCaller) (*syncprovider.SyncReport, error) {
+	if err := cl.Require(syncprovider.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.SyncProvider.Execute(bindOrganization(ctx, cl))
+}
+
+func (b Billing) SyncInvoice(ctx context.Context, cl caller.OrganizationCaller, invoiceID uuid.UUID) (*invoices.Invoice, error) {
+	if err := cl.Require(syncinvoice.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.SyncInvoice.Execute(bindOrganization(ctx, cl), invoiceID)
+}
+
+func (b Billing) GetHealth(ctx context.Context, cl caller.OrganizationCaller) (*getbillinghealth.BillingHealth, error) {
+	if err := cl.Require(getbillinghealth.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.GetBillingHealth.Execute(bindOrganization(ctx, cl))
+}
+
+// GetCustomerBilling reads a customer's side in each payment provider.
+func (b Billing) GetCustomerBilling(ctx context.Context, cl caller.OrganizationCaller, customerSlug string) (*getcustomerbilling.CustomerBilling, error) {
+	if err := cl.Require(getcustomerbilling.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.GetCustomerBilling.Execute(bindOrganization(ctx, cl), customerSlug)
+}
+
+// CreatePaymentMethodSession opens a page saving a customer's payment method.
+func (b Billing) CreatePaymentMethodSession(ctx context.Context, cl caller.OrganizationCaller, customerSlug string, cmd createpaymentmethodsession.NewPaymentMethodSession) (*createpaymentmethodsession.PaymentMethodSession, error) {
+	if err := cl.Require(createpaymentmethodsession.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.CreatePaymentMethodSession.Execute(bindOrganization(ctx, cl), customerSlug, cmd)
+}
+
+// CompletePaymentMethodSession applies a setup page the customer finished.
+func (b Billing) CompletePaymentMethodSession(ctx context.Context, cl caller.OrganizationCaller, customerSlug, sessionID string) (*completepaymentmethodsession.CompletedPaymentMethodSession, error) {
+	if err := cl.Require(completepaymentmethodsession.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.CompletePaymentMethodSession.Execute(bindOrganization(ctx, cl), customerSlug, sessionID)
+}
+
+// CreatePortalSession opens a customer's billing portal in its provider.
+func (b Billing) CreatePortalSession(ctx context.Context, cl caller.OrganizationCaller, customerSlug string, cmd createportalsession.NewPortalSession) (*createportalsession.PortalSession, error) {
+	if err := cl.Require(createportalsession.RequiredScope); err != nil {
+		return nil, err
+	}
+	return b.uc.CreatePortalSession.Execute(bindOrganization(ctx, cl), customerSlug, cmd)
+}
+
+// DetachPaymentMethod removes a customer's payment method from its provider.
+func (b Billing) DetachPaymentMethod(ctx context.Context, cl caller.OrganizationCaller, customerSlug string) error {
+	if err := cl.Require(detachpaymentmethod.RequiredScope); err != nil {
+		return err
+	}
+	return b.uc.DetachPaymentMethod.Execute(bindOrganization(ctx, cl), customerSlug)
 }

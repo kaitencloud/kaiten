@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useBillingCapabilities } from '@/domains/billing';
-import { useEnabledPlatformFlags } from '@/hooks/use-feature-flag';
+import { useWebhooksServed } from '@/domains/webhooks';
 import {
   billingSubRoutes,
   footerRoutes,
@@ -50,21 +50,14 @@ export function SideNavPrimaryRoutes({ pathname }: SideNavRoutesProps) {
   return <SideNavRouteList pathname={pathname} routes={topLevelRoutes} />;
 }
 
-// The flags the Integrations entries name, read together in one hook call.
-const integrationsPlatformFlags = integrationsSubRoutes.flatMap(
-  ({ platformFlag }) => (platformFlag ? [platformFlag] : []),
-);
-
 export function useResolvedIntegrationsItems() {
   const { t } = useTranslation();
-  const enabledFlags = useEnabledPlatformFlags(integrationsPlatformFlags);
+  const webhooksServed = useWebhooksServed();
 
-  // Hidden while its flag is evaluated: an entry that appears a moment later is
+  // Hidden while the answer is read: an entry that appears a moment later is
   // better than one that vanishes.
   return integrationsSubRoutes
-    .filter(
-      ({ platformFlag }) => !platformFlag || enabledFlags.has(platformFlag),
-    )
+    .filter(({ needsWebhooks }) => !needsWebhooks || webhooksServed)
     .map(({ labelKey, path }): SideNavResolvedSubRoute => ({
       label: t(labelKey),
       path,

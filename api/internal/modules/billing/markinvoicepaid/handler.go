@@ -12,6 +12,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoiceaction"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -50,7 +51,7 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID uuid.UUID, cmd Command)
 	var result *invoices.Invoice
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
-		_, row, err := invoiceaction.Lock(ctx, q, user.OrganizationID, invoiceID, operation+".NotFound")
+		sub, row, err := invoiceaction.Lock(ctx, q, user.OrganizationID, invoiceID, operation+".NotFound")
 		if err != nil {
 			return err
 		}
@@ -95,6 +96,10 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID uuid.UUID, cmd Command)
 			return err
 		}
 		result = &invoice
+		// The subscription leaves PAST_DUE once nothing of it is overdue.
+		if _, err := lifecycle.Reevaluate(ctx, q, u.outbox, sub, user.ID, updated.UpdatedAt.Time.UTC(), u.deps.AutoCollectionGrace); err != nil {
+			return err
+		}
 		if err := invoices.Announce(ctx, u.outbox, user.OrganizationID, events.InstanceInvoicePaid, invoices.PaidInvoice{
 			InvoiceSummary: invoice.InvoiceSummary, Source: "MARK_PAID", ExternalReference: updated.ExternalReference, Note: cmd.Note,
 		}); err != nil {

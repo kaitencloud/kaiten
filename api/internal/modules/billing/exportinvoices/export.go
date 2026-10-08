@@ -54,13 +54,13 @@ type Export struct {
 }
 
 // New exports the invoices the filters select.
-func New(q *db.Queries, organizationID uuid.UUID, params invoicelist.Params, instanceSlug string, now time.Time, format, granularity string) *Export {
+func New(q *db.Queries, organizationID uuid.UUID, params invoicelist.Params, instanceSlug string, now, autoCollectionBefore time.Time, format, granularity string) *Export {
 	return &Export{
 		Format:      format,
 		Granularity: granularity,
 		Filename:    "invoices-" + now.Format("20060102T150405Z") + "." + extension(format),
 		each: func(ctx context.Context, fn func([]db.InstanceInvoice) error) error {
-			return invoicelist.Each(ctx, q, organizationID, params, instanceSlug, now, exportPageSize, fn)
+			return invoicelist.Each(ctx, q, organizationID, params, instanceSlug, now, autoCollectionBefore, exportPageSize, fn)
 		},
 	}
 }

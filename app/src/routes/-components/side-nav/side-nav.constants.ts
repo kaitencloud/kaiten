@@ -1,7 +1,6 @@
 import { Gauge, type LucideIcon, ScrollText, Settings } from 'lucide-react';
 import type { BillingFeatureKey } from '@/domains/billing';
 import { dataModelIcons } from '@/lib/data-model-icons';
-import { type PlatformFlag, WEBHOOKS_FLAG } from '@/lib/feature-flags';
 
 export type SideNavRouteDefinition = {
   Icon: LucideIcon;
@@ -13,11 +12,12 @@ export type SideNavSubRouteDefinition = {
   labelKey: string;
   path: string;
   /**
-   * The platform flag this entry needs (`lib/feature-flags`): listed only where
-   * it is on, and always when absent. The entry's route guards itself as well,
-   * so a hidden entry is not merely a missing link.
+   * Whether this entry needs outbound webhooks to be served to the organization
+   * (`domains/webhooks`): listed only where they are, and always when absent.
+   * The entry's route guards itself as well, so a hidden entry is not merely a
+   * missing link.
    */
-  platformFlag?: PlatformFlag;
+  needsWebhooks?: boolean;
 };
 
 /** An entry of the Billing section. */
@@ -94,7 +94,7 @@ export const integrationsSubRoutes: SideNavSubRouteDefinition[] = [
   {
     labelKey: 'Pages.Integrations.Webhooks.sectionTitle',
     path: '/integrations/webhooks',
-    platformFlag: WEBHOOKS_FLAG,
+    needsWebhooks: true,
   },
   {
     labelKey: 'Pages.Integrations.Connectors.title',

@@ -23,7 +23,7 @@ export function installMswMocks<K extends ModelSlotKey>(
 
 /**
  * Answers the bulk OFREP evaluation the app gates its own features on, so a
- * spec can open a flag-gated surface (`{ webhooks: true }`). Keyed by flag
+ * spec can open a flag-gated surface (`{ 'demo-sandbox': true }`). Keyed by flag
  * slug; anything not listed stays absent, which the app reads as off. Without
  * it the suite reads every platform flag as off (`NO_PLATFORM_FLAGS`).
  */

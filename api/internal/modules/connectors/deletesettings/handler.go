@@ -2,7 +2,10 @@ package deletesettings
 
 import (
 	"context"
+	"errors"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/connectorhooks"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/common"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/deactivateconnector"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/infrastructure/db"
@@ -16,6 +19,10 @@ type Deps struct {
 	UserProvider            currentuser.Provider
 	ConnectorsVaultBasePath string
 	Queries                 *db.Queries
+	// Uof and Hooks are handed to the composed deactivation; Hooks also
+	// guards the deletion of the settings.
+	Uof   *uow.UnitOfWork
+	Hooks connectorhooks.Registry
 }
 
 type UseCase struct {
@@ -30,7 +37,7 @@ type UseCase struct {
 // deactivator is the one operation this handler composes, declared as its own
 // interface so the dependency is on the behaviour rather than on the package.
 type deactivator interface {
-	Execute(ctx context.Context, connectorName string) error
+	ExecuteAs(ctx context.Context, connectorName, operation string, settings map[string]any) error
 }
 
 func NewUseCase(deps Deps) *UseCase {
@@ -38,8 +45,11 @@ func NewUseCase(deps Deps) *UseCase {
 		deps:  deps,
 		store: connectorsettings.NewStore(deps.ConnectorsVaultBasePath),
 		deactivator: deactivateconnector.NewUseCase(deactivateconnector.Deps{
-			UserProvider: deps.UserProvider,
-			Queries:      deps.Queries,
+			UserProvider:            deps.UserProvider,
+			Queries:                 deps.Queries,
+			Uof:                     deps.Uof,
+			Hooks:                   deps.Hooks,
+			ConnectorsVaultBasePath: deps.ConnectorsVaultBasePath,
 		}),
 	}
 }
@@ -55,6 +65,21 @@ func (h *UseCase) Execute(ctx context.Context, connectorName string) error {
 		return err
 	}
 
+	// The connector's own guard first: settings a payment provider still
+	// needs are not deleted under the invoices that route to it.
+	if err := h.deps.Hooks.For(normalizedName).CanDeactivate(ctx, user.OrganizationID, "DeleteConnectorSettings"); err != nil {
+		return err
+	}
+	// Read before deleting, for the Deactivated hook.
+	var stored map[string]any
+	if h.deps.Hooks.Has(normalizedName) {
+		var err error
+		stored, err = h.store.Get(ctx, user.OrganizationID, normalizedName)
+		if err != nil && !errors.Is(err, connectorsettings.ErrNotFound) {
+			return err
+		}
+	}
+
 	// Settings first, then the activation row.
 	//
 	// The reverse order would leave a window where the connector reads as inactive
@@ -66,5 +91,5 @@ func (h *UseCase) Execute(ctx context.Context, connectorName string) error {
 		return err
 	}
 
-	return h.deactivator.Execute(ctx, normalizedName)
+	return h.deactivator.ExecuteAs(ctx, normalizedName, "DeleteConnectorSettings", stored)
 }

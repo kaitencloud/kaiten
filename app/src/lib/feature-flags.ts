@@ -29,31 +29,19 @@ import { getStoredDevToken } from './local-auth';
  * The flags themselves, each created in the KbK's Dogfooding organization by
  * saas-api's bootstrap (internal/modules/kbkbootstrap/flags.go):
  * - `demo-sandbox` (`DEMO_SANDBOX_FLAG`): the demo banner and seed/reset card,
- *   for organizations whose tracked instance is a demo;
- * - `webhooks` (`WEBHOOKS_FLAG`): the outbound webhooks pages, for every
- *   organization wherever Kaiten Cloud runs.
+ *   for organizations whose tracked instance is a demo.
+ *
+ * Outbound webhooks are not one of them: an organization has them when its
+ * Kaiten licence carries them, which saas-api checks on every webhooks route,
+ * and the console reads the answer off those routes (`domains/webhooks`).
  *
  * Why not a React-bound client: it lives in React context, so it cannot be read
  * from a router `beforeLoad`, which runs before the tree renders.
  */
 export const DEMO_SANDBOX_FLAG = 'demo-sandbox';
 
-/**
- * Outbound webhooks are served by saas-api, which only Kaiten Cloud deploys: a
- * self-hosted kaiten has no `/api/webhooks` at all. So the flag is on for every
- * organization wherever Kaiten Cloud runs -- it lives in the KbK, where saas-api's
- * bootstrap creates it with one rule serving `on` to everyone -- and turning it
- * off there hides the webhooks pages fleet-wide. A self-hosted deployment has no
- * KbK, reads it off, and the console hides what saas-api would have served.
- *
- * The interim switch: once session tokens are customer-scoped (RFC_AUTH mode
- * M3), the console gates webhooks on the organization's licence instead -- the
- * `webhooks` entitlement it carries -- and this flag goes.
- */
-export const WEBHOOKS_FLAG = 'webhooks';
-
 /** Every platform flag this app reads. */
-export type PlatformFlag = typeof DEMO_SANDBOX_FLAG | typeof WEBHOOKS_FLAG;
+type PlatformFlag = typeof DEMO_SANDBOX_FLAG;
 
 /** Vite folds this at build time, so it is not a runtime bypass in a real build. */
 const BYPASS_AUTH = import.meta.env.VITE_E2E_BYPASS_AUTH === 'true';
@@ -275,7 +263,7 @@ export function subscribeFeatureFlagRefresh(
  * Resolves `false` rather than throwing when the evaluation fails, so a gate
  * built on it fails closed.
  */
-export function platformFlagQueryOptions(flag: PlatformFlag) {
+function platformFlagQueryOptions(flag: PlatformFlag) {
   return queryOptions({
     queryKey: [...featureFlagsQueryKey, flag],
     queryFn: async () => {
@@ -308,6 +296,3 @@ export function platformFlagQueryOptions(flag: PlatformFlag) {
  */
 export const demoSandboxFlagQueryOptions =
   platformFlagQueryOptions(DEMO_SANDBOX_FLAG);
-
-/** Whether this deployment serves outbound webhooks: see `WEBHOOKS_FLAG`. */
-export const webhooksFlagQueryOptions = platformFlagQueryOptions(WEBHOOKS_FLAG);

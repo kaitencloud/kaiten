@@ -9,7 +9,7 @@ The Webhooks page manages outbound webhooks: HTTP endpoints that receive an even
 | `/integrations/webhooks` | `app/src/routes/integrations/webhooks/route.tsx` (layout) and `index.tsx` | `WebhooksPageContent` around the Events tab, which is `WebhookList` |
 | `/integrations/webhooks/history` | `app/src/routes/integrations/webhooks/history.tsx` | `WebhookHistorySection`, the History tab |
 
-`route.tsx` sets the "Webhooks" breadcrumb title and renders `WebhooksPageContent` (header and route tabs) around an `Outlet` in a Suspense boundary. The list loader calls `ensureQueryData(webhooksQueryOptions)`. The history loader loads the history and the list, because the history resolves a webhook's URL from the list. The side navigation entry comes from `integrationsSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`.
+`route.tsx` answers not-found where webhooks are not served to the organization (see Availability below), sets the "Webhooks" breadcrumb title and renders `WebhooksPageContent` (header and route tabs) around an `Outlet` in a Suspense boundary. The list loader calls `ensureQueryData(webhooksQueryOptions)`. The history loader loads the history and the list, because the history resolves a webhook's URL from the list. The side navigation entry comes from `integrationsSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`.
 
 ## Structure
 
@@ -61,7 +61,7 @@ Scopes: the token picker offers `read:webhooks` and `write:webhooks` (`app/src/l
 
 ## Behaviour
 
-**Availability.** The paths above are not served by the API in `api/`, and the stack in `compose.yml` does not route `/api/webhooks` to a service either (see the header of `docker/envoy/kaiten.yaml.tmpl`, and the [README](../../../../README.md) for what a deployment adds). No flag and no entitlement gate the feature in the console. The side navigation always lists Webhooks (`integrationsSubRoutes` is a fixed list), and no webhooks route has a guard: `route.tsx` and `history.tsx` use `beforeLoad` only to set the breadcrumb title. Where nothing answers `/api/webhooks`, a loader rejects and the router renders `RouteError` (`app/src/components/route/route-error.tsx`): a 404 reads as the not-found page, any other failure as an error card with a retry button.
+**Availability.** The paths above are not served by the API in `api/`, and the stack in `compose.yml` does not route `/api/webhooks` to a service either (see the header of `docker/envoy/kaiten.yaml.tmpl`, and the [README](../../../../README.md) for what a deployment adds). Kaiten Cloud's saas-api serves them, and only to an organization whose Kaiten licence carries the `webhooks` entitlement: it answers 403 `Webhooks.NotEntitled` to the others, and 503 when it cannot read the licence. The console reads the answer off `GET /webhooks` through the [`webhooks` domain](../../domains/webhooks/README.md): where webhooks are not served, the side navigation leaves out the Webhooks entry (`needsWebhooks` in `integrationsSubRoutes`), `route.tsx` answers not-found for the list and the history, and the token scope picker leaves out the `webhooks` scope. Where the answer could not be read, the route renders `RouteError` (`app/src/components/route/route-error.tsx`), an error card with a retry button.
 
 **Events tab.** `WebhookTable` lists each webhook's events (by name, such as `CUSTOMER_CREATED`), URL, masked signing secret and creation date, newest first. The creation date is the only sortable column. When the event summary is truncated, a tooltip lists the events by group. A search box filters on the URL and on each event's type, name, label and group title. The delete action asks for confirmation and names the webhook's URL.
 
@@ -106,10 +106,10 @@ Scopes: the token picker offers `read:webhooks` and `write:webhooks` (`app/src/l
 
   `pnpm run test` from `app/` runs them.
 - Stories: `components/stories/webhooks.stories.tsx` (`Features/Webhooks/P0WebhooksStories`: `PageWithList`, `Table`, `EmptyList`, `NoSearchResults`, `CreateDialog`, `History`, `FailureDialog`), with `webhooks.fixtures.ts`. The file is listed in `storybookTestExclude` in `app/vite.config.ts`, so `pnpm run test:stories` skips it. The stories stay available in Storybook.
-- E2E: none. No spec in `app/e2e/app/` covers the page, and the visual regression suite has no webhook story.
+- E2E: `app/e2e/app/integrations/integrations.webhooks.spec.ts` covers where the pages are shown and where they are not (a self-hosted console, an organization whose licence lacks webhooks, Kaiten Cloud), with `installEmptyWebhooksStub` and `installWebhooksNotEntitledStub`. `notifications.read.spec.ts` follows a delivery notification to the history. The visual regression suite has no webhook story.
 
 ## Public API
 
 `app/src/features/webhooks/index.ts` exports `WebhooksPageContent`, `WebhookList`, `WebhookHistorySection`, `WebhooksTabs`, `webhooksQueryOptions`, `webhookHistoryQueryOptions` and the `Webhook` type. The three routes under `app/src/routes/integrations/webhooks/` import `WebhooksPageContent`, `WebhookList`, `WebhookHistorySection` and the two query options, as routes are the only importers of a feature (see [Import rules](../../../docs/AI_CONTEXT.md#import-rules)). Nothing imports `WebhooksTabs` or the `Webhook` type from outside the feature.
 
-The feature depends on `@/domains/audit-trail` for `AuditEventName` and `resolveEventLabel`, and on the `filters`, `table`, `page` and `route-tabs` functionals.
+The feature depends on `@/domains/audit-trail` for `AuditEventName` and `resolveEventLabel`, and on the `filters`, `table`, `page` and `route-tabs` functionals. Whether webhooks are served lives outside it, in `@/domains/webhooks`, because the token scope picker of `service-accounts` needs it too.

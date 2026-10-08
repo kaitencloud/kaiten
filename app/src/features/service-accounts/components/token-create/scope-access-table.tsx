@@ -2,7 +2,7 @@ import { Building2, type LucideIcon } from 'lucide-react';
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { useEnabledPlatformFlags } from '@/hooks/use-feature-flag';
+import { useWebhooksServed } from '@/domains/webhooks';
 import { API_SCOPE_PERMISSIONS } from '@/lib/api/scopes.gen';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { cn } from '@/lib/utils';
@@ -16,17 +16,12 @@ import type {
 import { getAccessLevel } from '../../utils/access-levels';
 import {
   AVAILABLE_RESOURCES,
-  RESOURCE_PLATFORM_FLAGS,
   SCOPE_GROUP_IDS,
   SCOPES_I18N_PREFIX,
+  WEBHOOKS_SCOPE_RESOURCE,
 } from '../../utils/constants';
 
 const LEVELS: AccessLevel[] = ['none', ...API_SCOPE_PERMISSIONS];
-
-// The flags the scopes name, read together in one hook call.
-const SCOPE_PLATFORM_FLAGS = [
-  ...new Set(Object.values(RESOURCE_PLATFORM_FLAGS)),
-];
 
 const GROUP_ICONS: Record<ScopeGroupId, LucideIcon> = {
   customers: dataModelIcons.customer,
@@ -112,14 +107,12 @@ export function ScopeAccessTable({
   // One id per instance: the dialog renders the same table while the inline
   // one is still in the page, hidden.
   const idPrefix = useId();
-  const enabledFlags = useEnabledPlatformFlags(SCOPE_PLATFORM_FLAGS);
+  const webhooksServed = useWebhooksServed();
   const labelOf = (resource: AvailableResource) =>
     t(resource.labelKey, { defaultValue: resource.fallbackLabel });
-  // Left out while its flag is evaluated, like the nav entry it goes with.
-  const isOffered = (resource: AvailableResource) => {
-    const flag = RESOURCE_PLATFORM_FLAGS[resource.id];
-    return !flag || enabledFlags.has(flag);
-  };
+  // Left out while the answer is read, like the nav entry it goes with.
+  const isOffered = (resource: AvailableResource) =>
+    resource.id !== WEBHOOKS_SCOPE_RESOURCE || webhooksServed;
 
   // The border sits on the list, not on the scroller around it, so extra height
   // stays blank instead of stretching an empty box. overflow-clip rather than

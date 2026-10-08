@@ -17,24 +17,39 @@ type InvoiceLine struct {
 
 	ID                *uuid.UUID           `json:"id,omitempty" doc:"The line's identifier, stable for the invoice's life; absent on a preview"`
 	Seq               int                  `json:"seq" doc:"Position on the invoice, from 1"`
-	Type              LineType             `json:"type" enum:"BASE,ADDON,USAGE,OVERAGE,DISCOUNT" doc:"BASE: the subscription's FLAT_FEE price. ADDON: an add-on's FLAT_FEE price. DISCOUNT: a voucher's discount, negative. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit."`
+	Type              LineType             `json:"type" enum:"BASE,ADDON,USAGE,OVERAGE,DISCOUNT" doc:"BASE: the subscription's FLAT_FEE price. ADDON: an add-on's FLAT_FEE price times the quantity held at the boundary. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit. DISCOUNT: a PRICE voucher's discount, negative."`
 	BillingModel      string               `json:"billingModel,omitempty" enum:"FLAT_FEE,USAGE_BASED,OVERAGE" doc:"The price's billing model; absent on a DISCOUNT line"`
 	BillingTiming     string               `json:"billingTiming,omitempty" enum:"ADVANCE,ARREARS" doc:"ADVANCE lines bill the period that starts at the boundary, ARREARS lines the one that ends there; absent on a DISCOUNT line"`
 	LicensePriceID    *uuid.UUID           `json:"licensePriceId,omitempty" doc:"The licence price the line bills; absent on an ADDON line"`
+	AddonPriceID      *uuid.UUID           `json:"addonPriceId,omitempty" doc:"The add-on price an ADDON line bills"`
+	AddonID           *uuid.UUID           `json:"addonId,omitempty" doc:"The add-on version an ADDON line bills"`
+	InstanceAddonID   *uuid.UUID           `json:"instanceAddonId,omitempty" doc:"The instance's attachment an ADDON line bills"`
+	VoucherID         *uuid.UUID           `json:"voucherId,omitempty" doc:"The voucher a DISCOUNT line applies"`
+	InstanceVoucherID *uuid.UUID           `json:"instanceVoucherId,omitempty" doc:"The redemption a DISCOUNT line applies"`
 	EntitlementID     *uuid.UUID           `json:"entitlementId,omitempty" doc:"The metered entitlement, on USAGE and OVERAGE lines"`
 	EntitlementSlug   *string              `json:"entitlementSlug,omitempty" doc:"Its slug, as it was when the line was composed"`
 	Label             string               `json:"label" doc:"The price's display label, else a derived one" example:"Tokens — overage"`
 	Description       string               `json:"description" doc:"The arithmetic of the line" example:"3.05 × 8.00 EUR (per 10k tokens); 130,500 used; 30,500 above the applied limit (100,000)"`
 	ServiceFrom       time.Time            `json:"serviceFrom" doc:"Start of the period the line bills (inclusive)"`
 	ServiceTo         time.Time            `json:"serviceTo" doc:"End of the period the line bills (exclusive)"`
-	Quantity          string               `json:"quantity" doc:"In sale units, a decimal string: 1 on a BASE line" example:"3.05"`
+	Quantity          string               `json:"quantity" doc:"In sale units, a decimal string: 1 on a BASE line, the quantity held on an ADDON line" example:"3.05"`
 	UnitAmountDecimal string               `json:"unitAmountDecimal,omitempty" doc:"The price's unit amount in minor units; absent on a DISCOUNT line" example:"800"`
-	Amount            int64                `json:"amount" doc:"round_half_up(quantity × unitAmountDecimal), in minor units" example:"2440"`
+	Amount            int64                `json:"amount" doc:"round_half_up(quantity × unitAmountDecimal), in minor units; negative on a DISCOUNT line" example:"2440"`
 	Metering          *InvoiceLineMetering `json:"metering,omitempty" doc:"How a USAGE or OVERAGE line's quantity was measured"`
 	Overage           *InvoiceLineOverage  `json:"overage,omitempty" doc:"The arithmetic of an OVERAGE line"`
+	Discount          *InvoiceLineDiscount `json:"discount,omitempty" doc:"How a DISCOUNT line was computed"`
+	Provider          *InvoiceLineProvider `json:"provider,omitempty" doc:"The line in the payment provider, once pushed"`
 	Capped            bool                 `json:"capped,omitempty" doc:"Set on a preview line whose sample exceeded what the licence accepts: reports above that are rejected, so the excess is not billed"`
 
 	displayOrder int32
+}
+
+// InvoiceLineProvider is a line as its payment provider holds it.
+type InvoiceLineProvider struct {
+	ExternalLineID string `json:"externalLineId,omitempty" doc:"The provider's id of the line; absent on a DISCOUNT line, which the provider holds as discounts on its targets"`
+	Amount         *int64 `json:"amount,omitempty" doc:"The provider's amount, read back for reconciliation"`
+	// CouponIDs are recorded in allocation order as each is created.
+	CouponIDs []string `json:"couponIds,omitempty" doc:"On a DISCOUNT line: the provider's discount (a Stripe coupon) of each allocation, in the allocations' order"`
 }
 
 // InvoiceLineMetering is how a metered line's quantity was measured.

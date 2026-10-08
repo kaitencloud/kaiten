@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const activateConnectorForOrganization = `-- name: ActivateConnectorForOrganization :one
@@ -16,12 +17,21 @@ INSERT INTO organization_connector (organization_id, connector_name)
 VALUES ($1, $2)
 ON CONFLICT (organization_id, connector_name)
 DO UPDATE SET updated_at = now()
-RETURNING organization_id, connector_name, activated_at, created_at, updated_at
+RETURNING organization_id, connector_name, activated_at, created_at, updated_at, (xmax = 0)::bool AS inserted
 `
 
 type ActivateConnectorForOrganizationParams struct {
 	OrganizationID uuid.UUID `json:"organization_id"`
 	ConnectorName  string    `json:"connector_name"`
+}
+
+type ActivateConnectorForOrganizationRow struct {
+	OrganizationID uuid.UUID          `json:"organization_id"`
+	ConnectorName  string             `json:"connector_name"`
+	ActivatedAt    pgtype.Timestamptz `json:"activated_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Inserted       bool               `json:"inserted"`
 }
 
 // Records that an organization has turned a connector on.
@@ -30,15 +40,18 @@ type ActivateConnectorForOrganizationParams struct {
 // conflict: activating something already active is the same request with a different
 // outcome, and "when did this organization first turn Attio on" is a fact worth not
 // overwriting every time the settings form is saved.
-func (q *Queries) ActivateConnectorForOrganization(ctx context.Context, arg ActivateConnectorForOrganizationParams) (OrganizationConnector, error) {
+// inserted tells a first activation from a repeat: xmax is 0 on the row an
+// INSERT wrote, and the updating transaction's id on one ON CONFLICT updated.
+func (q *Queries) ActivateConnectorForOrganization(ctx context.Context, arg ActivateConnectorForOrganizationParams) (ActivateConnectorForOrganizationRow, error) {
 	row := q.db.QueryRow(ctx, activateConnectorForOrganization, arg.OrganizationID, arg.ConnectorName)
-	var i OrganizationConnector
+	var i ActivateConnectorForOrganizationRow
 	err := row.Scan(
 		&i.OrganizationID,
 		&i.ConnectorName,
 		&i.ActivatedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Inserted,
 	)
 	return i, err
 }

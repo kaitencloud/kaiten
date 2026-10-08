@@ -2,9 +2,13 @@ package getbillingcapabilities
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -23,10 +27,14 @@ type BillingCapabilities struct {
 
 // BillingProvider is one way of collecting invoices.
 type BillingProvider struct {
-	Kind         string               `json:"kind" enum:"NOOP,STRIPE"`
-	Available    bool                 `json:"available"`
-	Connected    bool                 `json:"connected" doc:"Whether it is set up for the organization; NOOP always is"`
-	Capabilities ProviderCapabilities `json:"capabilities"`
+	Kind      string `json:"kind" enum:"NOOP,STRIPE"`
+	Available bool   `json:"available" doc:"Whether the organization may connect it on this deployment"`
+	// UnavailableReason says why it may not: its connector's entitlement is
+	// not granted, or the deployment has no Vault to store its settings in.
+	UnavailableReason *string              `json:"unavailableReason,omitempty" enum:"NOT_ENTITLED,VAULT_NOT_CONFIGURED" doc:"Why it is not available; absent when it is"`
+	Connected         bool                 `json:"connected" doc:"Whether it is set up for the organization; NOOP always is"`
+	Livemode          *bool                `json:"livemode,omitempty" doc:"Whether the connection reaches the provider's live account rather than a test one; absent when not connected, and for NOOP"`
+	Capabilities      ProviderCapabilities `json:"capabilities"`
 }
 
 // ProviderCapabilities is what a provider can do beyond issuing invoices.
@@ -58,6 +66,45 @@ type UseCase struct {
 	idempotencyWindow time.Duration
 }
 
+// providers lists the providers this deployment knows, NOOP first: whether
+// the organization may connect each, and whether it has.
+func (u *UseCase) providers(ctx context.Context, organizationID uuid.UUID) ([]BillingProvider, error) {
+	out := []BillingProvider{}
+	if u.deps.Providers == nil {
+		return out, nil
+	}
+	for _, kind := range u.deps.Providers.Kinds() {
+		capabilities, _ := u.deps.Providers.Capabilities(kind)
+		availability, err := u.deps.Providers.Availability(ctx, organizationID, kind)
+		if err != nil {
+			// The capabilities answer even when the licensing authority does
+			// not: the provider reads as unavailable, with no reason given.
+			slog.WarnContext(ctx, "billing provider availability could not be read", "provider", kind, "error", err)
+			availability = provider.Availability{Available: false, Reason: ""}
+		}
+		entry := BillingProvider{
+			Kind: string(kind), Available: availability.Available, UnavailableReason: nil, Connected: false, Livemode: nil,
+			Capabilities: ProviderCapabilities{
+				PaymentMethodCapture: capabilities.PaymentMethodCapture, BillingPortal: capabilities.BillingPortal,
+				AutomaticCollection: capabilities.ChargeAutomatically,
+			},
+		}
+		if availability.Reason != "" {
+			reason := availability.Reason
+			entry.UnavailableReason = &reason
+		}
+		if conn, err := u.deps.Providers.Resolve(ctx, organizationID, kind); err == nil {
+			entry.Connected = true
+			if kind != provider.KindNoop {
+				livemode := conn.Livemode
+				entry.Livemode = &livemode
+			}
+		}
+		out = append(out, entry)
+	}
+	return out, nil
+}
+
 func NewUseCase(deps access.Deps, idempotencyWindow time.Duration) *UseCase {
 	return &UseCase{deps: deps, idempotencyWindow: idempotencyWindow}
 }
@@ -69,18 +116,19 @@ func (u *UseCase) Execute(ctx context.Context) (*BillingCapabilities, error) {
 	if err != nil {
 		return nil, err
 	}
+	providers, err := u.providers(ctx, user.OrganizationID)
+	if err != nil {
+		return nil, err
+	}
 	out := &BillingCapabilities{
-		Enabled:        true,
-		DisabledReason: nil,
-		Providers: []BillingProvider{{
-			Kind: "NOOP", Available: true, Connected: true,
-			Capabilities: ProviderCapabilities{PaymentMethodCapture: false, BillingPortal: false, AutomaticCollection: false},
-		}},
+		Enabled:                     true,
+		DisabledReason:              nil,
+		Providers:                   providers,
 		PublicSurface:               PublicSurface{Enabled: false},
 		UsageHistoryRetentionMonths: nil,
 		UsageIdempotencyWindowDays:  int(u.idempotencyWindow / (24 * time.Hour)),
 		Features: BillingFeatures{
-			Stripe: false, Lifecycle: false, Trials: false, Addons: false, Vouchers: false,
+			Stripe: true, Lifecycle: true, Trials: true, Addons: true, Vouchers: true,
 			ChargeAutomatically: false, PublicSurface: false,
 		},
 	}

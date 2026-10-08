@@ -100,7 +100,7 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID uuid.UUID) (*Result, er
 				return err
 			}
 			updated, err = invoices.Rewrite(ctx, q, row, &recomposed.Composition, recomposed.Hold,
-				invoices.Release{By: &user.ID, Reason: RecomposedReason}, terms, now)
+				invoices.Release{By: &user.ID, Reason: RecomposedReason}, terms, u.deps.Pushes(row.ProviderKind), now)
 			if err != nil {
 				return err
 			}
@@ -126,7 +126,8 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID uuid.UUID) (*Result, er
 			updated, err = invoices.Insert(ctx, q, invoices.Draft{
 				Subscription: sub, LicenseID: row.LicenseID, LicenseSlug: row.LicenseSlug, BillingEmail: billingEmail,
 				Kind: rating.Kind(row.Kind), BoundaryAt: row.BoundaryAt.Time.UTC(), Composition: recomposed.Composition,
-				Terms: terms, Hold: recomposed.Hold, ReplacesInvoiceID: &replaces, Now: now,
+				Terms: terms, Hold: recomposed.Hold, ReplacesInvoiceID: &replaces,
+				Pushes: u.deps.Pushes(sub.ProviderKind), Now: now,
 			})
 			if kaitenerrors.IsUniqueViolationOnConstraint(err, boundaryConstraint) || kaitenerrors.IsUniqueViolationOnConstraint(err, replacesConstraint) {
 				return kaitenerrors.Conflict(operation+".AlreadyReplaced", "another live invoice already bills this boundary")

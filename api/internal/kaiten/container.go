@@ -1,13 +1,23 @@
 package kaiten
 
 import (
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider/noop"
+	billingstripe "github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/cdc"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/connectorhooks"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/vault"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons/billableaddons"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/providerconnector"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors"
+	connectorcommon "github.com/kaitencloud/kaiten/api/internal/modules/connectors/common"
+	connectorstripe "github.com/kaitencloud/kaiten/api/internal/modules/connectors/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers"
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements"
@@ -20,14 +30,18 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields"
 	"github.com/kaitencloud/kaiten/api/internal/modules/notifications"
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases"
 	"github.com/kaitencloud/kaiten/api/internal/modules/users"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/billablediscounts"
 )
 
 // modules is every module, constructed. It is what the facade namespaces read
 // through, and it is unexported so that reading through it is the facade's
 // privilege rather than anyone's option.
 type modules struct {
+	Addons          *addons.UseCases
 	AuditTrail      *audittrail.UseCases
 	Billing         *billing.UseCases
 	Components      *components.UseCases
@@ -43,8 +57,10 @@ type modules struct {
 	Licenses        *licenses.UseCases
 	MetadataFields  *metadatafields.UseCases
 	Organization    *organization.UseCases
+	PublicSDK       *publicsdk.UseCases
 	Releases        *releases.UseCases
 	Users           *users.UseCases
+	Vouchers        *vouchers.UseCases
 
 	// CDC is the fan-out over the in-process consumers of the CDC stream. Not a
 	// module: it owns no tables and publishes no operation, it is the thing that
@@ -134,6 +150,10 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		WorkerRegistry:        workers,
 		BackgroundWorkers:     opts.BackgroundWorkers,
 	}
+	// The payment providers, and the lifecycle rules of the connectors that
+	// configure them: both read svc (its unit of work, its settings store), and
+	// both must be on it before the billing and connectors modules are built.
+	svc.BillingProviders, svc.ConnectorHooks = billingProviders(opts, svc)
 
 	// The template for the dedicated Postgres LISTEN connections the two
 	// cache-owning modules dial (see internal/infrastructure/pgnotify), derived
@@ -153,18 +173,36 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	// Built before the map too: billing reads the usage journal through the
 	// source the instances module exposes.
 	instanceModule := instances.NewUseCases(svc)
+	// And these two: a subscribe attaches the add-ons and redeems the voucher it
+	// is started with through their use cases, inside its own transaction.
+	addonModule := addons.NewUseCases(svc)
+	voucherModule := vouchers.NewUseCases(svc)
+	// Billing reads the licence catalogue, the usage journal, the add-ons an
+	// instance holds and the vouchers it redeemed through ports it owns, and
+	// makes a subscribe's writes in the modules that own them the same way;
+	// those modules implement them. Built before the map because the public SDK
+	// surface runs its subscribe and reads its invoices.
+	billingModule := billing.NewUseCases(svc, billing.Ports{
+		Catalogue: billablecatalogue.New(svc.Uof),
+		Usage:     instanceModule.BillableUsage,
+		Addons:    billableaddons.New(svc.Uof),
+		Discounts: billablediscounts.New(svc.Uof),
+		Attacher:  addonModule.AttachInstanceAddon,
+		Redeemer:  voucherModule.RedeemVoucher,
+		Mover:     instanceModule.UpdateInstance,
+	})
+	customerModule := customers.NewUseCases(svc)
 
 	built := modules{
+		Addons:     addonModule,
 		AuditTrail: audittrail.NewUseCases(svc, notificationModule.Announcer),
-		// Billing reads the licence catalogue and the usage journal through
-		// ports it owns; the modules that own that data implement them.
-		Billing: billing.NewUseCases(svc, billing.Ports{
-			Catalogue: billablecatalogue.New(svc.Uof),
-			Usage:     instanceModule.BillableUsage,
-		}),
+		// Billing reads the licence catalogue, the usage journal, the add-ons
+		// an instance holds and the vouchers it redeemed through ports it owns;
+		// the modules that own that data implement them.
+		Billing:         billingModule,
 		Components:      components.NewUseCases(svc),
 		Connectors:      connectors.NewUseCases(svc),
-		Customers:       customers.NewUseCases(svc),
+		Customers:       customerModule,
 		DeploymentZones: deploymentzones.NewUseCases(svc),
 		Entitlements:    entitlements.NewUseCases(svc),
 		FeatureFlags:    featureflags.NewUseCases(svc),
@@ -175,8 +213,18 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		Licenses:        licenses.NewUseCases(svc),
 		MetadataFields:  metadatafields.NewUseCases(svc),
 		Organization:    organization.NewUseCases(svc),
-		Releases:        releases.NewUseCases(svc),
-		Users:           users.NewUseCases(svc),
+		PublicSDK: publicsdk.NewUseCases(svc, publicsdk.Ports{
+			Subscriber:      billingModule.SubscribeInstance,
+			CustomerBilling: billingModule.GetCustomerBilling,
+			OpenSetup:       billingModule.CreatePaymentMethodSession,
+			CompleteSetup:   billingModule.CompletePaymentMethodSession,
+			Invoices:        billingModule.GetInvoice,
+			BillingEmails:   customerModule.UpdateCustomer,
+			SessionInvoices: billingModule.SessionInvoices,
+		}),
+		Releases: releases.NewUseCases(svc),
+		Users:    users.NewUseCases(svc),
+		Vouchers: voucherModule,
 	}
 
 	// A list, not a pipeline: the dispatcher runs these in parallel and waits for all
@@ -191,4 +239,48 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	built.CDC = dispatcher
 
 	return built, nil
+}
+
+// billingProviders returns the registry the driver gave, or the providers this
+// binary ships: NOOP, and Stripe configured through its connector. A provider
+// configured through a connector is a binding: its connector's manifest, its
+// adapter, and how the stored settings become a connection; the hooks every
+// such connector keeps (credentials checked before storing, no disconnect
+// while invoices route there, connection events) are billing's, whichever
+// provider it is.
+func billingProviders(opts Options, svc services.Container) (provider.Registry, connectorhooks.Registry) {
+	if opts.BillingProviders != nil {
+		return opts.BillingProviders, nil
+	}
+	stripeOptions := opts.Stripe
+	stripeOptions.SendAfterFinalize = stripeOptions.SendAfterFinalize || opts.Config.Billing.Stripe.SendAfterFinalize
+	manifest := connectorstripe.Manifest()
+	stripeBinding := provider.ConnectorBinding{
+		ConnectorName:   manifest.Name,
+		EntitlementSlug: deref(manifest.EntitlementSlug),
+		Adapter:         billingstripe.New(stripeOptions),
+		Parse:           billingstripe.Parse,
+	}
+
+	registry := provider.NewStatic(noop.New())
+	deps := provider.ConnectorDeps{
+		Activations:     connectors.NewActivationReader(svc),
+		Settings:        connectors.NewSettingsReader(svc),
+		Entitlements:    svc.ConnectorEntitlements,
+		VaultConfigured: vault.Configured,
+	}
+	registry.RegisterConnector(stripeBinding, deps)
+
+	timeout := opts.Config.Billing.ProviderTimeout
+	hooks := connectorhooks.Registry{
+		stripeBinding.ConnectorName: providerconnector.New(svc.Uof, stripeBinding, timeout, connectorcommon.SecretFields(manifest.SettingsSchema)),
+	}
+	return registry, hooks
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

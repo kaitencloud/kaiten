@@ -64,12 +64,109 @@ type Invoice struct {
 	BillingEmail        *string              `json:"billingEmail,omitempty" doc:"The address the invoice is for, as it was when composed. Personal data: it appears in no event"`
 	HoldDetail          *HoldDetail          `json:"holdDetail,omitempty" doc:"Every meter whose journal failed a check"`
 	Hold                *HoldRecord          `json:"hold,omitempty" doc:"When the invoice was held and released"`
-	Handoff             InvoiceHandoff              `json:"handoff"`
+	Handoff             InvoiceHandoff       `json:"handoff"`
 	UncollectibleAt     *time.Time           `json:"uncollectibleAt,omitempty"`
 	VoidedAt            *time.Time           `json:"voidedAt,omitempty"`
 	VoidReason          *string              `json:"voidReason,omitempty"`
 	ReplacesInvoiceID   *uuid.UUID           `json:"replacesInvoiceId,omitempty" doc:"The VOID invoice this one was recomposed from"`
 	ReplacedByInvoiceID *uuid.UUID           `json:"replacedByInvoiceId,omitempty" doc:"The invoice recomposed from this VOID one"`
+	Provider            *ProviderRecord      `json:"provider,omitempty" doc:"The invoice in its payment provider; absent for NOOP"`
+}
+
+// ProviderRecord is where an invoice stands in the payment provider that
+// issues it.
+type ProviderRecord struct {
+	ExternalCustomerID    *string         `json:"externalCustomerId,omitempty"`
+	ExternalInvoiceID     *string         `json:"externalInvoiceId,omitempty"`
+	InvoiceNumber         *string         `json:"invoiceNumber,omitempty" doc:"The provider's invoice number"`
+	Status                *string         `json:"status,omitempty" enum:"draft,open,paid,uncollectible,void" doc:"The provider's status, mirrored verbatim"`
+	HostedInvoiceURL      *string         `json:"hostedInvoiceUrl,omitempty"`
+	InvoicePDFURL         *string         `json:"invoicePdfUrl,omitempty"`
+	PushAttempts          int32           `json:"pushAttempts"`
+	NextPushAt            *time.Time      `json:"nextPushAt,omitempty" doc:"When the push queue tries it next; absent when it waits for a human (finalization in the provider) or is pushed"`
+	LastPushError         *string         `json:"lastPushError,omitempty" doc:"The provider's code and message of the last failed push step"`
+	LastPaymentError      *string         `json:"lastPaymentError,omitempty" doc:"Why the last automatic charge failed, as the provider coded it: authentication_required (the customer must confirm the payment on the hosted invoice page), card_declined, expired_card, no_payment_method..."`
+	PushedAt              *time.Time      `json:"pushedAt,omitempty"`
+	SyncedAt              *time.Time      `json:"syncedAt,omitempty"`
+	TotalExcludingTax     *int64          `json:"totalExcludingTax,omitempty" doc:"The provider's total excluding tax, read back"`
+	ReconciliationStatus  *string         `json:"reconciliationStatus,omitempty" enum:"MATCHED,MISMATCH"`
+	ReconciledAt          *time.Time      `json:"reconciledAt,omitempty"`
+	ReconciliationDetails *Reconciliation `json:"reconciliationDetail,omitempty" doc:"What differs, on a MISMATCH"`
+}
+
+// Reconciliation is what differs between an invoice and its provider's copy.
+type Reconciliation struct {
+	Lines             []LineDifference     `json:"lines" nullable:"false"`
+	MissingInProvider []uuid.UUID          `json:"missingInProvider" nullable:"false" doc:"Kaiten lines the provider does not have"`
+	ExtraInProvider   []string             `json:"extraInProvider" nullable:"false" doc:"Provider lines Kaiten does not have"`
+	Discounts         []DiscountDifference `json:"discounts" nullable:"false" doc:"Allocations of DISCOUNT lines the provider applied with another amount, or not at all"`
+	ExtraDiscounts    []ExtraDiscount      `json:"extraDiscounts" nullable:"false" doc:"Discounts the provider applied that Kaiten did not create, such as a coupon added in its dashboard"`
+	Totals            TotalsDifference     `json:"totals"`
+	InclusiveTax      bool                 `json:"inclusiveTax" doc:"Whether the provider's subtotal less its discounts was compared, its tax being included in the amounts"`
+}
+
+// DiscountDifference is an allocation of a DISCOUNT line whose amount, on
+// its target line in the provider, differs.
+type DiscountDifference struct {
+	LineID         uuid.UUID `json:"lineId" doc:"The DISCOUNT line"`
+	Seq            int       `json:"seq"`
+	TargetSeq      int       `json:"targetSeq"`
+	KaitenAmount   int64     `json:"kaitenAmount"`
+	ProviderAmount int64     `json:"providerAmount" doc:"0 when the provider did not apply it"`
+	CouponID       string    `json:"couponId" doc:"The provider's discount, empty when none was recorded"`
+}
+
+// ExtraDiscount is a discount on a provider line that Kaiten did not create.
+type ExtraDiscount struct {
+	ExternalLineID string `json:"externalLineId"`
+	DiscountID     string `json:"discountId"`
+	Amount         int64  `json:"amount"`
+}
+
+// LineDifference is a line whose amounts differ.
+type LineDifference struct {
+	LineID         uuid.UUID `json:"lineId"`
+	Seq            int       `json:"seq"`
+	KaitenAmount   int64     `json:"kaitenAmount"`
+	ProviderAmount int64     `json:"providerAmount"`
+	ExternalLineID string    `json:"externalLineId"`
+}
+
+// TotalsDifference is the totals compared.
+type TotalsDifference struct {
+	KaitenTotal               int64  `json:"kaitenTotal"`
+	ProviderTotalExcludingTax int64  `json:"providerTotalExcludingTax"`
+	ProviderSubtotal          *int64 `json:"providerSubtotal,omitempty"`
+	ProviderTotalDiscount     *int64 `json:"providerTotalDiscount,omitempty" doc:"With inclusive tax: the provider's discounts, taken off its subtotal"`
+}
+
+// PushedInvoice is the payload of INSTANCE_INVOICE_PUSHED.
+type PushedInvoice struct {
+	InvoiceSummary
+	ExternalInvoiceID     string  `json:"externalInvoiceId"`
+	ProviderInvoiceNumber *string `json:"providerInvoiceNumber,omitempty"`
+}
+
+// PushFailedInvoice is the payload of INSTANCE_INVOICE_PUSH_FAILED.
+type PushFailedInvoice struct {
+	InvoiceSummary
+	PushAttempts  int32  `json:"pushAttempts"`
+	LastPushError string `json:"lastPushError" doc:"The provider's code and message, never a request body"`
+}
+
+// PaymentFailedInvoice is the payload of INSTANCE_INVOICE_PAYMENT_FAILED: an
+// automatic charge refused, or waiting for the customer to authenticate. No
+// card data.
+type PaymentFailedInvoice struct {
+	InvoiceSummary
+	FailureCode    string `json:"failureCode" doc:"The provider's decline or failure code, such as card_declined, expired_card, authentication_required or no_payment_method"`
+	RequiresAction bool   `json:"requiresAction" doc:"The customer must authenticate the payment on the invoice's hosted page"`
+}
+
+// MismatchedInvoice is the payload of INSTANCE_INVOICE_RECONCILIATION_MISMATCH.
+type MismatchedInvoice struct {
+	InvoiceSummary
+	ReconciliationDetail Reconciliation `json:"reconciliationDetail"`
 }
 
 // HoldDetail lists the meters whose journal failed a check.

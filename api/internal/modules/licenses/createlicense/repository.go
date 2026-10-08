@@ -19,7 +19,7 @@ import (
 )
 
 // license carries three unique keys a create can meet (see the initial
-// migration and 20260902000000_license_family.sql): licenseSlugConstraint on
+// migration and 20261007000000_license_family.sql): licenseSlugConstraint on
 // (organization_id, slug), license_family_id_version_key on
 // (family_id, version), and the partial dbmap.FamilyDefaultKeyConstraint on
 // family_id where is_default. Only the first is a slug conflict --
@@ -39,7 +39,7 @@ import (
 // 409 the caller can retry, as it is on update.
 //
 // The pre-family key on (name, version, organization_id) is dropped by
-// 20260902000000_license_family.sql: a name is a display label two families may
+// 20261007000000_license_family.sql: a name is a display label two families may
 // share, so there is no name-keyed conflict left to map here.
 const licenseSlugConstraint = "license_organization_id_slug_key"
 

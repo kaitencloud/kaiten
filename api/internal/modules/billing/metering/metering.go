@@ -3,6 +3,11 @@
 package metering
 
 import (
+	"context"
+	"time"
+
+	"github.com/google/uuid"
+
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/money"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
@@ -67,4 +72,54 @@ func Price(cp ports.CataloguePrice) rating.Price {
 		}
 	}
 	return out
+}
+
+// Addons maps the add-ons an instance holds to what the composer bills, in
+// the subscription's currency only: an add-on priced in another one cannot be
+// on its invoice.
+func Addons(held []ports.BillableAddon, currency string) []rating.AddonCharge {
+	var out []rating.AddonCharge
+	for _, addon := range held {
+		if addon.Currency != currency {
+			continue
+		}
+		out = append(out, rating.AddonCharge{
+			InstanceAddonID: addon.InstanceAddonID, AddonID: addon.AddonID, Name: addon.Name, Quantity: addon.Quantity,
+			Price: rating.Price{
+				ID: addon.PriceID, BillingModel: rating.ModelFlatFee, BillingTiming: addon.BillingTiming,
+				UnitAmountDecimal: addon.UnitAmountDecimal, DisplayLabel: addon.DisplayLabel, DisplayOrder: 0, Meter: nil,
+			},
+		})
+	}
+	return out
+}
+
+// Discounts maps the redemptions billing read to what the composer applies.
+func Discounts(redeemed []ports.Discount) []rating.Discount {
+	out := make([]rating.Discount, len(redeemed))
+	for i, d := range redeemed {
+		out[i] = rating.Discount{
+			InstanceVoucherID: d.InstanceVoucherID, VoucherID: d.VoucherID, Name: d.Name, Type: d.Type, Value: d.Value,
+			Currency: d.Currency, AppliesTo: d.AppliesTo, LicensePriceIDs: d.LicensePriceIDs, AddonPriceIDs: d.AddonPriceIDs,
+			Applications: d.Applications, ApplicationsMax: d.ApplicationsMax,
+		}
+	}
+	return out
+}
+
+// Consume records, for each DISCOUNT line of an issued invoice, that its
+// redemption discounted one more invoice.
+func Consume(ctx context.Context, source ports.DiscountSource, organizationID uuid.UUID, composition rating.Composition, now time.Time) error {
+	if source == nil {
+		return nil
+	}
+	for _, line := range composition.Lines {
+		if line.Type != rating.LineDiscount || line.InstanceVoucherID == nil || line.Discount == nil {
+			continue
+		}
+		if err := source.Applied(ctx, organizationID, *line.InstanceVoucherID, line.Discount.ApplicationsMax, now); err != nil {
+			return err
+		}
+	}
+	return nil
 }

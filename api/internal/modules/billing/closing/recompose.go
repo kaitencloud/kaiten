@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/shopspring/decimal"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/money"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
@@ -51,7 +53,7 @@ func (c *Closer) Recompose(ctx context.Context, q *db.Queries, sub db.InstanceBi
 			from := line.ServiceFrom
 			arrearsStart = &from
 		}
-		if line.Type == rating.LineUsage || line.Type == rating.LineOverage {
+		if line.Type == rating.LineUsage || line.Type == rating.LineOverage || line.Type == rating.LineDiscount {
 			continue
 		}
 		if !keepIDs {
@@ -59,8 +61,13 @@ func (c *Closer) Recompose(ctx context.Context, q *db.Queries, sub db.InstanceBi
 		}
 		kept = append(kept, line)
 	}
+	discounts := reapplied(lines)
 	if kind == rating.KindActivation {
 		composition, err := rating.Assemble(kept)
+		if err != nil {
+			return Recomposition{}, err
+		}
+		composition, err = rating.ApplyDiscounts(composition, discounts, money.Currency(row.Currency))
 		return Recomposition{Composition: composition, Hold: nil}, err
 	}
 
@@ -89,7 +96,53 @@ func (c *Closer) Recompose(ctx context.Context, q *db.Queries, sub db.InstanceBi
 	if err != nil {
 		return Recomposition{}, err
 	}
+	composition, err = rating.ApplyDiscounts(composition, discounts, money.Currency(row.Currency))
+	if err != nil {
+		return Recomposition{}, err
+	}
 	return Recomposition{Composition: composition, Hold: hold}, nil
+}
+
+// reapplied are the discounts an invoice's DISCOUNT lines applied, to apply
+// again with the same parameters and application numbers: a recomposed
+// invoice consumes no new application. A SELECTED_PRICES discount targets
+// the prices its lines targeted.
+func reapplied(lines []rating.InvoiceLine) []rating.Discount {
+	bySeq := map[int]rating.InvoiceLine{}
+	for _, line := range lines {
+		bySeq[line.Seq] = line
+	}
+	var out []rating.Discount
+	for _, line := range lines {
+		if line.Type != rating.LineDiscount || line.Discount == nil || line.VoucherID == nil || line.InstanceVoucherID == nil {
+			continue
+		}
+		d := line.Discount
+		value, err := decimal.NewFromString(d.DiscountValue)
+		if err != nil {
+			continue
+		}
+		name, _, _ := strings.Cut(line.Label, " −")
+		discount := rating.Discount{
+			InstanceVoucherID: *line.InstanceVoucherID, VoucherID: *line.VoucherID, Name: name, Type: d.DiscountType,
+			Value: value, Currency: "", AppliesTo: d.AppliesTo, LicensePriceIDs: nil, AddonPriceIDs: nil,
+			Applications: d.Application - 1, ApplicationsMax: d.ApplicationsMax,
+		}
+		if d.Currency != nil {
+			discount.Currency = *d.Currency
+		}
+		for _, seq := range d.TargetSeqs {
+			target := bySeq[seq]
+			if target.LicensePriceID != nil {
+				discount.LicensePriceIDs = append(discount.LicensePriceIDs, *target.LicensePriceID)
+			}
+			if target.AddonPriceID != nil {
+				discount.AddonPriceIDs = append(discount.AddonPriceIDs, *target.AddonPriceID)
+			}
+		}
+		out = append(out, discount)
+	}
+	return out
 }
 
 // arrearsStart is where the period an invoice billed in arrears started: as
@@ -193,11 +246,16 @@ type heldCursor struct {
 }
 
 func (c *Closer) listHeld(ctx context.Context, after *heldCursor, limit int) ([]db.ListHeldInvoicesRow, error) {
-	params := db.ListHeldInvoicesParams{PageSize: int32(limit)} //nolint:gosec // bounded by the batch size
+	// No cursor (a NULL instant): from the oldest held invoice.
+	var afterHeldAt pgtype.Timestamp
+	var afterID uuid.UUID
 	if after != nil {
-		params.AfterHeldAt, params.AfterID = after.HeldAt, after.ID
+		afterHeldAt, afterID = after.HeldAt, after.ID
 	}
-	return c.deps.Queries(ctx).ListHeldInvoices(ctx, params)
+	return c.deps.Queries(ctx).ListHeldInvoices(ctx, db.ListHeldInvoicesParams{
+		AfterHeldAt: afterHeldAt, AfterID: afterID,
+		PageSize: int32(limit), //nolint:gosec // bounded by the batch size
+	})
 }
 
 func (c *Closer) recheckOne(ctx context.Context, invoiceID uuid.UUID) (released bool, err error) {
@@ -246,7 +304,7 @@ func (c *Closer) recheckOne(ctx context.Context, invoiceID uuid.UUID) (released 
 			return err
 		}
 		updated, err := invoices.Rewrite(ctx, q, row, &recomposed.Composition, nil,
-			invoices.Release{By: nil, Reason: AutoReleaseReason}, terms, clock.Time.UTC())
+			invoices.Release{By: nil, Reason: AutoReleaseReason}, terms, c.deps.Pushes(row.ProviderKind), clock.Time.UTC())
 		if err != nil {
 			return err
 		}

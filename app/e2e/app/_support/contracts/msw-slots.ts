@@ -27,9 +27,13 @@ export type E2EMswConfig = {
   licenses?: SerializedLicenseAppModel;
   notifications?: SerializedNotificationAppModel;
   releaseManagement?: SerializedReleaseManagementAppModel;
+  // Webhooks are served by Kaiten Cloud's saas-api alone: with neither webhooks
+  // stub, the webhooks routes answer 404 in E2E, as a self-hosted deployment's
+  // do, and dev may opt into passthrough with the platform flags.
   integrationStubs?: {
     serviceAccount?: ServiceAccount;
     emptyWebhooks?: boolean;
+    webhooksNotEntitled?: boolean;
   };
 };
 

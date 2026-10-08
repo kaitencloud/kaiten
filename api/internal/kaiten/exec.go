@@ -22,6 +22,21 @@ func bindOrganization(ctx context.Context, cl caller.OrganizationCaller) context
 	})
 }
 
+// bindCustomerSession installs the principal a use case run for a customer
+// session reads: the session's organization, acted in by the vendor principal
+// that minted the session -- the actor every write it makes is attributed to.
+func bindCustomerSession(ctx context.Context, cl caller.CustomerSessionCaller) context.Context {
+	return principal.ContextWithPrincipal(ctx, &principal.Principal{
+		Kind:           principal.KindCustomerSession,
+		UserID:         cl.ActorID(),
+		OrganizationID: cl.OrganizationID(),
+		CustomerSession: &principal.CustomerSession{
+			ID: cl.SessionID(), CustomerID: cl.CustomerID(), CustomerSlug: cl.CustomerSlug(),
+			InstanceID: cl.InstanceID(), InstanceSlug: cl.InstanceSlug(), AllowedOrigins: cl.AllowedOrigins(),
+		},
+	})
+}
+
 // bindPlatform installs the principal a platform use case reads through
 // principal.FromContext.
 func bindPlatform(ctx context.Context, cl caller.PlatformCaller) context.Context {
