@@ -30,7 +30,7 @@ const SessionPathPrefix = "/api/public/session"
 // Error codes of the public surface. One code for an unknown, malformed,
 // revoked or expired credential, so a caller learns nothing about which it was.
 const (
-	ErrCodePublicInvalidCredential = "PublicAuth.InvalidCredential"
+	ErrCodePublicInvalidCredential = "PublicAuth.InvalidCredential" //nolint:gosec // G101 false positive: an error code, not a credential
 	ErrCodePublicOriginNotAllowed  = "PublicAuth.OriginNotAllowed"
 	ErrCodePublicRateLimited       = "PublicAuth.RateLimited"
 )
