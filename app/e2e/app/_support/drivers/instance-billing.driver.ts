@@ -125,6 +125,16 @@ export class InstanceBillingDriver {
     return this.dialog().getByLabel('Payment terms (days)');
   }
 
+  /** The trial, in days: there where the release has trials, and the price bills in advance. */
+  trialDaysField(): Locator {
+    return this.dialog().getByLabel('Trial (days)');
+  }
+
+  /** What replaces the trial for a price billed in arrears. */
+  trialUnavailable(): Locator {
+    return this.dialog().getByTestId('trial-unavailable');
+  }
+
   startAtField(): Locator {
     return this.dialog().getByLabel('Billing starts (UTC)');
   }
