@@ -232,14 +232,20 @@ describe('the subscribe dialog', () => {
     expect(summary.textContent).not.toMatch(/\$/);
   });
 
-  it('starts a subscription with the price and nothing else when nothing else was asked', async () => {
+  it('starts a subscription with the price and no trial when nothing else was asked', async () => {
     const bodies = serveSubscribe();
     renderDialog();
 
     await userEvent.click(await subscribe());
 
     await waitFor(() => expect(bodies).toHaveLength(1));
-    expect(bodies[0]).toEqual({ basePriceId: 'price-monthly', providerKind: 'NOOP' });
+    // The trial is said even when it is none, so that what the license carries
+    // does not apply behind the back of the person who read the form.
+    expect(bodies[0]).toEqual({
+      basePriceId: 'price-monthly',
+      providerKind: 'NOOP',
+      trialDays: 0,
+    });
   });
 
   it('sends the terms and the start that were typed', async () => {
@@ -533,5 +539,145 @@ describe('the billing e-mail of the customer', () => {
     await userEvent.click(await subscribe());
 
     await waitFor(() => expect(bodies).toHaveLength(1));
+  });
+});
+
+describe('the trial of a subscription', () => {
+  const withTrial = (days: number | undefined) => {
+    detail.current = {
+      ...detail.current,
+      license: { ...license(), trialPeriodDays: days },
+    };
+  };
+  const trialField = () => screen.findByLabelText('Trial (days)');
+
+  it('starts at the days the license carries and says when the first invoice is issued, as nothing is invoiced meanwhile', async () => {
+    withTrial(14);
+    renderDialog();
+
+    expect(await trialField()).toHaveValue('14');
+    const summary = screen.getByTestId('subscribe-summary');
+    await waitFor(() =>
+      expect(summary).toHaveTextContent(
+        'No invoice now. The first invoice is issued at the end of the trial, on',
+      ),
+    );
+    expect(summary).toHaveTextContent(/on [A-Z][a-z]{2} \d{1,2}, \d{4}/);
+  });
+
+  it('starts at none for a license that carries no trial', async () => {
+    withTrial(undefined);
+    renderDialog();
+
+    expect(await trialField()).toHaveValue('0');
+    expect(screen.getByTestId('subscribe-summary')).toHaveTextContent(
+      'The first invoice is issued as soon as the subscription starts.',
+    );
+  });
+
+  it('sends the days that were typed, in place of the license\'s', async () => {
+    withTrial(14);
+    const bodies = serveSubscribe();
+    renderDialog();
+    const days = await trialField();
+
+    await userEvent.clear(days);
+    await userEvent.type(days, '7');
+    await userEvent.click(await subscribe());
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toMatchObject({ basePriceId: 'price-monthly', trialDays: 7 });
+  });
+
+  it('sends none when the trial is set to zero, which starts billing at once', async () => {
+    withTrial(14);
+    const bodies = serveSubscribe();
+    renderDialog();
+    const days = await trialField();
+
+    await userEvent.clear(days);
+    await userEvent.type(days, '0');
+    await userEvent.click(await subscribe());
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].trialDays).toBe(0);
+  });
+
+  it('refuses a trial longer than the console takes, in words, and sends nothing', async () => {
+    withTrial(14);
+    const bodies = serveSubscribe();
+    renderDialog();
+    const days = await trialField();
+
+    await userEvent.clear(days);
+    await userEvent.type(days, '366');
+    fireEvent.blur(days);
+
+    expect(
+      await screen.findByText('Enter a whole number of days, from 0 to 365'),
+    ).toBeInTheDocument();
+    expect(await subscribe()).toBeDisabled();
+    expect(bodies).toHaveLength(0);
+  });
+
+  it('offers no trial on a price billed in arrears, whatever the license says, and starts the subscription with none', async () => {
+    withTrial(14);
+    const bodies = serveSubscribe();
+    renderDialog();
+    await trialField();
+
+    await userEvent.click(await baseField());
+    await userEvent.click(await screen.findByRole('option', { name: /Business, annual/ }));
+
+    expect(await screen.findByTestId('trial-unavailable')).toHaveTextContent(
+      'A trial is not offered on a plan billed in arrears',
+    );
+    expect(screen.queryByLabelText('Trial (days)')).toBeNull();
+    await userEvent.click(await subscribe());
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toMatchObject({ basePriceId: 'price-annual', trialDays: 0 });
+  });
+
+  it('asks for no trial where the release has none, and says nothing of one to the API', async () => {
+    const stack = billingCapabilitiesProfiles.stack();
+    server.use(
+      handleGetBillingCapabilities({
+        body: { ...stack, features: { ...stack.features, trials: false } },
+      }),
+    );
+    withTrial(14);
+    const bodies = serveSubscribe();
+    renderDialog();
+    await subscribe();
+
+    await waitFor(() => expect(screen.queryByLabelText('Trial (days)')).toBeNull());
+    await userEvent.click(await subscribe());
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).not.toHaveProperty('trialDays');
+  });
+
+  it('says in the started state that the trial runs and when the first invoice is issued', async () => {
+    withTrial(14);
+    serveSubscribe(() =>
+      HttpResponse.json(
+        started({
+          currentPeriodEnd: '2027-03-29T10:00:00.000Z',
+          status: 'TRIAL',
+          trialEndsAt: '2027-03-29T10:00:00.000Z',
+        }),
+        { status: 201 },
+      ),
+    );
+    renderDialog();
+
+    await userEvent.click(await subscribe());
+
+    const done = await screen.findByTestId('subscribed');
+    expect(done).toHaveTextContent('Trial');
+    expect(done).toHaveTextContent(
+      'The trial runs until Mar 29, 2027, 10:00 AM (UTC), and the first invoice is issued then.',
+    );
   });
 });

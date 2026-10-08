@@ -3,7 +3,11 @@ import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Customer, Price, StartedSubscription } from '@/api-client';
 import { Button } from '@/components/ui/button';
-import { billingSettingsQueryOptions, ProblemAlert } from '@/domains/billing';
+import {
+  billingSettingsQueryOptions,
+  ProblemAlert,
+  useBillingCapabilities,
+} from '@/domains/billing';
 import {
   StackedFormDialogFooter,
   StackedFormDialogPanel,
@@ -16,6 +20,8 @@ import { SubscribeSummary } from './subscribe-summary';
 
 type SubscribeInstanceFormProps = {
   customer: Customer;
+  /** The trial the license of the instance carries, in days. */
+  defaultTrialDays?: number;
   instanceSlug: string;
   onCancel: () => void;
   onSubscribed: (started: StartedSubscription) => void;
@@ -26,13 +32,15 @@ type SubscribeInstanceFormProps = {
 /**
  * The form that subscribes an instance. It asks only what this release takes: the
  * price to pin the subscription to, the payment terms when they are not the
- * organization's, and when billing starts when it is not now. It sends one request
+ * organization's, the trial where the release has trials, and when billing starts
+ * when it is not now. It sends one request
  * however often it is pressed, and a refusal leaves the dialog open with what was
  * typed, since nothing was started and it can be sent again: the refusal is shown
  * on its field when it is about one, above the buttons otherwise.
  */
 export function SubscribeInstanceForm({
   customer,
+  defaultTrialDays,
   instanceSlug,
   onCancel,
   onSubscribed,
@@ -41,10 +49,13 @@ export function SubscribeInstanceForm({
   const { t } = useTranslation();
   const formId = useId();
   const settings = useQuery(billingSettingsQueryOptions);
+  const trials = useBillingCapabilities().has('trials');
   const { failure, form } = useSubscribeInstanceForm({
+    defaultTrialDays,
     instanceSlug,
     onSubscribed,
     prices,
+    trials,
   });
 
   return (
@@ -68,16 +79,22 @@ export function SubscribeInstanceForm({
               defaultDaysUntilDue={settings.data?.defaultDaysUntilDue}
               form={form}
               prices={prices}
+              trials={trials}
             />
             <form.Subscribe
               selector={(state) =>
-                [state.values.basePriceId, state.values.startAt] as const
+                [
+                  state.values.basePriceId,
+                  state.values.startAt,
+                  state.values.trialDays,
+                ] as const
               }
             >
-              {([basePriceId, startAt]) => (
+              {([basePriceId, startAt, trialDays]) => (
                 <SubscribeSummary
                   price={prices.find((price) => price.id === basePriceId)}
                   startAt={startAt}
+                  trialDays={trials ? trialDays : 0}
                 />
               )}
             </form.Subscribe>

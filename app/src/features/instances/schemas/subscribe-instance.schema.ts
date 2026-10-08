@@ -1,21 +1,26 @@
 import { z } from 'zod';
-import type { NewSubscription } from '@/api-client';
+import type { NewSubscription, Price } from '@/api-client';
 import { zNewSubscription } from '@/api-client/zod.gen';
 import {
   type BillingPeriod,
+  canStartWithTrial,
   getSubscriptionStartBounds,
   isValidDaysUntilDue,
+  isValidTrialDays,
 } from '@/domains/billing';
 import { dateTimeInputToInstant } from '@/lib/date-time-input';
 
 const DAYS_UNTIL_DUE_ERROR_KEY =
   'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.daysUntilDue';
+const TRIAL_DAYS_ERROR_KEY =
+  'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.trialDays';
 
 /**
  * What the subscribe dialog edits: the price to pin the subscription to, the
- * payment terms of this contract when they are not the organization's, and when
- * billing starts when it is not now. An empty number reads as `NaN`, as it does
- * in every number field of the console, and an empty time is "now".
+ * payment terms of this contract when they are not the organization's, the trial
+ * it starts with, and when billing starts when it is not now. An empty number
+ * reads as `NaN`, as it does in every number field of the console, and an empty
+ * time is "now".
  */
 export const subscribeFormSchema = zNewSubscription
   .pick({ basePriceId: true })
@@ -32,6 +37,13 @@ export const subscribeFormSchema = zNewSubscription
         (Number.isNaN(days) || isValidDaysUntilDue(days)),
       { error: DAYS_UNTIL_DUE_ERROR_KEY },
     ),
+    // The days of trial; empty is none. The API sets no upper bound, the console does.
+    trialDays: z.custom<number>(
+      (days) =>
+        typeof days === 'number' &&
+        (Number.isNaN(days) || isValidTrialDays(days)),
+      { error: TRIAL_DAYS_ERROR_KEY },
+    ),
     // The text of a datetime-local input, read as UTC.
     startAt: z
       .string()
@@ -47,6 +59,7 @@ export const initialSubscribeFormValues: SubscribeFormValues = {
   basePriceId: '',
   daysUntilDue: Number.NaN,
   startAt: '',
+  trialDays: 0,
 };
 
 export type SubscribeFormErrors = Partial<
@@ -62,7 +75,11 @@ export type SubscribeFormErrors = Partial<
  */
 export function getSubscribeFormErrors(
   values: SubscribeFormValues,
-  { now = new Date(), period }: { now?: Date; period?: BillingPeriod } = {},
+  {
+    now = new Date(),
+    period,
+    trialOffered = true,
+  }: { now?: Date; period?: BillingPeriod; trialOffered?: boolean } = {},
 ): SubscribeFormErrors | undefined {
   const errors: SubscribeFormErrors = {};
   const result = subscribeFormSchema.safeParse(values);
@@ -74,6 +91,11 @@ export function getSubscribeFormErrors(
         errors[field as keyof SubscribeFormValues] = issue.message;
       }
     }
+  }
+  // A trial that is not offered (the release has none, or the price bills in
+  // arrears) is not asked for, whatever the field still holds.
+  if (!trialOffered) {
+    delete errors.trialDays;
   }
 
   const start = dateTimeInputToInstant(values.startAt);
@@ -95,12 +117,21 @@ export function getSubscribeFormErrors(
 /**
  * The body of the subscription. NoOp is the only provider of a release that ships
  * no payment provider, and it is named so that the request says whose invoices
- * these are; the collection method, a trial, add-ons and a voucher are left out,
- * since this release takes none. What is empty is not sent: the terms are the
- * organization's, and billing starts now.
+ * these are; the collection method, add-ons and a voucher are left out, since this
+ * release takes none. What is empty is not sent: the terms are the organization's,
+ * and billing starts now.
+ *
+ * The trial is always said when the release has trials: left out, the API takes
+ * the one the license carries, and the person has just read and changed it. A price
+ * that bills in arrears starts with none, whatever the license says, so it is said
+ * to be none; a release without trials is told nothing about them.
  */
 export function subscribeValuesToBody(
   values: SubscribeFormValues,
+  {
+    basePrice,
+    trials = false,
+  }: { basePrice?: Pick<Price, 'billingTiming'>; trials?: boolean } = {},
 ): NewSubscription {
   return {
     basePriceId: values.basePriceId,
@@ -109,7 +140,19 @@ export function subscribeValuesToBody(
       : values.daysUntilDue,
     providerKind: 'NOOP',
     startAt: dateTimeInputToInstant(values.startAt) ?? undefined,
+    ...(trials ? { trialDays: getTrialDays(values, basePrice) } : {}),
   };
+}
+
+/** The trial the subscription starts with, in days: what was typed, or none where none is offered. */
+export function getTrialDays(
+  values: Pick<SubscribeFormValues, 'trialDays'>,
+  basePrice?: Pick<Price, 'billingTiming'>,
+): number {
+  return (basePrice && !canStartWithTrial(basePrice.billingTiming)) ||
+    Number.isNaN(values.trialDays)
+    ? 0
+    : values.trialDays;
 }
 
 /**
@@ -120,6 +163,7 @@ export function subscribeValuesToBody(
 export const SUBSCRIBE_REFUSAL_FIELDS = {
   byCode: {
     'SubscribeInstance.InvalidDaysUntilDue': 'daysUntilDue',
+    'SubscribeInstance.InvalidTrialDays': 'trialDays',
     'SubscribeInstance.PriceDeprecated': 'basePriceId',
     'SubscribeInstance.PriceNotFlatFee': 'basePriceId',
     'SubscribeInstance.PriceNotFound': 'basePriceId',
@@ -131,5 +175,6 @@ export const SUBSCRIBE_REFUSAL_FIELDS = {
     basePriceId: 'basePriceId',
     daysUntilDue: 'daysUntilDue',
     startAt: 'startAt',
+    trialDays: 'trialDays',
   },
 } as const;

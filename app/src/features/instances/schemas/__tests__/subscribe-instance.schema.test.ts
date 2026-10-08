@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { MAX_DAYS_UNTIL_DUE } from '@/domains/billing';
+import { MAX_DAYS_UNTIL_DUE, MAX_TRIAL_DAYS } from '@/domains/billing';
 import {
   getSubscribeFormErrors,
+  getTrialDays,
   initialSubscribeFormValues,
   SUBSCRIBE_REFUSAL_FIELDS,
   subscribeFormSchema,
@@ -21,6 +22,8 @@ describe('what the subscribe dialog opens with', () => {
     // An empty number reads as NaN in every number field of the console.
     expect(initialSubscribeFormValues.daysUntilDue).toBeNaN();
     expect(initialSubscribeFormValues.startAt).toBe('');
+    // No trial until the license says one.
+    expect(initialSubscribeFormValues.trialDays).toBe(0);
   });
 
   it('is complete as soon as a price is chosen, since the terms and the start are optional', () => {
@@ -51,6 +54,39 @@ describe('the payment terms of a contract', () => {
       });
     },
   );
+});
+
+describe('the trial', () => {
+  it.each([0, 1, 14, MAX_TRIAL_DAYS])('accepts %i days', (days) => {
+    expect(getSubscribeFormErrors({ ...values, trialDays: days }, { now: NOW })).toBeUndefined();
+  });
+
+  it('accepts none, which is no trial', () => {
+    expect(
+      getSubscribeFormErrors({ ...values, trialDays: Number.NaN }, { now: NOW }),
+    ).toBeUndefined();
+  });
+
+  it.each([-1, MAX_TRIAL_DAYS + 1, 2.5, 2_147_483_647])(
+    'refuses %s days, in the words of the form: the API sets no upper bound and the console sets one',
+    (days) => {
+      expect(
+        getSubscribeFormErrors({ ...values, trialDays: days }, { now: NOW }),
+      ).toEqual({
+        trialDays:
+          'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.trialDays',
+      });
+    },
+  );
+
+  it('is not asked for where no trial is offered, whatever the field still holds', () => {
+    expect(
+      getSubscribeFormErrors(
+        { ...values, trialDays: 4_000 },
+        { now: NOW, trialOffered: false },
+      ),
+    ).toBeUndefined();
+  });
 });
 
 describe('the price', () => {
@@ -134,12 +170,50 @@ describe('the body of the subscription', () => {
     expect(subscribeValuesToBody({ ...values, daysUntilDue: 0 }).daysUntilDue).toBe(0);
   });
 
-  it('carries no collection method, trial, add-on or voucher: this release takes none', () => {
-    const body = subscribeValuesToBody({ ...values, daysUntilDue: 10, startAt: '2027-03-01T00:00' });
+  it('carries no collection method, add-on or voucher: this release takes none', () => {
+    const body = subscribeValuesToBody(
+      { ...values, daysUntilDue: 10, startAt: '2027-03-01T00:00' },
+      { trials: true },
+    );
 
-    for (const member of ['collectionMethod', 'trialDays', 'addOns', 'voucherCode']) {
+    for (const member of ['collectionMethod', 'addOns', 'voucherCode']) {
       expect(body, member).not.toHaveProperty(member);
     }
+  });
+
+  it('says nothing of trials to a release that has none', () => {
+    expect(subscribeValuesToBody({ ...values, trialDays: 14 })).not.toHaveProperty(
+      'trialDays',
+    );
+  });
+
+  it('says the trial where the release has trials, zero days included, so that the license default does not apply behind it', () => {
+    const advance = { billingTiming: 'ADVANCE' } as const;
+
+    expect(
+      subscribeValuesToBody({ ...values, trialDays: 14 }, { basePrice: advance, trials: true })
+        .trialDays,
+    ).toBe(14);
+    expect(
+      subscribeValuesToBody({ ...values, trialDays: 0 }, { basePrice: advance, trials: true })
+        .trialDays,
+    ).toBe(0);
+    expect(
+      subscribeValuesToBody(
+        { ...values, trialDays: Number.NaN },
+        { basePrice: advance, trials: true },
+      ).trialDays,
+    ).toBe(0);
+  });
+
+  it('starts a price billed in arrears with no trial, whatever the license says: the API cannot close such a trial', () => {
+    expect(
+      subscribeValuesToBody(
+        { ...values, trialDays: 14 },
+        { basePrice: { billingTiming: 'ARREARS' }, trials: true },
+      ).trialDays,
+    ).toBe(0);
+    expect(getTrialDays({ trialDays: 14 }, { billingTiming: 'ARREARS' })).toBe(0);
   });
 });
 
@@ -147,6 +221,7 @@ describe('where a refusal of the API goes', () => {
   it('names the field each code is about, for the ones that do not locate it', () => {
     expect(SUBSCRIBE_REFUSAL_FIELDS.byCode).toEqual({
       'SubscribeInstance.InvalidDaysUntilDue': 'daysUntilDue',
+      'SubscribeInstance.InvalidTrialDays': 'trialDays',
       'SubscribeInstance.PriceDeprecated': 'basePriceId',
       'SubscribeInstance.PriceNotFlatFee': 'basePriceId',
       'SubscribeInstance.PriceNotFound': 'basePriceId',
