@@ -2,6 +2,7 @@ package voidinvoice
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/google/uuid"
@@ -16,6 +17,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/providers"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -131,9 +133,18 @@ func (u *UseCase) voidInProvider(ctx context.Context, organizationID, invoiceID 
 		return nil
 	}
 	callCtx, cancel = providers.Bound(ctx, u.deps.ProviderTimeout)
-	defer cancel()
-	if err := conn.Adapter.VoidInvoice(callCtx, conn.Ref, *row.ExternalInvoiceID); err != nil {
+	err = conn.Adapter.VoidInvoice(callCtx, conn.Ref, *row.ExternalInvoiceID)
+	cancel()
+	if err != nil {
 		return providers.APIError(operation, err)
+	}
+	// A draft deleted in the provider leaves its discounts behind (§12.8,
+	// CR-001); an issued invoice's were deleted once it was reconciled.
+	if read.Status == provider.StatusDraft {
+		var lines []rating.InvoiceLine
+		if err := json.Unmarshal(row.Lines, &lines); err == nil {
+			providers.ReleaseDiscounts(ctx, conn, row.ID, lines, u.deps.ProviderTimeout)
+		}
 	}
 	return nil
 }
