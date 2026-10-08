@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,6 +24,8 @@ func route(method, path string) (op, id string) {
 		return OpListCustomers, ""
 	case parts[1] == "customers" && len(parts) == 2 && method == http.MethodPost:
 		return OpCreateCustomer, ""
+	case parts[1] == "customers" && len(parts) == 3 && parts[2] == "search" && method == http.MethodGet:
+		return OpSearchCustomers, ""
 	case parts[1] == "customers" && len(parts) == 3 && method == http.MethodGet:
 		return OpRetrieveCustomer, parts[2]
 	case parts[1] == "customers" && len(parts) == 3 && method == http.MethodPost:
@@ -60,6 +63,9 @@ func route(method, path string) (op, id string) {
 	}
 	return paymentRoute(method, parts)
 }
+
+// searchTerm is one metadata['key']:'value' term of a search query.
+var searchTerm = regexp.MustCompile(`metadata\['([^']+)'\]:'([^']*)'`)
 
 // mutating are the operations whose results Stripe stores under a key.
 func mutating(method string) bool { return method == http.MethodPost }
@@ -297,6 +303,32 @@ func (f *Fake) handle(accountID, apiKey, op, id string, form url.Values) (int, [
 		}
 		a.customers[c.ID] = c
 		return http.StatusOK, mustJSON(c)
+
+	case OpSearchCustomers:
+		// metadata['key']:'value' terms joined by AND, the only form the
+		// adapter sends; deleted customers are never found.
+		terms := searchTerm.FindAllStringSubmatch(form.Get("query"), -1)
+		var data []any
+		for _, c := range a.customers {
+			if c.Deleted || len(terms) == 0 {
+				continue
+			}
+			match := true
+			for _, term := range terms {
+				if c.Metadata[term[1]] != term[2] {
+					match = false
+				}
+			}
+			if match {
+				data = append(data, c)
+			}
+		}
+		if data == nil {
+			data = []any{}
+		}
+		return http.StatusOK, mustJSON(map[string]any{
+			"object": "search_result", "data": data, "has_more": false, "next_page": nil, "url": "/v1/customers/search",
+		})
 
 	case OpRetrieveCustomer:
 		c, ok := a.customers[id]
