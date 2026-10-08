@@ -220,6 +220,8 @@ export function createDevMockConfig(): E2EMswConfig {
       grants: world.licenseEntitlements,
       licenses: world.licenses,
       prices: world.licensePrices,
+      // The family sold self-serve is the one a buyer finds in the public catalogue.
+      publicFamilyIds: ['family-starter'],
     }).serializeForMsw(),
     notifications: new NotificationAppModel({
       notifications: createNotifications(world.instances),
