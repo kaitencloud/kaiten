@@ -2,14 +2,14 @@ import { Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Entitlement, LicenseEntitlement, Price } from '@/api-client';
 import { Badge } from '@/components/ui/badge';
-import { formatUtcDate } from '@/domains/billing';
 import {
+  formatUtcDate,
   BILLING_MODEL_LABEL_KEYS,
   BILLING_PERIOD_LABEL_KEYS,
   BILLING_TIMING_LABEL_KEYS,
   PRICE_STATUS_LABEL_KEYS,
-} from '../../utils/license-price-labels';
-import { getPriceLabel } from '../../utils/license-price-display';
+  getPriceLabel,
+} from '@/domains/billing';
 import { describeMeter } from '../../utils/license-price-meter';
 import { isMeteredModel } from '../../utils/license-price.utils';
 

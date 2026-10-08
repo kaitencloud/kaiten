@@ -11,9 +11,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { ProblemAlert } from '@/domains/billing';
+import { ProblemAlert, getPriceLabel } from '@/domains/billing';
 import { useLicensePriceMutations } from '../../hooks/use-license-price-mutations';
-import { getPriceLabel } from '../../utils/license-price-display';
 
 type DeprecatePriceDialogProps = {
   /** The entitlement a metered price measures is what it is called after, with no label. */

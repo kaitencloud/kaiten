@@ -5,31 +5,14 @@ import type {
   Price,
   PriceMeter,
 } from '@/api-client';
+import type {
+  BillingModel,
+  BillingPeriod,
+  ResetPeriod,
+} from '@/domains/billing';
 import { getHighestAcceptedUsage } from '@/domains/entitlement-usage';
 import { getEntitlementSlug } from './license-entitlements.utils';
 import { getLicenseLifecycleState } from './license-lifecycle.utils';
-
-export type BillingModel = Price['billingModel'];
-export type BillingPeriod = NonNullable<Price['billingPeriod']>;
-export type BillingTiming = Price['billingTiming'];
-
-export const BILLING_MODELS = [
-  'FLAT_FEE',
-  'USAGE_BASED',
-  'OVERAGE',
-] as const satisfies readonly BillingModel[];
-
-export const BILLING_PERIODS = [
-  'MONTHLY',
-  'QUARTERLY',
-  'SEMI_ANNUAL',
-  'ANNUAL',
-] as const satisfies readonly BillingPeriod[];
-
-export const BILLING_TIMINGS = [
-  'ADVANCE',
-  'ARREARS',
-] as const satisfies readonly BillingTiming[];
 
 /** A metered price rates what an entitlement measured; a flat fee bills a period. */
 export const isMeteredModel = (model: BillingModel) => model !== 'FLAT_FEE';
@@ -101,37 +84,6 @@ export const canDeprecatePrice = (price: Pick<Price, 'status'>) =>
 
 // --- Units -------------------------------------------------------------------
 
-type EntitlementLabels = Pick<
-  Entitlement,
-  'name' | 'unitPlural' | 'unitSingular'
->;
-
-/**
- * What one sale unit of a metered price is called: the sale unit the
- * entitlement names ("1k requests") when the price was captured with one, else
- * the number of base units it stands for ("100,000 traces"), and the base unit
- * alone when a sale unit is one of them ("call").
- */
-export function getPriceUnitLabel(
-  meter: PriceMeter,
-  entitlement: EntitlementLabels | undefined,
-  formatFactor: (factor: number) => string,
-): string {
-  if (meter.saleUnitSingular) {
-    return meter.saleUnitSingular;
-  }
-  const factor = Number(meter.saleUnitFactor);
-  if (!Number.isFinite(factor) || factor === 1) {
-    return (
-      entitlement?.unitSingular ?? entitlement?.name ?? meter.entitlementSlug
-    );
-  }
-
-  return `${formatFactor(factor)} ${
-    entitlement?.unitPlural ?? entitlement?.name ?? meter.entitlementSlug
-  }`;
-}
-
 /**
  * What a price created on `entitlement` would capture of it: the sale unit it
  * names, or one base unit when it names none. The API captures it once, when the
@@ -151,8 +103,6 @@ export function meterOfEntitlement(
 }
 
 // --- What a price may meter --------------------------------------------------
-
-export type ResetPeriod = NonNullable<Entitlement['resetPeriod']>;
 
 /** The limit a grant accepts usage above, and the cap it accepts usage up to. */
 export type GrantAllowance = { cap: number; limit: number };
