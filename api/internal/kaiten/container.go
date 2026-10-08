@@ -173,22 +173,36 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	// Built before the map too: billing reads the usage journal through the
 	// source the instances module exposes.
 	instanceModule := instances.NewUseCases(svc)
+	// And these two: a subscribe attaches the add-ons and redeems the voucher it
+	// is started with through their use cases, inside its own transaction.
+	addonModule := addons.NewUseCases(svc)
+	voucherModule := vouchers.NewUseCases(svc)
+	// Billing reads the licence catalogue, the usage journal, the add-ons an
+	// instance holds and the vouchers it redeemed through ports it owns, and
+	// makes a subscribe's writes in the modules that own them the same way;
+	// those modules implement them. Built before the map because the public SDK
+	// surface runs its subscribe and reads its invoices.
+	billingModule := billing.NewUseCases(svc, billing.Ports{
+		Catalogue: billablecatalogue.New(svc.Uof),
+		Usage:     instanceModule.BillableUsage,
+		Addons:    billableaddons.New(svc.Uof),
+		Discounts: billablediscounts.New(svc.Uof),
+		Attacher:  addonModule.AttachInstanceAddon,
+		Redeemer:  voucherModule.RedeemVoucher,
+		Mover:     instanceModule.UpdateInstance,
+	})
+	customerModule := customers.NewUseCases(svc)
 
 	built := modules{
-		Addons:     addons.NewUseCases(svc),
+		Addons:     addonModule,
 		AuditTrail: audittrail.NewUseCases(svc, notificationModule.Announcer),
 		// Billing reads the licence catalogue, the usage journal, the add-ons
 		// an instance holds and the vouchers it redeemed through ports it owns;
 		// the modules that own that data implement them.
-		Billing: billing.NewUseCases(svc, billing.Ports{
-			Catalogue: billablecatalogue.New(svc.Uof),
-			Usage:     instanceModule.BillableUsage,
-			Addons:    billableaddons.New(svc.Uof),
-			Discounts: billablediscounts.New(svc.Uof),
-		}),
+		Billing:         billingModule,
 		Components:      components.NewUseCases(svc),
 		Connectors:      connectors.NewUseCases(svc),
-		Customers:       customers.NewUseCases(svc),
+		Customers:       customerModule,
 		DeploymentZones: deploymentzones.NewUseCases(svc),
 		Entitlements:    entitlements.NewUseCases(svc),
 		FeatureFlags:    featureflags.NewUseCases(svc),
@@ -199,10 +213,18 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		Licenses:        licenses.NewUseCases(svc),
 		MetadataFields:  metadatafields.NewUseCases(svc),
 		Organization:    organization.NewUseCases(svc),
-		PublicSDK:       publicsdk.NewUseCases(svc),
-		Releases:        releases.NewUseCases(svc),
-		Users:           users.NewUseCases(svc),
-		Vouchers:        vouchers.NewUseCases(svc),
+		PublicSDK: publicsdk.NewUseCases(svc, publicsdk.Ports{
+			Subscriber:      billingModule.SubscribeInstance,
+			CustomerBilling: billingModule.GetCustomerBilling,
+			OpenSetup:       billingModule.CreatePaymentMethodSession,
+			CompleteSetup:   billingModule.CompletePaymentMethodSession,
+			Invoices:        billingModule.GetInvoice,
+			BillingEmails:   customerModule.UpdateCustomer,
+			SessionInvoices: billingModule.SessionInvoices,
+		}),
+		Releases: releases.NewUseCases(svc),
+		Users:    users.NewUseCases(svc),
+		Vouchers: voucherModule,
 	}
 
 	// A list, not a pipeline: the dispatcher runs these in parallel and waits for all

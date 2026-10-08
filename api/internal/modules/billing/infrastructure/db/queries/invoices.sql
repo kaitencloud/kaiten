@@ -215,3 +215,25 @@ SELECT i.id, i.organization_id, i.instance_billing_id
 FROM instance_invoice i
 WHERE i.id = sqlc.arg(id)
   AND i.hold_reason IS NOT NULL;
+
+
+-- name: ListSessionInvoices :many
+-- One page of what a customer session may read: its customer's invoices by
+-- id -- never by slug, which another customer may since have taken -- and, for
+-- a session bound to an instance, that instance's only. Issued invoices only:
+-- a DRAFT, a held one or one still failing its push is the vendor's business.
+-- Newest boundary first; fetched one row past the page.
+SELECT *
+FROM instance_invoice i
+WHERE i.organization_id = sqlc.arg(organization_id)
+  AND i.customer_id = sqlc.arg(customer_id)
+  AND (sqlc.narg(instance_id)::uuid IS NULL
+       OR i.instance_billing_id IN (SELECT ib.id
+                                    FROM instance_billing ib
+                                    WHERE ib.organization_id = i.organization_id
+                                      AND ib.instance_id = sqlc.narg(instance_id)::uuid))
+  AND i.status IN ('MANUAL', 'PUSHED', 'PAID', 'PAYMENT_FAILED', 'UNCOLLECTIBLE', 'VOID')
+  AND (NOT sqlc.arg(has_cursor)::boolean
+       OR (i.boundary_at, i.id) < (sqlc.arg(cursor_at)::timestamp, sqlc.arg(cursor_id)::uuid))
+ORDER BY i.boundary_at DESC, i.id DESC
+LIMIT sqlc.arg(page_size);

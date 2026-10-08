@@ -13,6 +13,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
 )
 
@@ -139,11 +140,19 @@ func selfServe(plan PublicPlan, capturesPaymentMethods bool) bool {
 }
 
 // capturesPaymentMethods reports whether the organization has connected a
-// provider that captures payment methods. A provider that cannot be resolved
-// reads as not connected: the catalogue still answers, with self-serve off.
+// provider that captures payment methods.
 func (u *UseCase) capturesPaymentMethods(ctx context.Context, organizationID uuid.UUID) bool {
+	_, ok := u.CapturingProvider(ctx, organizationID)
+	return ok
+}
+
+// CapturingProvider is the provider the organization has connected that
+// captures payment methods -- the one a self-serve checkout of a paid plan
+// bills through. A provider that cannot be resolved reads as not connected:
+// the catalogue still answers, with self-serve off.
+func (u *UseCase) CapturingProvider(ctx context.Context, organizationID uuid.UUID) (string, bool) {
 	if u.deps.Providers == nil {
-		return false
+		return "", false
 	}
 	for _, kind := range u.deps.Providers.Kinds() {
 		capabilities, ok := u.deps.Providers.Capabilities(kind)
@@ -152,11 +161,11 @@ func (u *UseCase) capturesPaymentMethods(ctx context.Context, organizationID uui
 		}
 		_, err := u.deps.Providers.Resolve(ctx, organizationID, kind)
 		if err == nil {
-			return true
+			return string(kind), true
 		}
 		slog.DebugContext(ctx, "publicsdk: provider not connected", "provider", kind, "error", err)
 	}
-	return false
+	return "", false
 }
 
 // addOns builds the public add-ons and, per public licence family slug, the
@@ -352,4 +361,28 @@ func nonNil[T any](items []T) []T {
 		return []T{}
 	}
 	return items
+}
+
+// PriceFrom shows a licence price as the public surface does.
+func PriceFrom(price prices.Price) PublicPrice {
+	out := PublicPrice{
+		ID:                price.ID.String(),
+		BillingModel:      price.BillingModel,
+		BillingTiming:     price.BillingTiming,
+		BillingPeriod:     price.BillingPeriod,
+		Currency:          price.Currency,
+		UnitAmount:        price.UnitAmount,
+		UnitAmountDecimal: price.UnitAmountDecimal,
+		Metered:           nil,
+		DisplayLabel:      price.DisplayLabel,
+		DisplayOrder:      price.DisplayOrder,
+		IsDefault:         price.IsDefault,
+	}
+	if price.Metered != nil {
+		out.Metered = &PublicMeter{
+			EntitlementSlug: price.Metered.EntitlementSlug, SaleUnitFactor: price.Metered.SaleUnitFactor,
+			SaleUnitSingular: price.Metered.SaleUnitSingular, SaleUnitPlural: price.Metered.SaleUnitPlural,
+		}
+	}
+	return out
 }
