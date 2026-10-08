@@ -18,7 +18,7 @@ const lockID int64 = 20261007000001
 
 // NewJob is the billing-invoice-push job.
 func NewJob(pool *pgxpool.Pool, pusher *Pusher, cfg sweep.Config) *sweep.Job {
-	return sweep.New("billing-invoice-push", pool, lockID, cfg, func(ctx context.Context, _ *pgxpool.Conn) error {
+	return sweep.NewPoolPass("billing-invoice-push", pool, lockID, cfg, func(ctx context.Context) error {
 		pushed, err := pusher.Pass(ctx)
 		if pushed > 0 {
 			slog.InfoContext(ctx, "invoices pushed to their provider", "pushed", pushed)

@@ -14,7 +14,7 @@ const lockID int64 = 20261011000000
 
 // NewJob is the billing-provider-sync job.
 func NewJob(pool *pgxpool.Pool, syncer *Syncer, cfg sweep.Config) *sweep.Job {
-	return sweep.New("billing-provider-sync", pool, lockID, cfg, func(ctx context.Context, _ *pgxpool.Conn) error {
+	return sweep.NewPoolPass("billing-provider-sync", pool, lockID, cfg, func(ctx context.Context) error {
 		return syncer.Pass(ctx)
 	})
 }
