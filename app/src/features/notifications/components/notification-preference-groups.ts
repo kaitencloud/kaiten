@@ -3,7 +3,6 @@ import {
   Bell,
   type LucideIcon,
   Plug,
-  Receipt,
   ShieldAlert,
 } from 'lucide-react';
 import { dataModelIcons } from '@/lib/data-model-icons';
@@ -77,7 +76,7 @@ const GROUP_DEFS: PreferenceGroupDef[] = [
   },
   {
     id: 'billing',
-    Icon: Receipt,
+    Icon: dataModelIcons.billing,
     labelKey: 'Pages.Settings.Notifications.Groups.billing.label',
     labelFallback: 'Billing',
     descriptionKey: 'Pages.Settings.Notifications.Groups.billing.description',
