@@ -21,7 +21,7 @@ export function InvoiceIdentityCard({ invoice }: InvoiceIdentityCardProps) {
   return (
     <DetailCard>
       <DetailCard.Header>
-        <DetailCard.Title>
+        <DetailCard.Title className="text-base">
           {t('Pages.Billing.Invoices.Detail.Identity.title')}
         </DetailCard.Title>
         <DetailCard.Description>

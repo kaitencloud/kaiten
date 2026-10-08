@@ -9,10 +9,11 @@ export type InvoiceActionName =
   | 'Write off';
 
 /**
- * One invoice: its header, the strip of its three figures, its lines with what
- * stands behind them, its summary, handoff and identity, and the actions its
- * status offers with the dialogs they open. The actions are buttons from the width of a tablet and one menu below it;
- * the driver uses the buttons, and `menu` the menu.
+ * One invoice: its header, the strip of its three figures, its summary, handoff
+ * and identity in a row of cards, its lines across the page with what stands
+ * behind them, and the actions its status offers with the dialogs they open. The
+ * actions are buttons from the width of a tablet and one menu below it; the driver
+ * uses the buttons, and `menu` the menu.
  */
 export class InvoiceDetailDriver {
   constructor(private readonly page: Page) {}
@@ -91,10 +92,11 @@ export class InvoiceDetailDriver {
     return this.linesCard();
   }
 
-  // --- The cards beside the lines ----------------------------------------------
+  // --- The row of cards, over the lines ----------------------------------------
 
-  summary(): Locator {
-    return this.card('Summary');
+  /** The card of the summary, by its title in the language the page is read in. */
+  summary(title = 'Summary'): Locator {
+    return this.card(title);
   }
 
   handoff(): Locator {
@@ -117,8 +119,14 @@ export class InvoiceDetailDriver {
     return this.page.getByTestId('hold-banner');
   }
 
-  chain(): Locator {
-    return this.page.getByTestId('invoice-chain');
+  /** The link to the invoice this one replaces, a row of the summary. */
+  replaces(): Locator {
+    return this.summary().getByTestId('invoice-replaces');
+  }
+
+  /** The link to the invoice that replaced this one, a row of the summary. */
+  replacedBy(): Locator {
+    return this.summary().getByTestId('invoice-replaced-by');
   }
 
   // --- The actions -------------------------------------------------------------

@@ -67,9 +67,7 @@ test.describe('the actions an invoice offers', () => {
     await invoice.goto('inv-v1');
 
     await invoice.expectActions([]);
-    await expect(
-      invoice.chain().getByRole('link', { name: 'inv-r1' }),
-    ).toBeVisible();
+    await expect(invoice.replacedBy()).toHaveText('inv-r1');
   });
 
   test('leave an invoice a payment provider has accepted alone, and only void one whose push failed', async ({
@@ -241,15 +239,13 @@ test.describe('recomposing an invoice', () => {
     await expect(page).toHaveURL(
       /\/billing\/invoices\/inv-v2-replacement-\d+$/,
     );
-    await expect(invoice.chain()).toContainText('Replaces');
-    await expect(
-      invoice.chain().getByRole('link', { name: 'inv-v2' }),
-    ).toBeVisible();
+    await expect(invoice.summary()).toContainText('Replaces');
+    await expect(invoice.replaces()).toHaveText('inv-v2');
 
     // The invoice it replaces points to it, and offers nothing more.
-    await invoice.chain().getByRole('link', { name: 'inv-v2' }).click();
+    await invoice.replaces().click();
     await expect(page).toHaveURL(/\/billing\/invoices\/inv-v2$/);
-    await expect(invoice.chain()).toContainText('Replaced by');
+    await expect(invoice.summary()).toContainText('Replaced by');
     await invoice.expectActions([]);
   });
 

@@ -14,8 +14,9 @@ import { createInvoicesModel } from '../billing/billing.scenarios';
 // The narrowest phone billing is checked at: narrower than the Pixel 5, which
 // the rest of the mobile suite uses.
 const WIDTH = 375;
+const HEIGHT = 812;
 
-test.use({ ...devices['Pixel 5'], viewport: { height: 812, width: WIDTH } });
+test.use({ ...devices['Pixel 5'], viewport: { height: HEIGHT, width: WIDTH } });
 
 /** The dialog is wholly on the screen: neither of its sides is cut off. */
 async function expectWithinScreen(dialog: Locator) {
@@ -116,7 +117,7 @@ test.describe('the invoices, on the narrowest phone', () => {
     await expect(invoice.reportsLink('Traces overage')).toBeVisible();
   });
 
-  test('an invoice keeps its header in place and lets its figures scroll away, so that a phone has room to read the cards', async ({
+  test('an invoice keeps its header and its figures in place, with the lines scrolling under them and room left to read them', async ({
     page,
   }) => {
     const invoice = new InvoiceDetailDriver(page);
@@ -125,10 +126,16 @@ test.describe('the invoices, on the narrowest phone', () => {
     await expect(invoice.stats()).toBeInViewport();
     await invoice.linesCard().scrollIntoViewIfNeeded();
 
-    // Held in place, the header and three figures would fill the screen of a phone.
+    // As the page of an instance keeps its own: they stay while the cards scroll.
     await expect(invoice.title()).toBeInViewport();
-    await expect(invoice.stats()).not.toBeInViewport();
+    await expect(invoice.stats()).toBeInViewport();
     await expect(invoice.linesCard()).toBeInViewport();
+    // The header and the figures leave a quarter of the screen at least to what
+    // scrolls under them, as the page of an instance does.
+    const figures = await invoice.stats().boundingBox();
+    expect((figures?.y ?? 0) + (figures?.height ?? 0)).toBeLessThan(
+      (HEIGHT * 3) / 4,
+    );
   });
 
   test('the figures of an invoice are two cards abreast and the period under them, across the screen', async ({
