@@ -1,5 +1,5 @@
-import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { FilterChip } from '@/functionals/filters';
 import type { InvoiceScope } from '../../schemas/invoice-scope.schema';
 
 type InvoiceScopeChipsProps = {
@@ -33,25 +33,17 @@ export function InvoiceScopeChips({ onChange, scope }: InvoiceScopeChipsProps) {
     });
 
     return (
-      <div
-        className="bg-secondary text-secondary-foreground inline-flex h-9 items-center gap-1 rounded-full px-3"
-        data-scope={key}
+      <FilterChip
         key={key}
+        onRemove={() => onChange({ ...scope, [key]: undefined })}
+        removeLabel={t('Pages.Billing.Invoices.Filters.remove', {
+          filter: text,
+        })}
       >
         <span className="max-w-[240px] truncate text-sm" title={text}>
           {text}
         </span>
-        <button
-          aria-label={t('Pages.Billing.Invoices.Filters.remove', {
-            filter: text,
-          })}
-          className="text-muted-foreground hover:text-foreground"
-          onClick={() => onChange({ ...scope, [key]: undefined })}
-          type="button"
-        >
-          <X aria-hidden className="size-3.5" />
-        </button>
-      </div>
+      </FilterChip>
     );
   }
 

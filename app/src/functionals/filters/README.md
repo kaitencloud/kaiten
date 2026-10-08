@@ -110,6 +110,7 @@ actions of the normal filters (`normal`) and of the advanced rules (`advanced`),
 | `FilterToolbar` | Ready-made toolbar. `showAdvancedOption` defaults to `true` |
 | `FilterToolbarProvider` | Context for a custom toolbar. `showAdvancedOption` defaults to `false` |
 | `FilterSearchInput`, `FilterToolbarQuickAccessFilters`, `FilterToolbarFilterButton`, `FilterToolbarFiltersRow`, `FilterToolbarContent` | Building blocks, used inside the provider |
+| `FilterChip` | The pill of a chip and the button that takes it off, with the `data-slot="filter-chip"` the specs find chips by. The filters row draws its chips with it, and a page draws with it what it puts beside its search (the scope of a list), so that they read as one set |
 
 Compose the blocks when the layout is specific:
 

@@ -68,7 +68,7 @@ export class FilterToolbarDriver {
 
   /** Every chip of the toolbar: the scope of the URL first where a page has one, then the filters of the screen. */
   chips(): Locator {
-    return this.page.locator('div.bg-secondary.rounded-full');
+    return this.page.locator('[data-slot="filter-chip"]');
   }
 
   async expectChips(labels: string[]) {
