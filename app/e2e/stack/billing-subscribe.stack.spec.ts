@@ -1,9 +1,10 @@
-import { expect, test, type APIRequestContext } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { BillingSettingsDriver } from '../app/_support/drivers/billing-settings.driver';
 import { InstanceBillingDriver } from '../app/_support/drivers/instance-billing.driver';
 import { InstancesListDriver } from '../app/_support/drivers/instances-list.driver';
 import { UsageHistoryDriver } from '../app/_support/drivers/usage-history.driver';
 import { accepted, api, headers, signIn } from './stack-api';
+import { setUpBillable } from './stack-billable';
 
 // What a person does with billing from the console, against the real API: the
 // rules only the server owns (how far back a subscription may start, what keeps
@@ -11,122 +12,6 @@ import { accepted, api, headers, signIn } from './stack-api';
 // payment terms) answered by the API itself, and what the console writes read
 // back from it. Under Mock Service Worker the console reads what the mock was
 // told to say; here nothing is told.
-
-type Billable = {
-  customerName: string;
-  customerSlug: string;
-  instanceName: string;
-  instanceSlug: string;
-  licenseSlug: string;
-};
-
-/**
- * A customer with no billing e-mail, and an instance of it on a published license
- * that sells a monthly flat fee of $29.00 and, when `meteredSlug` is given, grants
- * an entitlement that usage can be reported against.
- */
-async function setUpBillable(
-  request: APIRequestContext,
-  suffix: string,
-  meteredSlug?: string,
-): Promise<Billable> {
-  const customerName = `Subscribed ${suffix}`;
-  const customerSlug = `subscribed-${suffix}`;
-  const licenseSlug = `subscribed-license-${suffix}`;
-  const instanceName = `Subscribed instance ${suffix}`;
-  const instanceSlug = `subscribed-instance-${suffix}`;
-
-  const customer = await accepted<{ id: string }>(
-    await request.post(`${api}/api/customers`, {
-      data: { name: customerName, slug: customerSlug },
-      headers,
-    }),
-  );
-  const license = await accepted<{ id: string }>(
-    await request.post(`${api}/api/licenses`, {
-      data: {
-        description:
-          'The license of a customer that subscribes from the console',
-        isDefault: false,
-        lifecycleState: 'DRAFT',
-        name: `Subscribed ${suffix}`,
-        slug: licenseSlug,
-        type: 'PAID',
-      },
-      headers,
-    }),
-  );
-  await accepted(
-    await request.post(`${api}/api/licenses/${licenseSlug}/prices`, {
-      data: {
-        billingModel: 'FLAT_FEE',
-        billingPeriod: 'MONTHLY',
-        currency: 'USD',
-        displayLabel: 'Pro, monthly',
-        unitAmountDecimal: '2900',
-      },
-      headers,
-    }),
-  );
-  if (meteredSlug) {
-    await accepted(
-      await request.post(`${api}/api/entitlements`, {
-        data: {
-          aggregationMethod: 'SUM',
-          description: 'What the customer calls',
-          name: `Calls ${suffix}`,
-          slug: meteredSlug,
-          type: 'NUMBER',
-          unitPlural: 'calls',
-          unitSingular: 'call',
-        },
-        headers,
-      }),
-    );
-    await accepted(
-      await request.post(`${api}/api/licenses/${licenseSlug}/entitlements`, {
-        data: {
-          entitlementSlug: meteredSlug,
-          limitCapExceededOveragePercent: 0,
-          value: { type: 'number', value: 1000 },
-        },
-        headers,
-      }),
-      204,
-    );
-  }
-  await accepted(
-    await request.post(`${api}/api/licenses/${licenseSlug}/publish`, {
-      headers,
-    }),
-    200,
-  );
-  const now = new Date();
-  await accepted(
-    await request.post(`${api}/api/instances`, {
-      data: {
-        customerId: customer.id,
-        description: 'The instance of a customer that subscribes',
-        endLicenseDate: new Date(
-          now.getTime() + 365 * 86_400_000,
-        ).toISOString(),
-        licenseId: license.id,
-        name: instanceName,
-        slug: instanceSlug,
-        startLicenseDate: now.toISOString(),
-      },
-      headers,
-    }),
-  );
-
-  return {
-    customerName,
-    customerSlug,
-    instanceName,
-    instanceSlug,
-    licenseSlug,
-  };
-}
 
 test('subscribes an instance from the console ten days back, sets the billing e-mail of its customer from the dialog, and keeps the instance from being deleted while it bills', async ({
   page,
