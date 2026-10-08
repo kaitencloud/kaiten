@@ -327,4 +327,3 @@ CROSS JOIN LATERAL (
 ) r;
 DROP AGGREGATE IF EXISTS numeric_product(NUMERIC);
 -- +goose StatementEnd
-

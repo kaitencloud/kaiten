@@ -266,4 +266,3 @@ DROP TYPE IF EXISTS "voucher_duration";
 DROP TYPE IF EXISTS "voucher_status";
 DROP TYPE IF EXISTS "voucher_type";
 -- +goose StatementEnd
-

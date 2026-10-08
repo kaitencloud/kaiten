@@ -16,6 +16,12 @@ concurrency:
   group: go-ci-api-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# Every job reads the code and nothing else; golangci-lint reads the pull request
+# to annotate it.
+permissions:
+  contents: read
+  pull-requests: read
+
 # The one place each Go version of this workflow is set. GO_VERSION builds,
 # tests and scans; LINT_GO_VERSION is the exception for golangci-lint only.
 # Both are explained above the first Set up Go step.
