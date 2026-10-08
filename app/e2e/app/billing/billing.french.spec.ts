@@ -171,7 +171,7 @@ test.describe('the invoices, read in French', () => {
     await expect(page.getByTestId('line-reports')).not.toContainText('append');
   });
 
-  test('the handoff queue, its tabs and its acknowledgement', async ({
+  test('the handoff queue, its tabs, its search and its acknowledgement', async ({
     page,
   }) => {
     await page.goto('/billing/handoff');
@@ -180,10 +180,16 @@ test.describe('the invoices, read in French', () => {
       page.getByRole('heading', { level: 1, name: 'Transmission' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('tab', { exact: true, name: 'En attente' }),
-    ).toHaveAttribute('aria-selected', 'true');
+      page.getByRole('link', { exact: true, name: 'En attente' }),
+    ).toHaveAttribute('aria-current', 'page');
     await expect(
-      page.getByRole('tab', { exact: true, name: 'Acquittées' }),
+      page.getByRole('link', { exact: true, name: 'Acquittées' }),
+    ).toBeVisible();
+    await expect(
+      page.getByPlaceholder('Client, instance ou facture'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { exact: true, name: 'Filtrer' }),
     ).toBeVisible();
     await expect(
       page.getByRole('columnheader', { exact: true, name: 'Statut' }),

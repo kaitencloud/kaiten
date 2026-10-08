@@ -6,6 +6,7 @@ import { server } from '@/__tests__/msw-server';
 import type { PageInvoiceSummary } from '@/api-client';
 import { handleListInvoices } from '@/api-client/msw.gen';
 import {
+  createLoadedPageClient,
   invoiceRow,
   pageOf,
   renderWithClient,
@@ -40,6 +41,7 @@ const renderPage = (scope = {}) =>
     <Suspense fallback={null}>
       <InvoicesPageContent onScopeChange={vi.fn()} scope={scope} />
     </Suspense>,
+    createLoadedPageClient(),
   );
 
 describe('the page of the invoices', () => {

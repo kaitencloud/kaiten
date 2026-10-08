@@ -96,6 +96,11 @@ and replaces only the `queryFn` with one that walks every page
 `listReleasesQueryKey()` still invalidates it. The cache then holds
 `{ hasMore: false, items }` with every row.
 
+A helper that takes what narrows the list (`allInvoicesOptions({ customerSlug })`,
+`allHandoffOptions({ status })`) puts it in the generated key it spreads, so that two
+scopes are two entries of the cache and one invalidation by the prefix
+(`listInvoicesQueryKey()`, `listHandoffQueryKey()`) reaches them all.
+
 The page walker validates the envelope (`items` array and boolean `hasMore`),
 requires a non-empty cursor when more pages remain, and refuses any visited
 cursor. A malformed response is a protocol error, never an empty list or a

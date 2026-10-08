@@ -1,126 +1,261 @@
-import { screen } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { delay, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { server } from '@/__tests__/msw-server';
-import type { PageQueuedInvoice } from '@/api-client';
-import { handleListHandoff } from '@/api-client/msw.gen';
-import { HandoffList } from '../handoff/handoff-list';
+import type { QueuedInvoice } from '@/api-client';
 import {
-  pageOf,
   queuedRow,
-  refusal,
   renderWithClient,
   sessionToken,
   useBillingTexts,
 } from '@/test-fixtures/billing-test-support';
+import { HandoffList } from '../handoff/handoff-list';
 
 const getAuthToken = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/auth-token', () => ({ getAuthToken }));
 vi.mock('@tanstack/react-router', async () =>
-  (await import('@/test-fixtures/billing-test-support')).createRouterModule(vi.fn()),
+  (await import('@/test-fixtures/billing-test-support')).createRouterModule(
+    vi.fn(),
+  ),
 );
 
 useBillingTexts();
+
+// The popovers of the Filter menu ask the DOM for what jsdom does not have.
+for (const method of [
+  'hasPointerCapture',
+  'releasePointerCapture',
+  'scrollIntoView',
+  'setPointerCapture',
+] as const) {
+  Object.defineProperty(HTMLElement.prototype, method, {
+    configurable: true,
+    value: () => false,
+  });
+}
 
 beforeEach(() => {
   // A session that may write billing, as an administrator does.
   getAuthToken.mockResolvedValue(sessionToken(['write:billing']));
 });
 
-/** Answers each read of the queue with the next of `pages`, and records what the API was asked. */
-function serveQueue(...pages: PageQueuedInvoice[]) {
-  const asked: URLSearchParams[] = [];
-  server.use(
-    handleListHandoff(({ request }) => {
-      asked.push(new URL(request.url).searchParams);
+const PAST = '2020-01-01T00:00:00.000Z';
+const FUTURE = '2099-01-01T00:00:00.000Z';
 
-      return HttpResponse.json(pages[Math.min(asked.length, pages.length) - 1]);
-    }),
+/** Four invoices of the queue, issued a day apart, in every state the filters tell apart. */
+const WAITING: QueuedInvoice[] = [
+  queuedRow('inv-1', 'Initech', {
+    dueAt: PAST,
+    issuedAt: '2027-03-01T00:00:00.000Z',
+    kind: 'ACTIVATION',
+  }),
+  queuedRow('inv-2', 'Globex', {
+    dueAt: FUTURE,
+    issuedAt: '2027-03-02T00:00:00.000Z',
+  }),
+  queuedRow('inv-3', 'Hooli', {
+    issuedAt: '2027-03-03T00:00:00.000Z',
+    status: 'VOID',
+  }),
+  queuedRow('inv-4', 'Initech', {
+    dueAt: FUTURE,
+    issuedAt: '2027-03-04T00:00:00.000Z',
+    status: 'UNCOLLECTIBLE',
+  }),
+];
+
+type Props = Partial<Parameters<typeof HandoffList>[0]>;
+
+const renderList = (props: Props = {}) =>
+  renderWithClient(
+    <HandoffList invoices={WAITING} status="PENDING" {...props} />,
   );
 
-  return asked;
+/** The ids of the invoices the rows lead to, in the order of the rows. */
+const rowIds = () =>
+  screen
+    .getAllByRole('row')
+    .slice(1)
+    .map((row) =>
+      within(row)
+        .getAllByRole('link')[0]
+        .getAttribute('href')
+        ?.replace('/billing/invoices/', ''),
+    );
+
+const searchBox = () =>
+  screen.getByPlaceholderText('Customer, instance or invoice');
+
+async function openFilterMenu() {
+  await userEvent.click(screen.getByRole('button', { name: 'Filter' }));
+  await screen.findByRole('option', { name: 'Status' });
 }
 
-const renderList = (status: 'ACKNOWLEDGED' | 'PENDING' = 'PENDING') =>
-  renderWithClient(<HandoffList status={status} />);
+describe('the list of the queue', () => {
+  it('lists the invoices it is given, oldest issue first, under a search and a Filter button', () => {
+    renderList({ invoices: [...WAITING].reverse() });
 
-describe('the queue of the handoff', () => {
-  it('says it is busy while the first page is on the way', () => {
-    server.use(
-      handleListHandoff(async () => {
-        await delay('infinite');
-
-        return HttpResponse.json(pageOf([]));
-      }),
-    );
-    renderList();
-
-    expect(
-      screen.getByRole('status', { name: 'Loading the queue' }),
-    ).toHaveAttribute('aria-busy', 'true');
+    expect(rowIds()).toEqual(['inv-1', 'inv-2', 'inv-3', 'inv-4']);
+    expect(searchBox()).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Filter' })).toBeInTheDocument();
   });
 
-  it('asks the API for the part of the queue it shows, a page of fifty at a time', async () => {
-    const asked = serveQueue(pageOf([queuedRow('inv-1', 'Initech')]));
-    renderList('ACKNOWLEDGED');
-
-    await screen.findByText('Initech');
-
-    expect(asked[0].get('status')).toBe('ACKNOWLEDGED');
-    expect(asked[0].get('limit')).toBe('50');
-  });
-
-  it('lists what waits, and reads the next page when asked', async () => {
-    const asked = serveQueue(
-      pageOf([queuedRow('inv-1', 'Initech')], 'cursor-2'),
-      pageOf([queuedRow('inv-2', 'Globex')]),
-    );
+  it('says no count of the invoices and has no "Load more": the console holds them all', () => {
     renderList();
 
-    expect(await screen.findByText('Initech')).toBeInTheDocument();
     expect(screen.queryByText(/invoices? shown/)).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Load more' }));
-
-    expect(await screen.findByText('Globex')).toBeInTheDocument();
-    expect(screen.getByText('Initech')).toBeInTheDocument();
-    expect(asked[1].get('cursor')).toBe('cursor-2');
+    expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
   });
 
-  it('teaches the command that takes what waits when nothing does', async () => {
-    serveQueue(pageOf([]));
+  it('has no export, which the queue never had', () => {
     renderList();
+
+    expect(screen.queryByRole('button', { name: 'Export' })).toBeNull();
+  });
+
+  it('offers only the filters that tell one waiting invoice from another', async () => {
+    renderList();
+
+    await openFilterMenu();
+
+    // What every invoice of the queue has in common is not a filter.
+    expect(
+      screen.getAllByRole('option').map((option) => option.textContent),
+    ).toEqual(['Status', 'Kind', 'Overdue']);
+  });
+
+  it('pages them in the browser, ten to a page', async () => {
+    renderList({
+      invoices: Array.from({ length: 12 }, (_, index) =>
+        queuedRow(`inv-${index + 1}`, 'Initech', {
+          issuedAt: new Date(Date.UTC(2027, 2, index + 1)).toISOString(),
+        }),
+      ),
+    });
+
+    expect(rowIds()).toHaveLength(10);
+    expect(screen.getByText('Showing 1-10 of 12 records')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(rowIds()).toEqual(['inv-11', 'inv-12']);
+  });
+});
+
+describe('the search of the queue', () => {
+  it.each([
+    ['the name of a customer, in any case', 'GLOBEX', ['inv-2']],
+    ['the slug of an instance', 'hooli-production', ['inv-3']],
+    ['the identifier of an invoice', 'inv-4', ['inv-4']],
+  ])('matches %s', async (_, typed, expected) => {
+    renderList();
+
+    await userEvent.type(searchBox(), typed);
+
+    await waitFor(() => expect(rowIds()).toEqual(expected));
+  });
+
+  it('matches the number the accounting system booked an invoice under', async () => {
+    renderList({
+      invoices: [
+        queuedRow('inv-1', 'Initech', {
+          handoff: {
+            acknowledgedAt: '2027-03-05T09:00:00.000Z',
+            claimCount: 1,
+            externalReference: 'ERP-1042',
+            status: 'ACKNOWLEDGED',
+          },
+          handoffStatus: 'ACKNOWLEDGED',
+        }),
+        queuedRow('inv-2', 'Globex', {
+          handoff: {
+            acknowledgedAt: '2027-03-05T10:00:00.000Z',
+            claimCount: 0,
+            status: 'ACKNOWLEDGED',
+          },
+          handoffStatus: 'ACKNOWLEDGED',
+        }),
+      ],
+      status: 'ACKNOWLEDGED',
+    });
+
+    await userEvent.type(searchBox(), 'erp-10');
+
+    await waitFor(() => expect(rowIds()).toEqual(['inv-1']));
+  });
+
+  it('says no invoice matches, and clears the search from the message', async () => {
+    renderList();
+
+    await userEvent.type(searchBox(), 'nobody');
 
     expect(await screen.findByTestId('handoff-empty')).toHaveTextContent(
-      'kaiten billing handoff claim',
+      'No invoice matches these filters',
     );
-  });
-
-  it('shows why the API refused, and reads again when asked', async () => {
-    let reads = 0;
-    server.use(
-      handleListHandoff(() => {
-        reads += 1;
-
-        return reads === 1
-          ? refusal(500, { detail: 'the queue is unavailable' })
-          : HttpResponse.json(pageOf([queuedRow('inv-1', 'Initech')]));
+    await userEvent.click(
+      within(screen.getByTestId('handoff-empty')).getByRole('button', {
+        name: 'Clear filters',
       }),
     );
-    renderList();
 
-    expect(await screen.findByTestId('handoff-error')).toHaveTextContent(
-      'the queue is unavailable',
-    );
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
-
-    expect(await screen.findByText('Initech')).toBeInTheDocument();
+    await waitFor(() => expect(rowIds()).toHaveLength(4));
+    expect(searchBox()).toHaveValue('');
   });
 
-  it('offers to acknowledge an invoice that waits to a session that may, and opens its dialog', async () => {
-    serveQueue(pageOf([queuedRow('inv-1', 'Initech')]));
+  it('is kept when the queue is read again, as acknowledging an invoice does', async () => {
+    const { rerender } = renderList();
+    await userEvent.type(searchBox(), 'initech');
+    await waitFor(() => expect(rowIds()).toEqual(['inv-1', 'inv-4']));
+
+    // inv-1 was acknowledged: the queue is read again without it.
+    rerender(
+      <HandoffList invoices={WAITING.slice(1)} status="PENDING" />,
+    );
+
+    expect(searchBox()).toHaveValue('initech');
+    await waitFor(() => expect(rowIds()).toEqual(['inv-4']));
+  });
+});
+
+describe('the filters of the queue', () => {
+  it('pick the statuses together, and say each one in a chip', async () => {
     renderList();
+
+    await openFilterMenu();
+    await userEvent.click(screen.getByRole('option', { name: 'Status' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Void' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Written off' }));
+
+    await waitFor(() => expect(rowIds()).toEqual(['inv-3', 'inv-4']));
+    expect(screen.getByText('Status: Written off, Void')).toBeInTheDocument();
+  });
+
+  it('select the invoices past their due date as the badge says them', async () => {
+    renderList();
+
+    await openFilterMenu();
+    await userEvent.click(screen.getByRole('option', { name: 'Overdue' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'True' }));
+
+    await waitFor(() => expect(rowIds()).toEqual(['inv-1']));
+  });
+
+  it('select a kind of invoice', async () => {
+    renderList();
+
+    await openFilterMenu();
+    await userEvent.click(screen.getByRole('option', { name: 'Kind' }));
+    await userEvent.click(
+      await screen.findByRole('option', { name: 'Activation' }),
+    );
+
+    await waitFor(() => expect(rowIds()).toEqual(['inv-1']));
+  });
+});
+
+describe('what a person does with the queue', () => {
+  it('opens the dialog that acknowledges an invoice that waits, to a session that may', async () => {
+    renderList({ invoices: [WAITING[1]] });
 
     await userEvent.click(
       await screen.findByRole('button', { name: 'Acknowledge' }),
@@ -129,36 +264,47 @@ describe('the queue of the handoff', () => {
     expect(
       await screen.findByRole('dialog', { name: 'Acknowledge the invoice' }),
     ).toBeInTheDocument();
+    expect(
+      await screen.findByTestId('acknowledge-handoff-invoice'),
+    ).toHaveTextContent('Globex');
   });
 
   it('offers nothing to a session that may only read', async () => {
     getAuthToken.mockResolvedValue(sessionToken(['read:billing']));
-    serveQueue(pageOf([queuedRow('inv-1', 'Initech')]));
     renderList();
 
-    await screen.findByText('Initech');
+    await screen.findByText('Hooli');
+    // The scopes of the session are read from its token: wait for them.
+    await waitFor(() => expect(getAuthToken).toHaveBeenCalled());
+    await act(() => Promise.resolve());
+
+    expect(screen.queryByRole('button', { name: 'Acknowledge' })).toBeNull();
+    expect(screen.queryByRole('columnheader', { name: 'Actions' })).toBeNull();
+  });
+
+  it('offers no acknowledgement for what was booked already', async () => {
+    renderList({ status: 'ACKNOWLEDGED' });
+
+    await screen.findByText('Hooli');
 
     expect(screen.queryByRole('button', { name: 'Acknowledge' })).toBeNull();
   });
+});
 
-  it('shows the status each invoice is in, so that a void one that still waits is told from the rest', async () => {
-    serveQueue(
-      pageOf([
-        queuedRow('inv-1', 'Initech'),
-        queuedRow('inv-2', 'Globex', { status: 'VOID' }),
-        queuedRow('inv-3', 'Hooli', { status: 'UNCOLLECTIBLE' }),
-      ]),
+describe('the empty queue', () => {
+  it('teaches the command that takes what waits when nothing does', () => {
+    renderList({ invoices: [] });
+
+    expect(screen.getByTestId('handoff-empty')).toHaveTextContent(
+      'kaiten billing handoff claim',
     );
-    renderList();
+  });
 
-    await screen.findByText('Initech');
+  it('says nothing was acknowledged yet, with no command to run', () => {
+    renderList({ invoices: [], status: 'ACKNOWLEDGED' });
 
-    expect(
-      screen.getByRole('columnheader', { name: 'Status' }),
-    ).toBeInTheDocument();
-    const rows = screen.getAllByRole('row').slice(1);
-    expect(rows[0]).toHaveTextContent('Ready to bill');
-    expect(rows[1]).toHaveTextContent('Void');
-    expect(rows[2]).toHaveTextContent('Written off');
+    expect(screen.getByTestId('handoff-empty')).toHaveTextContent(
+      'Nothing acknowledged yet',
+    );
   });
 });

@@ -11,10 +11,8 @@ export {
   lineReportsQueryOptions,
 } from './queries';
 export {
-  type HandoffQueueStatus,
   handoffStatusOf,
   readHandoffSearch,
-  toHandoffSearch,
 } from './schemas/handoff-search.schema';
 export { readInvoiceScope } from './schemas/invoice-scope.schema';
 export { getInvoiceTitle } from './utils/invoice-title';

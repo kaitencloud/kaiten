@@ -38,21 +38,47 @@ const encode = (value: unknown) =>
 export const sessionToken = (scopes: string[]) =>
   `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ scopes })}.signature`;
 
+/** Where the page is, for the components that read it: the tabs of a route follow it. */
+type MockLocation = { pathname: string; search?: Record<string, unknown> };
+
 /**
  * The router a billing component reads, over plain anchors: links, the paths a
- * table builds for its rows, and the navigation a test can watch.
+ * table builds for its rows, where the page is and the navigation a test can watch.
  */
-export function createRouterModule(navigate: (options: unknown) => void) {
+export function createRouterModule(
+  navigate: (options: unknown) => void,
+  location: MockLocation = { pathname: '/' },
+) {
   return {
     Link: ({
+      activeOptions: _activeOptions,
       children,
+      search,
       to,
       ...props
-    }: AnchorHTMLAttributes<HTMLAnchorElement> & { to: string }) => (
-      <a {...props} href={to}>
-        {children}
-      </a>
-    ),
+    }: AnchorHTMLAttributes<HTMLAnchorElement> & {
+      activeOptions?: unknown;
+      search?: Record<string, string | undefined>;
+      to: string;
+    }) => {
+      const query = new URLSearchParams(
+        Object.entries(search ?? {}).filter(
+          (entry): entry is [string, string] => entry[1] !== undefined,
+        ),
+      ).toString();
+
+      return (
+        <a {...props} href={query ? `${to}?${query}` : to}>
+          {children}
+        </a>
+      );
+    },
+    useLocation: ({
+      select,
+    }: {
+      select: (state: { pathname: string; search: object }) => unknown;
+    }) =>
+      select({ pathname: location.pathname, search: location.search ?? {} }),
     useNavigate: () => navigate,
     useRouter: () => ({
       buildLocation: ({
@@ -70,6 +96,18 @@ export function createRouterModule(navigate: (options: unknown) => void) {
 export const createTestClient = () =>
   new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+
+/**
+ * The client of a page that a route loads, like the console's: what the loader read
+ * is fresh for a while, so the page does not read it again when it mounts.
+ */
+export const createLoadedPageClient = () =>
+  new QueryClient({
+    defaultOptions: {
+      mutations: { retry: false },
+      queries: { retry: false, staleTime: Infinity },
+    },
   });
 
 /** Renders under the providers a billing screen has in the console. */

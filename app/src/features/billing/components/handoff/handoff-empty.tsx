@@ -1,31 +1,57 @@
 import { useTranslation } from 'react-i18next';
-import { ListEmptyState } from '@/domains/billing';
-import { dataModelIcons } from '@/lib/data-model-icons';
+import { Button } from '@/components/ui/button';
 import type { HandoffQueueStatus } from '../../schemas/handoff-search.schema';
+import { TableEmptyMessage } from '../table-empty-message';
 
 /** The command that takes the invoices of the queue, which the empty queue teaches. */
 const HANDOFF_CLAIM_COMMAND = 'kaiten billing handoff claim';
 
+type HandoffEmptyProps = {
+  /** Whether a filter of the screen is why there is no row. */
+  filtered: boolean;
+  /** Takes every filter of the screen off. */
+  onClearFilters: () => void;
+  status: HandoffQueueStatus;
+};
+
 /**
- * What the queue says when it holds nothing. For what waits, that is the normal
- * state, and the moment to say how the queue is read: invoices nobody collects
- * through a payment provider wait here for a job or a terminal, which claims them
- * with the command, books them in the accounting system and acknowledges them.
- * There is no button for it: claiming is the consumer's, not a person's.
+ * What the table says when it has no row. A filter that hides everything says so and
+ * clears itself from the message. For what waits an empty queue is the normal state,
+ * and the moment to say how the queue is read: invoices nobody collects through a
+ * payment provider wait here for a job or a terminal, which claims them with the
+ * command, books them in the accounting system and acknowledges them. There is no
+ * button for it: claiming is the consumer's, not a person's.
  */
-export function HandoffEmpty({ status }: { status: HandoffQueueStatus }) {
+export function HandoffEmpty({
+  filtered,
+  onClearFilters,
+  status,
+}: HandoffEmptyProps) {
   const { t } = useTranslation();
+
+  if (filtered) {
+    return (
+      <TableEmptyMessage
+        description={t('Pages.Billing.Handoff.Empty.filteredDescription')}
+        testId="handoff-empty"
+        title={t('Pages.Billing.Handoff.Empty.filteredTitle')}
+      >
+        <Button onClick={onClearFilters} size="sm" variant="outline">
+          {t('Pages.Billing.Handoff.Empty.clearFilters')}
+        </Button>
+      </TableEmptyMessage>
+    );
+  }
+
   const isPending = status === 'PENDING';
 
   return (
-    <ListEmptyState
-      className="mt-4"
+    <TableEmptyMessage
       description={t(
         isPending
           ? 'Pages.Billing.Handoff.Empty.pendingDescription'
           : 'Pages.Billing.Handoff.Empty.acknowledgedDescription',
       )}
-      icon={dataModelIcons.invoice}
       testId="handoff-empty"
       title={t(
         isPending
@@ -38,6 +64,6 @@ export function HandoffEmpty({ status }: { status: HandoffQueueStatus }) {
           {HANDOFF_CLAIM_COMMAND}
         </code>
       ) : null}
-    </ListEmptyState>
+    </TableEmptyMessage>
   );
 }

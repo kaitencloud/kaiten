@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import type { QueuedInvoice } from '@/api-client';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { HandoffEmpty } from '../handoff/handoff-empty';
+import { HandoffList } from '../handoff/handoff-list';
 import { HandoffTable } from '../handoff/handoff-table';
 
 const meta = {
@@ -76,10 +77,64 @@ export const Waiting: Story = {
 
     await expect(await canvas.findByText('Reserved until Jan 1, 2099, 12:00 AM (UTC)')).toBeVisible();
     await expect(canvas.getByText('2 claims')).toBeVisible();
-    await expect(canvas.queryByRole('button', { name: /claim/i })).toBeNull();
+    // The header of the column of claims sorts them: it is not a way to claim.
+    await expect(
+      canvas.queryByRole('button', { name: /^(?!.*sort).*claim/i }),
+    ).toBeNull();
 
     await userEvent.click(canvas.getAllByRole('button', { name: 'Acknowledge' })[0]);
     await expect(onAcknowledge).toHaveBeenCalledTimes(1);
+  },
+};
+
+// The queue as a list page like the others: a search that matches who an invoice is
+// for, the invoice itself and the number it was booked under, and the Filter menu.
+export const SearchedLikeTheOtherLists: Story = {
+  render: () => (
+    <StorybookRouter>
+      <HandoffList invoices={WAITING} status="PENDING" />
+    </StorybookRouter>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(await canvas.findByText('Initech')).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'Filter' })).toBeVisible();
+
+    await userEvent.type(
+      canvas.getByPlaceholderText('Customer, instance or invoice'),
+      'globex',
+    );
+
+    await waitFor(() => expect(canvas.queryByText('Initech')).toBeNull());
+    await expect(canvas.getByText('Globex')).toBeVisible();
+  },
+};
+
+// A search or a filter that hides everything says so, and clears itself from the
+// message: the queue is not empty, so the command that takes what waits is not there.
+export const NothingMatches: Story = {
+  render: () => (
+    <StorybookRouter>
+      <HandoffList invoices={WAITING} status="PENDING" />
+    </StorybookRouter>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.type(
+      await canvas.findByPlaceholderText('Customer, instance or invoice'),
+      'nobody',
+    );
+
+    await expect(
+      await canvas.findByText('No invoice matches these filters'),
+    ).toBeVisible();
+    await expect(canvas.queryByText('kaiten billing handoff claim')).toBeNull();
+
+    await userEvent.click(canvas.getByRole('button', { name: 'Clear filters' }));
+
+    await expect(await canvas.findByText('Initech')).toBeVisible();
   },
 };
 
@@ -142,7 +197,9 @@ export const Acknowledged: Story = {
 // An empty queue is the normal state, and says how it is read: invoices wait for
 // a job or a terminal, which claims them with a command.
 export const NothingWaiting: Story = {
-  render: () => <HandoffEmpty status="PENDING" />,
+  render: () => (
+    <HandoffEmpty filtered={false} onClearFilters={fn()} status="PENDING" />
+  ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
@@ -152,7 +209,13 @@ export const NothingWaiting: Story = {
 };
 
 export const NothingAcknowledged: Story = {
-  render: () => <HandoffEmpty status="ACKNOWLEDGED" />,
+  render: () => (
+    <HandoffEmpty
+      filtered={false}
+      onClearFilters={fn()}
+      status="ACKNOWLEDGED"
+    />
+  ),
   play: async ({ canvasElement }) => {
     await expect(
       await within(canvasElement).findByText('Nothing acknowledged yet'),

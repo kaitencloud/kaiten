@@ -336,21 +336,53 @@ test.describe('accessibility of the handoff queue', () => {
     await expectNoAccessibilityViolations(page);
   });
 
-  test('the tabs are reached and changed with the keyboard', async ({
+  test('the editors of the filters have none, whether they pick several choices, one, or yes or no', async ({
     page,
   }) => {
     const handoff = new BillingHandoffDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
     await handoff.goto();
+    await expect(handoff.rows()).toHaveCount(4);
+
+    await handoff.addFilter('Status');
+    await handoff.pick('Ready to bill');
+    await settle(page);
+    await expectNoAccessibilityViolations(page);
+    await handoff.closeEditor();
+
+    await handoff.addFilter('Kind');
+    await settle(page);
+    await expectNoAccessibilityViolations(page);
+    await handoff.closeEditor();
+
+    await handoff.addFilter('Overdue');
+    await settle(page);
+    await expectNoAccessibilityViolations(page);
+    await handoff.closeEditor();
+  });
+
+  test('the tabs are links a keyboard reaches and follows, and the current one is said', async ({
+    page,
+  }) => {
+    const handoff = new BillingHandoffDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await handoff.goto();
+    await expect(handoff.tab('Waiting')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
     await handoff.tab('Waiting').focus();
-    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Tab');
+    await expect(handoff.tab('Acknowledged')).toBeFocused();
     await page.keyboard.press('Enter');
 
     await expect(handoff.tab('Acknowledged')).toHaveAttribute(
-      'aria-selected',
-      'true',
+      'aria-current',
+      'page',
     );
+    await expect(handoff.tab('Waiting')).not.toHaveAttribute('aria-current');
   });
 
   test('the dialog that acknowledges an invoice is accessible', async ({
