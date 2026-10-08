@@ -1932,6 +1932,51 @@ components:
         - updatedBy
         - updatedAt
       type: object
+    DiscountAllocation:
+      additionalProperties: false
+      properties:
+        amount:
+          description: In minor units, positive
+          format: int64
+          type: integer
+        targetSeq:
+          description: The target line
+          format: int64
+          type: integer
+      required:
+        - targetSeq
+        - amount
+      type: object
+    DiscountDifference:
+      additionalProperties: false
+      properties:
+        couponId:
+          description: The provider's discount, empty when none was recorded
+          type: string
+        kaitenAmount:
+          format: int64
+          type: integer
+        lineId:
+          description: The DISCOUNT line
+          type: string
+        providerAmount:
+          description: 0 when the provider did not apply it
+          format: int64
+          type: integer
+        seq:
+          format: int64
+          type: integer
+        targetSeq:
+          format: int64
+          type: integer
+      required:
+        - lineId
+        - seq
+        - targetSeq
+        - kaitenAmount
+        - providerAmount
+        - couponId
+      type: object
     DueToday:
       additionalProperties: false
       properties:
@@ -2483,6 +2528,21 @@ components:
       required:
         - id
         - name
+      type: object
+    ExtraDiscount:
+      additionalProperties: false
+      properties:
+        amount:
+          format: int64
+          type: integer
+        discountId:
+          type: string
+        externalLineId:
+          type: string
+      required:
+        - externalLineId
+        - discountId
+        - amount
       type: object
     FeatureFlag:
       additionalProperties: false
@@ -3986,6 +4046,12 @@ components:
     InvoiceLineDiscount:
       additionalProperties: false
       properties:
+        allocations:
+          description: "The part of the line each target bears, by ascending targetSeq: they sum to the line's magnitude, and no target is discounted below 0. A payment provider applies each one to its target line"
+          items:
+            $ref: "#/components/schemas/DiscountAllocation"
+          readOnly: true
+          type: array
         application:
           description: Which invoice of the redemption this is, from 1
           format: int32
@@ -4029,6 +4095,7 @@ components:
         - targetSeqs
         - base
         - application
+        - allocations
       type: object
     InvoiceLineLedger:
       additionalProperties: false
@@ -4131,11 +4198,16 @@ components:
           description: The provider's amount, read back for reconciliation
           format: int64
           type: integer
+        couponIds:
+          description: "On a DISCOUNT line: the provider's discount (a Stripe coupon) of each allocation, in the allocations' order"
+          items:
+            type: string
+          type:
+            - array
+            - "null"
         externalLineId:
-          description: The provider's id of the line
+          description: The provider's id of the line; absent on a DISCOUNT line, which the provider holds as discounts on its targets
           type: string
-      required:
-        - externalLineId
       type: object
     InvoicePayment:
       additionalProperties: false
@@ -7768,13 +7840,23 @@ components:
     Reconciliation:
       additionalProperties: false
       properties:
+        discounts:
+          description: Allocations of DISCOUNT lines the provider applied with another amount, or not at all
+          items:
+            $ref: "#/components/schemas/DiscountDifference"
+          type: array
+        extraDiscounts:
+          description: Discounts the provider applied that Kaiten did not create, such as a coupon added in its dashboard
+          items:
+            $ref: "#/components/schemas/ExtraDiscount"
+          type: array
         extraInProvider:
           description: Provider lines Kaiten does not have
           items:
             type: string
           type: array
         inclusiveTax:
-          description: Whether the provider's subtotal was compared, its tax being included in the amounts
+          description: Whether the provider's subtotal less its discounts was compared, its tax being included in the amounts
           type: boolean
         lines:
           items:
@@ -7791,6 +7873,8 @@ components:
         - lines
         - missingInProvider
         - extraInProvider
+        - discounts
+        - extraDiscounts
         - totals
         - inclusiveTax
       type: object
@@ -9156,6 +9240,10 @@ components:
           format: int64
           type: integer
         providerSubtotal:
+          format: int64
+          type: integer
+        providerTotalDiscount:
+          description: "With inclusive tax: the provider's discounts, taken off its subtotal"
           format: int64
           type: integer
         providerTotalExcludingTax:
