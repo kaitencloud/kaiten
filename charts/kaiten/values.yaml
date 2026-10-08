@@ -518,9 +518,9 @@ app:
     VITE_API_URL: ""
     VITE_CLERK_PUBLISHABLE_KEY: ""
     # Optional: the API (ending in /api) of the Kaiten deployment that hosts the
-    # platform flags this app gates its own features on, such as the demo banner
-    # and the webhooks pages. Left unset, every platform flag is off, so the
-    # console shows neither.
+    # platform flags this app gates its own features on, such as the demo
+    # banner. Left unset, every platform flag is off, so the console shows none
+    # of them.
     # VITE_KAITEN_PLATFORM_API_URL: ""
   # Verbatim container env entries, substituted into the bundle at start like
   # configMap. For VITE_KAITEN_PLATFORM_FLAGS_TOKEN -- a read:feature_flags token

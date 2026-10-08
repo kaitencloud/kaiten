@@ -2,18 +2,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vite-plus/test';
-import { webhooksFlagQueryOptions } from '@/lib/feature-flags';
+import { webhooksServedQueryOptions } from '@/domains/webhooks';
 import { useResolvedIntegrationsItems } from './side-nav-sections';
 
-function integrationsPathsWith(webhooksEnabled: boolean | undefined) {
+function integrationsPathsWith(webhooksServed: boolean | undefined) {
   const queryClient = new QueryClient({
-    // No flag seeded stays unread: the hook sees it being evaluated.
+    // No answer seeded stays unread: the hook sees it being read.
     defaultOptions: { queries: { enabled: false } },
   });
-  if (webhooksEnabled !== undefined) {
+  if (webhooksServed !== undefined) {
     queryClient.setQueryData(
-      webhooksFlagQueryOptions.queryKey,
-      webhooksEnabled,
+      webhooksServedQueryOptions.queryKey,
+      webhooksServed,
     );
   }
   const wrapper = ({ children }: { children: ReactNode }) => (
@@ -27,7 +27,7 @@ function integrationsPathsWith(webhooksEnabled: boolean | undefined) {
 }
 
 describe('useResolvedIntegrationsItems', () => {
-  it('lists webhooks where the webhooks flag is on', () => {
+  it('lists webhooks where they are served', () => {
     expect(integrationsPathsWith(true)).toEqual([
       '/integrations/service-accounts',
       '/integrations/webhooks',
@@ -36,10 +36,10 @@ describe('useResolvedIntegrationsItems', () => {
   });
 
   it.each<[string, boolean | undefined]>([
-    ['a self-hosted deployment (flag off)', false],
-    ['a flag still being evaluated', undefined],
-  ])('keeps only the ungated entries for %s', (_, enabled) => {
-    expect(integrationsPathsWith(enabled)).toEqual([
+    ['a self-hosted deployment, or a licence without webhooks', false],
+    ['an answer still being read', undefined],
+  ])('keeps only the other entries for %s', (_, served) => {
+    expect(integrationsPathsWith(served)).toEqual([
       '/integrations/service-accounts',
       '/integrations/connectors',
     ]);

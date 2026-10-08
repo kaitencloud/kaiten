@@ -1,17 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useQueryClient } from '@tanstack/react-query';
 import { type FC, useState } from 'react';
-import { webhooksFlagQueryOptions } from '@/lib/feature-flags';
+import { webhooksServedQueryOptions } from '@/domains/webhooks';
 import type { PlainToken } from '../../types';
 import { TokenCreatedView, TokenCreateForm } from '../token-create';
 
-// Kaiten Cloud, where the `webhooks` platform flag is on, so the table offers
-// every scope. Seeded in the initializer, before the table first reads the
-// cache, and so no story asks a flag source Storybook does not have.
-const withWebhooksEnabled = (Story: FC) => {
+// Kaiten Cloud, where webhooks are served, so the table offers every scope.
+// Seeded in the initializer, before the table first reads the cache, and so no
+// story asks an API Storybook does not have.
+const withWebhooksServed = (Story: FC) => {
   const queryClient = useQueryClient();
   useState(() =>
-    queryClient.setQueryData(webhooksFlagQueryOptions.queryKey, true),
+    queryClient.setQueryData(webhooksServedQueryOptions.queryKey, true),
   );
   return <Story />;
 };
@@ -32,7 +32,7 @@ const fullHeight = (Story: FC) => (
 const meta = {
   title: 'Features/ServiceAccounts/NewToken',
   component: TokenCreateForm,
-  decorators: [fullHeight, withWebhooksEnabled],
+  decorators: [fullHeight, withWebhooksServed],
   parameters: {
     layout: 'fullscreen',
     viewport: { defaultViewport: 'responsive' },

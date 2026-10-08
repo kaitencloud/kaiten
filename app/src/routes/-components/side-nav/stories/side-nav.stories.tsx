@@ -7,7 +7,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
-import { webhooksFlagQueryOptions } from '@/lib/feature-flags';
+import { webhooksServedQueryOptions } from '@/domains/webhooks';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { SideNav } from '../side-nav';
 import { SideNavIntegrationsMenu } from '../side-nav-integrations-menu';
@@ -30,21 +30,21 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof SideNav>;
 
-// What decides the flag-gated entries (Webhooks): Kaiten Cloud, where the
-// `webhooks` platform flag is on, unless a story says otherwise. Seeded, so no
-// story asks a flag source Storybook does not have.
+// What decides the Webhooks entry: Kaiten Cloud, where webhooks are served to the
+// organization, unless a story says otherwise. Seeded, so no story asks an API
+// Storybook does not have.
 function SideNavStoryRouter({
   children,
   defaultOpen = true,
   initialEntry,
   routePath,
-  webhooksEnabled = true,
+  webhooksServed = true,
 }: {
   children: ReactNode;
   defaultOpen?: boolean;
   initialEntry: string;
   routePath: string;
-  webhooksEnabled?: boolean;
+  webhooksServed?: boolean;
 }) {
   return (
     <StorybookRouter
@@ -52,8 +52,8 @@ function SideNavStoryRouter({
       routePath={routePath}
       seed={(queryClient) =>
         queryClient.setQueryData(
-          webhooksFlagQueryOptions.queryKey,
-          webhooksEnabled,
+          webhooksServedQueryOptions.queryKey,
+          webhooksServed,
         )
       }
     >
@@ -146,18 +146,18 @@ function IntegrationsMenuContent({
 function IntegrationsMenuPreview({
   collapsed = false,
   pathname = '/integrations/webhooks',
-  webhooksEnabled,
+  webhooksServed,
 }: {
   collapsed?: boolean;
   pathname?: string;
-  webhooksEnabled?: boolean;
+  webhooksServed?: boolean;
 }) {
   return (
     <SideNavStoryRouter
       defaultOpen={!collapsed}
       initialEntry={pathname}
       routePath={pathname}
-      webhooksEnabled={webhooksEnabled}
+      webhooksServed={webhooksServed}
     >
       <IntegrationsMenuContent collapsed={collapsed} pathname={pathname} />
     </SideNavStoryRouter>
@@ -249,13 +249,14 @@ export const IntegrationsMenu: Story = {
   },
 };
 
-// A self-hosted deployment: no Kaiten-by-Kaiten, so the `webhooks` platform flag
-// reads off, and the menu goes without the pages saas-api would have served.
+// A self-hosted deployment: no saas-api answers /api/webhooks, so the menu goes
+// without the pages it would have served. An organization whose licence does not
+// carry webhooks sees the same menu.
 export const IntegrationsMenuSelfHosted: Story = {
   render: () => (
     <IntegrationsMenuPreview
       pathname="/integrations/connectors"
-      webhooksEnabled={false}
+      webhooksServed={false}
     />
   ),
   play: async ({ canvasElement }) => {

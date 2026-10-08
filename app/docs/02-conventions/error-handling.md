@@ -274,7 +274,9 @@ Some errors are an expected answer, not a failure to report:
 
 - **A status the caller expects.** `getAttioSettings`
   (`app/src/domains/crm-sync/queries/attio-settings-query-options.ts`) reads a 404 as
-  "not configured yet" and returns `null`.
+  "not configured yet" and returns `null`. `getWebhooksServed`
+  (`app/src/domains/webhooks/webhooks-served.ts`) reads a 404 and a 403 as "webhooks
+  are not served here" and returns `false`.
 - **A missing entity.** `RouteError` and the breadcrumbs test `isNotFoundError`.
 - **A read the API refuses.** `RouteError` tests `isForbiddenError` and shows
   `RestrictedAccess` instead of the error card. The metadata fields page

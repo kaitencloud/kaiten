@@ -1,9 +1,9 @@
 import type { Page } from '@playwright/test';
 import type { ServiceAccount } from '@/api-client';
-import { E2E_MSW_STORAGE_KEY } from '../contracts/msw-slots';
+import { E2E_MSW_STORAGE_KEY, type E2EMswConfig } from '../contracts/msw-slots';
 
 // Read-only answers for the integration pages a spec opens to see what the
-// platform flags show there. Those pages have no stateful model yet, and such a
+// platform shows there. Those pages have no stateful model yet, and such a
 // spec needs them to render, not to be edited.
 
 /** The service account whose token page opens, and the list around it. */
@@ -14,14 +14,26 @@ export function installServiceAccountStub(
   return installIntegrationStub(page, { serviceAccount });
 }
 
-/** No webhook and no delivery yet: the webhooks pages render empty. */
+/**
+ * Kaiten Cloud serving webhooks to the organization, with no webhook and no
+ * delivery yet: the webhooks pages render empty. Without a webhooks stub the
+ * routes answer 404, as a self-hosted deployment's do.
+ */
 export function installEmptyWebhooksStub(page: Page) {
   return installIntegrationStub(page, { emptyWebhooks: true });
 }
 
+/**
+ * Kaiten Cloud refusing the organization every webhooks route, because its
+ * licence does not carry the `webhooks` entitlement (`Webhooks.NotEntitled`).
+ */
+export function installWebhooksNotEntitledStub(page: Page) {
+  return installIntegrationStub(page, { webhooksNotEntitled: true });
+}
+
 async function installIntegrationStub(
   page: Page,
-  stubs: { serviceAccount?: ServiceAccount; emptyWebhooks?: boolean },
+  stubs: NonNullable<E2EMswConfig['integrationStubs']>,
 ) {
   // Several installers can contribute to this read-only slot before navigation.
   await page.addInitScript(
