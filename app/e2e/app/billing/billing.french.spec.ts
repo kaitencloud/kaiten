@@ -38,11 +38,9 @@ test.describe('the invoices, read in French', () => {
         page.getByRole('columnheader', { exact: true, name: column }),
       ).toBeVisible();
     }
-    await expect(page.getByTestId('invoices-count')).toHaveText(
-      /^\d+ factures affichées$/,
-    );
     // The status is read in words, the amount and the date as French writes them.
     const list = new BillingInvoicesDriver(page);
+    await expect(list.rows().first()).toBeVisible();
     await expect(
       list.statusBadges().filter({ hasText: 'Bloquée' }).first(),
     ).toBeVisible();
@@ -175,9 +173,6 @@ test.describe('the invoices, read in French', () => {
     await expect(
       page.getByRole('columnheader', { exact: true, name: 'Statut' }),
     ).toBeVisible();
-    await expect(page.getByTestId('handoff-count')).toHaveText(
-      /^\d+ factures? affichées?$/,
-    );
 
     await page
       .getByRole('button', { exact: true, name: 'Acquitter' })

@@ -238,9 +238,10 @@ page holds, or an export the API streams.
   the side navigation open.
 - **A list the server pages draws the same states.** `PagedListSkeleton` while the
   first page is on the way, `ListEmptyState` when there is no row, and
-  `LoadMoreFooter` under the rows: how many were read ("50 invoices shown", never how
-  many there are, since the API does not say), "Load more", and a refusal of the next
-  page above the count. They started in `features/billing` for its three lists and
+  `LoadMoreFooter` under the rows, as the notifications feed draws its own: a centred
+  "Load more" while there is a next page, and a refusal of the next page above it. It
+  never says how many rows were read: the API does not say how many there are, and the
+  count of a page reads as the count of the list. They started in `features/billing` for its three lists and
   moved here when the invoices of an instance and of a customer paged theirs.
   `placeRefusalOnFields` shows a refusal of the API on the field of a form it is
   about, for the forms of the dialogs that ask for an audited action and those that

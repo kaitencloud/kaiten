@@ -12,7 +12,7 @@ import { useBillingTexts } from '@/test-fixtures/billing-test-support';
 
 useBillingTexts();
 
-describe('the skeleton of a list the server pages', () => {
+describe('the skeleton of a feed the server pages', () => {
   it('is a busy region named by what is being read, with the rows to be', () => {
     render(<PagedListSkeleton label="Loading invoices" rows={4} />);
 
@@ -33,7 +33,7 @@ describe('the skeleton of a list the server pages', () => {
   });
 });
 
-describe('the foot of a list the server pages', () => {
+describe('the foot of a feed the server pages', () => {
   const idle = {
     error: null,
     fetchNextPage: vi.fn(),
@@ -42,33 +42,29 @@ describe('the foot of a list the server pages', () => {
     isFetchingNextPage: false,
   };
 
-  it('says how many rows were read, politely, and offers nothing when there is no more', () => {
-    render(
-      <LoadMoreFooter
-        countLabel="2 invoices shown"
-        countTestId="count"
-        loadMoreLabel="Load more"
-        query={idle}
-      />,
+  it('offers nothing when there is no more, and never counts what was read', () => {
+    const { container } = render(
+      <LoadMoreFooter loadMoreLabel="Load more" query={idle} />,
     );
 
-    expect(screen.getByTestId('count')).toHaveTextContent('2 invoices shown');
-    expect(screen.getByTestId('count')).toHaveAttribute('aria-live', 'polite');
     expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it('reads the next page when asked', async () => {
+  it('centres the button under the rows, as the notifications feed does, and reads the next page when asked', async () => {
     const fetchNextPage = vi.fn();
     render(
       <LoadMoreFooter
-        countLabel="50 invoices shown"
-        countTestId="count"
         loadMoreLabel="Load more"
         query={{ ...idle, fetchNextPage, hasNextPage: true }}
       />,
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'Load more' }));
+    const button = screen.getByRole('button', { name: 'Load more' });
+    expect(button.parentElement).toHaveClass('flex', 'justify-center');
+    expect(screen.queryByText(/shown/)).toBeNull();
+
+    await userEvent.click(button);
 
     expect(fetchNextPage).toHaveBeenCalledTimes(1);
   });
@@ -76,8 +72,6 @@ describe('the foot of a list the server pages', () => {
   it('keeps the button from being pressed while a page is on the way', () => {
     render(
       <LoadMoreFooter
-        countLabel="50 invoices shown"
-        countTestId="count"
         loadMoreLabel="Load more"
         query={{ ...idle, hasNextPage: true, isFetchingNextPage: true }}
       />,
@@ -89,8 +83,6 @@ describe('the foot of a list the server pages', () => {
   it('says why the next page could not be read, and keeps the button to ask again', () => {
     render(
       <LoadMoreFooter
-        countLabel="50 invoices shown"
-        countTestId="count"
         loadMoreLabel="Load more"
         query={{
           ...idle,

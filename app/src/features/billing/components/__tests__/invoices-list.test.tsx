@@ -69,7 +69,7 @@ describe('the list of invoices', () => {
     ).toHaveAttribute('aria-busy', 'true');
   });
 
-  it('shows the invoices it read, and how many', async () => {
+  it('shows the invoices it read, and says no count of them', async () => {
     serveInvoices(
       pageOf([invoiceRow('inv-1', 'Initech'), invoiceRow('inv-2', 'Globex')]),
     );
@@ -77,9 +77,7 @@ describe('the list of invoices', () => {
 
     expect(await screen.findByText('Initech')).toBeInTheDocument();
     expect(screen.getByText('Globex')).toBeInTheDocument();
-    expect(screen.getByTestId('invoices-count')).toHaveTextContent(
-      '2 invoices shown',
-    );
+    expect(screen.queryByText(/invoices shown/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
   });
 
@@ -112,9 +110,6 @@ describe('the list of invoices', () => {
     expect(asked[1].get('cursor')).toBe('cursor-2');
     expect(asked[1].get('kind')).toBe('RENEWAL');
     expect(asked[1].get('limit')).toBe('50');
-    expect(screen.getByTestId('invoices-count')).toHaveTextContent(
-      '2 invoices shown',
-    );
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull(),
     );

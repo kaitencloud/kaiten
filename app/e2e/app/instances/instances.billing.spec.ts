@@ -142,7 +142,7 @@ test.describe('the Billing tab of an instance', () => {
     ).toHaveCount(0);
     // The rest of the tab is where it was.
     await expect(billing.subscriptionCard()).toContainText('Active');
-    await expect(billing.invoicesCount()).toHaveText('2 invoices shown');
+    await expect(billing.invoiceRows()).toHaveCount(2);
   });
 
   test('lists the invoices of the instance, newest first, without saying whose they are on every row', async ({
@@ -153,7 +153,7 @@ test.describe('the Billing tab of an instance', () => {
 
     await billing.goto('acme-production');
 
-    await expect(billing.invoicesCount()).toHaveText('2 invoices shown');
+    await expect(billing.invoiceRows()).toHaveCount(2);
     await expect(
       page.getByRole('columnheader', { name: 'Customer' }),
     ).toHaveCount(0);

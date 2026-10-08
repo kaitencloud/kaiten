@@ -37,7 +37,7 @@ test.describe('accessibility of the billing of an instance', () => {
     await billing.goto('acme-production');
     await expect(billing.subscriptionCard()).toContainText('Active');
     await expect(billing.wouldHoldBanner()).toBeVisible();
-    await expect(billing.invoicesCount()).toHaveText('2 invoices shown');
+    await expect(billing.invoiceRows()).toHaveCount(2);
     await expectNoAccessibilityViolations(page);
 
     await useLightTheme(page);
@@ -126,7 +126,7 @@ test.describe('accessibility of the usage history', () => {
 
     await history.gotoEntitlements('acme-production');
     await history.open('API Calls');
-    await expect(history.count()).toHaveText('100 reports shown');
+    await expect(history.rows()).toHaveCount(100);
     await settle(page);
     await expectNoAccessibilityViolations(page);
 
@@ -177,7 +177,7 @@ test.describe('accessibility of a customer and the settings of billing', () => {
     const detail = new CustomerDetailDriver(page);
 
     await detail.goto('acme-corp');
-    await expect(detail.invoicesCount()).toHaveText('4 invoices shown');
+    await expect(detail.invoiceRows()).toHaveCount(4);
     await expectNoAccessibilityViolations(page);
 
     await useLightTheme(page);

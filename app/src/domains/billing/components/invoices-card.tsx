@@ -94,11 +94,6 @@ export function InvoicesCard({
           variant="simple"
         />
         <LoadMoreFooter
-          className="px-6 py-4"
-          countLabel={t('Features.Billing.InvoicesCard.shown', {
-            count: invoices.length,
-          })}
-          countTestId={`${testIdPrefix}-count`}
           loadMoreLabel={t('Features.Billing.InvoicesCard.loadMore')}
           query={query}
         />

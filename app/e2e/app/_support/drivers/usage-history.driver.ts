@@ -37,10 +37,6 @@ export class UsageHistoryDriver {
     await expect(this.drawer()).toBeVisible();
   }
 
-  count(): Locator {
-    return this.drawer().getByTestId('usage-history-count');
-  }
-
   rows(): Locator {
     return this.drawer()
       .getByRole('row')

@@ -80,9 +80,7 @@ describe('the queue of the handoff', () => {
     renderList();
 
     expect(await screen.findByText('Initech')).toBeInTheDocument();
-    expect(screen.getByTestId('handoff-count')).toHaveTextContent(
-      '1 invoice shown',
-    );
+    expect(screen.queryByText(/invoices? shown/)).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Load more' }));
 
     expect(await screen.findByText('Globex')).toBeInTheDocument();

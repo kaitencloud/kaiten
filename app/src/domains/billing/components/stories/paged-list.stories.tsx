@@ -17,7 +17,7 @@ const meta = {
 export default meta;
 type Story = StoryObj;
 
-// What a list the server pages shows while its first page is on the way.
+// What a feed the server pages shows while its first page is on the way.
 export const Skeleton: Story = {
   render: () => <PagedListSkeleton label="Loading invoices" rows={5} />,
   play: async ({ canvasElement }) => {
@@ -37,12 +37,10 @@ const idle = {
   isFetchingNextPage: false,
 };
 
-// How many were read, never how many there are, and the way to read more.
+// The way to read more, centred under the rows as the notifications feed draws it.
 export const FootWithMore: Story = {
   render: () => (
     <LoadMoreFooter
-      countLabel="50 invoices shown"
-      countTestId="count"
       loadMoreLabel="Load more"
       query={{ ...idle, hasNextPage: true }}
     />
@@ -58,8 +56,6 @@ export const FootWithMore: Story = {
 export const FootReadingTheNextPage: Story = {
   render: () => (
     <LoadMoreFooter
-      countLabel="50 invoices shown"
-      countTestId="count"
       loadMoreLabel="Load more"
       query={{ ...idle, hasNextPage: true, isFetchingNextPage: true }}
     />
@@ -75,8 +71,6 @@ export const FootReadingTheNextPage: Story = {
 export const FootWhenTheNextPageFailed: Story = {
   render: () => (
     <LoadMoreFooter
-      countLabel="50 invoices shown"
-      countTestId="count"
       loadMoreLabel="Load more"
       query={{
         ...idle,

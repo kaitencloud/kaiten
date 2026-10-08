@@ -81,18 +81,14 @@ const reports = (state: ReturnType<typeof history>) => (
   </StorybookRouter>
 );
 
-// The reports of the period in the order they were accepted, how many were read
-// and not how many there are, the way to read more, and the report where the limit
-// moved marked.
+// The reports of the period in the order they were accepted, the way to read
+// more, and the report where the limit moved marked.
 export const Reports: Story = {
   render: () => reports(history({}, { hasNextPage: true })),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(await canvas.findByTestId('usage-history-count')).toHaveTextContent(
-      '3 reports shown',
-    );
-    await expect(canvas.getAllByText('Limit changed')).toHaveLength(1);
+    await expect(await canvas.findAllByText('Limit changed')).toHaveLength(1);
     await userEvent.click(canvas.getByRole('button', { name: 'Load more reports' }));
     await expect(fetchNextPage).toHaveBeenCalledTimes(1);
   },

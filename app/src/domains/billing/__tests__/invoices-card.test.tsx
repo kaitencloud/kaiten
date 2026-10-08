@@ -109,7 +109,7 @@ describe('the invoices of a subject', () => {
     expect(screen.queryByTestId('things-error')).toBeNull();
   });
 
-  it('lists the invoices read, counts them and offers the next page', async () => {
+  it('lists the invoices read, says no count of them and offers the next page', async () => {
     const fetchNextPage = vi.fn();
     render(
       card(
@@ -125,7 +125,7 @@ describe('the invoices of a subject', () => {
     );
 
     expect(screen.getAllByRole('row')).toHaveLength(4);
-    expect(screen.getByTestId('things-count')).toHaveTextContent('3 invoices shown');
+    expect(screen.queryByText(/invoices? shown/)).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Load more' }));
     expect(fetchNextPage).toHaveBeenCalled();
   });

@@ -27,8 +27,7 @@ type LineReportsSectionProps = {
  */
 export function LineReportsSection({ line, reports }: LineReportsSectionProps) {
   const { t } = useTranslation();
-  const { isOutsideRetention, limitChanges, query, reportCount, windows } =
-    reports;
+  const { isOutsideRetention, limitChanges, query, windows } = reports;
 
   if (query.isPending) {
     return (
@@ -88,10 +87,6 @@ export function LineReportsSection({ line, reports }: LineReportsSectionProps) {
     <div className="space-y-4" data-testid="line-reports">
       {windows.map(renderWindow)}
       <LoadMoreFooter
-        countLabel={t('Pages.Billing.Invoices.Drilldown.shown', {
-          count: reportCount,
-        })}
-        countTestId="line-reports-count"
         loadMoreLabel={t('Pages.Billing.Invoices.Drilldown.loadMore')}
         query={query}
       />

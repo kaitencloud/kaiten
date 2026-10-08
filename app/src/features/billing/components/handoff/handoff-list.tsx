@@ -69,11 +69,6 @@ export function HandoffList({ status }: HandoffListProps) {
         />
       </div>
       <LoadMoreFooter
-        className="pb-1"
-        countLabel={t('Pages.Billing.Handoff.shown', {
-          count: invoices.length,
-        })}
-        countTestId="handoff-count"
         loadMoreLabel={t('Pages.Billing.Handoff.loadMore')}
         query={query}
       />

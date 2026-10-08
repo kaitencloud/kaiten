@@ -116,7 +116,7 @@ test.describe('the reports behind a line', () => {
       '5 reports · overage 52,345',
     );
     await expect(drilldown.measuredQuantity()).toHaveText('52,345');
-    await expect(drilldown.count()).toHaveText('5 reports shown');
+    await expect(drilldown.reportRows()).toHaveCount(5);
   });
 
   test('mark the report where the limit in force changed, which explains the overage', async ({
@@ -219,7 +219,7 @@ test.describe('a line with more reports than a page holds', () => {
     await drilldown.goto('inv-big', 'inv-big-line-1', 'Events');
 
     await expect(drilldown.reportRows()).toHaveCount(500);
-    await expect(drilldown.count()).toHaveText('500 reports shown');
+    await expect(drilldown.reportRows()).toHaveCount(500);
     // The page ends inside March: its sum is not given yet.
     await expect(drilldown.windowSum(0)).toHaveText(
       '500 reports so far · more to load',
@@ -230,7 +230,7 @@ test.describe('a line with more reports than a page holds', () => {
     await drilldown.loadMore().click();
 
     await expect(drilldown.reportRows()).toHaveCount(520);
-    await expect(drilldown.count()).toHaveText('520 reports shown');
+    await expect(drilldown.reportRows()).toHaveCount(520);
     await expect(drilldown.loadMore()).toHaveCount(0);
     // The next page continues after the last report read.
     expect(new URLSearchParams(reads[1].search).get('afterSeq')).toBe('500');

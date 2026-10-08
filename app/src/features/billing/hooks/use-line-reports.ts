@@ -22,7 +22,6 @@ export function useLineReports(invoiceId: string, lineId: string) {
     isOutsideRetention: outsideRetention !== null,
     limitChanges,
     query,
-    reportCount: reports.length,
     windows,
   };
 }

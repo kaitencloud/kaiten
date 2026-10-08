@@ -54,10 +54,6 @@ export class BillingHandoffDriver {
     });
   }
 
-  count(): Locator {
-    return this.page.getByTestId('handoff-count');
-  }
-
   empty(): Locator {
     return this.page.getByTestId('handoff-empty');
   }

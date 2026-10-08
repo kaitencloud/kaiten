@@ -77,11 +77,6 @@ export class BillingInvoicesDriver {
       .toEqual(ids);
   }
 
-  /** What the list says it shows, under it: "9 invoices shown". */
-  count(): Locator {
-    return this.page.getByTestId('invoices-count');
-  }
-
   loadMore(): Locator {
     return this.page.getByRole('button', { name: 'Load more', exact: true });
   }

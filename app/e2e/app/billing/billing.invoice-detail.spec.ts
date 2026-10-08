@@ -1,4 +1,5 @@
 import { expect, test } from '../_support/app-test';
+import { BillingInvoicesDriver } from '../_support/drivers/billing-invoices.driver';
 import { InvoiceDetailDriver } from '../_support/drivers/invoice-detail.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import {
@@ -258,9 +259,7 @@ test.describe('an invoice', () => {
 
     await expect(page).toHaveURL(/\/billing\/invoices\?customerSlug=globex$/);
     await expect(page.getByText('Customer: globex')).toBeVisible();
-    await expect(page.getByTestId('invoices-count')).toHaveText(
-      '3 invoices shown',
-    );
+    await expect(new BillingInvoicesDriver(page).rows()).toHaveCount(3);
   });
 
   test('is a page that does not exist for an invoice the API does not know', async ({
