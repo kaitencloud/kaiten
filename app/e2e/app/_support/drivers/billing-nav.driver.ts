@@ -29,6 +29,11 @@ export class BillingNavDriver {
     return this.content.getByRole('button', { name: 'Billing', exact: true });
   }
 
+  /** The glyph of the section, which is the receipt of the area and not an invoice's. */
+  sectionIcon(): Locator {
+    return this.section().locator('svg').first();
+  }
+
   entry(label: string): Locator {
     return this.content.getByRole('link', { name: label, exact: true });
   }

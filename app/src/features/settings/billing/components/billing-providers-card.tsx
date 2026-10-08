@@ -90,7 +90,7 @@ export function BillingProvidersCard() {
     <Card data-testid="billing-providers">
       <SettingsCardHeader
         description={t('Pages.Settings.Billing.Providers.description')}
-        icon={dataModelIcons.invoice}
+        icon={dataModelIcons.billing}
         title={t('Pages.Settings.Billing.Providers.title')}
       />
       <CardContent>

@@ -21,7 +21,10 @@ invoice preview, the table of invoices, the rules of the actions of an invoice
 and the way a refusal is shown. The generic parts live where any feature can
 reach them: `lib/money.ts`, `lib/decimal.ts`,
 `components/form/fields/money-field.tsx`, `lib/download-blob.ts` and the billing
-icons of `lib/data-model-icons.ts`.
+icons of `lib/data-model-icons.ts`: an invoice, a subscription, a price, and `billing`,
+the glyph of the area itself, which the Billing section of the navigation and the screens
+that stand for billing as a whole (its settings, the explanation of a closed gate) draw
+instead of an invoice's.
 
 The screens that came next use it the same way. The billing tab of an instance reads
 the same capabilities and refusals, lists its invoices in the same card as the page of

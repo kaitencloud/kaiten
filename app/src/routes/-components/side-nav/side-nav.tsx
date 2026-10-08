@@ -52,7 +52,7 @@ export function SideNav() {
               {billingItems.length > 0 ? (
                 <SidebarMenuItem>
                   <SideNavCollapsibleMenu
-                    Icon={dataModelIcons.invoice}
+                    Icon={dataModelIcons.billing}
                     isActive={isBillingActive}
                     isCollapsed={isCollapsed}
                     items={billingItems}

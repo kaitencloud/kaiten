@@ -15,9 +15,9 @@ import type { BillingUnavailableReason } from '../types';
 import { MissingScopeBanner } from './missing-scope-banner';
 
 const REASON_ICONS = {
-  DEPLOYMENT_DISABLED: dataModelIcons.invoice,
-  NOT_ENTITLED: dataModelIcons.invoice,
-  FEATURE_UNAVAILABLE: dataModelIcons.invoice,
+  DEPLOYMENT_DISABLED: dataModelIcons.billing,
+  NOT_ENTITLED: dataModelIcons.billing,
+  FEATURE_UNAVAILABLE: dataModelIcons.billing,
   MISSING_SCOPE: ShieldAlert,
   UNREACHABLE: CloudOff,
 } as const satisfies Record<BillingUnavailableReason, LucideIcon>;

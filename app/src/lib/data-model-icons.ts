@@ -9,6 +9,7 @@ import {
   Package,
   Puzzle,
   Receipt,
+  ReceiptText,
   Repeat,
   Rocket,
   Server,
@@ -18,6 +19,10 @@ import {
   Users,
 } from 'lucide-react';
 
+// `billing` is not an entity but the area that holds the invoices, the handoff
+// queue, the add-ons and the vouchers: it keeps the receipt with a dollar sign,
+// so that the Billing section of the navigation does not read as one invoice.
+// An invoice itself is the receipt with its lines of text.
 export const dataModelIcons = {
   customer: Users,
   instance: Server,
@@ -30,7 +35,8 @@ export const dataModelIcons = {
   deploymentZone: MapPinned,
   serviceAccount: UserKey,
   token: Braces,
-  invoice: Receipt,
+  billing: Receipt,
+  invoice: ReceiptText,
   subscription: Repeat,
   price: Coins,
   addon: Puzzle,
