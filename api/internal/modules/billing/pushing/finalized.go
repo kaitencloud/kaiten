@@ -18,6 +18,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/providers"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/telemetry"
 )
 
 // Finalized records that the provider issued an invoice, whether Kaiten
@@ -112,6 +113,7 @@ func Reconcile(ctx context.Context, deps access.Deps, box *outbox.ScopedReposito
 		if err != nil || affected == 0 || outcome.Matched {
 			return err
 		}
+		telemetry.Mismatched(ctx, string(row.ProviderKind))
 		updated, err := q.GetInvoiceByID(ctx, row.ID)
 		if err != nil {
 			return err
