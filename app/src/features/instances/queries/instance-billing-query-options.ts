@@ -2,15 +2,20 @@ import { queryOptions } from '@tanstack/react-query';
 import {
   getInstanceBilling,
   getUpcomingInvoice,
+  listInstanceAddons,
   listLicensePrices,
 } from '@/api-client';
 import {
   getInstanceBillingQueryKey,
   getUpcomingInvoiceQueryKey,
+  listInstanceAddonsQueryKey,
   listLicensePricesQueryKey,
 } from '@/api-client/@tanstack/react-query.gen';
 import { getProblemCode } from '@/domains/billing';
-import { allInstanceInvoicesOptions } from '@/lib/api/all-pages-query-options';
+import {
+  allInstanceInvoicesOptions,
+  allLicensesOptions,
+} from '@/lib/api/all-pages-query-options';
 
 const NOT_SUBSCRIBED = 'GetInstanceBilling.NotFound';
 const UPCOMING_NOT_FOUND = 'GetUpcomingInvoice.NotFound';
@@ -122,3 +127,36 @@ export const subscribablePricesQueryOptions = (licenseSlug: string) => {
     retryOnMount: false,
   });
 };
+
+/**
+ * The add-ons an instance holds, in the order they were attached: what the
+ * cancellation of its subscription offers to remove. They keep the generated key,
+ * so that the invalidation of a subscription reaches them.
+ */
+export const instanceAddonsQueryOptions = (instanceSlug: string) =>
+  queryOptions({
+    queryKey: listInstanceAddonsQueryKey({ path: { instanceSlug } }),
+    queryFn: async ({ signal }) => {
+      const { data } = await listInstanceAddons({
+        path: { instanceSlug },
+        signal,
+        throwOnError: true,
+      });
+
+      return data;
+    },
+    retry: false,
+    retryOnMount: false,
+  });
+
+/**
+ * Every version of every license, where the plans a subscription can move to are
+ * found: a plan change may target the price of any published version, whatever
+ * its family. The prices of each version are read apart (`subscribablePricesQueryOptions`),
+ * since the API lists them per version.
+ */
+export const planTargetLicensesQueryOptions = () => ({
+  ...allLicensesOptions(),
+  retry: false,
+  retryOnMount: false,
+});

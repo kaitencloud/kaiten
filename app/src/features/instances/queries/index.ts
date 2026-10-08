@@ -1,6 +1,8 @@
 export {
+  instanceAddonsQueryOptions,
   instanceBillingQueryOptions,
   instanceInvoicesQueryOptions,
+  planTargetLicensesQueryOptions,
   subscribablePricesQueryOptions,
   upcomingInvoiceQueryOptions,
 } from './instance-billing-query-options';
