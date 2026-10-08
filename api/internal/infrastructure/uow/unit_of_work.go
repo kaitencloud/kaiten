@@ -122,6 +122,15 @@ func (u *UnitOfWork) Transact(ctx context.Context, fn func(ctx context.Context) 
 // Queries type via that module's own New(...) constructor -- there is no
 // separate "give me the transactional one" API, because from the caller's
 // side there is no separate case to handle.
+// InTransaction reports whether ctx carries a transaction a Transact call would
+// join. Work that must only happen after a commit -- a call to the outside
+// world about a row the transaction wrote -- asks it to tell whether the commit
+// is its own to wait for, or its caller's.
+func (u *UnitOfWork) InTransaction(ctx context.Context) bool {
+	_, ok := ctx.Value(txDBTXKey{}).(pgx.Tx)
+	return ok
+}
+
 func (u *UnitOfWork) DBTX(ctx context.Context) DBTX {
 	if tx, ok := ctx.Value(txDBTXKey{}).(pgx.Tx); ok {
 		return tx
