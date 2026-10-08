@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
+import type { Invoice } from '@/api-client';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import {
   buildInvoice,
@@ -8,6 +9,7 @@ import {
 import { HoldBanner } from '../invoice-detail/hold-banner';
 import { InvoiceActionButtons } from '../invoice-detail/invoice-action-buttons';
 import { InvoiceChain } from '../invoice-detail/invoice-chain';
+import { InvoiceDetailStats } from '../invoice-detail/invoice-detail-stats';
 import { InvoiceHandoffBlock } from '../invoice-detail/invoice-handoff-block';
 import { InvoiceSummaryCard } from '../invoice-detail/invoice-summary-card';
 
@@ -187,7 +189,172 @@ export const Summary: Story = {
     const canvas = within(canvasElement);
 
     await expect(await canvas.findByText('Summary')).toBeVisible();
-    await expect(canvas.getByText(/30 days to pay/)).toBeVisible();
+    await expect(canvas.getByText('Payment terms')).toBeVisible();
+    await expect(canvas.getByText('30 days')).toBeVisible();
     await expect(canvas.getByText(/Counter verified by hand/)).toBeVisible();
+  },
+};
+
+// An invoice that ended keeps the day it had fallen due in its summary: the strip
+// above it says when it ended, and no longer when it was due.
+export const SummaryEnded: Story = {
+  render: () => (
+    <div className="max-w-sm">
+      <InvoiceSummaryCard
+        invoice={buildInvoice({
+          boundaryAt: BOUNDARY,
+          id: 'inv-1',
+          lines: [line],
+          paidAt: '2027-03-18T10:30:00.000Z',
+          status: 'PAID',
+        })}
+      />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(await canvas.findByText('Due')).toBeVisible();
+    await expect(canvas.getByText('Mar 31, 2027 (UTC)')).toBeVisible();
+    await expect(canvas.queryByText(/Mar 18, 2027/)).toBeNull();
+  },
+};
+
+// --- The three figures under the header ---------------------------------------
+
+// Midday UTC on the 20th, so that "overdue" and "in N days" read the same on every run.
+const NOW = Date.parse('2027-03-20T12:00:00.000Z');
+
+const figures = (invoice: Invoice) => (
+  <div className="max-w-5xl">
+    <InvoiceDetailStats invoice={invoice} now={NOW} />
+  </div>
+);
+
+const labelled = (canvasElement: HTMLElement, label: string) =>
+  within(canvasElement).getByText(label, {
+    selector: '[data-slot="stat-card-label"]',
+  });
+
+// The total as the API states it, the day the invoice is due and how far away it is,
+// and the period its lines bill under the kind of invoice it is.
+export const FiguresToBePaid: Story = {
+  render: () =>
+    figures(
+      buildInvoice({
+        boundaryAt: BOUNDARY,
+        dueAt: '2027-03-31T00:04:00.000Z',
+        id: 'inv-1',
+        issuedAt: '2027-03-17T00:04:00.000Z',
+        lines: [line],
+      }),
+    ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(await canvas.findByText('$129.00')).toBeVisible();
+    await expect(canvas.getByText('1 line')).toBeVisible();
+    await expect(canvas.getByText('Mar 31, 2027')).toBeVisible();
+    await expect(canvas.getByText('in 11 days')).toBeVisible();
+    // The period is two pieces, one for each date, that wrap after the dash.
+    await expect(canvas.getByText('Mar 1 –')).toBeVisible();
+    await expect(canvas.getByText('Apr 1, 2027')).toBeVisible();
+    await expect(canvas.getByText('Renewal')).toBeVisible();
+  },
+};
+
+// Past its due date and unpaid: the date and how long it has been missed take the
+// tone of an alert, as the badge of the title does.
+export const FiguresOverdue: Story = {
+  render: () =>
+    figures(
+      buildInvoice({
+        boundaryAt: BOUNDARY,
+        dueAt: '2027-03-10T00:04:00.000Z',
+        id: 'inv-1',
+        issuedAt: '2027-02-08T00:04:00.000Z',
+        lines: [line],
+      }),
+    ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(await canvas.findByText('overdue for 10 days')).toBeVisible();
+    await expect(canvas.getByText('overdue for 10 days')).toHaveClass(
+      'text-destructive-subtle-foreground',
+    );
+  },
+};
+
+// A draft was not issued, held or not: it has no due date, and the card says so in
+// a word that is not a figure.
+export const FiguresNotIssued: Story = {
+  render: () =>
+    figures(
+      buildInvoice({
+        boundaryAt: BOUNDARY,
+        holdReason: 'LEDGER_SEQUENCE_GAP',
+        id: 'inv-1',
+        lines: [line],
+        status: 'DRAFT',
+      }),
+    ),
+  play: async ({ canvasElement }) => {
+    await expect(await within(canvasElement).findByText('Not issued')).toBeVisible();
+  },
+};
+
+// An invoice that ended is no longer due: the card says when it ended, the day and
+// under it the time of day, since the state itself is the badge of the title.
+export const FiguresPaid: Story = {
+  render: () =>
+    figures(
+      buildInvoice({
+        boundaryAt: BOUNDARY,
+        id: 'inv-1',
+        lines: [line],
+        paidAt: '2027-03-18T10:30:00.000Z',
+        status: 'PAID',
+      }),
+    ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(await canvas.findByText('Mar 18, 2027')).toBeVisible();
+    await expect(canvas.getByText('10:30 AM (UTC)')).toBeVisible();
+    await expect(labelled(canvasElement, 'Paid')).toBeVisible();
+  },
+};
+
+// A period of a year is too long for a third of a narrow strip: it wraps after its
+// dash, each date whole, and the zone stays with the last one.
+export const FiguresYear: Story = {
+  render: () => (
+    <div className="max-w-xl">
+      <InvoiceDetailStats
+        invoice={buildInvoice({
+          boundaryAt: BOUNDARY,
+          dueAt: '2027-03-31T00:04:00.000Z',
+          id: 'inv-1',
+          issuedAt: '2027-03-17T00:04:00.000Z',
+          kind: 'ACTIVATION',
+          lines: [
+            {
+              ...line,
+              serviceFrom: BOUNDARY,
+              serviceTo: '2028-03-01T00:00:00.000Z',
+            },
+          ],
+        })}
+        now={NOW}
+      />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(await canvas.findByText(/Mar 1, 2027/)).toBeVisible();
+    await expect(canvas.getByText(/Mar 1, 2028/)).toBeVisible();
+    await expect(canvas.getByText('Activation')).toBeVisible();
   },
 };

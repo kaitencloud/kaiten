@@ -1,27 +1,25 @@
 import { useTranslation } from 'react-i18next';
 import type { Invoice } from '@/api-client';
-import {
-  formatInstant,
-  formatUtcDate,
-  getInvoiceKindLabelKey,
-  ProviderBadge,
-  ServicePeriod,
-} from '@/domains/billing';
+import { formatInstant, formatUtcDate, ProviderBadge } from '@/domains/billing';
 import { DetailCard } from '@/functionals/detail-card';
+import { getInvoiceDue } from '../../utils/invoice-due';
 
 type InvoiceSummaryCardProps = {
   invoice: Invoice;
 };
 
 /**
- * What an invoice is, apart from what it bills: which boundary it was composed
- * at, the period its lines cover, when it was issued and is due, who collects it,
- * and how it ended when it did (paid, written off, voided, with the reason).
- * Every time is UTC and written as the API sent it.
+ * What an invoice is, apart from what it bills and what the strip above it says
+ * of the total, the due date and the period: which boundary it was composed at,
+ * who collects it, when it was issued and the terms it was issued on, the day an
+ * invoice that ended had fallen due (the strip says when it ended, not when it was
+ * due), and the reason it was voided or its hold released. Every time is UTC and
+ * written as the API sent it.
  */
 export function InvoiceSummaryCard({ invoice }: InvoiceSummaryCardProps) {
   const { i18n, t } = useTranslation();
   const language = i18n.language;
+  const due = getInvoiceDue(invoice);
 
   return (
     <DetailCard>
@@ -33,22 +31,8 @@ export function InvoiceSummaryCard({ invoice }: InvoiceSummaryCardProps) {
       <DetailCard.Content>
         <DetailCard.Rows>
           <DetailCard.Row
-            label={t('Pages.Billing.Invoices.Detail.Summary.kind')}
-            value={t(getInvoiceKindLabelKey(invoice.kind))}
-          />
-          <DetailCard.Row
             label={t('Pages.Billing.Invoices.Detail.Summary.boundary')}
             value={formatInstant(invoice.boundaryAt, language)}
-          />
-          <DetailCard.Row
-            align="start"
-            label={t('Pages.Billing.Invoices.Detail.Summary.period')}
-            value={
-              <ServicePeriod
-                from={invoice.serviceFrom}
-                to={invoice.serviceTo}
-              />
-            }
           />
           <DetailCard.Row
             label={t('Pages.Billing.Invoices.Detail.Summary.provider')}
@@ -60,32 +44,18 @@ export function InvoiceSummaryCard({ invoice }: InvoiceSummaryCardProps) {
               value={formatInstant(invoice.issuedAt, language)}
             />
           ) : null}
-          {invoice.dueAt ? (
+          {invoice.issuedAt && invoice.daysUntilDue !== undefined ? (
             <DetailCard.Row
-              align="start"
-              label={t('Pages.Billing.Invoices.Detail.Summary.due')}
-              value={t('Pages.Billing.Invoices.Detail.Summary.dueValue', {
-                count: invoice.daysUntilDue ?? 0,
-                date: formatUtcDate(invoice.dueAt, language),
+              label={t('Pages.Billing.Invoices.Detail.Summary.terms')}
+              value={t('Pages.Billing.Invoices.Detail.Summary.termsValue', {
+                count: invoice.daysUntilDue,
               })}
             />
           ) : null}
-          {invoice.paidAt ? (
+          {due.kind === 'ended' && due.dueAt ? (
             <DetailCard.Row
-              label={t('Pages.Billing.Invoices.Detail.Summary.paid')}
-              value={formatInstant(invoice.paidAt, language)}
-            />
-          ) : null}
-          {invoice.uncollectibleAt ? (
-            <DetailCard.Row
-              label={t('Pages.Billing.Invoices.Detail.Summary.writtenOff')}
-              value={formatInstant(invoice.uncollectibleAt, language)}
-            />
-          ) : null}
-          {invoice.voidedAt ? (
-            <DetailCard.Row
-              label={t('Pages.Billing.Invoices.Detail.Summary.voided')}
-              value={formatInstant(invoice.voidedAt, language)}
+              label={t('Pages.Billing.Invoices.Detail.Summary.due')}
+              value={formatUtcDate(due.dueAt, language)}
             />
           ) : null}
           {invoice.voidReason ? (
