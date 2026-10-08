@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/events"
+	billingevents "github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
 	componentevents "github.com/kaitencloud/kaiten/api/internal/modules/components/events"
 	customerevents "github.com/kaitencloud/kaiten/api/internal/modules/customers/events"
 	deploymentzoneevents "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/events"
@@ -15,6 +16,7 @@ import (
 	licenseevents "github.com/kaitencloud/kaiten/api/internal/modules/licenses/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/notifications/catalogue"
 	releaseevents "github.com/kaitencloud/kaiten/api/internal/modules/releases/events"
+	voucherevents "github.com/kaitencloud/kaiten/api/internal/modules/vouchers/events"
 )
 
 var (
@@ -170,6 +172,55 @@ func TestClickingANotificationOpensWhatItIsAbout(t *testing.T) {
 			payload:   `{"name":"ci-deploy","slug":"system-kaiten-9f2c1a"}`,
 			wantTitle: "A token was issued for ci-deploy",
 			wantURL:   "/integrations/service-accounts",
+		},
+		{
+			name:      "a failed push opens the invoice",
+			event:     billingevents.InstanceInvoicePushFailed,
+			payload:   `{"id":"4f8c","instanceSlug":"ninja-osaka-prod","pushAttempts":5,"lastPushError":"UNAVAILABLE: Stripe did not answer in time"}`,
+			wantTitle: "An invoice of ninja-osaka-prod could not be pushed to its payment provider",
+			wantURL:   "/billing/invoices/4f8c",
+		},
+		{
+			name:      "a failed payment opens the invoice",
+			event:     billingevents.InstanceInvoicePaymentFailed,
+			payload:   `{"id":"4f8c","instanceSlug":"ninja-osaka-prod","failureCode":"card_declined"}`,
+			wantTitle: "The payment of an invoice of ninja-osaka-prod failed",
+			wantURL:   "/billing/invoices/4f8c",
+		},
+		{
+			name:      "a reconciliation mismatch opens the invoice",
+			event:     billingevents.InstanceInvoiceReconciliationMismatch,
+			payload:   `{"id":"4f8c","instanceSlug":"ninja-osaka-prod"}`,
+			wantTitle: "An invoice of ninja-osaka-prod differs in its payment provider",
+			wantURL:   "/billing/invoices/4f8c",
+		},
+		{
+			name:      "an invoice event without an id opens the invoice list",
+			event:     billingevents.InstanceInvoicePushFailed,
+			payload:   `{}`,
+			wantTitle: "Invoice push failed",
+			wantURL:   "/billing/invoices",
+		},
+		{
+			name:      "an expiring payment method opens its customer",
+			event:     billingevents.CustomerPaymentMethodExpiring,
+			payload:   `{"customerSlug":"ninja-osaka","providerKind":"STRIPE","expiresAt":"2027-03-31T23:59:59Z"}`,
+			wantTitle: "ninja-osaka's payment method expires soon",
+			wantURL:   "/customers/ninja-osaka",
+		},
+		{
+			name:      "a failing provider sync opens the billing settings",
+			event:     billingevents.BillingProviderSyncFailed,
+			payload:   `{"providerKind":"STRIPE","consecutiveFailures":3,"lastSyncError":"UNAVAILABLE"}`,
+			wantTitle: "Payments from STRIPE are not being read",
+			wantURL:   "/settings/billing",
+		},
+		{
+			name:      "a used-up voucher opens billing",
+			event:     voucherevents.VoucherExhausted,
+			payload:   `{"id":"9a1b","name":"LAUNCH20","maxRedemptions":100}`,
+			wantTitle: "Voucher LAUNCH20 is used up",
+			wantURL:   "/billing",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
