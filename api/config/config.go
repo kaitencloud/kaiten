@@ -86,10 +86,9 @@ type Billing struct {
 	CloseGrace  time.Duration      `mapstructure:"close_grace" validate:"gte=0"`
 	PeriodClose BillingPeriodClose `mapstructure:"period_close"`
 	Lifecycle   BillingLifecycle   `mapstructure:"lifecycle"`
-	Push        BillingPush        `mapstructure:"push"`
-	Sync        BillingSync        `mapstructure:"sync"`
-	// ProviderTimeout bounds one call to a payment provider.
-	ProviderTimeout time.Duration `mapstructure:"provider_timeout" validate:"gte=0"`
+	Push        BillingPush        `mapstructure:"invoice_push"`
+	Sync        BillingSync        `mapstructure:"provider_sync"`
+	Provider    BillingProvider    `mapstructure:"provider"`
 	// AutoCollectionGrace is how long an invoice the provider charges may stay
 	// unpaid after its issue before it is overdue, unless its charge was
 	// refused (§9.6 rule 1): room for the charge's retries and the provider's
@@ -126,6 +125,12 @@ type BillingPush struct {
 type BillingSync struct {
 	// Interval below 0 disables the pass; POST /billing/sync still runs one.
 	Interval time.Duration
+}
+
+// BillingProvider bounds the calls to payment providers.
+type BillingProvider struct {
+	// Timeout bounds one call to a payment provider.
+	Timeout time.Duration `mapstructure:"timeout" validate:"gte=0"`
 }
 
 // BillingLifecycle schedules the pass that moves subscriptions in and out of
@@ -396,12 +401,12 @@ var settings = []struct {
 	{"billing.period_close.interval", "KAITEN_BILLING_PERIOD_CLOSE_INTERVAL", "5m", false},
 	{"billing.period_close.batch_size", "KAITEN_BILLING_CLOSE_BATCH_SIZE", 100, false},
 	{"billing.lifecycle.interval", "KAITEN_BILLING_LIFECYCLE_INTERVAL", "15m", false},
-	{"billing.push.interval", "KAITEN_BILLING_PUSH_INTERVAL", "1m", false},
-	{"billing.push.batch_size", "KAITEN_BILLING_PUSH_BATCH_SIZE", 50, false},
-	{"billing.push.max_backoff", "KAITEN_BILLING_PUSH_MAX_BACKOFF", "6h", false},
-	{"billing.push.alert_after_attempts", "KAITEN_BILLING_PUSH_ALERT_AFTER_ATTEMPTS", 5, false},
-	{"billing.sync.interval", "KAITEN_BILLING_SYNC_INTERVAL", "15m", false},
-	{"billing.provider_timeout", "KAITEN_BILLING_PROVIDER_TIMEOUT", "30s", false},
+	{"billing.invoice_push.interval", "KAITEN_BILLING_INVOICE_PUSH_INTERVAL", "1m", false},
+	{"billing.invoice_push.batch_size", "KAITEN_BILLING_PUSH_BATCH_SIZE", 50, false},
+	{"billing.invoice_push.max_backoff", "KAITEN_BILLING_PUSH_MAX_BACKOFF", "6h", false},
+	{"billing.invoice_push.alert_after_attempts", "KAITEN_BILLING_PUSH_ALERT_AFTER_ATTEMPTS", 5, false},
+	{"billing.provider_sync.interval", "KAITEN_BILLING_PROVIDER_SYNC_INTERVAL", "15m", false},
+	{"billing.provider.timeout", "KAITEN_BILLING_PROVIDER_TIMEOUT", "30s", false},
 	{"billing.auto_collection_grace", "KAITEN_BILLING_AUTO_COLLECTION_GRACE", "2h", false},
 	{"billing.stripe.send_after_finalize", "KAITEN_BILLING_STRIPE_SEND_AFTER_FINALIZE", false, false},
 }

@@ -119,7 +119,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		Redeemer:        from.Redeemer,
 		Mover:           from.Mover,
 		Providers:       svc.BillingProviders,
-		ProviderTimeout: svc.Config.Billing.ProviderTimeout,
+		ProviderTimeout: svc.Config.Billing.Provider.Timeout,
 
 		AutoCollectionGrace: svc.Config.Billing.AutoCollectionGrace,
 	}
@@ -127,9 +127,9 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 	closer := closing.New(deps, cfg.CloseGrace)
 	pusher := pushing.New(deps, pushing.Config{
 		MaxBackoff: cfg.Push.MaxBackoff, AlertAfterAttempts: cfg.Push.AlertAfterAttempts,
-		Timeout: cfg.ProviderTimeout, BatchSize: cfg.Push.BatchSize,
+		Timeout: cfg.Provider.Timeout, BatchSize: cfg.Push.BatchSize,
 	})
-	syncer := syncing.New(deps, cfg.ProviderTimeout)
+	syncer := syncing.New(deps, cfg.Provider.Timeout)
 	useCases := &UseCases{
 		GetBillingSettings:     getbillingsettings.NewUseCase(deps),
 		UpdateBillingSettings:  updatebillingsettings.NewUseCase(deps),
