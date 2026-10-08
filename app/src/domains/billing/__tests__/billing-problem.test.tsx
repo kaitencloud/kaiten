@@ -294,14 +294,18 @@ function Dialog({ onForm }: { onForm: (form: AnyFormApi) => void }) {
   );
 }
 
+// The form reaches the test from an effect, which can run after its fields are
+// on screen: wait for both, not for the fields alone.
 async function mountDialog() {
   let form: AnyFormApi | undefined;
   render(<Dialog onForm={(mounted) => (form = mounted)} />);
   await screen.findByLabelText('Reference');
-  if (!form) {
-    throw new Error('The dialog did not mount its form');
-  }
-  return form;
+  return waitFor(() => {
+    if (!form) {
+      throw new Error('The dialog did not mount its form');
+    }
+    return form;
+  });
 }
 
 describe('setProblemFieldError', () => {
