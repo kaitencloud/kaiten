@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link } from '@tanstack/react-router';
-import { CirclePlus, Star } from 'lucide-react';
+import { CirclePlus, Globe, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   ActionAccordionActions,
@@ -10,8 +10,10 @@ import {
   ActionAccordionItem,
   ActionAccordionTrigger,
 } from '@/components/ui/action-accordion';
+import { useBillingCapabilities } from '@/domains/billing';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import type { LicenseGroup } from '../types';
+import { LicenseFamilyPublicToggle } from './license-family-public-toggle';
 import { LicenseVersionsTable } from './license-versions-table';
 
 type LicenseListItemProps = {
@@ -20,6 +22,7 @@ type LicenseListItemProps = {
 
 export const LicenseListItem = ({ group }: LicenseListItemProps) => {
   const { t } = useTranslation();
+  const { isEnabled: hasBilling } = useBillingCapabilities();
   const LicenseIcon = dataModelIcons.license;
 
   // A new version starts from the one the family is shown under -- the version
@@ -52,9 +55,16 @@ export const LicenseListItem = ({ group }: LicenseListItemProps) => {
                 })}
               </Badge>
             )}
+            {hasBilling && group.isPublic ? (
+              <Badge variant="outline" className="gap-1">
+                <Globe className="size-3" />
+                {t('Pages.Licenses.Public.badge')}
+              </Badge>
+            ) : null}
           </div>
         </ActionAccordionTrigger>
         <ActionAccordionActions>
+          <LicenseFamilyPublicToggle group={group} />
           {newVersionLicenseSlug ? (
             <Button
               variant="outline"

@@ -1212,6 +1212,13 @@ export default {
     Licenses: {
       title: 'Licenses',
       subtitle: 'Manage licenses and entitlement limits',
+      Public: {
+        label: 'Public catalogue',
+        switchLabel: 'List {{name}} in the public catalogue',
+        badge: 'Public',
+        listed: 'The family is listed in the public catalogue',
+        unlisted: 'The family is no longer listed in the public catalogue',
+      },
       Freeze: {
         billed: {
           title: 'This version is billed',
@@ -1397,6 +1404,12 @@ export default {
           },
         },
         Deprecate: {
+          PlanChangeTarget: {
+            looking: 'Looking for the instances concerned…',
+            instances:
+              'These instances are scheduled to move to this price. Cancel the change on the Billing tab of each one, then deprecate the price:',
+            moves: '({{customer}}, from {{date}})',
+          },
           title: 'Deprecate “{{label}}”?',
           descriptionFlat:
             'Subscriptions already pinned to this price keep being billed from it. It is no longer offered to new subscriptions, nor as the target of a plan change. This cannot be undone.',
