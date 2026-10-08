@@ -35,7 +35,7 @@ func TestStripe(t *testing.T) {
 		adapter := stripe.New(stripe.Options{BaseURL: fake.URL(), HTTPClient: fake.Client(), SendAfterFinalize: false, Now: nil})
 		return conformance.Subject{Adapter: adapter, Ref: provider.Ref{
 			OrganizationID: uuid.New(),
-			Settings:       &stripe.Settings{SecretKey: "rk_test_conformance", AutomaticTax: false, TaxBehavior: stripe.TaxExclusive, AutoFinalize: true},
+			Settings:       &stripe.Settings{SecretKey: "rk_test_cf", AutomaticTax: false, TaxBehavior: stripe.TaxExclusive, AutoFinalize: true},
 		}}
 	})
 }
