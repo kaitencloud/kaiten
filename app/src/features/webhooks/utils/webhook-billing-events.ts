@@ -2,7 +2,7 @@ import type { WebhookEventEntries } from './webhook-event-catalogue';
 
 // The billing events of the webhook catalogue (webhook-event-catalogue.ts),
 // listed apart so that neither file outgrows the size limit: subscriptions,
-// invoices, add-ons and vouchers. The catalogue's checks hold here too: each
+// invoices, add-ons, vouchers and payments. The catalogue's checks hold here too: each
 // entry's type is checked against the contract, a name that leaves it fails
 // typecheck, and the catalogue fails while an event is in neither file.
 export const BILLING_WEBHOOK_EVENTS = {
@@ -50,6 +50,30 @@ export const BILLING_WEBHOOK_EVENTS = {
     type: 'com.kaiten.addon.v1.updated',
     group: 'addon',
   },
+  BILLING_PROVIDER_CONNECTED: {
+    type: 'com.kaiten.billing_provider.v1.connected',
+    group: 'payment',
+  },
+  BILLING_PROVIDER_DISCONNECTED: {
+    type: 'com.kaiten.billing_provider.v1.disconnected',
+    group: 'payment',
+  },
+  BILLING_PROVIDER_SYNC_FAILED: {
+    type: 'com.kaiten.billing_provider.v1.sync_failed',
+    group: 'payment',
+  },
+  CUSTOMER_PAYMENT_METHOD_ATTACHED: {
+    type: 'com.kaiten.customer.payment_method.v1.attached',
+    group: 'payment',
+  },
+  CUSTOMER_PAYMENT_METHOD_DETACHED: {
+    type: 'com.kaiten.customer.payment_method.v1.detached',
+    group: 'payment',
+  },
+  CUSTOMER_PAYMENT_METHOD_EXPIRING: {
+    type: 'com.kaiten.customer.payment_method.v1.expiring',
+    group: 'payment',
+  },
   INSTANCE_ADDON_ADDED: {
     type: 'com.kaiten.instance.addon.v1.added',
     group: 'subscription',
@@ -86,6 +110,10 @@ export const BILLING_WEBHOOK_EVENTS = {
     type: 'com.kaiten.instance.billing.v1.plan_change_scheduled',
     group: 'subscription',
   },
+  INSTANCE_BILLING_PROVIDER_CHANGED: {
+    type: 'com.kaiten.instance.billing.v1.provider_changed',
+    group: 'subscription',
+  },
   INSTANCE_BILLING_STARTED: {
     type: 'com.kaiten.instance.billing.v1.started',
     group: 'subscription',
@@ -112,6 +140,22 @@ export const BILLING_WEBHOOK_EVENTS = {
   },
   INSTANCE_INVOICE_PAID: {
     type: 'com.kaiten.instance.invoice.v1.paid',
+    group: 'invoice',
+  },
+  INSTANCE_INVOICE_PAYMENT_FAILED: {
+    type: 'com.kaiten.instance.invoice.v1.payment_failed',
+    group: 'invoice',
+  },
+  INSTANCE_INVOICE_PUSHED: {
+    type: 'com.kaiten.instance.invoice.v1.pushed',
+    group: 'invoice',
+  },
+  INSTANCE_INVOICE_PUSH_FAILED: {
+    type: 'com.kaiten.instance.invoice.v1.push_failed',
+    group: 'invoice',
+  },
+  INSTANCE_INVOICE_RECONCILIATION_MISMATCH: {
+    type: 'com.kaiten.instance.invoice.v1.reconciliation_mismatch',
     group: 'invoice',
   },
   INSTANCE_INVOICE_RELEASED: {

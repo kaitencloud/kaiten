@@ -53,6 +53,8 @@ const RESOURCE_GROUPS: Record<ApiScopeResource, ScopeGroupId> = {
   billing: 'billing',
   vouchers: 'billing',
   voucher_redemptions: 'billing',
+  customer_sessions: 'billing',
+  publishable_keys: 'billing',
   organizations: 'organization',
   tokens: 'organization',
   metadata_fields: 'organization',
