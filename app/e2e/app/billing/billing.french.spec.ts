@@ -128,6 +128,39 @@ test.describe('the invoices, read in French', () => {
     ).toBeEnabled();
   });
 
+  test('the figures under the header of an invoice, in words, dates and amounts as French writes them', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    // Long overdue, ready to bill, with one line.
+    await page.goto('/billing/invoices/inv-m1');
+    await expect(invoice.stat('Total')).toContainText(/29,00\s\$US/);
+    await expect(invoice.stat('Total')).toContainText('1 ligne');
+    await expect(invoice.stat('Échéance de paiement')).toContainText(
+      /31 mars 2026\s*\(UTC\)/,
+    );
+    await expect(invoice.stat('Échéance de paiement')).toContainText(
+      /en retard de \d+ jours/,
+    );
+    await expect(invoice.stat('Période de service')).toContainText(
+      /1 mars – 1 avr\. 2026\s*\(UTC\)/,
+    );
+    await expect(invoice.stat('Période de service')).toContainText(
+      'Activation',
+    );
+
+    // A draft was not issued, and an invoice that ended says when it did.
+    await page.goto('/billing/invoices/inv-h1');
+    await expect(invoice.stat('Échéance de paiement')).toContainText(
+      'Non émise',
+    );
+    await page.goto('/billing/invoices/inv-d1');
+    await expect(invoice.stat('Payée')).toContainText(
+      /10 févr\. 2026\s*\(UTC\)/,
+    );
+    await expect(invoice.stat('Payée')).toContainText(/10:00\s*\(UTC\)/);
+  });
+
   test('an invoice that waits for the ERP is marked paid from a dialog in French', async ({
     page,
   }) => {

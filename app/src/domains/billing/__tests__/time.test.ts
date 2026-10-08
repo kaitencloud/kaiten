@@ -4,6 +4,7 @@ import {
   formatServicePeriod,
   formatUtcDate,
   formatUtcTime,
+  splitUtcMarker,
 } from '../logic';
 
 // Intl writes a thin space around the dash of a range and a no-break space
@@ -122,5 +123,30 @@ describe('formatUtcTime', () => {
     );
     expect(formatUtcTime(undefined, 'en')).toBe('—');
     expect(formatUtcTime('not a date', 'en')).toBe('—');
+  });
+});
+
+describe('splitUtcMarker', () => {
+  it('sets the marker apart from the time or the period it ends', () => {
+    expect(
+      splitUtcMarker(formatUtcDate('2027-03-01T00:00:00.000Z', 'en')),
+    ).toEqual({ marker: '(UTC)', text: 'Mar 1, 2027' });
+    expect(
+      plain(
+        splitUtcMarker(
+          formatServicePeriod('2027-03-01T00:00:00.000Z', '2027-04-01T00:00:00.000Z', 'en'),
+        ).text,
+      ),
+    ).toBe('Mar 1 – Apr 1, 2027');
+    expect(
+      splitUtcMarker(formatUtcTime('2027-03-01T10:00:00.000Z', 'en')).marker,
+    ).toBe('(UTC)');
+  });
+
+  it('gives back whole a text with no marker, such as the placeholder of a boundary that is missing', () => {
+    expect(splitUtcMarker(formatInstant(undefined, 'en'))).toEqual({
+      marker: '',
+      text: '—',
+    });
   });
 });

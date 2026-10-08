@@ -90,6 +90,7 @@ export {
   formatServicePeriod,
   formatUtcDate,
   formatUtcTime,
+  splitUtcMarker,
 } from './service-period';
 export {
   addMonthsClamped,

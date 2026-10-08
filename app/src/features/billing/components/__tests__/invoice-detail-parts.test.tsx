@@ -501,13 +501,86 @@ describe('what stands behind a line', () => {
 });
 
 describe('the summary of an invoice', () => {
-  it('says when it is due, and how many days after it was issued', () => {
-    render(<InvoiceSummaryCard invoice={base({ daysUntilDue: 30 })} />);
+  it('says which boundary it was composed at, who collects it and when it was issued', () => {
+    render(<InvoiceSummaryCard invoice={base()} />);
 
-    expect(screen.getByText('Mar 31, 2027 (UTC) · 30 days to pay')).toBeInTheDocument();
+    expect(screen.getByText('Boundary')).toBeInTheDocument();
+    expect(screen.getAllByText('Mar 1, 2027, 12:00 AM (UTC)')).toHaveLength(2);
+    expect(screen.getByText('Provider')).toBeInTheDocument();
+    expect(screen.getByText('Manual')).toBeInTheDocument();
+    expect(screen.getByText('Issued')).toBeInTheDocument();
   });
 
-  it('says how it ended: paid, written off, voided with the reason', () => {
+  it('says on which terms it was issued, and nothing of when it is due: the strip says that', () => {
+    render(<InvoiceSummaryCard invoice={base({ daysUntilDue: 30 })} />);
+
+    expect(screen.getByText('Payment terms')).toBeInTheDocument();
+    expect(screen.getByText('30 days')).toBeInTheDocument();
+    expect(screen.queryByText(/Mar 31, 2027/)).toBeNull();
+    expect(screen.queryByText('Due')).toBeNull();
+  });
+
+  it('leaves out what the strip above it says: the kind, the period and how it ended', () => {
+    render(
+      <InvoiceSummaryCard
+        invoice={base({
+          paidAt: '2027-03-09T10:00:00.000Z',
+          status: 'PAID',
+        })}
+      />,
+    );
+
+    expect(screen.queryByText('Kind')).toBeNull();
+    expect(screen.queryByText('Service period')).toBeNull();
+    expect(screen.queryByText('Paid')).toBeNull();
+    expect(screen.queryByText(/Mar 9, 2027/)).toBeNull();
+  });
+
+  it.each([
+    ['paid', { paidAt: '2027-03-09T10:00:00.000Z', status: 'PAID' as const }],
+    [
+      'written off',
+      {
+        status: 'UNCOLLECTIBLE' as const,
+        uncollectibleAt: '2027-03-09T10:00:00.000Z',
+      },
+    ],
+    [
+      'void',
+      { status: 'VOID' as const, voidedAt: '2027-03-09T10:00:00.000Z' },
+    ],
+  ])(
+    'keeps the day a %s invoice had fallen due, which the strip no longer states',
+    (_, overrides) => {
+      render(
+        <InvoiceSummaryCard
+          invoice={base({ dueAt: '2027-03-31T00:04:00.000Z', ...overrides })}
+        />,
+      );
+
+      expect(screen.getByText('Due')).toBeInTheDocument();
+      expect(screen.getByText('Mar 31, 2027 (UTC)')).toBeInTheDocument();
+      // When it ended is the strip's: not here.
+      expect(screen.queryByText(/Mar 9, 2027/)).toBeNull();
+    },
+  );
+
+  it('keeps no due day for an invoice that ended and never had one', () => {
+    render(
+      <InvoiceSummaryCard
+        invoice={base({
+          dueAt: undefined,
+          issuedAt: null,
+          status: 'VOID',
+          voidedAt: '2027-03-09T10:00:00.000Z',
+        })}
+      />,
+    );
+
+    expect(screen.queryByText('Due')).toBeNull();
+  });
+
+  it('says why a void invoice was voided, and not when: the strip says when', () => {
     render(
       <InvoiceSummaryCard
         invoice={base({
@@ -518,8 +591,9 @@ describe('the summary of an invoice', () => {
       />,
     );
 
+    expect(screen.getByText('Void reason')).toBeInTheDocument();
     expect(screen.getByText('Duplicate of inv-9')).toBeInTheDocument();
-    expect(screen.getByText('Mar 9, 2027, 10:00 AM (UTC)')).toBeInTheDocument();
+    expect(screen.queryByText(/Mar 9, 2027/)).toBeNull();
   });
 
   it('says whether a hold was released by a person, with their reason, or by a later check', () => {
@@ -550,5 +624,14 @@ describe('the summary of an invoice', () => {
     expect(
       screen.getByText(/automatically: a later check found the usage journal sound/),
     ).toBeInTheDocument();
+  });
+
+  it('shows no terms for an invoice that was not issued', () => {
+    render(
+      <InvoiceSummaryCard invoice={base({ daysUntilDue: 30, status: 'DRAFT' })} />,
+    );
+
+    expect(screen.queryByText('Issued')).toBeNull();
+    expect(screen.queryByText('Payment terms')).toBeNull();
   });
 });

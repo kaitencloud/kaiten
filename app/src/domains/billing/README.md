@@ -184,7 +184,9 @@ page holds, or an export the API streams.
   end is the instant that closes it, not the last day it covers. A boundary that
   is a day reads `Mar 1, 2027 (UTC)`, and the time of day is added only when a
   boundary is not at midnight. A cell that gives the day on one line writes the
-  time under it with `formatUtcTime` (`10:00 AM (UTC)`).
+  time under it with `formatUtcTime` (`10:00 AM (UTC)`), and a screen that sets the
+  zone in smaller type beside a figure, as the strip of an invoice does, takes the
+  marker off with `splitUtcMarker`.
 - **A refusal shows the `detail` of the API's problem document as written.**
   There is no translation per code (`check:api-error-i18n` covers only the generic
   client categories): a problem with no `detail` falls back to a generic message

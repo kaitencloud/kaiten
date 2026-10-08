@@ -31,11 +31,11 @@ A card is put together from its parts, in this order:
 </StatCard.Value>
 ```
 
- A tone goes on the `className` of the part it colours: the icon draws in `currentColor`. A card stands on its own outside a row, with the same look.
+ The unit also carries the zone of a date or of a period, which the figure leaves out (`Jun 12, 2026` and, after it, `(UTC)`), as the strip of an invoice does (`app/src/features/billing/components/invoice-detail/invoice-detail-stats.tsx`). A tone goes on the `className` of the part it colours: the icon draws in `currentColor`. A card stands on its own outside a row, with the same look.
 
 ## A card carries a number that informs a decision
 
-A state ("Planned", "Development", "Not deployed") is a badge in the page title, not a card: the value slot is set in numeral type, 30 px from `md`. When a card must show a word, `StatBadgeValue` renders it as a badge so that it does not pass for a figure. A figure has one home, the strip or a card of the tab, never both.
+A state ("Planned", "Development", "Not deployed") is a badge in the page title, not a card: the value slot is set in numeral type, 30 px from `md`. When a card must show a word, `StatBadgeValue` renders it as a badge so that it does not pass for a figure. A figure has one home, the strip or a card of the tab, never both. The strip of an invoice has two exceptions, each written in its component (`invoice-detail-stats.tsx`): the total is also the foot of the lines, where the totals end under the column of amounts, and the due day of an invoice that ended is in its summary, since the card then says when it ended.
 
 ## A short label, two values and two helpers at most
 
@@ -56,6 +56,8 @@ An alert, an expiry, an overrun: colour under a condition, as the dashboard does
 ## Two columns up to `xl`
 
 By default the row has two columns from `md` and four from `xl` (`md:grid-cols-2 xl:grid-cols-4`), and two columns below `md`. A row of six, or of three, passes its own `columnsClassName` and keeps two or three columns below `xl`. The dashboard passes `md:grid-cols-3 xl:grid-cols-6`.
+
+A row whose figures are wider than a number can keep two columns higher up. The strip of an invoice holds dates with their zone and a period of two dates, which a third of a tablet cuts in two: it has two columns up to `lg`, with its period across the second row (`col-span-2 lg:col-span-1` on the card), and sets that one figure a size below the others (`text-xl md:text-2xl`), as the usage alerts of an instance set their two. A period that is still too long wraps after its dash, each date whole.
 
 ## Complete data
 
