@@ -107,6 +107,14 @@ func TestPublicCatalog(t *testing.T) {
 	key := newPublishableKey(t, "https://www.example.com")
 	require.Regexp(t, `^pk_[A-Za-z0-9_-]{43}$`, key.Key)
 	require.Equal(t, key.Key[len(key.Key)-4:], key.KeyHint)
+	created := outboxPayloads(t, "PUBLISHABLE_KEY_CREATED")
+	require.Len(t, created, 1)
+	require.Equal(t, key.KeyHint, created[0]["keyHint"])
+	require.Equal(t, []any{"https://www.example.com"}, created[0]["allowedOrigins"])
+	require.NotContains(t, created[0], "key", "an event never carries the key")
+	for _, v := range created[0] {
+		require.NotEqual(t, key.Key, v)
+	}
 
 	t.Run("the key reads its organization's public catalogue", func(t *testing.T) {
 		resp := publicGet(t, testServer, "/api/public/catalog", key.Key, "https://www.example.com")
@@ -192,6 +200,10 @@ func TestPublicCatalog(t *testing.T) {
 		again := commonfixture.AssertJSONResponse[keys.PublishableKey](t,
 			call(t, "POST", "/api/publishable-keys/"+key.ID.String()+"/revoke", nil), fiber.StatusOK)
 		require.Equal(t, revoked.RevokedAt, again.RevokedAt, "revoking twice keeps the first revocation")
+		revokedEvents := outboxPayloads(t, "PUBLISHABLE_KEY_REVOKED")
+		require.Len(t, revokedEvents, 1, "announced once, by the revocation that took the key out of service")
+		require.Equal(t, key.ID.String(), revokedEvents[0]["id"])
+		require.NotNil(t, revokedEvents[0]["revokedAt"])
 		require.Equal(t, "UpdatePublishableKey.Revoked", problemCode(t, fiber.StatusConflict, "PATCH",
 			"/api/publishable-keys/"+key.ID.String(), map[string]any{"label": "x"}))
 		listed := commonfixture.AssertJSONResponse[[]keys.PublishableKey](t, call(t, "GET", "/api/publishable-keys", nil), fiber.StatusOK)

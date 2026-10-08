@@ -7592,6 +7592,29 @@ components:
         - label
         - allowedOrigins
       type: object
+    PublishableKeyEvent:
+      additionalProperties: false
+      properties:
+        allowedOrigins:
+          items:
+            type: string
+          type: array
+        id:
+          type: string
+        keyHint:
+          description: The last four characters of the key
+          type: string
+        label:
+          type: string
+        revokedAt:
+          format: date-time
+          type: string
+      required:
+        - id
+        - label
+        - keyHint
+        - allowedOrigins
+      type: object
     PublishableKeyPatch:
       additionalProperties: false
       properties:
@@ -28226,6 +28249,84 @@ webhooks:
       tags:
         - webhooks
         - metadataFields
+  com.kaiten.publishable_key.v1.created:
+    post:
+      description: Triggered when a publishable key is issued. The key is never in the payload, only its hint.
+      operationId: onPublishableKeyCreated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/PublishableKeyEvent"
+                name:
+                  description: Event name
+                  enum:
+                    - PUBLISHABLE_KEY_CREATED
+                  examples:
+                    - PUBLISHABLE_KEY_CREATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.publishable_key.v1.created
+                  examples:
+                    - com.kaiten.publishable_key.v1.created
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Publishable Key Created Webhook
+      tags:
+        - webhooks
+        - publishable-keys
+  com.kaiten.publishable_key.v1.revoked:
+    post:
+      description: Triggered once, when a publishable key is revoked.
+      operationId: onPublishableKeyRevoked
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/PublishableKeyEvent"
+                name:
+                  description: Event name
+                  enum:
+                    - PUBLISHABLE_KEY_REVOKED
+                  examples:
+                    - PUBLISHABLE_KEY_REVOKED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.publishable_key.v1.revoked
+                  examples:
+                    - com.kaiten.publishable_key.v1.revoked
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Publishable Key Revoked Webhook
+      tags:
+        - webhooks
+        - publishable-keys
   com.kaiten.release.v1.created:
     post:
       description: Triggered when a new release is created.
