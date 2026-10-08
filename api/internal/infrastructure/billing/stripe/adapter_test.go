@@ -205,6 +205,8 @@ func TestPushParametersAndKeys(t *testing.T) {
 			require.NotNil(t, finalized.FinalizedAt)
 			require.NotEmpty(t, finalized.HostedURL)
 			require.EqualValues(t, 9666, finalized.TotalExcludingTax)
+			require.NotNil(t, finalized.DueAt, "the due date is read back")
+			require.WithinDuration(t, finalized.FinalizedAt.Add(30*24*time.Hour), *finalized.DueAt, time.Minute)
 			require.EqualValues(t, 10740, finalized.Subtotal)
 			require.EqualValues(t, 1074, finalized.TotalDiscount)
 			require.Len(t, finalized.Lines, 2)
