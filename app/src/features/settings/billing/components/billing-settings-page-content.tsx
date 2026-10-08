@@ -20,7 +20,7 @@ import { BillingRetentionCard } from './billing-retention-card';
 export function BillingSettingsPageContent() {
   const { t } = useTranslation();
   const query = useQuery(billingSettingsQueryOptions);
-  const Icon = dataModelIcons.invoice;
+  const Icon = dataModelIcons.billing;
 
   function renderDefaults() {
     if (query.isPending) {

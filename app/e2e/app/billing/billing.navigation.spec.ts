@@ -6,7 +6,13 @@ import {
   createBillingFeatureGatedModel,
   createBillingFullModel,
   createBillingStackModel,
+  createInvoicesModel,
 } from './billing.scenarios';
+
+// The two receipts of lucide: the one with a dollar sign draws the area, the one
+// with lines of text draws an invoice. `lucide-receipt` alone, not its sibling.
+const RECEIPT = /(^|\s)lucide-receipt(\s|$)/;
+const RECEIPT_TEXT = /(^|\s)lucide-receipt-text(\s|$)/;
 
 // The Billing section of the side navigation follows what the capabilities say:
 // it is there where billing is on, and entry by entry for what the release
@@ -96,4 +102,42 @@ test.describe('the Billing section of the navigation', () => {
     // Billing is on, so no explanation stands in for the page.
     await expect(nav.unavailable()).toHaveCount(0);
   });
+});
+
+test.describe('the icons of billing', () => {
+  test('draws the Billing section with the receipt of the area, and not with the one of an invoice', async ({
+    page,
+  }) => {
+    const nav = new BillingNavDriver(page);
+    await installBillingAppMocks(page, createBillingStackModel());
+
+    await nav.gotoShell();
+
+    await expect(nav.sectionIcon()).toHaveClass(RECEIPT);
+    await expect(nav.sectionIcon()).not.toHaveClass(RECEIPT_TEXT);
+  });
+
+  for (const [path, what] of [
+    ['/billing/invoices', 'the list of the invoices'],
+    ['/billing/handoff', 'the handoff queue'],
+    ['/billing/invoices/inv-m1', 'one invoice'],
+  ] as const) {
+    test(`draws an invoice with the receipt with its lines in the header of ${what}`, async ({
+      page,
+    }) => {
+      await installBillingAppMocks(page, createInvoicesModel());
+
+      await page.goto(path);
+
+      await expect(
+        page.getByRole('main').getByRole('heading', { level: 1 }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('main').locator('svg.lucide-receipt-text').first(),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('main').locator('svg.lucide-receipt'),
+      ).toHaveCount(0);
+    });
+  }
 });
