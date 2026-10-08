@@ -16,13 +16,16 @@ import {
 // and the CSV export. Every event not listed reads as a plain read.
 
 // An entitlement's usage is approaching, at or past its limit, while the API
-// still accepts the usage; or an invoice is held, neither issued nor handed
-// off, until someone releases or recomposes it.
+// still accepts the usage; an invoice is held, neither issued nor handed off,
+// until someone releases or recomposes it; its amounts differ at the payment
+// provider; or a customer's payment method is about to expire.
 const WARNING_EVENTS = [
+  'CUSTOMER_PAYMENT_METHOD_EXPIRING',
   'INSTANCE_ENTITLEMENT_CAP_EXCEEDED',
   'INSTANCE_ENTITLEMENT_USAGE_REACHED',
   'INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED',
   'INSTANCE_INVOICE_HELD',
+  'INSTANCE_INVOICE_RECONCILIATION_MISMATCH',
 ];
 
 // Something was taken, created or put in place.
@@ -49,10 +52,13 @@ const ACCEPTED_EVENTS = [
   'VOUCHER_CREATED',
 ];
 
-// The API refused.
+// The API refused, or the payment provider failed what was asked of it.
 const REJECTED_EVENTS = [
+  'BILLING_PROVIDER_SYNC_FAILED',
   'CUSTOMER_CREATION_REJECTED',
   'ENTITLEMENT_USAGE_REPORT_REJECTED',
+  'INSTANCE_INVOICE_PAYMENT_FAILED',
+  'INSTANCE_INVOICE_PUSH_FAILED',
 ];
 
 const eventsWithStatus = (category: string) =>
@@ -83,7 +89,7 @@ describe('event status', () => {
     expect(eventsWithStatus('accepted')).toEqual(ACCEPTED_EVENTS);
   });
 
-  it('reads as rejected exactly the events where the API refused', () => {
+  it('reads as rejected exactly the events where the API or the provider failed', () => {
     expect(eventsWithStatus('rejected')).toEqual(REJECTED_EVENTS);
   });
 

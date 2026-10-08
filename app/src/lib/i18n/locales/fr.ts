@@ -3016,6 +3016,16 @@ export default {
               description:
                 "Accès aux vouchers d'une instance : vérifier un code et l'utiliser",
             },
+            customerSessions: {
+              label: 'Sessions client',
+              description:
+                "Accès aux sessions client : en ouvrir une pour la page de facturation en libre-service d'un client, et y mettre fin",
+            },
+            publishableKeys: {
+              label: 'Clés publiables',
+              description:
+                'Accès aux clés publiables : émettre et révoquer les clés pk_ avec lesquelles une page web lit le catalogue public',
+            },
             organizations: {
               label: 'Organisations',
               description:
@@ -3080,6 +3090,7 @@ export default {
           subscription: 'Abonnements',
           invoice: 'Factures',
           voucher: 'Vouchers',
+          payment: 'Paiements',
           featureFlag: 'Feature flags',
           release: 'Releases',
           deploymentZone: 'Zones de déploiement',
@@ -4277,12 +4288,19 @@ export default {
         ADDON_PUBLISHED: "Version d'add-on publiée",
         ADDON_UNARCHIVED: "Version d'add-on désarchivée",
         ADDON_UPDATED: 'Add-on mis à jour',
+        BILLING_PROVIDER_CONNECTED: 'Fournisseur de paiement connecté',
+        BILLING_PROVIDER_DISCONNECTED: 'Fournisseur de paiement déconnecté',
+        BILLING_PROVIDER_SYNC_FAILED:
+          'Échec de synchronisation du fournisseur de paiement',
         COMPONENT_CREATED: 'Component ajouté',
         COMPONENT_DELETED: 'Component supprimé',
         COMPONENT_UPDATED: 'Component mis à jour',
         CUSTOMER_CREATED: 'Client créé',
         CUSTOMER_CREATION_REJECTED: 'Création de client refusée',
         CUSTOMER_DELETED: 'Client supprimé',
+        CUSTOMER_PAYMENT_METHOD_ATTACHED: 'Moyen de paiement ajouté',
+        CUSTOMER_PAYMENT_METHOD_DETACHED: 'Moyen de paiement retiré',
+        CUSTOMER_PAYMENT_METHOD_EXPIRING: 'Moyen de paiement bientôt expiré',
         CUSTOMER_UPDATED: 'Client mis à jour',
         DEPLOYMENT_ZONE_CREATED: 'Zone de déploiement créée',
         DEPLOYMENT_ZONE_DELETED: 'Zone de déploiement supprimée',
@@ -4311,6 +4329,8 @@ export default {
         INSTANCE_BILLING_PLAN_CHANGED: "Plan de l'abonnement modifié",
         INSTANCE_BILLING_PLAN_CHANGE_CANCELLED: 'Changement de plan annulé',
         INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED: 'Changement de plan programmé',
+        INSTANCE_BILLING_PROVIDER_CHANGED:
+          "Fournisseur de paiement de l'abonnement modifié",
         INSTANCE_BILLING_STARTED: 'Abonnement démarré',
         INSTANCE_BILLING_STATUS_CHANGED: "Statut de l'abonnement modifié",
         INSTANCE_CREATED: 'Instance créée',
@@ -4328,6 +4348,12 @@ export default {
         INSTANCE_INVOICE_ISSUED: 'Facture émise',
         INSTANCE_INVOICE_MARKED_UNCOLLECTIBLE: 'Facture déclarée irrécouvrable',
         INSTANCE_INVOICE_PAID: 'Facture payée',
+        INSTANCE_INVOICE_PAYMENT_FAILED: 'Échec du paiement de la facture',
+        INSTANCE_INVOICE_PUSHED: 'Facture envoyée au fournisseur de paiement',
+        INSTANCE_INVOICE_PUSH_FAILED:
+          "Échec de l'envoi de la facture au fournisseur de paiement",
+        INSTANCE_INVOICE_RECONCILIATION_MISMATCH:
+          'Montants de la facture différents chez le fournisseur de paiement',
         INSTANCE_INVOICE_RELEASED: 'Facture retenue libérée',
         INSTANCE_INVOICE_VOIDED: 'Facture annulée',
         INSTANCE_LIFECYCLE_STAGE_CHANGED: "Cycle de vie de l'instance modifié",
