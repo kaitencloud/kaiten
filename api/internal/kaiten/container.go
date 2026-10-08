@@ -221,6 +221,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 			Invoices:        billingModule.GetInvoice,
 			BillingEmails:   customerModule.UpdateCustomer,
 			SessionInvoices: billingModule.SessionInvoices,
+			OpenPortal:      billingModule.CreatePortalSession,
 		}),
 		Releases: releases.NewUseCases(svc),
 		Users:    users.NewUseCases(svc),
@@ -271,7 +272,7 @@ func billingProviders(opts Options, svc services.Container) (provider.Registry, 
 	}
 	registry.RegisterConnector(stripeBinding, deps)
 
-	timeout := opts.Config.Billing.ProviderTimeout
+	timeout := opts.Config.Billing.Provider.Timeout
 	hooks := connectorhooks.Registry{
 		stripeBinding.ConnectorName: providerconnector.New(svc.Uof, stripeBinding, timeout, connectorcommon.SecretFields(manifest.SettingsSchema)),
 	}

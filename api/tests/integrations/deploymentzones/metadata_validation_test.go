@@ -191,6 +191,34 @@ func TestCreateDeploymentZoneMetadataValidation(t *testing.T) {
 		assert.Equal(t, fiber.StatusUnprocessableEntity, resp.StatusCode)
 	})
 
+	// Archive, then declare the same key again: what a demo reset and reseed
+	// does. The new field is the contract, so a create may carry the key, and
+	// its value is checked against the new field's schema.
+	t.Run("WhenKeyDeclaredAgainAfterArchive_CreateUsesTheNewField", func(t *testing.T) {
+		t.Cleanup(resetDB)
+		field := seedMetadataField(t, "tier", "Tier", map[string]any{"type": "string"}, 0)
+		archiveMetadataField(t, field.ID)
+		seedMetadataField(t, "tier", "Tier",
+			map[string]any{"type": "string", "enum": []any{"standard", "pci-dss"}}, 0)
+
+		payload := schema.DeploymentZone{
+			Name: "dz-redeclared", Type: "production", Description: "uses the new field",
+			Metadata: map[string]any{"tier": "pci-dss"},
+		}
+		req := commonfixture.NewJSONRequest(t, "POST", "/api/deployment-zones", payload)
+		resp, err := testServer.App.Test(req, fiber.TestConfig{})
+		require.NoError(t, err)
+		commonfixture.AssertJSONResponse[schema.DeploymentZone](t, resp, fiber.StatusCreated)
+
+		payload.Name = "dz-redeclared-invalid"
+		payload.Metadata = map[string]any{"tier": "gold"}
+		req = commonfixture.NewJSONRequest(t, "POST", "/api/deployment-zones", payload)
+		resp, err = testServer.App.Test(req, fiber.TestConfig{})
+		require.NoError(t, err)
+		defer commonfixture.MustCloseBody(t, resp.Body)
+		assert.Equal(t, fiber.StatusUnprocessableEntity, resp.StatusCode)
+	})
+
 	// Pins the two-tier PUT contract.
 	// Active keys omitted by a PUT must be DELETED (standard PUT semantics).
 	// Archived keys omitted by a PUT must be PRESERVED (server-side

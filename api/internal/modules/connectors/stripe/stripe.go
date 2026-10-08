@@ -54,7 +54,7 @@ func Manifest() builtinconnectors.Manifest {
 					"type":        "string",
 					"writeOnly":   true,
 					"pattern":     "^rk_(live|test)_[A-Za-z0-9]+$",
-					"description": "A restricted key of the Stripe account (rk_live_… or rk_test_…)",
+					"description": "A restricted key of the Stripe account (rk_live_… or rk_test_…), with write access to Customers, Invoices, Invoice items, Coupons, Payment methods, Checkout Sessions and the Customer portal, and read access to Events",
 				},
 				SettingAutomaticTax: map[string]any{
 					"type":        "boolean",

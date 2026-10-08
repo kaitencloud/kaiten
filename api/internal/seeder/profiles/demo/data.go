@@ -54,6 +54,15 @@ var metadataFieldsDeploymentZone = []seedkit.MetadataFieldDef{
 			"type": "string",
 		},
 	},
+	{
+		Key:          "dedicated",
+		Label:        "Dedicated",
+		ResourceType: metadatafieldsdb.MetadataFieldResourceTypeDEPLOYMENTZONE,
+		DisplayOrder: 3,
+		JSONSchema: map[string]any{
+			"type": "boolean",
+		},
+	},
 }
 
 var metadataFieldsInstance = []seedkit.MetadataFieldDef{
@@ -521,6 +530,10 @@ var usageEntitlementOrder = []string{"menu-items", "monthly-orders", "delivery-d
 
 // ── Deployment Zones ───────────────────────────────────────────────────────
 
+// deploymentZoneDef.Type is the zone's environment class -- production,
+// staging or development, the ones the console labels and feature-flag rules
+// match on. Whether a zone is shared or dedicated to one customer is not an
+// environment, so it is the `dedicated` metadata field instead.
 type deploymentZoneDef struct {
 	Key               string
 	Name              string
@@ -528,12 +541,14 @@ type deploymentZoneDef struct {
 	Description       string
 	Region            string
 	ComplianceProfile string
+	Dedicated         bool
 }
 
 func (d deploymentZoneDef) MetadataPayload() map[string]any {
 	return map[string]any{
 		"region":             d.Region,
 		"compliance_profile": d.ComplianceProfile,
+		"dedicated":          d.Dedicated,
 	}
 }
 
@@ -541,7 +556,7 @@ var deploymentZones = []deploymentZoneDef{
 	{
 		Key:               zoneKeySharedAPAC,
 		Name:              "Shared APAC",
-		Type:              "shared",
+		Type:              "production",
 		Description:       "Multi-tenant zone for APAC restaurants.",
 		Region:            "ap-northeast-1",
 		ComplianceProfile: "standard",
@@ -549,7 +564,7 @@ var deploymentZones = []deploymentZoneDef{
 	{
 		Key:               zoneKeySharedEU,
 		Name:              "Shared EU",
-		Type:              "shared",
+		Type:              "production",
 		Description:       "Multi-tenant zone for European restaurants.",
 		Region:            "eu-west-1",
 		ComplianceProfile: "standard",
@@ -557,10 +572,11 @@ var deploymentZones = []deploymentZoneDef{
 	{
 		Key:               zoneKeySakuraDedicated,
 		Name:              "Sakura Dedicated",
-		Type:              "dedicated",
+		Type:              "production",
 		Description:       "Dedicated zone for the Sakura Tokyo group.",
 		Region:            "ap-northeast-1",
 		ComplianceProfile: "pci-dss",
+		Dedicated:         true,
 	},
 }
 

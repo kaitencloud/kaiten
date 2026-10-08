@@ -259,7 +259,35 @@ ON CONFLICT (customer_id, provider_kind) DO UPDATE
       web_url              = EXCLUDED.web_url,
       synced_at            = EXCLUDED.synced_at,
       last_error           = NULL,
-      updated_at           = CURRENT_TIMESTAMP;
+      updated_at           = CURRENT_TIMESTAMP,
+      -- A customer re-created in the provider has none of the old one's
+      -- payment methods.
+      default_payment_method_id  = CASE WHEN customer_billing.external_customer_id = EXCLUDED.external_customer_id
+                                        THEN customer_billing.default_payment_method_id END,
+      payment_method_brand       = CASE WHEN customer_billing.external_customer_id = EXCLUDED.external_customer_id
+                                        THEN customer_billing.payment_method_brand END,
+      payment_method_last4       = CASE WHEN customer_billing.external_customer_id = EXCLUDED.external_customer_id
+                                        THEN customer_billing.payment_method_last4 END,
+      payment_method_exp_month   = CASE WHEN customer_billing.external_customer_id = EXCLUDED.external_customer_id
+                                        THEN customer_billing.payment_method_exp_month END,
+      payment_method_exp_year    = CASE WHEN customer_billing.external_customer_id = EXCLUDED.external_customer_id
+                                        THEN customer_billing.payment_method_exp_year END,
+      payment_method_attached_at = CASE WHEN customer_billing.external_customer_id = EXCLUDED.external_customer_id
+                                        THEN customer_billing.payment_method_attached_at END,
+      payment_method_status      = CASE WHEN customer_billing.external_customer_id = EXCLUDED.external_customer_id
+                                        THEN customer_billing.payment_method_status ELSE 'NONE' END;
+
+
+-- name: CountOpenProviderInvoicesOfCustomer :one
+-- Invoices that still reference a provider customer: in push with its id, or
+-- issued there and unsettled. While any does, a customer deleted in the
+-- provider is not re-created (§12.1 rule 6).
+SELECT count(*)::bigint
+FROM instance_invoice
+WHERE organization_id = sqlc.arg(organization_id)
+  AND provider_kind = sqlc.arg(provider_kind)
+  AND external_customer_id = sqlc.arg(external_customer_id)::text
+  AND status IN ('DRAFT', 'PUSH_FAILED', 'PUSHED', 'PAYMENT_FAILED');
 
 
 -- name: SetSubscriptionProvider :one

@@ -48,6 +48,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncprovider"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/telemetry"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updatebillingsettings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updateinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/voidinvoice"
@@ -119,7 +120,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		Redeemer:        from.Redeemer,
 		Mover:           from.Mover,
 		Providers:       svc.BillingProviders,
-		ProviderTimeout: svc.Config.Billing.ProviderTimeout,
+		ProviderTimeout: svc.Config.Billing.Provider.Timeout,
 
 		AutoCollectionGrace: svc.Config.Billing.AutoCollectionGrace,
 	}
@@ -127,9 +128,9 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 	closer := closing.New(deps, cfg.CloseGrace)
 	pusher := pushing.New(deps, pushing.Config{
 		MaxBackoff: cfg.Push.MaxBackoff, AlertAfterAttempts: cfg.Push.AlertAfterAttempts,
-		Timeout: cfg.ProviderTimeout, BatchSize: cfg.Push.BatchSize,
+		Timeout: cfg.Provider.Timeout, BatchSize: cfg.Push.BatchSize,
 	})
-	syncer := syncing.New(deps, cfg.ProviderTimeout)
+	syncer := syncing.New(deps, cfg.Provider.Timeout)
 	useCases := &UseCases{
 		GetBillingSettings:     getbillingsettings.NewUseCase(deps),
 		UpdateBillingSettings:  updatebillingsettings.NewUseCase(deps),
@@ -171,6 +172,8 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 
 	// The billing jobs run only where billing is on and background work runs.
 	if cfg.Enabled && svc.BackgroundWorkers && svc.Pool != nil {
+		// The alerts' gauges (§19.2), read where the jobs run.
+		telemetry.RegisterGauges(telemetry.Gauges{Queries: deps.Queries, Now: lifecycle.Now, CloseGrace: cfg.CloseGrace})
 		job := closing.NewJob(svc.Pool, closer, sweep.Config{
 			InitialDelay: orDefault(cfg.InitialDelay, time.Minute),
 			Interval:     orDefault(cfg.PeriodClose.Interval, 5*time.Minute),

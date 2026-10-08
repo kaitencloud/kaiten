@@ -399,4 +399,3 @@ DROP TABLE IF EXISTS "addon_family";
 ALTER TABLE "instance" DROP CONSTRAINT IF EXISTS "instance_id_organization_id_key";
 DROP TYPE IF EXISTS "addon_override_behavior";
 -- +goose StatementEnd
-

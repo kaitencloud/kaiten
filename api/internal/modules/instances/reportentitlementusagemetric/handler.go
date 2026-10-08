@@ -106,6 +106,7 @@ type UseCase struct {
 	idempotentReplays   metric.Int64Counter
 	idempotencyConflict metric.Int64Counter
 	metadataDropped     metric.Int64Counter
+	duration            metric.Float64Histogram
 }
 
 func NewUseCase(deps Deps) *UseCase {
@@ -151,6 +152,15 @@ func NewUseCase(deps Deps) *UseCase {
 	if err != nil {
 		slog.Warn("failed to register usage report metric", "metric", "metadata_dropped", "error", err)
 	}
+	duration, err := meter.Float64Histogram(
+		"kaiten.usage.report.duration",
+		metric.WithDescription("A usage report's transaction, from its first read to its commit, by outcome (accepted, rejected, replayed, conflict, error)"),
+		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5),
+	)
+	if err != nil {
+		slog.Warn("failed to register usage report metric", "metric", "duration", "error", err)
+	}
 	ledgerUnavailable, err := meter.Int64Counter(
 		"kaiten.usage.ledger.unavailable",
 		metric.WithDescription("Usage reports refused because no usage_ledger partition covers the instant they were accepted at"),
@@ -172,6 +182,7 @@ func NewUseCase(deps Deps) *UseCase {
 		idempotentReplays:   idempotentReplays,
 		idempotencyConflict: idempotencyConflict,
 		metadataDropped:     metadataDropped,
+		duration:            duration,
 	}
 }
 
@@ -191,7 +202,26 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 	}
 
 	var result *entitlementUsageSchema.EntitlementUsage
-	var thresholdExceeded, replayed bool
+	var thresholdExceeded, replayed, reused bool
+
+	started := time.Now()
+	defer func() {
+		if h.duration == nil {
+			return
+		}
+		outcome := "accepted"
+		switch {
+		case replayed:
+			outcome = "replayed"
+		case thresholdExceeded:
+			outcome = "rejected"
+		case reused:
+			outcome = "conflict"
+		case err != nil:
+			outcome = "error"
+		}
+		h.duration.Record(ctx, time.Since(started).Seconds(), metric.WithAttributes(attribute.String("outcome", outcome)))
+	}()
 
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		entitlementUsageCtx, err := h.queryRepo.GetEntitlementUsageContext(
@@ -233,6 +263,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 			if original != nil {
 				if original.Behavior != command.Behavior || !original.SameValue {
 					h.idempotencyConflict.Add(ctx, 1)
+					reused = true
 					slog.WarnContext(ctx, "usage report refused: transactionId reused for another report",
 						"organization_id", user.OrganizationID,
 						"instance_id", entitlementUsageCtx.InstanceID,

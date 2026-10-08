@@ -15,6 +15,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/providers"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/telemetry"
 )
 
 // charge is push step 4, for an issued invoice the provider charges
@@ -65,6 +66,7 @@ func (p *Pusher) charge(ctx context.Context, conn *provider.Connection, row db.I
 		if err != nil {
 			return err
 		}
+		telemetry.InvoicePush(ctx, string(row.ProviderKind), chargeResult(outcome.Status))
 		if outcome.Status == provider.PaymentPaid {
 			if err := invoices.Announce(ctx, p.outbox, row.OrganizationID, events.InstanceInvoicePaid, invoices.PaidInvoice{
 				InvoiceSummary: invoice.InvoiceSummary, Source: "PROVIDER", ExternalReference: nil, Note: nil,
@@ -132,4 +134,16 @@ func (p *Pusher) chargeUnknown(ctx context.Context, row db.InstanceInvoice, caus
 	}
 	slog.WarnContext(ctx, "invoice charge outcome unknown, retried later", "invoice_id", row.ID, "error", summary)
 	return fmt.Errorf("charge of invoice %s: %w", row.ID, cause)
+}
+
+// chargeResult is a charge's outcome as billing_invoice_push_total labels it.
+func chargeResult(status provider.PaymentStatus) string {
+	switch status {
+	case provider.PaymentPaid:
+		return telemetry.PushPaid
+	case provider.PaymentRequiresAction:
+		return telemetry.PushRequiresAction
+	default:
+		return telemetry.PushPaymentFailed
+	}
 }

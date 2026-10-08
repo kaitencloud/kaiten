@@ -86,7 +86,8 @@ func TestEnsureCustomerCreatesOnceAndUpdatesTheEmail(t *testing.T) {
 	require.Len(t, create, 1)
 	require.Equal(t, f.ref.OrganizationID.String()+":customer:"+c.CustomerID.String(), create[0].IdempotencyKey)
 	require.Equal(t, "ap@acme.test", create[0].Form.Get("email"))
-	require.Equal(t, "c", create[0].Form.Get("metadata[kaiten_customer_id]"))
+	require.Equal(t, c.CustomerID.String(), create[0].Form.Get("metadata[kaiten_customer_id]"), "the adapter stamps the ids it searches on")
+	require.Equal(t, f.ref.OrganizationID.String(), create[0].Form.Get("metadata[kaiten_organization_id]"))
 	require.Equal(t, "Bearer "+key, create[0].Authorization)
 	require.NotEmpty(t, create[0].StripeVersion, "the API version is pinned by the library")
 
@@ -115,6 +116,29 @@ func TestEnsureCustomerCreatesOnceAndUpdatesTheEmail(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, id, recreated.ExternalID)
 	require.True(t, strings.HasSuffix(f.fake.CallsOf(stripefake.OpCreateCustomer)[1].IdempotencyKey, ":recreate:"+id))
+}
+
+// A customer whose create answer was lost beyond the 24-hour key horizon is
+// found by its Kaiten ids and adopted, not created twice (S09-G07); one of
+// another organization is never adopted.
+func TestEnsureCustomerAdoptsACustomerItLostTrackOf(t *testing.T) {
+	f := newFixture(t, stripe.Settings{})
+	c, id := f.customer(t)
+
+	f.fake.ForgetKeys()
+	lost := c
+	lost.ExternalID = "" // Kaiten never recorded it
+	adopted, err := f.adapter.EnsureCustomer(f.ctx, f.ref, lost)
+	require.NoError(t, err)
+	require.Equal(t, id, adopted.ExternalID)
+	require.Equal(t, 1, f.fake.Count(stripefake.OpCreateCustomer), "no second customer")
+	require.Equal(t, 1, f.fake.Customers(stripefake.DefaultAccount))
+
+	other := f.ref
+	other.OrganizationID = uuid.New()
+	created, err := f.adapter.EnsureCustomer(f.ctx, other, lost)
+	require.NoError(t, err)
+	require.NotEqual(t, id, created.ExternalID, "another organization's customer is its own")
 }
 
 // The SEND_INVOICE push: exact parameters and keys (S09-024), integer minor
@@ -205,6 +229,8 @@ func TestPushParametersAndKeys(t *testing.T) {
 			require.NotNil(t, finalized.FinalizedAt)
 			require.NotEmpty(t, finalized.HostedURL)
 			require.EqualValues(t, 9666, finalized.TotalExcludingTax)
+			require.NotNil(t, finalized.DueAt, "the due date is read back")
+			require.WithinDuration(t, finalized.FinalizedAt.Add(30*24*time.Hour), *finalized.DueAt, time.Minute)
 			require.EqualValues(t, 10740, finalized.Subtotal)
 			require.EqualValues(t, 1074, finalized.TotalDiscount)
 			require.Len(t, finalized.Lines, 2)

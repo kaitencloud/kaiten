@@ -2,6 +2,7 @@ package seeder_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -16,6 +17,7 @@ import (
 	licensesdb "github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/notifications/feed"
 	notificationsdb "github.com/kaitencloud/kaiten/api/internal/modules/notifications/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/platform/platformidentity"
 	"github.com/kaitencloud/kaiten/api/internal/seeder"
 	demoprofile "github.com/kaitencloud/kaiten/api/internal/seeder/profiles/demo"
 	"github.com/kaitencloud/kaiten/api/tests"
@@ -234,6 +236,122 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 		  AND event_name = 'LICENSE_CREATED'
 		  AND data->>'lifecycleState' = 'ARCHIVED'
 	`, orgID), "no version is created archived")
+
+	// A zone's type is its environment class, and all three are production
+	// zones. Being dedicated to one customer is not an environment: it is the
+	// `dedicated` metadata field, which every zone sets and Sakura's alone holds.
+	require.Equal(t, []string{"production"}, stringColumn(t, ctx, testDB, `
+		SELECT DISTINCT type FROM deployment_zone WHERE organization_id = $1
+	`, orgID))
+	require.Equal(t, 3, countRows(t, ctx, testDB, `
+		SELECT COUNT(*) FROM deployment_zone
+		WHERE organization_id = $1 AND jsonb_typeof(metadata->'dedicated') = 'boolean'
+	`, orgID))
+	require.Equal(t, []string{"sakura-dedicated"}, stringColumn(t, ctx, testDB, `
+		SELECT slug FROM deployment_zone
+		WHERE organization_id = $1 AND (metadata->>'dedicated')::boolean
+	`, orgID))
+
+	// Locally the owner the seed resolves is Splinter, the dataset's primary
+	// user: Splinter creates Ops Team, and Ops Team everything else.
+	var splinterID uuid.UUID
+	require.NoError(t, testDB.DbPool.QueryRow(ctx, `
+		SELECT id FROM "user" WHERE external_id = 'user_splinter'
+	`).Scan(&splinterID))
+	requireSeededByOpsTeam(t, ctx, testDB, orgUUID, splinterID)
+}
+
+// TestDemoProfileReseedsAnOrganizationAsOpsTeam reseeds an existing
+// organization the way `seeder --organization-ids` does, twice. Its one person
+// is a member the seed must not write as: the owner it resolves is the Kaiten
+// platform identity, a member of every organization, which creates Ops Team,
+// and Ops Team creates the rest. The second run shows the cleanup removes the
+// two service accounts together, one having created the other.
+func TestDemoProfileReseedsAnOrganizationAsOpsTeam(t *testing.T) {
+	ctx := context.Background()
+	testDB, err := tests.NewTestDatabase()
+	require.NoError(t, err)
+	t.Cleanup(testDB.TearDown)
+
+	orgID := uuid.New()
+	createOrganizationWithMembership(t, ctx, testDB, orgID, "Existing Restaurant Group", testDB.DefaultData.UserID)
+
+	for range 2 {
+		require.NoError(t, seeder.Run(ctx, testDB.DbPool, []seeder.Profile{demoprofile.NewProfile()}, seeder.RunOptions{
+			OrganizationIDs: []uuid.UUID{orgID},
+		}))
+	}
+
+	var platformID uuid.UUID
+	require.NoError(t, testDB.DbPool.QueryRow(ctx, `
+		SELECT id FROM "user" WHERE external_id = $1
+	`, platformidentity.ExternalID).Scan(&platformID))
+	requireSeededByOpsTeam(t, ctx, testDB, orgID, platformID)
+	require.Equal(t, []string{"ops-team", "sdk"}, stringColumn(t, ctx, testDB, `
+		SELECT slug FROM "user" WHERE organization_id = $1 AND type = 'machine' ORDER BY slug
+	`, orgID))
+}
+
+// requireSeededByOpsTeam checks that the demo seed ran as its Ops Team service
+// account in orgID: ownerID created Ops Team and its token, holding the
+// console's control-plane preset plus entitlements, feature flags and metadata
+// fields, and Ops Team authored every other row.
+//
+// The author columns are discovered rather than listed, so a table that starts
+// recording an author is covered without editing this. "user" and "token" are
+// checked apart, being where ownerID's two rows live.
+func requireSeededByOpsTeam(t *testing.T, ctx context.Context, testDB *tests.TestDatabase, orgID, ownerID uuid.UUID) {
+	t.Helper()
+
+	var opsTeamID, opsTeamCreatedBy uuid.UUID
+	require.NoError(t, testDB.DbPool.QueryRow(ctx, `
+		SELECT id, created_by_id FROM "user"
+		WHERE organization_id = $1 AND type = 'machine' AND slug = 'ops-team' AND name = 'Ops Team'
+	`, orgID).Scan(&opsTeamID, &opsTeamCreatedBy))
+	require.Equal(t, ownerID, opsTeamCreatedBy, "the owner creates Ops Team")
+
+	require.ElementsMatch(t, []string{
+		"write:components",
+		"write:customers",
+		"write:deployment_zones",
+		"write:entitlements",
+		"write:feature_flags",
+		"write:instances",
+		"write:licenses",
+		"write:metadata_fields",
+		"write:organizations",
+		"write:releases",
+		"write:tokens",
+	}, stringColumn(t, ctx, testDB, `
+		SELECT unnest(scopes) FROM token WHERE service_account_id = $1 AND created_by = $2
+	`, opsTeamID, ownerID))
+
+	require.Zero(t, countRows(t, ctx, testDB, `
+		SELECT COUNT(*) FROM "user"
+		WHERE organization_id = $1 AND type = 'machine' AND id <> $2 AND created_by_id IS DISTINCT FROM $2
+	`, orgID, opsTeamID), "every other service account is by Ops Team")
+	require.Zero(t, countRows(t, ctx, testDB, `
+		SELECT COUNT(*) FROM token
+		WHERE organization_id = $1 AND service_account_id <> $2 AND created_by <> $2
+	`, orgID, opsTeamID), "every other token is by Ops Team")
+
+	authorColumns := stringColumn(t, ctx, testDB, `
+		SELECT c.table_name || '.' || c.column_name
+		FROM information_schema.columns c
+		       JOIN information_schema.columns o
+		         ON o.table_schema = c.table_schema AND o.table_name = c.table_name AND o.column_name = 'organization_id'
+		WHERE c.table_schema = 'public'
+		  AND c.column_name IN ('created_by_id', 'updated_by_id', 'created_by')
+		  AND c.table_name NOT IN ('user', 'token')
+		ORDER BY 1
+	`)
+	require.Contains(t, authorColumns, "deployment_zone.created_by_id")
+	for _, authorColumn := range authorColumns {
+		table, column, _ := strings.Cut(authorColumn, ".")
+		require.Zero(t, countRows(t, ctx, testDB, `
+			SELECT COUNT(*) FROM "`+table+`" WHERE organization_id = $1 AND "`+column+`" <> $2
+		`, orgID, opsTeamID), "%s is by Ops Team", authorColumn)
+	}
 }
 
 // TestDemoNotificationsOpenWhatTheyAreAbout reads the seeded audit trail through

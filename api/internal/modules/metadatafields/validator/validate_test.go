@@ -383,6 +383,66 @@ func TestValidateMetadataForResource(t *testing.T) {
 		assert.Equal(t, "MetadataValidation.ArchivedKeyIntroduced", kerr.Code)
 	})
 
+	// --- a key declared again after its field was archived ---
+
+	t.Run("key declared again after an archive can be introduced", func(t *testing.T) {
+		t.Parallel()
+		orgID := uuid.New()
+		stub := &stubLister{fields: []db.MetadataField{
+			mkArchivedField("tier", `{"type":"string"}`),
+			mkField("tier", `{"type":"string","enum":["standard","pci-dss"]}`),
+		}}
+		_, err := ValidateMetadataForResource(
+			context.Background(), stub, orgID,
+			db.MetadataFieldResourceTypeDEPLOYMENTZONE,
+			true,
+			map[string]any{"tier": "standard"}, nil,
+		)
+		assert.NoError(t, err)
+	})
+
+	t.Run("key declared again after an archive is checked against the active field", func(t *testing.T) {
+		t.Parallel()
+		orgID := uuid.New()
+		stub := &stubLister{fields: []db.MetadataField{
+			mkArchivedField("tier", `{"type":"string"}`),
+			mkField("tier", `{"type":"string","enum":["standard","pci-dss"]}`),
+		}}
+		_, err := ValidateMetadataForResource(
+			context.Background(), stub, orgID,
+			db.MetadataFieldResourceTypeDEPLOYMENTZONE,
+			true,
+			map[string]any{"tier": "gold"}, // valid for the archived field, not the active one
+			map[string]any{"tier": "standard"},
+		)
+		require.Error(t, err)
+		var kerr *kaitenerrors.Error
+		require.ErrorAs(t, err, &kerr)
+		assert.NotEqual(t, "MetadataValidation.ArchivedKeyIntroduced", kerr.Code)
+		assert.True(t, kaitenerrors.IsUnprocessable(err))
+	})
+
+	t.Run("PUT omitting a key declared again does not re-inject it", func(t *testing.T) {
+		t.Parallel()
+		orgID := uuid.New()
+		// Active-key PUT semantics: an omitted active key is dropped. Only an
+		// archived key is re-injected, and this one is active again.
+		stub := &stubLister{fields: []db.MetadataField{
+			mkField("region", `{"type":"string"}`),
+			mkArchivedField("tier", `{"type":"string"}`),
+			mkField("tier", `{"type":"string"}`),
+		}}
+		resolved, err := ValidateMetadataForResource(
+			context.Background(), stub, orgID,
+			db.MetadataFieldResourceTypeDEPLOYMENTZONE,
+			true,
+			map[string]any{"region": "us"},
+			map[string]any{"region": "eu", "tier": "gold"},
+		)
+		require.NoError(t, err)
+		assert.NotContains(t, resolved, "tier")
+	})
+
 	t.Run("all fields archived behaves as no-contract for non-archived keys", func(t *testing.T) {
 		t.Parallel()
 		orgID := uuid.New()

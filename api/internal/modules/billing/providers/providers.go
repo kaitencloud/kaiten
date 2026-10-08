@@ -21,6 +21,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/telemetry"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -93,12 +94,31 @@ func EnsureCustomer(ctx context.Context, q *db.Queries, conn *provider.Connectio
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return "", err
 	}
-	callCtx, cancel := Bound(ctx, timeout)
-	defer cancel()
-	record, err := conn.Adapter.EnsureCustomer(callCtx, conn.Ref, provider.Customer{
-		CustomerID: customer.ID, ExternalID: existing.ExternalCustomerID, Name: customer.Name, Email: customer.Email,
-		Metadata: map[string]string{"kaiten_customer_id": customer.ID.String(), "kaiten_organization_id": organizationID.String()},
-	})
+	ensure := func(externalID, recreateOf string) (provider.CustomerRecord, error) {
+		callCtx, cancel := Bound(ctx, timeout)
+		defer cancel()
+		return conn.Adapter.EnsureCustomer(callCtx, conn.Ref, provider.Customer{
+			CustomerID: customer.ID, ExternalID: externalID, Name: customer.Name, Email: customer.Email,
+			Metadata:   map[string]string{"kaiten_customer_id": customer.ID.String(), "kaiten_organization_id": organizationID.String()},
+			RecreateOf: recreateOf,
+		})
+	}
+	record, err := ensure(existing.ExternalCustomerID, "")
+	// Deleted in the provider: re-created, unless an invoice still references
+	// the old customer there (§12.1 rule 6), which stays ClassCustomerMissing.
+	if provider.ClassOf(err) == provider.ClassCustomerMissing && existing.ExternalCustomerID != "" {
+		open, countErr := q.CountOpenProviderInvoicesOfCustomer(ctx, db.CountOpenProviderInvoicesOfCustomerParams{
+			OrganizationID: organizationID, ProviderKind: kind, ExternalCustomerID: existing.ExternalCustomerID,
+		})
+		if countErr != nil {
+			return "", countErr
+		}
+		if open == 0 {
+			if record, err = ensure("", existing.ExternalCustomerID); err == nil {
+				telemetry.CustomerRecreated(ctx, string(kind))
+			}
+		}
+	}
 	if err != nil {
 		return "", err
 	}

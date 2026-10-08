@@ -13,19 +13,32 @@ import (
 func SeedServiceAccounts(ctx context.Context, sc *seeder.SeederContext, defs []ServiceAccountDef) (map[string][]*identityschema.PlainToken, error) {
 	tokens := make(map[string][]*identityschema.PlainToken, len(defs))
 	for _, def := range defs {
-		sa, err := sc.Identity.CreateServiceAccount.Execute(ctx, def.Name, def.Slug)
+		_, plain, err := SeedServiceAccount(ctx, sc, def)
 		if err != nil {
-			return nil, fmt.Errorf("create service account %q: %w", def.Name, err)
+			return nil, err
 		}
-		for _, tok := range def.Tokens {
-			plain, err := sc.Identity.CreateTokenOnServiceAccount.Execute(ctx, sa.Slug, tok.Name, tok.Slug, tok.Scopes, tok.ExpiresAt)
-			if err != nil {
-				return nil, fmt.Errorf("create token %q on service account %q: %w", tok.Name, def.Name, err)
-			}
-			tokens[def.Name] = append(tokens[def.Name], plain)
-		}
+		tokens[def.Name] = append(tokens[def.Name], plain...)
 	}
 	return tokens, nil
+}
+
+// SeedServiceAccount creates one service account and its tokens, returning the
+// account itself so a profile can go on to seed as it (see
+// seeder.SeederContext.WithOrganization).
+func SeedServiceAccount(ctx context.Context, sc *seeder.SeederContext, def ServiceAccountDef) (*identityschema.ServiceAccount, []*identityschema.PlainToken, error) {
+	sa, err := sc.Identity.CreateServiceAccount.Execute(ctx, def.Name, def.Slug)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create service account %q: %w", def.Name, err)
+	}
+	tokens := make([]*identityschema.PlainToken, 0, len(def.Tokens))
+	for _, tok := range def.Tokens {
+		plain, err := sc.Identity.CreateTokenOnServiceAccount.Execute(ctx, sa.Slug, tok.Name, tok.Slug, tok.Scopes, tok.ExpiresAt)
+		if err != nil {
+			return nil, nil, fmt.Errorf("create token %q on service account %q: %w", tok.Name, def.Name, err)
+		}
+		tokens = append(tokens, plain)
+	}
+	return sa, tokens, nil
 }
 
 // MintRotationToken used to live here: it created (or reused) a service account
