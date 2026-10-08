@@ -2,20 +2,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vite-plus/test';
-import { webhooksFlagQueryOptions } from '@/lib/feature-flags';
+import { webhooksServedQueryOptions } from '@/domains/webhooks';
 // Initializes the shared i18next instance with the app's locales.
 import '@/lib/i18n/config';
 import { TokenCreateForm } from '../token-create-form';
 
 function renderForm() {
   const onSubmit = vi.fn(async () => {});
-  // Kaiten Cloud, where the `webhooks` platform flag is on, so the table offers
-  // every scope. Where it is off is scope-access-table.test.tsx's concern.
+  // Kaiten Cloud, where webhooks are served, so the table offers every scope.
+  // Where they are not is scope-access-table.test.tsx's concern.
   // Never refetched: the seeded answer is the whole point.
   const queryClient = new QueryClient({
     defaultOptions: { queries: { enabled: false } },
   });
-  queryClient.setQueryData(webhooksFlagQueryOptions.queryKey, true);
+  queryClient.setQueryData(webhooksServedQueryOptions.queryKey, true);
   render(
     <QueryClientProvider client={queryClient}>
       <TokenCreateForm

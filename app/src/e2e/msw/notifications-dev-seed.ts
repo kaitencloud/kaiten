@@ -129,8 +129,8 @@ export function createNotificationsDevSeed(): SerializedNotificationAppModel {
 export async function startNotificationsDevMocks() {
   await startE2EMockServiceWorker(
     { notifications: createNotificationsDevSeed() },
-    // The stack's own platform flags, not the e2e default: on a SaaS stack they
-    // are what shows webhooks, whose deliveries these notifications link to.
-    { unmockedFlags: 'passthrough' },
+    // The stack's own platform, not the e2e default: on a SaaS stack its
+    // saas-api serves the webhooks these notifications' deliveries link to.
+    { unmockedPlatform: 'passthrough' },
   );
 }
