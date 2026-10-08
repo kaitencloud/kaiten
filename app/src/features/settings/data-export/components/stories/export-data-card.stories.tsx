@@ -70,7 +70,13 @@ export const WithoutBilling: Story = {
     const canvas = within(canvasElement);
 
     await expect(await canvas.findByTestId('usage-export')).toBeVisible();
+    // The usage card shows before the capabilities answer: wait for the
+    // retention they set before counting the months.
+    await expect(
+      await canvas.findByText(/Kaiten keeps 6 months of usage\./),
+    ).toBeVisible();
     await expect(canvas.queryByTestId('invoices-export')).toBeNull();
+    // 6 months kept, and the one in progress.
     await expect(canvas.getAllByRole('listitem')).toHaveLength(7);
   },
 };
