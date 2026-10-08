@@ -54,7 +54,8 @@ app/src/domains/billing/
 │                     # state, the foot), the invoices of one subject in a card (InvoicesCard),
 │                     # the period of a list (PeriodFilter), the columns of a table of usage
 │                     # reports (useUsageReportColumns), the menu of the export of the invoices
-│                     # (ExportInvoicesMenu) and the dialog of a refusal to delete
+│                     # (ExportInvoicesMenu, which says which filters of its screen the file
+│                     # leaves out) and the dialog of a refusal to delete
 │                     # (DeletionRefusalDialog)
 ├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session;
 │                     # useInvoiceActionAccess, the same for the five actions on an invoice;
@@ -113,7 +114,10 @@ page holds, or an export the API streams.
 - `downloadInvoiceExport(variant, filters)` exports the invoices a list selects (a
   call of the generated SDK with `parseAs: 'blob'`, handed to `downloadBlob`); the
   query of each variant and the name of its file are `toInvoiceExportQuery` and
-  `invoiceExportFilename`.
+  `invoiceExportFilename`. A screen that filters in the browser gives
+  `ExportInvoicesMenu` the filters the API has too, and the names of the ones it has
+  not (`unapplied`): the menu says so above its choices, since the file would hold
+  invoices the screen does not show.
 - `invalidateInstanceBillingQueries`, `invalidateInvoiceQueries`,
   `invalidateLicensePriceQueries` and `invalidateBillingSettingsQueries` refresh
   what a billing mutation changed, with the generated keys. A mutation of billing

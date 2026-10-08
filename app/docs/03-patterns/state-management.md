@@ -169,7 +169,7 @@ In the code:
 
 - the view mode of the feature flag list (`?view=list`);
 - the status filter of the notifications;
-- the filters of a list the server filters and pages, such as the invoices (`validateSearch` drops what is no filter, field by field): see [tables](./tables.md#a-list-the-server-filters-and-pages);
+- the scope of a list that the API applies, such as the customer or the instance of the invoices (`validateSearch` drops what does not read as a slug): see [tables](./tables.md#a-list-page). The filters of such a list stay in the browser and out of the URL, like those of any other list;
 - the active tab of a page, which is a child route (`RouteTabs`, `DetailEntityLayout.Tabs`);
 - the edit mode of a detail page (`?mode=configure`, see [dialog via route](./dialog-via-route.md#the-modeconfigure-edit-mode)).
 

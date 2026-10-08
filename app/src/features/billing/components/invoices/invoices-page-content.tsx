@@ -1,44 +1,41 @@
+import { useSuspenseQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
-  ExportInvoicesMenu,
+  invoicesQueryOptions,
   useBillingCapabilities,
   useCanPerform,
 } from '@/domains/billing';
 import { Page } from '@/functionals/page';
 import { dataModelIcons } from '@/lib/data-model-icons';
-import type { InvoiceFilters } from '../../schemas/invoice-filters.schema';
-import { invoiceFiltersToQuery } from '../../utils/invoice-filters';
-import { InvoiceFiltersToolbar } from './invoice-filters-toolbar';
+import type { InvoiceScope } from '../../schemas/invoice-scope.schema';
 import { InvoicesList } from './invoices-list';
 
 type InvoicesPageContentProps = {
-  /** The filters the URL holds. */
-  filters: InvoiceFilters;
-  /** Writes the filters to the URL, which the list follows. */
-  onFiltersChange: (filters: InvoiceFilters) => void;
+  /** Writes the scope to the URL, which the page follows. */
+  onScopeChange: (scope: InvoiceScope) => void;
+  /** The customer or the instance the URL scopes the list to. */
+  scope: InvoiceScope;
 };
 
 /**
  * The invoices of the organization, across its customers and instances: what was
  * composed at each boundary, in what status, and where it stands in the handoff
  * queue. It is the view finance works from, and what makes a deployment with no
- * payment provider auditable. The filters are the API's and live in the URL, so
- * that a list can be linked to and survives a reload; the export takes the same
- * filters.
+ * payment provider auditable. The route loads every invoice of the scope, like the
+ * other list pages load theirs, and the list filters, sorts and pages them.
  */
 export function InvoicesPageContent({
-  filters,
-  onFiltersChange,
+  onScopeChange,
+  scope,
 }: InvoicesPageContentProps) {
   const { t } = useTranslation();
+  const { data } = useSuspenseQuery(invoicesQueryOptions(scope));
   const { capabilities } = useBillingCapabilities();
   const canExport = useCanPerform('invoices.export');
   const InvoiceIcon = dataModelIcons.invoice;
-  // With NoOp alone, who collects an invoice is never a question; a filter
-  // already on stays shown, so that it can be taken off.
+  // With NoOp alone, who collects an invoice is never a question.
   const showProvider =
-    filters.providerKind !== undefined ||
-    (capabilities?.providers.some(({ kind }) => kind === 'STRIPE') ?? false);
+    capabilities?.providers.some(({ kind }) => kind === 'STRIPE') ?? false;
 
   return (
     <Page className="h-full min-h-0 overflow-hidden">
@@ -54,22 +51,16 @@ export function InvoicesPageContent({
             </Page.Subtitle>
           </Page.Heading>
         </Page.Leading>
-        <Page.Actions>
-          {canExport ? (
-            <ExportInvoicesMenu filters={invoiceFiltersToQuery(filters)} />
-          ) : null}
-        </Page.Actions>
       </Page.Header>
-      <InvoiceFiltersToolbar
-        filters={filters}
-        onChange={onFiltersChange}
-        showProvider={showProvider}
-      />
-      <InvoicesList
-        filters={filters}
-        onClearFilters={() => onFiltersChange({})}
-        showProvider={showProvider}
-      />
+      <div className="flex-1 min-h-0">
+        <InvoicesList
+          canExport={canExport}
+          invoices={data.items}
+          onScopeChange={onScopeChange}
+          scope={scope}
+          showProvider={showProvider}
+        />
+      </div>
     </Page>
   );
 }

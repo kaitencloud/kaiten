@@ -6,9 +6,10 @@ import {
 } from '@playwright/test';
 
 /**
- * The invoices of the organization: the list with its filters, its paging and its
- * export. The filters are in the URL, so the driver also reads what the page
- * holds there.
+ * The invoices of the organization: the list with its search and filters, its
+ * paging and its export. The console holds every invoice of the scope and
+ * filters them itself; the URL holds the scope alone, the customer or the
+ * instance, so the driver also reads what the page holds there.
  */
 export class BillingInvoicesDriver {
   constructor(private readonly page: Page) {}
@@ -107,121 +108,116 @@ export class BillingInvoicesDriver {
     }
   }
 
-  loadMore(): Locator {
-    return this.page.getByRole('button', { name: 'Load more', exact: true });
-  }
-
-  skeleton(): Locator {
-    return this.page.getByRole('status', { name: 'Loading invoices' });
+  /** Presses the header of a sortable column, by the name it shows: the first press sorts, the next reverses. */
+  async sortBy(column: string) {
+    await this.page
+      .getByRole('columnheader')
+      .filter({ hasText: new RegExp(`^${escape(column)}$`) })
+      .getByRole('button')
+      .click();
   }
 
   empty(): Locator {
     return this.page.getByTestId('invoices-empty');
   }
 
+  /** The refusal of the API, which the route shows in place of the page, around the console. */
   error(): Locator {
-    return this.page.getByTestId('invoices-error');
+    return this.page.getByTestId('billing-route-error');
   }
 
-  // --- The filters -------------------------------------------------------------
-
-  filtersButton(): Locator {
-    return this.page.getByRole('button', { name: /^Filters/ });
+  /** Opens the list where the API is armed to refuse it: there is no page, so no title to wait for. */
+  async gotoRefused(search = '') {
+    await this.page.goto(`/billing/invoices${search}`);
+    await expect(this.error()).toBeVisible();
   }
 
-  panel(): Locator {
-    return this.page.getByRole('dialog', { name: 'Invoice filters' });
+  // --- The search and the filters ----------------------------------------------
+
+  /** The search of the toolbar, named by what it matches in the language the page is read in. */
+  searchField(placeholder = 'Customer, instance or invoice'): Locator {
+    return this.page.getByPlaceholder(placeholder);
   }
 
-  async openFilters() {
-    if ((await this.panel().count()) === 0) {
-      await this.filtersButton().click();
-    }
-    await expect(this.panel()).toBeVisible();
+  async search(term: string, placeholder?: string) {
+    await this.searchField(placeholder).fill(term);
   }
 
-  async closeFilters() {
-    await this.page.keyboard.press('Escape');
-    await expect(this.panel()).toHaveCount(0);
-  }
-
-  /** Ticks or unticks a status of the status filter, by its label. */
-  async toggleStatus(label: string) {
-    await this.openFilters();
-    await this.panel()
-      .getByRole('checkbox', { name: label, exact: true })
-      .click();
-  }
-
-  /** Presses an option of a choice of the panel (Kind, Handoff, Provider); pressing it again takes it off. */
-  async choose(group: 'Kind' | 'Handoff' | 'Provider', option: string) {
-    await this.openFilters();
-    await this.panel()
-      .getByRole('group', { name: group, exact: true })
-      .getByRole('button', { name: option, exact: true })
-      .click();
-  }
-
-  async setSwitch(label: string, on: boolean) {
-    await this.openFilters();
-    const toggle = this.panel().getByRole('switch', { name: label });
-    if ((await toggle.isChecked()) !== on) {
-      await toggle.click();
-    }
-  }
-
-  /** Types a slug into the customer or instance filter and applies it with Enter. */
-  async setSlug(field: 'Customer' | 'Instance', slug: string) {
-    await this.openFilters();
-    const input = this.panel().getByLabel(field, { exact: true });
-    await input.fill(slug);
-    await input.press('Enter');
-  }
-
-  /** Sets a period of the panel: both days are UTC, the second is where the period ends. */
-  async setPeriod(
-    period: 'Boundary' | 'Issued',
-    from: string | null,
-    before: string | null,
-  ) {
-    await this.openFilters();
-    const fieldset = this.panel().getByRole('group', {
-      name: period,
+  /**
+   * Adds a filter from the menu of the toolbar: the Filter button where none is
+   * set, the "Add filter" of the row of chips once one is. The field opens on its
+   * own editor, which `pick` then works in.
+   */
+  async addFilter(field: string) {
+    const add = this.page.getByRole('button', {
       exact: true,
+      name: 'Add filter',
     });
-    if (from !== null) {
-      await fieldset.getByLabel('From', { exact: true }).fill(from);
+    if ((await add.count()) > 0) {
+      await add.click();
+    } else {
+      await this.page
+        .getByRole('button', { exact: true, name: 'Filter' })
+        .click();
     }
-    if (before !== null) {
-      await fieldset.getByLabel('Before', { exact: true }).fill(before);
-    }
+    await this.page.getByRole('option', { exact: true, name: field }).click();
   }
 
+  /**
+   * Picks an option of the editor a filter opened on. A filter with several
+   * choices (Status) stays open for the next; the others close on their choice.
+   */
+  async pick(option: string) {
+    await this.page
+      .getByRole('dialog')
+      .getByRole('option', { exact: true, name: option })
+      .click();
+  }
+
+  /** Types a day into the date input of the editor a filter opened on. */
+  async pickDay(field: string, day: string) {
+    await this.page
+      .getByRole('dialog')
+      .getByLabel(`Filter by ${field}`, { exact: true })
+      .fill(day);
+  }
+
+  async closeEditor() {
+    await this.page.keyboard.press('Escape');
+    await expect(this.page.getByRole('dialog')).toHaveCount(0);
+  }
+
+  /** Every chip of the toolbar: the scope of the URL first, then the filters of the screen. */
   chips(): Locator {
-    return this.page.locator('[data-filter]');
-  }
-
-  chip(label: string): Locator {
-    return this.chips().filter({ hasText: label });
+    return this.page.locator('div.bg-secondary.rounded-full');
   }
 
   async expectChips(labels: string[]) {
-    await expect(this.chips()).toHaveText(
-      labels.map((label) => new RegExp(`^${escape(label)}`)),
-    );
+    await expect(this.chips()).toHaveText(labels);
   }
 
-  async removeChip(label: string) {
-    await this.chip(label)
-      .getByRole('button', { name: `Remove the filter ${label}` })
+  /** The chip of the customer or the instance the URL scopes the list to. */
+  scopeChip(key: 'customerSlug' | 'instanceSlug'): Locator {
+    return this.page.locator(`[data-scope="${key}"]`);
+  }
+
+  /** Takes a filter off, from the button of its chip: `field` is its label, as the button says it. */
+  async removeFilter(field: string) {
+    await this.page
+      .getByRole('button', { exact: true, name: `Remove ${field} filter` })
       .click();
   }
 
-  /** The button of the toolbar that takes every filter off: the first of the page, ahead of the list. */
-  clearFilters(): Locator {
-    return this.page
-      .getByRole('button', { name: 'Clear filters', exact: true })
-      .first();
+  /** Takes the scope off, from the button of its chip: `chip` is what the chip says. */
+  async removeScope(chip: string) {
+    await this.page
+      .getByRole('button', { exact: true, name: `Remove the filter ${chip}` })
+      .click();
+  }
+
+  /** The button of the row of chips that takes every filter off. */
+  reset(): Locator {
+    return this.page.getByRole('button', { exact: true, name: 'Reset' });
   }
 
   // --- The URL -----------------------------------------------------------------
@@ -262,6 +258,11 @@ export class BillingInvoicesDriver {
   async openExportMenu() {
     await this.exportButton().click();
     await expect(this.page.getByRole('menu')).toBeVisible();
+  }
+
+  /** What the menu says of the filters the file does not apply: absent when it applies them all. */
+  exportNote(): Locator {
+    return this.page.getByTestId('export-unapplied');
   }
 }
 

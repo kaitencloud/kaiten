@@ -66,3 +66,16 @@ export async function expectInside(container: Locator, item: Locator) {
     (outer?.x ?? 0) + (outer?.width ?? 0),
   );
 }
+
+/**
+ * A control is wholly on the screen: neither of its sides is past the edge of the
+ * page, where the page would cut it off with nothing to scroll to reach it.
+ */
+export async function expectOnScreen(page: Page, control: Locator) {
+  const box = await control.boundingBox();
+  const width = page.viewportSize()?.width ?? 0;
+
+  expect(box).not.toBeNull();
+  expect(box?.x).toBeGreaterThanOrEqual(0);
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width);
+}

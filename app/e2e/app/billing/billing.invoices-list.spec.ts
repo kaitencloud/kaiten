@@ -1,6 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { expect, recordWrites, test } from '../_support/app-test';
-import { expectFitsItsContainer } from '../_support/assertions/layout';
+import {
+  expectFitsItsContainer,
+  expectOnScreen,
+} from '../_support/assertions/layout';
 import { expectErrorToast } from '../_support/assertions/toast';
 import { BillingInvoicesDriver } from '../_support/drivers/billing-invoices.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
@@ -15,8 +18,10 @@ import {
 
 // The invoices of the organization, across its customers and instances: what
 // finance reads to see what was composed, what is overdue and what waits for the
-// accounting system. The filters are the API's and live in the URL; the list is
-// paged by cursor, and the export takes the filters of the screen.
+// accounting system. The console reads every invoice of the scope, 200 at a time,
+// and searches, filters, sorts and pages them itself like any other list; the URL
+// holds the scope alone, a customer or an instance, which the API applies, and the
+// export takes the scope and the filters of the screen that the API has too.
 
 const NEWEST_FIRST = [
   'inv-h1',
@@ -73,6 +78,27 @@ test.describe('the list of invoices', () => {
 
     await list.expectInvoiceIds(NEWEST_FIRST);
     await expect(list.rows()).toHaveCount(11);
+  });
+
+  test('sorts by the column whose header is pressed, and reverses it on a second press', async ({
+    page,
+  }) => {
+    const list = new BillingInvoicesDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await list.gotoShowingEverything();
+    await list.sortBy('Customer');
+
+    // Globex before Initech: its three invoices open the list.
+    expect(new Set((await list.invoiceIds()).slice(0, 3))).toEqual(
+      new Set(['inv-g1', 'inv-d2', 'inv-u1']),
+    );
+
+    await list.sortBy('Customer');
+
+    expect(new Set((await list.invoiceIds()).slice(-3))).toEqual(
+      new Set(['inv-g1', 'inv-d2', 'inv-u1']),
+    );
   });
 
   test('shows who an invoice is for, what it bills, for how much and where it stands', async ({
@@ -177,8 +203,57 @@ test.describe('the list of invoices', () => {
   });
 });
 
+test.describe('the search of the list', () => {
+  test('finds an invoice by its customer, its instance or its identifier, in the browser', async ({
+    page,
+  }) => {
+    const list = new BillingInvoicesDriver(page);
+    const reads = recordWrites(page, /\/api\/invoices$/, ['GET']);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await list.gotoShowingEverything();
+
+    // The name of a customer, in any case.
+    await list.search('GLOBEX');
+    await list.expectInvoiceIds(['inv-g1', 'inv-d2', 'inv-u1']);
+
+    // The slug of an instance, a part of it.
+    await list.search('initech-pr');
+    await expect(list.row('inv-p1')).toBeVisible();
+    await expect(list.row('inv-g1')).toHaveCount(0);
+
+    // The identifier of an invoice.
+    await list.search('inv-p');
+    await list.expectInvoiceIds(['inv-p1']);
+
+    // The console holds every invoice: nothing more was asked of the API, and the
+    // URL does not carry the search.
+    expect(reads).toHaveLength(1);
+    expect(list.pathAndSearch()).toBe('/billing/invoices');
+  });
+
+  test('says no invoice matches, and clears the search from the message', async ({
+    page,
+  }) => {
+    const list = new BillingInvoicesDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await list.goto();
+    await list.search('nobody');
+
+    await expect(list.empty()).toContainText(
+      'No invoice matches these filters',
+    );
+    await list.empty().getByRole('button', { name: 'Clear filters' }).click();
+
+    await expect(list.searchField()).toHaveValue('');
+    await expect(list.rows()).toHaveCount(10);
+    await expect(page.getByText('Showing 1-10 of 11 records')).toBeVisible();
+  });
+});
+
 test.describe('the filters of the list', () => {
-  test('are sent to the API as they are set, mirrored in the URL, kept by a reload, and cleared to the bare path', async ({
+  test('are picked from the Filter menu, narrow the rows in the browser and say themselves in chips', async ({
     page,
   }) => {
     const list = new BillingInvoicesDriver(page);
@@ -186,98 +261,78 @@ test.describe('the filters of the list', () => {
     await installBillingAppMocks(page, createInvoicesModel({ stripe: true }));
 
     await list.gotoShowingEverything();
-    await list.toggleStatus('Ready to bill');
-    await list.toggleStatus('Awaiting payment');
-    await list.choose('Kind', 'Renewal');
-    await list.choose('Provider', 'Stripe');
-    await list.choose('Handoff', 'Waiting for your ERP');
-    await list.setSwitch('Overdue invoices only', true);
-    await list.setSlug('Customer', 'initech');
-    await list.setPeriod('Boundary', '2026-03-01', '2026-04-01');
-    await list.closeFilters();
+    await expect(list.rows()).toHaveCount(13);
 
-    // What the API was asked for, with the page size of the list.
-    await expect
-      .poll(() => reads.at(-1)?.search ?? '', { timeout: 15_000 })
-      .toContain('boundaryTo=');
-    const asked = new URLSearchParams(reads.at(-1)?.search);
-    expect(asked.getAll('status')).toEqual(['MANUAL', 'PUSHED']);
-    expect(asked.get('kind')).toBe('RENEWAL');
-    expect(asked.get('providerKind')).toBe('STRIPE');
-    expect(asked.get('overdue')).toBe('true');
-    expect(asked.get('handoffStatus')).toBe('PENDING');
-    expect(asked.get('customerSlug')).toBe('initech');
-    expect(asked.get('boundaryFrom')).toBe('2026-03-01T00:00:00.000Z');
-    expect(asked.get('boundaryTo')).toBe('2026-04-01T00:00:00.000Z');
-    expect(asked.get('limit')).toBe('200');
-    // A filter that is off is not sent.
-    expect(asked.has('held')).toBe(false);
-
-    // The URL holds the same filters.
-    const params = list.searchParams();
-    expect(JSON.parse(params.get('status') ?? '[]')).toEqual([
-      'MANUAL',
-      'PUSHED',
-    ]);
-    expect(params.get('kind')).toBe('RENEWAL');
-    expect(params.get('providerKind')).toBe('STRIPE');
-    expect(params.get('overdue')).toBe('true');
-    expect(params.get('handoffStatus')).toBe('PENDING');
-    expect(params.get('customerSlug')).toBe('initech');
-
-    // Reloading restores them: the chips say each one.
-    await page.reload();
-    await expect(
-      page.getByRole('heading', { level: 1, name: 'Invoices' }),
-    ).toBeVisible();
-    await list.expectChips([
-      'Status: Ready to bill, Awaiting payment',
-      'Kind: Renewal',
-      'Provider: Stripe',
-      'Handoff: Waiting for your ERP',
-      'Overdue',
-      'Customer: initech',
-      'Boundary: Mar 1, 2026 (UTC) → Apr 1, 2026 (UTC)',
-    ]);
-
-    // Clearing returns to the path with no search at all.
-    await list.clearFilters().click();
-    await expect.poll(() => list.pathAndSearch()).toBe('/billing/invoices');
-    await list.showRowsPerPage(50);
+    // Several statuses at once: the editor stays open for the next.
+    await list.addFilter('Status');
+    await list.pick('Ready to bill');
+    await list.pick('Awaiting payment');
+    await list.closeEditor();
     await list.expectInvoiceIds([
-      'inv-h1',
-      'inv-h2',
-      'inv-f1',
       'inv-s1',
       'inv-g1',
       'inv-p1',
       'inv-m1',
-      'inv-d1',
-      'inv-d2',
-      'inv-u1',
       'inv-r1',
-      'inv-v1',
-      'inv-v2',
     ]);
+
+    // A yes/no filter: the invoices past their due date, as the badge says them.
+    await list.addFilter('Overdue');
+    await list.pick('True');
+    await list.expectInvoiceIds(['inv-m1', 'inv-r1']);
+
+    await list.addFilter('Kind');
+    await list.pick('Activation');
+    await list.addFilter('Handoff');
+    await list.pick('Waiting for your ERP');
+    await list.expectInvoiceIds(['inv-m1', 'inv-r1']);
+    await list.expectChips([
+      'Status: Ready to bill, Awaiting payment',
+      'Overdue: True',
+      'Kind: Activation',
+      'Handoff: Waiting for your ERP',
+    ]);
+
+    // Nothing is both: the message offers to clear what hides everything.
+    await list.addFilter('Provider');
+    await list.pick('Stripe');
+    await expect(list.empty()).toContainText(
+      'No invoice matches these filters',
+    );
+
+    await list.removeFilter('Provider');
+    await list.expectInvoiceIds(['inv-m1', 'inv-r1']);
+
+    // The console holds every invoice: it did not ask the API again, and the
+    // URL does not carry a filter.
+    expect(reads).toHaveLength(1);
+    expect(list.pathAndSearch()).toBe('/billing/invoices');
+
+    // Resetting takes every filter off at once.
+    await list.reset().click();
+    await expect(list.chips()).toHaveCount(0);
+    await expect(list.rows()).toHaveCount(13);
   });
 
-  test('narrow the list on the server: only what they select is listed', async ({
+  test('select the held drafts and the invoices issued on a day', async ({
     page,
   }) => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
     await list.gotoShowingEverything();
-    await list.setSwitch('Overdue invoices only', true);
-    await list.closeFilters();
-    // The first invoice, and the replacement of a void one: both are past due.
-    await list.expectInvoiceIds(['inv-m1', 'inv-r1']);
-    await expect(list.rows()).toHaveCount(2);
-
-    await list.clearFilters().click();
-    await list.setSwitch('Held drafts only', true);
-    await list.closeFilters();
+    await list.addFilter('Held');
+    await list.pick('True');
     await list.expectInvoiceIds(['inv-h1', 'inv-h2']);
+
+    await list.reset().click();
+    await list.addFilter('Issued');
+    // A day is a UTC day, as everywhere in billing.
+    await list.pickDay('Issued', '2026-03-01');
+    await list.closeEditor();
+
+    await list.expectInvoiceIds(['inv-m1']);
+    await list.expectChips(['Issued is 2026-03-01']);
   });
 
   test('take off one at a time, from the chip that names it', async ({
@@ -286,70 +341,135 @@ test.describe('the filters of the list', () => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.gotoShowingEverything('?kind=ACTIVATION&customerSlug=globex');
-    await list.expectChips(['Kind: Activation', 'Customer: globex']);
+    await list.gotoShowingEverything();
+    await list.addFilter('Kind');
+    await list.pick('Activation');
+    await list.search('globex');
     await list.expectInvoiceIds(['inv-d2']);
 
-    await list.removeChip('Kind: Activation');
+    await list.removeFilter('Kind');
 
-    await list.expectChips(['Customer: globex']);
     await list.expectInvoiceIds(['inv-g1', 'inv-d2', 'inv-u1']);
-    expect(list.searchParams().has('kind')).toBe(false);
+    await expect(list.chips()).toHaveCount(0);
   });
 
-  test('are read from a link, a status given once as well as a list', async ({
+  test('are not kept by a reload: the URL holds the scope and nothing else', async ({
     page,
   }) => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.gotoShowingEverything('?status=PAID&customerSlug=globex');
+    await list.gotoShowingEverything();
+    await list.addFilter('Kind');
+    await list.pick('Activation');
+    await expect(list.chips()).toHaveCount(1);
+    expect(list.pathAndSearch()).toBe('/billing/invoices');
 
-    await list.expectChips(['Status: Paid', 'Customer: globex']);
-    await list.expectInvoiceIds(['inv-d2']);
+    await page.reload();
+
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Invoices' }),
+    ).toBeVisible();
+    await expect(list.chips()).toHaveCount(0);
   });
+});
 
-  test('that are not filters are dropped, and the list opens with the rest', async ({
-    page,
-  }) => {
-    const list = new BillingInvoicesDriver(page);
-    await installBillingAppMocks(page, createInvoicesModel());
-
-    await list.gotoShowingEverything(
-      '?kind=NOT_A_KIND&status=PAID&overdue=false',
-    );
-
-    await list.expectChips(['Status: Paid']);
-    await list.expectInvoiceIds(['inv-d1', 'inv-d2']);
-  });
-
-  test('reject a period that ends before it starts, and do not send it', async ({
+test.describe('the scope of the list', () => {
+  test('is read from a link, asked of the API, said in a chip, and taken off to the bare path', async ({
     page,
   }) => {
     const list = new BillingInvoicesDriver(page);
     const reads = recordWrites(page, /\/api\/invoices$/, ['GET']);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.gotoShowingEverything();
-    await list.setPeriod('Boundary', '2026-04-01', null);
-    // The start alone is a period open at its end: it is applied.
-    await expect
-      .poll(() => reads.at(-1)?.search ?? '', { timeout: 15_000 })
-      .toContain('boundaryFrom=');
+    await list.gotoShowingEverything('?customerSlug=globex');
 
-    await list.setPeriod('Boundary', null, '2026-03-01');
+    await list.expectChips(['Customer: globex']);
+    await list.expectInvoiceIds(['inv-g1', 'inv-d2', 'inv-u1']);
+    // The API applies the scope: it matches the slug a customer has now as well as
+    // the one an invoice was composed under.
+    const asked = new URLSearchParams(reads[0].search);
+    expect(asked.get('customerSlug')).toBe('globex');
+    expect(asked.get('limit')).toBe('200');
 
-    await expect(
-      list.panel().getByText('The period must end after it starts.'),
-    ).toBeVisible();
-    // The end before the start is not sent, and is not in the URL.
-    const sent = reads.length;
-    await list.closeFilters();
-    expect(reads.length).toBe(sent);
-    expect(
-      reads.some((read) => (read.search ?? '').includes('boundaryTo=')),
-    ).toBe(false);
-    expect(list.searchParams().has('boundaryTo')).toBe(false);
+    await list.removeScope('Customer: globex');
+
+    await expect.poll(() => list.pathAndSearch()).toBe('/billing/invoices');
+    await expect(list.chips()).toHaveCount(0);
+    await expect(page.getByText(/Showing 1-\d+ of 11 records/)).toBeVisible();
+    expect(new URLSearchParams(reads.at(-1)?.search).has('customerSlug')).toBe(
+      false,
+    );
+  });
+
+  test('is a chip for the instance as well, and the filters of the screen apply within it', async ({
+    page,
+  }) => {
+    const list = new BillingInvoicesDriver(page);
+    const reads = recordWrites(page, /\/api\/invoices$/, ['GET']);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await list.gotoShowingEverything('?instanceSlug=initech-prod');
+    await list.addFilter('Kind');
+    await list.pick('Activation');
+
+    await list.expectChips(['Instance: initech-prod', 'Kind: Activation']);
+    await list.expectInvoiceIds(['inv-m1', 'inv-r1', 'inv-v1']);
+    // The scope is in the URL and asked of the API; the filter is neither.
+    expect(list.pathAndSearch()).toBe(
+      '/billing/invoices?instanceSlug=initech-prod',
+    );
+    expect(reads).toHaveLength(1);
+    expect(new URLSearchParams(reads[0].search).get('instanceSlug')).toBe(
+      'initech-prod',
+    );
+    expect(new URLSearchParams(reads[0].search).has('kind')).toBe(false);
+
+    await list.removeScope('Instance: initech-prod');
+
+    // The filter stays where it was, on every invoice now.
+    await expect.poll(() => list.pathAndSearch()).toBe('/billing/invoices');
+    await list.expectChips(['Kind: Activation']);
+    await list.expectInvoiceIds(['inv-m1', 'inv-d2', 'inv-r1', 'inv-v1']);
+  });
+
+  test('keeps the scope of an older link and drops the filters it carried', async ({
+    page,
+  }) => {
+    const list = new BillingInvoicesDriver(page);
+    const reads = recordWrites(page, /\/api\/invoices$/, ['GET']);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await list.gotoShowingEverything(
+      '?customerSlug=globex&kind=ACTIVATION&status=PAID&overdue=true',
+    );
+
+    await list.expectChips(['Customer: globex']);
+    await list.expectInvoiceIds(['inv-g1', 'inv-d2', 'inv-u1']);
+    const asked = new URLSearchParams(reads[0].search);
+    expect(asked.get('customerSlug')).toBe('globex');
+    for (const dropped of ['kind', 'status', 'overdue']) {
+      expect(asked.has(dropped), `${dropped} was sent`).toBe(false);
+    }
+  });
+
+  test('keeps the Filter button and the export within the page at the width of a tablet, with a chip for the customer and one for the instance', async ({
+    page,
+  }) => {
+    const list = new BillingInvoicesDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+    await page.setViewportSize({ height: 900, width: 820 });
+
+    await list.goto('?customerSlug=initech&instanceSlug=initech-prod');
+
+    await expect(list.chips()).toHaveCount(2);
+    // The chips wrap under the search: they do not push the controls beside them
+    // past the edge of the page, where it would clip them with nothing to scroll.
+    await expectOnScreen(
+      page,
+      page.getByRole('button', { exact: true, name: 'Filter' }),
+    );
+    await expectOnScreen(page, list.exportButton());
   });
 });
 
@@ -433,7 +553,7 @@ test.describe('the states of the list', () => {
     ).toHaveCount(0);
   });
 
-  test('says no invoice matches the filters, and clears them from the message', async ({
+  test('says nothing was invoiced for a customer, and leads to every invoice', async ({
     page,
   }) => {
     const list = new BillingInvoicesDriver(page);
@@ -441,14 +561,24 @@ test.describe('the states of the list', () => {
 
     await list.gotoShowingEverything('?customerSlug=nobody');
 
-    await expect(list.empty()).toContainText(
-      'No invoice matches these filters',
-    );
-    await list.empty().getByRole('button', { name: 'Clear filters' }).click();
+    await expect(list.empty()).toContainText('No invoice for this customer');
+    await list
+      .empty()
+      .getByRole('button', { name: 'Show every invoice' })
+      .click();
 
     await expect.poll(() => list.pathAndSearch()).toBe('/billing/invoices');
     await expect(list.rows()).toHaveCount(10);
     await expect(page.getByText('Showing 1-10 of 11 records')).toBeVisible();
+  });
+
+  test('says the same of an instance', async ({ page }) => {
+    const list = new BillingInvoicesDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await list.gotoShowingEverything('?instanceSlug=nobody');
+
+    await expect(list.empty()).toContainText('No invoice for this instance');
   });
 
   test('shows why the API refused, with the trace of a failure that is the server’s, and reads again when asked', async ({
@@ -463,7 +593,7 @@ test.describe('the states of the list', () => {
     });
     await installBillingAppMocks(page, model);
 
-    await list.gotoShowingEverything();
+    await list.gotoRefused();
 
     await expect(list.error()).toContainText(
       'the invoice store is unavailable',
@@ -493,7 +623,7 @@ test.describe('the states of the list', () => {
     });
     await installBillingAppMocks(page, model);
 
-    await list.gotoShowingEverything();
+    await list.gotoRefused();
 
     await expect(list.error()).toContainText('read:billing');
     await expect(list.error()).toContainText('token template');
@@ -514,7 +644,7 @@ test.describe('the states of the list', () => {
     });
     await installBillingAppMocks(page, model);
 
-    await list.goto();
+    await list.gotoRefused();
 
     // The first page was read and the second was refused: nothing partial is shown.
     await expect(list.error()).toContainText(
@@ -530,15 +660,25 @@ test.describe('the states of the list', () => {
 });
 
 test.describe('the export of the list', () => {
-  test('offers three files, and sends the filters of the screen with the shape each one is', async ({
+  test('offers three files, and sends the scope and the filters of the screen with the shape each one is', async ({
     page,
   }) => {
     const list = new BillingInvoicesDriver(page);
     const exports = recordWrites(page, /\/api\/invoices\/export$/, ['GET']);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.gotoShowingEverything('?status=MANUAL&overdue=true');
+    await list.gotoShowingEverything('?customerSlug=initech');
+    await list.addFilter('Status');
+    await list.pick('Ready to bill');
+    await list.closeEditor();
+    await list.addFilter('Kind');
+    await list.pick('Activation');
     await list.expectInvoiceIds(['inv-m1', 'inv-r1']);
+
+    // Every filter of the screen has its twin in the API: nothing is left out.
+    await list.openExportMenu();
+    await expect(list.exportNote()).toHaveCount(0);
+    await page.keyboard.press('Escape');
 
     // A CSV with a row for every line of the invoices selected.
     const lines = await list.export('CSV by invoice line');
@@ -546,8 +686,9 @@ test.describe('the export of the list', () => {
       /^invoices-by-line-\d{8}T\d{6}Z\.csv$/,
     );
     const linesQuery = new URLSearchParams(exports[0].search);
+    expect(linesQuery.get('customerSlug')).toBe('initech');
     expect(linesQuery.getAll('status')).toEqual(['MANUAL']);
-    expect(linesQuery.get('overdue')).toBe('true');
+    expect(linesQuery.get('kind')).toBe('ACTIVATION');
     expect(linesQuery.get('format')).toBe('csv');
     expect(linesQuery.get('granularity')).toBe('line');
 
@@ -562,7 +703,7 @@ test.describe('the export of the list', () => {
     const csv = await readFile((await invoices.path()) ?? '', 'utf8');
     expect(csv).toContain('inv-m1');
     expect(csv).toContain('inv-r1');
-    // Only what the filters select: this one is not past due.
+    // Only what the filters select: this one is a renewal.
     expect(csv).not.toContain('inv-p1');
 
     // NDJSON: an invoice and its lines on each line, with no granularity, which
@@ -580,6 +721,64 @@ test.describe('the export of the list', () => {
       expect(query.has('cursor')).toBe(false);
       expect(query.has('limit')).toBe(false);
     }
+  });
+
+  test('says which filter the file leaves out, and hands over what the API selects', async ({
+    page,
+  }) => {
+    const list = new BillingInvoicesDriver(page);
+    const exports = recordWrites(page, /\/api\/invoices\/export$/, ['GET']);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await list.gotoShowingEverything();
+    await list.addFilter('Status');
+    await list.pick('Paid');
+    await list.closeEditor();
+    // The search is the screen's alone: the API has no search to send it to.
+    await list.search('globex');
+    await list.expectInvoiceIds(['inv-d2']);
+
+    await list.openExportMenu();
+
+    await expect(list.exportNote()).toHaveText(
+      'This filter is not applied to the file: Search.',
+    );
+    await page
+      .getByRole('menuitem', { exact: true, name: 'CSV by invoice' })
+      .click();
+    await expect.poll(() => exports.length).toBe(1);
+    const query = new URLSearchParams(exports[0].search);
+    expect(query.getAll('status')).toEqual(['PAID']);
+    expect(query.has('query')).toBe(false);
+    expect(query.has('search')).toBe(false);
+  });
+
+  test('leaves overdue out of the file and says so, since the API counts more invoices overdue than the screen', async ({
+    page,
+  }) => {
+    const list = new BillingInvoicesDriver(page);
+    const exports = recordWrites(page, /\/api\/invoices\/export$/, ['GET']);
+    // `inv-s1`, which Stripe charges by card, is past its due date: the API counts
+    // it overdue, as it does any issued invoice that is unpaid past its due date,
+    // and the screen does not, since it says it only of an invoice sent to the
+    // customer. The file would hold what the screen does not show.
+    await installBillingAppMocks(page, createInvoicesModel({ stripe: true }));
+
+    await list.gotoShowingEverything();
+    await list.addFilter('Overdue');
+    await list.pick('True');
+    await list.expectInvoiceIds(['inv-m1', 'inv-r1']);
+
+    await list.openExportMenu();
+
+    await expect(list.exportNote()).toHaveText(
+      'This filter is not applied to the file: Overdue.',
+    );
+    await page
+      .getByRole('menuitem', { exact: true, name: 'CSV by invoice' })
+      .click();
+    await expect.poll(() => exports.length).toBe(1);
+    expect(new URLSearchParams(exports[0].search).has('overdue')).toBe(false);
   });
 
   test('exports every invoice the filters select, not only the page that was read', async ({

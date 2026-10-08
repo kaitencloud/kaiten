@@ -1,23 +1,38 @@
-import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button } from '@/components/ui/button';
+import type { InvoiceSummary } from '@/api-client';
 import {
+  ExportInvoicesMenu,
   type InvoicesTableColumn,
   InvoicesTable,
-  ListEmptyState,
-  PagedListSkeleton,
-  RetryableProblem,
 } from '@/domains/billing';
-import { dataModelIcons } from '@/lib/data-model-icons';
-import { invoicesQueryOptions } from '../../queries';
-import type { InvoiceFilters } from '../../schemas/invoice-filters.schema';
-import { hasActiveInvoiceFilters } from '../../utils/invoice-filters';
+import {
+  type FilterFieldDefinition,
+  useFilterBuilder,
+} from '@/functionals/filters';
+import { FilterTableLayout } from '@/functionals/table';
+import type { InvoiceScope } from '../../schemas/invoice-scope.schema';
+import {
+  getAppliedFilters,
+  toInvoiceExportSelection,
+} from '../../utils/invoice-export-filters';
+import {
+  createInvoicesFilterFields,
+  INVOICE_FILTER_IDS,
+} from '../../utils/invoice-filter-fields';
+import { InvoiceScopeChips } from './invoice-scope-chips';
+import { InvoicesEmpty } from './invoices-empty';
 
 type InvoicesListProps = {
-  filters: InvoiceFilters;
-  onClearFilters: () => void;
-  /** Whether Stripe collects invoices here: with NoOp alone the provider is not worth a column. */
+  /** Whether the session may export: where it may not, the menu is not there. */
+  canExport: boolean;
+  /** Every invoice of the scope, read whole. */
+  invoices: InvoiceSummary[];
+  /** Writes the scope to the URL, which the page follows. */
+  onScopeChange: (scope: InvoiceScope) => void;
+  /** The customer or the instance the URL scopes the list to. */
+  scope: InvoiceScope;
+  /** Whether Stripe collects invoices here: with NoOp alone the provider is not worth a column or a filter. */
   showProvider: boolean;
 };
 
@@ -25,105 +40,84 @@ type InvoicesListProps = {
 const WITHOUT_PROVIDER: readonly InvoicesTableColumn[] = ['provider'];
 const WITH_PROVIDER: readonly InvoicesTableColumn[] = [];
 
-function EmptyInvoices({
-  filtered,
-  onClearFilters,
-}: {
-  filtered: boolean;
-  onClearFilters: () => void;
-}) {
-  const { t } = useTranslation();
-
-  return (
-    <ListEmptyState
-      className="mt-4"
-      description={t(
-        filtered
-          ? 'Pages.Billing.Invoices.Empty.filteredDescription'
-          : 'Pages.Billing.Invoices.Empty.description',
-      )}
-      icon={dataModelIcons.invoice}
-      testId="invoices-empty"
-      title={t(
-        filtered
-          ? 'Pages.Billing.Invoices.Empty.filteredTitle'
-          : 'Pages.Billing.Invoices.Empty.title',
-      )}
-    >
-      {filtered ? (
-        <Button onClick={onClearFilters} size="sm" variant="outline">
-          {t('Pages.Billing.Invoices.Filters.clear')}
-        </Button>
-      ) : (
-        <Button
-          nativeButton={false}
-          role="link"
-          render={
-            <Link to="/customers/instances">
-              {t('Pages.Billing.Invoices.Empty.instances')}
-            </Link>
-          }
-          size="sm"
-          variant="outline"
-        />
-      )}
-    </ListEmptyState>
-  );
-}
-
 /**
- * The invoices the filters select, every page of them, which the table sorts and
- * pages in the browser: the loading, error, empty and populated states of the
- * list. The query is the one the route warmed. A refusal is shown as the API wrote
- * it, with a way to ask again, and the filters stay: they are in the URL, not here.
+ * The invoices of the organization as a list page like the others: a search that
+ * matches who an invoice is for and the invoice itself, the Filter menu with its
+ * chips, the export where the page actions go, and the table, sorted and paged in
+ * the browser. The console holds every invoice of the scope, so it filters them
+ * itself; the scope, a customer or an instance, is the API's and stays a chip in the
+ * toolbar and a search of the URL. The export is the API's too, and takes the scope
+ * and every filter of the screen that it has too; it says which it leaves out.
  */
 export function InvoicesList({
-  filters,
-  onClearFilters,
+  canExport,
+  invoices,
+  onScopeChange,
+  scope,
   showProvider,
 }: InvoicesListProps) {
   const { t } = useTranslation();
-  const query = useQuery(invoicesQueryOptions(filters));
-  const invoices = query.data?.items ?? [];
-
-  if (query.isPending) {
-    return (
-      <PagedListSkeleton
-        className="mt-4"
-        label={t('Pages.Billing.Invoices.loading')}
-        rows={8}
-      />
-    );
-  }
-  if (query.isError && !query.data) {
-    return (
-      <RetryableProblem
-        className="mt-4"
-        data-testid="invoices-error"
-        error={query.error}
-        onRetry={() => void query.refetch()}
-      />
-    );
-  }
-  if (invoices.length === 0) {
-    return (
-      <EmptyInvoices
-        filtered={hasActiveInvoiceFilters(filters)}
-        onClearFilters={onClearFilters}
-      />
-    );
-  }
+  const fields = useMemo<FilterFieldDefinition<InvoiceSummary>[]>(
+    () => createInvoicesFilterFields({ showProvider, t }),
+    [showProvider, t],
+  );
+  const controller = useFilterBuilder({
+    data: invoices,
+    debounceMs: 200,
+    fields,
+    pinnedFilterIds: [INVOICE_FILTER_IDS.search],
+    // The filters are values, valid for any set of invoices: taking the scope off
+    // must not wipe what was typed or picked.
+    resetOnDataChange: false,
+  });
+  const { filters, unapplied } = toInvoiceExportSelection(
+    scope,
+    getAppliedFilters(controller.normal),
+  );
+  const unappliedLabels = unapplied.map(
+    (id) => fields.find((field) => field.id === id)?.label ?? id,
+  );
 
   return (
-    <div className="mt-4 flex min-h-0 flex-1 flex-col gap-3">
-      <div className="min-h-0 flex-1">
+    <FilterTableLayout controller={controller}>
+      <FilterTableLayout.Toolbar>
+        <FilterTableLayout.ToolbarRow>
+          {/* The chips of the scope wrap under the search when the row is narrow,
+              instead of pushing the Filter button and the export past the page. */}
+          <FilterTableLayout.Search
+            className="sm:flex-wrap"
+            filterId={INVOICE_FILTER_IDS.search}
+          >
+            <InvoiceScopeChips onChange={onScopeChange} scope={scope} />
+          </FilterTableLayout.Search>
+          {canExport ? (
+            <FilterTableLayout.Actions>
+              <ExportInvoicesMenu
+                filters={filters}
+                unapplied={unappliedLabels}
+              />
+            </FilterTableLayout.Actions>
+          ) : null}
+        </FilterTableLayout.ToolbarRow>
+        <FilterTableLayout.Filters />
+      </FilterTableLayout.Toolbar>
+
+      <FilterTableLayout.Content>
         <InvoicesTable
           bodyScrollable
           className="h-full"
+          emptyMessage={
+            <InvoicesEmpty
+              filtered={controller.hasActiveFilters}
+              onClearFilters={controller.resetAll}
+              onClearScope={() => onScopeChange({})}
+              scope={scope}
+            />
+          }
           hiddenColumns={showProvider ? WITH_PROVIDER : WITHOUT_PROVIDER}
-          invoices={invoices}
+          invoices={controller.filteredData}
         />
-      </div>
-    </div>
+      </FilterTableLayout.Content>
+    </FilterTableLayout>
   );
 }

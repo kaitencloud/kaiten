@@ -7,7 +7,10 @@ export {
   useBillingCapabilities,
 } from './billing-capabilities';
 export { downloadInvoiceExport } from './download-invoice-export';
-export { invoicesQueryOptions } from './invoices-query-options';
+export {
+  type InvoicesScope,
+  invoicesQueryOptions,
+} from './invoices-query-options';
 export {
   invalidateBillingSettingsQueries,
   invalidateInstanceBillingQueries,

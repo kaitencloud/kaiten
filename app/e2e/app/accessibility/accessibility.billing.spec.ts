@@ -31,7 +31,7 @@ test.describe('accessibility of the invoices of the organization', () => {
   }) => {
     const list = new BillingInvoicesDriver(page);
 
-    await list.goto();
+    await list.gotoShowingEverything();
     await expect(list.rows()).toHaveCount(13);
     await expectNoAccessibilityViolations(page);
 
@@ -44,7 +44,7 @@ test.describe('accessibility of the invoices of the organization', () => {
   }) => {
     const list = new BillingInvoicesDriver(page);
 
-    await list.goto();
+    await list.gotoShowingEverything();
     await expect(list.rows()).toHaveCount(13);
 
     const statuses = await list.statusBadges().allTextContents();
@@ -69,17 +69,52 @@ test.describe('accessibility of the invoices of the organization', () => {
     );
   });
 
-  test('the panel of filters has no violations, and closes on Escape', async ({
+  test('the Filter menu has no violations and closes on Escape, nor has the list once it is filtered and scoped', async ({
     page,
   }) => {
     const list = new BillingInvoicesDriver(page);
 
-    await list.goto('?kind=RENEWAL&overdue=true');
-    await list.openFilters();
+    await list.goto('?customerSlug=initech');
+    await page.getByRole('button', { exact: true, name: 'Filter' }).click();
+    await expect(page.getByRole('option', { name: 'Status' })).toBeVisible();
     await expectNoAccessibilityViolations(page);
-
     await page.keyboard.press('Escape');
-    await expect(list.panel()).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    // A filter and the scope are chips: each says what it is, and has a button
+    // that takes it off.
+    await list.addFilter('Issued');
+    await list.pickDay('Issued', '2026-03-01');
+    await list.closeEditor();
+    await list.expectChips(['Customer: initech', 'Issued is 2026-03-01']);
+    await expectNoAccessibilityViolations(page);
+  });
+
+  test('the editors of the filters have none, whether they pick several choices, one, or yes or no', async ({
+    page,
+  }) => {
+    const list = new BillingInvoicesDriver(page);
+
+    await list.gotoShowingEverything();
+
+    // Several choices: each is a check, and the list stays open for the next.
+    await list.addFilter('Status');
+    await list.pick('Ready to bill');
+    await settle(page);
+    await expectNoAccessibilityViolations(page);
+    await list.closeEditor();
+
+    // One choice, or all.
+    await list.addFilter('Kind');
+    await settle(page);
+    await expectNoAccessibilityViolations(page);
+    await list.closeEditor();
+
+    // Yes or no.
+    await list.addFilter('Overdue');
+    await settle(page);
+    await expectNoAccessibilityViolations(page);
+    await list.closeEditor();
   });
 
   test('the export menu is a menu a keyboard reaches and leaves', async ({
