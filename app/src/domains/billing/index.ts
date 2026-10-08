@@ -161,6 +161,7 @@ export {
   invalidateInstanceBillingQueries,
   invalidateInvoiceQueries,
   invalidateLicensePriceQueries,
+  type InvoicesScope,
   invoicesQueryOptions,
   usageReportPagesQueryOptions,
   requireBillingCapability,

@@ -3134,7 +3134,6 @@ export default {
         title: 'Invoices',
         subtitle:
           'Every invoice of your organization, across its customers and instances.',
-        loading: 'Loading invoices',
         Lines: {
           title: 'Lines',
         },
@@ -3144,29 +3143,29 @@ export default {
             'An invoice is composed when a subscription reaches a boundary. Subscribe an instance to start billing.',
           instances: 'Go to instances',
           filteredTitle: 'No invoice matches these filters',
-          filteredDescription:
-            'Remove a filter or widen the period to see more.',
+          filteredDescription: 'Clear the filters to see more.',
+          scopedCustomerTitle: 'No invoice for this customer',
+          scopedInstanceTitle: 'No invoice for this instance',
+          scopedDescription:
+            'Nothing was invoiced for it yet. An invoice is composed when a subscription reaches a boundary.',
+          showAll: 'Show every invoice',
         },
         Filters: {
-          button: 'Filters',
-          panelLabel: 'Invoice filters',
           clear: 'Clear filters',
           remove: 'Remove the filter {{filter}}',
           chip: '{{field}}: {{value}}',
+          search: 'Search',
+          searchPlaceholder: 'Customer, instance or invoice',
           status: 'Status',
           kind: 'Kind',
           provider: 'Provider',
           handoff: 'Handoff',
           overdue: 'Overdue',
-          overdueOnly: 'Overdue invoices only',
           held: 'Held',
-          heldOnly: 'Held drafts only',
           customer: 'Customer',
           instance: 'Instance',
-          slugPlaceholder: 'slug',
-          boundary: 'Boundary',
           issued: 'Issued',
-          openEnd: 'any',
+          servicePeriod: 'Service period start',
         },
         Toasts: {
           released: 'Invoice released',
@@ -4136,6 +4135,9 @@ export default {
         csvLines: 'CSV by invoice line',
         csvInvoices: 'CSV by invoice',
         ndjson: 'NDJSON, one invoice per line',
+        unapplied_one: 'This filter is not applied to the file: {{filters}}.',
+        unapplied_other:
+          'These filters are not applied to the file: {{filters}}.',
       },
       InvoicesCard: {
         title: 'Invoices',

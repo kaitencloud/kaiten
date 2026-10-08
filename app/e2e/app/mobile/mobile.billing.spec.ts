@@ -37,7 +37,7 @@ test.describe('the invoices, on the narrowest phone', () => {
     const list = new BillingInvoicesDriver(page);
 
     await list.goto();
-    await expect(list.rows()).toHaveCount(11);
+    await expect(list.rows()).toHaveCount(10);
 
     await expectNoHorizontalScroll(page, WIDTH);
     await expectScrollsInside(page.getByRole('table').first());
@@ -48,13 +48,14 @@ test.describe('the invoices, on the narrowest phone', () => {
   }) => {
     const list = new BillingInvoicesDriver(page);
 
-    await list.goto('?kind=RENEWAL&customerSlug=initech');
+    await list.goto('?customerSlug=initech');
+    await list.addFilter('Kind');
+    // The editor of the filter opens on the field that was picked.
+    await expectWithinScreen(page.getByRole('dialog').last());
+    await list.pick('Renewal');
     await expect(list.chips()).toHaveCount(2);
 
     await expectNoHorizontalScroll(page, WIDTH);
-    await list.openFilters();
-    await expectWithinScreen(list.panel());
-    await list.closeFilters();
     await list.exportButton().click();
     await expectWithinScreen(page.getByRole('menu'));
   });

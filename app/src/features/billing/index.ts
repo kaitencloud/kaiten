@@ -8,7 +8,6 @@ export {
 export {
   handoffQueryOptions,
   invoiceQueryOptions,
-  invoicesQueryOptions,
   lineReportsQueryOptions,
 } from './queries';
 export {
@@ -17,5 +16,5 @@ export {
   readHandoffSearch,
   toHandoffSearch,
 } from './schemas/handoff-search.schema';
-export { readInvoiceFilters } from './schemas/invoice-filters.schema';
+export { readInvoiceScope } from './schemas/invoice-scope.schema';
 export { getInvoiceTitle } from './utils/invoice-title';
