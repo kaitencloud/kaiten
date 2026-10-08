@@ -19,11 +19,12 @@ const lockID int64 = 20261007000000
 // subscriptions of every organization, recorded under system:kaiten, then
 // checks the held invoices' journals again and releases the sound ones.
 //
-// The elected connection only holds the election; each subscription closes in
-// its own transaction on the pool, and the row locks, not the election, are
-// what keep a concurrent close-periods call off the same subscription.
+// The elected connection, which is not one of the pool's (see sweep.PoolPass),
+// only holds the election; each subscription closes in its own transaction on
+// the pool, and the row locks, not the election, are what keep a concurrent
+// close-periods call off the same subscription.
 func NewJob(pool *pgxpool.Pool, closer *Closer, cfg sweep.Config, batchSize int) *sweep.Job {
-	return sweep.New("billing-period-close", pool, lockID, cfg, func(ctx context.Context, _ *pgxpool.Conn) error {
+	return sweep.NewPoolPass("billing-period-close", pool, lockID, cfg, func(ctx context.Context) error {
 		report, err := closer.CloseDue(ctx, Scope{OrganizationID: nil, InstanceID: nil}, batchSize, closer.SystemActor)
 		if report.Examined > 0 {
 			slog.InfoContext(ctx, "billing periods closed", "examined", report.Examined, "closed", report.Closed,

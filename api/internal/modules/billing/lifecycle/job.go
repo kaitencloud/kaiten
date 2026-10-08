@@ -101,7 +101,7 @@ type daily interface {
 }
 
 func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize int, everyDay ...daily) *sweep.Job {
-	return sweep.New("billing-lifecycle", pool, lockID, cfg, func(ctx context.Context, _ *pgxpool.Conn) error {
+	return sweep.NewPoolPass("billing-lifecycle", pool, lockID, cfg, func(ctx context.Context) error {
 		moved, err := overdue.Pass(ctx, batchSize)
 		if moved > 0 {
 			slog.InfoContext(ctx, "subscriptions moved in or out of PAST_DUE", "moved", moved)
