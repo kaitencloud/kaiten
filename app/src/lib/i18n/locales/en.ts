@@ -4311,6 +4311,8 @@ export default {
         METADATA_FIELD_REORDERED: 'Metadata fields reordered',
         METADATA_FIELD_UNARCHIVED: 'Metadata field unarchived',
         METADATA_FIELD_UPDATED: 'Metadata field updated',
+        PUBLISHABLE_KEY_CREATED: 'Publishable key created',
+        PUBLISHABLE_KEY_REVOKED: 'Publishable key revoked',
         RELEASE_CREATED: 'Release published',
         RELEASE_DELETED: 'Release deleted',
         RELEASE_DEPLOYED: 'Release deployed to a zone',
