@@ -28,7 +28,7 @@ In a form, use the [form fields](./form-components.md): they wrap these controls
 | --- | --- | --- |
 | `Input`, `Textarea` | The text controls. | [textarea](../../src/components/ui/stories/textarea.stories.tsx) |
 | `NumberInput` | A number field with stepper buttons, on Base UI. Its value is `null` when the field is empty. | [number-input](../../src/components/ui/stories/number-input.stories.tsx) |
-| `Select` | A single choice from a list: `Select`, `SelectTrigger`, `SelectValue`, `SelectContent`, `SelectItem` and their siblings. Pass `items` with value/label pairs so the trigger shows its label before opening, and use `null` for no selection. | [select](../../src/components/ui/stories/select.stories.tsx) |
+| `Select` | A single choice from a list: `Select`, `SelectTrigger`, `SelectValue`, `SelectContent`, `SelectItem` and their siblings. Pass `items` with value/label pairs so the trigger shows its label before opening, and use `null` for no selection. The list is never wider than the space the page leaves it (`max-w-(--available-width)`), so a long option wraps on a phone and does not scroll the page sideways. | [select](../../src/components/ui/stories/select.stories.tsx) |
 | `Checkbox`, `Switch`, `Slider` | A boolean, an on and off setting, a range value. | [checkbox](../../src/components/ui/stories/checkbox.stories.tsx), [switch](../../src/components/ui/stories/switch.stories.tsx), [slider](../../src/components/ui/stories/slider.stories.tsx) |
 | `Toggle`, `ToggleGroup` | A two-state button, and a group of them. | [toggle](../../src/components/ui/stories/toggle.stories.tsx), [toggle-group](../../src/components/ui/stories/toggle-group.stories.tsx) |
 | `Label` | The label of a control. | none |
