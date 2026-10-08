@@ -2536,6 +2536,16 @@ export default {
               description:
                 "Access to an instance's vouchers: check a code and redeem it",
             },
+            customerSessions: {
+              label: 'Customer sessions',
+              description:
+                "Access to customer sessions: open one for a customer's self-serve billing page, and end it",
+            },
+            publishableKeys: {
+              label: 'Publishable keys',
+              description:
+                'Access to publishable keys: issue and revoke the pk_ keys a web page reads the public catalogue with',
+            },
             organizations: {
               label: 'Organizations',
               description: 'Access to organization settings and connectors',
@@ -2598,6 +2608,7 @@ export default {
           subscription: 'Subscriptions',
           invoice: 'Invoices',
           voucher: 'Vouchers',
+          payment: 'Payments',
           featureFlag: 'Feature flags',
           release: 'Releases',
           deploymentZone: 'Deployment zones',
@@ -3077,12 +3088,18 @@ export default {
         ADDON_PUBLISHED: 'Add-on version published',
         ADDON_UNARCHIVED: 'Add-on version unarchived',
         ADDON_UPDATED: 'Add-on updated',
+        BILLING_PROVIDER_CONNECTED: 'Payment provider connected',
+        BILLING_PROVIDER_DISCONNECTED: 'Payment provider disconnected',
+        BILLING_PROVIDER_SYNC_FAILED: 'Payment provider sync failed',
         COMPONENT_CREATED: 'Component added',
         COMPONENT_DELETED: 'Component deleted',
         COMPONENT_UPDATED: 'Component updated',
         CUSTOMER_CREATED: 'Customer created',
         CUSTOMER_CREATION_REJECTED: 'Customer creation rejected',
         CUSTOMER_DELETED: 'Customer deleted',
+        CUSTOMER_PAYMENT_METHOD_ATTACHED: 'Payment method added',
+        CUSTOMER_PAYMENT_METHOD_DETACHED: 'Payment method removed',
+        CUSTOMER_PAYMENT_METHOD_EXPIRING: 'Payment method about to expire',
         CUSTOMER_UPDATED: 'Customer updated',
         DEPLOYMENT_ZONE_CREATED: 'Deployment zone created',
         DEPLOYMENT_ZONE_DELETED: 'Deployment zone deleted',
@@ -3111,6 +3128,8 @@ export default {
         INSTANCE_BILLING_PLAN_CHANGED: 'Subscription plan changed',
         INSTANCE_BILLING_PLAN_CHANGE_CANCELLED: 'Plan change canceled',
         INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED: 'Plan change scheduled',
+        INSTANCE_BILLING_PROVIDER_CHANGED:
+          'Subscription payment provider changed',
         INSTANCE_BILLING_STARTED: 'Subscription started',
         INSTANCE_BILLING_STATUS_CHANGED: 'Subscription status changed',
         INSTANCE_CREATED: 'Instance created',
@@ -3127,6 +3146,12 @@ export default {
         INSTANCE_INVOICE_ISSUED: 'Invoice issued',
         INSTANCE_INVOICE_MARKED_UNCOLLECTIBLE: 'Invoice marked uncollectible',
         INSTANCE_INVOICE_PAID: 'Invoice paid',
+        INSTANCE_INVOICE_PAYMENT_FAILED: 'Invoice payment failed',
+        INSTANCE_INVOICE_PUSHED: 'Invoice sent to the payment provider',
+        INSTANCE_INVOICE_PUSH_FAILED:
+          'Invoice not sent to the payment provider',
+        INSTANCE_INVOICE_RECONCILIATION_MISMATCH:
+          'Invoice amounts differ at the payment provider',
         INSTANCE_INVOICE_RELEASED: 'Held invoice released',
         INSTANCE_INVOICE_VOIDED: 'Invoice voided',
         INSTANCE_LIFECYCLE_STAGE_CHANGED: 'Instance lifecycle stage changed',

@@ -28,6 +28,7 @@ export const WEBHOOK_EVENT_GROUPS = [
   'subscription',
   'invoice',
   'voucher',
+  'payment',
   'featureFlag',
   'release',
   'deploymentZone',
