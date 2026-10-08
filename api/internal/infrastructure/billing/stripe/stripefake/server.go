@@ -47,6 +47,14 @@ func route(method, path string) (op, id string) {
 		return OpSendInvoice, parts[2]
 	case parts[1] == "invoiceitems" && len(parts) == 2 && method == http.MethodPost:
 		return OpCreateItem, ""
+	case parts[1] == "invoiceitems" && len(parts) == 3 && method == http.MethodDelete:
+		return OpDeleteItem, parts[2]
+	case parts[1] == "coupons" && len(parts) == 2 && method == http.MethodPost:
+		return OpCreateCoupon, ""
+	case parts[1] == "coupons" && len(parts) == 3 && method == http.MethodGet:
+		return OpRetrieveCoupon, parts[2]
+	case parts[1] == "coupons" && len(parts) == 3 && method == http.MethodDelete:
+		return OpDeleteCoupon, parts[2]
 	case parts[1] == "events" && len(parts) == 2 && method == http.MethodGet:
 		return OpListEvents, ""
 	}
@@ -367,7 +375,7 @@ func (f *Fake) handle(accountID, apiKey, op, id string, form url.Values) (int, [
 		if !ok || inv.deleted {
 			return missing("invoice", id)
 		}
-		page, more := paginate(f.lines(a, inv), form)
+		page, more := paginate(f.linesExpanded(a, inv, contains(values(form, "expand"), "data.discounts")), form)
 		return http.StatusOK, list("/v1/invoices/"+id+"/lines", page, more)
 
 	case OpUpdateInvoice:
@@ -444,17 +452,90 @@ func (f *Fake) handle(accountID, apiKey, op, id string, form url.Values) (int, [
 		if inv.AutomaticTax["enabled"] == true && asInt(form.Get("amount")) < 0 {
 			return invalid("amount", "Negative invoice items cannot be added to invoices with automatic tax enabled.")
 		}
+		var discounts []itemDiscount
+		for i := 0; form.Has("discounts[" + strconv.Itoa(i) + "][coupon]"); i++ {
+			id := form.Get("discounts[" + strconv.Itoa(i) + "][coupon]")
+			c, ok := a.coupons[id]
+			if !ok || c.deleted {
+				return missing("coupon", id)
+			}
+			if c.MaxRedemptions > 0 && f.redemptions(a, id) >= c.MaxRedemptions {
+				return invalid("discounts", "Coupon "+id+" has been redeemed the maximum number of times.")
+			}
+			if c.Currency != form.Get("currency") {
+				return invalid("discounts", "Coupon "+id+" is in another currency.")
+			}
+			discounts = append(discounts, itemDiscount{ID: f.next("di"), Coupon: id})
+		}
 		it := &item{
 			ID: f.next("ii"), Object: "invoiceitem", Customer: form.Get("customer"), Invoice: inv.ID,
 			Amount: asInt(form.Get("amount")), Currency: form.Get("currency"), Description: form.Get("description"),
 			TaxBehavior: form.Get("tax_behavior"), Metadata: metadata(form),
 			Period: map[string]int64{"start": asInt(form.Get("period[start]")), "end": asInt(form.Get("period[end]"))},
-			lineID: f.next("il"),
+			lineID: f.next("il"), discounts: discounts,
+		}
+		for _, d := range discounts {
+			it.Discounts = append(it.Discounts, d.ID)
 		}
 		a.items[it.ID] = it
 		inv.itemIDs = append(inv.itemIDs, it.ID)
 		f.retotal(a, inv)
 		return http.StatusOK, mustJSON(it)
+
+	case OpDeleteItem:
+		it, ok := a.items[id]
+		if !ok {
+			return missing("invoiceitem", id)
+		}
+		inv := a.invoices[it.Invoice]
+		if inv == nil || inv.Status != "draft" {
+			return invalid("id", "You can only delete invoice items of draft invoices.")
+		}
+		delete(a.items, id)
+		for i, itemID := range inv.itemIDs {
+			if itemID == id {
+				inv.itemIDs = append(inv.itemIDs[:i], inv.itemIDs[i+1:]...)
+				break
+			}
+		}
+		f.retotal(a, inv)
+		return http.StatusOK, mustJSON(map[string]any{"id": id, "object": "invoiceitem", "deleted": true})
+
+	case OpCreateCoupon:
+		couponID := form.Get("id")
+		if couponID == "" {
+			couponID = f.next("co")
+		}
+		if existing, ok := a.coupons[couponID]; ok && !existing.deleted {
+			return http.StatusBadRequest, errorBody(apiError{
+				Type: "invalid_request_error", Code: "resource_already_exists", Param: "id", Message: "Coupon already exists.",
+			})
+		}
+		if asInt(form.Get("amount_off")) <= 0 || form.Get("currency") == "" {
+			return invalid("amount_off", "An amount_off coupon needs a positive amount_off and a currency.")
+		}
+		c := &coupon{
+			ID: couponID, Object: "coupon", AmountOff: asInt(form.Get("amount_off")), Currency: form.Get("currency"),
+			Duration: form.Get("duration"), MaxRedemptions: asInt(form.Get("max_redemptions")), Name: form.Get("name"),
+			Metadata: metadata(form), Valid: true, Created: now,
+		}
+		a.coupons[c.ID] = c
+		return http.StatusOK, mustJSON(c)
+
+	case OpRetrieveCoupon:
+		c, ok := a.coupons[id]
+		if !ok || c.deleted {
+			return missing("coupon", id)
+		}
+		return http.StatusOK, mustJSON(c)
+
+	case OpDeleteCoupon:
+		c, ok := a.coupons[id]
+		if !ok || c.deleted {
+			return missing("coupon", id)
+		}
+		c.deleted = true
+		return http.StatusOK, mustJSON(map[string]any{"id": id, "object": "coupon", "deleted": true})
 
 	case OpListEvents:
 		types := values(form, "types")
@@ -485,10 +566,26 @@ func contains(list []string, s string) bool {
 	return false
 }
 
-// render is an invoice as Stripe answers it: with its first lines embedded.
+// render is an invoice as Stripe answers it: with its first lines embedded,
+// their discounts as ids.
 func (f *Fake) render(a *account, inv *invoice) map[string]any {
 	var out map[string]any
 	_ = json.Unmarshal(mustJSON(inv), &out)
+	totals := map[string]int64{}
+	var order []string
+	for _, itemID := range inv.itemIDs {
+		for _, d := range f.discountAmounts(a, a.items[itemID]) {
+			if _, seen := totals[d.discount.ID]; !seen {
+				order = append(order, d.discount.ID)
+			}
+			totals[d.discount.ID] += d.amount
+		}
+	}
+	totalDiscounts := []any{}
+	for _, id := range order {
+		totalDiscounts = append(totalDiscounts, map[string]any{"amount": totals[id], "discount": id})
+	}
+	out["total_discount_amounts"] = totalDiscounts
 	lines := f.lines(a, inv)
 	first := lines
 	if len(first) > 10 {
@@ -498,13 +595,33 @@ func (f *Fake) render(a *account, inv *invoice) map[string]any {
 	return out
 }
 
-func (f *Fake) lines(a *account, inv *invoice) []any {
+func (f *Fake) lines(a *account, inv *invoice) []any { return f.linesExpanded(a, inv, false) }
+
+// linesExpanded renders an invoice's lines: amount is gross, before
+// discounts; discount_amounts name each discount by id; discounts are ids,
+// or discount objects with their coupon when expanded.
+func (f *Fake) linesExpanded(a *account, inv *invoice, expand bool) []any {
 	var out []any
 	for _, itemID := range inv.itemIDs {
 		it := a.items[itemID]
+		amounts := []any{}
+		discounts := []any{}
+		for _, d := range f.discountAmounts(a, it) {
+			amounts = append(amounts, map[string]any{"amount": d.amount, "discount": d.discount.ID})
+			if !expand {
+				discounts = append(discounts, d.discount.ID)
+				continue
+			}
+			source := map[string]any{"type": "coupon", "coupon": d.discount.Coupon}
+			if c, ok := a.coupons[d.discount.Coupon]; ok {
+				source["coupon"] = c
+			}
+			discounts = append(discounts, map[string]any{"id": d.discount.ID, "object": "discount", "source": source})
+		}
 		out = append(out, map[string]any{
 			"id": it.lineID, "object": "line_item", "amount": it.Amount, "currency": it.Currency,
 			"description": it.Description, "metadata": it.Metadata, "period": it.Period,
+			"discount_amounts": amounts, "discounts": discounts,
 			"parent": map[string]any{"type": "invoice_item_details", "invoice_item_details": map[string]any{"invoice_item": it.ID}},
 		})
 	}

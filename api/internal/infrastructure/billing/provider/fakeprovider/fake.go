@@ -9,6 +9,7 @@ package fakeprovider
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"sync"
@@ -25,6 +26,9 @@ const (
 	OpFindInvoice    = "FindInvoice"
 	OpCreateDraft    = "CreateDraft"
 	OpAddLine        = "AddLine"
+	OpAddDiscount    = "AddDiscount"
+	OpDeleteLine     = "DeleteLine"
+	OpDeleteDiscount = "DeleteDiscount"
 	OpFinalize       = "Finalize"
 	OpGetInvoice     = "GetInvoice"
 	OpVoidInvoice    = "VoidInvoice"
@@ -34,8 +38,19 @@ const (
 type invoice struct {
 	provider.Invoice
 	deleted bool
-	// keys are the line idempotency keys seen: seq -> external line id.
-	keys map[int]string
+	// keys are the line idempotency keys seen: "<seq>:r<recreation>" ->
+	// external line id.
+	keys map[string]string
+}
+
+// discount is a provider discount: one allocation of a DISCOUNT line.
+type discount struct {
+	ID      string
+	Invoice uuid.UUID
+	Seq     int
+	Target  int
+	Amount  int64
+	Deleted bool
 }
 
 // Fake is the in-memory provider. Its zero value is not usable: see New.
@@ -50,10 +65,16 @@ type Fake struct {
 	invoices  map[string]*invoice                   // by external id
 	drafts    map[uuid.UUID]string                  // idempotency key "<invoice>:draft" -> external id
 	events    []provider.Event
-	failures  map[string][]error
-	losses    map[string]int
-	calls     map[string]int
-	seq       int
+	// discounts are by "<invoice>:<seq>:<target>", ids deterministic like
+	// Stripe's coupon ids: they outlive the idempotency keys.
+	discounts map[string]*discount
+	// applied overrides the amount a discount takes off a line:
+	// "<external line>/<discount>" -> amount.
+	applied  map[string]int64
+	failures map[string][]error
+	losses   map[string]int
+	calls    map[string]int
+	seq      int
 	// tag makes this fake's ids distinct from another fake's.
 	tag string
 }
@@ -73,6 +94,8 @@ func New(kind provider.Kind) *Fake {
 		invoices:  map[string]*invoice{},
 		drafts:    map[uuid.UUID]string{},
 		events:    nil,
+		discounts: map[string]*discount{},
+		applied:   map[string]int64{},
 		failures:  map[string][]error{},
 		losses:    map[string]int{},
 		calls:     map[string]int{},
@@ -115,8 +138,69 @@ func (f *Fake) ForgetKeys() {
 	defer f.mu.Unlock()
 	f.drafts = map[uuid.UUID]string{}
 	for _, inv := range f.invoices {
-		inv.keys = map[int]string{}
+		inv.keys = map[string]string{}
 	}
+}
+
+// Discounts lists the live discounts created for a Kaiten invoice, by seq
+// then target.
+func (f *Fake) Discounts(kaitenInvoiceID uuid.UUID) []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var live []*discount
+	for _, d := range f.discounts {
+		if d.Invoice == kaitenInvoiceID && !d.Deleted {
+			live = append(live, d)
+		}
+	}
+	sort.Slice(live, func(i, j int) bool {
+		if live[i].Seq != live[j].Seq {
+			return live[i].Seq < live[j].Seq
+		}
+		return live[i].Target < live[j].Target
+	})
+	out := make([]string, len(live))
+	for i, d := range live {
+		out[i] = d.ID
+	}
+	return out
+}
+
+// AddForeignDiscount applies a discount Kaiten did not create to a line of a
+// draft, as a human applying a coupon in the dashboard would.
+func (f *Fake) AddForeignDiscount(externalID string, kaitenLineID uuid.UUID, amount int64) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	inv := f.invoices[externalID]
+	if inv == nil {
+		return ""
+	}
+	d := &discount{ID: f.next("dc_"), Invoice: uuid.Nil, Seq: 0, Target: 0, Amount: amount, Deleted: false}
+	f.discounts["foreign:"+d.ID] = d
+	for i := range inv.Lines {
+		if inv.Lines[i].KaitenLineID == kaitenLineID {
+			inv.Lines[i].Discounts = append(inv.Lines[i].Discounts, provider.LineDiscount{Seq: 0, ExternalID: d.ID, AmountMinor: amount})
+		}
+	}
+	f.recompute(inv)
+	return d.ID
+}
+
+// SetDiscountAmount changes what one discount takes off a line, as a
+// provider computing it differently would.
+func (f *Fake) SetDiscountAmount(externalID string, kaitenLineID uuid.UUID, discountID string, amount int64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	inv := f.invoices[externalID]
+	if inv == nil {
+		return
+	}
+	for _, line := range inv.Lines {
+		if line.KaitenLineID == kaitenLineID {
+			f.applied[line.ExternalLineID+"/"+discountID] = amount
+		}
+	}
+	f.recompute(inv)
 }
 
 // Calls counts the calls of op, failed ones included.
@@ -197,7 +281,7 @@ func (f *Fake) EditLine(externalID string, kaitenLineID uuid.UUID, amount int64)
 			inv.Lines[i].AmountMinor = amount
 		}
 	}
-	inv.recompute()
+	f.recompute(inv)
 }
 
 func (f *Fake) transition(externalID string, to provider.Status, event string) {
@@ -262,17 +346,39 @@ func (f *Fake) finalize(inv *invoice) {
 	f.emit("invoice.finalized", inv.ExternalID)
 }
 
-func (inv *invoice) recompute() {
-	var total int64
-	for _, line := range inv.Lines {
-		total += line.AmountMinor
+// recompute applies each line's discounts in order, none taking the line
+// below 0, and totals the invoice: subtotal before discounts, total
+// excluding tax after them.
+func (f *Fake) recompute(inv *invoice) {
+	nominal := map[string]int64{}
+	for _, d := range f.discounts {
+		nominal[d.ID] = d.Amount
 	}
-	inv.TotalExcludingTax, inv.Subtotal = total, total
+	var subtotal, discounted int64
+	for i := range inv.Lines {
+		line := &inv.Lines[i]
+		subtotal += line.AmountMinor
+		left := line.AmountMinor
+		for j := range line.Discounts {
+			take := min(nominal[line.Discounts[j].ExternalID], left)
+			if override, ok := f.applied[line.ExternalLineID+"/"+line.Discounts[j].ExternalID]; ok {
+				take = override
+			}
+			line.Discounts[j].AmountMinor = take
+			left -= take
+			discounted += take
+		}
+	}
+	inv.Subtotal, inv.TotalDiscount, inv.TotalExcludingTax = subtotal, discounted, subtotal-discounted
 }
 
 func (inv *invoice) snapshot() provider.Invoice {
 	out := inv.Invoice
-	out.Lines = append([]provider.Line(nil), inv.Lines...)
+	out.Lines = make([]provider.Line, len(inv.Lines))
+	for i, line := range inv.Lines {
+		out.Lines[i] = line
+		out.Lines[i].Discounts = append([]provider.LineDiscount(nil), line.Discounts...)
+	}
 	return out
 }
 
@@ -331,7 +437,7 @@ func (f *Fake) CreateDraft(_ context.Context, _ provider.Ref, in provider.Normal
 			ExternalID: id, ExternalCustomerID: in.ExternalCustomerID, KaitenInvoiceID: in.KaitenInvoiceID,
 			Status: provider.StatusDraft, Currency: in.Currency,
 		},
-		deleted: false, keys: map[int]string{},
+		deleted: false, keys: map[string]string{},
 	}
 	f.invoices[id] = inv
 	f.drafts[in.KaitenInvoiceID] = id
@@ -356,17 +462,104 @@ func (f *Fake) AddLine(_ context.Context, _ provider.Ref, externalID string, in 
 	if inv.Status != provider.StatusDraft {
 		return "", &provider.Error{Class: provider.ClassRejected, Code: "invoice_not_editable", Message: "the invoice is not a draft"}
 	}
-	if id, ok := inv.keys[line.Seq]; ok {
+	if line.AmountMinor < 0 {
+		return "", &provider.Error{Class: provider.ClassRejected, Code: "negative_line", Message: "a line is never negative"}
+	}
+	key := strconv.Itoa(line.Seq) + ":r" + strconv.Itoa(line.Recreation)
+	if id, ok := inv.keys[key]; ok {
 		return id, nil
 	}
+	var discounts []provider.LineDiscount
+	for _, d := range line.Discounts {
+		if !f.liveDiscount(d.ExternalID) {
+			return "", &provider.Error{Class: provider.ClassRejected, Code: "resource_missing", Message: "no such discount " + d.ExternalID}
+		}
+		discounts = append(discounts, provider.LineDiscount{Seq: 0, ExternalID: d.ExternalID, AmountMinor: 0})
+	}
 	id := f.next("il_")
-	inv.Lines = append(inv.Lines, provider.Line{ExternalLineID: id, KaitenLineID: line.LineID, AmountMinor: line.AmountMinor, Currency: in.Currency})
-	inv.keys[line.Seq] = id
-	inv.recompute()
+	inv.Lines = append(inv.Lines, provider.Line{
+		ExternalLineID: id, KaitenLineID: line.LineID, AmountMinor: line.AmountMinor, Currency: in.Currency, Discounts: discounts,
+	})
+	inv.keys[key] = id
+	f.recompute(inv)
 	if f.lost(OpAddLine) {
 		return "", errTimeout
 	}
 	return id, nil
+}
+
+func (f *Fake) liveDiscount(id string) bool {
+	for _, d := range f.discounts {
+		if d.ID == id {
+			return !d.Deleted
+		}
+	}
+	return false
+}
+
+// AddDiscount implements provider.Adapter: one discount per (invoice,
+// DISCOUNT seq, target), adopted when it exists with the same amount.
+func (f *Fake) AddDiscount(_ context.Context, _ provider.Ref, externalID string, in provider.NormalizedInvoice, d provider.NormalizedDiscount) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.enter(OpAddDiscount); err != nil {
+		return "", err
+	}
+	inv := f.invoices[externalID]
+	if inv == nil || inv.deleted {
+		return "", &provider.Error{Class: provider.ClassNotFound, Code: "resource_missing", Message: "no such invoice"}
+	}
+	if d.AmountMinor <= 0 {
+		return "", &provider.Error{Class: provider.ClassRejected, Code: "parameter_invalid", Message: "a discount is positive"}
+	}
+	key := in.KaitenInvoiceID.String() + ":" + strconv.Itoa(d.Seq) + ":" + strconv.Itoa(d.TargetSeq)
+	if existing, ok := f.discounts[key]; ok && !existing.Deleted {
+		if existing.Amount != d.AmountMinor {
+			return "", &provider.Error{Class: provider.ClassRejected, Code: "coupon_conflict", Message: "the discount exists with another amount"}
+		}
+		return existing.ID, nil
+	}
+	created := &discount{ID: f.next("dc_"), Invoice: in.KaitenInvoiceID, Seq: d.Seq, Target: d.TargetSeq, Amount: d.AmountMinor, Deleted: false}
+	f.discounts[key] = created
+	if f.lost(OpAddDiscount) {
+		return "", errTimeout
+	}
+	return created.ID, nil
+}
+
+// DeleteLine implements provider.Adapter: draft lines only.
+func (f *Fake) DeleteLine(_ context.Context, _ provider.Ref, externalID, externalLineID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.enter(OpDeleteLine); err != nil {
+		return err
+	}
+	inv := f.invoices[externalID]
+	if inv == nil || inv.deleted {
+		return &provider.Error{Class: provider.ClassNotFound, Code: "resource_missing", Message: "no such invoice"}
+	}
+	if inv.Status != provider.StatusDraft {
+		return &provider.Error{Class: provider.ClassRejected, Code: "invoice_not_editable", Message: "the invoice is not a draft"}
+	}
+	inv.Lines = slices.DeleteFunc(inv.Lines, func(l provider.Line) bool { return l.ExternalLineID == externalLineID })
+	f.recompute(inv)
+	return nil
+}
+
+// DeleteDiscount implements provider.Adapter: the discounts already applied
+// stay on their lines.
+func (f *Fake) DeleteDiscount(_ context.Context, _ provider.Ref, externalDiscountID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.enter(OpDeleteDiscount); err != nil {
+		return err
+	}
+	for _, d := range f.discounts {
+		if d.ID == externalDiscountID {
+			d.Deleted = true
+		}
+	}
+	return nil
 }
 
 // Finalize implements provider.Adapter: an open invoice is returned as is.

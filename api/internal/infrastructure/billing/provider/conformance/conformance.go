@@ -99,13 +99,19 @@ func pushContract(t *testing.T, s Subject) {
 		t.Fatalf("EnsureCustomer is idempotent: got %q (%v), want %q", again.ExternalID, err, first.ExternalID)
 	}
 
+	// A base of 29.00 bearing a 30 % discount (DISCOUNT line seq 2): the
+	// discount reaches the provider as a discount on the base, never as a
+	// negative line (CR-001).
 	start := time.Now().UTC()
+	discountLine := uuid.New()
 	invoice := provider.NormalizedInvoice{
 		KaitenInvoiceID: uuid.New(), ExternalCustomerID: first.ExternalID, Kind: "RENEWAL", BoundaryAt: start,
 		Currency: "EUR", CollectionMethod: "SEND_INVOICE", DaysUntilDue: nil, TotalMinor: 2030,
 		Lines: []provider.NormalizedLine{
 			{LineID: uuid.New(), Seq: 1, AmountMinor: 2900, Description: "Pro — base", ServiceFrom: start, ServiceTo: start.AddDate(0, 1, 0)},
-			{LineID: uuid.New(), Seq: 2, AmountMinor: -870, Description: "Launch −30%", ServiceFrom: start, ServiceTo: start.AddDate(0, 1, 0)},
+		},
+		Discounts: []provider.NormalizedDiscount{
+			{LineID: discountLine, Seq: 2, TargetSeq: 1, AmountMinor: 870, Label: "Launch −30%", VoucherID: uuid.New()},
 		},
 		Metadata: nil,
 	}
@@ -120,6 +126,25 @@ func pushContract(t *testing.T, s Subject) {
 	if err != nil || found == nil || found.ExternalID != draft.ExternalID {
 		t.Fatalf("FindInvoice finds the draft of a Kaiten invoice: got %+v (%v)", found, err)
 	}
+	discountID, err := s.Adapter.AddDiscount(ctx, s.Ref, draft.ExternalID, invoice, invoice.Discounts[0])
+	if err != nil {
+		t.Fatalf("AddDiscount: %v", err)
+	}
+	if replay, err := s.Adapter.AddDiscount(ctx, s.Ref, draft.ExternalID, invoice, invoice.Discounts[0]); err != nil || replay != discountID {
+		t.Fatalf("AddDiscount is idempotent on the allocation: got %q (%v), want %q", replay, err, discountID)
+	}
+	conflicting := invoice.Discounts[0]
+	conflicting.AmountMinor = 900
+	// Refused as a conflict, or, within a key horizon, as changed parameters.
+	if _, err := s.Adapter.AddDiscount(ctx, s.Ref, draft.ExternalID, invoice, conflicting); provider.ClassOf(err) != provider.ClassRejected &&
+		provider.ClassOf(err) != provider.ClassParametersChanged {
+		t.Fatalf("the same allocation with another amount is refused, got %v", err)
+	}
+	negative := provider.NormalizedLine{LineID: uuid.New(), Seq: 9, AmountMinor: -1, Description: "negative", ServiceFrom: start, ServiceTo: start}
+	if _, err := s.Adapter.AddLine(ctx, s.Ref, draft.ExternalID, invoice, negative); err == nil {
+		t.Fatal("a negative line is refused")
+	}
+	invoice.Lines[0].Discounts = []provider.LineDiscount{{Seq: 2, ExternalID: discountID, AmountMinor: 870}}
 	for _, line := range invoice.Lines {
 		id, err := s.Adapter.AddLine(ctx, s.Ref, draft.ExternalID, invoice, line)
 		if err != nil {
@@ -133,8 +158,12 @@ func pushContract(t *testing.T, s Subject) {
 	if err != nil {
 		t.Fatalf("GetInvoice: %v", err)
 	}
-	if read.Status != provider.StatusDraft || len(read.Lines) != len(invoice.Lines) || read.TotalExcludingTax != invoice.TotalMinor {
+	if read.Status != provider.StatusDraft || len(read.Lines) != len(invoice.Lines) || read.TotalExcludingTax != invoice.TotalMinor ||
+		read.Subtotal != 2900 || read.TotalDiscount != 870 {
 		t.Fatalf("the draft read back is what was pushed: %+v", read)
+	}
+	if got := read.Lines[0].Discounts; len(got) != 1 || got[0].ExternalID != discountID || got[0].AmountMinor != 870 || read.Lines[0].AmountMinor != 2900 {
+		t.Fatalf("the base reads back at its gross amount, bearing the discount: %+v", read.Lines[0])
 	}
 
 	finalized, err := s.Adapter.Finalize(ctx, s.Ref, draft.ExternalID, invoice)
@@ -146,6 +175,14 @@ func pushContract(t *testing.T, s Subject) {
 	}
 	if replay, err := s.Adapter.Finalize(ctx, s.Ref, draft.ExternalID, invoice); err != nil || replay.Status != provider.StatusOpen {
 		t.Fatalf("Finalize is idempotent: got %+v (%v)", replay, err)
+	}
+	for range 2 {
+		if err := s.Adapter.DeleteDiscount(ctx, s.Ref, discountID); err != nil {
+			t.Fatalf("deleting a discount once the invoice is finalized succeeds, again too: %v", err)
+		}
+	}
+	if read, err := s.Adapter.GetInvoice(ctx, s.Ref, draft.ExternalID); err != nil || read.TotalExcludingTax != invoice.TotalMinor {
+		t.Fatalf("a deleted discount stays applied to the finalized invoice: %+v (%v)", read, err)
 	}
 
 	if err := s.Adapter.VoidInvoice(ctx, s.Ref, draft.ExternalID); err != nil {
