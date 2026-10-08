@@ -928,7 +928,6 @@ export default {
         tabDescription:
           'One price is one billable concern, and becomes one line of an invoice.',
         defaultBadge: 'Default',
-        perUnit: 'per {{unit}}',
         deprecatedOn: 'Deprecated {{date}}',
         Summary: {
           empty: 'No active price yet',
@@ -942,53 +941,6 @@ export default {
             'The prices of a published version are immutable. Deprecate a price to retire it, or create a new version to change what is sold. A price can still be added until a subscription bills this version.',
           archived:
             'This version is withdrawn from sale. Its prices are immutable and it takes no new price; subscriptions that bill it keep being billed.',
-        },
-        Models: {
-          FLAT_FEE: {
-            label: 'Flat fee',
-            blurb: 'Recurs each period, quantity 1.',
-          },
-          USAGE_BASED: {
-            label: 'Usage-based',
-            blurb: 'Meters from the first unit, per sale unit.',
-          },
-          OVERAGE: {
-            label: 'Overage',
-            blurb: 'Bills only what exceeds the grant, up to its cap.',
-          },
-        },
-        Timings: {
-          ADVANCE: {
-            label: 'In advance',
-            blurb: 'Bills the period that starts at the boundary.',
-          },
-          ARREARS: {
-            label: 'In arrears',
-            blurb: 'Bills the period that ends at the boundary.',
-          },
-        },
-        Periods: {
-          MONTHLY: 'Monthly',
-          QUARTERLY: 'Quarterly',
-          SEMI_ANNUAL: 'Every 6 months',
-          ANNUAL: 'Annual',
-        },
-        PeriodSuffix: {
-          MONTHLY: '/month',
-          QUARTERLY: '/quarter',
-          SEMI_ANNUAL: '/6 months',
-          ANNUAL: '/year',
-        },
-        Status: {
-          ACTIVE: 'Active',
-          DEPRECATED: 'Deprecated',
-        },
-        ResetUnits: {
-          HOUR: 'hour',
-          DAY: 'day',
-          WEEK: 'week',
-          MONTH: 'month',
-          YEAR: 'year',
         },
         Meter: {
           overage: 'Bills above {{limit}} {{unit}}/{{period}}, up to {{cap}}',
@@ -3841,6 +3793,56 @@ export default {
       ProviderKind: {
         NOOP: 'Manual',
         STRIPE: 'Stripe',
+      },
+      Price: {
+        perUnit: 'per {{unit}}',
+        Models: {
+          FLAT_FEE: {
+            label: 'Flat fee',
+            blurb: 'Recurs each period, quantity 1.',
+          },
+          USAGE_BASED: {
+            label: 'Usage-based',
+            blurb: 'Meters from the first unit, per sale unit.',
+          },
+          OVERAGE: {
+            label: 'Overage',
+            blurb: 'Bills only what exceeds the grant, up to its cap.',
+          },
+        },
+        Timings: {
+          ADVANCE: {
+            label: 'In advance',
+            blurb: 'Bills the period that starts at the boundary.',
+          },
+          ARREARS: {
+            label: 'In arrears',
+            blurb: 'Bills the period that ends at the boundary.',
+          },
+        },
+        Periods: {
+          MONTHLY: 'Monthly',
+          QUARTERLY: 'Quarterly',
+          SEMI_ANNUAL: 'Every 6 months',
+          ANNUAL: 'Annual',
+        },
+        PeriodSuffix: {
+          MONTHLY: '/month',
+          QUARTERLY: '/quarter',
+          SEMI_ANNUAL: '/6 months',
+          ANNUAL: '/year',
+        },
+        Status: {
+          ACTIVE: 'Active',
+          DEPRECATED: 'Deprecated',
+        },
+        ResetUnits: {
+          HOUR: 'hour',
+          DAY: 'day',
+          WEEK: 'week',
+          MONTH: 'month',
+          YEAR: 'year',
+        },
       },
       Reason: {
         description:

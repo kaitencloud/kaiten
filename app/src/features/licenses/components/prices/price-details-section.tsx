@@ -2,13 +2,13 @@ import { useStore } from '@tanstack/react-form';
 import { useTranslation } from 'react-i18next';
 import { withForm } from '@/hooks/form';
 import { CURRENCY_EXPONENTS } from '@/lib/currency-exponents';
-import { BILLING_PERIOD_LABEL_KEYS } from '../../utils/license-price-labels';
+import { isMeteredModel } from '../../utils/license-price.utils';
+import { priceFormOpts } from './price-form-options';
 import {
+  BILLING_PERIOD_LABEL_KEYS,
   BILLING_PERIODS,
   type BillingPeriod,
-  isMeteredModel,
-} from '../../utils/license-price.utils';
-import { priceFormOpts } from './price-form-options';
+} from '@/domains/billing';
 
 type PriceDetailsSectionProps = {
   /** The version already bills in this currency: the form takes it and locks it. */

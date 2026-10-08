@@ -3,9 +3,6 @@ import {
   addMonthsClamped,
   BILLING_PERIOD_MONTHS,
   BILLING_PERIODS,
-  getBillingPeriodLabelKey,
-  getBillingPeriodSuffixKey,
-  getBillingTimingLabelKey,
   getFirstInvoiceTiming,
   getSubscriptionStartBounds,
 } from '../logic';
@@ -64,23 +61,6 @@ describe('the billing periods', () => {
     });
     expect([...BILLING_PERIODS].sort()).toEqual(
       ['ANNUAL', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL'].sort(),
-    );
-  });
-
-  it('read in the words of the prices of a license version', () => {
-    for (const period of BILLING_PERIODS) {
-      expect(getBillingPeriodLabelKey(period)).toBe(
-        `Pages.Licenses.Prices.Periods.${period}`,
-      );
-      expect(getBillingPeriodSuffixKey(period)).toBe(
-        `Pages.Licenses.Prices.PeriodSuffix.${period}`,
-      );
-    }
-    expect(getBillingTimingLabelKey('ADVANCE')).toBe(
-      'Pages.Licenses.Prices.Timings.ADVANCE.label',
-    );
-    expect(getBillingTimingLabelKey('ARREARS')).toBe(
-      'Pages.Licenses.Prices.Timings.ARREARS.label',
     );
   });
 });

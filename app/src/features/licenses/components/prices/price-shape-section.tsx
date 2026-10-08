@@ -1,19 +1,7 @@
 import { useStore } from '@tanstack/react-form';
 import { useTranslation } from 'react-i18next';
 import { withForm } from '@/hooks/form';
-import {
-  BILLING_MODEL_BLURB_KEYS,
-  BILLING_MODEL_LABEL_KEYS,
-  BILLING_TIMING_BLURB_KEYS,
-  BILLING_TIMING_LABEL_KEYS,
-} from '../../utils/license-price-labels';
-import {
-  BILLING_MODELS,
-  BILLING_TIMINGS,
-  type BillingModel,
-  type BillingTiming,
-  isMeteredModel,
-} from '../../utils/license-price.utils';
+import { isMeteredModel } from '../../utils/license-price.utils';
 import {
   meterOptionsFor,
   type PriceMeterSource,
@@ -21,6 +9,16 @@ import {
 } from './price-meter-options';
 import { priceFormOpts } from './price-form-options';
 import { PriceOptionButton } from './price-option-button';
+import {
+  BILLING_MODEL_BLURB_KEYS,
+  BILLING_MODEL_LABEL_KEYS,
+  BILLING_TIMING_BLURB_KEYS,
+  BILLING_TIMING_LABEL_KEYS,
+  BILLING_MODELS,
+  BILLING_TIMINGS,
+  type BillingModel,
+  type BillingTiming,
+} from '@/domains/billing';
 
 type PriceShapeSectionProps = {
   /** An existing price keeps its shape: the API changes neither model nor currency. */
