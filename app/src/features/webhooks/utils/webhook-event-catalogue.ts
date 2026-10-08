@@ -268,6 +268,14 @@ export const WEBHOOK_EVENTS = {
     type: 'com.kaiten.metadata_field.v1.updated',
     group: 'metadataField',
   },
+  PUBLISHABLE_KEY_CREATED: {
+    type: 'com.kaiten.publishable_key.v1.created',
+    group: 'identity',
+  },
+  PUBLISHABLE_KEY_REVOKED: {
+    type: 'com.kaiten.publishable_key.v1.revoked',
+    group: 'identity',
+  },
   RELEASE_CREATED: { type: 'com.kaiten.release.v1.created', group: 'release' },
   RELEASE_DELETED: { type: 'com.kaiten.release.v1.deleted', group: 'release' },
   RELEASE_DEPLOYED: {

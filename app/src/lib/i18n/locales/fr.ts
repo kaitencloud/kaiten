@@ -3246,6 +3246,8 @@ export default {
         METADATA_FIELD_REORDERED: 'Champs de métadonnées réordonnés',
         METADATA_FIELD_UNARCHIVED: 'Champ de métadonnées désarchivé',
         METADATA_FIELD_UPDATED: 'Champ de métadonnées mis à jour',
+        PUBLISHABLE_KEY_CREATED: 'Clé publiable créée',
+        PUBLISHABLE_KEY_REVOKED: 'Clé publiable révoquée',
         RELEASE_CREATED: 'Release publiée',
         RELEASE_DELETED: 'Release supprimée',
         RELEASE_DEPLOYED: 'Release déployée sur une zone',

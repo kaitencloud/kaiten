@@ -47,6 +47,7 @@ const ACCEPTED_EVENTS = [
   'LICENSE_FAMILY_CREATED',
   'LICENSE_PRICE_CREATED',
   'METADATA_FIELD_CREATED',
+  'PUBLISHABLE_KEY_CREATED',
   'RELEASE_CREATED',
   'RELEASE_DEPLOYED',
   'VOUCHER_CREATED',
@@ -111,6 +112,8 @@ describe('event status', () => {
     // A revoked redemption was taken back by a person, not refused by the
     // API: it reads like a removal, not from its last word.
     ['INSTANCE_VOUCHER_REVOKED', 'read'],
+    // A revoked key was retired by a person, not refused by the API.
+    ['PUBLISHABLE_KEY_REVOKED', 'read'],
   ])('reads %s as %s', (eventName, category) => {
     expect(getEventCategory(eventName)).toBe(category);
   });
