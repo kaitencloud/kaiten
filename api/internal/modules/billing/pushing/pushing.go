@@ -49,6 +49,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/telemetry"
 )
 
 // Config tunes the push.
@@ -246,6 +247,9 @@ func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) e
 	pushed, err := Finalized(ctx, p.deps, p.outbox, row, finalized, terms.DaysUntilDue, now)
 	if err != nil {
 		return err
+	}
+	if pushed != nil {
+		telemetry.Pushed(ctx, string(row.ProviderKind), row.PushAttempts+1)
 	}
 	if pushed == nil {
 		// Voided while it was finalized: the provider's invoice goes too.
@@ -554,6 +558,7 @@ func (p *Pusher) compensate(ctx context.Context, conn *provider.Connection, curr
 			"external_invoice_id", externalID, "error", err)
 		return
 	}
+	telemetry.Compensated(ctx, string(current.ProviderKind))
 	var lines []rating.InvoiceLine
 	if err := json.Unmarshal(current.Lines, &lines); err != nil {
 		slog.WarnContext(ctx, "could not read the lines of a voided invoice; its provider discounts stay", "invoice_id", current.ID, "error", err)
@@ -573,6 +578,7 @@ func (p *Pusher) failed(ctx context.Context, row db.InstanceInvoice, cause error
 	}
 	attempts := int(row.PushAttempts) + 1
 	wait := p.backoff(attempts)
+	telemetry.InvoicePush(ctx, string(row.ProviderKind), telemetry.PushFailed)
 	summary := provider.Summary(cause)
 	err = p.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := p.deps.Queries(ctx)
