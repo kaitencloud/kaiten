@@ -223,6 +223,48 @@ describe('cancelling a subscription, as the mocks serve it', () => {
   });
 });
 
+describe('a refusal armed for several calls, as the mocks serve it', () => {
+  it('refuses that many calls in a row with its Retry-After, then lets the next one through', async () => {
+    const model = createLifecycleBillingModel();
+    model.subscriptions.armProblem('cancelSubscription', {
+      code: 'CancelSubscription.BoundaryPending',
+      detail: 'the period has ended and is being closed; retry in a minute',
+      retryAfterSeconds: 60,
+      status: 409,
+      times: 2,
+    });
+    install(model);
+
+    const first = await send('POST', '/instances/initech-prod/billing/cancel', { mode: 'AT_PERIOD_END' });
+    const second = await send('POST', '/instances/initech-prod/billing/cancel', { mode: 'AT_PERIOD_END' });
+    const third = await send('POST', '/instances/initech-prod/billing/cancel', { mode: 'AT_PERIOD_END' });
+
+    expect([first.status, second.status, third.status]).toEqual([409, 409, 200]);
+    expect(first.headers.get('Retry-After')).toBe('60');
+    expect(second.headers.get('Retry-After')).toBe('60');
+    expect((await refusal(second)).code).toBe('CancelSubscription.BoundaryPending');
+  });
+
+  it('lets the calls before its turn through, then refuses, once when it says nothing of times', async () => {
+    const model = createLifecycleBillingModel();
+    model.subscriptions.armProblem('reactivateSubscription', {
+      after: 1,
+      code: 'ReactivateSubscription.Canceled',
+      detail: 'the subscription is already canceled',
+      status: 409,
+    });
+    install(model);
+
+    const statuses = [];
+    for (let call = 0; call < 3; call += 1) {
+      statuses.push((await send('POST', '/instances/initech-leaving/billing/reactivate')).status);
+    }
+
+    // The first goes through (and reactivates it), the second is refused, the third finds nothing to take back.
+    expect(statuses).toEqual([200, 409, 409]);
+  });
+});
+
 describe('reactivating a subscription, as the mocks serve it', () => {
   it('takes a cancellation back, with its date and its reason', async () => {
     install();

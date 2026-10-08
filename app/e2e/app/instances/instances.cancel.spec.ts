@@ -4,6 +4,7 @@ import { InstanceBillingDriver } from '../_support/drivers/instance-billing.driv
 import { InstanceLifecycleDriver } from '../_support/drivers/instance-lifecycle.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installInstanceAppMocks } from '../_support/mocks/install-instance-app-mocks';
+import { BILLED_NOW } from '../billing/billed-instances';
 import {
   createLifecycleBillingModel,
   createLifecycleInstancesModel,
@@ -431,6 +432,64 @@ test.describe('cancelling a subscription', () => {
     await expect(lifecycle.cancelConfirmButton()).toBeVisible();
     await expect(lifecycle.dialog().getByRole('heading')).toContainText(
       'Cancel the subscription of Initech Production',
+    );
+  });
+});
+
+// A period that has ended is closed by a job, and the API refuses to change the
+// subscription until it has run, without saying how long that takes: the console says
+// so, sends the same request once more after a minute, and only then shows the refusal,
+// with a way to ask again. The clock of the page is the test's, so that the minute is
+// not waited for.
+test.describe('cancelling while the period is being closed', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.install({ time: new Date(BILLED_NOW) });
+    await installInstanceAppMocks(page, createLifecycleInstancesModel());
+  });
+
+  test('sends the same request again after a minute, shows the refusal when the second try fails too, and sends a third when asked', async ({
+    page,
+  }) => {
+    const billing = new InstanceBillingDriver(page);
+    const lifecycle = new InstanceLifecycleDriver(page);
+    const writes = recordWrites(page, WRITES);
+    const model = createLifecycleBillingModel();
+    model.subscriptions.armProblem('cancelSubscription', {
+      code: 'CancelSubscription.BoundaryPending',
+      detail: 'the period has ended and is being closed; retry in a minute',
+      retryAfterSeconds: 60,
+      status: 409,
+      times: 2,
+    });
+    await installBillingAppMocks(page, model);
+    await billing.goto('initech-prod');
+    await lifecycle.openCancel('Initech Production');
+    await lifecycle.reasonField().fill('Budget');
+
+    await lifecycle.cancelConfirmButton().click();
+
+    // The first refusal is not an error: the dialog says what is happening.
+    await expect(lifecycle.closing()).toContainText('Closing the period');
+    await expect(lifecycle.alert()).toHaveCount(0);
+    expect(writes).toHaveLength(1);
+    await page.clock.runFor(59_000);
+    expect(writes).toHaveLength(1);
+    await page.clock.runFor(1_000);
+
+    // One automatic resend, with the same body. Refused again: the words of the API and a Retry.
+    await expect(lifecycle.alert()).toContainText(
+      'the period has ended and is being closed',
+    );
+    await expect(lifecycle.closing()).toHaveCount(0);
+    expect(writes).toHaveLength(2);
+    expect(writes[1].body).toEqual(writes[0].body);
+    await lifecycle.alert().getByRole('button', { name: 'Retry' }).click();
+
+    await expect(lifecycle.canceled()).toContainText('Cancellation scheduled');
+    expect(writes).toHaveLength(3);
+    await lifecycle.close();
+    await expect(lifecycle.cancellationNotice()).toContainText(
+      'Reason: Budget',
     );
   });
 });
