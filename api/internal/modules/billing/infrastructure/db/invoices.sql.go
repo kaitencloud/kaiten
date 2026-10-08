@@ -676,6 +676,132 @@ func (q *Queries) ListInvoicesUpdatedSince(ctx context.Context, arg ListInvoices
 	return items, nil
 }
 
+const listSessionInvoices = `-- name: ListSessionInvoices :many
+SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at
+FROM instance_invoice i
+WHERE i.organization_id = $1
+  AND i.customer_id = $2
+  AND ($3::uuid IS NULL
+       OR i.instance_billing_id IN (SELECT ib.id
+                                    FROM instance_billing ib
+                                    WHERE ib.organization_id = i.organization_id
+                                      AND ib.instance_id = $3::uuid))
+  AND i.status IN ('MANUAL', 'PUSHED', 'PAID', 'PAYMENT_FAILED', 'UNCOLLECTIBLE', 'VOID')
+  AND (NOT $4::boolean
+       OR (i.boundary_at, i.id) < ($5::timestamp, $6::uuid))
+ORDER BY i.boundary_at DESC, i.id DESC
+LIMIT $7
+`
+
+type ListSessionInvoicesParams struct {
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	CustomerID     *uuid.UUID       `json:"customer_id"`
+	InstanceID     *uuid.UUID       `json:"instance_id"`
+	HasCursor      bool             `json:"has_cursor"`
+	CursorAt       pgtype.Timestamp `json:"cursor_at"`
+	CursorID       uuid.UUID        `json:"cursor_id"`
+	PageSize       int32            `json:"page_size"`
+}
+
+// One page of what a customer session may read: its customer's invoices by
+// id -- never by slug, which another customer may since have taken -- and, for
+// a session bound to an instance, that instance's only. Issued invoices only:
+// a DRAFT, a held one or one still failing its push is the vendor's business.
+// Newest boundary first; fetched one row past the page.
+func (q *Queries) ListSessionInvoices(ctx context.Context, arg ListSessionInvoicesParams) ([]InstanceInvoice, error) {
+	rows, err := q.db.Query(ctx, listSessionInvoices,
+		arg.OrganizationID,
+		arg.CustomerID,
+		arg.InstanceID,
+		arg.HasCursor,
+		arg.CursorAt,
+		arg.CursorID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InstanceInvoice
+	for rows.Next() {
+		var i InstanceInvoice
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.InstanceBillingID,
+			&i.CustomerID,
+			&i.InstanceSlug,
+			&i.InstanceName,
+			&i.CustomerSlug,
+			&i.CustomerName,
+			&i.LicenseID,
+			&i.LicenseSlug,
+			&i.BillingEmail,
+			&i.Kind,
+			&i.BoundaryAt,
+			&i.ServiceFrom,
+			&i.ServiceTo,
+			&i.Currency,
+			&i.SubtotalMinor,
+			&i.DiscountTotalMinor,
+			&i.TotalMinor,
+			&i.Lines,
+			&i.Status,
+			&i.HoldReason,
+			&i.HoldDetail,
+			&i.HeldAt,
+			&i.HoldReleasedAt,
+			&i.HoldReleasedByID,
+			&i.HoldReleaseReason,
+			&i.ProviderKind,
+			&i.CollectionMethod,
+			&i.ExternalCustomerID,
+			&i.ExternalInvoiceID,
+			&i.ProviderInvoiceNumber,
+			&i.ProviderStatus,
+			&i.HostedInvoiceUrl,
+			&i.InvoicePdfUrl,
+			&i.ProviderTotalExcludingTaxMinor,
+			&i.ReconciliationStatus,
+			&i.ReconciliationDetail,
+			&i.ReconciledAt,
+			&i.PushAttempts,
+			&i.NextPushAt,
+			&i.LastPushError,
+			&i.PushedAt,
+			&i.SyncedAt,
+			&i.IssuedAt,
+			&i.DaysUntilDue,
+			&i.DueAt,
+			&i.PaidAt,
+			&i.MarkedPaidByID,
+			&i.PaymentFailedAt,
+			&i.LastPaymentError,
+			&i.UncollectibleAt,
+			&i.VoidedAt,
+			&i.VoidedByID,
+			&i.VoidReason,
+			&i.ReplacesInvoiceID,
+			&i.HandoffStatus,
+			&i.HandoffLeaseID,
+			&i.HandoffLeasedUntil,
+			&i.HandoffClaimCount,
+			&i.HandoffAcknowledgedAt,
+			&i.HandoffAcknowledgedByID,
+			&i.ExternalReference,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockInvoice = `-- name: LockInvoice :one
 SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at
 FROM instance_invoice i

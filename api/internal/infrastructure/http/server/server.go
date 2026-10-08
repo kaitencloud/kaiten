@@ -792,14 +792,15 @@ func IsPublicSDKPath(path string) bool {
 }
 
 // publishableKeyAuthenticator is the middleware that authenticates the public
-// SDK surface, built from the application like the platform one: resolving a
-// key is a database read through the publicsdk module. nil only when there is
+// SDK surface -- publishable keys and customer sessions -- built from the
+// application like the platform one: resolving either is a database read
+// through the publicsdk module. nil only when there is
 // no application to build it from.
 func (s *Server) publishableKeyAuthenticator() fiber.Handler {
 	if s.app == nil {
 		return nil
 	}
-	return auth.NewPublishableKey(s.app.PublishableKeyAuthenticator()).Authorization()
+	return auth.NewPublic(s.app.PublishableKeyAuthenticator(), s.app.CustomerSessionAuthenticator()).Authorization()
 }
 
 // IsPublicPlatformAPIPath is IsPublicAPIPath for the internal listener.

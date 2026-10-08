@@ -30,4 +30,10 @@ const (
 	// character 0, and it is the documented exception to their equal length,
 	// because the public @kaitencloud/client already fixes "pk_".
 	PrefixPublishableKey = "pk_"
+
+	// PrefixCustomerSession marks a customer session: minted by a vendor's
+	// backend for one of its customers, presented by the browser as a bearer
+	// token on /api/public/session/* and nowhere else. A k-family sibling of
+	// equal length, diverging from ksh_ and ksm_ at character 2.
+	PrefixCustomerSession = "kst_"
 )

@@ -6,14 +6,21 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatepublishablekey"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createpublishablekey"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessioncheckout"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listpublishablekeys"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listsessioninvoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokepublishablekey"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/updatepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
+	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
 
 // PublicSDK is the public SDK surface's operations: managing the publishable
@@ -65,9 +72,45 @@ func (p PublicSDK) GetPublicCatalog(ctx context.Context, cl caller.PublishableKe
 	return p.uc.GetPublicCatalog.Execute(ctx, cl.OrganizationID(), query)
 }
 
-// PublishableKeyAuthenticator is what auth.PublishableKeyMiddleware resolves
-// keys with. Outside the facade's caller convention for the reason identity's
+// PublishableKeyAuthenticator is what auth.PublicMiddleware resolves keys
+// with. Outside the facade's caller convention for the reason identity's
 // ValidateToken is: it runs before there is a caller to take.
 func (k *Kaiten) PublishableKeyAuthenticator() *authenticatepublishablekey.UseCase {
 	return k.modules.PublicSDK.AuthenticatePublishableKey
+}
+
+// CustomerSessionAuthenticator is what auth.PublicMiddleware resolves
+// customer sessions with, for the same reason.
+func (k *Kaiten) CustomerSessionAuthenticator() *authenticatecustomersession.UseCase {
+	return k.modules.PublicSDK.AuthenticateCustomerSession
+}
+
+func (p PublicSDK) CreateCustomerSession(ctx context.Context, cl caller.OrganizationCaller, draft createcustomersession.CustomerSessionDraft) (*createcustomersession.CreatedCustomerSession, error) {
+	if err := cl.Require(createcustomersession.RequiredScope); err != nil {
+		return nil, err
+	}
+	return p.uc.CreateCustomerSession.Execute(bindOrganization(ctx, cl), draft)
+}
+
+func (p PublicSDK) RevokeCustomerSession(ctx context.Context, cl caller.OrganizationCaller, sessionID uuid.UUID) error {
+	if err := cl.Require(revokecustomersession.RequiredScope); err != nil {
+		return err
+	}
+	return p.uc.RevokeCustomerSession.Execute(bindOrganization(ctx, cl), sessionID)
+}
+
+// CreateSessionCheckout and ListSessionInvoices take a customer session caller,
+// which has no scope to require: what bounds it is the customer and instance
+// it is bound to, which the facade hands to the use case from the caller --
+// never from the request.
+func (p PublicSDK) CreateSessionCheckout(ctx context.Context, cl caller.CustomerSessionCaller, request createsessioncheckout.SessionCheckoutOrder) (*createsessioncheckout.SessionCheckout, error) {
+	return p.uc.CreateSessionCheckout.Execute(bindCustomerSession(ctx, cl), createsessioncheckout.Session{
+		CustomerSlug: cl.CustomerSlug(), InstanceSlug: cl.InstanceSlug(), AllowedOrigins: cl.AllowedOrigins(),
+	}, request)
+}
+
+func (p PublicSDK) ListSessionInvoices(ctx context.Context, cl caller.CustomerSessionCaller, cursor string, limit int32) (pagination.Page[sessions.SessionInvoice], error) {
+	return p.uc.ListSessionInvoices.Execute(bindCustomerSession(ctx, cl), listsessioninvoices.Session{
+		CustomerID: cl.CustomerID(), InstanceID: cl.InstanceID(),
+	}, cursor, limit)
 }

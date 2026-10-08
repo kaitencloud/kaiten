@@ -30,3 +30,13 @@ func TestPublishableKeyPrefixIsDisjoint(t *testing.T) {
 		require.False(t, strings.HasPrefix(other, token.PrefixPublishableKey))
 	}
 }
+
+// TestCustomerSessionPrefixIsDisjoint: kst_ is a k-family sibling -- equal
+// length, no prefix relation with any other family.
+func TestCustomerSessionPrefixIsDisjoint(t *testing.T) {
+	for _, other := range []string{token.PrefixOrganization, token.PrefixPlatform, token.PrefixPublishableKey} {
+		require.False(t, strings.HasPrefix(token.PrefixCustomerSession, other))
+		require.False(t, strings.HasPrefix(other, token.PrefixCustomerSession))
+	}
+	require.Len(t, token.PrefixCustomerSession, len(token.PrefixOrganization))
+}
