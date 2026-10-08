@@ -13,6 +13,12 @@ concurrency:
   group: go-ci-api-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# Every job reads the code and nothing else; golangci-lint reads the pull request
+# to annotate it.
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   # A migration below main's newest breaks `migrate up` on databases that
   # already applied it: goose refuses a pending version lower than an applied one.
