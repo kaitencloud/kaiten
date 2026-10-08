@@ -271,7 +271,7 @@ func billingProviders(opts Options, svc services.Container) (provider.Registry, 
 	}
 	registry.RegisterConnector(stripeBinding, deps)
 
-	timeout := opts.Config.Billing.ProviderTimeout
+	timeout := opts.Config.Billing.Provider.Timeout
 	hooks := connectorhooks.Registry{
 		stripeBinding.ConnectorName: providerconnector.New(svc.Uof, stripeBinding, timeout, connectorcommon.SecretFields(manifest.SettingsSchema)),
 	}
