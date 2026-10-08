@@ -1,4 +1,4 @@
-import type { InfiniteData, UseInfiniteQueryResult } from '@tanstack/react-query';
+import type { UseQueryResult } from '@tanstack/react-query';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import type { InvoiceSummary, PageInvoiceSummary } from '@/api-client';
@@ -41,29 +41,23 @@ const invoice = (overrides: Partial<InvoiceSummary>): InvoiceSummary => ({
   ...overrides,
 });
 
-const fetchNextPage = fn();
-
-/** The parts of a query a card reads: the pages, its state and the way to read more. */
+/** The parts of a query a card reads: the invoices, every page of them, and its state. */
 const stub = (state: Record<string, unknown>) =>
   ({
     data: undefined,
     error: null,
-    fetchNextPage,
-    hasNextPage: false,
     isError: false,
-    isFetchNextPageError: false,
-    isFetchingNextPage: false,
     isPending: false,
     refetch: fn(),
     ...state,
-  }) as unknown as UseInfiniteQueryResult<InfiniteData<PageInvoiceSummary>>;
+  }) as unknown as UseQueryResult<PageInvoiceSummary, unknown>;
 
-const pages = (items: InvoiceSummary[]): InfiniteData<PageInvoiceSummary> => ({
-  pageParams: [undefined],
-  pages: [{ hasMore: false, items }],
+const page = (items: InvoiceSummary[]): PageInvoiceSummary => ({
+  hasMore: false,
+  items,
 });
 
-const card = (query: UseInfiniteQueryResult<InfiniteData<PageInvoiceSummary>>) => (
+const card = (query: UseQueryResult<PageInvoiceSummary, unknown>) => (
   <StorybookRouter>
     <InvoicesCard
       description="The invoices of every instance of this customer, newest first."
@@ -75,24 +69,48 @@ const card = (query: UseInfiniteQueryResult<InfiniteData<PageInvoiceSummary>>) =
   </StorybookRouter>
 );
 
-// The invoices of one subject, a page at a time, and the way to read more.
+// The invoices of one subject, read whole: the table sorts them, newest invoice
+// first, and pages them in the browser.
 export const Populated: Story = {
   render: () =>
     card(
       stub({
-        data: pages([
+        data: page([
           invoice({ id: 'inv-2', instanceName: 'Initech Staging', instanceSlug: 'initech-staging' }),
           invoice({ id: 'inv-1' }),
         ]),
-        hasNextPage: true,
       }),
     ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
     await expect(await canvas.findByText('initech-staging')).toBeVisible();
-    await userEvent.click(canvas.getByRole('button', { name: 'Load more' }));
-    await expect(fetchNextPage).toHaveBeenCalledTimes(1);
+    await expect(canvas.queryByRole('button', { name: 'Load more' })).toBeNull();
+  },
+};
+
+// More invoices than a page of the table holds: ten to a page, the pager under
+// them, and the order kept when the next page is shown.
+export const Paged: Story = {
+  render: () =>
+    card(
+      stub({
+        data: page(
+          Array.from({ length: 12 }, (_, index) =>
+            invoice({
+              boundaryAt: new Date(Date.UTC(2027, 2, index + 1)).toISOString(),
+              id: `inv-${index + 1}`,
+            }),
+          ),
+        ),
+      }),
+    ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(await canvas.findByText('Showing 1-10 of 12 records')).toBeVisible();
+    await userEvent.click(canvas.getByRole('button', { name: 'Next' }));
+    await expect(await canvas.findByText('Showing 11-12 of 12 records')).toBeVisible();
   },
 };
 
@@ -106,7 +124,7 @@ export const Loading: Story = {
 };
 
 export const Empty: Story = {
-  render: () => card(stub({ data: pages([]) })),
+  render: () => card(stub({ data: page([]) })),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
@@ -117,8 +135,8 @@ export const Empty: Story = {
   },
 };
 
-// A refusal of the first page is shown in the card, with a way to ask again, and
-// the page around the card is left as it was.
+// A refusal of the read is shown in the card, with a way to ask again, and the
+// page around the card is left as it was.
 export const Refused: Story = {
   render: () =>
     card(

@@ -1,17 +1,16 @@
-import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
+import { queryOptions } from '@tanstack/react-query';
 import {
   getInstanceBilling,
   getUpcomingInvoice,
-  listInstanceInvoices,
   listLicensePrices,
 } from '@/api-client';
 import {
   getInstanceBillingQueryKey,
   getUpcomingInvoiceQueryKey,
-  listInstanceInvoicesInfiniteQueryKey,
   listLicensePricesQueryKey,
 } from '@/api-client/@tanstack/react-query.gen';
-import { getProblemCode, INVOICES_PAGE_SIZE } from '@/domains/billing';
+import { getProblemCode } from '@/domains/billing';
+import { allInstanceInvoicesOptions } from '@/lib/api/all-pages-query-options';
 
 const NOT_SUBSCRIBED = 'GetInstanceBilling.NotFound';
 const UPCOMING_NOT_FOUND = 'GetUpcomingInvoice.NotFound';
@@ -86,33 +85,17 @@ export const upcomingInvoiceQueryOptions = (instanceSlug: string) =>
 
 /**
  * The invoices of an instance's subscription, across every time it was
- * subscribed, newest first, a page at a time. It keeps the key the generated
- * options give the operation (an infinite one), so that the invalidation of an
- * invoice or of the subscription reaches it.
+ * subscribed, every page of them: the card sorts and pages them in the browser.
+ * It keeps the key the generated options give the operation, so that the
+ * invalidation of an invoice or of the subscription reaches it. A read of billing
+ * is not retried: a refusal is the card's to show, with a way to ask again, and one
+ * the route's loader met is the answer, not read again when the card mounts.
  */
-export const instanceInvoicesQueryOptions = (instanceSlug: string) => {
-  const path = { instanceSlug };
-  const query = { limit: INVOICES_PAGE_SIZE };
-
-  return infiniteQueryOptions({
-    queryKey: listInstanceInvoicesInfiniteQueryKey({ path, query }),
-    queryFn: async ({ pageParam, signal }) => {
-      const { data } = await listInstanceInvoices({
-        path,
-        query: { ...query, cursor: pageParam },
-        signal,
-        throwOnError: true,
-      });
-
-      return data;
-    },
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) =>
-      lastPage.hasMore ? lastPage.nextCursor : undefined,
-    retry: false,
-    retryOnMount: false,
-  });
-};
+export const instanceInvoicesQueryOptions = (instanceSlug: string) => ({
+  ...allInstanceInvoicesOptions(instanceSlug),
+  retry: false,
+  retryOnMount: false,
+});
 
 /**
  * The prices an instance can be subscribed on: the active flat fees of its

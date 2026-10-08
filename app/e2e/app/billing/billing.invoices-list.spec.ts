@@ -56,20 +56,20 @@ test.describe('the list of invoices', () => {
     );
     await page.setViewportSize({ height: 800, width: 1280 });
 
-    await list.goto();
+    await list.gotoShowingEverything();
 
     await expect(list.rows()).toHaveCount(11);
     await expect(list.row('inv-m1')).toContainText('6:17 PM');
     await expectFitsItsContainer(page.getByRole('table').first());
   });
 
-  test('lists the invoices newest first, with how many it shows', async ({
+  test('lists the invoices by the boundary they bill, newest first', async ({
     page,
   }) => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.goto();
+    await list.gotoShowingEverything();
 
     await list.expectInvoiceIds(NEWEST_FIRST);
     await expect(list.rows()).toHaveCount(11);
@@ -81,7 +81,7 @@ test.describe('the list of invoices', () => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.goto();
+    await list.gotoShowingEverything();
 
     const first = list.row('inv-m1');
     await expect(first).toContainText('Initech');
@@ -107,7 +107,7 @@ test.describe('the list of invoices', () => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.goto();
+    await list.gotoShowingEverything();
 
     // Overdue is not a status of the API: an unpaid invoice past its due date.
     await expect(list.statusBadge('inv-m1')).toHaveText('Overdue');
@@ -124,7 +124,7 @@ test.describe('the list of invoices', () => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.goto();
+    await list.gotoShowingEverything();
     await list.statusBadge('inv-h1').hover();
 
     await expect(
@@ -140,7 +140,7 @@ test.describe('the list of invoices', () => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.goto();
+    await list.gotoShowingEverything();
 
     await expect(
       page.getByRole('columnheader', { name: 'Provider', exact: true }),
@@ -151,7 +151,7 @@ test.describe('the list of invoices', () => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createInvoicesModel({ stripe: true }));
 
-    await list.goto();
+    await list.gotoShowingEverything();
 
     await expect(
       page.getByRole('columnheader', { name: 'Provider', exact: true }),
@@ -164,7 +164,7 @@ test.describe('the list of invoices', () => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.goto();
+    await list.gotoShowingEverything();
     await list.link('inv-p1').click();
 
     await expect(page).toHaveURL(/\/billing\/invoices\/inv-p1$/);
@@ -185,7 +185,7 @@ test.describe('the filters of the list', () => {
     const reads = recordWrites(page, /\/api\/invoices$/, ['GET']);
     await installBillingAppMocks(page, createInvoicesModel({ stripe: true }));
 
-    await list.goto();
+    await list.gotoShowingEverything();
     await list.toggleStatus('Ready to bill');
     await list.toggleStatus('Awaiting payment');
     await list.choose('Kind', 'Renewal');
@@ -209,7 +209,7 @@ test.describe('the filters of the list', () => {
     expect(asked.get('customerSlug')).toBe('initech');
     expect(asked.get('boundaryFrom')).toBe('2026-03-01T00:00:00.000Z');
     expect(asked.get('boundaryTo')).toBe('2026-04-01T00:00:00.000Z');
-    expect(asked.get('limit')).toBe('50');
+    expect(asked.get('limit')).toBe('200');
     // A filter that is off is not sent.
     expect(asked.has('held')).toBe(false);
 
@@ -243,6 +243,7 @@ test.describe('the filters of the list', () => {
     // Clearing returns to the path with no search at all.
     await list.clearFilters().click();
     await expect.poll(() => list.pathAndSearch()).toBe('/billing/invoices');
+    await list.showRowsPerPage(50);
     await list.expectInvoiceIds([
       'inv-h1',
       'inv-h2',
@@ -266,7 +267,7 @@ test.describe('the filters of the list', () => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.goto();
+    await list.gotoShowingEverything();
     await list.setSwitch('Overdue invoices only', true);
     await list.closeFilters();
     // The first invoice, and the replacement of a void one: both are past due.
@@ -285,7 +286,7 @@ test.describe('the filters of the list', () => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.goto('?kind=ACTIVATION&customerSlug=globex');
+    await list.gotoShowingEverything('?kind=ACTIVATION&customerSlug=globex');
     await list.expectChips(['Kind: Activation', 'Customer: globex']);
     await list.expectInvoiceIds(['inv-d2']);
 
@@ -302,7 +303,7 @@ test.describe('the filters of the list', () => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.goto('?status=PAID&customerSlug=globex');
+    await list.gotoShowingEverything('?status=PAID&customerSlug=globex');
 
     await list.expectChips(['Status: Paid', 'Customer: globex']);
     await list.expectInvoiceIds(['inv-d2']);
@@ -314,7 +315,9 @@ test.describe('the filters of the list', () => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.goto('?kind=NOT_A_KIND&status=PAID&overdue=false');
+    await list.gotoShowingEverything(
+      '?kind=NOT_A_KIND&status=PAID&overdue=false',
+    );
 
     await list.expectChips(['Status: Paid']);
     await list.expectInvoiceIds(['inv-d1', 'inv-d2']);
@@ -327,7 +330,7 @@ test.describe('the filters of the list', () => {
     const reads = recordWrites(page, /\/api\/invoices$/, ['GET']);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.goto();
+    await list.gotoShowingEverything();
     await list.setPeriod('Boundary', '2026-04-01', null);
     // The start alone is a period open at its end: it is applied.
     await expect
@@ -351,7 +354,7 @@ test.describe('the filters of the list', () => {
 });
 
 test.describe('the paging of the list', () => {
-  test('reads fifty invoices, then the rest when asked, with the same filters', async ({
+  test('reads every invoice, 200 at a time, then pages them ten to a page in the browser, newest first', async ({
     page,
   }) => {
     const list = new BillingInvoicesDriver(page);
@@ -360,28 +363,44 @@ test.describe('the paging of the list', () => {
 
     await list.goto();
 
-    await expect(list.rows()).toHaveCount(50);
-    await expect(list.rows()).toHaveCount(50);
-    // The newest is first, whatever the page it is on.
+    await expect(list.rows()).toHaveCount(10);
+    // The newest is first, whatever the page the API sent it on.
     expect((await list.invoiceIds())[0]).toBe('inv-bulk-60');
     expect(reads).toHaveLength(1);
-    expect(new URLSearchParams(reads[0].search).get('limit')).toBe('50');
+    expect(new URLSearchParams(reads[0].search).get('limit')).toBe('200');
     expect(new URLSearchParams(reads[0].search).has('cursor')).toBe(false);
+    await expect(page.getByText('Showing 1-10 of 60 records')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Load more', exact: true }),
+    ).toHaveCount(0);
 
-    await list.loadMore().click();
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
 
-    await expect(list.rows()).toHaveCount(60);
-    await expect(list.rows()).toHaveCount(60);
-    await expect(list.loadMore()).toHaveCount(0);
-    expect(reads).toHaveLength(2);
-    const next = new URLSearchParams(reads[1].search);
-    expect(next.get('cursor')).toBeTruthy();
-    expect(next.get('limit')).toBe('50');
-    // The rows already read stayed where they were.
-    expect((await list.invoiceIds())[0]).toBe('inv-bulk-60');
+    await expect(page.getByText('Showing 11-20 of 60 records')).toBeVisible();
+    expect((await list.invoiceIds())[0]).toBe('inv-bulk-50');
+    // Nothing more was asked of the API: the pages are the browser's.
+    expect(reads).toHaveLength(1);
   });
 
-  test('offers no more when the first page is the only one', async ({
+  test('keeps every page of a list longer than the one the API sends', async ({
+    page,
+  }) => {
+    const list = new BillingInvoicesDriver(page);
+    const reads = recordWrites(page, /\/api\/invoices$/, ['GET']);
+    await installBillingAppMocks(page, createManyInvoicesModel(230));
+
+    await list.goto();
+
+    // 230 invoices: the API sends 200 and says there are more, the console asks for
+    // the rest with the cursor it was given.
+    await expect(page.getByText('Showing 1-10 of 230 records')).toBeVisible();
+    expect(reads).toHaveLength(2);
+    expect(new URLSearchParams(reads[0].search).has('cursor')).toBe(false);
+    expect(new URLSearchParams(reads[1].search).get('cursor')).toBeTruthy();
+    expect(new URLSearchParams(reads[1].search).get('limit')).toBe('200');
+  });
+
+  test('shows the invoices of the organization in one page when they fit it', async ({
     page,
   }) => {
     const list = new BillingInvoicesDriver(page);
@@ -389,8 +408,10 @@ test.describe('the paging of the list', () => {
 
     await list.goto();
 
+    await expect(list.rows()).toHaveCount(10);
+    await expect(page.getByText('Showing 1-10 of 11 records')).toBeVisible();
+    await list.showRowsPerPage(20);
     await expect(list.rows()).toHaveCount(11);
-    await expect(list.loadMore()).toHaveCount(0);
   });
 });
 
@@ -401,7 +422,7 @@ test.describe('the states of the list', () => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createEmptyInvoicesModel());
 
-    await list.goto();
+    await list.gotoShowingEverything();
 
     await expect(list.empty()).toContainText('No invoices yet');
     await expect(
@@ -418,7 +439,7 @@ test.describe('the states of the list', () => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.goto('?customerSlug=nobody');
+    await list.gotoShowingEverything('?customerSlug=nobody');
 
     await expect(list.empty()).toContainText(
       'No invoice matches these filters',
@@ -426,7 +447,8 @@ test.describe('the states of the list', () => {
     await list.empty().getByRole('button', { name: 'Clear filters' }).click();
 
     await expect.poll(() => list.pathAndSearch()).toBe('/billing/invoices');
-    await expect(list.rows()).toHaveCount(11);
+    await expect(list.rows()).toHaveCount(10);
+    await expect(page.getByText('Showing 1-10 of 11 records')).toBeVisible();
   });
 
   test('shows why the API refused, with the trace of a failure that is the server’s, and reads again when asked', async ({
@@ -441,7 +463,7 @@ test.describe('the states of the list', () => {
     });
     await installBillingAppMocks(page, model);
 
-    await list.goto();
+    await list.gotoShowingEverything();
 
     await expect(list.error()).toContainText(
       'the invoice store is unavailable',
@@ -454,7 +476,8 @@ test.describe('the states of the list', () => {
 
     await list.error().getByRole('button', { name: 'Retry' }).click();
 
-    await expect(list.rows()).toHaveCount(11);
+    await expect(list.rows()).toHaveCount(10);
+    await expect(page.getByText('Showing 1-10 of 11 records')).toBeVisible();
     await expect(list.error()).toHaveCount(0);
   });
 
@@ -470,7 +493,7 @@ test.describe('the states of the list', () => {
     });
     await installBillingAppMocks(page, model);
 
-    await list.goto();
+    await list.gotoShowingEverything();
 
     await expect(list.error()).toContainText('read:billing');
     await expect(list.error()).toContainText('token template');
@@ -479,11 +502,11 @@ test.describe('the states of the list', () => {
     ).toHaveCount(0);
   });
 
-  test('keeps the invoices already read when the next page cannot be', async ({
+  test('shows why when a page of the walk is refused, and reads the whole list again when asked', async ({
     page,
   }) => {
     const list = new BillingInvoicesDriver(page);
-    const model = createManyInvoicesModel();
+    const model = createManyInvoicesModel(230);
     model.invoices.armProblem('listInvoices', {
       after: 1,
       detail: 'the invoice store is unavailable',
@@ -492,14 +515,17 @@ test.describe('the states of the list', () => {
     await installBillingAppMocks(page, model);
 
     await list.goto();
-    await expect(list.rows()).toHaveCount(50);
-    await list.loadMore().click();
 
-    await expect(
-      page.getByText('the invoice store is unavailable'),
-    ).toBeVisible();
-    await expect(list.rows()).toHaveCount(50);
-    await expect(list.loadMore()).toBeVisible();
+    // The first page was read and the second was refused: nothing partial is shown.
+    await expect(list.error()).toContainText(
+      'the invoice store is unavailable',
+    );
+    await expect(list.rows()).toHaveCount(0);
+
+    await list.error().getByRole('button', { name: 'Retry' }).click();
+
+    await expect(page.getByText('Showing 1-10 of 230 records')).toBeVisible();
+    await expect(list.error()).toHaveCount(0);
   });
 });
 
@@ -511,7 +537,7 @@ test.describe('the export of the list', () => {
     const exports = recordWrites(page, /\/api\/invoices\/export$/, ['GET']);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await list.goto('?status=MANUAL&overdue=true');
+    await list.gotoShowingEverything('?status=MANUAL&overdue=true');
     await list.expectInvoiceIds(['inv-m1', 'inv-r1']);
 
     // A CSV with a row for every line of the invoices selected.
@@ -562,7 +588,7 @@ test.describe('the export of the list', () => {
     const list = new BillingInvoicesDriver(page);
     await installBillingAppMocks(page, createManyInvoicesModel());
 
-    await list.goto();
+    await list.gotoShowingEverything();
     await expect(list.rows()).toHaveCount(50);
 
     const file = await list.export('CSV by invoice');
@@ -583,7 +609,7 @@ test.describe('the export of the list', () => {
     });
     await installBillingAppMocks(page, model);
 
-    await list.goto();
+    await list.gotoShowingEverything();
     await list.openExportMenu();
     await page
       .getByRole('menuitem', { name: 'CSV by invoice', exact: true })

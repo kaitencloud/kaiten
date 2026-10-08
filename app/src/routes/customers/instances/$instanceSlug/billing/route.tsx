@@ -34,7 +34,7 @@ export const Route = createFileRoute(
       context.queryClient.prefetchQuery(
         instanceBillingQueryOptions(instanceSlug),
       ),
-      context.queryClient.prefetchInfiniteQuery(
+      context.queryClient.prefetchQuery(
         instanceInvoicesQueryOptions(instanceSlug),
       ),
     ]);

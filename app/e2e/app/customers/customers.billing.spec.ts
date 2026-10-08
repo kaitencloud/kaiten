@@ -210,7 +210,7 @@ test.describe('the invoices of a customer', () => {
     await expect(page).toHaveURL(/\/billing\/invoices\/inv-acme-renewal$/);
   });
 
-  test('are read fifty at a time, and the rest on request', async ({
+  test('are read whole, and paged ten to a page in the card', async ({
     page,
   }) => {
     const detail = new CustomerDetailDriver(page);
@@ -220,15 +220,23 @@ test.describe('the invoices of a customer', () => {
 
     await detail.goto('acme-corp');
 
-    await expect(detail.invoiceRows()).toHaveCount(50);
-    await detail.loadMoreInvoices().click();
-
-    await expect(detail.invoiceRows()).toHaveCount(60);
-    await expect(detail.loadMoreInvoices()).toHaveCount(0);
+    await expect(detail.invoiceRows()).toHaveCount(10);
+    await expect(detail.invoicesCard()).toContainText(
+      'Showing 1-10 of 60 records',
+    );
     expect(new URLSearchParams(reads[0].search).get('customerSlug')).toBe(
       'acme-corp',
     );
-    expect(reads).toHaveLength(2);
+    expect(new URLSearchParams(reads[0].search).get('limit')).toBe('200');
+    // One read has all sixty: the pages of the card are the browser's.
+    expect(reads).toHaveLength(1);
+    await detail.invoicesCard().getByRole('button', { name: 'Next' }).click();
+
+    await expect(detail.invoicesCard()).toContainText(
+      'Showing 11-20 of 60 records',
+    );
+    await expect(detail.loadMoreInvoices()).toHaveCount(0);
+    expect(reads).toHaveLength(1);
   });
 
   test('say there is none yet, for a customer none of whose instances was invoiced', async ({

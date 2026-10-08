@@ -3196,7 +3196,6 @@ export default {
         subtitle:
           'Toutes les factures de votre organisation, tous clients et instances confondus.',
         loading: 'Chargement des factures',
-        loadMore: 'Charger plus',
         Lines: {
           title: 'Lignes',
         },
@@ -4222,7 +4221,6 @@ export default {
         title: 'Factures',
         loading: 'Chargement des factures',
         emptyTitle: 'Aucune facture pour le moment',
-        loadMore: 'Charger plus',
       },
       DeletionRefusal: {
         title: {

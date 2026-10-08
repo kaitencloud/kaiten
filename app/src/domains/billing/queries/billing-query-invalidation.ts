@@ -19,8 +19,9 @@ import { invalidateInstanceQueries } from '@/domains/customer-management';
  * invoice is on its page, in the organization's list, in its instance's list and
  * in the handoff queue), so a mutation calls the helper of the thing it changed
  * and every screen that shows it follows. They use the generated keys, which
- * match by prefix: `listInvoicesQueryKey()` reaches a list under any filter and
- * its infinite form.
+ * match by prefix: `listInvoicesQueryKey()` reaches the list of invoices under any
+ * scope, since every list is read whole under the key of its operation with what
+ * narrows it in the key.
  */
 
 /**

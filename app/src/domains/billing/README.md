@@ -50,7 +50,7 @@ app/src/domains/billing/
 │                     # fingerprint and the arithmetic of a metered line (LineFingerprint,
 │                     # OverageLimits), the invoice preview: InvoiceLinesTable,
 │                     # InvoiceTotals, InvoicePreviewResult, InvoicePreviewDialog, what a
-│                     # list the server pages is drawn with (paged-list/: the skeleton, the empty
+│                     # feed the server pages is drawn with (paged-list/: the skeleton, the empty
 │                     # state, the foot), the invoices of one subject in a card (InvoicesCard),
 │                     # the period of a list (PeriodFilter), the columns of a table of usage
 │                     # reports (useUsageReportColumns), the menu of the export of the invoices
@@ -91,10 +91,16 @@ page holds, or an export the API streams.
   `beforeLoad`. The read does not take the query's own abort signal: a query whose
   signal is read is cancelled when its last observer goes, which strict mode does
   on every mount, and a guard waiting on it would take that for a failure.
-- `invoicesPagesQueryOptions(filters)` reads the invoices a subject has, fifty at a
-  time, under the generated key of the list with an `_infinite` marker: the page of a
-  customer and the tab of an instance page it by the cursor the API returns, and a
-  helper that invalidates the invoices reaches all of them by prefix.
+- `invoicesQueryOptions(filters)` reads every invoice the filters select (none: every
+  invoice of the organization), 200 at a time by the cursor the API returns until it
+  says there is no more, through `allInvoicesOptions` of `lib/api`: the table sorts and
+  pages what was read, like every list of the console. It keeps the generated key of
+  the list with the filters in it, so that a helper that invalidates the invoices
+  reaches every list by prefix, whatever it was read for (the page of the
+  organization, the card of a customer). It is not retried, and a refusal that the
+  route's loader met is the answer, not asked again when the screen mounts. The card
+  of an instance reads its own operation the same way
+  (`allInstanceInvoicesOptions`, in `features/instances`).
   `billingSettingsQueryOptions` is `GET /billing/settings` (the defaults a subscription
   takes), read by the settings page and by the dialog that subscribes an instance.
 - `usageReportPagesQueryOptions({ fetchPage, queryKey })` reads usage reports a page at a
@@ -227,25 +233,34 @@ page holds, or an export the API streams.
 - **A table of invoices is one table.** `InvoicesTable` is the table of the
   organization, of an instance and of a customer: a screen leaves out the columns
   it already says (`hiddenColumns`, the same array from one render to the next,
-  since the columns are built from it), nothing sorts since the server orders what
-  it pages, and a row leads to its invoice. `InvoiceCustomerCell`, `InvoiceKindCell`
-  and `InvoiceTotalCell` are the cells every table of invoices has, the handoff
-  queue's included, and `rightAlignedHeader` the header of a column of amounts. The
-  service period is stacked, its start above its end (`ServicePeriod` with
-  `stacked`), since a subscription that bills from the middle of a day writes the
-  time of day on both ends and that is wider than any other column, and the
-  handoff label wraps, so that the eight columns fit the width of a laptop with
-  the side navigation open.
-- **A list the server pages draws the same states.** `PagedListSkeleton` while the
-  first page is on the way, `ListEmptyState` when there is no row, and
-  `LoadMoreFooter` under the rows, as the notifications feed draws its own: a centred
-  "Load more" while there is a next page, and a refusal of the next page above it. It
-  never says how many rows were read: the API does not say how many there are, and the
-  count of a page reads as the count of the list. They started in `features/billing` for its three lists and
-  moved here when the invoices of an instance and of a customer paged theirs.
-  `placeRefusalOnFields` shows a refusal of the API on the field of a form it is
-  about, for the forms of the dialogs that ask for an audited action and those that
-  follow.
+  since the columns are built from it), and a row leads to its invoice. The list is
+  read whole, so the browser sorts it, by who the invoice is for, the boundary it
+  bills (newest first, as the table opens), the service period, the total and the
+  due date (an invoice that was not issued has none and goes last), and pages it ten
+  to a page like every table of the console. A total sorts by currency first and by
+  amount within one (`compareInvoiceTotals`): an amount is in the minor units of its
+  own currency, so two currencies' amounts are never compared, and none is
+  converted. `InvoiceCustomerCell`, `InvoiceKindCell` and `InvoiceTotalCell` are the
+  cells every table of invoices has, the handoff queue's included,
+  `rightAlignedHeader` the header of a column of amounts and
+  `rightAlignedSortableHeader` the one of an amount that sorts, whose arrow ends where
+  the digits do. The service period is stacked, its start above its end
+  (`ServicePeriod` with `stacked`), since a subscription that bills from the middle
+  of a day writes the time of day on both ends and that is wider than any other
+  column, and the handoff label wraps, so that the eight columns fit the width of a
+  laptop with the side navigation open.
+- **A feed the server pages draws the same states.** The usage reports behind an
+  invoice line and the usage history of an entitlement are streams of events, which
+  stay paged by the API: `PagedListSkeleton` while the first page is on the way,
+  `ListEmptyState` when there is no row, and `LoadMoreFooter` under the rows, as the
+  notifications feed draws its own: a centred "Load more" while there is a next page,
+  and a refusal of the next page above it. It never says how many rows were read: the
+  API does not say how many there are, and the count of a page reads as the count of
+  the list. The skeleton and the empty state also serve the card of invoices and the
+  card of an instance that nobody bills.
+- **A refusal is shown where the person is looking.** `placeRefusalOnFields` shows a
+  refusal of the API on the field of a form it is about, for the forms of the dialogs
+  that ask for an audited action and those that follow.
 - **A refusal on a field goes when the field changes.** `setProblemFieldError` shows
   the API's words on one field (`errorMap.onServer`, the code of the refusal beside
   the message for what is drawn under the field), remembers the value it was shown

@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { type InvoicesTableColumn, InvoicesCard } from '@/domains/billing';
 import { instanceInvoicesQueryOptions } from '../../../../queries';
@@ -16,7 +16,7 @@ export function InstanceInvoicesCard({
   instanceSlug,
 }: InstanceInvoicesCardProps) {
   const { t } = useTranslation();
-  const query = useInfiniteQuery(instanceInvoicesQueryOptions(instanceSlug));
+  const query = useQuery(instanceInvoicesQueryOptions(instanceSlug));
 
   return (
     <InvoicesCard

@@ -1,13 +1,11 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
   type InvoicesTableColumn,
   InvoicesTable,
   ListEmptyState,
-  LoadMoreFooter,
   PagedListSkeleton,
   RetryableProblem,
 } from '@/domains/billing';
@@ -74,11 +72,10 @@ function EmptyInvoices({
 }
 
 /**
- * The invoices the filters select, a page at a time: the loading, error, empty and
- * populated states of the list. The first page is read by the query the route
- * warmed; "Load more" asks for the next one with the same filters, and the rows
- * already read stay where they are. A refusal is shown as the API wrote it, with a
- * way to ask again, and the filters stay: they are in the URL, not here.
+ * The invoices the filters select, every page of them, which the table sorts and
+ * pages in the browser: the loading, error, empty and populated states of the
+ * list. The query is the one the route warmed. A refusal is shown as the API wrote
+ * it, with a way to ask again, and the filters stay: they are in the URL, not here.
  */
 export function InvoicesList({
   filters,
@@ -86,11 +83,8 @@ export function InvoicesList({
   showProvider,
 }: InvoicesListProps) {
   const { t } = useTranslation();
-  const query = useInfiniteQuery(invoicesQueryOptions(filters));
-  const invoices = useMemo(
-    () => query.data?.pages.flatMap((page) => page.items) ?? [],
-    [query.data],
-  );
+  const query = useQuery(invoicesQueryOptions(filters));
+  const invoices = query.data?.items ?? [];
 
   if (query.isPending) {
     return (
@@ -130,10 +124,6 @@ export function InvoicesList({
           invoices={invoices}
         />
       </div>
-      <LoadMoreFooter
-        loadMoreLabel={t('Pages.Billing.Invoices.loadMore')}
-        query={query}
-      />
     </div>
   );
 }
