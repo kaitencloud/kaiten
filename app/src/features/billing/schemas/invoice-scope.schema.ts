@@ -19,6 +19,8 @@ const invoiceScopeSchema = z.object({
 export type InvoiceScope = z.output<typeof invoiceScopeSchema>;
 
 /** What the URL carries of the scope: the slugs that read as one, so that none leaves the bare path. */
-export function readInvoiceScope(search: Record<string, unknown>): InvoiceScope {
+export function readInvoiceScope(
+  search: Record<string, unknown>,
+): InvoiceScope {
   return invoiceScopeSchema.parse(search);
 }
