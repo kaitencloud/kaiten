@@ -239,6 +239,23 @@ test.describe('an invoice', () => {
     await expect(invoice.summary()).toContainText('Oct 31, 2025 (UTC)');
   });
 
+  test('says since when a draft is held, and not when an invoice that was issued was', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await invoice.goto('inv-h1');
+    await expect(invoice.summary()).toContainText('Held since');
+    await expect(invoice.summary()).toContainText(
+      'May 1, 2026, 12:00 AM (UTC)',
+    );
+    await expect(invoice.summary()).not.toContainText('Issued');
+
+    await invoice.goto('inv-p1');
+    await expect(invoice.summary()).not.toContainText('Held since');
+  });
+
   test('shows who it was composed for as it was then, even once the instance was deleted', async ({
     page,
   }) => {
@@ -382,43 +399,6 @@ test.describe('the figures under the header', () => {
     await expect(invoice.stat('Voided')).toContainText(/Oct 5, 2025\s*\(UTC\)/);
     await expect(invoice.stat('Voided')).toContainText('9:00 AM (UTC)');
   });
-
-  test('are two abreast with the period under them on a tablet, and in one row of three from a laptop', async ({
-    page,
-  }) => {
-    const invoice = new InvoiceDetailDriver(page);
-    await installBillingAppMocks(page, createInvoicesModel());
-    await page.setViewportSize({ height: 1000, width: 820 });
-
-    await invoice.goto('inv-p1');
-    let [total, due, period] = await Promise.all([
-      invoice.stat('Total').boundingBox(),
-      invoice.stat('Due').boundingBox(),
-      invoice.stat('Service period').boundingBox(),
-    ]);
-    expect(due?.y).toBeCloseTo(total?.y ?? 0, 0);
-    expect(period?.y).toBeGreaterThan((total?.y ?? 0) + (total?.height ?? 0));
-    expect(period?.x).toBeCloseTo(total?.x ?? 0, 0);
-    expect((period?.x ?? 0) + (period?.width ?? 0)).toBeCloseTo(
-      (due?.x ?? 0) + (due?.width ?? 0),
-      0,
-    );
-    // Two months on one line, with their zone.
-    await expect(invoice.stat('Service period')).toContainText(
-      /Mar 1 – May 1, 2026\s*\(UTC\)/,
-    );
-
-    await page.setViewportSize({ height: 900, width: 1440 });
-    [total, due, period] = await Promise.all([
-      invoice.stat('Total').boundingBox(),
-      invoice.stat('Due').boundingBox(),
-      invoice.stat('Service period').boundingBox(),
-    ]);
-    expect(due?.y).toBeCloseTo(total?.y ?? 0, 0);
-    expect(period?.y).toBeCloseTo(total?.y ?? 0, 0);
-    expect(due?.x).toBeGreaterThan((total?.x ?? 0) + (total?.width ?? 0) - 1);
-    expect(period?.x).toBeGreaterThan((due?.x ?? 0) + (due?.width ?? 0) - 1);
-  });
 });
 
 test.describe('a held draft', () => {
@@ -495,24 +475,45 @@ test.describe('a held draft', () => {
 });
 
 test.describe('the chain of replacements', () => {
-  test('leads from a void invoice to its replacement, and back', async ({
+  test('leads from a void invoice to its replacement, and back, by rows of its summary', async ({
     page,
   }) => {
     const invoice = new InvoiceDetailDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
     await invoice.goto('inv-v1');
-    await expect(invoice.chain()).toContainText('Replaced by');
-    await invoice.chain().getByRole('link', { name: 'inv-r1' }).click();
+    await expect(invoice.summary()).toContainText('Replaced by');
+    await expect(invoice.replaces()).toHaveCount(0);
+    await invoice.replacedBy().click();
 
     await expect(page).toHaveURL(/\/billing\/invoices\/inv-r1$/);
     await expect(invoice.title()).toBeVisible();
-    await expect(invoice.chain()).toContainText('Replaces');
+    await expect(invoice.summary()).toContainText('Replaces');
+    await expect(invoice.replaces()).toHaveText('inv-v1');
 
-    await invoice.chain().getByRole('link', { name: 'inv-v1' }).click();
+    await invoice.replaces().click();
 
     await expect(page).toHaveURL(/\/billing\/invoices\/inv-v1$/);
     await expect(invoice.statusBadge()).toHaveText('Void');
+  });
+
+  test('is no banner of its own: nothing stands between the strip and the cards', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await invoice.goto('inv-r1');
+
+    await expect(page.getByTestId('invoice-chain')).toHaveCount(0);
+    const strip = await invoice.stats().boundingBox();
+    const summary = await invoice.summary().boundingBox();
+    expect(strip).not.toBeNull();
+    expect(summary).not.toBeNull();
+    // The cards start right under the strip, with no row of a banner between.
+    expect(
+      (summary?.y ?? 0) - ((strip?.y ?? 0) + (strip?.height ?? 0)),
+    ).toBeLessThan(48);
   });
 
   test('is absent from an invoice that replaces nothing and was replaced by nothing', async ({
@@ -523,7 +524,10 @@ test.describe('the chain of replacements', () => {
 
     await invoice.goto('inv-m1');
 
-    await expect(invoice.chain()).toHaveCount(0);
+    await expect(invoice.replaces()).toHaveCount(0);
+    await expect(invoice.replacedBy()).toHaveCount(0);
+    await expect(invoice.summary()).not.toContainText('Replaces');
+    await expect(invoice.summary()).not.toContainText('Replaced by');
   });
 });
 
@@ -590,5 +594,227 @@ test.describe('where an invoice stands in the handoff queue', () => {
     await invoice.goto('inv-h1');
 
     await expect(invoice.handoff()).toHaveCount(0);
+  });
+});
+
+test.describe('the layout of the page', () => {
+  /** The boxes of the cards of the row, and of the lines card under it. */
+  async function boxes(invoice: InvoiceDetailDriver) {
+    // The handoff is not on every invoice, and a box of what is not there would wait.
+    const hasHandoff = (await invoice.handoff().count()) > 0;
+    const [summary, billedTo, handoff, lines] = await Promise.all([
+      invoice.summary().boundingBox(),
+      invoice.identity().boundingBox(),
+      hasHandoff ? invoice.handoff().boundingBox() : null,
+      invoice.linesCard().boundingBox(),
+    ]);
+    expect(summary).not.toBeNull();
+    expect(billedTo).not.toBeNull();
+    expect(lines).not.toBeNull();
+
+    return {
+      billedTo: billedTo!,
+      handoff,
+      lines: lines!,
+      summary: summary!,
+    };
+  }
+
+  test('holds the summary, who it is billed to and the handoff in one row aligned at the top, with the lines across the page under it', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await invoice.goto('inv-p1');
+    const { billedTo, handoff, lines, summary } = await boxes(invoice);
+
+    // One row, from the same top; each card ends with its content.
+    expect(handoff).not.toBeNull();
+    expect(billedTo.y).toBeCloseTo(summary.y, 0);
+    expect(handoff!.y).toBeCloseTo(summary.y, 0);
+    const rowBottom = Math.max(
+      ...[summary, billedTo, handoff!].map((box) => box.y + box.height),
+    );
+    // Side by side, in the order of the page.
+    expect(billedTo.x).toBeGreaterThan(summary.x + summary.width - 1);
+    expect(handoff!.x).toBeGreaterThan(billedTo.x + billedTo.width - 1);
+    // The lines start under the row and run across all of it.
+    expect(lines.y).toBeGreaterThan(rowBottom);
+    expect(lines.x).toBeCloseTo(summary.x, 0);
+    expect(lines.x + lines.width).toBeCloseTo(handoff!.x + handoff!.width, 0);
+  });
+
+  test('holds the two cards that remain, side by side and of one width, when the invoice is in no queue', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await invoice.goto('inv-h1');
+    await expect(invoice.handoff()).toHaveCount(0);
+    const { billedTo, lines, summary } = await boxes(invoice);
+
+    expect(billedTo.y).toBeCloseTo(summary.y, 0);
+    expect(billedTo.width).toBeCloseTo(summary.width, 0);
+    // The row is the width of the page: the two cards share it, nothing is left empty.
+    expect(lines.x + lines.width).toBeCloseTo(billedTo.x + billedTo.width, 0);
+  });
+
+  test('gives the handoff the whole width of a row of its own, between a laptop and a tablet', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+    await page.setViewportSize({ height: 800, width: 1100 });
+
+    await invoice.goto('inv-p1');
+    const { billedTo, handoff, summary } = await boxes(invoice);
+
+    expect(billedTo.y).toBeCloseTo(summary.y, 0);
+    expect(handoff!.y).toBeGreaterThan(
+      Math.max(summary.y + summary.height, billedTo.y + billedTo.height),
+    );
+    expect(handoff!.x).toBeCloseTo(summary.x, 0);
+    expect(handoff!.x + handoff!.width).toBeCloseTo(
+      billedTo.x + billedTo.width,
+      0,
+    );
+  });
+
+  test('stacks the cards in one column on a narrow screen, with nothing wider than the screen', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+    await page.setViewportSize({ height: 900, width: 700 });
+
+    await invoice.goto('inv-p1');
+    const { billedTo, handoff, lines, summary } = await boxes(invoice);
+
+    expect(billedTo.x).toBeCloseTo(summary.x, 0);
+    expect(handoff!.x).toBeCloseTo(summary.x, 0);
+    expect(billedTo.y).toBeGreaterThan(summary.y + summary.height);
+    expect(handoff!.y).toBeGreaterThan(billedTo.y + billedTo.height);
+    expect(lines.width).toBeCloseTo(summary.width, 0);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test('puts the figures two abreast with the period under them on a tablet, and in one row of three from a laptop', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+    await page.setViewportSize({ height: 1000, width: 820 });
+
+    await invoice.goto('inv-p1');
+    let [total, due, period] = await Promise.all([
+      invoice.stat('Total').boundingBox(),
+      invoice.stat('Due').boundingBox(),
+      invoice.stat('Service period').boundingBox(),
+    ]);
+    expect(due?.y).toBeCloseTo(total?.y ?? 0, 0);
+    expect(period?.y).toBeGreaterThan((total?.y ?? 0) + (total?.height ?? 0));
+    expect(period?.x).toBeCloseTo(total?.x ?? 0, 0);
+    expect((period?.x ?? 0) + (period?.width ?? 0)).toBeCloseTo(
+      (due?.x ?? 0) + (due?.width ?? 0),
+      0,
+    );
+    // Two months on one line, with their zone.
+    await expect(invoice.stat('Service period')).toContainText(
+      /Mar 1 – May 1, 2026\s*\(UTC\)/,
+    );
+
+    await page.setViewportSize({ height: 900, width: 1440 });
+    [total, due, period] = await Promise.all([
+      invoice.stat('Total').boundingBox(),
+      invoice.stat('Due').boundingBox(),
+      invoice.stat('Service period').boundingBox(),
+    ]);
+    expect(due?.y).toBeCloseTo(total?.y ?? 0, 0);
+    expect(period?.y).toBeCloseTo(total?.y ?? 0, 0);
+    expect(due?.x).toBeGreaterThan((total?.x ?? 0) + (total?.width ?? 0) - 1);
+    expect(period?.x).toBeGreaterThan((due?.x ?? 0) + (due?.width ?? 0) - 1);
+  });
+
+  test('ends the totals where the column of amounts does, across the whole width of the lines', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await invoice.goto('inv-p1');
+
+    const amount = await invoice
+      .line('Pro, monthly')
+      .getByText('$29.00', { exact: true })
+      .boundingBox();
+    const total = await invoice
+      .totals()
+      .getByTestId('invoice-totals')
+      .getByText('$27.39', { exact: true })
+      .boundingBox();
+    expect(amount).not.toBeNull();
+    expect(total).not.toBeNull();
+    expect((total?.x ?? 0) + (total?.width ?? 0)).toBeCloseTo(
+      (amount?.x ?? 0) + (amount?.width ?? 0),
+      0,
+    );
+  });
+
+  test('keeps the header and the figures in place while the cards and the lines scroll under them', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+    // Short enough for the lines to run past the screen.
+    await page.setViewportSize({ height: 600, width: 1280 });
+
+    await invoice.goto('inv-p1');
+    const title = await invoice.title().boundingBox();
+    const figure = await invoice.stat('Total').boundingBox();
+    const summary = await invoice.summary().boundingBox();
+    expect(summary?.y).toBeGreaterThan(
+      (figure?.y ?? 0) + (figure?.height ?? 0),
+    );
+
+    await invoice.linesCard().hover();
+    await page.mouse.wheel(0, 2000);
+
+    // The cards left the screen by the top of what scrolls, and the figures did not.
+    await expect(invoice.summary()).not.toBeInViewport();
+    await expect(invoice.linesCard()).toBeInViewport();
+    await expect(invoice.title()).toBeInViewport();
+    await expect(invoice.stat('Total')).toBeInViewport();
+    expect((await invoice.title().boundingBox())?.y).toBeCloseTo(
+      title?.y ?? 0,
+      0,
+    );
+    expect((await invoice.stat('Total').boundingBox())?.y).toBeCloseTo(
+      figure?.y ?? 0,
+      0,
+    );
+  });
+
+  test('keeps a held draft’s banner under the strip and above the cards', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await invoice.goto('inv-h1');
+
+    const figure = await invoice.stat('Total').boundingBox();
+    const banner = await invoice.holdBanner().boundingBox();
+    const summary = await invoice.summary().boundingBox();
+    expect(banner?.y).toBeGreaterThan((figure?.y ?? 0) + (figure?.height ?? 0));
+    expect(summary?.y).toBeGreaterThan(
+      (banner?.y ?? 0) + (banner?.height ?? 0),
+    );
+    // The banner has the width of the page, as an alert does.
+    expect(banner?.x).toBeCloseTo(summary?.x ?? 0, 0);
   });
 });

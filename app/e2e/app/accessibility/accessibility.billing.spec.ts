@@ -196,7 +196,7 @@ test.describe('accessibility of an invoice', () => {
     const invoice = new InvoiceDetailDriver(page);
 
     await invoice.goto('inv-v1');
-    await expect(invoice.chain()).toBeVisible();
+    await expect(invoice.replacedBy()).toBeVisible();
     await expectNoAccessibilityViolations(page);
 
     await invoice.goto('inv-d1');

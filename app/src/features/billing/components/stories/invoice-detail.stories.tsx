@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Suspense } from 'react';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import type { Invoice } from '@/api-client';
+import { handleGetInvoice } from '@/api-client/msw.gen';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import {
   buildInvoice,
@@ -8,7 +10,7 @@ import {
 } from '@/test-fixtures/storybook-billing-fixtures';
 import { HoldBanner } from '../invoice-detail/hold-banner';
 import { InvoiceActionButtons } from '../invoice-detail/invoice-action-buttons';
-import { InvoiceChain } from '../invoice-detail/invoice-chain';
+import { InvoiceDetailPage } from '../invoice-detail/invoice-detail-page';
 import { InvoiceDetailStats } from '../invoice-detail/invoice-detail-stats';
 import { InvoiceHandoffBlock } from '../invoice-detail/invoice-handoff-block';
 import { InvoiceSummaryCard } from '../invoice-detail/invoice-summary-card';
@@ -103,12 +105,20 @@ export const Actions: Story = {
   },
 };
 
+// Where an invoice stands in the chain of replacements, as rows of its summary: a
+// recomposed invoice points to its replacement, which points back at it.
 export const ReplacementChain: Story = {
   render: () => (
     <StorybookRouter>
-      <InvoiceChain
-        invoice={{ ...held, replacedByInvoiceId: 'inv-2', replacesInvoiceId: 'inv-0' }}
-      />
+      <div className="max-w-sm">
+        <InvoiceSummaryCard
+          invoice={{
+            ...held,
+            replacedByInvoiceId: 'inv-2',
+            replacesInvoiceId: 'inv-0',
+          }}
+        />
+      </div>
     </StorybookRouter>
   ),
   play: async ({ canvasElement }) => {
@@ -119,6 +129,8 @@ export const ReplacementChain: Story = {
       '/billing/invoices/inv-2',
     );
     await expect(canvas.getByRole('link', { name: 'inv-0' })).toBeVisible();
+    await expect(canvas.getByText('Replaces')).toBeVisible();
+    await expect(canvas.getByText('Replaced by')).toBeVisible();
   },
 };
 
@@ -219,6 +231,31 @@ export const SummaryEnded: Story = {
     await expect(await canvas.findByText('Due')).toBeVisible();
     await expect(canvas.getByText('Mar 31, 2027 (UTC)')).toBeVisible();
     await expect(canvas.queryByText(/Mar 18, 2027/)).toBeNull();
+  },
+};
+
+// A draft says since when it is held, which the banner does not.
+export const SummaryHeld: Story = {
+  render: () => (
+    <div className="max-w-sm">
+      <InvoiceSummaryCard
+        invoice={buildInvoice({
+          boundaryAt: BOUNDARY,
+          hold: { heldAt: '2027-03-02T08:15:00.000Z' },
+          holdReason: 'LEDGER_SEQUENCE_GAP',
+          id: 'inv-1',
+          lines: [line],
+          status: 'DRAFT',
+        })}
+      />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(await canvas.findByText('Held since')).toBeVisible();
+    await expect(canvas.getByText('Mar 2, 2027, 8:15 AM (UTC)')).toBeVisible();
+    await expect(canvas.queryByText('Issued')).toBeNull();
   },
 };
 
@@ -358,5 +395,140 @@ export const FiguresYear: Story = {
     await expect(await canvas.findByText(/Mar 1, 2027/)).toBeVisible();
     await expect(canvas.getByText(/Mar 1, 2028/)).toBeVisible();
     await expect(canvas.getByText('Activation')).toBeVisible();
+  },
+};
+
+// --- The whole page ------------------------------------------------------------
+
+// Far enough back to be always past due.
+const PAST_DUE = '2020-03-31T00:00:00.000Z';
+
+const overageLine = buildInvoiceLine({
+  amount: 1250,
+  description: '125,000 × $0.01 per call',
+  entitlementId: 'ent-1',
+  entitlementSlug: 'api-calls',
+  invoiceId: 'inv-page',
+  label: 'API calls, overage',
+  metering: {
+    ledger: {
+      firstSeq: 41,
+      lastSeq: 45,
+      rows: 5,
+      sumDelta: '245400',
+      sumOverage: '125000',
+    },
+    measuredQuantity: '125000',
+    negativeSegmentsFloored: 0,
+    saleUnitFactor: '1',
+    windows: 1,
+  },
+  overage: {
+    limits: [{ limitValue: '120000', overagePercent: 100, rows: 5 }],
+    overageMeasured: '125000',
+    usageMeasured: '245400',
+  },
+  quantity: '125000',
+  seq: 1,
+  serviceFrom: '2027-02-01T00:00:00.000Z',
+  serviceTo: BOUNDARY,
+  type: 'OVERAGE',
+  unitAmountDecimal: '1',
+});
+
+const baseLine = buildInvoiceLine({
+  amount: 25000,
+  description: '1 × $250.00 per month',
+  invoiceId: 'inv-page',
+  label: 'Enterprise, monthly',
+  seq: 2,
+  serviceFrom: BOUNDARY,
+  serviceTo: '2027-04-01T00:00:00.000Z',
+  type: 'BASE',
+});
+
+const renderPage = (invoice: Invoice) => (
+  <StorybookRouter>
+    <div className="h-screen">
+      <Suspense fallback={null}>
+        <InvoiceDetailPage invoiceId={invoice.id} />
+      </Suspense>
+    </div>
+  </StorybookRouter>
+);
+
+const card = (canvasElement: HTMLElement, title: string) =>
+  within(canvasElement)
+    .getByText(title, { selector: '[data-slot="card-title"]' })
+    .closest<HTMLElement>('[data-slot="card"]') as HTMLElement;
+
+// An invoice waiting for the accounting system that replaces a void one and is
+// overdue: the strip, then the summary, who it is billed to and the handoff in one
+// row of cards aligned at the top, then the lines across the page.
+const overdueInvoice = buildInvoice({
+  boundaryAt: BOUNDARY,
+  dueAt: PAST_DUE,
+  handoff: { claimCount: 1, status: 'PENDING' },
+  id: 'inv-page',
+  issuedAt: '2020-03-01T00:00:00.000Z',
+  lines: [overageLine, baseLine],
+  replacesInvoiceId: 'inv-page-voided',
+});
+
+export const PageOverdue: Story = {
+  parameters: {
+    layout: 'fullscreen',
+    msw: { handlers: [handleGetInvoice({ body: overdueInvoice })] },
+  },
+  render: () => renderPage(overdueInvoice),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(await canvas.findByRole('heading', { level: 1 })).toBeVisible();
+    for (const label of ['Total', 'Due', 'Service period']) {
+      await expect(labelled(canvasElement, label)).toBeVisible();
+    }
+    await expect(canvas.getByRole('link', { name: 'inv-page-voided' })).toBeVisible();
+    await expect(canvas.getByTestId('invoice-handoff')).toBeVisible();
+    // Two rows of the grid at this width, each aligned at the top.
+    await expect(
+      card(canvasElement, 'Summary').getBoundingClientRect().top,
+    ).toBeCloseTo(card(canvasElement, 'Billed to').getBoundingClientRect().top, 0);
+    // The lines have the width of the page, not of a column.
+    await expect(
+      card(canvasElement, 'Lines').getBoundingClientRect().width,
+    ).toBeGreaterThan(card(canvasElement, 'Summary').getBoundingClientRect().width);
+  },
+};
+
+// A held draft: the banner is an alert under the strip, nothing was issued so the
+// invoice is in no queue, and the row holds the two cards that remain.
+const heldInvoice = buildInvoice({
+  boundaryAt: BOUNDARY,
+  hold: { heldAt: '2027-03-02T08:15:00.000Z' },
+  holdDetail: held.holdDetail,
+  holdReason: 'LEDGER_SEQUENCE_GAP',
+  id: 'inv-page',
+  lines: [overageLine, baseLine],
+  status: 'DRAFT',
+});
+
+export const PageHeld: Story = {
+  parameters: {
+    layout: 'fullscreen',
+    msw: { handlers: [handleGetInvoice({ body: heldInvoice })] },
+  },
+  render: () => renderPage(heldInvoice),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(await canvas.findByTestId('hold-banner')).toBeVisible();
+    await expect(canvas.getByText('Not issued')).toBeVisible();
+    await expect(canvas.getByText('Held since')).toBeVisible();
+    await expect(canvas.queryByTestId('invoice-handoff')).toBeNull();
+    // Side by side from the same top, each card ending with its content.
+    await expect(
+      card(canvasElement, 'Summary').getBoundingClientRect().top,
+    ).toBeCloseTo(card(canvasElement, 'Billed to').getBoundingClientRect().top, 0);
   },
 };

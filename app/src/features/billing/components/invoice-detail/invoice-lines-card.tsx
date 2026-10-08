@@ -28,7 +28,7 @@ export function InvoiceLinesCard({ invoice }: InvoiceLinesCardProps) {
   return (
     <DetailCard>
       <DetailCard.Header>
-        <DetailCard.Title>
+        <DetailCard.Title className="text-base">
           {t('Pages.Billing.Invoices.Detail.Lines.title')}
         </DetailCard.Title>
       </DetailCard.Header>
