@@ -13,7 +13,13 @@
 //     400s); parameter-validation 400s and 429s are not.
 //   - Accounts: every key maps to an account (acct_default unless SetAccount
 //     says otherwise), and objects belong to the account that created them.
-//   - Ids are cus_<n>, in_<n>, ii_<n>, il_<n> and evt_<n>, in creation order.
+//   - Ids are cus_<n>, in_<n>, ii_<n>, il_<n>, di_<n> and evt_<n>, in
+//     creation order; a coupon has the id it was created with.
+//   - Discounts: an item's coupons apply in order, none taking it below 0;
+//     a line's discount_amounts and an invoice's total_discount_amounts name
+//     their discount by id, and a line's discounts are ids unless expanded
+//     (expand[]=data.discounts on its lines). A coupon is redeemed once per
+//     live item that bears it.
 //
 // Never imported by production code (an architecture test enforces it).
 package stripefake
@@ -23,6 +29,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -46,6 +53,10 @@ const (
 	OpVoidInvoice      = "VoidInvoice"
 	OpSendInvoice      = "SendInvoice"
 	OpCreateItem       = "CreateInvoiceItem"
+	OpDeleteItem       = "DeleteInvoiceItem"
+	OpCreateCoupon     = "CreateCoupon"
+	OpRetrieveCoupon   = "RetrieveCoupon"
+	OpDeleteCoupon     = "DeleteCoupon"
 	OpListEvents       = "ListEvents"
 )
 
@@ -90,6 +101,7 @@ type account struct {
 	invoices  map[string]*invoice
 	order     []string // invoice ids, creation order
 	items     map[string]*item
+	coupons   map[string]*coupon
 	events    []*event
 	payments  *payments
 }
@@ -144,7 +156,31 @@ type item struct {
 	TaxBehavior string            `json:"tax_behavior"`
 	Metadata    map[string]string `json:"metadata"`
 	Period      map[string]int64  `json:"period"`
+	Discounts   []string          `json:"discounts"`
 	lineID      string
+	// discounts are the item's discounts: id and coupon, in order.
+	discounts []itemDiscount
+	// applied overrides what a discount takes off the item.
+	applied map[string]int64
+}
+
+type itemDiscount struct {
+	ID     string
+	Coupon string
+}
+
+type coupon struct {
+	ID             string            `json:"id"`
+	Object         string            `json:"object"`
+	AmountOff      int64             `json:"amount_off"`
+	Currency       string            `json:"currency"`
+	Duration       string            `json:"duration"`
+	MaxRedemptions int64             `json:"max_redemptions"`
+	Name           string            `json:"name"`
+	Metadata       map[string]string `json:"metadata"`
+	Valid          bool              `json:"valid"`
+	Created        int64             `json:"created"`
+	deleted        bool
 }
 
 type event struct {
@@ -445,7 +481,7 @@ func (f *Fake) transition(accountID, id, status, at, eventType string) {
 func (f *Fake) acct(id string) *account {
 	a, ok := f.state[id]
 	if !ok {
-		a = &account{customers: map[string]*customer{}, invoices: map[string]*invoice{}, items: map[string]*item{}}
+		a = &account{customers: map[string]*customer{}, invoices: map[string]*invoice{}, items: map[string]*item{}, coupons: map[string]*coupon{}}
 		f.state[id] = a
 	}
 	return a
@@ -476,10 +512,178 @@ func (f *Fake) finalize(a *account, inv *invoice) {
 	f.emit(a, "invoice.finalized", inv)
 }
 
+// retotal totals an invoice: subtotal before discounts, total excluding tax
+// after them (the fake computes no tax).
 func (f *Fake) retotal(a *account, inv *invoice) {
-	var sum int64
+	var sum, discounted int64
 	for _, id := range inv.itemIDs {
 		sum += a.items[id].Amount
+		for _, d := range f.discountAmounts(a, a.items[id]) {
+			discounted += d.amount
+		}
 	}
-	inv.Subtotal, inv.TotalExcludingTax, inv.Total = sum, sum, sum
+	inv.Subtotal, inv.TotalExcludingTax, inv.Total = sum, sum-discounted, sum-discounted
+}
+
+type discountAmount struct {
+	discount itemDiscount
+	amount   int64
+}
+
+// discountAmounts applies an item's coupons in order, none taking it below
+// 0. A coupon deleted after it was applied keeps applying.
+func (f *Fake) discountAmounts(a *account, it *item) []discountAmount {
+	left := it.Amount
+	out := make([]discountAmount, 0, len(it.discounts))
+	for _, d := range it.discounts {
+		var take int64
+		if c, ok := a.coupons[d.Coupon]; ok {
+			take = min(c.AmountOff, left)
+		}
+		if override, ok := it.applied[d.ID]; ok {
+			take = override
+		}
+		left -= take
+		out = append(out, discountAmount{discount: d, amount: take})
+	}
+	return out
+}
+
+// redemptions counts the live items bearing a coupon.
+func (f *Fake) redemptions(a *account, couponID string) int64 {
+	var n int64
+	for _, it := range a.items {
+		if inv, ok := a.invoices[it.Invoice]; !ok || inv.deleted {
+			continue
+		}
+		for _, d := range it.discounts {
+			if d.Coupon == couponID {
+				n++
+			}
+		}
+	}
+	return n
+}
+
+// StripCoupons removes every coupon from an item, as a human editing a draft
+// under review would.
+func (f *Fake) StripCoupons(accountID, itemID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	a := f.acct(accountID)
+	if it, ok := a.items[itemID]; ok {
+		it.discounts, it.Discounts = nil, nil
+		f.retotal(a, a.invoices[it.Invoice])
+	}
+}
+
+// Heal drops the failures still queued for op.
+func (f *Fake) Heal(op string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.faults, op)
+}
+
+// CreateCoupon creates an amount_off coupon directly, as an earlier attempt
+// whose key Stripe has forgotten would have left it.
+func (f *Fake) CreateCoupon(accountID, id string, amountOff int64, currency, kaitenInvoiceID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.acct(accountID).coupons[id] = &coupon{
+		ID: id, Object: "coupon", AmountOff: amountOff, Currency: currency, Duration: "once", MaxRedemptions: 1,
+		Metadata: map[string]string{"kaiten_invoice_id": kaitenInvoiceID}, Valid: true, Created: f.clock().Unix(),
+	}
+}
+
+// Coupons lists the ids of an account's live coupons, sorted.
+func (f *Fake) Coupons(accountID string) []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []string
+	for id, c := range f.acct(accountID).coupons {
+		if !c.deleted {
+			out = append(out, id)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// Coupon returns a live coupon's amount, currency, duration and redemption
+// limit.
+func (f *Fake) Coupon(accountID, id string) (amountOff int64, currency, duration string, maxRedemptions int64, ok bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	c, found := f.acct(accountID).coupons[id]
+	if !found || c.deleted {
+		return 0, "", "", 0, false
+	}
+	return c.AmountOff, c.Currency, c.Duration, c.MaxRedemptions, true
+}
+
+// ItemCoupons lists the coupons an item bears, in order.
+func (f *Fake) ItemCoupons(accountID, itemID string) []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	it, ok := f.acct(accountID).items[itemID]
+	if !ok {
+		return nil
+	}
+	out := make([]string, len(it.discounts))
+	for i, d := range it.discounts {
+		out[i] = d.Coupon
+	}
+	return out
+}
+
+// ItemsOf lists the items of an invoice, in order.
+func (f *Fake) ItemsOf(accountID, invoiceID string) []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	inv, ok := f.acct(accountID).invoices[invoiceID]
+	if !ok {
+		return nil
+	}
+	return append([]string(nil), inv.itemIDs...)
+}
+
+// ApplyForeignCoupon creates a coupon Kaiten did not create and applies it to
+// an item, as a human applying a coupon in the dashboard would.
+func (f *Fake) ApplyForeignCoupon(accountID, itemID string, amountOff int64) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	a := f.acct(accountID)
+	it, ok := a.items[itemID]
+	if !ok {
+		return ""
+	}
+	c := &coupon{
+		ID: f.next("co"), Object: "coupon", AmountOff: amountOff, Currency: it.Currency, Duration: "once",
+		Metadata: map[string]string{}, Valid: true, Created: f.clock().Unix(),
+	}
+	a.coupons[c.ID] = c
+	it.discounts = append(it.discounts, itemDiscount{ID: f.next("di"), Coupon: c.ID})
+	f.retotal(a, a.invoices[it.Invoice])
+	return c.ID
+}
+
+// SetDiscountAmount changes what a coupon takes off an item, as a Stripe
+// computing it differently would.
+func (f *Fake) SetDiscountAmount(accountID, itemID, couponID string, amount int64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	a := f.acct(accountID)
+	it, ok := a.items[itemID]
+	if !ok {
+		return
+	}
+	for _, d := range it.discounts {
+		if d.Coupon == couponID {
+			if it.applied == nil {
+				it.applied = map[string]int64{}
+			}
+			it.applied[d.ID] = amount
+		}
+	}
+	f.retotal(a, a.invoices[it.Invoice])
 }

@@ -51,6 +51,21 @@ func (Adapter) AddLine(context.Context, provider.Ref, string, provider.Normalize
 	return "", provider.ErrUnsupported
 }
 
+// AddDiscount implements provider.Adapter.
+func (Adapter) AddDiscount(context.Context, provider.Ref, string, provider.NormalizedInvoice, provider.NormalizedDiscount) (string, error) {
+	return "", provider.ErrUnsupported
+}
+
+// DeleteLine implements provider.Adapter.
+func (Adapter) DeleteLine(context.Context, provider.Ref, string, string) error {
+	return provider.ErrUnsupported
+}
+
+// DeleteDiscount implements provider.Adapter.
+func (Adapter) DeleteDiscount(context.Context, provider.Ref, string) error {
+	return provider.ErrUnsupported
+}
+
 // Finalize implements provider.Adapter.
 func (Adapter) Finalize(context.Context, provider.Ref, string, provider.NormalizedInvoice) (provider.Invoice, error) {
 	return provider.Invoice{}, provider.ErrUnsupported

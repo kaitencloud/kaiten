@@ -41,14 +41,21 @@ type Discount struct {
 
 // InvoiceLineDiscount is how a DISCOUNT line was computed.
 type InvoiceLineDiscount struct {
-	DiscountType    string  `json:"discountType" enum:"PERCENTAGE,FIXED_AMOUNT"`
-	DiscountValue   string  `json:"discountValue" doc:"The percentage, or the amount in minor units"`
-	Currency        *string `json:"currency,omitempty"`
-	AppliesTo       string  `json:"appliesTo" enum:"LICENSE_BASE,ADDONS,BOTH,SELECTED_PRICES"`
-	TargetSeqs      []int   `json:"targetSeqs" doc:"The lines it discounts"`
-	Base            string  `json:"base" doc:"What its targets still amounted to before it, exact, in minor units"`
-	Application     int32   `json:"application" doc:"Which invoice of the redemption this is, from 1"`
-	ApplicationsMax *int32  `json:"applicationsMax,omitempty" doc:"How many invoices the redemption discounts; absent for FOREVER"`
+	DiscountType    string               `json:"discountType" enum:"PERCENTAGE,FIXED_AMOUNT"`
+	DiscountValue   string               `json:"discountValue" doc:"The percentage, or the amount in minor units"`
+	Currency        *string              `json:"currency,omitempty"`
+	AppliesTo       string               `json:"appliesTo" enum:"LICENSE_BASE,ADDONS,BOTH,SELECTED_PRICES"`
+	TargetSeqs      []int                `json:"targetSeqs" doc:"The lines it discounts"`
+	Base            string               `json:"base" doc:"What its targets still amounted to before it, exact, in minor units"`
+	Application     int32                `json:"application" doc:"Which invoice of the redemption this is, from 1"`
+	ApplicationsMax *int32               `json:"applicationsMax,omitempty" doc:"How many invoices the redemption discounts; absent for FOREVER"`
+	Allocations     []DiscountAllocation `json:"allocations" nullable:"false" readOnly:"true" doc:"The part of the line each target bears, by ascending targetSeq: they sum to the line's magnitude, and no target is discounted below 0. A payment provider applies each one to its target line"`
+}
+
+// DiscountAllocation is the part of a DISCOUNT line one target line bears.
+type DiscountAllocation struct {
+	TargetSeq int   `json:"targetSeq" doc:"The target line"`
+	Amount    int64 `json:"amount" doc:"In minor units, positive"`
 }
 
 // ApplyDiscounts adds a DISCOUNT line per applicable discount to an assembled
@@ -58,17 +65,23 @@ type InvoiceLineDiscount struct {
 //   - percentages apply first, then fixed amounts, each in the order given
 //     (the redemption order), on what their targets still amount to, so two
 //     50 % discounts give 75 %;
-//   - each line is the negation of the rounded magnitude, and if rounding
-//     would take the total below 0, the last lines are reduced until it is 0
-//     exactly; a line reduced to 0 is dropped.
+//   - each line is the negation of the rounded magnitude, split across its
+//     targets (allocate);
+//   - if rounding would take the total below 0, the last lines are reduced
+//     until it is 0 exactly, each taking the cut from its highest targets
+//     first; a line reduced to 0 is dropped.
 func ApplyDiscounts(comp Composition, discounts []Discount, currency money.Currency) (Composition, error) {
 	if len(discounts) == 0 {
 		return comp, nil
 	}
 	remaining := map[int]decimal.Decimal{}
+	// capacity is what each target can still be discounted, in whole minor
+	// units: no line is ever discounted below 0 (L-7).
+	capacity := map[int]int64{}
 	for _, line := range comp.Lines {
 		if line.Type != LineDiscount {
 			remaining[line.Seq] = decimal.NewFromInt(line.Amount)
+			capacity[line.Seq] = max(line.Amount, 0)
 		}
 	}
 	ordered := make([]Discount, 0, len(discounts))
@@ -98,23 +111,35 @@ func ApplyDiscounts(comp Composition, discounts []Discount, currency money.Curre
 		if len(targets) == 0 || total == 0 {
 			continue
 		}
+		// The exact reduction of each target, in seq order.
+		reductions := make([]decimal.Decimal, len(targets))
 		var raw decimal.Decimal
 		if d.Type == DiscountPercentage {
 			share := d.Value.Div(decimal.NewFromInt(100))
 			raw = base.Mul(share)
-			for _, line := range targets {
-				remaining[line.Seq] = remaining[line.Seq].Sub(remaining[line.Seq].Mul(share))
+			for i, line := range targets {
+				reductions[i] = remaining[line.Seq].Mul(share)
+				remaining[line.Seq] = remaining[line.Seq].Sub(reductions[i])
 			}
 		} else {
 			raw = decimal.Min(d.Value, base)
 			left := raw
-			for _, line := range targets {
-				take := decimal.Min(left, remaining[line.Seq])
-				remaining[line.Seq] = remaining[line.Seq].Sub(take)
-				left = left.Sub(take)
+			for i, line := range targets {
+				reductions[i] = decimal.Min(left, remaining[line.Seq])
+				remaining[line.Seq] = remaining[line.Seq].Sub(reductions[i])
+				left = left.Sub(reductions[i])
 			}
 		}
-		lines = append(lines, discountLine(d, targets, base, raw, currency))
+		line := discountLine(d, targets, base, raw, currency)
+		allocations := allocate(targets, reductions, -line.Amount, capacity)
+		var allocated int64
+		for _, a := range allocations {
+			allocated += a.Amount
+			capacity[a.TargetSeq] -= a.Amount
+		}
+		line.Amount = -allocated
+		line.Discount.Allocations = allocations
+		lines = append(lines, line)
 	}
 
 	// The floor: the discounts never take the total below 0.
@@ -127,6 +152,7 @@ func ApplyDiscounts(comp Composition, discounts []Discount, currency money.Curre
 		magnitude := -lines[i].Amount
 		cut := min(excess, magnitude)
 		lines[i].Amount += cut
+		lines[i].Discount.Allocations = trim(lines[i].Discount.Allocations, cut)
 		discounted -= cut
 	}
 	lines = slices.DeleteFunc(lines, func(l InvoiceLine) bool { return l.Amount == 0 })
@@ -142,6 +168,72 @@ func ApplyDiscounts(comp Composition, discounts []Discount, currency money.Curre
 	comp.DiscountTotal = discountTotal
 	comp.Total = comp.Subtotal - discountTotal
 	return comp, nil
+}
+
+// allocate splits a DISCOUNT line's rounded magnitude across its targets by
+// largest remainder (CR-001 §3.2): each target gets the floor of its exact
+// reduction, then the units left go one each to the largest fractional parts,
+// ties to the lower seq. No target gets more than its capacity; a unit no
+// target can take is not allocated, and the line is that much smaller. That
+// happens only when rounding several discounts on one small line would
+// otherwise discount it below 0. Allocations of 0 are left out.
+func allocate(targets []InvoiceLine, reductions []decimal.Decimal, magnitude int64, capacity map[int]int64) []DiscountAllocation {
+	amounts := make([]int64, len(targets))
+	order := make([]int, len(targets))
+	left := magnitude
+	for i, line := range targets {
+		amounts[i] = min(reductions[i].Floor().IntPart(), capacity[line.Seq])
+		left -= amounts[i]
+		order[i] = i
+	}
+	slices.SortStableFunc(order, func(a, b int) int {
+		fa := reductions[a].Sub(reductions[a].Floor())
+		fb := reductions[b].Sub(reductions[b].Floor())
+		if c := fb.Cmp(fa); c != 0 {
+			return c
+		}
+		return targets[a].Seq - targets[b].Seq
+	})
+	// One unit each to the targets with a fractional part.
+	for _, i := range order {
+		if left == 0 {
+			break
+		}
+		if !reductions[i].Equal(reductions[i].Floor()) && amounts[i] < capacity[targets[i].Seq] {
+			amounts[i]++
+			left--
+		}
+	}
+	// Units a cap took away go to whichever target still has room.
+	for progress := true; left > 0 && progress; {
+		progress = false
+		for _, i := range order {
+			if left > 0 && amounts[i] < capacity[targets[i].Seq] {
+				amounts[i]++
+				left--
+				progress = true
+			}
+		}
+	}
+	out := []DiscountAllocation{}
+	for i, line := range targets {
+		if amounts[i] > 0 {
+			out = append(out, DiscountAllocation{TargetSeq: line.Seq, Amount: amounts[i]})
+		}
+	}
+	return out
+}
+
+// trim takes cut off allocations, from the highest target first, dropping
+// those that reach 0 (the floor rule, CR-001 §3.2 step 3).
+func trim(allocations []DiscountAllocation, cut int64) []DiscountAllocation {
+	out := slices.Clone(allocations)
+	for i := len(out) - 1; i >= 0 && cut > 0; i-- {
+		take := min(cut, out[i].Amount)
+		out[i].Amount -= take
+		cut -= take
+	}
+	return slices.DeleteFunc(out, func(a DiscountAllocation) bool { return a.Amount == 0 })
 }
 
 // targets are the non-DISCOUNT lines a discount applies to, in seq order.
@@ -169,6 +261,7 @@ func (d Discount) targets(lines []InvoiceLine) []InvoiceLine {
 			out = append(out, line)
 		}
 	}
+	slices.SortStableFunc(out, func(a, b InvoiceLine) int { return a.Seq - b.Seq })
 	return out
 }
 
