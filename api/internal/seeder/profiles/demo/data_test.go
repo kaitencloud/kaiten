@@ -121,6 +121,15 @@ func TestDeploymentsReferenceKnownZonesAndReleases(t *testing.T) {
 	}
 }
 
+// TestDeploymentZoneTypesAreEnvironments keeps a zone's type to the environment
+// classes the console labels. `shared` and `dedicated` once sat there; they are
+// not environments, and a dedicated zone now says so in its metadata.
+func TestDeploymentZoneTypesAreEnvironments(t *testing.T) {
+	for _, dz := range deploymentZones {
+		require.Containsf(t, []string{"production", "staging", "development"}, dz.Type, "zone %q", dz.Key)
+	}
+}
+
 // TestAuditTrailRefsNameSeededObjects catches a typo in a seedRef before the
 // seed does: seedAuditTrail would fail on it, but only against a database.
 func TestAuditTrailRefsNameSeededObjects(t *testing.T) {

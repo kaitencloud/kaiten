@@ -100,7 +100,17 @@ func (p *Profile) SeedOrganizations(ctx context.Context, sc *seeder.SeederContex
 func (p *Profile) seedOrganization(ctx context.Context, sc *seeder.SeederContext, organization seeder.TargetOrganization) error {
 	slog.Info("🚀 Starting Kaiten Sushi Shop demo profile seed...", "organization_id", organization.ID, "organization_name", organization.Name)
 
-	orgCtx := sc.WithOrganization(organization.ID, organization.OwnerUserID)
+	// Step 0: the Ops Team service account. Every later step runs as it, so
+	// what the seed creates is by Ops Team rather than by the member resolved
+	// as the organization's owner -- a person, or the Kaiten platform identity,
+	// neither of whom did any of it. The owner only creates the account and
+	// its token.
+	opsTeamID, err := p.seedOpsTeam(ctx, sc.WithOrganization(organization.ID, organization.OwnerUserID))
+	if err != nil {
+		return err
+	}
+
+	orgCtx := sc.WithOrganization(organization.ID, opsTeamID)
 	now := time.Now().UTC()
 
 	// Step 1: entitlement groups
@@ -134,7 +144,7 @@ func (p *Profile) seedOrganization(ctx context.Context, sc *seeder.SeederContext
 	// Step 6: declare typed metadata fields, then create deployment zones
 	// (and their release-rollout journal) whose metadata jsonb is
 	// conformant to the declared schema.
-	if err := p.seedMetadataFields(ctx, orgCtx, organization.ID, organization.OwnerUserID); err != nil {
+	if err := p.seedMetadataFields(ctx, orgCtx, organization.ID, opsTeamID); err != nil {
 		return err
 	}
 
@@ -929,6 +939,47 @@ func (p *Profile) seedFeatureFlags(ctx context.Context, sc *seeder.SeederContext
 }
 
 // ── Service Accounts & Tokens ─────────────────────────────────────────────
+
+// seedOpsTeam creates the Ops Team service account the rest of the seed acts
+// as, and returns its user ID. Its token carries the console's "Control plane"
+// preset (TOKEN_PRESETS.controlPlane in app/src/features/service-accounts)
+// plus the three modules the dataset also writes -- entitlements, feature flags
+// and metadata fields -- the same account the hosted demo seed creates, which
+// makes every call with that token. This seed calls the use cases directly,
+// which check no scope, so here the token describes the account rather than
+// bounding what the seed may do as it.
+func (p *Profile) seedOpsTeam(ctx context.Context, sc *seeder.SeederContext) (uuid.UUID, error) {
+	slog.Info("🛠️ Creating the Ops Team service account...")
+
+	sa, _, err := seedkit.SeedServiceAccount(ctx, sc, seedkit.ServiceAccountDef{
+		Name: "Ops Team",
+		Slug: ptr.To("ops-team"),
+		Tokens: []seedkit.TokenDef{
+			{
+				Name: "ops-team-token",
+				Scopes: []string{
+					scope.Write(scope.Instances),
+					scope.Write(scope.Licenses),
+					scope.Write(scope.Customers),
+					scope.Write(scope.DeploymentZones),
+					scope.Write(scope.Releases),
+					scope.Write(scope.Components),
+					scope.Write(scope.Organizations),
+					scope.Write(scope.Tokens),
+					scope.Write(scope.Entitlements),
+					scope.Write(scope.FeatureFlags),
+					scope.Write(scope.MetadataFields),
+				},
+			},
+		},
+	})
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	slog.Info("   ✓ Created service account", "name", sa.Name)
+	return sa.ID, nil
+}
 
 func (p *Profile) seedServiceAccounts(ctx context.Context, sc *seeder.SeederContext) error {
 	slog.Info("🤖 Creating service accounts and tokens...")

@@ -352,7 +352,7 @@ Kubernetes Secret.
 | Profile       | Purpose                                                                                             |
 | ------------- | --------------------------------------------------------------------------------------------------- |
 | `dev`         | The 5 shared TMNT identities (Splinter, Leonardo, Donatello, Raphael, April) on the Kaiten Sushi Shop org shell, no product data (run by `task up`, `task quickstart` and `task dev`) |
-| `demo`        | The same org and identities as `dev`, plus the full B2B SaaS dataset (Kaiten Sushi Shop): entitlements, licenses, customers, instances, deployment zones/releases, feature flags, usage and audit trail. The default local/demo product data: `task quickstart` and `task dev` run it. |
+| `demo`        | The same org and identities as `dev`, plus the full B2B SaaS dataset (Kaiten Sushi Shop): entitlements, licenses, customers, instances, deployment zones/releases, feature flags, usage and audit trail, all created by an `Ops Team` service account the profile adds first. The default local/demo product data: `task quickstart` and `task dev` run it. |
 | `stress-test` | High-volume seed: multiple organizations, users, entitlements, licenses, customers, instances, etc. No task runs it. Against a running stack, run `docker compose --project-name kaiten-oss run --rm seed-data --profile stress-test` when you need load-testing volume (`kaiten-oss` is the project name `task` uses by default). |
 
 You do not run the wired ones by hand. Two of the three are a one-shot service in
