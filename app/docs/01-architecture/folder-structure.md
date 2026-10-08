@@ -168,7 +168,7 @@ Where things go:
 | Destructive button with confirmation | `components/destructive-action-button.tsx` |
 | Shared page layout | `functionals/page/` |
 | Data table, table card, actions column, delete and linked-items dialogs | `functionals/table/` |
-| Route tabs, active tab by path prefix | `functionals/route-tabs/` |
+| Route tabs, active tab by path prefix and by search | `functionals/route-tabs/` |
 | Shared business shell of `/releases/**` | `domains/release-management/components/` |
 | Large form dialog with a discard confirmation | `functionals/stacked-form-dialog/` |
 | CEL editor with Monaco completion | `functionals/cel-editor/` |

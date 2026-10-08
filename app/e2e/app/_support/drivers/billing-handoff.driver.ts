@@ -1,12 +1,13 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator } from '@playwright/test';
+import { FilterToolbarDriver } from './filter-toolbar.driver';
 
 /**
  * The queue the organization's accounting system reads: what waits and what was
- * acknowledged, oldest first, and the acknowledgement by hand.
+ * acknowledged, oldest issue first, and the acknowledgement by hand. The console
+ * holds every invoice of the part of the queue it shows and searches, filters,
+ * sorts and pages them itself; the URL holds the part of the queue alone.
  */
-export class BillingHandoffDriver {
-  constructor(private readonly page: Page) {}
-
+export class BillingHandoffDriver extends FilterToolbarDriver {
   async goto(search = '') {
     await this.page.goto(`/billing/handoff${search}`);
     await expect(
@@ -14,13 +15,20 @@ export class BillingHandoffDriver {
     ).toBeVisible();
   }
 
+  /** Opens the queue where the API is armed to refuse it: there is no page, so no title to wait for. */
+  async gotoRefused(search = '') {
+    await this.page.goto(`/billing/handoff${search}`);
+    await expect(this.error()).toBeVisible();
+  }
+
+  /** The tab of a part of the queue: a link to it, which the page marks as the current one. */
   tab(name: 'Waiting' | 'Acknowledged'): Locator {
-    return this.page.getByRole('tab', { name, exact: true });
+    return this.page.getByRole('link', { name, exact: true });
   }
 
   async showTab(name: 'Waiting' | 'Acknowledged') {
     await this.tab(name).click();
-    await expect(this.tab(name)).toHaveAttribute('aria-selected', 'true');
+    await expect(this.tab(name)).toHaveAttribute('aria-current', 'page');
   }
 
   rows(): Locator {
@@ -58,16 +66,9 @@ export class BillingHandoffDriver {
     return this.page.getByTestId('handoff-empty');
   }
 
+  /** The refusal of the API, which the route shows in place of the page, around the console. */
   error(): Locator {
-    return this.page.getByTestId('handoff-error');
-  }
-
-  skeleton(): Locator {
-    return this.page.getByRole('status', { name: 'Loading the queue' });
-  }
-
-  loadMore(): Locator {
-    return this.page.getByRole('button', { name: 'Load more', exact: true });
+    return this.page.getByTestId('billing-route-error');
   }
 
   acknowledgeButton(invoiceId: string): Locator {
@@ -77,9 +78,12 @@ export class BillingHandoffDriver {
     });
   }
 
-  /** Any button of the page that would claim an invoice: there is none. */
+  /**
+   * Any button of the page that would claim an invoice: there is none. The header of
+   * the column of claims is a button too, which sorts them.
+   */
   claimButtons(): Locator {
-    return this.page.getByRole('button', { name: /claim/i });
+    return this.page.getByRole('button', { name: /^(?!.*sort).*claim/i });
   }
 
   // --- The acknowledgement dialog ----------------------------------------------

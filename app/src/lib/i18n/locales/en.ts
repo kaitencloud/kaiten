@@ -3374,12 +3374,9 @@ export default {
         subtitle:
           'The invoices waiting for your ERP, oldest first. A job or the CLI takes them from the queue and acknowledges them once booked.',
         Tabs: {
-          label: 'Part of the queue',
           pending: 'Waiting',
           acknowledged: 'Acknowledged',
         },
-        loading: 'Loading the queue',
-        loadMore: 'Load more',
         Columns: {
           issued: 'Issued',
           booked: 'Booked',
@@ -3397,6 +3394,9 @@ export default {
           acknowledgedTitle: 'Nothing acknowledged yet',
           acknowledgedDescription:
             'Invoices booked in your ERP appear here once they are acknowledged.',
+          filteredTitle: 'No invoice matches these filters',
+          filteredDescription: 'Clear the filters to see more.',
+          clearFilters: 'Clear filters',
         },
         Acknowledge: {
           title: 'Acknowledge the invoice',

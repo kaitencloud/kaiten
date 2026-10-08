@@ -55,7 +55,7 @@ For a form in a dialog and for confirmations, see the dialog shells of [`compone
 | Component | What it is | Story |
 | --- | --- | --- |
 | `Card` | `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardAction`, `CardContent`, `CardFooter`. | none |
-| `Tabs` | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`. Pages with a route per tab use `RouteTabs` (a functional). | [tabs](../../src/components/ui/stories/tabs.stories.tsx) |
+| `Tabs` | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`. Pages with a route per tab use `RouteTabs` (a functional), which also takes tabs that are one route told apart by its search (`?status=`). | [tabs](../../src/components/ui/stories/tabs.stories.tsx) |
 | `Accordion` | `Accordion`, `AccordionItem`, `AccordionTrigger`, `AccordionContent`. | [accordion](../../src/components/ui/stories/accordion.stories.tsx) |
 | `ActionAccordion` | An accordion whose header has room for actions next to the trigger. | [action-accordion](../../src/components/stories/action-accordion.stories.tsx) |
 | `Breadcrumb` | The breadcrumb parts. | [breadcrumb](../../src/components/ui/stories/breadcrumb.stories.tsx) |

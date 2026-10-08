@@ -14,7 +14,10 @@ import {
 // The queue the organization's accounting system reads: the invoices issued with
 // no payment provider behind them, oldest first, as they wait to be booked and
 // once they were. A job or the CLI takes them; the console shows where that
-// stands, and lets a person acknowledge one they booked by hand.
+// stands, and lets a person acknowledge one they booked by hand. The console reads
+// every invoice of the part of the queue it shows, 200 at a time, and searches,
+// filters, sorts and pages them itself like any other list; the URL holds the part
+// of the queue alone.
 
 // Issued, oldest first: the replacement of a void invoice, the first invoice,
 // the renewal and Globex's.
@@ -160,25 +163,199 @@ test.describe('the queue of what waits', () => {
     await expect(handoff.claimButtons()).toHaveCount(0);
   });
 
-  test('is read fifty invoices at a time, oldest first', async ({ page }) => {
+  test('sorts by the column whose header is pressed, and opens oldest issue first', async ({
+    page,
+  }) => {
+    const handoff = new BillingHandoffDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await handoff.goto();
+    await handoff.expectInvoiceIds(WAITING);
+
+    // Two claims is the most: a number sorts the biggest first.
+    await handoff.sortBy('Claims');
+    await handoff.expectInvoiceIds(['inv-p1', 'inv-m1', 'inv-r1', 'inv-g1']);
+
+    await handoff.sortBy('Claims');
+    await handoff.expectInvoiceIds(['inv-r1', 'inv-g1', 'inv-m1', 'inv-p1']);
+  });
+
+  test('reads every invoice of the queue, 200 at a time, then pages them ten to a page, oldest first', async ({
+    page,
+  }) => {
     const handoff = new BillingHandoffDriver(page);
     const reads = recordWrites(page, /\/api\/billing\/handoff$/, ['GET']);
     await installBillingAppMocks(page, createLongHandoffQueueModel());
 
     await handoff.goto();
 
-    await expect(handoff.rows()).toHaveCount(50);
+    await expect(handoff.rows()).toHaveCount(10);
     expect((await handoff.invoiceIds())[0]).toBe('inv-queue-01');
+    await expect(page.getByText('Showing 1-10 of 55 records')).toBeVisible();
+    expect(reads).toHaveLength(1);
     expect(new URLSearchParams(reads[0].search).get('status')).toBe('PENDING');
-    expect(new URLSearchParams(reads[0].search).get('limit')).toBe('50');
+    expect(new URLSearchParams(reads[0].search).get('limit')).toBe('200');
+    await expect(
+      page.getByRole('button', { name: 'Load more', exact: true }),
+    ).toHaveCount(0);
 
-    await handoff.loadMore().click();
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
 
-    await expect(handoff.rows()).toHaveCount(55);
-    await expect(handoff.rows()).toHaveCount(55);
-    await expect(handoff.loadMore()).toHaveCount(0);
+    await expect(page.getByText('Showing 11-20 of 55 records')).toBeVisible();
+    expect((await handoff.invoiceIds())[0]).toBe('inv-queue-11');
+    // Nothing more was asked of the API: the pages are the browser's.
+    expect(reads).toHaveLength(1);
+  });
+
+  test('keeps every page of a queue longer than the one the API sends', async ({
+    page,
+  }) => {
+    const handoff = new BillingHandoffDriver(page);
+    const reads = recordWrites(page, /\/api\/billing\/handoff$/, ['GET']);
+    await installBillingAppMocks(page, createLongHandoffQueueModel(230));
+
+    await handoff.goto();
+
+    await expect(page.getByText('Showing 1-10 of 230 records')).toBeVisible();
+    expect(reads).toHaveLength(2);
+    expect(new URLSearchParams(reads[0].search).has('cursor')).toBe(false);
     expect(new URLSearchParams(reads[1].search).get('cursor')).toBeTruthy();
-    expect((await handoff.invoiceIds()).at(-1)).toBe('inv-queue-55');
+    expect(new URLSearchParams(reads[1].search).get('limit')).toBe('200');
+  });
+});
+
+test.describe('the search and the filters of the queue', () => {
+  test('find an invoice by who it is for or by its identifier, in the browser', async ({
+    page,
+  }) => {
+    const handoff = new BillingHandoffDriver(page);
+    const reads = recordWrites(page, /\/api\/billing\/handoff$/, ['GET']);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await handoff.goto();
+    await handoff.search('GLOBEX');
+    await handoff.expectInvoiceIds(['inv-g1']);
+
+    await handoff.search('initech-pr');
+    await handoff.expectInvoiceIds(['inv-r1', 'inv-m1', 'inv-p1']);
+
+    await handoff.search('inv-p');
+    await handoff.expectInvoiceIds(['inv-p1']);
+
+    // The console holds the queue: nothing more was asked of the API, and the URL
+    // does not carry the search.
+    expect(reads).toHaveLength(1);
+    expect(new URL(page.url()).search).toBe('');
+  });
+
+  test('find an invoice by the number the accounting system booked it under', async ({
+    page,
+  }) => {
+    const handoff = new BillingHandoffDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await handoff.goto('?status=ACKNOWLEDGED');
+    await handoff.search('erp-09');
+
+    await handoff.expectInvoiceIds(['inv-d2']);
+  });
+
+  test('narrow the queue by the status and the kind of its invoices, and say each one in a chip', async ({
+    page,
+  }) => {
+    const handoff = new BillingHandoffDriver(page);
+    const reads = recordWrites(page, /\/api\/billing\/handoff$/, ['GET']);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await handoff.goto();
+    await handoff.addFilter('Kind');
+    await handoff.pick('Activation');
+    await handoff.expectInvoiceIds(['inv-r1', 'inv-m1']);
+
+    await handoff.addFilter('Overdue');
+    await handoff.pick('True');
+    await handoff.expectInvoiceIds(['inv-r1', 'inv-m1']);
+
+    await handoff.expectChips(['Kind: Activation', 'Overdue: True']);
+    expect(reads).toHaveLength(1);
+    expect(new URL(page.url()).search).toBe('');
+
+    await handoff.removeFilter('Kind');
+    await handoff.expectChips(['Overdue: True']);
+  });
+
+  test('offer only what tells one invoice of the queue from another', async ({
+    page,
+  }) => {
+    const handoff = new BillingHandoffDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await handoff.goto();
+    await page.getByRole('button', { exact: true, name: 'Filter' }).click();
+
+    await expect(page.getByRole('option')).toHaveText([
+      'Status',
+      'Kind',
+      'Overdue',
+    ]);
+  });
+
+  test('say no invoice matches, and clear themselves from the message', async ({
+    page,
+  }) => {
+    const handoff = new BillingHandoffDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await handoff.goto();
+    await handoff.search('nobody');
+
+    await expect(handoff.empty()).toContainText(
+      'No invoice matches these filters',
+    );
+    // The queue is not empty: the command that takes what waits has no place here.
+    await expect(handoff.empty()).not.toContainText(
+      'kaiten billing handoff claim',
+    );
+    await handoff
+      .empty()
+      .getByRole('button', { name: 'Clear filters' })
+      .click();
+
+    await handoff.expectInvoiceIds(WAITING);
+    await expect(handoff.searchField()).toHaveValue('');
+  });
+
+  test('stay with the part of the queue they were set in', async ({ page }) => {
+    const handoff = new BillingHandoffDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await handoff.goto();
+    await handoff.search('globex');
+    await handoff.expectInvoiceIds(['inv-g1']);
+
+    await handoff.showTab('Acknowledged');
+
+    // Each part of the queue is a list of its own.
+    await handoff.expectInvoiceIds(ACKNOWLEDGED);
+    await expect(handoff.searchField()).toHaveValue('');
+  });
+
+  test('says the waiting tab is the current one when a link spells out what the queue opens on', async ({
+    page,
+  }) => {
+    const handoff = new BillingHandoffDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await handoff.goto('?status=PENDING');
+
+    await handoff.expectInvoiceIds(WAITING);
+    await expect(handoff.tab('Waiting')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await expect(handoff.tab('Acknowledged')).not.toHaveAttribute(
+      'aria-current',
+    );
   });
 });
 
@@ -217,9 +394,10 @@ test.describe('the queue of what was acknowledged', () => {
     await page.reload();
 
     await expect(handoff.tab('Acknowledged')).toHaveAttribute(
-      'aria-selected',
-      'true',
+      'aria-current',
+      'page',
     );
+    await expect(handoff.tab('Waiting')).not.toHaveAttribute('aria-current');
     await handoff.expectInvoiceIds(ACKNOWLEDGED);
 
     await handoff.showTab('Waiting');
@@ -443,15 +621,42 @@ test.describe('the queue when the API refuses it', () => {
     });
     await installBillingAppMocks(page, model);
 
-    await handoff.goto();
+    await handoff.gotoRefused();
 
     await expect(handoff.error()).toContainText('the queue is unavailable');
     await expect(handoff.error()).toContainText('Reference trace-queue-1');
-    // The tabs stay: the other part of the queue may well be readable.
-    await expect(handoff.tab('Acknowledged')).toBeVisible();
+    // The console around it still works.
+    await expect(
+      page.getByRole('link', { name: 'Invoices', exact: true }),
+    ).toBeVisible();
 
     await handoff.error().getByRole('button', { name: 'Retry' }).click();
 
     await handoff.expectInvoiceIds(WAITING);
+    await expect(handoff.error()).toHaveCount(0);
+  });
+
+  test('shows why when a page of the walk is refused, and reads the whole queue again when asked', async ({
+    page,
+  }) => {
+    const handoff = new BillingHandoffDriver(page);
+    const model = createLongHandoffQueueModel(230);
+    model.invoices.armProblem('listHandoff', {
+      after: 1,
+      detail: 'the queue is unavailable',
+      status: 503,
+    });
+    await installBillingAppMocks(page, model);
+
+    await handoff.gotoRefused();
+
+    // The first page was read and the second was refused: nothing partial is shown.
+    await expect(handoff.error()).toContainText('the queue is unavailable');
+    await expect(handoff.rows()).toHaveCount(0);
+
+    await handoff.error().getByRole('button', { name: 'Retry' }).click();
+
+    await expect(page.getByText('Showing 1-10 of 230 records')).toBeVisible();
+    await expect(handoff.error()).toHaveCount(0);
   });
 });

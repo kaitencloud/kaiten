@@ -1,9 +1,5 @@
-import {
-  expect,
-  type Download,
-  type Locator,
-  type Page,
-} from '@playwright/test';
+import { expect, type Download, type Locator } from '@playwright/test';
+import { FilterToolbarDriver } from './filter-toolbar.driver';
 
 /**
  * The invoices of the organization: the list with its search and filters, its
@@ -11,9 +7,7 @@ import {
  * filters them itself; the URL holds the scope alone, the customer or the
  * instance, so the driver also reads what the page holds there.
  */
-export class BillingInvoicesDriver {
-  constructor(private readonly page: Page) {}
-
+export class BillingInvoicesDriver extends FilterToolbarDriver {
   /**
    * Opens the list, with the search a link to it would carry, and waits for its
    * title (in the language the page is read in).
@@ -108,15 +102,6 @@ export class BillingInvoicesDriver {
     }
   }
 
-  /** Presses the header of a sortable column, by the name it shows: the first press sorts, the next reverses. */
-  async sortBy(column: string) {
-    await this.page
-      .getByRole('columnheader')
-      .filter({ hasText: new RegExp(`^${escape(column)}$`) })
-      .getByRole('button')
-      .click();
-  }
-
   empty(): Locator {
     return this.page.getByTestId('invoices-empty');
   }
@@ -132,80 +117,11 @@ export class BillingInvoicesDriver {
     await expect(this.error()).toBeVisible();
   }
 
-  // --- The search and the filters ----------------------------------------------
-
-  /** The search of the toolbar, named by what it matches in the language the page is read in. */
-  searchField(placeholder = 'Customer, instance or invoice'): Locator {
-    return this.page.getByPlaceholder(placeholder);
-  }
-
-  async search(term: string, placeholder?: string) {
-    await this.searchField(placeholder).fill(term);
-  }
-
-  /**
-   * Adds a filter from the menu of the toolbar: the Filter button where none is
-   * set, the "Add filter" of the row of chips once one is. The field opens on its
-   * own editor, which `pick` then works in.
-   */
-  async addFilter(field: string) {
-    const add = this.page.getByRole('button', {
-      exact: true,
-      name: 'Add filter',
-    });
-    if ((await add.count()) > 0) {
-      await add.click();
-    } else {
-      await this.page
-        .getByRole('button', { exact: true, name: 'Filter' })
-        .click();
-    }
-    await this.page.getByRole('option', { exact: true, name: field }).click();
-  }
-
-  /**
-   * Picks an option of the editor a filter opened on. A filter with several
-   * choices (Status) stays open for the next; the others close on their choice.
-   */
-  async pick(option: string) {
-    await this.page
-      .getByRole('dialog')
-      .getByRole('option', { exact: true, name: option })
-      .click();
-  }
-
-  /** Types a day into the date input of the editor a filter opened on. */
-  async pickDay(field: string, day: string) {
-    await this.page
-      .getByRole('dialog')
-      .getByLabel(`Filter by ${field}`, { exact: true })
-      .fill(day);
-  }
-
-  async closeEditor() {
-    await this.page.keyboard.press('Escape');
-    await expect(this.page.getByRole('dialog')).toHaveCount(0);
-  }
-
-  /** Every chip of the toolbar: the scope of the URL first, then the filters of the screen. */
-  chips(): Locator {
-    return this.page.locator('div.bg-secondary.rounded-full');
-  }
-
-  async expectChips(labels: string[]) {
-    await expect(this.chips()).toHaveText(labels);
-  }
+  // --- The scope -----------------------------------------------------------------
 
   /** The chip of the customer or the instance the URL scopes the list to. */
   scopeChip(key: 'customerSlug' | 'instanceSlug'): Locator {
     return this.page.locator(`[data-scope="${key}"]`);
-  }
-
-  /** Takes a filter off, from the button of its chip: `field` is its label, as the button says it. */
-  async removeFilter(field: string) {
-    await this.page
-      .getByRole('button', { exact: true, name: `Remove ${field} filter` })
-      .click();
   }
 
   /** Takes the scope off, from the button of its chip: `chip` is what the chip says. */
@@ -213,11 +129,6 @@ export class BillingInvoicesDriver {
     await this.page
       .getByRole('button', { exact: true, name: `Remove the filter ${chip}` })
       .click();
-  }
-
-  /** The button of the row of chips that takes every filter off. */
-  reset(): Locator {
-    return this.page.getByRole('button', { exact: true, name: 'Reset' });
   }
 
   // --- The URL -----------------------------------------------------------------
@@ -265,5 +176,3 @@ export class BillingInvoicesDriver {
     return this.page.getByTestId('export-unapplied');
   }
 }
-
-const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

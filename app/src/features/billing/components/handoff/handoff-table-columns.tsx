@@ -1,9 +1,10 @@
+import { Check } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { QueuedInvoice } from '@/api-client';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
+  compareInvoiceTotals,
   formatInstant,
   formatUtcDate,
   formatUtcTime,
@@ -12,11 +13,13 @@ import {
   InvoiceStatusBadge,
   InvoiceTotalCell,
   isHandoffLeased,
-  rightAlignedHeader,
+  rightAlignedSortableHeader,
 } from '@/domains/billing';
 import {
   type ColumnDef,
   createActionsColumn,
+  dataTableSortableHeader,
+  TableActionButton,
   TableActions,
 } from '@/functionals/table';
 import type { HandoffQueueStatus } from '../../schemas/handoff-search.schema';
@@ -82,13 +85,17 @@ function IssuedCell({ invoice }: { invoice: QueuedInvoice }) {
   );
 }
 
+const instant = (value: string | undefined) =>
+  value === undefined ? undefined : Date.parse(value);
+
 /**
  * The columns of the handoff queue: who the invoice is for, what it bills and comes
  * to, the status it is in now (a void or written-off invoice still waits in the
  * queue, and its consumer sees it as such), when it was issued and, for what waits,
  * how many times a consumer has taken it and until when one holds it; for what was
- * booked, under which number and when. The button that acknowledges by hand is
- * there only when a handler is given.
+ * booked, under which number and when. The queue is read whole, so the browser sorts
+ * it: oldest issue first, as the queue is read, until a header is pressed. The
+ * button that acknowledges by hand is there only when a handler is given.
  */
 export function useHandoffColumns(
   status: HandoffQueueStatus,
@@ -99,24 +106,31 @@ export function useHandoffColumns(
   return useMemo(() => {
     const columns: ColumnDef<QueuedInvoice>[] = [
       {
+        accessorFn: (invoice) => invoice.customerName,
         cell: ({ row }) => <InvoiceCustomerCell invoice={row.original} />,
-        enableSorting: false,
-        header: t('Features.Billing.Invoices.Columns.customer'),
+        header: dataTableSortableHeader(
+          t('Features.Billing.Invoices.Columns.customer'),
+        ),
         id: 'invoice',
       },
       {
+        accessorFn: (invoice) => instant(invoice.boundaryAt),
         cell: ({ row }) => <InvoiceKindCell invoice={row.original} />,
-        enableSorting: false,
-        header: t('Features.Billing.Invoices.Columns.invoice'),
+        header: dataTableSortableHeader(
+          t('Features.Billing.Invoices.Columns.invoice'),
+        ),
         id: 'kind',
       },
       {
+        accessorFn: (invoice) => invoice.total,
         cell: ({ row }) => <InvoiceTotalCell invoice={row.original} />,
-        enableSorting: false,
-        header: rightAlignedHeader(
+        header: rightAlignedSortableHeader<QueuedInvoice>(
           t('Features.Billing.Invoices.Columns.total'),
         ),
         id: 'total',
+        // An amount is in the minor units of its currency: the queue can hold several,
+        // so it is ordered by currency, and by amount within one.
+        sortFn: (a, b) => compareInvoiceTotals(a.original, b.original),
       },
       {
         cell: ({ row }) => <InvoiceStatusBadge invoice={row.original} />,
@@ -125,39 +139,47 @@ export function useHandoffColumns(
         id: 'status',
       },
       {
+        accessorFn: (invoice) => instant(invoice.issuedAt),
         cell: ({ row }) => <IssuedCell invoice={row.original} />,
-        enableSorting: false,
-        header: t('Pages.Billing.Handoff.Columns.issued'),
+        header: dataTableSortableHeader(
+          t('Pages.Billing.Handoff.Columns.issued'),
+        ),
         id: 'issued',
+        // The queue is read oldest first: that is the order a consumer takes it in.
+        meta: { defaultSort: 'asc' },
+        sortUndefined: 'last',
       },
     ];
 
     if (status === 'ACKNOWLEDGED') {
       columns.push({
+        accessorFn: (invoice) => instant(invoice.handoff.acknowledgedAt),
         cell: ({ row }) => <BookedCell invoice={row.original} />,
-        enableSorting: false,
-        header: t('Pages.Billing.Handoff.Columns.booked'),
+        header: dataTableSortableHeader(
+          t('Pages.Billing.Handoff.Columns.booked'),
+        ),
         id: 'booked',
+        sortUndefined: 'last',
       });
     }
     columns.push({
+      accessorFn: (invoice) => invoice.handoff.claimCount,
       cell: ({ row }) => <ClaimsCell invoice={row.original} />,
-      enableSorting: false,
-      header: t('Pages.Billing.Handoff.Columns.claims'),
+      header: dataTableSortableHeader(
+        t('Pages.Billing.Handoff.Columns.claims'),
+      ),
       id: 'claims',
     });
     if (status === 'PENDING' && onAcknowledge) {
       columns.push(
         createActionsColumn<QueuedInvoice>((invoice) => (
           <TableActions>
-            <Button
+            <TableActionButton
               onClick={() => onAcknowledge(invoice)}
-              size="sm"
-              type="button"
-              variant="outline"
+              tooltip={t('Pages.Billing.Handoff.acknowledge')}
             >
-              {t('Pages.Billing.Handoff.acknowledge')}
-            </Button>
+              <Check aria-hidden size={16} />
+            </TableActionButton>
           </TableActions>
         )),
       );

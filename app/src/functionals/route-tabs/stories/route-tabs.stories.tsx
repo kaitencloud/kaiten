@@ -41,6 +41,21 @@ const webhookRouteTabs: RouteTab[] = [
   },
 ];
 
+// One route, told apart by its search: what waits is the bare path.
+const queueRouteTabs: RouteTab[] = [
+  {
+    id: 'pending',
+    label: 'Waiting',
+    to: '/billing/handoff',
+  },
+  {
+    id: 'acknowledged',
+    label: 'Acknowledged',
+    search: { status: 'ACKNOWLEDGED' },
+    to: '/billing/handoff',
+  },
+];
+
 function RouteTabsStoryFrame({
   initialEntry,
   routePath,
@@ -85,6 +100,26 @@ export const SecondaryWorkflow: Story = {
       initialEntry="/integrations/webhooks/history"
       routePath="/integrations/webhooks/history"
       tabs={webhookRouteTabs}
+    />
+  ),
+};
+
+export const SearchTabDefault: Story = {
+  render: () => (
+    <RouteTabsStoryFrame
+      initialEntry="/billing/handoff"
+      routePath="/billing/handoff"
+      tabs={queueRouteTabs}
+    />
+  ),
+};
+
+export const SearchTabActive: Story = {
+  render: () => (
+    <RouteTabsStoryFrame
+      initialEntry="/billing/handoff?status=ACKNOWLEDGED"
+      routePath="/billing/handoff"
+      tabs={queueRouteTabs}
     />
   ),
 };

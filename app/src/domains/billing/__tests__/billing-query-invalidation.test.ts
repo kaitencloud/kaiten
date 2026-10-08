@@ -9,10 +9,12 @@ import {
   getInvoiceQueryKey,
   getLicenseQueryKey,
   getUpcomingInvoiceQueryKey,
-  listHandoffQueryKey,
   listLicensePricesQueryKey,
 } from '@/api-client/@tanstack/react-query.gen';
-import { allInstanceInvoicesOptions } from '@/lib/api/all-pages-query-options';
+import {
+  allHandoffOptions,
+  allInstanceInvoicesOptions,
+} from '@/lib/api/all-pages-query-options';
 import {
   invalidateBillingSettingsQueries,
   invalidateInstanceBillingQueries,
@@ -46,6 +48,8 @@ const instanceScopedInvoices = invoicesQueryOptions({
 }).queryKey;
 const instanceCardInvoices = allInstanceInvoicesOptions('initech-prod').queryKey;
 const otherInstanceCardInvoices = allInstanceInvoicesOptions('other').queryKey;
+const waitingQueue = allHandoffOptions({ status: 'PENDING' }).queryKey;
+const bookedQueue = allHandoffOptions({ status: 'ACKNOWLEDGED' }).queryKey;
 
 describe('invalidateInstanceBillingQueries', () => {
   it('refreshes what an instance subscription changes, and only that instance', async () => {
@@ -64,7 +68,8 @@ describe('invalidateInstanceBillingQueries', () => {
       getInstanceBillingQueryKey({ path: otherPath }),
       otherInstanceCardInvoices,
       getInstanceQueryKey({ path: otherPath }),
-      listHandoffQueryKey(),
+      waitingQueue,
+      bookedQueue,
     ];
     seed(client, [...touched, ...untouched]);
 
@@ -80,13 +85,14 @@ describe('invalidateInstanceBillingQueries', () => {
 });
 
 describe('invalidateInvoiceQueries', () => {
-  it('refreshes every list under any scope, the handoff queue and the page of the invoice', async () => {
+  it('refreshes every list under any scope, both parts of the handoff queue and the page of the invoice', async () => {
     const client = new QueryClient();
     const touched = [
       organizationInvoices,
       customerInvoices,
       instanceScopedInvoices,
-      listHandoffQueryKey(),
+      waitingQueue,
+      bookedQueue,
       instanceCardInvoices,
       otherInstanceCardInvoices,
       getInvoiceQueryKey({ path: { invoiceId: 'inv-m1' } }),

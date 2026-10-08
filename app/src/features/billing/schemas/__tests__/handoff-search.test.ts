@@ -3,7 +3,6 @@ import {
   DEFAULT_HANDOFF_STATUS,
   handoffStatusOf,
   readHandoffSearch,
-  toHandoffSearch,
 } from '../handoff-search.schema';
 
 describe('the search of the page of the queue', () => {
@@ -35,18 +34,5 @@ describe('the search of the page of the queue', () => {
     expect(readHandoffSearch({ status: 'PENDING', utm: 'x' })).toEqual({
       status: 'PENDING',
     });
-  });
-
-  it('writes the part of the queue to the URL, and leaves the bare path for what waits', () => {
-    expect(toHandoffSearch('ACKNOWLEDGED')).toEqual({ status: 'ACKNOWLEDGED' });
-    expect(toHandoffSearch('PENDING')).toEqual({ status: undefined });
-  });
-
-  it('reads what it writes', () => {
-    for (const status of ['PENDING', 'ACKNOWLEDGED'] as const) {
-      expect(handoffStatusOf(readHandoffSearch(toHandoffSearch(status)))).toBe(
-        status,
-      );
-    }
   });
 });

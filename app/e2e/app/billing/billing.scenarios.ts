@@ -372,10 +372,11 @@ export function createManyReportsModel() {
 
 /**
  * A queue longer than a page: fifty-five invoices waiting for the accounting
- * system, issued a day apart, the oldest first.
+ * system, issued a day apart, the oldest first. More than the API sends in a
+ * response (200) makes the console read the queue in several.
  */
-export function createLongHandoffQueueModel() {
-  const invoices = Array.from({ length: 55 }, (_, index) => {
+export function createLongHandoffQueueModel(count = 55) {
+  const invoices = Array.from({ length: count }, (_, index) => {
     const number = index + 1;
     const id = `inv-queue-${String(number).padStart(2, '0')}`;
     const issuedAt = new Date(

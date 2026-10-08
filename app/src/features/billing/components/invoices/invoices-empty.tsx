@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import type { InvoiceScope } from '../../schemas/invoice-scope.schema';
+import { TableEmptyMessage } from '../table-empty-message';
 
 type InvoicesEmptyProps = {
   /** Whether a filter of the screen is why there is no row. */
@@ -77,13 +78,12 @@ export function InvoicesEmpty({
   const { action, description, title } = renderMessage();
 
   return (
-    <div
-      className="flex flex-col items-center gap-2 py-6"
-      data-testid="invoices-empty"
+    <TableEmptyMessage
+      description={description}
+      testId="invoices-empty"
+      title={title}
     >
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="max-w-md text-sm">{description}</p>
       {action}
-    </div>
+    </TableEmptyMessage>
   );
 }

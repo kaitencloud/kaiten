@@ -40,26 +40,146 @@ describe('the invoices of the handoff queue', () => {
     expect(within(second).getByText('1 claim')).toBeInTheDocument();
   });
 
-  it('keeps the order the API gives, oldest first, and sorts nothing', () => {
+  const customers = () =>
+    screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => within(row).getAllByRole('cell')[0].textContent);
+
+  it('opens oldest issue first, whatever order the rows come in', () => {
     render(
       <HandoffTable
         invoices={[
-          queued({ customerName: 'Oldest', id: 'inv-1' }),
-          queued({ customerName: 'Newest', id: 'inv-2' }),
+          queued({
+            customerName: 'Newest',
+            id: 'inv-2',
+            issuedAt: '2027-03-09T00:00:00.000Z',
+          }),
+          queued({
+            customerName: 'Oldest',
+            id: 'inv-1',
+            issuedAt: '2027-03-01T00:00:00.000Z',
+          }),
+          queued({
+            customerName: 'Middle',
+            id: 'inv-3',
+            issuedAt: '2027-03-05T00:00:00.000Z',
+          }),
         ]}
         status="PENDING"
       />,
     );
 
-    expect(
-      screen.getAllByRole('row').slice(1).map((row) => within(row).getAllByRole('cell')[0].textContent),
-    ).toEqual([
+    expect(customers()).toEqual([
       expect.stringContaining('Oldest'),
+      expect.stringContaining('Middle'),
       expect.stringContaining('Newest'),
     ]);
-    for (const header of screen.getAllByRole('columnheader')) {
-      expect(header).not.toHaveAttribute('aria-sort');
-    }
+  });
+
+  it('sorts by the header a person presses, and by the claims of a consumer', async () => {
+    render(
+      <HandoffTable
+        invoices={[
+          queued({
+            customerName: 'Once',
+            handoff: { claimCount: 1, status: 'PENDING' },
+            id: 'inv-1',
+          }),
+          queued({
+            customerName: 'Thrice',
+            handoff: { claimCount: 3, status: 'PENDING' },
+            id: 'inv-2',
+          }),
+          queued({
+            customerName: 'Never',
+            handoff: { claimCount: 0, status: 'PENDING' },
+            id: 'inv-3',
+          }),
+        ]}
+        status="PENDING"
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Not sorted, click to sort: Claims' }),
+    );
+
+    // A number sorts the biggest first on its first press.
+    expect(customers()).toEqual([
+      expect.stringContaining('Thrice'),
+      expect.stringContaining('Once'),
+      expect.stringContaining('Never'),
+    ]);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Sorted descending: Claims' }),
+    );
+
+    expect(customers()).toEqual([
+      expect.stringContaining('Never'),
+      expect.stringContaining('Once'),
+      expect.stringContaining('Thrice'),
+    ]);
+  });
+
+  it('sorts the totals of one currency by amount, and never puts an amount among those of another currency', async () => {
+    render(
+      <HandoffTable
+        invoices={[
+          queued({ currency: 'USD', customerName: 'Dollars', id: 'inv-1', total: 250000 }),
+          queued({ currency: 'JPY', customerName: 'Yen', id: 'inv-2', total: 5000 }),
+          queued({ currency: 'USD', customerName: 'Cents', id: 'inv-3', total: 900 }),
+        ]}
+        status="PENDING"
+      />,
+    );
+
+    // The yen are not placed among the dollars by their number, which is not cents:
+    // the currencies are in order, the dollars first on a first press, and the
+    // amounts only within one.
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Not sorted, click to sort: Total' }),
+    );
+    expect(customers()).toEqual([
+      expect.stringContaining('Dollars'),
+      expect.stringContaining('Cents'),
+      expect.stringContaining('Yen'),
+    ]);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Sorted descending: Total' }),
+    );
+    expect(customers()).toEqual([
+      expect.stringContaining('Yen'),
+      expect.stringContaining('Cents'),
+      expect.stringContaining('Dollars'),
+    ]);
+  });
+
+  it('pages the queue in the browser, ten to a page', async () => {
+    render(
+      <HandoffTable
+        invoices={Array.from({ length: 12 }, (_, index) =>
+          queued({
+            customerName: `Customer ${index + 1}`,
+            id: `inv-${index + 1}`,
+            issuedAt: new Date(Date.UTC(2027, 2, index + 1)).toISOString(),
+          }),
+        )}
+        status="PENDING"
+      />,
+    );
+
+    expect(screen.getAllByRole('row').slice(1)).toHaveLength(10);
+    expect(screen.getByText('Showing 1-10 of 12 records')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(customers()).toEqual([
+      expect.stringContaining('Customer 11'),
+      expect.stringContaining('Customer 12'),
+    ]);
   });
 
   it('shows the status of each invoice, since a void or written-off one still waits in the queue', () => {
@@ -135,7 +255,8 @@ describe('the invoices of the handoff queue', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Acknowledge' }));
 
     expect(onAcknowledge).toHaveBeenCalledWith(queued());
-    expect(screen.queryByRole('button', { name: /claim/i })).toBeNull();
+    // The header of the column of claims sorts them: it is not a way to claim.
+    expect(screen.queryByRole('button', { name: /^(?!.*sort).*claim/i })).toBeNull();
   });
 
   it('offers nothing to a session that may not acknowledge', () => {
@@ -184,7 +305,9 @@ describe('the invoices of the handoff queue', () => {
 
 describe('an empty queue', () => {
   it('teaches the command that takes what waits, since claiming is not a button', () => {
-    render(<HandoffEmpty status="PENDING" />);
+    render(
+      <HandoffEmpty filtered={false} onClearFilters={vi.fn()} status="PENDING" />,
+    );
 
     expect(screen.getByTestId('handoff-empty')).toHaveTextContent(
       'Nothing is waiting for your ERP',
@@ -194,11 +317,34 @@ describe('an empty queue', () => {
   });
 
   it('says nothing was acknowledged yet, with no command to run', () => {
-    render(<HandoffEmpty status="ACKNOWLEDGED" />);
+    render(
+      <HandoffEmpty
+        filtered={false}
+        onClearFilters={vi.fn()}
+        status="ACKNOWLEDGED"
+      />,
+    );
 
     expect(screen.getByTestId('handoff-empty')).toHaveTextContent(
       'Nothing acknowledged yet',
     );
     expect(screen.queryByText('kaiten billing handoff claim')).toBeNull();
+  });
+
+  it('says no invoice matches when a filter is why, and clears the filters from the message', async () => {
+    const onClearFilters = vi.fn();
+    render(
+      <HandoffEmpty filtered onClearFilters={onClearFilters} status="PENDING" />,
+    );
+
+    expect(screen.getByTestId('handoff-empty')).toHaveTextContent(
+      'No invoice matches these filters',
+    );
+    // The queue is not empty: the command that takes what waits has no place here.
+    expect(screen.queryByText('kaiten billing handoff claim')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+    expect(onClearFilters).toHaveBeenCalledOnce();
   });
 });

@@ -12,6 +12,8 @@ import {
   type ListDeploymentZonesResponse,
   type ListEntitlementGroupsResponse,
   type ListEntitlementsResponse,
+  type ListHandoffData,
+  type ListHandoffResponse,
   type ListInstanceInvoicesResponse,
   type ListInvoicesData,
   type ListInvoicesResponse,
@@ -22,6 +24,7 @@ import {
   listDeploymentZones,
   listEntitlementGroups,
   listEntitlements,
+  listHandoff,
   listInstanceInvoices,
   listInvoices,
   listLicenseFamilies,
@@ -37,6 +40,7 @@ import {
   listDeploymentZonesOptions,
   listEntitlementGroupsOptions,
   listEntitlementsOptions,
+  listHandoffOptions,
   listInstanceInvoicesOptions,
   listInvoicesOptions,
   listLicenseFamiliesOptions,
@@ -60,6 +64,15 @@ type QueryContext = { signal: AbortSignal };
 export type InvoicesQuery = Omit<
   NonNullable<ListInvoicesData['query']>,
   'cursor' | 'limit' | 'updatedSince'
+>;
+
+/**
+ * What narrows the handoff queue: the part of it a screen reads. The cursor and
+ * the page size are the walk's.
+ */
+type HandoffQuery = Omit<
+  NonNullable<ListHandoffData['query']>,
+  'cursor' | 'limit'
 >;
 
 // What a list is asked for besides its page: the filters of the operation, which
@@ -152,6 +165,18 @@ export const allFeatureFlagsOptions = () => ({
     items: await fetchAllPages(
       async (cursor) =>
         (await getFeatureFlags(pageRequest(cursor, signal))).data,
+      signal,
+    ),
+  }),
+});
+
+export const allHandoffOptions = (query: HandoffQuery = {}) => ({
+  ...listHandoffOptions({ query }),
+  queryFn: async ({ signal }: QueryContext): Promise<ListHandoffResponse> => ({
+    hasMore: false,
+    items: await fetchAllPages(
+      async (cursor) =>
+        (await listHandoff(pageRequest(cursor, signal, query))).data,
       signal,
     ),
   }),
