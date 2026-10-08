@@ -8,10 +8,17 @@
 //  0. ensure the provider's customer;
 //  1. create the provider's draft (adopting one an earlier attempt created
 //     but could not record);
-//  2. add each line, in seq order (adopting the ones already there);
+//     2a. create the provider discount of each allocation of each DISCOUNT
+//     line, in seq order (idempotent beyond any key horizon);
+//     2b. add each line other than DISCOUNT ones, in seq order, bearing its
+//     discounts (adopting the ones already there, re-creating one whose
+//     discounts are not the expected ones): no line is ever negative
+//     (CR-001);
 //  3. finalize, unless the provider's settings ask for review, in which case
 //     the draft waits in the provider for a human or for retry-push;
-//  4. read the invoice back and reconcile it.
+//  4. charge it, under automatic collection;
+//  5. read the invoice back, reconcile it, then delete its discounts, which
+//     have served.
 //
 // Every write after a provider call is conditional on the invoice still
 // being pushable: when it was voided meanwhile, the run compensates the
@@ -21,9 +28,11 @@ package pushing
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -181,6 +190,9 @@ func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) e
 	if err != nil {
 		return err
 	}
+	if err := providers.UnallocatedDiscount(lines); err != nil {
+		return p.failed(ctx, row, err)
+	}
 
 	// Step 1: the provider's draft.
 	externalID := deref(row.ExternalInvoiceID)
@@ -199,8 +211,18 @@ func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) e
 		}
 	}
 
-	// Step 2: the lines.
-	stopped, err := p.lines(ctx, q, conn, row, externalID, normalized, lines, now)
+	// Step 2a: the discounts.
+	stopped, err := p.discounts(ctx, q, conn, row, externalID, normalized, lines, now)
+	if err != nil {
+		return p.failed(ctx, row, err)
+	}
+	if stopped {
+		return nil
+	}
+	normalized = bear(normalized, lines)
+
+	// Step 2b: the lines.
+	stopped, err = p.lines(ctx, q, conn, row, externalID, normalized, lines, now)
 	if err != nil {
 		return p.failed(ctx, row, err)
 	}
@@ -239,8 +261,8 @@ func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) e
 		}
 	}
 
-	// Step 5: read back and reconcile. A failed read leaves the
-	// reconciliation to the next sync pass.
+	// Step 5: read back, reconcile, release the discounts. A failed read
+	// leaves both to the next sync pass.
 	callCtx, cancel = providers.Bound(ctx, p.cfg.Timeout)
 	read, err := conn.Adapter.GetInvoice(callCtx, conn.Ref, externalID)
 	cancel()
@@ -248,7 +270,7 @@ func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) e
 		slog.WarnContext(ctx, "invoice read-back failed; sync reconciles it", "invoice_id", row.ID, "error", err)
 		return nil
 	}
-	return Reconcile(ctx, p.deps, p.outbox, *pushed, read, conn.InclusiveTax)
+	return Settle(ctx, p.deps, p.outbox, conn, *pushed, read, p.cfg.Timeout)
 }
 
 // charging reports an issued invoice waiting for its automatic charge's
@@ -284,7 +306,7 @@ func (p *Pusher) resumeCharge(ctx context.Context, row db.InstanceInvoice) error
 	if err != nil {
 		return nil // the next sync pass reconciles it
 	}
-	return Reconcile(ctx, p.deps, p.outbox, current, read, conn.InclusiveTax)
+	return Settle(ctx, p.deps, p.outbox, conn, current, read, p.cfg.Timeout)
 }
 
 func pushable(row db.InstanceInvoice) bool {
@@ -334,14 +356,83 @@ func (p *Pusher) draft(ctx context.Context, conn *provider.Connection, row db.In
 	return draft.ExternalID, nil
 }
 
-// lines adds the lines the provider does not have yet, in seq order, each
-// recorded as soon as it is added. stopped: the invoice was voided meanwhile.
+// discounts creates the provider discount of each allocation of each
+// DISCOUNT line not recorded yet, in seq order, each recorded on its line as
+// soon as it is created. stopped: the invoice was voided meanwhile.
+func (p *Pusher) discounts(ctx context.Context, q *db.Queries, conn *provider.Connection, row db.InstanceInvoice, invoiceID string,
+	normalized provider.NormalizedInvoice, lines []rating.InvoiceLine, now time.Time,
+) (stopped bool, err error) {
+	for i := range lines {
+		line := &lines[i]
+		if line.Type != rating.LineDiscount || line.Discount == nil {
+			continue
+		}
+		for j, allocation := range line.Discount.Allocations {
+			if line.Provider != nil && j < len(line.Provider.CouponIDs) {
+				continue
+			}
+			var discount provider.NormalizedDiscount
+			for _, d := range normalized.Discounts {
+				if d.Seq == line.Seq && d.TargetSeq == allocation.TargetSeq {
+					discount = d
+				}
+			}
+			callCtx, cancel := providers.Bound(ctx, p.cfg.Timeout)
+			id, err := conn.Adapter.AddDiscount(callCtx, conn.Ref, invoiceID, normalized, discount)
+			cancel()
+			if err != nil {
+				return false, err
+			}
+			if line.Provider == nil {
+				line.Provider = &rating.InvoiceLineProvider{ExternalLineID: "", Amount: nil, CouponIDs: nil}
+			}
+			line.Provider.CouponIDs = append(line.Provider.CouponIDs, id)
+			if stopped, err := p.record(ctx, q, conn, row, invoiceID, lines, now); stopped || err != nil {
+				return stopped, err
+			}
+		}
+	}
+	return false, nil
+}
+
+// bear gives each line the provider ids of the discounts it bears, as the
+// DISCOUNT lines recorded them.
+func bear(normalized provider.NormalizedInvoice, lines []rating.InvoiceLine) provider.NormalizedInvoice {
+	ids := map[[2]int]string{} // (DISCOUNT seq, target seq) -> provider id
+	for _, line := range lines {
+		if line.Type != rating.LineDiscount || line.Discount == nil || line.Provider == nil {
+			continue
+		}
+		for j, allocation := range line.Discount.Allocations {
+			if j < len(line.Provider.CouponIDs) {
+				ids[[2]int{line.Seq, allocation.TargetSeq}] = line.Provider.CouponIDs[j]
+			}
+		}
+	}
+	out := normalized
+	out.Lines = make([]provider.NormalizedLine, len(normalized.Lines))
+	for i, line := range normalized.Lines {
+		out.Lines[i] = line
+		out.Lines[i].Discounts = make([]provider.LineDiscount, len(line.Discounts))
+		for j, d := range line.Discounts {
+			out.Lines[i].Discounts[j] = d
+			out.Lines[i].Discounts[j].ExternalID = ids[[2]int{d.Seq, line.Seq}]
+		}
+	}
+	return out
+}
+
+// lines adds the lines other than DISCOUNT ones the provider does not have
+// yet, in seq order, each recorded as soon as it is added. A line an earlier
+// attempt added is adopted when it bears the expected discounts, and
+// otherwise removed and added again under a key of its own. stopped: the
+// invoice was voided meanwhile.
 func (p *Pusher) lines(ctx context.Context, q *db.Queries, conn *provider.Connection, row db.InstanceInvoice, invoiceID string,
 	normalized provider.NormalizedInvoice, lines []rating.InvoiceLine, now time.Time,
 ) (stopped bool, err error) {
 	missing := false
 	for _, line := range lines {
-		if line.Provider == nil {
+		if line.Type != rating.LineDiscount && line.Provider == nil {
 			missing = true
 		}
 	}
@@ -354,36 +445,79 @@ func (p *Pusher) lines(ctx context.Context, q *db.Queries, conn *provider.Connec
 	if err != nil {
 		return false, err
 	}
-	existing := map[uuid.UUID]string{}
+	existing := map[uuid.UUID]provider.Line{}
 	for _, line := range read.Lines {
-		existing[line.KaitenLineID] = line.ExternalLineID
+		existing[line.KaitenLineID] = line
+	}
+	byID := map[uuid.UUID]provider.NormalizedLine{}
+	for _, line := range normalized.Lines {
+		byID[line.LineID] = line
 	}
 	for i, line := range lines {
-		if line.Provider != nil {
+		if line.Type == rating.LineDiscount || line.Provider != nil {
 			continue
 		}
-		externalLineID, ok := existing[*line.ID]
+		want := byID[*line.ID]
+		found, ok := existing[*line.ID]
+		externalLineID := found.ExternalLineID
+		if ok && !bears(found, want) {
+			callCtx, cancel := providers.Bound(ctx, p.cfg.Timeout)
+			err := conn.Adapter.DeleteLine(callCtx, conn.Ref, invoiceID, found.ExternalLineID)
+			cancel()
+			if err != nil {
+				return false, err
+			}
+			ok, want.Recreation = false, max(1, int(row.PushAttempts))
+		}
 		if !ok {
 			callCtx, cancel := providers.Bound(ctx, p.cfg.Timeout)
-			externalLineID, err = conn.Adapter.AddLine(callCtx, conn.Ref, invoiceID, normalized, normalized.Lines[i])
+			externalLineID, err = conn.Adapter.AddLine(callCtx, conn.Ref, invoiceID, normalized, want)
 			cancel()
 			if err != nil {
 				return false, err
 			}
 		}
-		lines[i].Provider = &rating.InvoiceLineProvider{ExternalLineID: externalLineID, Amount: nil}
-		encoded, err := encodeLines(lines)
-		if err != nil {
-			return false, err
+		lines[i].Provider = &rating.InvoiceLineProvider{ExternalLineID: externalLineID, Amount: nil, CouponIDs: nil}
+		if stopped, err := p.record(ctx, q, conn, row, invoiceID, lines, now); stopped || err != nil {
+			return stopped, err
 		}
-		affected, err := q.SetInvoiceLines(ctx, db.SetInvoiceLinesParams{Lines: encoded, Now: invoices.Timestamp(now), AnyStatus: false, ID: row.ID})
-		if err != nil {
-			return false, err
-		}
-		if affected == 0 {
-			p.compensateIfVoided(ctx, conn, row.ID, invoiceID)
-			return true, nil
-		}
+	}
+	return false, nil
+}
+
+// bears reports whether a provider line carries exactly the discounts a line
+// is pushed with.
+func bears(found provider.Line, want provider.NormalizedLine) bool {
+	have := make([]string, 0, len(found.Discounts))
+	for _, d := range found.Discounts {
+		have = append(have, d.ExternalID)
+	}
+	expected := make([]string, 0, len(want.Discounts))
+	for _, d := range want.Discounts {
+		expected = append(expected, d.ExternalID)
+	}
+	slices.Sort(have)
+	slices.Sort(expected)
+	return slices.Equal(have, expected)
+}
+
+// record persists the lines with the provider ids recorded so far. stopped:
+// the invoice is no longer pushable, and the run stops (compensating when
+// it was voided).
+func (p *Pusher) record(ctx context.Context, q *db.Queries, conn *provider.Connection, row db.InstanceInvoice, invoiceID string,
+	lines []rating.InvoiceLine, now time.Time,
+) (stopped bool, err error) {
+	encoded, err := encodeLines(lines)
+	if err != nil {
+		return false, err
+	}
+	affected, err := q.SetInvoiceLines(ctx, db.SetInvoiceLinesParams{Lines: encoded, Now: invoices.Timestamp(now), AnyStatus: false, ID: row.ID})
+	if err != nil {
+		return false, err
+	}
+	if affected == 0 {
+		p.compensateIfVoided(ctx, conn, row.ID, invoiceID)
+		return true, nil
 	}
 	return false, nil
 }
@@ -405,18 +539,27 @@ func (p *Pusher) compensateIfVoided(ctx context.Context, conn *provider.Connecti
 			"status", current.Status)
 		return
 	}
-	p.compensate(ctx, conn, invoiceID, externalID)
+	p.compensate(ctx, conn, current, externalID)
 }
 
 // compensate removes from the provider what a run created for an invoice
-// voided meanwhile: a draft is deleted, an issued invoice voided.
-func (p *Pusher) compensate(ctx context.Context, conn *provider.Connection, invoiceID uuid.UUID, externalID string) {
+// voided meanwhile: a draft is deleted, an issued invoice voided, then the
+// discounts the run created for it are deleted, best effort.
+func (p *Pusher) compensate(ctx context.Context, conn *provider.Connection, current db.InstanceInvoice, externalID string) {
 	callCtx, cancel := providers.Bound(ctx, p.cfg.Timeout)
-	defer cancel()
-	if err := conn.Adapter.VoidInvoice(callCtx, conn.Ref, externalID); err != nil {
-		slog.ErrorContext(ctx, "could not remove the provider invoice of a voided invoice", "invoice_id", invoiceID,
+	err := conn.Adapter.VoidInvoice(callCtx, conn.Ref, externalID)
+	cancel()
+	if err != nil {
+		slog.ErrorContext(ctx, "could not remove the provider invoice of a voided invoice", "invoice_id", current.ID,
 			"external_invoice_id", externalID, "error", err)
+		return
 	}
+	var lines []rating.InvoiceLine
+	if err := json.Unmarshal(current.Lines, &lines); err != nil {
+		slog.WarnContext(ctx, "could not read the lines of a voided invoice; its provider discounts stay", "invoice_id", current.ID, "error", err)
+		return
+	}
+	providers.ReleaseDiscounts(ctx, conn, current.ID, lines, p.cfg.Timeout)
 }
 
 // failed records a failed step: PUSH_FAILED, tried again after 1, 2, 4...
