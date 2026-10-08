@@ -88,8 +88,11 @@ export class InstanceBillingDriver {
     return this.page.getByRole('button', { name });
   }
 
-  invoicesCount(): Locator {
-    return this.page.getByTestId('instance-invoices-count');
+  /** The rows of the card of the invoices of the instance. */
+  invoiceRows(): Locator {
+    return this.card('Invoices')
+      .getByRole('row')
+      .filter({ hasNot: this.page.getByRole('columnheader') });
   }
 
   // --- The dialog that subscribes ------------------------------------------------

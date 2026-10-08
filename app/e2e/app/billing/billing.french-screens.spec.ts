@@ -178,7 +178,7 @@ test.describe('the usage history, read in French', () => {
         drawer.getByRole('columnheader', { exact: true, name: column }),
       ).toBeVisible();
     }
-    await expect(history.count()).toHaveText('100 rapports affichés');
+    await expect(history.rows()).toHaveCount(100);
     await expect(drawer.getByRole('row').nth(1)).toContainText('Ajout');
     await expect(drawer.getByText('Limite modifiée')).toBeVisible();
     await expect(
@@ -187,7 +187,7 @@ test.describe('the usage history, read in French', () => {
     await drawer
       .getByRole('button', { name: 'Charger plus de rapports' })
       .click();
-    await expect(history.count()).toHaveText('130 rapports affichés');
+    await expect(history.rows()).toHaveCount(130);
 
     await drawer.getByLabel('Du', { exact: true }).fill('2025-01-01');
 
@@ -224,9 +224,7 @@ test.describe('a customer and the settings of billing, read in French', () => {
     await expect(detail.detailsRow('E-mail de facturation')).toContainText(
       'ap@acme.com',
     );
-    await expect(page.getByTestId('customer-invoices-count')).toHaveText(
-      '4 factures affichées',
-    );
+    await expect(detail.invoiceRows('Factures')).toHaveCount(4);
     await expect(
       page.getByText('Les factures de toutes les instances de ce client'),
     ).toBeVisible();

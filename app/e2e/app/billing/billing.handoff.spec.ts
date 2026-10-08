@@ -51,7 +51,7 @@ test.describe('the queue of what waits', () => {
     await handoff.goto();
 
     await handoff.expectInvoiceIds(WAITING);
-    await expect(handoff.count()).toHaveText('4 invoices shown');
+    await expect(handoff.rows()).toHaveCount(4);
     await expect(handoff.row('inv-r1')).toContainText('0 claims');
     await expect(handoff.row('inv-m1')).toContainText('1 claim');
     await expect(handoff.row('inv-p1')).toContainText('2 claims');
@@ -175,7 +175,7 @@ test.describe('the queue of what waits', () => {
     await handoff.loadMore().click();
 
     await expect(handoff.rows()).toHaveCount(55);
-    await expect(handoff.count()).toHaveText('55 invoices shown');
+    await expect(handoff.rows()).toHaveCount(55);
     await expect(handoff.loadMore()).toHaveCount(0);
     expect(new URLSearchParams(reads[1].search).get('cursor')).toBeTruthy();
     expect((await handoff.invoiceIds()).at(-1)).toBe('inv-queue-55');

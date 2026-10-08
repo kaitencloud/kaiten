@@ -167,9 +167,7 @@ describe('the usage history of an entitlement', () => {
     expect(first).toHaveTextContent('tx-1');
     expect(second).toHaveTextContent('Set');
     expect(second).toHaveTextContent('No limit');
-    expect(screen.getByTestId('usage-history-count')).toHaveTextContent(
-      '2 reports shown',
-    );
+    expect(screen.queryByText(/reports? shown/)).toBeNull();
   });
 
   it('asks the API for the pair, a page of a hundred and no period', async () => {
@@ -196,13 +194,8 @@ describe('the usage history of an entitlement', () => {
       await screen.findByRole('button', { name: 'Load more reports' }),
     );
 
-    await waitFor(() =>
-      expect(screen.getByTestId('usage-history-count')).toHaveTextContent(
-        '3 reports shown',
-      ),
-    );
+    await waitFor(() => expect(screen.getAllByRole('row')).toHaveLength(4));
     expect(asked[1].get('afterSeq')).toBe('2');
-    expect(screen.getAllByRole('row')).toHaveLength(4);
     expect(screen.queryByRole('button', { name: 'Load more reports' })).toBeNull();
   });
 

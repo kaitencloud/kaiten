@@ -95,11 +95,6 @@ export function UsageHistoryReports({
         />
       </div>
       <LoadMoreFooter
-        countLabel={t(
-          'Pages.Customers.Instances.Detail.entitlements.history.shown',
-          { count: reports.length },
-        )}
-        countTestId="usage-history-count"
         loadMoreLabel={t(
           'Pages.Customers.Instances.Detail.entitlements.history.loadMore',
         )}

@@ -72,7 +72,7 @@ test.describe('the list of invoices', () => {
     await list.goto();
 
     await list.expectInvoiceIds(NEWEST_FIRST);
-    await expect(list.count()).toHaveText('11 invoices shown');
+    await expect(list.rows()).toHaveCount(11);
   });
 
   test('shows who an invoice is for, what it bills, for how much and where it stands', async ({
@@ -271,7 +271,7 @@ test.describe('the filters of the list', () => {
     await list.closeFilters();
     // The first invoice, and the replacement of a void one: both are past due.
     await list.expectInvoiceIds(['inv-m1', 'inv-r1']);
-    await expect(list.count()).toHaveText('2 invoices shown');
+    await expect(list.rows()).toHaveCount(2);
 
     await list.clearFilters().click();
     await list.setSwitch('Held drafts only', true);
@@ -361,7 +361,7 @@ test.describe('the paging of the list', () => {
     await list.goto();
 
     await expect(list.rows()).toHaveCount(50);
-    await expect(list.count()).toHaveText('50 invoices shown');
+    await expect(list.rows()).toHaveCount(50);
     // The newest is first, whatever the page it is on.
     expect((await list.invoiceIds())[0]).toBe('inv-bulk-60');
     expect(reads).toHaveLength(1);
@@ -371,7 +371,7 @@ test.describe('the paging of the list', () => {
     await list.loadMore().click();
 
     await expect(list.rows()).toHaveCount(60);
-    await expect(list.count()).toHaveText('60 invoices shown');
+    await expect(list.rows()).toHaveCount(60);
     await expect(list.loadMore()).toHaveCount(0);
     expect(reads).toHaveLength(2);
     const next = new URLSearchParams(reads[1].search);

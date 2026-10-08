@@ -317,7 +317,6 @@ function sectionFor(
       refetch: vi.fn(),
       ...state,
     } as never,
-    reportCount: reports.length,
     windows: groupReportsByWindow(reports),
   };
 
@@ -334,7 +333,7 @@ describe('the reports a line was measured from', () => {
     );
   });
 
-  it('shows one card per window, and how many reports were read', () => {
+  it('shows one card per window, and no count of the reports it read', () => {
     render(
       sectionFor({
         pages: [[report(1), report(2), report(3, APRIL)]],
@@ -342,9 +341,7 @@ describe('the reports a line was measured from', () => {
     );
 
     expect(screen.getAllByTestId('usage-window')).toHaveLength(2);
-    expect(screen.getByTestId('line-reports-count')).toHaveTextContent(
-      '3 reports shown',
-    );
+    expect(screen.queryByText(/reports? shown/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Load more reports' })).toBeNull();
   });
 
