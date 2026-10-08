@@ -1,17 +1,23 @@
 import { z } from 'zod';
 import type {
   BillingSettings,
+  CanceledSubscription,
+  InstanceAddon,
   InstanceBilling,
   Invoice,
   InvoiceLine,
   InvoicePreview,
   NewSubscription,
   PageInvoiceSummary,
+  PlanChangeTarget,
   Price,
   StartedSubscription,
+  SubscriptionCancellation,
+  SubscriptionTerms,
 } from '@/api-client';
 import {
   zBillingSettings,
+  zInstanceAddon,
   zInstanceBilling,
   zInvoicePreview,
   zPrice,
@@ -24,6 +30,7 @@ import {
   type InvoiceListQuery,
   toSummary,
 } from './billing-invoices';
+import { SubscriptionLifecycle } from './billing-lifecycle';
 import { BillingProblem } from './billing-problem';
 import { addMonthsClamped } from './license-invoice-preview';
 
@@ -45,12 +52,19 @@ export const DEFAULT_BILLING_SETTINGS: BillingSettings = {
 
 /** What the mocks arm to fail with a problem document, once. */
 export type SubscriptionProblemOperation =
+  | 'cancelPlanChange'
+  | 'cancelSubscription'
+  | 'detachInstanceAddon'
   | 'getBillingSettings'
   | 'getInstanceBilling'
   | 'getUpcomingInvoice'
+  | 'listInstanceAddons'
   | 'listInstanceInvoices'
+  | 'reactivateSubscription'
+  | 'schedulePlanChange'
   | 'subscribeInstance'
-  | 'updateBillingSettings';
+  | 'updateBillingSettings'
+  | 'updateInstanceBilling';
 
 /** An instance as the subscription of a mock sees it: who it is for, and the version it is on. */
 export type SubscribableInstance = {
@@ -62,6 +76,8 @@ export type SubscribableInstance = {
   licenseSlug: string;
   /** Only a PUBLISHED version can be subscribed to. */
   licenseState: 'ARCHIVED' | 'DRAFT' | 'PUBLISHED';
+  /** The trial a subscription starts with when it names none: the commercial field of the version. */
+  trialPeriodDays?: number;
 };
 
 /**
@@ -72,11 +88,18 @@ export type SubscribableInstance = {
  */
 export type BillingCatalogue = {
   instances: SubscribableInstance[];
+  /**
+   * The state of the versions that are not on sale, by slug, for the ones no
+   * instance runs; a version left out is published.
+   */
+  licenseStates?: Record<string, SubscribableInstance['licenseState']>;
   /** The prices of each license version, by the slug of the version. */
   prices: Record<string, Price[]>;
 };
 
 export type BillingSubscriptionsSeed = {
+  /** The add-ons each instance holds, by instance slug. */
+  addons?: Record<string, InstanceAddon[]>;
   catalogue?: BillingCatalogue;
   settings?: BillingSettings;
   subscriptions?: InstanceBilling[];
@@ -85,6 +108,8 @@ export type BillingSubscriptionsSeed = {
 };
 
 export type SerializedBillingSubscriptions = {
+  /** The add-ons of each instance; a state stored before they existed has none. */
+  addons?: Record<string, InstanceAddon[]>;
   armedProblems: Array<[SubscriptionProblemOperation, ArmedBillingProblem]>;
   catalogue: BillingCatalogue;
   sequence: number;
@@ -104,7 +129,9 @@ export type SerializedBillingSubscriptions = {
  */
 export class BillingSubscriptions {
   private readonly problems = new ArmedProblems<SubscriptionProblemOperation>();
+  private addons: Record<string, InstanceAddon[]>;
   private catalogue: BillingCatalogue;
+  private readonly lifecycle: SubscriptionLifecycle;
   private sequence = 1;
   private settings: BillingSettings;
   private subscriptions: InstanceBilling[];
@@ -143,7 +170,27 @@ export class BillingSubscriptions {
         ),
       ]),
     );
+    this.addons = Object.fromEntries(
+      Object.entries(seed.addons ?? {}).map(([slug, addons]) => [
+        slug,
+        parseContract(
+          z.array(zInstanceAddon),
+          addons,
+          `BillingSubscriptions seed.addons[${slug}]`,
+        ),
+      ]),
+    );
     this.invoices.setDefaultDaysUntilDue(this.settings.defaultDaysUntilDue);
+    this.lifecycle = new SubscriptionLifecycle({
+      catalogue: () => this.catalogue,
+      defaultDaysUntilDue: () => this.settings.defaultDaysUntilDue,
+      invoices: this.invoices,
+      nextSequence: () => this.sequence++,
+      now: this.now,
+      subscriptionOf: (slug) => this.subscriptionOf(slug),
+      upcomingOf: (slug) => this.upcoming[slug],
+      write: (subscription) => this.write(subscription),
+    });
   }
 
   static fromSerialized(
@@ -154,6 +201,7 @@ export class BillingSubscriptions {
     const model = new BillingSubscriptions(
       invoices,
       {
+        addons: state.addons,
         catalogue: state.catalogue,
         settings: state.settings,
         subscriptions: state.subscriptions,
@@ -171,6 +219,7 @@ export class BillingSubscriptions {
 
   serialize(): SerializedBillingSubscriptions {
     return {
+      addons: clone(this.addons),
       armedProblems: this.problems.serialize(),
       catalogue: clone(this.catalogue),
       sequence: this.sequence,
@@ -212,6 +261,20 @@ export class BillingSubscriptions {
     return this.subscriptions.find(
       (candidate) => candidate.instanceSlug === slug,
     );
+  }
+
+  /** Replaces a subscription by its new state, checked against the contract. */
+  private write(subscription: InstanceBilling): InstanceBilling {
+    const next = parseContract(
+      zInstanceBilling,
+      subscription,
+      'BillingSubscriptions write',
+    );
+    this.subscriptions = this.subscriptions.map((candidate) =>
+      candidate.instanceSlug === next.instanceSlug ? next : candidate,
+    );
+
+    return clone(next);
   }
 
   private isKnown(slug: string): boolean {
@@ -261,31 +324,50 @@ export class BillingSubscriptions {
   }
 
   /**
-   * What the next boundary issues when nothing says otherwise: the base fee, for
-   * the period that starts when the current one ends if it bills in advance, and
-   * for the one that ends if it bills in arrears.
+   * What the next boundary issues when nothing says otherwise: the arrears of
+   * the period that ends when the base bills in arrears, and the base of the
+   * period that starts when the plan bills in advance, which is the plan a
+   * scheduled change moves to. A trial has no period to bill: what its end
+   * issues is the activation, with the first period in advance.
    */
   private composeUpcoming(subscription: InstanceBilling): InvoicePreview {
+    const trial = subscription.status === 'TRIAL';
     const { basePrice } = subscription;
-    const months = PERIOD_MONTHS[subscription.billingPeriod];
+    const plan = subscription.scheduledChange?.price ?? basePrice;
     const boundary = subscription.currentPeriodEnd;
-    const inAdvance = basePrice.billingTiming === 'ADVANCE';
-    const from = inAdvance ? boundary : subscription.currentPeriodStart;
-    const to = inAdvance
-      ? addMonthsClamped(new Date(boundary), months).toISOString()
-      : boundary;
-    const amount = Math.round(Number(basePrice.unitAmountDecimal));
-    const line = buildInvoiceLine({
-      amount,
-      description: `1 × ${basePrice.unitAmountDecimal} per ${subscription.billingPeriod.toLowerCase()}`,
-      invoiceId: 'upcoming',
-      label: basePrice.displayLabel ?? 'Base fee',
-      seq: 1,
-      serviceFrom: from,
-      serviceTo: to,
-      type: 'BASE',
-      unitAmountDecimal: basePrice.unitAmountDecimal,
-    });
+    const lines: InvoiceLine[] = [];
+    const addBase = (price: Price, from: string, to: string) => {
+      lines.push(
+        buildInvoiceLine({
+          amount: Math.round(Number(price.unitAmountDecimal)),
+          description: `1 × ${price.unitAmountDecimal} per ${(price.billingPeriod ?? subscription.billingPeriod).toLowerCase()}`,
+          invoiceId: 'upcoming',
+          label: price.displayLabel ?? 'Base fee',
+          seq: lines.length + 1,
+          serviceFrom: from,
+          serviceTo: to,
+          type: 'BASE',
+          unitAmountDecimal: price.unitAmountDecimal,
+        }),
+      );
+    };
+    if (!trial && basePrice.billingTiming === 'ARREARS') {
+      addBase(basePrice, subscription.currentPeriodStart, boundary);
+    }
+    if (plan.billingTiming === 'ADVANCE') {
+      addBase(
+        plan,
+        boundary,
+        addMonthsClamped(
+          new Date(boundary),
+          PERIOD_MONTHS[plan.billingPeriod ?? subscription.billingPeriod],
+        ).toISOString(),
+      );
+    }
+    let total = 0;
+    for (const line of lines) {
+      total += line.amount;
+    }
     const instance = this.instance(subscription.instanceSlug);
 
     return parseContract(
@@ -295,14 +377,14 @@ export class BillingSubscriptions {
         boundaryAt: boundary,
         currency: subscription.currency,
         discountTotal: 0,
-        kind: 'RENEWAL',
+        kind: trial ? 'ACTIVATION' : 'RENEWAL',
         licenseSlug: instance?.licenseSlug ?? '',
-        lines: [line],
-        serviceFrom: from,
-        serviceTo: to,
+        lines,
+        serviceFrom: lines[0]?.serviceFrom,
+        serviceTo: lines.at(-1)?.serviceTo,
         status: 'PREVIEW',
-        subtotal: amount,
-        total: amount,
+        subtotal: total,
+        total,
         wouldHold: [],
       },
       'BillingSubscriptions upcoming invoice',
@@ -348,6 +430,83 @@ export class BillingSubscriptions {
             left.id.localeCompare(right.id),
         ),
     );
+  }
+
+  // --- Lifecycle ----------------------------------------------------------------
+
+  /** `POST /instances/{instanceSlug}/billing/cancel`. */
+  cancelSubscription(
+    slug: string,
+    body: SubscriptionCancellation,
+  ): CanceledSubscription {
+    this.problems.consume('cancelSubscription');
+
+    return this.lifecycle.cancel(slug, body);
+  }
+
+  /** `POST /instances/{instanceSlug}/billing/reactivate`. */
+  reactivateSubscription(slug: string): InstanceBilling {
+    this.problems.consume('reactivateSubscription');
+
+    return this.lifecycle.reactivate(slug);
+  }
+
+  /** `PUT /instances/{instanceSlug}/billing/scheduled-change`. */
+  schedulePlanChange(slug: string, body: PlanChangeTarget): InstanceBilling {
+    this.problems.consume('schedulePlanChange');
+
+    return this.lifecycle.schedulePlanChange(slug, body);
+  }
+
+  /** `DELETE /instances/{instanceSlug}/billing/scheduled-change`. */
+  cancelPlanChange(slug: string): InstanceBilling {
+    this.problems.consume('cancelPlanChange');
+
+    return this.lifecycle.cancelPlanChange(slug);
+  }
+
+  /** `PATCH /instances/{instanceSlug}/billing`. */
+  updateTerms(slug: string, body: SubscriptionTerms): InstanceBilling {
+    this.problems.consume('updateInstanceBilling');
+
+    return this.lifecycle.updateTerms(slug, body);
+  }
+
+  // --- Add-ons ------------------------------------------------------------------
+
+  /** `GET /instances/{instanceSlug}/addons`: the add-ons an instance holds, in attachment order. */
+  listInstanceAddons(slug: string, includeRemoved = false): InstanceAddon[] {
+    this.problems.consume('listInstanceAddons');
+    if (!this.isKnown(slug)) {
+      throw new BillingProblem(
+        404,
+        'ListInstanceAddons.InstanceNotFound',
+        `instance "${slug}" not found`,
+      );
+    }
+
+    return clone(
+      (this.addons[slug] ?? []).filter(
+        (addon) => includeRemoved || addon.removedAt === undefined,
+      ),
+    );
+  }
+
+  /** `DELETE /instances/{instanceSlug}/addons/{addonSlug}`: the attachment stays, marked removed. */
+  detachInstanceAddon(slug: string, addonSlug: string) {
+    this.problems.consume('detachInstanceAddon');
+    const addon = (this.addons[slug] ?? []).find(
+      (candidate) =>
+        candidate.addonSlug === addonSlug && candidate.removedAt === undefined,
+    );
+    if (!addon) {
+      throw new BillingProblem(
+        404,
+        'DetachInstanceAddon.NotFound',
+        `instance "${slug}" holds no add-on "${addonSlug}"`,
+      );
+    }
+    addon.removedAt = new Date(this.now()).toISOString();
   }
 
   // --- Settings ---------------------------------------------------------------
@@ -468,6 +627,11 @@ export class BillingSubscriptions {
         'a deprecated price is no longer offered',
       );
     }
+    // A trial named by the request, else the one the version carries, else none.
+    const trialDays = body.trialDays ?? instance.trialPeriodDays ?? 0;
+    if (trialDays < 0) {
+      this.refuse(422, 'InvalidTrialDays', 'trialDays is 0 (no trial) or more');
+    }
     if (
       body.daysUntilDue !== undefined &&
       (body.daysUntilDue < 0 || body.daysUntilDue > 365)
@@ -496,7 +660,11 @@ export class BillingSubscriptions {
       }
     }
     anchor = new Date(Math.floor(anchor.getTime() / 1000) * 1000);
-    const periodEnd = addMonthsClamped(anchor, months);
+    // During a trial the period is the trial: nothing is billed until it ends.
+    const periodEnd =
+      trialDays > 0
+        ? new Date(anchor.getTime() + trialDays * 24 * 60 * 60 * 1000)
+        : addMonthsClamped(anchor, months);
 
     if (this.invoices.hasBoundary(slug, 'ACTIVATION', anchor.toISOString())) {
       this.refuse(
@@ -526,7 +694,8 @@ export class BillingSubscriptions {
       instanceSlug: instance.instanceSlug,
       providerKind: 'NOOP',
       startedAt: at,
-      status: 'ACTIVE',
+      status: trialDays > 0 ? 'TRIAL' : 'ACTIVE',
+      trialEndsAt: trialDays > 0 ? periodEnd.toISOString() : undefined,
       updatedAt: at,
     };
     const subscription = parseContract(
@@ -541,7 +710,7 @@ export class BillingSubscriptions {
     delete this.upcoming[slug];
 
     const activation =
-      price.billingTiming === 'ADVANCE'
+      price.billingTiming === 'ADVANCE' && trialDays === 0
         ? this.issueActivation(subscription, instance, price, periodEnd)
         : undefined;
 

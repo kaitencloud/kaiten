@@ -2,6 +2,7 @@ import type {
   Customer,
   Entitlement,
   Instance,
+  InstanceAddon,
   InstanceBilling,
   Invoice,
   InvoicePreview,
@@ -64,6 +65,14 @@ const SUBSCRIPTIONS: Record<string, Subscription & { license: string }> = {
     period: 'monthly',
     // The renewal held for its journal was composed at this boundary.
     periodStart: monthFrom(30).to,
+  },
+  // The trial of a free plan: thirty days, twenty of them gone.
+  'beta-staging': {
+    anchoredDaysAgo: 20,
+    license: 'trial',
+    period: 'monthly',
+    periodEnd: dayStart(-10),
+    periodStart: dayStart(20),
   },
   'globex-production': {
     anchoredDaysAgo: 40,
@@ -157,6 +166,7 @@ const baseLine = (price: Price, from: string, to: string, label: string) =>
  * Production has none yet.
  */
 export function createBillingSubscriptions(world: SubscriptionsWorld): {
+  addons: Record<string, InstanceAddon[]>;
   catalogue: BillingCatalogue;
   subscriptions: InstanceBilling[];
   upcoming: Record<string, InvoicePreview>;
@@ -166,16 +176,50 @@ export function createBillingSubscriptions(world: SubscriptionsWorld): {
     ([instanceSlug, subscription]) => {
       const built = subscriptionOf(world, instanceSlug, subscription);
 
-      // The contract of Acme Production is paid in 45 days, not the 30 of the organization.
-      if (instanceSlug === 'acme-production') {
-        return { ...built, daysUntilDue: 45, daysUntilDueOverride: 45 };
-      }
       if (instanceSlug === 'acme-legacy') {
         return {
           ...built,
           canceledAt: dayStart(100),
           cancellationReason: 'The contract was not renewed',
           status: 'CANCELED' as const,
+        };
+      }
+      // Acme Production moves to Business, annual, when its year ends.
+      if (instanceSlug === 'acme-production') {
+        return {
+          ...built,
+          daysUntilDue: 45,
+          daysUntilDueOverride: 45,
+          scheduledChange: {
+            effectiveAt: built.currentPeriodEnd,
+            price: priceOf(world, 'business', 'annual'),
+            scheduledAt: dayStart(5),
+          },
+        };
+      }
+      // Beta Staging is on its free trial, which ends when its period does.
+      if (instanceSlug === 'beta-staging') {
+        return {
+          ...built,
+          status: 'TRIAL' as const,
+          trialEndsAt: built.currentPeriodEnd,
+        };
+      }
+      // Globex Production never paid its first invoice, which fell due ten days ago.
+      if (instanceSlug === 'globex-production') {
+        return {
+          ...built,
+          pastDueSince: dayStart(10),
+          status: 'PAST_DUE' as const,
+        };
+      }
+      // Globex Staging asked to end at the close of its period.
+      if (instanceSlug === 'globex-staging') {
+        return {
+          ...built,
+          cancelAtPeriodEnd: true,
+          cancelRequestedAt: dayStart(3),
+          cancellationReason: 'Moving to a self-hosted setup',
         };
       }
 
@@ -188,9 +232,8 @@ export function createBillingSubscriptions(world: SubscriptionsWorld): {
 
   const globexProduction = bySubscription('globex-production');
   const globexStaging = bySubscription('globex-staging');
-  const acmeProduction = bySubscription('acme-production');
   const acmeUs = bySubscription('acme-us');
-  if (!globexProduction || !globexStaging || !acmeProduction || !acmeUs) {
+  if (!globexProduction || !globexStaging || !acmeUs) {
     throw new Error('The dev world lost a subscription');
   }
   const nextPeriod = (subscription: InstanceBilling) => ({
@@ -215,11 +258,13 @@ export function createBillingSubscriptions(world: SubscriptionsWorld): {
     wouldHold: InvoicePreview['wouldHold'] = [],
   ): InvoicePreview => {
     const next = nextPeriod(subscription);
+    // The plan a scheduled change moves to bills the period that follows.
+    const plan = subscription.scheduledChange?.price ?? subscription.basePrice;
     const base = baseLine(
-      subscription.basePrice,
+      plan,
       next.from,
       next.to,
-      subscription.basePrice.displayLabel ?? 'Base fee',
+      plan.displayLabel ?? 'Base fee',
     );
     const lines = usage
       ? [
@@ -259,8 +304,9 @@ export function createBillingSubscriptions(world: SubscriptionsWorld): {
     });
   };
 
+  // Acme Production has none seeded: it moves to another plan at its boundary, and
+  // the model composes what that boundary issues from the plan that is scheduled.
   const upcoming: Record<string, InvoicePreview> = {
-    'acme-production': upcomingOf(acmeProduction, null),
     'acme-us': upcomingOf(
       acmeUs,
       {
@@ -301,12 +347,36 @@ export function createBillingSubscriptions(world: SubscriptionsWorld): {
         licenseId: license.id,
         licenseSlug: license.slug ?? license.id,
         licenseState: license.lifecycleState ?? 'PUBLISHED',
+        trialPeriodDays: license.trialPeriodDays ?? undefined,
       };
     }),
+    // A version no instance runs is on sale or not as its license says.
+    licenseStates: Object.fromEntries(
+      world.licenses.map((license) => [
+        license.slug ?? license.id,
+        license.lifecycleState ?? 'PUBLISHED',
+      ]),
+    ),
     prices: world.licensePrices,
   };
 
-  return { catalogue, subscriptions, upcoming };
+  // Globex Staging runs two extra seats, which a cancellation offers to take off.
+  const addons: Record<string, InstanceAddon[]> = {
+    'globex-staging': [
+      {
+        addonId: 'addon-extra-seats-v1',
+        addonSlug: 'extra-seats-v1',
+        attachedAt: dayStart(30),
+        familySlug: 'extra-seats',
+        id: 'instance-addon-globex-staging-seats',
+        maxQuantity: 10,
+        prices: [],
+        quantity: 2,
+      },
+    ],
+  };
+
+  return { addons, catalogue, subscriptions, upcoming };
 }
 
 /**
