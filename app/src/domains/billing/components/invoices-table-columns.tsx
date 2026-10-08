@@ -1,8 +1,8 @@
 import { type ReactNode, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { InvoiceSummary } from '@/api-client';
-import type { ColumnDef } from '@/functionals/table';
-import { formatUtcDate } from '../logic';
+import { type ColumnDef, dataTableSortableHeader } from '@/functionals/table';
+import { compareInvoiceTotals, formatUtcDate } from '../logic';
 import { HandoffStatusLabel } from './handoff-status-label';
 import {
   InvoiceCustomerCell,
@@ -12,7 +12,7 @@ import {
 import { InvoiceStatusBadge } from './invoice-status-badge';
 import { ProviderBadge } from './provider-badge';
 import { ServicePeriod } from './service-period';
-import { rightAlignedHeader } from './table-headers';
+import { rightAlignedSortableHeader } from './table-headers';
 
 /** The columns of the table of invoices, which a screen leaves out when it already says what they do. */
 export type InvoicesTableColumn =
@@ -39,6 +39,22 @@ function DueCell({ invoice }: { invoice: InvoiceSummary }) {
   );
 }
 
+/** How a column sorts: what its rows are ordered by, and whether it opens the table ordered. */
+type ColumnSort = {
+  /** What the table orders the rows by, which is not always what the cell says. */
+  by: (invoice: InvoiceSummary) => number | string | undefined;
+  defaultSort?: 'asc' | 'desc';
+  /** How two rows compare, where the order of what `by` reads is not the plain one. */
+  sortFn?: ColumnDef<InvoiceSummary>['sortFn'];
+  /** The title of the header, which becomes the button that toggles the sort. */
+  title: string;
+  /** Whether the title is aligned right, over a column of amounts. */
+  alignRight?: boolean;
+};
+
+const instant = (value: string | undefined) =>
+  value === undefined ? undefined : Date.parse(value);
+
 function column(
   id: InvoicesTableColumn,
   header: ColumnDef<InvoiceSummary>['header'],
@@ -50,12 +66,38 @@ function column(
   ];
 }
 
+function sortableColumn(
+  id: InvoicesTableColumn,
+  { alignRight, by, defaultSort, sortFn, title }: ColumnSort,
+  cell: (invoice: InvoiceSummary) => ReactNode,
+): [InvoicesTableColumn, ColumnDef<InvoiceSummary>] {
+  return [
+    id,
+    {
+      accessorFn: by,
+      cell: ({ row }) => cell(row.original),
+      // An invoice that was not issued has no due date: it goes last, whichever
+      // way the dates go.
+      sortUndefined: 'last',
+      header: alignRight
+        ? rightAlignedSortableHeader<InvoiceSummary>(title)
+        : dataTableSortableHeader(title),
+      id,
+      meta: defaultSort ? { defaultSort } : undefined,
+      // Left out when there is none: an `undefined` would replace the default of
+      // the table, which picks the order from what the column holds.
+      ...(sortFn ? { sortFn } : {}),
+    },
+  ];
+}
+
 /**
- * The columns of the table of invoices, minus the ones a screen leaves out. Nothing
- * sorts: the server orders the list it pages, and sorting what was loaded would put
- * the rest of it in the wrong place. The columns are rebuilt only when the language
- * or the set of columns changes, so `hiddenColumns` has to be the same array from
- * one render to the next.
+ * The columns of the table of invoices, minus the ones a screen leaves out. The
+ * list is read whole, so the browser sorts it: who it is for, the boundary it
+ * bills (newest first, as the table opens), the service period, the total and the
+ * due date. The status, the provider and the handoff are filters, not orders. The
+ * columns are rebuilt only when the language or the set of columns changes, so
+ * `hiddenColumns` has to be the same array from one render to the next.
  */
 export function useInvoiceColumns(
   hiddenColumns: readonly InvoicesTableColumn[],
@@ -64,19 +106,29 @@ export function useInvoiceColumns(
 
   return useMemo(() => {
     const all = [
-      column(
+      sortableColumn(
         'invoice',
-        t('Features.Billing.Invoices.Columns.customer'),
+        {
+          by: (invoice) => invoice.customerName,
+          title: t('Features.Billing.Invoices.Columns.customer'),
+        },
         (invoice) => <InvoiceCustomerCell invoice={invoice} />,
       ),
-      column(
+      sortableColumn(
         'kind',
-        t('Features.Billing.Invoices.Columns.invoice'),
+        {
+          by: (invoice) => instant(invoice.boundaryAt),
+          defaultSort: 'desc',
+          title: t('Features.Billing.Invoices.Columns.invoice'),
+        },
         (invoice) => <InvoiceKindCell invoice={invoice} />,
       ),
-      column(
+      sortableColumn(
         'period',
-        t('Features.Billing.Invoices.Columns.period'),
+        {
+          by: (invoice) => instant(invoice.serviceFrom),
+          title: t('Features.Billing.Invoices.Columns.period'),
+        },
         (invoice) => (
           <ServicePeriod
             className="text-sm"
@@ -86,9 +138,16 @@ export function useInvoiceColumns(
           />
         ),
       ),
-      column(
+      sortableColumn(
         'total',
-        rightAlignedHeader(t('Features.Billing.Invoices.Columns.total')),
+        {
+          alignRight: true,
+          by: (invoice) => invoice.total,
+          // An amount is in the minor units of its currency: a column that holds
+          // several is ordered by currency, and by amount within one.
+          sortFn: (a, b) => compareInvoiceTotals(a.original, b.original),
+          title: t('Features.Billing.Invoices.Columns.total'),
+        },
         (invoice) => <InvoiceTotalCell invoice={invoice} />,
       ),
       column(
@@ -96,9 +155,14 @@ export function useInvoiceColumns(
         t('Features.Billing.Invoices.Columns.status'),
         (invoice) => <InvoiceStatusBadge invoice={invoice} />,
       ),
-      column('due', t('Features.Billing.Invoices.Columns.due'), (invoice) => (
-        <DueCell invoice={invoice} />
-      )),
+      sortableColumn(
+        'due',
+        {
+          by: (invoice) => instant(invoice.dueAt),
+          title: t('Features.Billing.Invoices.Columns.due'),
+        },
+        (invoice) => <DueCell invoice={invoice} />,
+      ),
       column(
         'provider',
         t('Features.Billing.Invoices.Columns.provider'),

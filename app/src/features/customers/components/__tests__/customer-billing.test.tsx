@@ -85,7 +85,7 @@ describe('the invoices of a customer', () => {
     return asked;
   }
 
-  it('asks the API for this customer only, a page of fifty at a time', async () => {
+  it('asks the API for this customer only, with the largest page it allows and no cursor on the first', async () => {
     const asked = serve(pageOf([invoiceRow('inv-1', 'Acme')]));
     renderWithClient(<CustomerInvoicesCard customerSlug="acme" />);
 
@@ -93,7 +93,7 @@ describe('the invoices of a customer', () => {
 
     expect(asked).toHaveLength(1);
     expect(asked[0].get('customerSlug')).toBe('acme');
-    expect(asked[0].get('limit')).toBe('50');
+    expect(asked[0].get('limit')).toBe('200');
     expect(asked[0].has('cursor')).toBe(false);
   });
 
@@ -106,20 +106,35 @@ describe('the invoices of a customer', () => {
     expect(screen.getByText('acme-production')).toBeInTheDocument();
   });
 
-  it('reads the next page with the same customer when asked', async () => {
+  it('reads every page with the same customer, and lists them all with no "Load more"', async () => {
     const asked = serve(
       pageOf([invoiceRow('inv-1', 'Acme')], 'cursor-2'),
       pageOf([invoiceRow('inv-2', 'Acme', { instanceSlug: 'acme-staging' })]),
     );
     renderWithClient(<CustomerInvoicesCard customerSlug="acme" />);
 
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Load more' }),
-    );
-
     expect(await screen.findByText('acme-staging')).toBeInTheDocument();
+    expect(screen.getByText('acme-production')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
+    expect(asked).toHaveLength(2);
     expect(asked[1].get('cursor')).toBe('cursor-2');
     expect(asked[1].get('customerSlug')).toBe('acme');
+  });
+
+  it('pages them in the browser once there are more than a page of the table holds', async () => {
+    serve(
+      pageOf(
+        Array.from({ length: 12 }, (_, index) =>
+          invoiceRow(`inv-${index + 1}`, 'Acme'),
+        ),
+      ),
+    );
+    renderWithClient(<CustomerInvoicesCard customerSlug="acme" />);
+
+    expect(await screen.findByText('Showing 1-10 of 12 records')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(screen.getByText('Showing 11-12 of 12 records')).toBeInTheDocument();
   });
 
   it('says that none of its instances has been invoiced yet', async () => {

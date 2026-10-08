@@ -1,6 +1,5 @@
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { ProblemAlert } from '../problem-alert';
 
 /** What the footer reads of an infinite query: the next page, and why it could not be read. */
@@ -13,7 +12,6 @@ type PagedQuery = {
 };
 
 type LoadMoreFooterProps = {
-  className?: string;
   loadMoreLabel: string;
   query: PagedQuery;
 };
@@ -27,16 +25,12 @@ type LoadMoreFooterProps = {
  * read: the API does not say how many there are, and a count of a page reads as one
  * of the list.
  */
-export function LoadMoreFooter({
-  className,
-  loadMoreLabel,
-  query,
-}: LoadMoreFooterProps) {
+export function LoadMoreFooter({ loadMoreLabel, query }: LoadMoreFooterProps) {
   return (
     <>
       {query.isFetchNextPageError ? <ProblemAlert error={query.error} /> : null}
       {query.hasNextPage ? (
-        <div className={cn('flex justify-center py-3', className)}>
+        <div className="flex justify-center py-3">
           <Button
             disabled={query.isFetchingNextPage}
             onClick={() => void query.fetchNextPage()}

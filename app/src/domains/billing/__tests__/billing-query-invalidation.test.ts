@@ -10,17 +10,15 @@ import {
   getLicenseQueryKey,
   getUpcomingInvoiceQueryKey,
   listHandoffQueryKey,
-  listInstanceInvoicesInfiniteQueryKey,
-  listInstanceInvoicesQueryKey,
-  listInvoicesInfiniteQueryKey,
-  listInvoicesQueryKey,
   listLicensePricesQueryKey,
 } from '@/api-client/@tanstack/react-query.gen';
+import { allInstanceInvoicesOptions } from '@/lib/api/all-pages-query-options';
 import {
   invalidateBillingSettingsQueries,
   invalidateInstanceBillingQueries,
   invalidateInvoiceQueries,
   invalidateLicensePriceQueries,
+  invoicesQueryOptions,
 } from '../queries';
 
 // Each helper is checked against the entries a screen would have in the cache:
@@ -37,22 +35,34 @@ const invalidated = (client: QueryClient, key: readonly unknown[]) =>
 const path = { instanceSlug: 'initech-prod' };
 const otherPath = { instanceSlug: 'other' };
 
+// What the screens hold: every list is read whole, under the key the generated
+// options give its operation, with what narrows it in the key. These are the entries a
+// mutation has to reach, and they are the options' own keys, so that the test follows
+// them if they change.
+const organizationInvoices = invoicesQueryOptions().queryKey;
+const customerInvoices = invoicesQueryOptions({ customerSlug: 'initech' }).queryKey;
+const instanceScopedInvoices = invoicesQueryOptions({
+  instanceSlug: 'initech-prod',
+}).queryKey;
+const instanceCardInvoices = allInstanceInvoicesOptions('initech-prod').queryKey;
+const otherInstanceCardInvoices = allInstanceInvoicesOptions('other').queryKey;
+
 describe('invalidateInstanceBillingQueries', () => {
   it('refreshes what an instance subscription changes, and only that instance', async () => {
     const client = new QueryClient();
     const touched = [
       getInstanceBillingQueryKey({ path }),
       getUpcomingInvoiceQueryKey({ path }),
-      listInstanceInvoicesQueryKey({ path }),
-      listInstanceInvoicesInfiniteQueryKey({ path, query: { limit: 50 } }),
-      listInvoicesQueryKey(),
-      listInvoicesInfiniteQueryKey({ query: { status: ['PAID'] } }),
+      instanceCardInvoices,
+      organizationInvoices,
+      customerInvoices,
+      instanceScopedInvoices,
       getEntitlementsUsageMetricsQueryKey({ path }),
       getInstanceQueryKey({ path }),
     ];
     const untouched = [
       getInstanceBillingQueryKey({ path: otherPath }),
-      listInstanceInvoicesQueryKey({ path: otherPath }),
+      otherInstanceCardInvoices,
       getInstanceQueryKey({ path: otherPath }),
       listHandoffQueryKey(),
     ];
@@ -70,14 +80,15 @@ describe('invalidateInstanceBillingQueries', () => {
 });
 
 describe('invalidateInvoiceQueries', () => {
-  it('refreshes the lists, the handoff queue and the page of the invoice', async () => {
+  it('refreshes every list under any scope, the handoff queue and the page of the invoice', async () => {
     const client = new QueryClient();
     const touched = [
-      listInvoicesQueryKey(),
-      listInvoicesInfiniteQueryKey({ query: { held: true } }),
+      organizationInvoices,
+      customerInvoices,
+      instanceScopedInvoices,
       listHandoffQueryKey(),
-      listInstanceInvoicesQueryKey({ path }),
-      listInstanceInvoicesQueryKey({ path: otherPath }),
+      instanceCardInvoices,
+      otherInstanceCardInvoices,
       getInvoiceQueryKey({ path: { invoiceId: 'inv-m1' } }),
     ];
     const untouched = [
@@ -99,11 +110,11 @@ describe('invalidateInvoiceQueries', () => {
   it('leaves the page of every invoice alone when it is not told which one changed', async () => {
     const client = new QueryClient();
     const page = getInvoiceQueryKey({ path: { invoiceId: 'inv-m1' } });
-    seed(client, [page, listInvoicesQueryKey()]);
+    seed(client, [page, organizationInvoices]);
 
     await invalidateInvoiceQueries(client);
 
-    expect(invalidated(client, listInvoicesQueryKey())).toBe(true);
+    expect(invalidated(client, organizationInvoices)).toBe(true);
     expect(invalidated(client, page)).toBe(false);
   });
 });

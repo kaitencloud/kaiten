@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vite-plus/test';
@@ -81,7 +81,7 @@ describe('the list of invoices', () => {
     expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
   });
 
-  it('asks the API for the filters it was given, a page of fifty, and no cursor on the first page', async () => {
+  it('asks the API for the filters it was given, with the largest page it allows and no cursor on the first', async () => {
     const asked = serveInvoices(pageOf([invoiceRow('inv-1', 'Initech')]));
     renderList({ filters: { customerSlug: 'initech', status: ['PAID'] } });
 
@@ -90,55 +90,51 @@ describe('the list of invoices', () => {
     expect(asked).toHaveLength(1);
     expect(asked[0].get('customerSlug')).toBe('initech');
     expect(asked[0].getAll('status')).toEqual(['PAID']);
-    expect(asked[0].get('limit')).toBe('50');
+    expect(asked[0].get('limit')).toBe('200');
     expect(asked[0].has('cursor')).toBe(false);
   });
 
-  it('reads the next page with the same filters when asked, and keeps the rows it has', async () => {
+  it('reads every page with the same filters, and lists them all with no "Load more"', async () => {
     const asked = serveInvoices(
       pageOf([invoiceRow('inv-1', 'Initech')], 'cursor-2'),
       pageOf([invoiceRow('inv-2', 'Globex')]),
     );
     renderList({ filters: { kind: 'RENEWAL' } });
 
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Load more' }),
-    );
-
     expect(await screen.findByText('Globex')).toBeInTheDocument();
     expect(screen.getByText('Initech')).toBeInTheDocument();
+    expect(asked).toHaveLength(2);
     expect(asked[1].get('cursor')).toBe('cursor-2');
     expect(asked[1].get('kind')).toBe('RENEWAL');
-    expect(asked[1].get('limit')).toBe('50');
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull(),
-    );
+    expect(asked[1].get('limit')).toBe('200');
+    expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
   });
 
-  it('keeps the rows it has and says why when the next page cannot be read', async () => {
+  it('shows why a page of the walk was refused, and reads the whole list again when asked', async () => {
     let reads = 0;
     server.use(
       handleListInvoices(() => {
         reads += 1;
 
-        return reads === 1
-          ? HttpResponse.json(
-              pageOf([invoiceRow('inv-1', 'Initech')], 'cursor-2'),
-            )
-          : refusal(503, { detail: 'the invoice store is busy' });
+        if (reads === 1) {
+          return HttpResponse.json(
+            pageOf([invoiceRow('inv-1', 'Initech')], 'cursor-2'),
+          );
+        }
+
+        return reads === 2
+          ? refusal(503, { detail: 'the invoice store is busy' })
+          : HttpResponse.json(pageOf([invoiceRow('inv-1', 'Initech')]));
       }),
     );
     renderList();
 
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Load more' }),
+    expect(await screen.findByTestId('invoices-error')).toHaveTextContent(
+      'the invoice store is busy',
     );
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
 
-    expect(
-      await screen.findByText('the invoice store is busy'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Initech')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Load more' })).toBeEnabled();
+    expect(await screen.findByText('Initech')).toBeInTheDocument();
   });
 
   it('shows why the API refused, with its trace, and reads again when asked', async () => {

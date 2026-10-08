@@ -54,6 +54,7 @@ export {
   INVOICE_KINDS,
   type InvoiceKind,
 } from './invoice-kind';
+export { compareInvoiceTotals } from './invoice-total-order';
 export {
   readRecomposeRefusal,
   type RecomposeRefusal,

@@ -8,8 +8,10 @@ import {
   handleListInstanceInvoices,
   handleListLicensePrices,
 } from '@/api-client/msw.gen';
+import { listInstanceInvoicesQueryKey } from '@/api-client/@tanstack/react-query.gen';
 // For its side effect: the REST client then throws an `ApiError`.
 import '@/lib/api/bootstrap';
+import { invoiceRow } from '@/test-fixtures/billing-test-support';
 import {
   instanceBillingQueryOptions,
   instanceInvoicesQueryOptions,
@@ -81,7 +83,7 @@ describe('the upcoming invoice', () => {
 });
 
 describe('the invoices of an instance', () => {
-  it('are read a page at a time by cursor, the first with none', async () => {
+  it('are every page of them, read by cursor with the largest page the API allows, the first with none', async () => {
     const asked: Array<{ params: Record<string, unknown>; url: URL }> = [];
     server.use(
       handleListInstanceInvoices(({ params, request }) => {
@@ -90,22 +92,37 @@ describe('the invoices of an instance', () => {
 
         return HttpResponse.json(
           url.searchParams.has('cursor')
-            ? { hasMore: false, items: [] }
-            : { hasMore: true, items: [], nextCursor: 'next' },
+            ? { hasMore: false, items: [invoiceRow('inv-2', 'Globex')] }
+            : {
+                hasMore: true,
+                items: [invoiceRow('inv-1', 'Globex')],
+                nextCursor: 'next',
+              },
         );
       }),
     );
 
-    await new QueryClient().fetchInfiniteQuery({
-      ...instanceInvoicesQueryOptions('globex-production'),
-      pages: 2,
-    });
+    const page = await new QueryClient().fetchQuery(
+      instanceInvoicesQueryOptions('globex-production'),
+    );
 
+    expect(page.items.map((invoice) => invoice.id)).toEqual(['inv-1', 'inv-2']);
+    expect(page.hasMore).toBe(false);
     expect(asked).toHaveLength(2);
     expect(asked[0].params).toMatchObject({ instanceSlug: 'globex-production' });
     expect(asked[0].url.searchParams.has('cursor')).toBe(false);
-    expect(asked[0].url.searchParams.get('limit')).toBe('50');
+    expect(asked[0].url.searchParams.get('limit')).toBe('200');
     expect(asked[1].url.searchParams.get('cursor')).toBe('next');
+  });
+
+  it('keep the key the invalidation of an invoice and of a subscription reaches, and are not retried', () => {
+    const options = instanceInvoicesQueryOptions('globex-production');
+
+    expect(options.queryKey).toEqual(
+      listInstanceInvoicesQueryKey({ path: { instanceSlug: 'globex-production' } }),
+    );
+    expect(options.retry).toBe(false);
+    expect(options.retryOnMount).toBe(false);
   });
 });
 

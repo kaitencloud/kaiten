@@ -77,6 +77,36 @@ export class BillingInvoicesDriver {
       .toEqual(ids);
   }
 
+  /**
+   * Shows more rows of the table at a time than the ten it opens with: the pager
+   * is under the table once there are more rows than a page holds.
+   */
+  async showRowsPerPage(size: 20 | 30 | 50, label = 'Rows per page') {
+    await this.page.getByRole('combobox', { name: label }).click();
+    await this.page
+      .getByRole('option', { exact: true, name: String(size) })
+      .click();
+  }
+
+  /**
+   * Opens the list and shows as many rows as the pager offers, for a spec that
+   * reads rows by their invoice: once what the list first shows is there, the
+   * rows (or why there are none), the pager is set to its largest page.
+   */
+  async gotoShowingEverything(search = '', title = 'Invoices') {
+    await this.goto(search, title);
+    await expect(
+      this.rows().or(this.empty()).or(this.error()).first(),
+    ).toBeVisible();
+    if (
+      (await this.page
+        .getByRole('combobox', { name: 'Rows per page' })
+        .count()) > 0
+    ) {
+      await this.showRowsPerPage(50);
+    }
+  }
+
   loadMore(): Locator {
     return this.page.getByRole('button', { name: 'Load more', exact: true });
   }

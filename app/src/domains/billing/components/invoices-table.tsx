@@ -29,9 +29,9 @@ const NO_HIDDEN_COLUMNS: readonly InvoicesTableColumn[] = [];
 /**
  * Invoices as rows: who they are for, what they bill, over what period, for how
  * much, in what status, when they are due, who collects them and where they stand
- * in the handoff queue. It shows a list the server pages and orders, so no column
- * sorts: sorting what was loaded would put the rest of the list in the wrong
- * place. A row leads to its invoice.
+ * in the handoff queue. The list is read whole, so the table sorts it, newest
+ * invoice first as it opens, and pages it in the browser like every other table of
+ * the console. A row leads to its invoice.
  *
  * It is the table of the organization's invoices, of an instance's and of a
  * customer's, which leave out the columns they already say.
@@ -63,7 +63,6 @@ export function InvoicesTable({
       getPath={getPath}
       getRowId={(invoice) => invoice.id}
       linkColumnId={hiddenColumns.includes('invoice') ? 'kind' : 'invoice'}
-      pagination={false}
       variant={variant}
     />
   );

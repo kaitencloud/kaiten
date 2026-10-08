@@ -1,9 +1,9 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
   InvoicesCard,
   type InvoicesTableColumn,
-  invoicesPagesQueryOptions,
+  invoicesQueryOptions,
 } from '@/domains/billing';
 
 // The same array on every render: the table builds its columns from it. Every
@@ -18,14 +18,14 @@ type CustomerInvoicesCardProps = {
 /**
  * The invoices of a customer, across its instances and across the names it has
  * had: the API matches the slug of the customer now as well as the one an
- * invoice was composed under. The same table as the organization's list, read a
- * page at a time.
+ * invoice was composed under. The same table as the organization's list, read
+ * whole and paged in the browser.
  */
 export function CustomerInvoicesCard({
   customerSlug,
 }: CustomerInvoicesCardProps) {
   const { t } = useTranslation();
-  const query = useInfiniteQuery(invoicesPagesQueryOptions({ customerSlug }));
+  const query = useQuery(invoicesQueryOptions({ customerSlug }));
 
   return (
     <InvoicesCard
