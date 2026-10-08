@@ -645,6 +645,9 @@ export default {
                 canceledAt: 'Canceled on',
                 cancellationReason: 'Reason',
                 nextBoundary: 'Next boundary',
+                endsAt: 'Ends on',
+                trialEndsAt: 'Trial ends',
+                firstInvoice: 'First invoice',
                 startedAt: 'Started',
               },
               collectionMethod: {
@@ -660,6 +663,8 @@ export default {
               priceLine: '{{price}} · {{timing}}',
               nextBoundaryHint:
                 'The period ends then and its invoice is composed.',
+              endsAtHint:
+                'The subscription ends then, after its final invoice.',
             },
             Upcoming: {
               title: 'Upcoming invoice',
@@ -691,6 +696,208 @@ export default {
               description:
                 'Every invoice of this instance, across the times it was subscribed, newest first.',
               empty: 'No invoice has been issued for this instance yet.',
+            },
+            Reactivate: {
+              action: 'Reactivate',
+              success: 'The cancellation was taken back',
+            },
+            Notices: {
+              Trial: {
+                title: 'Trial until {{date}}',
+                description_one:
+                  '{{count}} day left. Nothing is billed during the trial, and its usage is never billed.',
+                description_other:
+                  '{{count}} days left. Nothing is billed during the trial, and its usage is never billed.',
+                firstInvoice: 'The first invoice is issued on {{date}}.',
+              },
+              PastDue: {
+                title_one: 'Past due since {{date}} ({{count}} day)',
+                title_other: 'Past due since {{date}} ({{count}} days)',
+                titleUnknown: 'Past due',
+                invoice:
+                  'The {{kind}} invoice for {{period}} has been unpaid since it fell due on {{due}}.',
+                invoiceUnknown:
+                  'An invoice of this subscription is unpaid past its due date.',
+                viewInvoice: 'View the invoice',
+                accessUnchanged:
+                  'Access is unchanged: Kaiten does not restrict a customer with an unpaid invoice in this version.',
+              },
+              Cancellation: {
+                title: 'Cancels on {{date}}',
+                description:
+                  'The period is paid for, so nothing changes until then. At that boundary a final invoice bills what was used in arrears, which may be nothing, and the subscription ends. You can take the cancellation back until then.',
+                reason: 'Reason: {{reason}}',
+              },
+              ScheduledChange: {
+                title: 'Changes to {{plan}} ({{amount}}) on {{date}}',
+                description:
+                  'Nothing is prorated: the invoice of that day bills what the current plan owes in arrears and the first period of the new plan in advance.',
+              },
+            },
+            Cancel: {
+              title: 'Cancel',
+              open: 'Cancel subscription',
+              dialogTitle: 'Cancel the subscription of {{name}}',
+              dialogDescription:
+                'Ends the billing of this instance. Nothing else about it changes, unless you choose it below.',
+              confirm: 'Cancel subscription',
+              confirmTrial: 'End the trial',
+              keep: 'Keep the subscription',
+              keepTrial: 'Keep the trial',
+              notSubscribed: 'This instance has no subscription to cancel.',
+              alreadyCanceled: 'This subscription is already canceled.',
+              Fields: {
+                mode: 'When',
+                reason: 'Reason',
+                reasonPlaceholder: 'Why does the subscription end? (optional)',
+                reasonCounter: '{{count}}/{{max}} characters',
+              },
+              Mode: {
+                AT_PERIOD_END: 'At the end of the period: {{date}}',
+                IMMEDIATE: 'Immediately',
+              },
+              Explain: {
+                scheduled: {
+                  title: 'The subscription ends on {{date}}',
+                  already:
+                    'It is already set to end then: confirming again changes nothing. Choose Immediately to end it now.',
+                  paid: 'The period is paid for, so access and entitlements do not change until {{date}}.',
+                  invoice:
+                    'At that boundary a final invoice bills what was used in arrears, which may be nothing, and no new period starts.',
+                  undo: 'You can reactivate the subscription from the Billing tab until then.',
+                },
+                immediate: {
+                  title: 'The subscription ends now',
+                  invoice:
+                    'A final invoice is issued now for usage to date. No proration. The base fee already paid for this period is not refunded.',
+                  arrears:
+                    'What bills in arrears is billed in full for the part of the period that has gone by.',
+                  final:
+                    'This cannot be undone: to bill the instance again, subscribe it anew.',
+                },
+                planChangeDropped:
+                  'The plan change scheduled for {{date}} is dropped by this cancellation.',
+                trial: {
+                  title: 'The trial ends now',
+                  nothing:
+                    'Nothing is billed: no invoice is issued, and the usage of the trial is never billed.',
+                },
+              },
+              FollowUps: {
+                title: 'Beside the cancellation',
+                description:
+                  'Cancelling changes billing only. Add-ons, voucher redemptions and the license dates stay as they are, and invoices already issued stay collectible, unless you choose otherwise here.',
+                removeAddons: 'Also remove the add-ons',
+                removeAddonsDescription:
+                  'Takes {{addons}} off the instance now. Their entitlements end at once and nothing is refunded.',
+                removeAddonsLoading: 'Reading the add-ons of this instance…',
+                removeAddonsNone: 'This instance holds no add-on.',
+                removeAddonsUnknown:
+                  'The add-ons of this instance could not be read.',
+                setEndDate: 'Also set the license end date',
+                setEndDateDescription:
+                  'The license of this instance ends on {{date}}. Entitlements follow it, not the subscription.',
+                endDate: 'License ends (UTC)',
+              },
+              Done: {
+                scheduledTitle: 'Cancellation scheduled',
+                scheduled:
+                  'The subscription ends on {{date}}. Until then nothing changes, and you can reactivate it from the Billing tab.',
+                immediateTitle: 'Subscription canceled',
+                immediate:
+                  'The subscription has ended and its final invoice was issued.',
+                finalInvoice: 'Final invoice:',
+                viewInvoice: 'View the invoice',
+                noFinalInvoice: 'The API returned no final invoice.',
+                trialTitle: 'Trial ended',
+                trial: 'The subscription is canceled. Nothing was billed.',
+                addonsRemoved: 'Add-ons removed: {{addons}}.',
+                addonFailed: '{{addon}} could not be removed. {{detail}}',
+                endDateSet: 'The license now ends on {{date}}.',
+                endDateFailed:
+                  'The end of the license could not be set. {{detail}}',
+                retryFollowUps: 'Try again',
+              },
+              Errors: {
+                reason: 'The reason is at most 500 characters',
+                endDate: 'Enter a valid date and time',
+              },
+            },
+            PlanChange: {
+              title: 'Plan change',
+              open: 'Change plan',
+              dialogTitle: 'Change the plan of {{name}}',
+              dialogDescription:
+                'Moves the subscription to another plan at the end of the current period.',
+              version: '{{name}} v{{version}}',
+              currentPlan: 'Current plan:',
+              currentPlanValue: '{{price}} · {{amount}}',
+              timeline:
+                'The change takes effect on {{date}}, when the current period ends. The invoice of that day bills what the current plan owes in arrears and the first period of the new plan in advance. Nothing is prorated.',
+              upcoming:
+                'Without the change, the next invoice would be a {{kind}} invoice of',
+              upcomingScheduled:
+                'The next invoice already applies the scheduled change: a {{kind}} invoice of',
+              noPreview:
+                'Kaiten cannot compose the invoice of a change that is not scheduled yet, so this is the invoice as things stand.',
+              target: 'New plan',
+              targetHint:
+                'The active flat fees of the license versions on sale, in the currency of the subscription.',
+              targetPlaceholder: 'Choose a plan',
+              option: '{{version}} · {{price}} · {{amount}} · {{timing}}',
+              optionBlocked: '{{label}} — Different currency ({{currency}})',
+              noPlan:
+                'No other plan can be reached: no other published license version has an active flat fee.',
+              confirm: 'Schedule the change',
+              alreadyScheduled:
+                'A change to {{plan}} ({{amount}}) is already scheduled for {{date}}. Choosing another plan replaces it.',
+              drop: 'Cancel the change',
+              scheduledToast: 'The plan change is scheduled',
+              droppedToast: 'The plan change was canceled',
+              notSubscribed: 'This instance has no subscription.',
+              alreadyCanceled:
+                'This subscription has ended: subscribe the instance again to choose a plan.',
+              trial:
+                'A plan cannot change during a trial. Cancel the trial and subscribe the instance again with the new plan.',
+              cancellationScheduled:
+                'A cancellation is scheduled for the end of the period. Reactivate the subscription first to change its plan.',
+              Errors: {
+                target: 'Choose a plan',
+              },
+            },
+            Terms: {
+              title: 'Payment terms',
+              open: 'Payment terms',
+              dialogTitle: 'Payment terms of {{name}}',
+              dialogDescription:
+                'The days between the issue of an invoice and its due date, for this contract.',
+              currentContract_one:
+                'Invoices are payable within {{count}} day (the terms of this contract).',
+              currentContract_other:
+                'Invoices are payable within {{count}} days (the terms of this contract).',
+              currentOrganization_one:
+                'Invoices are payable within {{count}} day (the default of your organization).',
+              currentOrganization_other:
+                'Invoices are payable within {{count}} days (the default of your organization).',
+              daysUntilDue: 'Payment terms (days)',
+              daysUntilDueHint:
+                'From 0 to 365 days. Leave empty to use the terms of your organization.',
+              placeholder: 'Organization default: {{days}}',
+              placeholderUnknown: 'Organization default',
+              nextInvoice:
+                'The change takes effect on the next invoice. Invoices already issued keep their own due date.',
+              save: 'Save',
+              useDefault: 'Use organization default',
+              notSubscribed: 'This instance has no subscription.',
+              alreadyCanceled:
+                'This subscription has ended: it has no terms to change.',
+              Toasts: {
+                saved: 'The payment terms are saved',
+                reset: 'The terms of your organization apply again',
+              },
+              Errors: {
+                daysUntilDue: 'Enter a whole number of days, from 0 to 365',
+              },
             },
           },
           tabs: {

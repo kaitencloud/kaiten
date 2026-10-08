@@ -658,6 +658,9 @@ export default {
                 canceledAt: 'Annulé le',
                 cancellationReason: 'Motif',
                 nextBoundary: 'Prochaine échéance',
+                endsAt: 'Se termine le',
+                trialEndsAt: 'Fin de l’essai',
+                firstInvoice: 'Première facture',
                 startedAt: 'Démarré le',
               },
               collectionMethod: {
@@ -673,6 +676,8 @@ export default {
               priceLine: '{{price}} · {{timing}}',
               nextBoundaryHint:
                 'La période se termine alors et sa facture est composée.',
+              endsAtHint:
+                'L’abonnement prend fin alors, après sa facture finale.',
             },
             Upcoming: {
               title: 'Prochaine facture',
@@ -704,6 +709,212 @@ export default {
               description:
                 'Toutes les factures de cette instance, sur l’ensemble des périodes où elle a été abonnée, de la plus récente à la plus ancienne.',
               empty: 'Aucune facture n’a encore été émise pour cette instance.',
+            },
+            Reactivate: {
+              action: 'Réactiver',
+              success: 'L’annulation a été retirée',
+            },
+            Notices: {
+              Trial: {
+                title: 'Essai jusqu’au {{date}}',
+                description_one:
+                  'Il reste {{count}} jour. Rien n’est facturé pendant l’essai, et son usage n’est jamais facturé.',
+                description_other:
+                  'Il reste {{count}} jours. Rien n’est facturé pendant l’essai, et son usage n’est jamais facturé.',
+                firstInvoice: 'La première facture est émise le {{date}}.',
+              },
+              PastDue: {
+                title_one:
+                  'En retard de paiement depuis le {{date}} ({{count}} jour)',
+                title_other:
+                  'En retard de paiement depuis le {{date}} ({{count}} jours)',
+                titleUnknown: 'En retard de paiement',
+                invoice:
+                  'La facture de type {{kind}} pour {{period}} est impayée depuis son échéance du {{due}}.',
+                invoiceUnknown:
+                  'Une facture de cet abonnement est impayée après son échéance.',
+                viewInvoice: 'Voir la facture',
+                accessUnchanged:
+                  'L’accès est inchangé : Kaiten ne restreint pas un client qui a une facture impayée dans cette version.',
+              },
+              Cancellation: {
+                title: 'Prend fin le {{date}}',
+                description:
+                  'La période est payée, rien ne change donc d’ici là. À cette échéance, une facture finale facture ce qui a été utilisé à terme échu, éventuellement rien, et l’abonnement s’arrête. Vous pouvez retirer l’annulation jusque-là.',
+                reason: 'Motif : {{reason}}',
+              },
+              ScheduledChange: {
+                title: 'Passe à {{plan}} ({{amount}}) le {{date}}',
+                description:
+                  'Rien n’est proratisé : la facture de ce jour facture ce que l’offre actuelle doit à terme échu et la première période de la nouvelle offre à terme à échoir.',
+              },
+            },
+            Cancel: {
+              title: 'Annuler',
+              open: 'Annuler l’abonnement',
+              dialogTitle: 'Annuler l’abonnement de {{name}}',
+              dialogDescription:
+                'Met fin à la facturation de cette instance. Rien d’autre ne change, sauf si vous le choisissez ci-dessous.',
+              confirm: 'Annuler l’abonnement',
+              confirmTrial: 'Terminer l’essai',
+              keep: 'Garder l’abonnement',
+              keepTrial: 'Garder l’essai',
+              notSubscribed: 'Cette instance n’a pas d’abonnement à annuler.',
+              alreadyCanceled: 'Cet abonnement est déjà annulé.',
+              Fields: {
+                mode: 'Quand',
+                reason: 'Motif',
+                reasonPlaceholder:
+                  'Pourquoi l’abonnement prend-il fin ? (facultatif)',
+                reasonCounter: '{{count}}/{{max}} caractères',
+              },
+              Mode: {
+                AT_PERIOD_END: 'À la fin de la période : {{date}}',
+                IMMEDIATE: 'Immédiatement',
+              },
+              Explain: {
+                scheduled: {
+                  title: 'L’abonnement prend fin le {{date}}',
+                  already:
+                    'Il est déjà programmé pour se terminer à cette date : confirmer de nouveau ne change rien. Choisissez Immédiatement pour y mettre fin maintenant.',
+                  paid: 'La période est payée : l’accès et les droits ne changent pas avant le {{date}}.',
+                  invoice:
+                    'À cette échéance, une facture finale facture ce qui a été utilisé à terme échu, éventuellement rien, et aucune nouvelle période ne commence.',
+                  undo: 'Vous pouvez réactiver l’abonnement depuis l’onglet Facturation jusque-là.',
+                },
+                immediate: {
+                  title: 'L’abonnement prend fin maintenant',
+                  invoice:
+                    'Une facture finale est émise maintenant pour l’usage à ce jour. Sans proratisation. Le forfait déjà payé pour cette période n’est pas remboursé.',
+                  arrears:
+                    'Ce qui se facture à terme échu l’est en entier pour la part de la période écoulée.',
+                  final:
+                    'C’est irréversible : pour facturer à nouveau l’instance, souscrivez-la de nouveau.',
+                },
+                planChangeDropped:
+                  'Le changement d’offre prévu le {{date}} est abandonné par cette annulation.',
+                trial: {
+                  title: 'L’essai prend fin maintenant',
+                  nothing:
+                    'Rien n’est facturé : aucune facture n’est émise, et l’usage de l’essai n’est jamais facturé.',
+                },
+              },
+              FollowUps: {
+                title: 'En plus de l’annulation',
+                description:
+                  'Annuler ne change que la facturation. Les add-ons, les rédemptions de vouchers et les dates de la licence restent tels quels, et les factures déjà émises restent recouvrables, sauf si vous choisissez autrement ici.',
+                removeAddons: 'Retirer aussi les add-ons',
+                removeAddonsDescription:
+                  'Retire {{addons}} de l’instance maintenant. Leurs droits s’arrêtent aussitôt et rien n’est remboursé.',
+                removeAddonsLoading: 'Lecture des add-ons de cette instance…',
+                removeAddonsNone: 'Cette instance n’a aucun add-on.',
+                removeAddonsUnknown:
+                  'Les add-ons de cette instance n’ont pas pu être lus.',
+                setEndDate: 'Fixer aussi la date de fin de licence',
+                setEndDateDescription:
+                  'La licence de cette instance se termine le {{date}}. Les droits la suivent, pas l’abonnement.',
+                endDate: 'Fin de la licence (UTC)',
+              },
+              Done: {
+                scheduledTitle: 'Annulation programmée',
+                scheduled:
+                  'L’abonnement prend fin le {{date}}. D’ici là rien ne change, et vous pouvez le réactiver depuis l’onglet Facturation.',
+                immediateTitle: 'Abonnement annulé',
+                immediate:
+                  'L’abonnement est terminé et sa facture finale a été émise.',
+                finalInvoice: 'Facture finale :',
+                viewInvoice: 'Voir la facture',
+                noFinalInvoice: 'L’API n’a renvoyé aucune facture finale.',
+                trialTitle: 'Essai terminé',
+                trial: 'L’abonnement est annulé. Rien n’a été facturé.',
+                addonsRemoved: 'Add-ons retirés : {{addons}}.',
+                addonFailed: '{{addon}} n’a pas pu être retiré. {{detail}}',
+                endDateSet: 'La licence se termine maintenant le {{date}}.',
+                endDateFailed:
+                  'La fin de la licence n’a pas pu être fixée. {{detail}}',
+                retryFollowUps: 'Réessayer',
+              },
+              Errors: {
+                reason: 'Le motif fait au plus 500 caractères',
+                endDate: 'Saisissez une date et une heure valides',
+              },
+            },
+            PlanChange: {
+              title: 'Changement d’offre',
+              open: 'Changer d’offre',
+              dialogTitle: 'Changer l’offre de {{name}}',
+              dialogDescription:
+                'Fait passer l’abonnement à une autre offre à la fin de la période en cours.',
+              version: '{{name}} v{{version}}',
+              currentPlan: 'Offre actuelle :',
+              currentPlanValue: '{{price}} · {{amount}}',
+              timeline:
+                'Le changement prend effet le {{date}}, quand la période en cours se termine. La facture de ce jour facture ce que l’offre actuelle doit à terme échu et la première période de la nouvelle offre à terme à échoir. Rien n’est proratisé.',
+              upcoming:
+                'Sans le changement, la prochaine facture serait une facture de type {{kind}} de',
+              upcomingScheduled:
+                'La prochaine facture applique déjà le changement programmé : une facture de type {{kind}} de',
+              noPreview:
+                'Kaiten ne peut pas composer la facture d’un changement qui n’est pas encore programmé : celle-ci est la facture en l’état.',
+              target: 'Nouvelle offre',
+              targetHint:
+                'Les forfaits actifs des versions de licence en vente, dans la devise de l’abonnement.',
+              targetPlaceholder: 'Choisissez une offre',
+              option: '{{version}} · {{price}} · {{amount}} · {{timing}}',
+              optionBlocked: '{{label}} — Devise différente ({{currency}})',
+              noPlan:
+                'Aucune autre offre n’est accessible : aucune autre version de licence publiée n’a de forfait actif.',
+              confirm: 'Programmer le changement',
+              alreadyScheduled:
+                'Un passage à {{plan}} ({{amount}}) est déjà programmé pour le {{date}}. Choisir une autre offre le remplace.',
+              drop: 'Annuler le changement',
+              scheduledToast: 'Le changement d’offre est programmé',
+              droppedToast: 'Le changement d’offre a été annulé',
+              notSubscribed: 'Cette instance n’a pas d’abonnement.',
+              alreadyCanceled:
+                'Cet abonnement est terminé : souscrivez de nouveau l’instance pour choisir une offre.',
+              trial:
+                'Une offre ne peut pas changer pendant un essai. Annulez l’essai et souscrivez de nouveau l’instance avec la nouvelle offre.',
+              cancellationScheduled:
+                'Une annulation est programmée pour la fin de la période. Réactivez d’abord l’abonnement pour changer son offre.',
+              Errors: {
+                target: 'Choisissez une offre',
+              },
+            },
+            Terms: {
+              title: 'Conditions de paiement',
+              open: 'Conditions de paiement',
+              dialogTitle: 'Conditions de paiement de {{name}}',
+              dialogDescription:
+                'Le nombre de jours entre l’émission d’une facture et son échéance, pour ce contrat.',
+              currentContract_one:
+                'Les factures sont payables sous {{count}} jour (conditions de ce contrat).',
+              currentContract_other:
+                'Les factures sont payables sous {{count}} jours (conditions de ce contrat).',
+              currentOrganization_one:
+                'Les factures sont payables sous {{count}} jour (défaut de votre organisation).',
+              currentOrganization_other:
+                'Les factures sont payables sous {{count}} jours (défaut de votre organisation).',
+              daysUntilDue: 'Délai de paiement (jours)',
+              daysUntilDueHint:
+                'De 0 à 365 jours. Laissez vide pour appliquer le délai de votre organisation.',
+              placeholder: 'Défaut de l’organisation : {{days}}',
+              placeholderUnknown: 'Défaut de l’organisation',
+              nextInvoice:
+                'Le changement prend effet à la prochaine facture. Les factures déjà émises gardent leur propre échéance.',
+              save: 'Enregistrer',
+              useDefault: 'Appliquer le défaut de l’organisation',
+              notSubscribed: 'Cette instance n’a pas d’abonnement.',
+              alreadyCanceled:
+                'Cet abonnement est terminé : il n’a pas de conditions à changer.',
+              Toasts: {
+                saved: 'Les conditions de paiement sont enregistrées',
+                reset:
+                  'Les conditions de votre organisation s’appliquent de nouveau',
+              },
+              Errors: {
+                daysUntilDue: 'Saisissez un nombre entier de jours, de 0 à 365',
+              },
             },
           },
           tabs: {
