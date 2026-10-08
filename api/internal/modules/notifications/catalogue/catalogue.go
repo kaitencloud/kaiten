@@ -45,13 +45,17 @@ const (
 	ObjectComponent      Object = "component"
 	ObjectLicense        Object = "license"
 	ObjectToken          Object = "token"
+	// ObjectBilling is the organization's billing as a whole, for what is
+	// about no one instance or customer: a voucher used up, a payment
+	// provider that cannot be read.
+	ObjectBilling Object = "billing"
 )
 
 // Objects is every object a notification can be about, in the order a filter
 // offers them.
 var Objects = []Object{
 	ObjectInstance, ObjectCustomer, ObjectRelease, ObjectDeploymentZone,
-	ObjectComponent, ObjectLicense, ObjectToken,
+	ObjectComponent, ObjectLicense, ObjectToken, ObjectBilling,
 }
 
 // Rendered is what a person reads. Produced at read time from the audit trail

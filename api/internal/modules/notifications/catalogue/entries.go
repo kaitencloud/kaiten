@@ -3,6 +3,7 @@ package catalogue
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	billingevents "github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
 	componentevents "github.com/kaitencloud/kaiten/api/internal/modules/components/events"
@@ -12,6 +13,7 @@ import (
 	instanceevents "github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	licenseevents "github.com/kaitencloud/kaiten/api/internal/modules/licenses/events"
 	releaseevents "github.com/kaitencloud/kaiten/api/internal/modules/releases/events"
+	voucherevents "github.com/kaitencloud/kaiten/api/internal/modules/vouchers/events"
 )
 
 // Groups the settings page renders under. The client owns the heading and the
@@ -44,6 +46,9 @@ const (
 	deploymentZonePath  = "/releases/deployment-zones"
 	licensesPath        = "/licenses"
 	serviceAccountsPath = "/integrations/service-accounts"
+	invoicesPath        = "/billing/invoices"
+	billingPath         = "/billing"
+	billingSettingsPath = "/settings/billing"
 
 	// instanceEntitlementsTab is the instance page's usage tab, where whoever
 	// reads a usage notification has to look.
@@ -106,6 +111,60 @@ func init() {
 		Label:    "Invoice held",
 		Defaults: map[Channel]bool{ChannelInApp: true},
 		renderer: renderHeldInvoice,
+	})
+
+	Register(Entry{
+		Event:    billingevents.InstanceInvoicePushFailed,
+		Group:    GroupBilling,
+		Object:   ObjectInstance,
+		Label:    "Invoice push failed",
+		Defaults: map[Channel]bool{ChannelInApp: true},
+		renderer: renderInvoice("An invoice of %s could not be pushed to its payment provider"),
+	})
+
+	Register(Entry{
+		Event:    billingevents.InstanceInvoicePaymentFailed,
+		Group:    GroupBilling,
+		Object:   ObjectInstance,
+		Label:    "Payment failed",
+		Defaults: map[Channel]bool{ChannelInApp: true},
+		renderer: renderInvoice("The payment of an invoice of %s failed"),
+	})
+
+	Register(Entry{
+		Event:    billingevents.InstanceInvoiceReconciliationMismatch,
+		Group:    GroupBilling,
+		Object:   ObjectInstance,
+		Label:    "Invoice differs in the payment provider",
+		Defaults: map[Channel]bool{ChannelInApp: true},
+		renderer: renderInvoice("An invoice of %s differs in its payment provider"),
+	})
+
+	Register(Entry{
+		Event:    billingevents.CustomerPaymentMethodExpiring,
+		Group:    GroupBilling,
+		Object:   ObjectCustomer,
+		Label:    "Payment method expiring",
+		Defaults: map[Channel]bool{ChannelInApp: true},
+		renderer: renderPaymentMethodExpiring,
+	})
+
+	Register(Entry{
+		Event:    billingevents.BillingProviderSyncFailed,
+		Group:    GroupBilling,
+		Object:   ObjectBilling,
+		Label:    "Payment provider sync failing",
+		Defaults: map[Channel]bool{ChannelInApp: true},
+		renderer: renderSyncFailed,
+	})
+
+	Register(Entry{
+		Event:    voucherevents.VoucherExhausted,
+		Group:    GroupBilling,
+		Object:   ObjectBilling,
+		Label:    "Voucher used up",
+		Defaults: map[Channel]bool{ChannelInApp: true},
+		renderer: renderVoucherExhausted,
 	})
 
 	// ── Instances ────────────────────────────────────────────────────────────
@@ -719,6 +778,103 @@ func renderHeldInvoice(payload []byte, _ Refs) Rendered {
 	rendered := Rendered{Title: "An invoice of " + decoded.InstanceSlug + " is held", ActionURL: "/billing/invoices/" + decoded.ID}
 	if decoded.HoldReason != "" {
 		rendered.Body = "Its usage journal failed a check: " + decoded.HoldReason
+	}
+	return rendered
+}
+
+// invoicePayload is what the invoice failure events carry that a
+// notification reads.
+type invoicePayload struct {
+	ID             string `json:"id"`
+	InstanceSlug   string `json:"instanceSlug"`
+	LastPushError  string `json:"lastPushError"`
+	FailureCode    string `json:"failureCode"`
+	RequiresAction bool   `json:"requiresAction"`
+}
+
+// renderInvoice renders an invoice failure, linking to the invoice.
+func renderInvoice(titleFormat string) Renderer {
+	return func(payload []byte, refs Refs) Rendered {
+		var decoded invoicePayload
+		_ = json.Unmarshal(payload, &decoded)
+		slug := decoded.InstanceSlug
+		if slug == "" && refs.Instance != nil {
+			slug = refs.Instance.Slug
+		}
+		if decoded.ID == "" || slug == "" {
+			return Rendered{ActionURL: invoicesPath}
+		}
+		rendered := Rendered{Title: fmt.Sprintf(titleFormat, slug), ActionURL: invoicesPath + "/" + decoded.ID}
+		switch {
+		case decoded.RequiresAction:
+			rendered.Body = "The customer must confirm the payment on the invoice's page"
+		case decoded.FailureCode != "":
+			rendered.Body = "Declined: " + decoded.FailureCode
+		case decoded.LastPushError != "":
+			rendered.Body = decoded.LastPushError
+		}
+		return rendered
+	}
+}
+
+// renderPaymentMethodExpiring renders a customer's payment method about to
+// expire, linking to the customer.
+func renderPaymentMethodExpiring(payload []byte, _ Refs) Rendered {
+	var decoded struct {
+		CustomerSlug string    `json:"customerSlug"`
+		ExpiresAt    time.Time `json:"expiresAt"`
+	}
+	_ = json.Unmarshal(payload, &decoded)
+	if decoded.CustomerSlug == "" {
+		return Rendered{ActionURL: customersPath}
+	}
+	rendered := Rendered{
+		Title:     decoded.CustomerSlug + "'s payment method expires soon",
+		ActionURL: customersPath + "/" + decoded.CustomerSlug,
+	}
+	if !decoded.ExpiresAt.IsZero() {
+		rendered.Body = "At the end of " + decoded.ExpiresAt.UTC().Format("January 2006") + "; automatic charges fail after that"
+	}
+	return rendered
+}
+
+// renderSyncFailed renders a payment provider whose changes cannot be read,
+// linking to the billing settings, where its health is.
+func renderSyncFailed(payload []byte, _ Refs) Rendered {
+	var decoded struct {
+		ProviderKind        string `json:"providerKind"`
+		ConsecutiveFailures int32  `json:"consecutiveFailures"`
+		LastSyncError       string `json:"lastSyncError"`
+	}
+	_ = json.Unmarshal(payload, &decoded)
+	provider := decoded.ProviderKind
+	if provider == "" {
+		provider = "the payment provider"
+	}
+	rendered := Rendered{Title: "Payments from " + provider + " are not being read", ActionURL: billingSettingsPath}
+	if decoded.ConsecutiveFailures > 0 {
+		rendered.Body = fmt.Sprintf("%d syncs failed in a row", decoded.ConsecutiveFailures)
+		if decoded.LastSyncError != "" {
+			rendered.Body += ": " + decoded.LastSyncError
+		}
+	}
+	return rendered
+}
+
+// renderVoucherExhausted renders a voucher whose last redemption was taken.
+// Vouchers have no page of their own yet: it links to billing.
+func renderVoucherExhausted(payload []byte, _ Refs) Rendered {
+	var decoded struct {
+		Name           string `json:"name"`
+		MaxRedemptions *int32 `json:"maxRedemptions"`
+	}
+	_ = json.Unmarshal(payload, &decoded)
+	if decoded.Name == "" {
+		return Rendered{ActionURL: billingPath}
+	}
+	rendered := Rendered{Title: "Voucher " + decoded.Name + " is used up", ActionURL: billingPath}
+	if decoded.MaxRedemptions != nil {
+		rendered.Body = fmt.Sprintf("All %d redemptions are taken", *decoded.MaxRedemptions)
 	}
 	return rendered
 }
