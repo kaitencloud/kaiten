@@ -41,8 +41,10 @@ type InvoiceLine struct {
 
 // InvoiceLineProvider is a line as its payment provider holds it.
 type InvoiceLineProvider struct {
-	ExternalLineID string `json:"externalLineId" doc:"The provider's id of the line"`
+	ExternalLineID string `json:"externalLineId,omitempty" doc:"The provider's id of the line; absent on a DISCOUNT line, which the provider holds as discounts on its targets"`
 	Amount         *int64 `json:"amount,omitempty" doc:"The provider's amount, read back for reconciliation"`
+	// CouponIDs are recorded in allocation order as each is created.
+	CouponIDs []string `json:"couponIds,omitempty" doc:"On a DISCOUNT line: the provider's discount (a Stripe coupon) of each allocation, in the allocations' order"`
 }
 
 // InvoiceLineMetering is how a metered line's quantity was measured.

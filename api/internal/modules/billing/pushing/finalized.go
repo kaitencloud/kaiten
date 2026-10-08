@@ -122,6 +122,27 @@ func Reconcile(ctx context.Context, deps access.Deps, box *outbox.ScopedReposito
 	})
 }
 
+// Settle reconciles an issued invoice with its provider's copy, then deletes
+// the discounts the push created for it: they have served, and deleting a
+// coupon leaves the discounts a finalized invoice applied as they are
+// (CR-001 §4 rule 5). Once: an invoice reconciled already is left alone.
+func Settle(ctx context.Context, deps access.Deps, box *outbox.ScopedRepository, conn *provider.Connection, row db.InstanceInvoice,
+	read provider.Invoice, timeout time.Duration,
+) error {
+	if row.ReconciliationStatus != nil {
+		return nil
+	}
+	if err := Reconcile(ctx, deps, box, row, read, conn.InclusiveTax); err != nil {
+		return err
+	}
+	var lines []rating.InvoiceLine
+	if err := json.Unmarshal(row.Lines, &lines); err != nil {
+		return fmt.Errorf("decode lines of invoice %s: %w", row.ID, err)
+	}
+	providers.ReleaseDiscounts(ctx, conn, row.ID, lines, timeout)
+	return nil
+}
+
 func encodeLines(lines []rating.InvoiceLine) ([]byte, error) {
 	if lines == nil {
 		lines = []rating.InvoiceLine{}
