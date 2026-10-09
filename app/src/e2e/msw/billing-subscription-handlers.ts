@@ -2,11 +2,9 @@ import { HttpResponse } from 'msw/http';
 import {
   handleCancelPlanChange,
   handleCancelSubscription,
-  handleDetachInstanceAddon,
   handleGetBillingSettings,
   handleGetInstanceBilling,
   handleGetUpcomingInvoice,
-  handleListInstanceAddons,
   handleListInstanceInvoices,
   handleListLicensePrices,
   handleReactivateSubscription,
@@ -17,6 +15,7 @@ import {
 } from '@/api-client/msw.gen';
 import type { Price } from '@/api-client';
 import type { BillingAppModel } from '../../../e2e/app/_support/model/billing-app-model';
+import type { AddonEffects } from './billing-addon-handlers';
 import { readInvoiceListQuery } from './billing-invoice-handlers';
 import { withProblems } from './billing-problems';
 import { asFallback } from './handler-factory';
@@ -34,8 +33,9 @@ const oneOf = <T extends string>(
  * The subscriptions of the instances: reading one, subscribing an instance,
  * cancelling it, taking the cancellation back, scheduling and dropping a plan
  * change, changing its terms, the invoice its next boundary will issue and the
- * invoices it already issued, the add-ons it holds, and the billing defaults of
- * the organization. Each answers as the API does, with the refusals it gives.
+ * invoices it already issued, and the billing defaults of the organization. Each answers as the API does, with the refusals it gives.
+ * A subscribe that starts with add-ons tells the instances (`addonEffects`) that the
+ * effective values of the one it started changed.
  *
  * The prices of a license version are served as a fallback: the slot of the
  * licenses owns them when it is installed, and the slot of the billing answers
@@ -45,6 +45,7 @@ const oneOf = <T extends string>(
 export const billingSubscriptionHandlers = (
   model: BillingAppModel,
   persist: PersistMswState = noop,
+  addonEffects?: AddonEffects,
 ) => {
   const { subscriptions } = model;
 
@@ -63,6 +64,8 @@ export const billingSubscriptionHandlers = (
           await request.json(),
         );
         persist();
+        // The add-ons it was started with apply at once, like any other.
+        addonEffects?.syncEffectiveValues(params.instanceSlug);
         return HttpResponse.json(started, { status: 201 });
       }),
     ),
@@ -110,26 +113,6 @@ export const billingSubscriptionHandlers = (
         );
         persist();
         return HttpResponse.json(updated);
-      }),
-    ),
-    handleListInstanceAddons(
-      withProblems(({ params, request }) =>
-        HttpResponse.json(
-          subscriptions.listInstanceAddons(
-            params.instanceSlug,
-            new URL(request.url).searchParams.get('includeRemoved') === 'true',
-          ),
-        ),
-      ),
-    ),
-    handleDetachInstanceAddon(
-      withProblems(({ params }) => {
-        subscriptions.detachInstanceAddon(
-          params.instanceSlug,
-          params.addonSlug,
-        );
-        persist();
-        return new HttpResponse(null, { status: 204 });
       }),
     ),
     handleGetUpcomingInvoice(

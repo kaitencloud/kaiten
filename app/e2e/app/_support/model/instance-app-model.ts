@@ -26,6 +26,7 @@ import {
   zPatchInstanceBody,
 } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
+import type { AddonContribution } from './billing-instance-addons';
 import { BillingProblem } from './billing-problem';
 import { ErrorInjector } from './error-injector';
 import {
@@ -274,6 +275,55 @@ export class InstanceAppModel {
   getEntitlementsUsageMetrics(instanceSlug: string) {
     this.findInstance(instanceSlug);
     return clone(this.entitlementUsagesByInstance[instanceSlug] ?? []);
+  }
+
+  /**
+   * What the add-ons an instance holds make of its entitlements, which they change at
+   * once. The `limit` of an entitlement usage is the effective value of the instance
+   * (the cap its counter is measured against), composed from what its license grants
+   * and what each attachment grants per unit of quantity, as the API composes it: an
+   * `OVERRIDE` replaces the license's value, the attachment last in the list winning,
+   * a `MAX` keeps the larger, and an `ADD` adds `value × quantity`. An unlimited grant
+   * stays unlimited. The counter (`value`) is the usage, which an attachment does not
+   * touch. Only a number the license grants is recomposed: it is the one the mocks have
+   * a base for.
+   */
+  applyAddonContributions(
+    instanceSlug: string,
+    contributions: readonly AddonContribution[],
+  ) {
+    const { licenseSlug } = this.findInstance(instanceSlug);
+    for (const usage of this.entitlementUsagesByInstance[instanceSlug] ?? []) {
+      const grant = this.licenseEntitlements.find(
+        (candidate) =>
+          candidate.licenseSlug === licenseSlug &&
+          candidate.entitlementSlug === usage.entitlementSlug,
+      );
+      if (grant?.value.type !== 'number' || grant.value.value === -1) {
+        continue;
+      }
+      const own = contributions.filter(
+        (contribution) =>
+          contribution.entitlementSlug === usage.entitlementSlug,
+      );
+      const override = own
+        .filter(({ behavior }) => behavior === 'OVERRIDE')
+        .at(-1);
+      let value = override
+        ? override.value * override.quantity
+        : grant.value.value;
+      for (const { behavior, quantity, value: perUnit } of own) {
+        if (behavior === 'MAX') {
+          value = Math.max(value, perUnit * quantity);
+        }
+      }
+      for (const { behavior, quantity, value: perUnit } of own) {
+        if (behavior === 'ADD') {
+          value += perUnit * quantity;
+        }
+      }
+      usage.limit = { type: 'number', value };
+    }
   }
 
   listInstances() {

@@ -2,7 +2,6 @@ import type {
   Customer,
   Entitlement,
   Instance,
-  InstanceAddon,
   InstanceBilling,
   Invoice,
   InvoicePreview,
@@ -18,6 +17,7 @@ import type {
   BillingCatalogue,
   SubscribableInstance,
 } from '../../../../e2e/app/_support/model/billing-subscriptions';
+import { licenseFamilySlug } from './addons';
 import { bySlug } from './by-slug';
 import { dayStart, monthFrom } from './billing';
 
@@ -166,7 +166,6 @@ const baseLine = (price: Price, from: string, to: string, label: string) =>
  * Production has none yet.
  */
 export function createBillingSubscriptions(world: SubscriptionsWorld): {
-  addons: Record<string, InstanceAddon[]>;
   catalogue: BillingCatalogue;
   subscriptions: InstanceBilling[];
   upcoming: Record<string, InvoicePreview>;
@@ -344,6 +343,7 @@ export function createBillingSubscriptions(world: SubscriptionsWorld): {
         customerSlug: customer.slug ?? customer.id,
         instanceName: instance.name,
         instanceSlug: instance.slug ?? instance.id,
+        licenseFamilySlug: licenseFamilySlug(license),
         licenseId: license.id,
         licenseSlug: license.slug ?? license.id,
         licenseState: license.lifecycleState ?? 'PUBLISHED',
@@ -360,23 +360,7 @@ export function createBillingSubscriptions(world: SubscriptionsWorld): {
     prices: world.licensePrices,
   };
 
-  // Globex Staging runs two extra seats, which a cancellation offers to take off.
-  const addons: Record<string, InstanceAddon[]> = {
-    'globex-staging': [
-      {
-        addonId: 'addon-extra-seats-v1',
-        addonSlug: 'extra-seats-v1',
-        attachedAt: dayStart(30),
-        familySlug: 'extra-seats',
-        id: 'instance-addon-globex-staging-seats',
-        maxQuantity: 10,
-        prices: [],
-        quantity: 2,
-      },
-    ],
-  };
-
-  return { addons, catalogue, subscriptions, upcoming };
+  return { catalogue, subscriptions, upcoming };
 }
 
 /**
