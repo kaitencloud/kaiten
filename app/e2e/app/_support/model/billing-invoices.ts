@@ -725,7 +725,8 @@ export class BillingInvoices {
 
   private reportsOf(invoiceId: string, lineId: string): UsageReport[] {
     this.consume('listLineReports');
-    const invoice = this.find(invoiceId, 'ListInvoiceLineReports.LineNotFound');
+    // An unknown invoice and an unknown line of a known invoice are two refusals.
+    const invoice = this.find(invoiceId, 'ListInvoiceLineReports.NotFound');
     const line = invoice.lines.find((candidate) => candidate.id === lineId);
     if (!line) {
       throw new BillingProblem(
