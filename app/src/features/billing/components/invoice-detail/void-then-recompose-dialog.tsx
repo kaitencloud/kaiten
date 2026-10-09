@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { Invoice } from '@/api-client';
+import { ReasonDialog } from '@/domains/billing';
 import { getApiErrorMessage } from '@/lib/errors';
 import { useInvoiceMutations } from '../../hooks';
 import { voidFormSchema, voidValuesToBody } from '../../schemas/void.schema';
-import { ReasonDialog } from './reason-dialog';
 
 type VoidThenRecomposeDialogProps = {
   invoice: Invoice;

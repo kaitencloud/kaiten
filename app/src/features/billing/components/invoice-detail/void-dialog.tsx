@@ -1,8 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import type { Invoice } from '@/api-client';
+import { ReasonDialog } from '@/domains/billing';
 import { useInvoiceMutations } from '../../hooks';
 import { voidFormSchema, voidValuesToBody } from '../../schemas/void.schema';
-import { ReasonDialog } from './reason-dialog';
 
 type VoidDialogProps = {
   invoice: Invoice;

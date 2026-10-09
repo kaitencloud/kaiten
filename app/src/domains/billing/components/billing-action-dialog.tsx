@@ -2,7 +2,7 @@ import { type ReactNode, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FormDialog } from '@/components/dialog';
 import { Button } from '@/components/ui/button';
-import { ProblemAlert } from '@/domains/billing';
+import { ProblemAlert } from './problem-alert';
 
 type BillingActionDialogProps = {
   /** What the dialog says and asks: the fields, in their `<form>`. */

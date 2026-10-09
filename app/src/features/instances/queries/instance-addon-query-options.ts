@@ -1,9 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
-import { listAddons, listInstanceAddons } from '@/api-client';
-import {
-  listAddonsQueryKey,
-  listInstanceAddonsQueryKey,
-} from '@/api-client/@tanstack/react-query.gen';
+import { listInstanceAddons } from '@/api-client';
+import { listInstanceAddonsQueryKey } from '@/api-client/@tanstack/react-query.gen';
 import { toListPage } from '@/lib/api/pagination';
 
 // The add-on API answers plain arrays where the rest of the console reads lists
@@ -35,20 +32,6 @@ export const instanceAddonsQueryOptions = (instanceSlug: string) =>
           })
         ).data,
       ),
-    retry: false,
-    retryOnMount: false,
-  });
-
-/**
- * Every version of every add-on, whatever its state: what names the add-ons an
- * instance holds, which may have been withdrawn from sale since, and what the
- * selector of an add-on to attach is drawn from, the versions on sale among them.
- */
-export const addonVersionsQueryOptions = () =>
-  queryOptions({
-    queryKey: listAddonsQueryKey(),
-    queryFn: async ({ signal }) =>
-      toListPage((await listAddons({ signal, throwOnError: true })).data),
     retry: false,
     retryOnMount: false,
   });

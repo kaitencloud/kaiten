@@ -12,8 +12,8 @@ import type {
 import {
   addonCompatibilityQueryOptions,
   addonLicenseFamiliesQueryOptions,
+  addonVersionsQueryOptions,
 } from '@/domains/billing';
-import { addonVersionsQueryOptions } from '../queries';
 import { getAttachableAddons } from '../utils/instance-addons.utils';
 
 type UseAttachableAddonsOptions = {

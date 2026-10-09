@@ -2,9 +2,9 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { z } from 'zod';
 import { createFormSubmitHandler } from '@/hooks/form';
-import { useBillingActionForm } from '../../hooks';
-import { REASON_MAX_LENGTH } from '../../schemas/invoice-reason';
-import { BillingActionDialog } from '../action-dialog';
+import { useBillingActionForm } from '../hooks/use-billing-action-form';
+import { REASON_MAX_LENGTH } from '../logic/reason';
+import { BillingActionDialog } from './billing-action-dialog';
 
 type ReasonDialogProps = {
   /** What the person is told besides the description: what will happen, and to what. */

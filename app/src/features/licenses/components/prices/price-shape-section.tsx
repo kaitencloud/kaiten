@@ -1,5 +1,6 @@
 import { useStore } from '@tanstack/react-form';
 import { useTranslation } from 'react-i18next';
+import { ChoiceButton } from '@/components/choice-button';
 import { withForm } from '@/hooks/form';
 import { isMeteredModel } from '../../utils/license-price.utils';
 import {
@@ -8,7 +9,6 @@ import {
   pickableOption,
 } from './price-meter-options';
 import { priceFormOpts } from './price-form-options';
-import { PriceOptionButton } from './price-option-button';
 import {
   BILLING_MODEL_BLURB_KEYS,
   BILLING_MODEL_LABEL_KEYS,
@@ -65,7 +65,7 @@ export const PriceShapeSection = withForm({
     }
 
     const renderModelOption = (option: BillingModel) => (
-      <PriceOptionButton
+      <ChoiceButton
         detail={t(BILLING_MODEL_BLURB_KEYS[option])}
         disabled={isEditing}
         key={option}
@@ -75,7 +75,7 @@ export const PriceShapeSection = withForm({
       />
     );
     const renderTimingOption = (option: BillingTiming) => (
-      <PriceOptionButton
+      <ChoiceButton
         detail={t(BILLING_TIMING_BLURB_KEYS[option])}
         disabled={metered}
         key={option}

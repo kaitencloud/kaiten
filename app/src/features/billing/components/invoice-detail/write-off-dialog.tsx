@@ -1,11 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import type { Invoice } from '@/api-client';
+import { ReasonDialog } from '@/domains/billing';
 import { useInvoiceMutations } from '../../hooks';
 import {
   writeOffFormSchema,
   writeOffValuesToBody,
 } from '../../schemas/write-off.schema';
-import { ReasonDialog } from './reason-dialog';
 
 type WriteOffDialogProps = {
   invoice: Invoice;

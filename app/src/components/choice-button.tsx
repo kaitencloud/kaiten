@@ -1,7 +1,7 @@
 import { type ReactNode, useId } from 'react';
 import { cn } from '@/lib/utils';
 
-type PriceOptionButtonProps = {
+type ChoiceButtonProps = {
   /** What the option means, under its label. */
   detail?: ReactNode;
   disabled?: boolean;
@@ -13,8 +13,8 @@ type PriceOptionButtonProps = {
 };
 
 /**
- * One choice among a few the form of a price offers, as a button that is pressed
- * when chosen: the shape of a price, how it is billed, what it meters. A choice
+ * One choice among a few a form offers, as a button that is pressed when chosen: the
+ * shape of a price, how it is billed, what it meters, the type of a voucher. A choice
  * that cannot be made stays visible and says why, rather than vanishing.
  *
  * The reason is what a person reads the option for, so a choice that cannot be
@@ -24,14 +24,14 @@ type PriceOptionButtonProps = {
  * explanation under it has to stay readable, and a screen reader names the
  * option by its label and describes it with the rest.
  */
-export function PriceOptionButton({
+export function ChoiceButton({
   detail,
   disabled,
   label,
   onSelect,
   selected,
   trailing,
-}: PriceOptionButtonProps) {
+}: ChoiceButtonProps) {
   const id = useId();
   const labelId = `${id}-label`;
   const detailId = `${id}-detail`;

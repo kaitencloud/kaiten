@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import type { z } from 'zod';
 import { useAppForm } from '@/hooks/form';
-import { placeRefusalOnFields, type RefusalFields } from '@/domains/billing';
+import { placeRefusalOnFields, type RefusalFields } from '../logic';
 
 type UseBillingActionFormOptions<TValues extends Record<string, string>> = {
   defaultValues: TValues;

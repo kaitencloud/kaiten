@@ -6,6 +6,7 @@ import type { InstanceBilling } from '@/api-client';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  addonVersionsQueryOptions,
   BoundaryClosingNotice,
   isSubscriptionLive,
   ListEmptyState,
@@ -17,10 +18,7 @@ import {
 import { TableCard } from '@/functionals/table';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { useInstanceAddonActions } from '../../../../../hooks/use-instance-addon-actions';
-import {
-  addonVersionsQueryOptions,
-  instanceAddonsQueryOptions,
-} from '../../../../../queries';
+import { instanceAddonsQueryOptions } from '../../../../../queries';
 import { joinHeldAddons } from '../../../../../utils/instance-addons.utils';
 import { useInstanceDetail } from '../../../instance-detail-context';
 import { InstanceAddonActionsProvider } from './instance-addon-actions-context';

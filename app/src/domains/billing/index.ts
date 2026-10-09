@@ -2,6 +2,7 @@
 // scopes of its actions, how money, periods and statuses read, and how a refusal
 // is shown. The screens stay in their features; see README.md.
 export {
+  BillingActionDialog,
   BillingNotFound,
   BillingRouteError,
   BillingUnavailable,
@@ -33,6 +34,7 @@ export {
   PagedListSkeleton,
   ProblemAlert,
   ProviderBadge,
+  ReasonDialog,
   RetryableProblem,
   ROW_ACTION_LOOKS,
   type RowActionAppearance,
@@ -51,6 +53,7 @@ export {
   type ActionAccess,
   useActionAccess,
   useAlertFocus,
+  useBillingActionForm,
   useBoundaryRetry,
   useCanPerform,
   useDeletionRefusal,
@@ -155,8 +158,10 @@ export {
   MAX_DAYS_UNTIL_DUE,
   MAX_TRIAL_DAYS,
   placeRefusalOnFields,
+  REASON_MAX_LENGTH,
   readDeletionRefusal,
   readRecomposeRefusal,
+  reasonSchema,
   type RecomposeRefusal,
   PRICE_STATUS_LABEL_KEYS,
   type PriceAmountParts,
@@ -179,6 +184,7 @@ export {
   addonCompatibilityQueryOptions,
   addonLicenseFamiliesQueryOptions,
   addonPricesQueryOptions,
+  addonVersionsQueryOptions,
   BILLING_CAPABILITIES_TIMEOUT_MS,
   billingCapabilitiesQueryOptions,
   billingSettingsQueryOptions,
