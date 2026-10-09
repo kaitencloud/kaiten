@@ -541,6 +541,121 @@ describe('validating and redeeming a code, as the mocks serve it', () => {
     expect((await validate('EURO-CREDIT-25', 'gamma-production')).valid).toBe(true);
   });
 
+  describe('against the price a subscription would start on', () => {
+    // Gamma Production runs Starter 2026 and was never subscribed: its version sells a
+    // flat fee by the month and one by the year, in dollars.
+    const priceOf = async (period: 'ANNUAL' | 'MONTHLY') => {
+      const prices = await json<Array<{ billingPeriod?: string; id: string }>>(
+        await send('GET', '/licenses/starter-v2/prices'),
+      );
+
+      return prices.find((price) => price.billingPeriod === period)?.id ?? '';
+    };
+    const check = async (
+      code: string,
+      licensePriceId: string,
+      instanceSlug = 'gamma-production',
+    ) =>
+      json<Validity>(
+        await send('POST', '/vouchers/validate', {
+          code,
+          instanceSlug,
+          licensePriceId,
+        }),
+      );
+
+    it('reads the period, the amount and the currency of the price, and not the subscription of the instance', async () => {
+      const annual = await createVoucher(
+        percentOff({ code: 'ANNUAL-ONLY-15', redemptionRules: { annualOnly: true } }),
+      );
+      const minimum = await createVoucher(
+        percentOff({
+          code: 'MINIMUM-AMOUNT-30',
+          redemptionRules: {
+            minimumSubscriptionAmount: { currency: 'USD', unitAmountDecimal: '5000000' },
+          },
+        }),
+      );
+      const euros = await createVoucher({
+        code: 'EURO-CREDIT-25',
+        currency: 'EUR',
+        duration: 'ONE_TIME',
+        name: 'Euros',
+        priceAppliesTo: 'BOTH',
+        priceDiscountType: 'FIXED_AMOUNT',
+        priceDiscountValue: '2500',
+        voucherType: 'PRICE',
+      });
+      for (const voucher of [annual, minimum, euros]) {
+        await send('POST', `/vouchers/${voucher.id}/publish`);
+      }
+      const monthly = await priceOf('MONTHLY');
+      const yearly = await priceOf('ANNUAL');
+
+      expect(await check('ANNUAL-ONLY-15', monthly)).toMatchObject({
+        reason: 'NOT_ELIGIBLE',
+        rule: 'ANNUAL_ONLY',
+      });
+      expect((await check('ANNUAL-ONLY-15', yearly)).valid).toBe(true);
+      // $290.00 a year is under the $50,000.00 floor.
+      expect(await check('MINIMUM-AMOUNT-30', yearly)).toMatchObject({
+        reason: 'NOT_ELIGIBLE',
+        rule: 'MINIMUM_SUBSCRIPTION_AMOUNT',
+      });
+      expect(await check('EURO-CREDIT-25', monthly)).toMatchObject({
+        reason: 'CURRENCY_MISMATCH',
+      });
+      // The same instance, with no price: nothing to disagree with.
+      expect((await validate('EURO-CREDIT-25', 'gamma-production')).valid).toBe(true);
+    });
+
+    it('judges the version the price belongs to, which the subscription would move the instance to', async () => {
+      const monthly = await priceOf('MONTHLY');
+
+      // Acme Production runs Enterprise, and the bundle is for Starter.
+      expect(await validate('STARTER-BUNDLE-25', 'acme-production')).toMatchObject({
+        reason: 'NOT_ELIGIBLE',
+        rule: 'LICENSE_NOT_APPLICABLE',
+      });
+      expect((await check('STARTER-BUNDLE-25', monthly, 'acme-production')).valid).toBe(true);
+    });
+
+    it('still runs the checks that need the instance, and says what an unknown code is', async () => {
+      const monthly = await priceOf('MONTHLY');
+
+      expect(await check('DOUBLE-SEATS-GLOBEX', monthly, 'acme-production')).toMatchObject({
+        reason: 'NOT_ELIGIBLE',
+        rule: 'RESTRICTED_CUSTOMER',
+      });
+      expect(await check('GHOST-CODE', monthly)).toEqual({
+        reason: 'NOT_FOUND',
+        valid: false,
+      });
+    });
+
+    it('refuses a price that is no flat fee of the organization, with the code of the API', async () => {
+      const prices = await json<Array<{ billingModel: string; id: string }>>(
+        await send('GET', '/licenses/business/prices'),
+      );
+      const metered = prices.find((price) => price.billingModel === 'OVERAGE');
+      const unknown = await send('POST', '/vouchers/validate', {
+        code: 'LAUNCH-20-OFF',
+        instanceSlug: 'gamma-production',
+        licensePriceId: '00000000-0000-4000-8000-000000000000',
+      });
+      const notFlat = await send('POST', '/vouchers/validate', {
+        code: 'LAUNCH-20-OFF',
+        instanceSlug: 'gamma-production',
+        licensePriceId: metered?.id,
+      });
+
+      expect(unknown.status).toBe(404);
+      expect((await refusal(unknown)).code).toBe('ValidateVoucher.PriceNotFound');
+      expect(notFlat.status).toBe(404);
+      expect((await refusal(notFlat)).code).toBe('ValidateVoucher.PriceNotFound');
+    });
+  });
+
   it('redeems a discount: the voucher counts it, and the next invoice carries the discount', async () => {
     const response = await send('POST', '/instances/gamma-production/vouchers/redeem', {
       code: 'launch-20-off',
