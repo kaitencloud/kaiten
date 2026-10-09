@@ -10,10 +10,7 @@ import {
   listLicensePricesQueryKey,
 } from '@/api-client/@tanstack/react-query.gen';
 import { getProblemCode } from '@/domains/billing';
-import {
-  allInstanceInvoicesOptions,
-  allLicensesOptions,
-} from '@/lib/api/all-pages-query-options';
+import { allInstanceInvoicesOptions } from '@/lib/api/all-pages-query-options';
 
 const NOT_SUBSCRIBED = 'GetInstanceBilling.NotFound';
 const UPCOMING_NOT_FOUND = 'GetUpcomingInvoice.NotFound';
@@ -125,15 +122,3 @@ export const subscribablePricesQueryOptions = (licenseSlug: string) => {
     retryOnMount: false,
   });
 };
-
-/**
- * Every version of every license, where the plans a subscription can move to are
- * found: a plan change may target the price of any published version, whatever
- * its family. The prices of each version are read apart (`subscribablePricesQueryOptions`),
- * since the API lists them per version.
- */
-export const planTargetLicensesQueryOptions = () => ({
-  ...allLicensesOptions(),
-  retry: false,
-  retryOnMount: false,
-});

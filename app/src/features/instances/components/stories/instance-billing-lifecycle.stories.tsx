@@ -1,18 +1,16 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { HttpResponse } from 'msw';
 import { expect, waitFor, within } from 'storybook/test';
 import type { InstanceBilling, InvoiceSummary } from '@/api-client';
 import {
   handleGetBillingCapabilities,
-  handleGetLicenses,
   handleListInstanceInvoices,
-  handleListLicensePrices,
 } from '@/api-client/msw.gen';
 import {
   billingCapabilitiesProfiles,
   buildLicense,
   buildPrice,
   buildSubscription,
+  storyLicensePricesHandler,
 } from '@/test-fixtures/storybook-billing-fixtures';
 import { onePage } from '@/test-fixtures/storybook-handlers';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
@@ -238,8 +236,9 @@ export const ScheduledChange: Story = {
     msw: {
       handlers: [
         handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }),
-        handleGetLicenses(onePage([ENTERPRISE_V4])),
-        handleListLicensePrices(() => HttpResponse.json([ANNUAL])),
+        storyLicensePricesHandler([ENTERPRISE_V4], {
+          'enterprise-v4': [ANNUAL],
+        }),
       ],
     },
   },

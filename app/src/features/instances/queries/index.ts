@@ -3,7 +3,6 @@ export { instanceVouchersQueryOptions } from './instance-voucher-query-options';
 export {
   instanceBillingQueryOptions,
   instanceInvoicesQueryOptions,
-  planTargetLicensesQueryOptions,
   subscribablePricesQueryOptions,
   upcomingInvoiceQueryOptions,
 } from './instance-billing-query-options';

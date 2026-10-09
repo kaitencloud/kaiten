@@ -1,11 +1,23 @@
 import { useTranslation } from 'react-i18next';
-import type { License, Price } from '@/api-client';
+import type { Price } from '@/api-client';
 import {
   BILLING_TIMING_LABEL_KEYS,
   getPriceAmountParts,
   getPriceLabel,
   joinPriceAmount,
 } from '@/domains/billing';
+
+/** What describes a plan: the price (`Price` of the contract, or the catalogue's) and, when known, its license version. */
+type DescribedPrice = Pick<
+  Price,
+  | 'billingModel'
+  | 'billingPeriod'
+  | 'billingTiming'
+  | 'currency'
+  | 'displayLabel'
+  | 'metered'
+  | 'unitAmountDecimal'
+>;
 
 type PlanDescription = {
   /** What the plan charges, over what period: `$39.00/month`. */
@@ -27,7 +39,7 @@ type PlanDescription = {
 export function useDescribePlan() {
   const { i18n, t } = useTranslation();
 
-  return (price: Price, license?: Pick<License, 'name' | 'version'>) =>
+  return (price: DescribedPrice, license?: { name: string; version: string }) =>
     ({
       amount: joinPriceAmount(
         getPriceAmountParts(price, undefined, t, i18n.language),

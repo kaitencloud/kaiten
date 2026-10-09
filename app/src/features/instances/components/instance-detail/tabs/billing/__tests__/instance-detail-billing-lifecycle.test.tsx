@@ -4,15 +4,14 @@ import { HttpResponse } from 'msw';
 import type { AnchorHTMLAttributes } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
+import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
 import type { InstanceBilling } from '@/api-client';
 import {
   handleCancelPlanChange,
   handleGetBillingCapabilities,
   handleGetInstanceBilling,
-  handleGetLicenses,
   handleGetUpcomingInvoice,
   handleListInstanceInvoices,
-  handleListLicensePrices,
   handleReactivateSubscription,
 } from '@/api-client/msw.gen';
 import {
@@ -32,8 +31,7 @@ import { InstanceDetailBillingTab } from '../instance-detail-billing-tab';
 import {
   BUSINESS_V3_MONTHLY,
   INSTANCE,
-  PLAN_LICENSES,
-  PRICES_BY_LICENSE,
+  servePlans,
   subscription,
 } from './lifecycle-fixtures';
 
@@ -99,10 +97,7 @@ beforeEach(() => {
   server.use(
     handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }),
     handleListInstanceInvoices({ body: pageOf([]) }),
-    handleGetLicenses({ body: pageOf(PLAN_LICENSES) }),
-    handleListLicensePrices(({ params }) =>
-      HttpResponse.json(PRICES_BY_LICENSE[String(params.licenseSlug)] ?? []),
-    ),
+    servePlans().handler,
     handleGetUpcomingInvoice({
       body: buildUpcomingInvoice({
         asOf: NOW.toISOString(),
@@ -528,7 +523,7 @@ describe('a plan change waiting for the boundary', () => {
 
   it('names the price alone when no version on sale holds it, and is no less true', async () => {
     serve(WITH_CHANGE());
-    server.use(handleListLicensePrices({ body: [] }));
+    server.use(servePlans({ prices: {} }).handler);
     renderTab();
 
     expect(await screen.findByTestId('scheduled-change-notice')).toHaveTextContent(
@@ -538,7 +533,13 @@ describe('a plan change waiting for the boundary', () => {
 
   it('keeps naming the price when the licenses cannot be read', async () => {
     serve(WITH_CHANGE());
-    server.use(handleGetLicenses(() => refusal(403, { code: 'Auth.MissingScope', detail: 'no' })));
+    server.use(
+      graphqlOperationHandler({
+        GetLicensesWithPrices: () => {
+          throw Object.assign(new Error('the licenses cannot be read'), { httpStatus: 502 });
+        },
+      }),
+    );
     renderTab();
 
     const notice = await screen.findByTestId('scheduled-change-notice');
@@ -548,27 +549,16 @@ describe('a plan change waiting for the boundary', () => {
 
   it('reads no license to name the plan for a session that may not read licenses', async () => {
     getAuthToken.mockResolvedValue(sessionToken(['read:billing', 'write:billing']));
-    const reads = vi.fn();
+    const plans = servePlans();
     serve(WITH_CHANGE());
-    server.use(
-      handleGetLicenses(() => {
-        reads();
-
-        return HttpResponse.json(pageOf(PLAN_LICENSES));
-      }),
-      handleListLicensePrices(() => {
-        reads();
-
-        return HttpResponse.json(PRICES_BY_LICENSE['business-v3'] ?? []);
-      }),
-    );
+    server.use(plans.handler);
     renderTab();
 
     const notice = await screen.findByTestId('scheduled-change-notice');
     // Long enough for the reads to have answered, were they made.
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(notice).toHaveTextContent('Changes to Business, monthly ($149.00/month)');
-    expect(reads).not.toHaveBeenCalled();
+    expect(plans.requests).toEqual([]);
   });
 
   it('drops the change with one click, and the notice goes with it', async () => {
