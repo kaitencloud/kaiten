@@ -85,14 +85,21 @@ const (
 	InvariantCounterMismatch Invariant = "LEDGER_COUNTER_MISMATCH"
 )
 
-// InvariantFailure is one failed invariant, with what was expected and found.
+// InvariantFailure is one failed invariant (S07-029/031): the value the
+// journal should have had and the one it has, as values a reader can compare
+// -- a report_seq, a count of reports, a counter value -- with the sentence
+// saying which is which in Detail.
 type InvariantFailure struct {
-	Invariant        Invariant `json:"invariant"`
-	Expected         string    `json:"expected"`
-	Found            string    `json:"found"`
-	FirstSeq         *int64    `json:"firstSeq"`
-	LastSeq          *int64    `json:"lastSeq"`
-	CounterReportSeq *int64    `json:"counterReportSeq"`
+	Invariant Invariant `json:"invariant"`
+	// Expected and Found are decimal strings; Found is null when the value is
+	// missing altogether, and both are when only the report at fault is known.
+	Expected         *string `json:"expected"`
+	Found            *string `json:"found"`
+	Detail           string  `json:"detail"`
+	ReportSeq        *int64  `json:"reportSeq" doc:"The report the failure is at, when one is"`
+	FirstSeq         *int64  `json:"firstSeq"`
+	LastSeq          *int64  `json:"lastSeq"`
+	CounterReportSeq *int64  `json:"counterReportSeq"`
 }
 
 // UsageSource is the usage journal as billing reads it.
