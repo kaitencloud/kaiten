@@ -8,7 +8,7 @@ operation's handler generated from the OpenAPI contract (`@/api-client/msw.gen`)
 so its path, params and body are typed; GraphQL and the notification stream,
 which the contract does not describe, are written by hand.
 
-Billing is served by seven files: `billing-handlers.ts` (the capabilities, and
+Billing is served by eight files: `billing-handlers.ts` (the capabilities, and
 the assembly of the invoice handlers; the prices and the preview of a license
 version are the license handlers'), `billing-invoice-handlers.ts` (the invoices,
 their lines' usage reports, the exports and the handoff queue, which read the
@@ -19,6 +19,8 @@ invoices, the billing defaults of the organization, and the prices of a license
 version for the slot that does not own the licenses), `billing-addon-handlers.ts`
 (the catalogue of add-ons, and the add-ons an instance holds), `billing-voucher-handlers.ts`
 (the vouchers, and what an instance redeemed of them),
+`billing-publishable-key-handlers.ts` (the publishable keys: listed by their last four
+characters, issued once, edited and revoked),
 `billing-provider-handlers.ts` (what the payment provider adds: the health of billing and
 the pass that mirrors the provider, a customer as the provider holds it, the payment method
 it saves, replaces and removes through the pages it hosts, and its portal) and
@@ -60,6 +62,13 @@ the API. `src/__tests__/billing-subscription-mocks.test.ts`,
 `usage-history-mocks.test.ts`, `billing-refusal-mocks.test.ts`,
 `billing-addon-mocks.test.ts` and `billing-voucher-mocks.test.ts` read their answers off
 the wire.
+
+The publishable keys are `BillingPublishableKeys` (`billing-publishable-keys.ts`): the
+label and the origins are checked in the order and with the codes of the API (an origin is
+`https://host[:port]`, or `http://localhost[:port]`, with no path), a revoked key cannot
+change, a revocation is final and answers the same again, and the key itself is in the
+answer to its creation and nowhere else, so that the state a page persists never holds one.
+`src/__tests__/billing-publishable-key-mocks.test.ts` reads these answers off the wire.
 
 Stripe's connector is served by `connector-handlers.ts` over the operations of Attio's, told apart
 by the name in the path (`ConnectorAppModel`: the key is write-only and redacted, a save

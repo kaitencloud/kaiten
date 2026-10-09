@@ -85,7 +85,11 @@ import {
   createInstancesListModel,
   createTypedMetadataInstanceModel,
 } from '../instances/instances.scenarios';
-import { createSdkServiceAccount } from '../integrations/integrations.scenarios';
+import {
+  createEmptyPublishableKeysBillingModel,
+  createPublishableKeysBillingModel,
+  createSdkServiceAccount,
+} from '../integrations/integrations.scenarios';
 import {
   createBilledCatalogModel,
   createDraftPricesModel,
@@ -281,6 +285,14 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     createCustomerScopedInstanceModel,
   ],
   ['integrations/createSdkServiceAccount', createSdkServiceAccount],
+  [
+    'integrations/createPublishableKeysBillingModel',
+    createPublishableKeysBillingModel,
+  ],
+  [
+    'integrations/createEmptyPublishableKeysBillingModel',
+    createEmptyPublishableKeysBillingModel,
+  ],
   ['licenses/createLicenseCatalogModel', createLicenseCatalogModel],
   [
     'release-management/createReleaseManagementReadModel',
