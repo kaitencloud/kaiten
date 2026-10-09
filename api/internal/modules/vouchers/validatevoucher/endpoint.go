@@ -29,9 +29,12 @@ func RegisterEndpoint(api huma.API, app Validator) {
 		Method:      http.MethodPost,
 		Path:        "/vouchers/validate",
 		Summary:     "Validate a voucher code",
-		Description: "Runs the redemption checks without redeeming: the voucher's own, and, with instanceSlug, the instance's. Answers 200 with valid, and the first failing reason (and eligibility rule) otherwise. Requires billing to be enabled for the organization.",
+		Description: "Runs the redemption checks without redeeming: the voucher's own; with instanceSlug, the instance's; with licensePriceId, those that read the subscription, on the subscription that price would start. Answers 200 with valid, and the first failing reason (and eligibility rule) otherwise. 404 .InstanceNotFound, .PriceNotFound; 429 .RateLimited past 60 checks a minute per principal, with Retry-After. Requires billing to be enabled for the organization.",
 		Tags:        []string{"vouchers"},
-		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
+		Errors: []int{
+			http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusUnprocessableEntity,
+			http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusServiceUnavailable,
+		},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)
 		if err != nil {

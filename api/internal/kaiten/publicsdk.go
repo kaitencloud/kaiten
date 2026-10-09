@@ -27,6 +27,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/updatepublishablekey"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/validatesessionvoucher"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
@@ -148,6 +149,16 @@ func (p PublicSDK) ReactivateSessionSubscription(ctx context.Context, cl caller.
 	return p.uc.ReactivateSessionSubscription.Execute(bindCustomerSession(ctx, cl), reactivatesessionsubscription.Session{
 		InstanceSlug: cl.InstanceSlug(),
 	})
+}
+
+// ValidateSessionVoucher checks a code for the session's customer, and its
+// instance when bound; the session and the customer are what it is limited by.
+func (p PublicSDK) ValidateSessionVoucher(ctx context.Context, cl caller.CustomerSessionCaller,
+	request validatesessionvoucher.SessionVoucherCheck,
+) (*validatesessionvoucher.SessionVoucherValidity, error) {
+	return p.uc.ValidateSessionVoucher.Execute(bindCustomerSession(ctx, cl), validatesessionvoucher.Session{
+		SessionID: cl.SessionID(), CustomerID: cl.CustomerID(), InstanceSlug: cl.InstanceSlug(),
+	}, request)
 }
 
 // CreateSessionCheckout and ListSessionInvoices take a customer session caller,

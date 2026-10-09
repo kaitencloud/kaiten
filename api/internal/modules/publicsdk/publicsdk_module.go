@@ -27,6 +27,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/updatepublishablekey"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/validatesessionvoucher"
 )
 
 // UseCases contains all the use case handlers for the public SDK module.
@@ -58,6 +59,7 @@ type UseCases struct {
 
 	CancelSessionSubscription     *cancelsessionsubscription.UseCase
 	ReactivateSessionSubscription *reactivatesessionsubscription.UseCase
+	ValidateSessionVoucher        *validatesessionvoucher.UseCase
 }
 
 // Ports are the other modules' operations the session routes run: a checkout
@@ -74,6 +76,7 @@ type Ports struct {
 	OpenPortal      createsessionportalsession.Opener
 	Cancel          cancelsessionsubscription.Canceler
 	Reactivate      reactivatesessionsubscription.Reactivator
+	Vouchers        validatesessionvoucher.Validator
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -107,5 +110,6 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 
 		CancelSessionSubscription:     cancelsessionsubscription.NewUseCase(from.Cancel),
 		ReactivateSessionSubscription: reactivatesessionsubscription.NewUseCase(from.Reactivate),
+		ValidateSessionVoucher:        validatesessionvoucher.NewUseCase(from.Vouchers),
 	}
 }

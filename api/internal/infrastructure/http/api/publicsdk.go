@@ -19,6 +19,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/updatepublishablekey"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/validatesessionvoucher"
 )
 
 // registerPublicSDK publishes the publishable key operations on the Core API
@@ -39,5 +40,6 @@ func registerPublicSDK(core huma.API, app kaiten.PublicSDK) {
 	createsessionportalsession.RegisterEndpoint(core, app)
 	cancelsessionsubscription.RegisterEndpoint(core, app)
 	reactivatesessionsubscription.RegisterEndpoint(core, app)
+	validatesessionvoucher.RegisterEndpoint(core, app)
 	keys.RegisterWebhooks(core)
 }
