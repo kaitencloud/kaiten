@@ -14,9 +14,13 @@ import { BILLED_NOW } from '../billing/billed-instances';
 // instances of Initech are on Pro: ten seats and a hundred thousand tokens, to which an
 // add-on adds.
 
+// A version is chosen by its name and which version it is, and listed once held by the
+// name its attachment carries.
 const SEATS = 'Extra seats · 2026';
 const TOKENS = 'Extra tokens · 2026';
 const SUPPORT = 'Priority support · 2026';
+const HELD_SEATS = 'Extra seats';
+const HELD_TOKENS = 'Extra tokens';
 const NOTE =
   'Entitlement changes now; billed from the next renewal; no proration or refund.';
 const ADDON_WRITES = /\/api\/instances\/[^/]+\/addons(\/[^/]+)?$/;
@@ -37,9 +41,9 @@ test.describe('the add-ons of an instance', () => {
 
     await expect(addons.card()).toBeVisible();
     await expect(addons.rows()).toHaveCount(1);
-    await expect(addons.row(SEATS)).toContainText('extra-seats-v1');
-    await expect(addons.row(SEATS)).toContainText('$10.00/month');
-    await expect(addons.quantity(SEATS)).toHaveText('2');
+    await expect(addons.row(HELD_SEATS)).toContainText('extra-seats-v1');
+    await expect(addons.row(HELD_SEATS)).toContainText('$10.00/month');
+    await expect(addons.quantity(HELD_SEATS)).toHaveText('2');
     await expect(addons.note()).toHaveText(NOTE);
   });
 
@@ -52,16 +56,16 @@ test.describe('the add-ons of an instance', () => {
     await installAddonsWorld(page);
     await billing.goto('initech-prod');
 
-    await addons.more(SEATS).click();
+    await addons.more(HELD_SEATS).click();
 
-    await expect(addons.quantity(SEATS)).toHaveText('3');
+    await expect(addons.quantity(HELD_SEATS)).toHaveText('3');
     // Three is the most this version allows.
-    await expect(addons.more(SEATS)).toBeDisabled();
+    await expect(addons.more(HELD_SEATS)).toBeDisabled();
     await expect(addons.note()).toHaveText(NOTE);
-    await addons.fewer(SEATS).click();
+    await addons.fewer(HELD_SEATS).click();
 
-    await expect(addons.quantity(SEATS)).toHaveText('2');
-    await expect(addons.more(SEATS)).toBeEnabled();
+    await expect(addons.quantity(HELD_SEATS)).toHaveText('2');
+    await expect(addons.more(HELD_SEATS)).toBeEnabled();
     expect(writes).toEqual([
       {
         body: { quantity: 3 },
@@ -84,10 +88,10 @@ test.describe('the add-ons of an instance', () => {
     await installAddonsWorld(page);
     await billing.goto('initech-prod');
 
-    await addons.more(SEATS).click();
+    await addons.more(HELD_SEATS).click();
 
     // Ten seats from the license and five a unit: twenty, then twenty-five.
-    await expectToast(page, 'Extra seats · 2026: now × 3');
+    await expectToast(page, 'Extra seats: now × 3');
     await expectToast(page, 'Seats: 20 → 25');
     await page.getByRole('tab', { name: 'Entitlements & Usage' }).click();
     await expect(
@@ -109,12 +113,12 @@ test.describe('the add-ons of an instance', () => {
     await installAddonsWorld(page, model);
     await billing.goto('initech-prod');
 
-    await addons.more(SEATS).click();
+    await addons.more(HELD_SEATS).click();
 
     await expect(addons.alert()).toContainText(
       'this add-on allows at most 3 units',
     );
-    await expect(addons.quantity(SEATS)).toHaveText('2');
+    await expect(addons.quantity(HELD_SEATS)).toHaveText('2');
   });
 
   test('asks before it takes one off, says what that costs, and removes it once confirmed', async ({
@@ -126,10 +130,10 @@ test.describe('the add-ons of an instance', () => {
     await installAddonsWorld(page);
     await billing.goto('initech-prod');
 
-    await addons.removeButton(SEATS).click();
+    await addons.removeButton(HELD_SEATS).click();
 
     await expect(addons.confirmation()).toContainText(
-      'Remove Extra seats · 2026 from this instance?',
+      'Remove Extra seats from this instance?',
     );
     await expect(addons.confirmation()).toContainText(
       'The current period is not refunded, and the add-on is no longer billed from the next invoice.',
@@ -138,7 +142,7 @@ test.describe('the add-ons of an instance', () => {
     await addons.confirmRemoval();
 
     await expect(addons.empty()).toBeVisible();
-    await expectToast(page, 'Extra seats · 2026 removed');
+    await expectToast(page, 'Extra seats removed');
     expect(writes).toEqual([
       {
         body: null,
@@ -156,7 +160,7 @@ test.describe('the add-ons of an instance', () => {
     await installAddonsWorld(page);
     await billing.goto('initech-prod');
 
-    await addons.removeButton(SEATS).click();
+    await addons.removeButton(HELD_SEATS).click();
     await addons.confirmRemoval();
 
     await expectToast(page, 'Seats: 20 → 10');
@@ -171,11 +175,11 @@ test.describe('the add-ons of an instance', () => {
     await installAddonsWorld(page);
     await billing.goto('initech-prod');
 
-    await addons.removeButton(SEATS).click();
+    await addons.removeButton(HELD_SEATS).click();
     await addons.confirmation().getByRole('button', { name: 'Cancel' }).click();
 
     await expect(addons.confirmation()).toHaveCount(0);
-    await expect(addons.row(SEATS)).toBeVisible();
+    await expect(addons.row(HELD_SEATS)).toBeVisible();
     expect(writes).toEqual([]);
   });
 });
@@ -241,8 +245,8 @@ test.describe('adding an add-on to an instance', () => {
     await expect(page).toHaveURL(
       /\/customers\/instances\/initech-prod\/billing$/,
     );
-    await expect(addons.row(TOKENS)).toBeVisible();
-    await expect(addons.quantity(TOKENS)).toHaveText('3');
+    await expect(addons.row(HELD_TOKENS)).toBeVisible();
+    await expect(addons.quantity(HELD_TOKENS)).toHaveText('3');
     await expectToast(page, 'Extra tokens · 2026 added (× 3)');
     // Three units of ten thousand on the hundred thousand the license grants.
     await expectToast(page, 'Tokens: 100,000 → 130,000');
@@ -325,7 +329,7 @@ test.describe('adding an add-on to an instance', () => {
     await expect(addons.closing()).toContainText('Closing the period');
     await expect(addons.dialog().getByRole('alert')).toHaveCount(0);
     await expect(addons.dialog()).toHaveCount(0);
-    await expect(addons.row(TOKENS)).toBeVisible();
+    await expect(addons.row(HELD_TOKENS)).toBeVisible();
     // The very same request, twice: nothing was changed by the first.
     expect(writes).toHaveLength(2);
     expect(writes[1].body).toEqual(writes[0].body);
@@ -359,9 +363,9 @@ test.describe('adding an add-on to an instance', () => {
     await expect(addons.notLive()).toContainText(
       'Add-ons can be added while the subscription is live',
     );
-    await expect(addons.quantity(SEATS)).toHaveText('1');
-    await addons.more(SEATS).click();
-    await expect(addons.quantity(SEATS)).toHaveText('2');
+    await expect(addons.quantity(HELD_SEATS)).toHaveText('1');
+    await addons.more(HELD_SEATS).click();
+    await expect(addons.quantity(HELD_SEATS)).toHaveText('2');
   });
 
   test('says there is nothing to add when it is opened from a link on a subscription that is not live', async ({
@@ -407,9 +411,9 @@ test.describe('who may change the add-ons of an instance', () => {
 
     await billing.goto('initech-prod');
 
-    await expect(addons.row(SEATS)).toContainText('2');
-    await expect(addons.stepper(SEATS)).toHaveCount(0);
-    await expect(addons.removeButton(SEATS)).toHaveCount(0);
+    await expect(addons.row(HELD_SEATS)).toContainText('2');
+    await expect(addons.stepper(HELD_SEATS)).toHaveCount(0);
+    await expect(addons.removeButton(HELD_SEATS)).toHaveCount(0);
     await expect(addons.attachLink()).toHaveCount(0);
   });
 
@@ -454,7 +458,7 @@ test.describe('a period being closed, while an add-on is changed', () => {
     await installAddonsWorld(page, model);
     await billing.goto('initech-prod');
 
-    await addons.more(SEATS).click();
+    await addons.more(HELD_SEATS).click();
 
     // The first refusal is not an error: the card says what is happening.
     await expect(addons.closing()).toContainText('Closing the period');
@@ -471,10 +475,10 @@ test.describe('a period being closed, while an add-on is changed', () => {
     await expect(addons.closing()).toHaveCount(0);
     expect(writes).toHaveLength(2);
     expect(writes[1].body).toEqual(writes[0].body);
-    await expect(addons.quantity(SEATS)).toHaveText('2');
+    await expect(addons.quantity(HELD_SEATS)).toHaveText('2');
     await addons.alert().getByRole('button', { name: 'Retry' }).click();
 
-    await expect(addons.quantity(SEATS)).toHaveText('3');
+    await expect(addons.quantity(HELD_SEATS)).toHaveText('3');
     expect(writes).toHaveLength(3);
   });
 });
@@ -540,9 +544,9 @@ test.describe('subscribing an instance with add-ons', () => {
       },
     ]);
     await billing.close();
-    await expect(addons.row(SEATS)).toBeVisible();
-    await expect(addons.quantity(SEATS)).toHaveText('2');
-    await expect(addons.row(TOKENS)).toBeVisible();
+    await expect(addons.row(HELD_SEATS)).toBeVisible();
+    await expect(addons.quantity(HELD_SEATS)).toHaveText('2');
+    await expect(addons.row(HELD_TOKENS)).toBeVisible();
   });
 
   test('starts with none when none is included: the request carries no add-on', async ({

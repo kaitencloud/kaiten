@@ -9,7 +9,6 @@ import {
   diffEffectiveValues,
   getAttachableAddons,
   getFlatFee,
-  getHeldAddonLabel,
   getQuantityBounds,
   getQuantityProblem,
   getQuantitySteps,
@@ -61,17 +60,18 @@ describe('the add-ons an instance holds', () => {
     ]);
   });
 
-  it('names a version the catalogue does not know by its slug', () => {
+  it('keeps an attachment the catalogue does not know, which carries its own name', () => {
     const [row] = joinHeldAddons([heldSeats], []);
 
     expect(row?.addon).toBeUndefined();
-    expect(getHeldAddonLabel(row!)).toBe('extra-seats-v1');
+    expect(row?.held.name).toBe('Extra seats');
   });
 
-  it('names a known version by its name and which version it is', () => {
+  it('joins a known version by the slug of the attachment, without renaming it', () => {
     const [row] = joinHeldAddons([heldSeats], [seats]);
 
-    expect(getHeldAddonLabel(row!)).toBe('Extra seats · 2026');
+    expect(row?.addon?.versionName).toBe('2026');
+    expect(row?.held.name).toBe('Extra seats');
   });
 });
 

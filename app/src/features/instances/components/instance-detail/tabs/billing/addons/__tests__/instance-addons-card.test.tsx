@@ -140,11 +140,11 @@ const renderCard = (value = subscription() as Parameters<typeof InstanceAddonsCa
 /** Lets what a screen that is not drawn would have asked for go out, so that its absence says something. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
 
-const stepper = () => screen.findByRole('group', { name: 'Quantity of Extra seats · 2026' });
+const stepper = () => screen.findByRole('group', { name: 'Quantity of Extra seats' });
 const more = async () =>
-  within(await stepper()).getByRole('button', { name: 'One unit more of Extra seats · 2026' });
+  within(await stepper()).getByRole('button', { name: 'One unit more of Extra seats' });
 const fewer = async () =>
-  within(await stepper()).getByRole('button', { name: 'One unit fewer of Extra seats · 2026' });
+  within(await stepper()).getByRole('button', { name: 'One unit fewer of Extra seats' });
 
 describe('where the card is drawn', () => {
   it('is not drawn where the release has no add-ons, and asks nothing', async () => {
@@ -219,7 +219,7 @@ describe('where the card is drawn', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
 
-    expect(await screen.findByText('Extra seats · 2026')).toBeInTheDocument();
+    expect(await screen.findByText('Extra seats')).toBeInTheDocument();
   });
 });
 
@@ -229,7 +229,7 @@ describe('what the card lists', () => {
     renderCard();
 
     const card = await screen.findByTestId('instance-addons');
-    await within(card).findByText('Extra seats · 2026');
+    await within(card).findByText('Extra seats');
 
     expect(within(card).getByText('extra-seats-v1')).toBeInTheDocument();
     expect(within(await stepper()).getByTestId('quantity-value')).toHaveTextContent('2');
@@ -238,16 +238,25 @@ describe('what the card lists', () => {
     expect(within(card).getByTestId('addons-note')).toHaveTextContent(NOTE);
   });
 
-  it('names an add-on by its slug when the session cannot read the catalogue', async () => {
+  it('names an add-on by the name its attachment carries, with no read of the catalogue', async () => {
     getAuthToken.mockResolvedValue(
       sessionToken(['read:billing', 'read:instances', 'write:instances']),
+    );
+    const catalogue = vi.fn();
+    server.use(
+      handleListAddons(() => {
+        catalogue();
+
+        return HttpResponse.json([SEATS_V1]);
+      }),
     );
     serveHeld([heldSeats()]);
     renderCard();
 
-    // The slug is what is left to call it, in the place of the name.
-    expect(await screen.findAllByText('extra-seats-v1')).not.toHaveLength(0);
-    expect(screen.queryByText('Extra seats · 2026')).toBeNull();
+    expect(await screen.findByText('Extra seats')).toBeInTheDocument();
+    expect(screen.getByText('extra-seats-v1')).toBeInTheDocument();
+    await settle();
+    expect(catalogue).not.toHaveBeenCalled();
   });
 
   it('says an add-on that was withdrawn from sale since is kept until it is removed', async () => {
@@ -335,7 +344,7 @@ describe('the quantity of an add-on', () => {
       { body: { quantity: 3 }, method: 'PATCH', slug: 'extra-seats-v1' },
     ]);
     // Ten seats the license grants and five a unit: twenty, then twenty-five.
-    expect(toast.success).toHaveBeenCalledWith('Extra seats · 2026: now × 3', {
+    expect(toast.success).toHaveBeenCalledWith('Extra seats: now × 3', {
       description: 'Seats: 20 → 25',
     });
   });
@@ -346,7 +355,7 @@ describe('the quantity of an add-on', () => {
 
     await userEvent.click(await more());
     await waitFor(() =>
-      expect(within(screen.getByRole('group', { name: 'Quantity of Extra seats · 2026' })).getByTestId('quantity-value')).toHaveTextContent('3'),
+      expect(within(screen.getByRole('group', { name: 'Quantity of Extra seats' })).getByTestId('quantity-value')).toHaveTextContent('3'),
     );
 
     expect(await more()).toBeDisabled();
@@ -359,7 +368,7 @@ describe('the quantity of an add-on', () => {
 
     await userEvent.click(await fewer());
     await waitFor(() =>
-      expect(within(screen.getByRole('group', { name: 'Quantity of Extra seats · 2026' })).getByTestId('quantity-value')).toHaveTextContent('1'),
+      expect(within(screen.getByRole('group', { name: 'Quantity of Extra seats' })).getByTestId('quantity-value')).toHaveTextContent('1'),
     );
 
     expect(await fewer()).toBeDisabled();
@@ -392,7 +401,7 @@ describe('the quantity of an add-on', () => {
     serveHeld([heldSeats()]);
     renderCard();
 
-    await screen.findByText('Extra seats · 2026');
+    await screen.findByText('Extra seats');
 
     expect(screen.queryByRole('group')).toBeNull();
     expect(screen.queryByRole('button', { name: /One unit/ })).toBeNull();
@@ -430,7 +439,7 @@ describe('the quantity of an add-on', () => {
 });
 
 describe('taking an add-on off', () => {
-  const remove = async () => userEvent.click(await screen.findByRole('button', { name: 'Remove Extra seats · 2026' }));
+  const remove = async () => userEvent.click(await screen.findByRole('button', { name: 'Remove Extra seats' }));
   const confirm = () => screen.findByRole('button', { name: 'Remove' });
 
   it('asks first, and says the period under way is not refunded and the add-on is no longer billed from the next invoice', async () => {
@@ -440,7 +449,7 @@ describe('taking an add-on off', () => {
     await remove();
     const dialog = await screen.findByRole('alertdialog');
 
-    expect(within(dialog).getByText('Remove Extra seats · 2026 from this instance?')).toBeInTheDocument();
+    expect(within(dialog).getByText('Remove Extra seats from this instance?')).toBeInTheDocument();
     expect(within(dialog).getByTestId('remove-addon-billing')).toHaveTextContent(
       'The current period is not refunded, and the add-on is no longer billed from the next invoice.',
     );
@@ -479,7 +488,7 @@ describe('taking an add-on off', () => {
 
     await waitFor(() => expect(requests).toEqual([{ method: 'DELETE', slug: 'extra-seats-v1' }]));
     expect(await screen.findByTestId('instance-addons-empty')).toBeInTheDocument();
-    expect(toast.success.mock.calls[0]?.[0]).toBe('Extra seats · 2026 removed');
+    expect(toast.success.mock.calls[0]?.[0]).toBe('Extra seats removed');
   });
 
   it('shows the words of a refusal above the list, with a way to ask again', async () => {
@@ -519,7 +528,7 @@ describe('what an add-on did to what the instance is entitled to', () => {
     await userEvent.click(await more());
 
     await waitFor(() => expect(toast.success).toHaveBeenCalled());
-    expect(toast.success).toHaveBeenCalledWith('Extra seats · 2026: now × 3', undefined);
+    expect(toast.success).toHaveBeenCalledWith('Extra seats: now × 3', undefined);
   });
 
   it('names an entitlement the catalogue does not know by its slug', async () => {
@@ -530,7 +539,7 @@ describe('what an add-on did to what the instance is entitled to', () => {
     await userEvent.click(await more());
 
     await waitFor(() => expect(toast.success).toHaveBeenCalled());
-    expect(toast.success).toHaveBeenCalledWith('Extra seats · 2026: now × 3', {
+    expect(toast.success).toHaveBeenCalledWith('Extra seats: now × 3', {
       description: 'seats: 20 → 25',
     });
   });

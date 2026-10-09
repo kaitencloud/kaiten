@@ -135,7 +135,7 @@ export const SteppingDisabled: Story = {
   },
 };
 
-// What an instance holds: the version and its slug, the quantity, what a unit costs
+// What an instance holds: the name of the version and its slug, the quantity, what a unit costs
 // by the period of the subscription, and since when. A version withdrawn from sale
 // since says so, and one that is sold on request has no price.
 export const HeldAddons: Story = {
@@ -154,7 +154,7 @@ export const HeldAddons: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(await canvas.findByText('Extra seats · 2026')).toBeVisible();
+    await expect(await canvas.findByText('Extra seats')).toBeVisible();
     await expect(canvas.getByText('extra-seats-v1')).toBeVisible();
     await expect(canvas.getByText('$10.00')).toBeVisible();
     await expect(canvas.getByText('Withdrawn')).toBeVisible();
@@ -182,7 +182,7 @@ export const SteppingAsksForAChange: Story = {
     const canvas = within(canvasElement);
 
     await userEvent.click(
-      await canvas.findByRole('button', { name: 'One unit more of Extra seats · 2026' }),
+      await canvas.findByRole('button', { name: 'One unit more of Extra seats' }),
     );
     await expect(canvas.getByTestId('quantity-value')).toHaveTextContent('2');
   },
@@ -202,7 +202,7 @@ export const ReadOnly: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(await canvas.findByText('Extra seats · 2026')).toBeVisible();
+    await expect(await canvas.findByText('Extra seats')).toBeVisible();
     await expect(canvas.queryByRole('group')).toBeNull();
     await expect(canvas.queryByRole('button', { name: /Remove/ })).toBeNull();
   },
@@ -214,7 +214,7 @@ export const ChangeInProgress: Story = {
   render: () => {
     const actions: InstanceAddonActions = {
       ...idle(),
-      pending: { held: HELD_SEATS, kind: 'quantity', label: 'Extra seats · 2026', quantity: 3 },
+      pending: { held: HELD_SEATS, kind: 'quantity', label: 'Extra seats', quantity: 3 },
     };
 
     return (
@@ -232,10 +232,10 @@ export const ChangeInProgress: Story = {
 
     await expect(await canvas.findByTestId('quantity-value')).toHaveTextContent('3');
     await expect(
-      canvas.getByRole('button', { name: 'One unit more of Extra seats · 2026' }),
+      canvas.getByRole('button', { name: 'One unit more of Extra seats' }),
     ).toBeDisabled();
     await expect(
-      canvas.getByRole('button', { name: 'Remove Extra seats · 2026' }),
+      canvas.getByRole('button', { name: 'Remove Extra seats' }),
     ).toBeDisabled();
   },
 };
@@ -255,7 +255,7 @@ export const RemoveBilledInAdvance: Story = {
 
     // A dialog fades in: it is there, and not yet visible at the first frame.
     await expect(
-      within(dialog).getByText('Remove Extra seats · 2026 from this instance?'),
+      within(dialog).getByText('Remove Extra seats from this instance?'),
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(within(dialog).getByTestId('remove-addon-billing')).toHaveTextContent(

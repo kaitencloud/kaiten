@@ -82,7 +82,8 @@ export function InstanceAddonsCard({
     ...instanceAddonsQueryOptions(instanceSlug),
     enabled: mayList,
   });
-  // The versions name what is held; without them, the slug does.
+  // The attachments name what is held. The versions add whether one was withdrawn from
+  // sale and how a unit with no price is sold, which the attachment does not say.
   const versions = useQuery({
     ...addonVersionsQueryOptions(),
     enabled: mayList && mayReadCatalogue,

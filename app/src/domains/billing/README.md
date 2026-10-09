@@ -408,7 +408,8 @@ page holds, or an export the API streams.
   family's default cannot be archived (`getVersionTransition`, `isDefaultArchiveBlocked`).
   The confirmation, the disabled action with its reason, the looks and the badge are
   shared; each feature brings its words, the permission it asks and the operation it
-  runs. What an add-on is called where it is chosen (`getAddonTitle`) and what the
+  runs. What a version of the catalogue is called where it is chosen (`getAddonTitle`; a held add-on
+  carries its own name) and what the
   screens of the add-ons and the Billing tab of an instance both read about a version
   (`addonPricesQueryOptions`, `addonCompatibilityQueryOptions`,
   `addonLicenseFamiliesQueryOptions`) are the domain's too.

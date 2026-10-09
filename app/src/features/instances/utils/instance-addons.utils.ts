@@ -4,12 +4,14 @@ import type {
   InstanceAddon,
   Price,
 } from '@/api-client';
-import { getAddonTitle } from '@/domains/billing';
 
 /**
  * One add-on an instance holds, with what the catalogue says of its version. The
- * catalogue is read apart and may be out of reach of the session or out of date, so
- * a version it does not know is shown by its slug, which the attachment always has.
+ * attachment carries the name of the version (`held.name`), so what it is called
+ * needs no catalogue. The catalogue is read apart for what the attachment does not
+ * say (whether the version was withdrawn from sale, how a unit with no price is sold)
+ * and may be out of reach of the session or out of date, so a version it does not
+ * know only goes without those.
  */
 export type HeldAddon = {
   /** The version, when the catalogue could be read and still has it. */
@@ -28,11 +30,6 @@ export function joinHeldAddons(
     addon: bySlug.get(attachment.addonSlug),
     held: attachment,
   }));
-}
-
-/** What a held add-on is called: its version when the catalogue knows it, else its slug. */
-export function getHeldAddonLabel({ addon, held }: HeldAddon): string {
-  return addon ? getAddonTitle(addon) : held.addonSlug;
 }
 
 /** The bounds of a quantity: at least one unit, and at most what the version allows when it says. */

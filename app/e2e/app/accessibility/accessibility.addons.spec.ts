@@ -279,10 +279,10 @@ test.describe('accessibility of the add-ons of an instance', () => {
     const addons = new InstanceAddonsDriver(page);
 
     await billing.goto('initech-prod');
-    await addons.more('Extra seats · 2026').focus();
+    await addons.more('Extra seats').focus();
     await page.keyboard.press('Enter');
 
-    await expect(addons.quantity('Extra seats · 2026')).toHaveText('3');
+    await expect(addons.quantity('Extra seats')).toHaveText('3');
   });
 
   test('the dialog that adds an add-on is accessible, with its price', async ({
@@ -305,7 +305,7 @@ test.describe('accessibility of the add-ons of an instance', () => {
     const addons = new InstanceAddonsDriver(page);
 
     await billing.goto('initech-prod');
-    await addons.removeButton('Extra seats · 2026').click();
+    await addons.removeButton('Extra seats').click();
     await expect(addons.confirmation()).toBeVisible();
 
     await expectDialogAccessible(page, addons.confirmation());
