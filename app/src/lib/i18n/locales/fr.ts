@@ -5127,9 +5127,93 @@ export default {
               'Rien à connecter. Kaiten enregistre chaque facture et la transmet à votre propre système, comme votre ERP, par la file de transmission ; vous l’encaissez comme aujourd’hui.',
             handoff: 'Ouvrir la file de transmission',
           },
+          unavailable: 'Indisponible',
           Stripe: {
             description:
               'Encaisse les factures des abonnements qui l’utilisent.',
+            connect: 'Connecter Stripe',
+            manage: 'Gérer la connexion',
+            why: 'Voir pourquoi',
+            Mode: {
+              test: 'Mode test',
+              live: 'Mode production',
+            },
+            Unavailable: {
+              NOT_ENTITLED: 'Non inclus dans votre offre.',
+              VAULT_NOT_CONFIGURED:
+                'Nécessite un Vault pour stocker la clé, et ce déploiement n’en a pas de configuré.',
+              UNKNOWN: 'Indisponible sur ce déploiement.',
+            },
+            Sync: {
+              never:
+                'Pas encore lu : aucune synchronisation de Stripe n’a eu lieu.',
+              ok: 'Dernière synchronisation : {{ago}}.',
+              partial:
+                'Dernière synchronisation : {{ago}}, mais certaines factures n’ont pas pu être appliquées.',
+              failing_one: 'La dernière synchronisation a échoué : {{ago}}.',
+              failing_other:
+                '{{count}} synchronisations de suite ont échoué. La dernière : {{ago}}.',
+              error: 'Dernière erreur : {{error}}',
+            },
+          },
+        },
+        Health: {
+          title: 'Santé',
+          description:
+            'Ce qui demande de l’attention en facturation, et si votre fournisseur de paiement est à jour.',
+          loading: 'Chargement de la santé de la facturation',
+          syncNow: 'Synchroniser maintenant',
+          syncing: 'Synchronisation…',
+          AllClear: {
+            title: 'Tout est en ordre',
+            description:
+              'Rien n’est retenu, en retard ou en attente, et aucun fournisseur de paiement n’est décalé.',
+          },
+          Sync: {
+            nothingNew:
+              'Synchronisé avec le fournisseur de paiement. Rien n’avait changé.',
+            done_one:
+              'Synchronisé avec le fournisseur de paiement : {{count}} facture mise à jour.',
+            done_other:
+              'Synchronisé avec le fournisseur de paiement : {{count}} factures mises à jour.',
+            partial:
+              'Synchronisé avec le fournisseur de paiement, avec des problèmes.',
+            failed:
+              'La synchronisation avec le fournisseur de paiement a échoué.',
+          },
+          Items: {
+            held: {
+              label: 'Factures retenues',
+              helper: 'En attente que quelqu’un les libère ou les recompose.',
+            },
+            pushFailures: {
+              label: 'Envois en échec',
+              helper: 'Le fournisseur de paiement continue de les refuser.',
+              oldest: 'La plus ancienne a échoué {{ago}}.',
+            },
+            overdue: {
+              label: 'Factures en retard',
+              helper: 'Impayées après leur échéance.',
+            },
+            handoff: {
+              label: 'En attente de votre comptabilité',
+              helper: 'Émises, et pas encore comptabilisées.',
+              oldest: 'La plus ancienne a été émise {{ago}}.',
+            },
+            mismatches: {
+              label: 'Montants différents, 30 derniers jours',
+              helper:
+                'Kaiten et le fournisseur de paiement ne s’accordent pas sur le total.',
+            },
+            closeBacklog: {
+              label: 'Périodes non clôturées',
+              helper: 'Périodes terminées et pas encore clôturées.',
+              oldest: 'La plus ancienne était due {{ago}}.',
+            },
+            pastDue: {
+              label: 'Abonnements en retard de paiement',
+              helper: 'Leur paiement est en retard.',
+            },
           },
         },
         Defaults: {
@@ -5157,6 +5241,7 @@ export default {
             SEND_INVOICE: 'Envoyer la facture',
             CHARGE_AUTOMATICALLY: 'Prélever automatiquement',
             unavailable: '{{method}} (nécessite un fournisseur de paiement)',
+            perContract: '{{method}} (à régler sur chaque contrat)',
           },
           Errors: {
             daysUntilDue: 'Saisissez un nombre entier de jours, de 0 à 365',

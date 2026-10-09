@@ -1,7 +1,15 @@
 import type { LucideIcon } from 'lucide-react';
-import { CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import type { ReactNode } from 'react';
+import {
+  CardAction,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 
 type SettingsCardHeaderProps = {
+  /** What the section lets a person do from its header, such as a button. */
+  action?: ReactNode;
   description: string;
   icon: LucideIcon;
   title: string;
@@ -10,9 +18,10 @@ type SettingsCardHeaderProps = {
 /**
  * The header of a card of the settings that is a section of a page and not a link
  * to one: the icon of what it is about, its title, and a line that says what it is
- * for.
+ * for, and at its end the action of the section when it has one.
  */
 export function SettingsCardHeader({
+  action,
   description,
   icon: Icon,
   title,
@@ -26,6 +35,7 @@ export function SettingsCardHeader({
           <CardDescription>{description}</CardDescription>
         </div>
       </div>
+      {action ? <CardAction>{action}</CardAction> : null}
     </CardHeader>
   );
 }

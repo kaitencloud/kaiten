@@ -53,22 +53,29 @@ export function createRouterModule(
     Link: ({
       activeOptions: _activeOptions,
       children,
+      params,
       search,
       to,
       ...props
     }: AnchorHTMLAttributes<HTMLAnchorElement> & {
       activeOptions?: unknown;
-      search?: Record<string, string | undefined>;
+      params?: Record<string, string>;
+      search?: Record<string, boolean | string | undefined>;
       to: string;
     }) => {
       const query = new URLSearchParams(
-        Object.entries(search ?? {}).filter(
-          (entry): entry is [string, string] => entry[1] !== undefined,
-        ),
+        Object.entries(search ?? {})
+          .filter(([, value]) => value !== undefined)
+          .map(([key, value]) => [key, String(value)]),
       ).toString();
+      // `$connectorId` in the path takes the value of `params.connectorId`.
+      const path = Object.entries(params ?? {}).reduce(
+        (result, [name, value]) => result.replace(`$${name}`, value),
+        to,
+      );
 
       return (
-        <a {...props} href={query ? `${to}?${query}` : to}>
+        <a {...props} href={query ? `${path}?${query}` : path}>
           {children}
         </a>
       );

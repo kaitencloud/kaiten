@@ -8,12 +8,14 @@ import {
 import { Page } from '@/functionals/page';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { BillingDefaultsCard } from './billing-defaults-card';
+import { BillingHealthCard } from './billing-health-card';
 import { BillingProvidersCard } from './billing-providers-card';
 import { BillingRetentionCard } from './billing-retention-card';
 
 /**
- * The billing settings of the organization: who collects its invoices, the
- * defaults a subscription takes, and how long usage is kept. The defaults are read
+ * The billing settings of the organization: who collects its invoices, what needs
+ * attention in billing, the defaults a subscription takes, and how long usage is
+ * kept. The defaults are read
  * here, so that a refusal (a missing scope, the API down) is shown with a way to
  * ask again and the other cards, which the capabilities answer, stay.
  */
@@ -66,6 +68,7 @@ export function BillingSettingsPageContent() {
       </Page.Fixed>
       <Page.Scroll className="mt-6" contentClassName="space-y-6">
         <BillingProvidersCard />
+        <BillingHealthCard />
         {renderDefaults()}
         <BillingRetentionCard />
       </Page.Scroll>

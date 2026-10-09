@@ -1,0 +1,120 @@
+import type { BillingHealth } from '@/api-client';
+import type { BillingProviderKind } from '@/domains/billing';
+
+/** What the health of billing counts, one for each thing that needs a person's attention. */
+export type HealthItemId =
+  | 'closeBacklog'
+  | 'handoff'
+  | 'held'
+  | 'mismatches'
+  | 'overdue'
+  | 'pastDue'
+  | 'pushFailures';
+
+/**
+ * The filter of the list of invoices that lists what an item counts: a few of the
+ * filters the list opens with (`?held=true`). An item that counts something the list
+ * has no filter for (an invoice whose provider disagrees, a subscription) has none,
+ * and is a figure and no link.
+ */
+export type HealthItemFilter = {
+  handoffStatus?: 'PENDING';
+  held?: true;
+  overdue?: true;
+  status?: 'PUSH_FAILED';
+};
+
+export type HealthItem = {
+  count: number;
+  filter?: HealthItemFilter;
+  id: HealthItemId;
+  /**
+   * How long the oldest of what is counted has waited, as an instant: when an
+   * invoice failed to push, when one was issued into the queue, when a period
+   * was due to close.
+   */
+  oldestAt?: string;
+  /** The checks that held the invoices, with how many each held; only for the held ones. */
+  reasons?: Array<{ count: number; reason: string }>;
+};
+
+/**
+ * What the health of billing counts, in the order a person reads it: what stops an
+ * invoice (held, failing to push), what is late (overdue, waiting for the accounting
+ * system), then what is out of step (a provider that disagrees, periods that did not
+ * close, subscriptions that are not paid).
+ */
+export function getHealthItems(health: BillingHealth): HealthItem[] {
+  return [
+    {
+      count: health.heldInvoices.count,
+      filter: { held: true },
+      id: 'held',
+      reasons: Object.entries(health.heldInvoices.byReason)
+        .filter(([, count]) => count > 0)
+        .map(([reason, count]) => ({ count, reason })),
+    },
+    {
+      count: health.pushFailures.count,
+      filter: { status: 'PUSH_FAILED' },
+      id: 'pushFailures',
+      oldestAt: health.pushFailures.oldestFailedAt,
+    },
+    { count: health.overdueInvoices, filter: { overdue: true }, id: 'overdue' },
+    {
+      count: health.handoff.pending,
+      filter: { handoffStatus: 'PENDING' },
+      id: 'handoff',
+      oldestAt: health.handoff.oldestPendingIssuedAt,
+    },
+    { count: health.reconciliationMismatches30d, id: 'mismatches' },
+    {
+      count: health.closeBacklog.count,
+      id: 'closeBacklog',
+      oldestAt: health.closeBacklog.oldestDueAt,
+    },
+    { count: health.pastDueSubscriptions, id: 'pastDue' },
+  ];
+}
+
+/** Whether nothing needs attention: every count is zero. */
+export const isAllClear = (items: readonly HealthItem[]) =>
+  items.every((item) => item.count === 0);
+
+/**
+ * How the last pass of a payment provider went, from the sync state the health
+ * carries. The health says when the last pass was and how it ended, and how many
+ * passes failed in a row; it does not keep when one last succeeded.
+ * - `never`: no pass yet;
+ * - `failing`: the last passes failed, and the last was at `at`;
+ * - `partial`: the last pass read what it could and left some invoices;
+ * - `ok`: the last pass ended well, at `at`.
+ */
+export type ProviderSyncStanding =
+  | { at: string; error?: string; failures: number; kind: 'failing' }
+  | { at: string; error?: string; kind: 'ok' | 'partial' }
+  | { kind: 'never' };
+
+export function getProviderSyncStanding(
+  health: BillingHealth,
+  kind: BillingProviderKind,
+): ProviderSyncStanding {
+  const sync = health.providerSync.find((entry) => entry.providerKind === kind);
+  if (!sync?.lastSyncedAt) {
+    return { kind: 'never' };
+  }
+  if (sync.consecutiveFailures > 0 || sync.lastSyncStatus === 'FAILED') {
+    return {
+      at: sync.lastSyncedAt,
+      error: sync.lastSyncError,
+      failures: Math.max(sync.consecutiveFailures, 1),
+      kind: 'failing',
+    };
+  }
+
+  return {
+    at: sync.lastSyncedAt,
+    error: sync.lastSyncError,
+    kind: sync.lastSyncStatus === 'PARTIAL' ? 'partial' : 'ok',
+  };
+}

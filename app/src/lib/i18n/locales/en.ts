@@ -5047,9 +5047,89 @@ export default {
               'Nothing to connect. Kaiten records each invoice and hands it to your own system, such as your ERP, through the handoff queue, and you collect it as you do today.',
             handoff: 'Open the handoff queue',
           },
+          unavailable: 'Unavailable',
           Stripe: {
             description:
               'Collects the invoices of the subscriptions that use it.',
+            connect: 'Connect Stripe',
+            manage: 'Manage the connection',
+            why: 'See why',
+            Mode: {
+              test: 'Test mode',
+              live: 'Live mode',
+            },
+            Unavailable: {
+              NOT_ENTITLED: 'Not included in your plan.',
+              VAULT_NOT_CONFIGURED:
+                'Needs a Vault to store the key in, and this deployment has none configured.',
+              UNKNOWN: 'Not available on this deployment.',
+            },
+            Sync: {
+              never: 'Not read yet: no pass of Stripe has run.',
+              ok: 'Last synced {{ago}}.',
+              partial:
+                'Last synced {{ago}}, but some invoices could not be applied.',
+              failing_one: 'The last sync failed {{ago}}.',
+              failing_other:
+                '{{count}} syncs in a row failed. The last was {{ago}}.',
+              error: 'Last error: {{error}}',
+            },
+          },
+        },
+        Health: {
+          title: 'Health',
+          description:
+            'What needs attention in billing, and whether your payment provider is in step.',
+          loading: 'Loading the health of billing',
+          syncNow: 'Sync now',
+          syncing: 'Syncing…',
+          AllClear: {
+            title: 'All clear',
+            description:
+              'Nothing is held, overdue or waiting, and no payment provider is out of step.',
+          },
+          Sync: {
+            nothingNew:
+              'Synced with the payment provider. Nothing had changed.',
+            done_one:
+              'Synced with the payment provider: {{count}} invoice updated.',
+            done_other:
+              'Synced with the payment provider: {{count}} invoices updated.',
+            partial: 'Synced with the payment provider, with problems.',
+            failed: 'The sync with the payment provider failed.',
+          },
+          Items: {
+            held: {
+              label: 'Held invoices',
+              helper: 'Waiting for someone to release or recompose them.',
+            },
+            pushFailures: {
+              label: 'Failed pushes',
+              helper: 'The payment provider keeps refusing them.',
+              oldest: 'The oldest failed {{ago}}.',
+            },
+            overdue: {
+              label: 'Overdue invoices',
+              helper: 'Unpaid past their due date.',
+            },
+            handoff: {
+              label: 'Waiting for your accounting system',
+              helper: 'Issued, and not booked yet.',
+              oldest: 'The oldest was issued {{ago}}.',
+            },
+            mismatches: {
+              label: 'Amounts that differ, last 30 days',
+              helper: 'Kaiten and the payment provider disagree on the total.',
+            },
+            closeBacklog: {
+              label: 'Periods not closed',
+              helper: 'Periods that ended and have not closed yet.',
+              oldest: 'The oldest was due {{ago}}.',
+            },
+            pastDue: {
+              label: 'Subscriptions past due',
+              helper: 'Their payment is late.',
+            },
           },
         },
         Defaults: {
@@ -5076,6 +5156,7 @@ export default {
             SEND_INVOICE: 'Send the invoice',
             CHARGE_AUTOMATICALLY: 'Charge automatically',
             unavailable: '{{method}} (needs a payment provider)',
+            perContract: '{{method}} (set on each contract)',
           },
           Errors: {
             daysUntilDue: 'Enter a whole number of days, from 0 to 365',

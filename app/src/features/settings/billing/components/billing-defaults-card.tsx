@@ -4,10 +4,12 @@ import type { BillingSettings } from '@/api-client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import {
+  canChargeAutomatically,
   placeRefusalOnFields,
   ProblemAlert,
   useActionAccess,
   useBillingCapabilities,
+  useBillingProvider,
 } from '@/domains/billing';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
 import { dataModelIcons } from '@/lib/data-model-icons';
@@ -43,7 +45,8 @@ export function BillingDefaultsCard({ settings }: BillingDefaultsCardProps) {
   const formId = useId();
   const { allowed: mayUpdate, isPending: isReadingScopes } =
     useActionAccess('settings.update');
-  const { has } = useBillingCapabilities();
+  const { capabilities } = useBillingCapabilities();
+  const stripe = useBillingProvider('STRIPE');
   const update = useUpdateBillingSettings();
   const [failure, setFailure] = useState<unknown>(null);
 
@@ -89,10 +92,10 @@ export function BillingDefaultsCard({ settings }: BillingDefaultsCardProps) {
               </Alert>
             )}
             <BillingDefaultsFields
-              canChargeAutomatically={has('chargeAutomatically')}
               disabled={!mayUpdate || update.isPending}
               form={form}
-              showHandoffStripeInvoices={has('stripe')}
+              providerCharges={canChargeAutomatically(capabilities)}
+              showHandoffStripeInvoices={stripe.isOffered}
             />
             {failure ? (
               <ProblemAlert
