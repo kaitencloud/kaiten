@@ -2,7 +2,10 @@ import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it } from 'vite-plus/test';
 import {
   getBillingCapabilitiesQueryKey,
+  getBillingHealthQueryKey,
   getBillingSettingsQueryKey,
+  getConnectorSettingsQueryKey,
+  getCustomerBillingQueryKey,
   getEntitlementsUsageMetricsQueryKey,
   getInstanceBillingQueryKey,
   getInstanceQueryKey,
@@ -21,7 +24,9 @@ import {
   allInstanceInvoicesOptions,
 } from '@/lib/api/all-pages-query-options';
 import {
+  invalidateBillingProviderQueries,
   invalidateBillingSettingsQueries,
+  invalidateCustomerBillingQueries,
   invalidateInstanceAddonQueries,
   invalidateInstanceBillingQueries,
   invalidateInstanceVoucherQueries,
@@ -263,5 +268,66 @@ describe('invalidateInstanceVoucherQueries', () => {
     for (const key of untouched) {
       expect(invalidated(client, key)).toBe(false);
     }
+  });
+});
+
+describe('invalidateBillingProviderQueries', () => {
+  it('refreshes who can collect, how billing is doing, the defaults and the settings of the connector', async () => {
+    const client = new QueryClient();
+    const stripe = getConnectorSettingsQueryKey({
+      path: { connectorName: 'kaiten.integration.billing.stripe' },
+    });
+    const touched = [
+      getBillingCapabilitiesQueryKey(),
+      getBillingHealthQueryKey(),
+      getBillingSettingsQueryKey(),
+      stripe,
+    ];
+    // The settings of another connector are not Stripe's to refresh.
+    const untouched = [
+      getConnectorSettingsQueryKey({
+        path: { connectorName: 'kaiten.integration.crm.attio' },
+      }),
+      organizationInvoices,
+    ];
+    seed(client, [...touched, ...untouched]);
+
+    await invalidateBillingProviderQueries(client);
+
+    for (const key of touched) {
+      expect(invalidated(client, key)).toBe(true);
+    }
+    for (const key of untouched) {
+      expect(invalidated(client, key)).toBe(false);
+    }
+  });
+});
+
+describe('invalidateCustomerBillingQueries', () => {
+  it('refreshes what a customer has in the provider, and only that customer', async () => {
+    const client = new QueryClient();
+    const touched = getCustomerBillingQueryKey({
+      path: { customerSlug: 'initech' },
+    });
+    const untouched = getCustomerBillingQueryKey({
+      path: { customerSlug: 'globex' },
+    });
+    seed(client, [touched, untouched]);
+
+    await invalidateCustomerBillingQueries(client, 'initech');
+
+    expect(invalidated(client, touched)).toBe(true);
+    expect(invalidated(client, untouched)).toBe(false);
+  });
+});
+
+describe('the health of billing', () => {
+  it('is refreshed by every change to an invoice, since its counts are made of invoices', async () => {
+    const client = new QueryClient();
+    seed(client, [getBillingHealthQueryKey()]);
+
+    await invalidateInvoiceQueries(client, 'inv-1');
+
+    expect(invalidated(client, getBillingHealthQueryKey())).toBe(true);
   });
 });

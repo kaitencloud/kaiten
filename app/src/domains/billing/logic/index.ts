@@ -73,6 +73,17 @@ export {
   INVOICE_PROVIDER_KINDS,
   type InvoiceProviderKind,
 } from './invoice-provider';
+export {
+  type BillingProviderKind,
+  canChargeAutomatically,
+  findBillingProvider,
+  getProviderStanding,
+  isProviderOffered,
+  type ProviderStanding,
+  type ProviderUnavailableReason,
+  STRIPE_CONNECTOR_NAME,
+  STRIPE_CONNECTOR_ROUTE_ID,
+} from './billing-providers';
 export { getRetentionStart } from './invoice-retention';
 export {
   getHoldReasonLabelKey,
