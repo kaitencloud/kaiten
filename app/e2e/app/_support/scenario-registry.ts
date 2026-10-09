@@ -37,6 +37,13 @@ import {
   createMixedObjectsFeedModel,
 } from '../notifications/notifications.scenarios';
 import {
+  createEmptyVouchersBillingModel,
+  createVouchersBillingModel,
+  createVouchersInstancesModel,
+  createVouchersLicensesModel,
+  createVouchersNotShippedBillingModel,
+} from '../vouchers/vouchers.scenarios';
+import {
   createBillingCustomersModel,
   createCustomersListModel,
   createDeletableCustomerModel,
@@ -97,6 +104,14 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   ['addons/createAddonsInstancesModel', createAddonsInstancesModel],
   ['addons/createAddonsLicensesModel', createAddonsLicensesModel],
   ['addons/createEmptyAddonsBillingModel', createEmptyAddonsBillingModel],
+  ['vouchers/createVouchersBillingModel', createVouchersBillingModel],
+  ['vouchers/createVouchersInstancesModel', createVouchersInstancesModel],
+  ['vouchers/createVouchersLicensesModel', createVouchersLicensesModel],
+  ['vouchers/createEmptyVouchersBillingModel', createEmptyVouchersBillingModel],
+  [
+    'vouchers/createVouchersNotShippedBillingModel',
+    createVouchersNotShippedBillingModel,
+  ],
   ['connectors/createDisconnectedAttioModel', createDisconnectedAttioModel],
   ['billing/createSubscriptionsModel', createSubscriptionsModel],
   ['billing/createLifecycleBillingModel', createLifecycleBillingModel],

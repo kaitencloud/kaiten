@@ -2,6 +2,7 @@ import type {
   Invoice,
   InvoiceHandoff,
   InvoiceLine,
+  InvoiceLineDiscount,
   InvoiceLineMetering,
   InvoiceLineOverage,
   UsageReport,
@@ -45,13 +46,17 @@ const addDays = (instant: string, days: number) =>
  * test that wants a line that disagrees with its totals can have one.
  */
 export function buildInvoiceLine({
+  addonPriceId,
   amount,
   description,
+  discount,
   entitlementId,
   entitlementSlug,
   id,
+  instanceVoucherId,
   invoiceId,
   label,
+  licensePriceId,
   metering,
   overage,
   quantity = '1',
@@ -60,14 +65,23 @@ export function buildInvoiceLine({
   serviceTo,
   type,
   unitAmountDecimal,
+  voucherId,
 }: {
+  /** The add-on price an ADDON line bills. */
+  addonPriceId?: string;
   amount: number;
   description: string;
+  /** How a DISCOUNT line was computed: what it discounts, and the application it is. */
+  discount?: InvoiceLineDiscount;
   entitlementId?: string;
   entitlementSlug?: string;
   id?: string;
+  /** The redemption a DISCOUNT line applies. */
+  instanceVoucherId?: string;
   invoiceId: string;
   label: string;
+  /** The license price the line bills; a stand-in name when left out. */
+  licensePriceId?: string;
   metering?: InvoiceLineMetering;
   overage?: InvoiceLineOverage;
   quantity?: string;
@@ -76,11 +90,14 @@ export function buildInvoiceLine({
   serviceTo: string;
   type: InvoiceLine['type'];
   unitAmountDecimal?: string;
+  /** The voucher a DISCOUNT line applies. */
+  voucherId?: string;
 }): InvoiceLine {
   const isDiscount = type === 'DISCOUNT';
   const isMetered = type === 'USAGE' || type === 'OVERAGE';
 
   return {
+    addonPriceId: type === 'ADDON' ? addonPriceId : undefined,
     amount,
     // A discount has no price of its own, and an add-on no license price: the
     // contract leaves those members out of such a line.
@@ -93,14 +110,16 @@ export function buildInvoiceLine({
           : 'FLAT_FEE',
     billingTiming: isDiscount ? undefined : isMetered ? 'ARREARS' : 'ADVANCE',
     description,
+    discount: isDiscount ? discount : undefined,
     entitlementId: isMetered ? entitlementId : undefined,
     entitlementSlug: isMetered ? entitlementSlug : undefined,
     id: id ?? `${invoiceId}-line-${seq}`,
+    instanceVoucherId: isDiscount ? instanceVoucherId : undefined,
     label,
     licensePriceId:
       isDiscount || type === 'ADDON'
         ? undefined
-        : `price-${type.toLowerCase()}`,
+        : (licensePriceId ?? `price-${type.toLowerCase()}`),
     metering: isMetered ? metering : undefined,
     overage: type === 'OVERAGE' ? overage : undefined,
     quantity,
@@ -109,6 +128,7 @@ export function buildInvoiceLine({
     serviceTo,
     type,
     unitAmountDecimal: isDiscount ? undefined : unitAmountDecimal,
+    voucherId: isDiscount ? voucherId : undefined,
   };
 }
 
