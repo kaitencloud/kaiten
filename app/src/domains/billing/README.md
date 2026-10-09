@@ -554,7 +554,14 @@ redemptions table and its revoke dialog (`redemptions.test.tsx`) and the discoun
 `components/stories/invoices-table.stories.tsx` shows the table. The wait for a
 period being closed (`use-boundary-retry.test.tsx`, on fake timers: the minute, the
 `Retry-After`, the single retry, the unmount) and the bounds of a trial
-(`trial.test.ts`) are tested there too. The screens built on the domain are tested in
+(`trial.test.ts`) are tested there too, and so are the two GraphQL documents the lists
+read: the subscriptions of the instances (`instance-billing-summary.test.ts`, the enums
+checked against the contract; `instance-billing-badge.test.tsx`; `instances-billing.test.tsx`,
+the hook: nothing asked for while billing is off or the session lacks the scope, a page at a
+time with the variables of the list, a failure that drops the column) and the license
+versions with their prices (`license-catalogue.test.ts`, `license-price-summary.test.ts`,
+`licenses-with-prices.test.tsx`). The mocks that answer them are tested in
+`src/__tests__/billing-graphql-mocks.test.ts`. The screens built on the domain are tested in
 [`features/billing`](../../features/billing/README.md).
 
 ## Public API
