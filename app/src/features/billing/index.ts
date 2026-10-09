@@ -1,6 +1,5 @@
 // Route-level public API: only what src/routes/** needs.
 export {
-  HandoffPageContent,
   InvoiceDetailPage,
   InvoicesPageContent,
   LineDrilldownPage,
@@ -10,10 +9,9 @@ export {
   invoiceQueryOptions,
   lineReportsQueryOptions,
 } from './queries';
-export {
-  handoffStatusOf,
-  readHandoffSearch,
-} from './schemas/handoff-search.schema';
 export { readInvoiceListSeed } from './schemas/invoice-list-seed.schema';
-export { readInvoiceScope } from './schemas/invoice-scope.schema';
+export {
+  readInvoicesLoaderDeps,
+  readInvoicesSearch,
+} from './schemas/invoices-search.schema';
 export { getInvoiceTitle } from './utils/invoice-title';

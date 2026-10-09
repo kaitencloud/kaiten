@@ -2,6 +2,8 @@ import { expect, recordWrites, test } from '../_support/app-test';
 import { expectFitsItsContainer } from '../_support/assertions/layout';
 import { expectToast } from '../_support/assertions/toast';
 import { BillingHandoffDriver } from '../_support/drivers/billing-handoff.driver';
+import { BillingInvoicesDriver } from '../_support/drivers/billing-invoices.driver';
+import { BillingNavDriver } from '../_support/drivers/billing-nav.driver';
 import { InvoiceDetailDriver } from '../_support/drivers/invoice-detail.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { SESSION_SCOPES, signInWithScopes } from '../_support/session-scopes';
@@ -16,14 +18,108 @@ import {
 // once they were. A job or the CLI takes them; the console shows where that
 // stands, and lets a person acknowledge one they booked by hand. The console reads
 // every invoice of the part of the queue it shows, 200 at a time, and searches,
-// filters, sorts and pages them itself like any other list; the URL holds the part
-// of the queue alone.
+// filters, sorts and pages them itself like any other list; the URL holds the view
+// (`?view=handoff`, a view of the list of invoices) and the part of the queue alone.
 
 // Issued, oldest first: the replacement of a void invoice, the first invoice,
 // the renewal and Globex's.
 const WAITING = ['inv-r1', 'inv-m1', 'inv-p1', 'inv-g1'];
 // Written off in December, then paid in January and in February.
 const ACKNOWLEDGED = ['inv-u1', 'inv-d2', 'inv-d1'];
+
+test.describe('the switch between every invoice and the queue', () => {
+  test('is in the toolbar of the list, leads to the queue and back, and is in the URL', async ({
+    page,
+  }) => {
+    const list = new BillingInvoicesDriver(page);
+    const handoff = new BillingHandoffDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await list.goto();
+
+    await expect(handoff.view('All')).toHaveAttribute('aria-current', 'page');
+    await expect(handoff.view('Handoff')).not.toHaveAttribute('aria-current');
+    await expect(handoff.view('Handoff')).toHaveAttribute(
+      'href',
+      '/invoices?view=handoff',
+    );
+
+    await handoff.view('Handoff').click();
+
+    await expect(page).toHaveURL(/\/invoices\?view=handoff$/);
+    await expect(handoff.view('Handoff')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    // The queue, under the title of the invoices, with its parts and its own columns.
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Invoices' }),
+    ).toBeVisible();
+    await handoff.expectInvoiceIds(WAITING);
+    await expect(handoff.tab('Waiting')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await expect(
+      page.getByRole('columnheader', { name: 'Claims' }),
+    ).toBeVisible();
+
+    await handoff.view('All').click();
+
+    await expect(page).toHaveURL(/\/invoices$/);
+    await expect(handoff.view('All')).toHaveAttribute('aria-current', 'page');
+    await expect(handoff.tab('Waiting')).toHaveCount(0);
+    await expect(list.rows()).toHaveCount(10);
+  });
+
+  test('is drawn in the toolbar of the queue as well, beside the parts of the queue', async ({
+    page,
+  }) => {
+    const handoff = new BillingHandoffDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await handoff.goto('ACKNOWLEDGED');
+
+    await expect(handoff.view('All')).toBeVisible();
+    await expect(handoff.view('Handoff')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await expect(handoff.tab('Acknowledged')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  test('lets the back button leave the queue', async ({ page }) => {
+    const list = new BillingInvoicesDriver(page);
+    const handoff = new BillingHandoffDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await list.goto();
+    await handoff.view('Handoff').click();
+    await handoff.expectInvoiceIds(WAITING);
+
+    await page.goBack();
+
+    await expect(page).toHaveURL(/\/invoices$/);
+    await expect(list.rows()).toHaveCount(10);
+  });
+
+  test('starts the other view over: the scope of the list does not follow to the queue', async ({
+    page,
+  }) => {
+    const list = new BillingInvoicesDriver(page);
+    const handoff = new BillingHandoffDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await list.goto('?customerSlug=globex');
+    await handoff.view('Handoff').click();
+
+    await expect(page).toHaveURL(/\/invoices\?view=handoff$/);
+    await handoff.expectInvoiceIds(WAITING);
+  });
+});
 
 test.describe('the queue of what waits', () => {
   test('keeps all its columns within a laptop, with a lease on one invoice and under the other tab', async ({
@@ -243,9 +339,9 @@ test.describe('the search and the filters of the queue', () => {
     await handoff.expectInvoiceIds(['inv-p1']);
 
     // The console holds the queue: nothing more was asked of the API, and the URL
-    // does not carry the search.
+    // holds the view and not the search.
     expect(reads).toHaveLength(1);
-    expect(new URL(page.url()).search).toBe('');
+    expect(new URL(page.url()).search).toBe('?view=handoff');
   });
 
   test('find an invoice by the number the accounting system booked it under', async ({
@@ -254,7 +350,7 @@ test.describe('the search and the filters of the queue', () => {
     const handoff = new BillingHandoffDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await handoff.goto('?status=ACKNOWLEDGED');
+    await handoff.goto('ACKNOWLEDGED');
     await handoff.search('erp-09');
 
     await handoff.expectInvoiceIds(['inv-d2']);
@@ -278,7 +374,7 @@ test.describe('the search and the filters of the queue', () => {
 
     await handoff.expectChips(['Kind: Activation', 'Overdue: True']);
     expect(reads).toHaveLength(1);
-    expect(new URL(page.url()).search).toBe('');
+    expect(new URL(page.url()).search).toBe('?view=handoff');
 
     await handoff.removeFilter('Kind');
     await handoff.expectChips(['Overdue: True']);
@@ -346,7 +442,7 @@ test.describe('the search and the filters of the queue', () => {
     const handoff = new BillingHandoffDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await handoff.goto('?status=PENDING');
+    await handoff.goto('PENDING');
 
     await handoff.expectInvoiceIds(WAITING);
     await expect(handoff.tab('Waiting')).toHaveAttribute(
@@ -387,10 +483,12 @@ test.describe('the queue of what was acknowledged', () => {
     await installBillingAppMocks(page, createInvoicesModel());
 
     await handoff.goto();
-    expect(new URL(page.url()).search).toBe('');
+    expect(new URL(page.url()).search).toBe('?view=handoff');
 
     await handoff.showTab('Acknowledged');
-    await expect(page).toHaveURL(/\/billing\/handoff\?status=ACKNOWLEDGED$/);
+    await expect(page).toHaveURL(
+      /\/invoices\?view=handoff&queue=ACKNOWLEDGED$/,
+    );
     await page.reload();
 
     await expect(handoff.tab('Acknowledged')).toHaveAttribute(
@@ -401,7 +499,7 @@ test.describe('the queue of what was acknowledged', () => {
     await handoff.expectInvoiceIds(ACKNOWLEDGED);
 
     await handoff.showTab('Waiting');
-    await expect.poll(() => new URL(page.url()).search).toBe('');
+    await expect.poll(() => new URL(page.url()).search).toBe('?view=handoff');
     await handoff.expectInvoiceIds(WAITING);
   });
 
@@ -411,7 +509,7 @@ test.describe('the queue of what was acknowledged', () => {
     const handoff = new BillingHandoffDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await handoff.goto('?status=ACKNOWLEDGED');
+    await handoff.goto('ACKNOWLEDGED');
 
     await handoff.expectInvoiceIds(ACKNOWLEDGED);
     await expect(
@@ -425,7 +523,7 @@ test.describe('the queue of what was acknowledged', () => {
     const handoff = new BillingHandoffDriver(page);
     await installBillingAppMocks(page, createEmptyInvoicesModel());
 
-    await handoff.goto('?status=ACKNOWLEDGED');
+    await handoff.goto('ACKNOWLEDGED');
 
     await expect(handoff.empty()).toContainText('Nothing acknowledged yet');
     await expect(handoff.empty()).not.toContainText(
@@ -626,9 +724,7 @@ test.describe('the queue when the API refuses it', () => {
     await expect(handoff.error()).toContainText('the queue is unavailable');
     await expect(handoff.error()).toContainText('Reference trace-queue-1');
     // The console around it still works.
-    await expect(
-      page.getByRole('link', { name: 'Invoices', exact: true }),
-    ).toBeVisible();
+    await expect(new BillingNavDriver(page).entry('Invoices')).toBeVisible();
 
     await handoff.error().getByRole('button', { name: 'Retry' }).click();
 

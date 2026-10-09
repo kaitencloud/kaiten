@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AddonsRouteRouteImport } from './routes/addons/route'
-import { Route as BillingRouteRouteImport } from './routes/billing/route'
 import { Route as CustomersRouteRouteImport } from './routes/customers/route'
 import { Route as EntitlementsRouteRouteImport } from './routes/entitlements/route'
 import { Route as InvoicesRouteRouteImport } from './routes/invoices/route'
@@ -22,7 +21,6 @@ import { Route as VouchersRouteRouteImport } from './routes/vouchers/route'
 import { Route as AddonsIndexRouteImport } from './routes/addons/index'
 import { Route as AddonsAddonSlugRouteRouteImport } from './routes/addons/$addonSlug/route'
 import { Route as AuditTrailIndexRouteImport } from './routes/audit-trail/index'
-import { Route as BillingIndexRouteImport } from './routes/billing/index'
 import { Route as CustomersIndexRouteImport } from './routes/customers/index'
 import { Route as CustomersCustomerSlugRouteRouteImport } from './routes/customers/$customerSlug/route'
 import { Route as CustomersInstancesRouteRouteImport } from './routes/customers/instances/route'
@@ -57,7 +55,6 @@ import { Route as AddonsAddonSlugCompatibilityRouteImport } from './routes/addon
 import { Route as AddonsAddonSlugEntitlementsRouteImport } from './routes/addons/$addonSlug/entitlements'
 import { Route as AddonsAddonSlugPricesRouteImport } from './routes/addons/$addonSlug/prices'
 import { Route as AddonsNewIndexRouteImport } from './routes/addons/new/index'
-import { Route as BillingHandoffIndexRouteImport } from './routes/billing/handoff/index'
 import { Route as CustomersCustomerSlugIndexRouteImport } from './routes/customers/$customerSlug/index'
 import { Route as CustomersCustomerSlugEditRouteImport } from './routes/customers/$customerSlug/edit'
 import { Route as CustomersInstancesIndexRouteImport } from './routes/customers/instances/index'
@@ -135,11 +132,6 @@ const AddonsRouteRoute = AddonsRouteRouteImport.update({
   path: '/addons',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BillingRouteRoute = BillingRouteRouteImport.update({
-  id: '/billing',
-  path: '/billing',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CustomersRouteRoute = CustomersRouteRouteImport.update({
   id: '/customers',
   path: '/customers',
@@ -189,11 +181,6 @@ const AuditTrailIndexRoute = AuditTrailIndexRouteImport.update({
   id: '/audit-trail/',
   path: '/audit-trail/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const BillingIndexRoute = BillingIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => BillingRouteRoute,
 } as any)
 const CustomersIndexRoute = CustomersIndexRouteImport.update({
   id: '/',
@@ -377,11 +364,6 @@ const AddonsNewIndexRoute = AddonsNewIndexRouteImport.update({
   id: '/new/',
   path: '/new/',
   getParentRoute: () => AddonsRouteRoute,
-} as any)
-const BillingHandoffIndexRoute = BillingHandoffIndexRouteImport.update({
-  id: '/handoff/',
-  path: '/handoff/',
-  getParentRoute: () => BillingRouteRoute,
 } as any)
 const CustomersCustomerSlugIndexRoute =
   CustomersCustomerSlugIndexRouteImport.update({
@@ -774,7 +756,6 @@ const IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/addons': typeof AddonsRouteRouteWithChildren
-  '/billing': typeof BillingRouteRouteWithChildren
   '/customers': typeof CustomersRouteRouteWithChildren
   '/entitlements': typeof EntitlementsRouteRouteWithChildren
   '/invoices': typeof InvoicesRouteRouteWithChildren
@@ -803,7 +784,6 @@ export interface FileRoutesByFullPath {
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/addons/': typeof AddonsIndexRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
-  '/billing/': typeof BillingIndexRoute
   '/customers/': typeof CustomersIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/entitlements/': typeof EntitlementsIndexRoute
@@ -836,7 +816,6 @@ export interface FileRoutesByFullPath {
   '/vouchers/$voucherId/edit': typeof VouchersVoucherIdEditRoute
   '/addons/$addonSlug/': typeof AddonsAddonSlugIndexRoute
   '/addons/new/': typeof AddonsNewIndexRoute
-  '/billing/handoff/': typeof BillingHandoffIndexRoute
   '/customers/$customerSlug/': typeof CustomersCustomerSlugIndexRoute
   '/customers/instances/': typeof CustomersInstancesIndexRoute
   '/customers/new/': typeof CustomersNewIndexRoute
@@ -900,7 +879,6 @@ export interface FileRoutesByTo {
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/addons': typeof AddonsIndexRoute
   '/audit-trail': typeof AuditTrailIndexRoute
-  '/billing': typeof BillingIndexRoute
   '/customers': typeof CustomersIndexRoute
   '/dashboard': typeof DashboardIndexRoute
   '/entitlements': typeof EntitlementsIndexRoute
@@ -931,7 +909,6 @@ export interface FileRoutesByTo {
   '/vouchers/$voucherId/edit': typeof VouchersVoucherIdEditRoute
   '/addons/$addonSlug': typeof AddonsAddonSlugIndexRoute
   '/addons/new': typeof AddonsNewIndexRoute
-  '/billing/handoff': typeof BillingHandoffIndexRoute
   '/customers/$customerSlug': typeof CustomersCustomerSlugIndexRoute
   '/customers/instances': typeof CustomersInstancesIndexRoute
   '/customers/new': typeof CustomersNewIndexRoute
@@ -986,7 +963,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/addons': typeof AddonsRouteRouteWithChildren
-  '/billing': typeof BillingRouteRouteWithChildren
   '/customers': typeof CustomersRouteRouteWithChildren
   '/entitlements': typeof EntitlementsRouteRouteWithChildren
   '/invoices': typeof InvoicesRouteRouteWithChildren
@@ -1015,7 +991,6 @@ export interface FileRoutesById {
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/addons/': typeof AddonsIndexRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
-  '/billing/': typeof BillingIndexRoute
   '/customers/': typeof CustomersIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/entitlements/': typeof EntitlementsIndexRoute
@@ -1048,7 +1023,6 @@ export interface FileRoutesById {
   '/vouchers/$voucherId/edit': typeof VouchersVoucherIdEditRoute
   '/addons/$addonSlug/': typeof AddonsAddonSlugIndexRoute
   '/addons/new/': typeof AddonsNewIndexRoute
-  '/billing/handoff/': typeof BillingHandoffIndexRoute
   '/customers/$customerSlug/': typeof CustomersCustomerSlugIndexRoute
   '/customers/instances/': typeof CustomersInstancesIndexRoute
   '/customers/new/': typeof CustomersNewIndexRoute
@@ -1105,7 +1079,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/addons'
-    | '/billing'
     | '/customers'
     | '/entitlements'
     | '/invoices'
@@ -1134,7 +1107,6 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/addons/'
     | '/audit-trail/'
-    | '/billing/'
     | '/customers/'
     | '/dashboard/'
     | '/entitlements/'
@@ -1167,7 +1139,6 @@ export interface FileRouteTypes {
     | '/vouchers/$voucherId/edit'
     | '/addons/$addonSlug/'
     | '/addons/new/'
-    | '/billing/handoff/'
     | '/customers/$customerSlug/'
     | '/customers/instances/'
     | '/customers/new/'
@@ -1231,7 +1202,6 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/addons'
     | '/audit-trail'
-    | '/billing'
     | '/customers'
     | '/dashboard'
     | '/entitlements'
@@ -1262,7 +1232,6 @@ export interface FileRouteTypes {
     | '/vouchers/$voucherId/edit'
     | '/addons/$addonSlug'
     | '/addons/new'
-    | '/billing/handoff'
     | '/customers/$customerSlug'
     | '/customers/instances'
     | '/customers/new'
@@ -1316,7 +1285,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/addons'
-    | '/billing'
     | '/customers'
     | '/entitlements'
     | '/invoices'
@@ -1345,7 +1313,6 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/addons/'
     | '/audit-trail/'
-    | '/billing/'
     | '/customers/'
     | '/dashboard/'
     | '/entitlements/'
@@ -1378,7 +1345,6 @@ export interface FileRouteTypes {
     | '/vouchers/$voucherId/edit'
     | '/addons/$addonSlug/'
     | '/addons/new/'
-    | '/billing/handoff/'
     | '/customers/$customerSlug/'
     | '/customers/instances/'
     | '/customers/new/'
@@ -1434,7 +1400,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AddonsRouteRoute: typeof AddonsRouteRouteWithChildren
-  BillingRouteRoute: typeof BillingRouteRouteWithChildren
   CustomersRouteRoute: typeof CustomersRouteRouteWithChildren
   EntitlementsRouteRoute: typeof EntitlementsRouteRouteWithChildren
   InvoicesRouteRoute: typeof InvoicesRouteRouteWithChildren
@@ -1479,13 +1444,6 @@ declare module '@tanstack/react-router' {
       path: '/addons'
       fullPath: '/addons'
       preLoaderRoute: typeof AddonsRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/billing': {
-      id: '/billing'
-      path: '/billing'
-      fullPath: '/billing'
-      preLoaderRoute: typeof BillingRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customers': {
@@ -1557,13 +1515,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/audit-trail/'
       preLoaderRoute: typeof AuditTrailIndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/billing/': {
-      id: '/billing/'
-      path: '/'
-      fullPath: '/billing/'
-      preLoaderRoute: typeof BillingIndexRouteImport
-      parentRoute: typeof BillingRouteRoute
     }
     '/customers/': {
       id: '/customers/'
@@ -1802,13 +1753,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/addons/new/'
       preLoaderRoute: typeof AddonsNewIndexRouteImport
       parentRoute: typeof AddonsRouteRoute
-    }
-    '/billing/handoff/': {
-      id: '/billing/handoff/'
-      path: '/handoff'
-      fullPath: '/billing/handoff/'
-      preLoaderRoute: typeof BillingHandoffIndexRouteImport
-      parentRoute: typeof BillingRouteRoute
     }
     '/customers/$customerSlug/': {
       id: '/customers/$customerSlug/'
@@ -2308,20 +2252,6 @@ const AddonsRouteRouteWithChildren = AddonsRouteRoute._addFileChildren(
   AddonsRouteRouteChildren,
 )
 
-interface BillingRouteRouteChildren {
-  BillingIndexRoute: typeof BillingIndexRoute
-  BillingHandoffIndexRoute: typeof BillingHandoffIndexRoute
-}
-
-const BillingRouteRouteChildren: BillingRouteRouteChildren = {
-  BillingIndexRoute: BillingIndexRoute,
-  BillingHandoffIndexRoute: BillingHandoffIndexRoute,
-}
-
-const BillingRouteRouteWithChildren = BillingRouteRoute._addFileChildren(
-  BillingRouteRouteChildren,
-)
-
 interface CustomersCustomerSlugRouteRouteChildren {
   CustomersCustomerSlugEditRoute: typeof CustomersCustomerSlugEditRoute
   CustomersCustomerSlugIndexRoute: typeof CustomersCustomerSlugIndexRoute
@@ -2780,7 +2710,6 @@ const LicensesLicenseSlugRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AddonsRouteRoute: AddonsRouteRouteWithChildren,
-  BillingRouteRoute: BillingRouteRouteWithChildren,
   CustomersRouteRoute: CustomersRouteRouteWithChildren,
   EntitlementsRouteRoute: EntitlementsRouteRouteWithChildren,
   InvoicesRouteRoute: InvoicesRouteRouteWithChildren,

@@ -34,7 +34,7 @@ test.describe('the billing settings', () => {
     await expect(noop).toContainText('Available');
     await expect(
       noop.getByRole('link', { name: 'Open the handoff queue' }),
-    ).toHaveAttribute('href', '/billing/handoff');
+    ).toHaveAttribute('href', '/invoices?view=handoff');
     // Stripe is not shipped here: it is not listed as a provider to connect.
     await expect(page.getByTestId('billing-provider-stripe')).toHaveCount(0);
     await expect(settings.handoffStripeInvoicesField()).toHaveCount(0);

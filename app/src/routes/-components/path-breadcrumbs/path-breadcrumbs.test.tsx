@@ -34,8 +34,7 @@ const translations: Record<string, string> = {
   'Common.new': 'New',
   'Errors.notFound': 'Page not found',
   'Features.Releases.Actions.deploy': 'Deploy',
-  'Pages.Billing.Handoff.title': 'Handoff',
-  'Pages.Billing.title': 'Billing',
+  'Pages.Billing.Invoices.title': 'Invoices',
   'Pages.Customers.Instances.title': 'Instances',
   'Pages.Customers.title': 'Customers',
   'Pages.FeatureFlags.title': 'Feature Flags',
@@ -299,12 +298,12 @@ describe('PathBreadcrumbs', () => {
   });
 
   it('keeps the title of the trail for a route that explains its own not-found', () => {
-    mockRoutesByPath = { '/billing': {}, '/billing/handoff': {} };
+    mockRoutesByPath = { '/invoices': {}, '/invoices/$invoiceId': {} };
     mockUseMatches.mockReturnValue([
       { pathname: '/', fullPath: '/', context: {} },
       {
-        pathname: '/billing',
-        fullPath: '/billing',
+        pathname: '/invoices',
+        fullPath: '/invoices',
         status: 'notFound',
         // What `notFound({ data })` threw: the route says why it has no screen.
         error: {
@@ -314,8 +313,8 @@ describe('PathBreadcrumbs', () => {
         context: {},
       },
       {
-        pathname: '/billing/handoff',
-        fullPath: '/billing/handoff',
+        pathname: '/invoices/inv-1',
+        fullPath: '/invoices/$invoiceId',
         status: 'pending',
         context: {},
       },
@@ -323,16 +322,16 @@ describe('PathBreadcrumbs', () => {
 
     render(<PathBreadcrumbs />);
 
-    expect(document.title).toBe('Handoff · Billing · Kaiten');
+    expect(document.title).toBe('inv-1 · Invoices · Kaiten');
   });
 
   it('still titles the tab "Page not found" for a not-found that explains nothing', () => {
-    mockRoutesByPath = { '/billing': {} };
+    mockRoutesByPath = { '/invoices': {} };
     mockUseMatches.mockReturnValue([
       { pathname: '/', fullPath: '/', context: {} },
       {
-        pathname: '/billing',
-        fullPath: '/billing',
+        pathname: '/invoices',
+        fullPath: '/invoices',
         status: 'notFound',
         error: { isNotFound: true },
         context: {},

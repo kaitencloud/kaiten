@@ -9,7 +9,6 @@ import {
 const translations: Record<string, string> = {
   'Pages.Addons.Compatibility.title': 'Licences compatibles',
   'Pages.Addons.title': 'Options',
-  'Pages.Billing.Handoff.title': 'Transmission',
   'Pages.Billing.Invoices.Lines.title': 'Lignes',
   'Pages.Billing.Invoices.title': 'Factures',
   'Pages.Billing.title': 'Facturation',
@@ -37,7 +36,6 @@ describe('segment labels', () => {
           'billing',
           'invoices',
           'lines',
-          'handoff',
           'addons',
           'compatibility',
           'vouchers',
@@ -50,7 +48,6 @@ describe('segment labels', () => {
       addons: 'Options',
       billing: 'Facturation',
       compatibility: 'Licences compatibles',
-      handoff: 'Transmission',
       invoices: 'Factures',
       lines: 'Lignes',
       prices: 'Prix',
@@ -75,15 +72,10 @@ describe('segment labels', () => {
       href: '/audit-trail',
       label: 'Audit Trail',
     });
-    // The invoices, the add-ons and the vouchers sit beside /billing, not under
-    // it: each is a section.
+    // The invoices, the add-ons and the vouchers are each a section of their own.
     expect(getSectionForPath('/invoices/inv-1', t)).toEqual({
       href: '/invoices',
       label: 'Factures',
-    });
-    expect(getSectionForPath('/billing/handoff', t)).toEqual({
-      href: '/billing',
-      label: 'Facturation',
     });
     expect(getSectionForPath('/addons/seats-v1', t)).toEqual({
       href: '/addons',

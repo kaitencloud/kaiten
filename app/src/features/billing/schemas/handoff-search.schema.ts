@@ -13,12 +13,13 @@ export type HandoffQueueStatus = z.output<typeof zQueueStatus>;
 export const DEFAULT_HANDOFF_STATUS: HandoffQueueStatus = 'PENDING';
 
 /**
- * The search of the page of the queue (`?status=ACKNOWLEDGED`), from the schema
- * the API generates for the status. A link is not an API call: what is not a
- * status is dropped, and the page opens on what waits.
+ * The part of the queue the handoff view of the invoices shows (`?queue=ACKNOWLEDGED`),
+ * from the schema the API generates for its status. It is not called `status`, which
+ * the list of invoices already uses for the status of an invoice. A link is not an API
+ * call: what is not a status is dropped, and the view opens on what waits.
  */
 export const handoffSearchSchema = z.object({
-  status: zQueueStatus.optional().catch(undefined),
+  queue: zQueueStatus.optional().catch(undefined),
 });
 
 export type HandoffSearch = z.output<typeof handoffSearchSchema>;
@@ -31,4 +32,4 @@ export function readHandoffSearch(
 
 /** The part of the queue a search asks for: none reads as what waits. */
 export const handoffStatusOf = (search: HandoffSearch): HandoffQueueStatus =>
-  search.status ?? DEFAULT_HANDOFF_STATUS;
+  search.queue ?? DEFAULT_HANDOFF_STATUS;

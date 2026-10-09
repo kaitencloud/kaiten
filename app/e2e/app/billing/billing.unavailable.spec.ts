@@ -19,11 +19,10 @@ import {
 // tabs of an instance and of a license version).
 
 const BILLING_DEEP_LINKS = [
-  '/billing',
   '/invoices',
+  '/invoices?view=handoff',
   '/invoices/inv-1',
   '/invoices/inv-1/lines/inv-1-line-1',
-  '/billing/handoff',
   '/addons',
   '/addons/new',
   '/addons/extra-seats-v1',
@@ -54,12 +53,12 @@ test.describe('billing off on the deployment', () => {
     });
   }
 
-  test('explains too for a path under billing that is no page', async ({
+  test('explains too for a path under the invoices that is no page', async ({
     page,
   }) => {
     const nav = new BillingNavDriver(page);
 
-    await page.goto('/billing/nowhere');
+    await page.goto('/invoices/inv-1/nowhere');
 
     await nav.expectUnavailable('DEPLOYMENT_DISABLED');
     await expect(page.getByText('Page not found')).toHaveCount(0);
@@ -209,13 +208,13 @@ test.describe('capabilities that cannot be read', () => {
 });
 
 test.describe('billing on', () => {
-  test('says a path under billing that is no page is none, with no explanation', async ({
+  test('says a path under the invoices that is no page is none, with no explanation', async ({
     page,
   }) => {
     const nav = new BillingNavDriver(page);
     await installBillingAppMocks(page, createBillingStackModel());
 
-    await page.goto('/billing/nowhere');
+    await page.goto('/invoices/inv-1/nowhere');
 
     await expect(page.getByText('Page not found')).toBeVisible();
     await expect(nav.unavailable()).toHaveCount(0);

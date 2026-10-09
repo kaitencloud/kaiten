@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import type { InvoiceSummary } from '@/api-client';
+import { billingCapabilitiesQueryOptions } from '@/domains/billing';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
+import { billingCapabilitiesProfiles } from '../../../../../e2e/app/_support/model/billing-capabilities';
 import { InvoicesList } from '../invoices/invoices-list';
 
 const meta = {
@@ -105,6 +107,46 @@ export const Default: Story = {
       canvas.getByPlaceholderText('Customer, instance or invoice'),
     ).toBeVisible();
     await expect(canvas.getByRole('button', { name: 'Filter' })).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'Export' })).toBeVisible();
+  },
+};
+
+// Where the organization collects through NoOp and the session may read the queue,
+// the toolbar holds the switch between every invoice and the handoff queue, beside
+// the export. Billing is off by default in Storybook, and so is the switch.
+export const WithTheHandoffView: Story = {
+  render: () => (
+    <StorybookRouter
+      initialEntries={['/invoices']}
+      routePath="/invoices"
+      seed={(queryClient) =>
+        queryClient.setQueryData(
+          billingCapabilitiesQueryOptions.queryKey,
+          billingCapabilitiesProfiles.stack(),
+        )
+      }
+    >
+      <div className="h-[560px] px-6">
+        <InvoicesList
+          canExport
+          invoices={INVOICES}
+          onScopeChange={onScopeChange}
+          scope={{}}
+          showProvider={false}
+        />
+      </div>
+    </StorybookRouter>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    const handoff = await canvas.findByRole('link', { name: 'Handoff' });
+
+    await expect(handoff).toHaveAttribute('href', '/invoices?view=handoff');
+    await expect(canvas.getByRole('link', { name: 'All' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
     await expect(canvas.getByRole('button', { name: 'Export' })).toBeVisible();
   },
 };

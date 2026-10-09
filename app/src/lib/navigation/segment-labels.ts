@@ -21,7 +21,6 @@ const SEGMENT_LABEL_KEYS: Record<string, string> = {
   edit: 'Common.edit',
   entitlements: 'Pages.Entitlements.title',
   'feature-flags': 'Pages.FeatureFlags.title',
-  handoff: 'Pages.Billing.Handoff.title',
   history: 'Pages.Integrations.Webhooks.Tabs.history',
   instances: 'Pages.Customers.Instances.title',
   integrations: 'Pages.Integrations.title',
@@ -49,7 +48,6 @@ const SEGMENT_LABEL_KEYS: Record<string, string> = {
 const SECTIONS = new Set([
   'addons',
   'audit-trail',
-  'billing',
   'customers',
   'dashboard',
   'entitlements',

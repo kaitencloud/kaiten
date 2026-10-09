@@ -136,7 +136,7 @@ export async function readBillingGate(
  * nothing billing-related is requested but the capabilities.
  *
  * ```ts
- * export const Route = createFileRoute('/billing')({
+ * export const Route = createFileRoute('/invoices')({
  *   notFoundComponent: BillingNotFound,
  *   beforeLoad: async ({ context }) => {
  *     await requireBillingCapability(context.queryClient);

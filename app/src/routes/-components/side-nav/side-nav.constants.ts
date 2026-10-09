@@ -150,11 +150,6 @@ export const integrationsSubRoutes: SideNavSubRouteDefinition[] = [
 // release ships. It sits in the nav as one section because it is one gate.
 export const billingSubRoutes: SideNavBillingSubRouteDefinition[] = [
   {
-    capability: {},
-    labelKey: 'Pages.Billing.Handoff.title',
-    path: '/billing/handoff',
-  },
-  {
     action: 'addons.list',
     capability: { feature: 'addons' },
     labelKey: 'Pages.Addons.title',

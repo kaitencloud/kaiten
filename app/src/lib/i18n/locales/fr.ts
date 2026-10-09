@@ -3992,6 +3992,9 @@ export default {
         title: 'Factures',
         subtitle:
           'Toutes les factures de votre organisation, tous clients et instances confondus.',
+        Views: {
+          all: 'Toutes',
+        },
         Lines: {
           title: 'Lignes',
         },

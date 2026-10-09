@@ -10,14 +10,14 @@ const PATH_TABS: RouteTab[] = [
   { id: 'instances', label: 'Instances', to: '/customers/instances' },
 ];
 
-// One route, told apart by its search: what waits is the bare path.
+// One route, told apart by its search: every invoice is the bare path.
 const SEARCH_TABS: RouteTab[] = [
-  { id: 'pending', label: 'Waiting', to: '/billing/handoff' },
+  { id: 'all', label: 'All', to: '/invoices' },
   {
-    id: 'acknowledged',
-    label: 'Acknowledged',
-    search: { status: 'ACKNOWLEDGED' },
-    to: '/billing/handoff',
+    id: 'handoff',
+    label: 'Handoff',
+    search: { view: 'handoff' },
+    to: '/invoices',
   },
 ];
 
@@ -81,50 +81,50 @@ describe('the tab that is marked as the current one', () => {
 
 describe('the tabs of one route told apart by its search', () => {
   it('lead each to its own search, and what the route opens on is the bare path', async () => {
-    renderTabs('/billing/handoff', '/billing/handoff', SEARCH_TABS);
+    renderTabs('/invoices', '/invoices', SEARCH_TABS);
 
-    expect(await screen.findByRole('link', { name: 'Waiting' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'All' })).toHaveAttribute(
       'href',
-      '/billing/handoff',
+      '/invoices',
     );
-    expect(screen.getByRole('link', { name: 'Acknowledged' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Handoff' })).toHaveAttribute(
       'href',
-      '/billing/handoff?status=ACKNOWLEDGED',
+      '/invoices?view=handoff',
     );
   });
 
   it('open on the tab that has no search, and only that one is active', async () => {
-    renderTabs('/billing/handoff', '/billing/handoff', SEARCH_TABS);
+    renderTabs('/invoices', '/invoices', SEARCH_TABS);
 
-    await screen.findByRole('link', { name: 'Waiting' });
+    await screen.findByRole('link', { name: 'All' });
 
-    expect(isActive('Waiting')).toBe(true);
-    expect(isActive('Acknowledged')).toBe(false);
-    expect(screen.getByRole('link', { name: 'Waiting' })).toHaveAttribute(
+    expect(isActive('All')).toBe(true);
+    expect(isActive('Handoff')).toBe(false);
+    expect(screen.getByRole('link', { name: 'All' })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    expect(screen.getByRole('link', { name: 'Acknowledged' })).not.toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Handoff' })).not.toHaveAttribute(
       'aria-current',
     );
   });
 
   it('make the tab whose search the page carries the active one, and it alone', async () => {
     renderTabs(
-      '/billing/handoff?status=ACKNOWLEDGED',
-      '/billing/handoff',
+      '/invoices?view=handoff',
+      '/invoices',
       SEARCH_TABS,
     );
 
-    await screen.findByRole('link', { name: 'Acknowledged' });
+    await screen.findByRole('link', { name: 'Handoff' });
 
-    expect(isActive('Acknowledged')).toBe(true);
-    expect(isActive('Waiting')).toBe(false);
-    expect(screen.getByRole('link', { name: 'Acknowledged' })).toHaveAttribute(
+    expect(isActive('Handoff')).toBe(true);
+    expect(isActive('All')).toBe(false);
+    expect(screen.getByRole('link', { name: 'Handoff' })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    expect(screen.getByRole('link', { name: 'Waiting' })).not.toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'All' })).not.toHaveAttribute(
       'aria-current',
     );
   });
@@ -133,34 +133,34 @@ describe('the tabs of one route told apart by its search', () => {
     // A link written by hand may spell out what the route opens on. The tab is still the
     // one the page is on, and a screen reader is told so as well as the eye.
     renderTabs(
-      '/billing/handoff?status=PENDING',
-      '/billing/handoff',
+      '/invoices?view=all',
+      '/invoices',
       SEARCH_TABS,
     );
 
-    await screen.findByRole('link', { name: 'Waiting' });
+    await screen.findByRole('link', { name: 'All' });
 
-    expect(isActive('Waiting')).toBe(true);
-    expect(screen.getByRole('link', { name: 'Waiting' })).toHaveAttribute(
+    expect(isActive('All')).toBe(true);
+    expect(screen.getByRole('link', { name: 'All' })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    expect(screen.getByRole('link', { name: 'Acknowledged' })).not.toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Handoff' })).not.toHaveAttribute(
       'aria-current',
     );
   });
 
   it('follow the person from one to the other', async () => {
-    renderTabs('/billing/handoff', '/billing/handoff', SEARCH_TABS);
+    renderTabs('/invoices', '/invoices', SEARCH_TABS);
 
-    await userEvent.click(await screen.findByRole('link', { name: 'Acknowledged' }));
+    await userEvent.click(await screen.findByRole('link', { name: 'Handoff' }));
 
-    await expect.poll(() => isActive('Acknowledged')).toBe(true);
-    expect(isActive('Waiting')).toBe(false);
+    await expect.poll(() => isActive('Handoff')).toBe(true);
+    expect(isActive('All')).toBe(false);
 
-    await userEvent.click(screen.getByRole('link', { name: 'Waiting' }));
+    await userEvent.click(screen.getByRole('link', { name: 'All' }));
 
-    await expect.poll(() => isActive('Waiting')).toBe(true);
-    expect(isActive('Acknowledged')).toBe(false);
+    await expect.poll(() => isActive('All')).toBe(true);
+    expect(isActive('Handoff')).toBe(false);
   });
 });

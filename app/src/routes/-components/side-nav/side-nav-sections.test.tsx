@@ -205,15 +205,12 @@ describe('useResolvedBillingRoutes', () => {
 });
 
 describe('useResolvedBillingItems', () => {
-  it('lists the handoff queue where billing is on', () => {
-    expect(billingPathsWith(billingCapabilitiesProfiles.stack())).toEqual([
-      '/billing/handoff',
-    ]);
+  it('lists nothing where the release ships none of the parts of the section', () => {
+    expect(billingPathsWith(billingCapabilitiesProfiles.stack())).toEqual([]);
   });
 
-  it('adds the add-ons and the vouchers where the release ships them', () => {
+  it('lists the add-ons and the vouchers where the release ships them', () => {
     expect(billingPathsWith(billingCapabilitiesProfiles.full())).toEqual([
-      '/billing/handoff',
       '/addons',
       '/vouchers',
     ]);
@@ -225,7 +222,7 @@ describe('useResolvedBillingItems', () => {
     it('hides them from a session whose scopes do not cover read:addons', () => {
       expect(
         billingPathsWith(full, ['read:billing', 'read:vouchers']),
-      ).toEqual(['/billing/handoff', '/vouchers']);
+      ).toEqual(['/vouchers']);
     });
 
     it.each([
@@ -247,7 +244,7 @@ describe('useResolvedBillingItems', () => {
     it('hides them from a session whose scopes do not cover read:vouchers', () => {
       expect(
         billingPathsWith(full, ['read:billing', 'read:addons']),
-      ).toEqual(['/billing/handoff', '/addons']);
+      ).toEqual(['/addons']);
     });
 
     it.each([
@@ -268,7 +265,7 @@ describe('useResolvedBillingItems', () => {
 
     expect(
       billingPathsWith({ ...stack, features: { ...stack.features, vouchers: true } }),
-    ).toEqual(['/billing/handoff', '/vouchers']);
+    ).toEqual(['/vouchers']);
   });
 
   it.each(['DEPLOYMENT_DISABLED', 'NOT_ENTITLED'] as const)(

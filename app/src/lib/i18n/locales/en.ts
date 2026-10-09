@@ -3930,6 +3930,9 @@ export default {
         title: 'Invoices',
         subtitle:
           'Every invoice of your organization, across its customers and instances.',
+        Views: {
+          all: 'All',
+        },
         Lines: {
           title: 'Lines',
         },

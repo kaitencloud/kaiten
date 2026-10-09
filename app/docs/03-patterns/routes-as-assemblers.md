@@ -199,16 +199,16 @@ The mutation, the validation and the navigation after the submit are all in `Fea
 A route can depend on what the deployment ships: billing exists only where `GET /billing/capabilities` says so. Its guard is a `beforeLoad` that reads the capability from the cache. Where the capability is there, the route loads. Where it is not, the guard throws `notFound({ data })` with the reason, and the route's `notFoundComponent` renders an explanation in place of the screen: a link to a screen that is not there explains why instead of failing or sending the person elsewhere. The same `notFoundComponent` answers a path under the layout that is no page.
 
 ```tsx
-// app/src/routes/billing/route.tsx (abridged)
-export const Route = createFileRoute('/billing')({
-  component: BillingLayout,
+// app/src/routes/invoices/route.tsx (abridged)
+export const Route = createFileRoute('/invoices')({
+  component: InvoicesLayout,
   notFoundComponent: BillingNotFound,
   beforeLoad: async ({ context }) => {
     await requireBillingCapability(context.queryClient);
   },
 });
 
-function BillingLayout() {
+function InvoicesLayout() {
   return (
     <Suspense fallback={null}>
       <Outlet />
@@ -223,7 +223,7 @@ The guard throws because a `beforeLoad` that returns lets the `beforeLoad` and t
 
 ### Search parameters and edit dialogs
 
-A route declares the search parameters it accepts with `validateSearch`, and passes them to the feature as props. `app/src/routes/notifications/index.tsx` and `app/src/routes/feature-flags/index.tsx` do it for a status filter and a view mode; see [URL state](./state-management.md#url-state). The edit mode of a detail page (`?mode=configure`) and the routes that render a dialog are in [dialog via route](./dialog-via-route.md).
+A route declares the search parameters it accepts with `validateSearch`, and passes them to the feature as props. `app/src/routes/notifications/index.tsx` and `app/src/routes/feature-flags/index.tsx` do it for a status filter and a view mode, and `app/src/routes/invoices/index.tsx` for a view that reads another operation: its `loaderDeps` name the view and the part of the search that view reads, and its `loader` warms the query of that view only; see [URL state](./state-management.md#url-state). The edit mode of a detail page (`?mode=configure`) and the routes that render a dialog are in [dialog via route](./dialog-via-route.md).
 
 ## Layout routes and Suspense
 
@@ -237,7 +237,7 @@ A route does not declare its own `errorComponent`, with one exception below. `cr
 - `defaultNotFoundComponent` renders `NotFound`. It answers a URL that matches no route and a loader that throws `notFound()`, as the deployment zone edit route does for an unknown slug.
 - `defaultPendingComponent` renders `RoutePending`.
 
-A route that needs its own boundary sets `errorComponent`. It can render `RouteError`, which takes an `error` and an optional `reset`, or a component of its own when the default card says too little. The routes of the invoices, of the handoff queue and of the vouchers do (`app/src/routes/invoices/$invoiceId/route.tsx`, `app/src/routes/invoices/index.tsx`, `app/src/routes/billing/handoff/index.tsx` and, for the guard, the list, a voucher and the wizard, `app/src/routes/vouchers/`): a refusal of the billing API carries a `detail` in its own words and a trace id that the person needs, so they set `BillingRouteError` (`app/src/domains/billing/components/billing-route-error.tsx`), which renders `NotFound` for a 404 and the refusal with a Retry for anything else. A route that reads one record for a screen that has states of its own (a skeleton, a refusal with a Retry, an empty state) does not need a boundary at all: it prefetches, as [A detail page: `beforeLoad` and several queries](#a-detail-page-beforeload-and-several-queries) describes.
+A route that needs its own boundary sets `errorComponent`. It can render `RouteError`, which takes an `error` and an optional `reset`, or a component of its own when the default card says too little. The routes of the invoices, whose list also reads the handoff queue as one of its views, and of the vouchers do (`app/src/routes/invoices/$invoiceId/route.tsx`, `app/src/routes/invoices/index.tsx` and, for the guard, the list, a voucher and the wizard, `app/src/routes/vouchers/`): a refusal of the billing API carries a `detail` in its own words and a trace id that the person needs, so they set `BillingRouteError` (`app/src/domains/billing/components/billing-route-error.tsx`), which renders `NotFound` for a 404 and the refusal with a Retry for anything else. A route that reads one record for a screen that has states of its own (a skeleton, a refusal with a Retry, an empty state) does not need a boundary at all: it prefetches, as [A detail page: `beforeLoad` and several queries](#a-detail-page-beforeload-and-several-queries) describes.
 
 ## Tests
 

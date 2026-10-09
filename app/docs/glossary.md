@@ -82,7 +82,7 @@ A draft whose usage journal failed a consistency check after the period closed (
 
 ### Handoff queue
 
-How an invoice that no payment provider collects reaches the organization's accounting system: it waits in a queue (`PENDING`) that a job or the CLI reads and takes under a lease (a claim), and is acknowledged once booked, with the number the accounting system gave it (`externalReference`). The console shows the queue and lets a person acknowledge an invoice they booked themselves; it never claims one. Code: `app/src/features/billing/components/handoff/`.
+How an invoice that no payment provider collects reaches the organization's accounting system: it waits in a queue (`PENDING`) that a job or the CLI reads and takes under a lease (a claim), and is acknowledged once booked, with the number the accounting system gave it (`externalReference`). The console shows the queue as a view of the list of invoices (`/invoices?view=handoff`) and lets a person acknowledge an invoice they booked themselves; it never claims one. Code: `app/src/features/billing/components/handoff/`.
 
 ### Line fingerprint
 

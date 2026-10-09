@@ -197,7 +197,7 @@ describe('the health of billing', () => {
       within(await tile('handoff')).getByRole('link', {
         name: 'Waiting for your accounting system',
       }),
-    ).toHaveAttribute('href', '/billing/handoff');
+    ).toHaveAttribute('href', '/invoices?view=handoff');
   });
 
   it('shows a count that nothing lists as a figure and no link', async () => {

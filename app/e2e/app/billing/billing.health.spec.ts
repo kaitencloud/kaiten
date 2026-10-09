@@ -287,7 +287,7 @@ test.describe('the health of billing', () => {
     await settings.goto();
 
     const links = {
-      handoff: '/billing/handoff',
+      handoff: '/invoices?view=handoff',
       held: '/invoices?held=true',
       overdue: '/invoices?overdue=true',
       pushFailures: '/invoices?status=PUSH_FAILED',
@@ -351,7 +351,11 @@ test.describe('the health of billing', () => {
     await settings.goto();
     await settings.tile('handoff').getByRole('link').click();
 
-    await expect(page).toHaveURL(/\/billing\/handoff$/);
+    await expect(page).toHaveURL(/\/invoices\?view=handoff$/);
+    // The queue is the handoff view of the list of invoices.
+    await expect(
+      page.getByRole('link', { exact: true, name: 'Waiting' }),
+    ).toHaveAttribute('aria-current', 'page');
   });
 
   test('says all is clear in one line, instead of seven zeros, when nothing needs attention', async ({

@@ -5,7 +5,10 @@ import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import type { PageQueuedInvoice } from '@/api-client';
-import { handleListHandoff } from '@/api-client/msw.gen';
+import {
+  handleGetBillingCapabilities,
+  handleListHandoff,
+} from '@/api-client/msw.gen';
 import {
   createLoadedPageClient,
   pageOf,
@@ -14,13 +17,14 @@ import {
   sessionToken,
   useBillingTexts,
 } from '@/test-fixtures/billing-test-support';
-import { HandoffPageContent } from '../handoff/handoff-page-content';
+import { billingCapabilitiesProfiles } from '../../../../../e2e/app/_support/model/billing-capabilities';
+import { InvoicesPageContent } from '../invoices/invoices-page-content';
 
 const getAuthToken = vi.hoisted(() => vi.fn());
 // Where the page is, which the tabs follow: a test moves it to the other part.
 const location = vi.hoisted(() => ({
-  pathname: '/billing/handoff',
-  search: {} as Record<string, unknown>,
+  pathname: '/invoices',
+  search: { view: 'handoff' } as Record<string, unknown>,
 }));
 
 vi.mock('@/lib/auth-token', () => ({ getAuthToken }));
@@ -34,7 +38,7 @@ vi.mock('@tanstack/react-router', async () =>
 useBillingTexts();
 
 beforeEach(() => {
-  location.search = {};
+  location.search = { view: 'handoff' };
   // A session that may write billing, as an administrator does.
   getAuthToken.mockResolvedValue(sessionToken(['write:billing']));
 });
@@ -53,21 +57,24 @@ function serveQueue(...pages: PageQueuedInvoice[]) {
   return asked;
 }
 
-const renderPage = (status: 'ACKNOWLEDGED' | 'PENDING' = 'PENDING') =>
+const renderPage = (queue?: 'ACKNOWLEDGED' | 'PENDING') =>
   renderWithClient(
     <Suspense fallback={<p>Loading</p>}>
-      <HandoffPageContent status={status} />
+      <InvoicesPageContent
+        onScopeChange={vi.fn()}
+        search={{ queue, view: 'handoff' }}
+      />
     </Suspense>,
     createLoadedPageClient(),
   );
 
-describe('the page of the handoff queue', () => {
-  it('titles the queue, and says how it is read', async () => {
+describe('the handoff view of the invoices', () => {
+  it('is a view of the page of the invoices, and says how the queue is read', async () => {
     serveQueue(pageOf([queuedRow('inv-1', 'Initech')]));
     renderPage();
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Handoff' }),
+      await screen.findByRole('heading', { level: 1, name: 'Invoices' }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/The invoices waiting for your ERP, oldest first/),
@@ -118,23 +125,23 @@ describe('the page of the handoff queue', () => {
     expect(asked[0].get('status')).toBe('ACKNOWLEDGED');
   });
 
-  it('has a tab for each part of the queue, and what waits is the bare path', async () => {
+  it('has a tab for each part of the queue, and what waits is the bare view', async () => {
     serveQueue(pageOf([queuedRow('inv-1', 'Initech')]));
     renderPage();
 
     expect(await screen.findByRole('link', { name: 'Waiting' })).toHaveAttribute(
       'href',
-      '/billing/handoff',
+      '/invoices?view=handoff',
     );
     expect(screen.getByRole('link', { name: 'Acknowledged' })).toHaveAttribute(
       'href',
-      '/billing/handoff?status=ACKNOWLEDGED',
+      '/invoices?view=handoff&queue=ACKNOWLEDGED',
     );
   });
 
   it('draws as active the tab of the part of the queue the URL asks for', async () => {
     serveQueue(pageOf([queuedRow('inv-1', 'Initech')]));
-    location.search = { status: 'ACKNOWLEDGED' };
+    location.search = { queue: 'ACKNOWLEDGED', view: 'handoff' };
     renderPage('ACKNOWLEDGED');
 
     const acknowledged = await screen.findByRole('link', {
@@ -167,7 +174,10 @@ describe('the page of the handoff queue', () => {
 
     rerender(
       <Suspense fallback={<p>Loading</p>}>
-        <HandoffPageContent status="ACKNOWLEDGED" />
+        <InvoicesPageContent
+          onScopeChange={vi.fn()}
+          search={{ queue: 'ACKNOWLEDGED', view: 'handoff' }}
+        />
       </Suspense>,
     );
 
@@ -176,5 +186,26 @@ describe('the page of the handoff queue', () => {
     expect(
       screen.getByPlaceholderText('Customer, instance or invoice'),
     ).toHaveValue('');
+  });
+
+  it('has the way back to every invoice in its toolbar, where the queue matters', async () => {
+    server.use(
+      handleGetBillingCapabilities({
+        body: billingCapabilitiesProfiles.stack(),
+      }),
+    );
+    serveQueue(pageOf([queuedRow('inv-1', 'Initech')]));
+    renderPage();
+
+    await screen.findByText('Initech');
+
+    expect(await screen.findByRole('link', { name: 'All' })).toHaveAttribute(
+      'href',
+      '/invoices',
+    );
+    expect(screen.getByRole('link', { name: 'Handoff' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
   });
 });

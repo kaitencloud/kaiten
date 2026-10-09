@@ -23,13 +23,14 @@ export type HealthItemFilter = {
 
 /**
  * Where a count leads to, to see what it counts: the list of invoices opened on a
- * filter, or the queue of the accounting system, which is the view of what waits for it.
- * An item that counts something nothing lists (an invoice whose provider disagrees, a
- * period, a subscription) has none, and is a figure and no link.
+ * filter, or on its handoff view, the queue of the accounting system, which is what
+ * waits for it. An item that counts something nothing lists (an invoice whose
+ * provider disagrees, a period, a subscription) has none, and is a figure and no link.
  */
-export type HealthLink =
-  | { search: HealthItemFilter; to: '/invoices' }
-  | { to: '/billing/handoff' };
+export type HealthLink = {
+  search: HealthItemFilter | { view: 'handoff' };
+  to: '/invoices';
+};
 
 export type HealthItem = {
   count: number;
@@ -75,7 +76,7 @@ export function getHealthItems(health: BillingHealth): HealthItem[] {
     {
       count: health.handoff.pending,
       id: 'handoff',
-      link: { to: '/billing/handoff' },
+      link: { search: { view: 'handoff' }, to: '/invoices' },
       oldestAt: health.handoff.oldestPendingIssuedAt,
     },
     { count: health.reconciliationMismatches30d, id: 'mismatches' },
