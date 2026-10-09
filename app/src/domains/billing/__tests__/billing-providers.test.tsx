@@ -157,6 +157,22 @@ describe('useBillingProvider', () => {
     });
   });
 
+  it('still says why Stripe cannot be connected where billing is off for that very reason, and offers nothing', async () => {
+    const { result } = render({
+      ...billingCapabilitiesProfiles.disabled('NOT_ENTITLED'),
+      providers: withStripe('notEntitled').providers,
+    });
+
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+
+    expect(result.current).toMatchObject({
+      isConnected: false,
+      isOffered: false,
+      listedStanding: { reason: 'NOT_ENTITLED', state: 'unavailable' },
+      standing: { state: 'unlisted' },
+    });
+  });
+
   it('offers no provider where billing is off', async () => {
     const { result } = render(billingCapabilitiesProfiles.disabled());
 

@@ -283,6 +283,9 @@ page holds, or an export the API streams.
   `capabilities.automaticCollection`, and never from `features.stripe`,
   `features.chargeAutomatically` or `features.publicSurface`: the API fixes those three
   whatever a provider can do, so a gate on them would hide what a deployment has.
+  Nothing is offered where billing is off, but `listedStanding` reads the entry
+  whether it is on or not: the tile of the connectors says that the plan leaves Stripe
+  out, or that it needs a Vault, where billing is off for that very reason.
   `STRIPE_CONNECTOR_NAME` is the connector Stripe is configured through.
 - **What an invoice allows is decided here.** `getInvoiceActions(invoice, context)`
   answers, from the status, the hold, the provider and the replacement of an invoice,

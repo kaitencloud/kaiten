@@ -71,10 +71,11 @@ export function ConnectorsIndex({
   onOpenStripe,
 }: ConnectorsIndexProps) {
   const { t } = useTranslation();
-  const { isPending, standing } = useBillingProvider('STRIPE');
+  // The tile says what the API lists of Stripe, also where billing is off for it.
+  const { isPending, listedStanding } = useBillingProvider('STRIPE');
   const catalog = applyStatuses(
     isAttioConnected,
-    isPending ? undefined : standing,
+    isPending ? undefined : listedStanding,
   );
   const connected = catalog.filter((c) => c.status === 'connected');
   const crm = catalog.filter(
