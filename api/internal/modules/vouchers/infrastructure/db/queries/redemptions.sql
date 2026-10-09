@@ -166,3 +166,63 @@ SET applications_count = iv.applications_count + 1,
 WHERE iv.organization_id = sqlc.arg(organization_id)
   AND iv.id = sqlc.arg(id)
 RETURNING iv.status;
+
+
+-- name: ListExpiringVouchers :many
+-- ACTIVE vouchers past their expires_at, oldest first: what billing-lifecycle
+-- marks EXPIRED (§11.5). Across organizations; each is expired in its own
+-- transaction.
+SELECT v.id, v.organization_id
+FROM voucher v
+WHERE v.status = 'ACTIVE'
+  AND v.expires_at <= sqlc.arg(now)::timestamp
+ORDER BY v.expires_at, v.id
+LIMIT sqlc.arg(page_size);
+
+
+-- name: ExpireVoucher :one
+-- Marks a voucher EXPIRED if it still is ACTIVE and past its expires_at. No
+-- row when another pass, or an edit of expiresAt, got there first.
+UPDATE voucher
+SET status        = 'EXPIRED',
+    updated_at    = sqlc.arg(now)::timestamp,
+    updated_by_id = sqlc.arg(user_id)::uuid
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'ACTIVE'
+  AND expires_at <= sqlc.arg(now)::timestamp
+RETURNING id, name, expires_at;
+
+
+-- name: ListExpiringRedemptions :many
+-- ACTIVE redemptions past their effective_expires_at -- boosts whose window
+-- ended -- oldest first (§11.5).
+SELECT iv.id, iv.organization_id
+FROM instance_voucher iv
+WHERE iv.status = 'ACTIVE'
+  AND iv.effective_expires_at <= sqlc.arg(now)::timestamp
+ORDER BY iv.effective_expires_at, iv.id
+LIMIT sqlc.arg(page_size);
+
+
+-- name: ExpireRedemption :execrows
+UPDATE instance_voucher
+SET status     = 'EXPIRED',
+    expired_at = sqlc.arg(now)::timestamp,
+    updated_at = sqlc.arg(now)::timestamp
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'ACTIVE'
+  AND effective_expires_at <= sqlc.arg(now)::timestamp;
+
+
+-- name: GetVoucherSystemActor :one
+-- system:kaiten's membership in an organization, which work Kaiten does on its
+-- own behalf is recorded under.
+SELECT u.id
+FROM "user" u
+JOIN user_on_organization m
+  ON m.user_id = u.id
+ AND m.organization_id = sqlc.arg(organization_id)
+ AND m.deleted_at IS NULL
+WHERE u.external_id = sqlc.arg(external_id);

@@ -9,6 +9,7 @@ var (
 	VoucherPublished = events.New("VOUCHER_PUBLISHED", "com.kaiten.voucher.v1.published")
 	VoucherArchived  = events.New("VOUCHER_ARCHIVED", "com.kaiten.voucher.v1.archived")
 	VoucherExhausted = events.New("VOUCHER_EXHAUSTED", "com.kaiten.voucher.v1.exhausted")
+	VoucherExpired   = events.New("VOUCHER_EXPIRED", "com.kaiten.voucher.v1.expired")
 
 	InstanceVoucherRedeemed = events.New("INSTANCE_VOUCHER_REDEEMED", "com.kaiten.instance.voucher.v1.redeemed")
 	InstanceVoucherRevoked  = events.New("INSTANCE_VOUCHER_REVOKED", "com.kaiten.instance.voucher.v1.revoked")

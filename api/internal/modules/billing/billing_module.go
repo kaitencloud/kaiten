@@ -64,6 +64,7 @@ type Ports struct {
 	Attacher  ports.AddonAttacher
 	Redeemer  ports.VoucherRedeemer
 	Mover     ports.InstanceVersionMover
+	Expiry    ports.VoucherExpiry
 }
 
 type UseCases struct {
@@ -184,7 +185,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		overdue := lifecycle.NewJob(svc.Pool, lifecycle.NewOverdue(svc.Uof, cfg.AutoCollectionGrace), sweep.Config{
 			InitialDelay: orDefault(cfg.InitialDelay, time.Minute),
 			Interval:     orDefault(cfg.Lifecycle.Interval, 15*time.Minute),
-		}, batchSize(cfg.PeriodClose.BatchSize), paymentmethods.NewExpiry(svc.Uof))
+		}, batchSize(cfg.PeriodClose.BatchSize), from.Expiry, paymentmethods.NewExpiry(svc.Uof))
 		overdue.Start(context.Background())
 		svc.WorkerRegistry.OnStop(overdue.Stop)
 

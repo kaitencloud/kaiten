@@ -81,6 +81,13 @@ type ExhaustedEvent struct {
 	MaxRedemptions *int32    `json:"maxRedemptions,omitempty"`
 }
 
+// ExpiredEvent is the payload of VOUCHER_EXPIRED.
+type ExpiredEvent struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	ExpiresAt time.Time `json:"expiresAt"`
+}
+
 // Announce records a voucher event; the payload never carries the code.
 func Announce(ctx context.Context, box *outbox.ScopedRepository, organizationID uuid.UUID, event kaitenevents.Metadata, voucher Voucher) error {
 	voucher.Code = nil
@@ -101,8 +108,9 @@ func RegisterWebhooks(api huma.API) {
 		declare(events.VoucherPublished, (*Voucher)(nil), "onVoucherPublished", "Voucher Published", "Triggered when a draft voucher becomes redeemable.", "vouchers"),
 		declare(events.VoucherArchived, (*Voucher)(nil), "onVoucherArchived", "Voucher Archived", "Triggered when a voucher is archived.", "vouchers"),
 		declare(events.VoucherExhausted, (*ExhaustedEvent)(nil), "onVoucherExhausted", "Voucher Exhausted", "Triggered by the redemption that reaches maxRedemptions.", "vouchers"),
+		declare(events.VoucherExpired, (*ExpiredEvent)(nil), "onVoucherExpired", "Voucher Expired", "Triggered when an active voucher reaches its expiresAt and can no longer be redeemed.", "vouchers"),
 		declare(events.InstanceVoucherRedeemed, (*Redemption)(nil), "onInstanceVoucherRedeemed", "Instance Voucher Redeemed", "Triggered when an instance redeems a voucher.", "vouchers"),
 		declare(events.InstanceVoucherRevoked, (*Redemption)(nil), "onInstanceVoucherRevoked", "Instance Voucher Revoked", "Triggered when a redemption is revoked.", "vouchers"),
-		declare(events.InstanceVoucherExpired, (*Redemption)(nil), "onInstanceVoucherExpired", "Instance Voucher Expired", "Triggered when a PRICE redemption has discounted its last invoice.", "vouchers"),
+		declare(events.InstanceVoucherExpired, (*Redemption)(nil), "onInstanceVoucherExpired", "Instance Voucher Expired", "Triggered when a PRICE redemption has discounted its last invoice, or a boost's window ends.", "vouchers"),
 	)
 }
