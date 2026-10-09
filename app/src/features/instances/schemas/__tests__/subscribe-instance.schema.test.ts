@@ -170,7 +170,7 @@ describe('the body of the subscription', () => {
     expect(subscribeValuesToBody({ ...values, daysUntilDue: 0 }).daysUntilDue).toBe(0);
   });
 
-  it('carries no collection method or voucher: this release takes none, and no add-on the person did not include', () => {
+  it('carries no collection method, which this release takes none of, and no add-on or voucher the person did not include', () => {
     const body = subscribeValuesToBody(
       { ...values, daysUntilDue: 10, startAt: '2027-03-01T00:00' },
       { trials: true },
@@ -214,6 +214,21 @@ describe('the body of the subscription', () => {
       ).trialDays,
     ).toBe(0);
     expect(getTrialDays({ trialDays: 14 }, { billingTiming: 'ARREARS' })).toBe(0);
+  });
+});
+
+describe('the voucher code to redeem with the subscription', () => {
+  it('starts empty, which is no voucher, and holds the form back from nothing', () => {
+    expect(initialSubscribeFormValues.voucherCode).toBe('');
+    expect(getSubscribeFormErrors({ ...values, voucherCode: 'anything at all' }, { now: NOW })).toBeUndefined();
+  });
+
+  it('is sent as typed without the spaces around it, and left out when empty', () => {
+    expect(subscribeValuesToBody({ ...values, voucherCode: '  WELCOME-2027 ' }).voucherCode).toBe(
+      'WELCOME-2027',
+    );
+    expect(subscribeValuesToBody({ ...values, voucherCode: '' })).not.toHaveProperty('voucherCode');
+    expect(subscribeValuesToBody({ ...values, voucherCode: '   ' })).not.toHaveProperty('voucherCode');
   });
 });
 
@@ -282,5 +297,11 @@ describe('where a refusal of the API goes', () => {
       'SubscribeInstance.StartAtInFuture': 'startAt',
       'SubscribeInstance.StartAtTooEarly': 'startAt',
     });
+  });
+});
+
+describe('where a refusal of a voucher code goes', () => {
+  it('locates it on the code, by the location of the error the API gives it', () => {
+    expect(SUBSCRIBE_REFUSAL_FIELDS.byLocation).toMatchObject({ voucherCode: 'voucherCode' });
   });
 });

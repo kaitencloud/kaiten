@@ -33,6 +33,8 @@ const SEGMENT_LABEL_KEYS: Record<string, string> = {
   'plan-change': 'Pages.Customers.Instances.Detail.Billing.PlanChange.title',
   prices: 'Pages.Licenses.Prices.title',
   'publishable-keys': 'Pages.Integrations.PublishableKeys.title',
+  'redeem-voucher':
+    'Pages.Customers.Instances.Detail.Billing.Vouchers.Redeem.breadcrumb',
   releases: 'Pages.Releases.title',
   'service-accounts': 'Pages.Integrations.ServiceAccounts.title',
   settings: 'Pages.Settings.title',
