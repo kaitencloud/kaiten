@@ -450,8 +450,8 @@ export type RedeemingInstance = {
   /** The entitlements it has, whatever their type: none known means every one. */
   entitlementSlugs?: readonly string[];
   licenseId: string;
-  /** Its subscription when it lives. */
-  subscription?: InstanceBilling;
+  /** Its subscription when it lives, or the one a price would start. */
+  subscription?: PlannedSubscription;
 };
 
 /**
@@ -535,6 +535,27 @@ export function instanceRefusal(
 
   return undefined;
 }
+
+/**
+ * The subscription a flat-fee price would start, as the checks read it: the period, the
+ * amount and the currency of the price, and the version it belongs to. A validation that
+ * names a price reads this in place of the subscription the instance has.
+ */
+export type PlannedSubscription = Pick<
+  InstanceBilling,
+  'basePrice' | 'billingPeriod' | 'currency'
+>;
+
+/**
+ * The refusal the API gives a principal that checks more than sixty codes in a minute
+ * (`POST /vouchers/validate`, 429), for a spec to arm on the validation: the words and the
+ * code are the API's, and it names no `Retry-After` the browser could read.
+ */
+export const VALIDATION_RATE_LIMITED = {
+  code: 'ValidateVoucher.RateLimited',
+  detail: 'too many voucher codes checked: try again later',
+  status: 429,
+} as const;
 
 /** The refusal of a redeem for a failed check, with the code and the words of the API. */
 export function redeemProblem(
@@ -622,7 +643,7 @@ export function applicationsMaxOf(voucher: Voucher): number | undefined {
 export function boostEnd(
   voucher: Voucher,
   redeemedAt: Date,
-  subscription: InstanceBilling | undefined,
+  subscription: Pick<InstanceBilling, 'billingPeriod'> | undefined,
 ): string | undefined {
   if (
     voucher.voucherType !== 'ENTITLEMENT_BOOST' ||

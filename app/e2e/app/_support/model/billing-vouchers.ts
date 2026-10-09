@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type {
   InstanceBilling,
+  Price,
   Redemption,
   Validity,
   Voucher,
@@ -20,6 +21,7 @@ import {
   instanceRefusal,
   isInForce,
   onlyActiveMembersChange,
+  type PlannedSubscription,
   type RedeemingInstance,
   redeemProblem,
   sameCode,
@@ -71,6 +73,8 @@ export type VoucherWorld = VoucherReferences & {
   /** The instance a voucher is redeemed for, or nothing when the organization has none by that slug. */
   instance(slug: string): RedeemingInstance | undefined;
   now(): number;
+  /** The flat-fee price a subscription would start on and the id of its version, or nothing when no flat-fee price has that id. */
+  plan(priceId: string): { licenseId?: string; price: Price } | undefined;
 };
 
 /**
@@ -136,6 +140,7 @@ export class BillingVouchers {
     hasLicensePrice: () => false,
     instance: () => undefined,
     now: () => Date.now(),
+    plan: () => undefined,
   };
 
   constructor(seed: BillingVouchersSeed = {}) {
@@ -506,11 +511,17 @@ export class BillingVouchers {
     );
   }
 
-  /** The first check a redemption of `voucher` by `instance` fails, if any. */
+  /**
+   * The first check a redemption of `voucher` by `instance` fails, if any. A `subscription` is
+   * the one the checks that read it must see in place of the instance's: the one a subscribe
+   * is about to write, or the one a price would start. A price also moves the instance to the
+   * version it belongs to, as the API reads it.
+   */
   private refusalFor(
     voucher: Voucher,
     instanceSlug: string | undefined,
-    subscription?: InstanceBilling,
+    subscription?: PlannedSubscription,
+    licenseId?: string,
   ) {
     const window = windowRefusal(voucher, this.world.now());
     if (window || instanceSlug === undefined) {
@@ -523,19 +534,30 @@ export class BillingVouchers {
 
     return instanceRefusal(
       voucher,
-      subscription ? { ...instance, subscription } : instance,
+      subscription
+        ? {
+            ...instance,
+            licenseId: licenseId ?? instance.licenseId,
+            subscription,
+          }
+        : instance,
       this.redeemedAlready(instanceSlug, voucher.id),
       this.world.entitlementType,
     );
   }
 
-  /** `POST /vouchers/validate`: whether a code would redeem, and why not. */
+  /**
+   * `POST /vouchers/validate`: whether a code would redeem, and why not. With a
+   * `licensePriceId` the licence, period, amount and currency checks read the subscription
+   * that flat-fee price would start, and not the instance's own (404
+   * `ValidateVoucher.PriceNotFound` for a price that is no flat fee of the organization). The
+   * price is read with the instance: the checks that need the instance are skipped when none
+   * is named, and so is the price, which only changes how the instance is read. The limit of
+   * sixty checks a minute is armed by a spec (`VALIDATION_RATE_LIMITED`), not counted.
+   */
   validate(check: VoucherCheck): Validity {
     this.problems.consume('validateVoucher');
     const voucher = this.findByCode(check.code);
-    if (!voucher) {
-      return { reason: 'NOT_FOUND', valid: false };
-    }
     if (
       check.instanceSlug !== undefined &&
       !this.world.instance(check.instanceSlug)
@@ -545,7 +567,29 @@ export class BillingVouchers {
         `instance "${check.instanceSlug}" not found`,
       );
     }
-    const refusal = this.refusalFor(voucher, check.instanceSlug);
+    const plan =
+      check.licensePriceId === undefined
+        ? undefined
+        : this.world.plan(check.licensePriceId);
+    if (check.licensePriceId !== undefined && !plan) {
+      throw denied(
+        'ValidateVoucher.PriceNotFound',
+        `no flat-fee licence price ${check.licensePriceId}`,
+      );
+    }
+    if (!voucher) {
+      return { reason: 'NOT_FOUND', valid: false };
+    }
+    const refusal = this.refusalFor(
+      voucher,
+      check.instanceSlug,
+      plan && {
+        basePrice: plan.price,
+        billingPeriod: plan.price.billingPeriod ?? 'MONTHLY',
+        currency: plan.price.currency,
+      },
+      plan?.licenseId,
+    );
     const seen = this.view(voucher, false);
     if (refusal) {
       return {
@@ -592,7 +636,7 @@ export class BillingVouchers {
   private claim(
     voucher: Editable<Voucher>,
     instanceSlug: string,
-    subscription: InstanceBilling | undefined,
+    subscription: Pick<InstanceBilling, 'billingPeriod'> | undefined,
   ): Redemption {
     const now = new Date(this.world.now());
     voucher.redemptionsCount += 1;

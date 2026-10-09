@@ -322,7 +322,31 @@ export class BillingSubscriptions {
       hasLicensePrice: knowsPrice,
       instance: (slug) => this.redeemingInstance(slug),
       now: () => this.now(),
+      plan: (id) => this.planOf(id),
     };
+  }
+
+  /**
+   * The flat-fee price with that id and the version it belongs to, when an instance runs that
+   * version: what a validation that names a price reads in place of an instance's subscription.
+   */
+  private planOf(id: string): { licenseId?: string; price: Price } | undefined {
+    for (const [licenseSlug, prices] of Object.entries(this.catalogue.prices)) {
+      const price = prices.find(
+        (candidate) =>
+          candidate.id === id && candidate.billingModel === 'FLAT_FEE',
+      );
+      if (price) {
+        return {
+          licenseId: this.catalogue.instances.find(
+            (instance) => instance.licenseSlug === licenseSlug,
+          )?.licenseId,
+          price: clone(price),
+        };
+      }
+    }
+
+    return undefined;
   }
 
   /** The instance as the redemption rules read it. */
