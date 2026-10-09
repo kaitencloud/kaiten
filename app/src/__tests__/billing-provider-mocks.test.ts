@@ -618,6 +618,18 @@ describe('what the provider does to an invoice, as the mocks serve it', () => {
     });
   });
 
+  it('leaves an invoice the job is slow to get to queued, however often it is read', async () => {
+    installBilling(createStripeBillingModel({ stalledPushes: ['inv-f1'] }));
+
+    await send('POST', '/invoices/inv-f1/retry-push');
+
+    for (let reads = 0; reads < 5; reads += 1) {
+      const read = await invoice('inv-f1');
+      expect(read.status).toBe('PUSH_FAILED');
+      expect(read.provider?.pushAttempts).toBe(3);
+    }
+  });
+
   it('refuses to push an invoice nobody collects through a provider, or one that is held', async () => {
     installBilling(createStripeBillingModel());
 

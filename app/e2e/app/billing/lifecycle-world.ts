@@ -17,11 +17,16 @@ import {
 } from '../_support/fixtures/build-invoice';
 import type { InvoiceIdentity } from '../_support/fixtures/build-invoice';
 import { BillingAppModel } from '../_support/model/billing-app-model';
-import { billingCapabilitiesProfiles } from '../_support/model/billing-capabilities';
+import {
+  billingCapabilitiesProfiles,
+  type StripeStanding,
+} from '../_support/model/billing-capabilities';
+import type { BillingProvidersSeed } from '../_support/model/billing-providers';
 import type { BillingCatalogue } from '../_support/model/billing-subscriptions';
 import { InstanceAppModel } from '../_support/model/instance-app-model';
 import { LicenseAppModel } from '../_support/model/license-app-model';
 import { BILLED_NOW } from './billed-instances';
+import { invoiceSet } from './invoice-fixtures';
 
 export { BILLED_NOW as LIFECYCLE_NOW };
 
@@ -280,12 +285,19 @@ function lifecycleCatalogue(): BillingCatalogue {
  */
 export function createLifecycleBillingModel(
   capabilities: BillingCapabilities = billingCapabilitiesProfiles.stack(),
+  extras: {
+    /** Invoices the world also holds, besides the one that makes Initech Late past due. */
+    invoices?: Invoice[];
+    /** The customers as the payment provider holds them. */
+    providers?: BillingProvidersSeed;
+  } = {},
 ) {
   return new BillingAppModel({
     addons: { 'initech-seats': [SEATS_ADDON] },
     capabilities,
     catalogue: lifecycleCatalogue(),
-    invoices: lifecycleInvoices(),
+    invoices: [...lifecycleInvoices(), ...(extras.invoices ?? [])],
+    providers: extras.providers,
     subscriptions: [
       subscriptionOf('initech-prod'),
       subscriptionOf('initech-trial', {
@@ -326,11 +338,19 @@ export function createLifecycleBillingModel(
   });
 }
 
-/** The customers, the license versions and the instances, as the instance slot serves them. */
-export function createLifecycleInstancesModel() {
+/**
+ * The customers, the license versions and the instances, as the instance slot serves
+ * them. Initech has an address its invoices go to, unless `billingEmail` says it has none.
+ */
+export function createLifecycleInstancesModel(
+  options: { billingEmail?: string | null } = {},
+) {
   const customers: Customer[] = [
     buildCustomer({
-      billingEmail: 'ap@initech.test',
+      billingEmail:
+        options.billingEmail === null
+          ? undefined
+          : (options.billingEmail ?? 'ap@initech.test'),
       id: 'customer-initech',
       name: INITECH.name,
       slug: INITECH.slug,
@@ -390,4 +410,41 @@ export function createLifecycleLicensesModel() {
     prices: LIFECYCLE_PRICES,
     publicFamilyIds: ['family-enterprise'],
   });
+}
+
+/**
+ * The lifecycle world on a deployment that offers Stripe, for the specs of who collects
+ * a contract and how. Initech Production lives on the organization's own system, with two
+ * invoices still open: `inv-m1`, ready to bill and waiting for the accounting system, and
+ * `inv-h1`, a draft its usage journal holds.
+ *
+ * - `standing` is where Stripe stands: connected, or free to be connected;
+ * - `billingEmail` is the address Initech's invoices go to, in the customer and in Stripe's
+ *   records, or `null` for none.
+ */
+export function createLifecycleStripeModels(
+  options: { billingEmail?: string | null; standing?: StripeStanding } = {},
+) {
+  const email =
+    options.billingEmail === undefined
+      ? 'ap@initech.test'
+      : options.billingEmail;
+  const open = invoiceSet().invoices.filter(
+    ({ id }) => id === 'inv-m1' || id === 'inv-h1',
+  );
+
+  return {
+    billing: createLifecycleBillingModel(
+      billingCapabilitiesProfiles.stackWithStripe(
+        options.standing ?? 'connected',
+      ),
+      {
+        invoices: open,
+        providers: {
+          customers: { initech: email === null ? {} : { billingEmail: email } },
+        },
+      },
+    ),
+    instances: createLifecycleInstancesModel({ billingEmail: email }),
+  };
 }
