@@ -21,7 +21,9 @@ export {
   invalidateBillingSettingsQueries,
   invalidateInstanceAddonQueries,
   invalidateInstanceBillingQueries,
+  invalidateInstanceVoucherQueries,
   invalidateInvoiceQueries,
   invalidateLicensePriceQueries,
+  invalidateVoucherQueries,
 } from './billing-query-invalidation';
 export { usageReportPagesQueryOptions } from './usage-report-pages';

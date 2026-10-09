@@ -1,8 +1,8 @@
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import { TableEmptyMessage } from '@/domains/billing';
 import type { InvoiceScope } from '../../schemas/invoice-scope.schema';
-import { TableEmptyMessage } from '../table-empty-message';
 
 type InvoicesEmptyProps = {
   /** Whether a filter of the screen is why there is no row. */

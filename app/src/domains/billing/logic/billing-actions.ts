@@ -51,6 +51,9 @@ export const BILLING_ACTIONS = {
   'instance.update': 'updateInstance',
   // Every instance, read to find who holds an add-on version.
   'instances.list': 'getInstances',
+  // The customers, and the license versions, a voucher can be reserved for or limited to.
+  'customers.list': 'listCustomers',
+  'licenses.list': 'getLicenses',
   // Listing a family of licenses in the public catalogue.
   'licenseFamily.setPublic': 'updateLicenseFamily',
   // The families a license is sold in, and what a version of one grants: what the
@@ -78,6 +81,21 @@ export const BILLING_ACTIONS = {
   'addonCompatibility.list': 'listAddonCompatibility',
   'addonCompatibility.set': 'setAddonCompatibility',
   'addonCompatibility.remove': 'removeAddonCompatibility',
+  // The vouchers: the catalogue, its redemptions and what an instance redeems. Revoking a
+  // redemption is a scope of the vouchers, not of the redemptions: a session that may
+  // redeem a code cannot take a redemption back.
+  'vouchers.list': 'listVouchers',
+  'vouchers.read': 'getVoucher',
+  'vouchers.lookup': 'lookupVoucher',
+  'vouchers.create': 'createVoucher',
+  'vouchers.update': 'updateVoucher',
+  'vouchers.publish': 'publishVoucher',
+  'vouchers.archive': 'archiveVoucher',
+  'vouchers.redemptions': 'listVoucherRedemptions',
+  'vouchers.revoke': 'revokeInstanceVoucher',
+  'vouchers.validate': 'validateVoucher',
+  'instance.vouchers.list': 'listInstanceVouchers',
+  'instance.vouchers.redeem': 'redeemVoucher',
   // Invoices of the organization.
   'invoices.list': 'listInvoices',
   'invoices.export': 'exportInvoices',

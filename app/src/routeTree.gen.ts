@@ -17,6 +17,7 @@ import { Route as EntitlementsRouteRouteImport } from './routes/entitlements/rou
 import { Route as ReleasesRouteRouteImport } from './routes/releases/route'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as VouchersRouteRouteImport } from './routes/vouchers/route'
 import { Route as AddonsIndexRouteImport } from './routes/addons/index'
 import { Route as AddonsAddonSlugRouteRouteImport } from './routes/addons/$addonSlug/route'
 import { Route as AuditTrailIndexRouteImport } from './routes/audit-trail/index'
@@ -45,6 +46,8 @@ import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsBillingRouteImport } from './routes/settings/billing'
 import { Route as SettingsMetadataRouteImport } from './routes/settings/metadata'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
+import { Route as VouchersIndexRouteImport } from './routes/vouchers/index'
+import { Route as VouchersVoucherIdRouteRouteImport } from './routes/vouchers/$voucherId/route'
 import { Route as AddonsAddonSlugIndexRouteImport } from './routes/addons/$addonSlug/index'
 import { Route as AddonsAddonSlugCompatibilityRouteImport } from './routes/addons/$addonSlug/compatibility'
 import { Route as AddonsAddonSlugEntitlementsRouteImport } from './routes/addons/$addonSlug/entitlements'
@@ -84,6 +87,9 @@ import { Route as ReleasesReleaseSlugDeploymentZonesRouteImport } from './routes
 import { Route as ReleasesDeploymentZoneIndexRouteImport } from './routes/releases/deployment-zone/index'
 import { Route as ReleasesDeploymentZonesZoneSlugRouteRouteImport } from './routes/releases/deployment-zones_/$zoneSlug/route'
 import { Route as ReleasesNewIndexRouteImport } from './routes/releases/new/index'
+import { Route as VouchersVoucherIdIndexRouteImport } from './routes/vouchers/$voucherId/index'
+import { Route as VouchersVoucherIdEditRouteImport } from './routes/vouchers/$voucherId/edit'
+import { Route as VouchersNewIndexRouteImport } from './routes/vouchers/new/index'
 import { Route as BillingInvoicesInvoiceIdIndexRouteImport } from './routes/billing/invoices/$invoiceId/index'
 import { Route as CustomersInstancesInstanceSlugIndexRouteImport } from './routes/customers/instances/$instanceSlug/index'
 import { Route as CustomersInstancesInstanceSlugAuditTrailRouteImport } from './routes/customers/instances/$instanceSlug/audit-trail'
@@ -151,6 +157,11 @@ const SignInRoute = SignInRouteImport.update({
 const SignUpRoute = SignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VouchersRouteRoute = VouchersRouteRouteImport.update({
+  id: '/vouchers',
+  path: '/vouchers',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AddonsIndexRoute = AddonsIndexRouteImport.update({
@@ -302,6 +313,16 @@ const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
   id: '/settings/notifications',
   path: '/settings/notifications',
   getParentRoute: () => rootRouteImport,
+} as any)
+const VouchersIndexRoute = VouchersIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => VouchersRouteRoute,
+} as any)
+const VouchersVoucherIdRouteRoute = VouchersVoucherIdRouteRouteImport.update({
+  id: '/$voucherId',
+  path: '/$voucherId',
+  getParentRoute: () => VouchersRouteRoute,
 } as any)
 const AddonsAddonSlugIndexRoute = AddonsAddonSlugIndexRouteImport.update({
   id: '/',
@@ -525,6 +546,21 @@ const ReleasesNewIndexRoute = ReleasesNewIndexRouteImport.update({
   path: '/new/',
   getParentRoute: () => ReleasesRouteRoute,
 } as any)
+const VouchersVoucherIdIndexRoute = VouchersVoucherIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => VouchersVoucherIdRouteRoute,
+} as any)
+const VouchersVoucherIdEditRoute = VouchersVoucherIdEditRouteImport.update({
+  id: '/edit',
+  path: '/edit',
+  getParentRoute: () => VouchersVoucherIdRouteRoute,
+} as any)
+const VouchersNewIndexRoute = VouchersNewIndexRouteImport.update({
+  id: '/new/',
+  path: '/new/',
+  getParentRoute: () => VouchersRouteRoute,
+} as any)
 const BillingInvoicesInvoiceIdIndexRoute =
   BillingInvoicesInvoiceIdIndexRouteImport.update({
     id: '/',
@@ -703,6 +739,7 @@ export interface FileRoutesByFullPath {
   '/customers': typeof CustomersRouteRouteWithChildren
   '/entitlements': typeof EntitlementsRouteRouteWithChildren
   '/releases': typeof ReleasesRouteRouteWithChildren
+  '/vouchers': typeof VouchersRouteRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/addons/$addonSlug': typeof AddonsAddonSlugRouteRouteWithChildren
@@ -718,6 +755,7 @@ export interface FileRoutesByFullPath {
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
   '/releases/deployment-zones': typeof ReleasesDeploymentZonesRouteRouteWithChildren
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
+  '/vouchers/$voucherId': typeof VouchersVoucherIdRouteRouteWithChildren
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
@@ -733,6 +771,7 @@ export interface FileRoutesByFullPath {
   '/notifications/': typeof NotificationsIndexRoute
   '/releases/': typeof ReleasesIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/vouchers/': typeof VouchersIndexRoute
   '/billing/invoices/$invoiceId': typeof BillingInvoicesInvoiceIdRouteRouteWithChildren
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugRouteRouteWithChildren
   '/releases/deployment-zones/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugRouteRouteWithChildren
@@ -752,6 +791,7 @@ export interface FileRoutesByFullPath {
   '/licenses/$licenseSlug/prices': typeof LicensesLicenseSlugPricesRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
+  '/vouchers/$voucherId/edit': typeof VouchersVoucherIdEditRoute
   '/addons/$addonSlug/': typeof AddonsAddonSlugIndexRoute
   '/addons/new/': typeof AddonsNewIndexRoute
   '/billing/handoff/': typeof BillingHandoffIndexRoute
@@ -772,6 +812,8 @@ export interface FileRoutesByFullPath {
   '/releases/$releaseSlug/': typeof ReleasesReleaseSlugIndexRoute
   '/releases/deployment-zone/': typeof ReleasesDeploymentZoneIndexRoute
   '/releases/new/': typeof ReleasesNewIndexRoute
+  '/vouchers/$voucherId/': typeof VouchersVoucherIdIndexRoute
+  '/vouchers/new/': typeof VouchersNewIndexRoute
   '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingRouteRouteWithChildren
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
@@ -823,6 +865,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsIndexRoute
   '/releases': typeof ReleasesIndexRoute
   '/settings': typeof SettingsIndexRoute
+  '/vouchers': typeof VouchersIndexRoute
   '/addons/$addonSlug/compatibility': typeof AddonsAddonSlugCompatibilityRoute
   '/addons/$addonSlug/entitlements': typeof AddonsAddonSlugEntitlementsRoute
   '/addons/$addonSlug/prices': typeof AddonsAddonSlugPricesRoute
@@ -839,6 +882,7 @@ export interface FileRoutesByTo {
   '/licenses/$licenseSlug/prices': typeof LicensesLicenseSlugPricesRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
+  '/vouchers/$voucherId/edit': typeof VouchersVoucherIdEditRoute
   '/addons/$addonSlug': typeof AddonsAddonSlugIndexRoute
   '/addons/new': typeof AddonsNewIndexRoute
   '/billing/handoff': typeof BillingHandoffIndexRoute
@@ -859,6 +903,8 @@ export interface FileRoutesByTo {
   '/releases/$releaseSlug': typeof ReleasesReleaseSlugIndexRoute
   '/releases/deployment-zone': typeof ReleasesDeploymentZoneIndexRoute
   '/releases/new': typeof ReleasesNewIndexRoute
+  '/vouchers/$voucherId': typeof VouchersVoucherIdIndexRoute
+  '/vouchers/new': typeof VouchersNewIndexRoute
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
   '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRoute
@@ -895,6 +941,7 @@ export interface FileRoutesById {
   '/customers': typeof CustomersRouteRouteWithChildren
   '/entitlements': typeof EntitlementsRouteRouteWithChildren
   '/releases': typeof ReleasesRouteRouteWithChildren
+  '/vouchers': typeof VouchersRouteRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/addons/$addonSlug': typeof AddonsAddonSlugRouteRouteWithChildren
@@ -910,6 +957,7 @@ export interface FileRoutesById {
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
   '/releases/deployment-zones': typeof ReleasesDeploymentZonesRouteRouteWithChildren
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
+  '/vouchers/$voucherId': typeof VouchersVoucherIdRouteRouteWithChildren
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
@@ -925,6 +973,7 @@ export interface FileRoutesById {
   '/notifications/': typeof NotificationsIndexRoute
   '/releases/': typeof ReleasesIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/vouchers/': typeof VouchersIndexRoute
   '/billing/invoices/$invoiceId': typeof BillingInvoicesInvoiceIdRouteRouteWithChildren
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugRouteRouteWithChildren
   '/releases/deployment-zones_/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugRouteRouteWithChildren
@@ -944,6 +993,7 @@ export interface FileRoutesById {
   '/licenses/$licenseSlug/prices': typeof LicensesLicenseSlugPricesRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
+  '/vouchers/$voucherId/edit': typeof VouchersVoucherIdEditRoute
   '/addons/$addonSlug/': typeof AddonsAddonSlugIndexRoute
   '/addons/new/': typeof AddonsNewIndexRoute
   '/billing/handoff/': typeof BillingHandoffIndexRoute
@@ -964,6 +1014,8 @@ export interface FileRoutesById {
   '/releases/$releaseSlug/': typeof ReleasesReleaseSlugIndexRoute
   '/releases/deployment-zone/': typeof ReleasesDeploymentZoneIndexRoute
   '/releases/new/': typeof ReleasesNewIndexRoute
+  '/vouchers/$voucherId/': typeof VouchersVoucherIdIndexRoute
+  '/vouchers/new/': typeof VouchersNewIndexRoute
   '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingRouteRouteWithChildren
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
@@ -1002,6 +1054,7 @@ export interface FileRouteTypes {
     | '/customers'
     | '/entitlements'
     | '/releases'
+    | '/vouchers'
     | '/sign-in'
     | '/sign-up'
     | '/addons/$addonSlug'
@@ -1017,6 +1070,7 @@ export interface FileRouteTypes {
     | '/releases/components'
     | '/releases/deployment-zones'
     | '/releases/deployments'
+    | '/vouchers/$voucherId'
     | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
@@ -1032,6 +1086,7 @@ export interface FileRouteTypes {
     | '/notifications/'
     | '/releases/'
     | '/settings/'
+    | '/vouchers/'
     | '/billing/invoices/$invoiceId'
     | '/customers/instances/$instanceSlug'
     | '/releases/deployment-zones/$zoneSlug'
@@ -1051,6 +1106,7 @@ export interface FileRouteTypes {
     | '/licenses/$licenseSlug/prices'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
+    | '/vouchers/$voucherId/edit'
     | '/addons/$addonSlug/'
     | '/addons/new/'
     | '/billing/handoff/'
@@ -1071,6 +1127,8 @@ export interface FileRouteTypes {
     | '/releases/$releaseSlug/'
     | '/releases/deployment-zone/'
     | '/releases/new/'
+    | '/vouchers/$voucherId/'
+    | '/vouchers/new/'
     | '/customers/instances/$instanceSlug/billing'
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
@@ -1122,6 +1180,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/releases'
     | '/settings'
+    | '/vouchers'
     | '/addons/$addonSlug/compatibility'
     | '/addons/$addonSlug/entitlements'
     | '/addons/$addonSlug/prices'
@@ -1138,6 +1197,7 @@ export interface FileRouteTypes {
     | '/licenses/$licenseSlug/prices'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
+    | '/vouchers/$voucherId/edit'
     | '/addons/$addonSlug'
     | '/addons/new'
     | '/billing/handoff'
@@ -1158,6 +1218,8 @@ export interface FileRouteTypes {
     | '/releases/$releaseSlug'
     | '/releases/deployment-zone'
     | '/releases/new'
+    | '/vouchers/$voucherId'
+    | '/vouchers/new'
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
     | '/customers/instances/$instanceSlug/entitlements'
@@ -1193,6 +1255,7 @@ export interface FileRouteTypes {
     | '/customers'
     | '/entitlements'
     | '/releases'
+    | '/vouchers'
     | '/sign-in'
     | '/sign-up'
     | '/addons/$addonSlug'
@@ -1208,6 +1271,7 @@ export interface FileRouteTypes {
     | '/releases/components'
     | '/releases/deployment-zones'
     | '/releases/deployments'
+    | '/vouchers/$voucherId'
     | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
@@ -1223,6 +1287,7 @@ export interface FileRouteTypes {
     | '/notifications/'
     | '/releases/'
     | '/settings/'
+    | '/vouchers/'
     | '/billing/invoices/$invoiceId'
     | '/customers/instances/$instanceSlug'
     | '/releases/deployment-zones_/$zoneSlug'
@@ -1242,6 +1307,7 @@ export interface FileRouteTypes {
     | '/licenses/$licenseSlug/prices'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
+    | '/vouchers/$voucherId/edit'
     | '/addons/$addonSlug/'
     | '/addons/new/'
     | '/billing/handoff/'
@@ -1262,6 +1328,8 @@ export interface FileRouteTypes {
     | '/releases/$releaseSlug/'
     | '/releases/deployment-zone/'
     | '/releases/new/'
+    | '/vouchers/$voucherId/'
+    | '/vouchers/new/'
     | '/customers/instances/$instanceSlug/billing'
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
@@ -1299,6 +1367,7 @@ export interface RootRouteChildren {
   CustomersRouteRoute: typeof CustomersRouteRouteWithChildren
   EntitlementsRouteRoute: typeof EntitlementsRouteRouteWithChildren
   ReleasesRouteRoute: typeof ReleasesRouteRouteWithChildren
+  VouchersRouteRoute: typeof VouchersRouteRouteWithChildren
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   FeatureFlagsFeatureFlagSlugRouteRoute: typeof FeatureFlagsFeatureFlagSlugRouteRouteWithChildren
@@ -1379,6 +1448,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-up'
       fullPath: '/sign-up'
       preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vouchers': {
+      id: '/vouchers'
+      path: '/vouchers'
+      fullPath: '/vouchers'
+      preLoaderRoute: typeof VouchersRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/addons/': {
@@ -1576,6 +1652,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/notifications'
       preLoaderRoute: typeof SettingsNotificationsRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/vouchers/': {
+      id: '/vouchers/'
+      path: '/'
+      fullPath: '/vouchers/'
+      preLoaderRoute: typeof VouchersIndexRouteImport
+      parentRoute: typeof VouchersRouteRoute
+    }
+    '/vouchers/$voucherId': {
+      id: '/vouchers/$voucherId'
+      path: '/$voucherId'
+      fullPath: '/vouchers/$voucherId'
+      preLoaderRoute: typeof VouchersVoucherIdRouteRouteImport
+      parentRoute: typeof VouchersRouteRoute
     }
     '/addons/$addonSlug/': {
       id: '/addons/$addonSlug/'
@@ -1849,6 +1939,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/releases/new/'
       preLoaderRoute: typeof ReleasesNewIndexRouteImport
       parentRoute: typeof ReleasesRouteRoute
+    }
+    '/vouchers/$voucherId/': {
+      id: '/vouchers/$voucherId/'
+      path: '/'
+      fullPath: '/vouchers/$voucherId/'
+      preLoaderRoute: typeof VouchersVoucherIdIndexRouteImport
+      parentRoute: typeof VouchersVoucherIdRouteRoute
+    }
+    '/vouchers/$voucherId/edit': {
+      id: '/vouchers/$voucherId/edit'
+      path: '/edit'
+      fullPath: '/vouchers/$voucherId/edit'
+      preLoaderRoute: typeof VouchersVoucherIdEditRouteImport
+      parentRoute: typeof VouchersVoucherIdRouteRoute
+    }
+    '/vouchers/new/': {
+      id: '/vouchers/new/'
+      path: '/new'
+      fullPath: '/vouchers/new/'
+      preLoaderRoute: typeof VouchersNewIndexRouteImport
+      parentRoute: typeof VouchersRouteRoute
     }
     '/billing/invoices/$invoiceId/': {
       id: '/billing/invoices/$invoiceId/'
@@ -2390,6 +2501,38 @@ const ReleasesRouteRouteWithChildren = ReleasesRouteRoute._addFileChildren(
   ReleasesRouteRouteChildren,
 )
 
+interface VouchersVoucherIdRouteRouteChildren {
+  VouchersVoucherIdEditRoute: typeof VouchersVoucherIdEditRoute
+  VouchersVoucherIdIndexRoute: typeof VouchersVoucherIdIndexRoute
+}
+
+const VouchersVoucherIdRouteRouteChildren: VouchersVoucherIdRouteRouteChildren =
+  {
+    VouchersVoucherIdEditRoute: VouchersVoucherIdEditRoute,
+    VouchersVoucherIdIndexRoute: VouchersVoucherIdIndexRoute,
+  }
+
+const VouchersVoucherIdRouteRouteWithChildren =
+  VouchersVoucherIdRouteRoute._addFileChildren(
+    VouchersVoucherIdRouteRouteChildren,
+  )
+
+interface VouchersRouteRouteChildren {
+  VouchersVoucherIdRouteRoute: typeof VouchersVoucherIdRouteRouteWithChildren
+  VouchersIndexRoute: typeof VouchersIndexRoute
+  VouchersNewIndexRoute: typeof VouchersNewIndexRoute
+}
+
+const VouchersRouteRouteChildren: VouchersRouteRouteChildren = {
+  VouchersVoucherIdRouteRoute: VouchersVoucherIdRouteRouteWithChildren,
+  VouchersIndexRoute: VouchersIndexRoute,
+  VouchersNewIndexRoute: VouchersNewIndexRoute,
+}
+
+const VouchersRouteRouteWithChildren = VouchersRouteRoute._addFileChildren(
+  VouchersRouteRouteChildren,
+)
+
 interface FeatureFlagsFeatureFlagSlugRouteRouteChildren {
   FeatureFlagsFeatureFlagSlugAuditTrailRoute: typeof FeatureFlagsFeatureFlagSlugAuditTrailRoute
   FeatureFlagsFeatureFlagSlugEvaluationRoute: typeof FeatureFlagsFeatureFlagSlugEvaluationRoute
@@ -2494,6 +2637,7 @@ const rootRouteChildren: RootRouteChildren = {
   CustomersRouteRoute: CustomersRouteRouteWithChildren,
   EntitlementsRouteRoute: EntitlementsRouteRouteWithChildren,
   ReleasesRouteRoute: ReleasesRouteRouteWithChildren,
+  VouchersRouteRoute: VouchersRouteRouteWithChildren,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   FeatureFlagsFeatureFlagSlugRouteRoute:

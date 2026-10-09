@@ -55,7 +55,9 @@ const sameValue = (left: unknown, right: unknown) =>
  *
  * The refusal is about what was typed, so it goes when that changes, as the checks
  * of the form do: the field is no longer wrong by what the API said, and a form that
- * stayed invalid after the person fixed it would not let them send it again.
+ * stayed invalid after the person fixed it would not let them send it again. It stays
+ * while the value does not change, even if the field is taken off the screen and drawn
+ * again, which starts its state over.
  */
 export function setProblemFieldError(
   form: AnyFormApi,
@@ -68,14 +70,23 @@ export function setProblemFieldError(
   shownRefusals.set(form, shown);
   shown.get(field)?.();
 
-  form.setFieldMeta(field, (meta) => ({
-    ...meta,
-    errorMap: { ...meta.errorMap, onServer: { ...extra, message } },
-    isTouched: true,
-  }));
+  const show = () =>
+    form.setFieldMeta(field, (meta) => ({
+      ...meta,
+      errorMap: { ...meta.errorMap, onServer: { ...extra, message } },
+      isTouched: true,
+    }));
+  show();
 
   const subscription = form.store.subscribe(() => {
     if (sameValue(form.getFieldValue(field), shownFor)) {
+      // A field that is taken off the screen and drawn again, as the step of a wizard is,
+      // starts over, and its state with it: what the API said of what is typed still
+      // stands, so it is put back.
+      if (!form.getFieldMeta(field)?.errorMap?.onServer) {
+        show();
+      }
+
       return;
     }
     forget();
@@ -89,6 +100,20 @@ export function setProblemFieldError(
     shown.delete(field);
   }
   shown.set(field, forget);
+}
+
+/**
+ * Takes a refusal of the API off a field before what was typed on it changes: for a
+ * refusal that is about what several fields say together (a short code with nothing to
+ * bound it), where fixing it means changing another field, which the refusal of the
+ * first does not know. It does nothing for a field that has none.
+ */
+export function clearProblemFieldError(form: AnyFormApi, field: string) {
+  shownRefusals.get(form)?.get(field)?.();
+  form.setFieldMeta(field, (meta) => ({
+    ...meta,
+    errorMap: { ...meta.errorMap, onServer: undefined },
+  }));
 }
 
 /**

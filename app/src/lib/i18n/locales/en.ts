@@ -4182,6 +4182,387 @@ export default {
     },
     Vouchers: {
       title: 'Vouchers',
+      subtitle:
+        'Codes that give an instance a discount on its invoices or a boost of its entitlements.',
+      Actions: {
+        addBoost: 'Add a boost',
+        publish: {
+          label: 'Publish',
+          title: 'Publish {{name}}?',
+          description:
+            'Publishing makes the code redeemable. A published voucher keeps its offer: only its name, description, end date and maximum number of redemptions can change afterwards.',
+          confirm: 'Publish',
+          success: 'Voucher published',
+        },
+        archive: {
+          label: 'Archive',
+          title: 'Archive {{name}}?',
+          description:
+            'No instance can redeem the code any more. Redemptions already made keep applying, and the voucher stays readable.',
+          confirm: 'Archive',
+          success: 'Voucher archived',
+        },
+      },
+      Code: {
+        label: 'Voucher code',
+        copy: 'Copy the code',
+        copied: 'Code copied',
+        copyFailed: 'The code could not be copied',
+      },
+      Detail: {
+        subtitle: 'Code ending in {{hint}}',
+        Code: {
+          title: 'Code',
+          description:
+            'Give this code to the customer. Whoever has it can redeem the offer.',
+          hidden:
+            'The code ending in {{hint}} is only shown to sessions that can read vouchers.',
+        },
+        Summary: {
+          title: 'What it does',
+          description: 'In plain language, as you could send it with the code.',
+        },
+        Fields: {
+          description: 'Description',
+          type: 'Kind',
+          status: 'Status',
+          redeemed: 'Redeemed',
+          created: 'Created',
+          updated: 'Last changed',
+        },
+        Redemptions: {
+          description: 'The instances that redeemed this voucher.',
+          empty: 'No instance has redeemed this voucher yet.',
+        },
+      },
+      Edit: {
+        title: 'Edit {{name}}',
+        description:
+          'A published voucher keeps its offer. Its name, description, end date and maximum number of redemptions can change.',
+        save: 'Save',
+        saved: 'Voucher saved',
+        Descriptions: {
+          expiresAt: 'Date and time in UTC. Leave empty for no end date.',
+          maxRedemptions_one:
+            'Leave empty for no limit. It cannot be below the {{count}} redemption already made.',
+          maxRedemptions_other:
+            'Leave empty for no limit. It cannot be below the {{count}} redemptions already made.',
+        },
+        Errors: {
+          name: 'Enter a name',
+          nameTooLong: 'A name has at most 200 characters',
+          descriptionTooLong: 'A description has at most 2000 characters',
+          date: 'Enter a valid date and time',
+          maxRedemptions:
+            'Enter a whole number from 1, or leave empty for no limit',
+          belowCount:
+            'The voucher has already been redeemed more times than that',
+        },
+      },
+      List: {
+        new: 'New voucher',
+        Columns: {
+          name: 'Name',
+          code: 'Code',
+          type: 'Kind',
+          status: 'Status',
+          redeemed: 'Redeemed',
+          expires: 'Valid until',
+          customer: 'Customer',
+        },
+        Empty: {
+          title: 'No voucher yet',
+          description:
+            'A voucher is a code that gives an instance a discount on its invoices or a boost of its entitlements. Make one, then give its code to a customer.',
+          filteredTitle: 'No voucher matches',
+          filteredDescription:
+            'No voucher matches this search or these filters.',
+        },
+        Filters: {
+          search: 'Search',
+          searchPlaceholder: 'Name, code or customer',
+          status: 'Status',
+          type: 'Kind',
+          clear: 'Clear the filters',
+        },
+        anyCustomer: 'Any customer',
+        codeHint: 'ends in {{hint}}',
+        noEnd: 'No end date',
+        redeemed: '{{count}} of {{max}}',
+        redeemedUnbounded: '{{count}} (no limit)',
+        startsOn: 'Starts {{date}}',
+      },
+      Lookup: {
+        title: 'Open a voucher by its code',
+        label: 'Voucher code',
+        placeholder: 'Open by code',
+        action: 'Find',
+        hint: 'Finds the voucher a code belongs to, for example when a customer writes in with a code that does not work.',
+        notFound: 'No voucher has this code.',
+      },
+      Published: {
+        title: 'Voucher published',
+        subtitle: '{{name}} can now be redeemed.',
+        codeTitle: 'Its code',
+        codeDescription:
+          'Copy it and give it to the customer. Whoever has the code can redeem the offer.',
+        codeHidden:
+          'The code ends in {{hint}}. It is only shown to sessions that can read vouchers.',
+        summaryTitle: 'What it does',
+        summaryDescription: 'In plain language, to send with the code.',
+        boostTitle: 'Add a boost for the same offer',
+        boostDescription:
+          'Start a boost that lasts as long as this discount, with the same conditions and limits. You choose which entitlements it changes.',
+        boostAction: 'Add a boost',
+        another: 'Make another voucher',
+        view: 'View the voucher',
+      },
+      References: {
+        license: '{{name}} v{{version}}',
+        draft: '{{label}} (draft)',
+        archived: '{{label}} (archived)',
+        unknown: 'a version that is not listed',
+      },
+      Review: {
+        name: 'Name',
+        code: 'Code',
+        codeGenerated: 'A code is generated when you publish',
+        summary: 'The voucher in plain language',
+        publishNote:
+          'Publishing makes the code redeemable. Save it as a draft instead to keep working on it: a draft cannot be redeemed.',
+        unlimited: 'it has no limit on the number of redemptions',
+        limited_one: 'it can be redeemed once',
+        limited_other: 'it can be redeemed {{count}} times',
+        reservedFor: 'it is reserved for {{customer}}',
+        anyCustomer: 'any customer can redeem it, once per instance',
+        licenses: 'it applies only to instances on {{licenses}}',
+        addons: 'it applies only to instances that hold {{addons}}',
+        licensesAndAddons:
+          'it applies only to instances on {{licenses}} that hold {{addons}}',
+        window: 'it can be redeemed from {{from}} to {{to}}',
+        until: 'it can be redeemed until {{date}}',
+        from: 'it can be redeemed from {{date}}',
+        noWindow: 'it has no end date',
+        firstTimeOnly:
+          'only customers that have not paid an invoice yet can redeem it',
+        annualOnly: 'only instances with an annual subscription can redeem it',
+        minimumAmount:
+          'the base price of the subscription must be at least {{amount}}',
+      },
+      Wizard: {
+        title: 'New voucher',
+        titleDraft: 'Finish the draft',
+        subtitle:
+          'Say what it offers, who can redeem it and how often, then review it in plain language before it is published.',
+        boostName: '{{name}} (boost)',
+        draftKept:
+          'The voucher was saved as a draft. Sending again replaces it with what is on this page and publishes it.',
+        anyCustomer: 'Any customer',
+        unlimitedNote:
+          'No limit on this entitlement while the voucher applies.',
+        addChange: 'Add a change',
+        removeChange: 'Remove change {{position}}',
+        Steps: {
+          type: 'Kind',
+          offer: 'Offer',
+          eligibility: 'Who and when',
+          review: 'Review',
+        },
+        Buttons: {
+          back: 'Back',
+          next: 'Next',
+          saveDraft: 'Save as a draft',
+          publish: 'Publish',
+        },
+        Toasts: {
+          draftSaved: 'Draft saved',
+          published: 'Voucher published',
+        },
+        Type: {
+          label: 'What kind of voucher is it?',
+          later: 'Available in a later version',
+          FLAG_GRANT: 'Feature grant',
+          COMPOSITE: 'Bundle',
+          Detail: {
+            PRICE:
+              'A percentage or an amount off the invoices of the instance.',
+            ENTITLEMENT_BOOST:
+              'Sets, adds to, multiplies or lifts the limit of numeric entitlements.',
+          },
+        },
+        Labels: {
+          name: 'Name',
+          description: 'Description',
+          discountType: 'How is the discount worked out?',
+          percentage: 'Percentage',
+          currency: 'Currency',
+          amount: 'Amount',
+          appliesTo: 'What does it apply to?',
+          prices: 'Prices',
+          grants: 'What it changes',
+          entitlement: 'Entitlement',
+          modifier: 'Change',
+          value: 'Value',
+          duration: 'How long does it last?',
+          durationInInvoices: 'Number of invoices',
+          durationInPeriods: 'Number of billing periods',
+          code: 'Custom code',
+          restrictedCustomer: 'Reserved for',
+          maxRedemptions: 'Maximum number of redemptions',
+          startsAt: 'Can be redeemed from',
+          expiresAt: 'Can be redeemed until',
+          licenseVersions: 'License versions',
+          addonVersions: 'Add-on versions',
+          firstTimeOnly: 'First-time customers only',
+          annualOnly: 'Annual subscriptions only',
+          minimumCurrency: 'Currency of the minimum',
+          minimumAmount: 'Minimum base price',
+        },
+        Descriptions: {
+          name: 'What you call it in the console; customers do not see it.',
+          description: 'Optional. What it is for, in a few words.',
+          percentage:
+            'More than 0 and up to 100. Decimals are accepted, such as 12.5.',
+          currency:
+            'A fixed amount only applies to subscriptions billed in this currency.',
+          amount: 'In the currency, in major units: 50.00 for fifty dollars.',
+          prices:
+            'Tick the prices the discount applies to. The prices of a version that is no longer on sale are listed too.',
+          grants:
+            'Each line changes one numeric entitlement. An entitlement can be changed once.',
+          durationInInvoices: 'How many invoices the discount applies to.',
+          durationInPeriods:
+            'How many billing periods the boost lasts. A month, a quarter or a year, as the subscription is billed.',
+          code: 'Leave empty to have a long code generated. Otherwise 8 to 64 letters, digits, dashes or underscores; case and dashes do not matter when it is redeemed.',
+          restrictedCustomer:
+            'Only the instances of this customer can redeem it.',
+          restrictedCustomerSlug:
+            'The slug of the customer. The customers could not be listed with this session.',
+          maxRedemptions:
+            'Leave empty for no limit. Each instance can redeem it once.',
+          startsAt:
+            'Date and time in UTC. Leave empty to start as soon as it is published.',
+          expiresAt: 'Date and time in UTC. Leave empty for no end date.',
+          licenseVersions:
+            'Only instances on one of the ticked versions can redeem it.',
+          addonVersions:
+            'Only instances that hold one of the ticked versions can redeem it.',
+          firstTimeOnly:
+            'Only customers none of whose instances has paid an invoice.',
+          annualOnly: 'Only instances with a live annual subscription.',
+          minimumCurrency:
+            'The minimum is compared with the base price of the subscription, in this currency.',
+          minimumAmount:
+            'Optional. The subscription must cost at least this much.',
+        },
+        Placeholders: {
+          name: 'Launch discount',
+          percentage: '20',
+          currency: 'Choose a currency',
+          currencySearch: 'Search a currency',
+          amount: '50.00',
+          entitlement: 'Choose an entitlement',
+          entitlementSearch: 'Search an entitlement',
+          value: '50000',
+          code: 'LAUNCH-20-OFF',
+          customerSearch: 'Search a customer',
+        },
+        DiscountType: {
+          PERCENTAGE: 'A percentage',
+          FIXED_AMOUNT: 'A fixed amount',
+        },
+        AppliesTo: {
+          LICENSE_BASE: 'The base price',
+          ADDONS: 'The add-ons',
+          BOTH: 'Both',
+          SELECTED_PRICES: 'Chosen prices',
+          Blurb: {
+            LICENSE_BASE: 'The fee of the license, before add-ons and usage.',
+            ADDONS: 'What the add-ons an instance holds cost.',
+            BOTH: 'The license fee and the add-ons together.',
+            SELECTED_PRICES: 'Only the prices you tick below.',
+          },
+        },
+        Prices: {
+          label: 'Prices the discount applies to',
+          loading: 'Loading the prices',
+          none: 'No price to choose from.',
+          deprecated: '{{amount}} · deprecated',
+        },
+        Modifier: {
+          SET: 'Set to',
+          ADD: 'Add',
+          MULTIPLY: 'Multiply by',
+          UNLIMITED: 'Make unlimited',
+        },
+        Duration: {
+          ONE_TIME: 'Once',
+          REPEATING: 'A number of times',
+          FOREVER: 'With no end',
+          Blurb: {
+            priceONE_TIME:
+              'The discount applies to one invoice: the first one issued after the code is redeemed.',
+            priceREPEATING:
+              'The discount applies to a number of invoices, counted in invoices and not in months.',
+            priceFOREVER:
+              'The discount applies to every invoice until the redemption is revoked.',
+            boostONE_TIME:
+              'The boost lasts one billing period from the redemption.',
+            boostREPEATING:
+              'The boost lasts a number of billing periods, counted in periods and not in invoices.',
+            boostFOREVER:
+              'The boost has no end until the redemption is revoked.',
+          },
+        },
+        Sections: {
+          code: 'Code',
+          customer: 'Customer',
+          customerDescription:
+            'Reserve the voucher for one customer, or let any customer redeem it.',
+          limits: 'Limits',
+          limitsDescription:
+            'How many times it can be redeemed, and when. Dates are in UTC.',
+          versions: 'License and add-on versions',
+          versionsDescription:
+            'Limit the voucher to instances on some versions. Nothing ticked is no limit.',
+          conditions: 'Conditions',
+          conditionsDescription:
+            'What an instance must meet to redeem the voucher.',
+        },
+        WeakCode: {
+          title: 'A short code can be guessed',
+          description:
+            'Add a maximum number of redemptions or an end date, or leave the code empty to have a long one generated.',
+        },
+        Checklist: {
+          loading: 'Loading',
+          notAllowed:
+            'This session cannot list them. What is already ticked stays.',
+        },
+        Errors: {
+          name: 'Enter a name',
+          nameTooLong: 'A name has at most 200 characters',
+          descriptionTooLong: 'A description has at most 2000 characters',
+          percentage: 'Enter a percentage above 0 and up to 100',
+          currency: 'Currency required',
+          amount:
+            'Enter an amount above 0, with no more decimals than the currency has',
+          prices: 'Tick at least one price',
+          durationInPeriods: 'Enter a whole number from 1',
+          grants: 'Add at least one change',
+          entitlement: 'Choose an entitlement',
+          duplicate: 'This entitlement is already changed by another line',
+          setValue: 'Enter a number, 0 or more',
+          positiveValue: 'Enter a number above 0',
+          code: 'Use 8 to 64 letters, digits, dashes or underscores, or leave it empty',
+          minimumAmount:
+            'Enter an amount, with no more decimals than the currency has',
+          date: 'Enter a valid date and time',
+          window: 'The end must be after the start',
+          maxRedemptions:
+            'Enter a whole number from 1, or leave empty for no limit',
+        },
+      },
     },
     Notifications: {
       title: 'Notifications',
@@ -4959,6 +5340,81 @@ export default {
         hideInstead:
           'A price or a voucher boost cannot be removed once it exists, so this entitlement can no longer be deleted. To stop showing it in customer-facing components, turn off “User facing” on its page.',
         openEntitlement: 'Open the entitlement',
+      },
+      VoucherStatus: {
+        DRAFT: 'Draft',
+        ACTIVE: 'Active',
+        EXPIRED: 'Expired',
+        EXHAUSTED: 'Fully redeemed',
+        ARCHIVED: 'Archived',
+      },
+      VoucherType: {
+        PRICE: 'Discount',
+        ENTITLEMENT_BOOST: 'Boost',
+      },
+      RedemptionStatus: {
+        ACTIVE: 'Active',
+        EXPIRED: 'Expired',
+        REVOKED: 'Revoked',
+      },
+      Redemptions: {
+        title: 'Redemptions',
+        loading: 'Loading redemptions',
+        emptyTitle: 'No redemption yet',
+        codeHint: 'Code ending in {{hint}}',
+        from: 'From {{date}}',
+        applications: '{{count}}/{{max}} invoices',
+        applicationsUnbounded_one: '{{count}} invoice so far',
+        applicationsUnbounded_other: '{{count}} invoices so far',
+        revokedBecause: 'Revoked: {{reason}}',
+        revoke: 'Revoke {{name}}',
+        Columns: {
+          instance: 'Instance',
+          voucher: 'Voucher',
+          redeemed: 'Redeemed',
+          window: 'Applies',
+          applications: 'Invoices',
+          status: 'Status',
+        },
+        Revoke: {
+          title: 'Revoke {{name}} on {{instance}}',
+          description:
+            'A boost stops applying at once and a discount applies to no further invoice. Invoices already issued are not changed, and the voucher keeps counting this redemption.',
+          reason: 'Reason',
+          confirm: 'Revoke',
+          success: '{{name}} revoked',
+        },
+      },
+      Voucher: {
+        Offer: {
+          price: '{{discount}} off {{target}}, {{duration}}',
+          boost: '{{changes}}, {{duration}}',
+          Target: {
+            LICENSE_BASE: 'the base price',
+            ADDONS: 'the add-ons',
+            BOTH: 'the base price and the add-ons',
+            SELECTED_PRICES_one: 'the selected price',
+            SELECTED_PRICES_other: 'the {{count}} selected prices',
+          },
+          PriceDuration: {
+            ONE_TIME: 'on one invoice',
+            REPEATING_one: 'on the next invoice',
+            REPEATING_other: 'on the next {{count}} invoices',
+            FOREVER: 'on every invoice',
+          },
+          BoostDuration: {
+            ONE_TIME: 'for one billing period',
+            REPEATING_one: 'for {{count}} billing period',
+            REPEATING_other: 'for {{count}} billing periods',
+            FOREVER: 'with no end',
+          },
+          Change: {
+            SET: '{{entitlement}} set to {{value}}',
+            ADD: '{{entitlement}} + {{value}}',
+            MULTIPLY: '{{entitlement}} × {{value}}',
+            UNLIMITED: '{{entitlement}} unlimited',
+          },
+        },
       },
     },
     AuditTrail: {

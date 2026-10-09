@@ -130,6 +130,7 @@ export const billingSubRoutes: SideNavBillingRouteDefinition[] = [
     path: '/addons',
   },
   {
+    action: 'vouchers.list',
     capability: { feature: 'vouchers' },
     labelKey: 'Pages.Vouchers.title',
     path: '/vouchers',

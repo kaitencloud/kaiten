@@ -26,6 +26,7 @@ export { placeRefusalOnFields, type RefusalFields } from './place-refusal';
 export { REASON_MAX_LENGTH, reasonSchema } from './reason';
 export {
   applyProblemFieldErrors,
+  clearProblemFieldError,
   setProblemFieldError,
 } from './problem-field-errors';
 export {
@@ -160,3 +161,23 @@ export {
   type VersionLifecycleTransition,
 } from './version-lifecycle';
 export { getAddonTitle } from './addon-title';
+export {
+  getRedemptionStatus,
+  getRedemptionStatusLabelKey,
+  getVoucherStatus,
+  getVoucherStatusLabelKey,
+  getVoucherTypeLabelKey,
+  isVoucherScheduled,
+  type RedemptionStatus,
+  VOUCHER_STATUSES,
+  VOUCHER_TYPES,
+  type VoucherStatus,
+  type VoucherStatusInput,
+  type VoucherType,
+} from './voucher-status';
+export {
+  describeDiscount,
+  describeGrant,
+  describeVoucherOffer,
+  type VoucherOfferInput,
+} from './voucher-offer';
