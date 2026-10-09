@@ -32,12 +32,11 @@ app/src/features/billing/
 │   │                                   # for reports no longer kept, the CSV button
 │   ├── handoff/                        # the page: tabs, list (search, filters, table and its columns), empty state, the
 │   │                                   # acknowledgement dialog
-│   ├── action-dialog/                  # the frame of the dialogs that ask the API for an audited action
 │   ├── table-empty-message.tsx         # what the two lists say in their table when it has no row
 │   ├── __tests__/, stories/
 │   └── index.ts
-├── hooks/                              # use-invoice-mutations, use-acknowledge-handoff, use-billing-action-form (the form
-│                                       # of an audited action), use-line-reports, use-export-line-reports (the export of the invoices is the domain's)
+├── hooks/                              # use-invoice-mutations, use-acknowledge-handoff, use-line-reports, use-export-line-reports
+│                                       # (the export of the invoices is the domain's, and so are the frame and the form of an audited action)
 ├── queries/                            # the handoff queue, read whole; the line reports as infinite queries; the invoice
 │                                       # itself; the line reports CSV
 ├── schemas/                            # the scope of the URL of the list and the status of the queue; the bodies of mark paid,
@@ -75,7 +74,7 @@ Writes use the generated mutations (`markInvoicePaidMutation`, `writeOffInvoiceM
 ## Tests
 
 - Unit and component tests (Vitest), next to the code:
-  - `components/__tests__/`: the invoice pieces (`invoice-detail-parts`: the actions bar, the hold banner, the chain, the handoff block, the line detail with its scope gate, the summary), the strip of figures (`invoice-detail-stats`) and how the page lays them out (`invoice-detail-page`), the order of the writes of the actions (`invoice-actions-flow`), the audited dialogs (`reason-dialog`, `invoice-dialogs`: mark paid and acknowledge), the reports of a line (`line-drilldown`), the handoff table and its empty states (`handoff-and-lists`), and the two lists as a person meets them, with their search, their filters, their sorting, their paging and their empty states (`invoices-list`, `handoff-list`), and the two pages that read them (`invoices-page-content`, `handoff-page-content`: what is asked of the API, every page of it, the tabs). The export menu is tested with its domain (`domains/billing/__tests__/export-invoices-menu.test.tsx`). `app/src/test-fixtures/billing-test-support.tsx` is the support of those files, and of the tests of the billing screens of other features, and no test: the real English and French texts (`useBillingTexts`), a router over plain anchors, a client that does not retry, the rows of a list, a page of a list and a refusal as the API answers it, with its status and its problem.
+  - `components/__tests__/`: the invoice pieces (`invoice-detail-parts`: the actions bar, the hold banner, the chain, the handoff block, the line detail with its scope gate, the summary), the strip of figures (`invoice-detail-stats`) and how the page lays them out (`invoice-detail-page`), the order of the writes of the actions (`invoice-actions-flow`), the audited dialogs (`invoice-dialogs`: mark paid and acknowledge; the dialog that asks for a reason is tested with the domain), the reports of a line (`line-drilldown`), the handoff table and its empty states (`handoff-and-lists`), and the two lists as a person meets them, with their search, their filters, their sorting, their paging and their empty states (`invoices-list`, `handoff-list`), and the two pages that read them (`invoices-page-content`, `handoff-page-content`: what is asked of the API, every page of it, the tabs). The export menu is tested with its domain (`domains/billing/__tests__/export-invoices-menu.test.tsx`). `app/src/test-fixtures/billing-test-support.tsx` is the support of those files, and of the tests of the billing screens of other features, and no test: the real English and French texts (`useBillingTexts`), a router over plain anchors, a client that does not retry, the rows of a list, a page of a list and a refusal as the API answers it, with its status and its problem.
   - `utils/__tests__/`: the usage windows, the fields of the search and filters, what the export takes of them (`invoice-filter-fields`, `invoice-export-filters`) and what is due on an invoice (`invoice-due`).
   - `schemas/__tests__/`: the reason, the payment and the acknowledgement, the scope of the list (`invoice-scope`) and the search of the queue (`handoff-search`).
   - `queries/__tests__/`: the CSV of a line.

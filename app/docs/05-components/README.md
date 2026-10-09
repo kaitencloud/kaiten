@@ -13,7 +13,7 @@ The folder is the inventory. These pages group what it holds by use, so you can 
 | `dialog/` | Dialog shells: `FormDialog`, `DeleteConfirmationDialog`, `DialogFormSkeleton` | [Dialogs](#dialogs) |
 | `route/` | `RouteError`, `RoutePending` and `NotFound`, the router's default components, and `RestrictedAccess`, which `RouteError` renders for a refused read | [Route components](#route-components) |
 | `combobox.tsx`, `date-picker.tsx`, `date-range-picker.tsx` | Inputs that compose primitives, used by the form fields | [Form components](./form-components.md#pickers) |
-| `gradient-button.tsx`, `destructive-action-button.tsx`, `chart-empty-state.tsx`, `company-icons.tsx` | Small shared components | [UI components](./ui-components.md#shared-components-outside-ui) |
+| `gradient-button.tsx`, `destructive-action-button.tsx`, `choice-button.tsx`, `chart-empty-state.tsx`, `company-icons.tsx` | Small shared components | [UI components](./ui-components.md#shared-components-outside-ui) |
 | `theme-provider.tsx`, `clerk-provider.tsx`, `dev-auth-switcher.tsx` | App wiring mounted from `app/src/main.tsx` (and `dev-auth-switcher.tsx` from `app/src/routes/__root.tsx`), not reusable UI | |
 
 The table components are not here: they live in the `table` functional, see [Table components](./table-components.md).

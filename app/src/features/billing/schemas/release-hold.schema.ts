@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import type { HoldRelease } from '@/api-client';
 import { zHoldRelease } from '@/api-client/zod.gen';
-import { reasonSchema } from './invoice-reason';
+import { reasonSchema } from '@/domains/billing';
 
 /**
  * Releasing a held invoice accepts the figures as composed, which is audited:

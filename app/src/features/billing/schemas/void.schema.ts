@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import type { InvoiceVoid } from '@/api-client';
 import { zInvoiceVoid } from '@/api-client/zod.gen';
-import { reasonSchema } from './invoice-reason';
+import { reasonSchema } from '@/domains/billing';
 
 /** Voiding an invoice frees its boundary for a replacement, and says why. */
 export const voidFormSchema = zInvoiceVoid

@@ -23,6 +23,7 @@ export {
   handleBillingProblem,
 } from './billing-problem';
 export { placeRefusalOnFields, type RefusalFields } from './place-refusal';
+export { REASON_MAX_LENGTH, reasonSchema } from './reason';
 export {
   applyProblemFieldErrors,
   setProblemFieldError,

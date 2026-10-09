@@ -5,8 +5,13 @@ import { testI18n } from '@/__tests__/test-i18n';
 import { ApiError } from '@/lib/errors';
 import en from '@/lib/i18n/locales/en';
 import fr from '@/lib/i18n/locales/fr';
-import { ReasonDialog } from '../invoice-detail/reason-dialog';
-import { voidFormSchema } from '../../schemas/void.schema';
+import { z } from 'zod';
+import { ReasonDialog } from '../components/reason-dialog';
+import { reasonSchema } from '../logic/reason';
+
+// The shape every audited action gives its form: a body with a reason of one to five
+// hundred characters, which the callers derive from the contract's own body.
+const voidFormSchema = z.object({ reason: reasonSchema });
 
 beforeAll(async () => {
   testI18n.addResourceBundle('en', 'translation', en, true, true);

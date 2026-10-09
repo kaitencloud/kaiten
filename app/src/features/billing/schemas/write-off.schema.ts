@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import type { InvoiceWriteOff } from '@/api-client';
 import { zInvoiceWriteOff } from '@/api-client/zod.gen';
-import { reasonSchema } from './invoice-reason';
+import { reasonSchema } from '@/domains/billing';
 
 /** Writing an invoice off gives up collecting it, and says why. */
 export const writeOffFormSchema = zInvoiceWriteOff
