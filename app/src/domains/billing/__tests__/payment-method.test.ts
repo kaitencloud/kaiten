@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vite-plus/test';
 import type { CustomerBilling } from '@/api-client';
-import { getStripePaymentMethod, hasUsablePaymentMethod } from '../logic';
+import {
+  getPaymentMethodStanding,
+  getStripePaymentMethod,
+  hasUsablePaymentMethod,
+} from '../logic';
 
 const billing = (
   paymentMethod: unknown,
@@ -47,5 +51,53 @@ describe('whether Stripe can charge the customer by itself', () => {
   it('cannot with none', () => {
     expect(hasUsablePaymentMethod(billing(null))).toBe(false);
     expect(hasUsablePaymentMethod(undefined)).toBe(false);
+  });
+});
+
+describe('where a payment method stands', () => {
+  const NOW = Date.parse('2027-03-10T12:00:00.000Z');
+
+  it('is none for a customer without one', () => {
+    expect(getPaymentMethodStanding(null, NOW)).toEqual({ kind: 'none' });
+  });
+
+  it.each(['EXPIRED', 'FAILED'] as const)(
+    'is %s once a charge said so, whatever its expiry says',
+    (status) => {
+      expect(
+        getPaymentMethodStanding({ expMonth: 12, expYear: 2040, status }, NOW),
+      ).toEqual({ kind: status.toLowerCase() });
+    },
+  );
+
+  it('is active and far from its end for a card that expires years away', () => {
+    expect(
+      getPaymentMethodStanding({ expMonth: 12, expYear: 2030, status: 'ACTIVE' }, NOW),
+    ).toEqual({ expiresSoon: false, kind: 'active' });
+  });
+
+  it('expires soon within thirty days of the last day of its month, and works through that day', () => {
+    // March 2027 ends on the 31st at midnight: the card is soon to expire all month.
+    expect(
+      getPaymentMethodStanding({ expMonth: 3, expYear: 2027, status: 'ACTIVE' }, NOW),
+    ).toEqual({ expiresSoon: true, kind: 'active' });
+    // April 2027 ends 51 days after the 10th of March: not yet.
+    expect(
+      getPaymentMethodStanding({ expMonth: 4, expYear: 2027, status: 'ACTIVE' }, NOW),
+    ).toEqual({ expiresSoon: false, kind: 'active' });
+    // April 2027 is within thirty days of the 10th of April.
+    expect(
+      getPaymentMethodStanding(
+        { expMonth: 4, expYear: 2027, status: 'ACTIVE' },
+        Date.parse('2027-04-10T12:00:00.000Z'),
+      ),
+    ).toEqual({ expiresSoon: true, kind: 'active' });
+  });
+
+  it('says nothing of the expiry of a card that has none on record', () => {
+    expect(getPaymentMethodStanding({ status: 'ACTIVE' }, NOW)).toEqual({
+      expiresSoon: false,
+      kind: 'active',
+    });
   });
 });

@@ -17,15 +17,22 @@ import { CustomerDetailHeader } from './customer-detail-header';
 import { CustomerDetailsCard } from './customer-details-card';
 import { CustomerInstancesCard } from './customer-instances-card';
 import { CustomerInvoicesCard } from './customer-invoices-card';
+import { PaymentMethodCard } from './payment-method/payment-method-card';
 
 type CustomerDetailPageContentProps = {
   children?: ReactNode;
   customerSlug: string;
+  /** Called once the session the customer came back with from Stripe is dealt with: the route drops it from the address. */
+  onSetupHandled?: () => void;
+  /** The `kaiten_setup_session` of the address, when the customer is back from the page Stripe hosts. */
+  setupSessionId?: string;
 };
 
 export function CustomerDetailPageContent({
   children,
   customerSlug,
+  onSetupHandled = () => {},
+  setupSessionId,
 }: CustomerDetailPageContentProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -99,6 +106,12 @@ export function CustomerDetailPageContent({
             domain={customer.domain}
           />
         </div>
+
+        <PaymentMethodCard
+          customerSlug={customerSlug}
+          onSetupHandled={onSetupHandled}
+          setupSessionId={setupSessionId}
+        />
 
         <CustomerInstancesCard
           customerSlug={customerSlug}
