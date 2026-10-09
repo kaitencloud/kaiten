@@ -1,5 +1,5 @@
 import { expect, expectToast, test } from '../_support/app-test';
-import { recordWrites } from '../_support/assertions/requests';
+import { recordGraphQL, recordWrites } from '../_support/assertions/requests';
 import { InstanceBillingDriver } from '../_support/drivers/instance-billing.driver';
 import { InstanceLifecycleDriver } from '../_support/drivers/instance-lifecycle.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
@@ -64,11 +64,12 @@ test.describe('changing the plan of a subscription', () => {
     );
   });
 
-  test('offers the active flat fees of the versions on sale, the plan it is on left out, and reads no version that is not on sale', async ({
+  test('offers the active flat fees of the versions on sale, the plan it is on left out, and reads every version and its prices in one request', async ({
     page,
   }) => {
     const billing = new InstanceBillingDriver(page);
     const lifecycle = new InstanceLifecycleDriver(page);
+    const graphql = recordGraphQL(page);
     const reads = recordWrites(page, /\/api\/licenses\/[^/]+\/prices$/, [
       'GET',
     ]);
@@ -85,12 +86,16 @@ test.describe('changing the plan of a subscription', () => {
       'Pro v3 · Pro v3, monthly · $39.00/month · In advance',
       'Pro v2 · Pro v2, annual · $290.00/year · In arrears',
     ]);
-    expect(reads.map((read) => read.pathname).sort()).toEqual([
-      '/api/licenses/enterprise-v1/prices',
-      '/api/licenses/pro-v2/prices',
-      '/api/licenses/pro-v3/prices',
-      '/api/licenses/pro-v5/prices',
+    // One document for the versions and the active prices of each, and not one read
+    // of the prices per version: five versions, a draft and a retired price among them.
+    expect(
+      graphql.filter(
+        ({ operationName }) => operationName === 'GetLicensesWithPrices',
+      ),
+    ).toEqual([
+      { operationName: 'GetLicensesWithPrices', variables: { limit: 200 } },
     ]);
+    expect(reads).toEqual([]);
   });
 
   test('lists a plan in another currency and refuses it, saying why', async ({
@@ -293,6 +298,7 @@ test.describe('changing the plan of a subscription', () => {
   test.describe('when the plan cannot change', () => {
     test('says why for a trial, and reads no plan', async ({ page }) => {
       const lifecycle = new InstanceLifecycleDriver(page);
+      const graphql = recordGraphQL(page);
       const reads = recordWrites(page, /\/api\/licenses\/[^/]+\/prices$/, [
         'GET',
       ]);
@@ -305,6 +311,11 @@ test.describe('changing the plan of a subscription', () => {
       );
       await expect(lifecycle.schedulePlanButton()).toHaveCount(0);
       expect(reads).toEqual([]);
+      expect(
+        graphql.filter(
+          ({ operationName }) => operationName === 'GetLicensesWithPrices',
+        ),
+      ).toEqual([]);
     });
 
     test('says to reactivate first for a cancellation that is scheduled', async ({

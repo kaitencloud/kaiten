@@ -314,7 +314,7 @@ test('dev:mock answers the Billing column of the lists of instances, a page of s
   expect(errors).toEqual([]);
 });
 
-test('dev:mock answers the prices of the licenses in one document, for the list of licenses', async ({
+test('dev:mock answers the prices of the licenses in one document, for the list and for the plans of a subscription', async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -347,6 +347,12 @@ test('dev:mock answers the prices of the licenses in one document, for the list 
   );
   await expect(family('Enterprise')).toHaveText('Custom pricing');
   await expect(family('Trial')).toHaveText('Free');
+
+  // The plans an instance can move to: the versions on sale, from the same document.
+  await page.goto('/customers/instances/globex-production/billing/plan-change');
+  await page.getByRole('combobox', { name: /New plan/ }).click();
+  await expect(page.getByRole('option').first()).toBeVisible();
+  expect(await page.getByRole('option').count()).toBeGreaterThan(0);
 
   // No version had its prices read apart.
   expect(prices).toEqual([]);

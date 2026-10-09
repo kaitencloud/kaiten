@@ -1,5 +1,5 @@
 import { expect, expectToast, test } from '../_support/app-test';
-import { recordWrites } from '../_support/assertions/requests';
+import { recordGraphQL, recordWrites } from '../_support/assertions/requests';
 import { InstanceBillingDriver } from '../_support/drivers/instance-billing.driver';
 import { InstanceLifecycleDriver } from '../_support/drivers/instance-lifecycle.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
@@ -366,6 +366,53 @@ test.describe('the Billing tab of a subscription going through something', () =>
         'Changes to Pro v3 ($39.00/month) on Oct 15, 2026 (UTC)',
       );
       await expect(notice).toContainText('Nothing is prorated');
+    });
+
+    test('finds that version in the one document of the licenses, and reads the prices of no version apart', async ({
+      page,
+    }) => {
+      const billing = new InstanceBillingDriver(page);
+      const lifecycle = new InstanceLifecycleDriver(page);
+      const graphql = recordGraphQL(page);
+      const reads = recordWrites(page, /\/api\/licenses\/[^/]+\/prices$/, [
+        'GET',
+      ]);
+      await installBillingAppMocks(page, createLifecycleBillingModel());
+
+      await billing.goto('initech-moving');
+      await expect(lifecycle.scheduledChangeNotice()).toContainText(
+        'Changes to Pro v3 ($39.00/month)',
+      );
+
+      expect(
+        graphql.filter(
+          ({ operationName }) => operationName === 'GetLicensesWithPrices',
+        ),
+      ).toEqual([
+        { operationName: 'GetLicensesWithPrices', variables: { limit: 200 } },
+      ]);
+      expect(reads).toEqual([]);
+    });
+
+    test('names the price alone, and asks for nothing, to a session that may not read licenses', async ({
+      page,
+    }) => {
+      const billing = new InstanceBillingDriver(page);
+      const lifecycle = new InstanceLifecycleDriver(page);
+      const graphql = recordGraphQL(page);
+      await signInWithScopes(page, ['read:billing', 'read:instances']);
+      await installBillingAppMocks(page, createLifecycleBillingModel());
+
+      await billing.goto('initech-moving');
+
+      await expect(lifecycle.scheduledChangeNotice()).toContainText(
+        'Changes to Pro v3, monthly ($39.00/month)',
+      );
+      expect(
+        graphql.filter(
+          ({ operationName }) => operationName === 'GetLicensesWithPrices',
+        ),
+      ).toEqual([]);
     });
 
     test('drops the change with one click, and the notice goes with it', async ({
