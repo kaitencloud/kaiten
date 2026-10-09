@@ -7,12 +7,13 @@ import {
 import { useWebhooksServed } from '@/domains/webhooks';
 import {
   billingRoutes,
-  billingSubRoutes,
+  catalogSubRoutes,
   footerRoutes,
   integrationsSubRoutes,
   type SideNavBillingGate,
   type SideNavResolvedSubRoute,
   type SideNavRouteDefinition,
+  type SideNavSubRouteDefinition,
   topLevelRoutes,
 } from './side-nav.constants';
 import { SideNavLinkItem } from './side-nav-link-item';
@@ -88,46 +89,37 @@ export function SideNavPrimaryRoutes({ pathname }: SideNavRoutesProps) {
   );
 }
 
-export function useResolvedIntegrationsItems() {
+/**
+ * The entries of a section the running deployment offers, to the session that can
+ * use them: an entry that needs webhooks is listed where they are served, and one
+ * that needs billing where billing is on, the release ships what it names and the
+ * scopes of the session cover its action. Hidden while the answers are read: an
+ * entry that appears a moment later is better than one that vanishes.
+ */
+function useResolvedSubRoutes(
+  definitions: SideNavSubRouteDefinition[],
+): SideNavResolvedSubRoute[] {
   const { t } = useTranslation();
   const webhooksServed = useWebhooksServed();
-  const billing = useBillingCapabilities();
-  const { isPending, scopes } = useGrantedScopes();
+  const isListed = useIsBillingEntryListed();
 
-  // Hidden while the answer is read: an entry that appears a moment later is
-  // better than one that vanishes.
-  return integrationsSubRoutes
+  return definitions
     .filter(({ needsWebhooks }) => !needsWebhooks || webhooksServed)
-    .filter(
-      ({ needsBilling }) =>
-        !needsBilling ||
-        (billing.has() &&
-          (needsBilling.action === undefined ||
-            (!isPending && canPerformAction(scopes, needsBilling.action)))),
-    )
-    .map(({ labelKey, path }): SideNavResolvedSubRoute => ({
-      label: t(labelKey),
-      path,
-    }));
+    .filter(({ needsBilling }) => !needsBilling || isListed(needsBilling))
+    .map(({ labelKey, path }) => ({ label: t(labelKey), path }));
+}
+
+export function useResolvedIntegrationsItems() {
+  return useResolvedSubRoutes(integrationsSubRoutes);
 }
 
 /**
- * The entries of the Billing section the running deployment offers, to the session
- * that can use them. The list is empty while the capabilities load and when they
- * cannot be read, and the section is not drawn. An entry that names an action is
- * listed once the scopes of the session cover it: the add-ons are not offered to a
- * session that may not read them.
+ * The entries of the Catalog section: the licenses and the entitlements always, the
+ * add-ons and the vouchers where billing is on and the release ships them, to a
+ * session that may read them.
  */
-export function useResolvedBillingItems() {
-  const { t } = useTranslation();
-  const isListed = useIsBillingEntryListed();
-
-  return billingSubRoutes
-    .filter(isListed)
-    .map(({ labelKey, path }): SideNavResolvedSubRoute => ({
-      label: t(labelKey),
-      path,
-    }));
+export function useResolvedCatalogItems() {
+  return useResolvedSubRoutes(catalogSubRoutes);
 }
 
 export function SideNavFooterRoutes({ pathname }: SideNavRoutesProps) {

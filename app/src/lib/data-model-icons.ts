@@ -20,10 +20,10 @@ import {
   Users,
 } from 'lucide-react';
 
-// `billing` is not an entity but the area that holds the invoices, the handoff
-// queue, the add-ons and the vouchers: it keeps the receipt with a dollar sign,
-// so that the Billing section of the navigation does not read as one invoice.
-// An invoice itself is the receipt with its lines of text.
+// `billing` is not an entity but the area of billing as a whole (its settings, its
+// Stripe connector, the page that says it is off): it keeps the receipt with a
+// dollar sign, so that these do not read as one invoice. An invoice itself is the
+// receipt with its lines of text.
 export const dataModelIcons = {
   customer: Users,
   instance: Server,

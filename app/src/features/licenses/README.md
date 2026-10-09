@@ -15,7 +15,7 @@ In the API, one license is one version of a product, and the versions of the sam
 | `/catalog/licenses/versions/new` | `app/src/routes/catalog/licenses/versions/new/index.tsx` | `LicenseVersionForm` with the family and the base version to choose |
 | `/catalog/licenses/versions/$licenseSlug` | `app/src/routes/catalog/licenses/versions/$licenseSlug/index.tsx` | `LicenseVersionForm` on the family of that version, which is the base. The breadcrumb reads `New version of <name>`. `?draft=true` offers the version as a draft |
 
-`/catalog/licenses` is an entry of the side navigation (`topLevelRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`). The create and version forms are full pages, not dialogs.
+`/catalog/licenses` is the first entry of the Catalog section of the side navigation (`catalogSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`), listed on every deployment, and `/catalog` opens on it. The create and version forms are full pages, not dialogs.
 
 The Prices tab is billing's and the Overview tab is not, so the guard is the tab's own: `routes/catalog/licenses/$licenseSlug/prices.tsx` calls `requireBillingCapability` in its `beforeLoad` and has `BillingNotFound` as its `notFoundComponent`. Where billing is not there the tab is not listed, a link to it explains why in place of the tab, the page of the version stays, and nothing of billing is requested but the capabilities. A version with nothing but its overview shows no bar of tabs, as it had none before it had a second one.
 

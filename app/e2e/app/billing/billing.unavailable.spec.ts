@@ -49,7 +49,7 @@ test.describe('billing off on the deployment', () => {
       // An explanation, not an error and not a missing page.
       await expect(page.getByRole('alert')).toHaveCount(0);
       await expect(page.getByText('Page not found')).toHaveCount(0);
-      await nav.expectNoSection();
+      await nav.expectNoBillingEntries();
     });
   }
 
@@ -104,7 +104,7 @@ test.describe('billing not part of the plan (Cloud)', () => {
     ).toBeVisible();
     await expect(page.getByText(/Upgrade your plan/)).toBeVisible();
     await expect(page.getByText(/KAITEN_BILLING_ENABLED/)).toHaveCount(0);
-    await nav.expectNoSection();
+    await nav.expectNoBillingEntries();
   });
 });
 
@@ -126,7 +126,7 @@ test.describe('capabilities that cannot be read', () => {
 
     await nav.gotoShell();
 
-    await nav.expectNoSection();
+    await nav.expectNoBillingEntries();
     await expectNoToast(page);
     expect(warnings).toHaveLength(1);
 
@@ -147,7 +147,7 @@ test.describe('capabilities that cannot be read', () => {
     );
 
     await nav.gotoShell();
-    await nav.expectNoSection();
+    await nav.expectNoBillingEntries();
 
     await page.goto('/invoices');
 
@@ -179,7 +179,7 @@ test.describe('capabilities that cannot be read', () => {
     await customers.goto();
 
     await customers.expectCustomerVisible('Acme Corp');
-    await nav.expectNoSection();
+    await nav.expectNoBillingEntries();
     await expectNoToast(page);
 
     await page.goto('/invoices');
@@ -197,12 +197,12 @@ test.describe('capabilities that cannot be read', () => {
 
     await nav.gotoShell();
     // Nothing billing-related renders half-loaded while it waits.
-    await nav.expectNoSection();
+    await nav.expectNoBillingEntries();
 
     await page.goto('/invoices');
 
     await nav.expectUnavailable('UNREACHABLE', { timeout: 20_000 });
-    await nav.expectNoSection();
+    await nav.expectNoBillingEntries();
     await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
   });
 });

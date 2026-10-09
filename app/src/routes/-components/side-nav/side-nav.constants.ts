@@ -19,14 +19,12 @@ export type SideNavSubRouteDefinition = {
    */
   needsWebhooks?: boolean;
   /**
-   * Whether this entry is a page of billing: listed only where billing is on
-   * (`GET /billing/capabilities`, hidden while it loads and whenever it cannot be
-   * read), and, when an `action` is named, to a session whose scopes cover it. It asks
-   * for no `feature` of the release, on purpose: the page of the publishable keys needs
-   * billing on and the scopes, and `features.publicSurface` (true with the release) adds
-   * nothing to that. The entry's route guards itself as well.
+   * What this entry needs of billing and of the session, when it is a page of
+   * billing: see {@link SideNavBillingGate}. Absent for a page that exists
+   * whatever the deployment ships, such as the licenses. The entry's route guards
+   * itself as well.
    */
-  needsBilling?: { action?: BillingAction };
+  needsBilling?: SideNavBillingGate;
 };
 
 /**
@@ -56,12 +54,6 @@ export type SideNavBillingGate = {
 export type SideNavBillingRouteDefinition = SideNavBillingGate &
   SideNavRouteDefinition;
 
-/** An entry of the Billing section. */
-export type SideNavBillingSubRouteDefinition = SideNavBillingGate & {
-  labelKey: string;
-  path: string;
-};
-
 export type SideNavResolvedSubRoute = {
   label: string;
   path: string;
@@ -82,16 +74,6 @@ export const topLevelRoutes: SideNavRouteDefinition[] = [
     Icon: dataModelIcons.featureFlag,
     path: '/feature-flags',
     titleKey: 'Pages.FeatureFlags.title',
-  },
-  {
-    Icon: dataModelIcons.entitlement,
-    path: '/catalog/entitlements',
-    titleKey: 'Pages.Entitlements.title',
-  },
-  {
-    Icon: dataModelIcons.license,
-    path: '/catalog/licenses',
-    titleKey: 'Pages.Licenses.title',
   },
   {
     Icon: dataModelIcons.release,
@@ -141,24 +123,35 @@ export const integrationsSubRoutes: SideNavSubRouteDefinition[] = [
   },
   {
     labelKey: 'Pages.Integrations.PublishableKeys.title',
-    needsBilling: { action: 'publishableKeys.list' },
+    needsBilling: { action: 'publishableKeys.list', capability: {} },
     path: '/integrations/publishable-keys',
   },
 ];
 
-// The Billing section: shown where billing is on, entry by entry by what the
-// release ships. It sits in the nav as one section because it is one gate.
-export const billingSubRoutes: SideNavBillingSubRouteDefinition[] = [
+// The Catalog section: what the organization sells. The licenses and the
+// entitlements exist on every deployment, so the section is always drawn. The
+// add-ons and the vouchers are billing's: each is listed entry by entry, by what the
+// release ships and by what the session may read.
+export const catalogSubRoutes: SideNavSubRouteDefinition[] = [
   {
-    action: 'addons.list',
-    capability: { feature: 'addons' },
+    labelKey: 'Pages.Licenses.title',
+    path: '/catalog/licenses',
+  },
+  {
+    labelKey: 'Pages.Entitlements.title',
+    path: '/catalog/entitlements',
+  },
+  {
     labelKey: 'Pages.Addons.title',
+    needsBilling: { action: 'addons.list', capability: { feature: 'addons' } },
     path: '/catalog/addons',
   },
   {
-    action: 'vouchers.list',
-    capability: { feature: 'vouchers' },
     labelKey: 'Pages.Vouchers.title',
+    needsBilling: {
+      action: 'vouchers.list',
+      capability: { feature: 'vouchers' },
+    },
     path: '/catalog/vouchers',
   },
 ];

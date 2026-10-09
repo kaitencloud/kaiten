@@ -63,7 +63,7 @@ test.describe('billing where the plan leaves it out', () => {
     await install(page, betaTester());
 
     await nav.gotoShell();
-    await nav.expectNoSection();
+    await nav.expectNoBillingEntries();
 
     await settings.gotoSettings();
     await expect(settings.linkCard()).toHaveCount(0);

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 
 /**
- * The state of a collapsible section of the side navigation (Integrations,
- * Billing): open or not when the nav is expanded, and its popover and tooltip
+ * The state of a collapsible section of the side navigation (Catalog,
+ * Integrations): open or not when the nav is expanded, and its popover and tooltip
  * when the nav is collapsed to icons. The section opens by itself when the user
  * navigates into it.
  */

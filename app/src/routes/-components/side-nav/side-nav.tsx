@@ -19,7 +19,7 @@ import { SideNavLogo } from './side-nav-logo';
 import {
   SideNavFooterRoutes,
   SideNavPrimaryRoutes,
-  useResolvedBillingItems,
+  useResolvedCatalogItems,
   useResolvedIntegrationsItems,
 } from './side-nav-sections';
 import { useSideNavMenuState } from './use-side-nav-menu-state';
@@ -29,11 +29,9 @@ export function SideNav() {
   const { pathname } = useLocation();
   const { state } = useSidebar();
   const isCollapsed = state === 'collapsed';
-  const billingItems = useResolvedBillingItems();
-  const isBillingActive = billingItems.some((item) =>
-    isRouteActive(pathname, item.path),
-  );
-  const billingState = useSideNavMenuState(isBillingActive);
+  const catalogItems = useResolvedCatalogItems();
+  const isCatalogActive = isRouteActive(pathname, '/catalog');
+  const catalogState = useSideNavMenuState(isCatalogActive);
   const integrationsItems = useResolvedIntegrationsItems();
   const isIntegrationsActive = isRouteActive(pathname, '/integrations');
   const integrationsState = useSideNavMenuState(isIntegrationsActive);
@@ -49,19 +47,17 @@ export function SideNav() {
           <SidebarGroupContent>
             <SidebarMenu className="gap-1.5 group-data-[collapsible=icon]:items-center">
               <SideNavPrimaryRoutes pathname={pathname} />
-              {billingItems.length > 0 ? (
-                <SidebarMenuItem>
-                  <SideNavCollapsibleMenu
-                    Icon={dataModelIcons.billing}
-                    isActive={isBillingActive}
-                    isCollapsed={isCollapsed}
-                    items={billingItems}
-                    pathname={pathname}
-                    state={billingState}
-                    title={t('Pages.Billing.title')}
-                  />
-                </SidebarMenuItem>
-              ) : null}
+              <SidebarMenuItem>
+                <SideNavCollapsibleMenu
+                  Icon={dataModelIcons.license}
+                  isActive={isCatalogActive}
+                  isCollapsed={isCollapsed}
+                  items={catalogItems}
+                  pathname={pathname}
+                  state={catalogState}
+                  title={t('Pages.Catalog.title')}
+                />
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SideNavCollapsibleMenu
                   Icon={Zap}
