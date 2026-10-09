@@ -15,6 +15,7 @@ import type {
   SubscriptionCancellation,
   SubscriptionTerms,
 } from '@/api-client';
+import type { GetInstancesBillingQuery } from '@/api-client/graphql/graphql';
 import {
   zBillingSettings,
   zInstanceBilling,
@@ -87,6 +88,10 @@ export type SubscriptionProblemOperation =
   | 'subscribeInstance'
   | 'updateBillingSettings'
   | 'updateInstanceBilling';
+
+/** An instance and its subscription as the lists of instances read them over GraphQL (`Instance.billing`). */
+export type InstanceBillingRow =
+  GetInstancesBillingQuery['instances']['items'][number];
 
 /** An instance as the subscription of a mock sees it: who it is for, and the version it is on. */
 export type SubscribableInstance = {
@@ -411,6 +416,39 @@ export class BillingSubscriptions {
     }
 
     return clone(subscription);
+  }
+
+  /**
+   * `Instance.billing` for every instance the model knows, as the GraphQL API
+   * answers it: the summary of the subscription, live or CANCELED, and `null` for
+   * an instance nobody ever subscribed. The order is the order the instances come
+   * in; a subscription whose instance the catalogue does not list comes last.
+   */
+  listInstanceBillingSummaries(): InstanceBillingRow[] {
+    const slugs = [
+      ...new Set([
+        ...this.catalogue.instances.map((instance) => instance.instanceSlug),
+        ...this.subscriptions.map((subscription) => subscription.instanceSlug),
+      ]),
+    ];
+
+    return slugs.map((slug) => {
+      const subscription = this.subscriptionOf(slug);
+
+      return {
+        billing: subscription
+          ? {
+              cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+              currentPeriodEnd: subscription.currentPeriodEnd,
+              pastDueSince: subscription.pastDueSince ?? null,
+              providerKind: subscription.providerKind,
+              status: subscription.status,
+              trialEndsAt: subscription.trialEndsAt ?? null,
+            }
+          : null,
+        slug,
+      };
+    });
   }
 
   /** `GET /instances/{instanceSlug}/billing/upcoming-invoice`. */

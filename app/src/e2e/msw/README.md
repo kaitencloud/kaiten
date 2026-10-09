@@ -90,7 +90,12 @@ unserved).
 integration reads, preserving state on navigation/reload. The canonical slot
 types and storage key live in `e2e/app/_support/contracts/msw-slots.ts`, with no
 browser or Playwright dependency. Error mapping and GraphQL descriptions live
-in browser-free support modules used by MSW handlers.
+in browser-free support modules used by MSW handlers. `graphqlOperationHandler`
+(`handler-factory.ts`) routes a GraphQL request by the name of its document and,
+like the API, refuses the whole document with a 403 `Auth.MissingScope` when the
+token of the request lists scopes and lacks one the document needs
+(`graphql-scope-gate.ts` over `GRAPHQL_DOCUMENT_SCOPES`, which holds the two documents of
+billing); a request with no token, or a token that says nothing of its scopes, is served.
 
 MSW is the application suite's only mock implementation. Notifications require
 the service worker for their stream. The transport contract
