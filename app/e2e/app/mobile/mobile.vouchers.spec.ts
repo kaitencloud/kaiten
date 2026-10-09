@@ -144,6 +144,8 @@ test.describe('the page of a voucher, on the narrowest phone', () => {
     await expectNoHorizontalScroll(page, WIDTH);
     await expectWithinScreen(detail.code());
     await expectWithinScreen(detail.copyButton());
+    await expectWithinScreen(detail.offerCard());
+    await expectWithinScreen(detail.detailsCard());
     await expectScrollsInside(page.getByRole('table'));
     await expect(detail.revokeButton('initech-annual')).toBeAttached();
   });

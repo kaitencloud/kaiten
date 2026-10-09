@@ -8,31 +8,17 @@ import {
   VoucherTypeBadge,
 } from '@/domains/billing';
 import { DetailCard } from '@/functionals/detail-card';
-import type { VoucherNames } from '../../types';
-import { describeVoucherReview } from '../../utils/voucher-review';
 
-type VoucherSummaryCardProps = {
-  names: VoucherNames;
+type VoucherDetailsCardProps = {
   voucher: Voucher;
 };
 
 /**
- * What the voucher does, in plain language, as it would be pasted in the e-mail that
- * goes with the code, and the few figures that place it: its state, how many times it
- * was redeemed of how many it can be, and when it was made and last changed. The
- * sentences count a discount in invoices and a boost in billing periods, and name the
- * customer and the versions it is limited to.
+ * The few figures that place the voucher: its description, its kind, its state, how many
+ * times it was redeemed of how many it can be, and when it was made and last changed.
  */
-export function VoucherSummaryCard({
-  names,
-  voucher,
-}: VoucherSummaryCardProps) {
+export function VoucherDetailsCard({ voucher }: VoucherDetailsCardProps) {
   const { i18n, t } = useTranslation();
-  const sentences = describeVoucherReview(voucher, {
-    language: i18n.language,
-    names,
-    t,
-  });
   const scheduled =
     getVoucherStatus(voucher) === 'ACTIVE' && isVoucherScheduled(voucher);
 
@@ -40,23 +26,13 @@ export function VoucherSummaryCard({
     <DetailCard>
       <DetailCard.Header>
         <DetailCard.Title>
-          {t('Pages.Vouchers.Detail.Summary.title')}
+          {t('Pages.Vouchers.Detail.Details.title')}
         </DetailCard.Title>
         <DetailCard.Description>
-          {t('Pages.Vouchers.Detail.Summary.description')}
+          {t('Pages.Vouchers.Detail.Details.description')}
         </DetailCard.Description>
       </DetailCard.Header>
       <DetailCard.Content>
-        <ul
-          aria-label={t('Pages.Vouchers.Review.summary')}
-          className="list-disc space-y-1.5 pl-5 text-sm"
-          data-testid="voucher-summary"
-        >
-          {sentences.map((sentence) => (
-            <li key={sentence}>{sentence}</li>
-          ))}
-        </ul>
-        <DetailCard.Divider />
         <DetailCard.Rows>
           {voucher.description ? (
             <DetailCard.Row

@@ -22,6 +22,20 @@ A grid of cards carries `items-start`. The bottoms of the cards are uneven, and 
 
 The General card spans two columns and the linked licenses take the third.
 
+## Two cards that read as a pair
+
+When two cards are meant to be read side by side as a pair, such as the sentences and the figures of a voucher, the grid leaves out `items-start` so that its items stretch to the height of the row. The cards stay as tall as their content inside: the free space ends up under the last row, never between the header and the rows, and no `mt-auto` is needed. Use it for a pair whose imbalance would read as a mistake, and keep `items-start` for every other grid.
+
+```tsx
+// app/src/features/vouchers/components/pages/voucher-detail-page.tsx (abridged)
+<div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
+  <VoucherOfferCard … />
+  <VoucherDetailsCard … />
+</div>
+```
+
+Below the breakpoint the cards stack and each is as tall as its content.
+
 ## Short cards stack
 
 When a short card sits next to a long one, stack it with another short card in a column (`<div className="grid gap-4">`) instead of stretching it or leaving it alone on a row.
