@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { zNewPaymentMethodSession } from '@/api-client/zod.gen';
 import { CURRENCY_EXPONENTS } from '@/lib/currency-exponents';
 
 const CURRENCY_ERROR_KEY =
@@ -10,9 +11,12 @@ const CURRENCY_ERROR_KEY =
  * the prices are drawn from), picked from the list; the API checks it too.
  */
 export const paymentMethodCurrencySchema = z.object({
-  currency: z.string().refine((code) => CURRENCY_EXPONENTS.has(code), {
-    error: CURRENCY_ERROR_KEY,
-  }),
+  // The currency of the request the API takes, here required and one it knows.
+  currency: zNewPaymentMethodSession.shape.currency
+    .unwrap()
+    .refine((code) => CURRENCY_EXPONENTS.has(code), {
+      error: CURRENCY_ERROR_KEY,
+    }),
 });
 
 export type PaymentMethodCurrencyValues = z.infer<

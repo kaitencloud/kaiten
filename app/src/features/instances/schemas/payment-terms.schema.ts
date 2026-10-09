@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { InstanceBilling, SubscriptionTerms } from '@/api-client';
+import { zSubscriptionTerms } from '@/api-client/zod.gen';
 import { isValidDaysUntilDue } from '@/domains/billing';
 
 const DAYS_UNTIL_DUE_ERROR_KEY =
@@ -14,14 +15,15 @@ const DAYS_UNTIL_DUE_ERROR_KEY =
  * provider to choose, and then they are no part of the change.
  */
 export const paymentTermsFormSchema = z.object({
-  collectionMethod: z.enum(['SEND_INVOICE', 'CHARGE_AUTOMATICALLY']).optional(),
+  // The two choices are the contract's: a value the API adds is a value here.
+  collectionMethod: zSubscriptionTerms.shape.collectionMethod,
   daysUntilDue: z.custom<number>(
     (days) =>
       typeof days === 'number' &&
       (Number.isNaN(days) || isValidDaysUntilDue(days)),
     { error: DAYS_UNTIL_DUE_ERROR_KEY },
   ),
-  providerKind: z.enum(['NOOP', 'STRIPE']).optional(),
+  providerKind: zSubscriptionTerms.shape.providerKind,
 });
 
 export type PaymentTermsFormValues = z.infer<typeof paymentTermsFormSchema>;
