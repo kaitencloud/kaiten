@@ -94,6 +94,11 @@ type Billing struct {
 	// refused (§9.6 rule 1): room for the charge's retries and the provider's
 	// own attempt, so that a successful charge never passes through PAST_DUE.
 	AutoCollectionGrace time.Duration `mapstructure:"auto_collection_grace" validate:"gte=0"`
+	// EntitlementCacheTTL is how long the billing gate trusts the licensing
+	// authority's answer about an organization (§13.1): it is asked again
+	// after, and while it cannot be reached the last answer stands for 24
+	// times as long. 0 asks on every request and keeps nothing.
+	EntitlementCacheTTL time.Duration `mapstructure:"entitlement_cache_ttl" validate:"gte=0"`
 	Stripe              BillingStripe `mapstructure:"stripe"`
 }
 
@@ -408,6 +413,7 @@ var settings = []struct {
 	{"billing.provider_sync.interval", "KAITEN_BILLING_PROVIDER_SYNC_INTERVAL", "15m", false},
 	{"billing.provider.timeout", "KAITEN_BILLING_PROVIDER_TIMEOUT", "30s", false},
 	{"billing.auto_collection_grace", "KAITEN_BILLING_AUTO_COLLECTION_GRACE", "2h", false},
+	{"billing.entitlement_cache_ttl", "KAITEN_BILLING_ENTITLEMENT_CACHE_TTL", "1m", false},
 	{"billing.stripe.send_after_finalize", "KAITEN_BILLING_STRIPE_SEND_AFTER_FINALIZE", false, false},
 }
 

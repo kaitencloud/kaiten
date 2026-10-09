@@ -42,7 +42,7 @@ func NewUseCases(svc services.Container) *UseCases {
 	deps := catalogue.Deps{
 		UserProvider: svc.UserProvider,
 		Uof:          svc.Uof,
-		Gate:         gate.New(svc.Config.Billing.Enabled, svc.ConnectorEntitlements),
+		Gate:         gate.NewCached(svc.Config.Billing.Enabled, svc.ConnectorEntitlements, svc.Config.Billing.EntitlementCacheTTL),
 	}
 	return &UseCases{
 		CreateVoucher:          createvoucher.NewUseCase(deps),
