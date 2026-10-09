@@ -14,7 +14,6 @@ import {
   createVoucherFilterFields,
   VOUCHER_FILTER_IDS,
 } from '../../utils/voucher-filter-fields';
-import { VoucherLookup } from './voucher-lookup';
 import { VouchersEmpty } from './vouchers-empty';
 import { VouchersTable } from './vouchers-table';
 
@@ -26,9 +25,10 @@ type VoucherListProps = {
 /**
  * The vouchers of the organization as a list page like the others: a search that
  * matches the name, the code and the customer, the Filter menu for the status and the
- * kind, a way to open a voucher by the code a customer sends, and the table, sorted and
- * paged in the browser. The console holds every voucher, so it filters them itself, and
- * what is typed in the search, a code among it, stays in the memory of the page.
+ * kind, and the table, sorted and paged in the browser. The toolbar is laid out as the
+ * other lists' are: the search and the Filter button, and the call to make one at the end
+ * of the row. The console holds every voucher, so it filters them itself, and what is typed
+ * in the search, a code among it, stays in the memory of the page.
  */
 export function VoucherList({ vouchers }: VoucherListProps) {
   const { t } = useTranslation();
@@ -74,15 +74,14 @@ export function VoucherList({ vouchers }: VoucherListProps) {
       <FilterTableLayout.Toolbar>
         <FilterTableLayout.ToolbarRow>
           <FilterTableLayout.Search filterId={VOUCHER_FILTER_IDS.search} />
-          <FilterTableLayout.Actions className="flex-wrap gap-3">
-            <VoucherLookup />
-            {mayCreate ? (
+          {mayCreate ? (
+            <FilterTableLayout.Actions>
               <GradientButton
                 label={t('Pages.Vouchers.List.new')}
                 to="/vouchers/new"
               />
-            ) : null}
-          </FilterTableLayout.Actions>
+            </FilterTableLayout.Actions>
+          ) : null}
         </FilterTableLayout.ToolbarRow>
         <FilterTableLayout.Filters />
       </FilterTableLayout.Toolbar>

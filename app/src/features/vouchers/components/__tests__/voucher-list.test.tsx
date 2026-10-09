@@ -4,8 +4,8 @@ import { HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import type { Voucher } from '@/api-client';
-import { handleListVouchers, handleLookupVoucher } from '@/api-client/msw.gen';
-import { refusal, useBillingTexts } from '@/test-fixtures/billing-test-support';
+import { handleListVouchers } from '@/api-client/msw.gen';
+import { useBillingTexts } from '@/test-fixtures/billing-test-support';
 import { buildVoucher } from '../../../../../e2e/app/_support/fixtures';
 import { VouchersPageContent } from '../index';
 import { renderScreen, serveReferences, sessionWith } from './voucher-test-support';
@@ -137,6 +137,15 @@ describe('the list of vouchers', () => {
     expect(screen.queryByRole('link', { name: /New voucher/ })).not.toBeInTheDocument();
   });
 
+  it('has the search as its only text field: a code is found by searching, not by a field of its own', async () => {
+    renderScreen(<VouchersPageContent />);
+
+    await screen.findByText('Welcome spring');
+    expect(screen.getAllByRole('textbox')).toHaveLength(1);
+    expect(screen.getByPlaceholderText('Name, code or customer')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Find' })).not.toBeInTheDocument();
+  });
+
   it('says where a voucher comes from when there is none, and offers to make one', async () => {
     serveList([]);
     renderScreen(<VouchersPageContent />);
@@ -185,107 +194,5 @@ describe('the search of the list', () => {
     expect(window.location.href).not.toMatch(/WELCOME/);
     expect(JSON.stringify({ ...window.localStorage })).not.toMatch(/WELCOME/);
     expect(JSON.stringify({ ...window.sessionStorage })).not.toMatch(/WELCOME/);
-  });
-});
-
-describe('opening a voucher by its code', () => {
-  function serveLookup(answer: (code: string) => Response) {
-    const bodies: unknown[] = [];
-    server.use(
-      handleLookupVoucher(async ({ request }) => {
-        const body = (await request.json()) as { code: string };
-        bodies.push(body);
-
-        return answer(body.code);
-      }),
-    );
-
-    return bodies;
-  }
-
-  it('asks the API with the code in the body, goes to the voucher by its id and forgets the code', async () => {
-    const bodies = serveLookup(() => HttpResponse.json(WELCOME));
-    const { client } = renderScreen(<VouchersPageContent />);
-    await screen.findByText('Welcome spring');
-
-    await userEvent.type(screen.getByRole('textbox', { name: 'Voucher code' }), ' welcome-spring-2027 ');
-    await userEvent.click(screen.getByRole('button', { name: 'Find' }));
-
-    await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({
-        params: { voucherId: 'voucher-welcome' },
-        to: '/vouchers/$voucherId',
-      }),
-    );
-    expect(bodies).toEqual([{ code: 'welcome-spring-2027' }]);
-    expect(screen.getByRole('textbox', { name: 'Voucher code' })).toHaveValue('');
-    // The code is in no key of the cache.
-    expect(JSON.stringify(client.getQueryCache().getAll().map(({ queryKey }) => queryKey))).not.toMatch(
-      /welcome-spring/i,
-    );
-  });
-
-  it('says no voucher has the code when the API says there is none, and says nothing more', async () => {
-    serveLookup(() => refusal(404, { code: 'LookupVoucher.NotFound', detail: 'no voucher has this code' }));
-    renderScreen(<VouchersPageContent />);
-    await screen.findByText('Welcome spring');
-
-    await userEvent.type(screen.getByRole('textbox', { name: 'Voucher code' }), 'NOPE-NOPE-NOPE');
-    await userEvent.click(screen.getByRole('button', { name: 'Find' }));
-
-    expect(await screen.findByText('No voucher has this code.')).toBeInTheDocument();
-    expect(navigate).not.toHaveBeenCalled();
-    // Whoever comes back to the field hears it again.
-    expect(screen.getByRole('textbox', { name: 'Voucher code' })).toHaveAccessibleDescription(
-      /No voucher has this code\./,
-    );
-  });
-
-  it('does not ask again while the first question is on its way, whether it is sent by the button or by Enter', async () => {
-    let release: () => void = () => undefined;
-    const answered = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const bodies: unknown[] = [];
-    server.use(
-      handleLookupVoucher(async ({ request }) => {
-        bodies.push(await request.json());
-        await answered;
-
-        return HttpResponse.json(WELCOME);
-      }),
-    );
-    renderScreen(<VouchersPageContent />);
-    await screen.findByText('Welcome spring');
-    const field = screen.getByRole('textbox', { name: 'Voucher code' });
-
-    await userEvent.type(field, 'WELCOME-SPRING-2027');
-    await userEvent.click(screen.getByRole('button', { name: 'Find' }));
-    await userEvent.type(field, '{Enter}{Enter}');
-    release();
-
-    await waitFor(() => expect(navigate).toHaveBeenCalledTimes(1));
-    expect(bodies).toHaveLength(1);
-  });
-
-  it('says why in the API words when the lookup is refused for another reason', async () => {
-    serveLookup(() => refusal(503, { code: 'Billing.Down', detail: 'Billing is being moved.' }));
-    renderScreen(<VouchersPageContent />);
-    await screen.findByText('Welcome spring');
-
-    await userEvent.type(screen.getByRole('textbox', { name: 'Voucher code' }), 'WELCOME-SPRING-2027');
-    await userEvent.click(screen.getByRole('button', { name: 'Find' }));
-
-    expect(await screen.findByText('Billing is being moved.')).toBeInTheDocument();
-  });
-
-  it('cannot be sent empty, and is a text field that no browser fills in', async () => {
-    renderScreen(<VouchersPageContent />);
-    await screen.findByText('Welcome spring');
-
-    const field = screen.getByRole('textbox', { name: 'Voucher code' });
-    expect(screen.getByRole('button', { name: 'Find' })).toBeDisabled();
-    expect(field).toHaveAttribute('type', 'text');
-    expect(field).toHaveAttribute('autocomplete', 'off');
   });
 });

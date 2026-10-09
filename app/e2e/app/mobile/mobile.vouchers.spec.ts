@@ -48,7 +48,6 @@ test.describe('the list of vouchers, on the narrowest phone', () => {
     await expectNoHorizontalScroll(page, WIDTH);
     await expectScrollsInside(page.getByRole('table'));
     await expectWithinScreen(list.searchField());
-    await expectWithinScreen(list.lookupField());
     await expectWithinScreen(list.newVoucher());
   });
 });

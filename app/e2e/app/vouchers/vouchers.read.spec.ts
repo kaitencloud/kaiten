@@ -1,5 +1,4 @@
 import { expect, test } from '../_support/app-test';
-import { recordWrites } from '../_support/assertions/requests';
 import { readConsoleStorage } from '../_support/assertions/storage';
 import { FilterToolbarDriver } from '../_support/drivers/filter-toolbar.driver';
 import { VoucherDetailDriver } from '../_support/drivers/voucher-detail.driver';
@@ -10,9 +9,9 @@ import { installVouchersWorld } from './install-vouchers-world';
 
 // The catalogue of vouchers: every voucher of the organization with its code, its kind, its
 // state, how often it was redeemed, until when and for whom, to search and filter in the
-// browser, and a box that opens a voucher by the code a customer sends. The page is frozen
-// at BILLED_NOW (2026-10-07), because the state of a voucher is read from its window: the
-// API never sets one EXPIRED, and an ACTIVE voucher stays ACTIVE past its end.
+// browser; the search matches the code as well as the name. The page is frozen at BILLED_NOW
+// (2026-10-07), because the state of a voucher is read from its window: the API never sets
+// one EXPIRED, and an ACTIVE voucher stays ACTIVE past its end.
 
 test.describe('the list of vouchers', () => {
   test.beforeEach(async ({ page }) => {
@@ -44,6 +43,38 @@ test.describe('the list of vouchers', () => {
     await list.searchField().fill('Hooli only');
     await expect(list.row('Hooli only')).toContainText('0 (no limit)');
     await expect(list.row('Hooli only')).toContainText('No end date');
+  });
+
+  test('lays its toolbar out as the other lists do: the search and the call to make a voucher on one row, the table a standard gap below', async ({
+    page,
+  }) => {
+    const list = new VoucherListDriver(page);
+    await page.setViewportSize({ height: 900, width: 1280 });
+    await installVouchersWorld(page);
+    await list.goto();
+    await expect(list.rows().first()).toBeVisible();
+
+    const search = await list.searchField().boundingBox();
+    const create = await list.newVoucher().boundingBox();
+    const table = await page.getByRole('table').boundingBox();
+
+    expect(search).not.toBeNull();
+    expect(create).not.toBeNull();
+    expect(table).not.toBeNull();
+    // Nothing else sits in the row, so it is as tall as the search field.
+    expect(search?.height).toBeLessThanOrEqual(40);
+    expect(
+      Math.abs(
+        (search?.y ?? 0) +
+          (search?.height ?? 0) / 2 -
+          ((create?.y ?? 99) + (create?.height ?? 0) / 2),
+      ),
+    ).toBeLessThanOrEqual(2);
+    // The table starts a card border and a 24px margin under the search, as under the
+    // entitlements and add-ons lists.
+    const gap = (table?.y ?? 0) - ((search?.y ?? 0) + (search?.height ?? 0));
+    expect(gap).toBeGreaterThanOrEqual(24);
+    expect(gap).toBeLessThanOrEqual(40);
   });
 
   test('says the state a person reads, which the console derives from the window and the count', async ({
@@ -156,62 +187,6 @@ test.describe('the list of vouchers', () => {
 
     await expect(list.empty()).toContainText('No voucher yet');
     await expect(list.newVoucher()).toHaveAttribute('href', '/vouchers/new');
-  });
-});
-
-test.describe('opening a voucher by its code', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.clock.setFixedTime(new Date(BILLED_NOW));
-  });
-
-  test('asks the API with the code in the body of a POST, goes to the voucher by its id and keeps the code out of every address', async ({
-    page,
-  }) => {
-    const list = new VoucherListDriver(page);
-    const detail = new VoucherDetailDriver(page);
-    const lookups = recordWrites(page, /\/api\/vouchers\/lookup$/);
-    const everyRequest: string[] = [];
-    page.on('request', (request) => everyRequest.push(request.url()));
-    await installVouchersWorld(page);
-    await list.goto();
-
-    // A code is matched without case or separators: the way a customer writes it.
-    await list.lookup('welcome spring 2027');
-
-    await detail.expectLoaded('Welcome spring');
-    await expect(page).toHaveURL('/vouchers/voucher-welcome');
-    expect(lookups).toHaveLength(1);
-    expect(lookups[0].body).toEqual({ code: 'welcome spring 2027' });
-    expect(
-      everyRequest.filter(
-        (url) => /welcome/i.test(url) && !/voucher-welcome/.test(url),
-      ),
-    ).toEqual([]);
-  });
-
-  test('says no voucher has the code when none does, and goes nowhere', async ({
-    page,
-  }) => {
-    const list = new VoucherListDriver(page);
-    await installVouchersWorld(page);
-    await list.goto();
-
-    await list.lookup('NOT-A-VOUCHER-CODE');
-
-    await expect(list.lookupNotFound()).toBeVisible();
-    await expect(page).toHaveURL('/vouchers');
-  });
-
-  test('cannot be sent empty, and is a text field that no browser fills in', async ({
-    page,
-  }) => {
-    const list = new VoucherListDriver(page);
-    await installVouchersWorld(page);
-    await list.goto();
-
-    await expect(list.lookupButton()).toBeDisabled();
-    await expect(list.lookupField()).toHaveAttribute('type', 'text');
-    await expect(list.lookupField()).toHaveAttribute('autocomplete', 'off');
   });
 });
 

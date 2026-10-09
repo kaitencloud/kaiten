@@ -1,12 +1,12 @@
 # Vouchers
 
-A voucher is a code that gives an instance a discount on its invoices or a boost of its entitlements. This feature is the catalogue of vouchers, where billing is on and the release ships them: it lists them with a search by name, code or customer and a way to open one by the code a customer sends, makes one in a wizard that ends on a review in plain language and a publish, opens a voucher to give its code, say what it does and list what was redeemed of it, revokes a redemption with its reason, publishes or archives a voucher, and changes what a published one lets change. What an instance redeemed, and the dialog that applies a code to it, are the Billing tab of the instance, in [instances](../instances/README.md); the discount lines of an invoice are drawn by the [billing domain](../../domains/billing/README.md).
+A voucher is a code that gives an instance a discount on its invoices or a boost of its entitlements. This feature is the catalogue of vouchers, where billing is on and the release ships them: it lists them with a search by name, code or customer, makes one in a wizard that ends on a review in plain language and a publish, opens a voucher to give its code, say what it does and list what was redeemed of it, revokes a redemption with its reason, publishes or archives a voucher, and changes what a published one lets change. What an instance redeemed, and the dialog that applies a code to it, are the Billing tab of the instance, in [instances](../instances/README.md); the discount lines of an invoice are drawn by the [billing domain](../../domains/billing/README.md).
 
 ## Routes
 
 | Path | Route file | What it renders |
 | --- | --- | --- |
-| `/vouchers` | `app/src/routes/vouchers/index.tsx` | `VouchersPageContent`: every voucher, with its search, its filters and the opening by code |
+| `/vouchers` | `app/src/routes/vouchers/index.tsx` | `VouchersPageContent`: every voucher, with its search and its filters |
 | `/vouchers/new` | `app/src/routes/vouchers/new/index.tsx` | `VoucherWizardPage`: a new voucher. `?boostFor=<voucher id>` starts the wizard as the boost that goes with that discount, on the offer step |
 | `/vouchers/$voucherId` | `app/src/routes/vouchers/$voucherId/route.tsx` | The layout of one voucher: it reads the voucher and names the page after it |
 | `/vouchers/$voucherId` (index) | `app/src/routes/vouchers/$voucherId/index.tsx` | `VoucherDetailPage`: the code, what it does, its redemptions and the actions its state offers. `?mode=configure` opens `VoucherEditDialog` over it |
@@ -14,7 +14,7 @@ A voucher is a code that gives an instance a discount on its invoices or a boost
 
 The vouchers are billing's. `/vouchers` has the guard: `routes/vouchers/route.tsx` calls `requireBillingCapability(context.queryClient, 'vouchers')` in its `beforeLoad` and has `BillingNotFound` as its `notFoundComponent`, so every route under it is guarded at once. Where billing is off, or the release does not ship vouchers (`features.vouchers` of `GET /billing/capabilities`), a link to any of them explains why in place of the screen, and nothing of the catalogue is requested but the capabilities. The entry of the Billing section of the side navigation (`billingSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`) is listed under the same condition, and only to a session that may read vouchers (`action: 'vouchers.list'`). The guard, the list, the voucher (`$voucherId`) and the wizard (`new`, which reads the voucher `?boostFor=` names) have `BillingRouteError` as their `errorComponent`: the router gives every route a boundary of its own, so each route that reads something sets it, and a session without the scope that reads vouchers is told which one on a deep link as it is on the list.
 
-A voucher is addressed by its **id**, never by its code. The code is in the answer of the API to the sessions that may read vouchers, and it is kept in the memory of the page that shows it: it is in no address, no query key and no storage of the browser. Opening a voucher by code (`VoucherLookup`) is a mutation, `POST /vouchers/lookup`, whose body carries the code and whose answer is only used to go to the voucher by its id.
+A voucher is addressed by its **id**, never by its code. The code is in the answer of the API to the sessions that may read vouchers, and it is kept in the memory of the page that shows it: it is in no address, no query key and no storage of the browser.
 
 ## Structure
 
@@ -23,8 +23,8 @@ app/src/features/vouchers/
 ├── components/
 │   ├── pages/              # vouchers-page-content, voucher-detail-page, voucher-wizard-page (the stepper, the
 │   │                       # step, the footer and the failure above it)
-│   ├── list/               # voucher-list (search, filters, empty states), vouchers-table, voucher-lookup (open by
-│   │                       # code), vouchers-empty (what the table says when a filter hides every row)
+│   ├── list/               # voucher-list (search, filters, empty states), vouchers-table, vouchers-empty (what
+│   │                       # the table says when a filter hides every row)
 │   ├── detail/             # the header, the code card, the summary card (what it does in plain language) and the
 │   │                       # redemptions card
 │   ├── actions/            # what a state offers: edit, add a boost, publish, archive (the confirmation, the looks
@@ -38,7 +38,7 @@ app/src/features/vouchers/
 │   ├── __tests__/, stories/
 │   └── index.ts
 ├── hooks/                  # use-voucher-form (the wizard), use-voucher-edit-form, use-voucher-transitions,
-│                           # use-voucher-lookup, use-voucher-references (what a voucher refers to, by name),
+│                           # use-voucher-references (what a voucher refers to, by name),
 │                           # use-voucher-prices, use-voucher-customers
 ├── queries/                # the list, one voucher and its redemptions, read through `toListPage`
 ├── schemas/                # the form (derived from the generated `zVoucherDraft`), one schema per step, the body
@@ -60,13 +60,14 @@ app/src/features/vouchers/
 - **A published voucher keeps its offer.** The API takes the whole voucher on an update and compares every member it does not let change with what it holds, answering 409 when one differs, and it writes the rules and the description it is given and drops what is missing. So the dialog sends the voucher as stored with the four members the person changed (`voucherToEditBody`), and says before it is asked that the maximum cannot go under the redemptions already made.
 - **The minimum amount of the rules is provisional.** Its shape on the wire (an object of a currency and an amount in minor units) is written and read in one place, `redemptionRulesToBody` and `redemptionRulesToFormValues`, so that the spec's integer touches those two functions and nothing else.
 - **What a voucher refers to is named.** The licenses, add-ons, customers and entitlements a voucher holds are ids and slugs: `useVoucherReferences` reads the lists the session may read, each only when its scope is held and none retried, and the screens write the names. The price of a limited discount has no owner in the API, so the picker asks every license version and every add-on version for its own prices, only when "chosen prices" is picked, and lists each under the version it is of; a price the version no longer offers stays listed and says so.
+- **The list finds a code by its search.** The search matches the name, the code and the customer, so the toolbar is the one of the other lists: the search and the Filter button, and the call to make a voucher at the end of the row, shown to a session that may write them. `POST /vouchers/lookup` exists in the API and the mocks answer it, but no screen of the console calls it.
 - **The redemptions are the instances'.** The card lists, for each instance, when it redeemed, the window it applies in, the invoices a discount used of the invoices it can discount and its state, with the reason of a revocation; a boost whose window has closed reads as expired. Revoking a redemption that still applies needs the reason the API requires, and a scope of the vouchers (`write:vouchers`), which is not the one that redeems (`write:voucher_redemptions`).
 
 ## Tests
 
 - Unit and component tests (Vitest), next to the code: `schemas/__tests__/` (the steps, the body and the form it builds and gives back, the edit, where a refusal goes), `utils/__tests__/` (the code, the review in plain language, the search and filters, the split of the prices) and `components/__tests__/` (the wizard from the first step to the code, the list, the page of a voucher with its actions by state and by scope). `app/src/__tests__/billing-voucher-mocks.test.ts` reads, off the wire, what the mocks of the vouchers answer: they refuse as the API does, with its codes, because the console is tested against them.
 - Stories: `components/stories/voucher-screens.stories.tsx` (`Features/Vouchers/Screens`: the steps of the wizard and the page of a voucher in their states) runs as a test.
-- E2E, `app/e2e/app/vouchers/`, on the world of `vouchers.scenarios.ts` (the vouchers, the redemptions, the entitlements a boost can and cannot change) installed by `install-vouchers-world.ts`, and the drivers of `app/e2e/app/_support/drivers/voucher*.driver.ts`: `vouchers.read.spec.ts` (the list, the search, the filters, the opening by code, the states of a voucher), `vouchers.create.spec.ts` (the wizard: types, validation, the boost panel, the weak code, the review, the publish, the code and its copy, the boost for the same offer, a draft), `vouchers.detail.spec.ts` (the code by id, the redemptions, the revocation, the edit, the archive, the publish of a draft), `vouchers.invoices.spec.ts` (a DISCOUNT line and what the discounts took off), `vouchers.access.spec.ts` (the navigation entry, a release without vouchers, a session that may only read) and `vouchers.french.spec.ts`. Beside them, `instances/instances.vouchers.spec.ts` (the vouchers card and the dialog that applies a code, the code in the subscribe dialog), `accessibility/accessibility.vouchers.spec.ts` (no axe violation in both themes, each dialog keeping the focus, Escape to close) and `mobile/mobile.vouchers.spec.ts` (375 px: no sideways scroll, the wizard and the tables fit).
+- E2E, `app/e2e/app/vouchers/`, on the world of `vouchers.scenarios.ts` (the vouchers, the redemptions, the entitlements a boost can and cannot change) installed by `install-vouchers-world.ts`, and the drivers of `app/e2e/app/_support/drivers/voucher*.driver.ts`: `vouchers.read.spec.ts` (the list, the search, the filters, the states of a voucher), `vouchers.create.spec.ts` (the wizard: types, validation, the boost panel, the weak code, the review, the publish, the code and its copy, the boost for the same offer, a draft), `vouchers.detail.spec.ts` (the code by id, the redemptions, the revocation, the edit, the archive, the publish of a draft), `vouchers.invoices.spec.ts` (a DISCOUNT line and what the discounts took off), `vouchers.access.spec.ts` (the navigation entry, a release without vouchers, a session that may only read) and `vouchers.french.spec.ts`. Beside them, `instances/instances.vouchers.spec.ts` (the vouchers card and the dialog that applies a code, the code in the subscribe dialog), `accessibility/accessibility.vouchers.spec.ts` (no axe violation in both themes, each dialog keeping the focus, Escape to close) and `mobile/mobile.vouchers.spec.ts` (375 px: no sideways scroll, the wizard and the tables fit).
 
 ## Public API
 
