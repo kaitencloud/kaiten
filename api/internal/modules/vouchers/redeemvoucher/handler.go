@@ -14,6 +14,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/telemetry"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -112,6 +113,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, code string) (*cata
 	if err != nil {
 		return nil, err
 	}
+	telemetry.Redeemed(ctx, redemption.VoucherType)
 	return &redemption, nil
 }
 

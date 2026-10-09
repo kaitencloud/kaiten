@@ -27,13 +27,12 @@ SELECT EXISTS (SELECT 1
 
 
 -- name: CustomerHasPaid :one
--- Whether any instance of the customer has a PAID invoice with something to
--- pay: a customer who paid is no longer a first-time one.
+-- Whether the customer has paid an invoice with something to pay, for any of
+-- its instances: a customer who paid is no longer a first-time one.
 SELECT EXISTS (SELECT 1
                FROM instance_invoice ii
-               JOIN instance_billing ib ON ib.id = ii.subscription_id
-               WHERE ib.organization_id = sqlc.arg(organization_id)
-                 AND ib.customer_id = sqlc.arg(customer_id)
+               WHERE ii.organization_id = sqlc.arg(organization_id)
+                 AND ii.customer_id = sqlc.arg(customer_id)
                  AND ii.status = 'PAID'
                  AND ii.total_minor > 0)::boolean AS paid;
 
@@ -45,6 +44,17 @@ SELECT EXISTS (SELECT 1
                WHERE ee.instance_id = sqlc.arg(instance_id)
                  AND ee.entitlement_type IN ('NUMBER', 'NUMBER_AI_CREDIT')
                  AND ee.entitlement_id = ANY (sqlc.arg(entitlement_ids)::uuid[]))::boolean AS boostable;
+
+
+-- name: GetPlanPrice :one
+-- The flat-fee price a subscription would start on, for the checks that read
+-- the subscription's version, period, currency and amount (§11.3).
+SELECT lp.license_id, lp.billing_period::text AS billing_period, lp.currency::text AS currency,
+       lp.unit_amount_decimal::text AS unit_amount_decimal, (lp.status = 'ACTIVE')::boolean AS active
+FROM license_price lp
+WHERE lp.organization_id = sqlc.arg(organization_id)
+  AND lp.id = sqlc.arg(id)
+  AND lp.billing_model = 'FLAT_FEE';
 
 
 -- name: InstanceRedeemed :one

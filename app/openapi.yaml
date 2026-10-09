@@ -8675,6 +8675,29 @@ components:
         - name
         - tokens
       type: object
+    SessionBoost:
+      additionalProperties: false
+      properties:
+        entitlementSlug:
+          examples:
+            - tokens
+          type: string
+        modifierType:
+          enum:
+            - SET
+            - ADD
+            - MULTIPLY
+            - UNLIMITED
+          type: string
+        modifierValue:
+          description: Absent for UNLIMITED
+          examples:
+            - "2"
+          type: string
+      required:
+        - entitlementSlug
+        - modifierType
+      type: object
     SessionCancellation:
       additionalProperties: false
       properties:
@@ -8758,6 +8781,36 @@ components:
           type: string
       required:
         - licensePriceId
+      type: object
+    SessionDiscount:
+      additionalProperties: false
+      properties:
+        appliesTo:
+          enum:
+            - LICENSE_BASE
+            - ADDONS
+            - BOTH
+            - SELECTED_PRICES
+          type: string
+        currency:
+          description: The currency of a FIXED_AMOUNT discount
+          examples:
+            - EUR
+          type: string
+        type:
+          enum:
+            - PERCENTAGE
+            - FIXED_AMOUNT
+          type: string
+        value:
+          description: A percentage in (0, 100], or an amount in minor units of currency
+          examples:
+            - "30"
+          type: string
+      required:
+        - type
+        - value
+        - appliesTo
       type: object
     SessionInvoice:
       additionalProperties: false
@@ -8981,6 +9034,70 @@ components:
         - trialEndsAt
         - cancelAtPeriodEnd
         - scheduledChange
+      type: object
+    SessionVoucher:
+      additionalProperties: false
+      properties:
+        boosts:
+          description: "ENTITLEMENT_BOOST: what it raises"
+          items:
+            $ref: "#/components/schemas/SessionBoost"
+          type:
+            - array
+            - "null"
+        discount:
+          $ref: "#/components/schemas/SessionDiscount"
+          description: "PRICE: what it takes off"
+        duration:
+          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). ENTITLEMENT_BOOST: how long it lasts, in billing periods."
+          enum:
+            - ONE_TIME
+            - REPEATING
+            - FOREVER
+          type: string
+        durationInPeriods:
+          format: int32
+          type: integer
+        name:
+          examples:
+            - Summer launch
+          type: string
+        voucherType:
+          enum:
+            - PRICE
+            - ENTITLEMENT_BOOST
+          type: string
+      required:
+        - name
+        - voucherType
+        - duration
+      type: object
+    SessionVoucherCheck:
+      additionalProperties: false
+      properties:
+        code:
+          description: The code as the customer typed it; case and separators do not matter
+          examples:
+            - SUMMER-2026-LAUNCH
+          maxLength: 64
+          minLength: 1
+          type: string
+        licensePriceId:
+          description: "The price the customer is about to check out: the checks that read the subscription read this price"
+          type: string
+      required:
+        - code
+      type: object
+    SessionVoucherValidity:
+      additionalProperties: false
+      properties:
+        valid:
+          type: boolean
+        voucher:
+          $ref: "#/components/schemas/SessionVoucher"
+          description: What the voucher gives, when valid. Never its code.
+      required:
+        - valid
       type: object
     StartedSubscription:
       additionalProperties: false
@@ -10101,6 +10218,9 @@ components:
           type: string
         instanceSlug:
           description: Also run the checks that need the redeeming instance
+          type: string
+        licensePriceId:
+          description: "The flat-fee price a subscription would start on: the licence, period, amount and currency checks read it instead of the instance's live subscription"
           type: string
       required:
         - code
@@ -22803,6 +22923,70 @@ paths:
       summary: List the customer's invoices
       tags:
         - public
+  /public/session/vouchers/validate:
+    post:
+      description: "Says whether a code would apply to the session's customer -- and its instance, and the price about to be checked out when given -- with what it gives. Every reason it would not gets the same {valid: false}. Nothing is redeemed: checkout redeems. 429 .RateLimited, with Retry-After, past 10 checks per 10 minutes per session or 30 an hour per customer."
+      operationId: validateSessionVoucher
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionVoucherCheck"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionVoucherValidity"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - customerSession: []
+      summary: Check a voucher code
+      tags:
+        - public
   /publishable-keys:
     get:
       description: The organization's publishable keys, newest first. The keys themselves are never returned, only their last four characters.
@@ -24381,7 +24565,7 @@ paths:
         - vouchers
   /vouchers/validate:
     post:
-      description: "Runs the redemption checks without redeeming: the voucher's own, and, with instanceSlug, the instance's. Answers 200 with valid, and the first failing reason (and eligibility rule) otherwise. Requires billing to be enabled for the organization."
+      description: "Runs the redemption checks without redeeming: the voucher's own; with instanceSlug, the instance's; with licensePriceId, those that read the subscription, on the subscription that price would start. Answers 200 with valid, and the first failing reason (and eligibility rule) otherwise. 404 .InstanceNotFound, .PriceNotFound; 429 .RateLimited past 60 checks a minute per principal, with Retry-After. Requires billing to be enabled for the organization."
       operationId: validateVoucher
       requestBody:
         content:
@@ -24426,6 +24610,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
         "500":
           content:
             application/problem+json:

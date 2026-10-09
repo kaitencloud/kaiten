@@ -147,15 +147,34 @@ func TestRedemptions(t *testing.T) {
 			map[string]any{"code": *annual.Code, "instanceSlug": s.instance.Slug}), fiber.StatusOK)
 		require.Equal(t, catalogue.ReasonNotEligible, *validity.Reason)
 		require.Equal(t, catalogue.RuleAnnualOnly, *validity.Rule)
+		yearly := createPrice(t, s.version.Slug, flatFee("29000", "ANNUAL"))
+		validity = commonfixture.AssertJSONResponse[validatevoucher.Validity](t, call(t, "POST", "/api/vouchers/validate",
+			map[string]any{"code": *annual.Code, "instanceSlug": s.instance.Slug, "licensePriceId": yearly.ID}), fiber.StatusOK)
+		require.True(t, validity.Valid, "the price the subscription would start on is what the rules read")
+		require.Equal(t, "ValidateVoucher.PriceNotFound", problemCode(t, fiber.StatusNotFound, "POST", "/api/vouchers/validate",
+			map[string]any{"code": *annual.Code, "licensePriceId": "00000000-0000-4000-8000-000000000000"}))
 
 		dollars := newVoucher(t, map[string]any{
 			"voucherType": "PRICE", "priceDiscountType": "FIXED_AMOUNT", "priceDiscountValue": "500",
 			"currency": "USD", "priceAppliesTo": "BOTH",
 		})
 		publish(t, dollars)
-		subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		firstTime := newVoucher(t, percentOff("15", map[string]any{"redemptionRules": map[string]any{"firstTimeOnly": true}}))
+		publish(t, firstTime)
+		started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
 		require.Equal(t, "RedeemVoucher.CurrencyMismatch", problemCode(t, fiber.StatusUnprocessableEntity, "POST",
 			"/api/instances/"+s.instance.Slug+"/vouchers/redeem", map[string]any{"code": *dollars.Code}))
+
+		// first_time_only: until the customer has paid an invoice.
+		validity = commonfixture.AssertJSONResponse[validatevoucher.Validity](t, call(t, "POST", "/api/vouchers/validate",
+			map[string]any{"code": *firstTime.Code, "instanceSlug": s.instance.Slug}), fiber.StatusOK)
+		require.True(t, validity.Valid, "an issued invoice is not a paid one")
+		commonfixture.AssertJSONResponse[map[string]any](t, call(t, "POST",
+			"/api/invoices/"+started.ActivationInvoice.ID.String()+"/mark-paid", map[string]any{}), fiber.StatusOK)
+		validity = commonfixture.AssertJSONResponse[validatevoucher.Validity](t, call(t, "POST", "/api/vouchers/validate",
+			map[string]any{"code": *firstTime.Code, "instanceSlug": s.instance.Slug}), fiber.StatusOK)
+		require.Equal(t, catalogue.ReasonNotEligible, *validity.Reason)
+		require.Equal(t, catalogue.RuleFirstTimeOnly, *validity.Rule)
 	})
 }
 

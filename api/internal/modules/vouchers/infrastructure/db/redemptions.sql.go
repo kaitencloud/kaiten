@@ -99,9 +99,8 @@ func (q *Queries) ClaimRedemption(ctx context.Context, arg ClaimRedemptionParams
 const customerHasPaid = `-- name: CustomerHasPaid :one
 SELECT EXISTS (SELECT 1
                FROM instance_invoice ii
-               JOIN instance_billing ib ON ib.id = ii.subscription_id
-               WHERE ib.organization_id = $1
-                 AND ib.customer_id = $2
+               WHERE ii.organization_id = $1
+                 AND ii.customer_id = $2
                  AND ii.status = 'PAID'
                  AND ii.total_minor > 0)::boolean AS paid
 `
@@ -111,8 +110,8 @@ type CustomerHasPaidParams struct {
 	CustomerID     *uuid.UUID `json:"customer_id"`
 }
 
-// Whether any instance of the customer has a PAID invoice with something to
-// pay: a customer who paid is no longer a first-time one.
+// Whether the customer has paid an invoice with something to pay, for any of
+// its instances: a customer who paid is no longer a first-time one.
 func (q *Queries) CustomerHasPaid(ctx context.Context, arg CustomerHasPaidParams) (bool, error) {
 	row := q.db.QueryRow(ctx, customerHasPaid, arg.OrganizationID, arg.CustomerID)
 	var paid bool
@@ -147,6 +146,43 @@ func (q *Queries) GetInstanceForRedeem(ctx context.Context, arg GetInstanceForRe
 		&i.Slug,
 		&i.CustomerID,
 		&i.LicenseID,
+	)
+	return i, err
+}
+
+const getPlanPrice = `-- name: GetPlanPrice :one
+SELECT lp.license_id, lp.billing_period::text AS billing_period, lp.currency::text AS currency,
+       lp.unit_amount_decimal::text AS unit_amount_decimal, (lp.status = 'ACTIVE')::boolean AS active
+FROM license_price lp
+WHERE lp.organization_id = $1
+  AND lp.id = $2
+  AND lp.billing_model = 'FLAT_FEE'
+`
+
+type GetPlanPriceParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ID             uuid.UUID `json:"id"`
+}
+
+type GetPlanPriceRow struct {
+	LicenseID         uuid.UUID `json:"license_id"`
+	BillingPeriod     string    `json:"billing_period"`
+	Currency          string    `json:"currency"`
+	UnitAmountDecimal string    `json:"unit_amount_decimal"`
+	Active            bool      `json:"active"`
+}
+
+// The flat-fee price a subscription would start on, for the checks that read
+// the subscription's version, period, currency and amount (§11.3).
+func (q *Queries) GetPlanPrice(ctx context.Context, arg GetPlanPriceParams) (GetPlanPriceRow, error) {
+	row := q.db.QueryRow(ctx, getPlanPrice, arg.OrganizationID, arg.ID)
+	var i GetPlanPriceRow
+	err := row.Scan(
+		&i.LicenseID,
+		&i.BillingPeriod,
+		&i.Currency,
+		&i.UnitAmountDecimal,
+		&i.Active,
 	)
 	return i, err
 }
