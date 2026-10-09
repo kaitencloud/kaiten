@@ -5,6 +5,7 @@ export {
   addonVersionsQueryOptions,
 } from './addon-query-options';
 export { billingHealthQueryOptions } from './billing-health';
+export { customerBillingQueryOptions } from './customer-billing';
 export { billingSettingsQueryOptions } from './billing-settings';
 export {
   BILLING_CAPABILITIES_TIMEOUT_MS,

@@ -13,6 +13,7 @@ import {
   getSubscriptionActions,
   type SubscriptionActionAvailability,
   useBillingCapabilities,
+  useBillingProvider,
   useCanPerform,
 } from '@/domains/billing';
 
@@ -75,8 +76,10 @@ function ChangePlanAction({
   );
 }
 
+/** Named for the provider it also changes where one can collect. */
 function TermsAction({ instanceSlug }: ActionProps) {
   const { t } = useTranslation();
+  const { isOffered } = useBillingProvider('STRIPE');
 
   return (
     <Button
@@ -87,7 +90,11 @@ function TermsAction({ instanceSlug }: ActionProps) {
           to="/customers/instances/$instanceSlug/billing/terms"
         >
           <CalendarClock />
-          {t('Pages.Customers.Instances.Detail.Billing.Terms.open')}
+          {t(
+            isOffered
+              ? 'Pages.Customers.Instances.Detail.Billing.Terms.openWithProvider'
+              : 'Pages.Customers.Instances.Detail.Billing.Terms.open',
+          )}
         </Link>
       }
       role="link"
