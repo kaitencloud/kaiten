@@ -22,7 +22,7 @@ and the way a refusal is shown. The generic parts live where any feature can
 reach them: `lib/money.ts`, `lib/decimal.ts`,
 `components/form/fields/money-field.tsx`, `lib/download-blob.ts` and the billing
 icons of `lib/data-model-icons.ts`: an invoice, a subscription, a price, and `billing`,
-the glyph of the area itself, which the Billing section of the navigation and the screens
+the glyph of the area itself, which the screens
 that stand for billing as a whole (its settings, the explanation of a closed gate) draw
 instead of an invoice's.
 
@@ -257,7 +257,7 @@ page holds, or an export the API streams.
   requested but the capabilities. `routes/invoices/route.tsx` is the first guard.
   It also answers for a path under `/invoices` that is no page, so that billing
   being off never reads as a missing page. The side navigation reads the same
-  capabilities: the Invoices entry and each entry of the Billing section carry a `capability`, which
+  capabilities: the Invoices entry and each billing entry of a section (the add-ons and the vouchers of the Catalog, the publishable keys of Integrations) carry a `capability`, which
   names a feature of the release when it needs one (`side-nav.constants.ts`), and
   an entry that asked for nothing is still hidden where billing is off. An entry may
   also name an `action`, and is then listed only to a session whose scopes cover it

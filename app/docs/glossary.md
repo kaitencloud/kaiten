@@ -24,6 +24,10 @@ A customer of the organization: a name, an optional `domain`, an optional `exter
 
 A customer's use of a license. It references one customer and one license version, has start and end license dates, an operational `status` (`HEALTHY`, `DEGRADED`, `INCIDENT` or `MAINTENANCE`), a free-form commercial `lifecycleStage` and typed `metadata`, and can be placed on a deployment zone. Its entitlement usage and its audit trail are read per instance, and where billing is on so is its [subscription](#subscription). Feature: `app/src/features/instances/`.
 
+### Catalog
+
+What the organization sells, as one entry of the side navigation: the licenses, the entitlements, and, where billing is on and the release ships them, the add-ons and the vouchers. The routes are under `/catalog` (`/catalog/licenses`, `/catalog/entitlements`, `/catalog/addons`, `/catalog/vouchers`), and `/catalog` opens on the licenses. It is a section of the console, not a feature: each of the four keeps its own folder in `app/src/features/`.
+
 ### License
 
 What an instance is on: a named set of entitlement grants. One license record is one **version** of a license family: it has a `version` number that the server assigns, an optional `versionName`, a `type` (`DEVELOPMENT`, `TRIAL`, `PAID` or `COMMUNITY`) and a lifecycle state. `DRAFT` is not on sale, `PUBLISHED` is on sale, `ARCHIVED` is withdrawn: instances already on it keep it, and no instance can be assigned to it. Publishing, archiving and unarchiving are dedicated operations. Feature: `app/src/features/licenses/`.

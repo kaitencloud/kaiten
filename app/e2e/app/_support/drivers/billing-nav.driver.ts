@@ -2,10 +2,11 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
  * The billing entries of the side nav: the Invoices entry, which stands on its own
- * where billing is on, and the Billing section that holds the add-ons and the
- * vouchers where the release ships them, and the explanation a billing route shows
- * where billing is not there. The section opens by itself on a page of it; anywhere
- * else it is a closed toggle, which `open` clicks.
+ * where billing is on, and the Catalog section, which holds the licenses and the
+ * entitlements on every deployment and the add-ons and the vouchers where the release
+ * ships them, and the explanation a billing route shows where billing is not there. The
+ * section opens by itself on a page of it; anywhere else it is a closed toggle, which
+ * `open` clicks.
  */
 export class BillingNavDriver {
   constructor(private readonly page: Page) {}
@@ -27,13 +28,14 @@ export class BillingNavDriver {
     await expect(this.entry('Customers')).toBeVisible();
   }
 
-  section(): Locator {
-    return this.content.getByRole('button', { name: 'Billing', exact: true });
+  /** The toggle of the Catalog section. */
+  catalog(): Locator {
+    return this.content.getByRole('button', { name: 'Catalog', exact: true });
   }
 
-  /** The glyph of the section, which is the receipt of the area and not an invoice's. */
-  sectionIcon(): Locator {
-    return this.section().locator('svg').first();
+  /** The glyph of the section, which is the license's: the catalog is what is sold. */
+  catalogIcon(): Locator {
+    return this.catalog().locator('svg').first();
   }
 
   entry(label: string): Locator {
@@ -46,10 +48,10 @@ export class BillingNavDriver {
   }
 
   async open() {
-    const section = this.section();
-    await expect(section).toBeVisible();
-    if ((await section.getAttribute('aria-expanded')) !== 'true') {
-      await section.click();
+    const catalog = this.catalog();
+    await expect(catalog).toBeVisible();
+    if ((await catalog.getAttribute('aria-expanded')) !== 'true') {
+      await catalog.click();
     }
   }
 
@@ -59,8 +61,13 @@ export class BillingNavDriver {
     }
   }
 
-  async expectNoSection() {
-    await expect(this.section()).toHaveCount(0);
+  /**
+   * Where billing is not there: the catalog keeps the licenses and the entitlements,
+   * and holds no add-ons or vouchers; there are no invoices either.
+   */
+  async expectNoBillingEntries() {
+    await this.open();
+    await this.expectEntries(['Licenses', 'Entitlements']);
     for (const label of ['Invoices', 'Add-ons', 'Vouchers']) {
       await expect(this.entry(label)).toHaveCount(0);
     }

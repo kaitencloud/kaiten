@@ -9,16 +9,16 @@ import {
   createInvoicesModel,
 } from './billing.scenarios';
 
-// The two receipts of lucide: the one with a dollar sign draws the area, the one
-// with lines of text draws an invoice. `lucide-receipt` alone, not its sibling.
+// The receipt with lines of text draws an invoice. `lucide-receipt` alone, the
+// receipt with a dollar sign, is the area of billing and not an invoice's.
 const RECEIPT = /(^|\s)lucide-receipt(\s|$)/;
 const RECEIPT_TEXT = /(^|\s)lucide-receipt-text(\s|$)/;
 
 // The billing entries of the side navigation follow what the capabilities say:
-// the Invoices entry is there where billing is on, and the Billing section holds
-// the add-ons and the vouchers, entry by entry for what the release ships. Where
-// they are not there, a link to a billing page explains why: see
-// `billing.unavailable.spec.ts`.
+// the Invoices entry is there where billing is on, and the Catalog section holds
+// the add-ons and the vouchers beside the licenses and the entitlements, entry by
+// entry for what the release ships. Where they are not there, a link to a billing
+// page explains why: see `billing.unavailable.spec.ts`.
 
 test.describe('the billing entries of the navigation', () => {
   test('are left out where billing is off on the deployment', async ({
@@ -32,7 +32,7 @@ test.describe('the billing entries of the navigation', () => {
 
     await nav.gotoShell();
 
-    await nav.expectNoSection();
+    await nav.expectNoBillingEntries();
   });
 
   test('are left out where the plan does not include billing', async ({
@@ -46,10 +46,10 @@ test.describe('the billing entries of the navigation', () => {
 
     await nav.gotoShell();
 
-    await nav.expectNoSection();
+    await nav.expectNoBillingEntries();
   });
 
-  test('list the invoices on their own, and no section, where billing is on and the release ships no more', async ({
+  test('list the invoices on their own, and keep the catalog to its core, where billing is on and the release ships no more', async ({
     page,
   }) => {
     const nav = new BillingNavDriver(page);
@@ -60,9 +60,10 @@ test.describe('the billing entries of the navigation', () => {
     // The invoices are an entry of the navigation, with no section to open.
     await expect(nav.entry('Invoices')).toBeVisible();
     await expect(nav.entry('Invoices')).toHaveAttribute('href', '/invoices');
-    await expect(nav.section()).toHaveCount(0);
     // The queue of the accounting system is a view of the invoices, not an entry.
     await expect(nav.entry('Handoff')).toHaveCount(0);
+    await nav.open();
+    await nav.expectEntries(['Licenses', 'Entitlements']);
     await expect(nav.entry('Add-ons')).toHaveCount(0);
     await expect(nav.entry('Vouchers')).toHaveCount(0);
   });
@@ -74,14 +75,16 @@ test.describe('the billing entries of the navigation', () => {
     await installBillingAppMocks(page, createBillingFeatureGatedModel());
 
     await nav.gotoShell();
+    await nav.open();
 
-    await nav.expectEntries(['Invoices']);
-    await expect(nav.section()).toHaveCount(0);
+    await nav.expectEntries(['Invoices', 'Licenses', 'Entitlements']);
     await expect(nav.entry('Add-ons')).toHaveCount(0);
     await expect(nav.entry('Vouchers')).toHaveCount(0);
   });
 
-  test('list every entry when every part is shipped', async ({ page }) => {
+  test('list every entry when every part is shipped, the add-ons and the vouchers after the licenses and the entitlements', async ({
+    page,
+  }) => {
     const nav = new BillingNavDriver(page);
     await installBillingAppMocks(page, createBillingFullModel());
 
@@ -89,9 +92,29 @@ test.describe('the billing entries of the navigation', () => {
     await expect(nav.entry('Invoices')).toHaveAttribute('href', '/invoices');
     await nav.open();
 
-    await nav.expectEntries(['Invoices', 'Add-ons', 'Vouchers']);
-    await expect(nav.entry('Add-ons')).toHaveAttribute('href', '/catalog/addons');
-    await expect(nav.entry('Vouchers')).toHaveAttribute('href', '/catalog/vouchers');
+    await nav.expectEntries([
+      'Invoices',
+      'Licenses',
+      'Entitlements',
+      'Add-ons',
+      'Vouchers',
+    ]);
+    await expect(nav.entry('Licenses')).toHaveAttribute(
+      'href',
+      '/catalog/licenses',
+    );
+    await expect(nav.entry('Entitlements')).toHaveAttribute(
+      'href',
+      '/catalog/entitlements',
+    );
+    await expect(nav.entry('Add-ons')).toHaveAttribute(
+      'href',
+      '/catalog/addons',
+    );
+    await expect(nav.entry('Vouchers')).toHaveAttribute(
+      'href',
+      '/catalog/vouchers',
+    );
   });
 
   test('mark the Invoices entry as the current one on the list and on an invoice', async ({
@@ -120,18 +143,6 @@ test.describe('the icons of billing', () => {
     const icon = nav.entry('Invoices').locator('svg').first();
     await expect(icon).toHaveClass(RECEIPT_TEXT);
     await expect(icon).not.toHaveClass(RECEIPT);
-  });
-
-  test('draws the Billing section, where the release gives it entries, with the receipt of the area and not with the one of an invoice', async ({
-    page,
-  }) => {
-    const nav = new BillingNavDriver(page);
-    await installBillingAppMocks(page, createBillingFullModel());
-
-    await nav.gotoShell();
-
-    await expect(nav.sectionIcon()).toHaveClass(RECEIPT);
-    await expect(nav.sectionIcon()).not.toHaveClass(RECEIPT_TEXT);
   });
 
   for (const [path, what] of [

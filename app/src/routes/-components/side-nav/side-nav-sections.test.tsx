@@ -11,8 +11,8 @@ import {
   NO_BILLING_FEATURES,
 } from '../../../../e2e/app/_support/model/billing-capabilities';
 import {
-  useResolvedBillingItems,
   useResolvedBillingRoutes,
+  useResolvedCatalogItems,
   useResolvedIntegrationsItems,
 } from './side-nav-sections';
 
@@ -157,11 +157,11 @@ function seededClient(
   );
 }
 
-function billingPathsWith(
+function catalogPathsWith(
   capabilities: BillingCapabilities | undefined,
   scopes: GrantedScopes | 'unread' = null,
 ) {
-  const { result } = renderHook(() => useResolvedBillingItems(), {
+  const { result } = renderHook(() => useResolvedCatalogItems(), {
     wrapper: seededClient(capabilities, scopes),
   });
   return result.current.map((item) => item.path);
@@ -204,13 +204,16 @@ describe('useResolvedBillingRoutes', () => {
   });
 });
 
-describe('useResolvedBillingItems', () => {
-  it('lists nothing where the release ships none of the parts of the section', () => {
-    expect(billingPathsWith(billingCapabilitiesProfiles.stack())).toEqual([]);
+describe('useResolvedCatalogItems', () => {
+  const core = ['/catalog/licenses', '/catalog/entitlements'];
+
+  it('lists the licenses and the entitlements where the release ships none of the billing parts', () => {
+    expect(catalogPathsWith(billingCapabilitiesProfiles.stack())).toEqual(core);
   });
 
-  it('lists the add-ons and the vouchers where the release ships them', () => {
-    expect(billingPathsWith(billingCapabilitiesProfiles.full())).toEqual([
+  it('lists the add-ons and the vouchers after them where the release ships them', () => {
+    expect(catalogPathsWith(billingCapabilitiesProfiles.full())).toEqual([
+      ...core,
       '/catalog/addons',
       '/catalog/vouchers',
     ]);
@@ -221,8 +224,8 @@ describe('useResolvedBillingItems', () => {
 
     it('hides them from a session whose scopes do not cover read:addons', () => {
       expect(
-        billingPathsWith(full, ['read:billing', 'read:vouchers']),
-      ).toEqual(['/catalog/vouchers']);
+        catalogPathsWith(full, ['read:billing', 'read:vouchers']),
+      ).toEqual([...core, '/catalog/vouchers']);
     });
 
     it.each([
@@ -230,11 +233,11 @@ describe('useResolvedBillingItems', () => {
       ['write:addons, which covers it', ['read:billing', 'write:addons']],
       ['read:*', ['read:*']],
     ])('lists them for a session that holds %s', (_, scopes) => {
-      expect(billingPathsWith(full, scopes)).toContain('/catalog/addons');
+      expect(catalogPathsWith(full, scopes)).toContain('/catalog/addons');
     });
 
     it('does not list them while the scopes of the token are being read', () => {
-      expect(billingPathsWith(full, 'unread')).not.toContain('/catalog/addons');
+      expect(catalogPathsWith(full, 'unread')).not.toContain('/catalog/addons');
     });
   });
 
@@ -243,8 +246,8 @@ describe('useResolvedBillingItems', () => {
 
     it('hides them from a session whose scopes do not cover read:vouchers', () => {
       expect(
-        billingPathsWith(full, ['read:billing', 'read:addons']),
-      ).toEqual(['/catalog/addons']);
+        catalogPathsWith(full, ['read:billing', 'read:addons']),
+      ).toEqual([...core, '/catalog/addons']);
     });
 
     it.each([
@@ -252,11 +255,13 @@ describe('useResolvedBillingItems', () => {
       ['write:vouchers, which covers it', ['read:billing', 'write:vouchers']],
       ['read:*', ['read:*']],
     ])('lists them for a session that holds %s', (_, scopes) => {
-      expect(billingPathsWith(full, scopes)).toContain('/catalog/vouchers');
+      expect(catalogPathsWith(full, scopes)).toContain('/catalog/vouchers');
     });
 
     it('does not list them while the scopes of the token are being read', () => {
-      expect(billingPathsWith(full, 'unread')).not.toContain('/catalog/vouchers');
+      expect(catalogPathsWith(full, 'unread')).not.toContain(
+        '/catalog/vouchers',
+      );
     });
   });
 
@@ -264,20 +269,23 @@ describe('useResolvedBillingItems', () => {
     const stack = billingCapabilitiesProfiles.stack();
 
     expect(
-      billingPathsWith({ ...stack, features: { ...stack.features, vouchers: true } }),
-    ).toEqual(['/catalog/vouchers']);
+      catalogPathsWith({
+        ...stack,
+        features: { ...stack.features, vouchers: true },
+      }),
+    ).toEqual([...core, '/catalog/vouchers']);
   });
 
   it.each(['DEPLOYMENT_DISABLED', 'NOT_ENTITLED'] as const)(
-    'lists nothing where billing is off: %s',
+    'keeps the licenses and the entitlements where billing is off: %s',
     (reason) => {
-      expect(billingPathsWith(billingCapabilitiesProfiles.disabled(reason))).toEqual(
-        [],
-      );
+      expect(
+        catalogPathsWith(billingCapabilitiesProfiles.disabled(reason)),
+      ).toEqual(core);
     },
   );
 
-  it('lists nothing while the capabilities load', () => {
-    expect(billingPathsWith(undefined)).toEqual([]);
+  it('keeps them while the capabilities load, and when they cannot be read', () => {
+    expect(catalogPathsWith(undefined)).toEqual(core);
   });
 });

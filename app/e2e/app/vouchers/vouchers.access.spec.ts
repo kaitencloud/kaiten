@@ -11,13 +11,13 @@ import {
 } from './vouchers.scenarios';
 
 // Where the vouchers are, and who may do what to them. They exist where billing is on and the
-// release ships them; the Billing section lists them to a session that may read them; and a
+// release ships them; the Catalog section lists them to a session that may read them; and a
 // session that may only read sees the catalogue and the code with none of its controls.
 
 const CATALOGUE_REQUESTS = /^\/api\/vouchers(\/|$)/;
 
 test.describe('the entry of the navigation', () => {
-  test('lists the vouchers beside the invoices where the release ships them, and opens them', async ({
+  test('lists the vouchers in the catalog where the release ships them, and opens them', async ({
     page,
   }) => {
     const nav = new BillingNavDriver(page);
@@ -27,13 +27,22 @@ test.describe('the entry of the navigation', () => {
     await nav.gotoShell();
     await nav.open();
 
-    await nav.expectEntries(['Invoices', 'Add-ons', 'Vouchers']);
-    await expect(nav.entry('Vouchers')).toHaveAttribute('href', '/catalog/vouchers');
+    await nav.expectEntries([
+      'Invoices',
+      'Licenses',
+      'Entitlements',
+      'Add-ons',
+      'Vouchers',
+    ]);
+    await expect(nav.entry('Vouchers')).toHaveAttribute(
+      'href',
+      '/catalog/vouchers',
+    );
     await nav.entry('Vouchers').click();
     await expect(page).toHaveURL('/catalog/vouchers');
     await list.expectLoaded();
     // On a page of the section, the section stays open.
-    await expect(nav.section()).toHaveAttribute('aria-expanded', 'true');
+    await expect(nav.catalog()).toHaveAttribute('aria-expanded', 'true');
   });
 
   test('stays on the entry while a voucher is read', async ({ page }) => {
@@ -42,7 +51,7 @@ test.describe('the entry of the navigation', () => {
 
     await page.goto('/catalog/vouchers/voucher-welcome');
 
-    await expect(nav.section()).toHaveAttribute('aria-expanded', 'true');
+    await expect(nav.catalog()).toHaveAttribute('aria-expanded', 'true');
     await expect(nav.entry('Vouchers')).toHaveAttribute('aria-current', 'page');
   });
 

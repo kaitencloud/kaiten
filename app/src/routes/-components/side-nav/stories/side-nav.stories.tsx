@@ -214,14 +214,16 @@ export const Expanded: Story = {
         .map((link) => link.textContent),
     ).toEqual(['Audit trail', 'Settings']);
 
-    // Billing is off by default: the section is not drawn.
-    await expect(canvas.queryByRole('button', { name: 'Billing' })).toBeNull();
+    // The catalog is drawn on every deployment, for the licenses and the
+    // entitlements; billing is off by default, so the invoices are not an entry.
+    await expect(canvas.getByRole('button', { name: 'Catalog' })).toBeVisible();
+    await expect(canvas.queryByRole('link', { name: 'Invoices' })).toBeNull();
   },
 };
 
 // Billing on, as the API of the stack serves it: the invoices are an entry of the
-// navigation. The release ships neither add-ons nor vouchers, so the Billing
-// section, which holds them, is not drawn.
+// navigation. The release ships neither add-ons nor vouchers, so the catalog goes
+// without them.
 export const BillingOn: Story = {
   render: () => (
     <SideNavWithContent
@@ -236,14 +238,41 @@ export const BillingOn: Story = {
     await expect(
       await canvas.findByRole('link', { name: 'Invoices' }),
     ).toBeVisible();
-    await expect(canvas.queryByRole('button', { name: 'Billing' })).toBeNull();
+    await userEvent.click(canvas.getByRole('button', { name: 'Catalog' }));
+    for (const name of ['Licenses', 'Entitlements']) {
+      await expect(canvas.getByRole('link', { name })).toBeVisible();
+    }
     await expect(canvas.queryByRole('link', { name: 'Add-ons' })).toBeNull();
     await expect(canvas.queryByRole('link', { name: 'Vouchers' })).toBeNull();
   },
 };
 
-// Every part shipped, on a page of the section: the invoices stay an entry of the
-// navigation, and the section is open on its own with the add-ons and the vouchers.
+// A page of the catalog, billing off: the section is open on its own with the
+// licenses and the entitlements, which exist on every deployment.
+export const CatalogActive: Story = {
+  render: () => (
+    <SideNavWithContent
+      initialEntry="/catalog/licenses"
+      routePath="/catalog/licenses"
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      await canvas.findByRole('link', { name: 'Licenses' }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole('link', { name: 'Entitlements' }),
+    ).toBeVisible();
+    await expect(canvas.queryByRole('link', { name: 'Add-ons' })).toBeNull();
+    await expect(canvas.queryByRole('link', { name: 'Vouchers' })).toBeNull();
+  },
+};
+
+// Every part shipped, on a page of the catalog: the invoices stay an entry of the
+// navigation, and the catalog is open on its own with the add-ons and the vouchers
+// after the licenses and the entitlements.
 export const BillingEveryPart: Story = {
   render: () => (
     <SideNavWithContent
@@ -258,7 +287,7 @@ export const BillingEveryPart: Story = {
     await expect(
       await canvas.findByRole('link', { name: 'Invoices' }),
     ).toBeVisible();
-    for (const name of ['Add-ons', 'Vouchers']) {
+    for (const name of ['Licenses', 'Entitlements', 'Add-ons', 'Vouchers']) {
       await expect(canvas.getByRole('link', { name })).toBeVisible();
     }
   },

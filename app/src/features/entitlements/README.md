@@ -12,7 +12,9 @@ An entitlement is something a license can grant: a capability, a numeric allowan
 | `/catalog/entitlements/$entitlementSlug/usage` | `app/src/routes/catalog/entitlements/$entitlementSlug/usage.tsx` | `EntitlementDetailUsageTab` |
 | `/catalog/entitlements/$entitlementSlug/customers` and `.../licenses` | `customers.tsx`, `licenses.tsx` in the same folder | Redirect to `.../usage` |
 
-`app/src/routes/catalog/entitlements/route.tsx` is the layout of the whole section. It loads the entitlements and the groups, and wraps the outlet in a Suspense boundary. `app/src/routes/catalog/entitlements/$entitlementSlug/route.tsx` loads one entitlement, sets its name as the breadcrumb title and renders `EntitlementDetailPageContent`, which draws the header, the stats strip and the two tabs (Overview and Usage) around the child route. It also opens `EntitlementFormDialog` when the URL carries `?mode=configure`; the Edit button of the Overview tab navigates there.
+The entitlements are the second entry of the Catalog section of the side navigation (`catalogSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`), listed on every deployment.
+
+`app/src/routes/catalog/entitlements/route.tsx` is the layout of every entitlement route. It loads the entitlements and the groups, and wraps the outlet in a Suspense boundary. `app/src/routes/catalog/entitlements/$entitlementSlug/route.tsx` loads one entitlement, sets its name as the breadcrumb title and renders `EntitlementDetailPageContent`, which draws the header, the stats strip and the two tabs (Overview and Usage) around the child route. It also opens `EntitlementFormDialog` when the URL carries `?mode=configure`; the Edit button of the Overview tab navigates there.
 
 ## Structure
 

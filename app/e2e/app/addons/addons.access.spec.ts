@@ -11,13 +11,13 @@ import { createBillingStackModel } from '../billing/billing.scenarios';
 import { installAddonsWorld } from './install-addons-world';
 
 // Where the add-ons are, and who may do what to them. They exist where billing is on and the
-// release ships them; the Billing section lists them to a session that may read them; and a
+// release ships them; the Catalog section lists them to a session that may read them; and a
 // session that may only read sees the catalogue with none of its controls.
 
 const CATALOGUE_REQUESTS = /^\/api\/(addons|addon-families)(\/|$)/;
 
 test.describe('the entry of the navigation', () => {
-  test('lists the add-ons beside the invoices where the release ships them, and opens them', async ({
+  test('lists the add-ons in the catalog where the release ships them, and opens them', async ({
     page,
   }) => {
     const nav = new BillingNavDriver(page);
@@ -27,14 +27,22 @@ test.describe('the entry of the navigation', () => {
     await nav.gotoShell();
     await nav.open();
 
-    await nav.expectEntries(['Invoices', 'Add-ons']);
-    await expect(nav.entry('Add-ons')).toHaveAttribute('href', '/catalog/addons');
+    await nav.expectEntries([
+      'Invoices',
+      'Licenses',
+      'Entitlements',
+      'Add-ons',
+    ]);
+    await expect(nav.entry('Add-ons')).toHaveAttribute(
+      'href',
+      '/catalog/addons',
+    );
     await expect(nav.entry('Vouchers')).toHaveCount(0);
     await nav.entry('Add-ons').click();
     await expect(page).toHaveURL('/catalog/addons');
     await list.expectLoaded();
     // On a page of the section, the section stays open.
-    await expect(nav.section()).toHaveAttribute('aria-expanded', 'true');
+    await expect(nav.catalog()).toHaveAttribute('aria-expanded', 'true');
   });
 
   test('stays on the entry while a version of an add-on is read', async ({
@@ -45,7 +53,7 @@ test.describe('the entry of the navigation', () => {
 
     await page.goto('/catalog/addons/extra-seats-v1/prices');
 
-    await expect(nav.section()).toHaveAttribute('aria-expanded', 'true');
+    await expect(nav.catalog()).toHaveAttribute('aria-expanded', 'true');
     await expect(nav.entry('Add-ons')).toHaveAttribute('aria-current', 'page');
   });
 
@@ -55,9 +63,9 @@ test.describe('the entry of the navigation', () => {
 
     await nav.gotoShell();
 
-    // Nothing else is in the section, which is then not drawn.
-    await nav.expectEntries(['Invoices']);
-    await expect(nav.section()).toHaveCount(0);
+    // The catalog keeps the licenses and the entitlements, without the add-ons.
+    await nav.open();
+    await nav.expectEntries(['Invoices', 'Licenses', 'Entitlements']);
     await expect(nav.entry('Add-ons')).toHaveCount(0);
   });
 
@@ -74,9 +82,9 @@ test.describe('the entry of the navigation', () => {
 
     await nav.gotoShell();
 
-    // Nothing else is in the section, which is then not drawn.
-    await nav.expectEntries(['Invoices']);
-    await expect(nav.section()).toHaveCount(0);
+    // The catalog keeps the licenses and the entitlements, without the add-ons.
+    await nav.open();
+    await nav.expectEntries(['Invoices', 'Licenses', 'Entitlements']);
     await expect(nav.entry('Add-ons')).toHaveCount(0);
 
     await signInWithScopes(page, [...SESSION_SCOPES.reader]);
