@@ -18,7 +18,9 @@ export {
   invoicesQueryOptions,
 } from './invoices-query-options';
 export {
+  invalidateBillingProviderQueries,
   invalidateBillingSettingsQueries,
+  invalidateCustomerBillingQueries,
   invalidateInstanceAddonQueries,
   invalidateInstanceBillingQueries,
   invalidateInstanceVoucherQueries,

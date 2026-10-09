@@ -1,7 +1,10 @@
 import type { QueryClient } from '@tanstack/react-query';
 import {
   getBillingCapabilitiesQueryKey,
+  getBillingHealthQueryKey,
   getBillingSettingsQueryKey,
+  getConnectorSettingsQueryKey,
+  getCustomerBillingQueryKey,
   getEntitlementsUsageMetricsQueryKey,
   getInstanceBillingQueryKey,
   getInvoiceQueryKey,
@@ -18,6 +21,7 @@ import {
   listVouchersQueryKey,
 } from '@/api-client/@tanstack/react-query.gen';
 import { invalidateInstanceQueries } from '@/domains/customer-management';
+import { STRIPE_CONNECTOR_NAME } from '../logic/billing-providers';
 
 /**
  * What a billing mutation refreshes. Billing data is read in several places (an
@@ -168,9 +172,11 @@ export async function invalidateInstanceAddonQueries(
 
 /**
  * An invoice changed (paid, written off, voided, recomposed, released from its
- * hold, acknowledged): its page when `invoiceId` is given, the organization's
- * list, the handoff queue, and the lists of every instance, since a recompose
- * replaces an invoice by another.
+ * hold, acknowledged, pushed again, read back from its provider): its page when
+ * `invoiceId` is given, the organization's list, the handoff queue, the lists of
+ * every instance, since a recompose replaces an invoice by another, and the health
+ * of billing, whose counts (held, overdue, failed pushes, waiting for the
+ * accounting system) are made of invoices.
  */
 export async function invalidateInvoiceQueries(
   queryClient: QueryClient,
@@ -187,6 +193,7 @@ export async function invalidateInvoiceQueries(
     queryClient.invalidateQueries({
       queryKey: [{ _id: instanceInvoicesId }],
     }),
+    queryClient.invalidateQueries({ queryKey: getBillingHealthQueryKey() }),
   ];
 
   if (invoiceId) {
@@ -232,4 +239,41 @@ export async function invalidateBillingSettingsQueries(
       queryKey: getBillingCapabilitiesQueryKey(),
     }),
   ]);
+}
+
+/**
+ * A payment provider was connected, reconfigured or disconnected: the capabilities,
+ * which say who can collect invoices and whether Stripe is connected, the health
+ * of billing, which reads the provider's sync, the defaults of a subscription, whose
+ * collection method depends on the provider, and the connector's own settings.
+ */
+export async function invalidateBillingProviderQueries(
+  queryClient: QueryClient,
+) {
+  await Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: getBillingCapabilitiesQueryKey(),
+    }),
+    queryClient.invalidateQueries({ queryKey: getBillingHealthQueryKey() }),
+    queryClient.invalidateQueries({ queryKey: getBillingSettingsQueryKey() }),
+    queryClient.invalidateQueries({
+      queryKey: getConnectorSettingsQueryKey({
+        path: { connectorName: STRIPE_CONNECTOR_NAME },
+      }),
+    }),
+  ]);
+}
+
+/**
+ * What a customer has in the payment provider changed (a payment method saved,
+ * replaced or removed): its billing read, which the card of the payment method
+ * and the dialog that moves a subscription to automatic collection both show.
+ */
+export async function invalidateCustomerBillingQueries(
+  queryClient: QueryClient,
+  customerSlug: string,
+) {
+  await queryClient.invalidateQueries({
+    queryKey: getCustomerBillingQueryKey({ path: { customerSlug } }),
+  });
 }

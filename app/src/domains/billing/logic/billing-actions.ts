@@ -106,6 +106,22 @@ export const BILLING_ACTIONS = {
   'invoice.void': 'voidInvoice',
   'invoice.recompose': 'recomposeInvoice',
   'invoice.releaseHold': 'releaseInvoiceHold',
+  // An invoice a payment provider collects: pushing it again and reading it back.
+  'invoice.retryPush': 'retryInvoicePush',
+  'invoice.sync': 'syncInvoice',
+  // The health of billing, and the pass that mirrors what the provider did.
+  'health.read': 'getBillingHealth',
+  'health.sync': 'syncBillingProvider',
+  // The Stripe connector: its settings and its activation (scopes of the organization).
+  'connector.settings.read': 'getConnectorSettings',
+  'connector.settings.update': 'updateConnectorSettings',
+  'connector.deactivate': 'deactivateConnector',
+  // A customer in the payment provider, and the payment method it holds there.
+  'customer.billing.read': 'getCustomerBilling',
+  'customer.paymentMethod.createSession': 'createPaymentMethodSession',
+  'customer.paymentMethod.complete': 'completePaymentMethodSession',
+  'customer.paymentMethod.portal': 'createPortalSession',
+  'customer.paymentMethod.detach': 'detachPaymentMethod',
   // The queue the organization's accounting system reads.
   'handoff.list': 'listHandoff',
   'handoff.acknowledge': 'ackHandoff',
