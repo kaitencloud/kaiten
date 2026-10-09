@@ -1,4 +1,7 @@
-import type { GetInstancesBillingQuery } from '@/api-client/graphql/graphql';
+import type {
+  GetInstancesBillingQuery,
+  GetLicensesWithPricesQuery,
+} from '@/api-client/graphql/graphql';
 import type { AuditTrailAppModel } from './audit-trail-app-model';
 import type { BillingAppModel } from './billing-app-model';
 import type { ConnectorAppModel } from './connector-app-model';
@@ -50,6 +53,22 @@ export function graphqlPage<T>(
     nextCursor: hasMore ? String(offset + limit) : null,
   };
 }
+
+/**
+ * What the unit tests and the stories answer to the documents of billing by default:
+ * a page with nothing in it, which is what an organization with nothing subscribed and
+ * nothing priced is served. They are sent only where billing is on, so a test or a story
+ * that turns billing on and draws a list gets a list with no subscription and no price
+ * instead of a request nobody answered; one that is about them declares its own.
+ */
+export const emptyBillingDocuments = {
+  GetInstancesBilling: (): GetInstancesBillingQuery => ({
+    instances: { hasMore: false, items: [], nextCursor: null },
+  }),
+  GetLicensesWithPrices: (): GetLicensesWithPricesQuery => ({
+    licenses: { hasMore: false, items: [], nextCursor: null },
+  }),
+};
 
 /**
  * What the lists of instances read of billing: the subscription of each
