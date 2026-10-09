@@ -5819,6 +5819,8 @@ export default {
           'Le fournisseur de paiement est injoignable. Rien n’a été modifié.',
         boundaryPending:
           'La période de cet abonnement est terminée et en cours de clôture. Rien n’a été modifié. Réessayez dans une minute.',
+        rateLimited:
+          'Trop de requêtes ont été envoyées en peu de temps. C’est temporaire : réessayez dans une minute.',
         BoundaryClosing: {
           title: 'Clôture de la période…',
           description:

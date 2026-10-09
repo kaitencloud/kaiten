@@ -200,6 +200,40 @@ describe('handleBillingProblem', () => {
     ).toBe(60_000);
   });
 
+  it('reads a limit on the requests as temporary, with the wait before asking again', () => {
+    expect(
+      handleBillingProblem(
+        apiError(
+          429,
+          {
+            code: 'ValidateVoucher.RateLimited',
+            detail: 'too many voucher codes checked: try again later',
+            status: 429,
+          },
+          { 'Retry-After': '20' },
+        ),
+      ),
+    ).toMatchObject({
+      code: 'ValidateVoucher.RateLimited',
+      detail: 'too many voucher codes checked: try again later',
+      kind: 'rate-limited',
+      retryAfterMs: 20_000,
+    });
+    // The browser cannot read the header today (CORS does not expose it): a minute.
+    expect(
+      handleBillingProblem(
+        apiError(429, { code: 'ValidateVoucher.RateLimited', status: 429 }),
+      ).retryAfterMs,
+    ).toBe(60_000);
+  });
+
+  it('reads a 429 as temporary whatever its code, and a code that ends in RateLimited whatever its status', () => {
+    expect(handleBillingProblem(apiError(429, 'slow down')).kind).toBe('rate-limited');
+    expect(
+      handleBillingProblem(apiError(422, { code: 'Anything.RateLimited', status: 422 })).kind,
+    ).toBe('rate-limited');
+  });
+
   it('reads where the kept usage begins from a retention refusal', () => {
     expect(
       handleBillingProblem(

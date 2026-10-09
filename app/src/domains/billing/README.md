@@ -302,7 +302,9 @@ page holds, or an export the API streams.
   never shown, only the message of its status. `handleBillingProblem` recognises
   the few codes that change what a screen does: missing scope, billing off, a 503
   (nothing was changed, retry), a boundary being closed (`Retry-After`, a minute
-  when absent, see below) and usage outside the retention. `applyProblemFieldErrors` puts the
+  when absent, see below), a limit on the requests (a 429, or a code that ends in
+  `.RateLimited`: `rate-limited`, which `ProblemAlert` says is temporary, with a retry, after
+  the API's words) and usage outside the retention. `applyProblemFieldErrors` puts the
   field errors of a 422 on the fields of a form, and the problem's `detail` goes
   in a banner when one finds no field.
 - **An invoice preview is shown as it came.** `InvoicePreviewDialog` is the

@@ -5727,6 +5727,8 @@ export default {
           'The payment provider could not be reached. Nothing was changed.',
         boundaryPending:
           'The period of this subscription has ended and is being closed. Nothing was changed. Try again in a minute.',
+        rateLimited:
+          'Too many requests were sent in a short time. This is temporary: try again in a minute.',
         BoundaryClosing: {
           title: 'Closing the period…',
           description:
