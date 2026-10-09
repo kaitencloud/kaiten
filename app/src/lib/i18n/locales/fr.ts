@@ -3675,6 +3675,10 @@ export default {
             writtenOff: 'Passée en perte',
             voided: 'Annulée',
             period: 'Période de service',
+            totalLinesDiscounted_one:
+              '{{count}} ligne, après {{discount}} de remises',
+            totalLinesDiscounted_other:
+              '{{count}} lignes, après {{discount}} de remises',
           },
           Hold: {
             title: 'Bloquée : {{reason}}',
@@ -5290,11 +5294,22 @@ export default {
           servicePeriod: 'Période de service',
           amount: 'Montant',
         },
+        Discount: {
+          line: 'Ligne {{seq}}',
+          percentageOf: '{{value}} de {{base}}',
+          amountOff: '{{value}} de remise sur {{base}}',
+          application:
+            'Facture {{application}} sur {{max}} pour cette utilisation',
+          applicationUnbounded:
+            'Facture {{application}} pour cette utilisation',
+          bearsOn: 'Porte sur {{targets}}',
+        },
       },
       InvoiceTotals: {
         subtotal: 'Sous-total',
         discounts: 'Remises',
         total: 'Total',
+        discounted: 'Après {{amount}} de remises',
       },
       InvoicePreview: {
         bannerTitle: 'Aperçu, pas une facture',

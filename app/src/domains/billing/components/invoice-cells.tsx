@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { InvoiceSummary } from '@/api-client';
+import { formatMoney } from '@/lib/money';
 import { formatUtcDate, getInvoiceKindLabelKey } from '../logic';
 import { Money } from './money';
 
@@ -40,12 +41,17 @@ export function InvoiceKindCell({
   );
 }
 
-/** What an invoice comes to, aligned right under a header that is too. */
+/**
+ * What an invoice comes to, aligned right under a header that is too, and, under it, what
+ * the discounts took off when there were some: the API states the sum, and the cell reads it.
+ */
 export function InvoiceTotalCell({
   invoice,
 }: {
-  invoice: Pick<InvoiceSummary, 'currency' | 'total'>;
+  invoice: Pick<InvoiceSummary, 'currency' | 'discountTotal' | 'total'>;
 }) {
+  const { i18n, t } = useTranslation();
+
   return (
     <div className="text-right">
       <Money
@@ -53,6 +59,20 @@ export function InvoiceTotalCell({
         className="font-medium"
         currency={invoice.currency}
       />
+      {invoice.discountTotal > 0 ? (
+        <span
+          className="block text-xs text-muted-foreground"
+          data-testid="invoice-discount-total"
+        >
+          {t('Features.Billing.InvoiceTotals.discounted', {
+            amount: formatMoney(
+              invoice.currency,
+              invoice.discountTotal,
+              i18n.language,
+            ),
+          })}
+        </span>
+      ) : null}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
   splitUtcMarker,
 } from '@/domains/billing';
 import { StatBadgeValue, StatCard } from '@/functionals/stat-card';
+import { formatMoney } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import {
   getInvoiceDue,
@@ -157,7 +158,7 @@ function getDueHelper(
 
 /** What the invoice comes to, as the API states it. The lines are counted, never added up. */
 function TotalStat({ invoice }: { invoice: Invoice }) {
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
 
   return (
     <StatCard>
@@ -171,9 +172,18 @@ function TotalStat({ invoice }: { invoice: Invoice }) {
         <Money amount={invoice.total} currency={invoice.currency} />
       </StatCard.Value>
       <StatCard.Helper className={SECOND_LINE}>
-        {t('Pages.Billing.Invoices.Detail.Stats.totalLines', {
-          count: invoice.lines.length,
-        })}
+        {invoice.discountTotal > 0
+          ? t('Pages.Billing.Invoices.Detail.Stats.totalLinesDiscounted', {
+              count: invoice.lines.length,
+              discount: formatMoney(
+                invoice.currency,
+                invoice.discountTotal,
+                i18n.language,
+              ),
+            })
+          : t('Pages.Billing.Invoices.Detail.Stats.totalLines', {
+              count: invoice.lines.length,
+            })}
       </StatCard.Helper>
     </StatCard>
   );
