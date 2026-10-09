@@ -2431,6 +2431,19 @@ components:
             - $ref: "#/components/schemas/NumberEntitlementValue"
             - $ref: "#/components/schemas/BooleanEntitlementValue"
             - $ref: "#/components/schemas/ConfigEntitlementValue"
+        limitCapExceededOveragePercent:
+          description: "How far above limit usage is still accepted, in percent: -1 unlimited, 0 a hard limit. Absent for BOOLEAN and CONFIG."
+          format: int32
+          type: integer
+        provenance:
+          $ref: "#/components/schemas/Provenance"
+          description: What the licence, the add-ons and the boosts each contribute
+        source:
+          description: "license: the licence grants it (add-ons and boosts may change it); addon: only add-ons do"
+          enum:
+            - license
+            - addon
+          type: string
         value:
           description: Resolved entitlement value, discriminated by the 'type' field
           discriminator:
@@ -2449,6 +2462,7 @@ components:
         - licenseId
         - licenseSlug
         - value
+        - source
       type: object
     ErrorDetail:
       additionalProperties: false
@@ -7010,6 +7024,189 @@ components:
           format: uri
           type: string
       type: object
+    Provenance:
+      additionalProperties: false
+      properties:
+        addons:
+          description: The active add-on grants, in attachment order
+          items:
+            $ref: "#/components/schemas/ProvenanceAddon"
+          type: array
+        boosts:
+          description: The boosts in their window, in redemption order
+          items:
+            $ref: "#/components/schemas/ProvenanceBoost"
+          type: array
+        license:
+          $ref: "#/components/schemas/ProvenanceLicense"
+          description: The licence's grant; null when only add-ons grant the entitlement
+        number:
+          $ref: "#/components/schemas/ProvenanceNumber"
+          description: How a number was composed; null for BOOLEAN and CONFIG, and when no add-on or boost changes it
+      required:
+        - license
+        - addons
+        - boosts
+        - number
+      type: object
+    ProvenanceAddon:
+      additionalProperties: false
+      properties:
+        addonEntitlementId:
+          type: string
+        addonId:
+          type: string
+        attachedAt:
+          format: date-time
+          type: string
+        instanceAddonId:
+          type: string
+        limitCapExceededOveragePercent:
+          format: int32
+          type:
+            - integer
+            - "null"
+        overrideBehavior:
+          enum:
+            - ADD
+            - OVERRIDE
+            - MAX
+          type: string
+        quantity:
+          format: int32
+          type: integer
+        value:
+          description: One unit's grant
+          discriminator:
+            mapping:
+              boolean: "#/components/schemas/BooleanEntitlementValue"
+              number: "#/components/schemas/NumberEntitlementValue"
+              object: "#/components/schemas/ConfigEntitlementValue"
+            propertyName: type
+          oneOf:
+            - $ref: "#/components/schemas/NumberEntitlementValue"
+            - $ref: "#/components/schemas/BooleanEntitlementValue"
+            - $ref: "#/components/schemas/ConfigEntitlementValue"
+      required:
+        - instanceAddonId
+        - addonId
+        - addonEntitlementId
+        - quantity
+        - overrideBehavior
+        - value
+        - limitCapExceededOveragePercent
+        - attachedAt
+      type: object
+    ProvenanceBoost:
+      additionalProperties: false
+      properties:
+        effectiveExpiresAt:
+          format: date-time
+          type:
+            - string
+            - "null"
+        effectiveStartsAt:
+          format: date-time
+          type: string
+        instanceVoucherId:
+          type: string
+        modifierType:
+          enum:
+            - SET
+            - ADD
+            - MULTIPLY
+            - UNLIMITED
+          type: string
+        modifierValue:
+          format: double
+          type:
+            - number
+            - "null"
+        redeemedAt:
+          format: date-time
+          type: string
+        voucherEntitlementGrantId:
+          type: string
+        voucherId:
+          type: string
+      required:
+        - instanceVoucherId
+        - voucherId
+        - voucherEntitlementGrantId
+        - modifierType
+        - modifierValue
+        - redeemedAt
+        - effectiveStartsAt
+        - effectiveExpiresAt
+      type: object
+    ProvenanceLicense:
+      additionalProperties: false
+      properties:
+        licenseEntitlementId:
+          type: string
+        limitCapExceededOveragePercent:
+          format: int32
+          type:
+            - integer
+            - "null"
+        value:
+          discriminator:
+            mapping:
+              boolean: "#/components/schemas/BooleanEntitlementValue"
+              number: "#/components/schemas/NumberEntitlementValue"
+              object: "#/components/schemas/ConfigEntitlementValue"
+            propertyName: type
+          oneOf:
+            - $ref: "#/components/schemas/NumberEntitlementValue"
+            - $ref: "#/components/schemas/BooleanEntitlementValue"
+            - $ref: "#/components/schemas/ConfigEntitlementValue"
+      required:
+        - licenseEntitlementId
+        - value
+        - limitCapExceededOveragePercent
+      type: object
+    ProvenanceNumber:
+      additionalProperties: false
+      properties:
+        afterAddons:
+          format: double
+          type: number
+        boostAdd:
+          format: double
+          type:
+            - number
+            - "null"
+        boostMultiply:
+          format: double
+          type:
+            - number
+            - "null"
+        boostSet:
+          format: double
+          type:
+            - number
+            - "null"
+        effective:
+          description: -1 when unlimited
+          format: double
+          type: number
+        license:
+          description: The licence's value; null when only add-ons grant it
+          format: double
+          type:
+            - number
+            - "null"
+        unlimited:
+          type: boolean
+      required:
+        - license
+        - afterAddons
+        - boostSet
+        - boostAdd
+        - boostMultiply
+        - unlimited
+        - effective
+      type: object
     ProviderCapabilities:
       additionalProperties: false
       properties:
@@ -7254,7 +7451,7 @@ components:
       additionalProperties: false
       properties:
         checkout:
-          description: "Whether self-serve checkout is available through the public surface. False in this release: checkout ships with customer sessions."
+          description: Whether a plan of the catalogue can be bought alone, through a customer session's checkout (POST /public/session/checkout)
           type: boolean
         paymentMethods:
           description: Whether the organization's billing provider captures payment methods

@@ -253,6 +253,9 @@ SELECT
   e.reset_period,
   e.reset_anchor,
   iee.value         AS effective_value,
+  iee.limit_cap_exceeded_overage_percent AS effective_overage_percent,
+  iee.license_entitlement_id,
+  iee.provenance,
   eu.value          AS usage_value,
   eu.period_start,
   e.slug            AS entitlement_slug,
@@ -283,20 +286,23 @@ type GetEntitlementUsageForInstanceOrDefaultParams struct {
 }
 
 type GetEntitlementUsageForInstanceOrDefaultRow struct {
-	InstanceID           *uuid.UUID              `json:"instance_id"`
-	LicenseID            *uuid.UUID              `json:"license_id"`
-	StartLicenseDate     pgtype.Timestamp        `json:"start_license_date"`
-	EntitlementID        *uuid.UUID              `json:"entitlement_id"`
-	GrantedEntitlementID *uuid.UUID              `json:"granted_entitlement_id"`
-	EntitlementType      *EntitlementType        `json:"entitlement_type"`
-	ResetPeriod          *EntitlementResetPeriod `json:"reset_period"`
-	ResetAnchor          *EntitlementResetAnchor `json:"reset_anchor"`
-	EffectiveValue       []byte                  `json:"effective_value"`
-	UsageValue           []byte                  `json:"usage_value"`
-	PeriodStart          pgtype.Timestamp        `json:"period_start"`
-	EntitlementSlug      *string                 `json:"entitlement_slug"`
-	LicenseSlug          *string                 `json:"license_slug"`
-	Now                  pgtype.Timestamp        `json:"now"`
+	InstanceID              *uuid.UUID              `json:"instance_id"`
+	LicenseID               *uuid.UUID              `json:"license_id"`
+	StartLicenseDate        pgtype.Timestamp        `json:"start_license_date"`
+	EntitlementID           *uuid.UUID              `json:"entitlement_id"`
+	GrantedEntitlementID    *uuid.UUID              `json:"granted_entitlement_id"`
+	EntitlementType         *EntitlementType        `json:"entitlement_type"`
+	ResetPeriod             *EntitlementResetPeriod `json:"reset_period"`
+	ResetAnchor             *EntitlementResetAnchor `json:"reset_anchor"`
+	EffectiveValue          []byte                  `json:"effective_value"`
+	EffectiveOveragePercent *int16                  `json:"effective_overage_percent"`
+	LicenseEntitlementID    *uuid.UUID              `json:"license_entitlement_id"`
+	Provenance              []byte                  `json:"provenance"`
+	UsageValue              []byte                  `json:"usage_value"`
+	PeriodStart             pgtype.Timestamp        `json:"period_start"`
+	EntitlementSlug         *string                 `json:"entitlement_slug"`
+	LicenseSlug             *string                 `json:"license_slug"`
+	Now                     pgtype.Timestamp        `json:"now"`
 }
 
 // Returns one row always. Nullable fields are nil when the entity is not found;
@@ -318,6 +324,9 @@ func (q *Queries) GetEntitlementUsageForInstanceOrDefault(ctx context.Context, a
 		&i.ResetPeriod,
 		&i.ResetAnchor,
 		&i.EffectiveValue,
+		&i.EffectiveOveragePercent,
+		&i.LicenseEntitlementID,
+		&i.Provenance,
 		&i.UsageValue,
 		&i.PeriodStart,
 		&i.EntitlementSlug,
@@ -338,6 +347,9 @@ SELECT
   i.start_license_date,
   l.slug            AS license_slug,
   iee.value         AS effective_value,
+  iee.limit_cap_exceeded_overage_percent AS effective_overage_percent,
+  iee.license_entitlement_id,
+  iee.provenance,
   eu.value          AS usage_value,
   eu.period_start,
   date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
@@ -363,18 +375,21 @@ type GetEntitlementsUsageForInstanceWithFallbackParams struct {
 }
 
 type GetEntitlementsUsageForInstanceWithFallbackRow struct {
-	EntitlementID    uuid.UUID               `json:"entitlement_id"`
-	EntitlementSlug  string                  `json:"entitlement_slug"`
-	EntitlementType  EntitlementType         `json:"entitlement_type"`
-	ResetPeriod      *EntitlementResetPeriod `json:"reset_period"`
-	ResetAnchor      *EntitlementResetAnchor `json:"reset_anchor"`
-	LicenseID        uuid.UUID               `json:"license_id"`
-	StartLicenseDate pgtype.Timestamp        `json:"start_license_date"`
-	LicenseSlug      *string                 `json:"license_slug"`
-	EffectiveValue   []byte                  `json:"effective_value"`
-	UsageValue       []byte                  `json:"usage_value"`
-	PeriodStart      pgtype.Timestamp        `json:"period_start"`
-	Now              pgtype.Timestamp        `json:"now"`
+	EntitlementID           uuid.UUID               `json:"entitlement_id"`
+	EntitlementSlug         string                  `json:"entitlement_slug"`
+	EntitlementType         EntitlementType         `json:"entitlement_type"`
+	ResetPeriod             *EntitlementResetPeriod `json:"reset_period"`
+	ResetAnchor             *EntitlementResetAnchor `json:"reset_anchor"`
+	LicenseID               uuid.UUID               `json:"license_id"`
+	StartLicenseDate        pgtype.Timestamp        `json:"start_license_date"`
+	LicenseSlug             *string                 `json:"license_slug"`
+	EffectiveValue          []byte                  `json:"effective_value"`
+	EffectiveOveragePercent *int16                  `json:"effective_overage_percent"`
+	LicenseEntitlementID    *uuid.UUID              `json:"license_entitlement_id"`
+	Provenance              []byte                  `json:"provenance"`
+	UsageValue              []byte                  `json:"usage_value"`
+	PeriodStart             pgtype.Timestamp        `json:"period_start"`
+	Now                     pgtype.Timestamp        `json:"now"`
 }
 
 // One row per entitlement the instance is granted, read through
@@ -401,6 +416,9 @@ func (q *Queries) GetEntitlementsUsageForInstanceWithFallback(ctx context.Contex
 			&i.StartLicenseDate,
 			&i.LicenseSlug,
 			&i.EffectiveValue,
+			&i.EffectiveOveragePercent,
+			&i.LicenseEntitlementID,
+			&i.Provenance,
 			&i.UsageValue,
 			&i.PeriodStart,
 			&i.Now,

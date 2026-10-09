@@ -108,14 +108,21 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 		licenseSlug = *result.LicenseSlug
 	}
 
+	provenance, err := entitlementUsageSchema.ParseProvenance(result.Provenance)
+	if err != nil {
+		return nil, err
+	}
 	return &entitlementUsageSchema.EntitlementUsage{
-		EntitlementID:      *result.EntitlementID,
-		EntitlementSlug:    *result.EntitlementSlug,
-		LicenseID:          *result.LicenseID,
-		LicenseSlug:        licenseSlug,
-		Value:              resolvedValue,
-		Limit:              limit,
-		CurrentPeriodStart: currentPeriodStart,
-		CurrentPeriodEnd:   currentPeriodEnd,
+		EntitlementID:                  *result.EntitlementID,
+		EntitlementSlug:                *result.EntitlementSlug,
+		LicenseID:                      *result.LicenseID,
+		LicenseSlug:                    licenseSlug,
+		Value:                          resolvedValue,
+		Limit:                          limit,
+		CurrentPeriodStart:             currentPeriodStart,
+		CurrentPeriodEnd:               currentPeriodEnd,
+		LimitCapExceededOveragePercent: result.EffectiveOveragePercent,
+		Source:                         entitlementUsageSchema.SourceOf(result.LicenseEntitlementID),
+		Provenance:                     provenance,
 	}, nil
 }

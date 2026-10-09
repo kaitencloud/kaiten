@@ -28,6 +28,18 @@ import (
 // rows, byte for byte: the JSON values as stored text, the percents as the
 // same SMALLINT. The readers' Go code did not change, so the same rows mean
 // the same responses.
+//
+// The two gauge reads have since gained the effective percent, the licence
+// grant's id and the provenance (§7.4, §7.5). The legacy queries below read
+// those as the identity case has them -- the grant's own percent and id, and
+// a provenance of the licence layer alone -- in the new queries' positions.
+
+// identityProvenance is the view's provenance of a licence grant that no add-on
+// and no boost changes: the licence layer alone.
+const identityProvenance = `jsonb_build_object(
+    'license', jsonb_build_object('license_entitlement_id', le.id, 'value', le.value,
+                                  'limit_cap_exceeded_overage_percent', le.limit_cap_exceeded_overage_percent),
+    'addons', '[]'::jsonb, 'boosts', '[]'::jsonb, 'number', NULL)`
 
 // legacyEntitlementsUsageForInstance is GetEntitlementsUsageForInstanceWithFallback
 // before the move. $1 organization_id, $2 instance_id.
@@ -42,6 +54,9 @@ SELECT
   i.start_license_date,
   l.slug            AS license_slug,
   le.value          AS license_value,
+  le.limit_cap_exceeded_overage_percent,
+  le.id             AS license_entitlement_id,
+  ` + identityProvenance + `,
   eu.value          AS usage_value,
   eu.period_start,
   date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
@@ -78,6 +93,9 @@ SELECT
   e.reset_period,
   e.reset_anchor,
   le.value          AS license_value,
+  le.limit_cap_exceeded_overage_percent,
+  le.id             AS grant_id,
+  CASE WHEN le.id IS NOT NULL THEN ` + identityProvenance + ` END,
   eu.value          AS usage_value,
   eu.period_start,
   e.slug            AS entitlement_slug,
