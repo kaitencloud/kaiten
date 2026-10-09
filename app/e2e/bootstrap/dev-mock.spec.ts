@@ -38,9 +38,7 @@ test('dev:mock answers every request of the billing screens of the instances, th
 
   // An instance that bills: its subscription, the invoice it will issue, its invoices.
   await page.goto('/customers/instances/globex-production/billing');
-  await expect(
-    page.locator('a[href^="/billing/invoices/"]').first(),
-  ).toBeVisible();
+  await expect(page.locator('a[href^="/invoices/"]').first()).toBeVisible();
   // One that nobody bills yet, and the dialog that subscribes it with its prices.
   await page.goto('/customers/instances/gamma-production/billing/subscribe');
   await expect(
@@ -93,9 +91,7 @@ test('dev:mock answers every request of the billing screens of the instances, th
   await expect(page.getByTestId('usage-history-reports')).toBeVisible();
   // A customer with its billing e-mail and its invoices.
   await page.goto('/customers/globex');
-  await expect(
-    page.locator('a[href^="/billing/invoices/"]').first(),
-  ).toBeVisible();
+  await expect(page.locator('a[href^="/invoices/"]').first()).toBeVisible();
   // The settings of billing, and the export of the data.
   await page.goto('/settings/billing');
   await expect(page.getByTestId('billing-defaults')).toBeVisible();
@@ -156,7 +152,7 @@ test('dev:mock answers every request of the vouchers, of what an instance redeem
   await dialog.getByRole('button', { name: /^Check the code/ }).click();
   await expect(page.getByTestId('redeem-verdict-valid')).toBeVisible();
   // The invoice a discount is on, with how the discount was composed.
-  await page.goto('/billing/invoices/inv-acme-production-activation');
+  await page.goto('/invoices/inv-acme-production-activation');
   await expect(page.getByTestId('invoice-line-discount')).toBeVisible();
 
   expect(errors).toEqual([]);
@@ -198,10 +194,10 @@ test('dev:mock answers every request of Stripe: its connector, the health of bil
       .or(page.getByTestId('billing-health-clear')),
   ).toBeVisible();
   // An invoice Stripe collects, how its amounts compare, and one whose push failed.
-  await page.goto('/billing/invoices/inv-acme-us-renewal-2');
+  await page.goto('/invoices/inv-acme-us-renewal-2');
   await expect(page.getByTestId('invoice-provider-links')).toBeVisible();
   await expect(page.getByTestId('reconciliation')).toContainText('Differ');
-  await page.goto('/billing/invoices/inv-acme-us-renewal-4');
+  await page.goto('/invoices/inv-acme-us-renewal-4');
   await expect(page.getByTestId('invoice-push-error')).toBeVisible();
   // The provider of a contract that Stripe collects, and the invoices still open.
   await page.goto('/customers/instances/acme-us/billing/terms');

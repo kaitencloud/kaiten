@@ -13,7 +13,7 @@ export class BillingInvoicesDriver extends FilterToolbarDriver {
    * title (in the language the page is read in).
    */
   async goto(search = '', title = 'Invoices') {
-    await this.page.goto(`/billing/invoices${search}`);
+    await this.page.goto(`/invoices${search}`);
     await expect(
       this.page.getByRole('heading', { level: 1, name: title }),
     ).toBeVisible();
@@ -30,7 +30,7 @@ export class BillingInvoicesDriver extends FilterToolbarDriver {
   /** The row of the invoice that leads to `invoiceId`. */
   row(invoiceId: string): Locator {
     return this.rows().filter({
-      has: this.page.locator(`a[href="/billing/invoices/${invoiceId}"]`),
+      has: this.page.locator(`a[href="/invoices/${invoiceId}"]`),
     });
   }
 
@@ -48,9 +48,7 @@ export class BillingInvoicesDriver extends FilterToolbarDriver {
 
   /** The link of a row, which is what a click on the row follows. */
   link(invoiceId: string): Locator {
-    return this.page
-      .locator(`a[href="/billing/invoices/${invoiceId}"]`)
-      .first();
+    return this.page.locator(`a[href="/invoices/${invoiceId}"]`).first();
   }
 
   /** The ids of the invoices listed, in the order of the rows. */
@@ -58,10 +56,8 @@ export class BillingInvoicesDriver extends FilterToolbarDriver {
     return this.rows().evaluateAll((rows) =>
       rows.map((row) =>
         (
-          row
-            .querySelector('a[href^="/billing/invoices/"]')
-            ?.getAttribute('href') ?? ''
-        ).replace('/billing/invoices/', ''),
+          row.querySelector('a[href^="/invoices/"]')?.getAttribute('href') ?? ''
+        ).replace('/invoices/', ''),
       ),
     );
   }
@@ -113,7 +109,7 @@ export class BillingInvoicesDriver extends FilterToolbarDriver {
 
   /** Opens the list where the API is armed to refuse it: there is no page, so no title to wait for. */
   async gotoRefused(search = '') {
-    await this.page.goto(`/billing/invoices${search}`);
+    await this.page.goto(`/invoices${search}`);
     await expect(this.error()).toBeVisible();
   }
 

@@ -80,7 +80,7 @@ const rowIds = () =>
       within(row)
         .getAllByRole('link')[0]
         .getAttribute('href')
-        ?.replace('/billing/invoices/', ''),
+        ?.replace('/invoices/', ''),
     );
 
 const searchBox = () =>

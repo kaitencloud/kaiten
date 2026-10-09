@@ -20,9 +20,9 @@ import {
 
 const BILLING_DEEP_LINKS = [
   '/billing',
-  '/billing/invoices',
-  '/billing/invoices/inv-1',
-  '/billing/invoices/inv-1/lines/inv-1-line-1',
+  '/invoices',
+  '/invoices/inv-1',
+  '/invoices/inv-1/lines/inv-1-line-1',
   '/billing/handoff',
   '/addons',
   '/addons/new',
@@ -76,7 +76,7 @@ test.describe('billing off on the deployment', () => {
     });
 
     await nav.gotoShell();
-    await page.goto('/billing/invoices');
+    await page.goto('/invoices');
     await expect(nav.unavailable()).toBeVisible();
 
     const billingRequests = requests.filter((request) =>
@@ -97,7 +97,7 @@ test.describe('billing not part of the plan (Cloud)', () => {
       createBillingDisabledModel('NOT_ENTITLED'),
     );
 
-    await page.goto('/billing/invoices');
+    await page.goto('/invoices');
 
     await nav.expectUnavailable('NOT_ENTITLED');
     await expect(
@@ -131,7 +131,7 @@ test.describe('capabilities that cannot be read', () => {
     await expectNoToast(page);
     expect(warnings).toHaveLength(1);
 
-    await page.goto('/billing/invoices');
+    await page.goto('/invoices');
     await nav.expectUnavailable('UNREACHABLE');
     await expect(page.getByText('Billing could not be reached')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
@@ -150,7 +150,7 @@ test.describe('capabilities that cannot be read', () => {
     await nav.gotoShell();
     await nav.expectNoSection();
 
-    await page.goto('/billing/invoices');
+    await page.goto('/invoices');
 
     await nav.expectUnavailable('MISSING_SCOPE');
     await expect(
@@ -183,7 +183,7 @@ test.describe('capabilities that cannot be read', () => {
     await nav.expectNoSection();
     await expectNoToast(page);
 
-    await page.goto('/billing/invoices');
+    await page.goto('/invoices');
 
     await nav.expectUnavailable('FEATURE_UNAVAILABLE');
     await expect(page.getByText('Not available in this version')).toBeVisible();
@@ -200,7 +200,7 @@ test.describe('capabilities that cannot be read', () => {
     // Nothing billing-related renders half-loaded while it waits.
     await nav.expectNoSection();
 
-    await page.goto('/billing/invoices');
+    await page.goto('/invoices');
 
     await nav.expectUnavailable('UNREACHABLE', { timeout: 20_000 });
     await nav.expectNoSection();

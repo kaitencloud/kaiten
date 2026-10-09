@@ -49,7 +49,7 @@ function TileLink({ children, link }: { children: string; link: HealthLink }) {
       {children}
     </Link>
   ) : (
-    <Link className={LINK_CLASS} search={link.search} to="/billing/invoices">
+    <Link className={LINK_CLASS} search={link.search} to="/invoices">
       {children}
     </Link>
   );

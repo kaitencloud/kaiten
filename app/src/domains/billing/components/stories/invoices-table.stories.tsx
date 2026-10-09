@@ -93,7 +93,7 @@ export const Organization: Story = {
     // A row leads to its invoice.
     await expect(
       canvas.getByRole('link', { name: /Globex/ }),
-    ).toHaveAttribute('href', '/billing/invoices/inv-void');
+    ).toHaveAttribute('href', '/invoices/inv-void');
   },
 };
 

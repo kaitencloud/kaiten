@@ -83,7 +83,7 @@ describe('the pages Stripe hosts for an invoice', () => {
     ['http://invoice.stripe.com/i/acct_1/test_1'],
     ['data:text/html,<script>alert(1)</script>'],
     ['//invoice.stripe.com/i/acct_1/test_1'],
-    ['/billing/invoices'],
+    ['/invoices'],
   ])('are no link at all when the address is %s', (address) => {
     render(<ProviderLinks provider={{ hostedInvoiceUrl: address, invoicePdfUrl: address }} />);
 

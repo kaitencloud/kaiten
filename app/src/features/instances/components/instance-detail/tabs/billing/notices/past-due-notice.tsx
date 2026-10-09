@@ -74,7 +74,7 @@ export function PastDueNotice({
               <Link
                 className="underline underline-offset-4"
                 params={{ invoiceId: oldest.id }}
-                to="/billing/invoices/$invoiceId"
+                to="/invoices/$invoiceId"
               >
                 {t(
                   'Pages.Customers.Instances.Detail.Billing.Notices.PastDue.viewInvoice',

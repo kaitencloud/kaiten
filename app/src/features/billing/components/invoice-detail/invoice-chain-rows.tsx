@@ -18,7 +18,7 @@ function ChainLink({ invoiceId, testId }: ChainLinkProps) {
       className="font-mono text-primary-subtle-foreground underline underline-offset-4"
       data-testid={testId}
       params={{ invoiceId }}
-      to="/billing/invoices/$invoiceId"
+      to="/invoices/$invoiceId"
     >
       {invoiceId}
     </Link>

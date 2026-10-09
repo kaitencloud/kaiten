@@ -162,7 +162,7 @@ test.describe('cancelling a subscription', () => {
       .getByRole('link', { name: 'View the invoice' })
       .click();
 
-    await expect(page).toHaveURL(/\/billing\/invoices\/[^/]+$/);
+    await expect(page).toHaveURL(/\/invoices\/[^/]+$/);
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
       'Final invoice',
     );

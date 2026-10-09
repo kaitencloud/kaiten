@@ -182,17 +182,17 @@ describe('the health of billing', () => {
     expect(held).toHaveAttribute('data-count', '3');
     expect(
       await within(held).findByRole('link', { name: 'Held invoices' }),
-    ).toHaveAttribute('href', '/billing/invoices?held=true');
+    ).toHaveAttribute('href', '/invoices?held=true');
     expect(
       within(await tile('pushFailures')).getByRole('link', {
         name: 'Failed pushes',
       }),
-    ).toHaveAttribute('href', '/billing/invoices?status=PUSH_FAILED');
+    ).toHaveAttribute('href', '/invoices?status=PUSH_FAILED');
     expect(
       within(await tile('overdue')).getByRole('link', {
         name: 'Overdue invoices',
       }),
-    ).toHaveAttribute('href', '/billing/invoices?overdue=true');
+    ).toHaveAttribute('href', '/invoices?overdue=true');
     expect(
       within(await tile('handoff')).getByRole('link', {
         name: 'Waiting for your accounting system',

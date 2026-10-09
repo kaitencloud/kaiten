@@ -111,7 +111,7 @@ export function useInvoiceMutations(
         toast.success(t('Pages.Billing.Invoices.Toasts.replaced'));
         await navigate({
           params: { invoiceId: invoice.id },
-          to: '/billing/invoices/$invoiceId',
+          to: '/invoices/$invoiceId',
         });
 
         return;

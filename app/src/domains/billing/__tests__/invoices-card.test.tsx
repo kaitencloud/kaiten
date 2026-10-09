@@ -122,7 +122,7 @@ describe('the invoices of a subject', () => {
     expect(bodyRows()).toHaveLength(10);
     expect(within(bodyRows()[0]).getByRole('link')).toHaveAttribute(
       'href',
-      '/billing/invoices/inv-12',
+      '/invoices/inv-12',
     );
     expect(screen.getByText('Showing 1-10 of 12 records')).toBeInTheDocument();
 
@@ -131,7 +131,7 @@ describe('the invoices of a subject', () => {
     expect(bodyRows()).toHaveLength(2);
     expect(within(bodyRows()[0]).getByRole('link')).toHaveAttribute(
       'href',
-      '/billing/invoices/inv-2',
+      '/invoices/inv-2',
     );
     expect(screen.getByText('Showing 11-12 of 12 records')).toBeInTheDocument();
   });
@@ -141,7 +141,7 @@ describe('the invoices of a subject', () => {
 
     const firstLink = () =>
       within(bodyRows()[0]).getByRole('link').getAttribute('href');
-    expect(firstLink()).toBe('/billing/invoices/inv-3');
+    expect(firstLink()).toBe('/invoices/inv-3');
     expect(
       screen.getByRole('columnheader', { name: /Invoice/ }),
     ).toHaveAttribute('aria-sort', 'descending');
@@ -150,7 +150,7 @@ describe('the invoices of a subject', () => {
       screen.getByRole('button', { name: 'Sorted descending: Invoice' }),
     );
 
-    expect(firstLink()).toBe('/billing/invoices/inv-1');
+    expect(firstLink()).toBe('/invoices/inv-1');
   });
 
   it('leaves out the columns the page already says', () => {

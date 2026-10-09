@@ -56,7 +56,7 @@ function OpenInvoiceRow({ invoice, target }: OpenInvoiceRowProps) {
         <Link
           className="font-medium underline underline-offset-4"
           params={{ invoiceId: invoice.id }}
-          to="/billing/invoices/$invoiceId"
+          to="/invoices/$invoiceId"
         >
           {t(getInvoiceKindLabelKey(invoice.kind))} ·{' '}
           {formatUtcDate(invoice.boundaryAt, i18n.language)}

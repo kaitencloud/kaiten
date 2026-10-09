@@ -178,7 +178,7 @@ test.describe('an invoice', () => {
     );
     await expect(invoice.reportsLink('Traces overage')).toHaveAttribute(
       'href',
-      '/billing/invoices/inv-p1/lines/inv-p1-line-1',
+      '/invoices/inv-p1/lines/inv-p1-line-1',
     );
     // A base fee and a discount were not measured from anything.
     await expect(invoice.reportsLink('Pro, monthly')).toHaveCount(0);
@@ -285,7 +285,7 @@ test.describe('an invoice', () => {
       .getByRole('link', { name: 'Invoices of this customer' })
       .click();
 
-    await expect(page).toHaveURL(/\/billing\/invoices\?customerSlug=globex$/);
+    await expect(page).toHaveURL(/\/invoices\?customerSlug=globex$/);
     await expect(page.getByText('Customer: globex')).toBeVisible();
     await expect(new BillingInvoicesDriver(page).rows()).toHaveCount(3);
   });
@@ -295,11 +295,11 @@ test.describe('an invoice', () => {
   }) => {
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await page.goto('/billing/invoices/inv-nope');
+    await page.goto('/invoices/inv-nope');
 
     await expect(page.getByText('Page not found')).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Back to Billing' }),
+      page.getByRole('link', { name: 'Back to Invoices' }),
     ).toBeVisible();
   });
 });
@@ -486,14 +486,14 @@ test.describe('the chain of replacements', () => {
     await expect(invoice.replaces()).toHaveCount(0);
     await invoice.replacedBy().click();
 
-    await expect(page).toHaveURL(/\/billing\/invoices\/inv-r1$/);
+    await expect(page).toHaveURL(/\/invoices\/inv-r1$/);
     await expect(invoice.title()).toBeVisible();
     await expect(invoice.summary()).toContainText('Replaces');
     await expect(invoice.replaces()).toHaveText('inv-v1');
 
     await invoice.replaces().click();
 
-    await expect(page).toHaveURL(/\/billing\/invoices\/inv-v1$/);
+    await expect(page).toHaveURL(/\/invoices\/inv-v1$/);
     await expect(invoice.statusBadge()).toHaveText('Void');
   });
 

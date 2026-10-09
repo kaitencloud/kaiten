@@ -131,7 +131,7 @@ test.describe('the Billing tab of a subscription going through something', () =>
       await notice.getByRole('link', { name: 'View the invoice' }).click();
 
       await expect(page).toHaveURL(
-        new RegExp(`/billing/invoices/${INITECH_LATE_INVOICE_ID}$`),
+        new RegExp(`/invoices/${INITECH_LATE_INVOICE_ID}$`),
       );
       await expect(page.getByRole('heading', { level: 1 })).toContainText(
         'Activation invoice',

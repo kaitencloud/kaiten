@@ -6,9 +6,11 @@ import {
 } from '@/domains/billing';
 import { useWebhooksServed } from '@/domains/webhooks';
 import {
+  billingRoutes,
   billingSubRoutes,
   footerRoutes,
   integrationsSubRoutes,
+  type SideNavBillingGate,
   type SideNavResolvedSubRoute,
   type SideNavRouteDefinition,
   topLevelRoutes,
@@ -50,8 +52,40 @@ function SideNavRouteList({ pathname, routes }: SideNavRouteListProps) {
   return <>{routes.map(renderRoute)}</>;
 }
 
+/**
+ * Whether an entry of billing is listed to this session: billing is on and, when
+ * the entry names a `feature`, the release ships it; and, when it names an `action`,
+ * the scopes of the session cover it. Billing is off until its capabilities say
+ * otherwise, so nothing is listed while they load and when they cannot be read.
+ */
+function useIsBillingEntryListed() {
+  const billing = useBillingCapabilities();
+  const { isPending, scopes } = useGrantedScopes();
+
+  return ({ action, capability }: SideNavBillingGate) =>
+    billing.has(capability.feature) &&
+    (action === undefined || (!isPending && canPerformAction(scopes, action)));
+}
+
+/**
+ * The first-level entries of billing the running deployment offers, to the session
+ * that can use them: the invoices, where billing is on.
+ */
+export function useResolvedBillingRoutes(): SideNavRouteDefinition[] {
+  const isListed = useIsBillingEntryListed();
+
+  return billingRoutes.filter(isListed);
+}
+
 export function SideNavPrimaryRoutes({ pathname }: SideNavRoutesProps) {
-  return <SideNavRouteList pathname={pathname} routes={topLevelRoutes} />;
+  const billing = useResolvedBillingRoutes();
+
+  return (
+    <SideNavRouteList
+      pathname={pathname}
+      routes={[...topLevelRoutes, ...billing]}
+    />
+  );
 }
 
 export function useResolvedIntegrationsItems() {
@@ -79,23 +113,17 @@ export function useResolvedIntegrationsItems() {
 
 /**
  * The entries of the Billing section the running deployment offers, to the session
- * that can use them. Billing is off until its capabilities say otherwise, so the
- * list is empty while they load and when they cannot be read, and the section is not
- * drawn. An entry that names an action is listed once the scopes of the session
- * cover it: the add-ons are not offered to a session that may not read them.
+ * that can use them. The list is empty while the capabilities load and when they
+ * cannot be read, and the section is not drawn. An entry that names an action is
+ * listed once the scopes of the session cover it: the add-ons are not offered to a
+ * session that may not read them.
  */
 export function useResolvedBillingItems() {
   const { t } = useTranslation();
-  const billing = useBillingCapabilities();
-  const { isPending, scopes } = useGrantedScopes();
+  const isListed = useIsBillingEntryListed();
 
   return billingSubRoutes
-    .filter(
-      ({ action, capability }) =>
-        billing.has(capability.feature) &&
-        (action === undefined ||
-          (!isPending && canPerformAction(scopes, action))),
-    )
+    .filter(isListed)
     .map(({ labelKey, path }): SideNavResolvedSubRoute => ({
       label: t(labelKey),
       path,

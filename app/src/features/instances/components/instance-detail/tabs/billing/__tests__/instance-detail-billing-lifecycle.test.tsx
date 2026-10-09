@@ -263,7 +263,7 @@ describe('a subscription past due', () => {
     await waitFor(() => expect(notice).toHaveTextContent('The Renewal invoice for'));
     expect(notice).toHaveTextContent('has been unpaid since it fell due on Oct 2, 2026 (UTC).');
     const link = within(notice).getByRole('link', { name: 'View the invoice' });
-    expect(link).toHaveAttribute('href', '/billing/invoices/$invoiceId');
+    expect(link).toHaveAttribute('href', '/invoices/$invoiceId');
     expect(link).toHaveAttribute('data-params', '{"invoiceId":"inv-late"}');
   });
 

@@ -111,7 +111,7 @@ test.describe('accessibility smoke', () => {
       const nav = new BillingNavDriver(page);
       await installBillingAppMocks(page, model);
 
-      await page.goto('/billing/invoices');
+      await page.goto('/invoices');
 
       await nav.expectUnavailable(reason);
       await expectNoAccessibilityViolations(page);

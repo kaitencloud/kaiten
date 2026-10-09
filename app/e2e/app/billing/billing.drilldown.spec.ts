@@ -29,12 +29,13 @@ test.describe('the reports behind a line', () => {
     await invoice.reportsLink(TITLE).click();
 
     await expect(page).toHaveURL(
-      new RegExp(`/billing/invoices/${INVOICE}/lines/${LINE}$`),
+      new RegExp(`/invoices/${INVOICE}/lines/${LINE}$`),
     );
     await expect(
       page.getByRole('heading', { level: 1, name: TITLE }),
     ).toBeVisible();
-    await expect(drilldown.breadcrumbs()).toContainText('Billing');
+    // The invoices are a section of their own, not a level of Billing.
+    await expect(drilldown.breadcrumbs()).not.toContainText('Billing');
     await expect(drilldown.breadcrumbs()).toContainText('Invoices');
     await expect(drilldown.breadcrumbs()).toContainText(
       'Renewal invoice, Apr 1, 2026 (UTC)',
@@ -188,7 +189,7 @@ test.describe('the reports behind a line', () => {
     await drilldown.goto(INVOICE, LINE, TITLE);
     await drilldown.backToInvoice().click();
 
-    await expect(page).toHaveURL(new RegExp(`/billing/invoices/${INVOICE}$`));
+    await expect(page).toHaveURL(new RegExp(`/invoices/${INVOICE}$`));
     await expect(
       page.getByRole('heading', { level: 1, name: /^Renewal invoice/ }),
     ).toBeVisible();
@@ -200,10 +201,10 @@ test.describe('the reports behind a line', () => {
     await installBillingAppMocks(page, createInvoicesModel());
 
     // A base fee has no usage.
-    await page.goto(`/billing/invoices/${INVOICE}/lines/${INVOICE}-line-2`);
+    await page.goto(`/invoices/${INVOICE}/lines/${INVOICE}-line-2`);
     await expect(page.getByText('Page not found')).toBeVisible();
 
-    await page.goto(`/billing/invoices/${INVOICE}/lines/inv-p1-line-9`);
+    await page.goto(`/invoices/${INVOICE}/lines/inv-p1-line-9`);
     await expect(page.getByText('Page not found')).toBeVisible();
   });
 });

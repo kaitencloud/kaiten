@@ -3,8 +3,8 @@
 What the billing screens share: whether billing exists on this deployment, what
 a session may do about it, how amounts, periods and statuses read, and how a
 refusal of the API is shown. The domain owns no page and no route: the screens
-stay in their features, and the routes under `routes/billing/` use it for the
-gate (`routes/billing/route.tsx`) and for what an invoice page reads
+stay in their features, and the routes under `routes/invoices/` and `routes/billing/`
+use it for the gate (`routes/invoices/route.tsx`, `routes/billing/route.tsx`) and for what an invoice page reads
 (`BillingRouteError`, the line types), together with the side navigation, which
 reads the capabilities to decide whether to list billing at all.
 
@@ -254,10 +254,11 @@ page holds, or an export the API streams.
   `beforeLoad` that returns lets the `beforeLoad` and the `loader` of every route
   below it run: a screen under a closed gate would ask the API for invoices
   billing does not have. A throw stops them all, so nothing billing-related is
-  requested but the capabilities. `routes/billing/route.tsx` is the first guard.
-  It also answers for a path under `/billing` that is no page, so that billing
-  being off never reads as a missing page. The side navigation reads the same
-  capabilities: each entry of its Billing section carries a `capability`, which
+  requested but the capabilities. `routes/invoices/route.tsx` is the guard of the
+  invoices, and `routes/billing/route.tsx` the one of the handoff queue. Each also
+  answers for a path under it that is no page, so that billing being off never
+  reads as a missing page. The side navigation reads the same capabilities: the
+  Invoices entry and each entry of the Billing section carry a `capability`, which
   names a feature of the release when it needs one (`side-nav.constants.ts`), and
   an entry that asked for nothing is still hidden where billing is off. An entry may
   also name an `action`, and is then listed only to a session whose scopes cover it

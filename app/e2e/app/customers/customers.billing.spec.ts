@@ -207,7 +207,7 @@ test.describe('the invoices of a customer', () => {
       .first()
       .click();
 
-    await expect(page).toHaveURL(/\/billing\/invoices\/inv-acme-renewal$/);
+    await expect(page).toHaveURL(/\/invoices\/inv-acme-renewal$/);
   });
 
   test('are read whole, and paged ten to a page in the card', async ({

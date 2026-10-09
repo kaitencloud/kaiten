@@ -28,7 +28,7 @@ export type HealthItemFilter = {
  * period, a subscription) has none, and is a figure and no link.
  */
 export type HealthLink =
-  | { search: HealthItemFilter; to: '/billing/invoices' }
+  | { search: HealthItemFilter; to: '/invoices' }
   | { to: '/billing/handoff' };
 
 export type HealthItem = {
@@ -56,7 +56,7 @@ export function getHealthItems(health: BillingHealth): HealthItem[] {
     {
       count: health.heldInvoices.count,
       id: 'held',
-      link: { search: { held: true }, to: '/billing/invoices' },
+      link: { search: { held: true }, to: '/invoices' },
       reasons: Object.entries(health.heldInvoices.byReason)
         .filter(([, count]) => count > 0)
         .map(([reason, count]) => ({ count, reason })),
@@ -64,13 +64,13 @@ export function getHealthItems(health: BillingHealth): HealthItem[] {
     {
       count: health.pushFailures.count,
       id: 'pushFailures',
-      link: { search: { status: 'PUSH_FAILED' }, to: '/billing/invoices' },
+      link: { search: { status: 'PUSH_FAILED' }, to: '/invoices' },
       oldestAt: health.pushFailures.oldestFailedAt,
     },
     {
       count: health.overdueInvoices,
       id: 'overdue',
-      link: { search: { overdue: true }, to: '/billing/invoices' },
+      link: { search: { overdue: true }, to: '/invoices' },
     },
     {
       count: health.handoff.pending,

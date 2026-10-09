@@ -225,7 +225,7 @@ const NEWS: Array<[number, NotificationContent]> = [
   [
     22,
     {
-      actionUrl: '/billing/invoices/inv-acme-us-renewal-4',
+      actionUrl: '/invoices/inv-acme-us-renewal-4',
       eventName: 'INSTANCE_INVOICE_PUSH_FAILED',
       eventType: 'com.kaiten.instance.invoice.v1.push_failed',
       objectType: 'instance',
@@ -247,7 +247,7 @@ const NEWS: Array<[number, NotificationContent]> = [
   [
     95,
     {
-      actionUrl: '/billing/invoices/inv-acme-us-renewal-2',
+      actionUrl: '/invoices/inv-acme-us-renewal-2',
       eventName: 'INSTANCE_INVOICE_RECONCILIATION_MISMATCH',
       eventType: 'com.kaiten.instance.invoice.v1.reconciliation_mismatch',
       objectType: 'instance',

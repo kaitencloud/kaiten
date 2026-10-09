@@ -60,7 +60,7 @@ export function RecomposeDialog({
         onClose();
         await navigate({
           params: { invoiceId: refusal.replacementInvoiceId },
-          to: '/billing/invoices/$invoiceId',
+          to: '/invoices/$invoiceId',
         });
 
         return;

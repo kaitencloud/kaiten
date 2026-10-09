@@ -330,7 +330,7 @@ describe('a subscription', () => {
     expect(
       screen
         .getAllByRole('link')
-        .filter((link) => link.getAttribute('href')?.startsWith('/billing/invoices/')),
+        .filter((link) => link.getAttribute('href')?.startsWith('/invoices/')),
     ).toHaveLength(2);
     const headers = screen.getAllByRole('columnheader').map((header) => header.textContent);
     expect(headers).not.toContain('Customer');

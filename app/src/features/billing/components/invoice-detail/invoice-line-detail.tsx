@@ -40,7 +40,7 @@ export function InvoiceLineDetail({ invoiceId, line }: InvoiceLineDetailProps) {
         <Link
           className="inline-block text-xs text-primary-subtle-foreground underline underline-offset-4"
           params={{ invoiceId, lineId: line.id }}
-          to="/billing/invoices/$invoiceId/lines/$lineId"
+          to="/invoices/$invoiceId/lines/$lineId"
         >
           {t('Pages.Billing.Invoices.Detail.Lines.viewReports', {
             count: rows,

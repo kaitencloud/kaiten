@@ -288,9 +288,9 @@ test.describe('the health of billing', () => {
 
     const links = {
       handoff: '/billing/handoff',
-      held: '/billing/invoices?held=true',
-      overdue: '/billing/invoices?overdue=true',
-      pushFailures: '/billing/invoices?status=PUSH_FAILED',
+      held: '/invoices?held=true',
+      overdue: '/invoices?overdue=true',
+      pushFailures: '/invoices?status=PUSH_FAILED',
     } as const;
     for (const [id, href] of Object.entries(links)) {
       await expect(
@@ -326,7 +326,7 @@ test.describe('the health of billing', () => {
       await settings.goto();
       await settings.tile(tile).getByRole('link').click();
 
-      await expect(page).toHaveURL(new RegExp(`/billing/invoices\\?${query}$`));
+      await expect(page).toHaveURL(new RegExp(`/invoices\\?${query}$`));
       await expect(
         page.getByRole('heading', { level: 1, name: 'Invoices' }),
       ).toBeVisible();

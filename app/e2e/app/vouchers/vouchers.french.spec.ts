@@ -556,14 +556,14 @@ test.describe('what an instance redeemed, read in French', () => {
     );
     await dialog.getByRole('link', { name: 'Voir la facture' }).click();
 
-    await expect(page).toHaveURL(/\/billing\/invoices\/[^/]+$/);
+    await expect(page).toHaveURL(/\/invoices\/[^/]+$/);
     await expect(page.getByText('2 lignes, après 19,80')).toBeVisible();
     const how = page.getByTestId('invoice-line-discount');
     await expect(how).toContainText('20 % de 99,00');
     await expect(how).toContainText('Facture 1 sur 3 pour cette utilisation');
     await expect(how).toContainText('Porte sur Pro, monthly (19,80');
 
-    await page.goto('/billing/invoices');
+    await page.goto('/invoices');
     await expect(page.getByTestId('invoice-discount-total')).toContainText(
       'Après 19,80',
     );

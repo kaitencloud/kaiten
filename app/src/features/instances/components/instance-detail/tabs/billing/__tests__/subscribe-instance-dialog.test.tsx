@@ -313,7 +313,7 @@ describe('the subscribe dialog', () => {
     expect(done).toHaveTextContent('$99.00');
     expect(within(done).getByRole('link', { name: 'View the invoice' })).toHaveAttribute(
       'href',
-      '/billing/invoices/$invoiceId',
+      '/invoices/$invoiceId',
     );
     expect(
       within(done).getByRole('link', { name: 'View the invoice' }),

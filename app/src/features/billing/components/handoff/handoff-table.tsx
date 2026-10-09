@@ -38,7 +38,7 @@ export function HandoffTable({
   const getPath = (invoice: QueuedInvoice) =>
     router.buildLocation({
       params: { invoiceId: invoice.id },
-      to: '/billing/invoices/$invoiceId',
+      to: '/invoices/$invoiceId',
     }).pathname;
 
   return (

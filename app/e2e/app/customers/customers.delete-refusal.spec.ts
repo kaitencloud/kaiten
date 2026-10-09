@@ -37,7 +37,7 @@ test.describe('deleting a customer that still has an invoice to settle', () => {
     await expect(refusal).toContainText('1 invoice not settled');
     await expect(
       refusal.getByRole('link', { name: 'inv-gamma-open' }),
-    ).toHaveAttribute('href', '/billing/invoices/inv-gamma-open');
+    ).toHaveAttribute('href', '/invoices/inv-gamma-open');
     await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
 
     await refusal.getByRole('button', { name: 'Close' }).first().click();

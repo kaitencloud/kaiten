@@ -165,7 +165,7 @@ describe('the icons of the billing events', () => {
 
 describe('a billing notification in the feed', () => {
   const notification = (eventName: KaitenEventName): Notification => ({
-    actionUrl: '/billing/invoices/inv-1',
+    actionUrl: '/invoices/inv-1',
     createdAt: '2026-10-07T11:40:00.000Z',
     eventName,
     eventType: 'com.kaiten.instance.invoice.v1.payment_failed',

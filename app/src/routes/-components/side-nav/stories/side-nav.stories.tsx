@@ -219,8 +219,9 @@ export const Expanded: Story = {
   },
 };
 
-// Billing on, as the API of the stack serves it: the section opens on the
-// entries that need no part of the release beyond the base loop.
+// Billing on, as the API of the stack serves it: the invoices are an entry of
+// the navigation, and the section holds the entries that need no part of the
+// release beyond the base loop.
 export const BillingOn: Story = {
   render: () => (
     <SideNavWithContent
@@ -233,9 +234,10 @@ export const BillingOn: Story = {
     const canvas = within(canvasElement);
     const section = await canvas.findByRole('button', { name: 'Billing' });
 
+    // The invoices are there before the section is opened.
+    await expect(canvas.getByRole('link', { name: 'Invoices' })).toBeVisible();
     await userEvent.click(section);
 
-    await expect(canvas.getByRole('link', { name: 'Invoices' })).toBeVisible();
     await expect(canvas.getByRole('link', { name: 'Handoff' })).toBeVisible();
     // The release ships neither add-ons nor vouchers: no entry for them.
     await expect(canvas.queryByRole('link', { name: 'Add-ons' })).toBeNull();
@@ -243,13 +245,13 @@ export const BillingOn: Story = {
   },
 };
 
-// Every part shipped, on a billing page: the section is open on its own.
+// Every part shipped, on a page of the section: the section is open on its own.
 export const BillingEveryPart: Story = {
   render: () => (
     <SideNavWithContent
       billing={billingCapabilitiesProfiles.full()}
-      initialEntry="/billing/invoices"
-      routePath="/billing/invoices"
+      initialEntry="/addons"
+      routePath="/addons"
     />
   ),
   play: async ({ canvasElement }) => {

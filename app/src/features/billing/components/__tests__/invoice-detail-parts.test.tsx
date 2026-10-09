@@ -322,7 +322,7 @@ describe('the chain of replacements', () => {
     );
     expect(screen.getByRole('link', { name: 'inv-2' })).toHaveAttribute(
       'href',
-      '/billing/invoices/inv-2',
+      '/invoices/inv-2',
     );
     expect(screen.getByText('Replaced by')).toBeInTheDocument();
     expect(screen.queryByText('Replaces')).toBeNull();
@@ -330,7 +330,7 @@ describe('the chain of replacements', () => {
     rerender(<InvoiceChainRows invoice={base({ replacesInvoiceId: 'inv-0' })} />);
     expect(screen.getByRole('link', { name: 'inv-0' })).toHaveAttribute(
       'href',
-      '/billing/invoices/inv-0',
+      '/invoices/inv-0',
     );
     expect(screen.getByText('Replaces')).toBeInTheDocument();
     expect(screen.queryByText('Replaced by')).toBeNull();
@@ -557,7 +557,7 @@ describe('what stands behind a line', () => {
     );
     expect(screen.getByRole('link', { name: 'View 5 usage reports' })).toHaveAttribute(
       'href',
-      '/billing/invoices/inv-1/lines/inv-1-line-1',
+      '/invoices/inv-1/lines/inv-1-line-1',
     );
   });
 
@@ -725,7 +725,7 @@ describe('the summary of an invoice', () => {
     expect(screen.queryByText(/Mar 9, 2027/)).toBeNull();
     expect(screen.getByRole('link', { name: 'inv-2' })).toHaveAttribute(
       'href',
-      '/billing/invoices/inv-2',
+      '/invoices/inv-2',
     );
   });
 

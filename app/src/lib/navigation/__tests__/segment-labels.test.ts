@@ -75,8 +75,13 @@ describe('segment labels', () => {
       href: '/audit-trail',
       label: 'Audit Trail',
     });
-    // Add-ons and vouchers sit beside /billing, not under it: each is a section.
-    expect(getSectionForPath('/billing/invoices', t)).toEqual({
+    // The invoices, the add-ons and the vouchers sit beside /billing, not under
+    // it: each is a section.
+    expect(getSectionForPath('/invoices/inv-1', t)).toEqual({
+      href: '/invoices',
+      label: 'Factures',
+    });
+    expect(getSectionForPath('/billing/handoff', t)).toEqual({
       href: '/billing',
       label: 'Facturation',
     });

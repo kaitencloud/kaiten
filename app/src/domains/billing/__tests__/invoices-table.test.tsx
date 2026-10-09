@@ -99,11 +99,11 @@ describe('InvoicesTable', () => {
 
     expect(screen.getByRole('link', { name: /Initech/ })).toHaveAttribute(
       'href',
-      '/billing/invoices/inv-1',
+      '/invoices/inv-1',
     );
     expect(screen.getByRole('link', { name: /Globex/ })).toHaveAttribute(
       'href',
-      '/billing/invoices/inv-2',
+      '/invoices/inv-2',
     );
   });
 
@@ -154,7 +154,7 @@ describe('InvoicesTable', () => {
     // The row still leads to its invoice, from the column that is left.
     expect(screen.getByRole('link', { name: /Renewal/ })).toHaveAttribute(
       'href',
-      '/billing/invoices/inv-1',
+      '/invoices/inv-1',
     );
   });
 
@@ -175,9 +175,9 @@ describe('InvoicesTable', () => {
         .slice(1)
         .map((row) => within(row).getAllByRole('link')[0].getAttribute('href')),
     ).toEqual([
-      '/billing/invoices/inv-mar',
-      '/billing/invoices/inv-feb',
-      '/billing/invoices/inv-jan',
+      '/invoices/inv-mar',
+      '/invoices/inv-feb',
+      '/invoices/inv-jan',
     ]);
     expect(
       screen.getByRole('columnheader', { name: /Invoice/ }),
@@ -216,17 +216,17 @@ describe('InvoicesTable', () => {
       screen.getByRole('button', { name: 'Not sorted, click to sort: Total' }),
     );
     expect(ids()).toEqual([
-      '/billing/invoices/inv-big',
-      '/billing/invoices/inv-draft',
-      '/billing/invoices/inv-small',
+      '/invoices/inv-big',
+      '/invoices/inv-draft',
+      '/invoices/inv-small',
     ]);
     await userEvent.click(
       screen.getByRole('button', { name: 'Sorted descending: Total' }),
     );
     expect(ids()).toEqual([
-      '/billing/invoices/inv-small',
-      '/billing/invoices/inv-draft',
-      '/billing/invoices/inv-big',
+      '/invoices/inv-small',
+      '/invoices/inv-draft',
+      '/invoices/inv-big',
     ]);
 
     // The invoice that was not issued has no due date, and goes last whichever way
@@ -234,11 +234,11 @@ describe('InvoicesTable', () => {
     await userEvent.click(
       screen.getByRole('button', { name: 'Not sorted, click to sort: Due' }),
     );
-    expect(ids().at(-1)).toBe('/billing/invoices/inv-draft');
+    expect(ids().at(-1)).toBe('/invoices/inv-draft');
     await userEvent.click(
       screen.getByRole('button', { name: 'Sorted descending: Due' }),
     );
-    expect(ids().at(-1)).toBe('/billing/invoices/inv-draft');
+    expect(ids().at(-1)).toBe('/invoices/inv-draft');
   });
 
   it('sorts the totals of one currency by amount, and never puts an amount among those of another currency', async () => {
@@ -264,19 +264,19 @@ describe('InvoicesTable', () => {
       screen.getByRole('button', { name: 'Not sorted, click to sort: Total' }),
     );
     expect(ids()).toEqual([
-      '/billing/invoices/inv-usd-big',
-      '/billing/invoices/inv-usd-small',
-      '/billing/invoices/inv-jpy',
-      '/billing/invoices/inv-eur',
+      '/invoices/inv-usd-big',
+      '/invoices/inv-usd-small',
+      '/invoices/inv-jpy',
+      '/invoices/inv-eur',
     ]);
     await userEvent.click(
       screen.getByRole('button', { name: 'Sorted descending: Total' }),
     );
     expect(ids()).toEqual([
-      '/billing/invoices/inv-eur',
-      '/billing/invoices/inv-jpy',
-      '/billing/invoices/inv-usd-small',
-      '/billing/invoices/inv-usd-big',
+      '/invoices/inv-eur',
+      '/invoices/inv-jpy',
+      '/invoices/inv-usd-small',
+      '/invoices/inv-usd-big',
     ]);
   });
 

@@ -25,16 +25,14 @@ test.describe('an invoice the API refuses to give', () => {
     });
     await installBillingAppMocks(page, model);
 
-    await page.goto('/billing/invoices/inv-m1');
+    await page.goto('/invoices/inv-m1');
 
     await expect(detailError(page)).toContainText(
       'the invoice store is unavailable',
     );
     await expect(detailError(page)).toContainText('Reference trace-invoice-1');
     // The console around it still works.
-    await expect(
-      page.getByRole('link', { name: 'Handoff', exact: true }),
-    ).toBeVisible();
+    await expect(new BillingNavDriver(page).entry('Invoices')).toBeVisible();
 
     await detailError(page).getByRole('button', { name: 'Retry' }).click();
 
@@ -53,7 +51,7 @@ test.describe('an invoice the API refuses to give', () => {
     });
     await installBillingAppMocks(page, model);
 
-    await page.goto('/billing/invoices/inv-m1');
+    await page.goto('/invoices/inv-m1');
 
     await expect(detailError(page)).toContainText(
       'the billing service is restarting',
@@ -77,7 +75,7 @@ test.describe('an invoice the API refuses to give', () => {
     });
     await installBillingAppMocks(page, model);
 
-    await page.goto('/billing/invoices/inv-m1');
+    await page.goto('/invoices/inv-m1');
 
     await expect(detailError(page)).toContainText('read:billing');
     await expect(detailError(page)).toContainText(
@@ -95,12 +93,12 @@ test.describe('an invoice the API refuses to give', () => {
   }) => {
     await installBillingAppMocks(page, createInvoicesModel());
 
-    await page.goto('/billing/invoices/inv-nope');
+    await page.goto('/invoices/inv-nope');
 
     await expect(page.getByText('Page not found')).toBeVisible();
     await expect(detailError(page)).toHaveCount(0);
-    await page.getByRole('link', { name: 'Back to Billing' }).click();
-    await expect(page).toHaveURL(/\/billing(\/invoices)?$/);
+    await page.getByRole('link', { name: 'Back to Invoices' }).click();
+    await expect(page).toHaveURL(/\/invoices$/);
   });
 });
 

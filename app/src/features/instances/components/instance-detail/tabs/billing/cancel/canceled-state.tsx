@@ -81,7 +81,7 @@ export function CanceledState({ onClose, outcome }: CanceledStateProps) {
                   <Link
                     className="underline underline-offset-4"
                     params={{ invoiceId: invoice.id }}
-                    to="/billing/invoices/$invoiceId"
+                    to="/invoices/$invoiceId"
                   >
                     {t(
                       'Pages.Customers.Instances.Detail.Billing.Cancel.Done.viewInvoice',

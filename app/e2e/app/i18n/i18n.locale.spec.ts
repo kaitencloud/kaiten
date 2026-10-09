@@ -50,7 +50,7 @@ test('renders the explanation of a billing link and its breadcrumb in French', a
   await page.goto('/settings');
   await persistLanguage(page, 'fr');
 
-  await page.goto('/billing/invoices');
+  await page.goto('/invoices');
 
   await nav.expectUnavailable('DEPLOYMENT_DISABLED');
   await expect(

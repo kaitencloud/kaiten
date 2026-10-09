@@ -51,7 +51,7 @@ export function InvoicesTable({
   const getPath = (invoice: InvoiceSummary) =>
     router.buildLocation({
       params: { invoiceId: invoice.id },
-      to: '/billing/invoices/$invoiceId',
+      to: '/invoices/$invoiceId',
     }).pathname;
 
   return (
