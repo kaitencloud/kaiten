@@ -89,14 +89,15 @@ export function createMockHandlers(
       ? billingHandlers(
           billing,
           () => persist('billing', billing.serializeForMsw()),
-          // An add-on applies at once: the instances, when this page serves them,
-          // read the effective values of the instance it was attached to again.
+          // An add-on, or a boost, applies at once: the instances, when this page
+          // serves them, read the effective values of the instance it changed again.
           instances
             ? {
                 syncEffectiveValues: (instanceSlug) => {
                   instances.applyAddonContributions(
                     instanceSlug,
                     billing.instanceAddons.contributionsOf(instanceSlug),
+                    billing.vouchers.boostsOf(instanceSlug),
                   );
                   persist('instances', instances.serializeForMsw());
                 },

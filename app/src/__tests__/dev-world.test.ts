@@ -303,6 +303,106 @@ describe('dev world', () => {
     expect(limitOf('gamma-production', 'seats')).toEqual({ type: 'number', value: 10 });
   });
 
+  it('issues vouchers of both types in every state, that name customers, licenses and prices of the world', () => {
+    const billing = slot(config.billing);
+    const { redemptions, vouchers } = slot(billing.voucherCatalogue);
+    const addonCatalogue = slot(billing.addonCatalogue);
+    const { catalogue } = slot(billing.subscriptions);
+    const priceIds = new Set(
+      Object.values(catalogue.prices).flatMap((prices) =>
+        prices.map(({ id }) => id),
+      ),
+    );
+    const addonPriceIds = new Set(
+      Object.values(addonCatalogue.prices).flatMap((prices) =>
+        prices.map(({ id }) => id),
+      ),
+    );
+    const addonIds = new Set(addonCatalogue.versions.map(({ id }) => id));
+
+    expect(billing.capabilities.features.vouchers).toBe(true);
+    expect(new Set(vouchers.map(({ voucherType }) => voucherType))).toEqual(
+      new Set(['ENTITLEMENT_BOOST', 'PRICE']),
+    );
+    expect(new Set(vouchers.map(({ status }) => status))).toEqual(
+      new Set(['ACTIVE', 'ARCHIVED', 'DRAFT', 'EXHAUSTED']),
+    );
+    // One whose window closed, which the API never says: it is still ACTIVE.
+    expect(
+      vouchers.some(
+        ({ expiresAt, status }) =>
+          status === 'ACTIVE' && expiresAt && Date.parse(expiresAt) < Date.now(),
+      ),
+    ).toBe(true);
+    for (const voucher of vouchers) {
+      if (voucher.restrictedCustomerSlug) {
+        expect(customerSlugs).toContain(voucher.restrictedCustomerSlug);
+      }
+      for (const id of voucher.applicableLicenseIds) {
+        expect(licenseIds).toContain(id);
+      }
+      for (const id of voucher.applicableLicensePriceIds) {
+        expect(priceIds).toContain(id);
+      }
+      for (const id of voucher.applicableAddonIds) {
+        expect(addonIds).toContain(id);
+      }
+      for (const id of voucher.applicableAddonPriceIds) {
+        expect(addonPriceIds).toContain(id);
+      }
+      for (const grant of voucher.grants) {
+        expect(entitlementSlugs).toContain(grant.entitlementSlug);
+      }
+    }
+    // A redemption is of a voucher of the world, by an instance of the world, and the
+    // vouchers count them.
+    for (const redemption of redemptions) {
+      expect(instanceSlugs).toContain(redemption.instanceSlug);
+      expect(
+        vouchers.find(({ id }) => id === redemption.voucherId)?.voucherType,
+      ).toBe(redemption.voucherType);
+    }
+    for (const voucher of vouchers) {
+      expect(
+        redemptions.filter(({ voucherId }) => voucherId === voucher.id).length,
+        `${voucher.name} counts the redemptions it lists`,
+      ).toBe(voucher.redemptionsCount);
+    }
+    // Redemptions in every status.
+    expect(new Set(redemptions.map(({ status }) => status))).toEqual(
+      new Set(['ACTIVE', 'EXPIRED', 'REVOKED']),
+    );
+  });
+
+  it('discounts the invoice of an agreement with the line its redemption names, and includes a boost in the limits it shows', () => {
+    const { invoices } = slot(slot(config.billing).invoices);
+    const { redemptions } = slot(slot(config.billing).voucherCatalogue);
+    const discounts = invoices.flatMap(({ lines }) =>
+      lines.filter(({ type }) => type === 'DISCOUNT'),
+    );
+
+    expect(discounts.length).toBeGreaterThan(0);
+    for (const line of discounts) {
+      expect(
+        redemptions.find(({ id }) => id === line.instanceVoucherId),
+        'a discount line names a redemption of the world',
+      ).toBeDefined();
+    }
+    const discounted = invoices.find(({ lines }) =>
+      lines.some(({ type }) => type === 'DISCOUNT'),
+    );
+    expect(discounted?.discountTotal).toBeGreaterThan(0);
+    expect(discounted?.total).toBe(
+      (discounted?.subtotal ?? 0) - (discounted?.discountTotal ?? 0),
+    );
+    // Business grants a hundred thousand calls and the boost of Globex Production adds fifty thousand.
+    expect(
+      instanceSlot.entitlementUsagesByInstance['globex-production']?.find(
+        ({ entitlementSlug }) => entitlementSlug === 'api-calls',
+      )?.limit,
+    ).toEqual({ type: 'number', value: 150_000 });
+  });
+
   it('keeps a subscription that ended and an instance to subscribe, so that every state of the tab can be tried', () => {
     const { catalogue, subscriptions, upcoming } = slot(
       slot(config.billing).subscriptions,

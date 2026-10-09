@@ -235,6 +235,23 @@ export class AddonCatalogue {
     return clone(this.prices[addonSlug] ?? []);
   }
 
+  /** The type of an entitlement of the organization, for what is checked against one: a voucher boost. */
+  entitlementTypeOf(slug: string): EntitlementType | undefined {
+    return this.entitlements[slug];
+  }
+
+  /** Whether a version has this identifier: what a voucher names to apply to. */
+  hasVersionId(id: string): boolean {
+    return this.versions.some((version) => version.id === id);
+  }
+
+  /** Whether a price of any version has this identifier: what a voucher names to discount. */
+  hasPriceId(id: string): boolean {
+    return Object.values(this.prices).some((prices) =>
+      prices.some((price) => price.id === id),
+    );
+  }
+
   // --- Errors -------------------------------------------------------------------
 
   private refuse(status: number, code: string, detail: string): never {

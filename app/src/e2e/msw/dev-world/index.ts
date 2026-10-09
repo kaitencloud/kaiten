@@ -34,6 +34,7 @@ import {
   createBillingSubscriptions,
 } from './subscriptions';
 import { createRetentionStart, createUsageReports } from './usage-history';
+import { createVouchers } from './vouchers';
 import { bySlug } from './by-slug';
 import { createFeatureFlags } from './feature-flags';
 import {
@@ -174,6 +175,7 @@ export function createDevMockConfig(): E2EMswConfig {
   const billingInvoices = createBillingInvoices(world);
   const billingSubscriptions = createBillingSubscriptions(world);
   const { addonCatalogue, attachments } = createAddons(world);
+  const { boostedInstances, seed: voucherCatalogue } = createVouchers(world);
   const billingBlocks = createBillingBlocks(
     billingSubscriptions.subscriptions,
     billingInvoices.invoices,
@@ -197,13 +199,18 @@ export function createDevMockConfig(): E2EMswConfig {
     capabilities: createBillingCapabilities(),
     ...billingInvoices,
     ...billingSubscriptions,
+    voucherCatalogue,
   });
-  // An add-on applies at once, so the effective limits of the instances that hold
-  // some already include what they add.
-  for (const instanceSlug of Object.keys(attachments)) {
+  // An add-on, or a boost, applies at once, so the effective limits of the instances
+  // that hold some already include what they add.
+  for (const instanceSlug of new Set([
+    ...Object.keys(attachments),
+    ...boostedInstances,
+  ])) {
     instances.applyAddonContributions(
       instanceSlug,
       billing.instanceAddons.contributionsOf(instanceSlug),
+      billing.vouchers.boostsOf(instanceSlug),
     );
   }
 

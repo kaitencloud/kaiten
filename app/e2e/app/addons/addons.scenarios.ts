@@ -20,7 +20,10 @@ import {
   buildSubscription,
   TEST_USER,
 } from '../_support/fixtures';
-import { BillingAppModel } from '../_support/model/billing-app-model';
+import {
+  BillingAppModel,
+  type BillingAppModelSeed,
+} from '../_support/model/billing-app-model';
 import { billingCapabilitiesProfiles } from '../_support/model/billing-capabilities';
 import type { BillingCatalogue } from '../_support/model/billing-subscriptions';
 import { InstanceAppModel } from '../_support/model/instance-app-model';
@@ -507,9 +510,21 @@ function catalogue(): BillingCatalogue {
  */
 export function createAddonsBillingModel() {
   return new BillingAppModel({
+    ...addonsBillingSeed(),
+    capabilities: billingCapabilitiesProfiles.stackWithAddons(),
+  });
+}
+
+/**
+ * What the billing slot of the add-ons world holds, without the capabilities it
+ * answers: the catalogue of add-ons, what the instances hold of it, the instances and
+ * the prices of their versions, and the subscriptions. The worlds built on this one
+ * (the vouchers) add what they sell to it.
+ */
+function addonsBillingSeed(): BillingAppModelSeed {
+  return {
     addonCatalogue: ADDON_CATALOGUE,
     addons: attachments(),
-    capabilities: billingCapabilitiesProfiles.stackWithAddons(),
     catalogue: catalogue(),
     subscriptions: [
       subscriptionOf('initech-prod'),
@@ -542,7 +557,7 @@ export function createAddonsBillingModel() {
       }),
       subscriptionOf('hooli-starter', { basePrice: STARTER_MONTHLY }),
     ],
-  });
+  };
 }
 
 /**
@@ -637,3 +652,17 @@ export function createAddonsInstancesModel() {
     licenses: LICENSES,
   });
 }
+
+/**
+ * The pieces of the world the worlds built on it start from: what the add-ons are
+ * sold on top of, and the instances that hold them.
+ */
+export const ADDONS_WORLD = {
+  addonCatalogue: ADDON_CATALOGUE,
+  billingSeed: addonsBillingSeed,
+  catalogue,
+  entitlements: ENTITLEMENTS,
+  grants: LICENSE_GRANTS,
+  licenses: { enterprise, pro, starter },
+  prices: LICENSE_PRICES,
+} as const;

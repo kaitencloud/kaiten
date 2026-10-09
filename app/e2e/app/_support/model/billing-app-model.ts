@@ -19,6 +19,11 @@ import {
   type BillingSubscriptionsSeed,
   type SerializedBillingSubscriptions,
 } from './billing-subscriptions';
+import {
+  BillingVouchers,
+  type BillingVouchersSeed,
+  type SerializedBillingVouchers,
+} from './billing-vouchers';
 
 export { BillingProblem } from './billing-problem';
 
@@ -68,6 +73,8 @@ export type BillingAppModelSeed = BillingInvoicesSeed &
     addonCatalogue?: AddonCatalogueSeed;
     /** What `GET /billing/capabilities` answers; billing on with NoOp by default. */
     capabilities?: BillingCapabilities;
+    /** The vouchers of the organization and what instances redeemed of them. */
+    voucherCatalogue?: BillingVouchersSeed;
   };
 
 export type SerializedBillingAppModel = {
@@ -79,6 +86,8 @@ export type SerializedBillingAppModel = {
   outage: CapabilitiesOutage | null;
   /** The subscriptions and the billing defaults; a state stored before they existed has none. */
   subscriptions?: SerializedBillingSubscriptions;
+  /** The vouchers and their redemptions; a state stored before they existed has none. */
+  voucherCatalogue?: SerializedBillingVouchers;
 };
 
 /**
@@ -98,6 +107,8 @@ export class BillingAppModel {
   subscriptions: BillingSubscriptions;
   /** The catalogue of add-ons: families, versions, what they grant, what they cost, which licenses they fit. */
   addons: AddonCatalogue;
+  /** The vouchers: the catalogue, what each instance redeemed, and the checks of a redemption. */
+  vouchers: BillingVouchers;
 
   /** The add-ons the instances hold: attaching, quantities and removal, with the checks of the API. */
   get instanceAddons(): InstanceAddons {
@@ -113,14 +124,24 @@ export class BillingAppModel {
     if (state.addonCatalogue) {
       model.addons = AddonCatalogue.fromSerialized(state.addonCatalogue);
     }
+    if (state.voucherCatalogue) {
+      model.vouchers = BillingVouchers.fromSerialized(state.voucherCatalogue);
+    }
     model.subscriptions = state.subscriptions
       ? BillingSubscriptions.fromSerialized(
           model.invoices,
           state.subscriptions,
           undefined,
           model.addons,
+          model.vouchers,
         )
-      : new BillingSubscriptions(model.invoices, {}, undefined, model.addons);
+      : new BillingSubscriptions(
+          model.invoices,
+          {},
+          undefined,
+          model.addons,
+          model.vouchers,
+        );
     return model;
   }
 
@@ -131,6 +152,7 @@ export class BillingAppModel {
       invoices: this.invoices.serialize(),
       outage: clone(this.outage),
       subscriptions: this.subscriptions.serialize(),
+      voucherCatalogue: this.vouchers.serialize(),
     };
   }
 
@@ -142,11 +164,13 @@ export class BillingAppModel {
     );
     this.invoices = new BillingInvoices(seed);
     this.addons = new AddonCatalogue(seed.addonCatalogue);
+    this.vouchers = new BillingVouchers(seed.voucherCatalogue);
     this.subscriptions = new BillingSubscriptions(
       this.invoices,
       seed,
       undefined,
       this.addons,
+      this.vouchers,
     );
   }
 

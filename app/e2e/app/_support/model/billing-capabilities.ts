@@ -78,7 +78,11 @@ export function billingCapabilities(
  *   what they always did and nothing more;
  * - `stackWithAddons`: the stack and the add-ons, now that the console has their
  *   screens: the navigation lists them, the Billing tab of an instance holds them
- *   and the dialog that subscribes one offers them. It is the profile of `dev:mock`;
+ *   and the dialog that subscribes one offers them;
+ * - `stackWithVouchers`: the stack, the add-ons and the vouchers, now that the console
+ *   has their screens: the navigation lists them, the Billing tab of an instance holds
+ *   what it redeemed and the dialog that subscribes one takes a code. It is the profile
+ *   of `dev:mock`;
  * - `full`: Stripe connected and every part of billing shipped;
  * - `disabled`: billing off, for the reason the API gives. A disabled
  *   deployment still lists NoOp and the idempotency window: only `enabled`,
@@ -113,6 +117,17 @@ export const billingCapabilitiesProfiles = {
         addons: true,
         lifecycle: true,
         trials: true,
+      },
+      usageHistoryRetentionMonths: 18,
+    }),
+  stackWithVouchers: () =>
+    billingCapabilities({
+      features: {
+        ...NO_BILLING_FEATURES,
+        addons: true,
+        lifecycle: true,
+        trials: true,
+        vouchers: true,
       },
       usageHistoryRetentionMonths: 18,
     }),

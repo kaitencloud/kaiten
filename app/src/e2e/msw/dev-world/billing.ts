@@ -14,15 +14,16 @@ import {
 } from '../../../../e2e/app/_support/fixtures/build-invoice';
 import { billingCapabilitiesProfiles } from '../../../../e2e/app/_support/model/billing-capabilities';
 import { bySlug } from './by-slug';
+import { createAgreementDiscountLine } from './vouchers';
 
 /**
  * What the mocked console reads of billing: on, with NoOp as the only provider
  * and the parts of the release the console has screens for: the lifecycle, the
- * trials and the add-ons (docker/config/api.yaml turns billing on). The invoices of
+ * trials, the add-ons and the vouchers (docker/config/api.yaml turns billing on). The invoices of
  * the world are attached to its customers, instances and licenses by slug.
  */
 export const createBillingCapabilities = (): BillingCapabilities =>
-  billingCapabilitiesProfiles.stackWithAddons();
+  billingCapabilitiesProfiles.stackWithVouchers();
 
 // A usage report names the records it was made for by UUID. The world refers to
 // itself by slug, so the id of a record in a report is derived from it, the same
@@ -457,6 +458,13 @@ export function createBillingInvoices(world: BillingWorld): {
           type: 'BASE',
           unitAmountDecimal: '4800000',
         }),
+        // The agreement of Acme took a tenth off the base price of its first year.
+        createAgreementDiscountLine(
+          'inv-acme-production-activation',
+          2,
+          daysAgo(180),
+          daysFromNow(185),
+        ),
       ],
       paidAt: daysAgo(160),
       status: 'PAID',
