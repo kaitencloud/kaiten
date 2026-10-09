@@ -145,6 +145,8 @@ describe('useInvoiceActionAccess', () => {
     markPaid: false,
     recompose: false,
     releaseHold: false,
+    retryPush: false,
+    sync: false,
     void: false,
     writeOff: false,
   };
@@ -152,6 +154,8 @@ describe('useInvoiceActionAccess', () => {
     markPaid: true,
     recompose: true,
     releaseHold: true,
+    retryPush: true,
+    sync: true,
     void: true,
     writeOff: true,
   };
@@ -162,7 +166,7 @@ describe('useInvoiceActionAccess', () => {
     expect(renderAccess().result.current).toEqual(NONE);
   });
 
-  it('allows the five actions to a token that holds the write scope', async () => {
+  it('allows the seven actions to a token that holds the write scope', async () => {
     getAuthToken.mockResolvedValue(jwt({ scopes: ['write:billing'] }));
 
     const { result } = renderAccess();

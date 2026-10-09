@@ -6,6 +6,8 @@ import {
   markInvoicePaidMutation,
   recomposeInvoiceMutation,
   releaseInvoiceHoldMutation,
+  retryInvoicePushMutation,
+  syncInvoiceMutation,
   voidInvoiceMutation,
   writeOffInvoiceMutation,
 } from '@/api-client/@tanstack/react-query.gen';
@@ -16,7 +18,9 @@ import {
 
 /**
  * What a person does to one invoice: accept a held one as composed, rebuild it,
- * record that it was paid, write it off, void it. A billing write is never
+ * record that it was paid, write it off, void it, and for an invoice a payment
+ * provider collects, push it again and read it back from the provider. A billing
+ * write is never
  * optimistic: the page shows the invoice as the API answered once it has, and a
  * refusal is read from the failure by the caller, which shows it where the person
  * is looking (the dialog). Each success refreshes the invoice, the list and the
@@ -28,6 +32,12 @@ import {
  *
  * A recompose of a VOID invoice gives a replacement, which is another invoice: the
  * person lands on it, since the page they were on is the one that was replaced.
+ *
+ * Pushing again does not push: the API puts the invoice back in the queue (202) and
+ * answers with it, unless the provider holds it as a draft for a person, which it
+ * finalizes at once. The page then watches for the result (`usePushWatch`). Reading
+ * the invoice back from the provider (`sync`) is immediate, and a payment made there
+ * shows as the invoice being paid.
  */
 export function useInvoiceMutations(invoiceId: string) {
   const { t } = useTranslation();
@@ -94,5 +104,50 @@ export function useInvoiceMutations(invoiceId: string) {
     },
   });
 
-  return { markPaid, recompose, releaseHold, voidInvoice, writeOff };
+  // A push or a read that is refused has no dialog to show it in: it is said as a toast.
+  const tellRefusal = (error: unknown) => {
+    refreshOnConflict(error);
+    toast.error(
+      handleBillingProblem(error).detail ??
+        t('Features.Billing.Problems.generic'),
+    );
+  };
+  const retryPush = useMutation({
+    ...retryInvoicePushMutation(),
+    onError: tellRefusal,
+    onSuccess: async (invoice) => {
+      await refresh();
+      toast.success(
+        t(
+          invoice.status === 'DRAFT' || invoice.status === 'PUSH_FAILED'
+            ? 'Pages.Billing.Invoices.Toasts.pushRequested'
+            : 'Pages.Billing.Invoices.Toasts.finalized',
+        ),
+      );
+    },
+  });
+  const sync = useMutation({
+    ...syncInvoiceMutation(),
+    onError: tellRefusal,
+    onSuccess: async (invoice) => {
+      await refresh();
+      toast.success(
+        t(
+          invoice.status === 'PAID'
+            ? 'Pages.Billing.Invoices.Toasts.syncedPaid'
+            : 'Pages.Billing.Invoices.Toasts.synced',
+        ),
+      );
+    },
+  });
+
+  return {
+    markPaid,
+    recompose,
+    releaseHold,
+    retryPush,
+    sync,
+    voidInvoice,
+    writeOff,
+  };
 }

@@ -58,6 +58,7 @@ export {
 } from './invoice-kind';
 export { compareInvoiceTotals } from './invoice-total-order';
 export {
+  isPaidAtProviderRefusal,
   readRecomposeRefusal,
   type RecomposeRefusal,
 } from './invoice-refusals';
@@ -70,8 +71,12 @@ export {
 } from './invoice-line-type';
 export {
   getProviderKindLabelKey,
+  getPushVariant,
   INVOICE_PROVIDER_KINDS,
   type InvoiceProviderKind,
+  type InvoicePushInput,
+  isAwaitingFinalization,
+  type PushVariant,
 } from './invoice-provider';
 export {
   type BillingProviderKind,

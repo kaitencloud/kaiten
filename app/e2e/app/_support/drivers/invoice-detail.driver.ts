@@ -2,9 +2,13 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 /** What an action of the page opens, to tell which dialog the page showed. */
 export type InvoiceActionName =
+  | 'Finalize in Stripe'
   | 'Mark as paid'
+  | 'Push now'
+  | 'Read from Stripe'
   | 'Recompose'
   | 'Release the hold'
+  | 'Retry push'
   | 'Void'
   | 'Write off';
 

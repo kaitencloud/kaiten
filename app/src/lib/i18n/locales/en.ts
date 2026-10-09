@@ -3705,6 +3705,15 @@ export default {
           voided: 'Invoice voided',
           recomposed: 'Invoice recomposed',
           replaced: 'Replacement invoice composed',
+          pushRequested:
+            'Push requested. Kaiten checks again every few seconds.',
+          finalized: 'Invoice finalized in Stripe',
+          synced: 'Invoice read from Stripe',
+          syncedPaid: 'Invoice read from Stripe: it is paid',
+          pushed: 'Stripe has the invoice',
+          pushFailedAgain: 'The push failed again',
+          awaitingFinalization:
+            'Stripe has the draft. Finalize it once you have reviewed it.',
         },
         Detail: {
           title: '{{kind}} invoice, {{date}}',
@@ -3716,10 +3725,108 @@ export default {
             releaseHold: 'Release the hold',
             void: 'Void',
             writeOff: 'Write off',
+            retryPush: 'Retry push',
+            push: 'Push now',
+            finalize: 'Finalize in Stripe',
+            sync: 'Read from Stripe',
             purgedUsage:
               'The usage of this period is no longer kept (before {{date}}): a recompose would leave out its usage lines.',
             instanceDeleted:
               'The instance of this invoice was deleted, so nothing can be recomposed for it.',
+          },
+          Provider: {
+            title: 'Payment provider',
+            Collection: {
+              SEND_INVOICE:
+                'Stripe sends the invoice to the customer and collects the payment.',
+              CHARGE_AUTOMATICALLY:
+                'Stripe charges the payment method on file when the invoice is due.',
+            },
+            status: 'Status in Stripe',
+            Status: {
+              draft: 'Draft',
+              open: 'Open',
+              paid: 'Paid',
+              uncollectible: 'Uncollectible',
+              void: 'Void',
+            },
+            number: 'Invoice number',
+            externalInvoice: 'Stripe invoice',
+            externalCustomer: 'Stripe customer',
+            pushedAt: 'Pushed',
+            syncedAt: 'Last read from Stripe',
+            amounts: 'Amounts',
+            Reconciliation: {
+              MATCHED: 'Match',
+              MISMATCH: 'Differ',
+            },
+            notPushed: 'Stripe does not have this invoice yet.',
+            hostedInvoice: 'Hosted invoice',
+            pdf: 'PDF',
+            Push: {
+              waiting: {
+                title: 'Pushing to Stripe…',
+                description:
+                  'The invoice is queued. Kaiten checks again every 5 seconds, for up to two minutes.',
+              },
+              expired: {
+                title: 'Still queued',
+                description:
+                  'The push has not run yet. It runs on its next pass and Kaiten keeps trying by itself: reload the page to check.',
+              },
+            },
+            Review: {
+              title: 'Awaiting finalization in Stripe',
+              description:
+                'Stripe holds this invoice as a draft. Review it there, then finalize it here or in Stripe: it is sent to the customer once it is finalized.',
+            },
+            PushError: {
+              title: 'The push to Stripe failed',
+              attempts_one: 'Attempt {{count}}.',
+              attempts_other: '{{count}} attempts.',
+              next: 'Next attempt: {{date}}.',
+              manual: 'Retry it from the actions above.',
+            },
+            PaymentError: {
+              title: 'Stripe could not collect the payment',
+              Codes: {
+                authentication_required:
+                  'The customer must confirm the payment on the hosted invoice page.',
+                card_declined: 'The card was declined.',
+                expired_card: 'The card has expired.',
+                no_payment_method:
+                  'The customer has no payment method to charge.',
+              },
+            },
+          },
+          Reconciliation: {
+            title: 'Reconciliation',
+            matched: 'Stripe holds the same amounts as Kaiten.',
+            mismatch:
+              'Stripe holds amounts that are not the ones Kaiten composed. The invoice in Stripe is the one the customer pays: settle the difference there.',
+            checked: 'Checked {{date}}.',
+            kaitenTotal: 'Total composed by Kaiten',
+            providerTotal: 'Total in Stripe, excluding tax',
+            providerSubtotal: 'Subtotal in Stripe',
+            providerDiscounts: 'Discounts in Stripe',
+            inclusiveTax:
+              'Tax is included in the amounts, so the subtotal of Stripe less its discounts was compared.',
+            line: 'Line',
+            kaiten: 'Kaiten',
+            provider: 'Stripe',
+            differingLines: 'Lines whose amount differs',
+            lineNumber: 'Line {{seq}}',
+            differingDiscounts: 'Discounts applied with another amount',
+            discountOnLine: 'Discount {{seq}} on line {{target}}',
+            missingInProvider:
+              'Lines Kaiten composed that Stripe does not have',
+            extraInProvider: 'Lines Stripe has that Kaiten did not compose',
+            extraDiscounts:
+              'Discounts Stripe applied that Kaiten did not create',
+            extraDiscountsHint:
+              'Such as a coupon added in the Stripe dashboard.',
+            discount: 'Discount',
+            providerLine: 'On the Stripe line',
           },
           Chain: {
             replaces: 'Replaces',
@@ -3858,6 +3965,12 @@ export default {
               'The invoice is voided at your payment provider first, then here. This cannot be undone.',
             reason: 'Reason',
             confirm: 'Void invoice',
+            PaidAtProvider: {
+              title: 'Stripe reports this invoice as paid',
+              description:
+                'A paid invoice cannot be voided. Kaiten has not read the payment yet: read the invoice from Stripe, and it will show as paid.',
+              sync: 'Read it from Stripe',
+            },
           },
           VoidThenRecompose: {
             title: 'Void and recompose',

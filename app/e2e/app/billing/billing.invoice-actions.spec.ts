@@ -70,17 +70,18 @@ test.describe('the actions an invoice offers', () => {
     await expect(invoice.replacedBy()).toHaveText('inv-r1');
   });
 
-  test('leave an invoice a payment provider has accepted alone, and only void one whose push failed', async ({
+  test('offer an invoice a payment provider has accepted its own: to read it back or void it, and to retry a failed push', async ({
     page,
   }) => {
     const invoice = new InvoiceDetailDriver(page);
     await installBillingAppMocks(page, createInvoicesModel({ stripe: true }));
 
+    // Stripe has it: the payment is recorded there, so nothing is marked paid or written off.
     await invoice.goto('inv-s1');
-    await invoice.expectActions([]);
+    await invoice.expectActions(['Read from Stripe', 'Void']);
 
     await invoice.goto('inv-f1');
-    await invoice.expectActions(['Void']);
+    await invoice.expectActions(['Retry push', 'Void']);
   });
 
   test('are shown to a session that may write billing, and to none that may only read it', async ({
