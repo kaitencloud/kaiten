@@ -10,12 +10,15 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AddonsRouteRouteImport } from './routes/addons/route'
 import { Route as BillingRouteRouteImport } from './routes/billing/route'
 import { Route as CustomersRouteRouteImport } from './routes/customers/route'
 import { Route as EntitlementsRouteRouteImport } from './routes/entitlements/route'
 import { Route as ReleasesRouteRouteImport } from './routes/releases/route'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as AddonsIndexRouteImport } from './routes/addons/index'
+import { Route as AddonsAddonSlugRouteRouteImport } from './routes/addons/$addonSlug/route'
 import { Route as AuditTrailIndexRouteImport } from './routes/audit-trail/index'
 import { Route as BillingIndexRouteImport } from './routes/billing/index'
 import { Route as CustomersIndexRouteImport } from './routes/customers/index'
@@ -42,6 +45,11 @@ import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsBillingRouteImport } from './routes/settings/billing'
 import { Route as SettingsMetadataRouteImport } from './routes/settings/metadata'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
+import { Route as AddonsAddonSlugIndexRouteImport } from './routes/addons/$addonSlug/index'
+import { Route as AddonsAddonSlugCompatibilityRouteImport } from './routes/addons/$addonSlug/compatibility'
+import { Route as AddonsAddonSlugEntitlementsRouteImport } from './routes/addons/$addonSlug/entitlements'
+import { Route as AddonsAddonSlugPricesRouteImport } from './routes/addons/$addonSlug/prices'
+import { Route as AddonsNewIndexRouteImport } from './routes/addons/new/index'
 import { Route as BillingHandoffIndexRouteImport } from './routes/billing/handoff/index'
 import { Route as BillingInvoicesIndexRouteImport } from './routes/billing/invoices/index'
 import { Route as BillingInvoicesInvoiceIdRouteRouteImport } from './routes/billing/invoices/$invoiceId/route'
@@ -109,6 +117,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AddonsRouteRoute = AddonsRouteRouteImport.update({
+  id: '/addons',
+  path: '/addons',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BillingRouteRoute = BillingRouteRouteImport.update({
   id: '/billing',
   path: '/billing',
@@ -138,6 +151,16 @@ const SignUpRoute = SignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AddonsIndexRoute = AddonsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AddonsRouteRoute,
+} as any)
+const AddonsAddonSlugRouteRoute = AddonsAddonSlugRouteRouteImport.update({
+  id: '/$addonSlug',
+  path: '/$addonSlug',
+  getParentRoute: () => AddonsRouteRoute,
 } as any)
 const AuditTrailIndexRoute = AuditTrailIndexRouteImport.update({
   id: '/audit-trail/',
@@ -278,6 +301,33 @@ const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
   id: '/settings/notifications',
   path: '/settings/notifications',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AddonsAddonSlugIndexRoute = AddonsAddonSlugIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AddonsAddonSlugRouteRoute,
+} as any)
+const AddonsAddonSlugCompatibilityRoute =
+  AddonsAddonSlugCompatibilityRouteImport.update({
+    id: '/compatibility',
+    path: '/compatibility',
+    getParentRoute: () => AddonsAddonSlugRouteRoute,
+  } as any)
+const AddonsAddonSlugEntitlementsRoute =
+  AddonsAddonSlugEntitlementsRouteImport.update({
+    id: '/entitlements',
+    path: '/entitlements',
+    getParentRoute: () => AddonsAddonSlugRouteRoute,
+  } as any)
+const AddonsAddonSlugPricesRoute = AddonsAddonSlugPricesRouteImport.update({
+  id: '/prices',
+  path: '/prices',
+  getParentRoute: () => AddonsAddonSlugRouteRoute,
+} as any)
+const AddonsNewIndexRoute = AddonsNewIndexRouteImport.update({
+  id: '/new/',
+  path: '/new/',
+  getParentRoute: () => AddonsRouteRoute,
 } as any)
 const BillingHandoffIndexRoute = BillingHandoffIndexRouteImport.update({
   id: '/handoff/',
@@ -641,12 +691,14 @@ const IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/addons': typeof AddonsRouteRouteWithChildren
   '/billing': typeof BillingRouteRouteWithChildren
   '/customers': typeof CustomersRouteRouteWithChildren
   '/entitlements': typeof EntitlementsRouteRouteWithChildren
   '/releases': typeof ReleasesRouteRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/addons/$addonSlug': typeof AddonsAddonSlugRouteRouteWithChildren
   '/customers/$customerSlug': typeof CustomersCustomerSlugRouteRouteWithChildren
   '/customers/instances': typeof CustomersInstancesRouteRouteWithChildren
   '/entitlements/$entitlementSlug': typeof EntitlementsEntitlementSlugRouteRouteWithChildren
@@ -662,6 +714,7 @@ export interface FileRoutesByFullPath {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/addons/': typeof AddonsIndexRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
   '/billing/': typeof BillingIndexRoute
   '/customers/': typeof CustomersIndexRoute
@@ -676,6 +729,9 @@ export interface FileRoutesByFullPath {
   '/billing/invoices/$invoiceId': typeof BillingInvoicesInvoiceIdRouteRouteWithChildren
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugRouteRouteWithChildren
   '/releases/deployment-zones/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugRouteRouteWithChildren
+  '/addons/$addonSlug/compatibility': typeof AddonsAddonSlugCompatibilityRoute
+  '/addons/$addonSlug/entitlements': typeof AddonsAddonSlugEntitlementsRoute
+  '/addons/$addonSlug/prices': typeof AddonsAddonSlugPricesRoute
   '/customers/$customerSlug/edit': typeof CustomersCustomerSlugEditRoute
   '/entitlements/$entitlementSlug/customers': typeof EntitlementsEntitlementSlugCustomersRoute
   '/entitlements/$entitlementSlug/licenses': typeof EntitlementsEntitlementSlugLicensesRoute
@@ -689,6 +745,8 @@ export interface FileRoutesByFullPath {
   '/licenses/$licenseSlug/prices': typeof LicensesLicenseSlugPricesRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
+  '/addons/$addonSlug/': typeof AddonsAddonSlugIndexRoute
+  '/addons/new/': typeof AddonsNewIndexRoute
   '/billing/handoff/': typeof BillingHandoffIndexRoute
   '/billing/invoices/': typeof BillingInvoicesIndexRoute
   '/customers/$customerSlug/': typeof CustomersCustomerSlugIndexRoute
@@ -745,6 +803,7 @@ export interface FileRoutesByTo {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/addons': typeof AddonsIndexRoute
   '/audit-trail': typeof AuditTrailIndexRoute
   '/billing': typeof BillingIndexRoute
   '/customers': typeof CustomersIndexRoute
@@ -756,6 +815,9 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsIndexRoute
   '/releases': typeof ReleasesIndexRoute
   '/settings': typeof SettingsIndexRoute
+  '/addons/$addonSlug/compatibility': typeof AddonsAddonSlugCompatibilityRoute
+  '/addons/$addonSlug/entitlements': typeof AddonsAddonSlugEntitlementsRoute
+  '/addons/$addonSlug/prices': typeof AddonsAddonSlugPricesRoute
   '/customers/$customerSlug/edit': typeof CustomersCustomerSlugEditRoute
   '/entitlements/$entitlementSlug/customers': typeof EntitlementsEntitlementSlugCustomersRoute
   '/entitlements/$entitlementSlug/licenses': typeof EntitlementsEntitlementSlugLicensesRoute
@@ -769,6 +831,8 @@ export interface FileRoutesByTo {
   '/licenses/$licenseSlug/prices': typeof LicensesLicenseSlugPricesRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
+  '/addons/$addonSlug': typeof AddonsAddonSlugIndexRoute
+  '/addons/new': typeof AddonsNewIndexRoute
   '/billing/handoff': typeof BillingHandoffIndexRoute
   '/billing/invoices': typeof BillingInvoicesIndexRoute
   '/customers/$customerSlug': typeof CustomersCustomerSlugIndexRoute
@@ -817,12 +881,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/addons': typeof AddonsRouteRouteWithChildren
   '/billing': typeof BillingRouteRouteWithChildren
   '/customers': typeof CustomersRouteRouteWithChildren
   '/entitlements': typeof EntitlementsRouteRouteWithChildren
   '/releases': typeof ReleasesRouteRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/addons/$addonSlug': typeof AddonsAddonSlugRouteRouteWithChildren
   '/customers/$customerSlug': typeof CustomersCustomerSlugRouteRouteWithChildren
   '/customers/instances': typeof CustomersInstancesRouteRouteWithChildren
   '/entitlements/$entitlementSlug': typeof EntitlementsEntitlementSlugRouteRouteWithChildren
@@ -838,6 +904,7 @@ export interface FileRoutesById {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/addons/': typeof AddonsIndexRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
   '/billing/': typeof BillingIndexRoute
   '/customers/': typeof CustomersIndexRoute
@@ -852,6 +919,9 @@ export interface FileRoutesById {
   '/billing/invoices/$invoiceId': typeof BillingInvoicesInvoiceIdRouteRouteWithChildren
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugRouteRouteWithChildren
   '/releases/deployment-zones_/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugRouteRouteWithChildren
+  '/addons/$addonSlug/compatibility': typeof AddonsAddonSlugCompatibilityRoute
+  '/addons/$addonSlug/entitlements': typeof AddonsAddonSlugEntitlementsRoute
+  '/addons/$addonSlug/prices': typeof AddonsAddonSlugPricesRoute
   '/customers/$customerSlug/edit': typeof CustomersCustomerSlugEditRoute
   '/entitlements/$entitlementSlug/customers': typeof EntitlementsEntitlementSlugCustomersRoute
   '/entitlements/$entitlementSlug/licenses': typeof EntitlementsEntitlementSlugLicensesRoute
@@ -865,6 +935,8 @@ export interface FileRoutesById {
   '/licenses/$licenseSlug/prices': typeof LicensesLicenseSlugPricesRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
+  '/addons/$addonSlug/': typeof AddonsAddonSlugIndexRoute
+  '/addons/new/': typeof AddonsNewIndexRoute
   '/billing/handoff/': typeof BillingHandoffIndexRoute
   '/billing/invoices/': typeof BillingInvoicesIndexRoute
   '/customers/$customerSlug/': typeof CustomersCustomerSlugIndexRoute
@@ -915,12 +987,14 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/addons'
     | '/billing'
     | '/customers'
     | '/entitlements'
     | '/releases'
     | '/sign-in'
     | '/sign-up'
+    | '/addons/$addonSlug'
     | '/customers/$customerSlug'
     | '/customers/instances'
     | '/entitlements/$entitlementSlug'
@@ -936,6 +1010,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
+    | '/addons/'
     | '/audit-trail/'
     | '/billing/'
     | '/customers/'
@@ -950,6 +1025,9 @@ export interface FileRouteTypes {
     | '/billing/invoices/$invoiceId'
     | '/customers/instances/$instanceSlug'
     | '/releases/deployment-zones/$zoneSlug'
+    | '/addons/$addonSlug/compatibility'
+    | '/addons/$addonSlug/entitlements'
+    | '/addons/$addonSlug/prices'
     | '/customers/$customerSlug/edit'
     | '/entitlements/$entitlementSlug/customers'
     | '/entitlements/$entitlementSlug/licenses'
@@ -963,6 +1041,8 @@ export interface FileRouteTypes {
     | '/licenses/$licenseSlug/prices'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
+    | '/addons/$addonSlug/'
+    | '/addons/new/'
     | '/billing/handoff/'
     | '/billing/invoices/'
     | '/customers/$customerSlug/'
@@ -1019,6 +1099,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
+    | '/addons'
     | '/audit-trail'
     | '/billing'
     | '/customers'
@@ -1030,6 +1111,9 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/releases'
     | '/settings'
+    | '/addons/$addonSlug/compatibility'
+    | '/addons/$addonSlug/entitlements'
+    | '/addons/$addonSlug/prices'
     | '/customers/$customerSlug/edit'
     | '/entitlements/$entitlementSlug/customers'
     | '/entitlements/$entitlementSlug/licenses'
@@ -1043,6 +1127,8 @@ export interface FileRouteTypes {
     | '/licenses/$licenseSlug/prices'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
+    | '/addons/$addonSlug'
+    | '/addons/new'
     | '/billing/handoff'
     | '/billing/invoices'
     | '/customers/$customerSlug'
@@ -1090,12 +1176,14 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/addons'
     | '/billing'
     | '/customers'
     | '/entitlements'
     | '/releases'
     | '/sign-in'
     | '/sign-up'
+    | '/addons/$addonSlug'
     | '/customers/$customerSlug'
     | '/customers/instances'
     | '/entitlements/$entitlementSlug'
@@ -1111,6 +1199,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
+    | '/addons/'
     | '/audit-trail/'
     | '/billing/'
     | '/customers/'
@@ -1125,6 +1214,9 @@ export interface FileRouteTypes {
     | '/billing/invoices/$invoiceId'
     | '/customers/instances/$instanceSlug'
     | '/releases/deployment-zones_/$zoneSlug'
+    | '/addons/$addonSlug/compatibility'
+    | '/addons/$addonSlug/entitlements'
+    | '/addons/$addonSlug/prices'
     | '/customers/$customerSlug/edit'
     | '/entitlements/$entitlementSlug/customers'
     | '/entitlements/$entitlementSlug/licenses'
@@ -1138,6 +1230,8 @@ export interface FileRouteTypes {
     | '/licenses/$licenseSlug/prices'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
+    | '/addons/$addonSlug/'
+    | '/addons/new/'
     | '/billing/handoff/'
     | '/billing/invoices/'
     | '/customers/$customerSlug/'
@@ -1187,6 +1281,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AddonsRouteRoute: typeof AddonsRouteRouteWithChildren
   BillingRouteRoute: typeof BillingRouteRouteWithChildren
   CustomersRouteRoute: typeof CustomersRouteRouteWithChildren
   EntitlementsRouteRoute: typeof EntitlementsRouteRouteWithChildren
@@ -1222,6 +1317,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/addons': {
+      id: '/addons'
+      path: '/addons'
+      fullPath: '/addons'
+      preLoaderRoute: typeof AddonsRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/billing': {
@@ -1265,6 +1367,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/sign-up'
       preLoaderRoute: typeof SignUpRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/addons/': {
+      id: '/addons/'
+      path: '/'
+      fullPath: '/addons/'
+      preLoaderRoute: typeof AddonsIndexRouteImport
+      parentRoute: typeof AddonsRouteRoute
+    }
+    '/addons/$addonSlug': {
+      id: '/addons/$addonSlug'
+      path: '/$addonSlug'
+      fullPath: '/addons/$addonSlug'
+      preLoaderRoute: typeof AddonsAddonSlugRouteRouteImport
+      parentRoute: typeof AddonsRouteRoute
     }
     '/audit-trail/': {
       id: '/audit-trail/'
@@ -1447,6 +1563,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/notifications'
       preLoaderRoute: typeof SettingsNotificationsRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/addons/$addonSlug/': {
+      id: '/addons/$addonSlug/'
+      path: '/'
+      fullPath: '/addons/$addonSlug/'
+      preLoaderRoute: typeof AddonsAddonSlugIndexRouteImport
+      parentRoute: typeof AddonsAddonSlugRouteRoute
+    }
+    '/addons/$addonSlug/compatibility': {
+      id: '/addons/$addonSlug/compatibility'
+      path: '/compatibility'
+      fullPath: '/addons/$addonSlug/compatibility'
+      preLoaderRoute: typeof AddonsAddonSlugCompatibilityRouteImport
+      parentRoute: typeof AddonsAddonSlugRouteRoute
+    }
+    '/addons/$addonSlug/entitlements': {
+      id: '/addons/$addonSlug/entitlements'
+      path: '/entitlements'
+      fullPath: '/addons/$addonSlug/entitlements'
+      preLoaderRoute: typeof AddonsAddonSlugEntitlementsRouteImport
+      parentRoute: typeof AddonsAddonSlugRouteRoute
+    }
+    '/addons/$addonSlug/prices': {
+      id: '/addons/$addonSlug/prices'
+      path: '/prices'
+      fullPath: '/addons/$addonSlug/prices'
+      preLoaderRoute: typeof AddonsAddonSlugPricesRouteImport
+      parentRoute: typeof AddonsAddonSlugRouteRoute
+    }
+    '/addons/new/': {
+      id: '/addons/new/'
+      path: '/new'
+      fullPath: '/addons/new/'
+      preLoaderRoute: typeof AddonsNewIndexRouteImport
+      parentRoute: typeof AddonsRouteRoute
     }
     '/billing/handoff/': {
       id: '/billing/handoff/'
@@ -1878,6 +2029,39 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AddonsAddonSlugRouteRouteChildren {
+  AddonsAddonSlugCompatibilityRoute: typeof AddonsAddonSlugCompatibilityRoute
+  AddonsAddonSlugEntitlementsRoute: typeof AddonsAddonSlugEntitlementsRoute
+  AddonsAddonSlugPricesRoute: typeof AddonsAddonSlugPricesRoute
+  AddonsAddonSlugIndexRoute: typeof AddonsAddonSlugIndexRoute
+}
+
+const AddonsAddonSlugRouteRouteChildren: AddonsAddonSlugRouteRouteChildren = {
+  AddonsAddonSlugCompatibilityRoute: AddonsAddonSlugCompatibilityRoute,
+  AddonsAddonSlugEntitlementsRoute: AddonsAddonSlugEntitlementsRoute,
+  AddonsAddonSlugPricesRoute: AddonsAddonSlugPricesRoute,
+  AddonsAddonSlugIndexRoute: AddonsAddonSlugIndexRoute,
+}
+
+const AddonsAddonSlugRouteRouteWithChildren =
+  AddonsAddonSlugRouteRoute._addFileChildren(AddonsAddonSlugRouteRouteChildren)
+
+interface AddonsRouteRouteChildren {
+  AddonsAddonSlugRouteRoute: typeof AddonsAddonSlugRouteRouteWithChildren
+  AddonsIndexRoute: typeof AddonsIndexRoute
+  AddonsNewIndexRoute: typeof AddonsNewIndexRoute
+}
+
+const AddonsRouteRouteChildren: AddonsRouteRouteChildren = {
+  AddonsAddonSlugRouteRoute: AddonsAddonSlugRouteRouteWithChildren,
+  AddonsIndexRoute: AddonsIndexRoute,
+  AddonsNewIndexRoute: AddonsNewIndexRoute,
+}
+
+const AddonsRouteRouteWithChildren = AddonsRouteRoute._addFileChildren(
+  AddonsRouteRouteChildren,
+)
+
 interface BillingInvoicesInvoiceIdRouteRouteChildren {
   BillingInvoicesInvoiceIdIndexRoute: typeof BillingInvoicesInvoiceIdIndexRoute
   BillingInvoicesInvoiceIdLinesLineIdRoute: typeof BillingInvoicesInvoiceIdLinesLineIdRoute
@@ -2282,6 +2466,7 @@ const LicensesLicenseSlugRouteRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AddonsRouteRoute: AddonsRouteRouteWithChildren,
   BillingRouteRoute: BillingRouteRouteWithChildren,
   CustomersRouteRoute: CustomersRouteRouteWithChildren,
   EntitlementsRouteRoute: EntitlementsRouteRouteWithChildren,

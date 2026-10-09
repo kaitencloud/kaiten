@@ -3725,8 +3725,420 @@ export default {
     },
     Addons: {
       title: 'Options',
+      subtitle:
+        'Des quantités supplémentaires vendues en plus d’une licence : sièges, instances, historique.',
+      PricingTypes: {
+        FREE: 'Gratuite',
+        PAID: 'Payante',
+        CUSTOM: 'Sur mesure',
+      },
+      Lifecycle: {
+        DRAFT: 'Brouillon',
+        PUBLISHED: 'Publiée',
+        ARCHIVED: 'Archivée',
+      },
+      Public: {
+        label: 'Catalogue public',
+        switchLabel: 'Lister {{name}} dans le catalogue public',
+        badge: 'Public',
+        listed: 'La famille est listée dans le catalogue public',
+        unlisted: 'La famille n’est plus listée dans le catalogue public',
+      },
+      List: {
+        addonName: 'Nom de l’option',
+        versionCount_one: '{{count}} version',
+        versionCount_other: '{{count}} versions',
+        defaultBadge: 'Par défaut : {{version}}',
+        newVersionButton: 'Nouvelle version',
+        Empty: {
+          title: 'Aucune option pour l’instant',
+          description:
+            'Une option est une quantité supplémentaire d’un droit, vendue à l’unité : sièges, instances, historique. Créez-en une, donnez-lui des droits et un prix, dites quelles licences elle complète, puis publiez-la.',
+        },
+      },
+      VersionsTable: {
+        Columns: {
+          versionName: 'Nom de version',
+          version: 'Version',
+          pricingType: 'Tarification',
+          lifecycleState: 'État',
+          default: 'Par défaut',
+          maxQuantity: 'Quantité max.',
+          actions: 'Actions',
+        },
+        default: 'Par défaut',
+        unbounded: 'Illimitée',
+      },
+      LifecycleActions: {
+        publish: {
+          label: 'Publier',
+          title: 'Publier {{name}} v{{version}} ?',
+          description:
+            'La version est mise en vente : une instance dont la licence lui convient peut l’attacher, et elle peut devenir la version par défaut de sa famille.',
+          confirm: 'Publier',
+          success: 'Version publiée',
+          Notes: {
+            prices:
+              'Ses prix ne peuvent plus être modifiés : ils ne peuvent qu’être dépréciés, et un prix peut encore être ajouté tant qu’aucune instance avec un abonnement actif ne détient la version.',
+            grants:
+              'Ses droits sont gelés dès qu’une instance avec un abonnement actif détient la version.',
+            compatibility:
+              'Elle ne peut être attachée qu’aux familles de licences qu’elle complète : une version qui n’en complète aucune ne peut être attachée à rien.',
+          },
+        },
+        archive: {
+          label: 'Archiver',
+          title: 'Archiver {{name}} v{{version}} ?',
+          description:
+            'La version est retirée de la vente : aucune instance ne peut plus l’attacher. Les instances qui la détiennent la conservent, et continuent d’être facturées pour elle. Vous pourrez la désarchiver plus tard.',
+          confirm: 'Archiver',
+          success: 'Version archivée',
+        },
+        unarchive: {
+          label: 'Désarchiver',
+          title: 'Désarchiver {{name}} v{{version}} ?',
+          description:
+            'La version est remise en vente : les instances peuvent de nouveau l’attacher, et elle peut redevenir la version par défaut de sa famille.',
+          confirm: 'Désarchiver',
+          success: 'Version désarchivée',
+        },
+        archiveDefaultUnavailable:
+          'La version par défaut ne peut pas être archivée. Définissez d’abord une autre version par défaut, ou retirez le défaut.',
+      },
+      DefaultActions: {
+        set: 'Définir par défaut',
+        unset: 'Retirer le défaut',
+        setUnavailable:
+          'Seule une version publiée peut devenir la version par défaut',
+        setSuccess: 'Version par défaut mise à jour',
+        unsetSuccess: 'Version par défaut retirée',
+      },
+      DeleteDraft: {
+        label: 'Supprimer',
+        title: 'Supprimer le brouillon {{name}} v{{version}} ?',
+        description:
+          'Le brouillon, ses prix, les licences qu’il complète et les droits qu’il accorde sont supprimés. Il n’a jamais été en vente : aucun client ne le perd. Une version qui a déjà été attachée à une instance fait partie de l’historique et ne peut pas être supprimée : archivez-la.',
+        confirm: 'Supprimer',
+        success: 'Brouillon supprimé',
+      },
+      Form: {
+        titleNew: 'Nouvelle option',
+        titleNewVersion: 'Nouvelle version de {{name}}',
+        titleUpdate: 'Modifier l’option',
+        descriptionNew:
+          'Une nouvelle option ouvre une famille. Sa première version est créée en brouillon.',
+        descriptionNewVersion:
+          'Une nouvelle version part de zéro : rien n’est copié de la précédente. Donnez-lui ses droits, ses prix et les licences qu’elle complète, puis publiez-la.',
+        descriptionEdit:
+          '{{name}}, version {{version}}. La façon dont elle est vendue et ses droits ne se modifient pas ici.',
+        createButton: 'Créer l’option',
+        updateButton: 'Enregistrer',
+        Labels: {
+          name: 'Nom',
+          slug: 'Slug',
+          description: 'Description',
+          pricingType: 'Tarification',
+          versionName: 'Nom de version',
+          maxQuantity: 'Quantité maximale',
+          createAsDraft: 'Créer en brouillon',
+        },
+        Placeholders: {
+          name: 'Sièges supplémentaires',
+          slug: 'sieges-supplementaires',
+          description: 'Cinq sièges de plus par unité',
+          versionName: 'Version - 1',
+          maxQuantity: 'Illimitée',
+        },
+        Descriptions: {
+          name: 'Le nom de l’option. Toutes les versions d’une famille le partagent.',
+          slug: 'Généré automatiquement — modifiez-le pour en choisir un autre.',
+          description: 'Ce qu’une unité apporte à une instance, en une phrase.',
+          pricingType:
+            'Une option gratuite ou payante peut être attachée par qui en a le droit ; une option payante a besoin d’un prix par défaut pour la période de facturation de l’abonnement auquel on l’attache. Une option sur mesure se vend sur demande.',
+          versionName: 'Laissé vide, la version s’appelle « Version - {n} ».',
+          maxQuantity:
+            'Le nombre maximal d’unités qu’une instance peut détenir. Laissez vide pour aucun maximum.',
+          createAsDraft:
+            'Un brouillon n’est pas encore en vente : on peut lui donner ses droits, ses prix et les licences qu’il complète avant qu’il le soit. Une instance que personne ne facture peut tout de même l’essayer.',
+        },
+        Errors: {
+          name: 'Le nom est requis',
+          maxQuantity:
+            'Saisissez un nombre entier d’unités, 1 ou plus, ou laissez vide pour aucun maximum.',
+          maxQuantityHeld:
+            '{{instance}} détient {{quantity}} unités : baissez-y d’abord la quantité avant de baisser le maximum.',
+        },
+        Toasts: {
+          created: 'Option créée',
+          updated: 'Option mise à jour',
+        },
+      },
+      Detail: {
+        Tabs: {
+          overview: 'Aperçu',
+          entitlements: 'Droits',
+          prices: 'Prix',
+          compatibility: 'Licences compatibles',
+        },
+        cardTitle: 'Détails de l’option',
+        cardDescription:
+          'Comment cette version s’appelle et se vend. Ses droits, ses prix et ses licences compatibles sont dans les onglets voisins.',
+        defaultBadge: 'Version par défaut',
+        unbounded: 'Illimitée',
+        Fields: {
+          name: 'Nom',
+          version: 'Version',
+          lifecycleState: 'État',
+          default: 'Par défaut',
+          pricingType: 'Tarification',
+          maxQuantity: 'Quantité max.',
+          description: 'Description',
+        },
+      },
+      Freeze: {
+        billed: {
+          title: 'Cette version est détenue par une instance facturée',
+          description:
+            'Une instance avec un abonnement actif détient cette version : ses droits et ses prix sont gelés, car les modifier changerait un contrat déjà vendu. Créez une nouvelle version pour changer ce qui est vendu. Elle part de zéro : donnez-lui ses droits, ses prix et les licences qu’elle complète, puis faites passer les instances dessus en détachant cette version et en attachant la nouvelle.',
+        },
+        archived: {
+          title: 'Cette version n’accepte aucun nouveau prix',
+          description:
+            'Une version retirée de la vente n’accepte aucun nouveau prix. Créez une nouvelle version pour changer ce qui est vendu. Elle part de zéro : donnez-lui ses droits, ses prix et les licences qu’elle complète.',
+        },
+        createNewVersion: 'Créer une nouvelle version',
+      },
+      Grants: {
+        title: 'Droits',
+        tabDescription:
+          'Ce qu’une unité de cette option accorde à une instance qui la détient. Un nombre compte une fois par unité de quantité.',
+        Actions: {
+          add: 'Ajouter un droit',
+          edit: 'Modifier',
+          editAria: 'Modifier {{name}}',
+          remove: 'Retirer',
+          removeAria: 'Retirer {{name}}',
+        },
+        Notes: {
+          DRAFT:
+            'Les droits d’un brouillon peuvent être modifiés tant qu’aucune instance avec un abonnement actif ne détient la version.',
+          PUBLISHED:
+            'Les droits d’une version publiée sont gelés dès qu’une instance avec un abonnement actif la détient. Jusque-là, ils peuvent encore être modifiés.',
+          ARCHIVED:
+            'Cette version est retirée de la vente. Les instances qui la détiennent conservent ses droits ; pour changer ce qui est vendu, créez une nouvelle version.',
+        },
+        Table: {
+          Columns: {
+            entitlement: 'Droit',
+            type: 'Type',
+            value: 'Accorde',
+            behavior: 'Se combine',
+            overage: 'Dépassement toléré',
+          },
+          empty: 'Cette version n’accorde encore rien.',
+        },
+        Values: {
+          unlimited: 'Illimité',
+          perUnit: '{{value}} par unité',
+          enabled: 'Activé',
+          disabled: 'Désactivé',
+          configured: 'Configuré',
+        },
+        Behaviors: {
+          ADD: {
+            label: 'Additionner',
+            blurb:
+              'Ajoute valeur × quantité à ce que la licence accorde : 5 sièges par unité, 3 unités, 15 sièges de plus.',
+          },
+          OVERRIDE: {
+            label: 'Remplacer',
+            blurb:
+              'Remplace la valeur de la licence par valeur × quantité. L’option attachée en dernier l’emporte.',
+          },
+          MAX: {
+            label: 'Maximum',
+            blurb:
+              'Garde la plus grande de la valeur de la licence et de valeur × quantité.',
+          },
+        },
+        Overage: {
+          inherit: 'Hériter',
+          hard: 'Limite stricte',
+          soft: '+{{percent}} %',
+          unlimited: 'Illimité',
+        },
+        OverageWarning: {
+          message:
+            'Cette option tolère un dépassement de {{addon}} %, et {{name}} en tolère {{license}} %.',
+          consequence:
+            'Sur chaque instance qui attache l’option, son pourcentage remplace celui de la licence : l’usage est refusé plus tôt que la licence ne le dit.',
+        },
+        Remove: {
+          title: 'Retirer {{name}} de cette option ?',
+          description:
+            'Les instances qui détiennent cette version perdent ce droit immédiatement.',
+          confirm: 'Retirer',
+        },
+        Form: {
+          titleNew: 'Ajouter un droit',
+          titleEdit: 'Modifier le droit',
+          description: 'Ce qu’une unité de {{name}} accorde.',
+          create: 'Ajouter le droit',
+          update: 'Enregistrer le droit',
+          Labels: {
+            entitlement: 'Droit',
+            number: 'Valeur par unité',
+            unlimited: 'Illimité',
+            behavior: 'Se combine avec la licence',
+            overage: 'Dépassement toléré (%)',
+            boolean: 'Activé',
+            config: 'Configuration (JSON)',
+          },
+          Descriptions: {
+            entitlement: 'Une version accorde un droit une seule fois.',
+            number:
+              'Ce qu’une unité de quantité accorde. Trois unités d’une valeur de 5 en accordent 15.',
+            behavior:
+              'Comment la valeur multipliée par la quantité se combine avec ce que la licence accorde pour le même droit : ajoutée, en remplacement, ou la plus grande des deux.',
+            overage:
+              'Laissez vide pour hériter de la tolérance de la licence. Renseignée, elle remplace celle de la licence sur chaque instance qui attache l’option : 0 est une limite stricte.',
+            boolean:
+              'Un indicateur se combine par OU avec celui de la licence.',
+            config:
+              'Une configuration remplace celle de la licence. L’option attachée en dernier l’emporte.',
+          },
+          Placeholders: {
+            entitlement: 'Choisir un droit',
+            number: '5',
+            overage: 'Hériter',
+          },
+          Errors: {
+            entitlement: 'Choisissez un droit.',
+            number:
+              'Saisissez un nombre entier, 0 ou plus, ou choisissez illimité.',
+            overage:
+              'Saisissez un pourcentage entier, 0 ou plus, ou laissez vide.',
+            config: 'Saisissez un objet JSON.',
+          },
+        },
+        Toasts: {
+          assigned: 'Droit ajouté',
+          updated: 'Droit mis à jour',
+          unassigned: 'Droit retiré',
+        },
+      },
+      Prices: {
+        title: 'Prix',
+        tabDescription:
+          'Ce que coûte une unité de cette option, par période de facturation. Un prix ne se modifie jamais : changez-le par un nouveau prix et la dépréciation de l’ancien.',
+        defaultBadge: 'Par défaut',
+        deprecatedOn: 'Déprécié le {{date}}',
+        unvalued_one:
+          'Cette version a aussi {{count}} prix mesuré, que la facturation ne valorise pas : il n’est pas listé.',
+        unvalued_other:
+          'Cette version a aussi {{count}} prix mesurés, que la facturation ne valorise pas : ils ne sont pas listés.',
+        Notes: {
+          DRAFT:
+            'Les prix d’un brouillon peuvent être ajoutés et dépréciés tant qu’aucune instance avec un abonnement actif ne détient la version.',
+          PUBLISHED:
+            'Un prix peut encore être ajouté tant qu’aucune instance avec un abonnement actif ne détient cette version. Un prix ne se modifie jamais, et le prix par défaut d’une période ne peut pas être déprécié : pour le changer, ajoutez un prix et faites-en le prix par défaut.',
+          ARCHIVED:
+            'Cette version est retirée de la vente et n’accepte aucun nouveau prix. Les instances qui la détiennent continuent d’être facturées d’après ses prix.',
+        },
+        Slots: {
+          label: 'Prix par défaut de chaque période de facturation',
+          title: 'Prix par défaut de chaque période de facturation',
+          missing:
+            'Aucun prix par défaut : cette option ne peut pas être attachée à un abonnement {{period}}.',
+          noDefault:
+            'Tarifée, mais aucun prix n’est le prix par défaut : cette option ne peut pas être attachée à un abonnement {{period}}.',
+        },
+        Actions: {
+          add: 'Ajouter un prix',
+          deprecate: 'Déprécier',
+          deprecateAria: 'Déprécier {{label}}',
+          deprecateDefaultHint:
+            'Le prix par défaut d’une période facture chaque instance qui détient cette version. Retirez-le par une nouvelle version de l’option, ou ajoutez un prix et faites-en le prix par défaut.',
+        },
+        Table: {
+          Columns: {
+            price: 'Prix',
+            amount: 'Montant par unité',
+            billed: 'Facturé',
+            status: 'Statut',
+          },
+          empty: 'Cette version n’a encore aucun prix.',
+        },
+        Drawer: {
+          titleNew: 'Nouveau prix',
+          description:
+            '{{name}}, version {{version}}. Un prix devient une ligne de facture.',
+          create: 'Créer le prix',
+        },
+        Form: {
+          Labels: {
+            period: 'Période de facturation',
+            timing: 'Échéance de facturation',
+            currency: 'Devise',
+            amount: 'Montant par unité',
+            label: 'Libellé sur la facture',
+            isDefault: 'Prix par défaut de cette période',
+          },
+          Descriptions: {
+            period: 'À quelle fréquence le montant est facturé.',
+            currency:
+              'Une version est facturée dans une seule devise, fixée par son premier prix.',
+            currencyLocked:
+              'Cette version est facturée en {{currency}}, devise fixée par son premier prix.',
+            amount:
+              'Facturé pour chaque unité détenue, par période. Saisissez le montant dans l’unité propre à la devise (par exemple 10,00).',
+            label:
+              'Le nom de la ligne de facture. Laissé vide, Kaiten en déduit un.',
+            isDefault:
+              'Le prix par défaut d’une période est celui qui facture les instances qui détiennent cette version sur un abonnement de cette période. Une période n’en a qu’un.',
+          },
+          Placeholders: {
+            currency: 'Choisir une devise',
+            currencySearch: 'Rechercher une devise',
+            amount: '0,00',
+            label: 'Siège supplémentaire, mensuel',
+          },
+          livePreview: 'Se lit {{price}} par unité',
+          Errors: {
+            label: 'Le libellé fait 200 caractères au plus.',
+            currency: 'Choisissez une devise que Kaiten prend en charge.',
+            amount:
+              'Saisissez un montant valide : zéro ou plus, avec au plus 12 décimales au-delà de celles de la devise et 12 chiffres dans sa plus petite unité.',
+          },
+        },
+        ReplaceDefault: {
+          title: 'Remplacer le prix par défaut {{period}} ?',
+          description:
+            'Ce prix devient celui qui facture les abonnements {{period}}, à la place de « {{label}} » ({{price}}). L’ancien prix reste listé et actif, et pourra être déprécié dès qu’il n’est plus le prix par défaut.',
+          confirm: 'Remplacer le prix par défaut',
+        },
+        Deprecate: {
+          title: 'Déprécier « {{label}} » ?',
+          description:
+            'Les instances déjà facturées d’après ce prix continuent de l’être. Il n’est plus proposé. Cette action est irréversible.',
+          confirm: 'Déprécier',
+        },
+        Toasts: {
+          created: 'Prix créé',
+          deprecated: 'Prix déprécié',
+        },
+      },
       Compatibility: {
         title: 'Licences compatibles',
+        description:
+          'Une instance ne peut attacher cette version que si sa licence appartient à l’une de ces familles. Toutes les versions d’une famille comptent : une nouvelle version de licence ne laisse donc jamais l’option orpheline.',
+        listLabel: 'Familles de licences',
+        noFamilies: 'Il n’y a encore aucune famille de licences.',
+        Empty: {
+          title: 'Attachable à rien',
+          description:
+            'Aucune famille de licences n’est compatible : aucune instance ne peut attacher cette version. Vous pouvez tout de même la publier : choisissez les familles qu’elle complète.',
+        },
       },
     },
     Vouchers: {

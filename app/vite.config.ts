@@ -81,6 +81,7 @@ const staticFmtIgnorePatterns = [
 // imports them — keeping the browser suite lean and avoiding overlap with
 // E2E. They remain available in Storybook (visual/docs) as usual.
 const storybookTestExclude = [
+  'src/features/addons/components/stories/addon-catalogue.stories.tsx',
   'src/features/connectors/components/stories/connectors.stories.tsx',
   'src/features/customers/components/stories/customer-detail.stories.tsx',
   'src/features/customers/components/stories/customer-form-dialog.stories.tsx',
