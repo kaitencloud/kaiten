@@ -82,7 +82,10 @@ const baseInstance: FakeInstance = {
   slug: 'prod-eu',
 };
 
-function renderTable(instances: FakeInstance[] = [baseInstance]) {
+function renderTable(
+  instances: FakeInstance[] = [baseInstance],
+  billing?: React.ComponentProps<typeof InstancesTable>['billing'],
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -91,6 +94,7 @@ function renderTable(instances: FakeInstance[] = [baseInstance]) {
     ...render(
     <QueryClientProvider client={queryClient}>
       <InstancesTable
+        billing={billing}
         instances={
           instances as unknown as React.ComponentProps<
             typeof InstancesTable
@@ -190,5 +194,80 @@ describe('InstancesTable', () => {
 
     expect(await screen.findByText('Region')).toBeInTheDocument();
     expect(screen.queryByText('Extra metadata')).not.toBeInTheDocument();
+  });
+
+  describe('the Billing column', () => {
+    const summary = (
+      status: 'ACTIVE' | 'CANCELED' | 'PAST_DUE' | 'TRIAL',
+      cancelAtPeriodEnd = false,
+    ) => ({
+      cancelAtPeriodEnd,
+      currentPeriodEnd: '2027-04-01T00:00:00.000Z',
+      rawStatus: status,
+      status,
+    });
+    const instances = [
+      { ...baseInstance, name: 'On trial', slug: 'on-trial' },
+      { ...baseInstance, name: 'Paying', slug: 'paying' },
+      { ...baseInstance, name: 'Behind', slug: 'behind' },
+      { ...baseInstance, name: 'Ended', slug: 'ended' },
+      { ...baseInstance, name: 'Leaving', slug: 'leaving' },
+      { ...baseInstance, name: 'Never billed', slug: 'never-billed' },
+    ];
+    const summaries: Record<string, ReturnType<typeof summary> | null> = {
+      behind: summary('PAST_DUE'),
+      ended: summary('CANCELED'),
+      leaving: summary('ACTIVE', true),
+      'never-billed': null,
+      'on-trial': summary('TRIAL'),
+      paying: summary('ACTIVE'),
+    };
+    const billing = (overrides = {}) => ({
+      available: true,
+      isPending: false,
+      summaryOf: (slug: string) => summaries[slug] ?? null,
+      ...overrides,
+    });
+
+    it('has none when the list is given no billing', async () => {
+      renderTable(instances);
+
+      await screen.findByText('On trial');
+      expect(screen.queryByText('Billing')).not.toBeInTheDocument();
+    });
+
+    it('has none when billing cannot be read', async () => {
+      renderTable(instances, billing({ available: false }));
+
+      await screen.findByText('On trial');
+      expect(screen.queryByText('Billing')).not.toBeInTheDocument();
+    });
+
+    it('reads each instance as trial, active, past due, canceled, or ending, and a dash for one never billed', async () => {
+      renderTable(instances, billing());
+
+      expect(await screen.findByText('Billing')).toBeInTheDocument();
+      const row = (name: string) =>
+        screen.getByText(name).closest('tr') as HTMLElement;
+      const cell = (name: string) => row(name).textContent ?? '';
+      expect(cell('On trial')).toContain('Features.Billing.SubscriptionStatus.TRIAL');
+      expect(cell('Paying')).toContain('Features.Billing.SubscriptionStatus.ACTIVE');
+      expect(cell('Behind')).toContain('Features.Billing.SubscriptionStatus.PAST_DUE');
+      expect(cell('Ended')).toContain('Features.Billing.SubscriptionStatus.CANCELED');
+      expect(cell('Leaving')).toContain(
+        'Features.Billing.SubscriptionStatus.cancellationScheduled',
+      );
+      expect(cell('Never billed')).toContain('—');
+      expect(cell('Never billed')).not.toContain('SubscriptionStatus.ACTIVE');
+    });
+
+    it('holds the place of each badge while the subscriptions are being read', async () => {
+      renderTable(instances, billing({ isPending: true }));
+
+      expect(await screen.findByText('Billing')).toBeInTheDocument();
+      expect(screen.getAllByTestId('billing-cell-pending')).toHaveLength(
+        instances.length,
+      );
+    });
   });
 });

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { deleteCustomerMutation } from '@/api-client/@tanstack/react-query.gen';
-import { useDeletionRefusal } from '@/domains/billing';
+import { useDeletionRefusal, useInstancesBilling } from '@/domains/billing';
 import { AttioSyncCard, useAttioSyncCardVisible } from '@/domains/crm-sync';
 import {
   forgetDeletedCustomerQueries,
@@ -48,6 +48,9 @@ export function CustomerDetailPageContent({
     customer.integrations,
   );
   const instancesQuery = useInstancesWithRelations();
+  // The Billing column of the instances: asked for only when billing is on and the
+  // session may read it.
+  const billing = useInstancesBilling();
   const { mayReadInvoices } = useCustomerBilling();
   // A customer that bills cannot be deleted: the dialog says what to settle
   // first. It is on the page of the customer, so it links to nothing of its own.
@@ -114,6 +117,7 @@ export function CustomerDetailPageContent({
         />
 
         <CustomerInstancesCard
+          billing={billing}
           customerSlug={customerSlug}
           instances={activeInstances}
         />

@@ -1,4 +1,5 @@
 import { GradientButton } from '@/components/gradient-button';
+import { InstanceBillingCell, type InstancesBilling } from '@/domains/billing';
 import {
   InstanceLifecycleStageBadge,
   InstanceStatusBadge,
@@ -15,11 +16,14 @@ import { capitalizeFromUpperCase } from '@/lib/utils';
 type InstanceRow = GetInstancesWithRelationsQuery['instances']['items'][number];
 
 type CustomerInstancesCardProps = {
+  /** The subscription of each instance, where billing is on and the session may read it: adds the Billing column. */
+  billing?: InstancesBilling;
   customerSlug: string;
   instances: InstanceRow[];
 };
 
 export const CustomerInstancesCard = ({
+  billing,
   customerSlug,
   instances,
 }: CustomerInstancesCardProps) => {
@@ -34,8 +38,20 @@ export const CustomerInstancesCard = ({
       params: { instanceSlug: instance.slug },
     }).pathname;
 
-  const columns = useMemo<ColumnDef<InstanceRow>[]>(
-    () => [
+  const columns = useMemo<ColumnDef<InstanceRow>[]>(() => {
+    const billingColumn: ColumnDef<InstanceRow> = {
+      id: 'billing',
+      header: t('Pages.Customers.Detail.instances.columns.billing'),
+      cell: ({ row }) =>
+        billing ? (
+          <InstanceBillingCell
+            billing={billing}
+            instanceSlug={row.original.slug}
+          />
+        ) : null,
+    };
+
+    return [
       {
         accessorKey: 'name',
         header: t('Pages.Customers.Detail.instances.columns.name'),
@@ -72,6 +88,9 @@ export const CustomerInstancesCard = ({
           <InstanceLifecycleStageBadge stage={row.original.lifecycleStage} />
         ),
       },
+      // The state of the subscription, where billing is on and the session may
+      // read it: the same badge as the list of instances.
+      ...(billing?.available ? [billingColumn] : []),
       {
         accessorKey: 'startLicenseDate',
         header: t('Pages.Customers.Detail.instances.columns.start'),
@@ -90,9 +109,8 @@ export const CustomerInstancesCard = ({
           </span>
         ),
       },
-    ],
-    [t],
-  );
+    ];
+  }, [billing, t]);
 
   return (
     <TableCard>
