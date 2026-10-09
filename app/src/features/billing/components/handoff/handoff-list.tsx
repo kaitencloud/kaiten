@@ -25,11 +25,12 @@ type HandoffListProps = {
 };
 
 /**
- * The invoices of the queue in one status as a list like the others: a search that
- * matches who an invoice is for, the invoice itself and the number the accounting
- * system booked it under, the parts of the queue beside it, the Filter menu with its
- * chips, the switch back to every invoice at the end of the toolbar, and a table sorted
- * and paged in the browser, oldest issue first as the queue is read. A person who
+ * The invoices of the queue in one status as a list like the others: the parts of the
+ * queue as tabs above the toolbar, as the customers and their instances have theirs, a
+ * search that matches who an invoice is for, the invoice itself and the number the
+ * accounting system booked it under, the Filter menu with its chips, the switch back to
+ * every invoice at the end of the toolbar, and a table sorted and paged in the browser,
+ * oldest issue first as the queue is read. A person who
  * may acknowledge gets the button on what waits, and the dialog it opens; once the
  * API has accepted it, the queue is read again and the invoice moves to the other
  * status.
@@ -53,48 +54,44 @@ export function HandoffList({ invoices, status }: HandoffListProps) {
   });
 
   return (
-    <>
-      <FilterTableLayout controller={controller}>
-        <FilterTableLayout.Toolbar>
-          <FilterTableLayout.ToolbarRow>
-            {/* The parts of the queue wrap under the search when the row is narrow,
-                instead of pushing the Filter button and the views past the page. */}
-            <FilterTableLayout.Search
-              className="sm:flex-wrap"
-              filterId={INVOICE_FILTER_IDS.search}
-            >
-              <HandoffQueueTabs />
-            </FilterTableLayout.Search>
-            <FilterTableLayout.Actions>
-              <InvoicesViewSwitcher />
-            </FilterTableLayout.Actions>
-          </FilterTableLayout.ToolbarRow>
-          <FilterTableLayout.Filters />
-        </FilterTableLayout.Toolbar>
+    <div className="flex h-full min-h-0 flex-col">
+      <HandoffQueueTabs />
+      <div className="min-h-0 flex-1">
+        <FilterTableLayout controller={controller}>
+          <FilterTableLayout.Toolbar>
+            <FilterTableLayout.ToolbarRow>
+              <FilterTableLayout.Search filterId={INVOICE_FILTER_IDS.search} />
+              <FilterTableLayout.Actions>
+                <InvoicesViewSwitcher />
+              </FilterTableLayout.Actions>
+            </FilterTableLayout.ToolbarRow>
+            <FilterTableLayout.Filters />
+          </FilterTableLayout.Toolbar>
 
-        <FilterTableLayout.Content>
-          <HandoffTable
-            bodyScrollable
-            className="h-full"
-            emptyMessage={
-              <HandoffEmpty
-                filtered={controller.hasActiveFilters}
-                onClearFilters={controller.resetAll}
-                status={status}
-              />
-            }
-            invoices={controller.filteredData}
-            onAcknowledge={canAcknowledge ? setTarget : undefined}
-            status={status}
-          />
-        </FilterTableLayout.Content>
-      </FilterTableLayout>
+          <FilterTableLayout.Content>
+            <HandoffTable
+              bodyScrollable
+              className="h-full"
+              emptyMessage={
+                <HandoffEmpty
+                  filtered={controller.hasActiveFilters}
+                  onClearFilters={controller.resetAll}
+                  status={status}
+                />
+              }
+              invoices={controller.filteredData}
+              onAcknowledge={canAcknowledge ? setTarget : undefined}
+              status={status}
+            />
+          </FilterTableLayout.Content>
+        </FilterTableLayout>
+      </div>
       {target ? (
         <AcknowledgeHandoffDialog
           invoice={target}
           onClose={() => setTarget(null)}
         />
       ) : null}
-    </>
+    </div>
   );
 }

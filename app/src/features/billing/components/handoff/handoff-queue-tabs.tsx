@@ -20,8 +20,8 @@ const TABS = {
 
 /**
  * The two parts of the queue, what waits and what was acknowledged, as links of the
- * handoff view told apart by its search. The control sits in the toolbar beside the
- * search, where the filters of a list are.
+ * handoff view told apart by its search. They sit above the toolbar, where the
+ * customers and their instances have their tabs.
  */
 export function HandoffQueueTabs() {
   const { t } = useTranslation();
@@ -34,5 +34,5 @@ export function HandoffQueueTabs() {
     to: '/invoices',
   }));
 
-  return <RouteTabs className="mt-0" listClassName="h-9" tabs={tabs} />;
+  return <RouteTabs tabs={tabs} />;
 }
