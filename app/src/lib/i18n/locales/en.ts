@@ -4088,8 +4088,9 @@ export default {
             PaidAtProvider: {
               title: 'Stripe reports this invoice as paid',
               description:
-                'A paid invoice cannot be voided. Kaiten has not read the payment yet: read the invoice from Stripe, and it will show as paid.',
+                'A paid invoice cannot be voided. Kaiten could not read the payment from Stripe just now: read the invoice again, and it will show as paid.',
               sync: 'Read it from Stripe',
+              notVoided: 'Not voided: Stripe reports this invoice as paid.',
             },
           },
           VoidThenRecompose: {
