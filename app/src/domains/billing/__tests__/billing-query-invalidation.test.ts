@@ -9,8 +9,12 @@ import {
   getInvoiceQueryKey,
   getLicenseQueryKey,
   getUpcomingInvoiceQueryKey,
+  getVoucherQueryKey,
   listInstanceAddonsQueryKey,
+  listInstanceVouchersQueryKey,
   listLicensePricesQueryKey,
+  listVoucherRedemptionsQueryKey,
+  listVouchersQueryKey,
 } from '@/api-client/@tanstack/react-query.gen';
 import {
   allHandoffOptions,
@@ -20,8 +24,10 @@ import {
   invalidateBillingSettingsQueries,
   invalidateInstanceAddonQueries,
   invalidateInstanceBillingQueries,
+  invalidateInstanceVoucherQueries,
   invalidateInvoiceQueries,
   invalidateLicensePriceQueries,
+  invalidateVoucherQueries,
   invoicesQueryOptions,
 } from '../queries';
 
@@ -64,6 +70,11 @@ describe('invalidateInstanceBillingQueries', () => {
       customerInvoices,
       instanceScopedInvoices,
       listInstanceAddonsQueryKey({ path }),
+      // A subscribe takes a voucher code: what the instance redeemed is read again.
+      listInstanceVouchersQueryKey({ path }),
+      // ... and the voucher it was of, which the response does not name, counted it.
+      getVoucherQueryKey({ path: { voucherId: 'v-1' } }),
+      listVoucherRedemptionsQueryKey({ path: { voucherId: 'v-1' } }),
       getEntitlementsUsageMetricsQueryKey({ path }),
       getInstanceQueryKey({ path }),
     ];
@@ -183,5 +194,74 @@ describe('invalidateBillingSettingsQueries', () => {
 
     expect(invalidated(client, getBillingSettingsQueryKey())).toBe(true);
     expect(invalidated(client, getBillingCapabilitiesQueryKey())).toBe(true);
+  });
+});
+
+describe('invalidateVoucherQueries', () => {
+  it('refreshes the list of vouchers, and the page and the redemptions of the one it is told', async () => {
+    const client = new QueryClient();
+    const touched = [
+      listVouchersQueryKey(),
+      getVoucherQueryKey({ path: { voucherId: 'v-1' } }),
+      listVoucherRedemptionsQueryKey({ path: { voucherId: 'v-1' } }),
+    ];
+    const untouched = [
+      getVoucherQueryKey({ path: { voucherId: 'v-2' } }),
+      listVoucherRedemptionsQueryKey({ path: { voucherId: 'v-2' } }),
+      getInstanceBillingQueryKey({ path }),
+    ];
+    seed(client, [...touched, ...untouched]);
+
+    await invalidateVoucherQueries(client, 'v-1');
+
+    for (const key of touched) {
+      expect(invalidated(client, key)).toBe(true);
+    }
+    for (const key of untouched) {
+      expect(invalidated(client, key)).toBe(false);
+    }
+  });
+
+  it('leaves the page of every voucher alone when it is not told which one changed', async () => {
+    const client = new QueryClient();
+    const list = listVouchersQueryKey();
+    const page = getVoucherQueryKey({ path: { voucherId: 'v-1' } });
+    seed(client, [list, page]);
+
+    await invalidateVoucherQueries(client);
+
+    expect(invalidated(client, list)).toBe(true);
+    expect(invalidated(client, page)).toBe(false);
+  });
+});
+
+describe('invalidateInstanceVoucherQueries', () => {
+  it('refreshes what an instance redeemed, what a boost changed, what the next boundary bills and the voucher, and only that instance', async () => {
+    const client = new QueryClient();
+    const touched = [
+      listInstanceVouchersQueryKey({ path }),
+      getEntitlementsUsageMetricsQueryKey({ path }),
+      getUpcomingInvoiceQueryKey({ path }),
+      listVouchersQueryKey(),
+      getVoucherQueryKey({ path: { voucherId: 'v-1' } }),
+      listVoucherRedemptionsQueryKey({ path: { voucherId: 'v-1' } }),
+    ];
+    const untouched = [
+      listInstanceVouchersQueryKey({ path: otherPath }),
+      getEntitlementsUsageMetricsQueryKey({ path: otherPath }),
+      getUpcomingInvoiceQueryKey({ path: otherPath }),
+      // Invoices already issued keep what they billed.
+      instanceCardInvoices,
+    ];
+    seed(client, [...touched, ...untouched]);
+
+    await invalidateInstanceVoucherQueries(client, 'initech-prod', 'v-1');
+
+    for (const key of touched) {
+      expect(invalidated(client, key)).toBe(true);
+    }
+    for (const key of untouched) {
+      expect(invalidated(client, key)).toBe(false);
+    }
   });
 });

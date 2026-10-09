@@ -97,6 +97,40 @@ describe('the lifecycle action of a version', () => {
   });
 });
 
+describe('the lifecycle action of a thing that is never put back on sale', () => {
+  // A voucher is published and archived: it says two transitions, and nothing blocks either.
+  it('says only the transitions it goes through, and is never blocked', async () => {
+    const onConfirm = vi.fn();
+    const keys: VersionLifecycleKeys<'archive' | 'publish'> = {
+      archive: word('archive'),
+      publish: word('publish'),
+    };
+    render(
+      <TooltipProvider>
+        <VersionLifecycleAction
+          appearance="card"
+          isPending={false}
+          keys={keys}
+          name="Launch discount"
+          onConfirm={onConfirm}
+          slug="voucher-launch"
+          transition="archive"
+          version={undefined}
+        />
+      </TooltipProvider>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'archive.label' }));
+    expect(await screen.findByText('archive.title')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'archive.confirm' }));
+
+    expect(onConfirm).toHaveBeenCalledExactlyOnceWith({
+      slug: 'voucher-launch',
+      transition: 'archive',
+    });
+  });
+});
+
 describe('the deletion of a draft', () => {
   const renderDelete = (offered = true) => {
     const onDelete = vi.fn();
