@@ -117,7 +117,7 @@ test('dev:mock answers every request of the vouchers, of what an instance redeem
       errors.push(message.text());
   });
 
-  // The catalogue of vouchers, and the opening of one by the code someone sends.
+  // The catalogue of vouchers.
   await page.goto('/vouchers');
   await expect(
     page.getByRole('heading', { name: 'Vouchers', level: 1 }),
@@ -125,9 +125,10 @@ test('dev:mock answers every request of the vouchers, of what an instance redeem
   await expect(
     page.getByRole('row').filter({ hasText: 'Launch discount' }),
   ).toBeVisible();
-  // A voucher with its code, what it does in words and the instances that redeemed it.
+  // A voucher with its code in the header, what it does in words and the instances that
+  // redeemed it.
   await page.goto('/vouchers/voucher-launch');
-  await expect(page.getByTestId('voucher-code')).not.toHaveValue('');
+  await expect(page.getByTestId('voucher-code')).not.toBeEmpty();
   await expect(page.getByTestId('voucher-summary')).toBeVisible();
   await expect(
     page.getByRole('row').filter({ hasText: 'globex-staging' }),
