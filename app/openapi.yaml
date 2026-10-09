@@ -3141,6 +3141,11 @@ components:
         maxQuantity:
           format: int32
           type: integer
+        name:
+          description: The add-on version's name
+          examples:
+            - Extra seats
+          type: string
         prices:
           description: "What the instance's subscription bills for it: the default FLAT_FEE price of the subscription's period and the ACTIVE metered prices. Empty when the instance is not billed."
           items:
@@ -3159,6 +3164,7 @@ components:
         - addonId
         - addonSlug
         - familySlug
+        - name
         - quantity
         - attachedAt
         - prices
@@ -3187,6 +3193,11 @@ components:
         maxQuantity:
           format: int32
           type: integer
+        name:
+          description: The add-on version's name
+          examples:
+            - Extra seats
+          type: string
         previousQuantity:
           description: The quantity before a quantity change
           format: int32
@@ -3210,6 +3221,7 @@ components:
         - addonId
         - addonSlug
         - familySlug
+        - name
         - quantity
         - attachedAt
         - prices
@@ -8674,6 +8686,59 @@ components:
       required:
         - name
         - tokens
+      type: object
+    SessionAddon:
+      additionalProperties: false
+      properties:
+        addonSlug:
+          examples:
+            - extra-seats-v1
+          type: string
+        familySlug:
+          examples:
+            - extra-seats
+          type: string
+        maxQuantity:
+          description: The most one instance may hold; null when unbounded
+          format: int32
+          type:
+            - integer
+            - "null"
+        name:
+          examples:
+            - Extra seats
+          type: string
+        prices:
+          description: "What it is billed: the flat fee of the subscription's period and the metered prices. Quantity changes are billed from the next renewal, with no proration."
+          items:
+            $ref: "#/components/schemas/PublicPrice"
+          type: array
+        quantity:
+          description: 0 when the add-on is not held
+          examples:
+            - 3
+          format: int32
+          type: integer
+      required:
+        - addonSlug
+        - familySlug
+        - name
+        - quantity
+        - maxQuantity
+        - prices
+      type: object
+    SessionAddonQuantity:
+      additionalProperties: false
+      properties:
+        quantity:
+          description: 0 removes the add-on; otherwise at most its maxQuantity
+          examples:
+            - 3
+          format: int32
+          minimum: 0
+          type: integer
+      required:
+        - quantity
       type: object
     SessionBoost:
       additionalProperties: false
@@ -22415,6 +22480,86 @@ paths:
       security:
         - publishableKey: []
       summary: Get the public catalogue
+      tags:
+        - public
+  /public/session/addons/{addonSlug}:
+    put:
+      description: Attaches the add-on to the session's instance, changes its quantity, or removes it with 0. Entitlements change at once; the subscription bills the quantity held at each renewal, with no proration. Setting the quantity held changes nothing. 409 .OtherVersionAttached when another version of the same add-on is held, .BoundaryPending while the period that ended is being closed (Retry-After); 422 .AddonNotPublic, .Incompatible, .QuantityExceedsMax, .CurrencyMismatch, .InstanceRequired.
+      operationId: setSessionAddonQuantity
+      parameters:
+        - description: "An add-on version: the public one, or the one the instance holds"
+          in: path
+          name: addonSlug
+          required: true
+          schema:
+            description: "An add-on version: the public one, or the one the instance holds"
+            examples:
+              - extra-seats-v1
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionAddonQuantity"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionAddon"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - customerSession: []
+      summary: Set how many of an add-on the instance holds
       tags:
         - public
   /public/session/billing/cancel:

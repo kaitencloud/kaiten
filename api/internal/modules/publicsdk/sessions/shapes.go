@@ -3,6 +3,7 @@ package sessions
 import (
 	"time"
 
+	addoncatalogue "github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
@@ -65,6 +66,29 @@ func InvoiceFrom(invoice invoices.Invoice) SessionInvoice {
 			Quantity: line.Quantity, UnitAmountDecimal: line.UnitAmountDecimal, Amount: line.Amount,
 			ServiceFrom: line.ServiceFrom, ServiceTo: line.ServiceTo,
 		})
+	}
+	return out
+}
+
+// SessionAddon is an add-on of the session's instance (§14.4): what the
+// customer holds of it and what it costs.
+type SessionAddon struct {
+	AddonSlug   string                         `json:"addonSlug" example:"extra-seats-v1"`
+	FamilySlug  string                         `json:"familySlug" example:"extra-seats"`
+	Name        string                         `json:"name" example:"Extra seats"`
+	Quantity    int32                          `json:"quantity" doc:"0 when the add-on is not held" example:"3"`
+	MaxQuantity *int32                         `json:"maxQuantity" doc:"The most one instance may hold; null when unbounded"`
+	Prices      []getpubliccatalog.PublicPrice `json:"prices" nullable:"false" doc:"What it is billed: the flat fee of the subscription's period and the metered prices. Quantity changes are billed from the next renewal, with no proration."`
+}
+
+// AddonFrom shows an instance's add-on as a session does.
+func AddonFrom(addon addoncatalogue.InstanceAddon) SessionAddon {
+	out := SessionAddon{
+		AddonSlug: addon.AddonSlug, FamilySlug: addon.FamilySlug, Name: addon.Name, Quantity: addon.Quantity,
+		MaxQuantity: addon.MaxQuantity, Prices: make([]getpubliccatalog.PublicPrice, 0, len(addon.Prices)),
+	}
+	for _, price := range addon.Prices {
+		out.Prices = append(out.Prices, getpubliccatalog.PriceFrom(price))
 	}
 	return out
 }

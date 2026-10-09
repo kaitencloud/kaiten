@@ -26,6 +26,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/setsessionaddonquantity"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/updatepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/validatesessionvoucher"
 )
@@ -60,6 +61,7 @@ type UseCases struct {
 	CancelSessionSubscription     *cancelsessionsubscription.UseCase
 	ReactivateSessionSubscription *reactivatesessionsubscription.UseCase
 	ValidateSessionVoucher        *validatesessionvoucher.UseCase
+	SetSessionAddonQuantity       *setsessionaddonquantity.UseCase
 }
 
 // Ports are the other modules' operations the session routes run: a checkout
@@ -77,6 +79,10 @@ type Ports struct {
 	Cancel          cancelsessionsubscription.Canceler
 	Reactivate      reactivatesessionsubscription.Reactivator
 	Vouchers        validatesessionvoucher.Validator
+	AddonList       setsessionaddonquantity.Lister
+	AddonAttach     setsessionaddonquantity.Attacher
+	AddonQuantity   setsessionaddonquantity.QuantitySetter
+	AddonDetach     setsessionaddonquantity.Detacher
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -111,5 +117,9 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		CancelSessionSubscription:     cancelsessionsubscription.NewUseCase(from.Cancel),
 		ReactivateSessionSubscription: reactivatesessionsubscription.NewUseCase(from.Reactivate),
 		ValidateSessionVoucher:        validatesessionvoucher.NewUseCase(from.Vouchers),
+		SetSessionAddonQuantity: setsessionaddonquantity.NewUseCase(setsessionaddonquantity.Deps{
+			UserProvider: svc.UserProvider, Catalog: catalog,
+			List: from.AddonList, Attach: from.AddonAttach, SetQuantity: from.AddonQuantity, Detach: from.AddonDetach,
+		}),
 	}
 }
