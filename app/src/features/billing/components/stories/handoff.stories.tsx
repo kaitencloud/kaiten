@@ -113,9 +113,10 @@ export const SearchedLikeTheOtherLists: Story = {
   },
 };
 
-// The queue is a view of the list of invoices: its toolbar holds the two parts of the
-// queue beside the search, and the switch back to every invoice on its right, where
-// the organization collects through NoOp and the session may read the queue.
+// The queue is a view of the list of invoices: the two parts of the queue are tabs
+// above its toolbar, and the switch back to every invoice is on the right of the
+// toolbar, where the organization collects through NoOp and the session may read the
+// queue.
 export const InTheToolbarOfTheInvoices: Story = {
   render: () => (
     <StorybookRouter
