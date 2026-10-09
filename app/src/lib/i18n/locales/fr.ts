@@ -716,7 +716,10 @@ export default {
               Voucher: {
                 label: 'Code promo',
                 placeholder: 'Collez le code',
-                hint: 'Facultatif. Le code est utilisé avec l’abonnement ; s’il ne peut pas l’être, l’abonnement n’est pas démarré.',
+                hint: 'Facultatif. Le code est utilisé avec l’abonnement ; s’il ne peut pas l’être, l’abonnement n’est pas démarré. Vous pouvez le vérifier avant, pour le prix choisi.',
+                check: 'Vérifier le code',
+                validNote:
+                  'Il peut être utilisé avec cet abonnement, sur le prix choisi. L’abonnement le vérifie de nouveau quand il démarre.',
               },
             },
             Subscription: {

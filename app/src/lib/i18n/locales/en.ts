@@ -703,7 +703,10 @@ export default {
               Voucher: {
                 label: 'Voucher code',
                 placeholder: 'Paste the code',
-                hint: 'Optional. The code is redeemed with the subscription; if it cannot be redeemed, the subscription is not started.',
+                hint: 'Optional. The code is redeemed with the subscription; if it cannot be redeemed, the subscription is not started. You can check it first, against the price chosen.',
+                check: 'Check the code',
+                validNote:
+                  'It can be redeemed with this subscription, on the price chosen. The subscription checks it again when it starts.',
               },
             },
             Subscription: {
