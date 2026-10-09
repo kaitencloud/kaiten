@@ -99,6 +99,23 @@ describe('the Stripe tile of the catalog', () => {
     expect(within(tile).getByRole('button', { name: 'Connect' })).toBeDisabled();
   });
 
+  it('says that the plan leaves Stripe out where billing is off for that very reason', async () => {
+    server.use(
+      handleGetBillingCapabilities({
+        body: {
+          ...billingCapabilitiesProfiles.stackWithStripe('notEntitled'),
+          disabledReason: 'NOT_ENTITLED',
+          enabled: false,
+        },
+      }),
+    );
+    renderCatalog();
+
+    const tile = await stripeTile();
+    await within(tile).findByText('Not included in your plan');
+    expect(within(tile).getByRole('button', { name: 'Connect' })).toBeDisabled();
+  });
+
   it('gives the generic reason where billing is not there, or the API does not list Stripe', async () => {
     renderCatalog();
 
