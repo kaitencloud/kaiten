@@ -41,12 +41,43 @@ export const BILLING_ACTIONS = {
   'subscription.schedulePlanChange': 'schedulePlanChange',
   'subscription.cancelPlanChange': 'cancelPlanChange',
   'subscription.updateTerms': 'updateInstanceBilling',
-  // What the cancellation of a subscription offers to do to its instance beside it.
+  // The add-ons an instance holds. The scopes are the instance's: an attachment is
+  // entitlement state of the instance, like its license, and not the catalogue's.
+  // A cancellation offers to detach them beside it.
   'instance.addons.list': 'listInstanceAddons',
+  'instance.addons.attach': 'attachInstanceAddon',
+  'instance.addons.setQuantity': 'setInstanceAddonQuantity',
   'instance.addons.detach': 'detachInstanceAddon',
   'instance.update': 'updateInstance',
+  // Every instance, read to find who holds an add-on version.
+  'instances.list': 'getInstances',
   // Listing a family of licenses in the public catalogue.
   'licenseFamily.setPublic': 'updateLicenseFamily',
+  // The families a license is sold in, and what a version of one grants: what the
+  // screens of the add-ons read to say which licenses an add-on fits.
+  'licenseFamilies.list': 'listLicenseFamilies',
+  'licenseGrants.list': 'getLicenseEntitlements',
+  // The entitlements an add-on version can be given.
+  'entitlements.list': 'listEntitlements',
+  // The add-on catalogue: families, versions and their lifecycle (scopes of the add-ons).
+  'addons.list': 'listAddonFamilies',
+  'addons.read': 'listAddons',
+  'addons.create': 'createAddon',
+  'addons.update': 'updateAddon',
+  'addons.delete': 'deleteAddon',
+  'addons.publish': 'publishAddon',
+  'addons.archive': 'archiveAddon',
+  'addons.unarchive': 'unarchiveAddon',
+  'addonFamily.setPublic': 'updateAddonFamily',
+  // What a version grants, what it is sold for and which licenses it fits.
+  'addonGrants.assign': 'assignAddonEntitlement',
+  'addonGrants.update': 'updateAddonEntitlement',
+  'addonGrants.unassign': 'unassignAddonEntitlement',
+  'addonPrices.create': 'createAddonPrice',
+  'addonPrices.deprecate': 'deprecateAddonPrice',
+  'addonCompatibility.list': 'listAddonCompatibility',
+  'addonCompatibility.set': 'setAddonCompatibility',
+  'addonCompatibility.remove': 'removeAddonCompatibility',
   // Invoices of the organization.
   'invoices.list': 'listInvoices',
   'invoices.export': 'exportInvoices',

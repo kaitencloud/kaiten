@@ -1,44 +1,18 @@
-import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
-import { type MouseEvent, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import type { License } from '@/api-client';
 import {
-  AlertDialog,
-  AlertDialogClose,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { useBillingCapabilities } from '@/domains/billing';
+  type RowActionAppearance,
+  useBillingCapabilities,
+  VersionDraftDeleteAction,
+} from '@/domains/billing';
 import { useDeleteLicenseDraft } from '../hooks/use-delete-license-draft';
+import { DELETE_DRAFT_KEYS } from '../utils/license-lifecycle-keys';
 import { getLicenseLifecycleState } from '../utils/license-lifecycle.utils';
 
-const APPEARANCES = {
-  card: { className: 'gap-1', variant: 'outline' },
-  row: {
-    className:
-      'gap-1 px-0 text-destructive-subtle-foreground hover:text-destructive-subtle-foreground',
-    variant: 'ghost',
-  },
-} as const;
-
 type LicenseDeleteDraftActionProps = {
-  appearance: keyof typeof APPEARANCES;
+  appearance: RowActionAppearance;
   license: Pick<License, 'lifecycleState' | 'name' | 'slug' | 'version'>;
   onDeleted?: () => void;
 };
-
-type Target = Pick<License, 'name' | 'version'> & { licenseSlug: string };
-
-function keepClickOffTheRow(event: MouseEvent) {
-  event.stopPropagation();
-}
 
 // Deletes a draft, confirmed first. Archiving is for versions that have been
 // on sale; a draft that will not be published is removed instead, with the
@@ -48,83 +22,27 @@ export function LicenseDeleteDraftAction({
   license,
   onDeleted,
 }: LicenseDeleteDraftActionProps) {
-  const { t } = useTranslation();
   // A draft is deleted with its prices, which only exist where billing is on.
   const { isEnabled: hasBilling } = useBillingCapabilities();
   const { deleteDraft, isPending } = useDeleteLicenseDraft(onDeleted);
-  const [target, setTarget] = useState<Target | null>(null);
-  const look = APPEARANCES[appearance];
-
-  if (getLicenseLifecycleState(license) !== 'DRAFT' && target === null) {
-    return null;
-  }
 
   return (
-    <AlertDialog
-      open={target !== null}
-      onOpenChange={(open) => {
-        setTarget(
-          open && license.slug
-            ? {
-                licenseSlug: license.slug,
-                name: license.name,
-                version: license.version,
-              }
-            : null,
-        );
+    <VersionDraftDeleteAction
+      appearance={appearance}
+      isPending={isPending}
+      keys={{
+        confirm: DELETE_DRAFT_KEYS.confirm,
+        description: hasBilling
+          ? DELETE_DRAFT_KEYS.descriptionBilling
+          : DELETE_DRAFT_KEYS.description,
+        label: DELETE_DRAFT_KEYS.label,
+        title: DELETE_DRAFT_KEYS.title,
       }}
-    >
-      <AlertDialogTrigger
-        render={
-          <Button
-            type="button"
-            variant={look.variant}
-            size="sm"
-            className={look.className}
-            disabled={isPending || !license.slug}
-            onClick={keepClickOffTheRow}
-          >
-            <Trash2 className="size-3" />
-            {t('Pages.Licenses.DeleteDraft.label')}
-          </Button>
-        }
-      />
-      <AlertDialogContent size="sm">
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            {t('Pages.Licenses.DeleteDraft.title', {
-              name: target?.name ?? license.name,
-              version: target?.version ?? license.version,
-            })}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {t(
-              hasBilling
-                ? 'Pages.Licenses.DeleteDraft.descriptionBilling'
-                : 'Pages.Licenses.DeleteDraft.description',
-            )}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel variant="outline">
-            {t('Common.cancel')}
-          </AlertDialogCancel>
-          <AlertDialogClose
-            render={
-              <AlertDialogAction
-                variant="destructive"
-                onClick={() => {
-                  if (target) {
-                    deleteDraft({ licenseSlug: target.licenseSlug });
-                  }
-                }}
-              >
-                {t('Pages.Licenses.DeleteDraft.confirm')}
-              </AlertDialogAction>
-            }
-          />
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      name={license.name}
+      offered={getLicenseLifecycleState(license) === 'DRAFT'}
+      onDelete={(licenseSlug) => deleteDraft({ licenseSlug })}
+      slug={license.slug}
+      version={license.version}
+    />
   );
 }

@@ -1,3 +1,8 @@
+export {
+  addonCompatibilityQueryOptions,
+  addonLicenseFamiliesQueryOptions,
+  addonPricesQueryOptions,
+} from './addon-query-options';
 export { billingSettingsQueryOptions } from './billing-settings';
 export {
   BILLING_CAPABILITIES_TIMEOUT_MS,
@@ -13,6 +18,7 @@ export {
 } from './invoices-query-options';
 export {
   invalidateBillingSettingsQueries,
+  invalidateInstanceAddonQueries,
   invalidateInstanceBillingQueries,
   invalidateInvoiceQueries,
   invalidateLicensePriceQueries,

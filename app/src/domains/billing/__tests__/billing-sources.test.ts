@@ -27,6 +27,7 @@ function sourceFiles(directory: string): string[] {
 
 const BILLING_CODE = [
   'domains/billing',
+  'features/addons',
   'features/billing',
   'features/licenses',
   'features/instances',

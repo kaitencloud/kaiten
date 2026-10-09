@@ -60,6 +60,31 @@ export async function invalidateInstanceBillingQueries(
 }
 
 /**
+ * The add-ons an instance holds changed (attached, taken off, held in another
+ * quantity): its add-ons, the effective values its entitlements show, since an
+ * attachment applies at once, and the invoice its next boundary will issue, which
+ * bills the quantity held then. Invoices already issued keep what they billed.
+ */
+export async function invalidateInstanceAddonQueries(
+  queryClient: QueryClient,
+  instanceSlug: string,
+) {
+  const path = { instanceSlug };
+
+  await Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: listInstanceAddonsQueryKey({ path }),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: getEntitlementsUsageMetricsQueryKey({ path }),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: getUpcomingInvoiceQueryKey({ path }),
+    }),
+  ]);
+}
+
+/**
  * An invoice changed (paid, written off, voided, recomposed, released from its
  * hold, acknowledged): its page when `invoiceId` is given, the organization's
  * list, the handoff queue, and the lists of every instance, since a recompose
