@@ -19,7 +19,7 @@ type WriterOff interface {
 
 // InvoiceWriteOff is why the invoice is written off.
 type InvoiceWriteOff struct {
-	Reason string `json:"reason" doc:"1 to 500 characters"`
+	Reason string `json:"reason,omitempty" doc:"1 to 500 characters; .ReasonRequired otherwise"`
 }
 
 type Request struct {

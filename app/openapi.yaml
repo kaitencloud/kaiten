@@ -2988,10 +2988,8 @@ components:
       additionalProperties: false
       properties:
         reason:
-          description: 1 to 500 characters
+          description: 1 to 500 characters; .ReasonRequired otherwise
           type: string
-      required:
-        - reason
       type: object
     Impact:
       additionalProperties: false
@@ -4497,19 +4495,15 @@ components:
       additionalProperties: false
       properties:
         reason:
-          description: 1 to 500 characters
+          description: 1 to 500 characters; .ReasonRequired otherwise
           type: string
-      required:
-        - reason
       type: object
     InvoiceWriteOff:
       additionalProperties: false
       properties:
         reason:
-          description: 1 to 500 characters
+          description: 1 to 500 characters; .ReasonRequired otherwise
           type: string
-      required:
-        - reason
       type: object
     IssuedInvoice:
       additionalProperties: false
@@ -4727,7 +4721,6 @@ components:
           description: "Where a buyer is sent when this version cannot be bought self-serve: an http(s) URL of at most 2048 characters (CreateLicense.InvalidSelfServeCtaUrl). Absent when there is none. On update, omit it to keep the stored value, or send an empty string to remove it."
           examples:
             - https://example.com/contact-sales
-          maxLength: 2048
           type: string
         slug:
           description: Optional URL-friendly identifier, unique per organization. When omitted, a new version of an existing family takes {familySlug}-v{version}, and any other license gets one generated from its name. A license that opens a new family gives the family its slug.
@@ -4742,7 +4735,6 @@ components:
           examples:
             - 14
           format: int32
-          minimum: 0
           type: integer
         type:
           description: Type of the license determining its capabilities and restrictions
@@ -9012,12 +9004,10 @@ components:
       additionalProperties: false
       properties:
         reason:
+          description: 1 to 500 characters; .ReasonRequired otherwise
           examples:
             - Granted by mistake
-          maxLength: 500
           type: string
-      required:
-        - reason
       type: object
     RolloutDate:
       additionalProperties: false
@@ -12817,15 +12807,12 @@ paths:
       description: "The invoices waiting for the organization's accounting system (PENDING), or already acknowledged by it, oldest issue first. Reading never leases: claim to take invoices. Requires billing to be enabled for the organization."
       operationId: listHandoff
       parameters:
-        - description: PENDING (the default) or ACKNOWLEDGED
+        - description: PENDING (the default) or ACKNOWLEDGED; .InvalidStatus otherwise
           explode: false
           in: query
           name: status
           schema:
-            description: PENDING (the default) or ACKNOWLEDGED
-            enum:
-              - PENDING
-              - ACKNOWLEDGED
+            description: PENDING (the default) or ACKNOWLEDGED; .InvalidStatus otherwise
             type: string
         - description: Opaque cursor from the previous page's nextCursor
           explode: false

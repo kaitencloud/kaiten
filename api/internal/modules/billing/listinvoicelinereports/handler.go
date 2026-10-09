@@ -60,7 +60,7 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID, lineID uuid.UUID, q Qu
 	dbq := u.deps.Queries(ctx)
 	row, err := dbq.GetInvoice(ctx, db.GetInvoiceParams{OrganizationID: user.OrganizationID, ID: invoiceID})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, notFound
+		return nil, kaitenerrors.NotFoundf(operation+".NotFound", "invoice %s not found", invoiceID)
 	}
 	if err != nil {
 		return nil, err
