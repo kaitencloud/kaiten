@@ -2,6 +2,7 @@ import type {
   EntitlementUsage,
   Instance,
   LicenseEntitlement,
+  Provenance,
 } from '@/api-client';
 import {
   buildCustomer,
@@ -9,6 +10,7 @@ import {
   buildLicense,
   TEST_USER,
 } from '../_support/fixtures';
+import { identityProvenance } from '../_support/model/effective-entitlement';
 import { InstanceAppModel } from '../_support/model/instance-app-model';
 import {
   ACME_LEGACY_OPEN_INVOICE_ID,
@@ -579,5 +581,194 @@ export function createBilledInstancesModel() {
     usageReports: {
       'acme-production': { 'api-calls': acmeProductionUsageReports() },
     },
+  });
+}
+
+/**
+ * Initech Production on Pro, and why each limit of its entitlements is what it is:
+ * - `traces`: ten thousand from the license, three add-ons of a thousand each, doubled
+ *   by a voucher, which makes 26,000;
+ * - `requests`: the license's grant alone, which the API sends with no composition;
+ * - `sso`: a flag, the same;
+ * - `seats`: granted only by add-ons, two units of five;
+ * - `storage-gb`: five hundred from the license, made unlimited by an add-on.
+ * The provenance is as the API sends it, null `number` and null `license` included, which
+ * its OpenAPI document does not declare.
+ */
+export function createProvenanceInstancesModel() {
+  const initech = buildCustomer({
+    id: 'customer-initech',
+    name: 'Initech',
+    slug: 'initech',
+  });
+  const pro = buildLicense({
+    description: 'Pro plan',
+    id: 'license-pro',
+    lifecycleState: 'PUBLISHED',
+    name: 'Pro',
+    slug: 'pro',
+    type: 'PAID',
+    version: '2026.1',
+  });
+  const grant = (
+    entitlementName: string,
+    entitlementSlug: string,
+    value: LicenseEntitlement['value'],
+  ) =>
+    buildLicenseEntitlement({
+      entitlementName,
+      entitlementSlug,
+      licenseId: pro.id,
+      licenseSlug: 'pro',
+      value,
+    });
+  const traces = grant('Traces', 'traces', { type: 'number', value: 10_000 });
+  const requests = grant('Requests', 'requests', {
+    type: 'number',
+    value: 5_000,
+  });
+  const sso = grant('SSO', 'sso', { type: 'boolean', value: true });
+  const storage = grant('Storage GB', 'storage-gb', {
+    type: 'number',
+    value: 500,
+  });
+
+  const addon = (
+    quantity: number,
+    value: number,
+  ): NonNullable<Provenance['addons']>[number] => ({
+    addonEntitlementId: 'addon-entitlement-1',
+    addonId: 'addon-1',
+    attachedAt: '2026-09-08T00:00:00.000Z',
+    instanceAddonId: 'instance-addon-1',
+    limitCapExceededOveragePercent: null,
+    overrideBehavior: 'ADD',
+    quantity,
+    value: { type: 'number', value },
+  });
+  const composition = (
+    composed: Partial<NonNullable<Provenance['number']>> & {
+      effective: number;
+    },
+  ): NonNullable<Provenance['number']> => ({
+    afterAddons: composed.effective,
+    boostAdd: null,
+    boostMultiply: null,
+    boostSet: null,
+    license: null,
+    unlimited: false,
+    ...composed,
+  });
+  const usage = (
+    entitlementId: string,
+    entitlementSlug: string,
+    served: Pick<EntitlementUsage, 'limit' | 'source' | 'value'> &
+      Partial<EntitlementUsage>,
+  ): EntitlementUsage => ({
+    entitlementId,
+    entitlementSlug,
+    licenseId: pro.id,
+    licenseSlug: 'pro',
+    ...served,
+  });
+
+  return new InstanceAppModel({
+    customers: [initech],
+    entitlementUsagesByInstance: {
+      'initech-prod': [
+        usage('entitlement-traces', 'traces', {
+          limit: { type: 'number', value: 26_000 },
+          limitCapExceededOveragePercent: 0,
+          provenance: {
+            addons: [addon(3, 1_000)],
+            boosts: [
+              {
+                effectiveExpiresAt: null,
+                effectiveStartsAt: '2026-09-15T00:00:00.000Z',
+                instanceVoucherId: 'instance-voucher-1',
+                modifierType: 'MULTIPLY',
+                modifierValue: 2,
+                redeemedAt: '2026-09-15T00:00:00.000Z',
+                voucherEntitlementGrantId: 'grant-1',
+                voucherId: 'voucher-1',
+              },
+            ],
+            license: {
+              licenseEntitlementId: 'pro-traces',
+              limitCapExceededOveragePercent: null,
+              value: { type: 'number', value: 10_000 },
+            },
+            number: composition({
+              afterAddons: 13_000,
+              boostMultiply: 2,
+              effective: 26_000,
+              license: 10_000,
+            }),
+          },
+          source: 'license',
+          value: { type: 'number', value: 4_200 },
+        }),
+        usage('entitlement-requests', 'requests', {
+          limit: { type: 'number', value: 5_000 },
+          limitCapExceededOveragePercent: 0,
+          provenance: identityProvenance(requests),
+          source: 'license',
+          value: { type: 'number', value: 1_200 },
+        }),
+        usage('entitlement-sso', 'sso', {
+          limit: { type: 'boolean', value: true },
+          provenance: identityProvenance(sso),
+          source: 'license',
+          value: { type: 'boolean', value: true },
+        }),
+        usage('entitlement-seats', 'seats', {
+          limit: { type: 'number', value: 10 },
+          limitCapExceededOveragePercent: 0,
+          provenance: {
+            addons: [addon(2, 5)],
+            boosts: [],
+            license: null,
+            number: composition({ effective: 10 }),
+          } as unknown as Provenance,
+          source: 'addon',
+          value: { type: 'number', value: 4 },
+        }),
+        usage('entitlement-storage', 'storage-gb', {
+          limit: { type: 'number', value: -1 },
+          limitCapExceededOveragePercent: -1,
+          provenance: {
+            addons: [addon(1, -1)],
+            boosts: [],
+            license: {
+              licenseEntitlementId: 'pro-storage-gb',
+              limitCapExceededOveragePercent: null,
+              value: { type: 'number', value: 500 },
+            },
+            number: composition({
+              afterAddons: -1,
+              effective: -1,
+              license: 500,
+              unlimited: true,
+            }),
+          },
+          source: 'license',
+          value: { type: 'number', value: 120 },
+        }),
+      ],
+    },
+    instances: [
+      buildInstance({
+        customerId: initech.id,
+        customerSlug: 'initech',
+        description: 'Initech production environment',
+        id: 'instance-initech-prod',
+        licenseId: pro.id,
+        licenseSlug: 'pro',
+        name: 'Initech Production',
+        slug: 'initech-prod',
+      }),
+    ],
+    licenseEntitlements: [traces, requests, sso, storage],
+    licenses: [pro],
   });
 }
