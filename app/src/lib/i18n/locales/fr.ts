@@ -650,6 +650,11 @@ export default {
                 startAtTooEarly:
                   'La facturation ne peut pas démarrer plus d’une période de facturation en arrière',
               },
+              Voucher: {
+                label: 'Code de voucher',
+                placeholder: 'Collez le code',
+                hint: 'Facultatif. Le code est utilisé avec l’abonnement ; s’il ne peut pas l’être, l’abonnement n’est pas démarré.',
+              },
             },
             Subscription: {
               title: 'Abonnement',
@@ -1015,6 +1020,81 @@ export default {
                   quantity: 'Saisissez un nombre entier d’unités, au moins 1',
                   quantityMax: 'Cet add-on autorise moins d’unités',
                 },
+              },
+            },
+            Vouchers: {
+              apply: 'Appliquer un code',
+              description:
+                'Les vouchers que cette instance a utilisés. Un boost modifie ses limites tant qu’il dure ; une remise réduit les factures qui lui sont émises.',
+              empty:
+                'Cette instance n’a utilisé aucun voucher. Appliquez un code pour lui donner un boost ou une remise.',
+              Redeem: {
+                breadcrumb: 'Appliquer un code',
+                title: 'Appliquer un code à {{name}}',
+                description:
+                  'Le code est d’abord vérifié : rien n’est utilisé tant que vous ne confirmez pas.',
+                doneTitle: 'Code appliqué à {{name}}',
+                doneDescription:
+                  'Ce qui suit est lu sur l’instance avant et après l’utilisation.',
+                code: 'Code de voucher',
+                codePlaceholder: 'Collez le code',
+                codeHint:
+                  'Lettres et chiffres ; la casse et les tirets n’ont pas d’importance.',
+                check: 'Vérifier le code',
+                confirm: 'Utiliser le code',
+                validTitle: '{{name}} peut être utilisé',
+                validNote:
+                  '{{instance}} remplit toutes les conditions de ce voucher. L’utiliser l’applique tout de suite ; seule une révocation l’annule.',
+                invalidTitle: 'Ce code ne peut pas être utilisé',
+                Errors: {
+                  code: 'Saisissez le code',
+                  codeTooLong: 'Un code compte 64 caractères au plus',
+                },
+              },
+              Reasons: {
+                NOT_FOUND: 'Aucun voucher n’a ce code.',
+                NOT_ACTIVE:
+                  'Ce voucher n’est pas actif : c’est un brouillon ou il a été archivé.',
+                NOT_YET_VALID:
+                  'Ce voucher ne peut pas encore être utilisé : sa période n’a pas commencé.',
+                EXPIRED: 'Ce voucher a expiré.',
+                EXHAUSTED:
+                  'Ce voucher a été utilisé autant de fois qu’il le permet.',
+                ALREADY_REDEEMED: 'Cette instance a déjà utilisé ce voucher.',
+                NOT_ELIGIBLE: 'Cette instance n’est pas éligible à ce voucher.',
+                CURRENCY_MISMATCH:
+                  'Cette remise est dans une autre devise que celle de l’abonnement.',
+              },
+              Rules: {
+                RESTRICTED_CUSTOMER:
+                  'Ce voucher est réservé à un autre client.',
+                LICENSE_NOT_APPLICABLE:
+                  'Ce voucher ne s’applique pas à la licence de cette instance.',
+                ADDON_NOT_APPLICABLE:
+                  'Ce voucher exige un add-on que cette instance ne détient pas.',
+                FIRST_TIME_ONLY:
+                  'Ce voucher est destiné aux clients qui n’ont encore payé aucune facture.',
+                ANNUAL_ONLY: 'Ce voucher exige un abonnement annuel.',
+                MINIMUM_SUBSCRIPTION_AMOUNT:
+                  'L’abonnement est en dessous du montant minimum que ce voucher exige.',
+                NOTHING_TO_BOOST:
+                  'Ce boost ne modifie rien de ce que détient l’instance : aucun des droits qu’il vise n’est un nombre que l’instance possède.',
+              },
+              Outcome: {
+                voucher: 'Voucher',
+                status: 'Statut',
+                until: 'S’applique jusqu’au',
+                applications: 'Remise sur',
+                invoices_one: 'La prochaine facture',
+                invoices_other: 'Les {{count}} prochaines factures',
+                everyInvoice: 'Toutes les factures',
+                changes: 'Ce qui a changé',
+                nextInvoice: 'La prochaine facture',
+                before: 'Avant',
+                after: 'Après',
+                discount: 'Remise',
+                discountNote:
+                  'La remise apparaîtra sur la prochaine facture émise pour cette instance.',
               },
             },
           },

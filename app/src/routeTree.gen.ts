@@ -115,6 +115,7 @@ import { Route as CustomersInstancesInstanceSlugBillingIndexRouteImport } from '
 import { Route as CustomersInstancesInstanceSlugBillingAttachAddonRouteImport } from './routes/customers/instances/$instanceSlug/billing/attach-addon'
 import { Route as CustomersInstancesInstanceSlugBillingCancelRouteImport } from './routes/customers/instances/$instanceSlug/billing/cancel'
 import { Route as CustomersInstancesInstanceSlugBillingPlanChangeRouteImport } from './routes/customers/instances/$instanceSlug/billing/plan-change'
+import { Route as CustomersInstancesInstanceSlugBillingRedeemVoucherRouteImport } from './routes/customers/instances/$instanceSlug/billing/redeem-voucher'
 import { Route as CustomersInstancesInstanceSlugBillingSubscribeRouteImport } from './routes/customers/instances/$instanceSlug/billing/subscribe'
 import { Route as CustomersInstancesInstanceSlugBillingTermsRouteImport } from './routes/customers/instances/$instanceSlug/billing/terms'
 import { Route as IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRouteImport } from './routes/integrations/service-accounts/$serviceAccountSlug/tokens/new/index'
@@ -711,6 +712,12 @@ const CustomersInstancesInstanceSlugBillingPlanChangeRoute =
     path: '/plan-change',
     getParentRoute: () => CustomersInstancesInstanceSlugBillingRouteRoute,
   } as any)
+const CustomersInstancesInstanceSlugBillingRedeemVoucherRoute =
+  CustomersInstancesInstanceSlugBillingRedeemVoucherRouteImport.update({
+    id: '/redeem-voucher',
+    path: '/redeem-voucher',
+    getParentRoute: () => CustomersInstancesInstanceSlugBillingRouteRoute,
+  } as any)
 const CustomersInstancesInstanceSlugBillingSubscribeRoute =
   CustomersInstancesInstanceSlugBillingSubscribeRouteImport.update({
     id: '/subscribe',
@@ -837,6 +844,7 @@ export interface FileRoutesByFullPath {
   '/customers/instances/$instanceSlug/billing/attach-addon': typeof CustomersInstancesInstanceSlugBillingAttachAddonRoute
   '/customers/instances/$instanceSlug/billing/cancel': typeof CustomersInstancesInstanceSlugBillingCancelRoute
   '/customers/instances/$instanceSlug/billing/plan-change': typeof CustomersInstancesInstanceSlugBillingPlanChangeRoute
+  '/customers/instances/$instanceSlug/billing/redeem-voucher': typeof CustomersInstancesInstanceSlugBillingRedeemVoucherRoute
   '/customers/instances/$instanceSlug/billing/subscribe': typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
   '/customers/instances/$instanceSlug/billing/terms': typeof CustomersInstancesInstanceSlugBillingTermsRoute
   '/customers/$customerSlug/instances/new/': typeof CustomersCustomerSlugInstancesNewIndexRoute
@@ -927,6 +935,7 @@ export interface FileRoutesByTo {
   '/customers/instances/$instanceSlug/billing/attach-addon': typeof CustomersInstancesInstanceSlugBillingAttachAddonRoute
   '/customers/instances/$instanceSlug/billing/cancel': typeof CustomersInstancesInstanceSlugBillingCancelRoute
   '/customers/instances/$instanceSlug/billing/plan-change': typeof CustomersInstancesInstanceSlugBillingPlanChangeRoute
+  '/customers/instances/$instanceSlug/billing/redeem-voucher': typeof CustomersInstancesInstanceSlugBillingRedeemVoucherRoute
   '/customers/instances/$instanceSlug/billing/subscribe': typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
   '/customers/instances/$instanceSlug/billing/terms': typeof CustomersInstancesInstanceSlugBillingTermsRoute
   '/customers/$customerSlug/instances/new': typeof CustomersCustomerSlugInstancesNewIndexRoute
@@ -1039,6 +1048,7 @@ export interface FileRoutesById {
   '/customers/instances/$instanceSlug/billing/attach-addon': typeof CustomersInstancesInstanceSlugBillingAttachAddonRoute
   '/customers/instances/$instanceSlug/billing/cancel': typeof CustomersInstancesInstanceSlugBillingCancelRoute
   '/customers/instances/$instanceSlug/billing/plan-change': typeof CustomersInstancesInstanceSlugBillingPlanChangeRoute
+  '/customers/instances/$instanceSlug/billing/redeem-voucher': typeof CustomersInstancesInstanceSlugBillingRedeemVoucherRoute
   '/customers/instances/$instanceSlug/billing/subscribe': typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
   '/customers/instances/$instanceSlug/billing/terms': typeof CustomersInstancesInstanceSlugBillingTermsRoute
   '/customers/$customerSlug/instances/new/': typeof CustomersCustomerSlugInstancesNewIndexRoute
@@ -1152,6 +1162,7 @@ export interface FileRouteTypes {
     | '/customers/instances/$instanceSlug/billing/attach-addon'
     | '/customers/instances/$instanceSlug/billing/cancel'
     | '/customers/instances/$instanceSlug/billing/plan-change'
+    | '/customers/instances/$instanceSlug/billing/redeem-voucher'
     | '/customers/instances/$instanceSlug/billing/subscribe'
     | '/customers/instances/$instanceSlug/billing/terms'
     | '/customers/$customerSlug/instances/new/'
@@ -1242,6 +1253,7 @@ export interface FileRouteTypes {
     | '/customers/instances/$instanceSlug/billing/attach-addon'
     | '/customers/instances/$instanceSlug/billing/cancel'
     | '/customers/instances/$instanceSlug/billing/plan-change'
+    | '/customers/instances/$instanceSlug/billing/redeem-voucher'
     | '/customers/instances/$instanceSlug/billing/subscribe'
     | '/customers/instances/$instanceSlug/billing/terms'
     | '/customers/$customerSlug/instances/new'
@@ -1353,6 +1365,7 @@ export interface FileRouteTypes {
     | '/customers/instances/$instanceSlug/billing/attach-addon'
     | '/customers/instances/$instanceSlug/billing/cancel'
     | '/customers/instances/$instanceSlug/billing/plan-change'
+    | '/customers/instances/$instanceSlug/billing/redeem-voucher'
     | '/customers/instances/$instanceSlug/billing/subscribe'
     | '/customers/instances/$instanceSlug/billing/terms'
     | '/customers/$customerSlug/instances/new/'
@@ -2136,6 +2149,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomersInstancesInstanceSlugBillingPlanChangeRouteImport
       parentRoute: typeof CustomersInstancesInstanceSlugBillingRouteRoute
     }
+    '/customers/instances/$instanceSlug/billing/redeem-voucher': {
+      id: '/customers/instances/$instanceSlug/billing/redeem-voucher'
+      path: '/redeem-voucher'
+      fullPath: '/customers/instances/$instanceSlug/billing/redeem-voucher'
+      preLoaderRoute: typeof CustomersInstancesInstanceSlugBillingRedeemVoucherRouteImport
+      parentRoute: typeof CustomersInstancesInstanceSlugBillingRouteRoute
+    }
     '/customers/instances/$instanceSlug/billing/subscribe': {
       id: '/customers/instances/$instanceSlug/billing/subscribe'
       path: '/subscribe'
@@ -2252,6 +2272,7 @@ interface CustomersInstancesInstanceSlugBillingRouteRouteChildren {
   CustomersInstancesInstanceSlugBillingAttachAddonRoute: typeof CustomersInstancesInstanceSlugBillingAttachAddonRoute
   CustomersInstancesInstanceSlugBillingCancelRoute: typeof CustomersInstancesInstanceSlugBillingCancelRoute
   CustomersInstancesInstanceSlugBillingPlanChangeRoute: typeof CustomersInstancesInstanceSlugBillingPlanChangeRoute
+  CustomersInstancesInstanceSlugBillingRedeemVoucherRoute: typeof CustomersInstancesInstanceSlugBillingRedeemVoucherRoute
   CustomersInstancesInstanceSlugBillingSubscribeRoute: typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
   CustomersInstancesInstanceSlugBillingTermsRoute: typeof CustomersInstancesInstanceSlugBillingTermsRoute
   CustomersInstancesInstanceSlugBillingIndexRoute: typeof CustomersInstancesInstanceSlugBillingIndexRoute
@@ -2265,6 +2286,8 @@ const CustomersInstancesInstanceSlugBillingRouteRouteChildren: CustomersInstance
       CustomersInstancesInstanceSlugBillingCancelRoute,
     CustomersInstancesInstanceSlugBillingPlanChangeRoute:
       CustomersInstancesInstanceSlugBillingPlanChangeRoute,
+    CustomersInstancesInstanceSlugBillingRedeemVoucherRoute:
+      CustomersInstancesInstanceSlugBillingRedeemVoucherRoute,
     CustomersInstancesInstanceSlugBillingSubscribeRoute:
       CustomersInstancesInstanceSlugBillingSubscribeRoute,
     CustomersInstancesInstanceSlugBillingTermsRoute:

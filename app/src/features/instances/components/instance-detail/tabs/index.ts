@@ -4,6 +4,7 @@ export {
   CancelSubscriptionDialog,
   InstanceDetailBillingTab,
   PaymentTermsDialog,
+  RedeemVoucherDialog,
   SchedulePlanChangeDialog,
   SubscribeInstanceDialog,
 } from './billing';

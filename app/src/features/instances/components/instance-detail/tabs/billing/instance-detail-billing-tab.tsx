@@ -13,6 +13,7 @@ import { SubscriptionActions } from './subscription-actions';
 import { SubscriptionCard } from './subscription-card';
 import { SubscriptionNotices } from './notices/subscription-notices';
 import { UpcomingInvoiceCard } from './upcoming-invoice-card';
+import { InstanceVouchersCard } from './vouchers';
 
 type InstanceDetailBillingTabProps = {
   /** A dialog the route opens over the tab, such as the one that subscribes. */
@@ -23,7 +24,8 @@ type InstanceDetailBillingTabProps = {
  * The billing of one instance: whether it is subscribed and how, what its next
  * boundary will issue, and the invoices it has had; what the subscription is going
  * through (a trial, an overdue invoice, a cancellation or a plan change waiting for
- * the boundary) is said above its card, and what may be done to it under the card.
+ * the boundary) is said above its card, and what may be done to it under the card; what
+ * it holds besides, the add-ons and the vouchers it redeemed, follows.
  * It reads its own data, so that a refusal of billing (the scope is missing, the API
  * is down) is shown here, with a way to ask again, and never blanks the page around
  * it. An instance that was never subscribed is a state of the tab, not an error, and
@@ -67,6 +69,7 @@ export function InstanceDetailBillingTab({
         <div className="space-y-4 lg:space-y-6">
           <NotSubscribedCard instanceSlug={instanceSlug} license={license} />
           <InstanceAddonsCard instanceSlug={instanceSlug} subscription={null} />
+          <InstanceVouchersCard instanceSlug={instanceSlug} />
         </div>
       );
     }
@@ -100,6 +103,9 @@ export function InstanceDetailBillingTab({
             instanceSlug={instanceSlug}
             subscription={subscription}
           />
+        </div>
+        <div className="xl:col-span-2">
+          <InstanceVouchersCard instanceSlug={instanceSlug} />
         </div>
         <div className="xl:col-span-2">
           <InstanceInvoicesCard instanceSlug={instanceSlug} />

@@ -21,9 +21,10 @@ const ADDONS_ERROR_KEY =
 /**
  * What the subscribe dialog edits: the price to pin the subscription to, the
  * payment terms of this contract when they are not the organization's, the trial
- * it starts with, when billing starts when it is not now, and the add-ons to start
- * with. An empty number reads as `NaN`, as it does in every number field of the
- * console, and an empty time is "now".
+ * it starts with, when billing starts when it is not now, the add-ons to start
+ * with, and a voucher code to redeem with it. An empty number reads as `NaN`, as it
+ * does in every number field of the console, an empty time is "now", and an empty
+ * code is no voucher.
  */
 export const subscribeFormSchema = zNewSubscription
   .pick({ basePriceId: true })
@@ -65,6 +66,9 @@ export const subscribeFormSchema = zNewSubscription
         (text) => text === '' || dateTimeInputToInstant(text) !== null,
         'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.startAt',
       ),
+    // The code is checked by the API alone: whether it exists, whether it is in force and
+    // whether this instance may redeem it are its to say, and it says which, in words.
+    voucherCode: z.string(),
   });
 
 export type SubscribeFormValues = z.infer<typeof subscribeFormSchema>;
@@ -75,6 +79,7 @@ export const initialSubscribeFormValues: SubscribeFormValues = {
   daysUntilDue: Number.NaN,
   startAt: '',
   trialDays: 0,
+  voucherCode: '',
 };
 
 export type SubscribeFormErrors = Partial<
@@ -151,11 +156,11 @@ export function getSubscribeFormErrors(
 /**
  * The body of the subscription. NoOp is the only provider of a release that ships
  * no payment provider, and it is named so that the request says whose invoices
- * these are; the collection method and a voucher are left out, since this release
- * takes none. The add-ons the person included are sent with it, each with its
- * units: the API attaches them with the subscription or refuses it as a whole.
- * What is empty is not sent: the terms are the organization's, and billing starts
- * now.
+ * these are; the collection method is left out, since this release takes none. The
+ * add-ons the person included are sent with it, each with its units: the API attaches
+ * them with the subscription or refuses it as a whole, and so does it a voucher code
+ * that cannot be redeemed. What is empty is not sent: the terms are the organization's,
+ * billing starts now, and there is no voucher.
  *
  * The trial is always said when the release has trials: left out, the API takes
  * the one the license carries, and the person has just read and changed it. A price
@@ -173,6 +178,7 @@ export function subscribeValuesToBody(
     addonSlug,
     quantity,
   }));
+  const voucherCode = values.voucherCode.trim();
 
   return {
     ...(addOns.length > 0 ? { addOns } : {}),
@@ -183,6 +189,7 @@ export function subscribeValuesToBody(
     providerKind: 'NOOP',
     startAt: dateTimeInputToInstant(values.startAt) ?? undefined,
     ...(trials ? { trialDays: getTrialDays(values, basePrice) } : {}),
+    ...(voucherCode === '' ? {} : { voucherCode }),
   };
 }
 
@@ -222,5 +229,8 @@ export const SUBSCRIBE_REFUSAL_FIELDS = {
     daysUntilDue: 'daysUntilDue',
     startAt: 'startAt',
     trialDays: 'trialDays',
+    // A code the subscribe could not redeem refuses the whole subscription, and says why
+    // on the code: no such code, not in force, not for this customer, already redeemed.
+    voucherCode: 'voucherCode',
   },
 } as const;
