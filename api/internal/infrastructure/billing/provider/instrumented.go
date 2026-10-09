@@ -10,7 +10,9 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // callDuration is billing_provider_call_duration_seconds (§19.1): every call
@@ -42,6 +44,16 @@ func instrument(adapter Adapter) Adapter {
 }
 
 func (a instrumented) observe(ctx context.Context, operation string, start time.Time, err error) {
+	// The billing.provider span (§19.1), dated from the call's start.
+	_, span := otel.Tracer("kaiten.billing").Start(ctx, "billing.provider", trace.WithTimestamp(start),
+		trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(
+			attribute.String("billing.provider", string(a.Kind())), attribute.String("billing.operation", operation)))
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, string(ClassOf(err)))
+	}
+	span.End()
+
 	h := callDuration()
 	if h == nil {
 		return

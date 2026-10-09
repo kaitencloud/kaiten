@@ -16,6 +16,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/money"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
@@ -84,7 +88,19 @@ func New(deps access.Deps, grace time.Duration) *Closer {
 // period's base in advance -- holds it when the usage journal fails a check,
 // issues it otherwise, and advances the period. actor is recorded as the
 // subscription's writer.
-func (c *Closer) CloseOne(ctx context.Context, subscriptionID, actor uuid.UUID) (Outcome, error) {
+func (c *Closer) CloseOne(ctx context.Context, subscriptionID, actor uuid.UUID) (outcome Outcome, err error) {
+	ctx, span := otel.Tracer("kaiten.billing").Start(ctx, "billing.close",
+		trace.WithAttributes(attribute.String("instance_billing.id", subscriptionID.String())))
+	defer func() {
+		if outcome.Invoice != nil {
+			span.SetAttributes(attribute.String("invoice.kind", outcome.Invoice.Kind))
+		}
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "close failed")
+		}
+		span.End()
+	}()
 	q := c.deps.Queries(ctx)
 	sub, err := q.GetSubscriptionByID(ctx, subscriptionID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -115,7 +131,6 @@ func (c *Closer) CloseOne(ctx context.Context, subscriptionID, actor uuid.UUID) 
 		}
 	}
 
-	var outcome Outcome
 	err = c.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		var err error
 		outcome, err = c.closeLocked(ctx, subscriptionID, boundary, actor)
