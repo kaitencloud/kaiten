@@ -47,7 +47,7 @@ type ProviderCapabilities struct {
 // PublicSurface is the self-serve surface for the organization's own
 // customers.
 type PublicSurface struct {
-	Enabled bool `json:"enabled"`
+	Enabled bool `json:"enabled" doc:"Whether publishable keys and customer sessions work for the organization: billing is on for it"`
 }
 
 // BillingFeatures are the parts of billing a release ships.
@@ -124,12 +124,12 @@ func (u *UseCase) Execute(ctx context.Context) (*BillingCapabilities, error) {
 		Enabled:                     true,
 		DisabledReason:              nil,
 		Providers:                   providers,
-		PublicSurface:               PublicSurface{Enabled: false},
+		PublicSurface:               PublicSurface{Enabled: true},
 		UsageHistoryRetentionMonths: nil,
 		UsageIdempotencyWindowDays:  int(u.idempotencyWindow / (24 * time.Hour)),
 		Features: BillingFeatures{
 			Stripe: true, Lifecycle: true, Trials: true, Addons: true, Vouchers: true,
-			ChargeAutomatically: false, PublicSurface: false,
+			ChargeAutomatically: true, PublicSurface: true,
 		},
 	}
 	if err := u.deps.Gate.Require(ctx, user.OrganizationID); err != nil {
@@ -142,7 +142,7 @@ func (u *UseCase) Execute(ctx context.Context) (*BillingCapabilities, error) {
 		default:
 			return nil, err
 		}
-		out.Enabled, out.DisabledReason = false, &reason
+		out.Enabled, out.DisabledReason, out.PublicSurface.Enabled = false, &reason, false
 	}
 	if months, known := u.deps.Usage.RetentionMonths(ctx, user.OrganizationID); known && months > 0 {
 		out.UsageHistoryRetentionMonths = &months

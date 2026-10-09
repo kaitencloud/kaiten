@@ -8021,6 +8021,7 @@ components:
       additionalProperties: false
       properties:
         enabled:
+          description: "Whether publishable keys and customer sessions work for the organization: billing is on for it"
           type: boolean
       required:
         - enabled

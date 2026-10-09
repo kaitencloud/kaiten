@@ -104,10 +104,14 @@ func TestBillingCapabilities(t *testing.T) {
 	require.Equal(t, "VAULT_NOT_CONFIGURED", *on.Providers[1].UnavailableReason)
 	require.False(t, on.Providers[1].Connected)
 	require.True(t, on.Features.Stripe)
+	require.True(t, on.Features.ChargeAutomatically)
+	require.True(t, on.Features.PublicSurface)
+	require.True(t, on.PublicSurface.Enabled)
 
 	off := read(t, callOn(t, disabledServer, "GET", "/api/billing/capabilities", nil))
 	require.False(t, off.Enabled)
 	require.Equal(t, "DEPLOYMENT_DISABLED", *off.DisabledReason)
+	require.False(t, off.PublicSurface.Enabled, "keys and sessions are billing routes")
 
 	entitlements.set(t, false, false)
 	unsold := read(t, call(t, "GET", "/api/billing/capabilities", nil))
