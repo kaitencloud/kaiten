@@ -37,6 +37,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
@@ -137,7 +141,16 @@ func (p *Pusher) pushingKinds() []string {
 // finalize forces the finalization of a draft the provider's settings would
 // leave for review (retry-push). A failure is recorded on the invoice and
 // returned.
-func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) error {
+func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) (err error) {
+	ctx, span := otel.Tracer("kaiten.billing").Start(ctx, "billing.push",
+		trace.WithAttributes(attribute.String("invoice.id", invoiceID.String())))
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "push failed")
+		}
+		span.End()
+	}()
 	q := p.deps.Queries(ctx)
 	row, err := q.GetInvoiceByID(ctx, invoiceID)
 	if errors.Is(err, pgx.ErrNoRows) {
