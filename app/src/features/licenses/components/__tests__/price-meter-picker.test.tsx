@@ -190,7 +190,7 @@ describe('PriceMeterPicker', () => {
         'Le dépassement ne peut pas survenir sur cet octroi : sa limite est dure ou illimitée.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText(/se vend comme une option/)).toBeInTheDocument();
+    expect(screen.getByText(/se vend comme un add-on/)).toBeInTheDocument();
     await testI18n.changeLanguage('en');
   });
 });
@@ -251,7 +251,7 @@ describe('the way a stock is sold, said under the entitlements that cannot be me
     );
     renderPicker('USAGE_BASED');
 
-    expect(await screen.findByRole('link', { name: 'Voir les options' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'Voir les add-ons' })).toHaveAttribute(
       'href',
       '/addons',
     );

@@ -23,12 +23,12 @@ test('dev:mock boots its own world and reads it after reload without a stack', a
   expect(errors).toEqual([]);
 });
 
-test('dev:mock answers every request of the billing screens of the instances, the customers and the settings', async ({
+test('dev:mock answers every request of the billing screens of the instances, the customers, the add-ons and the settings', async ({
   page,
 }) => {
-  // Six screens, each compiled by the dev server on its first visit: a cold
+  // Eleven screens, each compiled by the dev server on its first visit: a cold
   // server on a CI runner takes longer than the default 30 seconds.
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => {
@@ -45,6 +45,33 @@ test('dev:mock answers every request of the billing screens of the instances, th
   await page.goto('/customers/instances/gamma-production/billing/subscribe');
   await expect(
     page.getByRole('dialog').getByRole('combobox', { name: /Base price/ }),
+  ).toBeVisible();
+  // The add-ons an instance holds, and the dialog that adds one with the price of each.
+  await page.goto('/customers/instances/globex-staging/billing');
+  await expect(page.getByTestId('instance-addons')).toBeVisible();
+  await page.goto('/customers/instances/globex-staging/billing/attach-addon');
+  await page
+    .getByRole('dialog')
+    .getByRole('combobox', { name: /Add-on/ })
+    .click();
+  await page.getByRole('option').first().click();
+  await expect(page.getByTestId('attach-addon-details')).toBeVisible();
+  // The catalogue of add-ons, and what a version grants, is sold for and fits.
+  await page.goto('/addons');
+  await expect(
+    page.getByRole('heading', { name: 'Add-ons', level: 1 }),
+  ).toBeVisible();
+  await page.goto('/addons/extra-seats/entitlements');
+  await expect(
+    page.getByRole('row').filter({ hasText: 'Seats' }),
+  ).toBeVisible();
+  await page.goto('/addons/extra-seats/prices');
+  await expect(
+    page.getByRole('row').filter({ hasText: 'Extra seat, monthly' }),
+  ).toBeVisible();
+  await page.goto('/addons/extra-seats/compatibility');
+  await expect(
+    page.getByRole('list', { name: 'License families' }),
   ).toBeVisible();
   // The journal of usage of a counter, a page of it.
   await page.goto(
