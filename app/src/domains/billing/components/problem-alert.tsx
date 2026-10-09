@@ -49,7 +49,9 @@ type ProblemAlertProps = {
  * with the `code` in a monospace hint. A few failures change what is offered:
  * a missing scope is a banner that names it, a 503 says nothing was changed and
  * offers a retry, never an optimistic result, and so does a period that is being
- * closed (409 `*.BoundaryPending`), which a minute settles.
+ * closed (409 `*.BoundaryPending`), which a minute settles, and so does a limit on
+ * the requests (429 `*.RateLimited`), which says it is temporary: the voucher codes
+ * checked in a dialog are limited to sixty a minute.
  */
 export function ProblemAlert({
   autoFocus = false,
@@ -74,7 +76,9 @@ export function ProblemAlert({
   const hasDetail = Boolean(problem.detail);
   // Nothing was changed by either, and asking again is what they invite.
   const retryable =
-    (problem.kind === 'transient' || problem.kind === 'boundary-pending') &&
+    (problem.kind === 'transient' ||
+      problem.kind === 'boundary-pending' ||
+      problem.kind === 'rate-limited') &&
     onRetry;
 
   return (
@@ -103,6 +107,9 @@ export function ProblemAlert({
         ) : null}
         {problem.kind === 'boundary-pending' ? (
           <p>{t('Features.Billing.Problems.boundaryPending')}</p>
+        ) : null}
+        {problem.kind === 'rate-limited' ? (
+          <p>{t('Features.Billing.Problems.rateLimited')}</p>
         ) : null}
         {problem.provider &&
         (problem.provider.code || problem.provider.param) ? (

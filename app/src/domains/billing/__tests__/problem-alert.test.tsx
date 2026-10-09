@@ -120,6 +120,47 @@ describe('ProblemAlert', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
+  it('says a limit on the requests is temporary, keeps the API’s words, and offers a retry', async () => {
+    const onRetry = vi.fn();
+    render(
+      <ProblemAlert
+        error={apiError(429, {
+          code: 'ValidateVoucher.RateLimited',
+          detail: 'too many voucher codes checked: try again later',
+          status: 429,
+        })}
+        onRetry={onRetry}
+      />,
+    );
+
+    expect(
+      screen.getByText('too many voucher codes checked: try again later'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Too many requests were sent in a short time. This is temporary: try again in a minute.',
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('says a limit on the requests is temporary in French too', async () => {
+    await testI18n.changeLanguage('fr');
+    render(
+      <ProblemAlert
+        error={apiError(429, { code: 'ValidateVoucher.RateLimited', status: 429 })}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        'Trop de requêtes ont été envoyées en peu de temps. C’est temporaire : réessayez dans une minute.',
+      ),
+    ).toBeInTheDocument();
+    await testI18n.changeLanguage('en');
+  });
+
   it('says it is the provider that is unreachable when it is', () => {
     render(
       <ProblemAlert

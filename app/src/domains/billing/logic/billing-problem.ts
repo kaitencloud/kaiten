@@ -23,6 +23,8 @@ export type BillingProblemKind =
   | 'transient'
   /** 409 `*.BoundaryPending`: the period is closing; try again after `retryAfterMs`. */
   | 'boundary-pending'
+  /** 429 `*.RateLimited`: too many requests for now, which a minute settles; nothing was changed. */
+  | 'rate-limited'
   /** 422 `*.OutsideRetention`: the usage asked for is no longer kept. */
   | 'outside-retention'
   /** Anything else: the `detail` says it. */
@@ -54,7 +56,7 @@ export type BillingProblem = {
   missingScope?: string;
   /** For `transient`: the payment provider is the one that cannot be reached. */
   providerUnavailable?: boolean;
-  /** For `boundary-pending`: how long to wait before the one retry. */
+  /** For `boundary-pending` and `rate-limited`: how long to wait before asking again. */
   retryAfterMs?: number;
   /**
    * When the payment provider is what refused: `not-connected` (it is not connected, or
@@ -186,6 +188,9 @@ function classify(
   if (code?.endsWith('.BoundaryPending')) {
     return 'boundary-pending';
   }
+  if (status === 429 || code?.endsWith('.RateLimited')) {
+    return 'rate-limited';
+  }
   if (code?.endsWith('.OutsideRetention')) {
     return 'outside-retention';
   }
@@ -265,6 +270,7 @@ export function handleBillingProblem(error: unknown): BillingProblem {
         providerUnavailable: code?.endsWith('.ProviderUnavailable') ?? false,
       };
     case 'boundary-pending':
+    case 'rate-limited':
       return { ...read, retryAfterMs: getRetryAfterMs(error) };
     case 'outside-retention':
       return {
