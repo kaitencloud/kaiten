@@ -13,21 +13,28 @@ export type HealthItemId =
 
 /**
  * The filter of the list of invoices that lists what an item counts: a few of the
- * filters the list opens with (`?held=true`). An item that counts something the list
- * has no filter for (an invoice whose provider disagrees, a subscription) has none,
- * and is a figure and no link.
+ * filters the list opens with (`?held=true`).
  */
 export type HealthItemFilter = {
-  handoffStatus?: 'PENDING';
   held?: true;
   overdue?: true;
   status?: 'PUSH_FAILED';
 };
 
+/**
+ * Where a count leads to, to see what it counts: the list of invoices opened on a
+ * filter, or the queue of the accounting system, which is the view of what waits for it.
+ * An item that counts something nothing lists (an invoice whose provider disagrees, a
+ * period, a subscription) has none, and is a figure and no link.
+ */
+export type HealthLink =
+  | { search: HealthItemFilter; to: '/billing/invoices' }
+  | { to: '/billing/handoff' };
+
 export type HealthItem = {
   count: number;
-  filter?: HealthItemFilter;
   id: HealthItemId;
+  link?: HealthLink;
   /**
    * How long the oldest of what is counted has waited, as an instant: when an
    * invoice failed to push, when one was issued into the queue, when a period
@@ -48,23 +55,27 @@ export function getHealthItems(health: BillingHealth): HealthItem[] {
   return [
     {
       count: health.heldInvoices.count,
-      filter: { held: true },
       id: 'held',
+      link: { search: { held: true }, to: '/billing/invoices' },
       reasons: Object.entries(health.heldInvoices.byReason)
         .filter(([, count]) => count > 0)
         .map(([reason, count]) => ({ count, reason })),
     },
     {
       count: health.pushFailures.count,
-      filter: { status: 'PUSH_FAILED' },
       id: 'pushFailures',
+      link: { search: { status: 'PUSH_FAILED' }, to: '/billing/invoices' },
       oldestAt: health.pushFailures.oldestFailedAt,
     },
-    { count: health.overdueInvoices, filter: { overdue: true }, id: 'overdue' },
+    {
+      count: health.overdueInvoices,
+      id: 'overdue',
+      link: { search: { overdue: true }, to: '/billing/invoices' },
+    },
     {
       count: health.handoff.pending,
-      filter: { handoffStatus: 'PENDING' },
       id: 'handoff',
+      link: { to: '/billing/handoff' },
       oldestAt: health.handoff.oldestPendingIssuedAt,
     },
     { count: health.reconciliationMismatches30d, id: 'mismatches' },

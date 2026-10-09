@@ -174,7 +174,7 @@ describe('the health of billing', () => {
     );
   });
 
-  it('counts each, and leads the ones the list of invoices can filter to that filter', async () => {
+  it('counts each, and leads the ones something lists to it', async () => {
     serveHealth(NEEDS_ATTENTION);
     renderWithClient(<BillingHealthCard />);
 
@@ -197,10 +197,10 @@ describe('the health of billing', () => {
       within(await tile('handoff')).getByRole('link', {
         name: 'Waiting for your accounting system',
       }),
-    ).toHaveAttribute('href', '/billing/invoices?handoffStatus=PENDING');
+    ).toHaveAttribute('href', '/billing/handoff');
   });
 
-  it('shows a count that the list has no filter for as a figure and no link', async () => {
+  it('shows a count that nothing lists as a figure and no link', async () => {
     serveHealth(NEEDS_ATTENTION);
     renderWithClient(<BillingHealthCard />);
 

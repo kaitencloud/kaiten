@@ -30,7 +30,7 @@ describe('what the health of billing counts', () => {
     ).toBe(false);
   });
 
-  it('leads each count that the list of invoices can filter to that filter, and the others to none', () => {
+  it('leads each count that something lists to it, and the others to none', () => {
     const items = getHealthItems(
       health({
         closeBacklog: { count: 1 },
@@ -44,20 +44,27 @@ describe('what the health of billing counts', () => {
     );
     const byId = Object.fromEntries(items.map((item) => [item.id, item]));
 
-    expect(byId.held).toMatchObject({ count: 3, filter: { held: true } });
+    expect(byId.held).toMatchObject({
+      count: 3,
+      link: { search: { held: true }, to: '/billing/invoices' },
+    });
     expect(byId.pushFailures).toMatchObject({
       count: 6,
-      filter: { status: 'PUSH_FAILED' },
+      link: { search: { status: 'PUSH_FAILED' }, to: '/billing/invoices' },
     });
-    expect(byId.overdue).toMatchObject({ count: 4, filter: { overdue: true } });
+    expect(byId.overdue).toMatchObject({
+      count: 4,
+      link: { search: { overdue: true }, to: '/billing/invoices' },
+    });
+    // What waits for the accounting system is what its queue lists.
     expect(byId.handoff).toMatchObject({
       count: 2,
-      filter: { handoffStatus: 'PENDING' },
+      link: { to: '/billing/handoff' },
     });
     expect(byId.mismatches).toMatchObject({ count: 7 });
-    expect(byId.mismatches.filter).toBeUndefined();
-    expect(byId.closeBacklog.filter).toBeUndefined();
-    expect(byId.pastDue.filter).toBeUndefined();
+    expect(byId.mismatches.link).toBeUndefined();
+    expect(byId.closeBacklog.link).toBeUndefined();
+    expect(byId.pastDue.link).toBeUndefined();
   });
 
   it('keeps when the oldest of what waits began waiting', () => {
