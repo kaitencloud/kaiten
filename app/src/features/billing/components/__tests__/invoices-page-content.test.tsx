@@ -1,10 +1,13 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { HttpResponse } from 'msw';
 import { Suspense } from 'react';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import type { PageInvoiceSummary } from '@/api-client';
-import { handleListInvoices } from '@/api-client/msw.gen';
+import {
+  handleGetBillingCapabilities,
+  handleListInvoices,
+} from '@/api-client/msw.gen';
 import {
   createLoadedPageClient,
   invoiceRow,
@@ -12,6 +15,8 @@ import {
   renderWithClient,
   useBillingTexts,
 } from '@/test-fixtures/billing-test-support';
+import { billingCapabilitiesProfiles } from '../../../../../e2e/app/_support/model/billing-capabilities';
+import type { InvoiceListSeed } from '../../schemas/invoice-list-seed.schema';
 import { InvoicesPageContent } from '../invoices/invoices-page-content';
 
 vi.mock('@tanstack/react-router', async () =>
@@ -36,10 +41,10 @@ function serveInvoices(...pages: PageInvoiceSummary[]) {
   return asked;
 }
 
-const renderPage = (scope = {}) =>
+const renderPage = (scope = {}, seed: InvoiceListSeed = {}) =>
   renderWithClient(
     <Suspense fallback={null}>
-      <InvoicesPageContent onScopeChange={vi.fn()} scope={scope} />
+      <InvoicesPageContent onScopeChange={vi.fn()} scope={scope} seed={seed} />
     </Suspense>,
     createLoadedPageClient(),
   );
@@ -83,5 +88,87 @@ describe('the page of the invoices', () => {
     await screen.findByText('Initech');
 
     expect([...asked[0].keys()].sort()).toEqual(['instanceSlug', 'limit']);
+  });
+});
+
+describe('the page of the invoices, opened by a link', () => {
+  it('opens on the filter the link asks for, and says so with a chip', async () => {
+    serveInvoices(
+      pageOf([
+        invoiceRow('inv-1', 'Initech', { status: 'PUSH_FAILED' }),
+        invoiceRow('inv-2', 'Globex'),
+      ]),
+    );
+    renderPage({}, { status: 'PUSH_FAILED' });
+
+    expect(await screen.findByText('Initech')).toBeInTheDocument();
+    expect(screen.queryByText('Globex')).toBeNull();
+    expect(document.querySelectorAll('[data-slot="filter-chip"]')).toHaveLength(1);
+  });
+
+  it('asks the API for the scope alone: the filter of the link is the page\'s', async () => {
+    const asked = serveInvoices(pageOf([invoiceRow('inv-1', 'Initech')]));
+    renderPage({ customerSlug: 'initech' }, { held: true, overdue: true });
+
+    await waitFor(() => expect(asked).toHaveLength(1));
+    expect([...asked[0].keys()].sort()).toEqual(['customerSlug', 'limit']);
+  });
+});
+
+describe('who collects, on the page of the invoices', () => {
+  const rows = [
+    invoiceRow('inv-1', 'Initech'),
+    invoiceRow('inv-2', 'Globex'),
+  ];
+  const providerHeader = () =>
+    screen.queryByRole('columnheader', { name: 'Provider' });
+
+  it('is not a column while NoOp collects every invoice', async () => {
+    serveInvoices(pageOf(rows));
+    renderPage();
+
+    await screen.findByText('Initech');
+    expect(providerHeader()).toBeNull();
+  });
+
+  it('is a column once Stripe is connected', async () => {
+    server.use(
+      handleGetBillingCapabilities({
+        body: billingCapabilitiesProfiles.stackWithStripe('connected'),
+      }),
+    );
+    serveInvoices(pageOf(rows));
+    renderPage();
+
+    await screen.findByText('Initech');
+    expect(await screen.findByRole('columnheader', { name: 'Provider' })).toBeInTheDocument();
+  });
+
+  it('stays a column for the invoices of a Stripe that is not connected any more', async () => {
+    server.use(
+      handleGetBillingCapabilities({
+        body: billingCapabilitiesProfiles.stackWithStripe('available'),
+      }),
+    );
+    serveInvoices(
+      pageOf([invoiceRow('inv-1', 'Initech', { providerKind: 'STRIPE' }), rows[1]]),
+    );
+    renderPage();
+
+    await screen.findByText('Initech');
+    expect(await screen.findByRole('columnheader', { name: 'Provider' })).toBeInTheDocument();
+  });
+
+  it('is not a column where Stripe could be connected and collects nothing', async () => {
+    server.use(
+      handleGetBillingCapabilities({
+        body: billingCapabilitiesProfiles.stackWithStripe('available'),
+      }),
+    );
+    serveInvoices(pageOf(rows));
+    renderPage();
+
+    await screen.findByText('Initech');
+    expect(providerHeader()).toBeNull();
   });
 });
