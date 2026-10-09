@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { type ColumnDef, DataTable } from '@/functionals/table';
 import { cn } from '@/lib/utils';
 import { BadgeExplanation } from './badge-explanation';
+import { InvoiceLineDiscount } from './invoice-line-discount';
 import { InvoiceLineTypeBadge } from './invoice-line-type-badge';
 import { Money } from './money';
 import { ServicePeriod } from './service-period';
@@ -26,12 +27,16 @@ type InvoiceLinesTableProps = {
 // A line says what it bills (its label and its type), how it was worked out (the
 // API's own description of the arithmetic, shown as written), the period it
 // bills and what that comes to. The amount is a field of the line: nothing here
-// multiplies a quantity by a price.
+// multiplies a quantity by a price. A discount also says how it was composed.
 function LineCell({
+  currency,
   line,
+  lines,
   renderLineDetail,
 }: {
+  currency: string;
   line: InvoiceLine;
+  lines: InvoiceLine[];
   renderLineDetail?: (line: InvoiceLine) => ReactNode;
 }) {
   const { t } = useTranslation();
@@ -54,6 +59,9 @@ function LineCell({
         ) : null}
       </div>
       <p className="text-xs text-muted-foreground">{line.description}</p>
+      {line.type === 'DISCOUNT' ? (
+        <InvoiceLineDiscount currency={currency} line={line} lines={lines} />
+      ) : null}
       {renderLineDetail?.(line)}
     </div>
   );
@@ -80,7 +88,12 @@ export function InvoiceLinesTable({
         enableSorting: false,
         header: t('Features.Billing.InvoiceLines.Columns.line'),
         cell: ({ row }) => (
-          <LineCell line={row.original} renderLineDetail={renderLineDetail} />
+          <LineCell
+            currency={currency}
+            line={row.original}
+            lines={lines}
+            renderLineDetail={renderLineDetail}
+          />
         ),
       },
       {
@@ -110,7 +123,7 @@ export function InvoiceLinesTable({
         ),
       },
     ],
-    [currency, renderLineDetail, t],
+    [currency, lines, renderLineDetail, t],
   );
 
   return (

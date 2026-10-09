@@ -70,8 +70,9 @@ app/src/domains/billing/
 │                     # what the screens of the vouchers and of the instances share: the badges
 │                     # of a voucher and of a redemption (voucher-badges), the redemptions of a
 │                     # voucher or of an instance as a table and as a card (RedemptionsTable,
-│                     # RedemptionsCard), the dialog that revokes one (RevokeRedemptionDialog) and
-│                     # what a table says when it has no row (TableEmptyMessage)
+│                     # RedemptionsCard), the dialog that revokes one (RevokeRedemptionDialog), the
+│                     # explanation of a DISCOUNT line (InvoiceLineDiscount) and what a table says
+│                     # when it has no row (TableEmptyMessage)
 ├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session
 │                     # (useGrantedScopes reads them, for a screen that filters on several);
 │                     # useInvoiceActionAccess, the same for the five actions on an invoice;
@@ -399,6 +400,45 @@ page holds, or an export the API streams.
   `RevokeRedemptionDialog` takes one back with the reason the API requires, waits out a
   period being closed, and refreshes the voucher, its redemptions, the instance and its next
   invoice (`invalidateInstanceVoucherQueries`).
+- **A DISCOUNT line explains itself from what the API records on it.** The amount is the
+  line's own (negative, in minor units); `InvoiceLineDiscount` adds how it was worked out (a
+  percentage of what its targets still amounted to, or an amount), which invoice of its
+  redemption it is out of how many, and what each target bears. The label of a line is
+  never parsed. `InvoiceTotalCell` and the strip of an invoice say what the discounts
+  took off from `discountTotal`, which the API states.
+- **A refusal to delete says what stands in the way.** `readDeletionRefusal` reads the
+  409 of the deletion of an instance (`DeleteInstance.BillingActive`), of a customer
+  (`DeleteCustomer.BillingActive`) and of an entitlement
+  (`DeleteEntitlement.InUseConflict`) from the problem's `errors[0].value`: the status
+  of the subscription and the invoices not settled, whether a subscription lives, or
+  what still grants, counts or prices the entitlement. `useDeletionRefusal(slug)`
+  answers whether a failure was one and, if so, holds the dialog to render beside the
+  action, with the links to the subscription, the invoices and the record; any other
+  failure keeps its toast. A list whose rows leave it before the API has answered (the
+  entitlements) holds the hook above its rows and names the record on each call,
+  `showRefusal(error, slug)`, since a dialog kept by a row goes with the row. Nothing was deleted, and the dialog says so. A price and a
+  voucher boost are never deleted through the API, so an entitlement held by one
+  (`hasPermanentReference`) is not asked to be freed: the dialog offers to hide it
+  instead, by turning off its "User facing" option.
+- **Usage outside the retention is not a failure.** The API refuses a period that
+  starts before the usage it keeps with `OutsideRetention` and the start of what it
+  keeps as a bare ISO string in `errors[0].value` (the line of an invoice carries an
+  object, the metering). `handleBillingProblem` reads both into `retentionStart`; the
+  usage history says how long usage is kept, when the capabilities tell, and offers
+  to start where it begins, and the export of the usage of the organization reads its
+  oldest month from there.
+- **Reading a billing route fails visibly.** `BillingRouteError` is the
+  `errorComponent` of the routes of one record: the API's words, a banner for a
+  missing scope, a page that does not exist for a 404, and a Retry that invalidates
+  the router (the `reset` of an error component only clears the boundary, which
+  throws the same error again). `RetryableProblem` is the same for a read inside a
+  page: the refusal and a way to ask again, none where it would change nothing (a
+  missing scope, a period whose usage is no longer kept).
+  `ProblemAlert` takes `autoFocus` for a dialog, whose confirmation is disabled
+  while the API answers and drops the focus with it.
+- **Downloads are authenticated.** An export is a stream behind a bearer token, so
+  `downloadBlob` (`lib/download-blob.ts`) takes a call of the generated SDK made
+  with `parseAs: 'blob'` and saves its body.
 
 ## Tests
 
@@ -420,7 +460,8 @@ and `invoice-refusals` for what a recompose was refused for), the rules of the
 invoice actions and the scopes that gate them, the export and the lease of a
 handoff have their own files in `__tests__/`, and the voucher status
 (`voucher-status.test.ts`), the plain-language offer (`voucher-offer.test.ts`), the
-redemptions table and its revoke dialog (`redemptions.test.tsx`) have theirs, and
+redemptions table and its revoke dialog (`redemptions.test.tsx`) and the discount line
+(`invoice-line-discount.test.tsx`) have theirs, and
 `components/stories/invoices-table.stories.tsx` shows the table. The wait for a
 period being closed (`use-boundary-retry.test.tsx`, on fake timers: the minute, the
 `Retry-After`, the single retry, the unmount) and the bounds of a trial
