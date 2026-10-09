@@ -1523,6 +1523,7 @@ export default {
           mainTitle: 'Main Information',
           Labels: {
             name: 'Name',
+            slug: 'Slug',
             description: 'Description',
             groups: 'Groups',
             type: 'Type',
@@ -1544,6 +1545,7 @@ export default {
           },
           Placeholders: {
             name: 'Entitlement name',
+            slug: 'api-calls',
             description: 'Entitlement description',
             groups: 'Search or create groups',
             groupSearch: 'Search groups',
@@ -1560,6 +1562,12 @@ export default {
           },
           Descriptions: {
             name: 'The name of the entitlement',
+            slugGenerated:
+              'Optional. Left empty, it is built from the name (lowercase, words joined by hyphens) followed by 6 random characters, e.g. "{{example}}". It can\'t be changed afterwards.',
+            slugSet:
+              "Used as it is: lowercase letters, digits and hyphens (2 to 100 characters), unique in your organization. It can't be changed afterwards.",
+            slugLocked:
+              "Set when the entitlement was created. It can't be changed.",
             description:
               'A detailed description of what this entitlement provides',
             groups:
@@ -1601,6 +1609,7 @@ export default {
           },
           Errors: {
             name: 'Name is required',
+            slug: 'Use lowercase letters, digits and hyphens only (2 to 100 characters), with no hyphen at the start or end',
             unitPair: 'Provide both the singular and plural unit labels',
             saleUnitTrio:
               'Provide the sale unit labels and the conversion factor together',

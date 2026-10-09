@@ -11,6 +11,7 @@ import {
   getEntitlementFormDefaults,
 } from './entitlement-form.shared';
 import { resolveResetFields } from './entitlement-reset-period.shared';
+import { toOptionalSlug } from './entitlement-slug.shared';
 
 export const useEntitlementMutationForm = (
   entitlement?: Entitlement,
@@ -30,6 +31,9 @@ export const useEntitlementMutationForm = (
         const body: EntitlementWritable = {
           ...value,
           groupSlugs: value.groupSlugs?.filter(Boolean) ?? [],
+          // A blank slug is left out so the API generates one. An update never
+          // sends it: the slug is fixed, and the API answers 422 to a new one.
+          slug: entitlement ? undefined : toOptionalSlug(value.slug),
           // Overwrites the sentinel the form carries, and re-echoes a period
           // the API already stored rather than letting this full-replace PUT
           // read as an attempted change.

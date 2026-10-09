@@ -71,7 +71,11 @@ export const EntitlementForm = ({
 
   const steps = [
     <StepStackStep key="identity">
-      <EntitlementIdentityStepCard form={form} footer={identityFooter} />
+      <EntitlementIdentityStepCard
+        entitlement={entitlement}
+        form={form}
+        footer={identityFooter}
+      />
     </StepStackStep>,
   ];
 
@@ -98,7 +102,11 @@ export const EntitlementForm = ({
           </StepStack>
         ) : (
           <div className="space-y-4">
-            <EntitlementIdentityFields className="space-y-4" form={form} />
+            <EntitlementIdentityFields
+              className="space-y-4"
+              entitlement={entitlement}
+              form={form}
+            />
             <EntitlementTypeFields
               className="space-y-4"
               entitlement={entitlement}
@@ -118,9 +126,11 @@ export const EntitlementForm = ({
 };
 
 function EntitlementIdentityStepCard({
+  entitlement,
   footer,
   form,
 }: {
+  entitlement?: Entitlement;
   footer: ReactNode;
   form: any;
 }) {
@@ -136,7 +146,11 @@ function EntitlementIdentityStepCard({
           )}
         </h3>
 
-        <EntitlementIdentityFields className="space-y-6" form={form} />
+        <EntitlementIdentityFields
+          className="space-y-6"
+          entitlement={entitlement}
+          form={form}
+        />
       </div>
     </StackedFormDialogCard>
   );
@@ -229,6 +243,7 @@ function EntitlementIdentityStepFooter({
         {(state: { values: EntitlementFormValues }) => {
           const validationResult = entitlementIdentityStepSchema.safeParse({
             name: state.values.name,
+            slug: state.values.slug,
             description: state.values.description,
             groupSlugs: state.values.groupSlugs,
             icon: state.values.icon,

@@ -14,6 +14,8 @@ const formState = vi.hoisted(() => ({
   values: {} as Record<string, unknown>,
 }));
 const defaultFormValues = {
+  name: '',
+  slug: '',
   type: 'NUMBER',
   aggregationMethod: 'SUM',
   resetPeriod: 'NONE',
@@ -32,9 +34,17 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => {
+    t: (key: string, options?: Record<string, string>) => {
       const translations: Record<string, string> = {
         'Pages.Entitlements.Mutation.Form.Labels.name': 'Nom',
+        'Pages.Entitlements.Mutation.Form.Labels.slug': 'Slug',
+        'Pages.Entitlements.Mutation.Form.Placeholders.slug': 'appels-api',
+        'Pages.Entitlements.Mutation.Form.Descriptions.slugGenerated':
+          'Généré à partir du nom, ex. « {{example}} »',
+        'Pages.Entitlements.Mutation.Form.Descriptions.slugSet':
+          'Utilisé tel quel',
+        'Pages.Entitlements.Mutation.Form.Descriptions.slugLocked':
+          'Défini à la création',
         'Pages.Entitlements.Mutation.Form.Labels.description': 'Description',
         'Pages.Entitlements.Mutation.Form.Labels.type': 'Type',
         'Pages.Entitlements.Mutation.Form.Labels.aggregationMethod':
@@ -71,7 +81,10 @@ vi.mock('react-i18next', () => ({
         'Pages.Entitlements.Mutation.Form.Descriptions.resetPeriodLatest':
           '« Dernier » ne peut pas être combiné à une remise à zéro périodique.',
       };
-      return translations[key] || key;
+      return (translations[key] || key).replace(
+        /\{\{(\w+)\}\}/g,
+        (_match, name: string) => options?.[name] ?? '',
+      );
     },
   }),
 }));
@@ -344,6 +357,63 @@ describe('EntitlementForm', () => {
 
       expect(screen.getByTestId('field-displayOrder')).toBeInTheDocument();
       expect(screen.getByText("Ordre d'affichage")).toBeInTheDocument();
+    });
+  });
+
+  describe('Slug field', () => {
+    const slugInput = () =>
+      within(screen.getByTestId('field-slug')).getByRole('textbox');
+
+    it('previews the slug of the typed name as the placeholder', () => {
+      formState.values = { ...defaultFormValues, name: 'Storage Reads' };
+      render(<EntitlementForm />, { wrapper: createWrapper() });
+
+      expect(slugInput()).toHaveAttribute('placeholder', 'storage-reads');
+      expect(slugInput()).toHaveAttribute(
+        'description',
+        'Généré à partir du nom, ex. « storage-reads-3fa9c1 »',
+      );
+    });
+
+    it('falls back to a generic example while the name is empty', () => {
+      render(<EntitlementForm />, { wrapper: createWrapper() });
+
+      expect(slugInput()).toHaveAttribute('placeholder', 'appels-api');
+      expect(slugInput()).toHaveAttribute(
+        'description',
+        'Généré à partir du nom, ex. « appels-api-3fa9c1 »',
+      );
+    });
+
+    it('describes a slug typed in the form as used as it is', () => {
+      formState.values = {
+        ...defaultFormValues,
+        name: 'Storage Reads',
+        slug: 'reads-v2',
+      };
+      render(<EntitlementForm />, { wrapper: createWrapper() });
+
+      expect(slugInput()).toHaveAttribute('description', 'Utilisé tel quel');
+    });
+
+    it('shows the stored slug of an existing entitlement, locked', () => {
+      const entitlement: Entitlement = {
+        id: '1',
+        name: 'Seats',
+        slug: 'seats',
+        description: null,
+        type: 'BOOLEAN',
+        createdAt: '2026-03-01T09:00:00.000Z',
+        updatedAt: '2026-03-01T09:00:00.000Z',
+      };
+
+      render(<EntitlementForm entitlement={entitlement} />, {
+        wrapper: createWrapper(),
+      });
+
+      expect(slugInput()).toHaveValue('seats');
+      expect(slugInput()).toBeDisabled();
+      expect(screen.getByText('Défini à la création')).toBeInTheDocument();
     });
   });
 
