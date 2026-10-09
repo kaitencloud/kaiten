@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
+	"github.com/kaitencloud/kaiten/api/internal/shared/ratelimit"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -42,14 +42,12 @@ type CreatedCustomerSession struct {
 }
 
 type UseCase struct {
-	deps sessions.Deps
-
-	mu     sync.Mutex
-	limits map[uuid.UUID]*rate.Limiter
+	deps   sessions.Deps
+	limits *ratelimit.Keyed[uuid.UUID]
 }
 
 func NewUseCase(deps sessions.Deps) *UseCase {
-	return &UseCase{deps: deps, limits: map[uuid.UUID]*rate.Limiter{}}
+	return &UseCase{deps: deps, limits: ratelimit.New[uuid.UUID](mintRate, mintBurst)}
 }
 
 // Execute mints a session for a customer, optionally bound to one of its
@@ -60,8 +58,9 @@ func (u *UseCase) Execute(ctx context.Context, draft CustomerSessionDraft) (*Cre
 	if err != nil {
 		return nil, err
 	}
-	if !u.allow(user.OrganizationID) {
-		return nil, kaitenerrors.TooManyRequests(operation+".RateLimited", "too many sessions minted for this organization: try again in a second")
+	if wait, ok := u.limits.Allow(user.OrganizationID, time.Now()); !ok {
+		return nil, kaitenerrors.TooManyRequests(operation+".RateLimited",
+			"too many sessions minted for this organization: try again in a second", wait)
 	}
 	ttl := int32(sessions.DefaultTTLSeconds)
 	if draft.TTLSeconds != nil {
@@ -114,15 +113,4 @@ func (u *UseCase) Execute(ctx context.Context, draft CustomerSessionDraft) (*Cre
 		ID: row.ID, Token: plaintext, ExpiresAt: row.ExpiresAt.Time.UTC(),
 		CustomerSlug: customer.Slug, InstanceSlug: draft.InstanceSlug,
 	}, nil
-}
-
-func (u *UseCase) allow(organizationID uuid.UUID) bool {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	limiter, ok := u.limits[organizationID]
-	if !ok {
-		limiter = rate.NewLimiter(mintRate, mintBurst)
-		u.limits[organizationID] = limiter
-	}
-	return limiter.Allow()
 }

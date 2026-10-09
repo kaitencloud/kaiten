@@ -2,11 +2,8 @@ package auth
 
 import (
 	"context"
-	"math"
 	"slices"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -14,6 +11,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
+	"github.com/kaitencloud/kaiten/api/internal/shared/ratelimit"
 	"github.com/kaitencloud/kaiten/api/internal/shared/token"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -42,7 +40,6 @@ const (
 	publishableKeyBurst = 40
 	sessionRate         = rate.Limit(10)
 	sessionBurst        = 20
-	limiterIdleAfter    = 10 * time.Minute
 )
 
 // PublishableKeyAuthenticator resolves a publishable key. It is implemented by
@@ -83,8 +80,8 @@ type PublicMiddleware struct {
 	sessions CustomerSessionAuthenticator
 	now      func() time.Time
 
-	keyLimits     *limiters
-	sessionLimits *limiters
+	keyLimits     *ratelimit.Keyed[uuid.UUID]
+	sessionLimits *ratelimit.Keyed[uuid.UUID]
 }
 
 // NewPublic builds the public surface's authenticator.
@@ -93,8 +90,8 @@ func NewPublic(keys PublishableKeyAuthenticator, sessions CustomerSessionAuthent
 		keys:          keys,
 		sessions:      sessions,
 		now:           time.Now,
-		keyLimits:     newLimiters(publishableKeyRate, publishableKeyBurst),
-		sessionLimits: newLimiters(sessionRate, sessionBurst),
+		keyLimits:     ratelimit.New[uuid.UUID](publishableKeyRate, publishableKeyBurst),
+		sessionLimits: ratelimit.New[uuid.UUID](sessionRate, sessionBurst),
 	}
 }
 
@@ -133,7 +130,7 @@ func (p *PublicMiddleware) publishable(ctx fiber.Ctx) error {
 	if err := checkOrigin(ctx, allowedOrigins, "this publishable key does not allow requests from this origin"); err != nil {
 		return err
 	}
-	if err := p.keyLimits.take(ctx, keyID, p.now(), "too many requests for this publishable key"); err != nil {
+	if err := take(p.keyLimits, keyID, p.now(), "too many requests for this publishable key"); err != nil {
 		return err
 	}
 
@@ -183,7 +180,7 @@ func (p *PublicMiddleware) session(ctx fiber.Ctx) error {
 	if err := checkOrigin(ctx, session.AllowedOrigins, "this session may not be used from this origin"); err != nil {
 		return err
 	}
-	if err := p.sessionLimits.take(ctx, session.ID, p.now(), "too many requests for this session"); err != nil {
+	if err := take(p.sessionLimits, session.ID, p.now(), "too many requests for this session"); err != nil {
 		return err
 	}
 
@@ -219,63 +216,13 @@ func invalidPublicCredential() error {
 	return kaitenerrors.Unauthorized(ErrCodePublicInvalidCredential, "invalid credential")
 }
 
-// limiters is one token bucket per credential. Buckets idle for
-// limiterIdleAfter are dropped, at most once a minute, so the map holds the
-// credentials in use rather than every one ever seen.
-type limiters struct {
-	rate  rate.Limit
-	burst int
-
-	mu      sync.Mutex
-	buckets map[uuid.UUID]*bucket
-	swept   time.Time
-}
-
-type bucket struct {
-	limiter  *rate.Limiter
-	lastSeen time.Time
-}
-
-func newLimiters(r rate.Limit, burst int) *limiters {
-	return &limiters{rate: r, burst: burst, buckets: map[uuid.UUID]*bucket{}}
-}
-
 // take takes one token from id's bucket; when there is none, it answers 429
 // with how long to wait.
-func (l *limiters) take(ctx fiber.Ctx, id uuid.UUID, now time.Time, message string) error {
-	if wait, allowed := l.allow(id, now); !allowed {
-		ctx.Set(fiber.HeaderRetryAfter, strconv.Itoa(int(math.Ceil(wait.Seconds()))))
-		return kaitenerrors.TooManyRequests(ErrCodePublicRateLimited, message)
+func take(limits *ratelimit.Keyed[uuid.UUID], id uuid.UUID, now time.Time, message string) error {
+	if wait, allowed := limits.Allow(id, now); !allowed {
+		return kaitenerrors.TooManyRequests(ErrCodePublicRateLimited, message, wait)
 	}
 	return nil
-}
-
-func (l *limiters) allow(id uuid.UUID, now time.Time) (time.Duration, bool) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if now.Sub(l.swept) > time.Minute {
-		for key, b := range l.buckets {
-			if now.Sub(b.lastSeen) > limiterIdleAfter {
-				delete(l.buckets, key)
-			}
-		}
-		l.swept = now
-	}
-
-	b, ok := l.buckets[id]
-	if !ok {
-		b = &bucket{limiter: rate.NewLimiter(l.rate, l.burst), lastSeen: now}
-		l.buckets[id] = b
-	}
-	b.lastSeen = now
-
-	reservation := b.limiter.ReserveN(now, 1)
-	if delay := reservation.DelayFrom(now); delay > 0 {
-		reservation.CancelAt(now)
-		return delay, false
-	}
-	return 0, true
 }
 
 var _ Middleware = (*PublicMiddleware)(nil)

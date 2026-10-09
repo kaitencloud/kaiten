@@ -55,7 +55,7 @@ func APIError(operation string, err error) error {
 	}
 	var providerErr *provider.Error
 	if !errors.As(err, &providerErr) {
-		return kaitenerrors.Unavailable(operation+".ProviderUnavailable", "the payment provider could not be reached; retry in a moment")
+		return unavailable(operation)
 	}
 	switch providerErr.Class {
 	case provider.ClassNotConnected:
@@ -72,8 +72,19 @@ func APIError(operation string, err error) error {
 	case provider.ClassParametersChanged:
 		return kaitenerrors.Internal(operation+".ProviderConflict", "the payment provider refused a repeated request whose parameters changed")
 	default:
-		return kaitenerrors.Unavailable(operation+".ProviderUnavailable", "the payment provider could not be reached; retry in a moment")
+		return unavailable(operation)
 	}
+}
+
+// UnavailableRetryAfter is how long a caller should wait after a provider
+// could not be reached (§12.1: Retry-After: 30).
+const UnavailableRetryAfter = 30 * time.Second
+
+// unavailable is operation's answer when the provider could not be reached:
+// nothing was written, so the call is safe to repeat.
+func unavailable(operation string) error {
+	return kaitenerrors.Unavailable(operation+".ProviderUnavailable", "the payment provider could not be reached; retry in a moment").
+		WithRetryAfter(UnavailableRetryAfter)
 }
 
 // Customer is what billing tells a provider about a customer.
