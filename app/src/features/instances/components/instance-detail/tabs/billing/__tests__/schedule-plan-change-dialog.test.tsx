@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { delay, HttpResponse } from 'msw';
+import { delay, HttpResponse, http } from 'msw';
 import type { AnchorHTMLAttributes } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
@@ -9,13 +9,10 @@ import {
   handleCancelPlanChange,
   handleGetBillingCapabilities,
   handleGetInstanceBilling,
-  handleGetLicenses,
   handleGetUpcomingInvoice,
-  handleListLicensePrices,
   handleSchedulePlanChange,
 } from '@/api-client/msw.gen';
 import {
-  pageOf,
   refusal,
   renderWithClient,
   sessionToken,
@@ -28,7 +25,7 @@ import {
   BUSINESS_V3_MONTHLY,
   INSTANCE,
   PLAN_LICENSES,
-  PRICES_BY_LICENSE,
+  servePlans,
   subscription,
 } from './lifecycle-fixtures';
 
@@ -56,10 +53,13 @@ vi.mock('@tanstack/react-router', () => ({
 
 useBillingTexts();
 
-const requestedPrices: string[] = [];
+// The plans are read in one request, and never one read of the prices of each version.
+let plans = servePlans();
+const priceReads: string[] = [];
 
 beforeEach(() => {
-  requestedPrices.length = 0;
+  plans = servePlans();
+  priceReads.length = 0;
   toast.error.mockReset();
   toast.success.mockReset();
   getAuthToken.mockResolvedValue(sessionToken(['read:billing', 'write:billing', 'read:licenses']));
@@ -67,11 +67,17 @@ beforeEach(() => {
   server.use(
     handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }),
     handleGetInstanceBilling({ body: subscription() }),
-    handleGetLicenses({ body: pageOf(PLAN_LICENSES) }),
-    handleListLicensePrices(({ params }) => {
-      requestedPrices.push(String(params.licenseSlug));
+    plans.handler,
+    // The REST reads the plans used to be found with: none is expected.
+    http.all('*/api/licenses', ({ request }) => {
+      priceReads.push(new URL(request.url).pathname);
 
-      return HttpResponse.json(PRICES_BY_LICENSE[String(params.licenseSlug)] ?? []);
+      return HttpResponse.json({ hasMore: false, items: [] });
+    }),
+    http.get('*/api/licenses/:licenseSlug/prices', ({ request }) => {
+      priceReads.push(new URL(request.url).pathname);
+
+      return HttpResponse.json([]);
     }),
     handleGetUpcomingInvoice({
       body: buildUpcomingInvoice({
@@ -151,8 +157,9 @@ describe('the plan change dialog', () => {
       'Business v2 · Business, annual · $990.00/year · In arrears',
       'Starter v1 · Starter, monthly · €9.00/month · In advance — Different currency (EUR)',
     ]);
-    // A version that is not on sale is not even read.
-    expect([...requestedPrices].sort()).toEqual(['business-v2', 'business-v3', 'starter-v1']);
+    // One request for every version and its prices, and a version that is not on sale is not offered.
+    expect(plans.requests).toEqual([{ limit: 200 }]);
+    expect(priceReads).toEqual([]);
   });
 
   it('shows a plan in another currency and refuses it, saying why', async () => {
@@ -406,7 +413,7 @@ describe('the plan change dialog', () => {
       expect(await screen.findByTestId('plan-change-unavailable')).toHaveTextContent(text);
       expect(screen.queryByRole('button', { name: 'Schedule the change' })).toBeNull();
       // Nothing is read to fill a form that is not shown.
-      expect(requestedPrices).toEqual([]);
+      expect(plans.requests).toEqual([]);
     });
 
     it('says an instance nobody bills has no plan to change', async () => {
@@ -426,8 +433,10 @@ describe('the plan change dialog', () => {
   describe('when the plans cannot be found', () => {
     it('says no other plan can be reached when every other version is out of reach', async () => {
       server.use(
-        handleGetLicenses({ body: pageOf([PLAN_LICENSES[0]]) }),
-        handleListLicensePrices({ body: [subscription().basePrice] }),
+        servePlans({
+          licenses: [PLAN_LICENSES[0]],
+          prices: { 'business-v2': [subscription().basePrice] },
+        }).handler,
       );
       renderDialog();
 
@@ -437,23 +446,29 @@ describe('the plan change dialog', () => {
       expect(screen.queryByRole('combobox', { name: /New plan/ })).toBeNull();
     });
 
-    it('shows the refusal of a read of the prices of a version, with a way to ask again', async () => {
-      let failing = true;
+    it('shows the refusal of the read of the plans, with a way to ask again', async () => {
+      // A problem document, as the API refuses a document with: its words are shown.
       server.use(
-        handleListLicensePrices(({ params }) =>
-          failing && params.licenseSlug === 'business-v3'
-            ? refusal(500, { detail: 'the prices cannot be read' })
-            : HttpResponse.json(PRICES_BY_LICENSE[String(params.licenseSlug)] ?? []),
+        http.post('*/api/graphql', () =>
+          refusal(500, { detail: 'the plans cannot be read' }),
         ),
       );
       renderDialog();
 
-      expect(await screen.findByRole('alert')).toHaveTextContent('the prices cannot be read');
-      failing = false;
+      expect(await screen.findByRole('alert')).toHaveTextContent('the plans cannot be read');
+      server.use(servePlans().handler);
       await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
 
       await userEvent.click(await targetField());
       expect(await screen.findByRole('option', { name: /Business v3/ })).toBeInTheDocument();
+    });
+
+    it('names the scope a session lacks to read the plans, and offers a way to ask again', async () => {
+      getAuthToken.mockResolvedValue(sessionToken(['read:billing', 'write:billing']));
+      renderDialog();
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('read:licenses');
+      expect(plans.requests).toEqual([]);
     });
 
     it('shows the refusal to read the subscription, with a way to ask again', async () => {

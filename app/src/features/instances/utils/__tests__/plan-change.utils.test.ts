@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import type { License, Price } from '@/api-client';
+import type { CatalogPrice, LicenseWithPrices } from '@/domains/billing';
 import { buildPrice } from '../../../../../e2e/app/_support/fixtures/build-pricing';
 import {
   buildPlanTargets,
@@ -8,52 +8,40 @@ import {
   getPlanTargetBlock,
 } from '../plan-change.utils';
 
+const price = (id: string, overrides: Partial<Parameters<typeof buildPrice>[0]> = {}) =>
+  buildPrice({ id, unitAmountDecimal: '2900', ...overrides });
+
+// A license version as the catalogue reads it: with the active prices it is sold at.
 const license = (
   slug: string,
   name: string,
   version: string,
-  lifecycleState: License['lifecycleState'] = 'PUBLISHED',
-): License => ({
-  createdAt: '2026-01-01T00:00:00.000Z',
-  description: '',
-  familyId: `family-${name}`,
+  prices: CatalogPrice[] = [],
+  lifecycleState: LicenseWithPrices['lifecycleState'] = 'PUBLISHED',
+): LicenseWithPrices => ({
   id: `license-${slug}`,
-  isDefault: false,
   lifecycleState,
   name,
+  pricingType: 'PAID',
+  prices,
   slug,
-  type: 'PAID',
-  updatedAt: '2026-01-01T00:00:00.000Z',
   version,
 });
-
-const price = (id: string, overrides: Partial<Parameters<typeof buildPrice>[0]> = {}) =>
-  buildPrice({ id, unitAmountDecimal: '2900', ...overrides });
 
 const CURRENT = price('current');
 
 const licenses = [
-  license('pro-v2', 'Pro', '2'),
-  license('pro-v10', 'Pro', '10'),
-  license('pro-v3', 'Pro', '3'),
-  license('pro-v4', 'Pro', '4', 'DRAFT'),
-  license('pro-v1', 'Pro', '1', 'ARCHIVED'),
-  license('basic-v1', 'Basic', '1'),
+  license('pro-v2', 'Pro', '2', [CURRENT, price('pro-v2-annual', { billingPeriod: 'ANNUAL' })]),
+  license('pro-v10', 'Pro', '10', [price('pro-v10-usage', { billingModel: 'USAGE_BASED' })]),
+  license('pro-v3', 'Pro', '3', [price('pro-v3-monthly'), price('pro-v3-retired', { status: 'DEPRECATED' })]),
+  license('pro-v4', 'Pro', '4', [price('pro-v4-monthly')], 'DRAFT'),
+  license('pro-v1', 'Pro', '1', [price('pro-v1-monthly')], 'ARCHIVED'),
+  license('basic-v1', 'Basic', '1', [price('basic-v1-monthly', { currency: 'EUR' })]),
 ];
-
-const pricesByLicense = new Map<string, readonly Price[]>([
-  ['pro-v2', [CURRENT, price('pro-v2-annual', { billingPeriod: 'ANNUAL' })]],
-  ['pro-v3', [price('pro-v3-monthly'), price('pro-v3-retired', { status: 'DEPRECATED' })]],
-  ['pro-v4', [price('pro-v4-monthly')]],
-  ['pro-v1', [price('pro-v1-monthly')]],
-  ['pro-v10', [price('pro-v10-usage', { billingModel: 'USAGE_BASED' })]],
-  ['basic-v1', [price('basic-v1-monthly', { currency: 'EUR' })]],
-]);
 
 describe('the plans a subscription can move to', () => {
   const targets = buildPlanTargets({
     licenses,
-    pricesByLicense,
     subscription: { basePrice: CURRENT },
   });
 
@@ -73,6 +61,15 @@ describe('the plans a subscription can move to', () => {
     }
   });
 
+  it('leave out a version whose state the console does not know', () => {
+    expect(
+      buildPlanTargets({
+        licenses: [{ ...license('odd', 'Odd', '1', [price('odd-monthly')]), lifecycleState: undefined }],
+        subscription: { basePrice: CURRENT },
+      }),
+    ).toEqual([]);
+  });
+
   it('come grouped by name, the newest version first, and each with the version it belongs to', () => {
     expect(targets.map(({ license: { name, version } }) => `${name} ${version}`)).toEqual([
       'Basic 1',
@@ -81,21 +78,30 @@ describe('the plans a subscription can move to', () => {
     ]);
     expect(
       buildPlanTargets({
-        licenses: [license('pro-v2', 'Pro', '2'), license('pro-v10', 'Pro', '10')],
-        pricesByLicense: new Map([
-          ['pro-v2', [price('a')]],
-          ['pro-v10', [price('b')]],
-        ]),
+        licenses: [
+          license('pro-v2', 'Pro', '2', [price('a')]),
+          license('pro-v10', 'Pro', '10', [price('b')]),
+        ],
         subscription: { basePrice: price('other') },
       }).map(({ price: { id } }) => id),
     ).toEqual(['b', 'a']);
+  });
+
+  it('carry the version, and not its prices, as the license of a plan', () => {
+    expect(targets[1]?.license).toEqual({
+      id: 'license-pro-v3',
+      lifecycleState: 'PUBLISHED',
+      name: 'Pro',
+      slug: 'pro-v3',
+      version: '3',
+      versionName: undefined,
+    });
   });
 
   it('list no version with nothing to offer', () => {
     expect(
       buildPlanTargets({
         licenses: [license('empty', 'Empty', '1')],
-        pricesByLicense: new Map(),
         subscription: { basePrice: CURRENT },
       }),
     ).toEqual([]);
@@ -110,8 +116,7 @@ describe('the plans a subscription can move to', () => {
 
 describe('why a plan cannot be chosen', () => {
   const [other] = buildPlanTargets({
-    licenses: [license('basic-v1', 'Basic', '1')],
-    pricesByLicense: new Map([['basic-v1', [price('eur', { currency: 'EUR' })]]]),
+    licenses: [license('basic-v1', 'Basic', '1', [price('eur', { currency: 'EUR' })])],
     subscription: { basePrice: CURRENT },
   });
 

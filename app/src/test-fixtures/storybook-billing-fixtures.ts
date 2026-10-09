@@ -1,5 +1,7 @@
-import type { InvoicePreview } from '@/api-client';
+import type { InvoicePreview, License, Price } from '@/api-client';
+import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
 import { ApiError } from '@/lib/errors';
+import { licensePriceOperations } from '../../e2e/app/_support/model/graphql-operations';
 
 export { billingCapabilitiesProfiles } from '../../e2e/app/_support/model/billing-capabilities';
 
@@ -111,3 +113,23 @@ export {
 // The publishable keys of an organization, built as the mocks build them: never the key
 // itself, only its last four characters.
 export { buildPublishableKey } from '../../e2e/app/_support/fixtures';
+
+/**
+ * The document the plans of a subscription and the price summary of the licenses are read
+ * from (`GetLicensesWithPrices`): the license versions with the prices each is sold at,
+ * the active ones. `pricesBySlug` holds the prices of each version by its slug, active or
+ * not, as the API keeps them.
+ */
+export const storyLicensePricesHandler = (
+  licenses: readonly License[],
+  pricesBySlug: Record<string, readonly Price[]>,
+) =>
+  graphqlOperationHandler(
+    licensePriceOperations({
+      licenses: () => [...licenses],
+      prices: (slug, filter) =>
+        (pricesBySlug[slug] ?? []).filter(
+          (price) => price.status === filter.status,
+        ),
+    }),
+  );

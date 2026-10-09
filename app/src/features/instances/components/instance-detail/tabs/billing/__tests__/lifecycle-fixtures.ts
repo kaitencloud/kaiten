@@ -1,10 +1,12 @@
 import type { InstanceAddon, InstanceBilling, Price } from '@/api-client';
+import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
 import { buildLicense } from '../../../../../../../../e2e/app/_support/fixtures/build-license';
 import { buildPrice } from '../../../../../../../../e2e/app/_support/fixtures/build-pricing';
 import {
   buildSubscription,
   PRO_MONTHLY_PRICE,
 } from '../../../../../../../../e2e/app/_support/fixtures/build-subscription';
+import { licensePriceOperations } from '../../../../../../../../e2e/app/_support/model/graphql-operations';
 
 /** The instance the dialogs of the Billing tab are opened on, with everything an update sends back. */
 export const INSTANCE = {
@@ -116,7 +118,7 @@ export const STARTER_EUR = buildPrice({
   unitAmountDecimal: '900',
 });
 
-/** What each version prices, as `listLicensePrices` answers it for the active flat fees. */
+/** What each version prices: its prices, which the catalogue keeps the active ones of. */
 export const PRICES_BY_LICENSE: Record<string, Price[]> = {
   'business-v2': [CURRENT_PRICE, BUSINESS_V2_ANNUAL],
   'business-v3': [
@@ -137,3 +139,32 @@ export const PRICES_BY_LICENSE: Record<string, Price[]> = {
   ],
   'starter-v1': [STARTER_EUR],
 };
+
+/**
+ * The versions with the prices each is sold at, as the one document the plans are read from
+ * answers it (`GetLicensesWithPrices`): the handler, and the variables of each request it got.
+ * `licenses` and `prices` are the world; the defaults are the plans of the fixtures.
+ */
+export function servePlans({
+  licenses = PLAN_LICENSES,
+  prices = PRICES_BY_LICENSE,
+}: {
+  licenses?: typeof PLAN_LICENSES;
+  prices?: Record<string, Price[]>;
+} = {}) {
+  const requests: Array<Record<string, unknown> | undefined> = [];
+  const operations = licensePriceOperations({
+    licenses: () => [...licenses],
+    prices: (slug, filter) =>
+      (prices[slug] ?? []).filter((price) => price.status === filter.status),
+  });
+  const handler = graphqlOperationHandler({
+    GetLicensesWithPrices: (variables) => {
+      requests.push(variables);
+
+      return operations.GetLicensesWithPrices(variables);
+    },
+  });
+
+  return { handler, requests };
+}

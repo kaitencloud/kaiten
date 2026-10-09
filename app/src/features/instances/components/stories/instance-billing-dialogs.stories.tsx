@@ -9,10 +9,8 @@ import {
   handleGetBillingCapabilities,
   handleGetBillingSettings,
   handleGetInstanceBilling,
-  handleGetLicenses,
   handleGetUpcomingInvoice,
   handleListInstanceAddons,
-  handleListLicensePrices,
   handleUpdateInstance,
 } from '@/api-client/msw.gen';
 import {
@@ -21,12 +19,10 @@ import {
   buildPrice,
   buildSubscription,
   storyInvoicePreview,
+  storyLicensePricesHandler,
 } from '@/test-fixtures/storybook-billing-fixtures';
 import { storyInstances } from '@/test-fixtures/storybook-fixtures';
-import {
-  instanceDetailHandlers,
-  onePage,
-} from '@/test-fixtures/storybook-handlers';
+import { instanceDetailHandlers } from '@/test-fixtures/storybook-handlers';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { InstanceDetailProvider } from '../instance-detail/instance-detail-context';
 import { CancelSubscriptionDialog } from '../instance-detail/tabs/billing/cancel/cancel-subscription-dialog';
@@ -333,10 +329,10 @@ const STARTER_EUR = buildPrice({
 });
 
 const planHandlers = [
-  handleGetLicenses(onePage([BUSINESS_V4, STARTER])),
-  handleListLicensePrices(({ params }) =>
-    HttpResponse.json(params.licenseSlug === 'starter-v1' ? [STARTER_EUR] : [ENTERPRISE_V4_MONTHLY]),
-  ),
+  storyLicensePricesHandler([BUSINESS_V4, STARTER], {
+    'enterprise-v4': [ENTERPRISE_V4_MONTHLY],
+    'starter-v1': [STARTER_EUR],
+  }),
 ];
 
 const planChangeDialog = () => (

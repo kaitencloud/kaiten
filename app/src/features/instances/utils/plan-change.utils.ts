@@ -1,39 +1,49 @@
-import type { InstanceBilling, License, Price } from '@/api-client';
+import type { InstanceBilling } from '@/api-client';
+import type { CatalogPrice, LicenseWithPrices } from '@/domains/billing';
+
+/** The license version a plan belongs to: what a plan is named by, and whether it is on sale. */
+export type PlanTargetLicense = Pick<
+  LicenseWithPrices,
+  'id' | 'lifecycleState' | 'name' | 'slug' | 'version' | 'versionName'
+>;
 
 /** A plan a subscription can move to: an active flat fee of a license version on sale. */
 export type PlanTarget = {
-  license: License;
-  price: Price;
+  license: PlanTargetLicense;
+  price: CatalogPrice;
 };
 
 /** Why a plan is listed and cannot be chosen. */
 export type PlanTargetBlock = 'currency';
 
-export const isOnSale = (license: License) =>
-  (license.lifecycleState ?? 'PUBLISHED') === 'PUBLISHED';
+/** Whether a version is on sale. A version whose state the console does not know is not. */
+export const isOnSale = (license: Pick<PlanTargetLicense, 'lifecycleState'>) =>
+  license.lifecycleState === 'PUBLISHED';
 
-const compareVersions = (left: License, right: License) =>
-  (right.version ?? '').localeCompare(left.version ?? '', undefined, {
+const compareVersions = (
+  left: Pick<PlanTargetLicense, 'version'>,
+  right: Pick<PlanTargetLicense, 'version'>,
+) =>
+  right.version.localeCompare(left.version, undefined, {
     numeric: true,
     sensitivity: 'base',
   });
 
 /**
- * The plans the subscription of an instance can move to, from the versions of
- * every license and the active flat fees each reads back: those of the versions
- * on sale, whatever their family, the plan the subscription is on left out.
- * Versions come grouped by name and newest first, and the prices of a version in
- * the order the API lists them. A version with no price to offer is not listed.
- * The API checks all of this again; this tells the person before they ask.
+ * The plans the subscription of an instance can move to, from the license versions
+ * with the prices each is sold at now: the active flat fees of the versions on sale,
+ * whatever their family, the plan the subscription is on left out. Versions come
+ * grouped by name and newest first, and the prices of a version in the order the API
+ * lists them. A version with no price to offer is not listed. The API checks all of
+ * this again; this tells the person before they ask.
  */
 export function buildPlanTargets({
   licenses,
-  pricesByLicense,
   subscription,
 }: {
-  licenses: readonly License[];
-  /** The active flat fees of each version, by the slug of the version. */
-  pricesByLicense: ReadonlyMap<string, readonly Price[]>;
+  licenses: readonly (PlanTargetLicense & {
+    prices: readonly CatalogPrice[];
+  })[];
   subscription: Pick<InstanceBilling, 'basePrice'>;
 }): PlanTarget[] {
   return [...licenses]
@@ -42,16 +52,25 @@ export function buildPlanTargets({
       (left, right) =>
         left.name.localeCompare(right.name) || compareVersions(left, right),
     )
-    .flatMap((license) =>
-      (pricesByLicense.get(license.slug ?? license.id) ?? [])
+    .flatMap((version) => {
+      const license: PlanTargetLicense = {
+        id: version.id,
+        lifecycleState: version.lifecycleState,
+        name: version.name,
+        slug: version.slug,
+        version: version.version,
+        versionName: version.versionName,
+      };
+
+      return version.prices
         .filter(
           (price) =>
             price.billingModel === 'FLAT_FEE' &&
             price.status === 'ACTIVE' &&
             price.id !== subscription.basePrice.id,
         )
-        .map((price) => ({ license, price })),
-    );
+        .map((price) => ({ license, price }));
+    });
 }
 
 /**
