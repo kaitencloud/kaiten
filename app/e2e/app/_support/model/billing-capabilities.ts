@@ -75,6 +75,11 @@ export function stripeProvider(standing: StripeStanding): Provider {
   }
 }
 
+/**
+ * A release that ships nothing of billing's parts, for a test that makes a flag
+ * lie on purpose: the console decides from `providers` and the scopes, so what a
+ * flag says must not matter. No API answers this today.
+ */
 export const NO_BILLING_FEATURES: BillingFeatures = {
   addons: false,
   chargeAutomatically: false,
@@ -85,6 +90,23 @@ export const NO_BILLING_FEATURES: BillingFeatures = {
   vouchers: false,
 };
 
+/**
+ * The two parts every release the console talks to ships, whatever else it ships:
+ * automatic collection and the public surface. The API answers both `true` (the
+ * handler fixes them since `a4f1d916`), so a profile starts from these and turns
+ * on the parts it has screens for.
+ */
+export const SHIPPED_BILLING_FEATURES: BillingFeatures = {
+  ...NO_BILLING_FEATURES,
+  chargeAutomatically: true,
+  publicSurface: true,
+};
+
+/**
+ * Every part: what the API answers for any organization, billing on or off. The
+ * handler fixes the features to what the release ships, and `enabled` is what says
+ * whether this organization has billing.
+ */
 export const ALL_BILLING_FEATURES: BillingFeatures = {
   addons: true,
   chargeAutomatically: true,
@@ -97,19 +119,23 @@ export const ALL_BILLING_FEATURES: BillingFeatures = {
 
 /**
  * `GET /billing/capabilities` as the Core API answers it, validated against the
- * contract. The defaults are what the API serves with billing on and nothing
- * else shipped: NoOp as the only provider, no public surface, no feature.
+ * contract. The defaults are what the API serves with billing on and a release
+ * that ships no more than the base: NoOp as the only provider, automatic
+ * collection and the public surface shipped (`SHIPPED_BILLING_FEATURES`), and
+ * `publicSurface.enabled` equal to `enabled`, as the handler answers it.
  */
 export function billingCapabilities(
   overrides: Partial<BillingCapabilities> = {},
 ): BillingCapabilities {
+  const enabled = overrides.enabled ?? true;
+
   return parseContract(
     zBillingCapabilities,
     {
-      enabled: true,
-      features: NO_BILLING_FEATURES,
+      enabled,
+      features: SHIPPED_BILLING_FEATURES,
       providers: [NOOP_PROVIDER],
-      publicSurface: { enabled: false },
+      publicSurface: { enabled },
       usageIdempotencyWindowDays: 35,
       ...overrides,
     },
@@ -134,13 +160,15 @@ export function billingCapabilities(
  *   of `dev:mock`;
  * - `full`: Stripe connected and every part of billing shipped;
  * - `stackWithStripe`: what the API serves now, Stripe included: every part of the
- *   release the console has screens for, the provider as asked, and the three flags
- *   the API fixes (`stripe: true`, `chargeAutomatically: false`, `publicSurface:
- *   false`) as it fixes them, whatever the provider can do. It is the profile of
- *   `dev:mock`, and what shows that no screen gates on those flags;
+ *   release the console has screens for, the provider as asked, and the flags as the
+ *   API answers them (`stripe`, `chargeAutomatically` and `publicSurface` true,
+ *   whether or not the provider can be connected here). It is the profile of
+ *   `dev:mock`. A spec that makes a flag lie says so (`NO_BILLING_FEATURES`): the
+ *   gates read `providers` and the scopes, not the flags;
  * - `disabled`: billing off, for the reason the API gives. A disabled
- *   deployment still lists NoOp and the idempotency window: only `enabled`,
- *   `disabledReason` and the features say it is off.
+ *   deployment still lists NoOp, the idempotency window and the features its
+ *   release ships: only `enabled`, `disabledReason` and `publicSurface.enabled`
+ *   say it is off.
  *
  * An API that does not know the route at all (a release older than billing)
  * answers 404 instead of a body: see `BillingAppModel.failCapabilities`.
@@ -150,24 +178,28 @@ export const billingCapabilitiesProfiles = {
     reason: NonNullable<
       BillingCapabilities['disabledReason']
     > = 'DEPLOYMENT_DISABLED',
-  ) => billingCapabilities({ disabledReason: reason, enabled: false }),
+  ) =>
+    billingCapabilities({
+      disabledReason: reason,
+      enabled: false,
+      features: ALL_BILLING_FEATURES,
+    }),
   full: () =>
     billingCapabilities({
       features: ALL_BILLING_FEATURES,
       providers: [NOOP_PROVIDER, STRIPE_PROVIDER],
-      publicSurface: { enabled: true },
       usageHistoryRetentionMonths: 6,
     }),
   // The stack keeps 18 months of usage: what its API answers.
   stack: () =>
     billingCapabilities({
-      features: { ...NO_BILLING_FEATURES, lifecycle: true, trials: true },
+      features: { ...SHIPPED_BILLING_FEATURES, lifecycle: true, trials: true },
       usageHistoryRetentionMonths: 18,
     }),
   stackWithAddons: () =>
     billingCapabilities({
       features: {
-        ...NO_BILLING_FEATURES,
+        ...SHIPPED_BILLING_FEATURES,
         addons: true,
         lifecycle: true,
         trials: true,
@@ -177,7 +209,7 @@ export const billingCapabilitiesProfiles = {
   stackWithStripe: (standing: StripeStanding = 'connected') =>
     billingCapabilities({
       features: {
-        ...NO_BILLING_FEATURES,
+        ...SHIPPED_BILLING_FEATURES,
         addons: true,
         lifecycle: true,
         stripe: true,
@@ -190,7 +222,7 @@ export const billingCapabilitiesProfiles = {
   stackWithVouchers: () =>
     billingCapabilities({
       features: {
-        ...NO_BILLING_FEATURES,
+        ...SHIPPED_BILLING_FEATURES,
         addons: true,
         lifecycle: true,
         trials: true,

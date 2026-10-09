@@ -7,13 +7,16 @@ import {
   BillingAppModel,
   CAPABILITIES_OUTAGES,
 } from '../_support/model/billing-app-model';
-import { billingCapabilitiesProfiles } from '../_support/model/billing-capabilities';
+import {
+  billingCapabilitiesProfiles,
+  NO_BILLING_FEATURES,
+} from '../_support/model/billing-capabilities';
 import { SESSION_SCOPES, signInWithScopes } from '../_support/session-scopes';
 import { createBillingDisabledModel } from '../billing/billing.scenarios';
 import { createPublishableKeysBillingModel } from './integrations.scenarios';
 
 // Where the publishable keys are, and who may do what to them. They exist where billing is
-// on, whatever the capabilities say of the public surface (the API fixes that flag to false);
+// on, whatever the capabilities say of the public surface (`publicSurface` is not a gate);
 // the Integrations section lists them to a session that may read them; and a session that
 // may only read sees the keys with none of the controls that change them.
 
@@ -53,7 +56,7 @@ test.describe('the entry of the navigation', () => {
     );
   });
 
-  test('is listed on the capabilities the API serves now, which say the public surface is off', async ({
+  test('is listed on the capabilities the API serves now, which say the public surface is shipped and enabled', async ({
     page,
   }) => {
     const nav = new IntegrationsNavDriver(page);
@@ -62,7 +65,29 @@ test.describe('the entry of the navigation', () => {
     });
     await installBillingAppMocks(page, model);
 
+    expect(model.getCapabilities().features.publicSurface).toBe(true);
+    expect(model.getCapabilities().publicSurface.enabled).toBe(true);
+    await new BillingNavDriver(page).gotoShell();
+    await nav.open();
+
+    await expect(nav.entry('Publishable keys')).toBeVisible();
+  });
+
+  test('is listed whatever the capabilities say of the public surface', async ({
+    page,
+  }) => {
+    const nav = new IntegrationsNavDriver(page);
+    const model = new BillingAppModel({
+      capabilities: {
+        ...billingCapabilitiesProfiles.stackWithStripe('connected'),
+        features: NO_BILLING_FEATURES,
+        publicSurface: { enabled: false },
+      },
+    });
+    await installBillingAppMocks(page, model);
+
     expect(model.getCapabilities().features.publicSurface).toBe(false);
+    expect(model.getCapabilities().publicSurface.enabled).toBe(false);
     await new BillingNavDriver(page).gotoShell();
     await nav.open();
 

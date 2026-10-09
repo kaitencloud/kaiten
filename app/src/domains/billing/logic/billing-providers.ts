@@ -7,10 +7,12 @@ import type { BillingCapabilities, BillingProvider } from '@/api-client';
  * The console decides what a provider can do from that list (`available`,
  * `connected`, `unavailableReason`, `livemode`, `capabilities.automaticCollection`)
  * and never from `features.stripe`, `features.chargeAutomatically` or
- * `features.publicSurface`. The API fixes those three: it answers `stripe: true`
- * whether or not Stripe can be connected here, and `chargeAutomatically: false` and
- * `publicSurface: false` although the release ships both, so a gate on them would
- * hide automatic collection from a deployment that has it.
+ * `features.publicSurface`. Those three say what this release ships, and the API
+ * answers all of them `true`: `stripe: true` holds whether or not Stripe can be
+ * connected here, and `chargeAutomatically: true` whether or not a provider that
+ * charges is connected. What this organization can connect and use is in `providers`
+ * (its plan, a Vault), so a gate on a flag would offer automatic collection, or a
+ * Stripe tile, to an organization that has nothing to charge with.
  */
 
 export type BillingProviderKind = BillingProvider['kind'];

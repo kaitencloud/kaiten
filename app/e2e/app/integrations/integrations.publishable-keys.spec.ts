@@ -3,14 +3,20 @@ import { expectToast } from '../_support/assertions/toast';
 import { readConsoleStorage } from '../_support/assertions/storage';
 import { PublishableKeysDriver } from '../_support/drivers/publishable-keys.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
+import { BillingAppModel } from '../_support/model/billing-app-model';
+import {
+  billingCapabilitiesProfiles,
+  NO_BILLING_FEATURES,
+} from '../_support/model/billing-capabilities';
 import {
   createEmptyPublishableKeysBillingModel,
   createPublishableKeysBillingModel,
+  PUBLISHABLE_KEYS,
 } from './integrations.scenarios';
 
 // The publishable keys a web page reads the public catalogue with: listed by their last four
 // characters, issued once, edited and revoked. The console shows them on billing alone, with
-// the capabilities the API serves now (`publicSurface` false), and never has a key but the
+// the capabilities the API serves now (`publicSurface` shipped and enabled), and never has a key but the
 // one it is shown at the moment it is issued.
 
 const WRITES = /^\/api\/publishable-keys/;
@@ -55,14 +61,23 @@ test.describe('the list of publishable keys', () => {
     ).toHaveCount(0);
   });
 
-  test('stands where the API says the public surface is not enabled', async ({
+  test('stands whatever the capabilities say of the public surface', async ({
     page,
   }) => {
     const keys = new PublishableKeysDriver(page);
-    const model = createPublishableKeysBillingModel();
+    const model = new BillingAppModel({
+      capabilities: {
+        ...billingCapabilitiesProfiles.stack(),
+        features: NO_BILLING_FEATURES,
+        publicSurface: { enabled: false },
+      },
+      publishableKeys: { keys: PUBLISHABLE_KEYS },
+    });
     await installBillingAppMocks(page, model);
 
-    // The API fixes both to false whatever the deployment can do; the page does not follow them.
+    // The page asks billing to be on and the session for its scopes: neither flag
+    // of the public surface is part of that, so a release that says both are off
+    // still shows the keys.
     expect(model.getCapabilities().features.publicSurface).toBe(false);
     expect(model.getCapabilities().publicSurface.enabled).toBe(false);
     await keys.goto();

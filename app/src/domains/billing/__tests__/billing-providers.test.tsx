@@ -20,8 +20,9 @@ import {
 } from '../logic';
 
 // Where a payment provider stands is read from the `providers` of the
-// capabilities. The API fixes `features.stripe`, `chargeAutomatically` and
-// `publicSurface` whatever a provider can do, so none of these reads them.
+// capabilities. `features.stripe`, `chargeAutomatically` and `publicSurface` say what the
+// release ships, and the API answers them true on every organization whatever a provider
+// can do here, so none of these reads them.
 
 const withStripe = (standing: Parameters<typeof stripeProvider>[0]) =>
   billingCapabilitiesProfiles.stackWithStripe(standing);
@@ -92,12 +93,27 @@ describe('what a provider stands for', () => {
 });
 
 describe('charging automatically', () => {
-  it('is possible when a connected provider charges by itself, whatever the flag of the release says', () => {
+  it('is possible when a connected provider charges by itself', () => {
     const capabilities = withStripe('connected');
 
-    // The API serves this flag false although the release ships the feature.
-    expect(capabilities.features.chargeAutomatically).toBe(false);
+    expect(capabilities.features.chargeAutomatically).toBe(true);
     expect(canChargeAutomatically(capabilities)).toBe(true);
+  });
+
+  it('is possible when a connected provider charges by itself, whatever the flag of the release says', () => {
+    const capabilities = {
+      ...withStripe('connected'),
+      features: { ...withStripe('connected').features, chargeAutomatically: false },
+    };
+
+    expect(canChargeAutomatically(capabilities)).toBe(true);
+  });
+
+  it('is not possible while the release ships it but no connected provider charges', () => {
+    const capabilities = withStripe('available');
+
+    expect(capabilities.features.chargeAutomatically).toBe(true);
+    expect(canChargeAutomatically(capabilities)).toBe(false);
   });
 
   it('is not possible while no provider that charges is connected', () => {
