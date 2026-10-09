@@ -277,3 +277,28 @@ export async function invalidateCustomerBillingQueries(
     queryKey: getCustomerBillingQueryKey({ path: { customerSlug } }),
   });
 }
+
+/**
+ * The payment provider was read for what changed on its side (a pass of the
+ * provider): the invoices and the health, which count them, every invoice page that
+ * was read, the subscriptions of every instance, since an invoice paid there ends a
+ * late payment, and what every customer holds in the provider, whose payment method
+ * may have changed. Each operation is named by its generated key, with nobody in it,
+ * so that what was read so far is marked and only what is on screen is asked again.
+ */
+export async function invalidateProviderSyncQueries(queryClient: QueryClient) {
+  const [{ _id: invoiceId }] = getInvoiceQueryKey({ path: { invoiceId: '' } });
+  const [{ _id: subscriptionId }] = getInstanceBillingQueryKey({
+    path: { instanceSlug: '' },
+  });
+  const [{ _id: customerBillingId }] = getCustomerBillingQueryKey({
+    path: { customerSlug: '' },
+  });
+
+  await Promise.all([
+    invalidateInvoiceQueries(queryClient),
+    queryClient.invalidateQueries({ queryKey: [{ _id: invoiceId }] }),
+    queryClient.invalidateQueries({ queryKey: [{ _id: subscriptionId }] }),
+    queryClient.invalidateQueries({ queryKey: [{ _id: customerBillingId }] }),
+  ]);
+}

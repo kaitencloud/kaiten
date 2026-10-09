@@ -3,12 +3,22 @@ import { expect, within } from 'storybook/test';
 import type { BillingSettings } from '@/api-client';
 import {
   handleGetBillingCapabilities,
+  handleGetBillingHealth,
   handleGetBillingSettings,
 } from '@/api-client/msw.gen';
-import { billingCapabilities } from '../../../../../../e2e/app/_support/model/billing-capabilities';
+import {
+  billingCapabilities,
+  type StripeStanding,
+} from '../../../../../../e2e/app/_support/model/billing-capabilities';
+import {
+  CLEAR_HEALTH,
+  healthWith,
+  syncedStripe,
+} from '@/test-fixtures/billing-health-fixtures';
 import { billingCapabilitiesProfiles } from '@/test-fixtures/storybook-billing-fixtures';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { BillingDefaultsCard } from '../billing-defaults-card';
+import { BillingHealthCard } from '../billing-health-card';
 import { BillingProvidersCard } from '../billing-providers-card';
 import { BillingRetentionCard } from '../billing-retention-card';
 import { BillingSettingsPageContent } from '../billing-settings-page-content';
@@ -57,13 +67,21 @@ export const NoOpOnly: Story = {
   },
 };
 
-// Stripe is listed only where the release ships it, with its state alone: it is
-// connected on another screen.
+const stripeIs = (standing: StripeStanding) =>
+  handleGetBillingCapabilities({
+    body: billingCapabilitiesProfiles.stackWithStripe(standing),
+  });
+
+// Stripe is listed as the API lists it, with where it stands: connected here to a
+// test account, with how its last pass went. Connecting it is another screen.
 export const WithStripe: Story = {
   parameters: {
     msw: {
       handlers: [
-        handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.full() }),
+        stripeIs('connected'),
+        handleGetBillingHealth({
+          body: healthWith({ providerSync: [syncedStripe()] }),
+        }),
       ],
     },
   },
@@ -78,6 +96,156 @@ export const WithStripe: Story = {
     );
 
     await expect(stripe).toHaveTextContent('Connected');
+    await expect(stripe).toHaveTextContent('Test mode');
+    await expect(await within(stripe).findByTestId('billing-provider-sync')).toHaveTextContent(
+      /Last synced/,
+    );
+    await expect(
+      within(stripe).getByRole('link', { name: 'Manage the connection' }),
+    ).toBeVisible();
+  },
+};
+
+// The passes keep failing: invoices paid or voided in Stripe are not read back, which
+// the card warns of with the last thing Stripe answered.
+export const StripeSyncFailing: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        stripeIs('connected'),
+        handleGetBillingHealth({
+          body: healthWith({
+            providerSync: [
+              syncedStripe({
+                consecutiveFailures: 4,
+                lastSyncError: 'the payment provider could not be reached',
+                lastSyncStatus: 'FAILED',
+              }),
+            ],
+          }),
+        }),
+      ],
+    },
+  },
+  render: () => (
+    <StorybookRouter>
+      <BillingProvidersCard />
+    </StorybookRouter>
+  ),
+  play: async ({ canvasElement }) => {
+    const sync = await within(canvasElement).findByTestId('billing-provider-sync');
+
+    await expect(sync).toHaveAttribute('data-standing', 'failing');
+    await expect(sync).toHaveTextContent('4 syncs in a row failed');
+    await expect(sync).toHaveTextContent('the payment provider could not be reached');
+  },
+};
+
+// Stripe can be connected here and is not.
+export const StripeAvailable: Story = {
+  parameters: { msw: { handlers: [stripeIs('available')] } },
+  render: () => (
+    <StorybookRouter>
+      <BillingProvidersCard />
+    </StorybookRouter>
+  ),
+  play: async ({ canvasElement }) => {
+    const stripe = await within(canvasElement).findByTestId(
+      'billing-provider-stripe',
+    );
+
+    await expect(stripe).toHaveTextContent('Not connected');
+    await expect(
+      await within(stripe).findByRole('link', { name: 'Connect Stripe' }),
+    ).toBeVisible();
+  },
+};
+
+// A self-hosted deployment without a Vault cannot connect Stripe, and says why.
+export const StripeNeedsAVault: Story = {
+  parameters: { msw: { handlers: [stripeIs('vaultMissing')] } },
+  render: () => (
+    <StorybookRouter>
+      <BillingProvidersCard />
+    </StorybookRouter>
+  ),
+  play: async ({ canvasElement }) => {
+    const stripe = await within(canvasElement).findByTestId(
+      'billing-provider-stripe',
+    );
+
+    await expect(stripe).toHaveTextContent('Unavailable');
+    await expect(stripe).toHaveTextContent('Needs a Vault to store the key in');
+  },
+};
+
+// What needs a person's attention: a figure for each thing counted, a link to the
+// invoices where the list can filter to them, and a button that syncs with Stripe now.
+export const HealthNeedsAttention: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        stripeIs('connected'),
+        handleGetBillingHealth({
+          body: healthWith({
+            closeBacklog: { count: 1, oldestDueAt: '2027-02-28T00:00:00Z' },
+            handoff: { oldestPendingIssuedAt: '2027-03-01T00:00:00Z', pending: 4 },
+            heldInvoices: {
+              byReason: {
+                LEDGER_CHAIN_BREAK: 0,
+                LEDGER_COUNTER_MISMATCH: 0,
+                LEDGER_SEQUENCE_GAP: 2,
+              },
+              count: 2,
+            },
+            overdueInvoices: 3,
+            pushFailures: { count: 1, oldestFailedAt: '2027-03-02T00:00:00Z' },
+            reconciliationMismatches30d: 5,
+          }),
+        }),
+      ],
+    },
+  },
+  render: () => (
+    <StorybookRouter>
+      <BillingHealthCard />
+    </StorybookRouter>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const held = await canvas.findByTestId('billing-health-held');
+
+    await expect(held).toHaveAttribute('data-count', '2');
+    await expect(
+      within(held).getByRole('link', { name: 'Held invoices' }),
+    ).toHaveAttribute('href', expect.stringContaining('held=true'));
+    await expect(canvas.getByTestId('billing-health-mismatches')).toHaveAttribute(
+      'data-count',
+      '5',
+    );
+    await expect(canvas.getByRole('button', { name: 'Sync now' })).toBeEnabled();
+  },
+};
+
+// Nothing is held, overdue or waiting: one line, in place of seven zeros.
+export const HealthAllClear: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        stripeIs('connected'),
+        handleGetBillingHealth({ body: CLEAR_HEALTH }),
+      ],
+    },
+  },
+  render: () => (
+    <StorybookRouter>
+      <BillingHealthCard />
+    </StorybookRouter>
+  ),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByTestId('billing-health-clear'),
+    ).toHaveTextContent('All clear');
   },
 };
 
@@ -104,13 +272,7 @@ export const Defaults: Story = {
 };
 
 export const DefaultsWithAProvider: Story = {
-  parameters: {
-    msw: {
-      handlers: [
-        handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.full() }),
-      ],
-    },
-  },
+  parameters: { msw: { handlers: [stripeIs('connected')] } },
   render: () => (
     <StorybookRouter>
       <BillingDefaultsCard settings={{ ...STORED, handoffStripeInvoices: true }} />
@@ -154,16 +316,15 @@ export const RetentionNotReported: Story = {
   },
 };
 
-// The page: the three cards, the defaults read by the page so that a refusal
-// shows with a way to ask again.
+// The page: the cards, the defaults read by the page so that a refusal shows with
+// a way to ask again.
 export const Page: Story = {
   parameters: {
     layout: 'fullscreen',
     msw: {
       handlers: [
-        handleGetBillingCapabilities({
-          body: billingCapabilitiesProfiles.stack(),
-        }),
+        stripeIs('connected'),
+        handleGetBillingHealth({ body: healthWith({ overdueInvoices: 1 }) }),
         handleGetBillingSettings({ body: STORED }),
       ],
     },
@@ -177,6 +338,7 @@ export const Page: Story = {
     const canvas = within(canvasElement);
 
     await expect(await canvas.findByTestId('billing-providers')).toBeVisible();
+    await expect(await canvas.findByTestId('billing-health')).toBeVisible();
     await expect(await canvas.findByTestId('billing-defaults')).toBeVisible();
     await expect(canvas.getByTestId('billing-retention')).toBeVisible();
   },

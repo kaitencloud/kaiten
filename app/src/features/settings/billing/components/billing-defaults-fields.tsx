@@ -19,35 +19,42 @@ const COLLECTION_METHODS = [
 ] as const satisfies readonly CollectionMethod[];
 
 type BillingDefaultsFieldsProps = {
-  /** Whether the release collects automatically: only then can the option be chosen. */
-  canChargeAutomatically: boolean;
+  /**
+   * Whether a connected provider charges by itself. It does not make the option
+   * choosable here, since the API takes SEND_INVOICE alone as the default of the
+   * organization: it only changes the reason given, which is then the contract.
+   */
+  providerCharges: boolean;
   disabled: boolean;
   form: any;
-  /** Whether the release ships Stripe: only then is there an invoice of a provider to hand off. */
+  /** Whether Stripe is connected or can be: only then is there an invoice of a provider to hand off. */
   showHandoffStripeInvoices: boolean;
 };
 
 /**
  * The three defaults a subscription takes when it names none of its own. Charging
- * automatically is listed and cannot be chosen where no payment provider can do it,
- * with the reason on the option, so that it is known to exist and why it is not
- * offered. Whether to hand the invoices of a provider to the handoff queue is
- * hidden until a provider is shipped: it would be a question about nothing.
+ * automatically is listed and cannot be chosen as a default, with the reason on the
+ * option, so that it is known to exist and why it is not offered: no payment
+ * provider can do it, or one can and it is set on each contract. Whether to hand the invoices of a provider to the handoff queue is
+ * hidden until a provider can be used here: it would be a question about nothing.
  */
 export function BillingDefaultsFields({
-  canChargeAutomatically,
   disabled,
   form,
+  providerCharges,
   showHandoffStripeInvoices,
 }: BillingDefaultsFieldsProps) {
   const { t } = useTranslation();
 
   const methodLabel = (method: CollectionMethod) =>
-    canChargeAutomatically || method === 'SEND_INVOICE'
+    method === 'SEND_INVOICE'
       ? t(COLLECTION_METHOD_LABEL_KEYS[method])
-      : t('Pages.Settings.Billing.Defaults.CollectionMethod.unavailable', {
-          method: t(COLLECTION_METHOD_LABEL_KEYS[method]),
-        });
+      : t(
+          providerCharges
+            ? 'Pages.Settings.Billing.Defaults.CollectionMethod.perContract'
+            : 'Pages.Settings.Billing.Defaults.CollectionMethod.unavailable',
+          { method: t(COLLECTION_METHOD_LABEL_KEYS[method]) },
+        );
 
   return (
     <Suspense fallback={null}>
@@ -61,7 +68,7 @@ export function BillingDefaultsFields({
             getOptionLabel={methodLabel}
             getOptionValue={(method: CollectionMethod) => method}
             isOptionDisabled={(method: CollectionMethod) =>
-              method === 'CHARGE_AUTOMATICALLY' && !canChargeAutomatically
+              method === 'CHARGE_AUTOMATICALLY'
             }
             label={t('Pages.Settings.Billing.Defaults.Labels.collectionMethod')}
             options={COLLECTION_METHODS}

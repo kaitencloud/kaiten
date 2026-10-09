@@ -39,7 +39,7 @@ describe('the dialog of a refused deletion', () => {
     ).toBeInTheDocument();
     expect(
       within(dialog).getByRole('link', { name: 'Open the subscription' }),
-    ).toHaveAttribute('href', '/customers/instances/$instanceSlug/billing');
+    ).toHaveAttribute('href', '/customers/instances/acme-production/billing');
     expect(within(dialog).getByText('2 invoices not settled')).toBeInTheDocument();
     expect(
       within(screen.getByTestId('deletion-refusal-invoices'))
@@ -97,7 +97,7 @@ describe('the dialog of a refused deletion', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'Open the customer' }),
-    ).toHaveAttribute('href', '/customers/$customerSlug');
+    ).toHaveAttribute('href', '/customers/acme');
     expect(screen.getByText('1 invoice not settled')).toBeInTheDocument();
   });
 
@@ -124,7 +124,7 @@ describe('the dialog of a refused deletion', () => {
     ).toEqual(['Granted by 1 license version', 'Metered by 3 license prices']);
     expect(
       screen.getByRole('link', { name: 'Open the entitlement' }),
-    ).toHaveAttribute('href', '/entitlements/$entitlementSlug');
+    ).toHaveAttribute('href', '/entitlements/api-calls');
   });
 
   it('asks for the references to be removed when they can be, and offers to hide the entitlement when a price or a boost holds it', () => {

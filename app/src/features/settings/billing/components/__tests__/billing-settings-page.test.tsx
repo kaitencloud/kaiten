@@ -6,12 +6,16 @@ import { server } from '@/__tests__/msw-server';
 import type { BillingSettings } from '@/api-client';
 import {
   handleGetBillingCapabilities,
+  handleGetBillingHealth,
   handleGetBillingSettings,
   handleUpdateBillingSettings,
 } from '@/api-client/msw.gen';
+import { CLEAR_HEALTH } from '@/test-fixtures/billing-health-fixtures';
 import {
   billingCapabilities,
   billingCapabilitiesProfiles,
+  NO_BILLING_FEATURES,
+  type StripeStanding,
 } from '../../../../../../e2e/app/_support/model/billing-capabilities';
 import {
   refusal,
@@ -42,15 +46,28 @@ const STORED: BillingSettings = {
 };
 
 beforeEach(() => {
-  // A session that may read and write billing, as an administrator does.
-  getAuthToken.mockResolvedValue(sessionToken(['read:billing', 'write:billing']));
+  // A session that may read and write billing and read the settings of the
+  // organization, as an administrator does.
+  getAuthToken.mockResolvedValue(
+    sessionToken(['read:billing', 'read:organizations', 'write:billing']),
+  );
   toast.error.mockReset();
   toast.success.mockReset();
   server.use(
     handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }),
+    handleGetBillingHealth({ body: CLEAR_HEALTH }),
     handleGetBillingSettings({ body: STORED }),
   );
 });
+
+/** Where Stripe stands for the organization, as the capabilities list it. */
+function stripeIs(standing: StripeStanding) {
+  server.use(
+    handleGetBillingCapabilities({
+      body: billingCapabilitiesProfiles.stackWithStripe(standing),
+    }),
+  );
+}
 
 /** Records the bodies the API is asked to store, and keeps the last as what it holds. */
 function serveUpdates(answer?: (body: BillingSettings) => Response) {
@@ -135,30 +152,97 @@ describe('the providers', () => {
     );
   });
 
-  it('lists Stripe only where the release ships it, with its state', async () => {
-    server.use(
-      handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.full() }),
-    );
+  it('lists Stripe as connected to a test account, and leads to its connector', async () => {
+    stripeIs('connected');
     renderPage();
 
     const stripe = await screen.findByTestId('billing-provider-stripe');
     expect(stripe).toHaveTextContent('Stripe');
     expect(stripe).toHaveTextContent('Connected');
+    expect(stripe).toHaveTextContent('Test mode');
+    expect(stripe).toHaveAttribute('data-standing', 'connected');
+    expect(
+      await within(stripe).findByRole('link', { name: 'Manage the connection' }),
+    ).toHaveAttribute('href', '/integrations/connectors/stripe');
   });
 
-  it('does not list a Stripe the release does not ship, though the API names it', async () => {
+  it('says when the connection reaches the live account', async () => {
+    stripeIs('connectedLive');
+    renderPage();
+
+    const stripe = await screen.findByTestId('billing-provider-stripe');
+    expect(await within(stripe).findByText('Live mode')).toHaveAttribute(
+      'data-mode',
+      'live',
+    );
+  });
+
+  it('offers to connect Stripe where it can be and is not', async () => {
+    stripeIs('available');
+    renderPage();
+
+    const stripe = await screen.findByTestId('billing-provider-stripe');
+    expect(stripe).toHaveTextContent('Not connected');
+    expect(stripe).toHaveAttribute('data-standing', 'available');
+    expect(
+      await within(stripe).findByRole('link', { name: 'Connect Stripe' }),
+    ).toHaveAttribute('href', '/integrations/connectors/stripe');
+    expect(within(stripe).queryByTestId('billing-provider-sync')).toBeNull();
+  });
+
+  it.each([
+    ['vaultMissing', 'VAULT_NOT_CONFIGURED', 'Needs a Vault to store the key in'],
+    ['notEntitled', 'NOT_ENTITLED', 'Not included in your plan.'],
+  ] as const)(
+    'says why Stripe cannot be connected here (%s), and leads to the page that explains',
+    async (standing, reason, words) => {
+      stripeIs(standing);
+      renderPage();
+
+      const stripe = await screen.findByTestId('billing-provider-stripe');
+      expect(stripe).toHaveTextContent('Unavailable');
+      expect(stripe).toHaveAttribute('data-standing', 'unavailable');
+      expect(stripe.querySelector(`[data-reason="${reason}"]`)).toHaveTextContent(
+        words,
+      );
+      expect(
+        await within(stripe).findByRole('link', { name: 'See why' }),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it('does not send a session that may not read the settings of the organization to the connector', async () => {
+    getAuthToken.mockResolvedValue(sessionToken(['read:billing']));
+    stripeIs('connected');
+    renderPage();
+
+    const stripe = await screen.findByTestId('billing-provider-stripe');
+    await waitFor(() => expect(stripe).toHaveTextContent('Connected'));
+    expect(within(stripe).queryByRole('link')).toBeNull();
+  });
+
+  it('lists Stripe whenever the API lists it, whatever the flags of the capabilities say', async () => {
+    // The API answers `stripe: false` here, and lists the provider all the same.
     server.use(
       handleGetBillingCapabilities({
         body: billingCapabilities({
+          features: NO_BILLING_FEATURES,
           providers: [
             ...billingCapabilitiesProfiles.stack().providers,
-            ...billingCapabilitiesProfiles.full().providers.filter(
-              ({ kind }) => kind === 'STRIPE',
-            ),
+            ...billingCapabilitiesProfiles
+              .stackWithStripe('connected')
+              .providers.filter(({ kind }) => kind === 'STRIPE'),
           ],
         }),
       }),
     );
+    renderPage();
+
+    const stripe = await screen.findByTestId('billing-provider-stripe');
+    expect(stripe).toHaveTextContent('Connected');
+  });
+
+  it('does not list a Stripe the API does not list', async () => {
     renderPage();
 
     await screen.findByTestId('billing-provider-noop');
@@ -190,29 +274,47 @@ describe('the defaults', () => {
     );
   });
 
-  it('offers charging automatically where the release ships it', async () => {
-    server.use(
-      handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.full() }),
-    );
+  it('keeps charging automatically off as a default once a connected provider charges by itself, and points to the contract', async () => {
+    stripeIs('connected');
     renderPage();
     await daysField();
 
     await userEvent.click(screen.getByRole('combobox'));
 
     expect(
-      await screen.findByRole('option', { name: 'Charge automatically' }),
-    ).not.toHaveAttribute('aria-disabled', 'true');
+      await screen.findByRole('option', {
+        name: 'Charge automatically (set on each contract)',
+      }),
+    ).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('hides whether to hand Stripe invoices off until Stripe is shipped, and shows it then', async () => {
+  it('keeps charging automatically off while Stripe is only free to be connected', async () => {
+    stripeIs('available');
+    renderPage();
+    await daysField();
+
+    await userEvent.click(screen.getByRole('combobox'));
+
+    expect(
+      await screen.findByRole('option', {
+        name: 'Charge automatically (needs a payment provider)',
+      }),
+    ).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('asks whether to hand Stripe invoices off once Stripe can be used, and not before', async () => {
     const { unmount } = renderPage();
     await daysField();
     expect(screen.queryByLabelText('Hand off Stripe invoices')).toBeNull();
     unmount();
 
-    server.use(
-      handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.full() }),
-    );
+    stripeIs('vaultMissing');
+    const unusable = renderPage();
+    await daysField();
+    expect(screen.queryByLabelText('Hand off Stripe invoices')).toBeNull();
+    unusable.unmount();
+
+    stripeIs('available');
     renderPage();
 
     expect(await screen.findByLabelText('Hand off Stripe invoices')).not.toBeChecked();
