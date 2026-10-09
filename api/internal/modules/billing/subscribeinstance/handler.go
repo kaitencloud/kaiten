@@ -150,7 +150,8 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		if resubscribe && subscriptions.Live(existing.Status) {
 			return kaitenerrors.Conflict(operation+".AlreadySubscribed", "this instance already has a live subscription")
 		}
-		if cmd.MoveToLicenseID != nil && *cmd.MoveToLicenseID != instance.LicenseID {
+		moved := cmd.MoveToLicenseID != nil && *cmd.MoveToLicenseID != instance.LicenseID
+		if moved {
 			if u.deps.Mover == nil {
 				return errors.New("subscribe: no instance version mover is wired")
 			}
@@ -268,6 +269,22 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 
 		if err := u.attachAndRedeem(ctx, instanceSlug, cmd); err != nil {
 			return err
+		}
+		if moved {
+			// The version moved to, with the add-ons bought with it, must
+			// accept the usage already made (§14.4 rule 2).
+			over, err := u.deps.Mover.OverQuota(ctx, instanceSlug)
+			if err != nil {
+				return err
+			}
+			if len(over) > 0 {
+				return kaitenerrors.UnprocessableEntityWithErrors(operation+".QuotaExceeded",
+					"the instance already uses more than this plan allows",
+					&kaitenerrors.ErrorDetail{
+						Message: "entitlements over the plan's limit", Location: "body.basePriceId",
+						Value: map[string]any{"entitlementSlugs": over},
+					})
+			}
 		}
 		// A voucher redeemed just now is dated by the clock, after now: the
 		// first invoice applies the vouchers redeemed up to after it.

@@ -440,6 +440,9 @@ func translate(err error) error {
 	case "CompletePaymentMethodSession.SessionNotFound", "CompletePaymentMethodSession.SessionNotComplete":
 		return kaitenerrors.Conflict(operation+".SetupSessionIncomplete",
 			"no payment method was saved on that setup page: send the customer back to it, or open a new one")
+	case "SubscribeInstance.QuotaExceeded":
+		return kaitenerrors.UnprocessableEntityWithErrors(operation+".QuotaExceeded",
+			"the instance already uses more than this plan allows: choose a larger plan, or add-ons", refusal.Errors...)
 	case "UpdateInstance.LicenseArchived":
 		return kaitenerrors.UnprocessableEntity(operation+".PriceNotPublic", "this plan's version is no longer on sale")
 	}

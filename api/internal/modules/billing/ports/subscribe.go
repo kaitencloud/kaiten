@@ -23,4 +23,7 @@ type VoucherRedeemer interface {
 // the instances module.
 type InstanceVersionMover interface {
 	MoveToVersion(ctx context.Context, instanceSlug string, licenseID uuid.UUID) error
+	// OverQuota is the entitlements whose current usage is above what the
+	// instance accepts now, in the caller's transaction.
+	OverQuota(ctx context.Context, instanceSlug string) ([]string, error)
 }
