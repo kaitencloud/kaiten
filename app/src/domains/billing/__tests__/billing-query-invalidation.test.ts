@@ -18,6 +18,7 @@ import {
 } from '@/lib/api/all-pages-query-options';
 import {
   invalidateBillingSettingsQueries,
+  invalidateInstanceAddonQueries,
   invalidateInstanceBillingQueries,
   invalidateInvoiceQueries,
   invalidateLicensePriceQueries,
@@ -77,6 +78,35 @@ describe('invalidateInstanceBillingQueries', () => {
     seed(client, [...touched, ...untouched]);
 
     await invalidateInstanceBillingQueries(client, 'initech-prod');
+
+    for (const key of touched) {
+      expect(invalidated(client, key), JSON.stringify(key)).toBe(true);
+    }
+    for (const key of untouched) {
+      expect(invalidated(client, key), JSON.stringify(key)).toBe(false);
+    }
+  });
+});
+
+describe('invalidateInstanceAddonQueries', () => {
+  it('refreshes the add-ons of an instance, what they apply to and what the next boundary bills, and only that instance', async () => {
+    const client = new QueryClient();
+    const touched = [
+      listInstanceAddonsQueryKey({ path }),
+      getEntitlementsUsageMetricsQueryKey({ path }),
+      getUpcomingInvoiceQueryKey({ path }),
+    ];
+    const untouched = [
+      listInstanceAddonsQueryKey({ path: otherPath }),
+      getUpcomingInvoiceQueryKey({ path: otherPath }),
+      // The subscription itself and the invoices already issued did not change.
+      getInstanceBillingQueryKey({ path }),
+      instanceCardInvoices,
+      organizationInvoices,
+    ];
+    seed(client, [...touched, ...untouched]);
+
+    await invalidateInstanceAddonQueries(client, 'initech-prod');
 
     for (const key of touched) {
       expect(invalidated(client, key), JSON.stringify(key)).toBe(true);

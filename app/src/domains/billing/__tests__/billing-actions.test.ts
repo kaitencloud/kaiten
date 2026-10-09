@@ -122,6 +122,43 @@ describe('billing actions', () => {
     expect(canPerformAction(U_SALES, 'licenseFamily.setPublic')).toBe(false);
   });
 
+  it('gates the add-on catalogue on the scopes of the add-ons, and what an instance does with them on its own', () => {
+    for (const action of ['addons.list', 'addons.read'] as const) {
+      expect(getActionScopes(action), action).toEqual(['read:addons']);
+      expect(canPerformAction(U_READER, action), action).toBe(false);
+    }
+    for (const action of [
+      'addons.create',
+      'addons.update',
+      'addons.delete',
+      'addons.publish',
+      'addons.archive',
+      'addons.unarchive',
+      'addonFamily.setPublic',
+      'addonGrants.assign',
+      'addonGrants.update',
+      'addonGrants.unassign',
+      'addonPrices.create',
+      'addonPrices.deprecate',
+      'addonCompatibility.set',
+      'addonCompatibility.remove',
+    ] as const) {
+      expect(getActionScopes(action), action).toEqual(['write:addons']);
+      expect(canPerformAction(U_SALES, action), action).toBe(false);
+    }
+    // An attachment is entitlement state of the instance: a session that may
+    // write instances attaches, quantifies and detaches, whatever it does to
+    // the catalogue.
+    expect(getActionScopes('instance.addons.attach')).toEqual(['write:instances']);
+    expect(getActionScopes('instance.addons.setQuantity')).toEqual([
+      'write:instances',
+    ]);
+    expect(canPerformAction(U_SALES, 'instance.addons.attach')).toBe(true);
+    expect(canPerformAction(U_SALES, 'instance.addons.setQuantity')).toBe(true);
+    expect(canPerformAction(U_READER, 'instance.addons.attach')).toBe(false);
+    expect(canPerformAction(U_SALES, 'addons.list')).toBe(false);
+  });
+
   it('offers an administrator everything', () => {
     expect(actions.filter((action) => !canPerformAction(U_ADMIN, action))).toEqual(
       [],

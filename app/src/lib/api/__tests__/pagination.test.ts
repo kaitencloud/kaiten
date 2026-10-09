@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vite-plus/test';
-import { fetchAllPages } from '../pagination';
+import { fetchAllPages, toListPage } from '../pagination';
 
 describe('fetchAllPages', () => {
   it('walks the cursor until the last page', async () => {
@@ -64,5 +64,25 @@ describe('fetchAllPages', () => {
     });
     await expect(fetchAllPages(fetchPage, controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
     expect(fetchPage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('toListPage', () => {
+  it('turns the array an endpoint answers into the list the rest of the console reads', () => {
+    expect(toListPage(['a', 'b'])).toEqual({ hasMore: false, items: ['a', 'b'] });
+  });
+
+  it('is an empty list for what the API leaves out or answers null', () => {
+    expect(toListPage(null)).toEqual({ hasMore: false, items: [] });
+    expect(toListPage(undefined)).toEqual({ hasMore: false, items: [] });
+  });
+
+  it('copies the array, so that a change to the list never reaches what the client holds', () => {
+    const answer = ['a'];
+    const page = toListPage(answer);
+
+    page.items.push('b');
+
+    expect(answer).toEqual(['a']);
   });
 });

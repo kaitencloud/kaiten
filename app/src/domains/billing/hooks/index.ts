@@ -6,5 +6,6 @@ export {
 export { useAlertFocus } from './use-alert-focus';
 export { useBoundaryRetry } from './use-boundary-retry';
 export { useDeletionRefusal } from './use-deletion-refusal';
+export { useGrantedScopes } from './use-granted-scopes';
 export { useInvoiceActionAccess } from './use-invoice-action-access';
 export { useUsageReports } from './use-usage-reports';

@@ -50,3 +50,16 @@ export const fetchAllPages = async <T>(
 
   return items;
 };
+
+/**
+ * The console's list shape, `{ hasMore, items }`, for an endpoint that answers a
+ * plain array and not a page: the add-on families, the add-on versions and the
+ * add-ons of an instance. A feature that reads one does it through here and nowhere
+ * else, so that the day the API pages them, the read changes to a walk of the
+ * cursor (`fetchAllPages`) in that one place and the screens do not notice.
+ */
+export type ListPage<T> = { hasMore: false; items: T[] };
+
+export const toListPage = <T>(
+  items: readonly T[] | null | undefined,
+): ListPage<T> => ({ hasMore: false, items: [...(items ?? [])] });
