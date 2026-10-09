@@ -1,5 +1,6 @@
 export { InstanceDetailAuditTrailTab } from './audit-trail';
 export {
+  AttachAddonDialog,
   CancelSubscriptionDialog,
   InstanceDetailBillingTab,
   PaymentTermsDialog,

@@ -610,6 +610,13 @@ export default {
                 noActivation:
                   'Nothing is invoiced yet: the first invoice is issued on {{date}}.',
               },
+              Addons: {
+                title: 'Add-ons',
+                description:
+                  'Optional. They are attached when the subscription starts and billed from its first invoice. If one cannot be attached, the subscription does not start.',
+                maxQuantity_one: 'Up to {{count}} unit',
+                maxQuantity_other: 'Up to {{count}} units',
+              },
               BillingEmail: {
                 title: '{{customer}} has no billing e-mail',
                 description:
@@ -620,6 +627,8 @@ export default {
                 saved: 'Billing e-mail saved',
               },
               Errors: {
+                addOns:
+                  'Enter a whole number of units for each add-on, within what it allows',
                 basePrice: 'Choose a base price',
                 daysUntilDue: 'Enter a whole number of days, from 0 to 365',
                 trialDays: 'Enter a whole number of days, from 0 to 365',
@@ -898,6 +907,97 @@ export default {
               },
               Errors: {
                 daysUntilDue: 'Enter a whole number of days, from 0 to 365',
+              },
+            },
+            Addons: {
+              title: 'Add-ons',
+              description:
+                'Extra entitlements this instance holds on top of its license, billed with its subscription.',
+              loading: 'Loading the add-ons',
+              attach: 'Add an add-on',
+              note: 'Entitlement changes now; billed from the next renewal; no proration or refund.',
+              notLive:
+                'Add-ons can be added while the subscription is live. Before that, add them when subscribing the instance.',
+              Empty: {
+                title: 'No add-on',
+                description:
+                  'This instance holds no add-on. Add one to raise its limits or switch on a feature.',
+              },
+              Table: {
+                Columns: {
+                  addon: 'Add-on',
+                  quantity: 'Quantity',
+                  price: 'Price per unit',
+                  since: 'Since',
+                },
+                free: 'Free',
+                onRequest: 'On request',
+                notBilled: 'Not billed',
+                withdrawn: 'Withdrawn',
+                withdrawnHint:
+                  'This version was withdrawn from sale. The instance keeps it until it is removed.',
+              },
+              Quantity: {
+                group: 'Quantity of {{name}}',
+                decrease: 'One unit fewer of {{name}}',
+                increase: 'One unit more of {{name}}',
+              },
+              Remove: {
+                action: 'Remove',
+                aria: 'Remove {{name}}',
+                title: 'Remove {{name}} from this instance?',
+                description: 'Its entitlements end at once.',
+                refund:
+                  'The current period is not refunded, and the add-on is no longer billed from the next invoice.',
+                arrears:
+                  'This add-on is billed in arrears: the period under way is still billed in full, at the last quantity held, on the next invoice. Nothing is refunded.',
+                confirm: 'Remove',
+              },
+              Toasts: {
+                attached: '{{name}} added (× {{quantity}})',
+                quantity: '{{name}}: now × {{quantity}}',
+                removed: '{{name}} removed',
+              },
+              Effect: {
+                change: '{{entitlement}}: {{before}} → {{after}}',
+                configured: 'Configured',
+                none: 'Not granted',
+              },
+              Unread: {
+                all: 'The add-ons could not be read, so none is offered.',
+                partial:
+                  'Some add-ons could not be checked against the license of this instance, so they are not listed.',
+              },
+              Attach: {
+                title: 'Add an add-on',
+                dialogTitle: 'Add an add-on to {{name}}',
+                description:
+                  'Attach an add-on to this instance. Its entitlements apply at once.',
+                addon: 'Add-on',
+                addonHint:
+                  'The add-ons on sale that fit the license of this instance.',
+                addonPlaceholder: 'Choose an add-on',
+                quantity: 'Quantity',
+                quantityHint: 'At least 1.',
+                quantityHintMax: 'From 1 to {{max}}.',
+                confirm: 'Add the add-on',
+                none: 'No add-on can be added: none on sale fits the license of this instance, or it holds a version of each already.',
+                notLive:
+                  'Add-ons can only be added while the subscription is live: in trial, active or past due.',
+                Price: {
+                  perUnit: 'per unit, billed from the next renewal.',
+                  free: 'Free: nothing is billed for it.',
+                  custom:
+                    'Sold on request: no price is set, so nothing is billed for it here.',
+                  none: 'This add-on has no default price for the billing period of the subscription ({{period}}), and the API will refuse it.',
+                  loading: 'Reading its price…',
+                  unknown: 'Its price could not be read.',
+                },
+                Errors: {
+                  addon: 'Choose an add-on',
+                  quantity: 'Enter a whole number of units, at least 1',
+                  quantityMax: 'This add-on allows fewer units',
+                },
               },
             },
           },

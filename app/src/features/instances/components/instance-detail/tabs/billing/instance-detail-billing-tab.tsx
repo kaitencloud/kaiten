@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { RetryableProblem } from '@/domains/billing';
 import { instanceBillingQueryOptions } from '../../../../queries';
 import { useInstanceDetail } from '../../instance-detail-context';
+import { InstanceAddonsCard } from './addons';
 import { InstanceInvoicesCard } from './instance-invoices-card';
 import { NotSubscribedCard } from './not-subscribed-card';
 import { SubscribeAction } from './subscribe-action';
@@ -63,7 +64,10 @@ export function InstanceDetailBillingTab({
     const subscription = query.data;
     if (!subscription) {
       return (
-        <NotSubscribedCard instanceSlug={instanceSlug} license={license} />
+        <div className="space-y-4 lg:space-y-6">
+          <NotSubscribedCard instanceSlug={instanceSlug} license={license} />
+          <InstanceAddonsCard instanceSlug={instanceSlug} subscription={null} />
+        </div>
       );
     }
     const ended = subscription.status === 'CANCELED';
@@ -91,6 +95,12 @@ export function InstanceDetailBillingTab({
           subscription={subscription}
         />
         {ended ? null : <UpcomingInvoiceCard instanceSlug={instanceSlug} />}
+        <div className="xl:col-span-2">
+          <InstanceAddonsCard
+            instanceSlug={instanceSlug}
+            subscription={subscription}
+          />
+        </div>
         <div className="xl:col-span-2">
           <InstanceInvoicesCard instanceSlug={instanceSlug} />
         </div>

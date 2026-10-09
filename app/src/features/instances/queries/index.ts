@@ -1,5 +1,8 @@
 export {
+  addonVersionsQueryOptions,
   instanceAddonsQueryOptions,
+} from './instance-addon-query-options';
+export {
   instanceBillingQueryOptions,
   instanceInvoicesQueryOptions,
   planTargetLicensesQueryOptions,

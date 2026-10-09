@@ -73,6 +73,7 @@ function SubscribeContent({
     <SubscribeInstanceForm
       customer={customer}
       defaultTrialDays={license?.trialPeriodDays ?? 0}
+      familyId={license?.familyId}
       instanceSlug={instanceSlug}
       onCancel={onClose}
       onSubscribed={onSubscribed}

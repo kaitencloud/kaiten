@@ -622,6 +622,13 @@ export default {
                 noActivation:
                   'Rien n’est encore facturé : la première facture est émise le {{date}}.',
               },
+              Addons: {
+                title: 'Options',
+                description:
+                  'Facultatif. Elles sont attachées au démarrage de l’abonnement et facturées dès sa première facture. Si l’une ne peut pas l’être, l’abonnement ne démarre pas.',
+                maxQuantity_one: 'Jusqu’à {{count}} unité',
+                maxQuantity_other: 'Jusqu’à {{count}} unités',
+              },
               BillingEmail: {
                 title: '{{customer}} n’a pas d’e-mail de facturation',
                 description:
@@ -632,6 +639,8 @@ export default {
                 saved: 'E-mail de facturation enregistré',
               },
               Errors: {
+                addOns:
+                  'Saisissez un nombre entier d’unités pour chaque option, dans la limite qu’elle autorise',
                 basePrice: 'Choisissez un prix de base',
                 daysUntilDue: 'Saisissez un nombre entier de jours, de 0 à 365',
                 trialDays: 'Saisissez un nombre entier de jours, de 0 à 365',
@@ -915,6 +924,97 @@ export default {
               },
               Errors: {
                 daysUntilDue: 'Saisissez un nombre entier de jours, de 0 à 365',
+              },
+            },
+            Addons: {
+              title: 'Options',
+              description:
+                'Des droits supplémentaires que cette instance détient en plus de sa licence, facturés avec son abonnement.',
+              loading: 'Chargement des options',
+              attach: 'Ajouter une option',
+              note: 'Le droit change tout de suite ; facturé dès le prochain renouvellement ; ni proratisation ni remboursement.',
+              notLive:
+                'Des options peuvent être ajoutées tant que l’abonnement est actif. Avant cela, ajoutez-les en abonnant l’instance.',
+              Empty: {
+                title: 'Aucune option',
+                description:
+                  'Cette instance ne détient aucune option. Ajoutez-en une pour relever ses limites ou activer une fonctionnalité.',
+              },
+              Table: {
+                Columns: {
+                  addon: 'Option',
+                  quantity: 'Quantité',
+                  price: 'Prix à l’unité',
+                  since: 'Depuis',
+                },
+                free: 'Gratuite',
+                onRequest: 'Sur demande',
+                notBilled: 'Non facturée',
+                withdrawn: 'Retirée de la vente',
+                withdrawnHint:
+                  'Cette version a été retirée de la vente. L’instance la garde jusqu’à ce qu’on la retire.',
+              },
+              Quantity: {
+                group: 'Quantité de {{name}}',
+                decrease: 'Une unité de moins de {{name}}',
+                increase: 'Une unité de plus de {{name}}',
+              },
+              Remove: {
+                action: 'Retirer',
+                aria: 'Retirer {{name}}',
+                title: 'Retirer {{name}} de cette instance ?',
+                description: 'Ses droits prennent fin tout de suite.',
+                refund:
+                  'La période en cours n’est pas remboursée, et l’option n’est plus facturée à partir de la prochaine facture.',
+                arrears:
+                  'Cette option est facturée à terme échu : la période en cours reste facturée en entier, à la dernière quantité détenue, sur la prochaine facture. Rien n’est remboursé.',
+                confirm: 'Retirer',
+              },
+              Toasts: {
+                attached: '{{name}} ajoutée (× {{quantity}})',
+                quantity: '{{name}} : désormais × {{quantity}}',
+                removed: '{{name}} retirée',
+              },
+              Effect: {
+                change: '{{entitlement}} : {{before}} → {{after}}',
+                configured: 'Configuré',
+                none: 'Non accordé',
+              },
+              Unread: {
+                all: 'Les add-ons n’ont pas pu être lus, aucun n’est donc proposé.',
+                partial:
+                  'Certains add-ons n’ont pas pu être comparés à la licence de cette instance, ils ne sont donc pas listés.',
+              },
+              Attach: {
+                title: 'Ajouter une option',
+                dialogTitle: 'Ajouter une option à {{name}}',
+                description:
+                  'Attachez une option à cette instance. Ses droits s’appliquent tout de suite.',
+                addon: 'Option',
+                addonHint:
+                  'Les options en vente qui conviennent à la licence de cette instance.',
+                addonPlaceholder: 'Choisissez une option',
+                quantity: 'Quantité',
+                quantityHint: 'Au moins 1.',
+                quantityHintMax: 'De 1 à {{max}}.',
+                confirm: 'Ajouter l’option',
+                none: 'Aucune option ne peut être ajoutée : aucune de celles en vente ne convient à la licence de cette instance, ou elle en détient déjà une version de chacune.',
+                notLive:
+                  'Des options ne peuvent être ajoutées que tant que l’abonnement est actif : en essai, actif ou en retard de paiement.',
+                Price: {
+                  perUnit: 'l’unité, facturé dès le prochain renouvellement.',
+                  free: 'Gratuite : rien n’est facturé pour elle.',
+                  custom:
+                    'Vendue sur demande : aucun prix n’est fixé, donc rien n’est facturé ici pour elle.',
+                  none: 'Cette option n’a pas de prix par défaut pour la période de facturation de l’abonnement ({{period}}), et l’API la refusera.',
+                  loading: 'Lecture de son prix…',
+                  unknown: 'Son prix n’a pas pu être lu.',
+                },
+                Errors: {
+                  addon: 'Choisissez une option',
+                  quantity: 'Saisissez un nombre entier d’unités, au moins 1',
+                  quantityMax: 'Cette option autorise moins d’unités',
+                },
               },
             },
           },

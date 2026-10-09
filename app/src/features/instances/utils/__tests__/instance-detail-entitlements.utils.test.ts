@@ -60,6 +60,80 @@ describe('instance-detail-entitlements utils', () => {
     });
   });
 
+  // An add-on adds to what the license grants, and the API composes the cap the
+  // usage is measured against: it is the one the row shows.
+  describe('threshold', () => {
+    const grant = [
+      {
+        entitlementName: 'Seats',
+        entitlementSlug: 'seats',
+        entitlementType: 'NUMBER',
+        value: { type: 'number', value: 10 },
+      },
+    ] as never;
+    const usage = (limit?: unknown) =>
+      [
+        {
+          entitlementId: 'ent-seats',
+          entitlementSlug: 'seats',
+          limit,
+          value: { type: 'number', value: 4 },
+        },
+      ] as never;
+
+    it('is the limit the usage is measured against, with the add-ons the instance holds', () => {
+      const [row] = buildEntitlementsRows(
+        grant,
+        usage({ type: 'number', value: 20 }),
+        'Unknown',
+      );
+
+      expect(row?.threshold).toBe(20);
+      expect(row?.value).toBe(4);
+    });
+
+    it('is the grant of the license when the usage carries no limit', () => {
+      const [row] = buildEntitlementsRows(grant, usage(), 'Unknown');
+
+      expect(row?.threshold).toBe(10);
+    });
+
+    it('is unlimited when the limit is', () => {
+      const [row] = buildEntitlementsRows(
+        grant,
+        usage({ type: 'number', value: -1 }),
+        'Unknown',
+      );
+
+      expect(row?.threshold).toBe(-1);
+    });
+
+    it('stays unset for a grant that is not a number, whatever the limit says', () => {
+      const [row] = buildEntitlementsRows(
+        [
+          {
+            entitlementName: 'Analytics',
+            entitlementSlug: 'analytics',
+            entitlementType: 'BOOLEAN',
+            value: { type: 'boolean', value: true },
+          },
+        ] as never,
+        [
+          {
+            entitlementId: 'ent-analytics',
+            entitlementSlug: 'analytics',
+            limit: { type: 'boolean', value: true },
+            value: { type: 'boolean', value: true },
+          },
+        ] as never,
+        'Unknown',
+      );
+
+      expect(row?.threshold).toBeNull();
+      expect(row?.enabled).toBe(true);
+    });
+  });
+
   it('leaves the catalogue type unset when the entitlement is unknown', () => {
     const rows = buildEntitlementsRows(
       [

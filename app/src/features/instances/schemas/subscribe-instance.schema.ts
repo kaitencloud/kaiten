@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { NewSubscription, Price } from '@/api-client';
-import { zNewSubscription } from '@/api-client/zod.gen';
+import type { Addon, NewSubscription, Price } from '@/api-client';
+import { zNewSubscription, zSubscriptionAddon } from '@/api-client/zod.gen';
 import {
   type BillingPeriod,
   canStartWithTrial,
@@ -9,22 +9,36 @@ import {
   isValidTrialDays,
 } from '@/domains/billing';
 import { dateTimeInputToInstant } from '@/lib/date-time-input';
+import { getQuantityProblem } from '../utils/instance-addons.utils';
 
 const DAYS_UNTIL_DUE_ERROR_KEY =
   'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.daysUntilDue';
 const TRIAL_DAYS_ERROR_KEY =
   'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.trialDays';
+const ADDONS_ERROR_KEY =
+  'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.addOns';
 
 /**
  * What the subscribe dialog edits: the price to pin the subscription to, the
  * payment terms of this contract when they are not the organization's, the trial
- * it starts with, and when billing starts when it is not now. An empty number
- * reads as `NaN`, as it does in every number field of the console, and an empty
- * time is "now".
+ * it starts with, when billing starts when it is not now, and the add-ons to start
+ * with. An empty number reads as `NaN`, as it does in every number field of the
+ * console, and an empty time is "now".
  */
 export const subscribeFormSchema = zNewSubscription
   .pick({ basePriceId: true })
   .extend({
+    // The units of each add-on that is included, by the slug of its version: one that
+    // is left out is not a key. A key is a version chosen, and holds a whole number
+    // of units, at least one.
+    addOns: z.record(
+      zSubscriptionAddon.shape.addonSlug,
+      z.custom<number>(
+        (units) =>
+          typeof units === 'number' && Number.isInteger(units) && units >= 1,
+        { error: ADDONS_ERROR_KEY },
+      ),
+    ),
     basePriceId: zNewSubscription.shape.basePriceId.min(
       1,
       'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.basePrice',
@@ -56,6 +70,7 @@ export const subscribeFormSchema = zNewSubscription
 export type SubscribeFormValues = z.infer<typeof subscribeFormSchema>;
 
 export const initialSubscribeFormValues: SubscribeFormValues = {
+  addOns: {},
   basePriceId: '',
   daysUntilDue: Number.NaN,
   startAt: '',
@@ -71,15 +86,22 @@ export type SubscribeFormErrors = Partial<
  * start is bounded by the billing period of the price chosen: from one period ago,
  * for a contract that began before it was entered, to now. The API checks it to the
  * second and says so in its own words; this tells the person before they ask, and
- * is the form's own rule, so that it follows the price.
+ * is the form's own rule, so that it follows the price. The units of an add-on are
+ * bounded by the most its version allows, which only the offer knows.
  */
 export function getSubscribeFormErrors(
   values: SubscribeFormValues,
   {
+    addons = [],
     now = new Date(),
     period,
     trialOffered = true,
-  }: { now?: Date; period?: BillingPeriod; trialOffered?: boolean } = {},
+  }: {
+    addons?: readonly Pick<Addon, 'maxQuantity' | 'slug'>[];
+    now?: Date;
+    period?: BillingPeriod;
+    trialOffered?: boolean;
+  } = {},
 ): SubscribeFormErrors | undefined {
   const errors: SubscribeFormErrors = {};
   const result = subscribeFormSchema.safeParse(values);
@@ -96,6 +118,18 @@ export function getSubscribeFormErrors(
   // arrears) is not asked for, whatever the field still holds.
   if (!trialOffered) {
     delete errors.trialDays;
+  }
+  if (!errors.addOns) {
+    const outOfBounds = Object.entries(values.addOns).some(([slug, units]) => {
+      const addon = addons.find((candidate) => candidate.slug === slug);
+
+      return (
+        addon !== undefined && getQuantityProblem(units, addon) !== undefined
+      );
+    });
+    if (outOfBounds) {
+      errors.addOns = ADDONS_ERROR_KEY;
+    }
   }
 
   const start = dateTimeInputToInstant(values.startAt);
@@ -117,9 +151,11 @@ export function getSubscribeFormErrors(
 /**
  * The body of the subscription. NoOp is the only provider of a release that ships
  * no payment provider, and it is named so that the request says whose invoices
- * these are; the collection method, add-ons and a voucher are left out, since this
- * release takes none. What is empty is not sent: the terms are the organization's,
- * and billing starts now.
+ * these are; the collection method and a voucher are left out, since this release
+ * takes none. The add-ons the person included are sent with it, each with its
+ * units: the API attaches them with the subscription or refuses it as a whole.
+ * What is empty is not sent: the terms are the organization's, and billing starts
+ * now.
  *
  * The trial is always said when the release has trials: left out, the API takes
  * the one the license carries, and the person has just read and changed it. A price
@@ -133,7 +169,13 @@ export function subscribeValuesToBody(
     trials = false,
   }: { basePrice?: Pick<Price, 'billingTiming'>; trials?: boolean } = {},
 ): NewSubscription {
+  const addOns = Object.entries(values.addOns).map(([addonSlug, quantity]) => ({
+    addonSlug,
+    quantity,
+  }));
+
   return {
+    ...(addOns.length > 0 ? { addOns } : {}),
     basePriceId: values.basePriceId,
     daysUntilDue: Number.isNaN(values.daysUntilDue)
       ? undefined
@@ -172,6 +214,10 @@ export const SUBSCRIBE_REFUSAL_FIELDS = {
     'SubscribeInstance.StartAtTooEarly': 'startAt',
   },
   byLocation: {
+    // An add-on the subscription could not take refuses the subscribe as a whole.
+    // Its `detail` is the same sentence for every reason, so the refusal is placed
+    // by the location of the error, which carries the reason in its message.
+    addOns: 'addOns',
     basePriceId: 'basePriceId',
     daysUntilDue: 'daysUntilDue',
     startAt: 'startAt',

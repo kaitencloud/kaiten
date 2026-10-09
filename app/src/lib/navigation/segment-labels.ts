@@ -4,6 +4,8 @@ import type { TFunction } from 'i18next';
 // the tabs and the page headers already give those places.
 const SEGMENT_LABEL_KEYS: Record<string, string> = {
   addons: 'Pages.Addons.title',
+  'attach-addon':
+    'Pages.Customers.Instances.Detail.Billing.Addons.Attach.title',
   'audit-trail': 'Pages.AuditTrail.title',
   billing: 'Pages.Billing.title',
   cancel: 'Pages.Customers.Instances.Detail.Billing.Cancel.title',

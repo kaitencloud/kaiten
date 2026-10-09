@@ -53,7 +53,7 @@ export function CancelSubscriptionForm({
   const addons = {
     isError: addonsQuery.isError,
     isPending: mayRemoveAddons && addonsQuery.isPending,
-    items: addonsQuery.data ?? [],
+    items: addonsQuery.data?.items ?? [],
   };
   const { closing, failure, form } = useCancelSubscriptionForm({
     addons: addons.items,

@@ -13,13 +13,18 @@ import {
   StackedFormDialogPanel,
 } from '@/functionals/stacked-form-dialog';
 import { createFormSubmitHandler } from '@/hooks/form';
+import { useSubscribeAddons } from '../../../../../hooks/use-subscribe-addons';
 import { useSubscribeInstanceForm } from '../../../../../hooks/use-subscribe-instance-form';
 import { BillingEmailNotice } from './billing-email-notice';
+import { AddonsReadNotice } from '../addons/addons-read-notice';
+import { SubscribeAddonsField } from './subscribe-addons-field';
 import { SubscribeFields } from './subscribe-fields';
 import { SubscribeSummary } from './subscribe-summary';
 
 type SubscribeInstanceFormProps = {
   customer: Customer;
+  /** The family the license of the instance belongs to: the add-ons offered fit it. */
+  familyId?: string;
   /** The trial the license of the instance carries, in days. */
   defaultTrialDays?: number;
   instanceSlug: string;
@@ -32,8 +37,9 @@ type SubscribeInstanceFormProps = {
 /**
  * The form that subscribes an instance. It asks only what this release takes: the
  * price to pin the subscription to, the payment terms when they are not the
- * organization's, the trial where the release has trials, and when billing starts
- * when it is not now. It sends one request
+ * organization's, the trial where the release has trials, when billing starts
+ * when it is not now, and the add-ons to start with where the release has them
+ * and the session can read them. It sends one request
  * however often it is pressed, and a refusal leaves the dialog open with what was
  * typed, since nothing was started and it can be sent again: the refusal is shown
  * on its field when it is about one, above the buttons otherwise.
@@ -41,6 +47,7 @@ type SubscribeInstanceFormProps = {
 export function SubscribeInstanceForm({
   customer,
   defaultTrialDays,
+  familyId,
   instanceSlug,
   onCancel,
   onSubscribed,
@@ -50,7 +57,12 @@ export function SubscribeInstanceForm({
   const formId = useId();
   const settings = useQuery(billingSettingsQueryOptions);
   const trials = useBillingCapabilities().has('trials');
+  const { addons, readError, refetch } = useSubscribeAddons({
+    familyId,
+    instanceSlug,
+  });
   const { failure, form } = useSubscribeInstanceForm({
+    addons,
     defaultTrialDays,
     instanceSlug,
     onSubscribed,
@@ -81,6 +93,16 @@ export function SubscribeInstanceForm({
               prices={prices}
               trials={trials}
             />
+            {addons.length > 0 ? (
+              <SubscribeAddonsField addons={addons} form={form} />
+            ) : null}
+            {readError ? (
+              <AddonsReadNotice
+                error={readError}
+                onRetry={refetch}
+                partial={addons.length > 0}
+              />
+            ) : null}
             <form.Subscribe
               selector={(state) =>
                 [
