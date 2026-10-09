@@ -28,40 +28,43 @@ const TRANSITION_ICONS: Record<VersionLifecycleTransition, LucideIcon> = {
   unarchive: ArchiveRestore,
 };
 
-/** The keys of the words a transition says: its button, and its confirmation. */
-export type VersionLifecycleKeys = Record<
-  VersionLifecycleTransition,
-  Record<'confirm' | 'description' | 'label' | 'title', string>
->;
+/**
+ * The keys of the words a transition says: its button, and its confirmation. A thing that
+ * goes through only some of the transitions, a voucher that is published and archived and
+ * never put back on sale, says only those.
+ */
+export type VersionLifecycleKeys<
+  T extends VersionLifecycleTransition = VersionLifecycleTransition,
+> = Record<T, Record<'confirm' | 'description' | 'label' | 'title', string>>;
 
-type Confirmation = {
+type Confirmation<T extends VersionLifecycleTransition> = {
   name: string;
   slug: string;
-  transition: VersionLifecycleTransition;
+  transition: T;
   version: number | string | undefined;
 };
 
-type VersionLifecycleActionProps = {
+type VersionLifecycleActionProps<T extends VersionLifecycleTransition> = {
   appearance: RowActionAppearance;
   /** Whether the session may do it; when not, nothing is shown unless a confirmation is open. */
   available?: boolean;
-  /** The family's default cannot be archived: the action is shown disabled, with the way out. */
-  blocked: boolean;
+  /**
+   * The family's default cannot be archived: the action is shown disabled, with the way
+   * out. Left out where nothing blocks a transition, as on a voucher.
+   */
+  blocked?: boolean;
   /** The key of what the disabled action says on hover and on focus. */
-  blockedKey: string;
+  blockedKey?: string;
   isPending: boolean;
-  keys: VersionLifecycleKeys;
+  keys: VersionLifecycleKeys<T>;
   name: string;
   /** What confirming does, with the slug and the transition the confirmation was opened for. */
-  onConfirm: (asked: {
-    slug: string;
-    transition: VersionLifecycleTransition;
-  }) => void;
+  onConfirm: (asked: { slug: string; transition: T }) => void;
   /** What publishing changes for what the version sells, said under its description. */
   publishNote?: ReactNode;
   /** The slug of the version; the action is disabled without one. */
   slug: string | undefined;
-  transition: VersionLifecycleTransition;
+  transition: T;
   version: number | string | undefined;
 };
 
@@ -118,11 +121,11 @@ function BlockedLifecycleAction({
  * looks and the guards; each feature brings its words, its permission and the
  * operation confirming runs.
  */
-export function VersionLifecycleAction({
+export function VersionLifecycleAction<T extends VersionLifecycleTransition>({
   appearance,
   available = true,
-  blocked,
-  blockedKey,
+  blocked = false,
+  blockedKey = '',
   isPending,
   keys,
   name,
@@ -131,21 +134,23 @@ export function VersionLifecycleAction({
   slug,
   transition,
   version,
-}: VersionLifecycleActionProps) {
+}: VersionLifecycleActionProps<T>) {
   const { t } = useTranslation();
   // The dialog shows and confirms what was asked when it opened. The version may be
   // refetched while it is open -- moved on by someone else, or, in the versions table,
   // replaced by another version at this row -- and "confirm" must not quietly become a
   // different action.
   const [open, setOpen] = useState(false);
-  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
-  const asked: Confirmation = confirmation ?? {
+  const [confirmation, setConfirmation] = useState<Confirmation<T> | null>(
+    null,
+  );
+  const asked: Confirmation<T> = confirmation ?? {
     name,
     slug: slug ?? '',
     transition,
     version,
   };
-  const Icon = TRANSITION_ICONS[transition];
+  const Icon: LucideIcon = TRANSITION_ICONS[transition];
   const look = ROW_ACTION_LOOKS[appearance];
   const label = t(keys[transition].label);
 

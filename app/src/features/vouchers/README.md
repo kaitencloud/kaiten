@@ -1,0 +1,77 @@
+# Vouchers
+
+A voucher is a code that gives an instance a discount on its invoices or a boost of its entitlements. This feature is the catalogue of vouchers, where billing is on and the release ships them: it lists them with a search by name, code or customer and a way to open one by the code a customer sends, makes one in a wizard that ends on a review in plain language and a publish, opens a voucher to give its code, say what it does and list what was redeemed of it, revokes a redemption with its reason, publishes or archives a voucher, and changes what a published one lets change. What an instance redeemed, and the dialog that applies a code to it, are the Billing tab of the instance, in [instances](../instances/README.md); the discount lines of an invoice are drawn by the [billing domain](../../domains/billing/README.md).
+
+## Routes
+
+| Path | Route file | What it renders |
+| --- | --- | --- |
+| `/vouchers` | `app/src/routes/vouchers/index.tsx` | `VouchersPageContent`: every voucher, with its search, its filters and the opening by code |
+| `/vouchers/new` | `app/src/routes/vouchers/new/index.tsx` | `VoucherWizardPage`: a new voucher. `?boostFor=<voucher id>` starts the wizard as the boost that goes with that discount, on the offer step |
+| `/vouchers/$voucherId` | `app/src/routes/vouchers/$voucherId/route.tsx` | The layout of one voucher: it reads the voucher and names the page after it |
+| `/vouchers/$voucherId` (index) | `app/src/routes/vouchers/$voucherId/index.tsx` | `VoucherDetailPage`: the code, what it does, its redemptions and the actions its state offers. `?mode=configure` opens `VoucherEditDialog` over it |
+| `/vouchers/$voucherId/edit` | `app/src/routes/vouchers/$voucherId/edit.tsx` | `VoucherWizardPage` on a draft, to finish it where it was made. A voucher that is not a draft leads back to its page |
+
+The vouchers are billing's. `/vouchers` has the guard: `routes/vouchers/route.tsx` calls `requireBillingCapability(context.queryClient, 'vouchers')` in its `beforeLoad` and has `BillingNotFound` as its `notFoundComponent`, so every route under it is guarded at once. Where billing is off, or the release does not ship vouchers (`features.vouchers` of `GET /billing/capabilities`), a link to any of them explains why in place of the screen, and nothing of the catalogue is requested but the capabilities. The entry of the Billing section of the side navigation (`billingSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`) is listed under the same condition, and only to a session that may read vouchers (`action: 'vouchers.list'`). The guard, the list, the voucher (`$voucherId`) and the wizard (`new`, which reads the voucher `?boostFor=` names) have `BillingRouteError` as their `errorComponent`: the router gives every route a boundary of its own, so each route that reads something sets it, and a session without the scope that reads vouchers is told which one on a deep link as it is on the list.
+
+A voucher is addressed by its **id**, never by its code. The code is in the answer of the API to the sessions that may read vouchers, and it is kept in the memory of the page that shows it: it is in no address, no query key and no storage of the browser. Opening a voucher by code (`VoucherLookup`) is a mutation, `POST /vouchers/lookup`, whose body carries the code and whose answer is only used to go to the voucher by its id.
+
+## Structure
+
+```txt
+app/src/features/vouchers/
+├── components/
+│   ├── pages/              # vouchers-page-content, voucher-detail-page, voucher-wizard-page (the stepper, the
+│   │                       # step, the footer and the failure above it)
+│   ├── list/               # voucher-list (search, filters, empty states), vouchers-table, voucher-lookup (open by
+│   │                       # code), vouchers-empty (what the table says when a filter hides every row)
+│   ├── detail/             # the header, the code card, the summary card (what it does in plain language) and the
+│   │                       # redemptions card
+│   ├── actions/            # what a state offers: edit, add a boost, publish, archive (the confirmation, the looks
+│   │                       # and the guards are the billing domain's; here are the words, the permission and the
+│   │                       # operation)
+│   ├── form/               # voucher-edit-dialog and its fields: the four things a published voucher lets change
+│   ├── wizard/             # the four steps (type, offer, eligibility, review), the panels of the offer (discount,
+│   │                       # boost, duration, price picker), the checklists of versions, the published view and
+│   │                       # the footer
+│   ├── shared/             # voucher-code-box: the code with its Copy button
+│   ├── __tests__/, stories/
+│   └── index.ts
+├── hooks/                  # use-voucher-form (the wizard), use-voucher-edit-form, use-voucher-transitions,
+│                           # use-voucher-lookup, use-voucher-references (what a voucher refers to, by name),
+│                           # use-voucher-prices, use-voucher-customers
+├── queries/                # the list, one voucher and its redemptions, read through `toListPage`
+├── schemas/                # the form (derived from the generated `zVoucherDraft`), one schema per step, the body
+│                           # the form builds and the form a voucher gives back, the edit of a published voucher,
+│                           # and where a refusal of the API is shown
+├── types/
+├── utils/                  # the code (weak or not), the labels, what a voucher refers to by name, the review in
+│                           # plain language, the fields of the search and filters, the split of the prices
+└── index.ts
+```
+
+## Behaviour
+
+- **A voucher is one of two kinds.** A discount (`PRICE`) takes a percentage in (0, 100] or an amount in one currency, and applies to the base price, to the add-ons, to both or to chosen prices, counted in **invoices**. A boost (`ENTITLEMENT_BOOST`) sets, adds to, multiplies or lifts the limit of numeric entitlements (`NUMBER` and `NUMBER_AI_CREDIT`: the others are not offered, so `CreateVoucher.BoostUnsupportedEntitlementType` is out of reach), counted in **billing periods**. The two kinds that exist in the API and are not offered (`FLAG_GRANT`, `COMPOSITE`) are shown, disabled, as available in a later version. Both last once, a number of times or without end.
+- **The wizard has four steps and one request chain.** Each step has its own schema (`.pick()` of the form, `superRefine` for what depends on a kind) and cannot be left while it has something to fix: an attempt shows what is wrong, the fields show their messages once visited, and a jump forward through the stepper passes through the steps in between. The last step reads the voucher in plain language and publishes it: `POST /vouchers`, then `POST /vouchers/{id}/publish`. They are not one request: when the second is refused, the voucher exists as a draft and sending again replaces it with what the form holds and publishes it, never making a second voucher with the same code. "Save as a draft" stops after the first. Enter in a field does what the button under it does. Nothing is optimistic: the page that follows shows the voucher the API answered, and takes the focus the Publish button had, which is gone with the wizard.
+- **A refusal goes where the person is looking.** A refusal about one field (an invalid or taken code, a currency, a duration, an unknown customer, a short code with no limit) is shown on the field in the API's own words, and the wizard goes back to the step that has it; any other is shown above the buttons, with a way to ask again when that may work. A short code with no maximum and no end date is warned about before it is refused (`CreateVoucher.WeakCodeUnbounded`): the API counts the characters of the code as typed, hyphens included, where the spec counts the normalized ones, which are never more, and the warning follows the spec, the stricter of the two.
+- **The review is the e-mail.** `describeVoucherReview` writes one sentence a line: what it does and for how long, how many times it can be redeemed, for whom, on which versions, until when and under which conditions, naming what it counts. It is what the account executive pastes next to the code, and the page that follows a publish and the page of a voucher show the same sentences. After a discount is published the wizard offers "add a boost for the same offer": the boost starts from the duration, the eligibility and the limits of the discount, on the offer step, and only the entitlements are left to choose.
+- **A voucher is read from its window.** The API never sets a voucher EXPIRED and leaves an ACTIVE one active past its end, so the badge and the filter read an ACTIVE voucher as fully redeemed when its count reached its maximum, expired when its end is not after now, and active otherwise (`getVoucherStatus`, in the billing domain). One that starts later says when. Only the stored state decides what can be done: a draft is edited in the wizard, published or archived; a published one has its name, description, end date and maximum changed in a dialog, or is archived; the others can only be read.
+- **A published voucher keeps its offer.** The API takes the whole voucher on an update and compares every member it does not let change with what it holds, answering 409 when one differs, and it writes the rules and the description it is given and drops what is missing. So the dialog sends the voucher as stored with the four members the person changed (`voucherToEditBody`), and says before it is asked that the maximum cannot go under the redemptions already made.
+- **The minimum amount of the rules is provisional.** Its shape on the wire (an object of a currency and an amount in minor units) is written and read in one place, `redemptionRulesToBody` and `redemptionRulesToFormValues`, so that the spec's integer touches those two functions and nothing else.
+- **What a voucher refers to is named.** The licenses, add-ons, customers and entitlements a voucher holds are ids and slugs: `useVoucherReferences` reads the lists the session may read, each only when its scope is held and none retried, and the screens write the names. The price of a limited discount has no owner in the API, so the picker asks every license version and every add-on version for its own prices, only when "chosen prices" is picked, and lists each under the version it is of; a price the version no longer offers stays listed and says so.
+- **The redemptions are the instances'.** The card lists, for each instance, when it redeemed, the window it applies in, the invoices a discount used of the invoices it can discount and its state, with the reason of a revocation; a boost whose window has closed reads as expired. Revoking a redemption that still applies needs the reason the API requires, and a scope of the vouchers (`write:vouchers`), which is not the one that redeems (`write:voucher_redemptions`).
+
+## Tests
+
+- Unit and component tests (Vitest), next to the code: `schemas/__tests__/` (the steps, the body and the form it builds and gives back, the edit, where a refusal goes), `utils/__tests__/` (the code, the review in plain language, the search and filters, the split of the prices) and `components/__tests__/` (the wizard from the first step to the code, the list, the page of a voucher with its actions by state and by scope). `app/src/__tests__/billing-voucher-mocks.test.ts` reads, off the wire, what the mocks of the vouchers answer: they refuse as the API does, with its codes, because the console is tested against them.
+- Stories: `components/stories/voucher-screens.stories.tsx` (`Features/Vouchers/Screens`: the steps of the wizard and the page of a voucher in their states) runs as a test.
+- E2E, `app/e2e/app/vouchers/`, on the world of `vouchers.scenarios.ts` (the vouchers, the redemptions, the entitlements a boost can and cannot change) installed by `install-vouchers-world.ts`, and the drivers of `app/e2e/app/_support/drivers/voucher*.driver.ts`: `vouchers.read.spec.ts` (the list, the search, the filters, the opening by code, the states of a voucher), `vouchers.create.spec.ts` (the wizard: types, validation, the boost panel, the weak code, the review, the publish, the code and its copy, the boost for the same offer, a draft), `vouchers.detail.spec.ts` (the code by id, the redemptions, the revocation, the edit, the archive, the publish of a draft), `vouchers.invoices.spec.ts` (a DISCOUNT line and what the discounts took off), `vouchers.access.spec.ts` (the navigation entry, a release without vouchers, a session that may only read) and `vouchers.french.spec.ts`. Beside them, `instances/instances.vouchers.spec.ts` (the vouchers card and the dialog that applies a code, the code in the subscribe dialog), `accessibility/accessibility.vouchers.spec.ts` (no axe violation in both themes, each dialog keeping the focus, Escape to close) and `mobile/mobile.vouchers.spec.ts` (375 px: no sideways scroll, the wizard and the tables fit).
+
+## Public API
+
+`app/src/features/vouchers/index.ts` exports `VouchersPageContent`, `VoucherDetailPage`, `VoucherEditDialog`, `VoucherWizardPage` and the query options of the list and of a voucher; the redemptions' own are internal to the feature. Only the routes under `app/src/routes/vouchers/` import them, as routes are the only importers of a feature (see [Import rules](../../../docs/AI_CONTEXT.md#import-rules)). The invalidation helpers and everything else are internal to the feature or the billing domain's.
+
+The feature imports no other feature. It shares code through `@/domains/billing` (the gate, the scopes and the actions, the refusals, the badges, the redemptions table and card and the dialog that revokes one, the lifecycle action, the plain-language offer, the amounts and the dates in UTC) and `@/functionals`. The Billing tab of an instance reads the redemptions of an instance through its own query options (`features/instances/queries/instance-voucher-query-options.ts`) over the same generated operations and keys.
+
+The table and filter building blocks come from [`functionals/table`](../../functionals/table/README.md) and [`functionals/filters`](../../functionals/filters/README.md); the step strip of the wizard is `functionals/progress-stepper`.

@@ -7,11 +7,15 @@ import {
   getInvoiceQueryKey,
   getLicenseQueryKey,
   getUpcomingInvoiceQueryKey,
+  getVoucherQueryKey,
   listHandoffQueryKey,
   listInstanceAddonsQueryKey,
   listInstanceInvoicesQueryKey,
+  listInstanceVouchersQueryKey,
   listInvoicesQueryKey,
   listLicensePricesQueryKey,
+  listVoucherRedemptionsQueryKey,
+  listVouchersQueryKey,
 } from '@/api-client/@tanstack/react-query.gen';
 import { invalidateInstanceQueries } from '@/domains/customer-management';
 
@@ -55,7 +59,85 @@ export async function invalidateInstanceBillingQueries(
     queryClient.invalidateQueries({
       queryKey: getEntitlementsUsageMetricsQueryKey({ path }),
     }),
+    // A subscribe takes a voucher code: the instance redeemed it, and its voucher
+    // counted the redemption. The response does not say which voucher the code was
+    // of, so the page and the redemptions of every voucher are read again.
+    invalidateInstanceVoucherQueries(queryClient, instanceSlug),
+    invalidateEveryVoucherPage(queryClient),
     invalidateInstanceQueries(queryClient, instanceSlug),
+  ]);
+}
+
+/**
+ * The vouchers changed (made, edited, published, archived, redeemed, revoked): the
+ * list, and the page of one voucher with its redemptions when `voucherId` is given.
+ * The three match by prefix, so that a list read under any filter is reached.
+ */
+export async function invalidateVoucherQueries(
+  queryClient: QueryClient,
+  voucherId?: string,
+) {
+  const invalidations = [
+    queryClient.invalidateQueries({ queryKey: listVouchersQueryKey() }),
+  ];
+
+  if (voucherId) {
+    invalidations.push(
+      queryClient.invalidateQueries({
+        queryKey: getVoucherQueryKey({ path: { voucherId } }),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: listVoucherRedemptionsQueryKey({ path: { voucherId } }),
+      }),
+    );
+  }
+
+  await Promise.all(invalidations);
+}
+
+/**
+ * The page and the redemptions of every voucher, for a change that reached one of
+ * them without saying which. Each operation is named by its generated key, with no
+ * voucher in it, so that the vouchers read so far are marked, and only the ones on
+ * screen are asked again.
+ */
+async function invalidateEveryVoucherPage(queryClient: QueryClient) {
+  const [{ _id: voucherId }] = getVoucherQueryKey({ path: { voucherId: '' } });
+  const [{ _id: redemptionsId }] = listVoucherRedemptionsQueryKey({
+    path: { voucherId: '' },
+  });
+
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: [{ _id: voucherId }] }),
+    queryClient.invalidateQueries({ queryKey: [{ _id: redemptionsId }] }),
+  ]);
+}
+
+/**
+ * An instance redeemed a voucher or had a redemption revoked: what it redeemed, the
+ * effective values its entitlements show, since a boost applies at once, and the
+ * invoice its next boundary will issue, which a discount reaches. The voucher counted
+ * the redemption (or keeps counting it), and its redemptions list the instance, so its
+ * page is read again when it is named.
+ */
+export async function invalidateInstanceVoucherQueries(
+  queryClient: QueryClient,
+  instanceSlug: string,
+  voucherId?: string,
+) {
+  const path = { instanceSlug };
+
+  await Promise.all([
+    queryClient.invalidateQueries({
+      queryKey: listInstanceVouchersQueryKey({ path }),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: getEntitlementsUsageMetricsQueryKey({ path }),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: getUpcomingInvoiceQueryKey({ path }),
+    }),
+    invalidateVoucherQueries(queryClient, voucherId),
   ]);
 }
 

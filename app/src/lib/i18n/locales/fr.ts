@@ -4235,6 +4235,392 @@ export default {
     },
     Vouchers: {
       title: 'Codes promo',
+      subtitle:
+        'Des codes qui donnent à une instance une remise sur ses factures ou un boost de ses droits.',
+      Actions: {
+        addBoost: 'Ajouter un boost',
+        publish: {
+          label: 'Publier',
+          title: 'Publier {{name}} ?',
+          description:
+            'Publier rend le code utilisable. Un voucher publié garde son offre : seuls son nom, sa description, sa date de fin et son nombre maximal d’utilisations peuvent changer ensuite.',
+          confirm: 'Publier',
+          success: 'Voucher publié',
+        },
+        archive: {
+          label: 'Archiver',
+          title: 'Archiver {{name}} ?',
+          description:
+            'Plus aucune instance ne pourra utiliser le code. Les utilisations déjà faites continuent de s’appliquer, et le voucher reste consultable.',
+          confirm: 'Archiver',
+          success: 'Voucher archivé',
+        },
+      },
+      Code: {
+        label: 'Code du voucher',
+        copy: 'Copier le code',
+        copied: 'Code copié',
+        copyFailed: 'Le code n’a pas pu être copié',
+      },
+      Detail: {
+        subtitle: 'Code se terminant par {{hint}}',
+        Code: {
+          title: 'Code',
+          description:
+            'Donnez ce code au client. Quiconque le possède peut utiliser l’offre.',
+          hidden:
+            'Le code se terminant par {{hint}} n’est montré qu’aux sessions qui peuvent lire les vouchers.',
+        },
+        Summary: {
+          title: 'Ce qu’il fait',
+          description: 'En clair, tel que vous pouvez l’envoyer avec le code.',
+        },
+        Fields: {
+          description: 'Description',
+          type: 'Type',
+          status: 'Statut',
+          redeemed: 'Utilisations',
+          created: 'Créé le',
+          updated: 'Dernière modification',
+        },
+        Redemptions: {
+          description: 'Les instances qui ont utilisé ce voucher.',
+          empty: 'Aucune instance n’a encore utilisé ce voucher.',
+        },
+      },
+      Edit: {
+        title: 'Modifier {{name}}',
+        description:
+          'Un voucher publié garde son offre. Son nom, sa description, sa date de fin et son nombre maximal d’utilisations peuvent changer.',
+        save: 'Enregistrer',
+        saved: 'Voucher enregistré',
+        Descriptions: {
+          expiresAt:
+            'Date et heure en UTC. Laissez vide pour aucune date de fin.',
+          maxRedemptions_one:
+            'Laissez vide pour aucune limite. Il ne peut pas être inférieur à l’utilisation déjà faite ({{count}}).',
+          maxRedemptions_other:
+            'Laissez vide pour aucune limite. Il ne peut pas être inférieur aux {{count}} utilisations déjà faites.',
+        },
+        Errors: {
+          name: 'Saisissez un nom',
+          nameTooLong: 'Un nom compte 200 caractères au plus',
+          descriptionTooLong: 'Une description compte 2000 caractères au plus',
+          date: 'Saisissez une date et une heure valides',
+          maxRedemptions:
+            'Saisissez un nombre entier à partir de 1, ou laissez vide pour aucune limite',
+          belowCount: 'Le voucher a déjà été utilisé plus de fois que cela',
+        },
+      },
+      List: {
+        new: 'Nouveau voucher',
+        Columns: {
+          name: 'Nom',
+          code: 'Code',
+          type: 'Type',
+          status: 'Statut',
+          redeemed: 'Utilisations',
+          expires: 'Valide jusqu’au',
+          customer: 'Client',
+        },
+        Empty: {
+          title: 'Aucun voucher pour l’instant',
+          description:
+            'Un voucher est un code qui donne à une instance une remise sur ses factures ou un boost de ses droits. Créez-en un, puis donnez son code à un client.',
+          filteredTitle: 'Aucun voucher ne correspond',
+          filteredDescription:
+            'Aucun voucher ne correspond à cette recherche ou à ces filtres.',
+        },
+        Filters: {
+          search: 'Recherche',
+          searchPlaceholder: 'Nom, code ou client',
+          status: 'Statut',
+          type: 'Type',
+          clear: 'Effacer les filtres',
+        },
+        anyCustomer: 'Tous les clients',
+        codeHint: 'se termine par {{hint}}',
+        noEnd: 'Sans date de fin',
+        redeemed: '{{count}} sur {{max}}',
+        redeemedUnbounded: '{{count}} (sans limite)',
+        startsOn: 'Débute le {{date}}',
+      },
+      Lookup: {
+        title: 'Ouvrir un voucher par son code',
+        label: 'Code du voucher',
+        placeholder: 'Ouvrir par le code',
+        action: 'Chercher',
+        hint: 'Retrouve le voucher auquel appartient un code, par exemple quand un client écrit avec un code qui ne fonctionne pas.',
+        notFound: 'Aucun voucher n’a ce code.',
+      },
+      Published: {
+        title: 'Voucher publié',
+        subtitle: '{{name}} peut maintenant être utilisé.',
+        codeTitle: 'Son code',
+        codeDescription:
+          'Copiez-le et donnez-le au client. Quiconque possède le code peut utiliser l’offre.',
+        codeHidden:
+          'Le code se termine par {{hint}}. Il n’est montré qu’aux sessions qui peuvent lire les vouchers.',
+        summaryTitle: 'Ce qu’il fait',
+        summaryDescription: 'En clair, à envoyer avec le code.',
+        boostTitle: 'Ajouter un boost pour la même offre',
+        boostDescription:
+          'Démarrez un boost qui dure autant que cette remise, avec les mêmes conditions et les mêmes limites. Vous choisissez les droits qu’il modifie.',
+        boostAction: 'Ajouter un boost',
+        another: 'Créer un autre voucher',
+        view: 'Voir le voucher',
+      },
+      References: {
+        license: '{{name}} v{{version}}',
+        draft: '{{label}} (brouillon)',
+        archived: '{{label}} (archivée)',
+        unknown: 'une version absente de la liste',
+      },
+      Review: {
+        name: 'Nom',
+        code: 'Code',
+        codeGenerated: 'Un code est généré à la publication',
+        summary: 'Le voucher en clair',
+        publishNote:
+          'Publier rend le code utilisable. Enregistrez plutôt un brouillon pour continuer à y travailler : un brouillon ne peut pas être utilisé.',
+        unlimited: 'il n’a pas de limite d’utilisations',
+        limited_one: 'il ne peut être utilisé qu’une fois',
+        limited_other: 'il peut être utilisé {{count}} fois',
+        reservedFor: 'il est réservé à {{customer}}',
+        anyCustomer: 'tout client peut l’utiliser, une fois par instance',
+        licenses: 'il ne s’applique qu’aux instances sous {{licenses}}',
+        addons: 'il ne s’applique qu’aux instances qui détiennent {{addons}}',
+        licensesAndAddons:
+          'il ne s’applique qu’aux instances sous {{licenses}} qui détiennent {{addons}}',
+        window: 'il peut être utilisé du {{from}} au {{to}}',
+        until: 'il peut être utilisé jusqu’au {{date}}',
+        from: 'il peut être utilisé à partir du {{date}}',
+        noWindow: 'il n’a pas de date de fin',
+        firstTimeOnly:
+          'seuls les clients qui n’ont encore payé aucune facture peuvent l’utiliser',
+        annualOnly:
+          'seules les instances avec un abonnement annuel peuvent l’utiliser',
+        minimumAmount:
+          'le prix de base de l’abonnement doit être d’au moins {{amount}}',
+      },
+      Wizard: {
+        title: 'Nouveau voucher',
+        titleDraft: 'Terminer le brouillon',
+        subtitle:
+          'Dites ce qu’il offre, qui peut l’utiliser et combien de fois, puis relisez-le en clair avant de le publier.',
+        boostName: '{{name}} (boost)',
+        draftKept:
+          'Le voucher a été enregistré en brouillon. Envoyer de nouveau le remplace par ce que contient cette page et le publie.',
+        anyCustomer: 'Tous les clients',
+        unlimitedNote:
+          'Aucune limite sur ce droit tant que le voucher s’applique.',
+        addChange: 'Ajouter une modification',
+        removeChange: 'Retirer la modification {{position}}',
+        Steps: {
+          type: 'Type',
+          offer: 'Offre',
+          eligibility: 'Qui et quand',
+          review: 'Relecture',
+        },
+        Buttons: {
+          back: 'Retour',
+          next: 'Suivant',
+          saveDraft: 'Enregistrer en brouillon',
+          publish: 'Publier',
+        },
+        Toasts: {
+          draftSaved: 'Brouillon enregistré',
+          published: 'Voucher publié',
+        },
+        Type: {
+          label: 'De quel type de voucher s’agit-il ?',
+          later: 'Disponible dans une prochaine version',
+          FLAG_GRANT: 'Activation de fonctionnalité',
+          COMPOSITE: 'Lot',
+          Detail: {
+            PRICE:
+              'Un pourcentage ou un montant en moins sur les factures de l’instance.',
+            ENTITLEMENT_BOOST:
+              'Fixe, augmente, multiplie ou lève la limite de droits numériques.',
+          },
+        },
+        Labels: {
+          name: 'Nom',
+          description: 'Description',
+          discountType: 'Comment la remise est-elle calculée ?',
+          percentage: 'Pourcentage',
+          currency: 'Devise',
+          amount: 'Montant',
+          appliesTo: 'À quoi s’applique-t-elle ?',
+          prices: 'Prix',
+          grants: 'Ce qu’il modifie',
+          entitlement: 'Droit',
+          modifier: 'Modification',
+          value: 'Valeur',
+          duration: 'Combien de temps dure-t-elle ?',
+          durationInInvoices: 'Nombre de factures',
+          durationInPeriods: 'Nombre de périodes de facturation',
+          code: 'Code personnalisé',
+          restrictedCustomer: 'Réservé à',
+          maxRedemptions: 'Nombre maximal d’utilisations',
+          startsAt: 'Utilisable à partir du',
+          expiresAt: 'Utilisable jusqu’au',
+          licenseVersions: 'Versions de licence',
+          addonVersions: 'Versions d’add-on',
+          firstTimeOnly: 'Nouveaux clients uniquement',
+          annualOnly: 'Abonnements annuels uniquement',
+          minimumCurrency: 'Devise du minimum',
+          minimumAmount: 'Prix de base minimum',
+        },
+        Descriptions: {
+          name: 'Le nom que vous lui donnez dans la console ; les clients ne le voient pas.',
+          description: 'Facultatif. À quoi il sert, en quelques mots.',
+          percentage:
+            'Plus de 0 et jusqu’à 100. Les décimales sont acceptées, par exemple 12,5.',
+          currency:
+            'Un montant fixe ne s’applique qu’aux abonnements facturés dans cette devise.',
+          amount:
+            'Dans la devise, en unités principales : 50,00 pour cinquante dollars.',
+          prices:
+            'Cochez les prix auxquels la remise s’applique. Les prix d’une version qui n’est plus en vente sont aussi listés.',
+          grants:
+            'Chaque ligne modifie un droit numérique. Un droit ne peut être modifié qu’une fois.',
+          durationInInvoices: 'À combien de factures la remise s’applique.',
+          durationInPeriods:
+            'Pendant combien de périodes de facturation le boost dure. Un mois, un trimestre ou un an, selon la facturation de l’abonnement.',
+          code: 'Laissez vide pour qu’un long code soit généré. Sinon, de 8 à 64 lettres, chiffres, tirets ou tirets bas ; la casse et les tirets n’ont pas d’importance à l’utilisation.',
+          restrictedCustomer:
+            'Seules les instances de ce client peuvent l’utiliser.',
+          restrictedCustomerSlug:
+            'Le slug du client. Les clients n’ont pas pu être listés avec cette session.',
+          maxRedemptions:
+            'Laissez vide pour aucune limite. Chaque instance ne peut l’utiliser qu’une fois.',
+          startsAt:
+            'Date et heure en UTC. Laissez vide pour démarrer dès la publication.',
+          expiresAt:
+            'Date et heure en UTC. Laissez vide pour aucune date de fin.',
+          licenseVersions:
+            'Seules les instances sur l’une des versions cochées peuvent l’utiliser.',
+          addonVersions:
+            'Seules les instances qui détiennent l’une des versions cochées peuvent l’utiliser.',
+          firstTimeOnly:
+            'Uniquement les clients dont aucune instance n’a payé de facture.',
+          annualOnly:
+            'Uniquement les instances avec un abonnement annuel actif.',
+          minimumCurrency:
+            'Le minimum est comparé au prix de base de l’abonnement, dans cette devise.',
+          minimumAmount:
+            'Facultatif. L’abonnement doit coûter au moins ce montant.',
+        },
+        Placeholders: {
+          name: 'Remise de lancement',
+          percentage: '20',
+          currency: 'Choisissez une devise',
+          currencySearch: 'Rechercher une devise',
+          amount: '50,00',
+          entitlement: 'Choisissez un droit',
+          entitlementSearch: 'Rechercher un droit',
+          value: '50000',
+          code: 'LANCEMENT-20',
+          customerSearch: 'Rechercher un client',
+        },
+        DiscountType: {
+          PERCENTAGE: 'Un pourcentage',
+          FIXED_AMOUNT: 'Un montant fixe',
+        },
+        AppliesTo: {
+          LICENSE_BASE: 'Le prix de base',
+          ADDONS: 'Les add-ons',
+          BOTH: 'Les deux',
+          SELECTED_PRICES: 'Des prix choisis',
+          Blurb: {
+            LICENSE_BASE:
+              'Le prix de la licence, hors add-ons et consommation.',
+            ADDONS: 'Ce que coûtent les add-ons détenus par une instance.',
+            BOTH: 'Le prix de la licence et les add-ons ensemble.',
+            SELECTED_PRICES: 'Uniquement les prix que vous cochez ci-dessous.',
+          },
+        },
+        Prices: {
+          label: 'Prix auxquels la remise s’applique',
+          loading: 'Chargement des prix',
+          none: 'Aucun prix à choisir.',
+          deprecated: '{{amount}} · déprécié',
+        },
+        Modifier: {
+          SET: 'Fixer à',
+          ADD: 'Ajouter',
+          MULTIPLY: 'Multiplier par',
+          UNLIMITED: 'Rendre illimité',
+        },
+        Duration: {
+          ONE_TIME: 'Une fois',
+          REPEATING: 'Un nombre de fois',
+          FOREVER: 'Sans fin',
+          Blurb: {
+            priceONE_TIME:
+              'La remise s’applique à une seule facture : la première émise après l’utilisation du code.',
+            priceREPEATING:
+              'La remise s’applique à un nombre de factures, compté en factures et non en mois.',
+            priceFOREVER:
+              'La remise s’applique à toutes les factures jusqu’à ce que l’utilisation soit révoquée.',
+            boostONE_TIME:
+              'Le boost dure une période de facturation à partir de l’utilisation.',
+            boostREPEATING:
+              'Le boost dure un nombre de périodes de facturation, compté en périodes et non en factures.',
+            boostFOREVER:
+              'Le boost n’a pas de fin jusqu’à ce que l’utilisation soit révoquée.',
+          },
+        },
+        Sections: {
+          code: 'Code',
+          customer: 'Client',
+          customerDescription:
+            'Réservez le voucher à un client, ou laissez n’importe quel client l’utiliser.',
+          limits: 'Limites',
+          limitsDescription:
+            'Combien de fois il peut être utilisé, et quand. Les dates sont en UTC.',
+          versions: 'Versions de licence et d’add-on',
+          versionsDescription:
+            'Limitez le voucher aux instances sur certaines versions. Rien de coché, c’est aucune limite.',
+          conditions: 'Conditions',
+          conditionsDescription:
+            'Ce qu’une instance doit remplir pour utiliser le voucher.',
+        },
+        WeakCode: {
+          title: 'Un code court peut être deviné',
+          description:
+            'Ajoutez un nombre maximal d’utilisations ou une date de fin, ou laissez le code vide pour qu’un code long soit généré.',
+        },
+        Checklist: {
+          loading: 'Chargement',
+          notAllowed:
+            'Cette session ne peut pas les lister. Ce qui est déjà coché reste.',
+        },
+        Errors: {
+          name: 'Saisissez un nom',
+          nameTooLong: 'Un nom compte 200 caractères au plus',
+          descriptionTooLong: 'Une description compte 2000 caractères au plus',
+          percentage: 'Saisissez un pourcentage supérieur à 0 et jusqu’à 100',
+          currency: 'Devise requise',
+          amount:
+            'Saisissez un montant supérieur à 0, sans plus de décimales que la devise n’en a',
+          prices: 'Cochez au moins un prix',
+          durationInPeriods: 'Saisissez un nombre entier à partir de 1',
+          grants: 'Ajoutez au moins une modification',
+          entitlement: 'Choisissez un droit',
+          duplicate: 'Ce droit est déjà modifié par une autre ligne',
+          setValue: 'Saisissez un nombre, 0 ou plus',
+          positiveValue: 'Saisissez un nombre supérieur à 0',
+          code: 'Utilisez de 8 à 64 lettres, chiffres, tirets ou tirets bas, ou laissez vide',
+          minimumAmount:
+            'Saisissez un montant, sans plus de décimales que la devise n’en a',
+          date: 'Saisissez une date et une heure valides',
+          window: 'La fin doit être postérieure au début',
+          maxRedemptions:
+            'Saisissez un nombre entier à partir de 1, ou laissez vide pour aucune limite',
+        },
+      },
     },
     Notifications: {
       title: 'Notifications',
@@ -5029,6 +5415,81 @@ export default {
         hideInstead:
           'Un prix ou un boost de bon de réduction ne peut plus être retiré une fois créé : ce droit ne peut donc plus être supprimé. Pour ne plus l’afficher dans les composants destinés aux clients, désactivez « Visible côté client » sur sa page.',
         openEntitlement: 'Ouvrir le droit',
+      },
+      VoucherStatus: {
+        DRAFT: 'Brouillon',
+        ACTIVE: 'Actif',
+        EXPIRED: 'Expiré',
+        EXHAUSTED: 'Épuisé',
+        ARCHIVED: 'Archivé',
+      },
+      VoucherType: {
+        PRICE: 'Remise',
+        ENTITLEMENT_BOOST: 'Boost',
+      },
+      RedemptionStatus: {
+        ACTIVE: 'Active',
+        EXPIRED: 'Expirée',
+        REVOKED: 'Révoquée',
+      },
+      Redemptions: {
+        title: 'Utilisations',
+        loading: 'Chargement des utilisations',
+        emptyTitle: 'Aucune utilisation pour l’instant',
+        codeHint: 'Code se terminant par {{hint}}',
+        from: 'Depuis le {{date}}',
+        applications: '{{count}}/{{max}} factures',
+        applicationsUnbounded_one: '{{count}} facture jusqu’ici',
+        applicationsUnbounded_other: '{{count}} factures jusqu’ici',
+        revokedBecause: 'Révoquée : {{reason}}',
+        revoke: 'Révoquer {{name}}',
+        Columns: {
+          instance: 'Instance',
+          voucher: 'Voucher',
+          redeemed: 'Utilisée le',
+          window: 'S’applique',
+          applications: 'Factures',
+          status: 'Statut',
+        },
+        Revoke: {
+          title: 'Révoquer {{name}} sur {{instance}}',
+          description:
+            'Un boost cesse de s’appliquer immédiatement et une remise ne s’applique plus à aucune facture à venir. Les factures déjà émises ne changent pas, et le voucher continue de compter cette utilisation.',
+          reason: 'Motif',
+          confirm: 'Révoquer',
+          success: '{{name}} révoqué',
+        },
+      },
+      Voucher: {
+        Offer: {
+          price: '{{discount}} de remise sur {{target}}, {{duration}}',
+          boost: '{{changes}}, {{duration}}',
+          Target: {
+            LICENSE_BASE: 'le prix de base',
+            ADDONS: 'les add-ons',
+            BOTH: 'le prix de base et les add-ons',
+            SELECTED_PRICES_one: 'le prix sélectionné',
+            SELECTED_PRICES_other: 'les {{count}} prix sélectionnés',
+          },
+          PriceDuration: {
+            ONE_TIME: 'sur une seule facture',
+            REPEATING_one: 'sur la prochaine facture',
+            REPEATING_other: 'sur les {{count}} prochaines factures',
+            FOREVER: 'sur toutes les factures',
+          },
+          BoostDuration: {
+            ONE_TIME: 'pendant une période de facturation',
+            REPEATING_one: 'pendant {{count}} période de facturation',
+            REPEATING_other: 'pendant {{count}} périodes de facturation',
+            FOREVER: 'sans limite de durée',
+          },
+          Change: {
+            SET: '{{entitlement}} fixé à {{value}}',
+            ADD: '{{entitlement}} + {{value}}',
+            MULTIPLY: '{{entitlement}} × {{value}}',
+            UNLIMITED: '{{entitlement}} illimité',
+          },
+        },
       },
     },
     AuditTrail: {
