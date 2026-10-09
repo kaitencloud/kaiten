@@ -1,10 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { HttpResponse } from 'msw';
 import { Suspense } from 'react';
-import { expect, within } from 'storybook/test';
+import { expect, screen, userEvent, waitFor, within } from 'storybook/test';
 import type { Invoice } from '@/api-client';
 import {
   handleGetBillingCapabilities,
   handleGetInvoice,
+  handleSyncInvoice,
+  handleVoidInvoice,
 } from '@/api-client/msw.gen';
 import {
   billingCapabilitiesProfiles,
@@ -254,5 +257,101 @@ export const Page: Story = {
     await expect(
       await canvas.findByRole('button', { name: 'Read from Stripe' }),
     ).toBeVisible();
+  },
+};
+
+const paidAtProvider = () =>
+  HttpResponse.json(
+    {
+      code: 'VoidInvoice.InvalidStatus',
+      detail: 'the payment provider reports this invoice paid',
+      errors: [
+        {
+          location: 'provider',
+          message: 'paid at the provider',
+          value: 'paid_at_provider',
+        },
+      ],
+      status: 409,
+      title: 'Conflict',
+    },
+    { status: 409 },
+  );
+
+/** The page of an invoice Stripe holds open, whose void is refused because Stripe says it is paid. */
+const voidRefusedPage = (read: () => Response) => ({
+  layout: 'fullscreen',
+  msw: {
+    handlers: [
+      handleGetBillingCapabilities({
+        body: billingCapabilitiesProfiles.stackWithStripe('connected'),
+      }),
+      handleGetInvoice({ body: stripe() }),
+      handleVoidInvoice(paidAtProvider),
+      handleSyncInvoice(read),
+    ],
+  },
+});
+
+const renderPage = () => (
+  <StorybookRouter>
+    <div className="h-screen">
+      <Suspense fallback={null}>
+        <InvoiceDetailPage invoiceId="inv-stripe" />
+      </Suspense>
+    </div>
+  </StorybookRouter>
+);
+
+/** Types the reason of a void and confirms it, from the page. */
+async function voidFromThePage(canvasElement: HTMLElement) {
+  await userEvent.click(
+    await within(canvasElement).findByRole('button', { name: 'Void' }),
+  );
+  const dialog = await screen.findByRole('dialog');
+  await userEvent.type(await within(dialog).findByLabelText(/Reason/), 'Billed twice');
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Void invoice' }));
+
+  return dialog;
+}
+
+// Voiding goes through Stripe first, and Stripe refuses an invoice its customer has paid. The
+// page reads the invoice from Stripe at once, so the person is not left to do the one thing
+// that settles it, and the dialog closes: the invoice was not voided.
+export const VoidReadsThePayment: Story = {
+  parameters: voidRefusedPage(() =>
+    HttpResponse.json(stripe({ paidAt: '2027-03-05T00:00:00.000Z', status: 'PAID' })),
+  ),
+  render: renderPage,
+  play: async ({ canvasElement }) => {
+    await voidFromThePage(canvasElement);
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  },
+};
+
+// When that read fails, the dialog stays with the refusal and a button to read again.
+export const VoidReadFails: Story = {
+  parameters: voidRefusedPage(() =>
+    HttpResponse.json(
+      {
+        code: 'SyncInvoice.ProviderUnavailable',
+        detail: 'the payment provider could not be reached',
+        status: 503,
+        title: 'Service Unavailable',
+      },
+      { status: 503 },
+    ),
+  ),
+  render: renderPage,
+  play: async ({ canvasElement }) => {
+    const dialog = await voidFromThePage(canvasElement);
+
+    await expect(await within(dialog).findByTestId('void-paid-at-provider')).toHaveTextContent(
+      'Stripe reports this invoice as paid',
+    );
+    await expect(
+      within(dialog).getByRole('button', { name: 'Read it from Stripe' }),
+    ).toBeEnabled();
   },
 };

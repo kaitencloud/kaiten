@@ -3,6 +3,7 @@ import { HttpResponse, type RequestHandler } from 'msw';
 import { expect, fn, screen, userEvent, waitFor, within } from 'storybook/test';
 import type { PaymentMethodLabels } from '@/api-client';
 import {
+  handleCreatePaymentMethodSession,
   handleDetachPaymentMethod,
   handleGetBillingCapabilities,
   handleGetCustomerBilling,
@@ -164,5 +165,38 @@ export const RemoveRefused: Story = {
         await within(dialog).findByTestId('payment-method-remove-refused'),
       ).toHaveTextContent('in the Billing tab of their instance'),
     );
+  },
+};
+
+// Adding or replacing a method asks Stripe for a page it hosts. When Stripe cannot be reached the
+// API changes nothing and says so, and the card offers to ask again.
+export const SetupUnreachable: Story = {
+  parameters: {
+    msw: {
+      handlers: handlers(
+        handleCreatePaymentMethodSession(() =>
+          HttpResponse.json(
+            {
+              code: 'CreatePaymentMethodSession.ProviderUnavailable',
+              detail: 'the payment provider could not be reached',
+              status: 503,
+              title: 'Service Unavailable',
+            },
+            { status: 503 },
+          ),
+        ),
+        billing(VISA),
+      ),
+    },
+  },
+  render: card,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(await canvas.findByRole('button', { name: 'Replace' }));
+
+    const alert = await canvas.findByRole('alert');
+    await expect(alert).toHaveTextContent('Nothing was changed.');
+    await expect(within(alert).getByRole('button', { name: 'Retry' })).toBeVisible();
   },
 };
