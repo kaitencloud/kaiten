@@ -24,16 +24,15 @@ func NewUseCase(deps access.Deps, closer *closing.Closer, batchSize int) *UseCas
 }
 
 // Execute closes the caller's organization's due subscriptions now, or one
-// instance's, recorded under the caller. Only what is due closes: a period
-// that has not ended is left alone.
+// instance's. Only what is due closes: a period that has not ended is left
+// alone. The close is recorded under system:kaiten, as the job's is: the
+// caller only made it sooner, and what it writes is what the job would have.
 func (u *UseCase) Execute(ctx context.Context, instanceSlug *string) (*closing.ClosePeriodsReport, error) {
 	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return u.close(ctx, user.OrganizationID, instanceSlug, func(context.Context, uuid.UUID) (uuid.UUID, error) {
-		return user.ID, nil
-	})
+	return u.close(ctx, user.OrganizationID, instanceSlug, u.closer.SystemActor)
 }
 
 // ExecuteFor is Execute on behalf of the platform, for the named
