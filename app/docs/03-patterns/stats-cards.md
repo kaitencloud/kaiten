@@ -31,7 +31,7 @@ A card is put together from its parts, in this order:
 </StatCard.Value>
 ```
 
- The unit also carries the zone of a date or of a period, which the figure leaves out (`Jun 12, 2026` and, after it, `(UTC)`), as the strip of an invoice does (`app/src/features/billing/components/invoice-detail/invoice-detail-stats.tsx`). A tone goes on the `className` of the part it colours: the icon draws in `currentColor`. A card stands on its own outside a row, with the same look.
+ The unit also carries the zone of a date or of a period, which the figure leaves out (`Jun 12, 2026` and, after it, `(UTC)`), as the strip of an invoice does (`app/src/features/billing/components/invoice-detail/invoice-detail-stats.tsx`). A tone goes on the `className` of the part it colours: the icon draws in `currentColor`. A card stands on its own outside a row, with the same look. What a card is given besides its look (a `data-testid`, a `title`, an `aria-` attribute) goes to the card itself, so that a page can address one figure of a row, as the tiles of the health of billing do (`app/src/features/settings/billing/components/billing-health-tile.tsx`), where the label of a tile that leads somewhere is a link stretched over the whole card.
 
 ## A card carries a number that informs a decision
 
