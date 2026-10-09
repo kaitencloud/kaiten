@@ -42,10 +42,12 @@ const licenseId = (licenses: License[], slug: string) =>
  * Globex, and a discount on chosen prices.
  *
  * The redemptions are the instances': Globex Staging redeemed the launch discount
- * after its last renewal, so it applies to the invoice it will issue; Beta Staging
- * redeemed it on a trial, where it waits for the first invoice; Globex Production has
- * the boost; Acme Production's agreement discounted the invoice of its year. A
- * redemption of the archived voucher was revoked, another ran out.
+ * after its last renewal, so it applies to the invoice it will issue, and the boost
+ * reserved for Globex, which doubles the seats its add-ons already raised; Beta Staging
+ * redeemed the launch discount on a trial, where it waits for the first invoice; Globex
+ * Production has the boost of API calls; Acme Production's agreement discounted the
+ * invoice of its year. A redemption of the archived voucher was revoked, another ran
+ * out.
  */
 export function createVouchers({ customers, licenses }: VouchersWorld): {
   boostedInstances: string[];
@@ -125,6 +127,7 @@ export function createVouchers({ customers, licenses }: VouchersWorld): {
       id: 'voucher-double-seats',
       maxRedemptions: 2,
       name: 'Double seats for Globex',
+      redemptionsCount: 1,
       restrictedCustomerSlug: globex.slug,
       voucherType: 'ENTITLEMENT_BOOST',
     }),
@@ -192,6 +195,7 @@ export function createVouchers({ customers, licenses }: VouchersWorld): {
   };
 
   const boostRedeemedAt = daysAgo(10);
+  const doubledAt = daysAgo(2);
   const redemptions: Redemption[] = [
     buildRedemption({
       applicationsCount: 1,
@@ -226,6 +230,16 @@ export function createVouchers({ customers, licenses }: VouchersWorld): {
       voucher: voucher('voucher-api-boost'),
     }),
     buildRedemption({
+      effectiveExpiresAt: addMonthsClamped(
+        new Date(doubledAt),
+        6,
+      ).toISOString(),
+      id: 'redemption-globex-staging-double-seats',
+      instanceSlug: 'globex-staging',
+      redeemedAt: doubledAt,
+      voucher: voucher('voucher-double-seats'),
+    }),
+    buildRedemption({
       applicationsCount: 1,
       applicationsMax: 1,
       expiredAt: daysAgo(290),
@@ -248,7 +262,7 @@ export function createVouchers({ customers, licenses }: VouchersWorld): {
   ];
 
   return {
-    boostedInstances: ['globex-production'],
+    boostedInstances: ['globex-production', 'globex-staging'],
     seed: {
       known: {
         customers: customers.flatMap(({ slug }) => (slug ? [slug] : [])),

@@ -8,6 +8,7 @@ import type {
 } from '@/api-client';
 import type { MetadataFieldsQuery } from '@/api-client/graphql/graphql';
 import { TEST_USER } from '../../../../e2e/app/_support/fixtures';
+import { identityProvenance } from '../../../../e2e/app/_support/model/effective-entitlement';
 import { bySlug } from './by-slug';
 import { attioLink } from './catalog';
 import { currentMonth, daysAgo, daysFromNow, minutesAgo } from './dates';
@@ -230,6 +231,15 @@ export const createEntitlementUsages = (
               licenseSlug: grant.licenseSlug,
               source: 'license',
               limit: grant.value,
+              // What the API serves for each row: the percent that applies, and the
+              // provenance of a limit that only the license grants. The instances that
+              // hold add-ons or boosts have theirs composed (`applyAddonContributions`).
+              limitCapExceededOveragePercent:
+                grant.limitCapExceededOveragePercent ??
+                (grant.value.type === 'number' && grant.value.value === -1
+                  ? -1
+                  : 0),
+              provenance: identityProvenance(grant),
               value: { type: 'number', value: used },
             },
           ];

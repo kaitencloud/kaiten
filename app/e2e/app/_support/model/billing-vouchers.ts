@@ -73,11 +73,21 @@ export type VoucherWorld = VoucherReferences & {
   now(): number;
 };
 
-/** What a boost redeemed by an instance changes of one of its entitlements. */
+/**
+ * What a boost redeemed by an instance changes of one of its entitlements, with which
+ * redemption and voucher it is and the window it applies in: the provenance of the
+ * effective value names them, and never the code.
+ */
 export type BoostContribution = {
+  effectiveExpiresAt?: string;
+  effectiveStartsAt: string;
   entitlementSlug: string;
+  instanceVoucherId: string;
   modifierType: 'ADD' | 'MULTIPLY' | 'SET' | 'UNLIMITED';
+  redeemedAt: string;
   value?: number;
+  voucherEntitlementGrantId: string;
+  voucherId: string;
 };
 
 const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
@@ -805,12 +815,18 @@ export class BillingVouchers {
       .sort((a, b) => Date.parse(a.redeemedAt) - Date.parse(b.redeemedAt))
       .flatMap((redemption) =>
         (this.find(redemption.voucherId)?.grants ?? []).map((grant) => ({
+          effectiveExpiresAt: redemption.effectiveExpiresAt,
+          effectiveStartsAt: redemption.effectiveStartsAt,
           entitlementSlug: grant.entitlementSlug,
+          instanceVoucherId: redemption.id,
           modifierType: grant.modifierType,
+          redeemedAt: redemption.redeemedAt,
           value:
             grant.modifierValue === undefined
               ? undefined
               : Number(grant.modifierValue),
+          voucherEntitlementGrantId: `${redemption.voucherId}-${grant.entitlementSlug}`,
+          voucherId: redemption.voucherId,
         })),
       );
   }

@@ -129,9 +129,11 @@ test.describe('applying a code', () => {
     expect(changes).toHaveLength(1);
     const [, before, after] =
       /Tokens: ([\d,]+) → ([\d,]+)/.exec(changes[0]) ?? [];
+    // The API adds before it multiplies, whatever the order of the redemptions: the
+    // hundred thousand tokens of Pro, and the fifty thousand, doubled.
     expect(
       Number(after.replace(/,/g, '')) - Number(before.replace(/,/g, '')),
-    ).toBe(50_000);
+    ).toBe(100_000);
     expect(
       writes.map(({ method, pathname }) => `${method} ${pathname}`),
     ).toEqual([
@@ -448,7 +450,7 @@ test.describe('taking a redemption back from the instance', () => {
       .filter({ hasText: 'Tokens' })
       .filter({ hasText: 'Number' });
     await page.getByRole('tab', { name: 'Entitlements & Usage' }).click();
-    await expect(tokens).toContainText('250,000');
+    await expect(tokens).toContainText('300,000');
 
     await page.getByRole('tab', { name: 'Billing' }).click();
     await vouchers.revokeButton('Launch boost').click();
@@ -458,7 +460,7 @@ test.describe('taking a redemption back from the instance', () => {
 
     await page.getByRole('tab', { name: 'Entitlements & Usage' }).click();
     await expect(tokens).toContainText('200,000');
-    await expect(tokens).not.toContainText('250,000');
+    await expect(tokens).not.toContainText('300,000');
   });
 });
 

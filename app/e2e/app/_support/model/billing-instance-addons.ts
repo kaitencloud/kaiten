@@ -30,10 +30,20 @@ export const INSTANCE_ADDON_OPERATIONS: readonly InstanceAddonOperation[] = [
   'setInstanceAddonQuantity',
 ];
 
-/** What an attachment adds to an entitlement of its instance, per unit of quantity. */
+/**
+ * What an attachment adds to an entitlement of its instance, per unit of quantity,
+ * with which attachment and which grant of the add-on it is: the provenance of the
+ * effective value names them.
+ */
 export type AddonContribution = {
+  addonEntitlementId: string;
+  addonId: string;
+  attachedAt: string;
   behavior: 'ADD' | 'MAX' | 'OVERRIDE';
   entitlementSlug: string;
+  instanceAddonId: string;
+  /** The percent the grant sets for itself; absent, it inherits the license's. */
+  overagePercent?: number;
   quantity: number;
   /** What one unit grants. */
   value: number;
@@ -185,8 +195,13 @@ export class InstanceAddons implements AddonHolders {
           grant.value.type === 'number' && typeof grant.value.value === 'number'
             ? [
                 {
+                  addonEntitlementId: grant.id,
+                  addonId: attached.addonId,
+                  attachedAt: attached.attachedAt,
                   behavior: grant.overrideBehavior,
                   entitlementSlug: grant.entitlementSlug,
+                  instanceAddonId: attached.id,
+                  overagePercent: grant.limitCapExceededOveragePercent,
                   quantity: attached.quantity,
                   value: grant.value.value,
                 },

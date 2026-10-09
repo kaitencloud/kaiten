@@ -54,7 +54,7 @@ which `billing-discounts.ts` composes as the composer of the API does, for the i
 subscribe issues and for the upcoming invoice. An attachment, or a boost, changes what the
 instance is entitled to, which is the instances' slot: the handlers tell it through
 `EntitlementEffects` (`syncEffectiveValues`), so that the usage of the instance reads the
-effective value the API composes (`InstanceAppModel.applyAddonContributions`). The usage history of an
+effective value the API composes (`InstanceAppModel.applyAddonContributions`, over `composeEffectiveNumber`: an OVERRIDE add-on replaces the value of the license, a MAX keeps the larger, an ADD adds, then a boost SETs, adds, or multiplies the sum, the additions before the multiples whatever the order of the redemptions), and says why: the usage carries the `provenance` of the limit, the effective overage percent and the `source`, which a usage the world seeds serves as the API does, a `number` that is null included (`zServedEntitlementUsage` checks a seed against what the API sends, which its OpenAPI document does not declare). The usage history of an
 entitlement of an instance, with its exports, is
 the instances': `instance-handlers.ts` serves it from `InstanceUsageHistory`
 (`instance-usage-history.ts`), within what the organization keeps, with the codes of
