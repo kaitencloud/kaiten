@@ -112,7 +112,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 	deps := access.Deps{
 		UserProvider:    svc.UserProvider,
 		Uof:             svc.Uof,
-		Gate:            gate.New(svc.Config.Billing.Enabled, svc.ConnectorEntitlements),
+		Gate:            gate.NewCached(svc.Config.Billing.Enabled, svc.ConnectorEntitlements, svc.Config.Billing.EntitlementCacheTTL),
 		Catalogue:       from.Catalogue,
 		Usage:           from.Usage,
 		Addons:          from.Addons,
