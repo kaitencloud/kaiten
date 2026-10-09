@@ -160,6 +160,9 @@ type Composition struct {
 	Subtotal      int64
 	DiscountTotal int64
 	Total         int64
+	// CurrencySkipped is how many fixed-amount discounts were left out for
+	// being in another currency (§8.4 rule 5), for the metric.
+	CurrencySkipped int
 }
 
 // Compose rates in into lines, ordered by service start, type, the price's

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +16,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/sweep"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/telemetry"
 )
 
 // lockID elects the replica that runs a pass: the version of the migration
@@ -54,6 +56,7 @@ func (o *Overdue) Pass(ctx context.Context, limit int) (moved int, err error) {
 		changed, err := o.one(ctx, candidate.ID, candidate.OrganizationID)
 		if err != nil {
 			slog.ErrorContext(ctx, "overdue re-evaluation failed", "instance_billing_id", candidate.ID, "error", err)
+			telemetry.ItemFailed(ctx, telemetry.JobLifecycle, strings.HasPrefix(err.Error(), "panic "))
 			continue
 		}
 		if changed {

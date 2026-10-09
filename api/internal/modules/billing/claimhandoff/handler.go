@@ -10,6 +10,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/telemetry"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -79,12 +80,18 @@ func (u *UseCase) Execute(ctx context.Context, limit, leaseSeconds int32) (*Hand
 		return rows[i].ID.String() < rows[j].ID.String()
 	})
 	claimed := make([]invoices.Invoice, len(rows))
+	reclaimed := 0
 	for i, row := range rows {
+		if row.HandoffClaimCount > 1 {
+			// Still PENDING and claimed before: that claim's lease ran out.
+			reclaimed++
+		}
 		invoice, err := invoices.FromRow(row)
 		if err != nil {
 			return nil, err
 		}
 		claimed[i] = invoice
 	}
+	telemetry.LeaseExpired(ctx, reclaimed)
 	return &HandoffClaim{LeaseID: lease, LeasedUntil: until, Invoices: claimed}, nil
 }

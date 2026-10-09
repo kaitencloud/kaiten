@@ -36,6 +36,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/pushing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/telemetry"
 )
 
 const (
@@ -86,11 +87,16 @@ func (s *Syncer) Pass(ctx context.Context) error {
 		return err
 	}
 	for _, target := range targets {
-		if _, err := s.Organization(ctx, target.OrganizationID, target.ProviderKind); err != nil {
-			if !errors.Is(err, provider.ErrNotConnected) {
-				slog.WarnContext(ctx, "billing provider sync failed", "organization_id", target.OrganizationID,
-					"provider_kind", target.ProviderKind, "error", err)
+		err := telemetry.Unit(ctx, telemetry.JobProviderSync, func() error {
+			_, err := s.Organization(ctx, target.OrganizationID, target.ProviderKind)
+			if errors.Is(err, provider.ErrNotConnected) {
+				return nil
 			}
+			return err
+		})
+		if err != nil {
+			slog.WarnContext(ctx, "billing provider sync failed", "organization_id", target.OrganizationID,
+				"provider_kind", target.ProviderKind, "error", err)
 		}
 	}
 	return nil
