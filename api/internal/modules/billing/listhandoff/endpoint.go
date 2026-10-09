@@ -17,7 +17,7 @@ type Lister interface {
 }
 
 type Request struct {
-	Status string `query:"status" enum:"PENDING,ACKNOWLEDGED" doc:"PENDING (the default) or ACKNOWLEDGED"`
+	Status string `query:"status" doc:"PENDING (the default) or ACKNOWLEDGED; .InvalidStatus otherwise"`
 	Cursor string `query:"cursor" doc:"Opaque cursor from the previous page's nextCursor"`
 	Limit  int32  `query:"limit" minimum:"0" maximum:"200" doc:"Page size, 50 by default, 200 at most"`
 }

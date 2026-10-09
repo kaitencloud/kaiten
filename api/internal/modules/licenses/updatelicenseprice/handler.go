@@ -64,6 +64,11 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, priceID uuid.
 		}
 
 		draft, changed := merge(*stored, patch)
+		if draft.IsDefault && stored.Status == prices.StatusDeprecated {
+			// license_price_default_flat_fee_check: a deprecated price is no
+			// longer offered, so it cannot be the one a period shows.
+			return kaitenerrors.Conflict(operation+".PriceDeprecated", "a deprecated price cannot be the default: make an ACTIVE price the default")
+		}
 		_, amount, err := draft.Shape(operation)
 		if err != nil {
 			return err

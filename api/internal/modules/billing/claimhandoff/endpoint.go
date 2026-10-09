@@ -12,13 +12,13 @@ import (
 
 // Claimer is the one facade method this operation calls.
 type Claimer interface {
-	ClaimHandoff(ctx context.Context, cl caller.OrganizationCaller, limit, leaseSeconds int32) (*HandoffClaim, error)
+	ClaimHandoff(ctx context.Context, cl caller.OrganizationCaller, limit, leaseSeconds *int32) (*HandoffClaim, error)
 }
 
 // HandoffClaimSize is how many invoices to lease, and for how long.
 type HandoffClaimSize struct {
-	Limit        int32 `json:"limit,omitempty" doc:"Invoices to lease, 1 to 100; 25 when omitted"`
-	LeaseSeconds int32 `json:"leaseSeconds,omitempty" doc:"Lease length, 60 to 3600 seconds; 900 when omitted"`
+	Limit        *int32 `json:"limit,omitempty" doc:"Invoices to lease, 1 to 100; 25 when omitted"`
+	LeaseSeconds *int32 `json:"leaseSeconds,omitempty" doc:"Lease length, 60 to 3600 seconds; 900 when omitted"`
 }
 
 type Request struct {

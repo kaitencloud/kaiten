@@ -29,7 +29,7 @@ func NewUseCase(deps catalogue.Deps) *UseCase {
 
 // Execute revokes an ACTIVE redemption. Its row stays, with the reason.
 func (u *UseCase) Execute(ctx context.Context, instanceSlug string, instanceVoucherID uuid.UUID, reason string) (*catalogue.Redemption, error) {
-	if strings.TrimSpace(reason) == "" {
+	if strings.TrimSpace(reason) == "" || len([]rune(reason)) > 500 {
 		return nil, kaitenerrors.UnprocessableEntity(operation+".ReasonRequired", "a revocation gives its reason")
 	}
 	user, err := u.deps.Caller(ctx)

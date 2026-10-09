@@ -219,7 +219,7 @@ func (b Billing) ListHandoff(
 // ClaimHandoff leases invoices waiting for the organization's accounting
 // system.
 func (b Billing) ClaimHandoff(
-	ctx context.Context, cl caller.OrganizationCaller, limit, leaseSeconds int32,
+	ctx context.Context, cl caller.OrganizationCaller, limit, leaseSeconds *int32,
 ) (*claimhandoff.HandoffClaim, error) {
 	if err := cl.Require(claimhandoff.RequiredScope); err != nil {
 		return nil, err

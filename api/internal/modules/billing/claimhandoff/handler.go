@@ -39,16 +39,17 @@ func NewUseCase(deps access.Deps) *UseCase { return &UseCase{deps: deps} }
 // leaseSeconds. An invoice whose lease expires unacknowledged is claimed
 // again: the queue delivers at least once, and a consumer deduplicates on
 // the invoice id.
-func (u *UseCase) Execute(ctx context.Context, limit, leaseSeconds int32) (*HandoffClaim, error) {
+func (u *UseCase) Execute(ctx context.Context, requestedLimit, requestedLeaseSeconds *int32) (*HandoffClaim, error) {
 	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if limit == 0 {
-		limit = DefaultLimit
+	limit, leaseSeconds := int32(DefaultLimit), int32(DefaultLeaseSeconds)
+	if requestedLimit != nil {
+		limit = *requestedLimit
 	}
-	if leaseSeconds == 0 {
-		leaseSeconds = DefaultLeaseSeconds
+	if requestedLeaseSeconds != nil {
+		leaseSeconds = *requestedLeaseSeconds
 	}
 	if limit < 1 || limit > 100 {
 		return nil, kaitenerrors.UnprocessableEntity(operation+".InvalidLimit", "limit is between 1 and 100")

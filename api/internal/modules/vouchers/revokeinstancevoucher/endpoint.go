@@ -19,7 +19,7 @@ type Revoker interface {
 
 // RevocationReason is why a redemption is revoked.
 type RevocationReason struct {
-	Reason string `json:"reason" maxLength:"500" example:"Granted by mistake"`
+	Reason string `json:"reason,omitempty" doc:"1 to 500 characters; .ReasonRequired otherwise" example:"Granted by mistake"`
 }
 type Request struct {
 	InstanceSlug      string    `path:"instanceSlug" doc:"Instance slug" example:"acme-prod"`

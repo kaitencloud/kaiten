@@ -19,7 +19,7 @@ type Releaser interface {
 
 // HoldRelease is why the invoice is released despite its journal.
 type HoldRelease struct {
-	Reason string `json:"reason" doc:"1 to 500 characters"`
+	Reason string `json:"reason,omitempty" doc:"1 to 500 characters; .ReasonRequired otherwise"`
 }
 
 type Request struct {
