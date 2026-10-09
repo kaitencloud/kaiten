@@ -8,6 +8,7 @@ import {
   INVOICE_STATUSES,
   isInvoiceOverdue,
   isKnownHoldReason,
+  isSubscriptionLive,
   type InvoiceStatus,
   type InvoiceStatusInput,
   SUBSCRIPTION_ACTIONS,
@@ -242,5 +243,19 @@ describe('the checks that hold a draft', () => {
     expect(isKnownHoldReason('')).toBe(false);
     // What an object inherits is not a check.
     expect(isKnownHoldReason('toString')).toBe(false);
+  });
+});
+
+describe('a live subscription', () => {
+  it('is one that still bills, whatever it is about to do', () => {
+    expect(
+      SUBSCRIPTION_STATUSES.filter((status) => isSubscriptionLive({ status })),
+    ).toEqual(['TRIAL', 'ACTIVE', 'PAST_DUE']);
+  });
+
+  it('is not an instance nobody bills, nor one whose subscription ended', () => {
+    expect(isSubscriptionLive(null)).toBe(false);
+    expect(isSubscriptionLive(undefined)).toBe(false);
+    expect(isSubscriptionLive({ status: 'CANCELED' })).toBe(false);
   });
 });

@@ -1,24 +1,8 @@
-import { Badge } from '@/components/ui/badge';
 import { useTranslation } from 'react-i18next';
 import type { License } from '@/api-client';
-import {
-  getLicenseLifecycleState,
-  type LicenseLifecycleState,
-} from '../utils/license-lifecycle.utils';
-
-const BADGE_VARIANT: Record<
-  LicenseLifecycleState,
-  'success' | 'outline' | 'secondary'
-> = {
-  // Live: the only state a family resolves to, and the only one its default
-  // may be in.
-  PUBLISHED: 'success',
-  // Being prepared: addressable by its own slug, never served by the family.
-  DRAFT: 'outline',
-  // Withdrawn from sale: pinned instances keep working, nothing new resolves
-  // to it.
-  ARCHIVED: 'secondary',
-};
+import { VersionLifecycleBadge } from '@/domains/billing';
+import { LIFECYCLE_LABEL_KEYS } from '../utils/license-lifecycle-keys';
+import { getLicenseLifecycleState } from '../utils/license-lifecycle.utils';
 
 type LicenseLifecycleBadgeProps = {
   license: Pick<License, 'lifecycleState'>;
@@ -33,8 +17,10 @@ export function LicenseLifecycleBadge({
   const state = getLicenseLifecycleState(license);
 
   return (
-    <Badge variant={BADGE_VARIANT[state]} className={className}>
-      {t(`Pages.Licenses.Lifecycle.${state}`)}
-    </Badge>
+    <VersionLifecycleBadge
+      className={className}
+      label={t(LIFECYCLE_LABEL_KEYS[state])}
+      state={state}
+    />
   );
 }

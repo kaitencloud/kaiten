@@ -39,9 +39,10 @@ app/src/features/licenses/
 │   ├── license-versions-table.tsx      # versions of a family
 │   ├── license-versions-table-columns.tsx  # its columns: name, type, how it is sold, state, default, instances, actions
 │   ├── license-versions-table-actions.tsx
-│   ├── license-lifecycle-action.tsx    # publish, archive, unarchive, with confirmation
-│   ├── license-lifecycle-badge.tsx
-│   ├── license-delete-draft-action.tsx
+│   ├── license-lifecycle-action.tsx    # publish, archive, unarchive, with confirmation (the dialog is the billing
+│   │                                   # domain's VersionLifecycleAction; here are the words, the note and the operation)
+│   ├── license-lifecycle-badge.tsx      # the words of the state, over VersionLifecycleBadge
+│   ├── license-delete-draft-action.tsx  # the words and the operation, over VersionDraftDeleteAction
 │   ├── __tests__/, stories/
 │   └── index.ts
 ├── hooks/                              # use-license-save, use-create-license-version, use-license-default,

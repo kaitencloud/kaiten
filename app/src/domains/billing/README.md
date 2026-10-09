@@ -59,9 +59,14 @@ app/src/domains/billing/
 │                     # the period of a list (PeriodFilter), the columns of a table of usage
 │                     # reports (useUsageReportColumns), the menu of the export of the invoices
 │                     # (ExportInvoicesMenu, which says which filters of its screen the file
-│                     # leaves out) and the dialog of a refusal to delete
-│                     # (DeletionRefusalDialog)
-├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session;
+│                     # leaves out), the dialog of a refusal to delete
+│                     # (DeletionRefusalDialog), the amount of a price (PriceAmount), and what
+│                     # the versions of a license and those of an add-on share: the confirmed
+│                     # lifecycle action, the deletion of a draft, the badge of the state and
+│                     # the looks of a row's actions (VersionLifecycleAction,
+│                     # VersionDraftDeleteAction, VersionLifecycleBadge, ROW_ACTION_LOOKS)
+├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session
+│                     # (useGrantedScopes reads them, for a screen that filters on several);
 │                     # useInvoiceActionAccess, the same for the five actions on an invoice;
 │                     # useAlertFocus, which puts the focus on a refusal or a confirmation; useDeletionRefusal,
 │                     # which explains a deletion billing refused; useBoundaryRetry, which waits
@@ -71,7 +76,8 @@ app/src/domains/billing/
 │                     # refusal on the fields of a form (problem-field-errors), statuses,
 │                     # invoice kinds, line types, invoice actions, the refusals of a
 │                     # recompose and of a deletion, handoff, export, retention, usage reports,
-│                     # subscription actions, billing periods, the trial of a subscription,
+│                     # subscription actions, whether a subscription is live (isSubscriptionLive),
+│                     # billing periods, the trial of a subscription,
 │                     # and what a price is called and how its amount is written
 │                     # (price-types, price-labels, price-display)
 ├── queries/          # the capabilities, the billing settings, the route guard, invalidation
@@ -124,19 +130,27 @@ page holds, or an export the API streams.
   `ExportInvoicesMenu` the filters the API has too, and the names of the ones it has
   not (`unapplied`): the menu says so above its choices, since the file would hold
   invoices the screen does not show.
-- `invalidateInstanceBillingQueries`, `invalidateInvoiceQueries`,
-  `invalidateLicensePriceQueries` and `invalidateBillingSettingsQueries` refresh
-  what a billing mutation changed, with the generated keys. A mutation of billing
+- `invalidateInstanceBillingQueries`, `invalidateInstanceAddonQueries`,
+  `invalidateInvoiceQueries`, `invalidateLicensePriceQueries` and
+  `invalidateBillingSettingsQueries` refresh what a billing mutation changed, with the
+  generated keys. The add-ons an instance holds apply to its entitlements at once, so
+  changing them (`invalidateInstanceAddonQueries`) refreshes the add-ons of the
+  instance, the effective values its entitlements show and the invoice its next
+  boundary will issue. A mutation of billing
   calls the helper of the thing it changed; none uses the optimistic helpers of
   `lib/optimistic-mutations.ts`, because a refusal must never show as a success.
 - `OPERATION_SCOPES` (`lib/api/operation-scopes.gen.ts`) is generated from the
   `security` of each operation of `app/openapi.yaml`; `BILLING_ACTIONS` names the
   operation each action calls, and its scope is read from there. It lists what the
   screens offer on a subscription (`subscription.cancel`, `.reactivate`,
-  `.schedulePlanChange`, `.cancelPlanChange`, `.updateTerms`), the two operations of an
-  instance a cancellation offers beside it (`instance.addons.list`, `.detach`,
-  `instance.update`: the scopes of the instances, not of billing) and the public
-  listing of a family of licenses (`licenseFamily.setPublic`).
+  `.schedulePlanChange`, `.cancelPlanChange`, `.updateTerms`), the operations of an
+  instance on the add-ons it holds (`instance.addons.list`, `.attach`, `.setQuantity`,
+  `.detach`, and `instance.update` beside a cancellation: the scopes of the instances,
+  not of billing), the catalogue of add-ons (`addons.*`, `addonFamily.setPublic`,
+  `addonGrants.*`, `addonPrices.*`, `addonCompatibility.*`, whose scopes are the add-ons'),
+  what the screens of the catalogue read of the licenses and the entitlements
+  (`licenseFamilies.list`, `licenseGrants.list`, `entitlements.list`, `instances.list`)
+  and the public listing of a family of licenses (`licenseFamily.setPublic`).
 
 ## Behaviour
 
@@ -144,7 +158,8 @@ page holds, or an export the API streams.
   `enabled: true`. A 403, a 404 (an API older than billing), a 503, a timeout or a
   network failure all hide billing, with no error page and no toast; what differs
   is the explanation a link to a billing screen shows (`BillingUnavailable`).
-  `features.*` hides what the running release does not ship (add-ons, vouchers).
+  `features.*` hides what the running release does not ship (add-ons, vouchers), and
+  the console has the screens of the add-ons, behind `features.addons`.
 - **One guard per billing route**, in `beforeLoad`. Where billing is there, it
   lets the route load. Where it is not, it throws `notFound({ data })` with the
   closed gate, and the route's `notFoundComponent`, `BillingNotFound`, shows the
@@ -166,7 +181,10 @@ page holds, or an export the API streams.
   being off never reads as a missing page. The side navigation reads the same
   capabilities: each entry of its Billing section carries a `capability`, which
   names a feature of the release when it needs one (`side-nav.constants.ts`), and
-  an entry that asked for nothing is still hidden where billing is off. Load
+  an entry that asked for nothing is still hidden where billing is off. An entry may
+  also name an `action`, and is then listed only to a session whose scopes cover it
+  (the add-ons are not offered to a session that may not read them), once the token has
+  been read. Load
   billing data in the route of a tab, never in the loader of the instance or the
   customer: a 403 there would blank the whole page.
 - **Actions follow the scopes of the session.** `useCanPerform('invoice.markPaid')`
@@ -183,6 +201,10 @@ page holds, or an export the API streams.
   the token table and not from its claims: that rule is about who the user is, so
   that it cannot drift when a claim is renamed, whereas the scopes exist only in
   the claim, and a wrong reading costs one refused action.
+- **A subscription that lives takes add-ons.** `isSubscriptionLive` says whether a
+  subscription is in a trial, active or past due: the states in which an add-on can be
+  attached to an instance and is billed from the next boundary. An instance nobody
+  bills, or whose subscription ended, takes none beside the dialog that starts one.
 - **Money is the API's.** An amount is an integer in minor units next to a
   currency, written from its ISO 4217 exponent through BigInt, with the exponent
   the API uses for that currency; a price is a decimal string and is never
@@ -325,6 +347,15 @@ page holds, or an export the API streams.
   of an instance, which is pinned to one of them in `features/instances`, are drawn
   from the same code. A decimal string of minor units is written with every decimal it
   has, a metered price is per sale unit, and none is ever added to another.
+- **A version of a license and a version of an add-on live the same life.** A draft goes
+  on sale, a published version is withdrawn, an archived one goes back on sale, and a
+  family's default cannot be archived (`getVersionTransition`, `isDefaultArchiveBlocked`).
+  The confirmation, the disabled action with its reason, the looks and the badge are
+  shared; each feature brings its words, the permission it asks and the operation it
+  runs. What an add-on is called where it is chosen (`getAddonTitle`) and what the
+  screens of the add-ons and the Billing tab of an instance both read about a version
+  (`addonPricesQueryOptions`, `addonCompatibilityQueryOptions`,
+  `addonLicenseFamiliesQueryOptions`) are the domain's too.
 - **A refusal to delete says what stands in the way.** `readDeletionRefusal` reads the
   409 of the deletion of an instance (`DeleteInstance.BillingActive`), of a customer
   (`DeleteCustomer.BillingActive`) and of an entitlement

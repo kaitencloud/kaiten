@@ -7,7 +7,6 @@ import {
   DataTable,
 } from '@/functionals/table';
 import type { PriceRules } from '../../utils/license-price.utils';
-import { PriceAmount } from './price-amount';
 import { PriceRowActions } from './price-row-actions';
 import {
   PriceBilledCell,
@@ -16,7 +15,7 @@ import {
   PriceShapeCell,
   PriceStatusCell,
 } from './price-table-cells';
-import { getPriceLabel } from '@/domains/billing';
+import { getPriceLabel, PriceAmount } from '@/domains/billing';
 
 type PriceTableProps = {
   entitlementBySlug: ReadonlyMap<string, Entitlement>;

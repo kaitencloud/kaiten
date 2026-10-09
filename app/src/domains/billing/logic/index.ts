@@ -144,6 +144,7 @@ export {
 export {
   getSubscriptionActions,
   getSubscriptionStatusLabelKey,
+  isSubscriptionLive,
   SUBSCRIPTION_ACTIONS,
   SUBSCRIPTION_STATUSES,
   type SubscriptionAction,
@@ -151,3 +152,10 @@ export {
   type SubscriptionStatus,
   type SubscriptionStatusInput,
 } from './subscription-status';
+export {
+  getVersionTransition,
+  isDefaultArchiveBlocked,
+  type VersionLifecycleState,
+  type VersionLifecycleTransition,
+} from './version-lifecycle';
+export { getAddonTitle } from './addon-title';

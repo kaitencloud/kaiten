@@ -17,6 +17,24 @@ const STATUS_LABEL_KEYS = {
   CANCELED: 'Features.Billing.SubscriptionStatus.CANCELED',
 } as const satisfies Record<SubscriptionStatus, string>;
 
+/**
+ * The statuses of a subscription that bills: it issues an invoice at each
+ * boundary, so what an instance holds when one comes round is what is billed. A
+ * canceled subscription bills nothing more, and an instance nobody bills has none.
+ */
+const LIVE_STATUSES: ReadonlySet<SubscriptionStatus> = new Set([
+  'TRIAL',
+  'ACTIVE',
+  'PAST_DUE',
+]);
+
+/** Whether the subscription still bills; `null` is an instance nobody bills. */
+export function isSubscriptionLive(
+  subscription: Pick<InstanceBilling, 'status'> | null | undefined,
+): boolean {
+  return subscription != null && LIVE_STATUSES.has(subscription.status);
+}
+
 const CANCELLATION_SCHEDULED_LABEL_KEY =
   'Features.Billing.SubscriptionStatus.cancellationScheduled';
 

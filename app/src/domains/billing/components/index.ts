@@ -17,6 +17,7 @@ export { InvoicePreviewResult } from './invoice-preview-result';
 export { InvoiceStatusBadge } from './invoice-status-badge';
 export { InvoicesCard } from './invoices-card';
 export { PeriodFilter } from './period-filter';
+export { PriceAmount } from './price-amount';
 export { InvoiceTotals } from './invoice-totals';
 export { InvoicesTable, type InvoicesTableColumn } from './invoices-table';
 export { LineFingerprint } from './line-fingerprint';
@@ -38,3 +39,17 @@ export {
   rightAlignedSortableHeader,
 } from './table-headers';
 export { useUsageReportColumns } from './usage-report-columns';
+export {
+  DELETE_ACTION_LOOKS,
+  ROW_ACTION_LOOKS,
+  type RowActionAppearance,
+} from './row-action-looks';
+export {
+  VersionDraftDeleteAction,
+  type VersionDeleteKeys,
+} from './version-draft-delete-action';
+export { VersionLifecycleBadge } from './version-lifecycle-badge';
+export {
+  VersionLifecycleAction,
+  type VersionLifecycleKeys,
+} from './version-lifecycle-action';
