@@ -279,9 +279,7 @@ test.describe('the add-ons of an instance, read in French', () => {
     await expect(addons.card()).toContainText(
       'Des droits supplémentaires que cette instance détient',
     );
-    await expect(addons.row('Extra seats · 2026')).toContainText(
-      /10,00\s\$US\/mois/,
-    );
+    await expect(addons.row('Extra seats')).toContainText(/10,00\s\$US\/mois/);
     await expect(addons.note()).toHaveText(
       'Le droit change tout de suite ; facturé dès le prochain renouvellement ; ni proratisation ni remboursement.',
     );
@@ -289,7 +287,7 @@ test.describe('the add-ons of an instance, read in French', () => {
       addons.card().getByRole('link', { name: 'Ajouter un add-on' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('group', { name: 'Quantité de Extra seats · 2026' }),
+      page.getByRole('group', { name: 'Quantité de Extra seats' }),
     ).toBeVisible();
   });
 
@@ -317,13 +315,11 @@ test.describe('the add-ons of an instance, read in French', () => {
   }) => {
     await page.goto('/customers/instances/initech-prod/billing');
 
-    await page
-      .getByRole('button', { name: 'Retirer Extra seats · 2026' })
-      .click();
+    await page.getByRole('button', { name: 'Retirer Extra seats' }).click();
 
     const dialog = page.getByRole('alertdialog');
     await expect(dialog).toContainText(
-      'Retirer Extra seats · 2026 de cette instance ?',
+      'Retirer Extra seats de cette instance ?',
     );
     await expect(dialog).toContainText(
       'Ses droits prennent fin tout de suite.',

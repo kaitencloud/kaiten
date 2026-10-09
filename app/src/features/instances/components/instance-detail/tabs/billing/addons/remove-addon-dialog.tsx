@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
-  getHeldAddonLabel,
   type HeldAddon,
   isBilledInArrears,
 } from '../../../../../utils/instance-addons.utils';
@@ -35,7 +34,7 @@ export function RemoveAddonDialog({
   row,
 }: RemoveAddonDialogProps) {
   const { t } = useTranslation();
-  const name = getHeldAddonLabel(row);
+  const { name } = row.held;
 
   return (
     <AlertDialog onOpenChange={(open) => !open && onClose()} open>

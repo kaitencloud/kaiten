@@ -198,7 +198,7 @@ test.describe('the add-ons of an instance, on the narrowest phone', () => {
     await expectNoHorizontalScroll(page, WIDTH);
     await expectWithinScreen(addons.card());
     await expectScrollsInside(addons.card().getByRole('table'));
-    await expect(addons.more('Extra seats · 2026')).toBeAttached();
+    await expect(addons.more('Extra seats')).toBeAttached();
     await expectWithinScreen(addons.note());
   });
 
@@ -225,7 +225,7 @@ test.describe('the add-ons of an instance, on the narrowest phone', () => {
     const addons = new InstanceAddonsDriver(page);
 
     await billing.goto('initech-prod');
-    await addons.removeButton('Extra seats · 2026').click();
+    await addons.removeButton('Extra seats').click();
     await expect(addons.confirmation()).toBeVisible();
     await settle(page);
 

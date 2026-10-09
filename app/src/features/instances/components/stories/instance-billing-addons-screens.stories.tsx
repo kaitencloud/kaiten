@@ -188,7 +188,7 @@ const attachDialog = () => (
   </Frame>
 );
 
-// What an instance holds, on its Billing tab: the version and its slug, a quantity
+// What an instance holds, on its Billing tab: the name of the version and its slug, a quantity
 // stepped one unit at a time, what a unit costs by the period of the subscription,
 // and the way to add another while the subscription is live.
 export const HoldingAnAddon: Story = {
@@ -197,7 +197,7 @@ export const HoldingAnAddon: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await expect(await canvas.findByText('Extra seats · 2026')).toBeVisible();
+    await expect(await canvas.findByText('Extra seats')).toBeVisible();
     await expect(canvas.getByText('$10.00')).toBeVisible();
     // The scopes of the session are read first: the action is there once they are.
     await expect(await canvas.findByRole('link', { name: 'Add an add-on' })).toBeVisible();
@@ -256,7 +256,7 @@ export const QuantityRefused: Story = {
     const canvas = within(canvasElement);
 
     await userEvent.click(
-      await canvas.findByRole('button', { name: 'One unit more of Extra seats · 2026' }),
+      await canvas.findByRole('button', { name: 'One unit more of Extra seats' }),
     );
 
     await expect(await canvas.findByRole('alert')).toHaveTextContent(
@@ -292,7 +292,7 @@ export const PeriodBeingClosed: Story = {
     const canvas = within(canvasElement);
 
     await userEvent.click(
-      await canvas.findByRole('button', { name: 'One unit more of Extra seats · 2026' }),
+      await canvas.findByRole('button', { name: 'One unit more of Extra seats' }),
     );
 
     await expect(await canvas.findByTestId('boundary-closing')).toHaveTextContent(

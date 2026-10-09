@@ -11,7 +11,6 @@ import {
 } from '@/functionals/table';
 import {
   getFlatFee,
-  getHeldAddonLabel,
   type HeldAddon,
 } from '../../../../../utils/instance-addons.utils';
 import { formatDate } from '../../../../../utils/instance-detail-overview.utils';
@@ -53,7 +52,7 @@ function AddonCell({ row }: { row: HeldAddon }) {
   return (
     <div className="space-y-0.5 whitespace-normal">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="font-medium">{getHeldAddonLabel(row)}</p>
+        <p className="font-medium">{row.held.name}</p>
         {row.addon?.lifecycleState === 'ARCHIVED' ? (
           <Badge title={t(KEYS.withdrawnHint)} variant="outline">
             {t(KEYS.withdrawn)}
@@ -77,7 +76,7 @@ function QuantityCell({
   const { t } = useTranslation();
   const actions = useInstanceAddonActionsContext();
   const { held } = row;
-  const label = getHeldAddonLabel(row);
+  const label = held.name;
   // The quantity a change is asking for stays on the stepper until the API answers,
   // and goes back to the one it holds if the change is refused.
   const shown =
@@ -130,7 +129,7 @@ function RemoveCell({ row }: { row: HeldAddon }) {
   const { t } = useTranslation();
   const actions = useInstanceAddonActionsContext();
   const [confirming, setConfirming] = useState(false);
-  const label = getHeldAddonLabel(row);
+  const label = row.held.name;
 
   return (
     <div className="flex h-8 items-center justify-end gap-1" data-row-actions>
