@@ -14,6 +14,7 @@ import (
 	instancesGraphql "github.com/kaitencloud/kaiten/api/internal/modules/instances/graphql"
 	instanceSchema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	licensesGraphql "github.com/kaitencloud/kaiten/api/internal/modules/licenses/graphql"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 )
 
@@ -25,6 +26,16 @@ func (r *licenseResolver) Family(ctx context.Context, obj *schema.License) (*sch
 // Instances is the resolver for the instances field.
 func (r *licenseResolver) Instances(ctx context.Context, obj *schema.License) ([]instanceSchema.Instance, error) {
 	return instancesGraphql.LoadInstancesByLicense(ctx, obj.ID)
+}
+
+// PricingType is the resolver for the pricingType field.
+func (r *licenseResolver) PricingType(ctx context.Context, obj *schema.License) (string, error) {
+	return string(obj.PricingType), nil
+}
+
+// Prices is the resolver for the prices field.
+func (r *licenseResolver) Prices(ctx context.Context, obj *schema.License, status *string) ([]prices.Price, error) {
+	return licensesGraphql.LoadLicensePrices(ctx, obj.ID, status)
 }
 
 // Versions is the resolver for the versions field.

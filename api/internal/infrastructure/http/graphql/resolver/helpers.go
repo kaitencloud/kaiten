@@ -13,6 +13,7 @@
 package resolver
 
 import (
+	"encoding/json"
 	"math"
 	"time"
 
@@ -91,4 +92,18 @@ func pageLimit(limit *int) int32 {
 	default:
 		return int32(*limit)
 	}
+}
+
+// toMap renders a value as the GraphQL Map scalar, through JSON, so a Map
+// field carries what the REST API returns for the same value.
+func toMap(v any) (map[string]any, error) {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }

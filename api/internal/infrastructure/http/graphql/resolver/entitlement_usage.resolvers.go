@@ -27,6 +27,23 @@ func (r *entitlementUsageResolver) Limit(ctx context.Context, obj *schema.Entitl
 	return instancesGraphql.UsageValueToMap(*obj.Limit)
 }
 
+// LimitCapExceededOveragePercent is the resolver for the limitCapExceededOveragePercent field.
+func (r *entitlementUsageResolver) LimitCapExceededOveragePercent(ctx context.Context, obj *schema.EntitlementUsage) (*int, error) {
+	if obj.LimitCapExceededOveragePercent == nil {
+		return nil, nil
+	}
+	percent := int(*obj.LimitCapExceededOveragePercent)
+	return &percent, nil
+}
+
+// Provenance is the resolver for the provenance field.
+func (r *entitlementUsageResolver) Provenance(ctx context.Context, obj *schema.EntitlementUsage) (map[string]any, error) {
+	if obj.Provenance == nil {
+		return nil, nil
+	}
+	return toMap(obj.Provenance)
+}
+
 // EntitlementUsage is the resolver for the entitlementUsage field.
 // Usage is billed by the loader (entitlement-values-checked), not here.
 func (r *instanceResolver) EntitlementUsage(ctx context.Context, obj *schema.Instance) ([]schema.EntitlementUsage, error) {

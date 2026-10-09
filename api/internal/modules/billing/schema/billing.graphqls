@@ -1,0 +1,22 @@
+"""
+What the console's instance lists show of an instance's subscription. The
+whole subscription is GET /instances/{instanceSlug}/billing.
+"""
+type InstanceBillingSummary {
+  """TRIAL, ACTIVE, PAST_DUE or CANCELED."""
+  status: String!
+  """NOOP or STRIPE."""
+  providerKind: String!
+  currentPeriodEnd: Time!
+  cancelAtPeriodEnd: Boolean!
+  pastDueSince: Time
+  trialEndsAt: Time
+}
+
+extend type Instance {
+  """
+  The instance's subscription; null when it was never subscribed. Requires
+  read:billing: fetch it in a document of its own, once billing is enabled.
+  """
+  billing: InstanceBillingSummary
+}

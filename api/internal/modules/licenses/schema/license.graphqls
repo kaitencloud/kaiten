@@ -19,6 +19,8 @@ slug.
 type LicenseFamily {
   id: UUID!
   slug: String!
+  """Whether the family's default PUBLISHED version is in the public catalogue."""
+  isPublic: Boolean!
 }
 
 """
@@ -47,6 +49,8 @@ alone, this one is a resolved view of the product.
 type LicenseFamilyView {
   id: UUID!
   slug: String!
+  """Whether the family's default PUBLISHED version is in the public catalogue."""
+  isPublic: Boolean!
 
   """
   The version this family currently serves: its default version, or its
@@ -94,6 +98,20 @@ type License {
   Instances using this license
   """
   instances: [Instance!]!
+
+  """FREE, PAID or CUSTOM: how this version is sold."""
+  pricingType: String!
+  """The trial a subscription starts with by default, in days; null when none."""
+  trialPeriodDays: Int
+  """Whether self-serve signup captures a payment method before activation."""
+  requiresPaymentMethod: Boolean
+  """Where a buyer is sent when this version cannot be bought self-serve."""
+  selfServeCtaUrl: String
+  """
+  The version's prices in display order; status ACTIVE or DEPRECATED narrows
+  them.
+  """
+  prices(status: String): [LicensePrice!]!
 }
 
 """

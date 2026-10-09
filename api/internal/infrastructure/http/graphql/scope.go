@@ -12,6 +12,8 @@ import (
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons/listinstanceaddons"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/getcomponent"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/getcomponents"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/getcustomer"
@@ -28,6 +30,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseentitlements"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicensefamily"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenses"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicenseprices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/getmetadatafields"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/getrelease"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/getreleases"
@@ -81,14 +84,19 @@ var typeScopes = map[string]string{
 	"EntitlementPage":         getentitlements.RequiredScope,
 	"EntitlementUsage":        getentitlementsusagemetrics.RequiredScope,
 	"Instance":                getinstance.RequiredScope,
-	"InstancePage":            getinstances.RequiredScope,
-	"License":                 getlicense.RequiredScope,
-	"LicenseEntitlement":      getlicenseentitlements.RequiredScope,
-	"LicenseFamily":           getlicensefamily.RequiredScope,
-	"LicenseFamilyView":       getlicensefamily.RequiredScope,
-	"LicensePage":             getlicenses.RequiredScope,
-	"MetadataField":           getmetadatafields.RequiredScope,
-	"MetadataFieldPage":       getmetadatafields.RequiredScope,
+	"InstanceAddon":           listinstanceaddons.RequiredScope,
+	// Billing data: an instance list that selects it needs read:billing too,
+	// so the console fetches it in a document of its own (§13.14).
+	"InstanceBillingSummary": getinstancebilling.RequiredScope,
+	"InstancePage":           getinstances.RequiredScope,
+	"License":                getlicense.RequiredScope,
+	"LicenseEntitlement":     getlicenseentitlements.RequiredScope,
+	"LicenseFamily":          getlicensefamily.RequiredScope,
+	"LicenseFamilyView":      getlicensefamily.RequiredScope,
+	"LicensePage":            getlicenses.RequiredScope,
+	"LicensePrice":           listlicenseprices.RequiredScope,
+	"MetadataField":          getmetadatafields.RequiredScope,
+	"MetadataFieldPage":      getmetadatafields.RequiredScope,
 	// No REST operation serves the organization-wide audit trail. It records
 	// every event of the organization, whichever resource the event is about, and
 	// an entry's payload is the event itself: the customer that was created, the

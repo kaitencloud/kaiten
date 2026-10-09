@@ -336,6 +336,8 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 				items {
 					slug
 					auditTrails(limit: 5) { items { id payload } }
+					billing { status }
+					addons { addonSlug }
 				}
 			}
 			instance(slug: $instance) { slug }
@@ -348,6 +350,7 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 					slug
 					family { slug }
 					instances { slug }
+					prices { id }
 					entitlements {
 						entitlementSlug value unlimited
 						entitlement { slug entitlementGroups { slug } }

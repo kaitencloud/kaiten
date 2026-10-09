@@ -1,0 +1,27 @@
+"""
+A price of a licence version (§13.15). Amounts are in minor units of currency.
+"""
+type LicensePrice {
+  id: UUID!
+  """FLAT_FEE, USAGE_BASED or OVERAGE."""
+  billingModel: String!
+  """ADVANCE or ARREARS."""
+  billingTiming: String!
+  """MONTHLY, QUARTERLY, SEMI_ANNUAL or ANNUAL; null on a metered price."""
+  billingPeriod: String
+  currency: String!
+  """The amount, when it is a whole number of minor units; null otherwise."""
+  unitAmount: Int
+  """The amount in minor units, up to 12 decimal places."""
+  unitAmountDecimal: String!
+  """The slug of the entitlement a metered price measures; null on a flat fee."""
+  meteredEntitlement: String
+  """Measured units in one sale unit of a metered price; null on a flat fee."""
+  saleUnitFactor: String
+  displayLabel: String
+  displayOrder: Int!
+  isDefault: Boolean!
+  """ACTIVE or DEPRECATED."""
+  status: String!
+  deprecatedAt: Time
+}

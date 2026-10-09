@@ -270,6 +270,58 @@ func (q *Queries) InsertInstanceBilling(ctx context.Context, arg InsertInstanceB
 	return i, err
 }
 
+const listInstanceBillingSummaries = `-- name: ListInstanceBillingSummaries :many
+SELECT ib.instance_id::uuid AS instance_id, ib.status, ib.provider_kind, ib.current_period_end,
+       ib.cancel_at_period_end, ib.past_due_since, ib.trial_ends_at
+FROM instance_billing ib
+WHERE ib.organization_id = $1
+  AND ib.instance_id = ANY ($2::uuid[])
+`
+
+type ListInstanceBillingSummariesParams struct {
+	OrganizationID uuid.UUID   `json:"organization_id"`
+	InstanceIds    []uuid.UUID `json:"instance_ids"`
+}
+
+type ListInstanceBillingSummariesRow struct {
+	InstanceID        uuid.UUID             `json:"instance_id"`
+	Status            InstanceBillingStatus `json:"status"`
+	ProviderKind      BillingProviderKind   `json:"provider_kind"`
+	CurrentPeriodEnd  pgtype.Timestamp      `json:"current_period_end"`
+	CancelAtPeriodEnd bool                  `json:"cancel_at_period_end"`
+	PastDueSince      pgtype.Timestamp      `json:"past_due_since"`
+	TrialEndsAt       pgtype.Timestamp      `json:"trial_ends_at"`
+}
+
+// The subscriptions of instances, for GraphQL's Instance.billing.
+func (q *Queries) ListInstanceBillingSummaries(ctx context.Context, arg ListInstanceBillingSummariesParams) ([]ListInstanceBillingSummariesRow, error) {
+	rows, err := q.db.Query(ctx, listInstanceBillingSummaries, arg.OrganizationID, arg.InstanceIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListInstanceBillingSummariesRow
+	for rows.Next() {
+		var i ListInstanceBillingSummariesRow
+		if err := rows.Scan(
+			&i.InstanceID,
+			&i.Status,
+			&i.ProviderKind,
+			&i.CurrentPeriodEnd,
+			&i.CancelAtPeriodEnd,
+			&i.PastDueSince,
+			&i.TrialEndsAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockInstanceBilling = `-- name: LockInstanceBilling :one
 SELECT id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at
 FROM instance_billing ib
