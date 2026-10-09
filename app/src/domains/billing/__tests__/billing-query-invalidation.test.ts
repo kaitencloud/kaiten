@@ -36,6 +36,7 @@ import {
   instancesBillingBaseQueryKey,
   invalidateVoucherQueries,
   invoicesQueryOptions,
+  licensesWithPricesBaseQueryKey,
 } from '../queries';
 
 // Each helper is checked against the entries a screen would have in the cache:
@@ -181,17 +182,19 @@ describe('invalidateInvoiceQueries', () => {
 });
 
 describe('invalidateLicensePriceQueries', () => {
-  it('refreshes the prices of a version and the version', async () => {
+  it('refreshes the prices of a version, the version and the versions read with their prices', async () => {
     const client = new QueryClient();
     const prices = listLicensePricesQueryKey({ path: { licenseSlug: 'pro-v2' } });
     const version = getLicenseQueryKey({ path: { licenseSlug: 'pro-v2' } });
     const other = listLicensePricesQueryKey({ path: { licenseSlug: 'pro-v3' } });
-    seed(client, [prices, version, other]);
+    seed(client, [prices, version, other, licensesWithPricesBaseQueryKey]);
 
     await invalidateLicensePriceQueries(client, 'pro-v2');
 
     expect(invalidated(client, prices)).toBe(true);
     expect(invalidated(client, version)).toBe(true);
+    // One read holds the prices of every version: any change to one refreshes it.
+    expect(invalidated(client, licensesWithPricesBaseQueryKey)).toBe(true);
     expect(invalidated(client, other)).toBe(false);
   });
 });

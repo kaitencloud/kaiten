@@ -23,6 +23,7 @@ import {
 import { invalidateInstanceQueries } from '@/domains/customer-management';
 import { STRIPE_CONNECTOR_NAME } from '../logic/billing-providers';
 import { instancesBillingBaseQueryKey } from './instances-billing-query-options';
+import { licensesWithPricesBaseQueryKey } from './licenses-prices-query-options';
 
 /**
  * What a billing mutation refreshes. Billing data is read in several places (an
@@ -215,7 +216,9 @@ export async function invalidateInvoiceQueries(
 
 /**
  * A price of a license version changed (created, edited, deprecated): that
- * version's prices, and the version, whose detail carries what the page reads.
+ * version's prices, and the version, whose detail carries what the page reads, and
+ * the license versions with their prices, where the list of licenses and the plans
+ * of a subscription read them (one read for every version, so every version's).
  */
 export async function invalidateLicensePriceQueries(
   queryClient: QueryClient,
@@ -228,6 +231,7 @@ export async function invalidateLicensePriceQueries(
     queryClient.invalidateQueries({
       queryKey: getLicenseQueryKey({ path: { licenseSlug } }),
     }),
+    queryClient.invalidateQueries({ queryKey: licensesWithPricesBaseQueryKey }),
   ]);
 }
 
