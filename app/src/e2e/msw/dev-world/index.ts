@@ -42,6 +42,7 @@ import {
   moveInvoiceToStripe,
   moveSubscriptionToStripe,
 } from './stripe';
+import { createPublishableKeys } from './publishable-keys';
 import { createVouchers } from './vouchers';
 import { bySlug } from './by-slug';
 import { createFeatureFlags } from './feature-flags';
@@ -236,6 +237,7 @@ export function createDevMockConfig({
     ...billingSubscriptions,
     providerTruth: stripeWorld.providerTruth,
     providers: createStripeProviders(),
+    publishableKeys: createPublishableKeys(),
     voucherCatalogue,
   });
   // An add-on, or a boost, applies at once, so the effective limits of the instances

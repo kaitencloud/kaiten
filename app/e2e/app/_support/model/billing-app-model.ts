@@ -21,6 +21,11 @@ import {
 } from './billing-providers';
 import type { InstanceAddons } from './billing-instance-addons';
 import {
+  BillingPublishableKeys,
+  type BillingPublishableKeysSeed,
+  type SerializedBillingPublishableKeys,
+} from './billing-publishable-keys';
+import {
   BillingSubscriptions,
   type BillingSubscriptionsSeed,
   type SerializedBillingSubscriptions,
@@ -81,6 +86,8 @@ export type BillingAppModelSeed = BillingInvoicesSeed &
     capabilities?: BillingCapabilities;
     /** The customers as the payment provider holds them, the health of billing and the provider's pass. */
     providers?: BillingProvidersSeed;
+    /** The publishable keys of the organization: the keys a web page reads the public catalogue with. */
+    publishableKeys?: BillingPublishableKeysSeed;
     /** The vouchers of the organization and what instances redeemed of them. */
     voucherCatalogue?: BillingVouchersSeed;
   };
@@ -94,6 +101,8 @@ export type SerializedBillingAppModel = {
   outage: CapabilitiesOutage | null;
   /** The payment provider's side; a state stored before it existed has none. */
   providers?: SerializedBillingProviders;
+  /** The publishable keys; a state stored before they existed has none. */
+  publishableKeys?: SerializedBillingPublishableKeys;
   /** The subscriptions and the billing defaults; a state stored before they existed has none. */
   subscriptions?: SerializedBillingSubscriptions;
   /** The vouchers and their redemptions; a state stored before they existed has none. */
@@ -121,6 +130,8 @@ export class BillingAppModel {
   vouchers: BillingVouchers;
   /** What the payment provider adds: its customers and their payment methods, the health and the pass that mirrors it. */
   providers: BillingProviders;
+  /** The publishable keys: issued once, listed by their last four characters, edited and revoked. */
+  publishableKeys: BillingPublishableKeys;
   /** The billing e-mail of a customer as the customers of the organization hold it, once the page serves them. */
   private emailOf: ((customerSlug: string) => string | undefined) | undefined;
 
@@ -146,6 +157,11 @@ export class BillingAppModel {
     }
     if (state.voucherCatalogue) {
       model.vouchers = BillingVouchers.fromSerialized(state.voucherCatalogue);
+    }
+    if (state.publishableKeys) {
+      model.publishableKeys = BillingPublishableKeys.fromSerialized(
+        state.publishableKeys,
+      );
     }
     model.subscriptions = state.subscriptions
       ? BillingSubscriptions.fromSerialized(
@@ -173,6 +189,7 @@ export class BillingAppModel {
       invoices: this.invoices.serialize(),
       outage: clone(this.outage),
       providers: this.providers.serialize(),
+      publishableKeys: this.publishableKeys.serialize(),
       subscriptions: this.subscriptions.serialize(),
       voucherCatalogue: this.vouchers.serialize(),
     };
@@ -187,6 +204,7 @@ export class BillingAppModel {
     this.invoices = new BillingInvoices(seed);
     this.addons = new AddonCatalogue(seed.addonCatalogue);
     this.vouchers = new BillingVouchers(seed.voucherCatalogue);
+    this.publishableKeys = new BillingPublishableKeys(seed.publishableKeys);
     this.subscriptions = new BillingSubscriptions(
       this.invoices,
       seed,

@@ -13,6 +13,7 @@ export { buildAddon, buildAddonGrant, buildInstanceAddon } from './build-addon';
 export { buildCustomer, TEST_USER } from './build-customer';
 export { buildDeploymentZone } from './build-deployment-zone';
 export { buildLicense } from './build-license';
+export { buildPublishableKey } from './build-publishable-key';
 export { buildEntitlement, buildGrant, buildPrice } from './build-pricing';
 export {
   buildRedemption,

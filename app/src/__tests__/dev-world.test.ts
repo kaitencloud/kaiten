@@ -315,6 +315,24 @@ describe('dev world', () => {
     expect(limitOf('gamma-production', 'seats')).toEqual({ type: 'number', value: 10 });
   });
 
+  it('issues publishable keys that are live or revoked, and holds only the last four characters of each', () => {
+    const { keys } = slot(slot(config.billing).publishableKeys);
+
+    expect(keys.filter(({ revokedAt }) => !revokedAt)).not.toHaveLength(0);
+    expect(keys.filter(({ revokedAt }) => revokedAt)).not.toHaveLength(0);
+    // A live key that no browser origin may send is a real case (server-side rendering).
+    expect(keys.some(({ allowedOrigins }) => allowedOrigins.length === 0)).toBe(
+      true,
+    );
+    for (const key of keys) {
+      expect(key.keyHint).toHaveLength(4);
+      expect(JSON.stringify(key)).not.toContain('pk_');
+      for (const origin of key.allowedOrigins) {
+        expect(origin).toMatch(/^https:\/\/|^http:\/\/localhost(:\d+)?$/);
+      }
+    }
+  });
+
   it('issues vouchers of both types in every state, that name customers, licenses and prices of the world', () => {
     const billing = slot(config.billing);
     const { redemptions, vouchers } = slot(billing.voucherCatalogue);
