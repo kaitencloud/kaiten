@@ -231,6 +231,67 @@ func (q *Queries) InsertInstanceAddon(ctx context.Context, arg InsertInstanceAdd
 	return id, err
 }
 
+const listActiveInstanceAddonsByInstances = `-- name: ListActiveInstanceAddonsByInstances :many
+SELECT ia.id, ia.instance_id, ia.addon_id, ia.quantity, ia.created_at,
+       a.slug AS addon_slug, a.name AS addon_name, a.max_quantity, f.slug AS family_slug
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+JOIN addon_family f ON f.id = ia.addon_family_id AND f.organization_id = ia.organization_id
+WHERE ia.organization_id = $1
+  AND ia.instance_id = ANY ($2::uuid[])
+  AND ia.removed_at IS NULL
+ORDER BY ia.created_at, ia.id
+`
+
+type ListActiveInstanceAddonsByInstancesParams struct {
+	OrganizationID uuid.UUID   `json:"organization_id"`
+	InstanceIds    []uuid.UUID `json:"instance_ids"`
+}
+
+type ListActiveInstanceAddonsByInstancesRow struct {
+	ID          uuid.UUID        `json:"id"`
+	InstanceID  uuid.UUID        `json:"instance_id"`
+	AddonID     uuid.UUID        `json:"addon_id"`
+	Quantity    int32            `json:"quantity"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	AddonSlug   string           `json:"addon_slug"`
+	AddonName   string           `json:"addon_name"`
+	MaxQuantity *int32           `json:"max_quantity"`
+	FamilySlug  string           `json:"family_slug"`
+}
+
+// The add-ons instances hold now, oldest attachment first, for GraphQL's
+// Instance.addons.
+func (q *Queries) ListActiveInstanceAddonsByInstances(ctx context.Context, arg ListActiveInstanceAddonsByInstancesParams) ([]ListActiveInstanceAddonsByInstancesRow, error) {
+	rows, err := q.db.Query(ctx, listActiveInstanceAddonsByInstances, arg.OrganizationID, arg.InstanceIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActiveInstanceAddonsByInstancesRow
+	for rows.Next() {
+		var i ListActiveInstanceAddonsByInstancesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.InstanceID,
+			&i.AddonID,
+			&i.Quantity,
+			&i.CreatedAt,
+			&i.AddonSlug,
+			&i.AddonName,
+			&i.MaxQuantity,
+			&i.FamilySlug,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBillableAddons = `-- name: ListBillableAddons :many
 SELECT ia.id AS instance_addon_id, ia.addon_id, ia.quantity, a.slug AS addon_slug, a.name AS addon_name,
        p.id AS price_id, p.billing_timing, p.unit_amount_decimal::text AS unit_amount_decimal,

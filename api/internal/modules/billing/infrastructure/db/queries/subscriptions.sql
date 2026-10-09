@@ -102,3 +102,12 @@ WHERE id = sqlc.arg(id)
   AND organization_id = sqlc.arg(organization_id)
   AND status = 'CANCELED'
 RETURNING *;
+
+
+-- name: ListInstanceBillingSummaries :many
+-- The subscriptions of instances, for GraphQL's Instance.billing.
+SELECT ib.instance_id::uuid AS instance_id, ib.status, ib.provider_kind, ib.current_period_end,
+       ib.cancel_at_period_end, ib.past_due_since, ib.trial_ends_at
+FROM instance_billing ib
+WHERE ib.organization_id = sqlc.arg(organization_id)
+  AND ib.instance_id = ANY (sqlc.arg(instance_ids)::uuid[]);

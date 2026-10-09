@@ -125,8 +125,9 @@ type License struct {
 // There is no name field because a family has no name -- the display name is
 // whichever version is being shown.
 type LicenseFamily struct {
-	ID   uuid.UUID
-	Slug string
+	ID       uuid.UUID
+	Slug     string
+	IsPublic bool
 }
 
 // LicenseFamilyView is a family together with the version it currently

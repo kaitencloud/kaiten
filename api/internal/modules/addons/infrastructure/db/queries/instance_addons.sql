@@ -174,3 +174,17 @@ WHERE ia.organization_id = sqlc.arg(organization_id)
                                                AND p.is_default
                                                AND p.status = 'ACTIVE')))
 ORDER BY a.slug;
+
+
+-- name: ListActiveInstanceAddonsByInstances :many
+-- The add-ons instances hold now, oldest attachment first, for GraphQL's
+-- Instance.addons.
+SELECT ia.id, ia.instance_id, ia.addon_id, ia.quantity, ia.created_at,
+       a.slug AS addon_slug, a.name AS addon_name, a.max_quantity, f.slug AS family_slug
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+JOIN addon_family f ON f.id = ia.addon_family_id AND f.organization_id = ia.organization_id
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = ANY (sqlc.arg(instance_ids)::uuid[])
+  AND ia.removed_at IS NULL
+ORDER BY ia.created_at, ia.id;

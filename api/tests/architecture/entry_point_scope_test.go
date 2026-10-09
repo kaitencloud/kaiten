@@ -972,12 +972,24 @@ var pinnedGraphQLResolvers = map[string]string{
 	// inside the customer.
 	"Customer.Integrations": "",
 	// The usage row's own value and the limit it is measured against.
-	"EntitlementUsage.Limit":    "",
-	"EntitlementUsage.Value":    "",
-	"Instance.AuditTrails":      "read:instances",
-	"Instance.Customer":         "read:customers",
-	"Instance.DeploymentZone":   "read:deployment_zones",
-	"Instance.EntitlementUsage": "read:instances",
+	"EntitlementUsage.Limit": "",
+	"EntitlementUsage.Value": "",
+	// The effective row's own percent and provenance, which the REST gauge
+	// read returns with it.
+	"EntitlementUsage.LimitCapExceededOveragePercent": "",
+	"EntitlementUsage.Provenance":                     "",
+	"Instance.Addons":                                 "read:instances",
+	"Instance.Billing":                                "read:billing",
+	"License.Prices":                                  "read:licenses",
+	// The licence row's own column, as GET /licenses returns it.
+	"License.PricingType": "",
+	// The price row's own meter, as GET /licenses/{slug}/prices returns it.
+	"LicensePrice.MeteredEntitlement": "",
+	"LicensePrice.SaleUnitFactor":     "",
+	"Instance.AuditTrails":            "read:instances",
+	"Instance.Customer":               "read:customers",
+	"Instance.DeploymentZone":         "read:deployment_zones",
+	"Instance.EntitlementUsage":       "read:instances",
 	// The instance's own integration records, which GET /instances returns
 	// inside the instance.
 	"Instance.Integrations":          "",
