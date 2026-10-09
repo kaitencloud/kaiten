@@ -1,25 +1,36 @@
-import { render, screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vite-plus/test';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { testI18n } from '@/__tests__/test-i18n';
-import en from '@/lib/i18n/locales/en';
-import fr from '@/lib/i18n/locales/fr';
+import { server } from '@/__tests__/msw-server';
+import { handleGetBillingCapabilities } from '@/api-client/msw.gen';
+import {
+  renderWithClient,
+  sessionToken,
+  useBillingTexts,
+} from '@/test-fixtures/billing-test-support';
 import {
   buildEntitlement,
   buildGrant,
   buildLicense,
 } from '../../../../../e2e/app/_support/fixtures';
+import { billingCapabilitiesProfiles } from '../../../../../e2e/app/_support/model/billing-capabilities';
 import { getMeterOptions } from '../../utils/license-price.utils';
 import { PriceMeterPicker } from '../prices/price-meter-picker';
 
-beforeAll(async () => {
-  testI18n.addResourceBundle('en', 'translation', en, true, true);
-  testI18n.addResourceBundle('fr', 'translation', fr, true, true);
-  await testI18n.changeLanguage('en');
-});
+const getAuthToken = vi.hoisted(() => vi.fn());
 
-afterAll(async () => {
-  await testI18n.changeLanguage('en');
+vi.mock('@/lib/auth-token', () => ({ getAuthToken }));
+vi.mock('@tanstack/react-router', async () =>
+  (await import('@/test-fixtures/billing-test-support')).createRouterModule(
+    vi.fn(),
+  ),
+);
+
+useBillingTexts();
+
+beforeEach(() => {
+  getAuthToken.mockResolvedValue(sessionToken(['read:addons']));
 });
 
 const license = buildLicense({
@@ -69,7 +80,7 @@ const renderPicker = (
   onSelect = vi.fn(),
   value = '',
 ) =>
-  render(
+  renderWithClient(
     <PriceMeterPicker
       model={model}
       onSelect={onSelect}
@@ -150,7 +161,7 @@ describe('PriceMeterPicker', () => {
   });
 
   it('says so when the version grants nothing a price can meter', () => {
-    render(
+    renderWithClient(
       <PriceMeterPicker
         model="USAGE_BASED"
         onSelect={() => undefined}
@@ -179,7 +190,71 @@ describe('PriceMeterPicker', () => {
         'Le dépassement ne peut pas survenir sur cet octroi : sa limite est dure ou illimitée.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText(/add-on/)).toBeInTheDocument();
+    expect(screen.getByText(/se vend comme une option/)).toBeInTheDocument();
+    await testI18n.changeLanguage('en');
+  });
+});
+
+describe('the way a stock is sold, said under the entitlements that cannot be metered', () => {
+  const hint = /is sold as an add-on with a quantity, not metered\./;
+
+  /** Waits for what the page reads (the capabilities, the scopes) before the hint is read. */
+  const settled = async (client: { isFetching: () => number }) =>
+    waitFor(() => expect(client.isFetching()).toBe(0));
+
+  it('links to the add-ons where the release ships them and the session may read them', async () => {
+    server.use(
+      handleGetBillingCapabilities({
+        body: billingCapabilitiesProfiles.stackWithAddons(),
+      }),
+    );
+    renderPicker('USAGE_BASED');
+
+    expect(await screen.findByRole('link', { name: 'See the add-ons' })).toHaveAttribute(
+      'href',
+      '/addons',
+    );
+    expect(screen.getByText(hint)).toBeInTheDocument();
+  });
+
+  it('names the way and links nowhere where the release has no add-ons', async () => {
+    server.use(
+      handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }),
+    );
+    const { client } = renderPicker('USAGE_BASED');
+    await settled(client);
+
+    expect(screen.getByText(hint)).toBeInTheDocument();
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  it('links nowhere to a session that may not read the add-ons', async () => {
+    getAuthToken.mockResolvedValue(sessionToken(['read:licenses']));
+    server.use(
+      handleGetBillingCapabilities({
+        body: billingCapabilitiesProfiles.stackWithAddons(),
+      }),
+    );
+    const { client } = renderPicker('USAGE_BASED');
+    await settled(client);
+
+    expect(screen.getByText(hint)).toBeInTheDocument();
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  it('links in French too', async () => {
+    await testI18n.changeLanguage('fr');
+    server.use(
+      handleGetBillingCapabilities({
+        body: billingCapabilitiesProfiles.stackWithAddons(),
+      }),
+    );
+    renderPicker('USAGE_BASED');
+
+    expect(await screen.findByRole('link', { name: 'Voir les options' })).toHaveAttribute(
+      'href',
+      '/addons',
+    );
     await testI18n.changeLanguage('en');
   });
 });

@@ -1510,7 +1510,8 @@ export default {
             stock:
               'Un stock : il ne se remet jamais à zéro, il ne peut donc pas être mesuré.',
             stockHint:
-              'Un stock, comme des sièges ou du stockage, se vend comme un add-on avec une quantité, il ne se mesure pas. Les add-ons ne font pas encore partie de cette console.',
+              'Un stock, comme des sièges ou du stockage, se vend comme une option avec une quantité, il ne se mesure pas.',
+            stockHintLink: 'Voir les options',
             overageUnreachable:
               'Le dépassement ne peut pas survenir sur cet octroi : sa limite est dure ou illimitée.',
           },
