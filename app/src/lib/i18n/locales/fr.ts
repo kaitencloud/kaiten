@@ -4162,6 +4162,7 @@ export default {
               reports: 'Rapports',
               counter: 'Rapport du compteur',
             },
+            atReport: 'Au rapport {{seq}}',
             release_NOOP:
               'Le déblocage accepte les montants tels que composés. La facture est émise sans fournisseur de paiement et attend votre ERP dans la file de transmission.',
             release_STRIPE:

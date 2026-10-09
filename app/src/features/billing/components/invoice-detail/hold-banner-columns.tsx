@@ -35,9 +35,10 @@ function reportsOf(pair: HeldPair): string | null {
 const numeric = 'tabular-nums';
 
 /**
- * The columns of the meters that failed their check: which meter, which check, the
- * figure expected and the one found, the reports the check covered and the number
- * of the report the counter stands at.
+ * The columns of the meters that failed their check: which meter, which check with
+ * the API's own sentence on it, the value expected and the one found (a dash where
+ * the API has none), the reports the check covered with the one at fault, and the
+ * number of the report the counter stands at.
  */
 export function useHeldPairColumns(invoice: Invoice): ColumnDef<HeldPair>[] {
   const { t } = useTranslation();
@@ -58,14 +59,21 @@ export function useHeldPairColumns(invoice: Invoice): ColumnDef<HeldPair>[] {
         id: 'meter',
       },
       {
-        cell: ({ row }) => getCheckLabel(row.original.invariant, t),
+        cell: ({ row }) => (
+          <div className="space-y-0.5">
+            <p>{getCheckLabel(row.original.invariant, t)}</p>
+            <p className="text-xs text-muted-foreground">
+              {row.original.detail}
+            </p>
+          </div>
+        ),
         enableSorting: false,
         header: t('Pages.Billing.Invoices.Detail.Hold.Columns.check'),
         id: 'check',
       },
       {
         cell: ({ row }) => (
-          <span className={numeric}>{row.original.expected}</span>
+          <span className={numeric}>{row.original.expected ?? '—'}</span>
         ),
         enableSorting: false,
         header: t('Pages.Billing.Invoices.Detail.Hold.Columns.expected'),
@@ -73,7 +81,7 @@ export function useHeldPairColumns(invoice: Invoice): ColumnDef<HeldPair>[] {
       },
       {
         cell: ({ row }) => (
-          <span className={numeric}>{row.original.found}</span>
+          <span className={numeric}>{row.original.found ?? '—'}</span>
         ),
         enableSorting: false,
         header: t('Pages.Billing.Invoices.Detail.Hold.Columns.found'),
@@ -81,7 +89,16 @@ export function useHeldPairColumns(invoice: Invoice): ColumnDef<HeldPair>[] {
       },
       {
         cell: ({ row }) => (
-          <span className={numeric}>{reportsOf(row.original) ?? '—'}</span>
+          <div className="space-y-0.5">
+            <p className={numeric}>{reportsOf(row.original) ?? '—'}</p>
+            {row.original.reportSeq === null ? null : (
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {t('Pages.Billing.Invoices.Detail.Hold.atReport', {
+                  seq: row.original.reportSeq,
+                })}
+              </p>
+            )}
+          </div>
         ),
         enableSorting: false,
         header: t('Pages.Billing.Invoices.Detail.Hold.Columns.reports'),

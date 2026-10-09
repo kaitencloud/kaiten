@@ -231,12 +231,45 @@ describe('the banner of a held draft', () => {
       .map((cell) => cell.textContent);
     expect(cells).toEqual([
       'ent-1',
-      'Usage reports are missing from the journal',
+      'Usage reports are missing from the journal'.concat(
+        'the reports should go on at 45, and the next one is 44',
+      ),
       '45',
       '44',
-      '41–45',
+      '41–45'.concat('At report 44'),
       '44',
     ]);
+  });
+
+  it('says what the API says of the check, and a dash for a value or a report it does not have', () => {
+    render(
+      <HoldBanner
+        invoice={held({
+          holdDetail: {
+            pairs: [
+              {
+                counterReportSeq: null,
+                detail: 'the counter has no report to stand at',
+                entitlementId: 'ent-2',
+                expected: null,
+                firstSeq: null,
+                found: '12',
+                instanceId: 'ins-1',
+                invariant: 'LEDGER_COUNTER_MISMATCH',
+                lastSeq: null,
+                reportSeq: null,
+              },
+            ],
+          },
+        })}
+      />,
+    );
+
+    const cells = within(screen.getAllByRole('row')[1])
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent);
+    expect(cells[1]).toContain('the counter has no report to stand at');
+    expect(cells.slice(2)).toEqual(['—', '12', '—', '—']);
   });
 
   it('names the provider a release works under, and says a recompose uses the subscription’s', () => {
