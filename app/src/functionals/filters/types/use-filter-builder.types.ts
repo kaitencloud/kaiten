@@ -16,6 +16,14 @@ export type UseFilterBuilderProps<T> = {
   defaultNormalFilterIds?: string[];
   defaultAdvancedCombinator?: FilterCombinator;
   defaultAdvancedRules?: AdvancedFilterRule[];
+  /**
+   * Values the normal filters hold when the screen opens, by filter id: a link
+   * that opens a list already narrowed (`?held=true`). A filter that has one is
+   * active, and shown as a chip, even if it is not a default one. They are where
+   * the state starts and not what it goes back to: `resetAll` clears them, and
+   * a change of this prop does not touch filters already set.
+   */
+  initialNormalValues?: Record<string, string>;
   debounceMs?: number;
   resetOnDataChange?: boolean;
 };

@@ -114,6 +114,49 @@ const rowIds = () =>
 
 const searchBox = () => screen.getByPlaceholderText('Customer, instance or invoice');
 
+describe('the list of invoices opened by a link', () => {
+  it('opens narrowed to the held invoices, with the filter shown as a chip', () => {
+    renderList({ initialFilterValues: { held: 'true' } });
+
+    expect(rowIds()).toEqual(['inv-apr']);
+    expect(document.querySelectorAll('[data-slot="filter-chip"]')).toHaveLength(1);
+    expect(screen.getByText('Held')).toBeInTheDocument();
+  });
+
+  it('opens narrowed to the overdue invoices', () => {
+    renderList({ initialFilterValues: { overdue: 'true' } });
+
+    expect(rowIds()).toEqual(['inv-feb']);
+  });
+
+  it('opens narrowed to a status', () => {
+    renderList({ initialFilterValues: { status: 'PAID' } });
+
+    expect(rowIds()).toEqual(['inv-jan']);
+  });
+
+  it('opens narrowed to what waits for the accounting system', () => {
+    renderList({
+      initialFilterValues: { handoff: 'PENDING' },
+      invoices: [
+        ...INVOICES,
+        invoiceRow('inv-waiting', 'Umbrella', { handoffStatus: 'PENDING' }),
+      ],
+    });
+
+    expect(rowIds()).toEqual(['inv-waiting']);
+  });
+
+  it('shows every invoice again once the filters are cleared, since the link only says where they start', async () => {
+    renderList({ initialFilterValues: { held: 'true' } });
+    expect(rowIds()).toEqual(['inv-apr']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reset' }));
+
+    expect(rowIds()).toEqual(['inv-apr', 'inv-mar', 'inv-feb', 'inv-jan']);
+  });
+});
+
 describe('the list of invoices', () => {
   it('lists the invoices it is given, the boundary each bills newest first, under a search and a Filter button', () => {
     renderList();

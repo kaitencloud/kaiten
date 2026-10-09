@@ -26,6 +26,8 @@ import { InvoicesEmpty } from './invoices-empty';
 type InvoicesListProps = {
   /** Whether the session may export: where it may not, the menu is not there. */
   canExport: boolean;
+  /** The filters the list opens with, by filter id: where a link to it starts them. */
+  initialFilterValues?: Record<string, string>;
   /** Every invoice of the scope, read whole. */
   invoices: InvoiceSummary[];
   /** Writes the scope to the URL, which the page follows. */
@@ -51,6 +53,7 @@ const WITH_PROVIDER: readonly InvoicesTableColumn[] = [];
  */
 export function InvoicesList({
   canExport,
+  initialFilterValues,
   invoices,
   onScopeChange,
   scope,
@@ -65,6 +68,7 @@ export function InvoicesList({
     data: invoices,
     debounceMs: 200,
     fields,
+    initialNormalValues: initialFilterValues,
     pinnedFilterIds: [INVOICE_FILTER_IDS.search],
     // The filters are values, valid for any set of invoices: taking the scope off
     // must not wipe what was typed or picked.
