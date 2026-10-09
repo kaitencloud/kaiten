@@ -13,6 +13,12 @@ import {
   type SerializedBillingInvoices,
 } from './billing-invoices';
 import { BillingProblem } from './billing-problem';
+import {
+  BillingProviders,
+  type BillingProvidersSeed,
+  type ProvidersHost,
+  type SerializedBillingProviders,
+} from './billing-providers';
 import type { InstanceAddons } from './billing-instance-addons';
 import {
   BillingSubscriptions,
@@ -73,6 +79,8 @@ export type BillingAppModelSeed = BillingInvoicesSeed &
     addonCatalogue?: AddonCatalogueSeed;
     /** What `GET /billing/capabilities` answers; billing on with NoOp by default. */
     capabilities?: BillingCapabilities;
+    /** The customers as the payment provider holds them, the health of billing and the provider's pass. */
+    providers?: BillingProvidersSeed;
     /** The vouchers of the organization and what instances redeemed of them. */
     voucherCatalogue?: BillingVouchersSeed;
   };
@@ -84,6 +92,8 @@ export type SerializedBillingAppModel = {
   /** The invoices and their queue; a state stored before they existed has none. */
   invoices?: SerializedBillingInvoices;
   outage: CapabilitiesOutage | null;
+  /** The payment provider's side; a state stored before it existed has none. */
+  providers?: SerializedBillingProviders;
   /** The subscriptions and the billing defaults; a state stored before they existed has none. */
   subscriptions?: SerializedBillingSubscriptions;
   /** The vouchers and their redemptions; a state stored before they existed has none. */
@@ -109,6 +119,10 @@ export class BillingAppModel {
   addons: AddonCatalogue;
   /** The vouchers: the catalogue, what each instance redeemed, and the checks of a redemption. */
   vouchers: BillingVouchers;
+  /** What the payment provider adds: its customers and their payment methods, the health and the pass that mirrors it. */
+  providers: BillingProviders;
+  /** The billing e-mail of a customer as the customers of the organization hold it, once the page serves them. */
+  private emailOf: ((customerSlug: string) => string | undefined) | undefined;
 
   /** The add-ons the instances hold: attaching, quantities and removal, with the checks of the API. */
   get instanceAddons(): InstanceAddons {
@@ -118,6 +132,12 @@ export class BillingAppModel {
   static fromSerialized(state: SerializedBillingAppModel) {
     const model = new BillingAppModel({ capabilities: state.capabilities });
     model.outage = state.outage;
+    if (state.providers) {
+      model.providers = BillingProviders.fromSerialized(
+        model.providersHost(),
+        state.providers,
+      );
+    }
     if (state.invoices) {
       model.invoices = BillingInvoices.fromSerialized(state.invoices);
     }
@@ -142,6 +162,7 @@ export class BillingAppModel {
           model.addons,
           model.vouchers,
         );
+    model.wireProviders();
     return model;
   }
 
@@ -151,6 +172,7 @@ export class BillingAppModel {
       capabilities: clone(this.capabilities),
       invoices: this.invoices.serialize(),
       outage: clone(this.outage),
+      providers: this.providers.serialize(),
       subscriptions: this.subscriptions.serialize(),
       voucherCatalogue: this.vouchers.serialize(),
     };
@@ -172,6 +194,91 @@ export class BillingAppModel {
       this.addons,
       this.vouchers,
     );
+    this.providers = new BillingProviders(this.providersHost(), seed.providers);
+    this.wireProviders();
+  }
+
+  /** What the model of the providers reads of the rest of billing; read at each call, so that what replaces a part is seen. */
+  private providersHost(): ProvidersHost {
+    return {
+      capabilities: () => this.capabilities,
+      emailOf: (customerSlug) => this.emailOf?.(customerSlug),
+      invoices: () => this.invoices,
+      now: () => Date.now(),
+      subscriptions: () => this.subscriptions.snapshot(),
+    };
+  }
+
+  /** Gives the subscriptions the world a move to a payment provider is checked against. */
+  private wireProviders() {
+    this.subscriptions.setProviderRules(() => this.providers.rules());
+  }
+
+  /**
+   * Tells the model where the billing e-mail of a customer is read when the
+   * customers of the organization are served alongside, so that an address
+   * typed on the customer's page is the one a move to Stripe finds.
+   */
+  setEmailSource(emailOf: (customerSlug: string) => string | undefined) {
+    this.emailOf = emailOf;
+  }
+
+  /**
+   * Stripe's connector was activated or deactivated: the capabilities say it, and
+   * which account it reaches. The capabilities have no Stripe entry when the
+   * profile does not list one, and nothing changes then.
+   */
+  setStripeConnection(connected: boolean, livemode = false) {
+    const providers = this.capabilities.providers.map((provider) =>
+      provider.kind === 'STRIPE'
+        ? {
+            ...provider,
+            connected,
+            livemode: connected ? livemode : undefined,
+          }
+        : provider,
+    );
+    this.capabilities = parseContract(
+      zBillingCapabilities,
+      { ...this.capabilities, providers },
+      'BillingAppModel Stripe connection',
+    );
+  }
+
+  /** Whether the organization may connect Stripe here, as the capabilities say it, and why not. */
+  stripeStanding(): 'available' | 'notEntitled' | 'vaultMissing' {
+    const stripe = this.capabilities.providers.find(
+      ({ kind }) => kind === 'STRIPE',
+    );
+    if (!stripe || stripe.connected || stripe.available) {
+      return 'available';
+    }
+
+    return stripe.unavailableReason === 'VAULT_NOT_CONFIGURED'
+      ? 'vaultMissing'
+      : 'notEntitled';
+  }
+
+  /** How many subscriptions and unsettled invoices route to Stripe: what keeps it from being disconnected. */
+  stripeRouting(): { activeSubscriptions: number; openInvoices: number } {
+    const unsettled = ['DRAFT', 'PUSHED', 'PUSH_FAILED', 'PAYMENT_FAILED'];
+
+    return {
+      activeSubscriptions: this.subscriptions
+        .snapshot()
+        .filter(
+          (subscription) =>
+            subscription.providerKind === 'STRIPE' &&
+            subscription.status !== 'CANCELED',
+        ).length,
+      openInvoices: this.invoices
+        .snapshot()
+        .filter(
+          (invoice) =>
+            invoice.providerKind === 'STRIPE' &&
+            unsettled.includes(invoice.status),
+        ).length,
+    };
   }
 
   /** The body of `GET /billing/capabilities`, or the refusal the model is set to give. */

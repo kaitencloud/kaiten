@@ -113,12 +113,24 @@ describe('dev world', () => {
     }
   });
 
-  it('turns billing on, with NoOp to collect invoices', () => {
+  it('turns billing on, with NoOp and a connected Stripe to collect invoices', () => {
     const { capabilities, outage } = slot(config.billing);
 
     expect(outage).toBeNull();
     expect(capabilities.enabled).toBe(true);
-    expect(capabilities.providers.map(({ kind }) => kind)).toEqual(['NOOP']);
+    expect(capabilities.providers.map(({ kind }) => kind)).toEqual([
+      'NOOP',
+      'STRIPE',
+    ]);
+    expect(
+      capabilities.providers.find(({ kind }) => kind === 'STRIPE'),
+    ).toMatchObject({ connected: true, livemode: false });
+    // As the API serves them: it fixes these three, whatever Stripe can do.
+    expect(capabilities.features).toMatchObject({
+      chargeAutomatically: false,
+      publicSurface: false,
+      stripe: true,
+    });
   });
 
   it('prices the versions of the licenses, and only what they grant', () => {

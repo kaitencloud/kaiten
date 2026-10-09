@@ -7,6 +7,7 @@ import {
   billingAddonHandlers,
 } from './billing-addon-handlers';
 import { billingInvoiceHandlers } from './billing-invoice-handlers';
+import { billingProviderHandlers } from './billing-provider-handlers';
 import { billingSubscriptionHandlers } from './billing-subscription-handlers';
 import { billingVoucherHandlers } from './billing-voucher-handlers';
 import { withProblems } from './billing-problems';
@@ -18,8 +19,10 @@ import { noop, type PersistMswState } from './persistence';
  * invoices and the handoff queue are served by `billing-invoice-handlers`, the
  * subscriptions and the billing defaults by `billing-subscription-handlers`, the
  * add-ons, their catalogue and what the instances hold of it, by
- * `billing-addon-handlers`, and the vouchers, their catalogue and what the instances
- * redeemed of it, by `billing-voucher-handlers`.
+ * `billing-addon-handlers`, the vouchers, their catalogue and what the instances
+ * redeemed of it, by `billing-voucher-handlers`, and what the payment provider adds
+ * (the health, the pass that mirrors it, the customers and their payment methods) by
+ * `billing-provider-handlers`.
  */
 export const billingHandlers = (
   model: BillingAppModel,
@@ -35,6 +38,7 @@ export const billingHandlers = (
     }),
   ),
   ...billingInvoiceHandlers(model, persist),
+  ...billingProviderHandlers(model, persist),
   ...billingSubscriptionHandlers(model, persist, addonEffects),
   ...billingAddonHandlers(model, persist, addonEffects),
   ...billingVoucherHandlers(model, persist, addonEffects),

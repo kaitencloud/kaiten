@@ -9,6 +9,8 @@ import {
   handleMarkInvoicePaid,
   handleRecomposeInvoice,
   handleReleaseInvoiceHold,
+  handleRetryInvoicePush,
+  handleSyncInvoice,
   handleVoidInvoice,
   handleWriteOffInvoice,
 } from '@/api-client/msw.gen';
@@ -90,9 +92,15 @@ export const billingInvoiceHandlers = (
       }),
     ),
     handleGetInvoice(
-      withProblems(({ params }) =>
-        HttpResponse.json(invoices.getInvoice(params.invoiceId)),
-      ),
+      withProblems(({ params }) => {
+        const queued = invoices.hasQueuedPush(params.invoiceId);
+        const invoice = invoices.getInvoice(params.invoiceId);
+        // Reading an invoice that waits in the push queue is what lets its job run.
+        if (queued) {
+          persist();
+        }
+        return HttpResponse.json(invoice);
+      }),
     ),
     handleListInvoiceLineReports(
       withProblems(({ params, request }) => {
@@ -150,6 +158,20 @@ export const billingInvoiceHandlers = (
       withProblems(async ({ params, request }) => {
         const body = await request.json();
         const invoice = invoices.voidInvoice(params.invoiceId, body?.reason);
+        persist();
+        return HttpResponse.json(invoice);
+      }),
+    ),
+    handleRetryInvoicePush(
+      withProblems(({ params }) => {
+        const invoice = invoices.retryPush(params.invoiceId);
+        persist();
+        return HttpResponse.json(invoice, { status: 202 });
+      }),
+    ),
+    handleSyncInvoice(
+      withProblems(({ params }) => {
+        const invoice = invoices.syncInvoice(params.invoiceId);
         persist();
         return HttpResponse.json(invoice);
       }),

@@ -23,6 +23,7 @@ import {
   createManyInvoicesModel,
   createManyReportsModel,
   createMismatchedTotalsModel,
+  createStripeBillingModel,
   createSubscriptionsModel,
 } from '../billing/billing.scenarios';
 import {
@@ -30,7 +31,10 @@ import {
   createLifecycleInstancesModel,
   createLifecycleLicensesModel,
 } from '../billing/lifecycle-world';
-import { createDisconnectedAttioModel } from '../connectors/connectors.scenarios';
+import {
+  createDisconnectedAttioModel,
+  createStripeConnectorModels,
+} from '../connectors/connectors.scenarios';
 import { createDashboardReadModel } from '../dashboard/dashboard.scenarios';
 import {
   createNotificationsFeedModel,
@@ -113,6 +117,19 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     createVouchersNotShippedBillingModel,
   ],
   ['connectors/createDisconnectedAttioModel', createDisconnectedAttioModel],
+  ['connectors/createStripeConnectorModels', createStripeConnectorModels],
+  [
+    "connectors/createStripeConnectorModels({ standing: 'connected' })",
+    () => createStripeConnectorModels({ standing: 'connected' }),
+  ],
+  [
+    "connectors/createStripeConnectorModels({ standing: 'vaultMissing' })",
+    () => createStripeConnectorModels({ standing: 'vaultMissing' }),
+  ],
+  [
+    "connectors/createStripeConnectorModels({ standing: 'notEntitled' })",
+    () => createStripeConnectorModels({ standing: 'notEntitled' }),
+  ],
   ['billing/createSubscriptionsModel', createSubscriptionsModel],
   ['billing/createLifecycleBillingModel', createLifecycleBillingModel],
   ['billing/createLifecycleInstancesModel', createLifecycleInstancesModel],
@@ -172,6 +189,11 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     () => createBillingOutageModel('hang'),
   ],
   ['billing/createInvoicesModel', createInvoicesModel],
+  ['billing/createStripeBillingModel', createStripeBillingModel],
+  [
+    "billing/createStripeBillingModel({ sync: 'failing' })",
+    () => createStripeBillingModel({ sync: 'failing' }),
+  ],
   [
     'billing/createInvoicesModel({ stripe: true })',
     () => createInvoicesModel({ stripe: true }),
