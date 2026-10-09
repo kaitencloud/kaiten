@@ -107,9 +107,10 @@ jobs:
         with:
           node-version: '24'
 
+      # Pinned to 1.27.1 for now: see the Set up Go step of go-ci.yml.
       - uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.27.x"
+          go-version: "1.27.1"
           cache: false
 
       # Pinned, like every other tool here. oasdiff decides what the version is,

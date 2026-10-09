@@ -39,10 +39,20 @@ jobs:
       #    somebody bumps first. 1.27.x satisfies both, newest patch.
       #
       # Same convention as the other Go repositories of the organization.
+      #
+      # Pinned to 1.27.1 for now, not left on 1.27.x. Go 1.27.2 (2026-10-08)
+      # writes export data version 5, and the tooling pinned here cannot read
+      # it: golang.org/x/tools in api/go.mod (gqlgen codegen, tests that load
+      # packages) and golangci-lint v2.13.1 fail with "cannot decode "bufio",
+      # export data version 5 is greater than maximum supported version 4".
+      # Lift the pin, and go back to "1.27.x", once golangci-lint and
+      # golang.org/x/tools read export data version 5. Keep the three Set up Go
+      # steps of this file and the ones in pre-commit-ci.yml and
+      # release-openapi.yml in step.
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.27.x"
+          go-version: "1.27.1"
           cache-dependency-path: api/go.sum
 
       - name: Build
@@ -135,10 +145,12 @@ jobs:
       #    somebody bumps first. 1.27.x satisfies both, newest patch.
       #
       # Same convention as the other Go repositories of the organization.
+      #
+      # Pinned to 1.27.1 for now: see the first Set up Go step of this file.
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.27.x"
+          go-version: "1.27.1"
           cache-dependency-path: api/go.sum
 
       # Same loop as `task generate:sqlc`; `go tool sqlc` is version-pinned by
@@ -204,10 +216,12 @@ jobs:
       #    somebody bumps first. 1.27.x satisfies both, newest patch.
       #
       # Same convention as the other Go repositories of the organization.
+      #
+      # Pinned to 1.27.1 for now: see the first Set up Go step of this file.
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.27.x"
+          go-version: "1.27.1"
           cache-dependency-path: api/go.sum
 
       # -shuffle=on is the guard against a test that only passes because an

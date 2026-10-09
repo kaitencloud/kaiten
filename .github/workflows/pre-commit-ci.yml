@@ -27,10 +27,11 @@ jobs:
       # Needed by the `api-error-declarations` local hook (`go run`). The tool
       # imports only the standard library, so no private-module access/token is
       # required — `go run` never pulls the api module's external deps.
+      # Pinned to 1.27.1 for now: see the Set up Go step of go-ci.yml.
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.27.x"
+          go-version: "1.27.1"
           cache-dependency-path: api/go.sum
 
       - name: Install pre-commit
