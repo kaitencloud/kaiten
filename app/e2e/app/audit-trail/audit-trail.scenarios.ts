@@ -61,6 +61,7 @@ const USAGE_ENTRIES: AuditTrailSeedEntry[] = [
       licenseId: 'lic-business',
       licenseSlug: 'business',
       limit: { type: 'number', value: 50 },
+      source: 'license',
       value: { event_count: 12, type: 'number', value: 50 },
     },
     timestamp: '2026-09-29T10:04:00.000Z',

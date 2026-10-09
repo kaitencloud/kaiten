@@ -214,6 +214,7 @@ export const createEntitlementUsages = (
               entitlementSlug: grant.entitlementSlug ?? '',
               licenseId: grant.licenseId,
               licenseSlug: grant.licenseSlug,
+              source: 'license',
               limit: grant.value,
               value: { type: 'number', value: used },
             },

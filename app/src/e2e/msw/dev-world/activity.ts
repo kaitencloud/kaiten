@@ -137,6 +137,7 @@ export const createAuditTrail = ({
         licenseId: 'license-trial-v1',
         licenseSlug: 'trial',
         limit: { type: 'number', value: 1_000 },
+        source: 'license',
         value: { event_count: 214, type: 'number', value: 1_000 },
       },
       timestamp: minutesAgo(200),
