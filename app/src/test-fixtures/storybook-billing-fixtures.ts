@@ -90,3 +90,11 @@ export {
 export { buildPrice } from '../../e2e/app/_support/fixtures/build-pricing';
 export { buildSubscription } from '../../e2e/app/_support/fixtures/build-subscription';
 export { buildLicense } from '../../e2e/app/_support/fixtures/build-license';
+
+// The versions of an add-on, what they grant and what an instance holds of them, built
+// as the mocks build them.
+export {
+  buildAddon,
+  buildAddonGrant,
+  buildInstanceAddon,
+} from '../../e2e/app/_support/fixtures/build-addon';

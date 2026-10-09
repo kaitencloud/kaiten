@@ -17,7 +17,6 @@ import type {
 } from '@/api-client';
 import {
   zBillingSettings,
-  zInstanceAddon,
   zInstanceBilling,
   zInvoicePreview,
   zPrice,
@@ -25,11 +24,18 @@ import {
 import { parseContract } from '../contracts/openapi-contract';
 import { buildInvoice, buildInvoiceLine } from '../fixtures/build-invoice';
 import { ArmedProblems, type ArmedBillingProblem } from './armed-problems';
+import { AddonCatalogue } from './billing-addon-catalogue';
 import {
   type BillingInvoices,
   type InvoiceListQuery,
   toSummary,
 } from './billing-invoices';
+import {
+  INSTANCE_ADDON_OPERATIONS,
+  InstanceAddons,
+  type InstanceAddonOperation,
+  type SerializedInstanceAddons,
+} from './billing-instance-addons';
 import { SubscriptionLifecycle } from './billing-lifecycle';
 import { BillingProblem } from './billing-problem';
 import { addMonthsClamped } from './license-invoice-preview';
@@ -43,6 +49,11 @@ const PERIOD_MONTHS = {
   SEMI_ANNUAL: 6,
 } as const;
 
+const isInstanceAddonOperation = (
+  operation: string,
+): operation is InstanceAddonOperation =>
+  (INSTANCE_ADDON_OPERATIONS as readonly string[]).includes(operation);
+
 /** Where the API puts the default terms of an organization that never wrote any. */
 export const DEFAULT_BILLING_SETTINGS: BillingSettings = {
   defaultCollectionMethod: 'SEND_INVOICE',
@@ -54,11 +65,9 @@ export const DEFAULT_BILLING_SETTINGS: BillingSettings = {
 export type SubscriptionProblemOperation =
   | 'cancelPlanChange'
   | 'cancelSubscription'
-  | 'detachInstanceAddon'
   | 'getBillingSettings'
   | 'getInstanceBilling'
   | 'getUpcomingInvoice'
-  | 'listInstanceAddons'
   | 'listInstanceInvoices'
   | 'reactivateSubscription'
   | 'schedulePlanChange'
@@ -72,6 +81,8 @@ export type SubscribableInstance = {
   customerSlug: string;
   instanceName: string;
   instanceSlug: string;
+  /** The family of the license: the add-ons an instance can attach are declared against it. */
+  licenseFamilySlug?: string;
   licenseId: string;
   licenseSlug: string;
   /** Only a PUBLISHED version can be subscribed to. */
@@ -108,10 +119,10 @@ export type BillingSubscriptionsSeed = {
 };
 
 export type SerializedBillingSubscriptions = {
-  /** The add-ons of each instance; a state stored before they existed has none. */
-  addons?: Record<string, InstanceAddon[]>;
   armedProblems: Array<[SubscriptionProblemOperation, ArmedBillingProblem]>;
   catalogue: BillingCatalogue;
+  /** The add-ons of each instance; a state stored before they existed has none. */
+  instanceAddons?: SerializedInstanceAddons;
   sequence: number;
   settings: BillingSettings;
   subscriptions: InstanceBilling[];
@@ -129,7 +140,8 @@ export type SerializedBillingSubscriptions = {
  */
 export class BillingSubscriptions {
   private readonly problems = new ArmedProblems<SubscriptionProblemOperation>();
-  private addons: Record<string, InstanceAddon[]>;
+  /** The add-ons the instances hold, and the checks of attaching one. */
+  instanceAddons: InstanceAddons;
   private catalogue: BillingCatalogue;
   private readonly lifecycle: SubscriptionLifecycle;
   private sequence = 1;
@@ -141,6 +153,7 @@ export class BillingSubscriptions {
     private readonly invoices: BillingInvoices,
     seed: BillingSubscriptionsSeed = {},
     private readonly now: () => number = () => Date.now(),
+    private readonly addonCatalogue: AddonCatalogue = new AddonCatalogue(),
   ) {
     this.catalogue = clone(seed.catalogue ?? { instances: [], prices: {} });
     for (const [licenseSlug, prices] of Object.entries(this.catalogue.prices)) {
@@ -170,16 +183,11 @@ export class BillingSubscriptions {
         ),
       ]),
     );
-    this.addons = Object.fromEntries(
-      Object.entries(seed.addons ?? {}).map(([slug, addons]) => [
-        slug,
-        parseContract(
-          z.array(zInstanceAddon),
-          addons,
-          `BillingSubscriptions seed.addons[${slug}]`,
-        ),
-      ]),
+    this.instanceAddons = new InstanceAddons(
+      this.instanceAddonsDeps(),
+      seed.addons,
     );
+    this.addonCatalogue.setHolders(this.instanceAddons);
     this.invoices.setDefaultDaysUntilDue(this.settings.defaultDaysUntilDue);
     this.lifecycle = new SubscriptionLifecycle({
       catalogue: () => this.catalogue,
@@ -197,19 +205,27 @@ export class BillingSubscriptions {
     invoices: BillingInvoices,
     state: SerializedBillingSubscriptions,
     now?: () => number,
+    addonCatalogue?: AddonCatalogue,
   ): BillingSubscriptions {
     const model = new BillingSubscriptions(
       invoices,
       {
-        addons: state.addons,
         catalogue: state.catalogue,
         settings: state.settings,
         subscriptions: state.subscriptions,
         upcoming: state.upcoming,
       },
       now,
+      addonCatalogue,
     );
     model.sequence = state.sequence;
+    if (state.instanceAddons) {
+      model.instanceAddons = InstanceAddons.fromSerialized(
+        model.instanceAddonsDeps(),
+        state.instanceAddons,
+      );
+      model.addonCatalogue.setHolders(model.instanceAddons);
+    }
     for (const [operation, problem] of state.armedProblems) {
       model.problems.arm(operation, problem);
     }
@@ -219,9 +235,9 @@ export class BillingSubscriptions {
 
   serialize(): SerializedBillingSubscriptions {
     return {
-      addons: clone(this.addons),
       armedProblems: this.problems.serialize(),
       catalogue: clone(this.catalogue),
+      instanceAddons: this.instanceAddons.serialize(),
       sequence: this.sequence,
       settings: clone(this.settings),
       subscriptions: clone(this.subscriptions),
@@ -229,12 +245,32 @@ export class BillingSubscriptions {
     };
   }
 
-  /** Arm the next call of an operation to fail with a problem document. One-shot. */
+  /**
+   * Arm the next call of an operation to fail with a problem document. One-shot. The
+   * operations on the add-ons of an instance are the add-ons' own and are armed
+   * there; they are accepted here too, since they are the instance's.
+   */
   armProblem(
-    operation: SubscriptionProblemOperation,
+    operation: InstanceAddonOperation | SubscriptionProblemOperation,
     problem: ArmedBillingProblem,
   ) {
+    if (isInstanceAddonOperation(operation)) {
+      this.instanceAddons.armProblem(operation, problem);
+
+      return;
+    }
     this.problems.arm(operation, problem);
+  }
+
+  /** What the attachments need of the instances and their subscriptions. */
+  private instanceAddonsDeps() {
+    return {
+      catalogue: this.addonCatalogue,
+      isKnown: (slug: string) => this.isKnown(slug),
+      licenseFamilyOf: (slug: string) => this.instance(slug)?.licenseFamilySlug,
+      now: () => this.now(),
+      subscriptionOf: (slug: string) => this.subscriptionOf(slug),
+    };
   }
 
   /** Every subscription, for a spec that asserts what the model holds. */
@@ -472,43 +508,6 @@ export class BillingSubscriptions {
     return this.lifecycle.updateTerms(slug, body);
   }
 
-  // --- Add-ons ------------------------------------------------------------------
-
-  /** `GET /instances/{instanceSlug}/addons`: the add-ons an instance holds, in attachment order. */
-  listInstanceAddons(slug: string, includeRemoved = false): InstanceAddon[] {
-    this.problems.consume('listInstanceAddons');
-    if (!this.isKnown(slug)) {
-      throw new BillingProblem(
-        404,
-        'ListInstanceAddons.InstanceNotFound',
-        `instance "${slug}" not found`,
-      );
-    }
-
-    return clone(
-      (this.addons[slug] ?? []).filter(
-        (addon) => includeRemoved || addon.removedAt === undefined,
-      ),
-    );
-  }
-
-  /** `DELETE /instances/{instanceSlug}/addons/{addonSlug}`: the attachment stays, marked removed. */
-  detachInstanceAddon(slug: string, addonSlug: string) {
-    this.problems.consume('detachInstanceAddon');
-    const addon = (this.addons[slug] ?? []).find(
-      (candidate) =>
-        candidate.addonSlug === addonSlug && candidate.removedAt === undefined,
-    );
-    if (!addon) {
-      throw new BillingProblem(
-        404,
-        'DetachInstanceAddon.NotFound',
-        `instance "${slug}" holds no add-on "${addonSlug}"`,
-      );
-    }
-    addon.removedAt = new Date(this.now()).toISOString();
-  }
-
   // --- Settings ---------------------------------------------------------------
 
   /** `GET /billing/settings`. */
@@ -703,14 +702,25 @@ export class BillingSubscriptions {
       started,
       'BillingSubscriptions subscribe',
     );
+    // The add-ons it starts with are checked against the subscription about to be
+    // written, before anything is: one refused refuses the whole subscribe.
+    const checked = body.addOns?.length
+      ? this.instanceAddons.checkForSubscription(
+          slug,
+          body.addOns,
+          subscription,
+        )
+      : [];
     this.subscriptions = this.subscriptions.filter(
       (candidate) => candidate.instanceSlug !== slug,
     );
     this.subscriptions.push(subscription);
     delete this.upcoming[slug];
+    this.instanceAddons.commit(slug, checked, subscription);
 
+    // An invoice is due now when something is billed in advance, and no trial holds it back.
     const activation =
-      price.billingTiming === 'ADVANCE' && trialDays === 0
+      trialDays === 0
         ? this.issueActivation(subscription, instance, price, periodEnd)
         : undefined;
 
@@ -720,27 +730,89 @@ export class BillingSubscriptions {
     };
   }
 
-  /** The invoice of the first period: the base fee in advance, issued now and waiting for the accounting system. */
+  /**
+   * The lines billed in advance for a period starting at `from`: the base fee, when it
+   * bills in advance, and the default fee of the period of each add-on the instance
+   * holds, quantity held times the price.
+   */
+  private advanceLines(
+    invoiceId: string,
+    subscription: InstanceBilling,
+    price: Price,
+    from: string,
+    to: string,
+  ): InvoiceLine[] {
+    const lines: InvoiceLine[] = [];
+    if (price.billingTiming === 'ADVANCE') {
+      lines.push(
+        buildInvoiceLine({
+          amount: Math.round(Number(price.unitAmountDecimal)),
+          description: `1 × ${price.unitAmountDecimal} per ${subscription.billingPeriod.toLowerCase()}`,
+          invoiceId,
+          label: price.displayLabel ?? 'Base fee',
+          seq: 1,
+          serviceFrom: from,
+          serviceTo: to,
+          type: 'BASE',
+          unitAmountDecimal: price.unitAmountDecimal,
+        }),
+      );
+    }
+    for (const attached of this.instanceAddons.activeOf(
+      subscription.instanceSlug,
+    )) {
+      const fee = attached.prices.find(
+        (candidate) =>
+          candidate.billingModel === 'FLAT_FEE' &&
+          candidate.billingTiming === 'ADVANCE',
+      );
+      if (!fee) {
+        continue;
+      }
+      lines.push(
+        buildInvoiceLine({
+          amount: Math.round(Number(fee.unitAmountDecimal)) * attached.quantity,
+          description: `${attached.quantity} × ${fee.unitAmountDecimal} per ${subscription.billingPeriod.toLowerCase()}`,
+          invoiceId,
+          label: fee.displayLabel ?? attached.addonSlug,
+          seq: lines.length + 1,
+          serviceFrom: from,
+          serviceTo: to,
+          type: 'ADDON',
+          unitAmountDecimal: fee.unitAmountDecimal,
+        }),
+      );
+    }
+
+    return lines;
+  }
+
+  /**
+   * The invoice of the first period: what bills in advance, issued now and waiting for
+   * the accounting system. Nothing billed in advance, nothing to issue.
+   */
   private issueActivation(
     subscription: InstanceBilling,
     instance: SubscribableInstance,
     price: Price,
     periodEnd: Date,
-  ): Invoice {
+  ): Invoice | undefined {
     const id = `inv-activation-${this.sequence}`;
+    const lines = this.advanceLines(
+      id,
+      subscription,
+      price,
+      subscription.currentPeriodStart,
+      periodEnd.toISOString(),
+    );
+    if (lines.length === 0) {
+      return undefined;
+    }
     this.sequence += 1;
-    const amount = Math.round(Number(price.unitAmountDecimal));
-    const line: InvoiceLine = buildInvoiceLine({
-      amount,
-      description: `1 × ${price.unitAmountDecimal} per ${subscription.billingPeriod.toLowerCase()}`,
-      invoiceId: id,
-      label: price.displayLabel ?? 'Base fee',
-      seq: 1,
-      serviceFrom: subscription.currentPeriodStart,
-      serviceTo: periodEnd.toISOString(),
-      type: 'BASE',
-      unitAmountDecimal: price.unitAmountDecimal,
-    });
+    let amount = 0;
+    for (const line of lines) {
+      amount += line.amount;
+    }
     const issuedAt = new Date(this.now()).toISOString();
     const free = amount === 0;
 
@@ -762,7 +834,7 @@ export class BillingSubscriptions {
         },
         issuedAt,
         kind: 'ACTIVATION',
-        lines: [line],
+        lines,
         paidAt: free ? issuedAt : undefined,
         status: free ? 'PAID' : 'MANUAL',
       }),

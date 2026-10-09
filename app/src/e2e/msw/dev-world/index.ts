@@ -27,6 +27,7 @@ import {
   createLicenseEntitlements,
   createLicenses,
 } from './catalog';
+import { createAddons } from './addons';
 import { createBillingCapabilities, createBillingInvoices } from './billing';
 import {
   createBillingBlocks,
@@ -172,6 +173,7 @@ export function createDevMockConfig(): E2EMswConfig {
   const world = createDevWorld();
   const billingInvoices = createBillingInvoices(world);
   const billingSubscriptions = createBillingSubscriptions(world);
+  const { addonCatalogue, attachments } = createAddons(world);
   const billingBlocks = createBillingBlocks(
     billingSubscriptions.subscriptions,
     billingInvoices.invoices,
@@ -189,15 +191,27 @@ export function createDevMockConfig(): E2EMswConfig {
     usageReports: createUsageReports(),
   });
 
+  const billing = new BillingAppModel({
+    addonCatalogue,
+    addons: attachments,
+    capabilities: createBillingCapabilities(),
+    ...billingInvoices,
+    ...billingSubscriptions,
+  });
+  // An add-on applies at once, so the effective limits of the instances that hold
+  // some already include what they add.
+  for (const instanceSlug of Object.keys(attachments)) {
+    instances.applyAddonContributions(
+      instanceSlug,
+      billing.instanceAddons.contributionsOf(instanceSlug),
+    );
+  }
+
   return {
     auditTrail: new AuditTrailAppModel(
       createAuditTrail(world),
     ).serializeForMsw(),
-    billing: new BillingAppModel({
-      capabilities: createBillingCapabilities(),
-      ...billingInvoices,
-      ...billingSubscriptions,
-    }).serializeForMsw(),
+    billing: billing.serializeForMsw(),
     connectors: new ConnectorAppModel({
       syncedRecords: syncedWithAttio(world),
     }).serializeForMsw(),

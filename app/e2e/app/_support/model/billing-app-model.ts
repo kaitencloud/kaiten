@@ -1,6 +1,11 @@
 import type { BillingCapabilities } from '@/api-client';
 import { zBillingCapabilities } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
+import {
+  AddonCatalogue,
+  type AddonCatalogueSeed,
+  type SerializedAddonCatalogue,
+} from './billing-addon-catalogue';
 import { billingCapabilitiesProfiles } from './billing-capabilities';
 import {
   BillingInvoices,
@@ -8,6 +13,7 @@ import {
   type SerializedBillingInvoices,
 } from './billing-invoices';
 import { BillingProblem } from './billing-problem';
+import type { InstanceAddons } from './billing-instance-addons';
 import {
   BillingSubscriptions,
   type BillingSubscriptionsSeed,
@@ -58,11 +64,15 @@ export const CAPABILITIES_OUTAGES = {
 
 export type BillingAppModelSeed = BillingInvoicesSeed &
   BillingSubscriptionsSeed & {
+    /** The add-on catalogue: its families, versions, grants, prices and the licenses they fit. */
+    addonCatalogue?: AddonCatalogueSeed;
     /** What `GET /billing/capabilities` answers; billing on with NoOp by default. */
     capabilities?: BillingCapabilities;
   };
 
 export type SerializedBillingAppModel = {
+  /** The add-on catalogue; a state stored before it existed has none. */
+  addonCatalogue?: SerializedAddonCatalogue;
   capabilities: BillingCapabilities;
   /** The invoices and their queue; a state stored before they existed has none. */
   invoices?: SerializedBillingInvoices;
@@ -86,6 +96,13 @@ export class BillingAppModel {
   invoices: BillingInvoices;
   /** The subscriptions of the instances, what they will issue next and the billing defaults. */
   subscriptions: BillingSubscriptions;
+  /** The catalogue of add-ons: families, versions, what they grant, what they cost, which licenses they fit. */
+  addons: AddonCatalogue;
+
+  /** The add-ons the instances hold: attaching, quantities and removal, with the checks of the API. */
+  get instanceAddons(): InstanceAddons {
+    return this.subscriptions.instanceAddons;
+  }
 
   static fromSerialized(state: SerializedBillingAppModel) {
     const model = new BillingAppModel({ capabilities: state.capabilities });
@@ -93,14 +110,23 @@ export class BillingAppModel {
     if (state.invoices) {
       model.invoices = BillingInvoices.fromSerialized(state.invoices);
     }
+    if (state.addonCatalogue) {
+      model.addons = AddonCatalogue.fromSerialized(state.addonCatalogue);
+    }
     model.subscriptions = state.subscriptions
-      ? BillingSubscriptions.fromSerialized(model.invoices, state.subscriptions)
-      : new BillingSubscriptions(model.invoices);
+      ? BillingSubscriptions.fromSerialized(
+          model.invoices,
+          state.subscriptions,
+          undefined,
+          model.addons,
+        )
+      : new BillingSubscriptions(model.invoices, {}, undefined, model.addons);
     return model;
   }
 
   serializeForMsw(): SerializedBillingAppModel {
     return {
+      addonCatalogue: this.addons.serialize(),
       capabilities: clone(this.capabilities),
       invoices: this.invoices.serialize(),
       outage: clone(this.outage),
@@ -115,7 +141,13 @@ export class BillingAppModel {
       'BillingAppModel seed.capabilities',
     );
     this.invoices = new BillingInvoices(seed);
-    this.subscriptions = new BillingSubscriptions(this.invoices, seed);
+    this.addons = new AddonCatalogue(seed.addonCatalogue);
+    this.subscriptions = new BillingSubscriptions(
+      this.invoices,
+      seed,
+      undefined,
+      this.addons,
+    );
   }
 
   /** The body of `GET /billing/capabilities`, or the refusal the model is set to give. */

@@ -17,12 +17,12 @@ import { bySlug } from './by-slug';
 
 /**
  * What the mocked console reads of billing: on, with NoOp as the only provider
- * and no part of the release past the base loop, as the API of the local stack
- * answers (docker/config/api.yaml turns billing on). The invoices of the world
- * are attached to its customers, instances and licenses by slug.
+ * and the parts of the release the console has screens for: the lifecycle, the
+ * trials and the add-ons (docker/config/api.yaml turns billing on). The invoices of
+ * the world are attached to its customers, instances and licenses by slug.
  */
 export const createBillingCapabilities = (): BillingCapabilities =>
-  billingCapabilitiesProfiles.stack();
+  billingCapabilitiesProfiles.stackWithAddons();
 
 // A usage report names the records it was made for by UUID. The world refers to
 // itself by slug, so the id of a record in a report is derived from it, the same

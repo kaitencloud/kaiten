@@ -198,6 +198,111 @@ describe('dev world', () => {
     }
   });
 
+  it('sells add-ons in every state, that grant entitlements of the catalogue and fit license families of the world', () => {
+    const { addonCatalogue, capabilities } = slot(config.billing);
+    const catalogue = slot(addonCatalogue);
+    const versionSlugs = new Set(catalogue.versions.map(({ slug }) => slug));
+    const families = new Set(
+      slot(config.licenses).licenses.map(({ familyId }) =>
+        familyId?.replace(/^family-/, ''),
+      ),
+    );
+
+    expect(capabilities.features.addons).toBe(true);
+    expect(new Set(catalogue.versions.map((version) => version.lifecycleState))).toEqual(
+      new Set(['ARCHIVED', 'DRAFT', 'PUBLISHED']),
+    );
+    expect(new Set(catalogue.versions.map((version) => version.pricingType))).toEqual(
+      new Set(['CUSTOM', 'FREE', 'PAID']),
+    );
+    // A family lists in the public catalogue, and another does not.
+    expect(catalogue.publicFamilies.length).toBeGreaterThan(0);
+    expect(
+      catalogue.versions.some(
+        ({ familySlug }) => !catalogue.publicFamilies.includes(familySlug),
+      ),
+    ).toBe(true);
+    for (const family of catalogue.licenseFamilies) {
+      expect(families).toContain(family);
+    }
+    for (const [slug, grants] of Object.entries(catalogue.grants)) {
+      expect(versionSlugs).toContain(slug);
+      for (const grant of grants) {
+        expect(entitlementSlugs).toContain(grant.entitlementSlug);
+      }
+    }
+    for (const [slug, compatible] of Object.entries(catalogue.compatibility)) {
+      expect(versionSlugs).toContain(slug);
+      for (const family of compatible) {
+        expect(catalogue.licenseFamilies).toContain(family);
+      }
+    }
+    for (const [slug, prices] of Object.entries(catalogue.prices)) {
+      expect(versionSlugs).toContain(slug);
+      // A price is only on a version that is sold, with one currency, and at most one default per period.
+      expect(
+        catalogue.versions.find((version) => version.slug === slug)?.pricingType,
+      ).toBe('PAID');
+      expect(new Set(prices.map(({ currency }) => currency)).size).toBe(1);
+      for (const price of prices) {
+        expect(price.billingModel).toBe('FLAT_FEE');
+        expect(price.status === 'DEPRECATED' && price.isDefault).toBe(false);
+      }
+      const defaults = prices
+        .filter((price) => price.isDefault)
+        .map(({ billingPeriod }) => billingPeriod);
+      expect(new Set(defaults).size).toBe(defaults.length);
+    }
+  });
+
+  it('attaches add-ons only to instances whose license family they fit, at the price of the period their subscription bills', () => {
+    const billing = slot(config.billing);
+    const catalogue = slot(billing.addonCatalogue);
+    const { catalogue: billed, instanceAddons, subscriptions } = slot(
+      billing.subscriptions,
+    );
+    const attachments = slot(instanceAddons).attachments;
+
+    expect(Object.keys(attachments).length).toBeGreaterThan(0);
+    for (const [instanceSlug, held] of Object.entries(attachments)) {
+      expect(instanceSlugs).toContain(instanceSlug);
+      const family = billed.instances.find(
+        (instance) => instance.instanceSlug === instanceSlug,
+      )?.licenseFamilySlug;
+      const subscription = subscriptions.find(
+        (candidate) => candidate.instanceSlug === instanceSlug,
+      );
+      // An instance holds add-ons through a subscription, ended or not.
+      expect(subscription, `${instanceSlug} holds add-ons and is not billed`).toBeDefined();
+      for (const attached of held) {
+        const version = catalogue.versions.find(
+          ({ slug }) => slug === attached.addonSlug,
+        );
+        expect(version, `${attached.addonSlug} is not in the catalogue`).toBeDefined();
+        expect(catalogue.compatibility[attached.addonSlug]).toContain(family);
+        expect(attached.quantity).toBeLessThanOrEqual(
+          version?.maxQuantity ?? Number.POSITIVE_INFINITY,
+        );
+        for (const price of attached.prices) {
+          expect(catalogue.prices[attached.addonSlug]).toContainEqual(price);
+          expect(price.billingPeriod).toBe(subscription?.billingPeriod);
+        }
+      }
+    }
+  });
+
+  it('includes the add-ons an instance holds in the limits it shows', () => {
+    const limitOf = (instanceSlug: string, entitlementSlug: string) =>
+      instanceSlot.entitlementUsagesByInstance[instanceSlug]?.find(
+        (usage) => usage.entitlementSlug === entitlementSlug,
+      )?.limit;
+
+    // Starter grants ten seats and two units of five were attached.
+    expect(limitOf('globex-staging', 'seats')).toEqual({ type: 'number', value: 20 });
+    // An instance that holds nothing keeps what its license grants.
+    expect(limitOf('gamma-production', 'seats')).toEqual({ type: 'number', value: 10 });
+  });
+
   it('keeps a subscription that ended and an instance to subscribe, so that every state of the tab can be tried', () => {
     const { catalogue, subscriptions, upcoming } = slot(
       slot(config.billing).subscriptions,
