@@ -8,8 +8,12 @@ import {
   buildCustomer,
   buildDeploymentZone,
   buildLicense,
+  buildPrice,
+  buildSubscription,
   TEST_USER,
 } from '../_support/fixtures';
+import { BillingAppModel } from '../_support/model/billing-app-model';
+import { billingCapabilitiesProfiles } from '../_support/model/billing-capabilities';
 import { identityProvenance } from '../_support/model/effective-entitlement';
 import { InstanceAppModel } from '../_support/model/instance-app-model';
 import {
@@ -771,4 +775,94 @@ export function createProvenanceInstancesModel() {
     licenseEntitlements: [traces, requests, sso, storage],
     licenses: [pro],
   });
+}
+
+/**
+ * More instances than a page of the lists holds, for the Billing column read a page
+ * at a time: `count` instances of one customer, on one license version that is on
+ * sale, named in the order they come in. Every fifth has never been subscribed, every
+ * seventh is past due and every eleventh is on trial; the others are active. The
+ * billing slot knows them all, and the API pages them 200 at a time.
+ */
+export function createPagedBilledInstancesModels(count = 450) {
+  const customer = buildCustomer({
+    id: 'customer-paged',
+    name: 'Paged Corp',
+    slug: 'paged-corp',
+  });
+  const license = buildLicense({
+    description: 'Paged plan',
+    id: 'license-paged',
+    lifecycleState: 'PUBLISHED',
+    name: 'Paged',
+    slug: 'paged',
+    type: 'PAID',
+    version: '1',
+  });
+  const price = buildPrice({
+    billingPeriod: 'MONTHLY',
+    displayLabel: 'Paged, monthly',
+    id: 'price-paged-monthly',
+    isDefault: true,
+    unitAmountDecimal: '2900',
+  });
+  const instances = Array.from({ length: count }, (_, index) => {
+    const number = String(index + 1).padStart(3, '0');
+
+    return buildInstance({
+      customerId: customer.id,
+      customerSlug: 'paged-corp',
+      description: `Instance ${number}`,
+      id: `instance-paged-${number}`,
+      licenseId: license.id,
+      licenseSlug: 'paged',
+      name: `Instance ${number}`,
+      slug: `paged-${number}`,
+    });
+  });
+  const subscriptions = instances.flatMap((instance, index) => {
+    if ((index + 1) % 5 === 0) {
+      return [];
+    }
+    const past = (index + 1) % 7 === 0;
+    const trial = (index + 1) % 11 === 0;
+
+    return [
+      buildSubscription({
+        anchorAt: '2026-08-15T00:00:00.000Z',
+        basePrice: price,
+        customerName: customer.name,
+        customerSlug: 'paged-corp',
+        instanceName: instance.name,
+        instanceSlug: instance.slug ?? instance.id,
+        pastDueSince: past ? '2026-09-01T00:00:00.000Z' : undefined,
+        status: past ? 'PAST_DUE' : trial ? 'TRIAL' : 'ACTIVE',
+        trialEndsAt: trial && !past ? '2026-10-15T00:00:00.000Z' : undefined,
+      }),
+    ];
+  });
+
+  return {
+    billing: new BillingAppModel({
+      capabilities: billingCapabilitiesProfiles.stack(),
+      catalogue: {
+        instances: instances.map((instance) => ({
+          customerName: customer.name,
+          customerSlug: 'paged-corp',
+          instanceName: instance.name,
+          instanceSlug: instance.slug ?? instance.id,
+          licenseId: license.id,
+          licenseSlug: 'paged',
+          licenseState: 'PUBLISHED' as const,
+        })),
+        prices: { paged: [price] },
+      },
+      subscriptions,
+    }),
+    instances: new InstanceAppModel({
+      customers: [customer],
+      instances,
+      licenses: [license],
+    }),
+  };
 }
