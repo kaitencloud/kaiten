@@ -36,8 +36,9 @@ type StripeSettingsCardProps = {
  * the button, in the API's own words, with what was typed kept.
  *
  * Nothing can be saved where Stripe cannot be connected (no Vault, a plan that
- * leaves it out), and a session that may read the settings and not write them sees
- * them with a notice and no button.
+ * leaves it out): the button is there and off, beside the notice that says why. A
+ * session that may read the settings and not write them sees them with a notice and no
+ * button.
  */
 export function StripeSettingsCard({
   settings,
@@ -85,7 +86,6 @@ export function StripeSettingsCard({
   });
 
   const readOnly = !mayWrite && !isReadingScopes;
-  const canSubmit = mayWrite && !blocked;
 
   return (
     <Card data-testid="stripe-settings">
@@ -113,7 +113,7 @@ export function StripeSettingsCard({
               </Alert>
             ) : null}
             <StripeSettingsFields
-              disabled={!canSubmit || connector.isSaving}
+              disabled={!mayWrite || blocked || connector.isSaving}
               form={form}
               keyOnFile={settings.keyOnFile}
               standing={standing}
@@ -125,7 +125,7 @@ export function StripeSettingsCard({
               />
             ) : null}
           </CardContent>
-          {canSubmit ? (
+          {mayWrite ? (
             <CardFooter className="mt-5 justify-end">
               {/* The button is loaded on demand: it suspends the first time, and
                   without a boundary of its own the whole page gives way to the
@@ -133,6 +133,7 @@ export function StripeSettingsCard({
               <Suspense fallback={null}>
                 <form.SubmitButton
                   allowPristine={!connected && settings.keyOnFile}
+                  disabled={blocked}
                   form={formId}
                   label={t(
                     connected

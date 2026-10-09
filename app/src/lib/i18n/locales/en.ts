@@ -977,6 +977,10 @@ export default {
                   'Who issues and collects the invoices, from the next one on. Invoices already composed keep their own provider.',
                 NOOP: 'Manual hand-off',
                 STRIPE: 'Stripe',
+                STRIPE_notConnected: 'Stripe (not connected)',
+                notConnected:
+                  'Stripe is not connected for your organization yet: connect it to collect the invoices of this contract through it.',
+                connect: 'Connect Stripe',
               },
               Collection: {
                 label: 'Collection method',
@@ -993,7 +997,7 @@ export default {
                 paymentMethod:
                   'This customer has no payment method Stripe can charge.',
                 fromNextInvoice:
-                  'The new provider collects from the next invoice on.',
+                  'The change takes effect from the next invoice; invoices already issued keep their provider.',
               },
               Switch: {
                 title: 'Invoices still open',
@@ -5586,6 +5590,10 @@ export default {
         },
         reference: 'Reference {{id}}',
         outsideRetention: 'Usage before {{date}} is no longer kept.',
+        providerCode: 'Code: {{code}}',
+        providerParam: 'Field: {{param}}',
+        providerRequest: 'Request: {{id}}',
+        openConnector: 'Open the Stripe connector',
       },
       InvoiceStatus: {
         DRAFT: 'Draft',

@@ -8,9 +8,11 @@ import {
   customerBillingQueryOptions,
   hasUsablePaymentMethod,
   type InvoiceProviderKind,
+  STRIPE_CONNECTOR_ROUTE_ID,
   useBillingProvider,
   useCanPerform,
 } from '@/domains/billing';
+import { needsBillingEmail } from '../../../../../utils/provider-switch';
 import { OpenInvoices } from './open-invoices';
 
 const PROVIDERS = [
@@ -70,6 +72,32 @@ function Warning({ customerSlug, message }: WarningProps) {
   );
 }
 
+/** Stripe is offered and not connected: the option is off, and the way to connect it is here. */
+function ConnectStripeHint() {
+  const { t } = useTranslation();
+  const mayOpenConnector = useCanPerform('connector.settings.read');
+
+  return (
+    <p
+      className="text-sm text-muted-foreground"
+      data-testid="terms-connect-hint"
+    >
+      {t(
+        'Pages.Customers.Instances.Detail.Billing.Terms.Provider.notConnected',
+      )}{' '}
+      {mayOpenConnector ? (
+        <Link
+          className="underline underline-offset-4"
+          params={{ connectorId: STRIPE_CONNECTOR_ROUTE_ID }}
+          to="/integrations/connectors/$connectorId"
+        >
+          {t('Pages.Customers.Instances.Detail.Billing.Terms.Provider.connect')}
+        </Link>
+      ) : null}
+    </p>
+  );
+}
+
 /**
  * What would stop the change, told before it is sent: a customer without a billing
  * e-mail cannot be sent invoices by Stripe, and one without a payment method it can use
@@ -97,11 +125,14 @@ function ProviderWarnings({
     enabled: charges && mayReadCustomer,
   });
   const base = 'Pages.Customers.Instances.Detail.Billing.Terms.Warnings';
-  const sends = provider === 'STRIPE' && method === 'SEND_INVOICE';
 
   return (
     <>
-      {sends && !billingEmail ? (
+      {needsBillingEmail(
+        { collectionMethod: method, providerKind: provider },
+        subscription,
+        billingEmail,
+      ) ? (
         <Warning
           customerSlug={customerSlug}
           message={t(`${base}.billingEmail`)}
@@ -148,7 +179,9 @@ export function ProviderTermsFields({
           <field.SelectField
             description={t(`${base}.Provider.description`)}
             getOptionLabel={(provider: InvoiceProviderKind) =>
-              t(PROVIDER_LABEL_KEYS[provider])
+              provider === 'STRIPE' && !isConnected
+                ? t(`${base}.Provider.STRIPE_notConnected`)
+                : t(PROVIDER_LABEL_KEYS[provider])
             }
             isOptionDisabled={(provider: InvoiceProviderKind) =>
               provider === 'STRIPE' && !isConnected
@@ -158,6 +191,7 @@ export function ProviderTermsFields({
           />
         )}
       </form.AppField>
+      {isConnected ? null : <ConnectStripeHint />}
       <form.Subscribe selector={(state: any) => state.values.providerKind}>
         {(provider: InvoiceProviderKind) => (
           <form.AppField name="collectionMethod">

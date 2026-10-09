@@ -3,6 +3,7 @@ import {
   getOpenInvoiceFate,
   getOpenInvoiceMove,
   isOpenInvoice,
+  needsBillingEmail,
   needsProviderRecord,
 } from '../provider-switch';
 
@@ -117,5 +118,44 @@ describe('how an open invoice is moved to the new provider', () => {
 
   it('has nothing to move for what the change does not touch', () => {
     expect(getOpenInvoiceMove('other', 'NOOP', 'STRIPE')).toBe('none');
+  });
+});
+
+describe('a change that would be refused for want of an address', () => {
+  const noop = { providerKind: 'NOOP' } as const;
+  const stripe = { providerKind: 'STRIPE' } as const;
+  const sends = { collectionMethod: 'SEND_INVOICE', providerKind: 'STRIPE' };
+
+  it('is a move to Stripe that sends the invoice, for a customer without an address', () => {
+    expect(needsBillingEmail(sends, noop, undefined)).toBe(true);
+    expect(needsBillingEmail(sends, noop, '   ')).toBe(true);
+  });
+
+  it('is not one for a customer who has an address', () => {
+    expect(needsBillingEmail(sends, noop, 'ap@acme.test')).toBe(false);
+  });
+
+  it('is not a move to Stripe that charges the card, which asks for no address', () => {
+    expect(
+      needsBillingEmail(
+        { collectionMethod: 'CHARGE_AUTOMATICALLY', providerKind: 'STRIPE' },
+        noop,
+        undefined,
+      ),
+    ).toBe(false);
+  });
+
+  it('is not a change of a contract that is on Stripe already: the API checks nothing then', () => {
+    expect(needsBillingEmail(sends, stripe, undefined)).toBe(false);
+  });
+
+  it('is not a move to the organization\'s own system', () => {
+    expect(
+      needsBillingEmail(
+        { collectionMethod: 'SEND_INVOICE', providerKind: 'NOOP' },
+        stripe,
+        undefined,
+      ),
+    ).toBe(false);
   });
 });
