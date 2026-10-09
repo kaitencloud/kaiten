@@ -6,16 +6,18 @@ import { CheckCircle, History, XCircle } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  getHighestAcceptedUsage,
   getUsageStatus,
-  isSoftLimit,
-  isUnlimitedThreshold,
   UsageMeter,
   UsageStatusBadge,
 } from '@/domains/entitlement-usage';
 import type { ColumnDef } from '@/functionals/table';
 import { formatUsageWindowBound } from '@/lib/detail';
 import type { useInstanceDetail } from '../../instance-detail-context';
+import {
+  AddonSourceHint,
+  EntitlementLimitFigure,
+  SoftLimitHint,
+} from './entitlement-limit';
 
 export type InstanceEntitlementRow = ReturnType<
   typeof useInstanceDetail
@@ -107,49 +109,6 @@ function buildUsageColumn(t: TranslateFn, locale: string): EntitlementColumn {
   };
 }
 
-// A soft limit still grants `threshold`; the percentage is how far past it the
-// API keeps accepting usage. Showing only the granted figure would read as a
-// hard cap, which is what the usage bar used to imply. Renders nothing for a
-// grant that has no overage to announce, so no caller has to remember to ask.
-export function SoftLimitHint({
-  locale,
-  row,
-  t,
-}: {
-  locale: string;
-  row: Pick<
-    InstanceEntitlementRow,
-    'limitCapExceededOveragePercent' | 'threshold'
-  >;
-  t: TranslateFn;
-}) {
-  const highestAcceptedUsage = getHighestAcceptedUsage(
-    row.threshold,
-    row.limitCapExceededOveragePercent,
-  );
-
-  if (
-    highestAcceptedUsage === null ||
-    !isSoftLimit(row.threshold, row.limitCapExceededOveragePercent)
-  ) {
-    return null;
-  }
-
-  return (
-    <span
-      className="text-xs text-muted-foreground"
-      title={t(
-        'Pages.Customers.Instances.Detail.entitlements.softLimitDescription',
-        { max: highestAcceptedUsage.toLocaleString(locale) },
-      )}
-    >
-      {t('Pages.Customers.Instances.Detail.entitlements.softLimitHint', {
-        percent: row.limitCapExceededOveragePercent,
-      })}
-    </span>
-  );
-}
-
 function buildThresholdColumn(
   t: TranslateFn,
   locale: string,
@@ -161,16 +120,9 @@ function buildThresholdColumn(
     ),
     cell: ({ row }) => (
       <span className="flex items-baseline gap-1 text-sm text-muted-foreground">
-        <span>
-          {row.original.entitlementType === 'BOOLEAN' ||
-          row.original.entitlementType === 'CONFIG' ||
-          row.original.threshold === null
-            ? '-'
-            : isUnlimitedThreshold(row.original.threshold)
-              ? t('Pages.Customers.Instances.Detail.entitlements.unlimited')
-              : row.original.threshold.toLocaleString(locale)}
-        </span>
+        <EntitlementLimitFigure locale={locale} row={row.original} />
         <SoftLimitHint locale={locale} row={row.original} t={t} />
+        <AddonSourceHint row={row.original} />
       </span>
     ),
   };

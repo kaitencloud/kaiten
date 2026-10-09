@@ -11,14 +11,17 @@ import {
   getUsagePercentage,
   getUsageStatus,
   getUsageStatusTone,
-  isUnlimitedThreshold,
   isUsageAtRisk,
   UsageMeter,
   UsageStatusBadge,
 } from '@/domains/entitlement-usage';
 import { formatUsageWindowBound } from '@/lib/detail';
 import type { useInstanceDetail } from '../../instance-detail-context';
-import { SoftLimitHint } from './instance-detail-entitlements-columns';
+import {
+  AddonSourceHint,
+  EntitlementLimitFigure,
+  SoftLimitHint,
+} from './entitlement-limit';
 
 type InstanceEntitlementsMetrics = ReturnType<
   typeof useInstanceDetail
@@ -98,15 +101,10 @@ export function EntitlementsUsageCard({
               </span>
               <span className="text-sm text-muted-foreground">/</span>
               <span className="text-sm text-muted-foreground">
-                {entitlement.threshold === null
-                  ? '-'
-                  : isUnlimitedThreshold(entitlement.threshold)
-                    ? t(
-                        'Pages.Customers.Instances.Detail.entitlements.unlimited',
-                      )
-                    : entitlement.threshold.toLocaleString(locale)}
+                <EntitlementLimitFigure locale={locale} row={entitlement} />
               </span>
               <SoftLimitHint locale={locale} row={entitlement} t={t} />
+              <AddonSourceHint row={entitlement} />
               {maximumAllowedUsage === null ? null : (
                 <span className={`text-xs font-medium ${tone.text}`}>
                   ({percentage}%)
