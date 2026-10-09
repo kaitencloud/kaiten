@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
@@ -120,11 +121,13 @@ func (r *QueryRepository) GetEntitlementUsageContext(ctx context.Context, instan
 		return nil, fmt.Errorf("read the report instant: %w", err)
 	}
 
+	done := effectivelookup.Time(ctx, effectivelookup.ReaderGate)
 	limit, err := queries.GetEffectiveEntitlementLimit(ctx, db.GetEffectiveEntitlementLimitParams{
 		InstanceID:     ctx1.InstanceID,
 		EntitlementID:  ctx1.EntitlementID,
 		OrganizationID: organizationID,
 	})
+	done()
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			// The grant went away between the slug lookup and the lock: a

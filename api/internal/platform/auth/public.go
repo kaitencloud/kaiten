@@ -2,12 +2,17 @@ package auth
 
 import (
 	"context"
+	"log/slog"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"golang.org/x/time/rate"
 
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
@@ -99,10 +104,57 @@ func (p *PublicMiddleware) Authorization() fiber.Handler {
 	return func(ctx fiber.Ctx) error {
 		path := strings.TrimSuffix(ctx.Path(), "/")
 		if path == SessionPathPrefix || strings.HasPrefix(path, SessionPathPrefix+"/") {
-			return p.session(ctx)
+			err := p.session(ctx)
+			countPublicRequest(ctx, "kst", err)
+			return err
 		}
-		return p.publishable(ctx)
+		err := p.publishable(ctx)
+		countPublicRequest(ctx, "pk", err)
+		return err
 	}
+}
+
+// publicRequests is public_requests_total (§19.1), as
+// kaiten.public.requests{credential, route, outcome}.
+var publicRequests = sync.OnceValue(func() metric.Int64Counter {
+	c, err := otel.GetMeterProvider().Meter("kaiten.public").Int64Counter("kaiten.public.requests",
+		metric.WithDescription("Requests to the public SDK surface, by credential (pk, kst), route and outcome "+
+			"(ok, refused, unauthenticated, rate_limited, error)"), metric.WithUnit("{request}"))
+	if err != nil {
+		slog.Warn("failed to register a public surface metric", "error", err)
+		return nil
+	}
+	return c
+})
+
+// countPublicRequest records a request once it is answered. The route is the
+// matched pattern, never the raw path, so slugs do not become labels.
+func countPublicRequest(ctx fiber.Ctx, credential string, err error) {
+	counter := publicRequests()
+	if counter == nil {
+		return
+	}
+	status := ctx.Response().StatusCode()
+	if err != nil {
+		status = kaitenerrors.GetHTTPStatus(err)
+	}
+	outcome := "ok"
+	switch {
+	case status == fiber.StatusTooManyRequests:
+		outcome = "rate_limited"
+	case status == fiber.StatusUnauthorized || status == fiber.StatusForbidden:
+		outcome = "unauthenticated"
+	case status >= 500:
+		outcome = "error"
+	case status >= 400:
+		outcome = "refused"
+	}
+	route := "unmatched"
+	if r := ctx.Route(); r != nil && r.Path != "" && r.Path != "/" {
+		route = r.Path
+	}
+	counter.Add(ctx.Context(), 1, metric.WithAttributes(
+		attribute.String("credential", credential), attribute.String("route", route), attribute.String("outcome", outcome)))
 }
 
 // publishable authenticates a catalogue request: a request carrying
