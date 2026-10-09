@@ -3770,6 +3770,15 @@ export default {
           voided: 'Facture annulée',
           recomposed: 'Facture recomposée',
           replaced: 'Facture de remplacement composée',
+          pushRequested:
+            'Envoi demandé. Kaiten vérifie à nouveau toutes les quelques secondes.',
+          finalized: 'Facture finalisée dans Stripe',
+          synced: 'Facture lue dans Stripe',
+          syncedPaid: 'Facture lue dans Stripe : elle est payée',
+          pushed: 'Stripe a la facture',
+          pushFailedAgain: 'L’envoi a de nouveau échoué',
+          awaitingFinalization:
+            'Stripe a le brouillon. Finalisez-le une fois relu.',
         },
         Detail: {
           title: '{{kind}} · facture du {{date}}',
@@ -3781,10 +3790,107 @@ export default {
             releaseHold: 'Débloquer la facture',
             void: 'Annuler la facture',
             writeOff: 'Passer en perte',
+            retryPush: 'Relancer l’envoi',
+            push: 'Envoyer maintenant',
+            finalize: 'Finaliser dans Stripe',
+            sync: 'Lire dans Stripe',
             purgedUsage:
               'L’usage de cette période n’est plus conservé (avant le {{date}}) : une recomposition omettrait ses lignes d’usage.',
             instanceDeleted:
               'L’instance de cette facture a été supprimée : rien ne peut être recomposé pour elle.',
+          },
+          Provider: {
+            title: 'Fournisseur de paiement',
+            Collection: {
+              SEND_INVOICE:
+                'Stripe envoie la facture au client et encaisse le paiement.',
+              CHARGE_AUTOMATICALLY:
+                'Stripe prélève le moyen de paiement enregistré à l’échéance de la facture.',
+            },
+            status: 'Statut dans Stripe',
+            Status: {
+              draft: 'Brouillon',
+              open: 'Ouverte',
+              paid: 'Payée',
+              uncollectible: 'Irrécouvrable',
+              void: 'Annulée',
+            },
+            number: 'Numéro de facture',
+            externalInvoice: 'Facture Stripe',
+            externalCustomer: 'Client Stripe',
+            pushedAt: 'Envoyée',
+            syncedAt: 'Dernière lecture dans Stripe',
+            amounts: 'Montants',
+            Reconciliation: {
+              MATCHED: 'Identiques',
+              MISMATCH: 'Différents',
+            },
+            notPushed: 'Stripe n’a pas encore cette facture.',
+            hostedInvoice: 'Facture hébergée',
+            pdf: 'PDF',
+            Push: {
+              waiting: {
+                title: 'Envoi à Stripe en cours…',
+                description:
+                  'La facture est en file d’attente. Kaiten vérifie toutes les 5 secondes, pendant deux minutes au plus.',
+              },
+              expired: {
+                title: 'Toujours en file d’attente',
+                description:
+                  'L’envoi n’a pas encore eu lieu. Il aura lieu au prochain passage et Kaiten continue d’essayer seul : rechargez la page pour vérifier.',
+              },
+            },
+            Review: {
+              title: 'En attente de finalisation dans Stripe',
+              description:
+                'Stripe garde cette facture en brouillon. Relisez-la là-bas, puis finalisez-la ici ou dans Stripe : elle est envoyée au client une fois finalisée.',
+            },
+            PushError: {
+              title: 'L’envoi à Stripe a échoué',
+              attempts_one: 'Tentative {{count}}.',
+              attempts_other: '{{count}} tentatives.',
+              next: 'Prochaine tentative : {{date}}.',
+              manual: 'Relancez-le depuis les actions ci-dessus.',
+            },
+            PaymentError: {
+              title: 'Stripe n’a pas pu encaisser le paiement',
+              Codes: {
+                authentication_required:
+                  'Le client doit confirmer le paiement sur la page de la facture hébergée.',
+                card_declined: 'La carte a été refusée.',
+                expired_card: 'La carte a expiré.',
+                no_payment_method:
+                  'Le client n’a aucun moyen de paiement à prélever.',
+              },
+            },
+          },
+          Reconciliation: {
+            title: 'Rapprochement',
+            matched: 'Stripe détient les mêmes montants que Kaiten.',
+            mismatch:
+              'Stripe détient des montants qui ne sont pas ceux composés par Kaiten. La facture dans Stripe est celle que le client paie : réglez l’écart là-bas.',
+            checked: 'Vérifié le {{date}}.',
+            kaitenTotal: 'Total composé par Kaiten',
+            providerTotal: 'Total dans Stripe, hors taxes',
+            providerSubtotal: 'Sous-total dans Stripe',
+            providerDiscounts: 'Remises dans Stripe',
+            inclusiveTax:
+              'La taxe est comprise dans les montants : le sous-total de Stripe, remises déduites, a été comparé.',
+            line: 'Ligne',
+            kaiten: 'Kaiten',
+            provider: 'Stripe',
+            differingLines: 'Lignes dont le montant diffère',
+            lineNumber: 'Ligne {{seq}}',
+            differingDiscounts: 'Remises appliquées avec un autre montant',
+            discountOnLine: 'Remise {{seq}} sur la ligne {{target}}',
+            missingInProvider: 'Lignes composées par Kaiten que Stripe n’a pas',
+            extraInProvider: 'Lignes de Stripe que Kaiten n’a pas composées',
+            extraDiscounts:
+              'Remises appliquées par Stripe que Kaiten n’a pas créées',
+            extraDiscountsHint:
+              'Comme un coupon ajouté dans le tableau de bord Stripe.',
+            discount: 'Remise',
+            providerLine: 'Sur la ligne Stripe',
           },
           Chain: {
             replaces: 'Remplace',
@@ -3923,6 +4029,12 @@ export default {
               'La facture est d’abord annulée chez votre fournisseur de paiement, puis ici. Cette action est irréversible.',
             reason: 'Motif',
             confirm: 'Annuler la facture',
+            PaidAtProvider: {
+              title: 'Stripe indique que cette facture est payée',
+              description:
+                'Une facture payée ne peut pas être annulée. Kaiten n’a pas encore lu le paiement : lisez la facture dans Stripe, et elle apparaîtra comme payée.',
+              sync: 'La lire dans Stripe',
+            },
           },
           VoidThenRecompose: {
             title: 'Annuler et recomposer',

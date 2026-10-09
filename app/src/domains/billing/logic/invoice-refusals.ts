@@ -42,3 +42,19 @@ export function readRecomposeRefusal(
       return undefined;
   }
 }
+
+/**
+ * Whether a void was refused because the payment provider reports the invoice paid
+ * (409 `VoidInvoice.InvalidStatus`, whose first error says `paid_at_provider`). The
+ * API voids at the provider first, and never voids what a customer has paid: the
+ * payment is not read back yet, and reading the invoice from the provider records
+ * it. Any other refusal of a void is shown as the API wrote it.
+ */
+export function isPaidAtProviderRefusal(error: unknown): boolean {
+  const problem = getProblem(error);
+
+  return (
+    problem?.code === 'VoidInvoice.InvalidStatus' &&
+    problem.errors?.[0]?.value === 'paid_at_provider'
+  );
+}

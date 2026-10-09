@@ -145,15 +145,7 @@ export function createStripeInvoices(world: StripeWorld): {
           ],
           extraInProvider: [],
           inclusiveTax: false,
-          lines: [
-            {
-              externalLineId: 'il_acme_us_2',
-              kaitenAmount: MONTHLY,
-              lineId: 'inv-acme-us-renewal-2-line-1',
-              providerAmount: MONTHLY,
-              seq: 1,
-            },
-          ],
+          lines: [],
           missingInProvider: [],
           totals: {
             kaitenTotal: MONTHLY,

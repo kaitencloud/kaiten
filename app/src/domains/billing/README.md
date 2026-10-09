@@ -144,9 +144,12 @@ page holds, or an export the API streams.
   not (`unapplied`): the menu says so above its choices, since the file would hold
   invoices the screen does not show.
 - `invalidateInstanceBillingQueries`, `invalidateInstanceAddonQueries`,
-  `invalidateInvoiceQueries`, `invalidateLicensePriceQueries` and
-  `invalidateBillingSettingsQueries` refresh what a billing mutation changed, with the
-  generated keys. The add-ons an instance holds apply to its entitlements at once, so
+  `invalidateInvoiceQueries`, `invalidateLicensePriceQueries`,
+  `invalidateBillingSettingsQueries`, `invalidateBillingProviderQueries` (a provider was
+  connected or disconnected), `invalidateCustomerBillingQueries` (a payment method
+  changed) and `invalidateProviderSyncQueries` (a pass of the provider read what changed
+  there: the invoices, their pages, the subscriptions, what each customer holds and the
+  health) refresh what a billing mutation changed, with the generated keys. The add-ons an instance holds apply to its entitlements at once, so
   changing them (`invalidateInstanceAddonQueries`) refreshes the add-ons of the
   instance, the effective values its entitlements show and the invoice its next
   boundary will issue. A mutation of billing
@@ -262,9 +265,20 @@ page holds, or an export the API streams.
   never as a failure. Every label map is typed `satisfies Record<Enum, string>`: a
   status the contract adds fails the type check until it has a label. A line type
   the console does not know renders as it was sent.
+- **Who collects is read from the providers.** `useBillingProvider(kind)` and the
+  helpers of `logic/billing-providers.ts` (`findBillingProvider`, `getProviderStanding`,
+  `isProviderOffered`, `canChargeAutomatically`) answer from the `providers` of the
+  capabilities, with `connected`, `available`, `unavailableReason`, `livemode` and
+  `capabilities.automaticCollection`, and never from `features.stripe`,
+  `features.chargeAutomatically` or `features.publicSurface`: the API fixes those three
+  whatever a provider can do, so a gate on them would hide what a deployment has.
+  `STRIPE_CONNECTOR_NAME` is the connector Stripe is configured through.
 - **What an invoice allows is decided here.** `getInvoiceActions(invoice, context)`
-  answers, from the status, the hold and the replacement of an invoice, which of
-  release, recompose, mark paid, write off and void it offers, in order, and
+  answers, from the status, the hold, the provider and the replacement of an invoice,
+  which of release, recompose, mark paid, write off, void, retry push and sync it
+  offers, in order (a push is retried, and an invoice read back, only where Stripe
+  collects it; `isAwaitingFinalization` and `getPushVariant` say whether pushing again
+  finalizes a draft Stripe holds, retries a failed push or pushes a queued draft), and
   `INVOICE_ACTION_SCOPES` names the billing action, hence the scope, of each, and
   `useInvoiceActionAccess` reads them once for a screen. An
   action the status allows and the screen knows the API would refuse is returned
@@ -273,6 +287,8 @@ page holds, or an export the API streams.
   is exempt from) and one for an instance that was deleted. The API has the last
   word. `isHandoffLeased` says whether a consumer holds an invoice of the handoff
   queue, from its lease; an expired lease is as good as none.
+  `isPaidAtProviderRefusal` reads the void the API refused because the provider reports
+  the invoice paid, which the dialog answers by reading the invoice from the provider.
   `readRecomposeRefusal` reads what a recompose was refused for when the refusal
   changes what is offered next (the invoice has to be voided first, its
   replacement already exists and is named, its instance was deleted): the codes

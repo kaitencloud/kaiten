@@ -42,7 +42,7 @@ describe('the actions an invoice offers', () => {
     ]);
   });
 
-  it('only voids an invoice whose push failed', () => {
+  it('only voids an invoice whose push failed, where nobody pushes it', () => {
     expect(actionsOf(invoice('PUSH_FAILED'))).toEqual(['void']);
   });
 
@@ -57,9 +57,18 @@ describe('the actions an invoice offers', () => {
   });
 
   it.each<InvoiceStatus>(['PAID', 'UNCOLLECTIBLE', 'PUSHED', 'PAYMENT_FAILED'])(
-    'offers a %s invoice nothing: it is final, or a payment provider owns it',
+    'offers a %s invoice nothing when nobody collects it through a provider: it is final',
     (status) => {
       expect(actionsOf(invoice(status))).toEqual([]);
+    },
+  );
+
+  it.each<InvoiceStatus>(['PAID', 'UNCOLLECTIBLE'])(
+    'offers a %s invoice of Stripe nothing either: it is final',
+    (status) => {
+      expect(actionsOf(invoice(status, { providerKind: 'STRIPE' }))).toEqual(
+        [],
+      );
     },
   );
 
@@ -74,6 +83,77 @@ describe('the actions an invoice offers', () => {
       if (status === 'DRAFT') continue;
       expect(actionsOf(invoice(status)), status).not.toContain('releaseHold');
     }
+  });
+});
+
+describe('the actions of an invoice Stripe collects', () => {
+  const stripe = (
+    status: InvoiceStatus,
+    overrides: Partial<InvoiceActionsInput> = {},
+  ) => invoice(status, { providerKind: 'STRIPE', ...overrides });
+
+  it('pushes a draft the queue has not pushed yet, or voids it', () => {
+    expect(
+      actionsOf(stripe('DRAFT', { provider: { externalInvoiceId: undefined } })),
+    ).toEqual(['retryPush', 'void']);
+    expect(actionsOf(stripe('DRAFT'))).toEqual(['retryPush', 'void']);
+  });
+
+  it('finalizes, reads back or voids a draft that waits in Stripe for a person', () => {
+    expect(
+      actionsOf(stripe('DRAFT', { provider: { externalInvoiceId: 'in_1' } })),
+    ).toEqual(['retryPush', 'sync', 'void']);
+  });
+
+  it('retries or voids an invoice whose push failed before Stripe had it', () => {
+    expect(actionsOf(stripe('PUSH_FAILED'))).toEqual(['retryPush', 'void']);
+  });
+
+  it('says what pushing again means for each, which is how the button reads', () => {
+    const variantOf = (...args: Parameters<typeof stripe>) =>
+      getInvoiceActions(stripe(...args)).find(
+        ({ action }) => action === 'retryPush',
+      )?.variant;
+
+    expect(variantOf('DRAFT')).toBe('push');
+    expect(variantOf('DRAFT', { provider: { externalInvoiceId: 'in_1' } })).toBe(
+      'finalize',
+    );
+    expect(variantOf('PUSH_FAILED')).toBe('retry');
+  });
+
+  it('also reads back one whose push failed after Stripe had created it', () => {
+    expect(
+      actionsOf(
+        stripe('PUSH_FAILED', { provider: { externalInvoiceId: 'in_1' } }),
+      ),
+    ).toEqual(['retryPush', 'sync', 'void']);
+  });
+
+  it.each<InvoiceStatus>(['PUSHED', 'PAYMENT_FAILED'])(
+    'reads back or voids a %s invoice: Stripe owns it, and the payment is recorded there',
+    (status) => {
+      expect(actionsOf(stripe(status))).toEqual(['sync', 'void']);
+    },
+  );
+
+  it('offers neither mark paid nor write off for an invoice Stripe has accepted', () => {
+    for (const status of ['PUSHED', 'PAYMENT_FAILED'] as const) {
+      const actions = actionsOf(stripe(status));
+
+      expect(actions).not.toContain('markPaid');
+      expect(actions).not.toContain('writeOff');
+    }
+  });
+
+  it('does not push a held draft: it is released or recomposed first', () => {
+    expect(
+      actionsOf(stripe('DRAFT', { holdReason: 'LEDGER_SEQUENCE_GAP' })),
+    ).toEqual(['releaseHold', 'recompose', 'void']);
+  });
+
+  it('recomposes a void invoice like any other', () => {
+    expect(actionsOf(stripe('VOID'))).toEqual(['recompose']);
   });
 });
 
@@ -146,7 +226,15 @@ describe('the scopes of the invoice actions', () => {
     const actions = Object.keys(INVOICE_ACTION_SCOPES) as InvoiceAction[];
 
     expect(actions.sort()).toEqual(
-      ['markPaid', 'recompose', 'releaseHold', 'void', 'writeOff'].sort(),
+      [
+        'markPaid',
+        'recompose',
+        'releaseHold',
+        'retryPush',
+        'sync',
+        'void',
+        'writeOff',
+      ].sort(),
     );
     for (const action of actions) {
       const billingAction = INVOICE_ACTION_SCOPES[action];

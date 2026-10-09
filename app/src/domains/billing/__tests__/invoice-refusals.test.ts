@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { ApiError } from '@/lib/errors';
-import { readRecomposeRefusal } from '../logic';
+import { isPaidAtProviderRefusal, readRecomposeRefusal } from '../logic';
 
 const refusal = (code: string, errors?: unknown[]) =>
   new ApiError({
@@ -56,5 +56,38 @@ describe('why a recompose was refused', () => {
     ).toEqual({ kind: 'needs-void' });
     expect(readRecomposeRefusal(new Error('Failed to fetch'))).toBeUndefined();
     expect(readRecomposeRefusal(undefined)).toBeUndefined();
+  });
+});
+
+describe('a void refused because the invoice is paid at the provider', () => {
+  const voidRefusal = (code: string, errors?: unknown[]) => refusal(code, errors);
+
+  it('is read from the value the API gives the refusal', () => {
+    expect(
+      isPaidAtProviderRefusal(
+        voidRefusal('VoidInvoice.InvalidStatus', [
+          { location: 'provider', message: 'paid at the provider', value: 'paid_at_provider' },
+        ]),
+      ),
+    ).toBe(true);
+  });
+
+  it('is not any other refusal of a void', () => {
+    expect(
+      isPaidAtProviderRefusal(voidRefusal('VoidInvoice.InvalidStatus')),
+    ).toBe(false);
+    expect(
+      isPaidAtProviderRefusal(
+        voidRefusal('VoidInvoice.InvalidStatus', [{ value: 'something_else' }]),
+      ),
+    ).toBe(false);
+    expect(
+      isPaidAtProviderRefusal(
+        voidRefusal('VoidInvoice.ProviderUnavailable', [
+          { value: 'paid_at_provider' },
+        ]),
+      ),
+    ).toBe(false);
+    expect(isPaidAtProviderRefusal(new Error('offline'))).toBe(false);
   });
 });

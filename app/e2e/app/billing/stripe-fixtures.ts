@@ -110,15 +110,7 @@ export function stripeInvoices(): Invoice[] {
           extraDiscounts: [],
           extraInProvider: ['ii_9'],
           inclusiveTax: false,
-          lines: [
-            {
-              externalLineId: 'il_1',
-              kaitenAmount: 2900,
-              lineId: 'inv-mm-line-1',
-              providerAmount: 2900,
-              seq: 1,
-            },
-          ],
+          lines: [],
           missingInProvider: [],
           totals: {
             kaitenTotal: 3319,

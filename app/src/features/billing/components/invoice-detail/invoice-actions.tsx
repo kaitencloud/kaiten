@@ -7,6 +7,7 @@ import {
   useBillingCapabilities,
   useInvoiceActionAccess,
 } from '@/domains/billing';
+import { type PushPhase, useInvoiceMutations } from '../../hooks';
 import { InvoiceActionButtons } from './invoice-action-buttons';
 import { MarkPaidDialog } from './mark-paid-dialog';
 import { RecomposeDialog } from './recompose-dialog';
@@ -17,9 +18,16 @@ import { WriteOffDialog } from './write-off-dialog';
 
 type InvoiceActionsProps = {
   invoice: Invoice;
+  /** Starts watching the push the person just asked for; a page that does not watch passes none. */
+  onPushRequested?: (invoice: Invoice) => void;
+  /** Where the push the person asked for stands: pushing again waits for the one that runs. */
+  pushPhase?: PushPhase;
 };
 
-type OpenDialog = InvoiceAction | 'voidThenRecompose' | null;
+/** The actions that ask for something first: the ones that run at once have no dialog. */
+type DialogAction = Exclude<InvoiceAction, 'retryPush' | 'sync'>;
+
+type OpenDialog = DialogAction | 'voidThenRecompose' | null;
 
 /**
  * What a session may do to the invoice it is looking at: the actions its status
@@ -35,9 +43,18 @@ type OpenDialog = InvoiceAction | 'voidThenRecompose' | null;
  * a 409 says someone else got there first (the invoice was paid, voided), the page
  * reads the invoice again and it no longer offers anything, and the refusal the
  * person came to read is still in the dialog they asked from.
+ *
+ * Pushing an invoice again and reading it back from its provider ask for nothing: they
+ * run at once, and their button waits while they do. A push only queues the invoice, so
+ * the page watches for its result, and the button waits for that as well.
  */
-export function InvoiceActions({ invoice }: InvoiceActionsProps) {
+export function InvoiceActions({
+  invoice,
+  onPushRequested,
+  pushPhase = 'idle',
+}: InvoiceActionsProps) {
   const { capabilities } = useBillingCapabilities();
+  const { retryPush, sync } = useInvoiceMutations(invoice.id);
   const [dialog, setDialog] = useState<OpenDialog>(null);
   // The instance the API said was deleted: by its slug, so that another invoice
   // of the same page is not taken for one whose instance is gone.
@@ -52,11 +69,29 @@ export function InvoiceActions({ invoice }: InvoiceActionsProps) {
   }).filter(({ action }) => canPerform[action]);
 
   const close = () => setDialog(null);
+  const pending: InvoiceAction[] = [
+    ...(retryPush.isPending || pushPhase === 'waiting'
+      ? (['retryPush'] as const)
+      : []),
+    ...(sync.isPending ? (['sync'] as const) : []),
+  ];
+
+  function run(action: InvoiceAction) {
+    const path = { invoiceId: invoice.id };
+
+    if (action === 'retryPush') {
+      retryPush.mutate({ path }, { onSuccess: onPushRequested });
+    } else if (action === 'sync') {
+      sync.mutate({ path });
+    } else {
+      setDialog(action);
+    }
+  }
 
   return (
     <>
       {states.length > 0 ? (
-        <InvoiceActionButtons onRun={setDialog} states={states} />
+        <InvoiceActionButtons onRun={run} pending={pending} states={states} />
       ) : null}
       {dialog === 'releaseHold' ? (
         <ReleaseHoldDialog invoice={invoice} onClose={close} />
