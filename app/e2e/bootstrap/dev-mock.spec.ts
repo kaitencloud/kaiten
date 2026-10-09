@@ -206,3 +206,57 @@ test('dev:mock answers every request of Stripe: its connector, the health of bil
 
   expect(errors).toEqual([]);
 });
+
+test('dev:mock answers every request of the publishable keys: the list with and without the revoked ones, the page of the dialogs and the Integrations entry', async ({
+  page,
+}) => {
+  // Four screens, each compiled by the dev server on its first visit.
+  test.setTimeout(180_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.text().includes('[MSW] Unhandled API request:'))
+      errors.push(message.text());
+  });
+
+  // The keys of the world: live ones and revoked ones, only their last four characters.
+  await page.goto('/integrations/publishable-keys');
+  await expect(
+    page.getByRole('heading', { name: 'Publishable keys', level: 1 }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('row').filter({ hasText: 'Pricing page' }),
+  ).toContainText('…x9Qa');
+  await expect(
+    page.getByRole('row').filter({ hasText: 'Docs site' }),
+  ).toHaveCount(0);
+  // Billing is on, so the section of the navigation lists the page.
+  await expect(
+    page
+      .locator('[data-sidebar="content"]')
+      .getByRole('link', { name: 'Publishable keys', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('switch', { name: 'Include revoked' }).click();
+  await expect(
+    page.getByRole('row').filter({ hasText: 'Docs site' }),
+  ).toContainText('Revoked');
+  // A key issued is shown once, and listed by its last four characters after.
+  await page.goto('/integrations/publishable-keys/new');
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel(/^Label/).fill('Checkout');
+  await dialog.getByRole('button', { name: 'Create key' }).click();
+  await expect(dialog.getByTestId('created-key')).toHaveValue(/^pk_/);
+  await dialog.getByRole('button', { name: 'Done' }).click();
+  await expect(
+    page.getByRole('row').filter({ hasText: 'Checkout' }),
+  ).toBeVisible();
+  // And one is changed, from its own address.
+  await page.goto(
+    '/integrations/publishable-keys/publishable-key-staging/edit',
+  );
+  await expect(page.getByRole('dialog').getByLabel(/^Label/)).toHaveValue(
+    'Staging storefront',
+  );
+
+  expect(errors).toEqual([]);
+});
