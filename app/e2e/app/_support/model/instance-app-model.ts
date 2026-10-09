@@ -19,16 +19,17 @@ import {
   zInstanceWritable,
   zCustomer,
   zDeploymentZone,
-  zEntitlementUsage,
   zInstance,
   zLicense,
   zLicenseEntitlement,
   zPatchInstanceBody,
 } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
+import { zServedEntitlementUsage } from '../contracts/served-entitlement-usage';
 import type { AddonContribution } from './billing-instance-addons';
 import type { BoostContribution } from './billing-vouchers';
 import { BillingProblem } from './billing-problem';
+import { composeEffectiveNumber } from './effective-entitlement';
 import { ErrorInjector } from './error-injector';
 import {
   InstanceUsageHistory,
@@ -178,7 +179,7 @@ export class InstanceAppModel {
     // generated zod schema of its own.
     this.metadataFields = clone(seed.metadataFields ?? []);
     this.entitlementUsagesByInstance = parseContract(
-      z.record(z.string(), z.array(zEntitlementUsage)),
+      z.record(z.string(), z.array(zServedEntitlementUsage)),
       seed.entitlementUsagesByInstance ?? {},
       'InstanceAppModel seed.entitlementUsagesByInstance',
     );
@@ -279,15 +280,14 @@ export class InstanceAppModel {
   }
 
   /**
-   * What the add-ons an instance holds make of its entitlements, which they change at
-   * once. The `limit` of an entitlement usage is the effective value of the instance
-   * (the cap its counter is measured against), composed from what its license grants
-   * and what each attachment grants per unit of quantity, as the API composes it: an
-   * `OVERRIDE` replaces the license's value, the attachment last in the list winning,
-   * a `MAX` keeps the larger, and an `ADD` adds `value × quantity`. An unlimited grant
-   * stays unlimited. The counter (`value`) is the usage, which an attachment does not
-   * touch. Only a number the license grants is recomposed: it is the one the mocks have
-   * a base for.
+   * What the add-ons and the boosts an instance holds make of its entitlements, which
+   * they change at once. The `limit` of an entitlement usage is the effective value of
+   * the instance (the cap its counter is measured against), composed as the API composes
+   * it from what its license grants, what each attachment grants per unit of quantity
+   * and what each boost does (see `composeEffectiveNumber`), and the usage says why: its
+   * `provenance`, and the effective overage percent. The counter (`value`) is the usage,
+   * which an attachment does not touch. Only a number the license grants is recomposed:
+   * it is the one the mocks have a base for.
    */
   applyAddonContributions(
     instanceSlug: string,
@@ -304,45 +304,18 @@ export class InstanceAppModel {
       if (grant?.value.type !== 'number' || grant.value.value === -1) {
         continue;
       }
-      const own = contributions.filter(
-        (contribution) =>
-          contribution.entitlementSlug === usage.entitlementSlug,
+      Object.assign(
+        usage,
+        composeEffectiveNumber(
+          grant as typeof grant & { value: { type: 'number'; value: number } },
+          contributions.filter(
+            ({ entitlementSlug }) => entitlementSlug === usage.entitlementSlug,
+          ),
+          boosts.filter(
+            ({ entitlementSlug }) => entitlementSlug === usage.entitlementSlug,
+          ),
+        ),
       );
-      const override = own
-        .filter(({ behavior }) => behavior === 'OVERRIDE')
-        .at(-1);
-      let value = override
-        ? override.value * override.quantity
-        : grant.value.value;
-      for (const { behavior, quantity, value: perUnit } of own) {
-        if (behavior === 'MAX') {
-          value = Math.max(value, perUnit * quantity);
-        }
-      }
-      for (const { behavior, quantity, value: perUnit } of own) {
-        if (behavior === 'ADD') {
-          value += perUnit * quantity;
-        }
-      }
-      // The boosts the instance redeemed come last, in the order it redeemed them: they
-      // modify what the license and the add-ons compose.
-      for (const boost of boosts) {
-        if (boost.entitlementSlug !== usage.entitlementSlug) {
-          continue;
-        }
-        if (boost.modifierType === 'UNLIMITED') {
-          value = -1;
-        } else if (value !== -1) {
-          const amount = boost.value ?? 0;
-          value =
-            boost.modifierType === 'SET'
-              ? amount
-              : boost.modifierType === 'ADD'
-                ? value + amount
-                : value * amount;
-        }
-      }
-      usage.limit = { type: 'number', value };
     }
   }
 

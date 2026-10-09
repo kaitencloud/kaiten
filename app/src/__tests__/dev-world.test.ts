@@ -322,10 +322,45 @@ describe('dev world', () => {
         (usage) => usage.entitlementSlug === entitlementSlug,
       )?.limit;
 
-    // Starter grants ten seats and two units of five were attached.
-    expect(limitOf('globex-staging', 'seats')).toEqual({ type: 'number', value: 20 });
+    // Starter grants ten seats, two units of five were attached, and a voucher doubles it.
+    expect(limitOf('globex-staging', 'seats')).toEqual({ type: 'number', value: 40 });
     // An instance that holds nothing keeps what its license grants.
     expect(limitOf('gamma-production', 'seats')).toEqual({ type: 'number', value: 10 });
+  });
+
+  it('says why a limit is what it is: the license, the add-ons and a voucher of one instance, and the license alone elsewhere', () => {
+    const usageOf = (instanceSlug: string, entitlementSlug: string) =>
+      instanceSlot.entitlementUsagesByInstance[instanceSlug]?.find(
+        (usage) => usage.entitlementSlug === entitlementSlug,
+      );
+
+    // Globex Staging: ten seats from the license, two add-ons of five, doubled.
+    const composed = usageOf('globex-staging', 'seats');
+    expect(composed?.source).toBe('license');
+    expect(composed?.provenance?.addons).toMatchObject([
+      { overrideBehavior: 'ADD', quantity: 2, value: { type: 'number', value: 5 } },
+    ]);
+    expect(composed?.provenance?.boosts).toMatchObject([
+      { modifierType: 'MULTIPLY', modifierValue: 2 },
+    ]);
+    expect(composed?.provenance?.number).toMatchObject({
+      afterAddons: 20,
+      boostMultiply: 2,
+      effective: 40,
+      license: 10,
+      unlimited: false,
+    });
+    // An instance that holds nothing: the license's grant, and no composition.
+    const identity = usageOf('gamma-production', 'seats');
+    expect(identity?.source).toBe('license');
+    expect(identity?.provenance?.license).toMatchObject({
+      value: { type: 'number', value: 10 },
+    });
+    expect(identity?.provenance?.addons).toEqual([]);
+    expect(identity?.provenance?.boosts).toEqual([]);
+    expect(identity?.provenance?.number).toBeNull();
+    // A voucher never shows its code.
+    expect(JSON.stringify(composed?.provenance)).not.toMatch(/DOUBLE-SEATS/);
   });
 
   it('issues publishable keys that are live or revoked, and holds only the last four characters of each', () => {

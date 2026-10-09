@@ -307,14 +307,15 @@ describe('the add-ons an instance holds, as the mocks serve them', () => {
   });
 
   it('applies at once: a quantity and an attachment change the effective limits the instance reads', async () => {
-    // Starter grants ten seats, and two units of five are attached.
-    expect(await limitOf('globex-staging', 'seats')).toEqual({ type: 'number', value: 20 });
+    // Starter grants ten seats, two units of five are attached, and the voucher the
+    // instance redeemed doubles the sum.
+    expect(await limitOf('globex-staging', 'seats')).toEqual({ type: 'number', value: 40 });
 
     const raised = await send('PATCH', '/instances/globex-staging/addons/extra-seats', {
       quantity: 4,
     });
     expect(raised.status).toBe(200);
-    expect(await limitOf('globex-staging', 'seats')).toEqual({ type: 'number', value: 30 });
+    expect(await limitOf('globex-staging', 'seats')).toEqual({ type: 'number', value: 60 });
 
     const attached = await send('POST', '/instances/globex-staging/addons', {
       addonSlug: 'extra-storage-v2',
@@ -324,7 +325,52 @@ describe('the add-ons an instance holds, as the mocks serve them', () => {
     expect(await limitOf('globex-staging', 'storage-gb')).toEqual({ type: 'number', value: 250 });
 
     expect((await send('DELETE', '/instances/globex-staging/addons/extra-seats')).status).toBe(204);
-    expect(await limitOf('globex-staging', 'seats')).toEqual({ type: 'number', value: 10 });
+    // Without the add-ons, the license's ten, still doubled by the voucher.
+    expect(await limitOf('globex-staging', 'seats')).toEqual({ type: 'number', value: 20 });
+  });
+
+  it('says why in the usage it serves: the add-ons and the voucher that make the limit, and the license alone once they go', async () => {
+    const provenanceOf = async (instanceSlug: string) => {
+      const usages = await json<EntitlementUsage[]>(
+        await send('GET', `/instances/${instanceSlug}/entitlements/usage`),
+      );
+
+      return usages.find(({ entitlementSlug }) => entitlementSlug === 'seats');
+    };
+
+    const composed = await provenanceOf('globex-staging');
+    expect(composed).toMatchObject({
+      limitCapExceededOveragePercent: 0,
+      source: 'license',
+    });
+    expect(composed?.provenance?.number).toEqual({
+      afterAddons: 20,
+      boostAdd: null,
+      boostMultiply: 2,
+      boostSet: null,
+      effective: 40,
+      license: 10,
+      unlimited: false,
+    });
+    expect(composed?.provenance?.addons).toHaveLength(1);
+    expect(composed?.provenance?.boosts).toMatchObject([
+      { modifierType: 'MULTIPLY', modifierValue: 2 },
+    ]);
+
+    // A quantity changes the composition the same moment it changes the limit.
+    await send('PATCH', '/instances/globex-staging/addons/extra-seats', { quantity: 4 });
+    expect((await provenanceOf('globex-staging'))?.provenance?.number).toMatchObject({
+      afterAddons: 30,
+      effective: 60,
+    });
+
+    // An instance with only its license: the license's grant, and no composition.
+    const identity = await provenanceOf('gamma-production');
+    expect(identity?.provenance?.number).toBeNull();
+    expect(identity?.provenance?.license).toMatchObject({
+      value: { type: 'number', value: 10 },
+    });
+    expect(identity?.provenance?.addons).toEqual([]);
   });
 
   it('keeps the attachment once removed, as history, and lets the family be attached again', async () => {
