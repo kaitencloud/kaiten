@@ -611,5 +611,185 @@ describe('instance-detail-entitlements utils', () => {
         value: 3,
       });
     });
+
+    describe('where the usage says why the limit is what it is', () => {
+      const provenance = {
+        addons: [],
+        boosts: [],
+        license: {
+          licenseEntitlementId: 'license-entitlement-traces',
+          limitCapExceededOveragePercent: null,
+          value: { type: 'number', value: 10000 },
+        },
+        number: {
+          afterAddons: 13000,
+          boostAdd: null,
+          boostMultiply: 2,
+          boostSet: null,
+          effective: 26000,
+          license: 10000,
+          unlimited: false,
+        },
+      };
+      const grant = {
+        entitlementName: 'Traces',
+        entitlementSlug: 'traces',
+        entitlementType: 'NUMBER',
+        value: { type: 'number', value: 10000 },
+      };
+
+      it('carries the source and the provenance onto the row of a license grant', () => {
+        const [row] = buildEntitlementsRows(
+          [grant] as any,
+          [
+            {
+              entitlementId: 'ent-traces',
+              entitlementSlug: 'traces',
+              limit: { type: 'number', value: 26000 },
+              provenance,
+              source: 'license',
+              value: { type: 'number', value: 4200 },
+            },
+          ] as any,
+          'Unknown',
+        );
+
+        expect(row).toMatchObject({
+          provenance,
+          source: 'license',
+          threshold: 26000,
+        });
+      });
+
+      it('has the license as its source and no provenance when the usage sends none', () => {
+        const [row] = buildEntitlementsRows([grant] as any, [], 'Unknown');
+
+        expect(row.source).toBe('license');
+        expect(row.provenance).toBeNull();
+      });
+
+      // An add-on may lower the percent down to a hard limit: the license's own is
+      // what the grant said before it.
+      it('takes the overage percent the API composes over the one of the license grant', () => {
+        const [row] = buildEntitlementsRows(
+          [{ ...grant, limitCapExceededOveragePercent: 50 }] as any,
+          [
+            {
+              entitlementId: 'ent-traces',
+              entitlementSlug: 'traces',
+              limit: { type: 'number', value: 26000 },
+              limitCapExceededOveragePercent: 0,
+              source: 'license',
+              value: { type: 'number', value: 4200 },
+            },
+          ] as any,
+          'Unknown',
+        );
+
+        expect(row.limitCapExceededOveragePercent).toBe(0);
+      });
+
+      it('keeps the percent of the license grant when the usage carries none', () => {
+        const [row] = buildEntitlementsRows(
+          [{ ...grant, limitCapExceededOveragePercent: 50 }] as any,
+          [
+            {
+              entitlementId: 'ent-traces',
+              entitlementSlug: 'traces',
+              limit: { type: 'number', value: 10000 },
+              source: 'license',
+              value: { type: 'number', value: 4200 },
+            },
+          ] as any,
+          'Unknown',
+        );
+
+        expect(row.limitCapExceededOveragePercent).toBe(50);
+      });
+    });
+
+    // The license grants nothing of it: the add-ons the instance holds do.
+    describe('where only add-ons grant an entitlement', () => {
+      const catalogue = [
+        { icon: 'users', name: 'Seats', slug: 'seats', type: 'NUMBER' },
+        { name: 'Analytics', slug: 'advanced-analytics', type: 'BOOLEAN' },
+      ] as any;
+
+      it('names a number by the catalogue, with the cap and the percent the usage says', () => {
+        const rows = buildEntitlementsRows(
+          [],
+          [
+            {
+              entitlementId: 'ent-seats',
+              entitlementSlug: 'seats',
+              limit: { type: 'number', value: 15 },
+              limitCapExceededOveragePercent: 0,
+              source: 'addon',
+              value: { type: 'number', value: 4 },
+            },
+          ] as any,
+          'Unknown',
+          catalogue,
+        );
+
+        expect(rows).toHaveLength(1);
+        expect(rows[0]).toMatchObject({
+          catalogueEntitlementType: 'NUMBER',
+          entitlementIcon: 'users',
+          entitlementId: 'ent-seats',
+          entitlementName: 'Seats',
+          entitlementSlug: 'seats',
+          entitlementType: 'NUMBER',
+          limitCapExceededOveragePercent: 0,
+          source: 'addon',
+          threshold: 15,
+          value: 4,
+        });
+      });
+
+      it('reads a flag as a flag, with its value', () => {
+        const [row] = buildEntitlementsRows(
+          [],
+          [
+            {
+              entitlementId: 'ent-analytics',
+              entitlementSlug: 'advanced-analytics',
+              limit: { type: 'boolean', value: true },
+              source: 'addon',
+              value: { type: 'boolean', value: true },
+            },
+          ] as any,
+          'Unknown',
+          catalogue,
+        );
+
+        expect(row).toMatchObject({
+          enabled: true,
+          entitlementName: 'Analytics',
+          entitlementType: 'BOOLEAN',
+          threshold: null,
+        });
+      });
+
+      it('names it by its slug when the catalogue does not know it', () => {
+        const [row] = buildEntitlementsRows(
+          [],
+          [
+            {
+              entitlementId: 'ent-unknown',
+              entitlementSlug: 'unknown-thing',
+              limit: { type: 'number', value: 1 },
+              source: 'addon',
+              value: { type: 'number', value: 0 },
+            },
+          ] as any,
+          'Unknown',
+          catalogue,
+        );
+
+        expect(row.entitlementName).toBe('unknown-thing');
+        expect(row.catalogueEntitlementType).toBeNull();
+      });
+    });
   });
 });

@@ -10,6 +10,8 @@ import {
   isPeriodicEntitlement,
   isSoftLimit,
 } from '@/domains/entitlement-usage';
+import type { ServedProvenance } from './entitlement-provenance.utils';
+import { buildUsageOnlyRow } from './usage-only-entitlement-row';
 
 export type InstanceEntitlementGroup = {
   id: string;
@@ -45,6 +47,13 @@ export type InstanceEntitlementRow = {
   // the non-numeric grants that have no cap to exceed.
   limitCapExceededOveragePercent: number | null;
   enabled: boolean | null;
+  // Where the effective value comes from: the license grants it (the add-ons and
+  // the vouchers of the instance may change it), or only its add-ons do. Rows built
+  // without a usage behind them come from the license.
+  source?: EntitlementUsage['source'];
+  // What the license, the add-ons and the vouchers each contribute to the effective
+  // value, as the API sends it. Absent when the API sent none.
+  provenance?: ServedProvenance | null;
 };
 
 export const isSoftLimitEntitlement = (entitlement: InstanceEntitlementRow) =>
@@ -96,6 +105,11 @@ export const buildEntitlementsRows = (
   const iconBySlug = new Map(
     entitlements.flatMap((entitlement) =>
       entitlement.slug ? [[entitlement.slug, entitlement.icon ?? null]] : [],
+    ),
+  );
+  const nameBySlug = new Map(
+    entitlements.flatMap((entitlement) =>
+      entitlement.slug ? [[entitlement.slug, entitlement.name]] : [],
     ),
   );
   const iconByName = new Map(
@@ -173,41 +187,29 @@ export const buildEntitlementsRows = (
       currentPeriodStart: usage?.currentPeriodStart ?? null,
       currentPeriodEnd: usage?.currentPeriodEnd ?? null,
       threshold: getThreshold(entitlement, usage),
+      // The percent the API composes, as the cap is: an add-on may lower it, and a
+      // license grant alone says what it was before the add-ons.
       limitCapExceededOveragePercent:
+        usage?.limitCapExceededOveragePercent ??
         getLicenseEntitlementOveragePercent(entitlement),
       enabled:
         entitlement.value?.type === 'boolean'
           ? (entitlement.value.value as boolean)
           : null,
+      source: usage?.source ?? 'license',
+      provenance: usage?.provenance ?? null,
     } as const;
   });
 
-  const usageOnlyEntitlements: InstanceEntitlementRow[] =
-    entitlementUsages.flatMap((usage) => {
-      if (usedUsageIds.has(usage.entitlementId)) return [];
-      return [
-        {
-          entitlementId: usage.entitlementId,
-          entitlementGroups: [],
-          entitlementIcon: usage.entitlementSlug
-            ? (iconBySlug.get(usage.entitlementSlug) ?? null)
-            : null,
-          entitlementName: usage.entitlementId,
-          entitlementSlug: null,
-          entitlementType: 'NUMBER',
-          // A usage report with no grant behind it: the catalogue cannot be
-          // consulted by name, so the row keeps the generic label.
-          catalogueEntitlementType: null,
-          value:
-            usage.value?.type === 'number' ? (usage.value.value as number) : 0,
-          currentPeriodStart: usage.currentPeriodStart ?? null,
-          currentPeriodEnd: usage.currentPeriodEnd ?? null,
-          threshold: null,
-          limitCapExceededOveragePercent: null,
-          enabled: null,
-        },
-      ];
-    });
+  const usageOnlyEntitlements: InstanceEntitlementRow[] = entitlementUsages
+    .filter((usage) => !usedUsageIds.has(usage.entitlementId))
+    .map((usage) =>
+      buildUsageOnlyRow(usage, {
+        iconBySlug,
+        nameBySlug,
+        typeBySlug: catalogueTypeBySlug,
+      }),
+    );
 
   return [...enrichedEntitlements, ...usageOnlyEntitlements];
 };
