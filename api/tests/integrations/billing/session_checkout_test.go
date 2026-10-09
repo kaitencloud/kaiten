@@ -166,3 +166,44 @@ func parseID(t *testing.T, raw any) uuid.UUID {
 	require.NoError(t, err)
 	return id
 }
+
+// TestSessionCheckoutQuota: a checkout is refused a plan the instance's usage
+// already exceeds (§14.4 rule 2), unless the add-ons it buys with it make room.
+func TestSessionCheckoutQuota(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	newEntitlement(t, "seats", 0)
+	starter := newDefaultVersion(t, "Starter", "FREE")
+	makePublic(t, starter.FamilySlug)
+	grant(t, starter.Slug, "seats", 10, 0)
+	free := createPrice(t, starter.Slug, defaultFlatFee("0", "MONTHLY"))
+	newPublishableKey(t, storefront)
+
+	private := newVersion(t, "Internal", "PUBLISHED")
+	grant(t, private.Slug, "seats", 100, 0)
+	customer := newCustomer(t, "acme")
+	instance := newInstance(t, "Acme prod", customer.ID, private.ID)
+	resp := call(t, "POST", "/api/instances/"+instance.Slug+"/entitlements/seats/usage",
+		map[string]any{"value": map[string]any{"type": "number", "value": 30}, "behavior": "append"})
+	require.Less(t, resp.StatusCode, 300)
+	session := mintSession(t, testServer, customer.Slug, instance.Slug)
+	order := map[string]any{"licensePriceId": free.ID}
+
+	for _, dryRun := range []bool{true, false} {
+		problem := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t,
+			sessionCall(t, testServer, "POST", checkoutPath, session.Token, storefront, with(order, "dryRun", dryRun)), fiber.StatusUnprocessableEntity)
+		require.Equal(t, "CreateSessionCheckout.QuotaExceeded", problem.Code, "dry run %v", dryRun)
+		require.Equal(t, map[string]any{"entitlementSlugs": []any{"seats"}}, problem.Errors[0].Value)
+	}
+	moved := commonfixture.AssertJSONResponse[instanceschema.Instance](t, call(t, "GET", "/api/instances/"+instance.Slug, nil), fiber.StatusOK)
+	require.Equal(t, private.ID, moved.LicenseID, "nothing was changed")
+
+	// Seats bought with the plan make room for the usage.
+	seats := newAddon(t, map[string]any{"name": "Extra seats", "slug": "extra-seats", "isDefault": true, "pricingType": "FREE"})
+	addonGrant(t, seats.Slug, "seats", 25, "ADD")
+	fits(t, seats.Slug, starter.FamilySlug)
+	commonfixture.AssertJSONResponse[map[string]any](t,
+		call(t, "PATCH", "/api/addon-families/extra-seats", map[string]any{"isPublic": true}), fiber.StatusOK)
+	done := commonfixture.AssertJSONResponse[createsessioncheckout.SessionCheckout](t, sessionCall(t, testServer, "POST", checkoutPath,
+		session.Token, storefront, with(order, "addOns", []map[string]any{{"addonSlug": seats.Slug, "quantity": 1}})), fiber.StatusCreated)
+	require.Equal(t, createsessioncheckout.StatusSubscribed, done.Status)
+}
