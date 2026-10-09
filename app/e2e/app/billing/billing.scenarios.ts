@@ -13,6 +13,7 @@ import {
 import {
   billingCapabilities,
   billingCapabilitiesProfiles,
+  type StripeStanding,
 } from '../_support/model/billing-capabilities';
 import {
   ACME_LEGACY_SUBSCRIPTION,
@@ -23,6 +24,11 @@ import {
   billedCatalogue,
 } from './billed-instances';
 import { GLOBEX_IDENTITY, invoiceSet } from './invoice-fixtures';
+import {
+  stripeInvoices,
+  stripeProviderTruth,
+  stripeProvidersSeed,
+} from './stripe-fixtures';
 
 /**
  * Billing on, as the API of the local stack serves it: NoOp as the only
@@ -101,50 +107,10 @@ export function createInvoicesModel(
   } = {},
 ) {
   const { invoices, lineReports } = invoiceSet();
-  const stripeInvoices: Invoice[] = options.stripe
-    ? [
-        buildInvoice({
-          boundaryAt: '2026-04-01T00:00:00.000Z',
-          createdAt: '2026-04-01T00:06:00.000Z',
-          id: 'inv-s1',
-          issuedAt: '2026-04-01T00:06:00.000Z',
-          lines: [
-            buildInvoiceLine({
-              amount: 2900,
-              description: '1 × $29.00 per month',
-              invoiceId: 'inv-s1',
-              label: 'Pro, monthly',
-              seq: 1,
-              serviceFrom: '2026-04-01T00:00:00.000Z',
-              serviceTo: '2026-05-01T00:00:00.000Z',
-              type: 'BASE',
-              unitAmountDecimal: '2900',
-            }),
-          ],
-          providerKind: 'STRIPE',
-          status: 'PUSHED',
-        }),
-        buildInvoice({
-          boundaryAt: '2026-04-01T00:00:00.000Z',
-          createdAt: '2026-04-01T00:07:00.000Z',
-          id: 'inv-f1',
-          lines: [
-            buildInvoiceLine({
-              amount: 2900,
-              description: '1 × $29.00 per month',
-              invoiceId: 'inv-f1',
-              label: 'Pro, monthly',
-              seq: 1,
-              serviceFrom: '2026-04-01T00:00:00.000Z',
-              serviceTo: '2026-05-01T00:00:00.000Z',
-              type: 'BASE',
-              unitAmountDecimal: '2900',
-            }),
-          ],
-          providerKind: 'STRIPE',
-          status: 'PUSH_FAILED',
-        }),
-      ]
+  // Stripe collects two of them, as the lists and the filters read: one open and
+  // one whose push failed. The rest of what Stripe can hold is `createStripeBillingModel`.
+  const stripeOnes: Invoice[] = options.stripe
+    ? stripeInvoices().filter(({ id }) => id === 'inv-s1' || id === 'inv-f1')
     : [];
 
   const capabilities = options.stripe
@@ -160,9 +126,56 @@ export function createInvoicesModel(
             usageHistoryRetentionMonths: options.retentionMonths,
           },
     deletedInstances: ['globex-prod'],
-    invoices: [...invoices, ...stripeInvoices],
+    invoices: [...invoices, ...stripeOnes],
     lineReports,
     retentionStart: options.retentionStart,
+  });
+}
+
+/**
+ * An organization that collects through Stripe: the invoices of
+ * `invoice-fixtures.ts` (the ones nobody pushed) and every state an invoice can be
+ * in at Stripe (`stripe-fixtures.ts`), the customers as Stripe holds them, and
+ * what the API serves now of the capabilities (it fixes `stripe`,
+ * `chargeAutomatically` and `publicSurface`, whatever Stripe can do).
+ *
+ * - `standing` is where the connector stands: connected (a test account by default),
+ *   or one of the reasons it cannot be;
+ * - `sync` is how the pass that mirrors Stripe went last: `healthy`, `failing` three
+ *   times since an hour ago, or `never` run.
+ */
+export function createStripeBillingModel(
+  options: {
+    standing?: StripeStanding;
+    sync?: 'failing' | 'healthy' | 'never';
+  } = {},
+) {
+  const { invoices, lineReports } = invoiceSet();
+  const providers = stripeProvidersSeed();
+  const sync = options.sync ?? 'healthy';
+
+  return new BillingAppModel({
+    capabilities: billingCapabilitiesProfiles.stackWithStripe(
+      options.standing ?? 'connected',
+    ),
+    deletedInstances: ['globex-prod'],
+    invoices: [...invoices, ...stripeInvoices()],
+    lineReports,
+    providerTruth: stripeProviderTruth(),
+    providers: {
+      ...providers,
+      sync:
+        sync === 'never'
+          ? undefined
+          : sync === 'failing'
+            ? {
+                consecutiveFailures: 3,
+                lastSyncError: 'the payment provider could not be reached',
+                lastSyncStatus: 'FAILED',
+                lastSyncedAt: '2026-03-31T23:00:00.000Z',
+              }
+            : providers.sync,
+    },
   });
 }
 

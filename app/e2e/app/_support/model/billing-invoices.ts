@@ -28,6 +28,8 @@ const MAX_REPORTS_PAGE_SIZE = 500;
 const MAX_REASON = 500;
 const MAX_EXTERNAL_REFERENCE = 255;
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** How many reads of an invoice pass before the job of the push queue has run for it. */
+const PUSH_JOB_AFTER_READS = 2;
 /** Who acts in the mocks: the signed-in user of every spec. */
 const ACTOR = 'user-e2e';
 
@@ -42,8 +44,23 @@ export type InvoiceProblemOperation =
   | 'markPaid'
   | 'recompose'
   | 'releaseHold'
+  | 'retryPush'
+  | 'syncInvoice'
   | 'voidInvoice'
   | 'writeOff';
+
+/**
+ * What the payment provider says of an invoice now, which Kaiten only knows once
+ * it has read it back: a customer who paid on the hosted page, or a draft someone
+ * finalized in the provider's dashboard, changes this and not the invoice.
+ */
+export type ProviderTruth =
+  | 'deleted'
+  | 'draft'
+  | 'open'
+  | 'paid'
+  | 'uncollectible'
+  | 'void';
 
 export type ArmedInvoiceProblem = {
   /** How many calls of the operation go through before the one that fails. */
@@ -92,6 +109,16 @@ export type BillingInvoicesSeed = {
   invoices?: Invoice[];
   /** The usage journal behind each metered line, by line id. */
   lineReports?: Record<string, UsageReport[]>;
+  /**
+   * What the payment provider says of an invoice it holds, by invoice id, when it
+   * is not what Kaiten last read: an invoice paid at the provider, not yet synced.
+   */
+  providerTruth?: Record<string, ProviderTruth>;
+  /**
+   * Invoices whose push keeps failing, by invoice id, with the provider's error:
+   * pushing one again fails again.
+   */
+  pushFailures?: Record<string, string>;
   /** Where the usage the organization keeps begins; none keeps it all. */
   retentionStart?: string;
 };
@@ -102,6 +129,10 @@ export type SerializedBillingInvoices = {
   defaultDaysUntilDue: number;
   invoices: Invoice[];
   lineReports: Record<string, UsageReport[]>;
+  /** The invoices queued for a push, with the reads left until the job runs; a state stored before there were providers has none. */
+  pushQueue?: Record<string, number>;
+  providerTruth?: Record<string, ProviderTruth>;
+  pushFailures?: Record<string, string>;
   retentionStart: string | null;
   sequence: number;
 };
@@ -253,6 +284,10 @@ export class BillingInvoices {
   private deleted: Set<string>;
   private defaultDaysUntilDue: number;
   private invoices: Invoice[];
+  private providerTruth: Map<string, ProviderTruth>;
+  /** The invoices queued for a push: the reads left until the job of the provider runs. */
+  private pushQueue = new Map<string, number>();
+  private pushFailures: Map<string, string>;
   private reports: Map<string, UsageReport[]>;
   private retentionStart: string | null;
   private sequence = 1;
@@ -278,6 +313,8 @@ export class BillingInvoices {
     );
     this.deleted = new Set(seed.deletedInstances ?? []);
     this.defaultDaysUntilDue = seed.defaultDaysUntilDue ?? 30;
+    this.providerTruth = new Map(Object.entries(seed.providerTruth ?? {}));
+    this.pushFailures = new Map(Object.entries(seed.pushFailures ?? {}));
     this.retentionStart = seed.retentionStart ?? null;
   }
 
@@ -291,11 +328,14 @@ export class BillingInvoices {
         deletedInstances: state.deletedInstances,
         invoices: state.invoices,
         lineReports: state.lineReports,
+        providerTruth: state.providerTruth,
+        pushFailures: state.pushFailures,
         retentionStart: state.retentionStart ?? undefined,
       },
       now,
     );
     model.sequence = state.sequence;
+    model.pushQueue = new Map(Object.entries(state.pushQueue ?? {}));
     for (const [operation, problem] of state.armedProblems) {
       model.armed.set(operation, problem);
     }
@@ -318,6 +358,9 @@ export class BillingInvoices {
           clone(rows),
         ]),
       ),
+      providerTruth: Object.fromEntries(this.providerTruth),
+      pushFailures: Object.fromEntries(this.pushFailures),
+      pushQueue: Object.fromEntries(this.pushQueue),
       retentionStart: this.retentionStart,
       sequence: this.sequence,
     };
@@ -424,6 +467,21 @@ export class BillingInvoices {
   /** Every invoice, for a spec that asserts what the model holds. */
   snapshot(): Invoice[] {
     return clone(this.invoices);
+  }
+
+  /** The invoices a list would select, without the list's armed refusals: what the health counts. */
+  matching(query: InvoiceListQuery): Invoice[] {
+    return this.invoices.filter((invoice) => this.matches(invoice, query));
+  }
+
+  /** Whether an invoice waits in the push queue: the next read of it lets the job run. */
+  hasQueuedPush(id: string): boolean {
+    return this.pushQueue.has(id);
+  }
+
+  /** What the payment provider now says of an invoice: a customer paid it, or someone finalized or deleted it there. */
+  setProviderTruth(id: string, truth: ProviderTruth) {
+    this.providerTruth.set(id, truth);
   }
 
   // --- Reads ----------------------------------------------------------------
@@ -548,8 +606,10 @@ export class BillingInvoices {
   /** `GET /invoices/{invoiceId}`. */
   getInvoice(id: string): Invoice {
     this.consume('getInvoice');
+    const invoice = this.find(id, 'GetInvoice.NotFound');
+    this.runQueuedPush(invoice);
 
-    return clone(this.find(id, 'GetInvoice.NotFound'));
+    return clone(invoice);
   }
 
   /** `GET /billing/handoff`: oldest issue first, one status at a time. */
@@ -937,6 +997,14 @@ export class BillingInvoices {
       holdReason: undefined,
       id: replacementId,
       paidAt: undefined,
+      // The replacement is a new invoice of the provider: it waits for its push.
+      provider:
+        invoice.providerKind === 'NOOP'
+          ? undefined
+          : {
+              nextPushAt: at,
+              pushAttempts: 0,
+            },
       replacedByInvoiceId: undefined,
       replacesInvoiceId: invoice.id,
       status: 'DRAFT',
@@ -1030,7 +1098,12 @@ export class BillingInvoices {
     return clone(this.stamp(invoice));
   }
 
-  /** `POST /invoices/{invoiceId}/void`: without a payment provider, local. */
+  /**
+   * `POST /invoices/{invoiceId}/void`: without a payment provider, local; with
+   * one, in the provider first. Kaiten writes VOID only once the provider has
+   * voided (or deleted) its invoice, so that it never shows VOID for an invoice the
+   * customer can still pay; an invoice the provider reports paid is refused.
+   */
   voidInvoice(id: string, reason: string | undefined): Invoice {
     this.consume('voidInvoice');
     this.checkReason('VoidInvoice', reason);
@@ -1038,18 +1111,265 @@ export class BillingInvoices {
     if (invoice.status === 'VOID') {
       return clone(invoice);
     }
-    if (!['DRAFT', 'PUSH_FAILED', 'MANUAL'].includes(invoice.status)) {
+    const allowed =
+      invoice.providerKind === 'NOOP'
+        ? ['DRAFT', 'PUSH_FAILED', 'MANUAL']
+        : ['DRAFT', 'PUSH_FAILED', 'PUSHED', 'PAYMENT_FAILED'];
+    if (!allowed.includes(invoice.status)) {
       throw new BillingProblem(
         409,
         'VoidInvoice.InvalidStatus',
         `a ${invoice.status} invoice cannot be voided`,
       );
     }
+    this.voidInProvider(invoice);
     invoice.status = 'VOID';
     invoice.voidedAt = new Date(this.now()).toISOString();
     invoice.voidReason = reason;
+    invoice.provider = invoice.provider && {
+      ...invoice.provider,
+      nextPushAt: undefined,
+    };
+    this.pushQueue.delete(id);
 
     return clone(this.stamp(invoice));
+  }
+
+  /** The provider's leg of a void: a draft is deleted there, an open invoice voided. */
+  private voidInProvider(invoice: Invoice) {
+    const record = invoice.provider;
+    if (invoice.providerKind === 'NOOP' || !record?.externalInvoiceId) {
+      return;
+    }
+    const truth = this.truthOf(invoice);
+    if (truth === 'paid') {
+      throw new BillingProblem(
+        409,
+        'VoidInvoice.InvalidStatus',
+        'the payment provider reports this invoice paid',
+        {
+          errors: [
+            {
+              location: 'provider',
+              message: 'paid at the provider',
+              value: 'paid_at_provider',
+            },
+          ],
+        },
+      );
+    }
+    record.status = record.status === 'draft' ? undefined : 'void';
+    this.providerTruth.set(invoice.id, 'void');
+  }
+
+  /** What the provider says of an invoice: what a spec set, else what Kaiten last read. */
+  private truthOf(invoice: Invoice): ProviderTruth {
+    return (
+      this.providerTruth.get(invoice.id) ?? invoice.provider?.status ?? 'open'
+    );
+  }
+
+  // --- The payment provider ----------------------------------------------------------
+
+  /**
+   * An invoice the provider has accepted: the same fields the push sets when it
+   * finalizes a Stripe invoice, reconciled against Kaiten's total.
+   */
+  private finalizeAtProvider(invoice: Invoice) {
+    const at = new Date(this.now()).toISOString();
+    const record = (invoice.provider ??= { pushAttempts: 0 });
+    const days =
+      invoice.collectionMethod === 'CHARGE_AUTOMATICALLY'
+        ? 0
+        : (invoice.daysUntilDue ?? this.defaultDaysUntilDue);
+    const externalId = record.externalInvoiceId ?? `in_${invoice.id}`;
+
+    invoice.status = 'PUSHED';
+    invoice.issuedAt = at;
+    invoice.daysUntilDue = days;
+    invoice.dueAt = new Date(this.now() + days * DAY_MS).toISOString();
+    record.externalInvoiceId = externalId;
+    record.invoiceNumber ??= `INV-${externalId.slice(-6).toUpperCase()}`;
+    record.status = 'open';
+    record.hostedInvoiceUrl = `https://invoice.stripe.com/i/acct_1/${externalId}`;
+    record.invoicePdfUrl = `https://pay.stripe.com/invoice/acct_1/${externalId}/pdf`;
+    record.pushedAt = at;
+    record.syncedAt = at;
+    record.nextPushAt = undefined;
+    record.lastPushError = undefined;
+    record.totalExcludingTax = invoice.total;
+    record.reconciliationStatus = 'MATCHED';
+    record.reconciliationDetail = undefined;
+    record.reconciledAt = at;
+    this.providerTruth.set(invoice.id, 'open');
+  }
+
+  /** The job of the push queue, run for an invoice that was queued and has been read enough times since. */
+  private runQueuedPush(invoice: Invoice) {
+    const left = this.pushQueue.get(invoice.id);
+    if (left === undefined) {
+      return;
+    }
+    if (left > 1) {
+      this.pushQueue.set(invoice.id, left - 1);
+
+      return;
+    }
+    this.pushQueue.delete(invoice.id);
+    if (!['DRAFT', 'PUSH_FAILED'].includes(invoice.status)) {
+      return;
+    }
+    const failure = this.pushFailures.get(invoice.id);
+    if (failure) {
+      const record = (invoice.provider ??= { pushAttempts: 0 });
+      record.pushAttempts += 1;
+      record.lastPushError = failure;
+      record.nextPushAt = new Date(
+        this.now() + 2 ** record.pushAttempts * 60_000,
+      ).toISOString();
+      invoice.status = 'PUSH_FAILED';
+      this.stamp(invoice);
+
+      return;
+    }
+    this.finalizeAtProvider(invoice);
+    this.stamp(invoice);
+  }
+
+  /**
+   * `POST /invoices/{invoiceId}/retry-push`: puts a DRAFT or PUSH_FAILED invoice
+   * of a payment provider back in the push queue now. A draft waiting for its
+   * finalization in the provider (review mode) is finalized at once instead.
+   */
+  retryPush(id: string): Invoice {
+    this.consume('retryPush');
+    const invoice = this.find(id, 'RetryInvoicePush.NotFound');
+    if (
+      invoice.providerKind === 'NOOP' ||
+      !['DRAFT', 'PUSH_FAILED'].includes(invoice.status)
+    ) {
+      throw new BillingProblem(
+        409,
+        'RetryInvoicePush.InvalidStatus',
+        "only a payment provider's DRAFT or PUSH_FAILED invoice is pushed",
+      );
+    }
+    if (invoice.holdReason) {
+      throw new BillingProblem(
+        409,
+        'RetryInvoicePush.Held',
+        'a held invoice is released or recomposed before it is pushed',
+      );
+    }
+    const record = invoice.provider;
+    const awaitsFinalization =
+      invoice.status === 'DRAFT' &&
+      record?.externalInvoiceId !== undefined &&
+      record.nextPushAt === undefined;
+    if (awaitsFinalization) {
+      this.finalizeAtProvider(invoice);
+    } else {
+      invoice.provider = {
+        pushAttempts: 0,
+        ...record,
+        nextPushAt: new Date(this.now()).toISOString(),
+      };
+      this.pushQueue.set(id, PUSH_JOB_AFTER_READS);
+    }
+
+    return clone(this.stamp(invoice));
+  }
+
+  /** Applies what the provider says of an invoice to Kaiten's copy of it. */
+  private applyProviderTruth(invoice: Invoice) {
+    const record = invoice.provider;
+    if (!record?.externalInvoiceId) {
+      return;
+    }
+    const at = new Date(this.now()).toISOString();
+    const truth = this.truthOf(invoice);
+
+    record.syncedAt = at;
+    switch (truth) {
+      case 'paid':
+        invoice.status = 'PAID';
+        invoice.paidAt = at;
+        record.status = 'paid';
+        record.nextPushAt = undefined;
+        break;
+      case 'void':
+      case 'deleted':
+        invoice.status = 'VOID';
+        invoice.voidedAt = at;
+        invoice.voidReason =
+          truth === 'void' ? 'voided_in_provider' : 'provider_draft_deleted';
+        record.status = truth === 'void' ? 'void' : undefined;
+        record.nextPushAt = undefined;
+        break;
+      case 'uncollectible':
+        invoice.status = 'UNCOLLECTIBLE';
+        invoice.uncollectibleAt = at;
+        record.status = 'uncollectible';
+        break;
+      case 'open':
+        // Finalized outside Kaiten: the step-three persistence of the push.
+        if (['DRAFT', 'PUSH_FAILED'].includes(invoice.status)) {
+          this.finalizeAtProvider(invoice);
+        } else {
+          record.status = 'open';
+        }
+        break;
+      case 'draft':
+        record.status = 'draft';
+        break;
+    }
+    this.pushQueue.delete(invoice.id);
+    this.stamp(invoice);
+  }
+
+  /**
+   * `POST /invoices/{invoiceId}/sync`: reads an invoice from its payment provider
+   * now and applies what the provider says: its finalization, payment, write-off
+   * or void.
+   */
+  syncInvoice(id: string): Invoice {
+    this.consume('syncInvoice');
+    const invoice = this.find(id, 'SyncInvoice.NotFound');
+    if (
+      invoice.providerKind === 'NOOP' ||
+      !invoice.provider?.externalInvoiceId
+    ) {
+      throw new BillingProblem(
+        409,
+        'SyncInvoice.NotPushed',
+        'the invoice is not in a payment provider',
+      );
+    }
+    this.applyProviderTruth(invoice);
+
+    return clone(invoice);
+  }
+
+  /**
+   * The pass of the provider, over every invoice it holds that is not settled:
+   * what the periodic pass and `POST /billing/sync` do. It says how many it read.
+   */
+  syncOpenProviderInvoices(): { applied: number; failed: number } {
+    let applied = 0;
+    for (const invoice of this.invoices) {
+      if (
+        invoice.providerKind !== 'NOOP' &&
+        invoice.provider?.externalInvoiceId &&
+        ['DRAFT', 'PUSH_FAILED', 'PUSHED', 'PAYMENT_FAILED'].includes(
+          invoice.status,
+        )
+      ) {
+        this.applyProviderTruth(invoice);
+        applied += 1;
+      }
+    }
+
+    return { applied, failed: 0 };
   }
 
   /** `POST /billing/handoff/{invoiceId}/ack`. */

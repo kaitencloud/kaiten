@@ -39,6 +39,7 @@ import {
 } from './billing-instance-addons';
 import { SubscriptionLifecycle } from './billing-lifecycle';
 import { BillingProblem } from './billing-problem';
+import type { ProviderRules } from './billing-providers';
 import { BillingVouchers, type VoucherWorld } from './billing-vouchers';
 import type { RedeemingInstance } from './billing-voucher-rules';
 import { addMonthsClamped } from './license-invoice-preview';
@@ -158,6 +159,8 @@ export class BillingSubscriptions {
   instanceAddons: InstanceAddons;
   private catalogue: BillingCatalogue;
   private readonly lifecycle: SubscriptionLifecycle;
+  /** What a move to a payment provider checks of the world; none until a model of the providers is given. */
+  private providerRules: (() => ProviderRules | undefined) | undefined;
   private sequence = 1;
   private settings: BillingSettings;
   private subscriptions: InstanceBilling[];
@@ -207,10 +210,12 @@ export class BillingSubscriptions {
     this.invoices.setDefaultDaysUntilDue(this.settings.defaultDaysUntilDue);
     this.lifecycle = new SubscriptionLifecycle({
       catalogue: () => this.catalogue,
+      defaultCollectionMethod: () => this.settings.defaultCollectionMethod,
       defaultDaysUntilDue: () => this.settings.defaultDaysUntilDue,
       invoices: this.invoices,
       nextSequence: () => this.sequence++,
       now: this.now,
+      providers: () => this.providerRules?.(),
       subscriptionOf: (slug) => this.subscriptionOf(slug),
       upcomingOf: (slug) => this.upcoming[slug],
       write: (subscription) => this.write(subscription),
@@ -627,6 +632,11 @@ export class BillingSubscriptions {
 
   // --- Settings ---------------------------------------------------------------
 
+  /** Gives the model the world a move to a payment provider is checked against. */
+  setProviderRules(rules: () => ProviderRules | undefined) {
+    this.providerRules = rules;
+  }
+
   /** `GET /billing/settings`. */
   getSettings(): BillingSettings {
     this.problems.consume('getBillingSettings');
@@ -644,7 +654,13 @@ export class BillingSubscriptions {
         'defaultDaysUntilDue is between 0 and 365',
       );
     }
-    if (body.defaultCollectionMethod !== 'SEND_INVOICE') {
+    // Automatic collection needs a connected provider that charges by itself.
+    const charges = ['STRIPE', 'NOOP'].some(
+      (kind) =>
+        this.providerRules?.()?.connection(kind as 'NOOP' | 'STRIPE')
+          ?.automaticCollection,
+    );
+    if (body.defaultCollectionMethod !== 'SEND_INVOICE' && !charges) {
       throw new BillingProblem(
         422,
         'UpdateBillingSettings.InvalidCollectionMethod',
