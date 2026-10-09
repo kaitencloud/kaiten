@@ -80,16 +80,27 @@ type SessionSubscription struct {
 	CurrentPeriodStart time.Time                    `json:"currentPeriodStart"`
 	CurrentPeriodEnd   time.Time                    `json:"currentPeriodEnd" doc:"When the current period ends: the renewal date, or the trial's end"`
 	TrialEndsAt        *time.Time                   `json:"trialEndsAt"`
-	CancelAtPeriodEnd  bool                         `json:"cancelAtPeriodEnd"`
+	CancelAtPeriodEnd  bool                         `json:"cancelAtPeriodEnd" doc:"The subscription ends at currentPeriodEnd; reactivate it before then to keep it"`
+	ScheduledChange    *SessionScheduledChange      `json:"scheduledChange" doc:"A plan change the vendor scheduled for the next boundary"`
+}
+
+// SessionScheduledChange is a plan change waiting for the next boundary.
+type SessionScheduledChange struct {
+	Price       getpubliccatalog.PublicPrice `json:"price" doc:"The price the subscription moves to"`
+	EffectiveAt time.Time                    `json:"effectiveAt" doc:"When it applies: the current period's end"`
 }
 
 // SubscriptionFrom shows a subscription as a session does.
 func SubscriptionFrom(billing subscriptions.InstanceBilling) SessionSubscription {
-	return SessionSubscription{
+	out := SessionSubscription{
 		Status: billing.Status, ProviderKind: billing.ProviderKind, CollectionMethod: billing.CollectionMethod,
 		Currency: billing.Currency, BillingPeriod: billing.BillingPeriod,
 		BasePrice:          getpubliccatalog.PriceFrom(billing.BasePrice),
 		CurrentPeriodStart: billing.CurrentPeriodStart, CurrentPeriodEnd: billing.CurrentPeriodEnd,
-		TrialEndsAt: billing.TrialEndsAt, CancelAtPeriodEnd: billing.CancelAtPeriodEnd,
+		TrialEndsAt: billing.TrialEndsAt, CancelAtPeriodEnd: billing.CancelAtPeriodEnd, ScheduledChange: nil,
 	}
+	if change := billing.ScheduledChange; change != nil {
+		out.ScheduledChange = &SessionScheduledChange{Price: getpubliccatalog.PriceFrom(change.Price), EffectiveAt: change.EffectiveAt}
+	}
+	return out
 }

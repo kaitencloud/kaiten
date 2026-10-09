@@ -11,6 +11,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatepublishablekey"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/cancelsessionsubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/completesessionpaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createpublishablekey"
@@ -21,6 +22,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listpublishablekeys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listsessioninvoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/reactivatesessionsubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
@@ -53,6 +55,9 @@ type UseCases struct {
 	CreateSessionPaymentMethodSession   *createsessionpaymentmethodsession.UseCase
 	CompleteSessionPaymentMethodSession *completesessionpaymentmethodsession.UseCase
 	CreateSessionPortalSession          *createsessionportalsession.UseCase
+
+	CancelSessionSubscription     *cancelsessionsubscription.UseCase
+	ReactivateSessionSubscription *reactivatesessionsubscription.UseCase
 }
 
 // Ports are the other modules' operations the session routes run: a checkout
@@ -67,6 +72,8 @@ type Ports struct {
 	BillingEmails   createsessioncheckout.BillingEmailSetter
 	SessionInvoices listsessioninvoices.Invoices
 	OpenPortal      createsessionportalsession.Opener
+	Cancel          cancelsessionsubscription.Canceler
+	Reactivate      reactivatesessionsubscription.Reactivator
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -97,5 +104,8 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		CreateSessionPaymentMethodSession:   createsessionpaymentmethodsession.NewUseCase(from.OpenSetup),
 		CompleteSessionPaymentMethodSession: completesessionpaymentmethodsession.NewUseCase(from.CompleteSetup),
 		CreateSessionPortalSession:          createsessionportalsession.NewUseCase(from.OpenPortal),
+
+		CancelSessionSubscription:     cancelsessionsubscription.NewUseCase(from.Cancel),
+		ReactivateSessionSubscription: reactivatesessionsubscription.NewUseCase(from.Reactivate),
 	}
 }

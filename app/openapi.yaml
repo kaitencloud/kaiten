@@ -8675,6 +8675,13 @@ components:
         - name
         - tokens
       type: object
+    SessionCancellation:
+      additionalProperties: false
+      properties:
+        reason:
+          description: Why the customer cancels, up to 500 characters; the vendor sees it on the subscription
+          type: string
+      type: object
     SessionCheckout:
       additionalProperties: false
       properties:
@@ -8897,6 +8904,20 @@ components:
         - serviceFrom
         - serviceTo
       type: object
+    SessionScheduledChange:
+      additionalProperties: false
+      properties:
+        effectiveAt:
+          description: "When it applies: the current period's end"
+          format: date-time
+          type: string
+        price:
+          $ref: "#/components/schemas/PublicPrice"
+          description: The price the subscription moves to
+      required:
+        - price
+        - effectiveAt
+      type: object
     SessionSubscription:
       additionalProperties: false
       properties:
@@ -8910,6 +8931,7 @@ components:
             - ANNUAL
           type: string
         cancelAtPeriodEnd:
+          description: The subscription ends at currentPeriodEnd; reactivate it before then to keep it
           type: boolean
         collectionMethod:
           enum:
@@ -8932,6 +8954,9 @@ components:
             - NOOP
             - STRIPE
           type: string
+        scheduledChange:
+          $ref: "#/components/schemas/SessionScheduledChange"
+          description: A plan change the vendor scheduled for the next boundary
         status:
           enum:
             - TRIAL
@@ -8955,6 +8980,7 @@ components:
         - currentPeriodEnd
         - trialEndsAt
         - cancelAtPeriodEnd
+        - scheduledChange
       type: object
     StartedSubscription:
       additionalProperties: false
@@ -22271,6 +22297,76 @@ paths:
       summary: Get the public catalogue
       tags:
         - public
+  /public/session/billing/cancel:
+    post:
+      description: "Cancels the subscription of the session's instance at the end of the period paid for: it keeps billing and granting until then, and reactivating before then keeps it. A trial ends at once, with nothing to pay. Repeating it changes nothing. 409 .NotActive when there is no live subscription, .BoundaryPending while the period that ended is being closed (Retry-After); 422 .InstanceRequired for a session bound to no instance."
+      operationId: cancelSessionSubscription
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionCancellation"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionSubscription"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - customerSession: []
+      summary: Cancel the subscription at the period's end
+      tags:
+        - public
   /public/session/billing/payment-method-session:
     post:
       description: Opens the payment provider's hosted page where the session's customer saves a payment method, for its invoices to be charged automatically. Send the customer to url; when it comes back, with kaiten_setup_session in the query, complete the session. Kaiten never sees card data.
@@ -22501,6 +22597,70 @@ paths:
       security:
         - customerSession: []
       summary: Open the payment provider's customer portal
+      tags:
+        - public
+  /public/session/billing/reactivate:
+    post:
+      description: "Takes back a cancellation scheduled for the period's end, before it: the subscription renews as before. 409 .NotScheduledForCancellation when none is scheduled (or the subscription has already ended), .BoundaryPending while the period that ended is being closed (Retry-After); 422 .InstanceRequired for a session bound to no instance."
+      operationId: reactivateSessionSubscription
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionSubscription"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+      security:
+        - customerSession: []
+      summary: Keep a subscription scheduled for cancellation
       tags:
         - public
   /public/session/checkout:
