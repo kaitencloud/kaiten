@@ -20,7 +20,7 @@ const button = (page: Page, name: RegExp | string) =>
   page.getByRole('button', { name });
 
 test.describe('the catalogue of vouchers, read in French', () => {
-  test('the list: its columns, the state of each row, the way to make one and the opening by code', async ({
+  test('the list: its columns, the state of each row, the way to make one', async ({
     page,
   }) => {
     await page.goto('/vouchers');
@@ -29,7 +29,6 @@ test.describe('the catalogue of vouchers, read in French', () => {
       page.getByRole('heading', { level: 1, name: 'Codes promo' }),
     ).toBeVisible();
     await expect(page.getByPlaceholder('Nom, code ou client')).toBeVisible();
-    await expect(page.getByPlaceholder('Ouvrir par le code')).toBeVisible();
     await expect(
       page.getByRole('link', { name: 'Nouveau code promo' }),
     ).toBeVisible();
@@ -62,7 +61,7 @@ test.describe('the catalogue of vouchers, read in French', () => {
     ).toBeVisible();
   });
 
-  test('the list: what it says when a search keeps no row, and when a code is not any voucher’s', async ({
+  test('the list: what it says when a search keeps no row, and the search by code', async ({
     page,
   }) => {
     await page.goto('/vouchers');
@@ -85,15 +84,12 @@ test.describe('the catalogue of vouchers, read in French', () => {
       page.getByRole('row').filter({ hasText: 'Summer sale' }),
     ).toBeVisible();
 
-    await page.getByPlaceholder('Ouvrir par le code').fill('NOPE-NOPE-NOPE');
-    await page.getByRole('button', { name: 'Chercher' }).click();
-    await expect(page.getByText('Ce code promo n’existe pas.')).toBeVisible();
-
     await page
-      .getByPlaceholder('Ouvrir par le code')
-      .fill('welcome spring 2027');
-    await page.getByRole('button', { name: 'Chercher' }).click();
-    await expect(page).toHaveURL('/vouchers/voucher-welcome');
+      .getByPlaceholder('Nom, code ou client')
+      .fill('welcome-spring-2027');
+    await expect(
+      page.getByRole('row').filter({ hasText: 'Welcome spring' }),
+    ).toBeVisible();
   });
 
   test('the page of a discount: its code, what it does in words and its redemptions', async ({

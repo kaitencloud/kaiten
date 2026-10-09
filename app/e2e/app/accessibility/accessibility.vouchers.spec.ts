@@ -53,22 +53,17 @@ test.describe('accessibility of the list of vouchers', () => {
     await expectAccessibleInBothThemes(page);
   });
 
-  test('names the search and the opening by code, and a code that matches nothing is said to whoever reads the page', async ({
+  test('names the search, which finds a voucher by its code', async ({
     page,
   }) => {
     const list = new VoucherListDriver(page);
     await list.goto();
 
     await expect(list.searchField()).toHaveAccessibleName(/./);
-    await expect(list.lookupField()).toBeVisible();
-    await list.lookup('NOPE-NOPE-NOPE');
+    await list.searchField().fill('WELCOME-SPRING-2027');
 
-    // Said in a live region, and kept with the field for whoever comes back to it.
-    await expect(list.lookupNotFound()).toBeVisible();
-    await expect(list.lookupNotFound()).toHaveAttribute('role', 'status');
-    await expect(list.lookupField()).toHaveAccessibleDescription(
-      /No voucher has this code\./,
-    );
+    await expect(list.row('Welcome spring')).toBeVisible();
+    await expect(list.rows()).toHaveCount(1);
   });
 });
 

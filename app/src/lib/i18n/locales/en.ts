@@ -4866,14 +4866,6 @@ export default {
         redeemedUnbounded: '{{count}} (no limit)',
         startsOn: 'Starts {{date}}',
       },
-      Lookup: {
-        title: 'Open a voucher by its code',
-        label: 'Voucher code',
-        placeholder: 'Open by code',
-        action: 'Find',
-        hint: 'Finds the voucher a code belongs to, for example when a customer writes in with a code that does not work.',
-        notFound: 'No voucher has this code.',
-      },
       Published: {
         title: 'Voucher published',
         subtitle: '{{name}} can now be redeemed.',

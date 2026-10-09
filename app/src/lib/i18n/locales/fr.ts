@@ -4934,14 +4934,6 @@ export default {
         redeemedUnbounded: '{{count}} (sans limite)',
         startsOn: 'Débute le {{date}}',
       },
-      Lookup: {
-        title: 'Ouvrir un code promo',
-        label: 'Code promo',
-        placeholder: 'Ouvrir par le code',
-        action: 'Chercher',
-        hint: 'Retrouve un code promo à partir de ce qu’un client a saisi, par exemple quand son code ne fonctionne pas.',
-        notFound: 'Ce code promo n’existe pas.',
-      },
       Published: {
         title: 'Code promo publié',
         subtitle: '{{name}} peut maintenant être utilisé.',

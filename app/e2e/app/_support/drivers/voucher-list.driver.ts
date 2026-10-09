@@ -2,8 +2,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
  * The list of vouchers: every voucher of the organization with its code, kind, state, how
- * often it was redeemed, until when and for whom, to search and filter in the browser, and
- * the box that opens a voucher by the code a customer sends. A voucher is made in a wizard
+ * often it was redeemed, until when and for whom, to search and filter in the browser; the
+ * search matches the code as well as the name and the customer. A voucher is made in a wizard
  * (`VoucherWizardDriver`) and read on its own page (`VoucherDetailDriver`).
  */
 export class VoucherListDriver {
@@ -52,24 +52,5 @@ export class VoucherListDriver {
   /** What the table says when a search or a filter hides every row. */
   filteredEmpty(): Locator {
     return this.page.getByTestId('vouchers-filtered-empty');
-  }
-
-  // --- Opening a voucher by its code -----------------------------------------------
-
-  lookupField(): Locator {
-    return this.page.getByRole('textbox', { name: 'Voucher code' });
-  }
-
-  lookupButton(): Locator {
-    return this.page.getByRole('button', { name: 'Find' });
-  }
-
-  async lookup(code: string) {
-    await this.lookupField().fill(code);
-    await this.lookupButton().click();
-  }
-
-  lookupNotFound(): Locator {
-    return this.page.getByText('No voucher has this code.');
   }
 }
