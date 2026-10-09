@@ -38,7 +38,7 @@ test.describe('deleting a draft', () => {
     await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
 
     await expectToast(page, 'Draft deleted');
-    await expect(page).toHaveURL('/licenses');
+    await expect(page).toHaveURL('/catalog/licenses');
     // Only the usage price on requests blocks a grant, and it is retired before
     // the first grant goes: the flat fee needs nothing, since it is deleted with
     // the version.
@@ -84,7 +84,7 @@ test.describe('deleting a draft', () => {
     expect(
       writes.map(({ method, pathname }) => `${method} ${pathname}`),
     ).toEqual(['POST /api/licenses/pro-v4/prices/price-2-usage/deprecate']);
-    await expect(page).toHaveURL('/licenses/pro-v4');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v4');
     await expect(detail.grantRow('Traces')).toBeVisible();
     await expect(detail.grantRow('Theme')).toBeVisible();
   });

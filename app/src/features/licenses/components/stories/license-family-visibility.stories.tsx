@@ -68,7 +68,7 @@ const FAMILIES = [
 ];
 
 const list = () => (
-  <StorybookRouter initialEntries={['/licenses']}>
+  <StorybookRouter initialEntries={['/catalog/licenses']}>
     <div className="p-6">
       <LicenseList families={FAMILIES} licenses={LICENSES} />
     </div>

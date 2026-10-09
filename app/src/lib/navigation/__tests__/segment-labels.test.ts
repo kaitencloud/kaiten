@@ -12,11 +12,13 @@ const translations: Record<string, string> = {
   'Pages.Billing.Invoices.Lines.title': 'Lignes',
   'Pages.Billing.Invoices.title': 'Factures',
   'Pages.Billing.title': 'Facturation',
+  'Pages.Catalog.title': 'Catalogue',
   'Pages.Customers.Instances.Detail.Billing.Subscribe.title': 'Souscrire',
   'Pages.Customers.title': 'Clients',
   'Pages.FeatureFlags.title': 'Feature Flags',
   'Pages.Integrations.PublishableKeys.title': 'Clés publiables',
   'Pages.Licenses.Prices.title': 'Prix',
+  'Pages.Licenses.title': 'Licences',
   'Pages.Vouchers.title': 'Codes promo',
 };
 
@@ -34,6 +36,7 @@ describe('segment labels', () => {
       Object.fromEntries(
         [
           'billing',
+          'catalog',
           'invoices',
           'lines',
           'addons',
@@ -47,6 +50,7 @@ describe('segment labels', () => {
     ).toEqual({
       addons: 'Options',
       billing: 'Facturation',
+      catalog: 'Catalogue',
       compatibility: 'Licences compatibles',
       invoices: 'Factures',
       lines: 'Lignes',
@@ -72,19 +76,31 @@ describe('segment labels', () => {
       href: '/audit-trail',
       label: 'Audit Trail',
     });
-    // The invoices, the add-ons and the vouchers are each a section of their own.
+    // The invoices are a section of their own.
     expect(getSectionForPath('/invoices/inv-1', t)).toEqual({
       href: '/invoices',
       label: 'Factures',
     });
-    expect(getSectionForPath('/addons/seats-v1', t)).toEqual({
-      href: '/addons',
+    // The catalog is one, and each of its entries is too: the way back from a
+    // missing add-on is the add-ons, not the catalog.
+    expect(getSectionForPath('/catalog/unknown', t)).toEqual({
+      href: '/catalog',
+      label: 'Catalogue',
+    });
+    expect(getSectionForPath('/catalog/licenses/pro-v2', t)).toEqual({
+      href: '/catalog/licenses',
+      label: 'Licences',
+    });
+    expect(getSectionForPath('/catalog/addons/seats-v1', t)).toEqual({
+      href: '/catalog/addons',
       label: 'Options',
     });
-    expect(getSectionForPath('/vouchers/new', t)).toEqual({
-      href: '/vouchers',
+    expect(getSectionForPath('/catalog/vouchers/new', t)).toEqual({
+      href: '/catalog/vouchers',
       label: 'Codes promo',
     });
+    // The routes the catalog replaced are no section.
+    expect(getSectionForPath('/licenses/pro-v2', t)).toBeUndefined();
     expect(getSectionForPath('/unknown/page', t)).toBeUndefined();
     expect(getSectionForPath('/', t)).toBeUndefined();
   });

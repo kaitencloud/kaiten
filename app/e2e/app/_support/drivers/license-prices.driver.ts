@@ -11,7 +11,7 @@ export class LicensePricesDriver {
 
   /** Opens the tab of a version by its URL, and waits for the version's name. */
   async goto(slug: string, name: string) {
-    await this.page.goto(`/licenses/${slug}/prices`);
+    await this.page.goto(`/catalog/licenses/${slug}/prices`);
     await expect(
       this.page.getByRole('heading', { name, level: 1 }),
     ).toBeVisible();

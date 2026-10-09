@@ -94,7 +94,7 @@ describe('what an instance redeemed', () => {
     const { unmount } = renderCard();
     expect((await screen.findAllByRole('link', { name: /Storage boost/ }))[0]).toHaveAttribute(
       'href',
-      '/vouchers/voucher-storage',
+      '/catalog/vouchers/voucher-storage',
     );
     unmount();
 

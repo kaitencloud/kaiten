@@ -42,7 +42,7 @@ export const InstanceLicenseCard = ({
             value={
               licenseSlug ? (
                 <InstanceRelatedLink
-                  to="/licenses/$licenseSlug"
+                  to="/catalog/licenses/$licenseSlug"
                   params={{ licenseSlug }}
                   className="text-sm"
                 >

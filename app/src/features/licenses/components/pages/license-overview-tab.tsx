@@ -29,7 +29,7 @@ export function LicenseOverviewTab({ licenseSlug }: LicenseOverviewTabProps) {
     <div className="space-y-6">
       <LicenseDetailsCard
         license={license}
-        onDraftDeleted={() => router.navigate({ to: '/licenses' })}
+        onDraftDeleted={() => router.navigate({ to: '/catalog/licenses' })}
         t={t}
       />
 

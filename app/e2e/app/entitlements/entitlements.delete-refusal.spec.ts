@@ -47,7 +47,7 @@ test.describe('deleting an entitlement that is still in use', () => {
 
     await refusal.getByRole('link', { name: 'Open the entitlement' }).click();
 
-    await expect(page).toHaveURL(/\/entitlements\/api-calls$/);
+    await expect(page).toHaveURL(/\/catalog\/entitlements\/api-calls$/);
   });
 
   test('says "1" in the singular, and lists only what there is', async ({

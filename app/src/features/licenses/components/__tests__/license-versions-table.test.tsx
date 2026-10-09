@@ -30,7 +30,7 @@ vi.mock('@tanstack/react-router', () => ({
   ),
   useRouter: () => ({
     buildLocation: ({ params }: { params: { licenseSlug: string } }) => ({
-      pathname: `/licenses/${params.licenseSlug}`,
+      pathname: `/catalog/licenses/${params.licenseSlug}`,
     }),
   }),
 }));
@@ -175,14 +175,14 @@ describe('LicenseVersionsTable', () => {
 
     expect(screen.getByRole('link', { name: 'GA' })).toHaveAttribute(
       'href',
-      '/licenses/community-v2',
+      '/catalog/licenses/community-v2',
     );
 
     fireEvent.click(screen.getByText('Development'));
 
     expect(mockNavigate).toHaveBeenCalledTimes(1);
     expect(mockNavigate).toHaveBeenCalledWith({
-      to: '/licenses/community-v2',
+      to: '/catalog/licenses/community-v2',
     });
   });
 

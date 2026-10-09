@@ -207,7 +207,7 @@ export function useLicenseGrants({
 
   const onClickEntitlement = useCallback(
     (entitlementSlug: string) => {
-      void router.navigate({ to: `/entitlements/${entitlementSlug}` });
+      void router.navigate({ to: `/catalog/entitlements/${entitlementSlug}` });
     },
     [router],
   );

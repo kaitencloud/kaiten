@@ -136,7 +136,7 @@ describe('the grants of a version', () => {
 
     expect(await screen.findByRole('link', { name: 'Add entitlement' })).toHaveAttribute(
       'href',
-      '/addons/extra-seats-v2/entitlements?grant=new',
+      '/catalog/addons/extra-seats-v2/entitlements?grant=new',
     );
   });
 
@@ -270,7 +270,7 @@ describe('giving a version a grant', () => {
     const frozen = await screen.findByRole('alertdialog');
     expect(within(frozen).getByRole('link', { name: 'Create a new version' })).toHaveAttribute(
       'href',
-      '/addons/new?family=extra-seats',
+      '/catalog/addons/new?family=extra-seats',
     );
     expect(within(frozen).getByRole('note')).toHaveTextContent(
       'an instance with a live subscription holds this add-on version',
@@ -367,7 +367,7 @@ describe('editing and removing a grant', () => {
   it('leaves a link to a grant the version does not have, and one to a dialog that cannot open', async () => {
     renderTab('ghost');
 
-    expect(await screen.findByTestId('left')).toHaveAttribute('data-to', '/addons/$addonSlug/entitlements');
+    expect(await screen.findByTestId('left')).toHaveAttribute('data-to', '/catalog/addons/$addonSlug/entitlements');
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 

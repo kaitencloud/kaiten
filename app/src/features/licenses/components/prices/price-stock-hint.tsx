@@ -19,7 +19,7 @@ export function PriceStockHint() {
       {has('addons') && mayOpenAddons ? (
         <>
           {' '}
-          <Link className="underline underline-offset-4" to="/addons">
+          <Link className="underline underline-offset-4" to="/catalog/addons">
             {t('Pages.Licenses.Prices.Form.Meter.stockHintLink')}
           </Link>
         </>

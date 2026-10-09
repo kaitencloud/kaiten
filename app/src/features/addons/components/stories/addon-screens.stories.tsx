@@ -146,7 +146,7 @@ const handlersFor = (...more: RequestHandler[]): RequestHandler[] => [
 
 function Frame({ children }: { children: ReactNode }) {
   return (
-    <StorybookRouter initialEntries={['/addons/extra-seats-v2']}>
+    <StorybookRouter initialEntries={['/catalog/addons/extra-seats-v2']}>
       <Suspense fallback={null}>
         <div className="p-6">{children}</div>
       </Suspense>

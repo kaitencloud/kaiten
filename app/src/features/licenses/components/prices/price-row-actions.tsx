@@ -49,7 +49,7 @@ export function PriceRowActions({
             <Link
               params={{ licenseSlug }}
               search={{ price: price.id }}
-              to="/licenses/$licenseSlug/prices"
+              to="/catalog/licenses/$licenseSlug/prices"
             >
               <Pencil className="size-3" />
               {t('Pages.Licenses.Prices.Actions.edit')}

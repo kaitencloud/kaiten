@@ -23,10 +23,10 @@ const BILLING_DEEP_LINKS = [
   '/invoices?view=handoff',
   '/invoices/inv-1',
   '/invoices/inv-1/lines/inv-1-line-1',
-  '/addons',
-  '/addons/new',
-  '/addons/extra-seats-v1',
-  '/addons/extra-seats-v1/prices',
+  '/catalog/addons',
+  '/catalog/addons/new',
+  '/catalog/addons/extra-seats-v1',
+  '/catalog/addons/extra-seats-v1/prices',
 ];
 
 test.describe('billing off on the deployment', () => {

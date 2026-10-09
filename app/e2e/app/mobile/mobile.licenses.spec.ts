@@ -90,7 +90,7 @@ test.describe('what a license version sells, on the narrowest phone', () => {
   }) => {
     const drawer = new LicensePriceDrawerDriver(page);
 
-    await page.goto('/licenses/pro-v4/prices?price=new');
+    await page.goto('/catalog/licenses/pro-v4/prices?price=new');
     await drawer.expectOpen('New price');
     await drawer.chooseModel('Overage');
     await expect(drawer.picker()).toBeVisible();

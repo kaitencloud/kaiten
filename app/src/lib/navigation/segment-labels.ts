@@ -9,6 +9,7 @@ const SEGMENT_LABEL_KEYS: Record<string, string> = {
   'audit-trail': 'Pages.AuditTrail.title',
   billing: 'Pages.Billing.title',
   cancel: 'Pages.Customers.Instances.Detail.Billing.Cancel.title',
+  catalog: 'Pages.Catalog.title',
   compatibility: 'Pages.Addons.Compatibility.title',
   components: 'Pages.Releases.Components.title',
   connectors: 'Pages.Integrations.Connectors.title',
@@ -43,22 +44,25 @@ const SEGMENT_LABEL_KEYS: Record<string, string> = {
   webhooks: 'Pages.Integrations.Webhooks.sectionTitle',
 };
 
-// The side nav's sections: whatever lies under one of them, the section's own
-// page exists.
+// The side nav's sections, by path: whatever lies under one of them, the
+// section's own page exists. The entries of the catalog are sections of their
+// own, so that the way back from a license that does not exist is the licenses,
+// not the catalog.
 const SECTIONS = new Set([
-  'addons',
   'audit-trail',
+  'catalog',
+  'catalog/addons',
+  'catalog/entitlements',
+  'catalog/licenses',
+  'catalog/vouchers',
   'customers',
   'dashboard',
-  'entitlements',
   'feature-flags',
   'integrations',
   'invoices',
-  'licenses',
   'notifications',
   'releases',
   'settings',
-  'vouchers',
 ]);
 
 export type Section = {
@@ -82,16 +86,21 @@ export function getSegmentLabel(segment: string, t: TFunction): string {
   return key ? t(key, { defaultValue: fallback }) : fallback;
 }
 
-/** The side-nav section a path lies under, if any. */
+/** The side-nav section a path lies under, if any: the deepest one it names. */
 export function getSectionForPath(
   pathname: string,
   t: TFunction,
 ): Section | undefined {
-  const [segment] = pathname.split('/').filter(Boolean);
+  const [first, second] = pathname.split('/').filter(Boolean);
+  const nested = first && second ? `${first}/${second}` : undefined;
+  const section = nested && SECTIONS.has(nested) ? nested : first;
 
-  if (!segment || !SECTIONS.has(segment)) {
+  if (!section || !SECTIONS.has(section)) {
     return undefined;
   }
 
-  return { href: `/${segment}`, label: getSegmentLabel(segment, t) };
+  return {
+    href: `/${section}`,
+    label: getSegmentLabel(section.split('/').pop() ?? section, t),
+  };
 }

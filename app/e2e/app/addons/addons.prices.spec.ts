@@ -85,7 +85,7 @@ test.describe('the prices of a version', () => {
     const prices = new AddonPricesDriver(page);
     await installAddonsWorld(page);
 
-    await page.goto('/addons/priority-support-v2/prices');
+    await page.goto('/catalog/addons/priority-support-v2/prices');
 
     await expect(
       page.getByText('This version has no price yet.'),
@@ -99,13 +99,13 @@ test.describe('the prices of a version', () => {
     const prices = new AddonPricesDriver(page);
     await installAddonsWorld(page);
 
-    await page.goto('/addons/priority-support-v1/prices');
+    await page.goto('/catalog/addons/priority-support-v1/prices');
 
     await expect(page.getByText('takes no new price')).toBeVisible();
     await expect(prices.addPrice()).toHaveCount(0);
     await expect(
       page.getByRole('link', { name: 'New Version' }),
-    ).toHaveAttribute('href', '/addons/new?family=priority-support');
+    ).toHaveAttribute('href', '/catalog/addons/new?family=priority-support');
   });
 });
 
@@ -119,7 +119,9 @@ test.describe('adding a price', () => {
     await prices.goto('extra-seats-v2', 'Extra seats');
 
     await prices.addPrice().click();
-    await expect(page).toHaveURL('/addons/extra-seats-v2/prices?price=new');
+    await expect(page).toHaveURL(
+      '/catalog/addons/extra-seats-v2/prices?price=new',
+    );
     await expect(prices.drawer()).toBeVisible();
     // A version bills in one currency, fixed by its first price.
     await expect(prices.lockedCurrency()).toBeDisabled();
@@ -136,7 +138,7 @@ test.describe('adding a price', () => {
 
     await expectToast(page, 'Price created');
     await expect(prices.drawer()).toHaveCount(0);
-    await expect(page).toHaveURL('/addons/extra-seats-v2/prices');
+    await expect(page).toHaveURL('/catalog/addons/extra-seats-v2/prices');
     await expect(prices.slot('ANNUAL')).toHaveAttribute(
       'data-status',
       'default',
@@ -172,7 +174,7 @@ test.describe('adding a price', () => {
     const writes = recordWrites(page, PRICE_WRITES);
     await installAddonsWorld(page);
     // Sold on request, the version has no slot to show.
-    await page.goto('/addons/priority-support-v2/prices');
+    await page.goto('/catalog/addons/priority-support-v2/prices');
     await expect(prices.addPrice()).toBeVisible();
 
     await prices.addPrice().click();
@@ -316,7 +318,7 @@ test.describe('adding a price', () => {
     await prices.drawer().getByRole('button', { name: 'Cancel' }).click();
 
     await expect(prices.drawer()).toHaveCount(0);
-    await expect(page).toHaveURL('/addons/extra-seats-v2/prices');
+    await expect(page).toHaveURL('/catalog/addons/extra-seats-v2/prices');
     expect(writes).toEqual([]);
   });
 
@@ -326,16 +328,16 @@ test.describe('adding a price', () => {
     const prices = new AddonPricesDriver(page);
     await installAddonsWorld(page);
 
-    await page.goto('/addons/extra-seats-v2/prices?price=new');
+    await page.goto('/catalog/addons/extra-seats-v2/prices?price=new');
     await expect(prices.drawer()).toBeVisible();
 
     // A price is never edited, and a withdrawn version takes none.
     await page.goto(
-      '/addons/extra-seats-v2/prices?price=price-seats-v2-monthly',
+      '/catalog/addons/extra-seats-v2/prices?price=price-seats-v2-monthly',
     );
-    await expect(page).toHaveURL('/addons/extra-seats-v2/prices');
-    await page.goto('/addons/priority-support-v1/prices?price=new');
-    await expect(page).toHaveURL('/addons/priority-support-v1/prices');
+    await expect(page).toHaveURL('/catalog/addons/extra-seats-v2/prices');
+    await page.goto('/catalog/addons/priority-support-v1/prices?price=new');
+    await expect(page).toHaveURL('/catalog/addons/priority-support-v1/prices');
     await expect(prices.drawer()).toHaveCount(0);
   });
 });
@@ -447,7 +449,7 @@ test.describe('a version an instance with a live subscription holds', () => {
     await expect(freeze.detail()).toContainText('what it sells is frozen');
     await expect(freeze.createNewVersion()).toHaveAttribute(
       'href',
-      '/addons/new?family=extra-seats',
+      '/catalog/addons/new?family=extra-seats',
     );
     // A dialog, not a toast.
     await expectNoToast(page);
@@ -466,6 +468,6 @@ test.describe('a version an instance with a live subscription holds', () => {
     ).toBeVisible();
     await expect(
       page.getByRole('link', { name: 'New Version' }),
-    ).toHaveAttribute('href', '/addons/new?family=extra-seats');
+    ).toHaveAttribute('href', '/catalog/addons/new?family=extra-seats');
   });
 });

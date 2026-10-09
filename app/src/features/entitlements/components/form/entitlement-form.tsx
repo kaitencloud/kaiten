@@ -44,7 +44,7 @@ export const EntitlementForm = ({
       return;
     }
 
-    navigate({ to: '/entitlements' });
+    navigate({ to: '/catalog/entitlements' });
   }
 
   const submitButton = (

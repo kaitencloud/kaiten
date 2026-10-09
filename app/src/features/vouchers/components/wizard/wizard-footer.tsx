@@ -34,7 +34,7 @@ export function WizardFooter({
       {isFirst ? (
         <Button
           nativeButton={false}
-          render={<Link to="/vouchers">{t('Common.cancel')}</Link>}
+          render={<Link to="/catalog/vouchers">{t('Common.cancel')}</Link>}
           role="link"
           variant="outline"
         />

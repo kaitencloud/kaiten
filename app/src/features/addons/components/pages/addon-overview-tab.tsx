@@ -19,7 +19,7 @@ export function AddonOverviewTab({ addonSlug }: AddonOverviewTabProps) {
   return (
     <AddonDetailsCard
       addon={addon}
-      onDraftDeleted={() => void router.navigate({ to: '/addons' })}
+      onDraftDeleted={() => void router.navigate({ to: '/catalog/addons' })}
     />
   );
 }

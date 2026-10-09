@@ -126,7 +126,7 @@ describe('LicenseCommercialCard', () => {
 
     expect(await screen.findByRole('link', { name: 'Edit' })).toHaveAttribute(
       'href',
-      '/licenses/pro-v2?mode=configure',
+      '/catalog/licenses/pro-v2?mode=configure',
     );
   });
 

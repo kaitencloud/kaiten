@@ -65,7 +65,7 @@ test.describe('the catalogue of add-ons, on the narrowest phone', () => {
   test('the dialog that makes an add-on fits the screen, with its buttons within reach', async ({
     page,
   }) => {
-    await page.goto('/addons/new');
+    await page.goto('/catalog/addons/new');
     const dialog = page.getByRole('dialog');
     await expect(
       dialog.getByRole('heading', { name: 'New add-on' }),
@@ -153,7 +153,7 @@ test.describe('a version of an add-on, on the narrowest phone', () => {
   test('the drawer of a price fits the screen', async ({ page }) => {
     const prices = new AddonPricesDriver(page);
 
-    await page.goto('/addons/extra-seats-v2/prices?price=new');
+    await page.goto('/catalog/addons/extra-seats-v2/prices?price=new');
     await expect(prices.drawer()).toBeVisible();
     await prices.amountField().fill('15.00');
     await expect(prices.livePreview()).toBeVisible();

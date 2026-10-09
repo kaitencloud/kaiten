@@ -113,12 +113,12 @@ test.describe('the Prices tab', () => {
     );
 
     await prices.tab('Prices').click();
-    await expect(page).toHaveURL('/licenses/pro-v2/prices');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v2/prices');
     await expect(prices.tab('Prices')).toHaveAttribute('aria-selected', 'true');
     await expect(prices.summary()).toBeVisible();
 
     await prices.tab('Overview').click();
-    await expect(page).toHaveURL('/licenses/pro-v2');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v2');
     await detail.expectState('Published');
   });
 });

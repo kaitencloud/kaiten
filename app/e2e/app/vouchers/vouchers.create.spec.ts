@@ -439,7 +439,7 @@ test.describe('the review and the publication', () => {
       code,
     );
     expect(page.url()).not.toContain(code);
-    expect(page.url()).toMatch(/\/vouchers\/new$/);
+    expect(page.url()).toMatch(/\/catalog\/vouchers\/new$/);
   });
 
   test('makes a boost with a generated code, and publishes it', async ({
@@ -499,7 +499,7 @@ test.describe('the review and the publication', () => {
 
     await wizard.addBoostLink().click();
 
-    await expect(page).toHaveURL(/\/vouchers\/new\?boostFor=voucher-/);
+    await expect(page).toHaveURL(/\/catalog\/vouchers\/new\?boostFor=voucher-/);
     await wizard.expectStep('Offer');
     await expect(wizard.timesField()).toHaveValue('3');
     await expect(wizard.timesField()).toHaveAccessibleName(/billing periods/);
@@ -554,7 +554,7 @@ test.describe('the review and the publication', () => {
     await detail.expectState('Draft');
     expect(writes.map(({ method }) => method)).toEqual(['POST']);
     await detail.editLink().click();
-    await expect(page).toHaveURL(/\/vouchers\/voucher-[^/]+\/edit$/);
+    await expect(page).toHaveURL(/\/catalog\/vouchers\/voucher-[^/]+\/edit$/);
     await expect(wizard.review()).toContainText('12% off the base price');
     await wizard.expectStep('Review');
     await wizard.publishButton().click();

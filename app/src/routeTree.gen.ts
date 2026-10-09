@@ -10,23 +10,20 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AddonsRouteRouteImport } from './routes/addons/route'
 import { Route as CustomersRouteRouteImport } from './routes/customers/route'
-import { Route as EntitlementsRouteRouteImport } from './routes/entitlements/route'
 import { Route as InvoicesRouteRouteImport } from './routes/invoices/route'
 import { Route as ReleasesRouteRouteImport } from './routes/releases/route'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
-import { Route as VouchersRouteRouteImport } from './routes/vouchers/route'
-import { Route as AddonsIndexRouteImport } from './routes/addons/index'
-import { Route as AddonsAddonSlugRouteRouteImport } from './routes/addons/$addonSlug/route'
 import { Route as AuditTrailIndexRouteImport } from './routes/audit-trail/index'
+import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
+import { Route as CatalogAddonsRouteRouteImport } from './routes/catalog/addons/route'
+import { Route as CatalogEntitlementsRouteRouteImport } from './routes/catalog/entitlements/route'
+import { Route as CatalogVouchersRouteRouteImport } from './routes/catalog/vouchers/route'
 import { Route as CustomersIndexRouteImport } from './routes/customers/index'
 import { Route as CustomersCustomerSlugRouteRouteImport } from './routes/customers/$customerSlug/route'
 import { Route as CustomersInstancesRouteRouteImport } from './routes/customers/instances/route'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
-import { Route as EntitlementsIndexRouteImport } from './routes/entitlements/index'
-import { Route as EntitlementsEntitlementSlugRouteRouteImport } from './routes/entitlements/$entitlementSlug/route'
 import { Route as FeatureFlagsIndexRouteImport } from './routes/feature-flags/index'
 import { Route as FeatureFlagsFeatureFlagSlugRouteRouteImport } from './routes/feature-flags/$featureFlagSlug/route'
 import { Route as IntegrationsIndexRouteImport } from './routes/integrations/index'
@@ -36,8 +33,6 @@ import { Route as IntegrationsServiceAccountsRouteRouteImport } from './routes/i
 import { Route as IntegrationsWebhooksRouteRouteImport } from './routes/integrations/webhooks/route'
 import { Route as InvoicesIndexRouteImport } from './routes/invoices/index'
 import { Route as InvoicesInvoiceIdRouteRouteImport } from './routes/invoices/$invoiceId/route'
-import { Route as LicensesIndexRouteImport } from './routes/licenses/index'
-import { Route as LicensesLicenseSlugRouteRouteImport } from './routes/licenses/$licenseSlug/route'
 import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
 import { Route as ReleasesIndexRouteImport } from './routes/releases/index'
 import { Route as ReleasesReleaseSlugRouteRouteImport } from './routes/releases/$releaseSlug/route'
@@ -48,23 +43,19 @@ import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsBillingRouteImport } from './routes/settings/billing'
 import { Route as SettingsMetadataRouteImport } from './routes/settings/metadata'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
-import { Route as VouchersIndexRouteImport } from './routes/vouchers/index'
-import { Route as VouchersVoucherIdRouteRouteImport } from './routes/vouchers/$voucherId/route'
-import { Route as AddonsAddonSlugIndexRouteImport } from './routes/addons/$addonSlug/index'
-import { Route as AddonsAddonSlugCompatibilityRouteImport } from './routes/addons/$addonSlug/compatibility'
-import { Route as AddonsAddonSlugEntitlementsRouteImport } from './routes/addons/$addonSlug/entitlements'
-import { Route as AddonsAddonSlugPricesRouteImport } from './routes/addons/$addonSlug/prices'
-import { Route as AddonsNewIndexRouteImport } from './routes/addons/new/index'
+import { Route as CatalogAddonsIndexRouteImport } from './routes/catalog/addons/index'
+import { Route as CatalogAddonsAddonSlugRouteRouteImport } from './routes/catalog/addons/$addonSlug/route'
+import { Route as CatalogEntitlementsIndexRouteImport } from './routes/catalog/entitlements/index'
+import { Route as CatalogEntitlementsEntitlementSlugRouteRouteImport } from './routes/catalog/entitlements/$entitlementSlug/route'
+import { Route as CatalogLicensesIndexRouteImport } from './routes/catalog/licenses/index'
+import { Route as CatalogLicensesLicenseSlugRouteRouteImport } from './routes/catalog/licenses/$licenseSlug/route'
+import { Route as CatalogVouchersIndexRouteImport } from './routes/catalog/vouchers/index'
+import { Route as CatalogVouchersVoucherIdRouteRouteImport } from './routes/catalog/vouchers/$voucherId/route'
 import { Route as CustomersCustomerSlugIndexRouteImport } from './routes/customers/$customerSlug/index'
 import { Route as CustomersCustomerSlugEditRouteImport } from './routes/customers/$customerSlug/edit'
 import { Route as CustomersInstancesIndexRouteImport } from './routes/customers/instances/index'
 import { Route as CustomersInstancesInstanceSlugRouteRouteImport } from './routes/customers/instances/$instanceSlug/route'
 import { Route as CustomersNewIndexRouteImport } from './routes/customers/new/index'
-import { Route as EntitlementsEntitlementSlugIndexRouteImport } from './routes/entitlements/$entitlementSlug/index'
-import { Route as EntitlementsEntitlementSlugCustomersRouteImport } from './routes/entitlements/$entitlementSlug/customers'
-import { Route as EntitlementsEntitlementSlugLicensesRouteImport } from './routes/entitlements/$entitlementSlug/licenses'
-import { Route as EntitlementsEntitlementSlugUsageRouteImport } from './routes/entitlements/$entitlementSlug/usage'
-import { Route as EntitlementsNewIndexRouteImport } from './routes/entitlements/new/index'
 import { Route as FeatureFlagsFeatureFlagSlugIndexRouteImport } from './routes/feature-flags/$featureFlagSlug/index'
 import { Route as FeatureFlagsFeatureFlagSlugAuditTrailRouteImport } from './routes/feature-flags/$featureFlagSlug/audit-trail'
 import { Route as FeatureFlagsFeatureFlagSlugEvaluationRouteImport } from './routes/feature-flags/$featureFlagSlug/evaluation'
@@ -78,19 +69,29 @@ import { Route as IntegrationsServiceAccountsIndexRouteImport } from './routes/i
 import { Route as IntegrationsWebhooksIndexRouteImport } from './routes/integrations/webhooks/index'
 import { Route as IntegrationsWebhooksHistoryRouteImport } from './routes/integrations/webhooks/history'
 import { Route as InvoicesInvoiceIdIndexRouteImport } from './routes/invoices/$invoiceId/index'
-import { Route as LicensesLicenseSlugIndexRouteImport } from './routes/licenses/$licenseSlug/index'
-import { Route as LicensesLicenseSlugPricesRouteImport } from './routes/licenses/$licenseSlug/prices'
-import { Route as LicensesNewIndexRouteImport } from './routes/licenses/new/index'
-import { Route as LicensesVersionsIndexRouteImport } from './routes/licenses/versions/index'
 import { Route as ReleasesReleaseSlugIndexRouteImport } from './routes/releases/$releaseSlug/index'
 import { Route as ReleasesReleaseSlugDeployRouteImport } from './routes/releases/$releaseSlug/deploy'
 import { Route as ReleasesReleaseSlugDeploymentZonesRouteImport } from './routes/releases/$releaseSlug/deployment-zones'
 import { Route as ReleasesDeploymentZoneIndexRouteImport } from './routes/releases/deployment-zone/index'
 import { Route as ReleasesDeploymentZonesZoneSlugRouteRouteImport } from './routes/releases/deployment-zones_/$zoneSlug/route'
 import { Route as ReleasesNewIndexRouteImport } from './routes/releases/new/index'
-import { Route as VouchersVoucherIdIndexRouteImport } from './routes/vouchers/$voucherId/index'
-import { Route as VouchersVoucherIdEditRouteImport } from './routes/vouchers/$voucherId/edit'
-import { Route as VouchersNewIndexRouteImport } from './routes/vouchers/new/index'
+import { Route as CatalogAddonsAddonSlugIndexRouteImport } from './routes/catalog/addons/$addonSlug/index'
+import { Route as CatalogAddonsAddonSlugCompatibilityRouteImport } from './routes/catalog/addons/$addonSlug/compatibility'
+import { Route as CatalogAddonsAddonSlugEntitlementsRouteImport } from './routes/catalog/addons/$addonSlug/entitlements'
+import { Route as CatalogAddonsAddonSlugPricesRouteImport } from './routes/catalog/addons/$addonSlug/prices'
+import { Route as CatalogAddonsNewIndexRouteImport } from './routes/catalog/addons/new/index'
+import { Route as CatalogEntitlementsEntitlementSlugIndexRouteImport } from './routes/catalog/entitlements/$entitlementSlug/index'
+import { Route as CatalogEntitlementsEntitlementSlugCustomersRouteImport } from './routes/catalog/entitlements/$entitlementSlug/customers'
+import { Route as CatalogEntitlementsEntitlementSlugLicensesRouteImport } from './routes/catalog/entitlements/$entitlementSlug/licenses'
+import { Route as CatalogEntitlementsEntitlementSlugUsageRouteImport } from './routes/catalog/entitlements/$entitlementSlug/usage'
+import { Route as CatalogEntitlementsNewIndexRouteImport } from './routes/catalog/entitlements/new/index'
+import { Route as CatalogLicensesLicenseSlugIndexRouteImport } from './routes/catalog/licenses/$licenseSlug/index'
+import { Route as CatalogLicensesLicenseSlugPricesRouteImport } from './routes/catalog/licenses/$licenseSlug/prices'
+import { Route as CatalogLicensesNewIndexRouteImport } from './routes/catalog/licenses/new/index'
+import { Route as CatalogLicensesVersionsIndexRouteImport } from './routes/catalog/licenses/versions/index'
+import { Route as CatalogVouchersVoucherIdIndexRouteImport } from './routes/catalog/vouchers/$voucherId/index'
+import { Route as CatalogVouchersVoucherIdEditRouteImport } from './routes/catalog/vouchers/$voucherId/edit'
+import { Route as CatalogVouchersNewIndexRouteImport } from './routes/catalog/vouchers/new/index'
 import { Route as CustomersInstancesInstanceSlugIndexRouteImport } from './routes/customers/instances/$instanceSlug/index'
 import { Route as CustomersInstancesInstanceSlugAuditTrailRouteImport } from './routes/customers/instances/$instanceSlug/audit-trail'
 import { Route as CustomersInstancesInstanceSlugBillingRouteRouteImport } from './routes/customers/instances/$instanceSlug/billing/route'
@@ -101,8 +102,6 @@ import { Route as IntegrationsPublishableKeysKeyIdEditRouteImport } from './rout
 import { Route as IntegrationsPublishableKeysNewIndexRouteImport } from './routes/integrations/publishable-keys/new/index'
 import { Route as IntegrationsServiceAccountsNewIndexRouteImport } from './routes/integrations/service-accounts/new/index'
 import { Route as InvoicesInvoiceIdLinesLineIdRouteImport } from './routes/invoices/$invoiceId/lines/$lineId'
-import { Route as LicensesVersionsLicenseSlugIndexRouteImport } from './routes/licenses/versions/$licenseSlug/index'
-import { Route as LicensesVersionsNewIndexRouteImport } from './routes/licenses/versions/new/index'
 import { Route as ReleasesComponentsNewIndexRouteImport } from './routes/releases/components/new/index'
 import { Route as ReleasesDeploymentZoneZoneSlugIndexRouteImport } from './routes/releases/deployment-zone/$zoneSlug/index'
 import { Route as ReleasesDeploymentZoneZoneSlugPeersRouteImport } from './routes/releases/deployment-zone/$zoneSlug/peers'
@@ -112,6 +111,8 @@ import { Route as ReleasesDeploymentZonesNewIndexRouteImport } from './routes/re
 import { Route as ReleasesDeploymentZonesZoneSlugIndexRouteImport } from './routes/releases/deployment-zones_/$zoneSlug/index'
 import { Route as ReleasesDeploymentZonesZoneSlugPeersRouteImport } from './routes/releases/deployment-zones_/$zoneSlug/peers'
 import { Route as ReleasesDeploymentsNewIndexRouteImport } from './routes/releases/deployments/new/index'
+import { Route as CatalogLicensesVersionsLicenseSlugIndexRouteImport } from './routes/catalog/licenses/versions/$licenseSlug/index'
+import { Route as CatalogLicensesVersionsNewIndexRouteImport } from './routes/catalog/licenses/versions/new/index'
 import { Route as CustomersCustomerSlugInstancesNewIndexRouteImport } from './routes/customers/$customerSlug/instances/new/index'
 import { Route as CustomersInstancesInstanceSlugBillingIndexRouteImport } from './routes/customers/instances/$instanceSlug/billing/index'
 import { Route as CustomersInstancesInstanceSlugBillingAttachAddonRouteImport } from './routes/customers/instances/$instanceSlug/billing/attach-addon'
@@ -127,19 +128,9 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AddonsRouteRoute = AddonsRouteRouteImport.update({
-  id: '/addons',
-  path: '/addons',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CustomersRouteRoute = CustomersRouteRouteImport.update({
   id: '/customers',
   path: '/customers',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EntitlementsRouteRoute = EntitlementsRouteRouteImport.update({
-  id: '/entitlements',
-  path: '/entitlements',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InvoicesRouteRoute = InvoicesRouteRouteImport.update({
@@ -162,24 +153,30 @@ const SignUpRoute = SignUpRouteImport.update({
   path: '/sign-up',
   getParentRoute: () => rootRouteImport,
 } as any)
-const VouchersRouteRoute = VouchersRouteRouteImport.update({
-  id: '/vouchers',
-  path: '/vouchers',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AddonsIndexRoute = AddonsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AddonsRouteRoute,
-} as any)
-const AddonsAddonSlugRouteRoute = AddonsAddonSlugRouteRouteImport.update({
-  id: '/$addonSlug',
-  path: '/$addonSlug',
-  getParentRoute: () => AddonsRouteRoute,
-} as any)
 const AuditTrailIndexRoute = AuditTrailIndexRouteImport.update({
   id: '/audit-trail/',
   path: '/audit-trail/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CatalogIndexRoute = CatalogIndexRouteImport.update({
+  id: '/catalog/',
+  path: '/catalog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CatalogAddonsRouteRoute = CatalogAddonsRouteRouteImport.update({
+  id: '/catalog/addons',
+  path: '/catalog/addons',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CatalogEntitlementsRouteRoute =
+  CatalogEntitlementsRouteRouteImport.update({
+    id: '/catalog/entitlements',
+    path: '/catalog/entitlements',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const CatalogVouchersRouteRoute = CatalogVouchersRouteRouteImport.update({
+  id: '/catalog/vouchers',
+  path: '/catalog/vouchers',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomersIndexRoute = CustomersIndexRouteImport.update({
@@ -203,17 +200,6 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/dashboard/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const EntitlementsIndexRoute = EntitlementsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => EntitlementsRouteRoute,
-} as any)
-const EntitlementsEntitlementSlugRouteRoute =
-  EntitlementsEntitlementSlugRouteRouteImport.update({
-    id: '/$entitlementSlug',
-    path: '/$entitlementSlug',
-    getParentRoute: () => EntitlementsRouteRoute,
-  } as any)
 const FeatureFlagsIndexRoute = FeatureFlagsIndexRouteImport.update({
   id: '/feature-flags/',
   path: '/feature-flags/',
@@ -264,17 +250,6 @@ const InvoicesInvoiceIdRouteRoute = InvoicesInvoiceIdRouteRouteImport.update({
   path: '/$invoiceId',
   getParentRoute: () => InvoicesRouteRoute,
 } as any)
-const LicensesIndexRoute = LicensesIndexRouteImport.update({
-  id: '/licenses/',
-  path: '/licenses/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LicensesLicenseSlugRouteRoute =
-  LicensesLicenseSlugRouteRouteImport.update({
-    id: '/licenses/$licenseSlug',
-    path: '/licenses/$licenseSlug',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const NotificationsIndexRoute = NotificationsIndexRouteImport.update({
   id: '/notifications/',
   path: '/notifications/',
@@ -328,43 +303,51 @@ const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
   path: '/settings/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
-const VouchersIndexRoute = VouchersIndexRouteImport.update({
+const CatalogAddonsIndexRoute = CatalogAddonsIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => VouchersRouteRoute,
+  getParentRoute: () => CatalogAddonsRouteRoute,
 } as any)
-const VouchersVoucherIdRouteRoute = VouchersVoucherIdRouteRouteImport.update({
-  id: '/$voucherId',
-  path: '/$voucherId',
-  getParentRoute: () => VouchersRouteRoute,
+const CatalogAddonsAddonSlugRouteRoute =
+  CatalogAddonsAddonSlugRouteRouteImport.update({
+    id: '/$addonSlug',
+    path: '/$addonSlug',
+    getParentRoute: () => CatalogAddonsRouteRoute,
+  } as any)
+const CatalogEntitlementsIndexRoute =
+  CatalogEntitlementsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => CatalogEntitlementsRouteRoute,
+  } as any)
+const CatalogEntitlementsEntitlementSlugRouteRoute =
+  CatalogEntitlementsEntitlementSlugRouteRouteImport.update({
+    id: '/$entitlementSlug',
+    path: '/$entitlementSlug',
+    getParentRoute: () => CatalogEntitlementsRouteRoute,
+  } as any)
+const CatalogLicensesIndexRoute = CatalogLicensesIndexRouteImport.update({
+  id: '/catalog/licenses/',
+  path: '/catalog/licenses/',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AddonsAddonSlugIndexRoute = AddonsAddonSlugIndexRouteImport.update({
+const CatalogLicensesLicenseSlugRouteRoute =
+  CatalogLicensesLicenseSlugRouteRouteImport.update({
+    id: '/catalog/licenses/$licenseSlug',
+    path: '/catalog/licenses/$licenseSlug',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const CatalogVouchersIndexRoute = CatalogVouchersIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AddonsAddonSlugRouteRoute,
+  getParentRoute: () => CatalogVouchersRouteRoute,
 } as any)
-const AddonsAddonSlugCompatibilityRoute =
-  AddonsAddonSlugCompatibilityRouteImport.update({
-    id: '/compatibility',
-    path: '/compatibility',
-    getParentRoute: () => AddonsAddonSlugRouteRoute,
+const CatalogVouchersVoucherIdRouteRoute =
+  CatalogVouchersVoucherIdRouteRouteImport.update({
+    id: '/$voucherId',
+    path: '/$voucherId',
+    getParentRoute: () => CatalogVouchersRouteRoute,
   } as any)
-const AddonsAddonSlugEntitlementsRoute =
-  AddonsAddonSlugEntitlementsRouteImport.update({
-    id: '/entitlements',
-    path: '/entitlements',
-    getParentRoute: () => AddonsAddonSlugRouteRoute,
-  } as any)
-const AddonsAddonSlugPricesRoute = AddonsAddonSlugPricesRouteImport.update({
-  id: '/prices',
-  path: '/prices',
-  getParentRoute: () => AddonsAddonSlugRouteRoute,
-} as any)
-const AddonsNewIndexRoute = AddonsNewIndexRouteImport.update({
-  id: '/new/',
-  path: '/new/',
-  getParentRoute: () => AddonsRouteRoute,
-} as any)
 const CustomersCustomerSlugIndexRoute =
   CustomersCustomerSlugIndexRouteImport.update({
     id: '/',
@@ -392,35 +375,6 @@ const CustomersNewIndexRoute = CustomersNewIndexRouteImport.update({
   id: '/new/',
   path: '/new/',
   getParentRoute: () => CustomersRouteRoute,
-} as any)
-const EntitlementsEntitlementSlugIndexRoute =
-  EntitlementsEntitlementSlugIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => EntitlementsEntitlementSlugRouteRoute,
-  } as any)
-const EntitlementsEntitlementSlugCustomersRoute =
-  EntitlementsEntitlementSlugCustomersRouteImport.update({
-    id: '/customers',
-    path: '/customers',
-    getParentRoute: () => EntitlementsEntitlementSlugRouteRoute,
-  } as any)
-const EntitlementsEntitlementSlugLicensesRoute =
-  EntitlementsEntitlementSlugLicensesRouteImport.update({
-    id: '/licenses',
-    path: '/licenses',
-    getParentRoute: () => EntitlementsEntitlementSlugRouteRoute,
-  } as any)
-const EntitlementsEntitlementSlugUsageRoute =
-  EntitlementsEntitlementSlugUsageRouteImport.update({
-    id: '/usage',
-    path: '/usage',
-    getParentRoute: () => EntitlementsEntitlementSlugRouteRoute,
-  } as any)
-const EntitlementsNewIndexRoute = EntitlementsNewIndexRouteImport.update({
-  id: '/new/',
-  path: '/new/',
-  getParentRoute: () => EntitlementsRouteRoute,
 } as any)
 const FeatureFlagsFeatureFlagSlugIndexRoute =
   FeatureFlagsFeatureFlagSlugIndexRouteImport.update({
@@ -498,28 +452,6 @@ const InvoicesInvoiceIdIndexRoute = InvoicesInvoiceIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => InvoicesInvoiceIdRouteRoute,
 } as any)
-const LicensesLicenseSlugIndexRoute =
-  LicensesLicenseSlugIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => LicensesLicenseSlugRouteRoute,
-  } as any)
-const LicensesLicenseSlugPricesRoute =
-  LicensesLicenseSlugPricesRouteImport.update({
-    id: '/prices',
-    path: '/prices',
-    getParentRoute: () => LicensesLicenseSlugRouteRoute,
-  } as any)
-const LicensesNewIndexRoute = LicensesNewIndexRouteImport.update({
-  id: '/licenses/new/',
-  path: '/licenses/new/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LicensesVersionsIndexRoute = LicensesVersionsIndexRouteImport.update({
-  id: '/licenses/versions/',
-  path: '/licenses/versions/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ReleasesReleaseSlugIndexRoute =
   ReleasesReleaseSlugIndexRouteImport.update({
     id: '/',
@@ -555,20 +487,104 @@ const ReleasesNewIndexRoute = ReleasesNewIndexRouteImport.update({
   path: '/new/',
   getParentRoute: () => ReleasesRouteRoute,
 } as any)
-const VouchersVoucherIdIndexRoute = VouchersVoucherIdIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => VouchersVoucherIdRouteRoute,
-} as any)
-const VouchersVoucherIdEditRoute = VouchersVoucherIdEditRouteImport.update({
-  id: '/edit',
-  path: '/edit',
-  getParentRoute: () => VouchersVoucherIdRouteRoute,
-} as any)
-const VouchersNewIndexRoute = VouchersNewIndexRouteImport.update({
+const CatalogAddonsAddonSlugIndexRoute =
+  CatalogAddonsAddonSlugIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => CatalogAddonsAddonSlugRouteRoute,
+  } as any)
+const CatalogAddonsAddonSlugCompatibilityRoute =
+  CatalogAddonsAddonSlugCompatibilityRouteImport.update({
+    id: '/compatibility',
+    path: '/compatibility',
+    getParentRoute: () => CatalogAddonsAddonSlugRouteRoute,
+  } as any)
+const CatalogAddonsAddonSlugEntitlementsRoute =
+  CatalogAddonsAddonSlugEntitlementsRouteImport.update({
+    id: '/entitlements',
+    path: '/entitlements',
+    getParentRoute: () => CatalogAddonsAddonSlugRouteRoute,
+  } as any)
+const CatalogAddonsAddonSlugPricesRoute =
+  CatalogAddonsAddonSlugPricesRouteImport.update({
+    id: '/prices',
+    path: '/prices',
+    getParentRoute: () => CatalogAddonsAddonSlugRouteRoute,
+  } as any)
+const CatalogAddonsNewIndexRoute = CatalogAddonsNewIndexRouteImport.update({
   id: '/new/',
   path: '/new/',
-  getParentRoute: () => VouchersRouteRoute,
+  getParentRoute: () => CatalogAddonsRouteRoute,
+} as any)
+const CatalogEntitlementsEntitlementSlugIndexRoute =
+  CatalogEntitlementsEntitlementSlugIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => CatalogEntitlementsEntitlementSlugRouteRoute,
+  } as any)
+const CatalogEntitlementsEntitlementSlugCustomersRoute =
+  CatalogEntitlementsEntitlementSlugCustomersRouteImport.update({
+    id: '/customers',
+    path: '/customers',
+    getParentRoute: () => CatalogEntitlementsEntitlementSlugRouteRoute,
+  } as any)
+const CatalogEntitlementsEntitlementSlugLicensesRoute =
+  CatalogEntitlementsEntitlementSlugLicensesRouteImport.update({
+    id: '/licenses',
+    path: '/licenses',
+    getParentRoute: () => CatalogEntitlementsEntitlementSlugRouteRoute,
+  } as any)
+const CatalogEntitlementsEntitlementSlugUsageRoute =
+  CatalogEntitlementsEntitlementSlugUsageRouteImport.update({
+    id: '/usage',
+    path: '/usage',
+    getParentRoute: () => CatalogEntitlementsEntitlementSlugRouteRoute,
+  } as any)
+const CatalogEntitlementsNewIndexRoute =
+  CatalogEntitlementsNewIndexRouteImport.update({
+    id: '/new/',
+    path: '/new/',
+    getParentRoute: () => CatalogEntitlementsRouteRoute,
+  } as any)
+const CatalogLicensesLicenseSlugIndexRoute =
+  CatalogLicensesLicenseSlugIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => CatalogLicensesLicenseSlugRouteRoute,
+  } as any)
+const CatalogLicensesLicenseSlugPricesRoute =
+  CatalogLicensesLicenseSlugPricesRouteImport.update({
+    id: '/prices',
+    path: '/prices',
+    getParentRoute: () => CatalogLicensesLicenseSlugRouteRoute,
+  } as any)
+const CatalogLicensesNewIndexRoute = CatalogLicensesNewIndexRouteImport.update({
+  id: '/catalog/licenses/new/',
+  path: '/catalog/licenses/new/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CatalogLicensesVersionsIndexRoute =
+  CatalogLicensesVersionsIndexRouteImport.update({
+    id: '/catalog/licenses/versions/',
+    path: '/catalog/licenses/versions/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const CatalogVouchersVoucherIdIndexRoute =
+  CatalogVouchersVoucherIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => CatalogVouchersVoucherIdRouteRoute,
+  } as any)
+const CatalogVouchersVoucherIdEditRoute =
+  CatalogVouchersVoucherIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => CatalogVouchersVoucherIdRouteRoute,
+  } as any)
+const CatalogVouchersNewIndexRoute = CatalogVouchersNewIndexRouteImport.update({
+  id: '/new/',
+  path: '/new/',
+  getParentRoute: () => CatalogVouchersRouteRoute,
 } as any)
 const CustomersInstancesInstanceSlugIndexRoute =
   CustomersInstancesInstanceSlugIndexRouteImport.update({
@@ -630,18 +646,6 @@ const InvoicesInvoiceIdLinesLineIdRoute =
     path: '/lines/$lineId',
     getParentRoute: () => InvoicesInvoiceIdRouteRoute,
   } as any)
-const LicensesVersionsLicenseSlugIndexRoute =
-  LicensesVersionsLicenseSlugIndexRouteImport.update({
-    id: '/licenses/versions/$licenseSlug/',
-    path: '/licenses/versions/$licenseSlug/',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const LicensesVersionsNewIndexRoute =
-  LicensesVersionsNewIndexRouteImport.update({
-    id: '/licenses/versions/new/',
-    path: '/licenses/versions/new/',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ReleasesComponentsNewIndexRoute =
   ReleasesComponentsNewIndexRouteImport.update({
     id: '/new/',
@@ -695,6 +699,18 @@ const ReleasesDeploymentsNewIndexRoute =
     id: '/new/',
     path: '/new/',
     getParentRoute: () => ReleasesDeploymentsRouteRoute,
+  } as any)
+const CatalogLicensesVersionsLicenseSlugIndexRoute =
+  CatalogLicensesVersionsLicenseSlugIndexRouteImport.update({
+    id: '/catalog/licenses/versions/$licenseSlug/',
+    path: '/catalog/licenses/versions/$licenseSlug/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const CatalogLicensesVersionsNewIndexRoute =
+  CatalogLicensesVersionsNewIndexRouteImport.update({
+    id: '/catalog/licenses/versions/new/',
+    path: '/catalog/licenses/versions/new/',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const CustomersCustomerSlugInstancesNewIndexRoute =
   CustomersCustomerSlugInstancesNewIndexRouteImport.update({
@@ -755,72 +771,61 @@ const IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/addons': typeof AddonsRouteRouteWithChildren
   '/customers': typeof CustomersRouteRouteWithChildren
-  '/entitlements': typeof EntitlementsRouteRouteWithChildren
   '/invoices': typeof InvoicesRouteRouteWithChildren
   '/releases': typeof ReleasesRouteRouteWithChildren
-  '/vouchers': typeof VouchersRouteRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
-  '/addons/$addonSlug': typeof AddonsAddonSlugRouteRouteWithChildren
+  '/catalog/addons': typeof CatalogAddonsRouteRouteWithChildren
+  '/catalog/entitlements': typeof CatalogEntitlementsRouteRouteWithChildren
+  '/catalog/vouchers': typeof CatalogVouchersRouteRouteWithChildren
   '/customers/$customerSlug': typeof CustomersCustomerSlugRouteRouteWithChildren
   '/customers/instances': typeof CustomersInstancesRouteRouteWithChildren
-  '/entitlements/$entitlementSlug': typeof EntitlementsEntitlementSlugRouteRouteWithChildren
   '/feature-flags/$featureFlagSlug': typeof FeatureFlagsFeatureFlagSlugRouteRouteWithChildren
   '/integrations/connectors': typeof IntegrationsConnectorsRouteRouteWithChildren
   '/integrations/publishable-keys': typeof IntegrationsPublishableKeysRouteRouteWithChildren
   '/integrations/service-accounts': typeof IntegrationsServiceAccountsRouteRouteWithChildren
   '/integrations/webhooks': typeof IntegrationsWebhooksRouteRouteWithChildren
   '/invoices/$invoiceId': typeof InvoicesInvoiceIdRouteRouteWithChildren
-  '/licenses/$licenseSlug': typeof LicensesLicenseSlugRouteRouteWithChildren
   '/releases/$releaseSlug': typeof ReleasesReleaseSlugRouteRouteWithChildren
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
   '/releases/deployment-zones': typeof ReleasesDeploymentZonesRouteRouteWithChildren
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
-  '/vouchers/$voucherId': typeof VouchersVoucherIdRouteRouteWithChildren
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
-  '/addons/': typeof AddonsIndexRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
+  '/catalog/': typeof CatalogIndexRoute
   '/customers/': typeof CustomersIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
-  '/entitlements/': typeof EntitlementsIndexRoute
   '/feature-flags/': typeof FeatureFlagsIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/invoices/': typeof InvoicesIndexRoute
-  '/licenses/': typeof LicensesIndexRoute
   '/notifications/': typeof NotificationsIndexRoute
   '/releases/': typeof ReleasesIndexRoute
   '/settings/': typeof SettingsIndexRoute
-  '/vouchers/': typeof VouchersIndexRoute
+  '/catalog/addons/$addonSlug': typeof CatalogAddonsAddonSlugRouteRouteWithChildren
+  '/catalog/entitlements/$entitlementSlug': typeof CatalogEntitlementsEntitlementSlugRouteRouteWithChildren
+  '/catalog/licenses/$licenseSlug': typeof CatalogLicensesLicenseSlugRouteRouteWithChildren
+  '/catalog/vouchers/$voucherId': typeof CatalogVouchersVoucherIdRouteRouteWithChildren
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugRouteRouteWithChildren
   '/releases/deployment-zones/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugRouteRouteWithChildren
-  '/addons/$addonSlug/compatibility': typeof AddonsAddonSlugCompatibilityRoute
-  '/addons/$addonSlug/entitlements': typeof AddonsAddonSlugEntitlementsRoute
-  '/addons/$addonSlug/prices': typeof AddonsAddonSlugPricesRoute
   '/customers/$customerSlug/edit': typeof CustomersCustomerSlugEditRoute
-  '/entitlements/$entitlementSlug/customers': typeof EntitlementsEntitlementSlugCustomersRoute
-  '/entitlements/$entitlementSlug/licenses': typeof EntitlementsEntitlementSlugLicensesRoute
-  '/entitlements/$entitlementSlug/usage': typeof EntitlementsEntitlementSlugUsageRoute
   '/feature-flags/$featureFlagSlug/audit-trail': typeof FeatureFlagsFeatureFlagSlugAuditTrailRoute
   '/feature-flags/$featureFlagSlug/evaluation': typeof FeatureFlagsFeatureFlagSlugEvaluationRoute
   '/feature-flags/$featureFlagSlug/targeting': typeof FeatureFlagsFeatureFlagSlugTargetingRoute
   '/feature-flags/$featureFlagSlug/variants': typeof FeatureFlagsFeatureFlagSlugVariantsRoute
   '/integrations/connectors/$connectorId': typeof IntegrationsConnectorsConnectorIdRoute
   '/integrations/webhooks/history': typeof IntegrationsWebhooksHistoryRoute
-  '/licenses/$licenseSlug/prices': typeof LicensesLicenseSlugPricesRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
-  '/vouchers/$voucherId/edit': typeof VouchersVoucherIdEditRoute
-  '/addons/$addonSlug/': typeof AddonsAddonSlugIndexRoute
-  '/addons/new/': typeof AddonsNewIndexRoute
+  '/catalog/addons/': typeof CatalogAddonsIndexRoute
+  '/catalog/entitlements/': typeof CatalogEntitlementsIndexRoute
+  '/catalog/licenses/': typeof CatalogLicensesIndexRoute
+  '/catalog/vouchers/': typeof CatalogVouchersIndexRoute
   '/customers/$customerSlug/': typeof CustomersCustomerSlugIndexRoute
   '/customers/instances/': typeof CustomersInstancesIndexRoute
   '/customers/new/': typeof CustomersNewIndexRoute
-  '/entitlements/$entitlementSlug/': typeof EntitlementsEntitlementSlugIndexRoute
-  '/entitlements/new/': typeof EntitlementsNewIndexRoute
   '/feature-flags/$featureFlagSlug/': typeof FeatureFlagsFeatureFlagSlugIndexRoute
   '/feature-flags/new/': typeof FeatureFlagsNewIndexRoute
   '/integrations/connectors/': typeof IntegrationsConnectorsIndexRoute
@@ -828,15 +833,18 @@ export interface FileRoutesByFullPath {
   '/integrations/service-accounts/': typeof IntegrationsServiceAccountsIndexRoute
   '/integrations/webhooks/': typeof IntegrationsWebhooksIndexRoute
   '/invoices/$invoiceId/': typeof InvoicesInvoiceIdIndexRoute
-  '/licenses/$licenseSlug/': typeof LicensesLicenseSlugIndexRoute
-  '/licenses/new/': typeof LicensesNewIndexRoute
-  '/licenses/versions/': typeof LicensesVersionsIndexRoute
   '/releases/$releaseSlug/': typeof ReleasesReleaseSlugIndexRoute
   '/releases/deployment-zone/': typeof ReleasesDeploymentZoneIndexRoute
   '/releases/new/': typeof ReleasesNewIndexRoute
-  '/vouchers/$voucherId/': typeof VouchersVoucherIdIndexRoute
-  '/vouchers/new/': typeof VouchersNewIndexRoute
   '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingRouteRouteWithChildren
+  '/catalog/addons/$addonSlug/compatibility': typeof CatalogAddonsAddonSlugCompatibilityRoute
+  '/catalog/addons/$addonSlug/entitlements': typeof CatalogAddonsAddonSlugEntitlementsRoute
+  '/catalog/addons/$addonSlug/prices': typeof CatalogAddonsAddonSlugPricesRoute
+  '/catalog/entitlements/$entitlementSlug/customers': typeof CatalogEntitlementsEntitlementSlugCustomersRoute
+  '/catalog/entitlements/$entitlementSlug/licenses': typeof CatalogEntitlementsEntitlementSlugLicensesRoute
+  '/catalog/entitlements/$entitlementSlug/usage': typeof CatalogEntitlementsEntitlementSlugUsageRoute
+  '/catalog/licenses/$licenseSlug/prices': typeof CatalogLicensesLicenseSlugPricesRoute
+  '/catalog/vouchers/$voucherId/edit': typeof CatalogVouchersVoucherIdEditRoute
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
   '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRoute
@@ -846,12 +854,19 @@ export interface FileRoutesByFullPath {
   '/releases/deployment-zones/$zoneSlug/deploy': typeof ReleasesDeploymentZonesZoneSlugDeployRoute
   '/releases/deployment-zones/$zoneSlug/edit': typeof ReleasesDeploymentZonesZoneSlugEditRoute
   '/releases/deployment-zones/$zoneSlug/peers': typeof ReleasesDeploymentZonesZoneSlugPeersRoute
+  '/catalog/addons/$addonSlug/': typeof CatalogAddonsAddonSlugIndexRoute
+  '/catalog/addons/new/': typeof CatalogAddonsNewIndexRoute
+  '/catalog/entitlements/$entitlementSlug/': typeof CatalogEntitlementsEntitlementSlugIndexRoute
+  '/catalog/entitlements/new/': typeof CatalogEntitlementsNewIndexRoute
+  '/catalog/licenses/$licenseSlug/': typeof CatalogLicensesLicenseSlugIndexRoute
+  '/catalog/licenses/new/': typeof CatalogLicensesNewIndexRoute
+  '/catalog/licenses/versions/': typeof CatalogLicensesVersionsIndexRoute
+  '/catalog/vouchers/$voucherId/': typeof CatalogVouchersVoucherIdIndexRoute
+  '/catalog/vouchers/new/': typeof CatalogVouchersNewIndexRoute
   '/customers/instances/$instanceSlug/': typeof CustomersInstancesInstanceSlugIndexRoute
   '/customers/instances/new/': typeof CustomersInstancesNewIndexRoute
   '/integrations/publishable-keys/new/': typeof IntegrationsPublishableKeysNewIndexRoute
   '/integrations/service-accounts/new/': typeof IntegrationsServiceAccountsNewIndexRoute
-  '/licenses/versions/$licenseSlug/': typeof LicensesVersionsLicenseSlugIndexRoute
-  '/licenses/versions/new/': typeof LicensesVersionsNewIndexRoute
   '/releases/components/new/': typeof ReleasesComponentsNewIndexRoute
   '/releases/deployment-zone/$zoneSlug/': typeof ReleasesDeploymentZoneZoneSlugIndexRoute
   '/releases/deployment-zones/new/': typeof ReleasesDeploymentZonesNewIndexRoute
@@ -863,6 +878,8 @@ export interface FileRoutesByFullPath {
   '/customers/instances/$instanceSlug/billing/redeem-voucher': typeof CustomersInstancesInstanceSlugBillingRedeemVoucherRoute
   '/customers/instances/$instanceSlug/billing/subscribe': typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
   '/customers/instances/$instanceSlug/billing/terms': typeof CustomersInstancesInstanceSlugBillingTermsRoute
+  '/catalog/licenses/versions/$licenseSlug/': typeof CatalogLicensesVersionsLicenseSlugIndexRoute
+  '/catalog/licenses/versions/new/': typeof CatalogLicensesVersionsNewIndexRoute
   '/customers/$customerSlug/instances/new/': typeof CustomersCustomerSlugInstancesNewIndexRoute
   '/customers/instances/$instanceSlug/billing/': typeof CustomersInstancesInstanceSlugBillingIndexRoute
   '/integrations/service-accounts/$serviceAccountSlug/tokens/new/': typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute
@@ -877,43 +894,32 @@ export interface FileRoutesByTo {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
-  '/addons': typeof AddonsIndexRoute
   '/audit-trail': typeof AuditTrailIndexRoute
+  '/catalog': typeof CatalogIndexRoute
   '/customers': typeof CustomersIndexRoute
   '/dashboard': typeof DashboardIndexRoute
-  '/entitlements': typeof EntitlementsIndexRoute
   '/feature-flags': typeof FeatureFlagsIndexRoute
   '/integrations': typeof IntegrationsIndexRoute
   '/invoices': typeof InvoicesIndexRoute
-  '/licenses': typeof LicensesIndexRoute
   '/notifications': typeof NotificationsIndexRoute
   '/releases': typeof ReleasesIndexRoute
   '/settings': typeof SettingsIndexRoute
-  '/vouchers': typeof VouchersIndexRoute
-  '/addons/$addonSlug/compatibility': typeof AddonsAddonSlugCompatibilityRoute
-  '/addons/$addonSlug/entitlements': typeof AddonsAddonSlugEntitlementsRoute
-  '/addons/$addonSlug/prices': typeof AddonsAddonSlugPricesRoute
   '/customers/$customerSlug/edit': typeof CustomersCustomerSlugEditRoute
-  '/entitlements/$entitlementSlug/customers': typeof EntitlementsEntitlementSlugCustomersRoute
-  '/entitlements/$entitlementSlug/licenses': typeof EntitlementsEntitlementSlugLicensesRoute
-  '/entitlements/$entitlementSlug/usage': typeof EntitlementsEntitlementSlugUsageRoute
   '/feature-flags/$featureFlagSlug/audit-trail': typeof FeatureFlagsFeatureFlagSlugAuditTrailRoute
   '/feature-flags/$featureFlagSlug/evaluation': typeof FeatureFlagsFeatureFlagSlugEvaluationRoute
   '/feature-flags/$featureFlagSlug/targeting': typeof FeatureFlagsFeatureFlagSlugTargetingRoute
   '/feature-flags/$featureFlagSlug/variants': typeof FeatureFlagsFeatureFlagSlugVariantsRoute
   '/integrations/connectors/$connectorId': typeof IntegrationsConnectorsConnectorIdRoute
   '/integrations/webhooks/history': typeof IntegrationsWebhooksHistoryRoute
-  '/licenses/$licenseSlug/prices': typeof LicensesLicenseSlugPricesRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
-  '/vouchers/$voucherId/edit': typeof VouchersVoucherIdEditRoute
-  '/addons/$addonSlug': typeof AddonsAddonSlugIndexRoute
-  '/addons/new': typeof AddonsNewIndexRoute
+  '/catalog/addons': typeof CatalogAddonsIndexRoute
+  '/catalog/entitlements': typeof CatalogEntitlementsIndexRoute
+  '/catalog/licenses': typeof CatalogLicensesIndexRoute
+  '/catalog/vouchers': typeof CatalogVouchersIndexRoute
   '/customers/$customerSlug': typeof CustomersCustomerSlugIndexRoute
   '/customers/instances': typeof CustomersInstancesIndexRoute
   '/customers/new': typeof CustomersNewIndexRoute
-  '/entitlements/$entitlementSlug': typeof EntitlementsEntitlementSlugIndexRoute
-  '/entitlements/new': typeof EntitlementsNewIndexRoute
   '/feature-flags/$featureFlagSlug': typeof FeatureFlagsFeatureFlagSlugIndexRoute
   '/feature-flags/new': typeof FeatureFlagsNewIndexRoute
   '/integrations/connectors': typeof IntegrationsConnectorsIndexRoute
@@ -921,14 +927,17 @@ export interface FileRoutesByTo {
   '/integrations/service-accounts': typeof IntegrationsServiceAccountsIndexRoute
   '/integrations/webhooks': typeof IntegrationsWebhooksIndexRoute
   '/invoices/$invoiceId': typeof InvoicesInvoiceIdIndexRoute
-  '/licenses/$licenseSlug': typeof LicensesLicenseSlugIndexRoute
-  '/licenses/new': typeof LicensesNewIndexRoute
-  '/licenses/versions': typeof LicensesVersionsIndexRoute
   '/releases/$releaseSlug': typeof ReleasesReleaseSlugIndexRoute
   '/releases/deployment-zone': typeof ReleasesDeploymentZoneIndexRoute
   '/releases/new': typeof ReleasesNewIndexRoute
-  '/vouchers/$voucherId': typeof VouchersVoucherIdIndexRoute
-  '/vouchers/new': typeof VouchersNewIndexRoute
+  '/catalog/addons/$addonSlug/compatibility': typeof CatalogAddonsAddonSlugCompatibilityRoute
+  '/catalog/addons/$addonSlug/entitlements': typeof CatalogAddonsAddonSlugEntitlementsRoute
+  '/catalog/addons/$addonSlug/prices': typeof CatalogAddonsAddonSlugPricesRoute
+  '/catalog/entitlements/$entitlementSlug/customers': typeof CatalogEntitlementsEntitlementSlugCustomersRoute
+  '/catalog/entitlements/$entitlementSlug/licenses': typeof CatalogEntitlementsEntitlementSlugLicensesRoute
+  '/catalog/entitlements/$entitlementSlug/usage': typeof CatalogEntitlementsEntitlementSlugUsageRoute
+  '/catalog/licenses/$licenseSlug/prices': typeof CatalogLicensesLicenseSlugPricesRoute
+  '/catalog/vouchers/$voucherId/edit': typeof CatalogVouchersVoucherIdEditRoute
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
   '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRoute
@@ -938,12 +947,19 @@ export interface FileRoutesByTo {
   '/releases/deployment-zones/$zoneSlug/deploy': typeof ReleasesDeploymentZonesZoneSlugDeployRoute
   '/releases/deployment-zones/$zoneSlug/edit': typeof ReleasesDeploymentZonesZoneSlugEditRoute
   '/releases/deployment-zones/$zoneSlug/peers': typeof ReleasesDeploymentZonesZoneSlugPeersRoute
+  '/catalog/addons/$addonSlug': typeof CatalogAddonsAddonSlugIndexRoute
+  '/catalog/addons/new': typeof CatalogAddonsNewIndexRoute
+  '/catalog/entitlements/$entitlementSlug': typeof CatalogEntitlementsEntitlementSlugIndexRoute
+  '/catalog/entitlements/new': typeof CatalogEntitlementsNewIndexRoute
+  '/catalog/licenses/$licenseSlug': typeof CatalogLicensesLicenseSlugIndexRoute
+  '/catalog/licenses/new': typeof CatalogLicensesNewIndexRoute
+  '/catalog/licenses/versions': typeof CatalogLicensesVersionsIndexRoute
+  '/catalog/vouchers/$voucherId': typeof CatalogVouchersVoucherIdIndexRoute
+  '/catalog/vouchers/new': typeof CatalogVouchersNewIndexRoute
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugIndexRoute
   '/customers/instances/new': typeof CustomersInstancesNewIndexRoute
   '/integrations/publishable-keys/new': typeof IntegrationsPublishableKeysNewIndexRoute
   '/integrations/service-accounts/new': typeof IntegrationsServiceAccountsNewIndexRoute
-  '/licenses/versions/$licenseSlug': typeof LicensesVersionsLicenseSlugIndexRoute
-  '/licenses/versions/new': typeof LicensesVersionsNewIndexRoute
   '/releases/components/new': typeof ReleasesComponentsNewIndexRoute
   '/releases/deployment-zone/$zoneSlug': typeof ReleasesDeploymentZoneZoneSlugIndexRoute
   '/releases/deployment-zones/new': typeof ReleasesDeploymentZonesNewIndexRoute
@@ -955,6 +971,8 @@ export interface FileRoutesByTo {
   '/customers/instances/$instanceSlug/billing/redeem-voucher': typeof CustomersInstancesInstanceSlugBillingRedeemVoucherRoute
   '/customers/instances/$instanceSlug/billing/subscribe': typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
   '/customers/instances/$instanceSlug/billing/terms': typeof CustomersInstancesInstanceSlugBillingTermsRoute
+  '/catalog/licenses/versions/$licenseSlug': typeof CatalogLicensesVersionsLicenseSlugIndexRoute
+  '/catalog/licenses/versions/new': typeof CatalogLicensesVersionsNewIndexRoute
   '/customers/$customerSlug/instances/new': typeof CustomersCustomerSlugInstancesNewIndexRoute
   '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingIndexRoute
   '/integrations/service-accounts/$serviceAccountSlug/tokens/new': typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute
@@ -962,72 +980,61 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/addons': typeof AddonsRouteRouteWithChildren
   '/customers': typeof CustomersRouteRouteWithChildren
-  '/entitlements': typeof EntitlementsRouteRouteWithChildren
   '/invoices': typeof InvoicesRouteRouteWithChildren
   '/releases': typeof ReleasesRouteRouteWithChildren
-  '/vouchers': typeof VouchersRouteRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
-  '/addons/$addonSlug': typeof AddonsAddonSlugRouteRouteWithChildren
+  '/catalog/addons': typeof CatalogAddonsRouteRouteWithChildren
+  '/catalog/entitlements': typeof CatalogEntitlementsRouteRouteWithChildren
+  '/catalog/vouchers': typeof CatalogVouchersRouteRouteWithChildren
   '/customers/$customerSlug': typeof CustomersCustomerSlugRouteRouteWithChildren
   '/customers/instances': typeof CustomersInstancesRouteRouteWithChildren
-  '/entitlements/$entitlementSlug': typeof EntitlementsEntitlementSlugRouteRouteWithChildren
   '/feature-flags/$featureFlagSlug': typeof FeatureFlagsFeatureFlagSlugRouteRouteWithChildren
   '/integrations/connectors': typeof IntegrationsConnectorsRouteRouteWithChildren
   '/integrations/publishable-keys': typeof IntegrationsPublishableKeysRouteRouteWithChildren
   '/integrations/service-accounts': typeof IntegrationsServiceAccountsRouteRouteWithChildren
   '/integrations/webhooks': typeof IntegrationsWebhooksRouteRouteWithChildren
   '/invoices/$invoiceId': typeof InvoicesInvoiceIdRouteRouteWithChildren
-  '/licenses/$licenseSlug': typeof LicensesLicenseSlugRouteRouteWithChildren
   '/releases/$releaseSlug': typeof ReleasesReleaseSlugRouteRouteWithChildren
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
   '/releases/deployment-zones': typeof ReleasesDeploymentZonesRouteRouteWithChildren
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
-  '/vouchers/$voucherId': typeof VouchersVoucherIdRouteRouteWithChildren
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
-  '/addons/': typeof AddonsIndexRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
+  '/catalog/': typeof CatalogIndexRoute
   '/customers/': typeof CustomersIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
-  '/entitlements/': typeof EntitlementsIndexRoute
   '/feature-flags/': typeof FeatureFlagsIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/invoices/': typeof InvoicesIndexRoute
-  '/licenses/': typeof LicensesIndexRoute
   '/notifications/': typeof NotificationsIndexRoute
   '/releases/': typeof ReleasesIndexRoute
   '/settings/': typeof SettingsIndexRoute
-  '/vouchers/': typeof VouchersIndexRoute
+  '/catalog/addons/$addonSlug': typeof CatalogAddonsAddonSlugRouteRouteWithChildren
+  '/catalog/entitlements/$entitlementSlug': typeof CatalogEntitlementsEntitlementSlugRouteRouteWithChildren
+  '/catalog/licenses/$licenseSlug': typeof CatalogLicensesLicenseSlugRouteRouteWithChildren
+  '/catalog/vouchers/$voucherId': typeof CatalogVouchersVoucherIdRouteRouteWithChildren
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugRouteRouteWithChildren
   '/releases/deployment-zones_/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugRouteRouteWithChildren
-  '/addons/$addonSlug/compatibility': typeof AddonsAddonSlugCompatibilityRoute
-  '/addons/$addonSlug/entitlements': typeof AddonsAddonSlugEntitlementsRoute
-  '/addons/$addonSlug/prices': typeof AddonsAddonSlugPricesRoute
   '/customers/$customerSlug/edit': typeof CustomersCustomerSlugEditRoute
-  '/entitlements/$entitlementSlug/customers': typeof EntitlementsEntitlementSlugCustomersRoute
-  '/entitlements/$entitlementSlug/licenses': typeof EntitlementsEntitlementSlugLicensesRoute
-  '/entitlements/$entitlementSlug/usage': typeof EntitlementsEntitlementSlugUsageRoute
   '/feature-flags/$featureFlagSlug/audit-trail': typeof FeatureFlagsFeatureFlagSlugAuditTrailRoute
   '/feature-flags/$featureFlagSlug/evaluation': typeof FeatureFlagsFeatureFlagSlugEvaluationRoute
   '/feature-flags/$featureFlagSlug/targeting': typeof FeatureFlagsFeatureFlagSlugTargetingRoute
   '/feature-flags/$featureFlagSlug/variants': typeof FeatureFlagsFeatureFlagSlugVariantsRoute
   '/integrations/connectors/$connectorId': typeof IntegrationsConnectorsConnectorIdRoute
   '/integrations/webhooks/history': typeof IntegrationsWebhooksHistoryRoute
-  '/licenses/$licenseSlug/prices': typeof LicensesLicenseSlugPricesRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
-  '/vouchers/$voucherId/edit': typeof VouchersVoucherIdEditRoute
-  '/addons/$addonSlug/': typeof AddonsAddonSlugIndexRoute
-  '/addons/new/': typeof AddonsNewIndexRoute
+  '/catalog/addons/': typeof CatalogAddonsIndexRoute
+  '/catalog/entitlements/': typeof CatalogEntitlementsIndexRoute
+  '/catalog/licenses/': typeof CatalogLicensesIndexRoute
+  '/catalog/vouchers/': typeof CatalogVouchersIndexRoute
   '/customers/$customerSlug/': typeof CustomersCustomerSlugIndexRoute
   '/customers/instances/': typeof CustomersInstancesIndexRoute
   '/customers/new/': typeof CustomersNewIndexRoute
-  '/entitlements/$entitlementSlug/': typeof EntitlementsEntitlementSlugIndexRoute
-  '/entitlements/new/': typeof EntitlementsNewIndexRoute
   '/feature-flags/$featureFlagSlug/': typeof FeatureFlagsFeatureFlagSlugIndexRoute
   '/feature-flags/new/': typeof FeatureFlagsNewIndexRoute
   '/integrations/connectors/': typeof IntegrationsConnectorsIndexRoute
@@ -1035,15 +1042,18 @@ export interface FileRoutesById {
   '/integrations/service-accounts/': typeof IntegrationsServiceAccountsIndexRoute
   '/integrations/webhooks/': typeof IntegrationsWebhooksIndexRoute
   '/invoices/$invoiceId/': typeof InvoicesInvoiceIdIndexRoute
-  '/licenses/$licenseSlug/': typeof LicensesLicenseSlugIndexRoute
-  '/licenses/new/': typeof LicensesNewIndexRoute
-  '/licenses/versions/': typeof LicensesVersionsIndexRoute
   '/releases/$releaseSlug/': typeof ReleasesReleaseSlugIndexRoute
   '/releases/deployment-zone/': typeof ReleasesDeploymentZoneIndexRoute
   '/releases/new/': typeof ReleasesNewIndexRoute
-  '/vouchers/$voucherId/': typeof VouchersVoucherIdIndexRoute
-  '/vouchers/new/': typeof VouchersNewIndexRoute
   '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingRouteRouteWithChildren
+  '/catalog/addons/$addonSlug/compatibility': typeof CatalogAddonsAddonSlugCompatibilityRoute
+  '/catalog/addons/$addonSlug/entitlements': typeof CatalogAddonsAddonSlugEntitlementsRoute
+  '/catalog/addons/$addonSlug/prices': typeof CatalogAddonsAddonSlugPricesRoute
+  '/catalog/entitlements/$entitlementSlug/customers': typeof CatalogEntitlementsEntitlementSlugCustomersRoute
+  '/catalog/entitlements/$entitlementSlug/licenses': typeof CatalogEntitlementsEntitlementSlugLicensesRoute
+  '/catalog/entitlements/$entitlementSlug/usage': typeof CatalogEntitlementsEntitlementSlugUsageRoute
+  '/catalog/licenses/$licenseSlug/prices': typeof CatalogLicensesLicenseSlugPricesRoute
+  '/catalog/vouchers/$voucherId/edit': typeof CatalogVouchersVoucherIdEditRoute
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
   '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRoute
@@ -1053,12 +1063,19 @@ export interface FileRoutesById {
   '/releases/deployment-zones/$zoneSlug/deploy': typeof ReleasesDeploymentZonesZoneSlugDeployRoute
   '/releases/deployment-zones/$zoneSlug/edit': typeof ReleasesDeploymentZonesZoneSlugEditRoute
   '/releases/deployment-zones_/$zoneSlug/peers': typeof ReleasesDeploymentZonesZoneSlugPeersRoute
+  '/catalog/addons/$addonSlug/': typeof CatalogAddonsAddonSlugIndexRoute
+  '/catalog/addons/new/': typeof CatalogAddonsNewIndexRoute
+  '/catalog/entitlements/$entitlementSlug/': typeof CatalogEntitlementsEntitlementSlugIndexRoute
+  '/catalog/entitlements/new/': typeof CatalogEntitlementsNewIndexRoute
+  '/catalog/licenses/$licenseSlug/': typeof CatalogLicensesLicenseSlugIndexRoute
+  '/catalog/licenses/new/': typeof CatalogLicensesNewIndexRoute
+  '/catalog/licenses/versions/': typeof CatalogLicensesVersionsIndexRoute
+  '/catalog/vouchers/$voucherId/': typeof CatalogVouchersVoucherIdIndexRoute
+  '/catalog/vouchers/new/': typeof CatalogVouchersNewIndexRoute
   '/customers/instances/$instanceSlug/': typeof CustomersInstancesInstanceSlugIndexRoute
   '/customers/instances/new/': typeof CustomersInstancesNewIndexRoute
   '/integrations/publishable-keys/new/': typeof IntegrationsPublishableKeysNewIndexRoute
   '/integrations/service-accounts/new/': typeof IntegrationsServiceAccountsNewIndexRoute
-  '/licenses/versions/$licenseSlug/': typeof LicensesVersionsLicenseSlugIndexRoute
-  '/licenses/versions/new/': typeof LicensesVersionsNewIndexRoute
   '/releases/components/new/': typeof ReleasesComponentsNewIndexRoute
   '/releases/deployment-zone/$zoneSlug/': typeof ReleasesDeploymentZoneZoneSlugIndexRoute
   '/releases/deployment-zones/new/': typeof ReleasesDeploymentZonesNewIndexRoute
@@ -1070,6 +1087,8 @@ export interface FileRoutesById {
   '/customers/instances/$instanceSlug/billing/redeem-voucher': typeof CustomersInstancesInstanceSlugBillingRedeemVoucherRoute
   '/customers/instances/$instanceSlug/billing/subscribe': typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
   '/customers/instances/$instanceSlug/billing/terms': typeof CustomersInstancesInstanceSlugBillingTermsRoute
+  '/catalog/licenses/versions/$licenseSlug/': typeof CatalogLicensesVersionsLicenseSlugIndexRoute
+  '/catalog/licenses/versions/new/': typeof CatalogLicensesVersionsNewIndexRoute
   '/customers/$customerSlug/instances/new/': typeof CustomersCustomerSlugInstancesNewIndexRoute
   '/customers/instances/$instanceSlug/billing/': typeof CustomersInstancesInstanceSlugBillingIndexRoute
   '/integrations/service-accounts/$serviceAccountSlug/tokens/new/': typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute
@@ -1078,72 +1097,61 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/addons'
     | '/customers'
-    | '/entitlements'
     | '/invoices'
     | '/releases'
-    | '/vouchers'
     | '/sign-in'
     | '/sign-up'
-    | '/addons/$addonSlug'
+    | '/catalog/addons'
+    | '/catalog/entitlements'
+    | '/catalog/vouchers'
     | '/customers/$customerSlug'
     | '/customers/instances'
-    | '/entitlements/$entitlementSlug'
     | '/feature-flags/$featureFlagSlug'
     | '/integrations/connectors'
     | '/integrations/publishable-keys'
     | '/integrations/service-accounts'
     | '/integrations/webhooks'
     | '/invoices/$invoiceId'
-    | '/licenses/$licenseSlug'
     | '/releases/$releaseSlug'
     | '/releases/components'
     | '/releases/deployment-zones'
     | '/releases/deployments'
-    | '/vouchers/$voucherId'
     | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
-    | '/addons/'
     | '/audit-trail/'
+    | '/catalog/'
     | '/customers/'
     | '/dashboard/'
-    | '/entitlements/'
     | '/feature-flags/'
     | '/integrations/'
     | '/invoices/'
-    | '/licenses/'
     | '/notifications/'
     | '/releases/'
     | '/settings/'
-    | '/vouchers/'
+    | '/catalog/addons/$addonSlug'
+    | '/catalog/entitlements/$entitlementSlug'
+    | '/catalog/licenses/$licenseSlug'
+    | '/catalog/vouchers/$voucherId'
     | '/customers/instances/$instanceSlug'
     | '/releases/deployment-zones/$zoneSlug'
-    | '/addons/$addonSlug/compatibility'
-    | '/addons/$addonSlug/entitlements'
-    | '/addons/$addonSlug/prices'
     | '/customers/$customerSlug/edit'
-    | '/entitlements/$entitlementSlug/customers'
-    | '/entitlements/$entitlementSlug/licenses'
-    | '/entitlements/$entitlementSlug/usage'
     | '/feature-flags/$featureFlagSlug/audit-trail'
     | '/feature-flags/$featureFlagSlug/evaluation'
     | '/feature-flags/$featureFlagSlug/targeting'
     | '/feature-flags/$featureFlagSlug/variants'
     | '/integrations/connectors/$connectorId'
     | '/integrations/webhooks/history'
-    | '/licenses/$licenseSlug/prices'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
-    | '/vouchers/$voucherId/edit'
-    | '/addons/$addonSlug/'
-    | '/addons/new/'
+    | '/catalog/addons/'
+    | '/catalog/entitlements/'
+    | '/catalog/licenses/'
+    | '/catalog/vouchers/'
     | '/customers/$customerSlug/'
     | '/customers/instances/'
     | '/customers/new/'
-    | '/entitlements/$entitlementSlug/'
-    | '/entitlements/new/'
     | '/feature-flags/$featureFlagSlug/'
     | '/feature-flags/new/'
     | '/integrations/connectors/'
@@ -1151,15 +1159,18 @@ export interface FileRouteTypes {
     | '/integrations/service-accounts/'
     | '/integrations/webhooks/'
     | '/invoices/$invoiceId/'
-    | '/licenses/$licenseSlug/'
-    | '/licenses/new/'
-    | '/licenses/versions/'
     | '/releases/$releaseSlug/'
     | '/releases/deployment-zone/'
     | '/releases/new/'
-    | '/vouchers/$voucherId/'
-    | '/vouchers/new/'
     | '/customers/instances/$instanceSlug/billing'
+    | '/catalog/addons/$addonSlug/compatibility'
+    | '/catalog/addons/$addonSlug/entitlements'
+    | '/catalog/addons/$addonSlug/prices'
+    | '/catalog/entitlements/$entitlementSlug/customers'
+    | '/catalog/entitlements/$entitlementSlug/licenses'
+    | '/catalog/entitlements/$entitlementSlug/usage'
+    | '/catalog/licenses/$licenseSlug/prices'
+    | '/catalog/vouchers/$voucherId/edit'
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
     | '/customers/instances/$instanceSlug/entitlements'
@@ -1169,12 +1180,19 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones/$zoneSlug/deploy'
     | '/releases/deployment-zones/$zoneSlug/edit'
     | '/releases/deployment-zones/$zoneSlug/peers'
+    | '/catalog/addons/$addonSlug/'
+    | '/catalog/addons/new/'
+    | '/catalog/entitlements/$entitlementSlug/'
+    | '/catalog/entitlements/new/'
+    | '/catalog/licenses/$licenseSlug/'
+    | '/catalog/licenses/new/'
+    | '/catalog/licenses/versions/'
+    | '/catalog/vouchers/$voucherId/'
+    | '/catalog/vouchers/new/'
     | '/customers/instances/$instanceSlug/'
     | '/customers/instances/new/'
     | '/integrations/publishable-keys/new/'
     | '/integrations/service-accounts/new/'
-    | '/licenses/versions/$licenseSlug/'
-    | '/licenses/versions/new/'
     | '/releases/components/new/'
     | '/releases/deployment-zone/$zoneSlug/'
     | '/releases/deployment-zones/new/'
@@ -1186,6 +1204,8 @@ export interface FileRouteTypes {
     | '/customers/instances/$instanceSlug/billing/redeem-voucher'
     | '/customers/instances/$instanceSlug/billing/subscribe'
     | '/customers/instances/$instanceSlug/billing/terms'
+    | '/catalog/licenses/versions/$licenseSlug/'
+    | '/catalog/licenses/versions/new/'
     | '/customers/$customerSlug/instances/new/'
     | '/customers/instances/$instanceSlug/billing/'
     | '/integrations/service-accounts/$serviceAccountSlug/tokens/new/'
@@ -1200,43 +1220,32 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
-    | '/addons'
     | '/audit-trail'
+    | '/catalog'
     | '/customers'
     | '/dashboard'
-    | '/entitlements'
     | '/feature-flags'
     | '/integrations'
     | '/invoices'
-    | '/licenses'
     | '/notifications'
     | '/releases'
     | '/settings'
-    | '/vouchers'
-    | '/addons/$addonSlug/compatibility'
-    | '/addons/$addonSlug/entitlements'
-    | '/addons/$addonSlug/prices'
     | '/customers/$customerSlug/edit'
-    | '/entitlements/$entitlementSlug/customers'
-    | '/entitlements/$entitlementSlug/licenses'
-    | '/entitlements/$entitlementSlug/usage'
     | '/feature-flags/$featureFlagSlug/audit-trail'
     | '/feature-flags/$featureFlagSlug/evaluation'
     | '/feature-flags/$featureFlagSlug/targeting'
     | '/feature-flags/$featureFlagSlug/variants'
     | '/integrations/connectors/$connectorId'
     | '/integrations/webhooks/history'
-    | '/licenses/$licenseSlug/prices'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
-    | '/vouchers/$voucherId/edit'
-    | '/addons/$addonSlug'
-    | '/addons/new'
+    | '/catalog/addons'
+    | '/catalog/entitlements'
+    | '/catalog/licenses'
+    | '/catalog/vouchers'
     | '/customers/$customerSlug'
     | '/customers/instances'
     | '/customers/new'
-    | '/entitlements/$entitlementSlug'
-    | '/entitlements/new'
     | '/feature-flags/$featureFlagSlug'
     | '/feature-flags/new'
     | '/integrations/connectors'
@@ -1244,14 +1253,17 @@ export interface FileRouteTypes {
     | '/integrations/service-accounts'
     | '/integrations/webhooks'
     | '/invoices/$invoiceId'
-    | '/licenses/$licenseSlug'
-    | '/licenses/new'
-    | '/licenses/versions'
     | '/releases/$releaseSlug'
     | '/releases/deployment-zone'
     | '/releases/new'
-    | '/vouchers/$voucherId'
-    | '/vouchers/new'
+    | '/catalog/addons/$addonSlug/compatibility'
+    | '/catalog/addons/$addonSlug/entitlements'
+    | '/catalog/addons/$addonSlug/prices'
+    | '/catalog/entitlements/$entitlementSlug/customers'
+    | '/catalog/entitlements/$entitlementSlug/licenses'
+    | '/catalog/entitlements/$entitlementSlug/usage'
+    | '/catalog/licenses/$licenseSlug/prices'
+    | '/catalog/vouchers/$voucherId/edit'
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
     | '/customers/instances/$instanceSlug/entitlements'
@@ -1261,12 +1273,19 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones/$zoneSlug/deploy'
     | '/releases/deployment-zones/$zoneSlug/edit'
     | '/releases/deployment-zones/$zoneSlug/peers'
+    | '/catalog/addons/$addonSlug'
+    | '/catalog/addons/new'
+    | '/catalog/entitlements/$entitlementSlug'
+    | '/catalog/entitlements/new'
+    | '/catalog/licenses/$licenseSlug'
+    | '/catalog/licenses/new'
+    | '/catalog/licenses/versions'
+    | '/catalog/vouchers/$voucherId'
+    | '/catalog/vouchers/new'
     | '/customers/instances/$instanceSlug'
     | '/customers/instances/new'
     | '/integrations/publishable-keys/new'
     | '/integrations/service-accounts/new'
-    | '/licenses/versions/$licenseSlug'
-    | '/licenses/versions/new'
     | '/releases/components/new'
     | '/releases/deployment-zone/$zoneSlug'
     | '/releases/deployment-zones/new'
@@ -1278,78 +1297,69 @@ export interface FileRouteTypes {
     | '/customers/instances/$instanceSlug/billing/redeem-voucher'
     | '/customers/instances/$instanceSlug/billing/subscribe'
     | '/customers/instances/$instanceSlug/billing/terms'
+    | '/catalog/licenses/versions/$licenseSlug'
+    | '/catalog/licenses/versions/new'
     | '/customers/$customerSlug/instances/new'
     | '/customers/instances/$instanceSlug/billing'
     | '/integrations/service-accounts/$serviceAccountSlug/tokens/new'
   id:
     | '__root__'
     | '/'
-    | '/addons'
     | '/customers'
-    | '/entitlements'
     | '/invoices'
     | '/releases'
-    | '/vouchers'
     | '/sign-in'
     | '/sign-up'
-    | '/addons/$addonSlug'
+    | '/catalog/addons'
+    | '/catalog/entitlements'
+    | '/catalog/vouchers'
     | '/customers/$customerSlug'
     | '/customers/instances'
-    | '/entitlements/$entitlementSlug'
     | '/feature-flags/$featureFlagSlug'
     | '/integrations/connectors'
     | '/integrations/publishable-keys'
     | '/integrations/service-accounts'
     | '/integrations/webhooks'
     | '/invoices/$invoiceId'
-    | '/licenses/$licenseSlug'
     | '/releases/$releaseSlug'
     | '/releases/components'
     | '/releases/deployment-zones'
     | '/releases/deployments'
-    | '/vouchers/$voucherId'
     | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
-    | '/addons/'
     | '/audit-trail/'
+    | '/catalog/'
     | '/customers/'
     | '/dashboard/'
-    | '/entitlements/'
     | '/feature-flags/'
     | '/integrations/'
     | '/invoices/'
-    | '/licenses/'
     | '/notifications/'
     | '/releases/'
     | '/settings/'
-    | '/vouchers/'
+    | '/catalog/addons/$addonSlug'
+    | '/catalog/entitlements/$entitlementSlug'
+    | '/catalog/licenses/$licenseSlug'
+    | '/catalog/vouchers/$voucherId'
     | '/customers/instances/$instanceSlug'
     | '/releases/deployment-zones_/$zoneSlug'
-    | '/addons/$addonSlug/compatibility'
-    | '/addons/$addonSlug/entitlements'
-    | '/addons/$addonSlug/prices'
     | '/customers/$customerSlug/edit'
-    | '/entitlements/$entitlementSlug/customers'
-    | '/entitlements/$entitlementSlug/licenses'
-    | '/entitlements/$entitlementSlug/usage'
     | '/feature-flags/$featureFlagSlug/audit-trail'
     | '/feature-flags/$featureFlagSlug/evaluation'
     | '/feature-flags/$featureFlagSlug/targeting'
     | '/feature-flags/$featureFlagSlug/variants'
     | '/integrations/connectors/$connectorId'
     | '/integrations/webhooks/history'
-    | '/licenses/$licenseSlug/prices'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
-    | '/vouchers/$voucherId/edit'
-    | '/addons/$addonSlug/'
-    | '/addons/new/'
+    | '/catalog/addons/'
+    | '/catalog/entitlements/'
+    | '/catalog/licenses/'
+    | '/catalog/vouchers/'
     | '/customers/$customerSlug/'
     | '/customers/instances/'
     | '/customers/new/'
-    | '/entitlements/$entitlementSlug/'
-    | '/entitlements/new/'
     | '/feature-flags/$featureFlagSlug/'
     | '/feature-flags/new/'
     | '/integrations/connectors/'
@@ -1357,15 +1367,18 @@ export interface FileRouteTypes {
     | '/integrations/service-accounts/'
     | '/integrations/webhooks/'
     | '/invoices/$invoiceId/'
-    | '/licenses/$licenseSlug/'
-    | '/licenses/new/'
-    | '/licenses/versions/'
     | '/releases/$releaseSlug/'
     | '/releases/deployment-zone/'
     | '/releases/new/'
-    | '/vouchers/$voucherId/'
-    | '/vouchers/new/'
     | '/customers/instances/$instanceSlug/billing'
+    | '/catalog/addons/$addonSlug/compatibility'
+    | '/catalog/addons/$addonSlug/entitlements'
+    | '/catalog/addons/$addonSlug/prices'
+    | '/catalog/entitlements/$entitlementSlug/customers'
+    | '/catalog/entitlements/$entitlementSlug/licenses'
+    | '/catalog/entitlements/$entitlementSlug/usage'
+    | '/catalog/licenses/$licenseSlug/prices'
+    | '/catalog/vouchers/$voucherId/edit'
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
     | '/customers/instances/$instanceSlug/entitlements'
@@ -1375,12 +1388,19 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones/$zoneSlug/deploy'
     | '/releases/deployment-zones/$zoneSlug/edit'
     | '/releases/deployment-zones_/$zoneSlug/peers'
+    | '/catalog/addons/$addonSlug/'
+    | '/catalog/addons/new/'
+    | '/catalog/entitlements/$entitlementSlug/'
+    | '/catalog/entitlements/new/'
+    | '/catalog/licenses/$licenseSlug/'
+    | '/catalog/licenses/new/'
+    | '/catalog/licenses/versions/'
+    | '/catalog/vouchers/$voucherId/'
+    | '/catalog/vouchers/new/'
     | '/customers/instances/$instanceSlug/'
     | '/customers/instances/new/'
     | '/integrations/publishable-keys/new/'
     | '/integrations/service-accounts/new/'
-    | '/licenses/versions/$licenseSlug/'
-    | '/licenses/versions/new/'
     | '/releases/components/new/'
     | '/releases/deployment-zone/$zoneSlug/'
     | '/releases/deployment-zones/new/'
@@ -1392,6 +1412,8 @@ export interface FileRouteTypes {
     | '/customers/instances/$instanceSlug/billing/redeem-voucher'
     | '/customers/instances/$instanceSlug/billing/subscribe'
     | '/customers/instances/$instanceSlug/billing/terms'
+    | '/catalog/licenses/versions/$licenseSlug/'
+    | '/catalog/licenses/versions/new/'
     | '/customers/$customerSlug/instances/new/'
     | '/customers/instances/$instanceSlug/billing/'
     | '/integrations/service-accounts/$serviceAccountSlug/tokens/new/'
@@ -1399,35 +1421,36 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AddonsRouteRoute: typeof AddonsRouteRouteWithChildren
   CustomersRouteRoute: typeof CustomersRouteRouteWithChildren
-  EntitlementsRouteRoute: typeof EntitlementsRouteRouteWithChildren
   InvoicesRouteRoute: typeof InvoicesRouteRouteWithChildren
   ReleasesRouteRoute: typeof ReleasesRouteRouteWithChildren
-  VouchersRouteRoute: typeof VouchersRouteRouteWithChildren
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
+  CatalogAddonsRouteRoute: typeof CatalogAddonsRouteRouteWithChildren
+  CatalogEntitlementsRouteRoute: typeof CatalogEntitlementsRouteRouteWithChildren
+  CatalogVouchersRouteRoute: typeof CatalogVouchersRouteRouteWithChildren
   FeatureFlagsFeatureFlagSlugRouteRoute: typeof FeatureFlagsFeatureFlagSlugRouteRouteWithChildren
   IntegrationsConnectorsRouteRoute: typeof IntegrationsConnectorsRouteRouteWithChildren
   IntegrationsPublishableKeysRouteRoute: typeof IntegrationsPublishableKeysRouteRouteWithChildren
   IntegrationsServiceAccountsRouteRoute: typeof IntegrationsServiceAccountsRouteRouteWithChildren
   IntegrationsWebhooksRouteRoute: typeof IntegrationsWebhooksRouteRouteWithChildren
-  LicensesLicenseSlugRouteRoute: typeof LicensesLicenseSlugRouteRouteWithChildren
   SettingsBillingRoute: typeof SettingsBillingRoute
   SettingsMetadataRoute: typeof SettingsMetadataRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   AuditTrailIndexRoute: typeof AuditTrailIndexRoute
+  CatalogIndexRoute: typeof CatalogIndexRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   FeatureFlagsIndexRoute: typeof FeatureFlagsIndexRoute
   IntegrationsIndexRoute: typeof IntegrationsIndexRoute
-  LicensesIndexRoute: typeof LicensesIndexRoute
   NotificationsIndexRoute: typeof NotificationsIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
+  CatalogLicensesLicenseSlugRouteRoute: typeof CatalogLicensesLicenseSlugRouteRouteWithChildren
+  CatalogLicensesIndexRoute: typeof CatalogLicensesIndexRoute
   FeatureFlagsNewIndexRoute: typeof FeatureFlagsNewIndexRoute
-  LicensesNewIndexRoute: typeof LicensesNewIndexRoute
-  LicensesVersionsIndexRoute: typeof LicensesVersionsIndexRoute
-  LicensesVersionsLicenseSlugIndexRoute: typeof LicensesVersionsLicenseSlugIndexRoute
-  LicensesVersionsNewIndexRoute: typeof LicensesVersionsNewIndexRoute
+  CatalogLicensesNewIndexRoute: typeof CatalogLicensesNewIndexRoute
+  CatalogLicensesVersionsIndexRoute: typeof CatalogLicensesVersionsIndexRoute
+  CatalogLicensesVersionsLicenseSlugIndexRoute: typeof CatalogLicensesVersionsLicenseSlugIndexRoute
+  CatalogLicensesVersionsNewIndexRoute: typeof CatalogLicensesVersionsNewIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1439,25 +1462,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/addons': {
-      id: '/addons'
-      path: '/addons'
-      fullPath: '/addons'
-      preLoaderRoute: typeof AddonsRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/customers': {
       id: '/customers'
       path: '/customers'
       fullPath: '/customers'
       preLoaderRoute: typeof CustomersRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/entitlements': {
-      id: '/entitlements'
-      path: '/entitlements'
-      fullPath: '/entitlements'
-      preLoaderRoute: typeof EntitlementsRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invoices': {
@@ -1488,32 +1497,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignUpRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/vouchers': {
-      id: '/vouchers'
-      path: '/vouchers'
-      fullPath: '/vouchers'
-      preLoaderRoute: typeof VouchersRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/addons/': {
-      id: '/addons/'
-      path: '/'
-      fullPath: '/addons/'
-      preLoaderRoute: typeof AddonsIndexRouteImport
-      parentRoute: typeof AddonsRouteRoute
-    }
-    '/addons/$addonSlug': {
-      id: '/addons/$addonSlug'
-      path: '/$addonSlug'
-      fullPath: '/addons/$addonSlug'
-      preLoaderRoute: typeof AddonsAddonSlugRouteRouteImport
-      parentRoute: typeof AddonsRouteRoute
-    }
     '/audit-trail/': {
       id: '/audit-trail/'
       path: '/audit-trail'
       fullPath: '/audit-trail/'
       preLoaderRoute: typeof AuditTrailIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog/': {
+      id: '/catalog/'
+      path: '/catalog'
+      fullPath: '/catalog/'
+      preLoaderRoute: typeof CatalogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog/addons': {
+      id: '/catalog/addons'
+      path: '/catalog/addons'
+      fullPath: '/catalog/addons'
+      preLoaderRoute: typeof CatalogAddonsRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog/entitlements': {
+      id: '/catalog/entitlements'
+      path: '/catalog/entitlements'
+      fullPath: '/catalog/entitlements'
+      preLoaderRoute: typeof CatalogEntitlementsRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog/vouchers': {
+      id: '/catalog/vouchers'
+      path: '/catalog/vouchers'
+      fullPath: '/catalog/vouchers'
+      preLoaderRoute: typeof CatalogVouchersRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customers/': {
@@ -1543,20 +1559,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/'
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/entitlements/': {
-      id: '/entitlements/'
-      path: '/'
-      fullPath: '/entitlements/'
-      preLoaderRoute: typeof EntitlementsIndexRouteImport
-      parentRoute: typeof EntitlementsRouteRoute
-    }
-    '/entitlements/$entitlementSlug': {
-      id: '/entitlements/$entitlementSlug'
-      path: '/$entitlementSlug'
-      fullPath: '/entitlements/$entitlementSlug'
-      preLoaderRoute: typeof EntitlementsEntitlementSlugRouteRouteImport
-      parentRoute: typeof EntitlementsRouteRoute
     }
     '/feature-flags/': {
       id: '/feature-flags/'
@@ -1620,20 +1622,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/invoices/$invoiceId'
       preLoaderRoute: typeof InvoicesInvoiceIdRouteRouteImport
       parentRoute: typeof InvoicesRouteRoute
-    }
-    '/licenses/': {
-      id: '/licenses/'
-      path: '/licenses'
-      fullPath: '/licenses/'
-      preLoaderRoute: typeof LicensesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/licenses/$licenseSlug': {
-      id: '/licenses/$licenseSlug'
-      path: '/licenses/$licenseSlug'
-      fullPath: '/licenses/$licenseSlug'
-      preLoaderRoute: typeof LicensesLicenseSlugRouteRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/notifications/': {
       id: '/notifications/'
@@ -1705,54 +1693,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsNotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/vouchers/': {
-      id: '/vouchers/'
+    '/catalog/addons/': {
+      id: '/catalog/addons/'
       path: '/'
-      fullPath: '/vouchers/'
-      preLoaderRoute: typeof VouchersIndexRouteImport
-      parentRoute: typeof VouchersRouteRoute
+      fullPath: '/catalog/addons/'
+      preLoaderRoute: typeof CatalogAddonsIndexRouteImport
+      parentRoute: typeof CatalogAddonsRouteRoute
     }
-    '/vouchers/$voucherId': {
-      id: '/vouchers/$voucherId'
+    '/catalog/addons/$addonSlug': {
+      id: '/catalog/addons/$addonSlug'
+      path: '/$addonSlug'
+      fullPath: '/catalog/addons/$addonSlug'
+      preLoaderRoute: typeof CatalogAddonsAddonSlugRouteRouteImport
+      parentRoute: typeof CatalogAddonsRouteRoute
+    }
+    '/catalog/entitlements/': {
+      id: '/catalog/entitlements/'
+      path: '/'
+      fullPath: '/catalog/entitlements/'
+      preLoaderRoute: typeof CatalogEntitlementsIndexRouteImport
+      parentRoute: typeof CatalogEntitlementsRouteRoute
+    }
+    '/catalog/entitlements/$entitlementSlug': {
+      id: '/catalog/entitlements/$entitlementSlug'
+      path: '/$entitlementSlug'
+      fullPath: '/catalog/entitlements/$entitlementSlug'
+      preLoaderRoute: typeof CatalogEntitlementsEntitlementSlugRouteRouteImport
+      parentRoute: typeof CatalogEntitlementsRouteRoute
+    }
+    '/catalog/licenses/': {
+      id: '/catalog/licenses/'
+      path: '/catalog/licenses'
+      fullPath: '/catalog/licenses/'
+      preLoaderRoute: typeof CatalogLicensesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog/licenses/$licenseSlug': {
+      id: '/catalog/licenses/$licenseSlug'
+      path: '/catalog/licenses/$licenseSlug'
+      fullPath: '/catalog/licenses/$licenseSlug'
+      preLoaderRoute: typeof CatalogLicensesLicenseSlugRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog/vouchers/': {
+      id: '/catalog/vouchers/'
+      path: '/'
+      fullPath: '/catalog/vouchers/'
+      preLoaderRoute: typeof CatalogVouchersIndexRouteImport
+      parentRoute: typeof CatalogVouchersRouteRoute
+    }
+    '/catalog/vouchers/$voucherId': {
+      id: '/catalog/vouchers/$voucherId'
       path: '/$voucherId'
-      fullPath: '/vouchers/$voucherId'
-      preLoaderRoute: typeof VouchersVoucherIdRouteRouteImport
-      parentRoute: typeof VouchersRouteRoute
-    }
-    '/addons/$addonSlug/': {
-      id: '/addons/$addonSlug/'
-      path: '/'
-      fullPath: '/addons/$addonSlug/'
-      preLoaderRoute: typeof AddonsAddonSlugIndexRouteImport
-      parentRoute: typeof AddonsAddonSlugRouteRoute
-    }
-    '/addons/$addonSlug/compatibility': {
-      id: '/addons/$addonSlug/compatibility'
-      path: '/compatibility'
-      fullPath: '/addons/$addonSlug/compatibility'
-      preLoaderRoute: typeof AddonsAddonSlugCompatibilityRouteImport
-      parentRoute: typeof AddonsAddonSlugRouteRoute
-    }
-    '/addons/$addonSlug/entitlements': {
-      id: '/addons/$addonSlug/entitlements'
-      path: '/entitlements'
-      fullPath: '/addons/$addonSlug/entitlements'
-      preLoaderRoute: typeof AddonsAddonSlugEntitlementsRouteImport
-      parentRoute: typeof AddonsAddonSlugRouteRoute
-    }
-    '/addons/$addonSlug/prices': {
-      id: '/addons/$addonSlug/prices'
-      path: '/prices'
-      fullPath: '/addons/$addonSlug/prices'
-      preLoaderRoute: typeof AddonsAddonSlugPricesRouteImport
-      parentRoute: typeof AddonsAddonSlugRouteRoute
-    }
-    '/addons/new/': {
-      id: '/addons/new/'
-      path: '/new'
-      fullPath: '/addons/new/'
-      preLoaderRoute: typeof AddonsNewIndexRouteImport
-      parentRoute: typeof AddonsRouteRoute
+      fullPath: '/catalog/vouchers/$voucherId'
+      preLoaderRoute: typeof CatalogVouchersVoucherIdRouteRouteImport
+      parentRoute: typeof CatalogVouchersRouteRoute
     }
     '/customers/$customerSlug/': {
       id: '/customers/$customerSlug/'
@@ -1788,41 +1783,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/customers/new/'
       preLoaderRoute: typeof CustomersNewIndexRouteImport
       parentRoute: typeof CustomersRouteRoute
-    }
-    '/entitlements/$entitlementSlug/': {
-      id: '/entitlements/$entitlementSlug/'
-      path: '/'
-      fullPath: '/entitlements/$entitlementSlug/'
-      preLoaderRoute: typeof EntitlementsEntitlementSlugIndexRouteImport
-      parentRoute: typeof EntitlementsEntitlementSlugRouteRoute
-    }
-    '/entitlements/$entitlementSlug/customers': {
-      id: '/entitlements/$entitlementSlug/customers'
-      path: '/customers'
-      fullPath: '/entitlements/$entitlementSlug/customers'
-      preLoaderRoute: typeof EntitlementsEntitlementSlugCustomersRouteImport
-      parentRoute: typeof EntitlementsEntitlementSlugRouteRoute
-    }
-    '/entitlements/$entitlementSlug/licenses': {
-      id: '/entitlements/$entitlementSlug/licenses'
-      path: '/licenses'
-      fullPath: '/entitlements/$entitlementSlug/licenses'
-      preLoaderRoute: typeof EntitlementsEntitlementSlugLicensesRouteImport
-      parentRoute: typeof EntitlementsEntitlementSlugRouteRoute
-    }
-    '/entitlements/$entitlementSlug/usage': {
-      id: '/entitlements/$entitlementSlug/usage'
-      path: '/usage'
-      fullPath: '/entitlements/$entitlementSlug/usage'
-      preLoaderRoute: typeof EntitlementsEntitlementSlugUsageRouteImport
-      parentRoute: typeof EntitlementsEntitlementSlugRouteRoute
-    }
-    '/entitlements/new/': {
-      id: '/entitlements/new/'
-      path: '/new'
-      fullPath: '/entitlements/new/'
-      preLoaderRoute: typeof EntitlementsNewIndexRouteImport
-      parentRoute: typeof EntitlementsRouteRoute
     }
     '/feature-flags/$featureFlagSlug/': {
       id: '/feature-flags/$featureFlagSlug/'
@@ -1915,34 +1875,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvoicesInvoiceIdIndexRouteImport
       parentRoute: typeof InvoicesInvoiceIdRouteRoute
     }
-    '/licenses/$licenseSlug/': {
-      id: '/licenses/$licenseSlug/'
-      path: '/'
-      fullPath: '/licenses/$licenseSlug/'
-      preLoaderRoute: typeof LicensesLicenseSlugIndexRouteImport
-      parentRoute: typeof LicensesLicenseSlugRouteRoute
-    }
-    '/licenses/$licenseSlug/prices': {
-      id: '/licenses/$licenseSlug/prices'
-      path: '/prices'
-      fullPath: '/licenses/$licenseSlug/prices'
-      preLoaderRoute: typeof LicensesLicenseSlugPricesRouteImport
-      parentRoute: typeof LicensesLicenseSlugRouteRoute
-    }
-    '/licenses/new/': {
-      id: '/licenses/new/'
-      path: '/licenses/new'
-      fullPath: '/licenses/new/'
-      preLoaderRoute: typeof LicensesNewIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/licenses/versions/': {
-      id: '/licenses/versions/'
-      path: '/licenses/versions'
-      fullPath: '/licenses/versions/'
-      preLoaderRoute: typeof LicensesVersionsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/releases/$releaseSlug/': {
       id: '/releases/$releaseSlug/'
       path: '/'
@@ -1985,26 +1917,124 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReleasesNewIndexRouteImport
       parentRoute: typeof ReleasesRouteRoute
     }
-    '/vouchers/$voucherId/': {
-      id: '/vouchers/$voucherId/'
+    '/catalog/addons/$addonSlug/': {
+      id: '/catalog/addons/$addonSlug/'
       path: '/'
-      fullPath: '/vouchers/$voucherId/'
-      preLoaderRoute: typeof VouchersVoucherIdIndexRouteImport
-      parentRoute: typeof VouchersVoucherIdRouteRoute
+      fullPath: '/catalog/addons/$addonSlug/'
+      preLoaderRoute: typeof CatalogAddonsAddonSlugIndexRouteImport
+      parentRoute: typeof CatalogAddonsAddonSlugRouteRoute
     }
-    '/vouchers/$voucherId/edit': {
-      id: '/vouchers/$voucherId/edit'
-      path: '/edit'
-      fullPath: '/vouchers/$voucherId/edit'
-      preLoaderRoute: typeof VouchersVoucherIdEditRouteImport
-      parentRoute: typeof VouchersVoucherIdRouteRoute
+    '/catalog/addons/$addonSlug/compatibility': {
+      id: '/catalog/addons/$addonSlug/compatibility'
+      path: '/compatibility'
+      fullPath: '/catalog/addons/$addonSlug/compatibility'
+      preLoaderRoute: typeof CatalogAddonsAddonSlugCompatibilityRouteImport
+      parentRoute: typeof CatalogAddonsAddonSlugRouteRoute
     }
-    '/vouchers/new/': {
-      id: '/vouchers/new/'
+    '/catalog/addons/$addonSlug/entitlements': {
+      id: '/catalog/addons/$addonSlug/entitlements'
+      path: '/entitlements'
+      fullPath: '/catalog/addons/$addonSlug/entitlements'
+      preLoaderRoute: typeof CatalogAddonsAddonSlugEntitlementsRouteImport
+      parentRoute: typeof CatalogAddonsAddonSlugRouteRoute
+    }
+    '/catalog/addons/$addonSlug/prices': {
+      id: '/catalog/addons/$addonSlug/prices'
+      path: '/prices'
+      fullPath: '/catalog/addons/$addonSlug/prices'
+      preLoaderRoute: typeof CatalogAddonsAddonSlugPricesRouteImport
+      parentRoute: typeof CatalogAddonsAddonSlugRouteRoute
+    }
+    '/catalog/addons/new/': {
+      id: '/catalog/addons/new/'
       path: '/new'
-      fullPath: '/vouchers/new/'
-      preLoaderRoute: typeof VouchersNewIndexRouteImport
-      parentRoute: typeof VouchersRouteRoute
+      fullPath: '/catalog/addons/new/'
+      preLoaderRoute: typeof CatalogAddonsNewIndexRouteImport
+      parentRoute: typeof CatalogAddonsRouteRoute
+    }
+    '/catalog/entitlements/$entitlementSlug/': {
+      id: '/catalog/entitlements/$entitlementSlug/'
+      path: '/'
+      fullPath: '/catalog/entitlements/$entitlementSlug/'
+      preLoaderRoute: typeof CatalogEntitlementsEntitlementSlugIndexRouteImport
+      parentRoute: typeof CatalogEntitlementsEntitlementSlugRouteRoute
+    }
+    '/catalog/entitlements/$entitlementSlug/customers': {
+      id: '/catalog/entitlements/$entitlementSlug/customers'
+      path: '/customers'
+      fullPath: '/catalog/entitlements/$entitlementSlug/customers'
+      preLoaderRoute: typeof CatalogEntitlementsEntitlementSlugCustomersRouteImport
+      parentRoute: typeof CatalogEntitlementsEntitlementSlugRouteRoute
+    }
+    '/catalog/entitlements/$entitlementSlug/licenses': {
+      id: '/catalog/entitlements/$entitlementSlug/licenses'
+      path: '/licenses'
+      fullPath: '/catalog/entitlements/$entitlementSlug/licenses'
+      preLoaderRoute: typeof CatalogEntitlementsEntitlementSlugLicensesRouteImport
+      parentRoute: typeof CatalogEntitlementsEntitlementSlugRouteRoute
+    }
+    '/catalog/entitlements/$entitlementSlug/usage': {
+      id: '/catalog/entitlements/$entitlementSlug/usage'
+      path: '/usage'
+      fullPath: '/catalog/entitlements/$entitlementSlug/usage'
+      preLoaderRoute: typeof CatalogEntitlementsEntitlementSlugUsageRouteImport
+      parentRoute: typeof CatalogEntitlementsEntitlementSlugRouteRoute
+    }
+    '/catalog/entitlements/new/': {
+      id: '/catalog/entitlements/new/'
+      path: '/new'
+      fullPath: '/catalog/entitlements/new/'
+      preLoaderRoute: typeof CatalogEntitlementsNewIndexRouteImport
+      parentRoute: typeof CatalogEntitlementsRouteRoute
+    }
+    '/catalog/licenses/$licenseSlug/': {
+      id: '/catalog/licenses/$licenseSlug/'
+      path: '/'
+      fullPath: '/catalog/licenses/$licenseSlug/'
+      preLoaderRoute: typeof CatalogLicensesLicenseSlugIndexRouteImport
+      parentRoute: typeof CatalogLicensesLicenseSlugRouteRoute
+    }
+    '/catalog/licenses/$licenseSlug/prices': {
+      id: '/catalog/licenses/$licenseSlug/prices'
+      path: '/prices'
+      fullPath: '/catalog/licenses/$licenseSlug/prices'
+      preLoaderRoute: typeof CatalogLicensesLicenseSlugPricesRouteImport
+      parentRoute: typeof CatalogLicensesLicenseSlugRouteRoute
+    }
+    '/catalog/licenses/new/': {
+      id: '/catalog/licenses/new/'
+      path: '/catalog/licenses/new'
+      fullPath: '/catalog/licenses/new/'
+      preLoaderRoute: typeof CatalogLicensesNewIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog/licenses/versions/': {
+      id: '/catalog/licenses/versions/'
+      path: '/catalog/licenses/versions'
+      fullPath: '/catalog/licenses/versions/'
+      preLoaderRoute: typeof CatalogLicensesVersionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog/vouchers/$voucherId/': {
+      id: '/catalog/vouchers/$voucherId/'
+      path: '/'
+      fullPath: '/catalog/vouchers/$voucherId/'
+      preLoaderRoute: typeof CatalogVouchersVoucherIdIndexRouteImport
+      parentRoute: typeof CatalogVouchersVoucherIdRouteRoute
+    }
+    '/catalog/vouchers/$voucherId/edit': {
+      id: '/catalog/vouchers/$voucherId/edit'
+      path: '/edit'
+      fullPath: '/catalog/vouchers/$voucherId/edit'
+      preLoaderRoute: typeof CatalogVouchersVoucherIdEditRouteImport
+      parentRoute: typeof CatalogVouchersVoucherIdRouteRoute
+    }
+    '/catalog/vouchers/new/': {
+      id: '/catalog/vouchers/new/'
+      path: '/new'
+      fullPath: '/catalog/vouchers/new/'
+      preLoaderRoute: typeof CatalogVouchersNewIndexRouteImport
+      parentRoute: typeof CatalogVouchersRouteRoute
     }
     '/customers/instances/$instanceSlug/': {
       id: '/customers/instances/$instanceSlug/'
@@ -2076,20 +2106,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvoicesInvoiceIdLinesLineIdRouteImport
       parentRoute: typeof InvoicesInvoiceIdRouteRoute
     }
-    '/licenses/versions/$licenseSlug/': {
-      id: '/licenses/versions/$licenseSlug/'
-      path: '/licenses/versions/$licenseSlug'
-      fullPath: '/licenses/versions/$licenseSlug/'
-      preLoaderRoute: typeof LicensesVersionsLicenseSlugIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/licenses/versions/new/': {
-      id: '/licenses/versions/new/'
-      path: '/licenses/versions/new'
-      fullPath: '/licenses/versions/new/'
-      preLoaderRoute: typeof LicensesVersionsNewIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/releases/components/new/': {
       id: '/releases/components/new/'
       path: '/new'
@@ -2152,6 +2168,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/releases/deployments/new/'
       preLoaderRoute: typeof ReleasesDeploymentsNewIndexRouteImport
       parentRoute: typeof ReleasesDeploymentsRouteRoute
+    }
+    '/catalog/licenses/versions/$licenseSlug/': {
+      id: '/catalog/licenses/versions/$licenseSlug/'
+      path: '/catalog/licenses/versions/$licenseSlug'
+      fullPath: '/catalog/licenses/versions/$licenseSlug/'
+      preLoaderRoute: typeof CatalogLicensesVersionsLicenseSlugIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog/licenses/versions/new/': {
+      id: '/catalog/licenses/versions/new/'
+      path: '/catalog/licenses/versions/new'
+      fullPath: '/catalog/licenses/versions/new/'
+      preLoaderRoute: typeof CatalogLicensesVersionsNewIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/customers/$customerSlug/instances/new/': {
       id: '/customers/$customerSlug/instances/new/'
@@ -2218,39 +2248,6 @@ declare module '@tanstack/react-router' {
     }
   }
 }
-
-interface AddonsAddonSlugRouteRouteChildren {
-  AddonsAddonSlugCompatibilityRoute: typeof AddonsAddonSlugCompatibilityRoute
-  AddonsAddonSlugEntitlementsRoute: typeof AddonsAddonSlugEntitlementsRoute
-  AddonsAddonSlugPricesRoute: typeof AddonsAddonSlugPricesRoute
-  AddonsAddonSlugIndexRoute: typeof AddonsAddonSlugIndexRoute
-}
-
-const AddonsAddonSlugRouteRouteChildren: AddonsAddonSlugRouteRouteChildren = {
-  AddonsAddonSlugCompatibilityRoute: AddonsAddonSlugCompatibilityRoute,
-  AddonsAddonSlugEntitlementsRoute: AddonsAddonSlugEntitlementsRoute,
-  AddonsAddonSlugPricesRoute: AddonsAddonSlugPricesRoute,
-  AddonsAddonSlugIndexRoute: AddonsAddonSlugIndexRoute,
-}
-
-const AddonsAddonSlugRouteRouteWithChildren =
-  AddonsAddonSlugRouteRoute._addFileChildren(AddonsAddonSlugRouteRouteChildren)
-
-interface AddonsRouteRouteChildren {
-  AddonsAddonSlugRouteRoute: typeof AddonsAddonSlugRouteRouteWithChildren
-  AddonsIndexRoute: typeof AddonsIndexRoute
-  AddonsNewIndexRoute: typeof AddonsNewIndexRoute
-}
-
-const AddonsRouteRouteChildren: AddonsRouteRouteChildren = {
-  AddonsAddonSlugRouteRoute: AddonsAddonSlugRouteRouteWithChildren,
-  AddonsIndexRoute: AddonsIndexRoute,
-  AddonsNewIndexRoute: AddonsNewIndexRoute,
-}
-
-const AddonsRouteRouteWithChildren = AddonsRouteRoute._addFileChildren(
-  AddonsRouteRouteChildren,
-)
 
 interface CustomersCustomerSlugRouteRouteChildren {
   CustomersCustomerSlugEditRoute: typeof CustomersCustomerSlugEditRoute
@@ -2367,46 +2364,6 @@ const CustomersRouteRouteChildren: CustomersRouteRouteChildren = {
 const CustomersRouteRouteWithChildren = CustomersRouteRoute._addFileChildren(
   CustomersRouteRouteChildren,
 )
-
-interface EntitlementsEntitlementSlugRouteRouteChildren {
-  EntitlementsEntitlementSlugCustomersRoute: typeof EntitlementsEntitlementSlugCustomersRoute
-  EntitlementsEntitlementSlugLicensesRoute: typeof EntitlementsEntitlementSlugLicensesRoute
-  EntitlementsEntitlementSlugUsageRoute: typeof EntitlementsEntitlementSlugUsageRoute
-  EntitlementsEntitlementSlugIndexRoute: typeof EntitlementsEntitlementSlugIndexRoute
-}
-
-const EntitlementsEntitlementSlugRouteRouteChildren: EntitlementsEntitlementSlugRouteRouteChildren =
-  {
-    EntitlementsEntitlementSlugCustomersRoute:
-      EntitlementsEntitlementSlugCustomersRoute,
-    EntitlementsEntitlementSlugLicensesRoute:
-      EntitlementsEntitlementSlugLicensesRoute,
-    EntitlementsEntitlementSlugUsageRoute:
-      EntitlementsEntitlementSlugUsageRoute,
-    EntitlementsEntitlementSlugIndexRoute:
-      EntitlementsEntitlementSlugIndexRoute,
-  }
-
-const EntitlementsEntitlementSlugRouteRouteWithChildren =
-  EntitlementsEntitlementSlugRouteRoute._addFileChildren(
-    EntitlementsEntitlementSlugRouteRouteChildren,
-  )
-
-interface EntitlementsRouteRouteChildren {
-  EntitlementsEntitlementSlugRouteRoute: typeof EntitlementsEntitlementSlugRouteRouteWithChildren
-  EntitlementsIndexRoute: typeof EntitlementsIndexRoute
-  EntitlementsNewIndexRoute: typeof EntitlementsNewIndexRoute
-}
-
-const EntitlementsRouteRouteChildren: EntitlementsRouteRouteChildren = {
-  EntitlementsEntitlementSlugRouteRoute:
-    EntitlementsEntitlementSlugRouteRouteWithChildren,
-  EntitlementsIndexRoute: EntitlementsIndexRoute,
-  EntitlementsNewIndexRoute: EntitlementsNewIndexRoute,
-}
-
-const EntitlementsRouteRouteWithChildren =
-  EntitlementsRouteRoute._addFileChildren(EntitlementsRouteRouteChildren)
 
 interface InvoicesInvoiceIdRouteRouteChildren {
   InvoicesInvoiceIdIndexRoute: typeof InvoicesInvoiceIdIndexRoute
@@ -2557,37 +2514,118 @@ const ReleasesRouteRouteWithChildren = ReleasesRouteRoute._addFileChildren(
   ReleasesRouteRouteChildren,
 )
 
-interface VouchersVoucherIdRouteRouteChildren {
-  VouchersVoucherIdEditRoute: typeof VouchersVoucherIdEditRoute
-  VouchersVoucherIdIndexRoute: typeof VouchersVoucherIdIndexRoute
+interface CatalogAddonsAddonSlugRouteRouteChildren {
+  CatalogAddonsAddonSlugCompatibilityRoute: typeof CatalogAddonsAddonSlugCompatibilityRoute
+  CatalogAddonsAddonSlugEntitlementsRoute: typeof CatalogAddonsAddonSlugEntitlementsRoute
+  CatalogAddonsAddonSlugPricesRoute: typeof CatalogAddonsAddonSlugPricesRoute
+  CatalogAddonsAddonSlugIndexRoute: typeof CatalogAddonsAddonSlugIndexRoute
 }
 
-const VouchersVoucherIdRouteRouteChildren: VouchersVoucherIdRouteRouteChildren =
+const CatalogAddonsAddonSlugRouteRouteChildren: CatalogAddonsAddonSlugRouteRouteChildren =
   {
-    VouchersVoucherIdEditRoute: VouchersVoucherIdEditRoute,
-    VouchersVoucherIdIndexRoute: VouchersVoucherIdIndexRoute,
+    CatalogAddonsAddonSlugCompatibilityRoute:
+      CatalogAddonsAddonSlugCompatibilityRoute,
+    CatalogAddonsAddonSlugEntitlementsRoute:
+      CatalogAddonsAddonSlugEntitlementsRoute,
+    CatalogAddonsAddonSlugPricesRoute: CatalogAddonsAddonSlugPricesRoute,
+    CatalogAddonsAddonSlugIndexRoute: CatalogAddonsAddonSlugIndexRoute,
   }
 
-const VouchersVoucherIdRouteRouteWithChildren =
-  VouchersVoucherIdRouteRoute._addFileChildren(
-    VouchersVoucherIdRouteRouteChildren,
+const CatalogAddonsAddonSlugRouteRouteWithChildren =
+  CatalogAddonsAddonSlugRouteRoute._addFileChildren(
+    CatalogAddonsAddonSlugRouteRouteChildren,
   )
 
-interface VouchersRouteRouteChildren {
-  VouchersVoucherIdRouteRoute: typeof VouchersVoucherIdRouteRouteWithChildren
-  VouchersIndexRoute: typeof VouchersIndexRoute
-  VouchersNewIndexRoute: typeof VouchersNewIndexRoute
+interface CatalogAddonsRouteRouteChildren {
+  CatalogAddonsAddonSlugRouteRoute: typeof CatalogAddonsAddonSlugRouteRouteWithChildren
+  CatalogAddonsIndexRoute: typeof CatalogAddonsIndexRoute
+  CatalogAddonsNewIndexRoute: typeof CatalogAddonsNewIndexRoute
 }
 
-const VouchersRouteRouteChildren: VouchersRouteRouteChildren = {
-  VouchersVoucherIdRouteRoute: VouchersVoucherIdRouteRouteWithChildren,
-  VouchersIndexRoute: VouchersIndexRoute,
-  VouchersNewIndexRoute: VouchersNewIndexRoute,
+const CatalogAddonsRouteRouteChildren: CatalogAddonsRouteRouteChildren = {
+  CatalogAddonsAddonSlugRouteRoute:
+    CatalogAddonsAddonSlugRouteRouteWithChildren,
+  CatalogAddonsIndexRoute: CatalogAddonsIndexRoute,
+  CatalogAddonsNewIndexRoute: CatalogAddonsNewIndexRoute,
 }
 
-const VouchersRouteRouteWithChildren = VouchersRouteRoute._addFileChildren(
-  VouchersRouteRouteChildren,
-)
+const CatalogAddonsRouteRouteWithChildren =
+  CatalogAddonsRouteRoute._addFileChildren(CatalogAddonsRouteRouteChildren)
+
+interface CatalogEntitlementsEntitlementSlugRouteRouteChildren {
+  CatalogEntitlementsEntitlementSlugCustomersRoute: typeof CatalogEntitlementsEntitlementSlugCustomersRoute
+  CatalogEntitlementsEntitlementSlugLicensesRoute: typeof CatalogEntitlementsEntitlementSlugLicensesRoute
+  CatalogEntitlementsEntitlementSlugUsageRoute: typeof CatalogEntitlementsEntitlementSlugUsageRoute
+  CatalogEntitlementsEntitlementSlugIndexRoute: typeof CatalogEntitlementsEntitlementSlugIndexRoute
+}
+
+const CatalogEntitlementsEntitlementSlugRouteRouteChildren: CatalogEntitlementsEntitlementSlugRouteRouteChildren =
+  {
+    CatalogEntitlementsEntitlementSlugCustomersRoute:
+      CatalogEntitlementsEntitlementSlugCustomersRoute,
+    CatalogEntitlementsEntitlementSlugLicensesRoute:
+      CatalogEntitlementsEntitlementSlugLicensesRoute,
+    CatalogEntitlementsEntitlementSlugUsageRoute:
+      CatalogEntitlementsEntitlementSlugUsageRoute,
+    CatalogEntitlementsEntitlementSlugIndexRoute:
+      CatalogEntitlementsEntitlementSlugIndexRoute,
+  }
+
+const CatalogEntitlementsEntitlementSlugRouteRouteWithChildren =
+  CatalogEntitlementsEntitlementSlugRouteRoute._addFileChildren(
+    CatalogEntitlementsEntitlementSlugRouteRouteChildren,
+  )
+
+interface CatalogEntitlementsRouteRouteChildren {
+  CatalogEntitlementsEntitlementSlugRouteRoute: typeof CatalogEntitlementsEntitlementSlugRouteRouteWithChildren
+  CatalogEntitlementsIndexRoute: typeof CatalogEntitlementsIndexRoute
+  CatalogEntitlementsNewIndexRoute: typeof CatalogEntitlementsNewIndexRoute
+}
+
+const CatalogEntitlementsRouteRouteChildren: CatalogEntitlementsRouteRouteChildren =
+  {
+    CatalogEntitlementsEntitlementSlugRouteRoute:
+      CatalogEntitlementsEntitlementSlugRouteRouteWithChildren,
+    CatalogEntitlementsIndexRoute: CatalogEntitlementsIndexRoute,
+    CatalogEntitlementsNewIndexRoute: CatalogEntitlementsNewIndexRoute,
+  }
+
+const CatalogEntitlementsRouteRouteWithChildren =
+  CatalogEntitlementsRouteRoute._addFileChildren(
+    CatalogEntitlementsRouteRouteChildren,
+  )
+
+interface CatalogVouchersVoucherIdRouteRouteChildren {
+  CatalogVouchersVoucherIdEditRoute: typeof CatalogVouchersVoucherIdEditRoute
+  CatalogVouchersVoucherIdIndexRoute: typeof CatalogVouchersVoucherIdIndexRoute
+}
+
+const CatalogVouchersVoucherIdRouteRouteChildren: CatalogVouchersVoucherIdRouteRouteChildren =
+  {
+    CatalogVouchersVoucherIdEditRoute: CatalogVouchersVoucherIdEditRoute,
+    CatalogVouchersVoucherIdIndexRoute: CatalogVouchersVoucherIdIndexRoute,
+  }
+
+const CatalogVouchersVoucherIdRouteRouteWithChildren =
+  CatalogVouchersVoucherIdRouteRoute._addFileChildren(
+    CatalogVouchersVoucherIdRouteRouteChildren,
+  )
+
+interface CatalogVouchersRouteRouteChildren {
+  CatalogVouchersVoucherIdRouteRoute: typeof CatalogVouchersVoucherIdRouteRouteWithChildren
+  CatalogVouchersIndexRoute: typeof CatalogVouchersIndexRoute
+  CatalogVouchersNewIndexRoute: typeof CatalogVouchersNewIndexRoute
+}
+
+const CatalogVouchersRouteRouteChildren: CatalogVouchersRouteRouteChildren = {
+  CatalogVouchersVoucherIdRouteRoute:
+    CatalogVouchersVoucherIdRouteRouteWithChildren,
+  CatalogVouchersIndexRoute: CatalogVouchersIndexRoute,
+  CatalogVouchersNewIndexRoute: CatalogVouchersNewIndexRoute,
+}
+
+const CatalogVouchersRouteRouteWithChildren =
+  CatalogVouchersRouteRoute._addFileChildren(CatalogVouchersRouteRouteChildren)
 
 interface FeatureFlagsFeatureFlagSlugRouteRouteChildren {
   FeatureFlagsFeatureFlagSlugAuditTrailRoute: typeof FeatureFlagsFeatureFlagSlugAuditTrailRoute
@@ -2691,32 +2729,33 @@ const IntegrationsWebhooksRouteRouteWithChildren =
     IntegrationsWebhooksRouteRouteChildren,
   )
 
-interface LicensesLicenseSlugRouteRouteChildren {
-  LicensesLicenseSlugPricesRoute: typeof LicensesLicenseSlugPricesRoute
-  LicensesLicenseSlugIndexRoute: typeof LicensesLicenseSlugIndexRoute
+interface CatalogLicensesLicenseSlugRouteRouteChildren {
+  CatalogLicensesLicenseSlugPricesRoute: typeof CatalogLicensesLicenseSlugPricesRoute
+  CatalogLicensesLicenseSlugIndexRoute: typeof CatalogLicensesLicenseSlugIndexRoute
 }
 
-const LicensesLicenseSlugRouteRouteChildren: LicensesLicenseSlugRouteRouteChildren =
+const CatalogLicensesLicenseSlugRouteRouteChildren: CatalogLicensesLicenseSlugRouteRouteChildren =
   {
-    LicensesLicenseSlugPricesRoute: LicensesLicenseSlugPricesRoute,
-    LicensesLicenseSlugIndexRoute: LicensesLicenseSlugIndexRoute,
+    CatalogLicensesLicenseSlugPricesRoute:
+      CatalogLicensesLicenseSlugPricesRoute,
+    CatalogLicensesLicenseSlugIndexRoute: CatalogLicensesLicenseSlugIndexRoute,
   }
 
-const LicensesLicenseSlugRouteRouteWithChildren =
-  LicensesLicenseSlugRouteRoute._addFileChildren(
-    LicensesLicenseSlugRouteRouteChildren,
+const CatalogLicensesLicenseSlugRouteRouteWithChildren =
+  CatalogLicensesLicenseSlugRouteRoute._addFileChildren(
+    CatalogLicensesLicenseSlugRouteRouteChildren,
   )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AddonsRouteRoute: AddonsRouteRouteWithChildren,
   CustomersRouteRoute: CustomersRouteRouteWithChildren,
-  EntitlementsRouteRoute: EntitlementsRouteRouteWithChildren,
   InvoicesRouteRoute: InvoicesRouteRouteWithChildren,
   ReleasesRouteRoute: ReleasesRouteRouteWithChildren,
-  VouchersRouteRoute: VouchersRouteRouteWithChildren,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
+  CatalogAddonsRouteRoute: CatalogAddonsRouteRouteWithChildren,
+  CatalogEntitlementsRouteRoute: CatalogEntitlementsRouteRouteWithChildren,
+  CatalogVouchersRouteRoute: CatalogVouchersRouteRouteWithChildren,
   FeatureFlagsFeatureFlagSlugRouteRoute:
     FeatureFlagsFeatureFlagSlugRouteRouteWithChildren,
   IntegrationsConnectorsRouteRoute:
@@ -2726,22 +2765,25 @@ const rootRouteChildren: RootRouteChildren = {
   IntegrationsServiceAccountsRouteRoute:
     IntegrationsServiceAccountsRouteRouteWithChildren,
   IntegrationsWebhooksRouteRoute: IntegrationsWebhooksRouteRouteWithChildren,
-  LicensesLicenseSlugRouteRoute: LicensesLicenseSlugRouteRouteWithChildren,
   SettingsBillingRoute: SettingsBillingRoute,
   SettingsMetadataRoute: SettingsMetadataRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
   AuditTrailIndexRoute: AuditTrailIndexRoute,
+  CatalogIndexRoute: CatalogIndexRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   FeatureFlagsIndexRoute: FeatureFlagsIndexRoute,
   IntegrationsIndexRoute: IntegrationsIndexRoute,
-  LicensesIndexRoute: LicensesIndexRoute,
   NotificationsIndexRoute: NotificationsIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
+  CatalogLicensesLicenseSlugRouteRoute:
+    CatalogLicensesLicenseSlugRouteRouteWithChildren,
+  CatalogLicensesIndexRoute: CatalogLicensesIndexRoute,
   FeatureFlagsNewIndexRoute: FeatureFlagsNewIndexRoute,
-  LicensesNewIndexRoute: LicensesNewIndexRoute,
-  LicensesVersionsIndexRoute: LicensesVersionsIndexRoute,
-  LicensesVersionsLicenseSlugIndexRoute: LicensesVersionsLicenseSlugIndexRoute,
-  LicensesVersionsNewIndexRoute: LicensesVersionsNewIndexRoute,
+  CatalogLicensesNewIndexRoute: CatalogLicensesNewIndexRoute,
+  CatalogLicensesVersionsIndexRoute: CatalogLicensesVersionsIndexRoute,
+  CatalogLicensesVersionsLicenseSlugIndexRoute:
+    CatalogLicensesVersionsLicenseSlugIndexRoute,
+  CatalogLicensesVersionsNewIndexRoute: CatalogLicensesVersionsNewIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

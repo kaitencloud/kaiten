@@ -23,7 +23,7 @@ test.describe('the catalogue of vouchers, read in French', () => {
   test('the list: its columns, the state of each row, the way to make one', async ({
     page,
   }) => {
-    await page.goto('/vouchers');
+    await page.goto('/catalog/vouchers');
 
     await expect(
       page.getByRole('heading', { level: 1, name: 'Codes promo' }),
@@ -64,7 +64,7 @@ test.describe('the catalogue of vouchers, read in French', () => {
   test('the list: what it says when a search keeps no row, and the search by code', async ({
     page,
   }) => {
-    await page.goto('/vouchers');
+    await page.goto('/catalog/vouchers');
 
     await page.getByPlaceholder('Nom, code ou client').fill('introuvable');
 
@@ -95,7 +95,7 @@ test.describe('the catalogue of vouchers, read in French', () => {
   test('the page of a discount: its code, what it does in words and its redemptions', async ({
     page,
   }) => {
-    await page.goto('/vouchers/voucher-welcome');
+    await page.goto('/catalog/vouchers/voucher-welcome');
 
     await expect(
       page.getByRole('heading', { level: 1, name: 'Welcome spring' }),
@@ -142,7 +142,7 @@ test.describe('the catalogue of vouchers, read in French', () => {
   test('the page of a boost: its changes in words, counted in billing periods', async ({
     page,
   }) => {
-    await page.goto('/vouchers/voucher-launch-boost');
+    await page.goto('/catalog/vouchers/voucher-launch-boost');
 
     const summary = page.getByTestId('voucher-summary');
     await expect(summary).toContainText(
@@ -159,7 +159,7 @@ test.describe('the catalogue of vouchers, read in French', () => {
   test('the dialogs of a voucher: its edit, the revocation of a redemption and its archive', async ({
     page,
   }) => {
-    await page.goto('/vouchers/voucher-welcome');
+    await page.goto('/catalog/vouchers/voucher-welcome');
 
     await page.getByRole('link', { name: 'Modifier' }).click();
     const edit = page.getByRole('dialog');
@@ -225,7 +225,7 @@ test.describe('the catalogue of vouchers, read in French', () => {
   });
 
   test('the confirmation to publish a draft', async ({ page }) => {
-    await page.goto('/vouchers/voucher-draft');
+    await page.goto('/catalog/vouchers/voucher-draft');
 
     await page.getByRole('button', { name: 'Publier' }).click();
 
@@ -245,7 +245,7 @@ test.describe('the wizard that makes a voucher, read in French', () => {
   test('the kinds, the two that come later and what a step that is not valid says', async ({
     page,
   }) => {
-    await page.goto('/vouchers/new');
+    await page.goto('/catalog/vouchers/new');
 
     await expect(
       page.getByRole('heading', { level: 1, name: 'Nouveau code promo' }),
@@ -281,7 +281,7 @@ test.describe('the wizard that makes a voucher, read in French', () => {
   test('the offer of a discount: its messages, its prices and the count of invoices', async ({
     page,
   }) => {
-    await page.goto('/vouchers/new');
+    await page.goto('/catalog/vouchers/new');
     await page.getByLabel(/^Nom/).fill('Remise de lancement');
     await button(page, /^Suivant/).click();
 
@@ -324,7 +324,7 @@ test.describe('the wizard that makes a voucher, read in French', () => {
   test('the offer of a boost: its changes, its modifiers and its count of billing periods', async ({
     page,
   }) => {
-    await page.goto('/vouchers/new');
+    await page.goto('/catalog/vouchers/new');
     await button(page, /^Bonus de droits/).click();
     await page.getByLabel(/^Nom/).fill('Plus de tokens');
     await button(page, /^Suivant/).click();
@@ -363,7 +363,7 @@ test.describe('the wizard that makes a voucher, read in French', () => {
   test('the review in words and the publication, with the code to copy and the boost for the same offer', async ({
     page,
   }) => {
-    await page.goto('/vouchers/new');
+    await page.goto('/catalog/vouchers/new');
     await page.getByLabel(/^Nom/).fill('Remise de lancement');
     await button(page, /^Suivant/).click();
     await page.getByLabel(/^Pourcentage/).fill('20');

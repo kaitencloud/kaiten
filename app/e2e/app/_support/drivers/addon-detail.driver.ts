@@ -10,7 +10,7 @@ export class AddonDetailDriver {
 
   /** Opens a version by its URL, and waits for the title it is shown under. */
   async goto(slug: string, title: string) {
-    await this.page.goto(`/addons/${slug}`);
+    await this.page.goto(`/catalog/addons/${slug}`);
     await expect(
       this.page.getByRole('heading', { name: title, level: 1 }),
     ).toBeVisible();

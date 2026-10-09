@@ -90,8 +90,8 @@ test.describe('the billing entries of the navigation', () => {
     await nav.open();
 
     await nav.expectEntries(['Invoices', 'Add-ons', 'Vouchers']);
-    await expect(nav.entry('Add-ons')).toHaveAttribute('href', '/addons');
-    await expect(nav.entry('Vouchers')).toHaveAttribute('href', '/vouchers');
+    await expect(nav.entry('Add-ons')).toHaveAttribute('href', '/catalog/addons');
+    await expect(nav.entry('Vouchers')).toHaveAttribute('href', '/catalog/vouchers');
   });
 
   test('mark the Invoices entry as the current one on the list and on an invoice', async ({

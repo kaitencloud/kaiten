@@ -33,7 +33,7 @@ test.describe('adding a price', () => {
     await prices.addPrice().click();
     await drawer.expectOpen('New price');
     // The drawer is in the URL, so that it can be linked to.
-    await expect(page).toHaveURL('/licenses/pro-v4/prices?price=new');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v4/prices?price=new');
 
     // A flat fee, monthly, in advance, in the default currency: the first price
     // of a version is the default of its period.
@@ -52,7 +52,7 @@ test.describe('adding a price', () => {
 
     await expectToast(page, 'Price created');
     await drawer.expectClosed();
-    await expect(page).toHaveURL('/licenses/pro-v4/prices');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v4/prices');
     await prices.expectLabels(['Pro monthly']);
     await expect(prices.row('Pro monthly').getByText('$49.00')).toBeVisible();
     await expect(prices.row('Pro monthly').getByText('Default')).toBeVisible();
@@ -372,7 +372,7 @@ test.describe('adding a price', () => {
     await drawer.cancel().click();
 
     await drawer.expectClosed();
-    await expect(page).toHaveURL('/licenses/pro-v4/prices');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v4/prices');
     await prices.expectLabels(['Pro, monthly', 'Requests']);
     expect(writes).toEqual([]);
   });
@@ -391,7 +391,7 @@ test.describe('adding a price', () => {
     await page.goBack();
 
     await drawer.expectClosed();
-    await expect(page).toHaveURL('/licenses/pro-v4/prices');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v4/prices');
   });
 
   test('opens from a link, and drops a link that cannot open one', async ({
@@ -400,17 +400,17 @@ test.describe('adding a price', () => {
     const drawer = new LicensePriceDrawerDriver(page);
     await installLicenseAppMocks(page, createPricedCatalogModel());
 
-    await page.goto('/licenses/pro-v4/prices?price=new');
+    await page.goto('/catalog/licenses/pro-v4/prices?price=new');
     await drawer.expectOpen('New price');
 
     // A price the version does not have.
-    await page.goto('/licenses/pro-v4/prices?price=nope');
-    await expect(page).toHaveURL('/licenses/pro-v4/prices');
+    await page.goto('/catalog/licenses/pro-v4/prices?price=nope');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v4/prices');
     await drawer.expectClosed();
 
     // A published version's prices are immutable: no drawer to edit one in.
-    await page.goto('/licenses/pro-v2/prices?price=price-1-base');
-    await expect(page).toHaveURL('/licenses/pro-v2/prices');
+    await page.goto('/catalog/licenses/pro-v2/prices?price=price-1-base');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v2/prices');
     await drawer.expectClosed();
   });
 
@@ -456,7 +456,7 @@ test.describe('the way a stock is sold, where the release ships the add-ons', ()
       .getByRole('link', { name: 'See the add-ons' })
       .click();
 
-    await expect(page).toHaveURL('/addons');
+    await expect(page).toHaveURL('/catalog/addons');
     await new AddonsListDriver(page).expectLoaded();
   });
 });

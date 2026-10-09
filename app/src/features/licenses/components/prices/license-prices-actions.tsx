@@ -92,7 +92,7 @@ export function LicensePricesActions({
             <Link
               params={{ licenseSlug }}
               search={{ price: 'new' }}
-              to="/licenses/$licenseSlug/prices"
+              to="/catalog/licenses/$licenseSlug/prices"
             >
               <Plus className="size-4" />
               {t('Pages.Licenses.Prices.Actions.add')}

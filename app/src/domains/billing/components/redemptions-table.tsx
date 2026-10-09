@@ -238,7 +238,7 @@ export function RedemptionsTable({
       : linksToVouchers
         ? router.buildLocation({
             params: { voucherId: redemption.voucherId },
-            to: '/vouchers/$voucherId',
+            to: '/catalog/vouchers/$voucherId',
           }).pathname
         : undefined;
 

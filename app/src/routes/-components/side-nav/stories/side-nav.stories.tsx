@@ -248,8 +248,8 @@ export const BillingEveryPart: Story = {
   render: () => (
     <SideNavWithContent
       billing={billingCapabilitiesProfiles.full()}
-      initialEntry="/addons"
-      routePath="/addons"
+      initialEntry="/catalog/addons"
+      routePath="/catalog/addons"
     />
   ),
   play: async ({ canvasElement }) => {

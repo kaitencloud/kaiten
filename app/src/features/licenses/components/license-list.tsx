@@ -115,7 +115,7 @@ export const LicenseList = ({ families, licenses }: LicenseListProps) => {
             </div>
             <div className="flex items-center md:ml-auto">
               <GradientButton
-                to="/licenses/new"
+                to="/catalog/licenses/new"
                 label={t('Pages.Licenses.Mutation.titleNew')}
               />
             </div>

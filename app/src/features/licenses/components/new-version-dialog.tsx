@@ -70,7 +70,7 @@ export function NewVersionDialog({
               <Link
                 params={{ licenseSlug }}
                 search={{ draft: true }}
-                to="/licenses/versions/$licenseSlug"
+                to="/catalog/licenses/versions/$licenseSlug"
               >
                 {t('Pages.Licenses.Freeze.createNewVersion')}
               </Link>

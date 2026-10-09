@@ -9,7 +9,7 @@ export class VoucherWizardDriver {
   constructor(private readonly page: Page) {}
 
   async goto(search = '') {
-    await this.page.goto(`/vouchers/new${search}`);
+    await this.page.goto(`/catalog/vouchers/new${search}`);
     await this.expectLoaded();
   }
 

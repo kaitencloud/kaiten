@@ -55,7 +55,7 @@ export const InstanceDetailEntitlementsTab = ({
   const getEntitlementPath = (entitlement: InstanceEntitlementRow) =>
     entitlement.entitlementSlug
       ? router.buildLocation({
-          to: '/entitlements/$entitlementSlug',
+          to: '/catalog/entitlements/$entitlementSlug',
           params: { entitlementSlug: entitlement.entitlementSlug },
         }).pathname
       : undefined;

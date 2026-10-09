@@ -100,7 +100,7 @@ export function AddonList({ families }: AddonListProps) {
           {mayCreate ? (
             <GradientButton
               label={t('Pages.Addons.Form.titleNew')}
-              to="/addons/new"
+              to="/catalog/addons/new"
             />
           ) : null}
         </ListEmptyState>
@@ -124,7 +124,7 @@ export function AddonList({ families }: AddonListProps) {
               <div className="flex items-center md:ml-auto">
                 <GradientButton
                   label={t('Pages.Addons.Form.titleNew')}
-                  to="/addons/new"
+                  to="/catalog/addons/new"
                 />
               </div>
             ) : null}

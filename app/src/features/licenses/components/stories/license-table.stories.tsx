@@ -157,7 +157,7 @@ function LicenseListWrapper({
   });
 
   const [history] = useState(() =>
-    createMemoryHistory({ initialEntries: ['/licenses'] }),
+    createMemoryHistory({ initialEntries: ['/catalog/licenses'] }),
   );
 
   const [router] = useState(() =>

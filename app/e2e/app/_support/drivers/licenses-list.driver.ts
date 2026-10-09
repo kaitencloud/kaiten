@@ -7,7 +7,7 @@ export class LicensesListDriver {
   constructor(private readonly page: Page) {}
 
   async goto() {
-    await this.page.goto('/licenses');
+    await this.page.goto('/catalog/licenses');
     await this.expectLoaded();
   }
 

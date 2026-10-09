@@ -223,11 +223,18 @@ routes/
 │   ├── route.tsx              # layout route: Suspense around the Outlet
 │   ├── index.tsx
 │   └── $customerSlug/
+├── catalog/                   # a section: the routes of four features under one segment
+│   ├── index.tsx              # redirect to /catalog/licenses
+│   ├── licenses/              # renders features/licenses
+│   ├── entitlements/          # renders features/entitlements
+│   ├── addons/                # renders features/addons
+│   └── vouchers/              # renders features/vouchers
 └── -components/               # app shell: side navigation, breadcrumbs
 ```
 
 - Dynamic segments are usually named after the slug they carry: `$customerSlug`, `$featureFlagSlug`, `$zoneSlug`. `integrations/connectors/$connectorId.tsx` carries a connector id.
 - A `route.tsx` is a layout route. Detail pages use one, with tab routes beside it.
+- A folder of `routes/` is a URL segment, not a feature. `catalog/` groups the routes of the licenses, the entitlements, the add-ons and the vouchers under one segment, the way the Catalog entry of the side navigation groups them; each of its folders renders its own feature, which keeps its folder in `features/`, and `catalog/index.tsx` only redirects to the first. Moving a route under another segment moves no feature.
 - The router ignores names that start with `-`. `routes/-components/` is the app shell, not a route.
 
 In a route: the `loader`, `beforeLoad` (for example the page title of the breadcrumb), `validateSearch`, `Route.useParams()`, `useSuspenseQuery` on the main query, and the render of the feature's root component.

@@ -35,7 +35,7 @@ const useEntitlementActiveTab = (entitlementSlug: string) => {
     defaultTab: 'overview',
     matchers: [{ suffix: '/usage', value: 'usage' }],
     pathname,
-    basePath: `/entitlements/${entitlementSlug}`,
+    basePath: `/catalog/entitlements/${entitlementSlug}`,
   });
 };
 
@@ -115,13 +115,13 @@ const getEntitlementTabs = (
     {
       label: t('Pages.Entitlements.Detail.tabs.overview', 'Overview'),
       params: { entitlementSlug },
-      to: '/entitlements/$entitlementSlug',
+      to: '/catalog/entitlements/$entitlementSlug',
       value: 'overview',
     },
     {
       label: t('Pages.Entitlements.Detail.tabs.usage', 'Usage'),
       params: { entitlementSlug },
-      to: '/entitlements/$entitlementSlug/usage',
+      to: '/catalog/entitlements/$entitlementSlug/usage',
       value: 'usage',
     },
   ];

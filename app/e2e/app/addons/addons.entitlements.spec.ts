@@ -52,7 +52,7 @@ test.describe('what a version grants', () => {
     const grants = new AddonGrantsDriver(page);
     await installAddonsWorld(page);
 
-    await page.goto('/addons/extra-seats-v2/entitlements');
+    await page.goto('/catalog/addons/extra-seats-v2/entitlements');
 
     await expect(
       page.getByText('This version grants nothing yet.'),
@@ -72,7 +72,7 @@ test.describe('giving a version an entitlement', () => {
 
     await grants.addLink().click();
     await expect(page).toHaveURL(
-      '/addons/extra-seats-v2/entitlements?grant=new',
+      '/catalog/addons/extra-seats-v2/entitlements?grant=new',
     );
     await expect(
       grants.dialog().getByRole('heading', { name: 'Add entitlement' }),
@@ -89,7 +89,7 @@ test.describe('giving a version an entitlement', () => {
     await grants.submitButton().click();
 
     await expectToast(page, 'Entitlement added');
-    await expect(page).toHaveURL('/addons/extra-seats-v2/entitlements');
+    await expect(page).toHaveURL('/catalog/addons/extra-seats-v2/entitlements');
     await expect(grants.row('Seats')).toContainText('5 per unit');
     await expect(grants.row('Seats')).toContainText('Add');
     await expect(grants.row('Seats')).toContainText('Inherit');
@@ -246,7 +246,7 @@ test.describe('giving a version an entitlement', () => {
     await grants.dialog().getByRole('button', { name: 'Cancel' }).click();
 
     await expect(grants.dialog()).toHaveCount(0);
-    await expect(page).toHaveURL('/addons/extra-seats-v2/entitlements');
+    await expect(page).toHaveURL('/catalog/addons/extra-seats-v2/entitlements');
     expect(writes).toEqual([]);
   });
 
@@ -256,16 +256,22 @@ test.describe('giving a version an entitlement', () => {
     const grants = new AddonGrantsDriver(page);
     await installAddonsWorld(page);
 
-    await page.goto('/addons/extra-tokens-v1/entitlements?grant=tokens');
+    await page.goto(
+      '/catalog/addons/extra-tokens-v1/entitlements?grant=tokens',
+    );
     await expect(
       grants.dialog().getByRole('heading', { name: 'Edit entitlement' }),
     ).toBeVisible();
     await grants.dialog().getByRole('button', { name: 'Cancel' }).click();
 
-    await page.goto('/addons/extra-tokens-v1/entitlements?grant=storage-gb');
+    await page.goto(
+      '/catalog/addons/extra-tokens-v1/entitlements?grant=storage-gb',
+    );
     await expect(grants.card()).toBeVisible();
     await expect(grants.dialog()).toHaveCount(0);
-    await expect(page).toHaveURL('/addons/extra-tokens-v1/entitlements');
+    await expect(page).toHaveURL(
+      '/catalog/addons/extra-tokens-v1/entitlements',
+    );
   });
 });
 
@@ -278,7 +284,9 @@ test.describe('the overage an add-on allows', () => {
     await grants.goto('extra-tokens-v1', 'Extra tokens');
 
     // Extra tokens allows 20%, and Pro, which it fits, allows 50%.
-    await page.goto('/addons/extra-tokens-v1/entitlements?grant=tokens');
+    await page.goto(
+      '/catalog/addons/extra-tokens-v1/entitlements?grant=tokens',
+    );
     await expect(grants.overageWarning()).toContainText(
       'This add-on allows an overage of 20%, and Pro allows 50%.',
     );
@@ -345,7 +353,7 @@ test.describe('changing and taking away a grant', () => {
 
     await grants.editLink('Tokens').click();
     await expect(page).toHaveURL(
-      '/addons/extra-tokens-v1/entitlements?grant=tokens',
+      '/catalog/addons/extra-tokens-v1/entitlements?grant=tokens',
     );
     await expect(
       grants.dialog().getByRole('heading', { name: 'Edit entitlement' }),
@@ -460,7 +468,7 @@ test.describe('a version an instance with a live subscription holds', () => {
     await expect(freeze.detail()).toContainText('what it sells is frozen');
     await expect(freeze.createNewVersion()).toHaveAttribute(
       'href',
-      '/addons/new?family=extra-seats',
+      '/catalog/addons/new?family=extra-seats',
     );
     // A dialog, not a toast.
     await expectNoToast(page);
@@ -503,7 +511,7 @@ test.describe('a version an instance with a live subscription holds', () => {
     await grants.confirmRemoval();
     await freeze.createNewVersion().click();
 
-    await expect(page).toHaveURL('/addons/new?family=extra-seats');
+    await expect(page).toHaveURL('/catalog/addons/new?family=extra-seats');
     await expect(
       page
         .getByRole('dialog')

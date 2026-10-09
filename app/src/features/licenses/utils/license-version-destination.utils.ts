@@ -4,12 +4,12 @@ import { PriceCopyError } from './license-price-copy.utils';
 type PricesDestination = {
   params: { licenseSlug: string };
   search?: { copyFrom?: string };
-  to: '/licenses/$licenseSlug/prices';
+  to: '/catalog/licenses/$licenseSlug/prices';
 };
 
 type OverviewDestination = {
   params: { licenseSlug: string };
-  to: '/licenses/$licenseSlug';
+  to: '/catalog/licenses/$licenseSlug';
 };
 
 /** Where a version that was just created opens, as the options of a navigation. */
@@ -50,12 +50,12 @@ export function getCreatedVersionDestination({
       ? {
           params,
           search: { copyFrom: baseSlug },
-          to: '/licenses/$licenseSlug/prices',
+          to: '/catalog/licenses/$licenseSlug/prices',
         }
-      : { params, to: '/licenses/$licenseSlug' };
+      : { params, to: '/catalog/licenses/$licenseSlug' };
   }
 
   return hasPrices
-    ? { params, to: '/licenses/$licenseSlug/prices' }
+    ? { params, to: '/catalog/licenses/$licenseSlug/prices' }
     : undefined;
 }

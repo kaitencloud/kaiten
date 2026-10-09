@@ -71,7 +71,7 @@ describe('PriceStateNote', () => {
 
       expect(newVersion()).toHaveAttribute(
         'href',
-        '/licenses/versions/pro-v2?draft=true',
+        '/catalog/licenses/versions/pro-v2?draft=true',
       );
     },
   );

@@ -212,7 +212,7 @@ describe('the way a stock is sold, said under the entitlements that cannot be me
 
     expect(await screen.findByRole('link', { name: 'See the add-ons' })).toHaveAttribute(
       'href',
-      '/addons',
+      '/catalog/addons',
     );
     expect(screen.getByText(hint)).toBeInTheDocument();
   });
@@ -253,7 +253,7 @@ describe('the way a stock is sold, said under the entitlements that cannot be me
 
     expect(await screen.findByRole('link', { name: 'Voir les add-ons' })).toHaveAttribute(
       'href',
-      '/addons',
+      '/catalog/addons',
     );
     await testI18n.changeLanguage('en');
   });

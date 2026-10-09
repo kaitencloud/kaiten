@@ -34,7 +34,7 @@ export function AddonGrantsTab({ addonSlug, grantParam }: AddonGrantsTabProps) {
     void navigate({
       params: { addonSlug },
       search: (previous) => ({ ...previous, grant: undefined }),
-      to: '/addons/$addonSlug/entitlements',
+      to: '/catalog/addons/$addonSlug/entitlements',
     });
 
   return (
@@ -66,7 +66,7 @@ export function AddonGrantsTab({ addonSlug, grantParam }: AddonGrantsTabProps) {
           params={{ addonSlug }}
           replace
           search={(previous) => ({ ...previous, grant: undefined })}
-          to="/addons/$addonSlug/entitlements"
+          to="/catalog/addons/$addonSlug/entitlements"
         />
       ) : null}
       {frozen ? (

@@ -25,7 +25,7 @@ test.describe('the catalogue of add-ons, read in French', () => {
   test('the list, its families, its versions and the actions of a row', async ({
     page,
   }) => {
-    await page.goto('/addons');
+    await page.goto('/catalog/addons');
 
     await expect(
       page.getByRole('heading', { level: 1, name: 'Add-ons' }),
@@ -66,7 +66,7 @@ test.describe('the catalogue of add-ons, read in French', () => {
     page,
   }) => {
     const list = new AddonsListDriver(page);
-    await page.goto('/addons');
+    await page.goto('/catalog/addons');
     await list.expandFamily('Extra seats');
 
     await list.action('Extra seats', '2027', 'Publier').click();
@@ -89,7 +89,7 @@ test.describe('the catalogue of add-ons, read in French', () => {
   });
 
   test('the dialog that makes an add-on', async ({ page }) => {
-    await page.goto('/addons/new');
+    await page.goto('/catalog/addons/new');
 
     const dialog = page.getByRole('dialog');
     await expect(
@@ -116,7 +116,7 @@ test.describe('the catalogue of add-ons, read in French', () => {
   test('the dialog that makes the next version of a family', async ({
     page,
   }) => {
-    await page.goto('/addons/new?family=extra-seats');
+    await page.goto('/catalog/addons/new?family=extra-seats');
 
     await expect(
       page
@@ -135,7 +135,7 @@ test.describe('a version of an add-on, read in French', () => {
   test('its overview and its four tabs', async ({ page }) => {
     const detail = new AddonDetailDriver(page);
 
-    await page.goto('/addons/extra-seats-v1');
+    await page.goto('/catalog/addons/extra-seats-v1');
 
     await expect(
       page.getByRole('heading', { level: 1, name: 'Extra seats' }),
@@ -166,7 +166,7 @@ test.describe('a version of an add-on, read in French', () => {
   }) => {
     const grants = new AddonGrantsDriver(page);
 
-    await page.goto('/addons/extra-tokens-v1/entitlements');
+    await page.goto('/catalog/addons/extra-tokens-v1/entitlements');
 
     await expect(grants.row('Tokens')).toContainText('10 000 par unité');
     await expect(grants.row('Tokens')).toContainText('Additionner');
@@ -185,7 +185,9 @@ test.describe('a version of an add-on, read in French', () => {
   test('the warning when the overage is lower than the license’s', async ({
     page,
   }) => {
-    await page.goto('/addons/extra-tokens-v1/entitlements?grant=tokens');
+    await page.goto(
+      '/catalog/addons/extra-tokens-v1/entitlements?grant=tokens',
+    );
 
     await expect(page.getByTestId('license-overage-warning')).toContainText(
       'Cet add-on tolère un dépassement de 20 %, et Pro en tolère 50 %.',
@@ -199,7 +201,7 @@ test.describe('a version of an add-on, read in French', () => {
     // The slots are named in French: they are found by the period they stand for.
     const slot = (period: string) => page.locator(`[data-period="${period}"]`);
 
-    await page.goto('/addons/extra-seats-v2/prices');
+    await page.goto('/catalog/addons/extra-seats-v2/prices');
 
     await expect(
       page.getByRole('region', {
@@ -226,7 +228,7 @@ test.describe('a version of an add-on, read in French', () => {
   }) => {
     const compatibility = new AddonCompatibilityDriver(page);
 
-    await page.goto('/addons/extra-seats-v2/compatibility');
+    await page.goto('/catalog/addons/extra-seats-v2/compatibility');
     await expect(
       page.getByRole('list', { name: 'Familles de licences' }),
     ).toBeVisible();
@@ -244,7 +246,7 @@ test.describe('a version of an add-on, read in French', () => {
     page,
   }) => {
     const grants = new AddonGrantsDriver(page);
-    await page.goto('/addons/extra-seats-v1/entitlements');
+    await page.goto('/catalog/addons/extra-seats-v1/entitlements');
 
     await page.getByRole('button', { name: 'Retirer Seats' }).click();
     await grants
@@ -257,7 +259,7 @@ test.describe('a version of an add-on, read in French', () => {
     );
     await expect(
       page.getByRole('link', { name: 'Créer une nouvelle version' }),
-    ).toHaveAttribute('href', '/addons/new?family=extra-seats');
+    ).toHaveAttribute('href', '/catalog/addons/new?family=extra-seats');
   });
 });
 

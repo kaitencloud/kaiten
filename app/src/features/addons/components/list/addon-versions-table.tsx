@@ -15,7 +15,7 @@ export function AddonVersionsTable({ addons }: AddonVersionsTableProps) {
   const getAddonPath = (addon: Addon) =>
     router.buildLocation({
       params: { addonSlug: addon.slug },
-      to: '/addons/$addonSlug',
+      to: '/catalog/addons/$addonSlug',
     }).pathname;
 
   return (

@@ -226,7 +226,7 @@ describe('what a state allows', () => {
     const { addBoost, archive, edit, publish } = actions();
     // The dialog is the page's own: the link stays on the page and says which dialog.
     expect(edit).toHaveAttribute('href', '.?mode=configure');
-    expect(addBoost).toHaveAttribute('href', '/vouchers/new?boostFor=voucher-welcome');
+    expect(addBoost).toHaveAttribute('href', '/catalog/vouchers/new?boostFor=voucher-welcome');
     expect(archive).toBeInTheDocument();
     expect(publish).not.toBeInTheDocument();
   });
@@ -237,7 +237,7 @@ describe('what a state allows', () => {
     await loaded();
 
     const { addBoost, archive, edit, publish } = actions();
-    expect(edit).toHaveAttribute('href', '/vouchers/voucher-welcome/edit');
+    expect(edit).toHaveAttribute('href', '/catalog/vouchers/voucher-welcome/edit');
     expect(publish).toBeInTheDocument();
     expect(archive).toBeInTheDocument();
     expect(addBoost).not.toBeInTheDocument();

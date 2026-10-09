@@ -124,7 +124,7 @@ test.describe('the catalogue', () => {
     await list.expandFamily('Extra seats');
     await list.openVersion('Extra seats', '2027');
 
-    await expect(page).toHaveURL('/addons/extra-seats-v2');
+    await expect(page).toHaveURL('/catalog/addons/extra-seats-v2');
     await expect(
       page.getByRole('heading', { level: 1, name: 'Extra seats' }),
     ).toBeVisible();
@@ -136,7 +136,7 @@ test.describe('the catalogue', () => {
   }) => {
     await installAddonsWorld(page);
 
-    await page.goto('/addons/no-such-version');
+    await page.goto('/catalog/addons/no-such-version');
 
     await expect(page.getByText('Page not found')).toBeVisible();
   });
@@ -176,15 +176,17 @@ test.describe('a version', () => {
       'Compatible licenses',
     ]);
     await detail.tab('Entitlements').click();
-    await expect(page).toHaveURL('/addons/extra-seats-v1/entitlements');
+    await expect(page).toHaveURL('/catalog/addons/extra-seats-v1/entitlements');
     await detail.tab('Prices').click();
-    await expect(page).toHaveURL('/addons/extra-seats-v1/prices');
+    await expect(page).toHaveURL('/catalog/addons/extra-seats-v1/prices');
     await detail.tab('Compatible licenses').click();
-    await expect(page).toHaveURL('/addons/extra-seats-v1/compatibility');
+    await expect(page).toHaveURL(
+      '/catalog/addons/extra-seats-v1/compatibility',
+    );
     await detail.tab('Overview').click();
-    await expect(page).toHaveURL('/addons/extra-seats-v1');
+    await expect(page).toHaveURL('/catalog/addons/extra-seats-v1');
 
-    await page.goto('/addons/extra-seats-v1/prices');
+    await page.goto('/catalog/addons/extra-seats-v1/prices');
     await expect(detail.tab('Prices')).toHaveAttribute('aria-selected', 'true');
   });
 

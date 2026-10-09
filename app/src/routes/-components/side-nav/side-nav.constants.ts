@@ -85,12 +85,12 @@ export const topLevelRoutes: SideNavRouteDefinition[] = [
   },
   {
     Icon: dataModelIcons.entitlement,
-    path: '/entitlements',
+    path: '/catalog/entitlements',
     titleKey: 'Pages.Entitlements.title',
   },
   {
     Icon: dataModelIcons.license,
-    path: '/licenses',
+    path: '/catalog/licenses',
     titleKey: 'Pages.Licenses.title',
   },
   {
@@ -153,13 +153,13 @@ export const billingSubRoutes: SideNavBillingSubRouteDefinition[] = [
     action: 'addons.list',
     capability: { feature: 'addons' },
     labelKey: 'Pages.Addons.title',
-    path: '/addons',
+    path: '/catalog/addons',
   },
   {
     action: 'vouchers.list',
     capability: { feature: 'vouchers' },
     labelKey: 'Pages.Vouchers.title',
-    path: '/vouchers',
+    path: '/catalog/vouchers',
   },
 ];
 

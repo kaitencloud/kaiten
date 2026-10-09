@@ -145,7 +145,7 @@ describe('the prices of a version', () => {
 
     expect(await screen.findByRole('link', { name: 'Add price' })).toHaveAttribute(
       'href',
-      '/addons/extra-seats-v2/prices?price=new',
+      '/catalog/addons/extra-seats-v2/prices?price=new',
     );
   });
 
@@ -165,7 +165,7 @@ describe('the prices of a version', () => {
 
     expect(await screen.findByRole('link', { name: 'New Version' })).toHaveAttribute(
       'href',
-      '/addons/new?family=extra-seats',
+      '/catalog/addons/new?family=extra-seats',
     );
   });
 });

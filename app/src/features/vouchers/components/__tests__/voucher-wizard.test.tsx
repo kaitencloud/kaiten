@@ -383,11 +383,11 @@ describe('the review and the publication', () => {
 
     expect(await screen.findByRole('link', { name: 'Add a boost' })).toHaveAttribute(
       'href',
-      '/vouchers/new?boostFor=voucher-new',
+      '/catalog/vouchers/new?boostFor=voucher-new',
     );
     expect(screen.getByRole('link', { name: 'View the voucher' })).toHaveAttribute(
       'href',
-      '/vouchers/voucher-new',
+      '/catalog/vouchers/voucher-new',
     );
   });
 
@@ -413,7 +413,7 @@ describe('the review and the publication', () => {
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith({
         params: { voucherId: 'voucher-new' },
-        to: '/vouchers/$voucherId',
+        to: '/catalog/vouchers/$voucherId',
       }),
     );
     expect(asked.map(({ call }) => call)).toEqual(['create']);

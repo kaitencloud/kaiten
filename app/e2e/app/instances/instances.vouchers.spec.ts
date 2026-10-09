@@ -55,7 +55,7 @@ test.describe('what an instance redeemed', () => {
 
     await expect(vouchers.row('Welcome spring')).toContainText('1/3 invoices');
     await vouchers.row('Welcome spring').getByRole('link').first().click();
-    await expect(page).toHaveURL('/vouchers/voucher-welcome');
+    await expect(page).toHaveURL('/catalog/vouchers/voucher-welcome');
   });
 
   test('says why there is none, and still offers to apply a code', async ({

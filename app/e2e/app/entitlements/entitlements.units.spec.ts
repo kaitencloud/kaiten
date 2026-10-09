@@ -27,11 +27,11 @@ test('creates an entitlement sold in a different unit', async ({ page }) => {
     saleUnitFactor: 3,
   });
   await form.submitButton().click();
-  await expect(page).toHaveURL('/entitlements/seats');
+  await expect(page).toHaveURL('/catalog/entitlements/seats');
 
   // Round-trip: the configure wizard reflects the stored unit configuration
   // on its type step.
-  await page.goto('/entitlements/seats?mode=configure');
+  await page.goto('/catalog/entitlements/seats?mode=configure');
   await form.clickNext();
   await expect(form.unitSingularField()).toHaveValue('seat');
   await expect(form.unitPluralField()).toHaveValue('seats');
@@ -48,7 +48,7 @@ test('pre-fills unit fields when editing an entitlement that has them', async ({
   const form = new EntitlementFormDriver(page);
 
   await installEntitlementAppMocks(page, model);
-  await page.goto('/entitlements/seats?mode=configure');
+  await page.goto('/catalog/entitlements/seats?mode=configure');
 
   await expect(
     page.getByRole('heading', { name: 'Edit Entitlement' }).first(),
@@ -69,7 +69,7 @@ test('clears the sale unit trio when the toggle is switched off', async ({
   const form = new EntitlementFormDriver(page);
 
   await installEntitlementAppMocks(page, model);
-  await page.goto('/entitlements/seats?mode=configure');
+  await page.goto('/catalog/entitlements/seats?mode=configure');
   await form.clickNext();
 
   await expect(form.saleUnitsToggle()).toBeChecked();
@@ -77,9 +77,9 @@ test('clears the sale unit trio when the toggle is switched off', async ({
   await expect(form.saleUnitsToggle()).not.toBeChecked();
 
   await form.updateButton().click();
-  await expect(page).toHaveURL('/entitlements/seats');
+  await expect(page).toHaveURL('/catalog/entitlements/seats');
 
-  await page.goto('/entitlements/seats?mode=configure');
+  await page.goto('/catalog/entitlements/seats?mode=configure');
   await form.clickNext();
   await expect(form.saleUnitsToggle()).not.toBeChecked();
   await expect(form.unitSingularField()).toHaveValue('seat');

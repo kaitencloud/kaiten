@@ -44,7 +44,7 @@ test.describe('where billing is not there', () => {
       }
     });
 
-    await page.goto('/licenses/pro-v2/prices');
+    await page.goto('/catalog/licenses/pro-v2/prices');
 
     await expect(page.getByTestId('billing-unavailable')).toHaveAttribute(
       'data-reason',

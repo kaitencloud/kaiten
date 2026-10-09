@@ -67,7 +67,10 @@ export function AddonListItem({ group }: AddonListItemProps) {
             <Button
               nativeButton={false}
               render={
-                <Link search={{ family: group.family.slug }} to="/addons/new">
+                <Link
+                  search={{ family: group.family.slug }}
+                  to="/catalog/addons/new"
+                >
                   <CirclePlus className="size-4" />
                   {t('Pages.Addons.List.newVersionButton')}
                 </Link>

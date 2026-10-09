@@ -35,11 +35,14 @@ const translations: Record<string, string> = {
   'Errors.notFound': 'Page not found',
   'Features.Releases.Actions.deploy': 'Deploy',
   'Pages.Billing.Invoices.title': 'Invoices',
+  'Pages.Catalog.title': 'Catalog',
   'Pages.Customers.Instances.title': 'Instances',
   'Pages.Customers.title': 'Customers',
   'Pages.FeatureFlags.title': 'Feature Flags',
   'Pages.Integrations.Webhooks.Tabs.history': 'History',
   'Pages.Integrations.title': 'Integrations',
+  'Pages.Licenses.Prices.title': 'Prices',
+  'Pages.Licenses.title': 'Licenses',
   'Pages.Releases.DeploymentZones.title': 'Deployment Zones',
   'Pages.Releases.title': 'Releases',
 };
@@ -200,6 +203,35 @@ describe('PathBreadcrumbs', () => {
     expect(document.title).toBe(
       'Targeting · Is Kaiten · Feature Flags · Kaiten',
     );
+  });
+
+  it('reads a license under the catalog, which opens on the licenses', () => {
+    mockRoutesByPath = {
+      '/catalog': {},
+      '/catalog/licenses': {},
+      '/catalog/licenses/$licenseSlug': {},
+      '/catalog/licenses/$licenseSlug/prices': {},
+    };
+    mockUseMatches.mockReturnValue([
+      { pathname: '/', fullPath: '/', context: {} },
+      {
+        pathname: '/catalog/licenses/pro-v2/prices',
+        fullPath: '/catalog/licenses/$licenseSlug/prices',
+        context: { getTitle: () => 'Pro' },
+      },
+    ]);
+
+    render(<PathBreadcrumbs />);
+
+    expect(screen.getByRole('link', { name: 'Catalog' })).toHaveAttribute(
+      'href',
+      '/catalog',
+    );
+    expect(screen.getByRole('link', { name: 'Licenses' })).toHaveAttribute(
+      'href',
+      '/catalog/licenses',
+    );
+    expect(document.title).toBe('Prices · Pro · Licenses · Catalog · Kaiten');
   });
 
   it('gives a slug level with no page of its own the entity name, as text', () => {

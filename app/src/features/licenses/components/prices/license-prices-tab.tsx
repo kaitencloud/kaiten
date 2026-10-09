@@ -44,7 +44,7 @@ export function LicensePricesTab({
     void navigate({
       params: { licenseSlug },
       search: (previous) => ({ ...previous, [key]: undefined }),
-      to: '/licenses/$licenseSlug/prices',
+      to: '/catalog/licenses/$licenseSlug/prices',
     });
 
   return (
@@ -74,7 +74,7 @@ export function LicensePricesTab({
           params={{ licenseSlug }}
           replace
           search={(previous) => ({ ...previous, price: undefined })}
-          to="/licenses/$licenseSlug/prices"
+          to="/catalog/licenses/$licenseSlug/prices"
         />
       ) : null}
       {frozen ? (

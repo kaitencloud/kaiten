@@ -31,7 +31,7 @@ function NewVersionLink({ licenseSlug }: { licenseSlug: string }) {
         <Link
           params={{ licenseSlug }}
           search={{ draft: true }}
-          to="/licenses/versions/$licenseSlug"
+          to="/catalog/licenses/versions/$licenseSlug"
         >
           <CirclePlus className="size-4" />
           {t('Pages.Licenses.Version.newVersionButton')}

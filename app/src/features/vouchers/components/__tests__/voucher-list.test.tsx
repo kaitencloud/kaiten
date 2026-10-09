@@ -118,7 +118,7 @@ describe('the list of vouchers', () => {
 
     expect(await screen.findByRole('link', { name: /Welcome spring/ })).toHaveAttribute(
       'href',
-      '/vouchers/voucher-welcome',
+      '/catalog/vouchers/voucher-welcome',
     );
   });
 
@@ -126,7 +126,7 @@ describe('the list of vouchers', () => {
     const { unmount } = renderScreen(<VouchersPageContent />);
     expect(await screen.findByRole('link', { name: /New voucher/ })).toHaveAttribute(
       'href',
-      '/vouchers/new',
+      '/catalog/vouchers/new',
     );
     unmount();
 

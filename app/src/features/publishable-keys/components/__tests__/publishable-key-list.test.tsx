@@ -61,7 +61,7 @@ describe('the list of publishable keys', () => {
     expect(intro).toHaveTextContent(/GET \/public\/catalog/);
     expect(
       await within(intro).findByRole('link', { name: 'License families' }),
-    ).toHaveAttribute('href', '/licenses');
+    ).toHaveAttribute('href', '/catalog/licenses');
     // The add-ons are not shipped by this release.
     expect(
       within(intro).queryByRole('link', { name: 'Add-on families' }),
