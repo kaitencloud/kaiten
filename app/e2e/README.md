@@ -157,7 +157,7 @@ Bootstrap results use separate output folders so concurrent local runs cannot
 delete each other's trace artifacts.
 Shared error mapping is in
 `_support/contracts/mock-http.ts` and shared GraphQL operations in
-`_support/model/graphql-operations.ts`. Models stay stateful and transport-neutral.
+`_support/model/graphql-operations.ts`, which also pages a list as the API does (`graphqlPage`: the limit asked for, the cursor of the next page). The scopes of the two documents of billing are `_support/contracts/graphql-scopes.ts`, copied from the pins of the API's `TestClientDocumentsRequireTheseScopes`: the router of the mocks refuses a whole document to a session whose token lacks one (`signInWithScopes`), with the 403 `Auth.MissingScope` the API answers, and serves a token that says nothing of its scopes. The other documents of the console are served to every session: the sessions of the specs hold the scopes of what they test, not always those of every document of a page. Models stay stateful and transport-neutral.
 Handler order, fallbacks, statuses and reload persistence are preserved by the
 structural split. See [browser mock adapter](../src/e2e/msw/README.md).
 

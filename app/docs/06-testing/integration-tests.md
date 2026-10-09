@@ -75,7 +75,7 @@ const meta = {
 ```
 
 - A REST endpoint takes its generated handler from `@/api-client/msw.gen`, whose body has the type of the operation's response. `onePage(items)` is the body of a list that fits on one page.
-- GraphQL goes through `graphqlOperationHandler` from `@/e2e/msw/handler-factory`, keyed by operation name; `metadataFieldsHandler(...)` (`src/test-fixtures/storybook-handlers.ts`) serves the active metadata fields of each resource type, none by default.
+- GraphQL goes through `graphqlOperationHandler` from `@/e2e/msw/handler-factory`, keyed by operation name, and refuses the two documents of billing whole to a request whose token lacks a scope they need (see [unit tests](./unit-tests.md)); `metadataFieldsHandler(...)` (`src/test-fixtures/storybook-handlers.ts`) serves the active metadata fields of each resource type, none by default.
 - A request to `/api/` that no handler answers fails with a network error, and a console error names it: the story shows the error state its component has for an API that is down. It never reaches the Storybook server or a running stack. The one default is the billing capabilities, answered with billing off because the app shell reads them: a story that needs billing on declares `handleGetBillingCapabilities` itself, with a profile of `e2e/app/_support/model/billing-capabilities.ts`.
 - The data arrives after the first render: a `play` function waits for it with `findBy*`, as it would for any data loaded over the network.
 - The handlers belong to the page, not to a story: a docs page that renders several stories at once serves them all with the last one's.

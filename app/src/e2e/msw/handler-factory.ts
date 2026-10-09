@@ -2,6 +2,7 @@
 import type { DefaultBodyType, PathParams, RequestHandler } from 'msw';
 import { HttpResponse, type HttpResponseResolver, http } from 'msw/http';
 import type { ErrorDetail } from '@/api-client';
+import { decodeGrantedScopes } from '@/lib/scope-claims';
 import { BillingProblem } from '../../../e2e/app/_support/model/billing-problem';
 import {
   extractOperationName,
@@ -10,6 +11,7 @@ import {
   type GraphQLRequestBody,
   type GraphQLVariables,
 } from '../../../e2e/app/_support/contracts/mock-http';
+import { findMissingDocumentScope } from './graphql-scope-gate';
 export {
   messageForError,
   statusForError,
@@ -127,10 +129,18 @@ export const withErrorHandling = <
   };
 };
 
+/** The token a request carries, whatever it is: `Bearer <token>`. */
+const bearerToken = (request: Request) =>
+  request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
+
 /**
  * Build a GraphQL operation router. Reads `operationName` from the body,
  * dispatches to the matching handler, and falls through to the next MSW
  * handler when the operation is unknown.
+ *
+ * Like the API, it refuses a whole document when the token of the request says
+ * it lacks a scope the document needs (`GRAPHQL_DOCUMENT_SCOPES`): a 403
+ * problem that names the scope, and no data at all.
  */
 export const graphqlOperationHandler = (
   operations: Record<string, (variables: GraphQLVariables) => unknown>,
@@ -154,6 +164,18 @@ export const graphqlOperationHandler = (
 
     if (!handler) {
       return undefined;
+    }
+
+    const missing = findMissingDocumentScope(
+      operationName,
+      decodeGrantedScopes(bearerToken(request)),
+    );
+    if (missing) {
+      return problemJson(
+        403,
+        `missing required scope: ${missing}`,
+        'Auth.MissingScope',
+      );
     }
 
     try {
