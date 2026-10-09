@@ -623,7 +623,7 @@ export default {
                   'Rien n’est encore facturé : la première facture est émise le {{date}}.',
               },
               Addons: {
-                title: 'Options',
+                title: 'Add-ons',
                 description:
                   'Facultatif. Elles sont attachées au démarrage de l’abonnement et facturées dès sa première facture. Si l’une ne peut pas l’être, l’abonnement ne démarre pas.',
                 maxQuantity_one: 'Jusqu’à {{count}} unité',
@@ -640,7 +640,7 @@ export default {
               },
               Errors: {
                 addOns:
-                  'Saisissez un nombre entier d’unités pour chaque option, dans la limite qu’elle autorise',
+                  'Saisissez un nombre entier d’unités pour chaque add-on, dans la limite qu’il autorise',
                 basePrice: 'Choisissez un prix de base',
                 daysUntilDue: 'Saisissez un nombre entier de jours, de 0 à 365',
                 trialDays: 'Saisissez un nombre entier de jours, de 0 à 365',
@@ -927,27 +927,27 @@ export default {
               },
             },
             Addons: {
-              title: 'Options',
+              title: 'Add-ons',
               description:
                 'Des droits supplémentaires que cette instance détient en plus de sa licence, facturés avec son abonnement.',
-              loading: 'Chargement des options',
-              attach: 'Ajouter une option',
+              loading: 'Chargement des add-ons',
+              attach: 'Ajouter un add-on',
               note: 'Le droit change tout de suite ; facturé dès le prochain renouvellement ; ni proratisation ni remboursement.',
               notLive:
-                'Des options peuvent être ajoutées tant que l’abonnement est actif. Avant cela, ajoutez-les en abonnant l’instance.',
+                'Des add-ons peuvent être ajoutés tant que l’abonnement est actif. Avant cela, ajoutez-les en abonnant l’instance.',
               Empty: {
-                title: 'Aucune option',
+                title: 'Aucun add-on',
                 description:
-                  'Cette instance ne détient aucune option. Ajoutez-en une pour relever ses limites ou activer une fonctionnalité.',
+                  'Cette instance ne détient aucun add-on. Ajoutez-en un pour relever ses limites ou activer une fonctionnalité.',
               },
               Table: {
                 Columns: {
-                  addon: 'Option',
+                  addon: 'Add-on',
                   quantity: 'Quantité',
                   price: 'Prix à l’unité',
                   since: 'Depuis',
                 },
-                free: 'Gratuite',
+                free: 'Gratuit',
                 onRequest: 'Sur demande',
                 notBilled: 'Non facturée',
                 withdrawn: 'Retirée de la vente',
@@ -965,9 +965,9 @@ export default {
                 title: 'Retirer {{name}} de cette instance ?',
                 description: 'Ses droits prennent fin tout de suite.',
                 refund:
-                  'La période en cours n’est pas remboursée, et l’option n’est plus facturée à partir de la prochaine facture.',
+                  'La période en cours n’est pas remboursée, et l’add-on n’est plus facturé à partir de la prochaine facture.',
                 arrears:
-                  'Cette option est facturée à terme échu : la période en cours reste facturée en entier, à la dernière quantité détenue, sur la prochaine facture. Rien n’est remboursé.',
+                  'Cet add-on est facturé à terme échu : la période en cours reste facturée en entier, à la dernière quantité détenue, sur la prochaine facture. Rien n’est remboursé.',
                 confirm: 'Retirer',
               },
               Toasts: {
@@ -986,34 +986,34 @@ export default {
                   'Certains add-ons n’ont pas pu être comparés à la licence de cette instance, ils ne sont donc pas listés.',
               },
               Attach: {
-                title: 'Ajouter une option',
-                dialogTitle: 'Ajouter une option à {{name}}',
+                title: 'Ajouter un add-on',
+                dialogTitle: 'Ajouter un add-on à {{name}}',
                 description:
-                  'Attachez une option à cette instance. Ses droits s’appliquent tout de suite.',
-                addon: 'Option',
+                  'Attachez un add-on à cette instance. Ses droits s’appliquent tout de suite.',
+                addon: 'Add-on',
                 addonHint:
-                  'Les options en vente qui conviennent à la licence de cette instance.',
-                addonPlaceholder: 'Choisissez une option',
+                  'Les add-ons en vente qui conviennent à la licence de cette instance.',
+                addonPlaceholder: 'Choisissez un add-on',
                 quantity: 'Quantité',
                 quantityHint: 'Au moins 1.',
                 quantityHintMax: 'De 1 à {{max}}.',
-                confirm: 'Ajouter l’option',
-                none: 'Aucune option ne peut être ajoutée : aucune de celles en vente ne convient à la licence de cette instance, ou elle en détient déjà une version de chacune.',
+                confirm: 'Ajouter l’add-on',
+                none: 'Aucun add-on ne peut être ajouté : aucun de ceux en vente ne convient à la licence de cette instance, ou elle en détient déjà une version de chacun.',
                 notLive:
-                  'Des options ne peuvent être ajoutées que tant que l’abonnement est actif : en essai, actif ou en retard de paiement.',
+                  'Des add-ons ne peuvent être ajoutés que tant que l’abonnement est actif : en essai, actif ou en retard de paiement.',
                 Price: {
                   perUnit: 'l’unité, facturé dès le prochain renouvellement.',
-                  free: 'Gratuite : rien n’est facturé pour elle.',
+                  free: 'Gratuit : rien n’est facturé pour lui.',
                   custom:
                     'Vendue sur demande : aucun prix n’est fixé, donc rien n’est facturé ici pour elle.',
-                  none: 'Cette option n’a pas de prix par défaut pour la période de facturation de l’abonnement ({{period}}), et l’API la refusera.',
+                  none: 'Cet add-on n’a pas de prix par défaut pour la période de facturation de l’abonnement ({{period}}), et l’API le refusera.',
                   loading: 'Lecture de son prix…',
                   unknown: 'Son prix n’a pas pu être lu.',
                 },
                 Errors: {
-                  addon: 'Choisissez une option',
+                  addon: 'Choisissez un add-on',
                   quantity: 'Saisissez un nombre entier d’unités, au moins 1',
-                  quantityMax: 'Cette option autorise moins d’unités',
+                  quantityMax: 'Cet add-on autorise moins d’unités',
                 },
               },
             },
@@ -1510,8 +1510,8 @@ export default {
             stock:
               'Un stock : il ne se remet jamais à zéro, il ne peut donc pas être mesuré.',
             stockHint:
-              'Un stock, comme des sièges ou du stockage, se vend comme une option avec une quantité, il ne se mesure pas.',
-            stockHintLink: 'Voir les options',
+              'Un stock, comme des sièges ou du stockage, se vend comme un add-on avec une quantité, il ne se mesure pas.',
+            stockHintLink: 'Voir les add-ons',
             overageUnreachable:
               'Le dépassement ne peut pas survenir sur cet octroi : sa limite est dure ou illimitée.',
           },
@@ -3816,12 +3816,12 @@ export default {
       },
     },
     Addons: {
-      title: 'Options',
+      title: 'Add-ons',
       subtitle:
         'Des quantités supplémentaires vendues en plus d’une licence : sièges, instances, historique.',
       PricingTypes: {
-        FREE: 'Gratuite',
-        PAID: 'Payante',
+        FREE: 'Gratuit',
+        PAID: 'Payant',
         CUSTOM: 'Sur mesure',
       },
       Lifecycle: {
@@ -3837,15 +3837,15 @@ export default {
         unlisted: 'La famille n’est plus listée dans le catalogue public',
       },
       List: {
-        addonName: 'Nom de l’option',
+        addonName: 'Nom de l’add-on',
         versionCount_one: '{{count}} version',
         versionCount_other: '{{count}} versions',
         defaultBadge: 'Par défaut : {{version}}',
         newVersionButton: 'Nouvelle version',
         Empty: {
-          title: 'Aucune option pour l’instant',
+          title: 'Aucun add-on pour l’instant',
           description:
-            'Une option est une quantité supplémentaire d’un droit, vendue à l’unité : sièges, instances, historique. Créez-en une, donnez-lui des droits et un prix, dites quelles licences elle complète, puis publiez-la.',
+            'Un add-on est une quantité supplémentaire d’un droit, vendue à l’unité : sièges, instances, historique. Créez-en un, donnez-lui des droits et un prix, dites quelles licences il complète, puis publiez-le.',
         },
       },
       VersionsTable: {
@@ -3914,16 +3914,16 @@ export default {
         success: 'Brouillon supprimé',
       },
       Form: {
-        titleNew: 'Nouvelle option',
+        titleNew: 'Nouvel add-on',
         titleNewVersion: 'Nouvelle version de {{name}}',
-        titleUpdate: 'Modifier l’option',
+        titleUpdate: 'Modifier l’add-on',
         descriptionNew:
-          'Une nouvelle option ouvre une famille. Sa première version est créée en brouillon.',
+          'Un nouvel add-on ouvre une famille. Sa première version est créée en brouillon.',
         descriptionNewVersion:
           'Une nouvelle version part de zéro : rien n’est copié de la précédente. Donnez-lui ses droits, ses prix et les licences qu’elle complète, puis publiez-la.',
         descriptionEdit:
           '{{name}}, version {{version}}. La façon dont elle est vendue et ses droits ne se modifient pas ici.',
-        createButton: 'Créer l’option',
+        createButton: 'Créer l’add-on',
         updateButton: 'Enregistrer',
         Labels: {
           name: 'Nom',
@@ -3942,11 +3942,11 @@ export default {
           maxQuantity: 'Illimitée',
         },
         Descriptions: {
-          name: 'Le nom de l’option. Toutes les versions d’une famille le partagent.',
+          name: 'Le nom de l’add-on. Toutes les versions d’une famille le partagent.',
           slug: 'Généré automatiquement — modifiez-le pour en choisir un autre.',
           description: 'Ce qu’une unité apporte à une instance, en une phrase.',
           pricingType:
-            'Une option gratuite ou payante peut être attachée par qui en a le droit ; une option payante a besoin d’un prix par défaut pour la période de facturation de l’abonnement auquel on l’attache. Une option sur mesure se vend sur demande.',
+            'Un add-on gratuit ou payant peut être attaché par qui en a le droit ; un add-on payant a besoin d’un prix par défaut pour la période de facturation de l’abonnement auquel on l’attache. Un add-on sur mesure se vend sur demande.',
           versionName: 'Laissé vide, la version s’appelle « Version - {n} ».',
           maxQuantity:
             'Le nombre maximal d’unités qu’une instance peut détenir. Laissez vide pour aucun maximum.',
@@ -3961,8 +3961,8 @@ export default {
             '{{instance}} détient {{quantity}} unités : baissez-y d’abord la quantité avant de baisser le maximum.',
         },
         Toasts: {
-          created: 'Option créée',
-          updated: 'Option mise à jour',
+          created: 'Add-on créé',
+          updated: 'Add-on mis à jour',
         },
       },
       Detail: {
@@ -3972,7 +3972,7 @@ export default {
           prices: 'Prix',
           compatibility: 'Licences compatibles',
         },
-        cardTitle: 'Détails de l’option',
+        cardTitle: 'Détails de l’add-on',
         cardDescription:
           'Comment cette version s’appelle et se vend. Ses droits, ses prix et ses licences compatibles sont dans les onglets voisins.',
         defaultBadge: 'Version par défaut',
@@ -4003,7 +4003,7 @@ export default {
       Grants: {
         title: 'Droits',
         tabDescription:
-          'Ce qu’une unité de cette option accorde à une instance qui la détient. Un nombre compte une fois par unité de quantité.',
+          'Ce qu’une unité de cet add-on accorde à une instance qui le détient. Un nombre compte une fois par unité de quantité.',
         Actions: {
           add: 'Ajouter un droit',
           edit: 'Modifier',
@@ -4045,7 +4045,7 @@ export default {
           OVERRIDE: {
             label: 'Remplacer',
             blurb:
-              'Remplace la valeur de la licence par valeur × quantité. L’option attachée en dernier l’emporte.',
+              'Remplace la valeur de la licence par valeur × quantité. L’add-on attaché en dernier l’emporte.',
           },
           MAX: {
             label: 'Maximum',
@@ -4061,12 +4061,12 @@ export default {
         },
         OverageWarning: {
           message:
-            'Cette option tolère un dépassement de {{addon}} %, et {{name}} en tolère {{license}} %.',
+            'Cet add-on tolère un dépassement de {{addon}} %, et {{name}} en tolère {{license}} %.',
           consequence:
-            'Sur chaque instance qui attache l’option, son pourcentage remplace celui de la licence : l’usage est refusé plus tôt que la licence ne le dit.',
+            'Sur chaque instance qui attache l’add-on, son pourcentage remplace celui de la licence : l’usage est refusé plus tôt que la licence ne le dit.',
         },
         Remove: {
-          title: 'Retirer {{name}} de cette option ?',
+          title: 'Retirer {{name}} de cet add-on ?',
           description:
             'Les instances qui détiennent cette version perdent ce droit immédiatement.',
           confirm: 'Retirer',
@@ -4093,11 +4093,11 @@ export default {
             behavior:
               'Comment la valeur multipliée par la quantité se combine avec ce que la licence accorde pour le même droit : ajoutée, en remplacement, ou la plus grande des deux.',
             overage:
-              'Laissez vide pour hériter de la tolérance de la licence. Renseignée, elle remplace celle de la licence sur chaque instance qui attache l’option : 0 est une limite stricte.',
+              'Laissez vide pour hériter de la tolérance de la licence. Renseignée, elle remplace celle de la licence sur chaque instance qui attache l’add-on : 0 est une limite stricte.',
             boolean:
               'Un indicateur se combine par OU avec celui de la licence.',
             config:
-              'Une configuration remplace celle de la licence. L’option attachée en dernier l’emporte.',
+              'Une configuration remplace celle de la licence. L’add-on attaché en dernier l’emporte.',
           },
           Placeholders: {
             entitlement: 'Choisir un droit',
@@ -4122,7 +4122,7 @@ export default {
       Prices: {
         title: 'Prix',
         tabDescription:
-          'Ce que coûte une unité de cette option, par période de facturation. Un prix ne se modifie jamais : changez-le par un nouveau prix et la dépréciation de l’ancien.',
+          'Ce que coûte une unité de cet add-on, par période de facturation. Un prix ne se modifie jamais : changez-le par un nouveau prix et la dépréciation de l’ancien.',
         defaultBadge: 'Par défaut',
         deprecatedOn: 'Déprécié le {{date}}',
         unvalued_one:
@@ -4141,16 +4141,16 @@ export default {
           label: 'Prix par défaut de chaque période de facturation',
           title: 'Prix par défaut de chaque période de facturation',
           missing:
-            'Aucun prix par défaut : cette option ne peut pas être attachée à un abonnement {{period}}.',
+            'Aucun prix par défaut : cet add-on ne peut pas être attaché à un abonnement {{period}}.',
           noDefault:
-            'Tarifée, mais aucun prix n’est le prix par défaut : cette option ne peut pas être attachée à un abonnement {{period}}.',
+            'Payant, mais aucun prix n’est le prix par défaut : cet add-on ne peut pas être attaché à un abonnement {{period}}.',
         },
         Actions: {
           add: 'Ajouter un prix',
           deprecate: 'Déprécier',
           deprecateAria: 'Déprécier {{label}}',
           deprecateDefaultHint:
-            'Le prix par défaut d’une période facture chaque instance qui détient cette version. Retirez-le par une nouvelle version de l’option, ou ajoutez un prix et faites-en le prix par défaut.',
+            'Le prix par défaut d’une période facture chaque instance qui détient cette version. Retirez-le par une nouvelle version de l’add-on, ou ajoutez un prix et faites-en le prix par défaut.',
         },
         Table: {
           Columns: {
@@ -4223,7 +4223,7 @@ export default {
       Compatibility: {
         title: 'Licences compatibles',
         description:
-          'Une instance ne peut attacher cette version que si sa licence appartient à l’une de ces familles. Toutes les versions d’une famille comptent : une nouvelle version de licence ne laisse donc jamais l’option orpheline.',
+          'Une instance ne peut attacher cette version que si sa licence appartient à l’une de ces familles. Toutes les versions d’une famille comptent : une nouvelle version de licence ne laisse donc jamais l’add-on orphelin.',
         listLabel: 'Familles de licences',
         noFamilies: 'Il n’y a encore aucune famille de licences.',
         Empty: {
