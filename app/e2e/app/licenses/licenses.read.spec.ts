@@ -86,7 +86,7 @@ test.describe('how each version is sold', () => {
     await expect(list.columnHeader('Pro', 'Pricing')).toHaveCount(0);
   });
 
-  test('shows no price of a version, whatever the version is billed', async ({
+  test('shows no price on a row of the versions, and reads the prices of no version apart', async ({
     page,
   }) => {
     const list = new LicensesListDriver(page);
@@ -104,7 +104,11 @@ test.describe('how each version is sold', () => {
     await list.expandFamily('Pro');
     await list.expectVersionState('Pro', 'Pro 2026', 'Published');
 
-    await expect(page.getByText('$29.00')).toHaveCount(0);
+    // The rows of the versions say how each is sold (free, paid, custom) and no amount:
+    // the header of the family says what the version it is shown under costs, from one
+    // document for every version, and the prices of a version are never read for a row.
+    await expect(list.family('Pro').getByRole('table')).not.toContainText('$');
+    await expect(list.priceSummary('Pro')).toBeVisible();
     expect(priceRequests).toEqual([]);
   });
 });

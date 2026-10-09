@@ -313,3 +313,42 @@ test('dev:mock answers the Billing column of the lists of instances, a page of s
 
   expect(errors).toEqual([]);
 });
+
+test('dev:mock answers the prices of the licenses in one document, for the list of licenses', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.text().includes('[MSW] Unhandled API request:'))
+      errors.push(message.text());
+  });
+  const prices: string[] = [];
+  page.on('request', (request) => {
+    const { pathname } = new URL(request.url());
+    if (
+      request.method() === 'GET' &&
+      /\/api\/licenses\/[^/]+\/prices$/.test(pathname)
+    ) {
+      prices.push(pathname);
+    }
+  });
+
+  // How each family is sold: its fees and usage, free, or on request.
+  await page.goto('/licenses');
+  const family = (name: string) =>
+    page
+      .locator('[data-slot="accordion-item"]')
+      .filter({ has: page.getByText(name, { exact: true }) })
+      .getByTestId('license-price-summary');
+  await expect(family('Business')).toHaveText(
+    '$99.00/month·$990.00/year+ usage',
+  );
+  await expect(family('Enterprise')).toHaveText('Custom pricing');
+  await expect(family('Trial')).toHaveText('Free');
+
+  // No version had its prices read apart.
+  expect(prices).toEqual([]);
+  expect(errors).toEqual([]);
+});

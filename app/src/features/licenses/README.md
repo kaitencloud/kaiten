@@ -137,6 +137,7 @@ Everything below is billing's: it appears only where `GET /billing/capabilities`
   - `prices.deprecate.spec.ts`: deprecating a price, after a confirmation that says what it changes.
   - `prices.deprecate-plan-change.spec.ts`: the refusal of a price a plan change moves to, the instances it lists and the way to their Billing tab, and what it says when the session may not read subscriptions.
   - `licenses.public-listing.spec.ts`: listing a family in the public catalogue and taking it out, a refusal, and where there is no switch (billing off, a session that may only read); the world is `app/e2e/app/billing/lifecycle-world.ts`.
+  - `licenses.price-summary.spec.ts`: how each family is sold, in the list: flat fees and usage, free, on request, no price yet, one request for every version, nothing where billing is off, in French, WCAG; the world is `createPricedFamiliesModel`.
   - `prices.unavailable.spec.ts`: where billing is not there, no tab and an explanation on a deep link.
   - `licenses.preview.spec.ts`: the invoice preview, with usage and without, within the allowance and above the cap, refused on a sample and refused otherwise, with several flat fees, on a draft.
   - `licenses.commercial.spec.ts`: the commercial terms, shown, edited, refused before sending and by the API, cleared.

@@ -352,3 +352,102 @@ export function createTwoFlatFeesModel() {
     },
   });
 }
+
+/**
+ * One family for each way a version is sold, as the list of licenses summarises them:
+ * - Free: a free version, with nothing to charge;
+ * - Pro: a published default at $39 a month or $390 a year with usage billed on top, and
+ *   an older version, withdrawn, that was $29 a month: the family is shown under the first;
+ * - Enterprise: sold on request, with an annual price on file that is not shown;
+ * - Team: sold, and with no active price yet (its only price was retired).
+ */
+export function createPricedFamiliesModel() {
+  const version = (
+    slug: string,
+    name: string,
+    pricingType: NonNullable<License['pricingType']>,
+    overrides: Partial<Parameters<typeof buildLicense>[0]> = {},
+  ): License => ({
+    ...buildLicense({
+      description: `${name} license`,
+      familyId: `family-${name.toLowerCase()}`,
+      id: `license-${slug}`,
+      isDefault: true,
+      lifecycleState: 'PUBLISHED',
+      name,
+      slug,
+      type: 'PAID',
+      ...overrides,
+    }),
+    pricingType,
+  });
+
+  return new LicenseAppModel({
+    licenses: [
+      version('free', 'Free', 'FREE'),
+      version('pro-v1', 'Pro', 'PAID', {
+        isDefault: false,
+        lifecycleState: 'ARCHIVED',
+        version: '1',
+      }),
+      version('pro-v2', 'Pro', 'PAID', { version: '2' }),
+      version('enterprise', 'Enterprise', 'CUSTOM'),
+      version('team', 'Team', 'PAID'),
+    ],
+    prices: {
+      enterprise: [
+        buildPrice({
+          billingPeriod: 'ANNUAL',
+          displayLabel: 'Enterprise, annual',
+          id: 'price-enterprise-annual',
+          isDefault: true,
+          unitAmountDecimal: '9900000',
+        }),
+      ],
+      'pro-v1': [
+        buildPrice({
+          billingPeriod: 'MONTHLY',
+          displayLabel: 'Pro v1, monthly',
+          id: 'price-pro-v1-monthly',
+          isDefault: true,
+          unitAmountDecimal: '2900',
+        }),
+      ],
+      'pro-v2': [
+        buildPrice({
+          billingPeriod: 'MONTHLY',
+          displayLabel: 'Pro, monthly',
+          displayOrder: 1,
+          id: 'price-pro-v2-monthly',
+          isDefault: true,
+          unitAmountDecimal: '3900',
+        }),
+        buildPrice({
+          billingPeriod: 'ANNUAL',
+          displayLabel: 'Pro, annual',
+          displayOrder: 2,
+          id: 'price-pro-v2-annual',
+          unitAmountDecimal: '39000',
+        }),
+        buildPrice({
+          billingModel: 'USAGE_BASED',
+          displayLabel: 'Requests',
+          displayOrder: 3,
+          id: 'price-pro-v2-requests',
+          metered: { entitlementSlug: 'requests', saleUnitFactor: '1000' },
+          unitAmountDecimal: '20',
+        }),
+      ],
+      team: [
+        buildPrice({
+          billingPeriod: 'MONTHLY',
+          deprecatedAt: '2026-06-01T00:00:00.000Z',
+          displayLabel: 'Team, monthly',
+          id: 'price-team-monthly',
+          status: 'DEPRECATED',
+          unitAmountDecimal: '1900',
+        }),
+      ],
+    },
+  });
+}
