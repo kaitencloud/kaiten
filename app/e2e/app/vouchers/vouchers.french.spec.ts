@@ -31,7 +31,7 @@ test.describe('the catalogue of vouchers, read in French', () => {
     await expect(page.getByPlaceholder('Nom, code ou client')).toBeVisible();
     await expect(page.getByPlaceholder('Ouvrir par le code')).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Nouveau voucher' }),
+      page.getByRole('link', { name: 'Nouveau code promo' }),
     ).toBeVisible();
     const columns = page.getByRole('columnheader');
     for (const header of [
@@ -50,7 +50,7 @@ test.describe('the catalogue of vouchers, read in French', () => {
     await expect(row('Summer sale')).toContainText('Remise');
     await expect(row('Summer sale')).toContainText('Brouillon');
     await expect(row('Summer sale')).toContainText('0 (sans limite)');
-    await expect(row('Tokens times two')).toContainText('Boost');
+    await expect(row('Tokens times two')).toContainText('Bonus de droits');
     await expect(row('Tokens times two')).toContainText('Actif');
     await expect(row('Tokens times two')).toContainText('1 sur 3');
     await expect(row('Hooli agreement')).toContainText('Épuisé');
@@ -69,10 +69,12 @@ test.describe('the catalogue of vouchers, read in French', () => {
 
     await page.getByPlaceholder('Nom, code ou client').fill('introuvable');
 
-    await expect(page.getByText('Aucun voucher ne correspond')).toHaveCount(2);
+    await expect(page.getByText('Aucun code promo ne correspond')).toHaveCount(
+      2,
+    );
     await expect(
       page.getByText(
-        'Aucun voucher ne correspond à cette recherche ou à ces filtres.',
+        'Aucun code promo ne correspond à cette recherche ou à ces filtres.',
       ),
     ).toBeVisible();
     await page
@@ -85,7 +87,7 @@ test.describe('the catalogue of vouchers, read in French', () => {
 
     await page.getByPlaceholder('Ouvrir par le code').fill('NOPE-NOPE-NOPE');
     await page.getByRole('button', { name: 'Chercher' }).click();
-    await expect(page.getByText('Aucun voucher n’a ce code.')).toBeVisible();
+    await expect(page.getByText('Ce code promo n’existe pas.')).toBeVisible();
 
     await page
       .getByPlaceholder('Ouvrir par le code')
@@ -103,7 +105,11 @@ test.describe('the catalogue of vouchers, read in French', () => {
       page.getByRole('heading', { level: 1, name: 'Welcome spring' }),
     ).toBeVisible();
     await expect(page.getByText('Code se terminant par 2027')).toBeVisible();
-    for (const action of ['Modifier', 'Ajouter un boost', 'Archiver']) {
+    for (const action of [
+      'Modifier',
+      'Ajouter un bonus de droits',
+      'Archiver',
+    ]) {
       await expect(
         page
           .getByRole('link', { name: action })
@@ -148,10 +154,10 @@ test.describe('the catalogue of vouchers, read in French', () => {
       'Tokens + 50 000, pendant une période de facturation.',
     );
     await expect(
-      page.getByText('Aucune instance n’a encore utilisé ce voucher.'),
+      page.getByText('Aucune instance n’a encore utilisé ce code promo.'),
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Ajouter un boost' }),
+      page.getByRole('link', { name: 'Ajouter un bonus de droits' }),
     ).toHaveCount(0);
   });
 
@@ -177,7 +183,7 @@ test.describe('the catalogue of vouchers, read in French', () => {
     ).toBeVisible();
     await edit.getByLabel(/^Nombre maximal d’utilisations/).fill('1');
     await expect(
-      edit.getByText('Le voucher a déjà été utilisé plus de fois que cela'),
+      edit.getByText('Le code promo a déjà été utilisé plus de fois que cela'),
     ).toBeVisible();
     await edit.getByRole('button', { name: 'Annuler' }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -194,7 +200,7 @@ test.describe('the catalogue of vouchers, read in French', () => {
       }),
     ).toBeVisible();
     await expect(revoke).toContainText(
-      'Un boost cesse de s’appliquer immédiatement et une remise ne s’applique plus à aucune facture à venir.',
+      'Un bonus cesse de s’appliquer immédiatement et une remise ne s’applique plus à aucune facture à venir.',
     );
     await revoke.getByLabel(/Motif/).fill('erreur de vente');
     await revoke.getByRole('button', { exact: true, name: 'Révoquer' }).click();
@@ -219,7 +225,7 @@ test.describe('the catalogue of vouchers, read in French', () => {
     await expect(
       page
         .locator('[data-sonner-toast]')
-        .filter({ hasText: 'Voucher archivé' }),
+        .filter({ hasText: 'Code promo archivé' }),
     ).toBeVisible();
   });
 
@@ -233,7 +239,9 @@ test.describe('the catalogue of vouchers, read in French', () => {
     await expect(dialog).toContainText('Publier rend le code utilisable.');
     await dialog.getByRole('button', { exact: true, name: 'Publier' }).click();
     await expect(
-      page.locator('[data-sonner-toast]').filter({ hasText: 'Voucher publié' }),
+      page
+        .locator('[data-sonner-toast]')
+        .filter({ hasText: 'Code promo publié' }),
     ).toBeVisible();
   });
 });
@@ -245,19 +253,19 @@ test.describe('the wizard that makes a voucher, read in French', () => {
     await page.goto('/vouchers/new');
 
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Nouveau voucher' }),
+      page.getByRole('heading', { level: 1, name: 'Nouveau code promo' }),
     ).toBeVisible();
     for (const name of ['Type', 'Offre', 'Qui et quand', 'Relecture']) {
       await expect(button(page, new RegExp(name)).first()).toBeVisible();
     }
     await expect(
-      page.getByText('De quel type de voucher s’agit-il ?'),
+      page.getByText('De quel type de code promo s’agit-il ?'),
     ).toBeVisible();
     await expect(button(page, /^Remise/)).toHaveAttribute(
       'aria-pressed',
       'true',
     );
-    await expect(button(page, /^Boost/)).toHaveAttribute(
+    await expect(button(page, /^Bonus de droits/)).toHaveAttribute(
       'aria-pressed',
       'false',
     );
@@ -322,7 +330,7 @@ test.describe('the wizard that makes a voucher, read in French', () => {
     page,
   }) => {
     await page.goto('/vouchers/new');
-    await button(page, /^Boost/).click();
+    await button(page, /^Bonus de droits/).click();
     await page.getByLabel(/^Nom/).fill('Plus de tokens');
     await button(page, /^Suivant/).click();
 
@@ -382,7 +390,7 @@ test.describe('the wizard that makes a voucher, read in French', () => {
     await expect(review).toContainText('Il peut être utilisé 100 fois.');
     await expect(page.getByText('LANCEMENT27', { exact: true })).toBeVisible();
     await expect(
-      page.getByRole('list', { name: 'Le voucher en clair' }),
+      page.getByRole('list', { name: 'Le code promo en clair' }),
     ).toBeVisible();
     await expect(
       page.getByText('Publier rend le code utilisable.', { exact: false }),
@@ -394,7 +402,7 @@ test.describe('the wizard that makes a voucher, read in French', () => {
     const published = page.getByTestId('voucher-published');
     await expect(published).toBeVisible();
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Voucher publié' }),
+      page.getByRole('heading', { level: 1, name: 'Code promo publié' }),
     ).toBeVisible();
     await expect(
       page.getByText('Remise de lancement peut maintenant être utilisé.'),
@@ -404,16 +412,16 @@ test.describe('the wizard that makes a voucher, read in French', () => {
       page.getByRole('button', { name: 'Copier le code' }),
     ).toBeVisible();
     await expect(published).toContainText(
-      'Ajouter un boost pour la même offre',
+      'Ajouter un bonus de droits pour la même offre',
     );
     await expect(
-      page.getByRole('link', { name: 'Ajouter un boost' }),
+      page.getByRole('link', { name: 'Ajouter un bonus de droits' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Voir le voucher' }),
+      page.getByRole('link', { name: 'Voir le code promo' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Créer un autre voucher' }),
+      page.getByRole('button', { name: 'Créer un autre code promo' }),
     ).toBeVisible();
   });
 });
@@ -428,10 +436,10 @@ test.describe('what an instance redeemed, read in French', () => {
     await expect(vouchers.card()).toBeVisible();
     await expect(vouchers.card()).toContainText('Utilisations');
     await expect(vouchers.card()).toContainText(
-      'Les vouchers que cette instance a utilisés.',
+      'Les codes promo que cette instance a utilisés.',
     );
     const row = vouchers.row('Tokens times two');
-    await expect(row).toContainText('Boost');
+    await expect(row).toContainText('Bonus de droits');
     await expect(row).toContainText('Code se terminant par LEQ4');
     await expect(row).toContainText('1 oct. 2026 (UTC)');
     await expect(row).toContainText(
@@ -450,7 +458,7 @@ test.describe('what an instance redeemed, read in French', () => {
     await expect(dialog).toContainText(
       'Le code est d’abord vérifié : rien n’est utilisé tant que vous ne confirmez pas.',
     );
-    await dialog.getByLabel(/^Code de voucher/).fill('LAUNCH-BOOST-50K');
+    await dialog.getByLabel(/^Code promo/).fill('LAUNCH-BOOST-50K');
     await dialog.getByRole('button', { name: 'Vérifier le code' }).click();
 
     await expect(vouchers.validVerdict()).toContainText(
@@ -460,7 +468,7 @@ test.describe('what an instance redeemed, read in French', () => {
       'Tokens + 50 000, pendant une période de facturation',
     );
     await expect(vouchers.validVerdict()).toContainText(
-      'Initech Production remplit toutes les conditions de ce voucher.',
+      'Initech Production remplit toutes les conditions de ce code promo.',
     );
     await dialog.getByRole('button', { name: 'Utiliser le code' }).click();
 
@@ -487,22 +495,22 @@ test.describe('what an instance redeemed, read in French', () => {
     const dialog = page.getByRole('dialog');
 
     const reasons: Array<[string, string]> = [
-      ['NOPE-NOPE-NOPE', 'Aucun voucher n’a ce code.'],
-      ['TOKENS-DOUBLE-Q4', 'Cette instance a déjà utilisé ce voucher.'],
-      ['HOOLI-ONLY-10', 'Ce voucher est réservé à un autre client.'],
-      ['ANNUAL-ONLY-15', 'Ce voucher exige un abonnement annuel.'],
+      ['NOPE-NOPE-NOPE', 'Ce code promo n’existe pas.'],
+      ['TOKENS-DOUBLE-Q4', 'Cette instance a déjà utilisé ce code promo.'],
+      ['HOOLI-ONLY-10', 'Ce code promo est réservé à un autre client.'],
+      ['ANNUAL-ONLY-15', 'Ce code promo exige un abonnement annuel.'],
       [
         'EURO-CREDIT-25',
         'Cette remise est dans une autre devise que celle de l’abonnement.',
       ],
       [
         'SUMMER-SALE-2027',
-        'Ce voucher n’est pas actif : c’est un brouillon ou il a été archivé.',
+        'Ce code promo n’est pas actif : c’est un brouillon ou il a été archivé.',
       ],
-      ['SPRING-2026-PROMO', 'Ce voucher a expiré.'],
+      ['SPRING-2026-PROMO', 'Ce code promo a expiré.'],
     ];
     for (const [code, sentence] of reasons) {
-      await dialog.getByLabel(/^Code de voucher/).fill(code);
+      await dialog.getByLabel(/^Code promo/).fill(code);
       await dialog.getByRole('button', { name: 'Vérifier le code' }).click();
       await expect(vouchers.invalidVerdict()).toContainText(
         'Ce code ne peut pas être utilisé',
@@ -537,12 +545,12 @@ test.describe('what an instance redeemed, read in French', () => {
         name: 'Souscrire un abonnement pour Initech Fresh',
       }),
     ).toBeVisible();
-    await expect(dialog.getByLabel(/^Code de voucher/)).toBeVisible();
+    await expect(dialog.getByLabel(/^Code promo/)).toBeVisible();
     await expect(dialog).toContainText(
       'Facultatif. Le code est utilisé avec l’abonnement',
     );
     await dialog.getByLabel('Essai (jours)').fill('0');
-    await dialog.getByLabel(/^Code de voucher/).fill('WELCOME-SPRING-2027');
+    await dialog.getByLabel(/^Code promo/).fill('WELCOME-SPRING-2027');
     await dialog
       .getByRole('button', { exact: true, name: 'Souscrire' })
       .click();

@@ -651,7 +651,7 @@ export default {
                   'La facturation ne peut pas démarrer plus d’une période de facturation en arrière',
               },
               Voucher: {
-                label: 'Code de voucher',
+                label: 'Code promo',
                 placeholder: 'Collez le code',
                 hint: 'Facultatif. Le code est utilisé avec l’abonnement ; s’il ne peut pas l’être, l’abonnement n’est pas démarré.',
               },
@@ -817,7 +817,7 @@ export default {
               FollowUps: {
                 title: 'En plus de l’annulation',
                 description:
-                  'Annuler ne change que la facturation. Les add-ons, les rédemptions de vouchers et les dates de la licence restent tels quels, et les factures déjà émises restent recouvrables, sauf si vous choisissez autrement ici.',
+                  'Annuler ne change que la facturation. Les add-ons, les utilisations de codes promo et les dates de la licence restent tels quels, et les factures déjà émises restent recouvrables, sauf si vous choisissez autrement ici.',
                 removeAddons: 'Retirer aussi les add-ons',
                 removeAddonsDescription:
                   'Retire {{addons}} de l’instance maintenant. Leurs droits s’arrêtent aussitôt et rien n’est remboursé.',
@@ -1025,9 +1025,9 @@ export default {
             Vouchers: {
               apply: 'Appliquer un code',
               description:
-                'Les vouchers que cette instance a utilisés. Un boost modifie ses limites tant qu’il dure ; une remise réduit les factures qui lui sont émises.',
+                'Les codes promo que cette instance a utilisés. Un bonus de droits modifie ses limites tant qu’il dure ; une remise réduit les factures qui lui sont émises.',
               empty:
-                'Cette instance n’a utilisé aucun voucher. Appliquez un code pour lui donner un boost ou une remise.',
+                'Cette instance n’a utilisé aucun code promo. Appliquez-en un pour lui donner un bonus de droits ou une remise.',
               Redeem: {
                 breadcrumb: 'Appliquer un code',
                 title: 'Appliquer un code à {{name}}',
@@ -1036,7 +1036,7 @@ export default {
                 doneTitle: 'Code appliqué à {{name}}',
                 doneDescription:
                   'Ce qui suit est lu sur l’instance avant et après l’utilisation.',
-                code: 'Code de voucher',
+                code: 'Code promo',
                 codePlaceholder: 'Collez le code',
                 codeHint:
                   'Lettres et chiffres ; la casse et les tirets n’ont pas d’importance.',
@@ -1044,7 +1044,7 @@ export default {
                 confirm: 'Utiliser le code',
                 validTitle: '{{name}} peut être utilisé',
                 validNote:
-                  '{{instance}} remplit toutes les conditions de ce voucher. L’utiliser l’applique tout de suite ; seule une révocation l’annule.',
+                  '{{instance}} remplit toutes les conditions de ce code promo. L’utiliser l’applique tout de suite ; seule une révocation l’annule.',
                 invalidTitle: 'Ce code ne peut pas être utilisé',
                 Errors: {
                   code: 'Saisissez le code',
@@ -1052,36 +1052,38 @@ export default {
                 },
               },
               Reasons: {
-                NOT_FOUND: 'Aucun voucher n’a ce code.',
+                NOT_FOUND: 'Ce code promo n’existe pas.',
                 NOT_ACTIVE:
-                  'Ce voucher n’est pas actif : c’est un brouillon ou il a été archivé.',
+                  'Ce code promo n’est pas actif : c’est un brouillon ou il a été archivé.',
                 NOT_YET_VALID:
-                  'Ce voucher ne peut pas encore être utilisé : sa période n’a pas commencé.',
-                EXPIRED: 'Ce voucher a expiré.',
+                  'Ce code promo ne peut pas encore être utilisé : sa période n’a pas commencé.',
+                EXPIRED: 'Ce code promo a expiré.',
                 EXHAUSTED:
-                  'Ce voucher a été utilisé autant de fois qu’il le permet.',
-                ALREADY_REDEEMED: 'Cette instance a déjà utilisé ce voucher.',
-                NOT_ELIGIBLE: 'Cette instance n’est pas éligible à ce voucher.',
+                  'Ce code promo a été utilisé autant de fois qu’il le permet.',
+                ALREADY_REDEEMED:
+                  'Cette instance a déjà utilisé ce code promo.',
+                NOT_ELIGIBLE:
+                  'Cette instance n’est pas éligible à ce code promo.',
                 CURRENCY_MISMATCH:
                   'Cette remise est dans une autre devise que celle de l’abonnement.',
               },
               Rules: {
                 RESTRICTED_CUSTOMER:
-                  'Ce voucher est réservé à un autre client.',
+                  'Ce code promo est réservé à un autre client.',
                 LICENSE_NOT_APPLICABLE:
-                  'Ce voucher ne s’applique pas à la licence de cette instance.',
+                  'Ce code promo ne s’applique pas à la licence de cette instance.',
                 ADDON_NOT_APPLICABLE:
-                  'Ce voucher exige un add-on que cette instance ne détient pas.',
+                  'Ce code promo exige un add-on que cette instance ne détient pas.',
                 FIRST_TIME_ONLY:
-                  'Ce voucher est destiné aux clients qui n’ont encore payé aucune facture.',
-                ANNUAL_ONLY: 'Ce voucher exige un abonnement annuel.',
+                  'Ce code promo est destiné aux clients qui n’ont encore payé aucune facture.',
+                ANNUAL_ONLY: 'Ce code promo exige un abonnement annuel.',
                 MINIMUM_SUBSCRIPTION_AMOUNT:
-                  'L’abonnement est en dessous du montant minimum que ce voucher exige.',
+                  'L’abonnement est en dessous du montant minimum que ce code promo exige.',
                 NOTHING_TO_BOOST:
-                  'Ce boost ne modifie rien de ce que détient l’instance : aucun des droits qu’il vise n’est un nombre que l’instance possède.',
+                  'Ce bonus ne modifie rien de ce que détient l’instance : aucun des droits qu’il vise n’est un nombre que l’instance possède.',
               },
               Outcome: {
-                voucher: 'Voucher',
+                voucher: 'Code promo',
                 status: 'Statut',
                 until: 'S’applique jusqu’au',
                 applications: 'Remise sur',
@@ -3421,14 +3423,14 @@ export default {
                 'Accès aux abonnements, aux factures, à la file de transmission et aux réglages de facturation',
             },
             vouchers: {
-              label: 'Vouchers',
+              label: 'Codes promo',
               description:
-                "Accès aux vouchers : création, publication, archivage et révocation d'une utilisation",
+                "Accès aux codes promo : création, publication, archivage et révocation d'une utilisation",
             },
             voucherRedemptions: {
-              label: 'Utilisations de vouchers',
+              label: 'Utilisations de codes promo',
               description:
-                "Accès aux vouchers d'une instance : vérifier un code et l'utiliser",
+                "Accès aux codes promo d'une instance : vérifier un code et l'utiliser",
             },
             customerSessions: {
               label: 'Sessions client',
@@ -3503,7 +3505,7 @@ export default {
           usage: 'Utilisation',
           subscription: 'Abonnements',
           invoice: 'Factures',
-          voucher: 'Vouchers',
+          voucher: 'Codes promo',
           payment: 'Paiements',
           featureFlag: 'Feature flags',
           release: 'Releases',
@@ -4320,28 +4322,28 @@ export default {
     Vouchers: {
       title: 'Codes promo',
       subtitle:
-        'Des codes qui donnent à une instance une remise sur ses factures ou un boost de ses droits.',
+        'Des codes qui donnent à une instance une remise sur ses factures ou un bonus de droits.',
       Actions: {
-        addBoost: 'Ajouter un boost',
+        addBoost: 'Ajouter un bonus de droits',
         publish: {
           label: 'Publier',
           title: 'Publier {{name}} ?',
           description:
-            'Publier rend le code utilisable. Un voucher publié garde son offre : seuls son nom, sa description, sa date de fin et son nombre maximal d’utilisations peuvent changer ensuite.',
+            'Publier rend le code utilisable. Un code promo publié garde son offre : seuls son nom, sa description, sa date de fin et son nombre maximal d’utilisations peuvent changer ensuite.',
           confirm: 'Publier',
-          success: 'Voucher publié',
+          success: 'Code promo publié',
         },
         archive: {
           label: 'Archiver',
           title: 'Archiver {{name}} ?',
           description:
-            'Plus aucune instance ne pourra utiliser le code. Les utilisations déjà faites continuent de s’appliquer, et le voucher reste consultable.',
+            'Plus aucune instance ne pourra utiliser le code. Les utilisations déjà faites continuent de s’appliquer, et le code promo reste consultable.',
           confirm: 'Archiver',
-          success: 'Voucher archivé',
+          success: 'Code promo archivé',
         },
       },
       Code: {
-        label: 'Code du voucher',
+        label: 'Code promo',
         copy: 'Copier le code',
         copied: 'Code copié',
         copyFailed: 'Le code n’a pas pu être copié',
@@ -4353,7 +4355,7 @@ export default {
           description:
             'Donnez ce code au client. Quiconque le possède peut utiliser l’offre.',
           hidden:
-            'Le code se terminant par {{hint}} n’est montré qu’aux sessions qui peuvent lire les vouchers.',
+            'Le code se terminant par {{hint}} n’est montré qu’aux sessions qui peuvent lire les codes promo.',
         },
         Summary: {
           title: 'Ce qu’il fait',
@@ -4368,16 +4370,16 @@ export default {
           updated: 'Dernière modification',
         },
         Redemptions: {
-          description: 'Les instances qui ont utilisé ce voucher.',
-          empty: 'Aucune instance n’a encore utilisé ce voucher.',
+          description: 'Les instances qui ont utilisé ce code promo.',
+          empty: 'Aucune instance n’a encore utilisé ce code promo.',
         },
       },
       Edit: {
         title: 'Modifier {{name}}',
         description:
-          'Un voucher publié garde son offre. Son nom, sa description, sa date de fin et son nombre maximal d’utilisations peuvent changer.',
+          'Un code promo publié garde son offre. Son nom, sa description, sa date de fin et son nombre maximal d’utilisations peuvent changer.',
         save: 'Enregistrer',
-        saved: 'Voucher enregistré',
+        saved: 'Code promo enregistré',
         Descriptions: {
           expiresAt:
             'Date et heure en UTC. Laissez vide pour aucune date de fin.',
@@ -4393,11 +4395,11 @@ export default {
           date: 'Saisissez une date et une heure valides',
           maxRedemptions:
             'Saisissez un nombre entier à partir de 1, ou laissez vide pour aucune limite',
-          belowCount: 'Le voucher a déjà été utilisé plus de fois que cela',
+          belowCount: 'Le code promo a déjà été utilisé plus de fois que cela',
         },
       },
       List: {
-        new: 'Nouveau voucher',
+        new: 'Nouveau code promo',
         Columns: {
           name: 'Nom',
           code: 'Code',
@@ -4408,12 +4410,12 @@ export default {
           customer: 'Client',
         },
         Empty: {
-          title: 'Aucun voucher pour l’instant',
+          title: 'Aucun code promo pour l’instant',
           description:
-            'Un voucher est un code qui donne à une instance une remise sur ses factures ou un boost de ses droits. Créez-en un, puis donnez son code à un client.',
-          filteredTitle: 'Aucun voucher ne correspond',
+            'Un code promo donne à une instance une remise sur ses factures ou un bonus de droits. Créez-en un, puis donnez son code à un client.',
+          filteredTitle: 'Aucun code promo ne correspond',
           filteredDescription:
-            'Aucun voucher ne correspond à cette recherche ou à ces filtres.',
+            'Aucun code promo ne correspond à cette recherche ou à ces filtres.',
         },
         Filters: {
           search: 'Recherche',
@@ -4430,29 +4432,29 @@ export default {
         startsOn: 'Débute le {{date}}',
       },
       Lookup: {
-        title: 'Ouvrir un voucher par son code',
-        label: 'Code du voucher',
+        title: 'Ouvrir un code promo',
+        label: 'Code promo',
         placeholder: 'Ouvrir par le code',
         action: 'Chercher',
-        hint: 'Retrouve le voucher auquel appartient un code, par exemple quand un client écrit avec un code qui ne fonctionne pas.',
-        notFound: 'Aucun voucher n’a ce code.',
+        hint: 'Retrouve un code promo à partir de ce qu’un client a saisi, par exemple quand son code ne fonctionne pas.',
+        notFound: 'Ce code promo n’existe pas.',
       },
       Published: {
-        title: 'Voucher publié',
+        title: 'Code promo publié',
         subtitle: '{{name}} peut maintenant être utilisé.',
         codeTitle: 'Son code',
         codeDescription:
           'Copiez-le et donnez-le au client. Quiconque possède le code peut utiliser l’offre.',
         codeHidden:
-          'Le code se termine par {{hint}}. Il n’est montré qu’aux sessions qui peuvent lire les vouchers.',
+          'Le code se termine par {{hint}}. Il n’est montré qu’aux sessions qui peuvent lire les codes promo.',
         summaryTitle: 'Ce qu’il fait',
         summaryDescription: 'En clair, à envoyer avec le code.',
-        boostTitle: 'Ajouter un boost pour la même offre',
+        boostTitle: 'Ajouter un bonus de droits pour la même offre',
         boostDescription:
-          'Démarrez un boost qui dure autant que cette remise, avec les mêmes conditions et les mêmes limites. Vous choisissez les droits qu’il modifie.',
-        boostAction: 'Ajouter un boost',
-        another: 'Créer un autre voucher',
-        view: 'Voir le voucher',
+          'Démarrez un bonus de droits qui dure autant que cette remise, avec les mêmes conditions et les mêmes limites. Vous choisissez les droits qu’il modifie.',
+        boostAction: 'Ajouter un bonus de droits',
+        another: 'Créer un autre code promo',
+        view: 'Voir le code promo',
       },
       References: {
         license: '{{name}} v{{version}}',
@@ -4464,7 +4466,7 @@ export default {
         name: 'Nom',
         code: 'Code',
         codeGenerated: 'Un code est généré à la publication',
-        summary: 'Le voucher en clair',
+        summary: 'Le code promo en clair',
         publishNote:
           'Publier rend le code utilisable. Enregistrez plutôt un brouillon pour continuer à y travailler : un brouillon ne peut pas être utilisé.',
         unlimited: 'il n’a pas de limite d’utilisations',
@@ -4488,16 +4490,16 @@ export default {
           'le prix de base de l’abonnement doit être d’au moins {{amount}}',
       },
       Wizard: {
-        title: 'Nouveau voucher',
+        title: 'Nouveau code promo',
         titleDraft: 'Terminer le brouillon',
         subtitle:
           'Dites ce qu’il offre, qui peut l’utiliser et combien de fois, puis relisez-le en clair avant de le publier.',
-        boostName: '{{name}} (boost)',
+        boostName: '{{name}} (bonus)',
         draftKept:
-          'Le voucher a été enregistré en brouillon. Envoyer de nouveau le remplace par ce que contient cette page et le publie.',
+          'Le code promo a été enregistré en brouillon. Envoyer de nouveau le remplace par ce que contient cette page et le publie.',
         anyCustomer: 'Tous les clients',
         unlimitedNote:
-          'Aucune limite sur ce droit tant que le voucher s’applique.',
+          'Aucune limite sur ce droit tant que le code promo s’applique.',
         addChange: 'Ajouter une modification',
         removeChange: 'Retirer la modification {{position}}',
         Steps: {
@@ -4514,10 +4516,10 @@ export default {
         },
         Toasts: {
           draftSaved: 'Brouillon enregistré',
-          published: 'Voucher publié',
+          published: 'Code promo publié',
         },
         Type: {
-          label: 'De quel type de voucher s’agit-il ?',
+          label: 'De quel type de code promo s’agit-il ?',
           later: 'Disponible dans une prochaine version',
           FLAG_GRANT: 'Activation de fonctionnalité',
           COMPOSITE: 'Lot',
@@ -4571,7 +4573,7 @@ export default {
             'Chaque ligne modifie un droit numérique. Un droit ne peut être modifié qu’une fois.',
           durationInInvoices: 'À combien de factures la remise s’applique.',
           durationInPeriods:
-            'Pendant combien de périodes de facturation le boost dure. Un mois, un trimestre ou un an, selon la facturation de l’abonnement.',
+            'Pendant combien de périodes de facturation le bonus dure. Un mois, un trimestre ou un an, selon la facturation de l’abonnement.',
           code: 'Laissez vide pour qu’un long code soit généré. Sinon, de 8 à 64 lettres, chiffres, tirets ou tirets bas ; la casse et les tirets n’ont pas d’importance à l’utilisation.',
           restrictedCustomer:
             'Seules les instances de ce client peuvent l’utiliser.',
@@ -4649,27 +4651,27 @@ export default {
             priceFOREVER:
               'La remise s’applique à toutes les factures jusqu’à ce que l’utilisation soit révoquée.',
             boostONE_TIME:
-              'Le boost dure une période de facturation à partir de l’utilisation.',
+              'Le bonus dure une période de facturation à partir de l’utilisation.',
             boostREPEATING:
-              'Le boost dure un nombre de périodes de facturation, compté en périodes et non en factures.',
+              'Le bonus dure un nombre de périodes de facturation, compté en périodes et non en factures.',
             boostFOREVER:
-              'Le boost n’a pas de fin jusqu’à ce que l’utilisation soit révoquée.',
+              'Le bonus n’a pas de fin jusqu’à ce que l’utilisation soit révoquée.',
           },
         },
         Sections: {
           code: 'Code',
           customer: 'Client',
           customerDescription:
-            'Réservez le voucher à un client, ou laissez n’importe quel client l’utiliser.',
+            'Réservez le code promo à un client, ou laissez n’importe quel client l’utiliser.',
           limits: 'Limites',
           limitsDescription:
             'Combien de fois il peut être utilisé, et quand. Les dates sont en UTC.',
           versions: 'Versions de licence et d’add-on',
           versionsDescription:
-            'Limitez le voucher aux instances sur certaines versions. Rien de coché, c’est aucune limite.',
+            'Limitez le code promo aux instances sur certaines versions. Rien de coché, c’est aucune limite.',
           conditions: 'Conditions',
           conditionsDescription:
-            'Ce qu’une instance doit remplir pour utiliser le voucher.',
+            'Ce qu’une instance doit remplir pour utiliser le code promo.',
         },
         WeakCode: {
           title: 'Un code court peut être deviné',
@@ -5502,13 +5504,13 @@ export default {
           addonPrices_other: 'Mesuré par {{count}} prix d’option',
           addonGrants_one: 'Accordé par {{count}} option',
           addonGrants_other: 'Accordé par {{count}} options',
-          boostGrants_one: 'Accordé par {{count}} boost de bon de réduction',
-          boostGrants_other: 'Accordé par {{count}} boosts de bon de réduction',
+          boostGrants_one: 'Accordé par {{count}} bonus de code promo',
+          boostGrants_other: 'Accordé par {{count}} bonus de codes promo',
         },
         removeFirst:
           'Retirez ces références, puis supprimez à nouveau le droit.',
         hideInstead:
-          'Un prix ou un boost de bon de réduction ne peut plus être retiré une fois créé : ce droit ne peut donc plus être supprimé. Pour ne plus l’afficher dans les composants destinés aux clients, désactivez « Visible côté client » sur sa page.',
+          'Un prix ou un bonus de code promo ne peut plus être retiré une fois créé : ce droit ne peut donc plus être supprimé. Pour ne plus l’afficher dans les composants destinés aux clients, désactivez « Visible côté client » sur sa page.',
         openEntitlement: 'Ouvrir le droit',
       },
       VoucherStatus: {
@@ -5520,7 +5522,7 @@ export default {
       },
       VoucherType: {
         PRICE: 'Remise',
-        ENTITLEMENT_BOOST: 'Boost',
+        ENTITLEMENT_BOOST: 'Bonus de droits',
       },
       RedemptionStatus: {
         ACTIVE: 'Active',
@@ -5540,7 +5542,7 @@ export default {
         revoke: 'Révoquer {{name}}',
         Columns: {
           instance: 'Instance',
-          voucher: 'Voucher',
+          voucher: 'Code promo',
           redeemed: 'Utilisée le',
           window: 'S’applique',
           applications: 'Factures',
@@ -5549,7 +5551,7 @@ export default {
         Revoke: {
           title: 'Révoquer {{name}} sur {{instance}}',
           description:
-            'Un boost cesse de s’appliquer immédiatement et une remise ne s’applique plus à aucune facture à venir. Les factures déjà émises ne changent pas, et le voucher continue de compter cette utilisation.',
+            'Un bonus cesse de s’appliquer immédiatement et une remise ne s’applique plus à aucune facture à venir. Les factures déjà émises ne changent pas, et le code promo continue de compter cette utilisation.',
           reason: 'Motif',
           confirm: 'Révoquer',
           success: '{{name}} révoqué',
@@ -5672,9 +5674,9 @@ export default {
         INSTANCE_MIGRATED: 'Instance migrée',
         INSTANCE_STATUS_CHANGED: "Statut de l'instance modifié",
         INSTANCE_UPDATED: 'Instance mise à jour',
-        INSTANCE_VOUCHER_EXPIRED: "Utilisation d'un voucher expirée",
-        INSTANCE_VOUCHER_REDEEMED: 'Voucher utilisé',
-        INSTANCE_VOUCHER_REVOKED: "Utilisation d'un voucher révoquée",
+        INSTANCE_VOUCHER_EXPIRED: "Utilisation d'un code promo expirée",
+        INSTANCE_VOUCHER_REDEEMED: 'Code promo utilisé',
+        INSTANCE_VOUCHER_REVOKED: "Utilisation d'un code promo révoquée",
         LICENSE_ARCHIVED: 'Version de licence archivée',
         LICENSE_CREATED: 'Licence créée',
         LICENSE_DELETED: 'Licence supprimée',
@@ -5701,11 +5703,11 @@ export default {
         RELEASE_DELETED: 'Release supprimée',
         RELEASE_DEPLOYED: 'Release déployée sur une zone',
         SYSTEM_ORGANIZATION_TOKEN_ISSUED: "Token d'organisation émis",
-        VOUCHER_ARCHIVED: 'Voucher archivé',
-        VOUCHER_CREATED: 'Voucher créé',
-        VOUCHER_EXHAUSTED: 'Voucher épuisé',
-        VOUCHER_PUBLISHED: 'Voucher publié',
-        VOUCHER_UPDATED: 'Voucher mis à jour',
+        VOUCHER_ARCHIVED: 'Code promo archivé',
+        VOUCHER_CREATED: 'Code promo créé',
+        VOUCHER_EXHAUSTED: 'Code promo épuisé',
+        VOUCHER_PUBLISHED: 'Code promo publié',
+        VOUCHER_UPDATED: 'Code promo mis à jour',
       },
     },
     EntitlementUsage: {
