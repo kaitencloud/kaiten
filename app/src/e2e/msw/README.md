@@ -8,7 +8,7 @@ operation's handler generated from the OpenAPI contract (`@/api-client/msw.gen`)
 so its path, params and body are typed; GraphQL and the notification stream,
 which the contract does not describe, are written by hand.
 
-Billing is served by five files: `billing-handlers.ts` (the capabilities, and
+Billing is served by six files: `billing-handlers.ts` (the capabilities, and
 the assembly of the invoice handlers; the prices and the preview of a license
 version are the license handlers'), `billing-invoice-handlers.ts` (the invoices,
 their lines' usage reports, the exports and the handoff queue, which read the
@@ -17,7 +17,8 @@ filters, the cursor and the paging of the request as the API does),
 subscribe, which takes the add-ons it starts with, its upcoming invoice, its
 invoices, the billing defaults of the organization, and the prices of a license
 version for the slot that does not own the licenses), `billing-addon-handlers.ts`
-(the catalogue of add-ons, and the add-ons an instance holds) and
+(the catalogue of add-ons, and the add-ons an instance holds), `billing-voucher-handlers.ts`
+(the vouchers, and what an instance redeemed of them) and
 `billing-problems.ts`, which renders a refusal of the model as
 `application/problem+json`, with the code, the detail, the trace id and
 `Retry-After` the API would send. The state behind them is `BillingInvoices`, in
@@ -28,16 +29,24 @@ families and their versions, what a version grants and is sold for, which licens
 families it fits, and the freeze of a version an instance with a live subscription holds,
 which it learns from the instances), and what an instance holds is `InstanceAddons`
 (`billing-instance-addons.ts`: the attachments, their quantities and the refusals of the
-API, `BoundaryPending` included). An attachment changes what the instance is entitled
-to, which is the instances' slot: the handlers tell it through `AddonEffects`
-(`syncEffectiveValues`), so that the usage of the instance reads the effective value the
-API composes (`InstanceAppModel.applyAddonContributions`). The usage history of an
+API, `BoundaryPending` included). The vouchers are `BillingVouchers`
+(`billing-vouchers.ts`, with the rules of the API in `billing-voucher-rules.ts`: what a
+draft must satisfy, the checks of a redemption in the order the API makes them and the
+codes it gives, and the quirks the console works around -- no voucher is ever set EXPIRED,
+an update of an ACTIVE voucher writes the rules and the description it is given and
+ignores a changed grant). A PRICE redemption discounts the invoices an instance receives,
+which `billing-discounts.ts` composes as the composer of the API does, for the invoice a
+subscribe issues and for the upcoming invoice. An attachment, or a boost, changes what the
+instance is entitled to, which is the instances' slot: the handlers tell it through
+`EntitlementEffects` (`syncEffectiveValues`), so that the usage of the instance reads the
+effective value the API composes (`InstanceAppModel.applyAddonContributions`). The usage history of an
 entitlement of an instance, with its exports, is
 the instances': `instance-handlers.ts` serves it from `InstanceUsageHistory`
 (`instance-usage-history.ts`), within what the organization keeps, with the codes of
 the API. `src/__tests__/billing-subscription-mocks.test.ts`,
-`usage-history-mocks.test.ts`, `billing-refusal-mocks.test.ts` and
-`billing-addon-mocks.test.ts` read their answers off the wire.
+`usage-history-mocks.test.ts`, `billing-refusal-mocks.test.ts`,
+`billing-addon-mocks.test.ts` and `billing-voucher-mocks.test.ts` read their answers off
+the wire.
 
 `page-network.ts` runs the same handlers in the page, patching `fetch` and
 `XMLHttpRequest`: the stories use it, and the bootstrap when a browser refuses

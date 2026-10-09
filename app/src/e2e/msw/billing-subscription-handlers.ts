@@ -15,7 +15,7 @@ import {
 } from '@/api-client/msw.gen';
 import type { Price } from '@/api-client';
 import type { BillingAppModel } from '../../../e2e/app/_support/model/billing-app-model';
-import type { AddonEffects } from './billing-addon-handlers';
+import type { EntitlementEffects } from './billing-addon-handlers';
 import { readInvoiceListQuery } from './billing-invoice-handlers';
 import { withProblems } from './billing-problems';
 import { asFallback } from './handler-factory';
@@ -45,7 +45,7 @@ const oneOf = <T extends string>(
 export const billingSubscriptionHandlers = (
   model: BillingAppModel,
   persist: PersistMswState = noop,
-  addonEffects?: AddonEffects,
+  addonEffects?: EntitlementEffects,
 ) => {
   const { subscriptions } = model;
 

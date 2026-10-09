@@ -15,6 +15,12 @@ export { buildDeploymentZone } from './build-deployment-zone';
 export { buildLicense } from './build-license';
 export { buildEntitlement, buildGrant, buildPrice } from './build-pricing';
 export {
+  buildRedemption,
+  buildVoucher,
+  normalizeVoucherCode,
+  voucherCodeHint,
+} from './build-voucher';
+export {
   buildSubscription,
   buildUpcomingInvoice,
   PRO_MONTHLY_PRICE,

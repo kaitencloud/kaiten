@@ -27,6 +27,7 @@ import {
 } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 import type { AddonContribution } from './billing-instance-addons';
+import type { BoostContribution } from './billing-vouchers';
 import { BillingProblem } from './billing-problem';
 import { ErrorInjector } from './error-injector';
 import {
@@ -291,6 +292,7 @@ export class InstanceAppModel {
   applyAddonContributions(
     instanceSlug: string,
     contributions: readonly AddonContribution[],
+    boosts: readonly BoostContribution[] = [],
   ) {
     const { licenseSlug } = this.findInstance(instanceSlug);
     for (const usage of this.entitlementUsagesByInstance[instanceSlug] ?? []) {
@@ -320,6 +322,24 @@ export class InstanceAppModel {
       for (const { behavior, quantity, value: perUnit } of own) {
         if (behavior === 'ADD') {
           value += perUnit * quantity;
+        }
+      }
+      // The boosts the instance redeemed come last, in the order it redeemed them: they
+      // modify what the license and the add-ons compose.
+      for (const boost of boosts) {
+        if (boost.entitlementSlug !== usage.entitlementSlug) {
+          continue;
+        }
+        if (boost.modifierType === 'UNLIMITED') {
+          value = -1;
+        } else if (value !== -1) {
+          const amount = boost.value ?? 0;
+          value =
+            boost.modifierType === 'SET'
+              ? amount
+              : boost.modifierType === 'ADD'
+                ? value + amount
+                : value * amount;
         }
       }
       usage.limit = { type: 'number', value };

@@ -32,11 +32,12 @@ import { withProblems } from './billing-problems';
 import { noop, type PersistMswState } from './persistence';
 
 /**
- * What the attachments of an instance change in another part of the world: the
- * effective values of its entitlements, which the instance reads. They are another
- * slot's, so the one that assembles the handlers says how to reach them.
+ * What the attachments of an instance, and the boosts it redeems, change in another
+ * part of the world: the effective values of its entitlements, which the instance
+ * reads. They are another slot's, so the one that assembles the handlers says how to
+ * reach them.
  */
-export type AddonEffects = {
+export type EntitlementEffects = {
   syncEffectiveValues(instanceSlug: string): void;
 };
 
@@ -250,7 +251,7 @@ const sellingHandlers = (model: BillingAppModel, persist: PersistMswState) => {
 const instanceHandlers = (
   model: BillingAppModel,
   persist: PersistMswState,
-  effects: AddonEffects | undefined,
+  effects: EntitlementEffects | undefined,
 ) => {
   const { instanceAddons } = model;
   const applied = (instanceSlug: string) => {
@@ -308,7 +309,7 @@ const instanceHandlers = (
 export const billingAddonHandlers = (
   model: BillingAppModel,
   persist: PersistMswState = noop,
-  effects?: AddonEffects,
+  effects?: EntitlementEffects,
 ) => [
   ...catalogueHandlers(model, persist),
   ...sellingHandlers(model, persist),

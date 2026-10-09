@@ -25,6 +25,7 @@ import { parseContract } from '../contracts/openapi-contract';
 import { buildInvoice, buildInvoiceLine } from '../fixtures/build-invoice';
 import { ArmedProblems, type ArmedBillingProblem } from './armed-problems';
 import { AddonCatalogue } from './billing-addon-catalogue';
+import { composeDiscounts } from './billing-discounts';
 import {
   type BillingInvoices,
   type InvoiceListQuery,
@@ -38,6 +39,8 @@ import {
 } from './billing-instance-addons';
 import { SubscriptionLifecycle } from './billing-lifecycle';
 import { BillingProblem } from './billing-problem';
+import { BillingVouchers, type VoucherWorld } from './billing-vouchers';
+import type { RedeemingInstance } from './billing-voucher-rules';
 import { addMonthsClamped } from './license-invoice-preview';
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -48,6 +51,15 @@ const PERIOD_MONTHS = {
   QUARTERLY: 3,
   SEMI_ANNUAL: 6,
 } as const;
+
+/** A subscription that bills: the states a voucher can be redeemed against. */
+const isLiveSubscription = (
+  subscription: InstanceBilling | undefined,
+): subscription is InstanceBilling =>
+  subscription !== undefined &&
+  (subscription.status === 'TRIAL' ||
+    subscription.status === 'ACTIVE' ||
+    subscription.status === 'PAST_DUE');
 
 const isInstanceAddonOperation = (
   operation: string,
@@ -79,6 +91,8 @@ export type SubscriptionProblemOperation =
 export type SubscribableInstance = {
   customerName: string;
   customerSlug: string;
+  /** The entitlements the instance has, whatever their type: a boost of none of them has nothing to boost. Left out, every one. */
+  entitlementSlugs?: string[];
   instanceName: string;
   instanceSlug: string;
   /** The family of the license: the add-ons an instance can attach are declared against it. */
@@ -154,6 +168,7 @@ export class BillingSubscriptions {
     seed: BillingSubscriptionsSeed = {},
     private readonly now: () => number = () => Date.now(),
     private readonly addonCatalogue: AddonCatalogue = new AddonCatalogue(),
+    private readonly vouchers: BillingVouchers = new BillingVouchers(),
   ) {
     this.catalogue = clone(seed.catalogue ?? { instances: [], prices: {} });
     for (const [licenseSlug, prices] of Object.entries(this.catalogue.prices)) {
@@ -188,6 +203,7 @@ export class BillingSubscriptions {
       seed.addons,
     );
     this.addonCatalogue.setHolders(this.instanceAddons);
+    this.vouchers.setWorld(this.voucherWorld());
     this.invoices.setDefaultDaysUntilDue(this.settings.defaultDaysUntilDue);
     this.lifecycle = new SubscriptionLifecycle({
       catalogue: () => this.catalogue,
@@ -206,6 +222,7 @@ export class BillingSubscriptions {
     state: SerializedBillingSubscriptions,
     now?: () => number,
     addonCatalogue?: AddonCatalogue,
+    vouchers?: BillingVouchers,
   ): BillingSubscriptions {
     const model = new BillingSubscriptions(
       invoices,
@@ -217,6 +234,7 @@ export class BillingSubscriptions {
       },
       now,
       addonCatalogue,
+      vouchers,
     );
     model.sequence = state.sequence;
     if (state.instanceAddons) {
@@ -226,6 +244,7 @@ export class BillingSubscriptions {
       );
       model.addonCatalogue.setHolders(model.instanceAddons);
     }
+    model.vouchers.setWorld(model.voucherWorld());
     for (const [operation, problem] of state.armedProblems) {
       model.problems.arm(operation, problem);
     }
@@ -270,6 +289,58 @@ export class BillingSubscriptions {
       licenseFamilyOf: (slug: string) => this.instance(slug)?.licenseFamilySlug,
       now: () => this.now(),
       subscriptionOf: (slug: string) => this.subscriptionOf(slug),
+    };
+  }
+
+  /** What the vouchers need of the organization: the instances, the catalogue they name and the clock. */
+  private voucherWorld(): VoucherWorld {
+    const knowsPrice = (id: string) =>
+      Object.values(this.catalogue.prices).some((prices) =>
+        prices.some((price) => price.id === id),
+      );
+
+    return {
+      entitlementType: (slug) => this.addonCatalogue.entitlementTypeOf(slug),
+      hasAddon: (id) => this.addonCatalogue.hasVersionId(id),
+      hasAddonPrice: (id) => this.addonCatalogue.hasPriceId(id),
+      hasCustomer: (slug) =>
+        this.catalogue.instances.some(
+          (instance) => instance.customerSlug === slug,
+        ),
+      hasLicense: (id) =>
+        this.catalogue.instances.some((instance) => instance.licenseId === id),
+      hasLicensePrice: knowsPrice,
+      instance: (slug) => this.redeemingInstance(slug),
+      now: () => this.now(),
+    };
+  }
+
+  /** The instance as the redemption rules read it. */
+  private redeemingInstance(slug: string): RedeemingInstance | undefined {
+    const instance = this.instance(slug);
+    if (!instance) {
+      return undefined;
+    }
+    const subscription = this.subscriptionOf(slug);
+
+    return {
+      addonIds: this.instanceAddons
+        .activeOf(slug)
+        .map((attached) => attached.addonId),
+      customerHasPaid: this.invoices
+        .snapshot()
+        .some(
+          (invoice) =>
+            invoice.customerSlug === instance.customerSlug &&
+            invoice.status === 'PAID' &&
+            invoice.total > 0,
+        ),
+      customerSlug: instance.customerSlug,
+      entitlementSlugs: instance.entitlementSlugs,
+      licenseId: instance.licenseId,
+      subscription: isLiveSubscription(subscription)
+        ? clone(subscription)
+        : undefined,
     };
   }
 
@@ -356,7 +427,52 @@ export class BillingSubscriptions {
       );
     }
 
-    return clone(this.upcoming[slug] ?? this.composeUpcoming(subscription));
+    return this.withDiscounts(
+      this.upcoming[slug] ?? this.composeUpcoming(subscription),
+      subscription,
+    );
+  }
+
+  /**
+   * The vouchers the instance redeemed discount the invoice its boundary issues, whether
+   * the preview was seeded or composed: a DISCOUNT line for each, and the totals that
+   * follow. A preview nothing discounts is left as it is.
+   */
+  private withDiscounts(
+    preview: InvoicePreview,
+    subscription: InstanceBilling,
+  ): InvoicePreview {
+    const lines = preview.lines.filter((line) => line.type !== 'DISCOUNT');
+    const discounts = composeDiscounts({
+      at: Date.parse(preview.boundaryAt),
+      currency: subscription.currency,
+      invoiceId: 'upcoming',
+      lines,
+      sources: this.vouchers.discountSourcesOf(subscription.instanceSlug),
+    }).map(({ line }) => line);
+    if (discounts.length === 0) {
+      return clone(preview);
+    }
+    let subtotal = 0;
+    for (const line of lines) {
+      subtotal += line.amount;
+    }
+    let discountTotal = 0;
+    for (const line of discounts) {
+      discountTotal -= line.amount;
+    }
+
+    return parseContract(
+      zInvoicePreview,
+      {
+        ...preview,
+        discountTotal,
+        lines: [...lines, ...discounts],
+        subtotal,
+        total: subtotal - discountTotal,
+      },
+      'BillingSubscriptions upcoming invoice with discounts',
+    );
   }
 
   /**
@@ -379,6 +495,7 @@ export class BillingSubscriptions {
           description: `1 × ${price.unitAmountDecimal} per ${(price.billingPeriod ?? subscription.billingPeriod).toLowerCase()}`,
           invoiceId: 'upcoming',
           label: price.displayLabel ?? 'Base fee',
+          licensePriceId: price.id,
           seq: lines.length + 1,
           serviceFrom: from,
           serviceTo: to,
@@ -711,12 +828,18 @@ export class BillingSubscriptions {
           subscription,
         )
       : [];
+    // Then the voucher, after the add-ons as the API does: a code it refuses refuses
+    // the whole subscribe, and the rules that read the subscription see this one.
+    const redeem = body.voucherCode
+      ? this.checkVoucherForSubscription(slug, body.voucherCode, subscription)
+      : undefined;
     this.subscriptions = this.subscriptions.filter(
       (candidate) => candidate.instanceSlug !== slug,
     );
     this.subscriptions.push(subscription);
     delete this.upcoming[slug];
     this.instanceAddons.commit(slug, checked, subscription);
+    redeem?.();
 
     // An invoice is due now when something is billed in advance, and no trial holds it back.
     const activation =
@@ -728,6 +851,38 @@ export class BillingSubscriptions {
       ...clone(subscription),
       activationInvoice: activation ? toSummary(activation) : undefined,
     };
+  }
+
+  /**
+   * A code given to a subscribe: refused as the API refuses it, 422 `VoucherInvalid`,
+   * with the redemption's own refusal in the error that locates the member.
+   */
+  private checkVoucherForSubscription(
+    slug: string,
+    code: string,
+    subscription: InstanceBilling,
+  ): () => unknown {
+    try {
+      return this.vouchers.checkForSubscription(slug, code, subscription);
+    } catch (error) {
+      if (!(error instanceof BillingProblem)) {
+        throw error;
+      }
+      throw new BillingProblem(
+        422,
+        'SubscribeInstance.VoucherInvalid',
+        'the voucher cannot be redeemed',
+        {
+          errors: [
+            {
+              location: 'body.voucherCode',
+              message: error.message,
+              value: { code: error.code },
+            },
+          ],
+        },
+      );
+    }
   }
 
   /**
@@ -750,6 +905,7 @@ export class BillingSubscriptions {
           description: `1 × ${price.unitAmountDecimal} per ${subscription.billingPeriod.toLowerCase()}`,
           invoiceId,
           label: price.displayLabel ?? 'Base fee',
+          licensePriceId: price.id,
           seq: 1,
           serviceFrom: from,
           serviceTo: to,
@@ -771,6 +927,7 @@ export class BillingSubscriptions {
       }
       lines.push(
         buildInvoiceLine({
+          addonPriceId: fee.id,
           amount: Math.round(Number(fee.unitAmountDecimal)) * attached.quantity,
           description: `${attached.quantity} × ${fee.unitAmountDecimal} per ${subscription.billingPeriod.toLowerCase()}`,
           invoiceId,
@@ -809,6 +966,18 @@ export class BillingSubscriptions {
       return undefined;
     }
     this.sequence += 1;
+    // The vouchers the instance redeemed, a code given to the subscribe included,
+    // discount the invoice at the instant it is composed; each line uses one invoice
+    // of its redemption.
+    const discounts = composeDiscounts({
+      at: this.now(),
+      currency: price.currency,
+      invoiceId: id,
+      lines,
+      sources: this.vouchers.discountSourcesOf(subscription.instanceSlug),
+    });
+    lines.push(...discounts.map(({ line }) => line));
+    this.vouchers.consume(discounts.map(({ redemptionId }) => redemptionId));
     let amount = 0;
     for (const line of lines) {
       amount += line.amount;
