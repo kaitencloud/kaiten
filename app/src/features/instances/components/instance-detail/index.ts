@@ -11,6 +11,7 @@ export {
   InstanceDetailEntitlementsTab,
   InstanceDetailOverviewTab,
   PaymentTermsDialog,
+  RedeemVoucherDialog,
   SchedulePlanChangeDialog,
   SubscribeInstanceDialog,
 } from './tabs';

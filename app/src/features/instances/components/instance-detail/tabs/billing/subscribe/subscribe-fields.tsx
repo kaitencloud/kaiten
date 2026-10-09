@@ -19,6 +19,8 @@ type SubscribeFieldsProps = {
   prices: Price[];
   /** Whether the release has trials: where it has none the field is not there. */
   trials: boolean;
+  /** Whether a voucher code can be redeemed with the subscription: the release has them and the session may redeem. */
+  vouchers: boolean;
 };
 
 /** A price as an option reads: its label, what it charges, over what period, and when. */
@@ -41,13 +43,16 @@ function usePriceLabel() {
  * The trial starts at the days the license carries and is there only where the
  * release has trials, and not for a price that bills in arrears, whose trial the
  * API cannot close yet: that says so instead. The payment terms and the start are
- * optional, and say what an empty field means.
+ * optional, and say what an empty field means. A voucher code can be given to be
+ * redeemed with the subscription, where the release has vouchers and the session may
+ * redeem one; it is never kept past the dialog.
  */
 export function SubscribeFields({
   defaultDaysUntilDue,
   form,
   prices,
   trials,
+  vouchers,
 }: SubscribeFieldsProps) {
   const { t } = useTranslation();
   const priceLabel = usePriceLabel();
@@ -160,6 +165,24 @@ export function SubscribeFields({
           />
         )}
       </form.AppField>
+      {vouchers ? (
+        <form.AppField name="voucherCode">
+          {(field: any) => (
+            <field.TextField
+              autoComplete="off"
+              description={t(
+                'Pages.Customers.Instances.Detail.Billing.Subscribe.Voucher.hint',
+              )}
+              label={t(
+                'Pages.Customers.Instances.Detail.Billing.Subscribe.Voucher.label',
+              )}
+              placeholder={t(
+                'Pages.Customers.Instances.Detail.Billing.Subscribe.Voucher.placeholder',
+              )}
+            />
+          )}
+        </form.AppField>
+      ) : null}
     </Suspense>
   );
 }

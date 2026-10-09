@@ -637,6 +637,11 @@ export default {
                 startAtTooEarly:
                   'Billing cannot start more than one billing period ago',
               },
+              Voucher: {
+                label: 'Voucher code',
+                placeholder: 'Paste the code',
+                hint: 'Optional. The code is redeemed with the subscription; if it cannot be redeemed, the subscription is not started.',
+              },
             },
             Subscription: {
               title: 'Subscription',
@@ -998,6 +1003,81 @@ export default {
                   quantity: 'Enter a whole number of units, at least 1',
                   quantityMax: 'This add-on allows fewer units',
                 },
+              },
+            },
+            Vouchers: {
+              apply: 'Apply a code',
+              description:
+                'The vouchers this instance redeemed. A boost changes its limits while it lasts; a discount reduces the invoices it is issued.',
+              empty:
+                'This instance has not redeemed any voucher. Apply a code to give it a boost or a discount.',
+              Redeem: {
+                breadcrumb: 'Apply a code',
+                title: 'Apply a code to {{name}}',
+                description:
+                  'The code is checked first: nothing is redeemed until you confirm.',
+                doneTitle: 'Code applied to {{name}}',
+                doneDescription:
+                  'What follows is read from the instance before and after the redemption.',
+                code: 'Voucher code',
+                codePlaceholder: 'Paste the code',
+                codeHint: 'Letters and digits; case and dashes do not matter.',
+                check: 'Check the code',
+                confirm: 'Redeem the code',
+                validTitle: '{{name}} can be redeemed',
+                validNote:
+                  '{{instance}} meets every condition of this voucher. Redeeming applies it now; only revoking it takes it back.',
+                invalidTitle: 'This code cannot be redeemed',
+                Errors: {
+                  code: 'Enter the code',
+                  codeTooLong: 'A code has at most 64 characters',
+                },
+              },
+              Reasons: {
+                NOT_FOUND: 'No voucher has this code.',
+                NOT_ACTIVE:
+                  'This voucher is not active: it is a draft or it was archived.',
+                NOT_YET_VALID:
+                  'This voucher cannot be redeemed yet: its window has not opened.',
+                EXPIRED: 'This voucher has expired.',
+                EXHAUSTED:
+                  'This voucher has been redeemed as many times as it allows.',
+                ALREADY_REDEEMED:
+                  'This instance has already redeemed this voucher.',
+                NOT_ELIGIBLE: 'This instance is not eligible for this voucher.',
+                CURRENCY_MISMATCH:
+                  'This discount is in a currency other than the one of the subscription.',
+              },
+              Rules: {
+                RESTRICTED_CUSTOMER:
+                  'This voucher is reserved for another customer.',
+                LICENSE_NOT_APPLICABLE:
+                  'This voucher does not apply to the license of this instance.',
+                ADDON_NOT_APPLICABLE:
+                  'This voucher needs an add-on that this instance does not hold.',
+                FIRST_TIME_ONLY:
+                  'This voucher is for customers that have not paid an invoice yet.',
+                ANNUAL_ONLY: 'This voucher needs an annual subscription.',
+                MINIMUM_SUBSCRIPTION_AMOUNT:
+                  'The subscription is below the minimum amount this voucher requires.',
+                NOTHING_TO_BOOST:
+                  'This boost changes nothing this instance has: none of the entitlements it targets is a number that the instance holds.',
+              },
+              Outcome: {
+                voucher: 'Voucher',
+                status: 'Status',
+                until: 'Applies until',
+                applications: 'Discounts',
+                invoices_one: 'The next invoice',
+                invoices_other: 'The next {{count}} invoices',
+                everyInvoice: 'Every invoice',
+                changes: 'What changed',
+                nextInvoice: 'The next invoice',
+                before: 'Before',
+                after: 'After',
+                discount: 'Discount',
+                discountNote:
+                  'The discount will show on the next invoice this instance is issued.',
               },
             },
           },

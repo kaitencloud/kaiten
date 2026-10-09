@@ -10,6 +10,7 @@ export {
   InstanceFormDialog,
   InstancesPageContent,
   PaymentTermsDialog,
+  RedeemVoucherDialog,
   SchedulePlanChangeDialog,
   SubscribeInstanceDialog,
 } from './components';

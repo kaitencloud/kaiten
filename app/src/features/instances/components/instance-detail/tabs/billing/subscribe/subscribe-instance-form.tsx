@@ -7,6 +7,7 @@ import {
   billingSettingsQueryOptions,
   ProblemAlert,
   useBillingCapabilities,
+  useCanPerform,
 } from '@/domains/billing';
 import {
   StackedFormDialogFooter,
@@ -57,6 +58,11 @@ export function SubscribeInstanceForm({
   const formId = useId();
   const settings = useQuery(billingSettingsQueryOptions);
   const trials = useBillingCapabilities().has('trials');
+  // A code is redeemed with the subscription where the release has vouchers and the
+  // session may redeem one: the subscription is refused as a whole when it cannot be.
+  const vouchersOn = useBillingCapabilities().has('vouchers');
+  const mayRedeem = useCanPerform('instance.vouchers.redeem');
+  const vouchers = vouchersOn && mayRedeem;
   const { addons, readError, refetch } = useSubscribeAddons({
     familyId,
     instanceSlug,
@@ -92,6 +98,7 @@ export function SubscribeInstanceForm({
               form={form}
               prices={prices}
               trials={trials}
+              vouchers={vouchers}
             />
             {addons.length > 0 ? (
               <SubscribeAddonsField addons={addons} form={form} />

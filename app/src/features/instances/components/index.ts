@@ -13,6 +13,7 @@ export {
   InstanceDetailOverviewTab,
   InstanceDetailProvider,
   PaymentTermsDialog,
+  RedeemVoucherDialog,
   SchedulePlanChangeDialog,
   SubscribeInstanceDialog,
   useInstanceDetail,
