@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { type ProviderStanding, useBillingProvider } from '@/domains/billing';
 import { ArrowRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,23 +12,70 @@ type ConnectorsIndexProps = {
   isAttioConnected: boolean;
   onConnectAttio: () => void;
   onOpenAttio: () => void;
+  onOpenStripe: () => void;
 };
 
-function applyAttioStatus(isAttioConnected: boolean): ConnectorMeta[] {
-  return CONNECTORS.map((connector) =>
-    connector.id === 'attio'
-      ? { ...connector, status: isAttioConnected ? 'connected' : 'available' }
-      : connector,
-  );
+/**
+ * Where Stripe stands, from the billing capabilities that list it: connected, free
+ * to be, or not usable here, in which case the tile says why under its name. A
+ * deployment whose API does not list it at all gets the generic reason. Until the
+ * capabilities are in, the tile keeps its catalog entry rather than claim that
+ * Stripe is unavailable for the length of a request.
+ */
+function getStripeStatus(
+  standing: ProviderStanding | undefined,
+): Pick<ConnectorMeta, 'note' | 'status'> {
+  if (!standing) {
+    return { status: 'available' };
+  }
+  switch (standing.state) {
+    case 'connected':
+      return { status: 'connected' };
+    case 'available':
+      return { status: 'available' };
+    case 'unavailable':
+      return {
+        note: `Pages.Integrations.Connectors.Stripe.Unavailable.${standing.reason}.tile`,
+        status: 'unavailable',
+      };
+    default:
+      return {
+        note: 'Pages.Integrations.Connectors.Stripe.Unavailable.UNKNOWN.tile',
+        status: 'unavailable',
+      };
+  }
+}
+
+function applyStatuses(
+  isAttioConnected: boolean,
+  stripe: ProviderStanding | undefined,
+): ConnectorMeta[] {
+  return CONNECTORS.map((connector) => {
+    if (connector.id === 'attio') {
+      return {
+        ...connector,
+        status: isAttioConnected ? 'connected' : 'available',
+      };
+    }
+
+    return connector.id === 'stripe'
+      ? { ...connector, ...getStripeStatus(stripe) }
+      : connector;
+  });
 }
 
 export function ConnectorsIndex({
   isAttioConnected,
   onConnectAttio,
   onOpenAttio,
+  onOpenStripe,
 }: ConnectorsIndexProps) {
   const { t } = useTranslation();
-  const catalog = applyAttioStatus(isAttioConnected);
+  const { isPending, standing } = useBillingProvider('STRIPE');
+  const catalog = applyStatuses(
+    isAttioConnected,
+    isPending ? undefined : standing,
+  );
   const connected = catalog.filter((c) => c.status === 'connected');
   const crm = catalog.filter(
     (c) => c.group === 'CRM' && c.status !== 'connected',
@@ -37,6 +85,9 @@ export function ConnectorsIndex({
   );
 
   function primaryHandler(connector: ConnectorMeta) {
+    if (connector.id === 'stripe') {
+      return connector.status === 'unavailable' ? undefined : onOpenStripe;
+    }
     if (connector.id !== 'attio') {
       return undefined;
     }
@@ -122,6 +173,7 @@ function ConnectorCard({
   onPrimary,
   primaryLabel,
 }: ConnectorCardProps) {
+  const { t } = useTranslation();
   const disabled = !onPrimary;
   return (
     <Card className="h-full gap-3 py-4">
@@ -132,7 +184,7 @@ function ConnectorCard({
             {connector.name}
           </span>
           <span className="line-clamp-2 min-h-8 text-xs text-muted-foreground">
-            {connector.tagline}
+            {connector.note ? t(connector.note) : connector.tagline}
           </span>
         </div>
         <StatusBadge status={connector.status} />

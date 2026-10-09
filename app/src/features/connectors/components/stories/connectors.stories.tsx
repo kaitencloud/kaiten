@@ -90,6 +90,7 @@ export const Catalog: Story = {
       <ConnectorsPageContent
         attioSettings={null}
         onOpenDetail={() => {}}
+        onOpenStripe={() => {}}
       />,
     ),
   play: async ({ canvasElement }) => {
@@ -105,6 +106,7 @@ export const SetupWizard: Story = {
       <ConnectorsPageContent
         attioSettings={null}
         onOpenDetail={() => {}}
+        onOpenStripe={() => {}}
       />,
     ),
   play: async ({ canvasElement }) => {

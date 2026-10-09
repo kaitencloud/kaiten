@@ -147,7 +147,9 @@ describe('the Stripe connector, as the mocks serve it', () => {
     expect(refused.status).toBe(422);
     const body = await problem(refused);
     expect(body.code).toBe('UpdateConnectorSettings.InvalidPayloadSchema');
-    expect(body.errors?.[0]?.location).toBe('body.settings.stripeSecretKey');
+    // The API words a schema failure in its detail and locates nothing.
+    expect(body.detail).toContain('/stripeSecretKey');
+    expect(body.errors ?? []).toEqual([]);
     expect((await stripe()).connected).toBe(false);
   });
 

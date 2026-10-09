@@ -3100,6 +3100,7 @@ export default {
         Status: {
           connected: 'Connecté',
           available: 'Disponible',
+          unavailable: 'Indisponible',
           comingH1: 'Prévu S1',
           comingH2: 'Prévu S2',
         },
@@ -3117,6 +3118,124 @@ export default {
           connected: 'Connecteur Attio connecté.',
           disconnected: 'Connecteur Attio déconnecté.',
           mappingUpdated: 'Associations de champs Attio mises à jour.',
+        },
+        Stripe: {
+          title: 'Connecteur Stripe',
+          subtitle:
+            'Kaiten compose ce que chaque client doit. Stripe l’encaisse.',
+          openInStripe: 'Ouvrir dans Stripe',
+          disconnect: 'Déconnecter',
+          Mode: {
+            test: 'Mode test',
+            live: 'Mode production',
+          },
+          Unavailable: {
+            VAULT_NOT_CONFIGURED: {
+              title: 'Stripe nécessite un Vault configuré',
+              description:
+                'Kaiten stocke la clé restreinte de votre compte Stripe dans Vault, et ce déploiement n’en a pas. Configurez Vault (VAULT_ADDR), puis revenez ici pour connecter Stripe. Les factures restent composées et transmises à votre outil de comptabilité en attendant.',
+              tile: 'Stripe nécessite un Vault configuré',
+            },
+            NOT_ENTITLED: {
+              title: 'Non inclus dans votre offre',
+              description:
+                'Le connecteur Stripe ne fait pas partie de l’offre de cette organisation. Changez d’offre pour connecter Stripe. Les factures restent composées et transmises à votre outil de comptabilité en attendant.',
+              tile: 'Non inclus dans votre offre',
+            },
+            UNKNOWN: {
+              title: 'Stripe n’est pas disponible ici',
+              description:
+                'Ce déploiement ne propose pas Stripe à l’organisation. Les factures sont composées et transmises à votre outil de comptabilité.',
+              tile: 'Indisponible sur ce déploiement',
+            },
+            vaultDocs: 'Paramètres d’auto-hébergement',
+          },
+          Settings: {
+            title: 'Connexion',
+            description:
+              'La clé restreinte de votre compte Stripe, et la façon dont Kaiten construit et envoie les factures.',
+            readOnly:
+              'Vous pouvez lire ces paramètres sans les modifier : le connecteur est configuré par quelqu’un qui peut écrire les paramètres de l’organisation.',
+            connect: 'Connecter Stripe',
+            reconnect: 'Connecter Stripe avec la clé enregistrée',
+            save: 'Enregistrer les modifications',
+            keyLabel: 'Clé API restreinte',
+            keyPlaceholder: 'rk_test_…',
+            keyOnFilePlaceholder:
+              'Clé enregistrée ({{mode}}) — saisissez-en une nouvelle pour la remplacer',
+            keyOnFilePlaceholderNoMode:
+              'Clé enregistrée — saisissez-en une nouvelle pour la remplacer',
+            keyHint:
+              'Créez-la dans Stripe, sous Développeurs → Clés API. Kaiten la stocke dans Vault, la vérifie par un appel en lecture seule et ne l’affiche plus jamais.',
+            keyReaches: 'Cette clé atteint un compte Stripe en {{mode}}.',
+            taxBehaviorLabel: 'Taxes',
+            taxBehaviorHint:
+              'Si les montants composés par Kaiten excluent la taxe (Stripe l’ajoute) ou l’incluent déjà.',
+            TaxBehavior: {
+              EXCLUSIVE: 'Montants hors taxes',
+              INCLUSIVE: 'Montants toutes taxes comprises',
+            },
+            automaticTaxLabel: 'Calculer la taxe automatiquement',
+            automaticTaxHint:
+              'Stripe Tax calcule la taxe de chaque facture. Il exige une adresse complète sur le client dans Stripe, sans quoi l’envoi de ses factures échoue.',
+            autoFinalizeLabel: 'Finaliser les factures automatiquement',
+            autoFinalizeHint:
+              'Désactivé, une facture reste un brouillon dans Stripe, où quelqu’un la relit, et Kaiten la finalise à la demande.',
+            Errors: {
+              keyRequired: 'Collez la clé restreinte de votre compte Stripe.',
+              secretKey:
+                'Utilisez une clé restreinte (rk_…) : une clé secrète (sk_…) donne à Kaiten un accès bien plus large que nécessaire.',
+              publishableKey:
+                'Une clé publiable (pk_…) ne peut pas créer de factures. Utilisez une clé restreinte (rk_…).',
+              keyFormat:
+                'Une clé restreinte commence par rk_test_ ou rk_live_, suivi de lettres et de chiffres.',
+            },
+          },
+          Split: {
+            title: 'Qui fait quoi',
+            kaiten: 'Kaiten gère',
+            stripe: 'Stripe gère',
+            Kaiten: {
+              catalogue: 'Le catalogue et ses prix',
+              entitlements: 'Ce à quoi chaque instance a droit',
+              usage: 'Le journal d’usage',
+              subscription: 'L’abonnement de chaque instance',
+              content: 'Ce que dit chaque facture',
+            },
+            Stripe: {
+              tax: 'La taxe',
+              numbering: 'La numérotation des factures',
+              presentation: 'L’aspect d’une facture et son envoi',
+              payment: 'Le paiement et les reçus',
+              dunning: 'Les relances',
+            },
+          },
+          Permissions: {
+            title: 'Permissions de la clé',
+            description:
+              'Créez la clé restreinte avec exactement ces permissions : ni plus, ni moins.',
+            write: '{{resource}} : écriture',
+            read: '{{resource}} : lecture',
+          },
+          Toast: {
+            connected: 'Stripe est connecté.',
+            saved: 'Paramètres Stripe enregistrés.',
+            disconnected: 'Stripe est déconnecté.',
+          },
+          Disconnect: {
+            title: 'Déconnecter Stripe ?',
+            description:
+              'Kaiten cesse d’envoyer les factures à Stripe et de les relire. La clé reste enregistrée, pour que se reconnecter ne la redemande pas. Les factures déjà dans Stripe ne sont pas touchées.',
+            confirm: 'Déconnecter',
+            subscriptions_one:
+              '{{count}} abonnement non annulé est encore encaissé par Stripe.',
+            subscriptions_other:
+              '{{count}} abonnements non annulés sont encore encaissés par Stripe.',
+            invoices_one:
+              '{{count}} facture non réglée est encore dans Stripe.',
+            invoices_other:
+              '{{count}} factures non réglées sont encore dans Stripe.',
+          },
         },
         Wizard: {
           headerTitle: 'Connecter Attio',

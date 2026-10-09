@@ -8,11 +8,14 @@ type ConnectorsPageContentProps = {
   attioSettings: ConnectorSettings | null;
   /** Navigates to the connector detail route (wizard finish, Manage tile). */
   onOpenDetail: () => void;
+  /** Navigates to the page of the Stripe connector, which connects it as well as manages it. */
+  onOpenStripe: () => void;
 };
 
 export function ConnectorsPageContent({
   attioSettings,
   onOpenDetail,
+  onOpenStripe,
 }: ConnectorsPageContentProps) {
   const isAttioConnected = attioSettings != null;
   const flowStore = useAttioSetupStore();
@@ -34,6 +37,7 @@ export function ConnectorsPageContent({
       isAttioConnected={isAttioConnected}
       onConnectAttio={actions.openWizard}
       onOpenAttio={onOpenDetail}
+      onOpenStripe={onOpenStripe}
     />
   );
 }
