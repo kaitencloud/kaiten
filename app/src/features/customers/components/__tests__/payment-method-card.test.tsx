@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { HttpResponse } from 'msw';
+import { delay, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import type { CustomerBilling, PaymentMethodLabels } from '@/api-client';
@@ -584,6 +584,58 @@ describe('coming back from the page Stripe hosts', () => {
     );
     await waitFor(() => expect(onSetupHandled).toHaveBeenCalledTimes(1));
     expect(toast.success).toHaveBeenCalledWith('Payment method saved');
+  });
+
+  it('reads what the customer holds once the session was checked, so that the read made first is not taken for the answer', async () => {
+    const MASTERCARD: PaymentMethodLabels = {
+      ...VISA,
+      brand: 'mastercard',
+      last4: '4444',
+    };
+    const order: string[] = [];
+    const held = { paymentMethod: VISA };
+    server.use(
+      handleGetCustomerBilling(() => {
+        order.push('read');
+
+        return HttpResponse.json({
+          billingEmail: 'ap@acme.test',
+          providers: [
+            {
+              externalCustomerId: 'cus_acme',
+              paymentMethod: held.paymentMethod,
+              providerKind: 'STRIPE',
+            },
+          ],
+        });
+      }),
+      handleCompletePaymentMethodSession(async () => {
+        order.push('check');
+        await delay(30);
+        held.paymentMethod = MASTERCARD;
+
+        return HttpResponse.json({ paymentMethod: MASTERCARD });
+      }),
+    );
+    const onSetupHandled = vi.fn();
+    const { rerender } = renderWithClient(
+      <PaymentMethodCard
+        customerSlug="acme"
+        onSetupHandled={onSetupHandled}
+        setupSessionId="cs_9"
+      />,
+    );
+
+    await waitFor(() => expect(onSetupHandled).toHaveBeenCalledTimes(1));
+    // Nothing was read while the session was being checked.
+    expect(order).toEqual(['check']);
+    // The route drops the session from the address: now the card is read.
+    rerender(
+      <PaymentMethodCard customerSlug="acme" onSetupHandled={onSetupHandled} />,
+    );
+
+    expect(await method()).toHaveTextContent('Mastercard ending in 4444');
+    expect(order).toEqual(['check', 'read']);
   });
 
   it('asks once for a session however often the page draws again', async () => {
