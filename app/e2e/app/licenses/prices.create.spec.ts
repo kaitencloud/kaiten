@@ -1,8 +1,10 @@
 import { expect, expectToast, recordWrites, test } from '../_support/app-test';
+import { AddonsListDriver } from '../_support/drivers/addons-list.driver';
 import { LicensePriceDrawerDriver } from '../_support/drivers/license-price-drawer.driver';
 import { LicensePricesDriver } from '../_support/drivers/license-prices.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installLicenseAppMocks } from '../_support/mocks/install-license-app-mocks';
+import { createAddonsBillingModel } from '../addons/addons.scenarios';
 import { createBillingStackModel } from '../billing/billing.scenarios';
 import {
   createDraftPricesModel,
@@ -173,8 +175,8 @@ test.describe('adding a price', () => {
     await expect(drawer.meterOption('Seats')).toContainText(
       'it never resets, so it cannot be metered',
     );
-    // Add-ons are not part of the console yet: the hint says where a stock is
-    // sold, and links nowhere.
+    // Where the release ships no add-ons, the hint says where a stock is sold
+    // and links nowhere.
     await expect(drawer.stockHint()).toContainText('sold as an add-on');
     await expect(drawer.picker().getByRole('link')).toHaveCount(0);
 
@@ -432,5 +434,29 @@ test.describe('adding a price', () => {
     await prices.goto('pro-v2', 'Pro');
 
     await expect(prices.addPrice()).toBeVisible();
+  });
+});
+
+test.describe('the way a stock is sold, where the release ships the add-ons', () => {
+  test('links the hint to the add-ons, which the stock is sold as', async ({
+    page,
+  }) => {
+    const prices = new LicensePricesDriver(page);
+    const drawer = new LicensePriceDrawerDriver(page);
+    await installBillingAppMocks(page, createAddonsBillingModel());
+    await installLicenseAppMocks(page, createPricedCatalogModel());
+
+    await prices.goto('pro-v4', 'Pro');
+    await prices.addPrice().click();
+    await drawer.chooseModel('Usage-based');
+
+    await expect(drawer.stockHint()).toContainText('sold as an add-on');
+    await drawer
+      .picker()
+      .getByRole('link', { name: 'See the add-ons' })
+      .click();
+
+    await expect(page).toHaveURL('/addons');
+    await new AddonsListDriver(page).expectLoaded();
   });
 });

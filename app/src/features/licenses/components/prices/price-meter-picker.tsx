@@ -12,6 +12,7 @@ import {
   meterOfEntitlement,
 } from '../../utils/license-price.utils';
 import { PriceOptionButton } from './price-option-button';
+import { PriceStockHint } from './price-stock-hint';
 import {
   RESET_PERIOD_UNIT_KEYS,
   type BillingModel,
@@ -114,11 +115,7 @@ export function PriceMeterPicker({
       ) : (
         <div className="space-y-2">{options.map(renderOption)}</div>
       )}
-      {hasStock ? (
-        <p className="text-xs text-muted-foreground">
-          {t('Pages.Licenses.Prices.Form.Meter.stockHint')}
-        </p>
-      ) : null}
+      {hasStock ? <PriceStockHint /> : null}
     </fieldset>
   );
 }

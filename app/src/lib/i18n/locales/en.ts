@@ -1490,7 +1490,8 @@ export default {
             none: 'This version grants no entitlement a price can meter. Grant a counted or summed number that resets, then come back.',
             stock: 'A stock: it never resets, so it cannot be metered.',
             stockHint:
-              'A stock, such as seats or storage, is sold as an add-on with a quantity, not metered. Add-ons are not part of this console yet.',
+              'A stock, such as seats or storage, is sold as an add-on with a quantity, not metered.',
+            stockHintLink: 'See the add-ons',
             overageUnreachable:
               'Overage cannot occur on this grant: its limit is hard or unlimited.',
           },
