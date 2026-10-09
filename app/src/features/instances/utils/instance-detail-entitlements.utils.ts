@@ -70,6 +70,23 @@ const getLicenseEntitlementGroups = (
     slug: group.slug,
   }));
 
+// The cap an instance runs under: the limit its usage is measured against, which
+// the API composes from the grant of the license and what the add-ons the instance
+// holds add to it, replace it by or raise it to; without one (a usage that carries
+// no limit), the grant of the license alone.
+const getThreshold = (
+  entitlement: LicenseEntitlement,
+  usage: EntitlementUsage | undefined,
+): number | null => {
+  if (usage?.limit?.type === 'number') {
+    return usage.limit.value as number;
+  }
+
+  return entitlement.value?.type === 'number'
+    ? (entitlement.value.value as number)
+    : null;
+};
+
 export const buildEntitlementsRows = (
   licenseEntitlements: LicenseEntitlement[],
   entitlementUsages: EntitlementUsage[],
@@ -155,10 +172,7 @@ export const buildEntitlementsRows = (
         usage?.value?.type === 'number' ? (usage.value.value as number) : 0,
       currentPeriodStart: usage?.currentPeriodStart ?? null,
       currentPeriodEnd: usage?.currentPeriodEnd ?? null,
-      threshold:
-        entitlement.value?.type === 'number'
-          ? (entitlement.value.value as number)
-          : null,
+      threshold: getThreshold(entitlement, usage),
       limitCapExceededOveragePercent:
         getLicenseEntitlementOveragePercent(entitlement),
       enabled:

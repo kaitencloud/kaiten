@@ -4,6 +4,7 @@ export {
 } from './instance-detail-context';
 export { InstanceDetailLayout } from './instance-detail-layout';
 export {
+  AttachAddonDialog,
   CancelSubscriptionDialog,
   InstanceDetailAuditTrailTab,
   InstanceDetailBillingTab,

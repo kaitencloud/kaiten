@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { Price, StartedSubscription } from '@/api-client';
+import type { Addon, Price, StartedSubscription } from '@/api-client';
 import { canStartWithTrial, placeRefusalOnFields } from '@/domains/billing';
 import { useAppForm } from '@/hooks/form';
 import {
@@ -12,6 +12,8 @@ import { getDefaultBasePrice } from '../utils/subscribe-instance.utils';
 import { useSubscribeInstance } from './use-subscribe-instance';
 
 type UseSubscribeInstanceFormOptions = {
+  /** The add-ons the form offers: it checks the units of each against the most its version allows. */
+  addons?: readonly Pick<Addon, 'maxQuantity' | 'slug'>[];
   /** The trial the license of the instance carries, in days: where the field starts. */
   defaultTrialDays?: number;
   instanceSlug: string;
@@ -32,6 +34,7 @@ type UseSubscribeInstanceFormOptions = {
  * is about one, and is returned as the failure otherwise.
  */
 export function useSubscribeInstanceForm({
+  addons = [],
   defaultTrialDays = 0,
   instanceSlug,
   onSubscribed,
@@ -79,6 +82,7 @@ export function useSubscribeInstanceForm({
       onChange: ({ value }) => {
         const price = prices.find(({ id }) => id === value.basePriceId);
         const errors = getSubscribeFormErrors(value, {
+          addons,
           period: price?.billingPeriod,
           trialOffered:
             trials && (!price || canStartWithTrial(price.billingTiming)),
