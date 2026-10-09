@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
@@ -32,6 +33,8 @@ func (r *QueryRepository) GetEntitlementsUsageMetrics(ctx context.Context, insta
 		return nil, err
 	}
 
+	done := effectivelookup.Time(ctx, effectivelookup.ReaderREST)
+	defer done()
 	entitlements, err := r.repository.GetEntitlementsUsageForInstanceWithFallback(ctx, db.GetEntitlementsUsageForInstanceWithFallbackParams{
 		OrganizationID: organizationID,
 		InstanceID:     instanceID,

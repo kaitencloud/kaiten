@@ -61,6 +61,7 @@ func (r *Reporter) ConfigValue(ctx context.Context, orgID uuid.UUID, entitlement
 
 	client, err := r.awaitClient(ctx)
 	if err != nil {
+		configValueFailed(ctx, entitlementSlug)
 		return r.configs.lastKnown(key, err)
 	}
 
@@ -69,6 +70,7 @@ func (r *Reporter) ConfigValue(ctx context.Context, orgID uuid.UUID, entitlement
 		return nil, err
 	}
 	if err != nil {
+		configValueFailed(ctx, entitlementSlug)
 		return r.configs.lastKnown(key, err)
 	}
 

@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 	"golang.org/x/time/rate"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
@@ -109,8 +112,22 @@ func (u *UseCase) Execute(ctx context.Context, draft CustomerSessionDraft) (*Cre
 	if _, err := q.PurgeExpiredCustomerSessions(ctx, user.OrganizationID); err != nil {
 		slog.WarnContext(ctx, "publicsdk: could not purge expired customer sessions", "error", err)
 	}
+	if c := minted(); c != nil {
+		c.Add(ctx, 1)
+	}
 	return &CreatedCustomerSession{
 		ID: row.ID, Token: plaintext, ExpiresAt: row.ExpiresAt.Time.UTC(),
 		CustomerSlug: customer.Slug, InstanceSlug: draft.InstanceSlug,
 	}, nil
 }
+
+// minted is customer_sessions_minted_total (§19.1).
+var minted = sync.OnceValue(func() metric.Int64Counter {
+	c, err := otel.GetMeterProvider().Meter("kaiten.public").Int64Counter("kaiten.public.customer_sessions.minted",
+		metric.WithDescription("Customer sessions minted"), metric.WithUnit("{session}"))
+	if err != nil {
+		slog.Warn("failed to register a public surface metric", "error", err)
+		return nil
+	}
+	return c
+})

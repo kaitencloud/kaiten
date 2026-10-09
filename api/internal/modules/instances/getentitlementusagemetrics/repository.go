@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
@@ -25,11 +26,13 @@ func NewQueryRepository(repository *db.Queries) *QueryRepository {
 }
 
 func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instanceSlug string, entitlementSlug string, organizationID uuid.UUID) (*entitlementUsageSchema.EntitlementUsage, error) {
+	done := effectivelookup.Time(ctx, effectivelookup.ReaderREST)
 	result, err := r.repository.GetEntitlementUsageForInstanceOrDefault(ctx, db.GetEntitlementUsageForInstanceOrDefaultParams{
 		OrganizationID:  organizationID,
 		InstanceSlug:    instanceSlug,
 		EntitlementSlug: entitlementSlug,
 	})
+	done()
 	if err != nil {
 		return nil, err
 	}

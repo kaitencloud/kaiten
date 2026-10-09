@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	infradogfooding "github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
@@ -74,6 +75,7 @@ func windowMonths(ctx context.Context, reader services.EntitlementConfig, settin
 	}
 	months, ok := parseRetention(raw)
 	if !ok {
+		infradogfooding.ConfigValueInvalid(ctx, dogfooding.UsageHistoryRetentionEntitlementSlug)
 		return 0, sourceUnknown
 	}
 	return months, sourceLicence
