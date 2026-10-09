@@ -2,6 +2,7 @@ export {
   addonCompatibilityQueryOptions,
   addonLicenseFamiliesQueryOptions,
   addonPricesQueryOptions,
+  addonVersionsQueryOptions,
 } from './addon-query-options';
 export { billingSettingsQueryOptions } from './billing-settings';
 export {

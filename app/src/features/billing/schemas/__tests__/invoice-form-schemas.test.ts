@@ -6,7 +6,7 @@ import {
   initialAcknowledgeHandoffValues,
 } from '../acknowledge-handoff.schema';
 import { EXTERNAL_REFERENCE_MAX_LENGTH } from '../external-reference';
-import { REASON_MAX_LENGTH } from '../invoice-reason';
+import { REASON_MAX_LENGTH } from '@/domains/billing';
 import {
   initialMarkPaidValues,
   markPaidFormSchema,

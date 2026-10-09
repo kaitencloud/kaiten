@@ -1,14 +1,16 @@
 import { useTranslation } from 'react-i18next';
 import type { QueuedInvoice } from '@/api-client';
 import {
+  BillingActionDialog,
   formatInstant,
   formatUtcDate,
   getInvoiceKindLabelKey,
   isHandoffLeased,
   Money,
+  useBillingActionForm,
 } from '@/domains/billing';
 import { createFormSubmitHandler } from '@/hooks/form';
-import { useAcknowledgeHandoff, useBillingActionForm } from '../../hooks';
+import { useAcknowledgeHandoff } from '../../hooks';
 import {
   ACKNOWLEDGE_REFUSAL_FIELDS,
   acknowledgeHandoffFormSchema,
@@ -16,7 +18,6 @@ import {
   initialAcknowledgeHandoffValues,
 } from '../../schemas/acknowledge-handoff.schema';
 import { EXTERNAL_REFERENCE_MAX_LENGTH } from '../../schemas/external-reference';
-import { BillingActionDialog } from '../action-dialog';
 
 type AcknowledgeHandoffDialogProps = {
   invoice: QueuedInvoice;

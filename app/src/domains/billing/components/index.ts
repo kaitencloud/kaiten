@@ -1,3 +1,4 @@
+export { BillingActionDialog } from './billing-action-dialog';
 export { BillingNotFound } from './billing-not-found';
 export { BoundaryClosingNotice } from './boundary-closing-notice';
 export { BillingRouteError } from './billing-route-error';
@@ -31,6 +32,7 @@ export {
 } from './paged-list';
 export { ProblemAlert } from './problem-alert';
 export { ProviderBadge } from './provider-badge';
+export { ReasonDialog } from './reason-dialog';
 export { RetryableProblem } from './retryable-problem';
 export { ServicePeriod } from './service-period';
 export { SubscriptionStatusBadge } from './subscription-status-badge';

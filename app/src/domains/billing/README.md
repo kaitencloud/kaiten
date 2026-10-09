@@ -48,7 +48,9 @@ here beside the statuses they read: `getInvoiceActions` with
 app/src/domains/billing/
 ├── components/       # Money, ServicePeriod, the status, provider and line-type badges,
 │                     # ProblemAlert, BoundaryClosingNotice, RetryableProblem, MissingScopeBanner,
-│                     # BillingUnavailable,
+│                     # BillingUnavailable, BillingActionDialog and ReasonDialog (the dialogs that
+│                     # ask the API for an audited action: a release of a hold, the void of an
+│                     # invoice, the revocation of a redemption),
 │                     # BillingNotFound, BillingRouteError, InvoicesTable (its columns in
 │                     # invoices-table-columns) and its cells, the
 │                     # fingerprint and the arithmetic of a metered line (LineFingerprint,
@@ -69,11 +71,13 @@ app/src/domains/billing/
 │                     # (useGrantedScopes reads them, for a screen that filters on several);
 │                     # useInvoiceActionAccess, the same for the five actions on an invoice;
 │                     # useAlertFocus, which puts the focus on a refusal or a confirmation; useDeletionRefusal,
-│                     # which explains a deletion billing refused; useBoundaryRetry, which waits
+│                     # which explains a deletion billing refused; useBillingActionForm, the form of an
+│                     # audited action; useBoundaryRetry, which waits
 │                     # out a period being closed; useExportInvoices;
 │                     # useUsageReports, over the pages of a list of usage reports
 ├── logic/            # actions and their scopes, availability, problems, the placing of a
-│                     # refusal on the fields of a form (problem-field-errors), statuses,
+│                     # refusal on the fields of a form (problem-field-errors), the reason an
+│                     # audited action takes (reason), statuses,
 │                     # invoice kinds, line types, invoice actions, the refusals of a
 │                     # recompose and of a deletion, handoff, export, retention, usage reports,
 │                     # subscription actions, whether a subscription is live (isSubscriptionLive),

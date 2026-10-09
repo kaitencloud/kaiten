@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import type { Invoice } from '@/api-client';
+import { BillingActionDialog, useBillingActionForm } from '@/domains/billing';
 import { createFormSubmitHandler } from '@/hooks/form';
-import { useBillingActionForm, useInvoiceMutations } from '../../hooks';
+import { useInvoiceMutations } from '../../hooks';
 import { EXTERNAL_REFERENCE_MAX_LENGTH } from '../../schemas/external-reference';
 import {
   initialMarkPaidValues,
@@ -9,7 +10,6 @@ import {
   markPaidFormSchema,
   markPaidValuesToBody,
 } from '../../schemas/mark-paid.schema';
-import { BillingActionDialog } from '../action-dialog';
 
 type MarkPaidDialogProps = {
   invoice: Invoice;

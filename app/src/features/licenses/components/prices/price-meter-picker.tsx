@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
+import { ChoiceButton } from '@/components/choice-button';
 import { Badge } from '@/components/ui/badge';
 import FormField from '@/components/form/fields/form-field';
 import RequiredMark from '@/components/form/required-mark';
@@ -11,7 +12,6 @@ import {
   type MeterOption,
   meterOfEntitlement,
 } from '../../utils/license-price.utils';
-import { PriceOptionButton } from './price-option-button';
 import { PriceStockHint } from './price-stock-hint';
 import {
   RESET_PERIOD_UNIT_KEYS,
@@ -83,7 +83,7 @@ export function PriceMeterPicker({
   const formatFactor = (factor: number) => factor.toLocaleString(i18n.language);
 
   const renderOption = (option: MeterOption) => (
-    <PriceOptionButton
+    <ChoiceButton
       detail={detailOf(option, model)}
       disabled={option.disabledReason !== undefined}
       key={option.entitlementSlug}
