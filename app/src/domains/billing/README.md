@@ -147,9 +147,13 @@ page holds, or an export the API streams.
   (`GET /customers/{customerSlug}/billing`) are the reads of the provider's side that two
   features share: the health is the settings' (the figures, the sync line of Stripe), and
   what a customer holds in Stripe is the customer page's (its payment method) and the
-  dialog of the provider of a contract's. `getStripePaymentMethod` and
-  `hasUsablePaymentMethod` read the payment method the way the API sends it, `null` for a
-  customer with none though the contract declares it always there.
+  dialog of the provider of a contract's. `getStripePaymentMethod`,
+  `hasUsablePaymentMethod` and `getPaymentMethodStanding` (none, active, soon to expire in
+  the thirty days before the end of its expiry month, expired, failed) read the payment
+  method the way the API sends it, `null` for a customer with none though the contract
+  declares it always there. `getSafeProviderUrl` keeps an address of a page the provider
+  hosts (the invoice, its PDF, the customer in its dashboard) only when it is https, so
+  that a link to it cannot be anything else.
 - `invalidateInstanceBillingQueries`, `invalidateInstanceAddonQueries`,
   `invalidateInvoiceQueries`, `invalidateLicensePriceQueries`,
   `invalidateBillingSettingsQueries`, `invalidateBillingProviderQueries` (a provider was

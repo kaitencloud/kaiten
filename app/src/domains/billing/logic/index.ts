@@ -58,9 +58,12 @@ export {
 } from './invoice-kind';
 export { compareInvoiceTotals } from './invoice-total-order';
 export {
+  getPaymentMethodStanding,
   getStripePaymentMethod,
   hasUsablePaymentMethod,
+  type PaymentMethodStanding,
 } from './payment-method';
+export { getSafeProviderUrl } from './provider-url';
 export {
   isPaidAtProviderRefusal,
   readRecomposeRefusal,

@@ -382,6 +382,67 @@ export default {
           by: 'par',
           billingEmailNone: 'Non renseigné',
         },
+        paymentMethod: {
+          title: 'Moyen de paiement',
+          description:
+            'La carte que Stripe prélève pour les contrats de ce client qui encaissent automatiquement. Kaiten en garde la marque, les quatre derniers chiffres et l’expiration, jamais le numéro.',
+          loading: 'Chargement du moyen de paiement',
+          add: 'Ajouter un moyen de paiement',
+          replace: 'Remplacer',
+          portal: 'Gérer dans Stripe',
+          remove: 'Retirer',
+          openInStripe: 'Ouvrir le client dans Stripe',
+          setupFailed:
+            'Le moyen de paiement n’a pas été enregistré. Si le client a terminé sur la page de Stripe, vérifiez à nouveau ; sinon, recommencez avec le bouton ci-dessus.',
+          checkAgain: 'Vérifier à nouveau',
+          None: {
+            title: 'Aucun moyen de paiement enregistré',
+            description:
+              'Sans lui, aucun contrat de ce client ne peut être prélevé automatiquement. Un contrat qui envoie la facture n’en a pas besoin.',
+          },
+          Card: {
+            brandAndLast4: '{{brand}} se terminant par {{last4}}',
+            last4Only: 'Carte se terminant par {{last4}}',
+            expires: 'Expire le {{month}}/{{year}}',
+          },
+          Status: {
+            active: 'Active',
+            expiresSoon: 'Expire bientôt',
+            expired: 'Expirée',
+            failed: 'Dernier prélèvement refusé',
+          },
+          Unusable: {
+            expired:
+              'Cette carte a expiré. Stripe ne peut pas la prélever : enregistrez-en une autre.',
+            failed:
+              'Un prélèvement a indiqué que cette carte ne peut plus servir. Enregistrez-en une autre.',
+          },
+          Currency: {
+            title: 'Devise du moyen de paiement',
+            description:
+              'Ce client n’a aucun abonnement en cours dont reprendre la devise : indiquez la devise dans laquelle le moyen de paiement est configuré.',
+            label: 'Devise',
+            hint: 'Le moyen de paiement est configuré dans cette devise, et prélevé pour les contrats facturés dans celle-ci.',
+            placeholder: 'Choisissez une devise',
+            search: 'Rechercher une devise',
+            confirm: 'Continuer vers Stripe',
+            Errors: {
+              currency: 'Choisissez l’une des devises de la liste',
+            },
+          },
+          Remove: {
+            title: 'Retirer le moyen de paiement ?',
+            description:
+              'Stripe ne pourra plus prélever ce client. Un contrat qui envoie la facture n’est pas concerné.',
+            confirm: 'Retirer',
+            inUse:
+              'Passez les contrats de ce client qui sont prélevés automatiquement à l’envoi de la facture, dans l’onglet Facturation de leur instance, puis retirez le moyen de paiement.',
+          },
+          Toasts: {
+            saved: 'Moyen de paiement enregistré',
+            removed: 'Moyen de paiement retiré',
+          },
+        },
         Billing: {
           Invoices: {
             description:

@@ -2,7 +2,7 @@ import { ExternalLink, FileDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ProviderRecord } from '@/api-client';
 import { Button } from '@/components/ui/button';
-import { getSafeProviderUrl } from '../../utils/provider-url';
+import { getSafeProviderUrl } from '@/domains/billing';
 
 type ProviderLinksProps = {
   provider: Pick<ProviderRecord, 'hostedInvoiceUrl' | 'invoicePdfUrl'>;

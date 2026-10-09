@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { getSafeProviderUrl } from '../provider-url';
+import { getSafeProviderUrl } from '../logic';
 
 describe('the address of a page the payment provider hosts', () => {
   it('is kept when it is an https address', () => {

@@ -370,6 +370,67 @@ export default {
           by: 'by',
           billingEmailNone: 'Not set',
         },
+        paymentMethod: {
+          title: 'Payment method',
+          description:
+            'The card Stripe charges for the contracts of this customer that collect automatically. Kaiten keeps its brand, its last four digits and its expiry, and never the number.',
+          loading: 'Loading the payment method',
+          add: 'Add a payment method',
+          replace: 'Replace',
+          portal: 'Manage in Stripe',
+          remove: 'Remove',
+          openInStripe: 'Open the customer in Stripe',
+          setupFailed:
+            'The payment method was not saved. If the customer has finished on the page of Stripe, check again; otherwise start over with the button above.',
+          checkAgain: 'Check again',
+          None: {
+            title: 'No payment method on file',
+            description:
+              'Without one, no contract of this customer can be charged automatically. A contract that sends the invoice needs none.',
+          },
+          Card: {
+            brandAndLast4: '{{brand}} ending in {{last4}}',
+            last4Only: 'Card ending in {{last4}}',
+            expires: 'Expires {{month}}/{{year}}',
+          },
+          Status: {
+            active: 'Active',
+            expiresSoon: 'Expires soon',
+            expired: 'Expired',
+            failed: 'Last charge failed',
+          },
+          Unusable: {
+            expired:
+              'This card has expired. Stripe cannot charge it: save another one.',
+            failed:
+              'A charge said this card can no longer be used. Save another one.',
+          },
+          Currency: {
+            title: 'Currency of the payment method',
+            description:
+              'This customer has no live subscription to take a currency from: say the currency the payment method is set up in.',
+            label: 'Currency',
+            hint: 'The payment method is set up in this currency, and is charged for the contracts billed in it.',
+            placeholder: 'Pick a currency',
+            search: 'Search a currency',
+            confirm: 'Continue to Stripe',
+            Errors: {
+              currency: 'Pick one of the currencies in the list',
+            },
+          },
+          Remove: {
+            title: 'Remove the payment method?',
+            description:
+              'Stripe will no longer be able to charge this customer. A contract that sends the invoice is not affected.',
+            confirm: 'Remove',
+            inUse:
+              'Switch the contracts of this customer that are charged automatically to sending the invoice, in the Billing tab of their instance, then remove the payment method.',
+          },
+          Toasts: {
+            saved: 'Payment method saved',
+            removed: 'Payment method removed',
+          },
+        },
         Billing: {
           Invoices: {
             description:
