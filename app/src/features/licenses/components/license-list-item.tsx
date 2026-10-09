@@ -10,7 +10,11 @@ import {
   ActionAccordionItem,
   ActionAccordionTrigger,
 } from '@/components/ui/action-accordion';
-import { useBillingCapabilities } from '@/domains/billing';
+import {
+  LicensePriceSummaryText,
+  useBillingCapabilities,
+  useLicensesWithPrices,
+} from '@/domains/billing';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import type { LicenseGroup } from '../types';
 import { LicenseFamilyPublicToggle } from './license-family-public-toggle';
@@ -23,12 +27,18 @@ type LicenseListItemProps = {
 export const LicenseListItem = ({ group }: LicenseListItemProps) => {
   const { t } = useTranslation();
   const { isEnabled: hasBilling } = useBillingCapabilities();
+  // How the version the family is shown under is sold: read apart from the licenses,
+  // for all of them at once, and only where billing is on.
+  const { data: catalogue } = useLicensesWithPrices();
   const LicenseIcon = dataModelIcons.license;
 
   // A new version starts from the one the family is shown under -- the version
   // it resolves to -- rather than from the highest version whatever its state,
   // which may be a withdrawn one.
   const newVersionLicenseSlug = group.headLicense?.slug;
+  const headVersion = catalogue?.find(
+    (license) => license.id === group.headLicense?.id,
+  );
 
   return (
     <ActionAccordionItem
@@ -61,6 +71,7 @@ export const LicenseListItem = ({ group }: LicenseListItemProps) => {
                 {t('Pages.Licenses.Public.badge')}
               </Badge>
             ) : null}
+            <LicensePriceSummaryText license={headVersion} />
           </div>
         </ActionAccordionTrigger>
         <ActionAccordionActions>

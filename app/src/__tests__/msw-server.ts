@@ -1,11 +1,15 @@
 import { setupServer } from 'msw/node';
 import { handleGetBillingCapabilities } from '@/api-client/msw.gen';
 import { billingCapabilitiesProfiles } from '../../e2e/app/_support/model/billing-capabilities';
+import { emptyBillingDocuments } from '../../e2e/app/_support/model/graphql-operations';
+import { graphqlOperationHandler } from '../e2e/msw/handler-factory';
 
 /**
  * The network of the unit tests. It answers nothing by default but the billing
  * capabilities, which the app shell reads on every page and which are off
- * (a test that wants billing on declares its own answer). A request that no
+ * (a test that wants billing on declares its own answer), and the two documents
+ * the lists read once billing is on, with a page with nothing in it
+ * (`emptyBillingDocuments`). A request that no
  * handler answers fails with a network error and an `[MSW]` error
  * (`msw-setup.ts` starts it with `onUnhandledFrame: 'error'`), so no test ever
  * reaches a real API.
@@ -19,4 +23,5 @@ export const server = setupServer(
   handleGetBillingCapabilities({
     body: billingCapabilitiesProfiles.disabled(),
   }),
+  graphqlOperationHandler(emptyBillingDocuments),
 );
