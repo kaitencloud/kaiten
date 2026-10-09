@@ -11,6 +11,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatepublishablekey"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/cancelsessionsubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/completesessionpaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createpublishablekey"
@@ -21,6 +22,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listpublishablekeys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listsessioninvoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/reactivatesessionsubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
@@ -130,6 +132,22 @@ func (p PublicSDK) CreateSessionPortalSession(ctx context.Context, cl caller.Cus
 	return p.uc.CreateSessionPortalSession.Execute(bindCustomerSession(ctx, cl), createsessionportalsession.Session{
 		CustomerSlug: cl.CustomerSlug(), AllowedOrigins: cl.AllowedOrigins(),
 	}, request)
+}
+
+// CancelSessionSubscription and ReactivateSessionSubscription act on the
+// subscription of the session's instance, from the caller.
+func (p PublicSDK) CancelSessionSubscription(ctx context.Context, cl caller.CustomerSessionCaller,
+	request cancelsessionsubscription.SessionCancellation,
+) (*sessions.SessionSubscription, error) {
+	return p.uc.CancelSessionSubscription.Execute(bindCustomerSession(ctx, cl), cancelsessionsubscription.Session{
+		InstanceSlug: cl.InstanceSlug(),
+	}, request)
+}
+
+func (p PublicSDK) ReactivateSessionSubscription(ctx context.Context, cl caller.CustomerSessionCaller) (*sessions.SessionSubscription, error) {
+	return p.uc.ReactivateSessionSubscription.Execute(bindCustomerSession(ctx, cl), reactivatesessionsubscription.Session{
+		InstanceSlug: cl.InstanceSlug(),
+	})
 }
 
 // CreateSessionCheckout and ListSessionInvoices take a customer session caller,
