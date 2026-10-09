@@ -13,6 +13,11 @@ concurrency:
   group: go-ci-api-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# The one place the Go version of this workflow is set; why it is an exact
+# version and not 1.27.x is explained above the first Set up Go step.
+env:
+  GO_VERSION: "1.27.1"
+
 jobs:
   lint:
     name: Lint & Build /api
@@ -45,14 +50,27 @@ jobs:
       # it: golang.org/x/tools in api/go.mod (gqlgen codegen, tests that load
       # packages) and golangci-lint v2.13.1 fail with "cannot decode "bufio",
       # export data version 5 is greater than maximum supported version 4".
-      # Lift the pin, and go back to "1.27.x", once golangci-lint and
-      # golang.org/x/tools read export data version 5. Keep the three Set up Go
-      # steps of this file and the ones in pre-commit-ci.yml and
-      # release-openapi.yml in step.
+      #
+      # Go, golangci-lint and golang.org/x/tools move together, never one
+      # alone. A bump of any of them changes, in the same commit:
+      #  - GO_VERSION in this file, in pre-commit-ci.yml and in
+      #    release-openapi.yml;
+      #  - GOLANGCI_LINT_VERSION in Taskfile.yml (v2.13.1 today);
+      #  - the golangci-lint `rev` in .pre-commit-config.yaml;
+      #  - the `version:` of golangci-lint-action in this file;
+      #  - golang.org/x/tools in api/go.mod (v0.49.0 today). It matters as
+      #    much as the linter: Codegen (gqlgen) and the integration tests load
+      #    packages through x/tools too.
+      #
+      # Lift the pin, and go back to "1.27.x", once a golangci-lint release
+      # published after Go 1.27.2 (2026-10-08) bundles an x/tools that reads
+      # export data version 5, and the x/tools in api/go.mod reads it as well.
+      # None qualifies yet: the newest golangci-lint is v2.14.0 (2026-09-24),
+      # which bundles x/tools 0.50.0.
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.27.1"
+          go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: api/go.sum
 
       - name: Build
@@ -146,11 +164,11 @@ jobs:
       #
       # Same convention as the other Go repositories of the organization.
       #
-      # Pinned to 1.27.1 for now: see the first Set up Go step of this file.
+      # Pinned to 1.27.1 for now: see GO_VERSION above and the first Set up Go step.
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.27.1"
+          go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: api/go.sum
 
       # Same loop as `task generate:sqlc`; `go tool sqlc` is version-pinned by
@@ -217,11 +235,11 @@ jobs:
       #
       # Same convention as the other Go repositories of the organization.
       #
-      # Pinned to 1.27.1 for now: see the first Set up Go step of this file.
+      # Pinned to 1.27.1 for now: see GO_VERSION above and the first Set up Go step.
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.27.1"
+          go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: api/go.sum
 
       # -shuffle=on is the guard against a test that only passes because an
