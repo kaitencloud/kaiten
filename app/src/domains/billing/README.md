@@ -72,7 +72,8 @@ app/src/domains/billing/
 │                     # voucher or of an instance as a table and as a card (RedemptionsTable,
 │                     # RedemptionsCard), the dialog that revokes one (RevokeRedemptionDialog), the
 │                     # explanation of a DISCOUNT line (InvoiceLineDiscount) and what a table says
-│                     # when it has no row (TableEmptyMessage)
+│                     # when it has no row (TableEmptyMessage), and the state of a subscription
+│                     # in a list of instances (InstanceBillingBadge, InstanceBillingCell)
 ├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session
 │                     # (useGrantedScopes reads them, for a screen that filters on several);
 │                     # useInvoiceActionAccess, the same for the five actions on an invoice;
@@ -80,7 +81,8 @@ app/src/domains/billing/
 │                     # which explains a deletion billing refused; useBillingActionForm, the form of an
 │                     # audited action; useBoundaryRetry, which waits
 │                     # out a period being closed; useExportInvoices;
-│                     # useUsageReports, over the pages of a list of usage reports
+│                     # useUsageReports, over the pages of a list of usage reports;
+│                     # useInstancesBilling, the subscriptions of the lists of instances
 ├── logic/            # actions and their scopes, availability, problems, the placing of a
 │                     # refusal on the fields of a form (problem-field-errors), the reason an
 │                     # audited action takes (reason), statuses,
@@ -129,6 +131,26 @@ page holds, or an export the API streams.
   (`allInstanceInvoicesOptions`, in `features/instances`).
   `billingSettingsQueryOptions` is `GET /billing/settings` (the defaults a subscription
   takes), read by the settings page and by the dialog that subscribes an instance.
+- `useInstancesBilling()` reads the subscription of each instance for the Billing column
+  of the lists of instances (`features/instances`, `features/customers`). It is a GraphQL
+  document of its own, `GetInstancesBilling` (`queries/instances-billing.queries.ts`):
+  `Instance.billing` needs `read:billing`, and the API checks the scopes of a document
+  once and refuses the whole of it when one is missing, so selecting it in
+  `GetInstancesWithRelations` would take the list from every session that lacks it. The
+  hook asks only when the capabilities say billing is on and the session holds the scope
+  of `subscription.read`; it walks the pages of the list with the same page variables
+  (`limit` 200 and the cursor the API returned), so that one request answers one page and
+  the number of requests follows the pages and never the instances. It answers whether
+  the column exists (`available`), whether the cells are still being filled
+  (`isPending`) and the summary of an instance by slug (`summaryOf`: `null` for one never
+  subscribed, which a list shows as a dash). A refusal or a failure is the answer, not
+  retried, and the lists drop the column: they never depend on it. A token that does not
+  say which scopes it carries asks anyway, as every action does. The enums of the
+  document are plain strings there (`status`, `providerKind`), so `toInstanceBillingSummary`
+  checks them against the REST schema of a subscription (`zInstanceBilling`) before the
+  console reads them: a state it does not know keeps what was sent (`rawStatus`) and shows
+  as written, neutral (`InstanceBillingBadge`). `invalidateInstanceBillingQueries`
+  refreshes it with the rest of a subscription.
 - `usageReportPagesQueryOptions({ fetchPage, queryKey })` reads usage reports a page at a
   time by report number (`afterSeq`: the API answers with the number to read after, and
   none on the last page), under the generated key of the operation with an `_infinite`
