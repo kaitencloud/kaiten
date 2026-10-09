@@ -480,8 +480,10 @@ test.describe('what an instance redeemed, read in French', () => {
     await expect(vouchers.outcome()).toContainText('S’applique jusqu’au');
     await expect(vouchers.outcome()).toContainText('7 nov. 2026 (UTC)');
     await expect(vouchers.outcome()).toContainText('Ce qui a changé');
+    // The API adds before it multiplies: a hundred thousand with the +50 000 of the code, then
+    // doubled by the boost the instance already holds.
     await expect(vouchers.outcome()).toContainText(
-      'Tokens : 200 000 → 250 000',
+      'Tokens : 200 000 → 300 000',
     );
   });
 
