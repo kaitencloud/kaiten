@@ -1,4 +1,5 @@
 export {
+  AttachAddonDialog,
   CancelSubscriptionDialog,
   InstanceDetailAuditTrailTab,
   InstanceDetailBillingTab,

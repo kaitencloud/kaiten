@@ -170,7 +170,7 @@ describe('the body of the subscription', () => {
     expect(subscribeValuesToBody({ ...values, daysUntilDue: 0 }).daysUntilDue).toBe(0);
   });
 
-  it('carries no collection method, add-on or voucher: this release takes none', () => {
+  it('carries no collection method or voucher: this release takes none, and no add-on the person did not include', () => {
     const body = subscribeValuesToBody(
       { ...values, daysUntilDue: 10, startAt: '2027-03-01T00:00' },
       { trials: true },
@@ -214,6 +214,59 @@ describe('the body of the subscription', () => {
       ).trialDays,
     ).toBe(0);
     expect(getTrialDays({ trialDays: 14 }, { billingTiming: 'ARREARS' })).toBe(0);
+  });
+});
+
+describe('the add-ons to start with', () => {
+  const seats = { maxQuantity: 3, slug: 'extra-seats-v1' };
+  const storage = { maxQuantity: undefined, slug: 'extra-storage-v1' };
+
+  it('are none until the person includes one', () => {
+    expect(initialSubscribeFormValues.addOns).toEqual({});
+  });
+
+  it('are sent with their units, in the order they were included, and only then', () => {
+    expect(
+      subscribeValuesToBody({
+        ...values,
+        addOns: { 'extra-storage-v1': 1, 'extra-seats-v1': 2 },
+      }).addOns,
+    ).toEqual([
+      { addonSlug: 'extra-storage-v1', quantity: 1 },
+      { addonSlug: 'extra-seats-v1', quantity: 2 },
+    ]);
+  });
+
+  it('hold a whole number of units, at least one', () => {
+    for (const units of [0, -1, 1.5, Number.NaN]) {
+      expect(
+        getSubscribeFormErrors(
+          { ...values, addOns: { 'extra-seats-v1': units } },
+          { addons: [seats], now: NOW },
+        ),
+        String(units),
+      ).toMatchObject({
+        addOns: 'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.addOns',
+      });
+    }
+  });
+
+  it('stay within the most each version allows, which only the offer knows', () => {
+    const included = { ...values, addOns: { 'extra-seats-v1': 4, 'extra-storage-v1': 40 } };
+
+    expect(getSubscribeFormErrors(included, { addons: [seats, storage], now: NOW })).toMatchObject({
+      addOns: 'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.addOns',
+    });
+    expect(
+      getSubscribeFormErrors(
+        { ...values, addOns: { 'extra-seats-v1': 3, 'extra-storage-v1': 40 } },
+        { addons: [seats, storage], now: NOW },
+      ),
+    ).toBeUndefined();
+  });
+
+  it('do not hold a form back when none is included', () => {
+    expect(getSubscribeFormErrors(values, { addons: [seats], now: NOW })).toBeUndefined();
   });
 });
 

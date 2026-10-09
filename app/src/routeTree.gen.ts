@@ -106,6 +106,7 @@ import { Route as ReleasesDeploymentsNewIndexRouteImport } from './routes/releas
 import { Route as BillingInvoicesInvoiceIdLinesLineIdRouteImport } from './routes/billing/invoices/$invoiceId/lines/$lineId'
 import { Route as CustomersCustomerSlugInstancesNewIndexRouteImport } from './routes/customers/$customerSlug/instances/new/index'
 import { Route as CustomersInstancesInstanceSlugBillingIndexRouteImport } from './routes/customers/instances/$instanceSlug/billing/index'
+import { Route as CustomersInstancesInstanceSlugBillingAttachAddonRouteImport } from './routes/customers/instances/$instanceSlug/billing/attach-addon'
 import { Route as CustomersInstancesInstanceSlugBillingCancelRouteImport } from './routes/customers/instances/$instanceSlug/billing/cancel'
 import { Route as CustomersInstancesInstanceSlugBillingPlanChangeRouteImport } from './routes/customers/instances/$instanceSlug/billing/plan-change'
 import { Route as CustomersInstancesInstanceSlugBillingSubscribeRouteImport } from './routes/customers/instances/$instanceSlug/billing/subscribe'
@@ -656,6 +657,12 @@ const CustomersInstancesInstanceSlugBillingIndexRoute =
     path: '/',
     getParentRoute: () => CustomersInstancesInstanceSlugBillingRouteRoute,
   } as any)
+const CustomersInstancesInstanceSlugBillingAttachAddonRoute =
+  CustomersInstancesInstanceSlugBillingAttachAddonRouteImport.update({
+    id: '/attach-addon',
+    path: '/attach-addon',
+    getParentRoute: () => CustomersInstancesInstanceSlugBillingRouteRoute,
+  } as any)
 const CustomersInstancesInstanceSlugBillingCancelRoute =
   CustomersInstancesInstanceSlugBillingCancelRouteImport.update({
     id: '/cancel',
@@ -785,6 +792,7 @@ export interface FileRoutesByFullPath {
   '/releases/deployment-zones/$zoneSlug/': typeof ReleasesDeploymentZonesZoneSlugIndexRoute
   '/releases/deployments/new/': typeof ReleasesDeploymentsNewIndexRoute
   '/billing/invoices/$invoiceId/lines/$lineId': typeof BillingInvoicesInvoiceIdLinesLineIdRoute
+  '/customers/instances/$instanceSlug/billing/attach-addon': typeof CustomersInstancesInstanceSlugBillingAttachAddonRoute
   '/customers/instances/$instanceSlug/billing/cancel': typeof CustomersInstancesInstanceSlugBillingCancelRoute
   '/customers/instances/$instanceSlug/billing/plan-change': typeof CustomersInstancesInstanceSlugBillingPlanChangeRoute
   '/customers/instances/$instanceSlug/billing/subscribe': typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
@@ -870,6 +878,7 @@ export interface FileRoutesByTo {
   '/releases/deployment-zones/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugIndexRoute
   '/releases/deployments/new': typeof ReleasesDeploymentsNewIndexRoute
   '/billing/invoices/$invoiceId/lines/$lineId': typeof BillingInvoicesInvoiceIdLinesLineIdRoute
+  '/customers/instances/$instanceSlug/billing/attach-addon': typeof CustomersInstancesInstanceSlugBillingAttachAddonRoute
   '/customers/instances/$instanceSlug/billing/cancel': typeof CustomersInstancesInstanceSlugBillingCancelRoute
   '/customers/instances/$instanceSlug/billing/plan-change': typeof CustomersInstancesInstanceSlugBillingPlanChangeRoute
   '/customers/instances/$instanceSlug/billing/subscribe': typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
@@ -975,6 +984,7 @@ export interface FileRoutesById {
   '/releases/deployment-zones_/$zoneSlug/': typeof ReleasesDeploymentZonesZoneSlugIndexRoute
   '/releases/deployments/new/': typeof ReleasesDeploymentsNewIndexRoute
   '/billing/invoices/$invoiceId/lines/$lineId': typeof BillingInvoicesInvoiceIdLinesLineIdRoute
+  '/customers/instances/$instanceSlug/billing/attach-addon': typeof CustomersInstancesInstanceSlugBillingAttachAddonRoute
   '/customers/instances/$instanceSlug/billing/cancel': typeof CustomersInstancesInstanceSlugBillingCancelRoute
   '/customers/instances/$instanceSlug/billing/plan-change': typeof CustomersInstancesInstanceSlugBillingPlanChangeRoute
   '/customers/instances/$instanceSlug/billing/subscribe': typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
@@ -1081,6 +1091,7 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones/$zoneSlug/'
     | '/releases/deployments/new/'
     | '/billing/invoices/$invoiceId/lines/$lineId'
+    | '/customers/instances/$instanceSlug/billing/attach-addon'
     | '/customers/instances/$instanceSlug/billing/cancel'
     | '/customers/instances/$instanceSlug/billing/plan-change'
     | '/customers/instances/$instanceSlug/billing/subscribe'
@@ -1166,6 +1177,7 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones/$zoneSlug'
     | '/releases/deployments/new'
     | '/billing/invoices/$invoiceId/lines/$lineId'
+    | '/customers/instances/$instanceSlug/billing/attach-addon'
     | '/customers/instances/$instanceSlug/billing/cancel'
     | '/customers/instances/$instanceSlug/billing/plan-change'
     | '/customers/instances/$instanceSlug/billing/subscribe'
@@ -1270,6 +1282,7 @@ export interface FileRouteTypes {
     | '/releases/deployment-zones_/$zoneSlug/'
     | '/releases/deployments/new/'
     | '/billing/invoices/$invoiceId/lines/$lineId'
+    | '/customers/instances/$instanceSlug/billing/attach-addon'
     | '/customers/instances/$instanceSlug/billing/cancel'
     | '/customers/instances/$instanceSlug/billing/plan-change'
     | '/customers/instances/$instanceSlug/billing/subscribe'
@@ -1991,6 +2004,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomersInstancesInstanceSlugBillingIndexRouteImport
       parentRoute: typeof CustomersInstancesInstanceSlugBillingRouteRoute
     }
+    '/customers/instances/$instanceSlug/billing/attach-addon': {
+      id: '/customers/instances/$instanceSlug/billing/attach-addon'
+      path: '/attach-addon'
+      fullPath: '/customers/instances/$instanceSlug/billing/attach-addon'
+      preLoaderRoute: typeof CustomersInstancesInstanceSlugBillingAttachAddonRouteImport
+      parentRoute: typeof CustomersInstancesInstanceSlugBillingRouteRoute
+    }
     '/customers/instances/$instanceSlug/billing/cancel': {
       id: '/customers/instances/$instanceSlug/billing/cancel'
       path: '/cancel'
@@ -2118,6 +2138,7 @@ const CustomersCustomerSlugRouteRouteWithChildren =
   )
 
 interface CustomersInstancesInstanceSlugBillingRouteRouteChildren {
+  CustomersInstancesInstanceSlugBillingAttachAddonRoute: typeof CustomersInstancesInstanceSlugBillingAttachAddonRoute
   CustomersInstancesInstanceSlugBillingCancelRoute: typeof CustomersInstancesInstanceSlugBillingCancelRoute
   CustomersInstancesInstanceSlugBillingPlanChangeRoute: typeof CustomersInstancesInstanceSlugBillingPlanChangeRoute
   CustomersInstancesInstanceSlugBillingSubscribeRoute: typeof CustomersInstancesInstanceSlugBillingSubscribeRoute
@@ -2127,6 +2148,8 @@ interface CustomersInstancesInstanceSlugBillingRouteRouteChildren {
 
 const CustomersInstancesInstanceSlugBillingRouteRouteChildren: CustomersInstancesInstanceSlugBillingRouteRouteChildren =
   {
+    CustomersInstancesInstanceSlugBillingAttachAddonRoute:
+      CustomersInstancesInstanceSlugBillingAttachAddonRoute,
     CustomersInstancesInstanceSlugBillingCancelRoute:
       CustomersInstancesInstanceSlugBillingCancelRoute,
     CustomersInstancesInstanceSlugBillingPlanChangeRoute:

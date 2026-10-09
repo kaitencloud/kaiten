@@ -4,6 +4,7 @@ export {
   InstanceDeploymentTableAction,
 } from './instance-deployment';
 export {
+  AttachAddonDialog,
   CancelSubscriptionDialog,
   InstanceDetailAuditTrailTab,
   InstanceDetailBillingTab,
