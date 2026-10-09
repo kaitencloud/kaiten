@@ -4,6 +4,7 @@ import {
   Coins,
   FileText,
   Flag,
+  KeySquare,
   type LucideIcon,
   MapPinned,
   Package,
@@ -41,6 +42,7 @@ export const dataModelIcons = {
   price: Coins,
   addon: Puzzle,
   voucher: Ticket,
+  publishableKey: KeySquare,
 } as const satisfies Record<string, LucideIcon>;
 
 export type DataModelIconKey = keyof typeof dataModelIcons;

@@ -177,7 +177,10 @@ page holds, or an export the API streams.
   `addonGrants.*`, `addonPrices.*`, `addonCompatibility.*`, whose scopes are the add-ons'),
   what the screens of the catalogue read of the licenses and the entitlements
   (`licenseFamilies.list`, `licenseGrants.list`, `entitlements.list`, `instances.list`)
-  and the public listing of a family of licenses (`licenseFamily.setPublic`).
+  and the public listing of a family of licenses (`licenseFamily.setPublic`), and the
+  publishable keys a web page reads that catalogue with (`publishableKeys.list`,
+  `.create`, `.update`, `.revoke`: scopes of their own, `read:publishable_keys` and
+  `write:publishable_keys`, which `features/publishable-keys` follows).
 
 ## Behaviour
 
@@ -282,7 +285,9 @@ page holds, or an export the API streams.
   capabilities, with `connected`, `available`, `unavailableReason`, `livemode` and
   `capabilities.automaticCollection`, and never from `features.stripe`,
   `features.chargeAutomatically` or `features.publicSurface`: the API fixes those three
-  whatever a provider can do, so a gate on them would hide what a deployment has.
+  whatever a provider can do, so a gate on them would hide what a deployment has. The page
+  of the publishable keys is gated the same way: on billing being on and on the scopes of the
+  session, never on `features.publicSurface` or `publicSurface.enabled`.
   Nothing is offered where billing is off, but `listedStanding` reads the entry
   whether it is on or not: the tile of the connectors says that the plan leaves Stripe
   out, or that it needs a Vault, where billing is off for that very reason.

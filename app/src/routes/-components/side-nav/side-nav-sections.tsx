@@ -57,11 +57,20 @@ export function SideNavPrimaryRoutes({ pathname }: SideNavRoutesProps) {
 export function useResolvedIntegrationsItems() {
   const { t } = useTranslation();
   const webhooksServed = useWebhooksServed();
+  const billing = useBillingCapabilities();
+  const { isPending, scopes } = useGrantedScopes();
 
   // Hidden while the answer is read: an entry that appears a moment later is
   // better than one that vanishes.
   return integrationsSubRoutes
     .filter(({ needsWebhooks }) => !needsWebhooks || webhooksServed)
+    .filter(
+      ({ needsBilling }) =>
+        !needsBilling ||
+        (billing.has() &&
+          (needsBilling.action === undefined ||
+            (!isPending && canPerformAction(scopes, needsBilling.action)))),
+    )
     .map(({ labelKey, path }): SideNavResolvedSubRoute => ({
       label: t(labelKey),
       path,

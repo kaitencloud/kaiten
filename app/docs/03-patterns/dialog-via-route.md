@@ -28,7 +28,7 @@ A full page fits when:
 
 If a dialog only works by stacking tabs, a wizard or nested dialogs, it is a page.
 
-In the code, `/customers/new`, `/integrations/service-accounts/new`, `/releases/deployment-zones/$zoneSlug/edit` and the four dialogs of a subscription, `/customers/instances/$instanceSlug/billing/subscribe`, `/cancel`, `/plan-change` and `/terms`, are dialog routes. The last four stand over a tab: the layout route (`billing/route.tsx`) draws the Billing tab and renders the `Outlet`, so that the tab stays where it was behind the dialog, and the `index` route beside it renders nothing. `/releases/new` (a multi-step form), `/feature-flags/new`, `/entitlements/new` and `/licenses/new` are full pages.
+In the code, `/customers/new`, `/integrations/service-accounts/new`, `/releases/deployment-zones/$zoneSlug/edit` and the four dialogs of a subscription, `/customers/instances/$instanceSlug/billing/subscribe`, `/cancel`, `/plan-change` and `/terms`, are dialog routes. The last four stand over a tab: the layout route (`billing/route.tsx`) draws the Billing tab and renders the `Outlet`, so that the tab stays where it was behind the dialog, and the `index` route beside it renders nothing. The two dialogs of the publishable keys, `/integrations/publishable-keys/new` and `/integrations/publishable-keys/$keyId/edit`, stand over the list the same way, and keep the search of the list (`?includeRevoked`) when they close. `/releases/new` (a multi-step form), `/feature-flags/new`, `/entitlements/new` and `/licenses/new` are full pages.
 
 ## A dialog route
 
