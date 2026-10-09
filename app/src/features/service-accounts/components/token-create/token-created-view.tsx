@@ -7,10 +7,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Copy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
+import { CopyableValueField } from '@/components/copyable-value-field';
 import { Page } from '@/functionals/page';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { formatDateTime } from '@/lib/format-date';
@@ -36,12 +34,6 @@ export function TokenCreatedView({
 }: TokenCreatedViewProps) {
   const { t } = useTranslation();
   const TokenIcon = dataModelIcons.token;
-
-  const copyToken = async () => {
-    if (!token.token) return;
-    await navigator.clipboard.writeText(token.token);
-    toast.success(t(`${I18N}.copied`));
-  };
 
   return (
     <Page className="h-full min-h-0 overflow-hidden">
@@ -71,24 +63,15 @@ export function TokenCreatedView({
               </CardTitle>
               <CardDescription>{t(`${I18N}.copyWarning`)}</CardDescription>
             </CardHeader>
-            <CardContent className="flex gap-2">
-              <Input
+            <CardContent>
+              <CopyableValueField
+                copiedMessage={t(`${I18N}.copied`)}
+                copyFailedMessage={t(`${I18N}.copyFailed`)}
+                copyLabel={t(`${I18N}.copyToken`)}
+                inputClassName="text-sm"
+                label={token.name}
                 value={token.token ?? ''}
-                readOnly
-                aria-label={token.name}
-                className="bg-background font-mono text-sm"
-                onFocus={(event) => event.currentTarget.select()}
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="shrink-0"
-                aria-label={t(`${I18N}.copyToken`)}
-                onClick={copyToken}
-              >
-                <Copy className="size-4" />
-              </Button>
             </CardContent>
           </Card>
 

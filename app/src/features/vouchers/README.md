@@ -34,7 +34,7 @@ app/src/features/vouchers/
 │   ├── wizard/             # the four steps (type, offer, eligibility, review), the panels of the offer (discount,
 │   │                       # boost, duration, price picker), the checklists of versions, the published view and
 │   │                       # the footer
-│   ├── shared/             # voucher-code-box: the code with its Copy button
+│   ├── shared/             # voucher-code-box: the code with its Copy button, on the shared CopyableValueField
 │   ├── __tests__/, stories/
 │   └── index.ts
 ├── hooks/                  # use-voucher-form (the wizard), use-voucher-edit-form, use-voucher-transitions,

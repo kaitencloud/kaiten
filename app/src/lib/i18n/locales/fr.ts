@@ -3582,6 +3582,7 @@ export default {
               'Vous ne pourrez plus le voir une fois cette page quittée.',
             copyToken: 'Copier le token',
             copied: 'Token copié dans le presse-papiers',
+            copyFailed: 'Le token n’a pas pu être copié',
             detailsTitle: 'Détails',
             scopes: 'Scopes',
             expires: 'Expire',

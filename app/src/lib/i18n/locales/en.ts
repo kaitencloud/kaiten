@@ -3530,6 +3530,7 @@ export default {
               "You won't be able to see it again once you leave this page.",
             copyToken: 'Copy token',
             copied: 'Token copied to clipboard',
+            copyFailed: 'The token could not be copied',
             detailsTitle: 'Details',
             scopes: 'Scopes',
             expires: 'Expires',
