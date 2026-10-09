@@ -8,6 +8,9 @@ on:
       # The console's GraphQL documents: the API holds a copy of each and pins
       # what it costs, and a test fails when the two part ways.
       - 'app/src/**/*.queries.ts'
+      # This workflow itself: a change to how the API is built, linted or tested
+      # (the Go version, the linter's) has to be proved by a run of it.
+      - '.github/workflows/go-ci.yml'
 
 concurrency:
   group: go-ci-api-${{ github.event.pull_request.number }}
