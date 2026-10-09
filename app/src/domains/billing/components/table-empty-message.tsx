@@ -11,9 +11,8 @@ type TableEmptyMessageProps = {
 /**
  * What a table says in its own cell when it has no row, for a list that has more
  * to say than "no results": what is missing, why, and what to do about it. The
- * lists of invoices and of the handoff queue draw theirs with it, so that they
- * read alike. It is the feature's own: a second feature that needs it moves it up
- * to the domain.
+ * lists of invoices, of the handoff queue and of the vouchers draw theirs with it,
+ * so that they read alike.
  */
 export function TableEmptyMessage({
   children,

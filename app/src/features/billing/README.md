@@ -32,7 +32,6 @@ app/src/features/billing/
 │   │                                   # for reports no longer kept, the CSV button
 │   ├── handoff/                        # the page: tabs, list (search, filters, table and its columns), empty state, the
 │   │                                   # acknowledgement dialog
-│   ├── table-empty-message.tsx         # what the two lists say in their table when it has no row
 │   ├── __tests__/, stories/
 │   └── index.ts
 ├── hooks/                              # use-invoice-mutations, use-acknowledge-handoff, use-line-reports, use-export-line-reports

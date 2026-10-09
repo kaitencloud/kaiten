@@ -102,7 +102,7 @@ describe('useResolvedBillingItems', () => {
 
     it('hides them from a session whose scopes do not cover read:addons', () => {
       expect(
-        billingPathsWith(full, ['read:billing', 'read:instances']),
+        billingPathsWith(full, ['read:billing', 'read:vouchers']),
       ).toEqual(['/billing/invoices', '/billing/handoff', '/vouchers']);
     });
 
@@ -116,6 +116,28 @@ describe('useResolvedBillingItems', () => {
 
     it('does not list them while the scopes of the token are being read', () => {
       expect(billingPathsWith(full, 'unread')).not.toContain('/addons');
+    });
+  });
+
+  describe('the vouchers, for a session that may not read them', () => {
+    const full = billingCapabilitiesProfiles.full();
+
+    it('hides them from a session whose scopes do not cover read:vouchers', () => {
+      expect(
+        billingPathsWith(full, ['read:billing', 'read:addons']),
+      ).toEqual(['/billing/invoices', '/billing/handoff', '/addons']);
+    });
+
+    it.each([
+      ['read:vouchers', ['read:billing', 'read:vouchers']],
+      ['write:vouchers, which covers it', ['read:billing', 'write:vouchers']],
+      ['read:*', ['read:*']],
+    ])('lists them for a session that holds %s', (_, scopes) => {
+      expect(billingPathsWith(full, scopes)).toContain('/vouchers');
+    });
+
+    it('does not list them while the scopes of the token are being read', () => {
+      expect(billingPathsWith(full, 'unread')).not.toContain('/vouchers');
     });
   });
 

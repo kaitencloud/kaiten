@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import { TableEmptyMessage } from '@/domains/billing';
 import type { HandoffQueueStatus } from '../../schemas/handoff-search.schema';
-import { TableEmptyMessage } from '../table-empty-message';
 
 /** The command that takes the invoices of the queue, which the empty queue teaches. */
 const HANDOFF_CLAIM_COMMAND = 'kaiten billing handoff claim';

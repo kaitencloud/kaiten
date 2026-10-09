@@ -33,14 +33,23 @@ export {
 export { ProblemAlert } from './problem-alert';
 export { ProviderBadge } from './provider-badge';
 export { ReasonDialog } from './reason-dialog';
+export { RedemptionsCard } from './redemptions-card';
+export { type RedemptionsSubject, RedemptionsTable } from './redemptions-table';
 export { RetryableProblem } from './retryable-problem';
+export { RevokeRedemptionDialog } from './revoke-redemption-dialog';
 export { ServicePeriod } from './service-period';
 export { SubscriptionStatusBadge } from './subscription-status-badge';
 export {
   rightAlignedHeader,
   rightAlignedSortableHeader,
 } from './table-headers';
+export { TableEmptyMessage } from './table-empty-message';
 export { useUsageReportColumns } from './usage-report-columns';
+export {
+  RedemptionStatusBadge,
+  VoucherStatusBadge,
+  VoucherTypeBadge,
+} from './voucher-badges';
 export {
   DELETE_ACTION_LOOKS,
   ROW_ACTION_LOOKS,

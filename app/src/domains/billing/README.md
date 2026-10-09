@@ -66,7 +66,12 @@ app/src/domains/billing/
 │                     # the versions of a license and those of an add-on share: the confirmed
 │                     # lifecycle action, the deletion of a draft, the badge of the state and
 │                     # the looks of a row's actions (VersionLifecycleAction,
-│                     # VersionDraftDeleteAction, VersionLifecycleBadge, ROW_ACTION_LOOKS)
+│                     # VersionDraftDeleteAction, VersionLifecycleBadge, ROW_ACTION_LOOKS), and
+│                     # what the screens of the vouchers and of the instances share: the badges
+│                     # of a voucher and of a redemption (voucher-badges), the redemptions of a
+│                     # voucher or of an instance as a table and as a card (RedemptionsTable,
+│                     # RedemptionsCard), the dialog that revokes one (RevokeRedemptionDialog) and
+│                     # what a table says when it has no row (TableEmptyMessage)
 ├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session
 │                     # (useGrantedScopes reads them, for a screen that filters on several);
 │                     # useInvoiceActionAccess, the same for the five actions on an invoice;
@@ -81,12 +86,15 @@ app/src/domains/billing/
 │                     # invoice kinds, line types, invoice actions, the refusals of a
 │                     # recompose and of a deletion, handoff, export, retention, usage reports,
 │                     # subscription actions, whether a subscription is live (isSubscriptionLive),
-│                     # billing periods, the trial of a subscription,
+│                     # billing periods, the trial of a subscription, the state of a voucher and of a
+│                     # redemption read from their window and their count (voucher-status), and what a
+│                     # voucher does in plain language (voucher-offer),
 │                     # and what a price is called and how its amount is written
 │                     # (price-types, price-labels, price-display)
 ├── queries/          # the capabilities, the billing settings, the route guard, invalidation
-│                     # helpers, the pages of the invoices of a subject, the pages of usage
-│                     # reports, the export of the invoices
+│                     # helpers (those of the vouchers and of an instance's redemptions included),
+│                     # the pages of the invoices of a subject, the pages of usage reports, the
+│                     # export of the invoices
 ├── types/
 ├── __tests__/
 └── index.ts
@@ -309,7 +317,12 @@ page holds, or an export the API streams.
   the message for what is drawn under the field), remembers the value it was shown
   for, and takes the error back as soon as the field holds another: a refusal is about
   what was typed, and a form that stayed invalid after the person fixed it would not
-  let them send it again. A newer refusal on the same field replaces the older.
+  let them send it again. A newer refusal on the same field replaces the older, and one
+  stands while the value does not change even when the field leaves the screen and is
+  drawn again, as the fields of a wizard do between its steps (a field drawn again starts
+  its state over, and the refusal is put back). `clearProblemFieldError` takes it back
+  before any change, for a refusal about what several fields say together (a short code
+  that nothing bounds), which the person fixes by changing another field.
   `applyProblemFieldErrors` and `placeRefusalOnFields` place a problem on the fields
   that its locations or its code name, and answer whether every error found one.
 - **A period being closed is waited out once.** Every write to a live subscription
@@ -360,39 +373,32 @@ page holds, or an export the API streams.
   screens of the add-ons and the Billing tab of an instance both read about a version
   (`addonPricesQueryOptions`, `addonCompatibilityQueryOptions`,
   `addonLicenseFamiliesQueryOptions`) are the domain's too.
-- **A refusal to delete says what stands in the way.** `readDeletionRefusal` reads the
-  409 of the deletion of an instance (`DeleteInstance.BillingActive`), of a customer
-  (`DeleteCustomer.BillingActive`) and of an entitlement
-  (`DeleteEntitlement.InUseConflict`) from the problem's `errors[0].value`: the status
-  of the subscription and the invoices not settled, whether a subscription lives, or
-  what still grants, counts or prices the entitlement. `useDeletionRefusal(slug)`
-  answers whether a failure was one and, if so, holds the dialog to render beside the
-  action, with the links to the subscription, the invoices and the record; any other
-  failure keeps its toast. A list whose rows leave it before the API has answered (the
-  entitlements) holds the hook above its rows and names the record on each call,
-  `showRefusal(error, slug)`, since a dialog kept by a row goes with the row. Nothing was deleted, and the dialog says so. A price and a
-  voucher boost are never deleted through the API, so an entitlement held by one
-  (`hasPermanentReference`) is not asked to be freed: the dialog offers to hide it
-  instead, by turning off its "User facing" option.
-- **Usage outside the retention is not a failure.** The API refuses a period that
-  starts before the usage it keeps with `OutsideRetention` and the start of what it
-  keeps as a bare ISO string in `errors[0].value` (the line of an invoice carries an
-  object, the metering). `handleBillingProblem` reads both into `retentionStart`; the
-  usage history says how long usage is kept, when the capabilities tell, and offers
-  to start where it begins, and the export of the usage of the organization reads its
-  oldest month from there.
-- **Reading a billing route fails visibly.** `BillingRouteError` is the
-  `errorComponent` of the routes of one record: the API's words, a banner for a
-  missing scope, a page that does not exist for a 404, and a Retry that invalidates
-  the router (the `reset` of an error component only clears the boundary, which
-  throws the same error again). `RetryableProblem` is the same for a read inside a
-  page: the refusal and a way to ask again, none where it would change nothing (a
-  missing scope, a period whose usage is no longer kept).
-  `ProblemAlert` takes `autoFocus` for a dialog, whose confirmation is disabled
-  while the API answers and drops the focus with it.
-- **Downloads are authenticated.** An export is a stream behind a bearer token, so
-  `downloadBlob` (`lib/download-blob.ts`) takes a call of the generated SDK made
-  with `parseAs: 'blob'` and saves its body.
+  The transitions a thing goes through may be fewer than three: a voucher is published and
+  archived and never put back on sale, so `VersionLifecycleAction` and
+  `VersionLifecycleKeys` are generic over the transitions they say, and the block that
+  stops the archiving of a default is optional.
+- **A voucher is read from its window, not from the status the API stores.** The API never
+  sets a voucher EXPIRED, and an ACTIVE voucher stays ACTIVE past its end until the
+  redemption that reaches its maximum flips it to EXHAUSTED, so `getVoucherStatus` reads an
+  ACTIVE voucher as exhausted when its count reached its maximum (the API tests it first),
+  expired when its `expiresAt` is not after now, and active otherwise; `isVoucherScheduled`
+  says that one that starts later cannot be redeemed yet. A redemption of a boost stays
+  ACTIVE past its end for the same reason, and `getRedemptionStatus` reads it as expired.
+  `VoucherStatusBadge` and `RedemptionStatusBadge` draw that status, never the stored one.
+- **A voucher is described by what it does, counted in the unit it lasts in.**
+  `describeVoucherOffer` writes the discount and what it applies to, or what the boost
+  changes, and for how long: a discount counts invoices and a boost billing periods, which
+  diverge once an instance changes plan. It reads from a stored voucher and from the draft
+  of the wizard alike, so the sentence an account executive pastes in an e-mail is the one
+  the review step showed. `describeDiscount` and `describeGrant` are its two parts.
+- **The redemptions of a voucher and of an instance are one table.** `RedemptionsTable`
+  leads each row by the instance (on the page of a voucher) or by the voucher (on the page
+  of an instance) and shows when it was redeemed, the window it applies in, the invoices a
+  discount used and its state, with the reason a revoked one was; `RedemptionsCard` draws
+  its four states (loading, refused with a way to ask again, empty, populated).
+  `RevokeRedemptionDialog` takes one back with the reason the API requires, waits out a
+  period being closed, and refreshes the voucher, its redemptions, the instance and its next
+  invoice (`invalidateInstanceVoucherQueries`).
 
 ## Tests
 
@@ -412,7 +418,9 @@ explains by `e2e/app/billing/billing.unavailable.spec.ts`. The table of invoices
 the fingerprint, the arithmetic of an overage, the refusals (`retryable-problem`,
 and `invoice-refusals` for what a recompose was refused for), the rules of the
 invoice actions and the scopes that gate them, the export and the lease of a
-handoff have their own files in `__tests__/`, and
+handoff have their own files in `__tests__/`, and the voucher status
+(`voucher-status.test.ts`), the plain-language offer (`voucher-offer.test.ts`), the
+redemptions table and its revoke dialog (`redemptions.test.tsx`) have theirs, and
 `components/stories/invoices-table.stories.tsx` shows the table. The wait for a
 period being closed (`use-boundary-retry.test.tsx`, on fake timers: the minute, the
 `Retry-After`, the single retry, the unmount) and the bounds of a trial
