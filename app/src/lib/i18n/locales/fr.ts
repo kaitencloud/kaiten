@@ -3215,6 +3215,118 @@ export default {
       title: 'Intégrations',
       PublishableKeys: {
         title: 'Clés publiables',
+        subtitle:
+          'Les clés avec lesquelles une page web lit votre catalogue public',
+        Intro: {
+          purpose:
+            'Une clé publiable permet à une page web de lire votre catalogue public : elle envoie la clé dans l’en-tête X-Kaiten-Publishable-Key vers GET /public/catalog. Ce n’est pas un secret, et elle ne lit rien d’autre.',
+          listing:
+            'Ce que le catalogue liste est décidé par l’interrupteur « Catalogue public » de chaque famille :',
+          licenses: 'Familles de licences',
+          addons: 'Familles d’add-ons',
+        },
+        List: {
+          new: 'Nouvelle clé publiable',
+          includeRevoked: 'Inclure les clés révoquées',
+          keyHint: '…{{hint}}',
+          neverUsed: 'Jamais utilisée',
+          noOrigins: 'Aucune origine de navigateur',
+          showMore: 'Afficher {{count}} de plus',
+          showFewer: 'Afficher moins',
+          Columns: {
+            label: 'Libellé',
+            key: 'Clé',
+            origins: 'Origines autorisées',
+            created: 'Créée le',
+            lastUsed: 'Dernière utilisation',
+            status: 'Statut',
+          },
+          Status: {
+            live: 'Active',
+            revoked: 'Révoquée',
+          },
+          Actions: {
+            edit: 'Modifier {{label}}',
+            revoke: 'Révoquer {{label}}',
+          },
+          Filters: {
+            search: 'Recherche',
+            searchPlaceholder: 'Rechercher par libellé, fin de clé ou origine',
+            clear: 'Effacer la recherche',
+          },
+          Empty: {
+            title: 'Aucune clé publiable',
+            description:
+              'Créez une clé pour qu’une page web puisse lire votre catalogue public.',
+            filteredTitle: 'Aucune clé ne correspond',
+            filteredDescription:
+              'Aucune clé publiable ne correspond à cette recherche.',
+          },
+        },
+        Create: {
+          title: 'Nouvelle clé publiable',
+          description: 'La clé n’est affichée qu’une fois, à sa création.',
+          submit: 'Créer la clé',
+          Created: {
+            title: 'Clé publiable créée',
+            description:
+              'Copiez la clé maintenant et placez-la dans votre page web.',
+            warning:
+              'Vous ne reverrez plus cette clé. Seuls ses quatre derniers caractères, {{hint}}, restent visibles dans la liste.',
+            keyLabel: 'Clé {{label}}',
+            copy: 'Copier la clé',
+            copied: 'Clé copiée',
+            copyFailed: 'La clé n’a pas pu être copiée',
+            done: 'Terminé',
+            Leave: {
+              title: 'Fermer sans la clé ?',
+              description:
+                'Vous n’avez pas copié cette clé et elle ne sera plus affichée. Si vous fermez maintenant, vous devrez créer une nouvelle clé.',
+              stay: 'Revenir à la clé',
+              leave: 'Fermer sans copier',
+            },
+          },
+        },
+        Edit: {
+          title: 'Modifier {{label}}',
+          description:
+            'Changez à quoi sert la clé et les origines qui peuvent l’envoyer. La clé elle-même ne change pas.',
+          save: 'Enregistrer',
+          saved: '{{label}} enregistrée',
+          revoked:
+            'Cette clé a été révoquée entre-temps. Une clé révoquée ne peut plus changer : créez-en une nouvelle à sa place.',
+        },
+        Form: {
+          Labels: {
+            label: 'Libellé',
+            origins: 'Origines autorisées',
+          },
+          Placeholders: {
+            label: 'Site marketing',
+            origins: 'https://www.example.com',
+          },
+          Descriptions: {
+            label:
+              'À quoi sert la clé, pour distinguer vos clés (100 caractères au plus).',
+            origins:
+              'Une origine par ligne, {{max}} au plus : https://hôte, ou http://localhost, avec un port s’il y en a un. Sans chemin. Laissez vide pour n’autoriser aucune origine de navigateur.',
+          },
+          rejected: 'Pas une origine : {{origins}}',
+          Errors: {
+            label: 'Saisissez un libellé',
+            labelTooLong: 'Ce libellé est trop long',
+            origins:
+              'Chaque origine est https://hôte[:port], ou http://localhost[:port], sans chemin, paramètres ni fragment',
+            tooManyOrigins: 'C’est trop d’origines pour une seule clé',
+          },
+        },
+        Revoke: {
+          title: 'Révoquer {{label}} ?',
+          description:
+            'La clé qui se termine par {{hint}} cesse de fonctionner à la requête suivante, et toute page qui l’envoie cesse de lire votre catalogue. Une clé révoquée ne peut pas être rétablie : créez-en une nouvelle pour la remplacer.',
+          confirm: 'Révoquer la clé',
+          success: '{{label}} révoquée',
+        },
       },
       Connectors: {
         title: 'Connecteurs',

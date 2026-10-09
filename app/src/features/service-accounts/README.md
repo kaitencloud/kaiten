@@ -13,7 +13,7 @@ A service account is a non-human identity that holds API tokens, for automation 
 
 `app/src/routes/integrations/service-accounts/route.tsx` is the layout of the section. It loads the list (`serviceAccountsQueryOptions`) and renders the outlet. The new-token route ensures the account in `beforeLoad` (`serviceAccountQueryOptions(serviceAccountSlug)`), which also sets the breadcrumb to the account's name. The account dialog follows [dialog via route](../../../docs/03-patterns/dialog-via-route.md).
 
-Service accounts are the first entry of the Integrations group of the side navigation (`integrationsSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`). `webhooks` and `connectors` are the other entries, in their own features.
+Service accounts are the first entry of the Integrations group of the side navigation (`integrationsSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`). `webhooks`, `connectors` and `publishable-keys` are the other entries, in their own features.
 
 ## Structure
 

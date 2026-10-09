@@ -96,6 +96,13 @@ export const BILLING_ACTIONS = {
   'vouchers.validate': 'validateVoucher',
   'instance.vouchers.list': 'listInstanceVouchers',
   'instance.vouchers.redeem': 'redeemVoucher',
+  // The publishable keys a web page reads the public catalogue with: they have scopes of
+  // their own, and the page they are on is gated on billing but not on the public surface
+  // the capabilities report (the API fixes that flag whatever it can do).
+  'publishableKeys.list': 'listPublishableKeys',
+  'publishableKeys.create': 'createPublishableKey',
+  'publishableKeys.update': 'updatePublishableKey',
+  'publishableKeys.revoke': 'revokePublishableKey',
   // Invoices of the organization.
   'invoices.list': 'listInvoices',
   'invoices.export': 'exportInvoices',

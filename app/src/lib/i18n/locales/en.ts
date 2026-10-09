@@ -3169,6 +3169,115 @@ export default {
       title: 'Integrations',
       PublishableKeys: {
         title: 'Publishable keys',
+        subtitle: 'The keys a web page reads your public catalogue with',
+        Intro: {
+          purpose:
+            'A publishable key lets a web page read your public catalogue: it sends the key in the X-Kaiten-Publishable-Key header to GET /public/catalog. It is not a secret, and it reads nothing else.',
+          listing:
+            'What the catalogue lists is decided by the Public catalogue switch of each family:',
+          licenses: 'License families',
+          addons: 'Add-on families',
+        },
+        List: {
+          new: 'New publishable key',
+          includeRevoked: 'Include revoked',
+          keyHint: '…{{hint}}',
+          neverUsed: 'Never used',
+          noOrigins: 'No browser origin',
+          showMore: 'Show {{count}} more',
+          showFewer: 'Show fewer',
+          Columns: {
+            label: 'Label',
+            key: 'Key',
+            origins: 'Allowed origins',
+            created: 'Created',
+            lastUsed: 'Last used',
+            status: 'Status',
+          },
+          Status: {
+            live: 'Live',
+            revoked: 'Revoked',
+          },
+          Actions: {
+            edit: 'Edit {{label}}',
+            revoke: 'Revoke {{label}}',
+          },
+          Filters: {
+            search: 'Search',
+            searchPlaceholder: 'Search by label, key ending or origin',
+            clear: 'Clear the search',
+          },
+          Empty: {
+            title: 'No publishable key yet',
+            description:
+              'Issue a key to let a web page read your public catalogue.',
+            filteredTitle: 'No key matches',
+            filteredDescription: 'No publishable key matches this search.',
+          },
+        },
+        Create: {
+          title: 'New publishable key',
+          description: 'The key is shown once, when you create it.',
+          submit: 'Create key',
+          Created: {
+            title: 'Publishable key created',
+            description: 'Copy the key now and put it in your web page.',
+            warning:
+              'You will not see this key again. Only its last four characters, {{hint}}, stay visible in the list.',
+            keyLabel: 'Key {{label}}',
+            copy: 'Copy the key',
+            copied: 'Key copied',
+            copyFailed: 'The key could not be copied',
+            done: 'Done',
+            Leave: {
+              title: 'Close without the key?',
+              description:
+                'You have not copied this key, and it will not be shown again. If you close now, you will have to create a new key.',
+              stay: 'Back to the key',
+              leave: 'Close without copying',
+            },
+          },
+        },
+        Edit: {
+          title: 'Edit {{label}}',
+          description:
+            'Change what the key is for and the origins that may send it. The key itself does not change.',
+          save: 'Save',
+          saved: '{{label}} saved',
+          revoked:
+            'This key was revoked in the meantime. A revoked key can no longer change: create a new key instead.',
+        },
+        Form: {
+          Labels: {
+            label: 'Label',
+            origins: 'Allowed origins',
+          },
+          Placeholders: {
+            label: 'Marketing site',
+            origins: 'https://www.example.com',
+          },
+          Descriptions: {
+            label:
+              'What the key is for, to tell your keys apart (up to 100 characters).',
+            origins:
+              'One origin per line, at most {{max}}: https://host, or http://localhost, with a port if there is one. No path. Leave it empty to allow no browser origin.',
+          },
+          rejected: 'Not an origin: {{origins}}',
+          Errors: {
+            label: 'Enter a label',
+            labelTooLong: 'That label is too long',
+            origins:
+              'Each origin is https://host[:port], or http://localhost[:port], with no path, query or fragment',
+            tooManyOrigins: 'That is too many origins for one key',
+          },
+        },
+        Revoke: {
+          title: 'Revoke {{label}}?',
+          description:
+            'The key ending in {{hint}} stops working on the next request, and every page that sends it stops reading your catalogue. A revoked key cannot be restored: create a new one to replace it.',
+          confirm: 'Revoke key',
+          success: '{{label}} revoked',
+        },
       },
       Connectors: {
         title: 'Connectors',

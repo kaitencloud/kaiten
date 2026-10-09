@@ -18,6 +18,15 @@ export type SideNavSubRouteDefinition = {
    * missing link.
    */
   needsWebhooks?: boolean;
+  /**
+   * Whether this entry is a page of billing: listed only where billing is on
+   * (`GET /billing/capabilities`, hidden while it loads and whenever it cannot be
+   * read), and, when an `action` is named, to a session whose scopes cover it. It asks
+   * for no `feature` of the release, on purpose: the page of the publishable keys must
+   * not follow `features.publicSurface`, which the API fixes to false whatever the
+   * deployment can do. The entry's route guards itself as well.
+   */
+  needsBilling?: { action?: BillingAction };
 };
 
 /** An entry of the Billing section. */
@@ -107,6 +116,11 @@ export const integrationsSubRoutes: SideNavSubRouteDefinition[] = [
   {
     labelKey: 'Pages.Integrations.Connectors.title',
     path: '/integrations/connectors',
+  },
+  {
+    labelKey: 'Pages.Integrations.PublishableKeys.title',
+    needsBilling: { action: 'publishableKeys.list' },
+    path: '/integrations/publishable-keys',
   },
 ];
 
