@@ -22,9 +22,9 @@ export type SideNavSubRouteDefinition = {
    * Whether this entry is a page of billing: listed only where billing is on
    * (`GET /billing/capabilities`, hidden while it loads and whenever it cannot be
    * read), and, when an `action` is named, to a session whose scopes cover it. It asks
-   * for no `feature` of the release, on purpose: the page of the publishable keys must
-   * not follow `features.publicSurface`, which the API fixes to false whatever the
-   * deployment can do. The entry's route guards itself as well.
+   * for no `feature` of the release, on purpose: the page of the publishable keys needs
+   * billing on and the scopes, and `features.publicSurface` (true with the release) adds
+   * nothing to that. The entry's route guards itself as well.
    */
   needsBilling?: { action?: BillingAction };
 };

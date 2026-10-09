@@ -125,12 +125,14 @@ describe('dev world', () => {
     expect(
       capabilities.providers.find(({ kind }) => kind === 'STRIPE'),
     ).toMatchObject({ connected: true, livemode: false });
-    // As the API serves them: it fixes these three, whatever Stripe can do.
+    // As the API serves them: the release ships these three, whatever Stripe can
+    // do here, and the public surface is on wherever billing is.
     expect(capabilities.features).toMatchObject({
-      chargeAutomatically: false,
-      publicSurface: false,
+      chargeAutomatically: true,
+      publicSurface: true,
       stripe: true,
     });
+    expect(capabilities.publicSurface.enabled).toBe(true);
   });
 
   it('prices the versions of the licenses, and only what they grant', () => {

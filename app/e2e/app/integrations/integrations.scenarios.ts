@@ -60,9 +60,8 @@ export const PUBLISHABLE_KEYS: PublishableKey[] = [
 ];
 
 /**
- * Billing on, as the API of the local stack serves it -- with `publicSurface` false,
- * which the API fixes whatever it can do, so that the page is seen to stand without it --
- * and the publishable keys above.
+ * Billing on, as the API of the local stack serves it -- `publicSurface` shipped and
+ * enabled, as it is wherever billing is on -- and the publishable keys above.
  */
 export function createPublishableKeysBillingModel() {
   return new BillingAppModel({

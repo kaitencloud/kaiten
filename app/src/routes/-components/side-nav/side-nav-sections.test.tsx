@@ -6,7 +6,10 @@ import type { BillingCapabilities } from '@/api-client';
 import { billingCapabilitiesQueryOptions } from '@/domains/billing';
 import { type GrantedScopes, grantedScopesQueryKey } from '@/lib/granted-scopes';
 import { webhooksServedQueryOptions } from '@/domains/webhooks';
-import { billingCapabilitiesProfiles } from '../../../../e2e/app/_support/model/billing-capabilities';
+import {
+  billingCapabilitiesProfiles,
+  NO_BILLING_FEATURES,
+} from '../../../../e2e/app/_support/model/billing-capabilities';
 import {
   useResolvedBillingItems,
   useResolvedIntegrationsItems,
@@ -70,12 +73,22 @@ describe('useResolvedIntegrationsItems', () => {
   describe('the publishable keys', () => {
     const keys = '/integrations/publishable-keys';
 
-    it('are listed where billing is on, whatever the capabilities say of the public surface', () => {
+    it('are listed where billing is on, with the public surface shipped and enabled as the API serves it', () => {
       const capabilities = billingCapabilitiesProfiles.stack();
 
-      // The API fixes both to false whatever the deployment can do.
+      expect(capabilities.features.publicSurface).toBe(true);
+      expect(capabilities.publicSurface.enabled).toBe(true);
+      expect(integrationsPathsWith(false, capabilities)).toContain(keys);
+    });
+
+    it('are listed where billing is on, whatever the capabilities say of the public surface', () => {
+      const capabilities = {
+        ...billingCapabilitiesProfiles.stack(),
+        features: NO_BILLING_FEATURES,
+        publicSurface: { enabled: false },
+      };
+
       expect(capabilities.features.publicSurface).toBe(false);
-      expect(capabilities.publicSurface.enabled).toBe(false);
       expect(integrationsPathsWith(false, capabilities)).toContain(keys);
     });
 

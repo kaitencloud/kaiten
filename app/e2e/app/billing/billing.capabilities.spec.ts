@@ -15,9 +15,10 @@ import { ConnectorAppModel } from '../_support/model/connector-app-model';
 // What the console shows of billing follows the capabilities the API answers with, and
 // nothing else: the navigation is there where billing is `enabled`, and the tile of
 // Stripe says where Stripe stands from the `providers` it lists (connected, free to be,
-// not in the plan, or in need of a Vault). The three feature flags the API fixes
-// (`stripe`, `chargeAutomatically`, `publicSurface`) and the platform flags are no part
-// of that decision. The answers below are the ones of the organizations of the API's
+// not in the plan, or in need of a Vault). Three flags of `features` (`stripe`,
+// `chargeAutomatically`, `publicSurface`) say what the release ships and are true on every
+// organization, so they are no part of that decision, and neither are the platform flags.
+// The answers below are the ones of the organizations of the API's
 // own tests: a Cloud organization on a beta plan, one on a starter plan, one on a pro plan
 // with Stripe connected, and a self-hosted deployment with no Vault.
 
@@ -27,7 +28,8 @@ const betaTester = () =>
       ...billingCapabilitiesProfiles.stackWithStripe('notEntitled'),
       disabledReason: 'NOT_ENTITLED',
       enabled: false,
-      features: NO_BILLING_FEATURES,
+      features: ALL_BILLING_FEATURES,
+      publicSurface: { enabled: false },
     },
   });
 const starter = () =>
@@ -152,7 +154,7 @@ test.describe('where Stripe stands, read from the providers and not from the fla
     await expect(settings.stripe()).toContainText('Connected');
   });
 
-  test('is not in the plan whatever `features.stripe` and the other flags the API fixes say', async ({
+  test('is not in the plan whatever `features.stripe` and the other flags say', async ({
     page,
   }) => {
     const stripe = new StripeConnectorDriver(page);
@@ -170,7 +172,7 @@ test.describe('where Stripe stands, read from the providers and not from the fla
     await expect(stripe.tile()).toContainText('Not included in your plan');
   });
 
-  test('keeps automatic collection off as the default where a connected provider charges, and points to the contract', async ({
+  test('keeps automatic collection off as the default where a connected provider charges, whatever `features.chargeAutomatically` says, and points to the contract', async ({
     page,
   }) => {
     const settings = new BillingSettingsDriver(page);

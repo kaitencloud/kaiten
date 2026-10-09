@@ -152,7 +152,8 @@ function renderProvider(provider: BillingProvider) {
  * showing an empty list. Stripe is there whenever the API lists it, with where it
  * stands for the organization; connecting it is the page of its connector. The
  * entries are read from the providers and never from the feature flags of the
- * capabilities, which the API fixes whatever Stripe can do here.
+ * capabilities, which say what the release ships and not what the organization can
+ * connect here.
  */
 export function BillingProvidersCard() {
   const { t } = useTranslation();

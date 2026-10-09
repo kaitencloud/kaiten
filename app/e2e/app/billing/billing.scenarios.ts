@@ -13,6 +13,7 @@ import {
 import {
   billingCapabilities,
   billingCapabilitiesProfiles,
+  SHIPPED_BILLING_FEATURES,
   type StripeStanding,
 } from '../_support/model/billing-capabilities';
 import {
@@ -49,21 +50,17 @@ export function createBillingFullModel() {
 }
 
 /**
- * A release that ships the lifecycle and Stripe but not trials, add-ons,
- * vouchers, automatic collection nor the public surface: the console offers only
- * what this release can do.
+ * A release that ships the lifecycle and Stripe but not trials, add-ons nor
+ * vouchers: the console offers only what this release can do. Automatic collection
+ * and the public surface are shipped, as on every release the API answers for now.
  */
 export function createBillingFeatureGatedModel() {
   return new BillingAppModel({
     capabilities: billingCapabilities({
       features: {
-        addons: false,
-        chargeAutomatically: false,
+        ...SHIPPED_BILLING_FEATURES,
         lifecycle: true,
-        publicSurface: false,
         stripe: true,
-        trials: false,
-        vouchers: false,
       },
     }),
   });
@@ -136,8 +133,8 @@ export function createInvoicesModel(
  * An organization that collects through Stripe: the invoices of
  * `invoice-fixtures.ts` (the ones nobody pushed) and every state an invoice can be
  * in at Stripe (`stripe-fixtures.ts`), the customers as Stripe holds them, and
- * what the API serves now of the capabilities (it fixes `stripe`,
- * `chargeAutomatically` and `publicSurface`, whatever Stripe can do).
+ * what the API serves now of the capabilities (`stripe`, `chargeAutomatically` and
+ * `publicSurface` shipped, whatever Stripe can do here).
  *
  * - `standing` is where the connector stands: connected (a test account by default),
  *   or one of the reasons it cannot be;
