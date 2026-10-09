@@ -55,9 +55,14 @@ export function PaymentMethodCard({
   const read = useActionAccess('customer.billing.read');
   const write = useActionAccess('customer.paymentMethod.createSession');
   const available = stripe.isConnected && read.allowed;
+  // Back from Stripe, the session is checked before the card is read: a read that came
+  // first could be answered before the API kept the card, and, being the first, it would
+  // be taken for the answer, the refresh that follows the check joining it instead of
+  // asking again. The route drops the session from the address once it was dealt with.
+  const returning = Boolean(setupSessionId);
   const query = useQuery({
     ...customerBillingQueryOptions(customerSlug),
-    enabled: available,
+    enabled: available && !returning,
   });
   const actions = usePaymentMethod(customerSlug);
   const [dialog, setDialog] = useState<'currency' | 'remove' | null>(null);
