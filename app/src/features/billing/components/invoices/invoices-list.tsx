@@ -20,6 +20,7 @@ import {
   createInvoicesFilterFields,
   INVOICE_FILTER_IDS,
 } from '../../utils/invoice-filter-fields';
+import { InvoicesViewSwitcher } from '../handoff';
 import { InvoiceScopeChips } from './invoice-scope-chips';
 import { InvoicesEmpty } from './invoices-empty';
 
@@ -43,13 +44,14 @@ const WITHOUT_PROVIDER: readonly InvoicesTableColumn[] = ['provider'];
 const WITH_PROVIDER: readonly InvoicesTableColumn[] = [];
 
 /**
- * The invoices of the organization as a list page like the others: a search that
+ * The invoices of the organization as a list like the others: a search that
  * matches who an invoice is for and the invoice itself, the Filter menu with its
- * chips, the export where the page actions go, and the table, sorted and paged in
- * the browser. The console holds every invoice of the scope, so it filters them
- * itself; the scope, a customer or an instance, is the API's and stays a chip in the
- * toolbar and a search of the URL. The export is the API's too, and takes the scope
- * and every filter of the screen that it has too; it says which it leaves out.
+ * chips, the switch to the handoff queue and the export where the page actions go,
+ * and the table, sorted and paged in the browser. The console holds every invoice
+ * of the scope, so it filters them itself; the scope, a customer or an instance, is
+ * the API's and stays a chip in the toolbar and a search of the URL. The export is
+ * the API's too, and takes the scope and every filter of the screen that it has too;
+ * it says which it leaves out.
  */
 export function InvoicesList({
   canExport,
@@ -94,14 +96,15 @@ export function InvoicesList({
           >
             <InvoiceScopeChips onChange={onScopeChange} scope={scope} />
           </FilterTableLayout.Search>
-          {canExport ? (
-            <FilterTableLayout.Actions>
+          <FilterTableLayout.Actions className="gap-2">
+            <InvoicesViewSwitcher />
+            {canExport ? (
               <ExportInvoicesMenu
                 filters={filters}
                 unapplied={unappliedLabels}
               />
-            </FilterTableLayout.Actions>
-          ) : null}
+            ) : null}
+          </FilterTableLayout.Actions>
         </FilterTableLayout.ToolbarRow>
         <FilterTableLayout.Filters />
       </FilterTableLayout.Toolbar>

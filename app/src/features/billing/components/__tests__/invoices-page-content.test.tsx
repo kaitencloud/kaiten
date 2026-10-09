@@ -16,7 +16,7 @@ import {
   useBillingTexts,
 } from '@/test-fixtures/billing-test-support';
 import { billingCapabilitiesProfiles } from '../../../../../e2e/app/_support/model/billing-capabilities';
-import type { InvoiceListSeed } from '../../schemas/invoice-list-seed.schema';
+import type { InvoicesSearch } from '../../schemas/invoices-search.schema';
 import { InvoicesPageContent } from '../invoices/invoices-page-content';
 
 vi.mock('@tanstack/react-router', async () =>
@@ -41,10 +41,10 @@ function serveInvoices(...pages: PageInvoiceSummary[]) {
   return asked;
 }
 
-const renderPage = (scope = {}, seed: InvoiceListSeed = {}) =>
+const renderPage = (search: InvoicesSearch = {}) =>
   renderWithClient(
     <Suspense fallback={null}>
-      <InvoicesPageContent onScopeChange={vi.fn()} scope={scope} seed={seed} />
+      <InvoicesPageContent onScopeChange={vi.fn()} search={search} />
     </Suspense>,
     createLoadedPageClient(),
   );
@@ -99,7 +99,7 @@ describe('the page of the invoices, opened by a link', () => {
         invoiceRow('inv-2', 'Globex'),
       ]),
     );
-    renderPage({}, { status: 'PUSH_FAILED' });
+    renderPage({ status: 'PUSH_FAILED' });
 
     expect(await screen.findByText('Initech')).toBeInTheDocument();
     expect(screen.queryByText('Globex')).toBeNull();
@@ -108,7 +108,7 @@ describe('the page of the invoices, opened by a link', () => {
 
   it('asks the API for the scope alone: the filter of the link is the page\'s', async () => {
     const asked = serveInvoices(pageOf([invoiceRow('inv-1', 'Initech')]));
-    renderPage({ customerSlug: 'initech' }, { held: true, overdue: true });
+    renderPage({ customerSlug: 'initech', held: true, overdue: true });
 
     await waitFor(() => expect(asked).toHaveLength(1));
     expect([...asked[0].keys()].sort()).toEqual(['customerSlug', 'limit']);
@@ -170,5 +170,41 @@ describe('who collects, on the page of the invoices', () => {
 
     await screen.findByText('Initech');
     expect(providerHeader()).toBeNull();
+  });
+});
+
+describe('the way to the handoff queue, on the page of the invoices', () => {
+  it('is a link of the toolbar, to the handoff view, where the queue matters', async () => {
+    server.use(
+      handleGetBillingCapabilities({
+        body: billingCapabilitiesProfiles.stack(),
+      }),
+    );
+    serveInvoices(pageOf([invoiceRow('inv-1', 'Initech')]));
+    renderPage();
+
+    await screen.findByText('Initech');
+
+    expect(await screen.findByRole('link', { name: 'Handoff' })).toHaveAttribute(
+      'href',
+      '/invoices?view=handoff',
+    );
+    expect(screen.getByRole('link', { name: 'All' })).toHaveAttribute(
+      'href',
+      '/invoices',
+    );
+  });
+
+  it('is not there where billing says nothing of NoOp, and the list stays as it was', async () => {
+    serveInvoices(pageOf([invoiceRow('inv-1', 'Initech')]));
+    renderPage();
+
+    await screen.findByText('Initech');
+
+    expect(screen.queryByRole('link', { name: 'Handoff' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'All' })).toBeNull();
+    expect(
+      screen.getByPlaceholderText('Customer, instance or invoice'),
+    ).toBeInTheDocument();
   });
 });

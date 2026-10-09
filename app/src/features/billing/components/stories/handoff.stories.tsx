@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 import type { QueuedInvoice } from '@/api-client';
+import { billingCapabilitiesQueryOptions } from '@/domains/billing';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
+import { billingCapabilitiesProfiles } from '../../../../../e2e/app/_support/model/billing-capabilities';
 import { HandoffEmpty } from '../handoff/handoff-empty';
 import { HandoffList } from '../handoff/handoff-list';
 import { HandoffTable } from '../handoff/handoff-table';
@@ -108,6 +110,45 @@ export const SearchedLikeTheOtherLists: Story = {
 
     await waitFor(() => expect(canvas.queryByText('Initech')).toBeNull());
     await expect(canvas.getByText('Globex')).toBeVisible();
+  },
+};
+
+// The queue is a view of the list of invoices: its toolbar holds the two parts of the
+// queue beside the search, and the switch back to every invoice on its right, where
+// the organization collects through NoOp and the session may read the queue.
+export const InTheToolbarOfTheInvoices: Story = {
+  render: () => (
+    <StorybookRouter
+      initialEntries={['/invoices?view=handoff']}
+      routePath="/invoices"
+      seed={(queryClient) =>
+        queryClient.setQueryData(
+          billingCapabilitiesQueryOptions.queryKey,
+          billingCapabilitiesProfiles.stack(),
+        )
+      }
+    >
+      <HandoffList invoices={WAITING} status="PENDING" />
+    </StorybookRouter>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      await canvas.findByRole('link', { name: 'Waiting' }),
+    ).toHaveAttribute('aria-current', 'page');
+    await expect(canvas.getByRole('link', { name: 'Acknowledged' })).toHaveAttribute(
+      'href',
+      '/invoices?view=handoff&queue=ACKNOWLEDGED',
+    );
+    await expect(await canvas.findByRole('link', { name: 'All' })).toHaveAttribute(
+      'href',
+      '/invoices',
+    );
+    await expect(canvas.getByRole('link', { name: 'Handoff' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
   },
 };
 

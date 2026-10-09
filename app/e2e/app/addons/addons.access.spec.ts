@@ -27,7 +27,7 @@ test.describe('the entry of the navigation', () => {
     await nav.gotoShell();
     await nav.open();
 
-    await nav.expectEntries(['Invoices', 'Handoff', 'Add-ons']);
+    await nav.expectEntries(['Invoices', 'Add-ons']);
     await expect(nav.entry('Add-ons')).toHaveAttribute('href', '/addons');
     await expect(nav.entry('Vouchers')).toHaveCount(0);
     await nav.entry('Add-ons').click();
@@ -54,9 +54,10 @@ test.describe('the entry of the navigation', () => {
     await installBillingAppMocks(page, createBillingStackModel());
 
     await nav.gotoShell();
-    await nav.open();
 
-    await nav.expectEntries(['Invoices', 'Handoff']);
+    // Nothing else is in the section, which is then not drawn.
+    await nav.expectEntries(['Invoices']);
+    await expect(nav.section()).toHaveCount(0);
     await expect(nav.entry('Add-ons')).toHaveCount(0);
   });
 
@@ -72,9 +73,10 @@ test.describe('the entry of the navigation', () => {
     await installAddonsWorld(page);
 
     await nav.gotoShell();
-    await nav.open();
 
-    await nav.expectEntries(['Invoices', 'Handoff']);
+    // Nothing else is in the section, which is then not drawn.
+    await nav.expectEntries(['Invoices']);
+    await expect(nav.section()).toHaveCount(0);
     await expect(nav.entry('Add-ons')).toHaveCount(0);
 
     await signInWithScopes(page, [...SESSION_SCOPES.reader]);

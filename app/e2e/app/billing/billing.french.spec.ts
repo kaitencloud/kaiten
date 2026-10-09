@@ -210,14 +210,21 @@ test.describe('the invoices, read in French', () => {
     await expect(page.getByTestId('line-reports')).not.toContainText('append');
   });
 
-  test('the handoff queue, its tabs, its search and its acknowledgement', async ({
+  test('the handoff queue, its view, its tabs, its search and its acknowledgement', async ({
     page,
   }) => {
-    await page.goto('/billing/handoff');
+    await page.goto('/invoices?view=handoff');
 
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Transmission' }),
+      page.getByRole('heading', { level: 1, name: 'Factures' }),
     ).toBeVisible();
+    // The switch between every invoice and the queue, and the parts of the queue.
+    await expect(
+      page.getByRole('link', { exact: true, name: 'Toutes' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { exact: true, name: 'Transmission' }),
+    ).toHaveAttribute('aria-current', 'page');
     await expect(
       page.getByRole('link', { exact: true, name: 'En attente' }),
     ).toHaveAttribute('aria-current', 'page');

@@ -14,7 +14,9 @@ import {
 } from '../../utils/invoice-filter-fields';
 import { AcknowledgeHandoffDialog } from './acknowledge-handoff-dialog';
 import { HandoffEmpty } from './handoff-empty';
+import { HandoffQueueTabs } from './handoff-queue-tabs';
 import { HandoffTable } from './handoff-table';
+import { InvoicesViewSwitcher } from './invoices-view-switcher';
 
 type HandoffListProps = {
   /** Every invoice of the part of the queue, read whole. */
@@ -23,13 +25,14 @@ type HandoffListProps = {
 };
 
 /**
- * The invoices of the queue in one status as a list page like the others: a search
- * that matches who an invoice is for, the invoice itself and the number the
- * accounting system booked it under, the Filter menu with its chips, and a table
- * sorted and paged in the browser, oldest issue first as the queue is read. A
- * person who may acknowledge gets the button on what waits, and the dialog it opens;
- * once the API has accepted it, the queue is read again and the invoice moves to the
- * other status.
+ * The invoices of the queue in one status as a list like the others: a search that
+ * matches who an invoice is for, the invoice itself and the number the accounting
+ * system booked it under, the parts of the queue beside it, the Filter menu with its
+ * chips, the switch back to every invoice at the end of the toolbar, and a table sorted
+ * and paged in the browser, oldest issue first as the queue is read. A person who
+ * may acknowledge gets the button on what waits, and the dialog it opens; once the
+ * API has accepted it, the queue is read again and the invoice moves to the other
+ * status.
  */
 export function HandoffList({ invoices, status }: HandoffListProps) {
   const { t } = useTranslation();
@@ -54,7 +57,17 @@ export function HandoffList({ invoices, status }: HandoffListProps) {
       <FilterTableLayout controller={controller}>
         <FilterTableLayout.Toolbar>
           <FilterTableLayout.ToolbarRow>
-            <FilterTableLayout.Search filterId={INVOICE_FILTER_IDS.search} />
+            {/* The parts of the queue wrap under the search when the row is narrow,
+                instead of pushing the Filter button and the views past the page. */}
+            <FilterTableLayout.Search
+              className="sm:flex-wrap"
+              filterId={INVOICE_FILTER_IDS.search}
+            >
+              <HandoffQueueTabs />
+            </FilterTableLayout.Search>
+            <FilterTableLayout.Actions>
+              <InvoicesViewSwitcher />
+            </FilterTableLayout.Actions>
           </FilterTableLayout.ToolbarRow>
           <FilterTableLayout.Filters />
         </FilterTableLayout.Toolbar>

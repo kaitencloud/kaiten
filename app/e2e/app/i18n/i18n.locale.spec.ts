@@ -57,8 +57,8 @@ test('renders the explanation of a billing link and its breadcrumb in French', a
     page.getByText('La facturation n’est pas activée'),
   ).toBeVisible();
   await expect(page.getByText(/KAITEN_BILLING_ENABLED/)).toBeVisible();
-  // The breadcrumb names the section in the language of the app.
+  // The breadcrumb names the page in the language of the app.
   await expect(
     page.getByRole('navigation', { name: 'breadcrumb' }),
-  ).toContainText('Facturation');
+  ).toContainText('Factures');
 });

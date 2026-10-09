@@ -1,1 +1,2 @@
-export { HandoffPageContent } from './handoff-page-content';
+export { HandoffView } from './handoff-view';
+export { InvoicesViewSwitcher } from './invoices-view-switcher';

@@ -184,7 +184,7 @@ test('bills a renamed customer under each name it had at the boundary, and settl
   await expect(invoice.handoff()).toContainText('ERP-1');
 
   const handoff = new BillingHandoffDriver(page);
-  await handoff.goto('?status=ACKNOWLEDGED');
+  await handoff.goto('ACKNOWLEDGED');
   await expect(handoff.rows().filter({ hasText: secondName })).toContainText(
     'ERP-1',
   );

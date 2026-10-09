@@ -56,10 +56,10 @@ describe('what the health of billing counts', () => {
       count: 4,
       link: { search: { overdue: true }, to: '/invoices' },
     });
-    // What waits for the accounting system is what its queue lists.
+    // What waits for the accounting system is what its queue lists, a view of the invoices.
     expect(byId.handoff).toMatchObject({
       count: 2,
-      link: { to: '/billing/handoff' },
+      link: { search: { view: 'handoff' }, to: '/invoices' },
     });
     expect(byId.mismatches).toMatchObject({ count: 7 });
     expect(byId.mismatches.link).toBeUndefined();

@@ -6,7 +6,7 @@ export type RouteTab = {
   label: string;
   to: string;
   /**
-   * For tabs that are one route told apart by its search (`?status=ACKNOWLEDGED`):
+   * For tabs that are one route told apart by its search (`?view=handoff`):
    * the search this tab leads to. The tab that has none is the one the route opens
    * on, and is active when no other tab of the same path matches the search.
    */

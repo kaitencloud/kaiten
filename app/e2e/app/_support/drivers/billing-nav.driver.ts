@@ -1,9 +1,11 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
- * The Billing section of the side nav, and the explanation a billing route
- * shows where billing is not there. The section opens by itself on a billing
- * page; anywhere else it is a closed toggle, which `open` clicks.
+ * The billing entries of the side nav: the Invoices entry, which stands on its own
+ * where billing is on, and the Billing section that holds the add-ons and the
+ * vouchers where the release ships them, and the explanation a billing route shows
+ * where billing is not there. The section opens by itself on a page of it; anywhere
+ * else it is a closed toggle, which `open` clicks.
  */
 export class BillingNavDriver {
   constructor(private readonly page: Page) {}
@@ -59,7 +61,7 @@ export class BillingNavDriver {
 
   async expectNoSection() {
     await expect(this.section()).toHaveCount(0);
-    for (const label of ['Invoices', 'Handoff', 'Add-ons', 'Vouchers']) {
+    for (const label of ['Invoices', 'Add-ons', 'Vouchers']) {
       await expect(this.entry(label)).toHaveCount(0);
     }
   }

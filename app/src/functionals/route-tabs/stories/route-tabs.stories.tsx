@@ -41,18 +41,18 @@ const webhookRouteTabs: RouteTab[] = [
   },
 ];
 
-// One route, told apart by its search: what waits is the bare path.
+// One route, told apart by its search: every invoice is the bare path.
 const queueRouteTabs: RouteTab[] = [
   {
-    id: 'pending',
-    label: 'Waiting',
-    to: '/billing/handoff',
+    id: 'all',
+    label: 'All',
+    to: '/invoices',
   },
   {
-    id: 'acknowledged',
-    label: 'Acknowledged',
-    search: { status: 'ACKNOWLEDGED' },
-    to: '/billing/handoff',
+    id: 'handoff',
+    label: 'Handoff',
+    search: { view: 'handoff' },
+    to: '/invoices',
   },
 ];
 
@@ -107,8 +107,8 @@ export const SecondaryWorkflow: Story = {
 export const SearchTabDefault: Story = {
   render: () => (
     <RouteTabsStoryFrame
-      initialEntry="/billing/handoff"
-      routePath="/billing/handoff"
+      initialEntry="/invoices"
+      routePath="/invoices"
       tabs={queueRouteTabs}
     />
   ),
@@ -117,8 +117,8 @@ export const SearchTabDefault: Story = {
 export const SearchTabActive: Story = {
   render: () => (
     <RouteTabsStoryFrame
-      initialEntry="/billing/handoff?status=ACKNOWLEDGED"
-      routePath="/billing/handoff"
+      initialEntry="/invoices?view=handoff"
+      routePath="/invoices"
       tabs={queueRouteTabs}
     />
   ),

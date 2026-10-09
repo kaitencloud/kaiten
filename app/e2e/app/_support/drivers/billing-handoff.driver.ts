@@ -1,23 +1,33 @@
 import { expect, type Locator } from '@playwright/test';
 import { FilterToolbarDriver } from './filter-toolbar.driver';
 
+/** The two parts of the queue: what waits, which is the bare view, and what was acknowledged. */
+export type QueuePart = 'ACKNOWLEDGED' | 'PENDING';
+
 /**
- * The queue the organization's accounting system reads: what waits and what was
- * acknowledged, oldest issue first, and the acknowledgement by hand. The console
- * holds every invoice of the part of the queue it shows and searches, filters,
- * sorts and pages them itself; the URL holds the part of the queue alone.
+ * The queue the organization's accounting system reads, which is the handoff view of
+ * the list of invoices (`?view=handoff`): what waits and what was acknowledged, oldest
+ * issue first, and the acknowledgement by hand. The console holds every invoice of the
+ * part of the queue it shows and searches, filters, sorts and pages them itself; the
+ * URL holds the view and the part of the queue alone.
  */
 export class BillingHandoffDriver extends FilterToolbarDriver {
-  async goto(search = '') {
-    await this.page.goto(`/billing/handoff${search}`);
+  private path(queue?: QueuePart) {
+    return `/invoices?view=handoff${queue ? `&queue=${queue}` : ''}`;
+  }
+
+  async goto(queue?: QueuePart) {
+    await this.page.goto(this.path(queue));
     await expect(
-      this.page.getByRole('heading', { level: 1, name: 'Handoff' }),
+      this.page.getByRole('heading', { level: 1, name: 'Invoices' }),
     ).toBeVisible();
+    // The parts of the queue are drawn in the handoff view only.
+    await expect(this.tab('Waiting')).toBeVisible();
   }
 
   /** Opens the queue where the API is armed to refuse it: there is no page, so no title to wait for. */
-  async gotoRefused(search = '') {
-    await this.page.goto(`/billing/handoff${search}`);
+  async gotoRefused(queue?: QueuePart) {
+    await this.page.goto(this.path(queue));
     await expect(this.error()).toBeVisible();
   }
 
@@ -29,6 +39,11 @@ export class BillingHandoffDriver extends FilterToolbarDriver {
   async showTab(name: 'Waiting' | 'Acknowledged') {
     await this.tab(name).click();
     await expect(this.tab(name)).toHaveAttribute('aria-current', 'page');
+  }
+
+  /** The control of the toolbar that moves between every invoice and the queue. */
+  view(name: 'All' | 'Handoff'): Locator {
+    return this.page.getByRole('link', { name, exact: true });
   }
 
   rows(): Locator {

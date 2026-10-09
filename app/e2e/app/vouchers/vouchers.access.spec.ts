@@ -27,7 +27,7 @@ test.describe('the entry of the navigation', () => {
     await nav.gotoShell();
     await nav.open();
 
-    await nav.expectEntries(['Invoices', 'Handoff', 'Add-ons', 'Vouchers']);
+    await nav.expectEntries(['Invoices', 'Add-ons', 'Vouchers']);
     await expect(nav.entry('Vouchers')).toHaveAttribute('href', '/vouchers');
     await nav.entry('Vouchers').click();
     await expect(page).toHaveURL('/vouchers');
@@ -53,7 +53,7 @@ test.describe('the entry of the navigation', () => {
     await nav.gotoShell();
     await nav.open();
 
-    await nav.expectEntries(['Invoices', 'Handoff', 'Add-ons']);
+    await nav.expectEntries(['Invoices', 'Add-ons']);
     await expect(nav.entry('Vouchers')).toHaveCount(0);
   });
 
@@ -71,7 +71,7 @@ test.describe('the entry of the navigation', () => {
     await nav.gotoShell();
     await nav.open();
 
-    await nav.expectEntries(['Invoices', 'Handoff', 'Add-ons']);
+    await nav.expectEntries(['Invoices', 'Add-ons']);
     await expect(nav.entry('Vouchers')).toHaveCount(0);
 
     await signInWithScopes(page, [...SESSION_SCOPES.reader]);

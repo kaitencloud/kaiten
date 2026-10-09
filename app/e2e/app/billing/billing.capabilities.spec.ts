@@ -87,8 +87,7 @@ test.describe('billing where it is on', () => {
     await install(page, pro());
 
     await nav.gotoShell();
-    await nav.open();
-    await nav.expectEntries(['Invoices', 'Handoff']);
+    await nav.expectEntries(['Invoices']);
 
     await settings.gotoSettings();
     await expect(settings.linkCard()).toBeVisible();
@@ -105,8 +104,7 @@ test.describe('billing where it is on', () => {
     await install(page, starter());
 
     await nav.gotoShell();
-    await nav.open();
-    await nav.expectEntries(['Invoices', 'Handoff']);
+    await nav.expectEntries(['Invoices']);
 
     await stripe.gotoIndex();
     await expect(stripe.tile()).toContainText('Not included in your plan');
@@ -120,8 +118,7 @@ test.describe('billing where it is on', () => {
     await install(page, selfHostedWithoutVault());
 
     await nav.gotoShell();
-    await nav.open();
-    await nav.expectEntries(['Invoices', 'Handoff']);
+    await nav.expectEntries(['Invoices']);
 
     await stripe.gotoIndex();
     await expect(stripe.tile()).toContainText(

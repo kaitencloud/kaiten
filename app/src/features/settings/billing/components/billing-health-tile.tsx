@@ -44,12 +44,8 @@ const LINK_CLASS =
 
 /** The label of a tile that leads somewhere, as the link that stretches over the whole tile. */
 function TileLink({ children, link }: { children: string; link: HealthLink }) {
-  return link.to === '/billing/handoff' ? (
-    <Link className={LINK_CLASS} to="/billing/handoff">
-      {children}
-    </Link>
-  ) : (
-    <Link className={LINK_CLASS} search={link.search} to="/invoices">
+  return (
+    <Link className={LINK_CLASS} search={link.search} to={link.to}>
       {children}
     </Link>
   );
