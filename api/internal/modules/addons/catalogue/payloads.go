@@ -18,6 +18,7 @@ type InstanceAddon struct {
 	AddonID     uuid.UUID      `json:"addonId"`
 	AddonSlug   string         `json:"addonSlug" example:"extra-seats-v1"`
 	FamilySlug  string         `json:"familySlug" example:"extra-seats"`
+	Name        string         `json:"name" doc:"The add-on version's name" example:"Extra seats"`
 	Quantity    int32          `json:"quantity" example:"3"`
 	MaxQuantity *int32         `json:"maxQuantity,omitempty"`
 	AttachedAt  time.Time      `json:"attachedAt"`

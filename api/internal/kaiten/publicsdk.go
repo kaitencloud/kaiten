@@ -26,6 +26,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/setsessionaddonquantity"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/updatepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/validatesessionvoucher"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
@@ -159,6 +160,16 @@ func (p PublicSDK) ValidateSessionVoucher(ctx context.Context, cl caller.Custome
 	return p.uc.ValidateSessionVoucher.Execute(bindCustomerSession(ctx, cl), validatesessionvoucher.Session{
 		SessionID: cl.SessionID(), CustomerID: cl.CustomerID(), InstanceSlug: cl.InstanceSlug(),
 	}, request)
+}
+
+// SetSessionAddonQuantity changes what the session's instance holds of an
+// add-on.
+func (p PublicSDK) SetSessionAddonQuantity(ctx context.Context, cl caller.CustomerSessionCaller, addonSlug string,
+	request setsessionaddonquantity.SessionAddonQuantity,
+) (*sessions.SessionAddon, error) {
+	return p.uc.SetSessionAddonQuantity.Execute(bindCustomerSession(ctx, cl), setsessionaddonquantity.Session{
+		InstanceSlug: cl.InstanceSlug(),
+	}, addonSlug, request)
 }
 
 // CreateSessionCheckout and ListSessionInvoices take a customer session caller,
