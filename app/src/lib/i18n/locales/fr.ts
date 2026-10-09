@@ -993,6 +993,10 @@ export default {
                   'Qui émet et encaisse les factures, à partir de la prochaine. Les factures déjà composées gardent leur propre fournisseur.',
                 NOOP: 'Transmission manuelle',
                 STRIPE: 'Stripe',
+                STRIPE_notConnected: 'Stripe (non connecté)',
+                notConnected:
+                  'Stripe n’est pas encore connecté pour votre organisation : connectez-le pour encaisser les factures de ce contrat par son intermédiaire.',
+                connect: 'Connecter Stripe',
               },
               Collection: {
                 label: 'Mode d’encaissement',
@@ -1009,7 +1013,7 @@ export default {
                 paymentMethod:
                   'Ce client n’a aucun moyen de paiement que Stripe puisse prélever.',
                 fromNextInvoice:
-                  'Le nouveau fournisseur encaisse à partir de la prochaine facture.',
+                  'Le changement prend effet à partir de la prochaine facture ; les factures déjà émises gardent leur fournisseur.',
               },
               Switch: {
                 title: 'Factures encore ouvertes',
@@ -5681,6 +5685,10 @@ export default {
         },
         reference: 'Référence {{id}}',
         outsideRetention: 'L’usage antérieur au {{date}} n’est plus conservé.',
+        providerCode: 'Code : {{code}}',
+        providerParam: 'Champ : {{param}}',
+        providerRequest: 'Requête : {{id}}',
+        openConnector: 'Ouvrir le connecteur Stripe',
       },
       InvoiceStatus: {
         DRAFT: 'Brouillon',

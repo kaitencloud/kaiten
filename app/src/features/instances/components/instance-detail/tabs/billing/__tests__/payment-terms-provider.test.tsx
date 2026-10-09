@@ -77,7 +77,7 @@ beforeEach(() => {
   toast.error.mockReset();
   toast.success.mockReset();
   getAuthToken.mockResolvedValue(
-    sessionToken(['read:billing', 'write:billing']),
+    sessionToken(['read:billing', 'read:organizations', 'write:billing']),
   );
   detail.current = { customer: GLOBEX, instance: INSTANCE };
   stripeIs('connected');
@@ -201,8 +201,25 @@ describe('the dialog where a provider is offered', () => {
     expect(screen.queryByRole('combobox', { name: /Collected by/ })).toBeNull();
   });
 
-  it('has no provider to choose while Stripe can only be connected: the days alone are changed', async () => {
+  it('lists Stripe, off, while it can only be connected, and leads to where it is connected', async () => {
     stripeIs('available');
+    renderDialog();
+
+    await userEvent.click(await provider());
+    expect(
+      await screen.findByRole('option', { name: 'Stripe (not connected)' }),
+    ).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.keyboard('{Escape}');
+    const hint = await screen.findByTestId('terms-connect-hint');
+    expect(hint).toHaveTextContent('Stripe is not connected for your organization yet');
+    expect(within(hint).getByRole('link', { name: 'Connect Stripe' })).toHaveAttribute(
+      'href',
+      '/integrations/connectors/stripe',
+    );
+  });
+
+  it('has no provider to choose where Stripe cannot be connected at all', async () => {
+    stripeIs('vaultMissing');
     renderDialog();
 
     await screen.findByLabelText('Payment terms (days)');
@@ -234,7 +251,7 @@ describe('moving a contract to Stripe', () => {
     await userEvent.click(await save());
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(bodies).toEqual([{ daysUntilDue: null, providerKind: 'STRIPE' }]);
+    expect(bodies).toEqual([{ providerKind: 'STRIPE' }]);
     expect(toast.success).toHaveBeenCalledWith('The payment terms are saved');
   });
 
@@ -248,11 +265,7 @@ describe('moving a contract to Stripe', () => {
 
     await waitFor(() =>
       expect(bodies).toEqual([
-        {
-          collectionMethod: 'CHARGE_AUTOMATICALLY',
-          daysUntilDue: null,
-          providerKind: 'STRIPE',
-        },
+        { collectionMethod: 'CHARGE_AUTOMATICALLY', providerKind: 'STRIPE' },
       ]),
     );
   });
@@ -269,12 +282,9 @@ describe('moving a contract to Stripe', () => {
     ).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('does not offer Stripe as a provider while it is not connected', async () => {
-    stripeIs('connected');
-    server.use(handleGetInstanceBilling({ body: subscription() }));
+  it('offers Stripe as a provider once it is connected', async () => {
     renderDialog();
 
-    // Connected: it can be chosen, and the other way round it cannot.
     await userEvent.click(await provider());
     expect(await screen.findByRole('option', { name: 'Stripe' })).not.toHaveAttribute(
       'aria-disabled',
@@ -294,6 +304,30 @@ describe('moving a contract to Stripe', () => {
       'href',
       '/customers/globex',
     );
+    // The API would refuse: nothing is sent.
+    expect(await save()).toBeDisabled();
+  });
+
+  it('lets a contract that is on Stripe already change its days whatever the customer has', async () => {
+    server.use(handleGetInstanceBilling({ body: onStripe() }));
+    detail.current = { customer: { slug: 'globex' }, instance: INSTANCE };
+    const bodies = serveTerms();
+    renderDialog();
+
+    await userEvent.type(await screen.findByLabelText('Payment terms (days)'), '14');
+    await userEvent.click(await save());
+
+    await waitFor(() => expect(bodies).toEqual([{ daysUntilDue: 14 }]));
+  });
+
+  it('lets the invoice be charged to a card when the customer has no address, which Stripe asks nothing of', async () => {
+    detail.current = { customer: { slug: 'globex' }, instance: INSTANCE };
+    renderDialog();
+
+    await choose(await provider(), 'Stripe');
+    await choose(await method(), 'Charge automatically');
+
+    await waitFor(async () => expect(await save()).toBeEnabled());
   });
 
   it('says nothing of the e-mail when the customer has one', async () => {
@@ -301,7 +335,9 @@ describe('moving a contract to Stripe', () => {
 
     await choose(await provider(), 'Stripe');
 
-    await screen.findByText('The new provider collects from the next invoice on.');
+    await screen.findByText(
+      'The change takes effect from the next invoice; invoices already issued keep their provider.',
+    );
     expect(screen.queryByTestId('terms-warning')).toBeNull();
   });
 
@@ -393,11 +429,7 @@ describe('moving a contract away from Stripe', () => {
 
     await waitFor(() =>
       expect(bodies).toEqual([
-        {
-          collectionMethod: 'SEND_INVOICE',
-          daysUntilDue: null,
-          providerKind: 'NOOP',
-        },
+        { collectionMethod: 'SEND_INVOICE', providerKind: 'NOOP' },
       ]),
     );
   });
@@ -411,9 +443,7 @@ describe('moving a contract away from Stripe', () => {
     await userEvent.click(await save());
 
     await waitFor(() =>
-      expect(bodies).toEqual([
-        { collectionMethod: 'SEND_INVOICE', daysUntilDue: null },
-      ]),
+      expect(bodies).toEqual([{ collectionMethod: 'SEND_INVOICE' }]),
     );
   });
 });

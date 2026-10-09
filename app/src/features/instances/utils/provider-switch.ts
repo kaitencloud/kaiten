@@ -1,4 +1,4 @@
-import type { InvoiceSummary } from '@/api-client';
+import type { InstanceBilling, InvoiceSummary } from '@/api-client';
 import type { InvoiceProviderKind } from '@/domains/billing';
 
 /**
@@ -124,3 +124,22 @@ export const needsProviderRecord = (invoice: FateInput) =>
   invoice.status === 'DRAFT' &&
   !invoice.holdReason &&
   invoice.providerKind === 'STRIPE';
+
+/**
+ * Whether the change would be refused for want of an address: Stripe sends the invoices
+ * it is to collect to the billing e-mail of the customer, and the API checks for one when
+ * a contract moves to it and is to send the invoice. A contract that is on Stripe already,
+ * and charges the card, is asked for none.
+ */
+export function needsBillingEmail(
+  values: { collectionMethod?: string; providerKind?: string },
+  subscription: Pick<InstanceBilling, 'providerKind'>,
+  billingEmail: string | undefined,
+): boolean {
+  return (
+    values.providerKind === 'STRIPE' &&
+    values.providerKind !== subscription.providerKind &&
+    values.collectionMethod === 'SEND_INVOICE' &&
+    !billingEmail?.trim()
+  );
+}

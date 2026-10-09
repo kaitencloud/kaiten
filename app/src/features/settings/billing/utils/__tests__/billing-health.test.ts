@@ -170,6 +170,33 @@ describe('how the last pass of a provider went', () => {
     ).toMatchObject({ failures: 1, kind: 'failing' });
   });
 
+  it('tells when the last pass ran from the seconds since, where the API gives no instant', () => {
+    const now = Date.parse('2027-03-01T12:00:00Z');
+
+    expect(
+      getProviderSyncStanding(
+        sync({ consecutiveFailures: 3, lagSeconds: 3600, lastSyncStatus: 'FAILED' }),
+        'STRIPE',
+        now,
+      ),
+    ).toEqual({
+      at: '2027-03-01T11:00:00.000Z',
+      error: undefined,
+      failures: 3,
+      kind: 'failing',
+    });
+  });
+
+  it('prefers the instant to the seconds since', () => {
+    expect(
+      getProviderSyncStanding(
+        sync({ lagSeconds: 3600, lastSyncStatus: 'SUCCESS', lastSyncedAt: '2027-03-01T10:00:00Z' }),
+        'STRIPE',
+        Date.parse('2027-03-01T12:00:00Z'),
+      ),
+    ).toMatchObject({ at: '2027-03-01T10:00:00Z', kind: 'ok' });
+  });
+
   it('reads the entry of the provider asked for', () => {
     const both = health({
       providerSync: [

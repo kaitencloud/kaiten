@@ -51,6 +51,7 @@ describe('the body of a change of terms', () => {
 describe('the body of a change of provider and terms', () => {
   const subscription = {
     collectionMethod: 'SEND_INVOICE',
+    daysUntilDueOverride: undefined,
     providerKind: 'NOOP',
   } as const;
   const values = (overrides: Partial<PaymentTermsFormValues> = {}): PaymentTermsFormValues => ({
@@ -60,13 +61,14 @@ describe('the body of a change of provider and terms', () => {
     ...overrides,
   });
 
-  it('sends the provider when it changes, and not when it does not', () => {
+  it('sends the provider alone when only the provider changes, the days being what they were', () => {
     expect(
       paymentTermsValuesToBody(values({ providerKind: 'STRIPE' }), subscription),
-    ).toEqual({ daysUntilDue: null, providerKind: 'STRIPE' });
-    expect(paymentTermsValuesToBody(values(), subscription)).toEqual({
-      daysUntilDue: null,
-    });
+    ).toEqual({ providerKind: 'STRIPE' });
+  });
+
+  it('sends nothing when nothing changes', () => {
+    expect(paymentTermsValuesToBody(values(), subscription)).toEqual({});
   });
 
   it('sends the collection method when it changes, and not when it does not', () => {
@@ -77,7 +79,6 @@ describe('the body of a change of provider and terms', () => {
       ),
     ).toEqual({
       collectionMethod: 'CHARGE_AUTOMATICALLY',
-      daysUntilDue: null,
       providerKind: 'STRIPE',
     });
   });
@@ -86,25 +87,34 @@ describe('the body of a change of provider and terms', () => {
     expect(
       paymentTermsValuesToBody(values(), {
         collectionMethod: 'CHARGE_AUTOMATICALLY',
+        daysUntilDueOverride: undefined,
         providerKind: 'STRIPE',
       }),
-    ).toEqual({
-      collectionMethod: 'SEND_INVOICE',
-      daysUntilDue: null,
-      providerKind: 'NOOP',
-    });
+    ).toEqual({ collectionMethod: 'SEND_INVOICE', providerKind: 'NOOP' });
   });
 
-  it('sends the days with them, as before', () => {
+  it('sends the days with them when they changed', () => {
     expect(
       paymentTermsValuesToBody(values({ daysUntilDue: 14, providerKind: 'STRIPE' }), subscription),
     ).toEqual({ daysUntilDue: 14, providerKind: 'STRIPE' });
   });
 
-  it('sends what the form holds when it is not told what the subscription has', () => {
-    expect(paymentTermsValuesToBody(values({ providerKind: 'STRIPE' }))).toEqual({
+  it('sends the days alone when only they change, as before', () => {
+    expect(paymentTermsValuesToBody(values({ daysUntilDue: 45 }), subscription)).toEqual({
+      daysUntilDue: 45,
+    });
+  });
+
+  it('sends null when the days an own-terms contract had are emptied', () => {
+    expect(
+      paymentTermsValuesToBody(values(), { ...subscription, daysUntilDueOverride: 45 }),
+    ).toEqual({ daysUntilDue: null });
+  });
+
+  it('sends the days it holds when they are the same as the contract has, if it is not told what the contract has', () => {
+    expect(paymentTermsValuesToBody(values({ daysUntilDue: 45, providerKind: 'STRIPE' }))).toEqual({
       collectionMethod: 'SEND_INVOICE',
-      daysUntilDue: null,
+      daysUntilDue: 45,
       providerKind: 'STRIPE',
     });
   });

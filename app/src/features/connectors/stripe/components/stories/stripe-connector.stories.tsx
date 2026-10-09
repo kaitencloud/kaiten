@@ -291,7 +291,7 @@ export const VaultNotConfigured: Story = {
       within(notice).getByRole('link', { name: /Self-hosting settings/ }),
     ).toBeVisible();
     await expect(await keyField(canvas)).toBeDisabled();
-    await expect(canvas.queryByRole('button', { name: 'Connect Stripe' })).toBeNull();
+    await expect(canvas.getByRole('button', { name: 'Connect Stripe' })).toBeDisabled();
   },
 };
 

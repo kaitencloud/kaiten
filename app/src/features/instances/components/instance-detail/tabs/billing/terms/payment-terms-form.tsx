@@ -15,6 +15,7 @@ import {
 } from '@/functionals/stacked-form-dialog';
 import { createFormSubmitHandler } from '@/hooks/form';
 import { usePaymentTermsForm } from '../../../../../hooks/use-payment-terms-form';
+import { needsBillingEmail } from '../../../../../utils/provider-switch';
 import { ProviderTermsFields } from './provider-terms-fields';
 
 type PaymentTermsFormProps = {
@@ -71,10 +72,21 @@ export function PaymentTermsForm({
               {t('Pages.Customers.Instances.Detail.Billing.Terms.useDefault')}
             </Button>
           ) : null}
-          <form.SubmitButton
-            form={formId}
-            label={t('Pages.Customers.Instances.Detail.Billing.Terms.save')}
-          />
+          {/* Stripe cannot send an invoice to a customer without an address: the API
+              would refuse, so the button is off and the warning says why. */}
+          <form.Subscribe
+            selector={(state: any) =>
+              needsBillingEmail(state.values, subscription, billingEmail)
+            }
+          >
+            {(missingEmail: boolean) => (
+              <form.SubmitButton
+                disabled={missingEmail}
+                form={formId}
+                label={t('Pages.Customers.Instances.Detail.Billing.Terms.save')}
+              />
+            )}
+          </form.Subscribe>
         </StackedFormDialogFooter>
         <StackedFormDialogPanel>
           <div className="space-y-5">

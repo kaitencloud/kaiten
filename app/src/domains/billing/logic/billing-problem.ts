@@ -56,6 +56,14 @@ export type BillingProblem = {
   providerUnavailable?: boolean;
   /** For `boundary-pending`: how long to wait before the one retry. */
   retryAfterMs?: number;
+  /**
+   * When the payment provider is what refused: `not-connected` (it is not connected, or
+   * refused the organization's credentials) and `rejected` (it refused the request, and
+   * `provider` says with what). Both are mended at the connector, and the screen leads there.
+   */
+  providerIssue?: 'not-connected' | 'rejected';
+  /** For `rejected`: what the provider answered, as the API relays it. */
+  provider?: { code?: string; param?: string; requestId?: string };
   /** For `outside-retention`: where the usage that is kept begins. */
   retentionStart?: string;
 };
@@ -185,6 +193,32 @@ function classify(
   return 'generic';
 }
 
+function getProviderIssue(
+  code: string | undefined,
+): BillingProblem['providerIssue'] {
+  if (code?.endsWith('.ProviderNotConnected')) {
+    return 'not-connected';
+  }
+
+  return code?.endsWith('.ProviderRejected') ? 'rejected' : undefined;
+}
+
+/** What the payment provider answered to a request it refused, from the value of the first error. */
+function getProviderAnswer(
+  errors: readonly ErrorDetail[],
+): BillingProblem['provider'] {
+  const code = getProblemValueMember(errors, 'providerCode');
+  const param = getProblemValueMember(errors, 'providerParam');
+  const requestId = getProblemValueMember(errors, 'providerRequestId');
+
+  // The API sends all three, empty when the provider gave none.
+  return {
+    code: code || undefined,
+    param: param || undefined,
+    requestId: requestId || undefined,
+  };
+}
+
 /**
  * Reads a failure of a billing call. It never throws and writes nothing to the
  * log, so a component can call it on every render. A failure that is not a
@@ -205,10 +239,14 @@ export function handleBillingProblem(error: unknown): BillingProblem {
     detail,
     errors,
     kind,
+    providerIssue: getProviderIssue(code),
     status,
     title: problem?.title,
     traceId: problem?.errorId,
   };
+  if (read.providerIssue === 'rejected') {
+    read.provider = getProviderAnswer(errors);
+  }
 
   switch (kind) {
     case 'missing-scope':

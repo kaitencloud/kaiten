@@ -1,10 +1,36 @@
+import { Link } from '@tanstack/react-router';
 import { TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useAlertFocus } from '../hooks/use-alert-focus';
-import { formatUtcDate, handleBillingProblem } from '../logic';
+import { useCanPerform } from '../hooks/use-can-perform';
+import {
+  formatUtcDate,
+  handleBillingProblem,
+  STRIPE_CONNECTOR_ROUTE_ID,
+} from '../logic';
 import { MissingScopeBanner } from './missing-scope-banner';
+
+/**
+ * The way to the connector of the payment provider, for a refusal that is mended there
+ * (it is not connected, or it refused the credentials or the request): offered to a session
+ * that may read the settings of the organization, which is what the page of the connector asks.
+ */
+function ConnectorLink() {
+  const { t } = useTranslation();
+  const mayOpenConnector = useCanPerform('connector.settings.read');
+
+  return mayOpenConnector ? (
+    <Link
+      className="underline underline-offset-4"
+      params={{ connectorId: STRIPE_CONNECTOR_ROUTE_ID }}
+      to="/integrations/connectors/$connectorId"
+    >
+      {t('Features.Billing.Problems.openConnector')}
+    </Link>
+  ) : null;
+}
 
 type ProblemAlertProps = {
   /** Takes the focus when it appears: for a dialog, whose confirmation was disabled while it worked. */
@@ -78,6 +104,31 @@ export function ProblemAlert({
         {problem.kind === 'boundary-pending' ? (
           <p>{t('Features.Billing.Problems.boundaryPending')}</p>
         ) : null}
+        {problem.provider &&
+        (problem.provider.code || problem.provider.param) ? (
+          <p className="font-mono text-xs" data-testid="provider-answer">
+            {[
+              problem.provider.code
+                ? t('Features.Billing.Problems.providerCode', {
+                    code: problem.provider.code,
+                  })
+                : null,
+              problem.provider.param
+                ? t('Features.Billing.Problems.providerParam', {
+                    param: problem.provider.param,
+                  })
+                : null,
+              problem.provider.requestId
+                ? t('Features.Billing.Problems.providerRequest', {
+                    id: problem.provider.requestId,
+                  })
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+        ) : null}
+        {problem.providerIssue ? <ConnectorLink /> : null}
         {problem.retentionStart ? (
           <p>
             {t('Features.Billing.Problems.outsideRetention', {

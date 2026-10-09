@@ -44,10 +44,11 @@ function PaymentTermsContent({ onClose }: PaymentTermsDialogProps) {
     );
   }
 
-  // Who collects and how is the dialog's where a provider is connected, or collects
-  // the contract already (a connection that went away does not take the choice from it).
+  // Who collects and how is the dialog's where a provider is offered, or collects the
+  // contract already (a connection that went away does not take the choice from it): a
+  // provider that is offered and not connected is listed, off, with the way to connect it.
   const withProvider =
-    stripe.isConnected || subscription.providerKind === 'STRIPE';
+    stripe.isOffered || subscription.providerKind === 'STRIPE';
 
   return (
     <PaymentTermsForm
