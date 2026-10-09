@@ -7,6 +7,7 @@ package billableusage
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -184,49 +185,45 @@ func Evaluate(row db.CheckUsageLedgerInvariantsRow, prev *ports.Fingerprint) []p
 	if row.CounterSeq >= 0 {
 		counter = &row.CounterSeq
 	}
-	fail := func(invariant ports.Invariant, expected, found string) {
+	fail := func(invariant ports.Invariant, expected, found *string, report *int64, detail string) {
 		failures = append(failures, ports.InvariantFailure{
-			Invariant: invariant, Expected: expected, Found: found,
+			Invariant: invariant, Expected: expected, Found: found, Detail: detail, ReportSeq: report,
 			FirstSeq: first, LastSeq: last, CounterReportSeq: counter,
 		})
 	}
+	seq := func(n int64) *string { s := strconv.FormatInt(n, 10); return &s }
+	value := func(v string) *string { return &v }
+	at := func(n int64) *int64 { return &n }
 
 	if row.RowCount > 0 {
 		switch {
 		case prev != nil && prev.LastSeq != nil && row.FirstSeq != *prev.LastSeq+1:
-			fail(ports.InvariantSequenceGap,
-				fmt.Sprintf("the period starts at report %d, right after the previous invoice", *prev.LastSeq+1),
-				fmt.Sprintf("it starts at report %d", row.FirstSeq))
+			fail(ports.InvariantSequenceGap, seq(*prev.LastSeq+1), seq(row.FirstSeq), at(row.FirstSeq),
+				fmt.Sprintf("the period should start at report %d, right after the previous invoice; it starts at report %d", *prev.LastSeq+1, row.FirstSeq))
 		case row.FirstSeq > 1 && !row.PredExists && row.LowerExists:
-			fail(ports.InvariantSequenceGap,
-				fmt.Sprintf("report %d, the one before the period's first", row.FirstSeq-1),
-				"it is missing while earlier reports remain")
+			fail(ports.InvariantSequenceGap, seq(row.FirstSeq-1), nil, at(row.FirstSeq-1),
+				fmt.Sprintf("report %d, the one before the period's first, is missing while earlier reports remain", row.FirstSeq-1))
 		case row.CounterSeq < row.LastSeq:
-			fail(ports.InvariantSequenceGap,
-				fmt.Sprintf("a counter at report %d or later", row.LastSeq),
-				fmt.Sprintf("the counter is at report %d", row.CounterSeq))
+			fail(ports.InvariantSequenceGap, seq(row.LastSeq), seq(row.CounterSeq), nil,
+				fmt.Sprintf("the counter should be at report %d or later; it is at report %d", row.LastSeq, row.CounterSeq))
 		case row.SeqsPresent != row.CounterSeq-row.FirstSeq+1:
-			fail(ports.InvariantSequenceGap,
-				fmt.Sprintf("%d reports from %d to %d", row.CounterSeq-row.FirstSeq+1, row.FirstSeq, row.CounterSeq),
-				fmt.Sprintf("%d of them", row.SeqsPresent))
+			fail(ports.InvariantSequenceGap, seq(row.CounterSeq-row.FirstSeq+1), seq(row.SeqsPresent), nil,
+				fmt.Sprintf("reports %d to %d should all be there; %d of them are", row.FirstSeq, row.CounterSeq, row.SeqsPresent))
 		}
 
 		switch {
 		case row.FirstChainBreak > 0:
-			fail(ports.InvariantChainBreak,
-				fmt.Sprintf("report %d starts where the previous report of its window ended", row.FirstChainBreak),
-				"it starts elsewhere")
+			fail(ports.InvariantChainBreak, nil, nil, at(row.FirstChainBreak),
+				fmt.Sprintf("report %d should start where the previous report of its window ended; it starts elsewhere", row.FirstChainBreak))
 		case row.FirstWindowStartBreak > 0:
-			fail(ports.InvariantChainBreak,
-				fmt.Sprintf("report %d, the first of its window, starts at 0", row.FirstWindowStartBreak),
-				"it starts elsewhere")
+			fail(ports.InvariantChainBreak, value("0"), nil, at(row.FirstWindowStartBreak),
+				fmt.Sprintf("report %d, the first of its window, should start at 0; it starts elsewhere", row.FirstWindowStartBreak))
 		}
 	}
 
 	if row.TailExists && row.TailInCounterWindow && !row.TailMatchesCounter {
-		fail(ports.InvariantCounterMismatch,
-			fmt.Sprintf("the counter equals the last report's value after, %s", row.TailValueAfter),
-			fmt.Sprintf("the counter is %s", row.CounterValue))
+		fail(ports.InvariantCounterMismatch, value(row.TailValueAfter), value(row.CounterValue), last,
+			fmt.Sprintf("the counter should equal the last report's value after, %s; it is %s", row.TailValueAfter, row.CounterValue))
 	}
 	return failures
 }

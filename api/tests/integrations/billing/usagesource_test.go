@@ -227,7 +227,8 @@ func TestUsageSourceInvariants(t *testing.T) {
 		exec(t, `UPDATE entitlement_usage SET value = jsonb_set(value, '{value}', '181505') WHERE instance_id = $1`, ref.InstanceID)
 		failures := check(t, ref, nil)
 		require.Equal(t, []ports.Invariant{ports.InvariantChainBreak}, invariants(failures))
-		require.Contains(t, failures[0].Expected, "report 43")
+		require.EqualValues(t, 43, *failures[0].ReportSeq)
+		require.Contains(t, failures[0].Detail, "report 43")
 	})
 
 	t.Run("ACounterAheadOfItsJournal_IsAMismatch", func(t *testing.T) {
@@ -235,7 +236,7 @@ func TestUsageSourceInvariants(t *testing.T) {
 		ref := journalPair(t, exampleJournal, "181999", 45)
 		failures := check(t, ref, nil)
 		require.Equal(t, []ports.Invariant{ports.InvariantCounterMismatch}, invariants(failures))
-		require.Contains(t, failures[0].Found, "181999")
+		require.Equal(t, "181999", *failures[0].Found, "the counter's value, not a sentence")
 	})
 
 	t.Run("ACounterInAnotherWindow_IsNotCompared", func(t *testing.T) {

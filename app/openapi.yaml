@@ -2915,22 +2915,34 @@ components:
           type:
             - integer
             - "null"
+        detail:
+          type: string
         entitlementId:
           type: string
         expected:
-          type: string
+          type:
+            - string
+            - "null"
         firstSeq:
           format: int64
           type:
             - integer
             - "null"
         found:
-          type: string
+          type:
+            - string
+            - "null"
         instanceId:
           type: string
         invariant:
           type: string
         lastSeq:
+          format: int64
+          type:
+            - integer
+            - "null"
+        reportSeq:
+          description: The report the failure is at, when one is
           format: int64
           type:
             - integer
@@ -2941,6 +2953,8 @@ components:
         - invariant
         - expected
         - found
+        - detail
+        - reportSeq
         - firstSeq
         - lastSeq
         - counterReportSeq
