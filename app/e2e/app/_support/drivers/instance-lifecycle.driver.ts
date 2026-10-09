@@ -232,6 +232,72 @@ export class InstanceLifecycleDriver {
     return this.dialog().getByTestId('payment-terms-current');
   }
 
+  // The dialog of the provider and the terms, where a payment provider is offered.
+
+  providerTermsLink(): Locator {
+    return this.actions().getByRole('link', {
+      exact: true,
+      name: 'Provider and terms',
+    });
+  }
+
+  async openProviderTerms(instanceName: string) {
+    await this.providerTermsLink().click();
+    await expect(
+      this.dialog().getByRole('heading', {
+        name: `Provider and terms of ${instanceName}`,
+      }),
+    ).toBeVisible();
+    await expect(this.providerField()).toBeVisible();
+  }
+
+  /** Who collects the invoices of the contract. */
+  providerField(): Locator {
+    return this.dialog().getByRole('combobox', { name: /Collected by/ });
+  }
+
+  /** How they are collected: the invoice is sent, or the card on file is charged. */
+  collectionField(): Locator {
+    return this.dialog().getByRole('combobox', { name: /Collection method/ });
+  }
+
+  /** Picks an option of the list that is open. */
+  async pickOption(name: string | RegExp) {
+    await this.page
+      .getByRole('option', { exact: typeof name === 'string', name })
+      .click();
+  }
+
+  /** Lets Stripe collect the contract: the list is opened and Stripe picked. */
+  async chooseProvider(name: string | RegExp) {
+    await this.providerField().click();
+    await this.pickOption(name);
+  }
+
+  /** What is said when Stripe is offered and not connected: why, and the way to connect it. */
+  connectStripeHint(): Locator {
+    return this.dialog().getByTestId('terms-connect-hint');
+  }
+
+  /** What the API would refuse that the dialog can tell already. */
+  termsWarning(): Locator {
+    return this.dialog().getByTestId('terms-warning');
+  }
+
+  /** The invoices of the contract that are still open, and what becomes of each when the provider changes. */
+  openInvoices(): Locator {
+    return this.dialog().getByTestId('open-invoices');
+  }
+
+  /** One open invoice of that list, by the invoice it leads to. */
+  openInvoice(invoiceId: string): Locator {
+    return this.openInvoices()
+      .getByTestId('open-invoice')
+      .filter({
+        has: this.page.locator(`a[href="/billing/invoices/${invoiceId}"]`),
+      });
+  }
+
   saveTermsButton(): Locator {
     return this.dialog().getByRole('button', { exact: true, name: 'Save' });
   }
