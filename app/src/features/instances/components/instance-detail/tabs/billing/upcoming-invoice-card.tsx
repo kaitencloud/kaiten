@@ -8,9 +8,9 @@ import {
   formatBoundary,
   formatInstant,
   getInvoiceKindLabelKey,
+  InvoiceTotalCell,
   InvoicePreviewDialog,
   InvoicePreviewResult,
-  Money,
   RetryableProblem,
   ServicePeriod,
 } from '@/domains/billing';
@@ -52,7 +52,7 @@ function UpcomingInvoiceRows({ preview }: { preview: InvoicePreview }) {
       />
       <DetailCard.Row
         label={t('Pages.Customers.Instances.Detail.Billing.Upcoming.total')}
-        value={<Money amount={preview.total} currency={preview.currency} />}
+        value={<InvoiceTotalCell invoice={preview} />}
       />
     </DetailCard.Rows>
   );

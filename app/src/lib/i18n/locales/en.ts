@@ -3628,6 +3628,10 @@ export default {
             writtenOff: 'Written off',
             voided: 'Voided',
             period: 'Service period',
+            totalLinesDiscounted_one:
+              '{{count}} line, after {{discount}} of discounts',
+            totalLinesDiscounted_other:
+              '{{count}} lines, after {{discount}} of discounts',
           },
           Hold: {
             title: 'Held: {{reason}}',
@@ -5216,11 +5220,20 @@ export default {
           servicePeriod: 'Service period',
           amount: 'Amount',
         },
+        Discount: {
+          line: 'Line {{seq}}',
+          percentageOf: '{{value}} of {{base}}',
+          amountOff: '{{value}} off {{base}}',
+          application: 'Invoice {{application}} of {{max}} for this redemption',
+          applicationUnbounded: 'Invoice {{application}} for this redemption',
+          bearsOn: 'Bears on {{targets}}',
+        },
       },
       InvoiceTotals: {
         subtotal: 'Subtotal',
         discounts: 'Discounts',
         total: 'Total',
+        discounted: 'After {{amount}} of discounts',
       },
       InvoicePreview: {
         bannerTitle: 'Preview, not an invoice',
