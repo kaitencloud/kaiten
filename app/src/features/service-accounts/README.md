@@ -66,7 +66,7 @@ app/src/features/service-accounts/
 - **Presets.** `TOKEN_PRESETS` are shortcuts over the table, not token types: the API knows scopes only. A preset reads as applied whenever the table covers it, and taking it out lowers only what the presets still applied do not need. What a preset grants is rendered from its data, never from a translation.
   - Data plane, for an SDK inside the product: read on feature flags, customers, licenses and entitlements, and read & write on instances (usage reports are written under an instance).
   - Control plane, for automation that runs the fleet: read & write on instances, licenses, customers, deployment zones, releases, components, organizations and tokens.
-- **Created token.** After the create, the same route shows `TokenCreatedView` from the mutation's result: the value in a read-only field with a copy button, the scopes and the expiry. "Done" returns to the list. Cancel on the form returns to the list too.
+- **Created token.** After the create, the same route shows `TokenCreatedView` from the mutation's result: the value in the shared `CopyableValueField` (a read-only field with a copy button), the scopes and the expiry. "Done" returns to the list. Cancel on the form returns to the list too.
 
 ## Where the scopes come from
 
