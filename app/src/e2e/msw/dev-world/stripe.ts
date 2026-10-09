@@ -80,6 +80,8 @@ export function createStripeInvoices(world: StripeWorld): {
 
     return {
       fields: {
+        // Stripe sends the invoice to the address Acme gave.
+        billingEmail: 'ap@acme.com',
         boundaryAt: period.from,
         collectionMethod: 'SEND_INVOICE' as const,
         createdAt: period.from,
