@@ -219,6 +219,20 @@ const NEWS: Array<[number, NotificationContent]> = [
       title: 'Acme Production is close to its Seats limit',
     },
   ],
+  // Billing's news, with the titles and the links the API renders: the invoices are
+  // those Stripe holds for Acme US (stripe.ts), the card the one of Globex that is
+  // about to expire.
+  [
+    22,
+    {
+      actionUrl: '/billing/invoices/inv-acme-us-renewal-4',
+      eventName: 'INSTANCE_INVOICE_PUSH_FAILED',
+      eventType: 'com.kaiten.instance.invoice.v1.push_failed',
+      objectType: 'instance',
+      title:
+        'An invoice of acme-us could not be pushed to its payment provider',
+    },
+  ],
   [
     48,
     {
@@ -231,6 +245,16 @@ const NEWS: Array<[number, NotificationContent]> = [
     },
   ],
   [
+    95,
+    {
+      actionUrl: '/billing/invoices/inv-acme-us-renewal-2',
+      eventName: 'INSTANCE_INVOICE_RECONCILIATION_MISMATCH',
+      eventType: 'com.kaiten.instance.invoice.v1.reconciliation_mismatch',
+      objectType: 'instance',
+      title: 'An invoice of acme-us differs in its payment provider',
+    },
+  ],
+  [
     140,
     {
       actionUrl: instanceUrl('beta-staging'),
@@ -239,6 +263,16 @@ const NEWS: Array<[number, NotificationContent]> = [
       eventType: 'com.kaiten.instance.v1.status_changed',
       objectType: 'instance',
       title: 'Beta Staging is degraded',
+    },
+  ],
+  [
+    210,
+    {
+      actionUrl: '/customers/globex',
+      eventName: 'CUSTOMER_PAYMENT_METHOD_EXPIRING',
+      eventType: 'com.kaiten.customer.payment_method.v1.expiring',
+      objectType: 'customer',
+      title: "Globex's payment method expires soon",
     },
   ],
 ];

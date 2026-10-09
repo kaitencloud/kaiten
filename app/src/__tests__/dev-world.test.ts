@@ -27,6 +27,9 @@ const instanceSlugs = new Set(instanceSlot.instances.map(({ slug }) => slug));
 const customerSlugs = new Set(
   slot(config.customers).customers?.map(({ slug }) => slug),
 );
+const invoiceIds = new Set(
+  slot(slot(config.billing).invoices).invoices.map(({ id }) => id),
+);
 const zoneIds = new Set(releaseManagement.deploymentZones.map(({ id }) => id));
 const releaseIds = new Set(releaseManagement.releases.map(({ id }) => id));
 
@@ -104,11 +107,19 @@ describe('dev world', () => {
       []) {
       const instance = /^\/customers\/instances\/([^/]+)/.exec(actionUrl);
       const release = /^\/releases\/([^/]+)$/.exec(actionUrl);
+      const invoice = /^\/billing\/invoices\/([^/]+)$/.exec(actionUrl);
+      const customer = /^\/customers\/([^/]+)$/.exec(actionUrl);
       if (instance) {
         expect(instanceSlugs).toContain(instance[1]);
       }
       if (release) {
         expect(releaseSlugs).toContain(release[1]);
+      }
+      if (invoice) {
+        expect(invoiceIds).toContain(invoice[1]);
+      }
+      if (customer) {
+        expect(customerSlugs).toContain(customer[1]);
       }
     }
   });
