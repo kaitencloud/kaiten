@@ -16,10 +16,12 @@ concurrency:
   group: go-ci-api-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
-# The one place the Go version of this workflow is set; why it is an exact
-# version and not 1.27.x is explained above the first Set up Go step.
+# The one place each Go version of this workflow is set. GO_VERSION builds,
+# tests and scans; LINT_GO_VERSION is the exception for golangci-lint only.
+# Both are explained above the first Set up Go step.
 env:
-  GO_VERSION: "1.27.1"
+  GO_VERSION: "1.27.x"
+  LINT_GO_VERSION: "1.27.1"
 
 jobs:
   lint:
@@ -48,28 +50,31 @@ jobs:
       #
       # Same convention as the other Go repositories of the organization.
       #
-      # Pinned to 1.27.1 for now, not left on 1.27.x. Go 1.27.2 (2026-10-08)
-      # writes export data version 5, and the tooling pinned here cannot read
-      # it: golang.org/x/tools in api/go.mod (gqlgen codegen, tests that load
-      # packages) and golangci-lint v2.13.1 fail with "cannot decode "bufio",
-      # export data version 5 is greater than maximum supported version 4".
+      # 1.27.x resolves to 1.27.2 today, a security release: 1.27.1 carries
+      # GO-2026-6617 (HTTP/2 server crash) and GO-2026-6613 (HTTP/1 desync
+      # after a 2xx CONNECT), which govulncheck reports. Build, tests,
+      # codegen and govulncheck therefore run on the newest patch.
+      #
+      # golangci-lint is the one exception: it runs on LINT_GO_VERSION (1.27.1)
+      # in the steps around it. Go 1.27.2 writes export data version 5 and
+      # golangci-lint v2.13.1, as well as v2.14.0, bundles golang.org/x/tools
+      # 0.50.0, which fails on it with "cannot decode "bufio", export data
+      # version 5 is greater than maximum supported version 4". Remove those
+      # steps, and LINT_GO_VERSION, once a golangci-lint release bundles
+      # golang.org/x/tools v0.51.0 or newer, bumping golangci-lint with the
+      # rest as described below. x/tools v0.51.0 reads version 5, which is why
+      # api/go.mod is already on it.
       #
       # Go, golangci-lint and golang.org/x/tools move together, never one
       # alone. A bump of any of them changes, in the same commit:
-      #  - GO_VERSION in this file, in pre-commit-ci.yml and in
-      #    release-openapi.yml;
+      #  - GO_VERSION (and LINT_GO_VERSION while it exists) in this file and
+      #    GO_VERSION in pre-commit-ci.yml and release-openapi.yml;
       #  - GOLANGCI_LINT_VERSION in Taskfile.yml (v2.13.1 today);
       #  - the golangci-lint `rev` in .pre-commit-config.yaml;
       #  - the `version:` of golangci-lint-action in this file;
-      #  - golang.org/x/tools in api/go.mod (v0.49.0 today). It matters as
+      #  - golang.org/x/tools in api/go.mod (v0.51.0 today). It matters as
       #    much as the linter: Codegen (gqlgen) and the integration tests load
       #    packages through x/tools too.
-      #
-      # Lift the pin, and go back to "1.27.x", once a golangci-lint release
-      # published after Go 1.27.2 (2026-10-08) bundles an x/tools that reads
-      # export data version 5, and the x/tools in api/go.mod reads it as well.
-      # None qualifies yet: the newest golangci-lint is v2.14.0 (2026-09-24),
-      # which bundles x/tools 0.50.0.
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:
@@ -83,6 +88,15 @@ jobs:
       # this is the copy a --no-verify commit cannot skip.
       - name: API endpoints declare all returnable error statuses
         run: go run ./cmd/checkapierrors
+
+      # golangci-lint on LINT_GO_VERSION, not GO_VERSION: its bundled x/tools
+      # cannot read the export data of Go 1.27.2. See the first Set up Go step
+      # for why and for when to drop this step and the one after the linter.
+      - name: Set up Go for golangci-lint
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: ${{ env.LINT_GO_VERSION }}
+          cache: false
 
       # Pinned, not `latest`: an unpinned action turns an upstream release into
       # a red build on an unrelated PR. Must match Taskfile.yml's
@@ -100,6 +114,15 @@ jobs:
           version: v2.13.1
           args: --timeout=5m ./...
           working-directory: api/cmd/schema-docs
+
+      # Back to GO_VERSION for everything that is not the linter: the tidy
+      # check, govulncheck and the rest must see the standard library that
+      # ships.
+      - name: Set up Go again after golangci-lint
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
 
       # `go ... ./...` stops at a nested module, so both are named explicitly.
       - name: go.mod and go.sum are tidy
@@ -166,8 +189,6 @@ jobs:
       #    somebody bumps first. 1.27.x satisfies both, newest patch.
       #
       # Same convention as the other Go repositories of the organization.
-      #
-      # Pinned to 1.27.1 for now: see GO_VERSION above and the first Set up Go step.
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:
@@ -237,8 +258,6 @@ jobs:
       #    somebody bumps first. 1.27.x satisfies both, newest patch.
       #
       # Same convention as the other Go repositories of the organization.
-      #
-      # Pinned to 1.27.1 for now: see GO_VERSION above and the first Set up Go step.
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:

@@ -13,8 +13,8 @@ permissions:
   pull-requests: write
 
 env:
-  # Pinned for now, in step with go-ci.yml: see the Set up Go step there.
-  GO_VERSION: "1.27.1"
+  # In step with go-ci.yml, which explains the choice of version.
+  GO_VERSION: "1.27.x"
 
 jobs:
   pre-commit:
