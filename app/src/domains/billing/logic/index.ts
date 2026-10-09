@@ -58,6 +58,10 @@ export {
 } from './invoice-kind';
 export { compareInvoiceTotals } from './invoice-total-order';
 export {
+  getStripePaymentMethod,
+  hasUsablePaymentMethod,
+} from './payment-method';
+export {
   isPaidAtProviderRefusal,
   readRecomposeRefusal,
   type RecomposeRefusal,

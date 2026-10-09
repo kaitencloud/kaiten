@@ -6,6 +6,7 @@ import { placeRefusalOnFields, useBoundaryRetry } from '@/domains/billing';
 import { useAppForm } from '@/hooks/form';
 import {
   PAYMENT_TERMS_REFUSAL_FIELDS,
+  type PaymentTermsFormValues,
   paymentTermsFormSchema,
   paymentTermsValuesToBody,
 } from '../schemas/payment-terms.schema';
@@ -16,21 +17,32 @@ type UsePaymentTermsFormOptions = {
   /** Called once the API accepted the change. */
   onSaved: () => void;
   subscription: InstanceBilling;
+  /**
+   * Whether the form also changes who collects the invoices and how: where a payment
+   * provider is connected, or collects the contract already. The form holds the
+   * provider and the method then, and sends them when they change.
+   */
+  withProvider?: boolean;
 };
 
 /**
  * The form of the payment terms of a contract, and the two ways to change them:
- * a number of days for this deal, or the terms of the organization back. They
- * apply from the next invoice on, so the change shows in the subscription and in
+ * a number of days for this deal, or the terms of the organization back. Where a
+ * payment provider can collect, it also changes who collects the invoices and how.
+ * They apply from the next invoice on, so the change shows in the subscription and in
  * none of the invoices already issued. It sends one request however often it is
  * pressed. A period being closed is waited out once, and `closing` says so; any
  * other refusal leaves the dialog open with what was typed, on the field when it is
  * about it and above the buttons otherwise.
+ *
+ * Moving to the organization's own system collects by sending the invoice, as that is
+ * the only way it collects: the method follows the provider when the provider is chosen.
  */
 export function usePaymentTermsForm({
   instanceSlug,
   onSaved,
   subscription,
+  withProvider = false,
 }: UsePaymentTermsFormOptions) {
   const { t } = useTranslation();
   const { updateTerms } = useSubscriptionLifecycle(instanceSlug);
@@ -51,9 +63,14 @@ export function usePaymentTermsForm({
       await send(() =>
         updateTerms.mutateAsync({ body, path: { instanceSlug } }),
       );
+      // The terms of the organization apply again only when that is all that changed.
+      const resetOnly =
+        body.daysUntilDue === null &&
+        body.providerKind === undefined &&
+        body.collectionMethod === undefined;
       toast.success(
         t(
-          body.daysUntilDue === null
+          resetOnly
             ? 'Pages.Customers.Instances.Detail.Billing.Terms.Toasts.reset'
             : 'Pages.Customers.Instances.Detail.Billing.Terms.Toasts.saved',
         ),
@@ -68,15 +85,31 @@ export function usePaymentTermsForm({
     }
   }
 
+  const defaultValues: PaymentTermsFormValues = {
+    daysUntilDue: subscription.daysUntilDueOverride ?? Number.NaN,
+    ...(withProvider
+      ? {
+          collectionMethod: subscription.collectionMethod,
+          providerKind: subscription.providerKind,
+        }
+      : {}),
+  };
   const form = useAppForm({
-    defaultValues: {
-      daysUntilDue: subscription.daysUntilDueOverride ?? Number.NaN,
-    },
+    defaultValues,
     listeners: {
-      onChange: () => setFailure(null),
+      onChange: ({ fieldApi, formApi }) => {
+        setFailure(null);
+        // The organization's own system collects by sending the invoice.
+        if (
+          fieldApi.name === 'providerKind' &&
+          fieldApi.state.value === 'NOOP'
+        ) {
+          formApi.setFieldValue('collectionMethod', 'SEND_INVOICE');
+        }
+      },
     },
     onSubmit: ({ formApi, value }) =>
-      save(paymentTermsValuesToBody(value), formApi),
+      save(paymentTermsValuesToBody(value, subscription), formApi),
     validators: { onChange: paymentTermsFormSchema },
   });
 

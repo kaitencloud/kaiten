@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import { MAX_DAYS_UNTIL_DUE } from '@/domains/billing';
 import {
   PAYMENT_TERMS_REFUSAL_FIELDS,
+  type PaymentTermsFormValues,
   paymentTermsFormSchema,
   paymentTermsValuesToBody,
 } from '../payment-terms.schema';
@@ -31,7 +32,7 @@ describe('the days an invoice may be paid in', () => {
 });
 
 describe('the body of a change of terms', () => {
-  it('carries the days, and only the days: the collection method and the provider are not this screen\'s', () => {
+  it('carries the days, and only the days, when the form has no provider to choose', () => {
     expect(paymentTermsValuesToBody({ daysUntilDue: 45 })).toEqual({ daysUntilDue: 45 });
     expect(Object.keys(paymentTermsValuesToBody({ daysUntilDue: 0 }))).toEqual(['daysUntilDue']);
   });
@@ -47,10 +48,76 @@ describe('the body of a change of terms', () => {
   });
 });
 
+describe('the body of a change of provider and terms', () => {
+  const subscription = {
+    collectionMethod: 'SEND_INVOICE',
+    providerKind: 'NOOP',
+  } as const;
+  const values = (overrides: Partial<PaymentTermsFormValues> = {}): PaymentTermsFormValues => ({
+    collectionMethod: 'SEND_INVOICE',
+    daysUntilDue: Number.NaN,
+    providerKind: 'NOOP',
+    ...overrides,
+  });
+
+  it('sends the provider when it changes, and not when it does not', () => {
+    expect(
+      paymentTermsValuesToBody(values({ providerKind: 'STRIPE' }), subscription),
+    ).toEqual({ daysUntilDue: null, providerKind: 'STRIPE' });
+    expect(paymentTermsValuesToBody(values(), subscription)).toEqual({
+      daysUntilDue: null,
+    });
+  });
+
+  it('sends the collection method when it changes, and not when it does not', () => {
+    expect(
+      paymentTermsValuesToBody(
+        values({ collectionMethod: 'CHARGE_AUTOMATICALLY', providerKind: 'STRIPE' }),
+        subscription,
+      ),
+    ).toEqual({
+      collectionMethod: 'CHARGE_AUTOMATICALLY',
+      daysUntilDue: null,
+      providerKind: 'STRIPE',
+    });
+  });
+
+  it('sends the method back to sending the invoice with a switch away from a provider that charges', () => {
+    expect(
+      paymentTermsValuesToBody(values(), {
+        collectionMethod: 'CHARGE_AUTOMATICALLY',
+        providerKind: 'STRIPE',
+      }),
+    ).toEqual({
+      collectionMethod: 'SEND_INVOICE',
+      daysUntilDue: null,
+      providerKind: 'NOOP',
+    });
+  });
+
+  it('sends the days with them, as before', () => {
+    expect(
+      paymentTermsValuesToBody(values({ daysUntilDue: 14, providerKind: 'STRIPE' }), subscription),
+    ).toEqual({ daysUntilDue: 14, providerKind: 'STRIPE' });
+  });
+
+  it('sends what the form holds when it is not told what the subscription has', () => {
+    expect(paymentTermsValuesToBody(values({ providerKind: 'STRIPE' }))).toEqual({
+      collectionMethod: 'SEND_INVOICE',
+      daysUntilDue: null,
+      providerKind: 'STRIPE',
+    });
+  });
+});
+
 describe('where a refusal of the terms is shown', () => {
-  it('puts it on the days', () => {
+  it('puts it on the field it is about: the days, the method or the provider', () => {
     expect(PAYMENT_TERMS_REFUSAL_FIELDS.byCode).toEqual({
+      'UpdateInstanceBilling.CollectionMethodUnsupported': 'collectionMethod',
       'UpdateInstanceBilling.InvalidDaysUntilDue': 'daysUntilDue',
+      'UpdateInstanceBilling.PaymentMethodRequired': 'collectionMethod',
+      'UpdateInstanceBilling.ProviderNotConnected': 'providerKind',
+      'UpdateInstanceBilling.UnsupportedCurrency': 'providerKind',
     });
   });
 });

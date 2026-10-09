@@ -922,6 +922,62 @@ export default {
               notSubscribed: 'Cette instance n’a pas d’abonnement.',
               alreadyCanceled:
                 'Cet abonnement est terminé : il n’a pas de conditions à changer.',
+              openWithProvider: 'Fournisseur et conditions',
+              dialogTitleWithProvider: 'Fournisseur et conditions de {{name}}',
+              dialogDescriptionWithProvider:
+                'Qui encaisse les factures de ce contrat et comment, et les jours entre l’émission d’une facture et son échéance.',
+              Provider: {
+                label: 'Encaissé par',
+                description:
+                  'Qui émet et encaisse les factures, à partir de la prochaine. Les factures déjà composées gardent leur propre fournisseur.',
+                NOOP: 'Transmission manuelle',
+                STRIPE: 'Stripe',
+              },
+              Collection: {
+                label: 'Mode d’encaissement',
+                description:
+                  'Envoyer la facture laisse le client la payer. Prélever automatiquement utilise le moyen de paiement que le client a enregistré dans Stripe.',
+                SEND_INVOICE: 'Envoyer la facture',
+                CHARGE_AUTOMATICALLY: 'Prélever automatiquement',
+                unavailable: '{{method}} (nécessite Stripe)',
+              },
+              Warnings: {
+                customer: 'Ouvrir le client',
+                billingEmail:
+                  'Ce client n’a pas d’e-mail de facturation, et Stripe y envoie les factures.',
+                paymentMethod:
+                  'Ce client n’a aucun moyen de paiement que Stripe puisse prélever.',
+                fromNextInvoice:
+                  'Le nouveau fournisseur encaisse à partir de la prochaine facture.',
+              },
+              Switch: {
+                title: 'Factures encore ouvertes',
+                description:
+                  'Chaque facture garde son propre fournisseur, mode d’encaissement et conditions. Voici ce qui arrive à chacune.',
+                empty: 'Ce contrat n’a aucune facture ouverte.',
+                Fate: {
+                  manual:
+                    'Prête à facturer : elle ne se règle qu’en la marquant payée ou en la passant en perte, et elle compte toujours pour un retard de paiement.',
+                  held: 'Bloquée : la débloquer l’émet avec le fournisseur pour lequel elle a été composée, et la recomposer utilise le nouveau fournisseur.',
+                  queued:
+                    'Elle continue d’être envoyée à Stripe tant que Stripe reste connecté.',
+                  review:
+                    'Elle attend dans Stripe d’être finalisée, ou un envoi depuis ici.',
+                  collected:
+                    'Stripe l’encaisse et Kaiten la reflète. Stripe ne peut pas être déconnecté tant qu’elle est ouverte.',
+                  other: 'Elle garde son propre fournisseur et ses conditions.',
+                },
+                Move: {
+                  choose:
+                    'La débloquer pour garder son fournisseur, ou la recomposer pour la déplacer : choisissez délibérément.',
+                  voidAndRecompose:
+                    'Pour la déplacer : l’annuler, puis la recomposer.',
+                  voidDeletesDraft:
+                    'Pour la déplacer : l’annuler, ce qui supprime le brouillon dans Stripe, puis la recomposer.',
+                  voidInBoth:
+                    'Pour la déplacer : l’annuler dans les deux systèmes, puis la recomposer. À ne faire que si le client doit cesser de payer par Stripe.',
+                },
+              },
               Toasts: {
                 saved: 'Les conditions de paiement sont enregistrées',
                 reset:

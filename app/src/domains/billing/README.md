@@ -143,6 +143,13 @@ page holds, or an export the API streams.
   `ExportInvoicesMenu` the filters the API has too, and the names of the ones it has
   not (`unapplied`): the menu says so above its choices, since the file would hold
   invoices the screen does not show.
+- `billingHealthQueryOptions` (`GET /billing/health`) and `customerBillingQueryOptions`
+  (`GET /customers/{customerSlug}/billing`) are the reads of the provider's side that two
+  features share: the health is the settings' (the figures, the sync line of Stripe), and
+  what a customer holds in Stripe is the customer page's (its payment method) and the
+  dialog of the provider of a contract's. `getStripePaymentMethod` and
+  `hasUsablePaymentMethod` read the payment method the way the API sends it, `null` for a
+  customer with none though the contract declares it always there.
 - `invalidateInstanceBillingQueries`, `invalidateInstanceAddonQueries`,
   `invalidateInvoiceQueries`, `invalidateLicensePriceQueries`,
   `invalidateBillingSettingsQueries`, `invalidateBillingProviderQueries` (a provider was

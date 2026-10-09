@@ -15,30 +15,42 @@ import {
 } from '@/functionals/stacked-form-dialog';
 import { createFormSubmitHandler } from '@/hooks/form';
 import { usePaymentTermsForm } from '../../../../../hooks/use-payment-terms-form';
+import { ProviderTermsFields } from './provider-terms-fields';
 
 type PaymentTermsFormProps = {
+  /** The billing e-mail of the customer, which Stripe sends the invoices to. */
+  billingEmail?: string;
   instanceSlug: string;
   onClose: () => void;
   subscription: InstanceBilling;
+  /** Whether a payment provider can collect, so that who collects and how is the form's too. */
+  withProvider?: boolean;
 };
 
 /**
  * The payment terms of one contract: the days between issuing an invoice and its
- * due date. The dialog says what they are now and where they come from, that the
- * change applies from the next invoice on, and offers the terms of the
- * organization back when the contract has terms of its own. An empty field is
- * those terms too.
+ * due date and, where a payment provider can collect, who collects and how. The
+ * dialog says what the days are now and where they come from, that the change
+ * applies from the next invoice on, and offers the terms of the organization back when
+ * the contract has terms of its own. An empty field is those terms too.
  */
 export function PaymentTermsForm({
+  billingEmail,
   instanceSlug,
   onClose,
   subscription,
+  withProvider = false,
 }: PaymentTermsFormProps) {
   const { t } = useTranslation();
   const formId = useId();
   const settings = useQuery(billingSettingsQueryOptions);
   const { closing, failure, form, isSending, resetToDefault } =
-    usePaymentTermsForm({ instanceSlug, onSaved: onClose, subscription });
+    usePaymentTermsForm({
+      instanceSlug,
+      onSaved: onClose,
+      subscription,
+      withProvider,
+    });
   const own = subscription.daysUntilDueOverride !== undefined;
   const defaultDays = settings.data?.defaultDaysUntilDue;
 
@@ -66,6 +78,14 @@ export function PaymentTermsForm({
         </StackedFormDialogFooter>
         <StackedFormDialogPanel>
           <div className="space-y-5">
+            {withProvider ? (
+              <ProviderTermsFields
+                billingEmail={billingEmail}
+                customerSlug={subscription.customerSlug}
+                form={form}
+                subscription={subscription}
+              />
+            ) : null}
             <p className="text-sm" data-testid="payment-terms-current">
               {t(
                 own
