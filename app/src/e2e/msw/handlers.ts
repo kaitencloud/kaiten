@@ -86,8 +86,22 @@ export function createMockHandlers(
   const handlers = [
     ...(auditTrail ? auditTrailHandlers(auditTrail) : []),
     ...(billing
-      ? billingHandlers(billing, () =>
-          persist('billing', billing.serializeForMsw()),
+      ? billingHandlers(
+          billing,
+          () => persist('billing', billing.serializeForMsw()),
+          // An add-on applies at once: the instances, when this page serves them,
+          // read the effective values of the instance it was attached to again.
+          instances
+            ? {
+                syncEffectiveValues: (instanceSlug) => {
+                  instances.applyAddonContributions(
+                    instanceSlug,
+                    billing.instanceAddons.contributionsOf(instanceSlug),
+                  );
+                  persist('instances', instances.serializeForMsw());
+                },
+              }
+            : undefined,
         )
       : []),
     ...(licenses

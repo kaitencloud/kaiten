@@ -518,7 +518,8 @@ describe('the add-ons of an instance, as the mocks serve them', () => {
 
     const response = await send('DELETE', '/instances/initech-prod/addons/extra-seats-v1');
 
+    // The code the API gives: it is a 404 on what the instance holds, not on the instance.
     expect(response.status).toBe(404);
-    expect((await refusal(response)).code).toBe('DetachInstanceAddon.NotFound');
+    expect((await refusal(response)).code).toBe('DetachInstanceAddon.NotAttached');
   });
 });

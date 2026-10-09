@@ -9,6 +9,7 @@
  * import { buildCustomer, buildLicense, TEST_USER } from '../_support/fixtures';
  * ```
  */
+export { buildAddon, buildAddonGrant, buildInstanceAddon } from './build-addon';
 export { buildCustomer, TEST_USER } from './build-customer';
 export { buildDeploymentZone } from './build-deployment-zone';
 export { buildLicense } from './build-license';
