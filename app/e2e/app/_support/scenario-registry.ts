@@ -98,6 +98,7 @@ import {
   createLicenseCatalogModel,
   createNumberedLicenseFamilyModel,
   createPricedCatalogModel,
+  createPricedFamiliesModel,
   createTwoFlatFeesModel,
 } from '../licenses/licenses.scenarios';
 import {
@@ -183,6 +184,7 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   ['licenses/createPricedCatalogModel', createPricedCatalogModel],
   ['licenses/createBilledCatalogModel', createBilledCatalogModel],
   ['licenses/createDraftPricesModel', createDraftPricesModel],
+  ['licenses/createPricedFamiliesModel', createPricedFamiliesModel],
   ['licenses/createTwoFlatFeesModel', createTwoFlatFeesModel],
   [
     'audit-trail/createUsageEventsAuditTrailModel',

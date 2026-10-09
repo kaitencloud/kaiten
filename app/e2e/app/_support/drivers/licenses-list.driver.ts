@@ -37,6 +37,11 @@ export class LicensesListDriver {
     });
   }
 
+  /** How the version a family is shown under is sold: its prices, or that it is free or on request. */
+  priceSummary(name: string): Locator {
+    return this.family(name).getByTestId('license-price-summary');
+  }
+
   /** What a family says of itself when it is listed in the public catalogue. */
   publicBadge(name: string): Locator {
     return this.family(name).getByText('Public', { exact: true });
