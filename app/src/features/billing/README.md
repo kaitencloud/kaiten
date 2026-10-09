@@ -82,4 +82,4 @@ Writes use the generated mutations (`markInvoicePaidMutation`, `writeOffInvoiceM
 
 ## Public API
 
-`index.ts` exports the four page components, the query options the routes load (`handoffQueryOptions`, `invoiceQueryOptions`, `lineReportsQueryOptions`; the one of the list is in the domain), `readInvoiceScope` for the search of the list, `readHandoffSearch` and `handoffStatusOf` for the one of the queue, and `getInvoiceTitle` for the breadcrumb. It is imported by the routes under `app/src/routes/billing/`, and by nothing else: see [Import rules](../../../docs/AI_CONTEXT.md#import-rules).
+`index.ts` exports the four page components, the query options the routes load (`handoffQueryOptions`, `invoiceQueryOptions`, `lineReportsQueryOptions`; the one of the list is in the domain), `readInvoiceScope` and `readInvoiceListSeed` for the search of the list, `readHandoffSearch` and `handoffStatusOf` for the one of the queue, and `getInvoiceTitle` for the breadcrumb. It is imported by the routes under `app/src/routes/billing/`, and by nothing else: see [Import rules](../../../docs/AI_CONTEXT.md#import-rules).

@@ -260,7 +260,7 @@ test.describe('the billing settings', () => {
 });
 
 test.describe('the billing settings of a release that ships a payment provider', () => {
-  test('list Stripe with its state, offer to charge automatically and to hand off its invoices', async ({
+  test('list Stripe with its state, keep charging automatically for the contracts and offer to hand off its invoices', async ({
     page,
   }) => {
     const settings = new BillingSettingsDriver(page);
@@ -274,8 +274,10 @@ test.describe('the billing settings of a release that ships a payment provider',
     await expect(settings.handoffStripeInvoicesField()).toBeVisible();
     await settings.collectionMethod().click();
     await expect(
-      page.getByRole('option', { name: 'Charge automatically' }),
-    ).not.toHaveAttribute('aria-disabled', 'true');
+      page.getByRole('option', {
+        name: 'Charge automatically (set on each contract)',
+      }),
+    ).toHaveAttribute('aria-disabled', 'true');
   });
 });
 

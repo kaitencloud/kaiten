@@ -32,6 +32,7 @@ import {
   invalidateInstanceVoucherQueries,
   invalidateInvoiceQueries,
   invalidateLicensePriceQueries,
+  invalidateProviderSyncQueries,
   invalidateVoucherQueries,
   invoicesQueryOptions,
 } from '../queries';
@@ -329,5 +330,42 @@ describe('the health of billing', () => {
     await invalidateInvoiceQueries(client, 'inv-1');
 
     expect(invalidated(client, getBillingHealthQueryKey())).toBe(true);
+  });
+});
+
+describe('invalidateProviderSyncQueries', () => {
+  it('refreshes what the provider may have changed, for every instance and customer', async () => {
+    const client = new QueryClient();
+    const touched = [
+      organizationInvoices,
+      customerInvoices,
+      instanceCardInvoices,
+      otherInstanceCardInvoices,
+      waitingQueue,
+      getBillingHealthQueryKey(),
+      getInvoiceQueryKey({ path: { invoiceId: 'inv-1' } }),
+      getInvoiceQueryKey({ path: { invoiceId: 'inv-2' } }),
+      // An invoice paid in the provider ends the late payment of its subscription.
+      getInstanceBillingQueryKey({ path }),
+      getInstanceBillingQueryKey({ path: otherPath }),
+      getCustomerBillingQueryKey({ path: { customerSlug: 'initech' } }),
+      getCustomerBillingQueryKey({ path: { customerSlug: 'globex' } }),
+    ];
+    // The pass changes neither who can collect, nor the defaults, nor the catalogue.
+    const untouched = [
+      getBillingCapabilitiesQueryKey(),
+      getBillingSettingsQueryKey(),
+      listVouchersQueryKey(),
+    ];
+    seed(client, [...touched, ...untouched]);
+
+    await invalidateProviderSyncQueries(client);
+
+    for (const key of touched) {
+      expect(invalidated(client, key)).toBe(true);
+    }
+    for (const key of untouched) {
+      expect(invalidated(client, key)).toBe(false);
+    }
   });
 });

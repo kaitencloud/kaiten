@@ -4,6 +4,7 @@ export {
   addonPricesQueryOptions,
   addonVersionsQueryOptions,
 } from './addon-query-options';
+export { billingHealthQueryOptions } from './billing-health';
 export { billingSettingsQueryOptions } from './billing-settings';
 export {
   BILLING_CAPABILITIES_TIMEOUT_MS,
@@ -26,6 +27,7 @@ export {
   invalidateInstanceVoucherQueries,
   invalidateInvoiceQueries,
   invalidateLicensePriceQueries,
+  invalidateProviderSyncQueries,
   invalidateVoucherQueries,
 } from './billing-query-invalidation';
 export { usageReportPagesQueryOptions } from './usage-report-pages';
