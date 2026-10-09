@@ -223,7 +223,7 @@ describe('the usage behind a metered line, as the mocks serve it', () => {
     expect(lines).toHaveLength(6);
   });
 
-  it('refuses a line that is not metered, an unknown one, and one past the retention', async () => {
+  it('refuses a line that is not metered, an unknown one, an unknown invoice, and a line past the retention', async () => {
     install(createInvoicesModel({ retentionStart: '2026-04-01T00:00:00.000Z' }));
 
     const flat = await send('GET', '/invoices/inv-p1/lines/inv-p1-line-2/reports');
@@ -233,6 +233,11 @@ describe('the usage behind a metered line, as the mocks serve it', () => {
     const unknown = await send('GET', '/invoices/inv-p1/lines/nope/reports');
     expect(unknown.status).toBe(404);
     expect((await problem(unknown)).code).toBe('ListInvoiceLineReports.LineNotFound');
+
+    // An unknown invoice is its own refusal: only a known invoice can lack a line.
+    const noInvoice = await send('GET', '/invoices/nope/lines/inv-p1-line-1/reports');
+    expect(noInvoice.status).toBe(404);
+    expect((await problem(noInvoice)).code).toBe('ListInvoiceLineReports.NotFound');
 
     const purged = await send('GET', '/invoices/inv-p1/lines/inv-p1-line-1/reports');
     const body = await problem(purged);
