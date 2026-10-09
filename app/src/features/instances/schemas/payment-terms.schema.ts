@@ -28,24 +28,35 @@ export type PaymentTermsFormValues = z.infer<typeof paymentTermsFormSchema>;
 
 /**
  * The body of the change: the days, or `null` for the organization's default, which is
- * how the API takes a member back to the default; and the provider and the collection
- * method only when they differ from what the subscription has, since a member that is
- * left out is left alone and a switch to the provider it is on is no change. Passed no
- * subscription, whatever the form holds is sent.
+ * how the API takes a member back to the default; the provider; and the collection
+ * method. A member that is left out is left alone, so each is sent only when it differs
+ * from what the subscription has: a switch to the provider it is on is no change, and a
+ * change of provider does not touch the days. Passed no subscription, whatever the form
+ * holds is sent.
  */
 export const paymentTermsValuesToBody = (
   values: PaymentTermsFormValues,
-  subscription?: Pick<InstanceBilling, 'collectionMethod' | 'providerKind'>,
-): SubscriptionTerms => ({
-  daysUntilDue: Number.isNaN(values.daysUntilDue) ? null : values.daysUntilDue,
-  ...(values.providerKind && values.providerKind !== subscription?.providerKind
-    ? { providerKind: values.providerKind }
-    : {}),
-  ...(values.collectionMethod &&
-  values.collectionMethod !== subscription?.collectionMethod
-    ? { collectionMethod: values.collectionMethod }
-    : {}),
-});
+  subscription?: Pick<
+    InstanceBilling,
+    'collectionMethod' | 'daysUntilDueOverride' | 'providerKind'
+  >,
+): SubscriptionTerms => {
+  const days = Number.isNaN(values.daysUntilDue) ? null : values.daysUntilDue;
+  const daysChanged =
+    !subscription || days !== (subscription.daysUntilDueOverride ?? null);
+
+  return {
+    ...(daysChanged ? { daysUntilDue: days } : {}),
+    ...(values.providerKind &&
+    values.providerKind !== subscription?.providerKind
+      ? { providerKind: values.providerKind }
+      : {}),
+    ...(values.collectionMethod &&
+    values.collectionMethod !== subscription?.collectionMethod
+      ? { collectionMethod: values.collectionMethod }
+      : {}),
+  };
+};
 
 /**
  * Where a refusal of the API is shown on the form: on the field it is about when that

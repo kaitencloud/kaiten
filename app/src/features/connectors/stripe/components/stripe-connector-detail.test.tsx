@@ -291,7 +291,7 @@ describe('connecting Stripe', () => {
     const reconnect = await screen.findByRole('button', {
       name: 'Connect Stripe with the stored key',
     });
-    expect(reconnect).toBeEnabled();
+    await waitFor(() => expect(reconnect).toBeEnabled());
     await userEvent.click(reconnect);
 
     await waitFor(() => expect(saves).toHaveLength(1));
@@ -513,7 +513,7 @@ describe('where Stripe cannot be connected', () => {
       'https://docs.kaiten.sh/docs/self-hosting/environment-variables',
     );
     expect(await keyField()).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'Connect Stripe' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Connect Stripe' })).toBeDisabled();
     expect(screen.getByText('Unavailable')).toBeInTheDocument();
   });
 
@@ -525,7 +525,7 @@ describe('where Stripe cannot be connected', () => {
     expect(notice).toHaveAttribute('data-reason', 'NOT_ENTITLED');
     expect(notice).toHaveTextContent('Not included in your plan');
     expect(within(notice).queryByRole('link')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Connect Stripe' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Connect Stripe' })).toBeDisabled();
   });
 
   it('gives a generic reason where the API does not list Stripe at all', async () => {
