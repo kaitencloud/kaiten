@@ -433,7 +433,7 @@ test.describe('the scope of the list', () => {
     await list.expectInvoiceIds(['inv-m1', 'inv-d2', 'inv-r1', 'inv-v1']);
   });
 
-  test('keeps the scope of an older link and drops the filters it carried', async ({
+  test('keeps the scope of an older link, applies the filters a health tile leads with, and drops the others it carried', async ({
     page,
   }) => {
     const list = new BillingInvoicesDriver(page);
@@ -441,14 +441,16 @@ test.describe('the scope of the list', () => {
     await installBillingAppMocks(page, createInvoicesModel());
 
     await list.gotoShowingEverything(
-      '?customerSlug=globex&kind=ACTIVATION&status=PAID&overdue=true',
+      '?customerSlug=globex&kind=ACTIVATION&status=PAID&providerKind=STRIPE',
     );
 
-    await list.expectChips(['Customer: globex']);
-    await list.expectInvoiceIds(['inv-g1', 'inv-d2', 'inv-u1']);
+    // The status is one of the four a link may start the list on; the kind and the provider are not.
+    await list.expectChips(['Customer: globex', 'Status: Paid']);
+    await list.expectInvoiceIds(['inv-d2']);
+    // The filters run in the browser: the API is asked for the scope and nothing else.
     const asked = new URLSearchParams(reads[0].search);
     expect(asked.get('customerSlug')).toBe('globex');
-    for (const dropped of ['kind', 'status', 'overdue']) {
+    for (const dropped of ['kind', 'status', 'providerKind']) {
       expect(asked.has(dropped), `${dropped} was sent`).toBe(false);
     }
   });
