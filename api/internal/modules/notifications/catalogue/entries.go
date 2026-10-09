@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/events"
+	addonevents "github.com/kaitencloud/kaiten/api/internal/modules/addons/events"
 	billingevents "github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
 	componentevents "github.com/kaitencloud/kaiten/api/internal/modules/components/events"
 	customerevents "github.com/kaitencloud/kaiten/api/internal/modules/customers/events"
@@ -12,6 +14,7 @@ import (
 	identityevents "github.com/kaitencloud/kaiten/api/internal/modules/identity/events"
 	instanceevents "github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	licenseevents "github.com/kaitencloud/kaiten/api/internal/modules/licenses/events"
+	publicsdkevents "github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/events"
 	releaseevents "github.com/kaitencloud/kaiten/api/internal/modules/releases/events"
 	voucherevents "github.com/kaitencloud/kaiten/api/internal/modules/vouchers/events"
 )
@@ -166,6 +169,56 @@ func init() {
 		Defaults: map[Channel]bool{ChannelInApp: true},
 		renderer: renderVoucherExhausted,
 	})
+
+	Register(Entry{
+		Event:    billingevents.BillingProviderDisconnected,
+		Group:    GroupBilling,
+		Object:   ObjectBilling,
+		Label:    "Payment provider disconnected",
+		Defaults: map[Channel]bool{ChannelInApp: true},
+		renderer: renderProvider("%s was disconnected: its invoices are no longer pushed"),
+	})
+
+	// The rest of §15.1's billing events are off by default: routine changes a
+	// teammate makes, or the expected steps of an invoice. Discoverable in
+	// settings.
+	for _, entry := range []struct {
+		event    events.Metadata
+		object   Object
+		label    string
+		renderer Renderer
+	}{
+		{billingevents.InstanceBillingCancellationScheduled, ObjectInstance, "Cancellation scheduled", renderSubscription("%s's subscription will end at its period's end")},
+		{billingevents.InstanceBillingCancellationReverted, ObjectInstance, "Cancellation reverted", renderSubscription("%s's subscription will renew again")},
+		{billingevents.InstanceBillingPlanChangeScheduled, ObjectInstance, "Plan change scheduled", renderSubscription("%s's plan changes at its next renewal")},
+		{billingevents.InstanceBillingPlanChangeCancelled, ObjectInstance, "Plan change cancelled", renderSubscription("%s's scheduled plan change was cancelled")},
+		{billingevents.InstanceBillingPlanChanged, ObjectInstance, "Plan changed", renderSubscription("%s moved to its new plan")},
+		{billingevents.InstanceBillingProviderChanged, ObjectInstance, "Payment provider changed", renderSubscription("%s's invoices go to another payment provider")},
+		{billingevents.InstanceInvoiceIssued, ObjectInstance, "Invoice issued", renderInvoice("An invoice of %s was issued")},
+		{billingevents.InstanceInvoiceReleased, ObjectInstance, "Invoice released", renderInvoice("A held invoice of %s was released")},
+		{billingevents.InstanceInvoicePushed, ObjectInstance, "Invoice pushed", renderInvoice("An invoice of %s was pushed to its payment provider")},
+		{billingevents.InstanceInvoicePaid, ObjectInstance, "Invoice paid", renderInvoice("An invoice of %s was paid")},
+		{billingevents.InstanceInvoiceMarkedUncollectible, ObjectInstance, "Invoice written off", renderInvoice("An invoice of %s was written off")},
+		{billingevents.InstanceInvoiceVoided, ObjectInstance, "Invoice voided", renderInvoice("An invoice of %s was voided")},
+		{billingevents.InstanceInvoiceHandoffAcknowledged, ObjectBilling, "Invoice handed off", renderHandoffAcknowledged},
+		{billingevents.CustomerPaymentMethodAttached, ObjectCustomer, "Payment method saved", renderPaymentMethod("%s saved a payment method")},
+		{billingevents.CustomerPaymentMethodDetached, ObjectCustomer, "Payment method removed", renderPaymentMethod("%s's payment method was removed")},
+		{billingevents.BillingProviderConnected, ObjectBilling, "Payment provider connected", renderProvider("%s was connected")},
+		{addonevents.InstanceAddonAdded, ObjectInstance, "Add-on added", renderSubscription("An add-on was added to %s")},
+		{addonevents.InstanceAddonQuantityChanged, ObjectInstance, "Add-on quantity changed", renderSubscription("An add-on's quantity changed on %s")},
+		{addonevents.InstanceAddonRemoved, ObjectInstance, "Add-on removed", renderSubscription("An add-on was removed from %s")},
+		{voucherevents.VoucherExpired, ObjectBilling, "Voucher expired", renderVoucherExpired},
+		{voucherevents.InstanceVoucherRedeemed, ObjectInstance, "Voucher redeemed", renderSubscription("%s redeemed a voucher")},
+		{voucherevents.InstanceVoucherRevoked, ObjectInstance, "Voucher revoked", renderSubscription("A voucher of %s was revoked")},
+		{voucherevents.InstanceVoucherExpired, ObjectInstance, "Redeemed voucher expired", renderSubscription("A voucher of %s stopped applying")},
+		{publicsdkevents.PublishableKeyCreated, ObjectBilling, "Publishable key created", renderPublishableKey("Publishable key %s was created")},
+		{publicsdkevents.PublishableKeyRevoked, ObjectBilling, "Publishable key revoked", renderPublishableKey("Publishable key %s was revoked")},
+	} {
+		Register(Entry{
+			Event: entry.event, Group: GroupBilling, Object: entry.object, Label: entry.label,
+			Defaults: map[Channel]bool{ChannelInApp: false}, renderer: entry.renderer,
+		})
+	}
 
 	// ── Instances ────────────────────────────────────────────────────────────
 
@@ -877,4 +930,77 @@ func renderVoucherExhausted(payload []byte, _ Refs) Rendered {
 		rendered.Body = fmt.Sprintf("All %d redemptions are taken", *decoded.MaxRedemptions)
 	}
 	return rendered
+}
+
+// renderProvider renders a payment provider event, linking to the billing
+// settings.
+func renderProvider(titleFormat string) Renderer {
+	return func(payload []byte, _ Refs) Rendered {
+		var decoded struct {
+			ProviderKind string `json:"providerKind"`
+		}
+		_ = json.Unmarshal(payload, &decoded)
+		provider := decoded.ProviderKind
+		if provider == "" {
+			provider = "The payment provider"
+		}
+		return Rendered{Title: fmt.Sprintf(titleFormat, provider), ActionURL: billingSettingsPath}
+	}
+}
+
+// renderPaymentMethod renders a customer's payment method saved or removed,
+// linking to the customer. Never its labels.
+func renderPaymentMethod(titleFormat string) Renderer {
+	return func(payload []byte, _ Refs) Rendered {
+		var decoded struct {
+			CustomerSlug string `json:"customerSlug"`
+		}
+		_ = json.Unmarshal(payload, &decoded)
+		if decoded.CustomerSlug == "" {
+			return Rendered{ActionURL: customersPath}
+		}
+		return Rendered{Title: fmt.Sprintf(titleFormat, decoded.CustomerSlug), ActionURL: customersPath + "/" + decoded.CustomerSlug}
+	}
+}
+
+// renderHandoffAcknowledged renders an invoice the vendor's system took over,
+// linking to it.
+func renderHandoffAcknowledged(payload []byte, _ Refs) Rendered {
+	var decoded struct {
+		InvoiceID         string `json:"invoiceId"`
+		ExternalReference string `json:"externalReference"`
+	}
+	_ = json.Unmarshal(payload, &decoded)
+	if decoded.InvoiceID == "" {
+		return Rendered{ActionURL: invoicesPath}
+	}
+	rendered := Rendered{Title: "An invoice was handed off", ActionURL: invoicesPath + "/" + decoded.InvoiceID}
+	if decoded.ExternalReference != "" {
+		rendered.Body = "Recorded as " + decoded.ExternalReference
+	}
+	return rendered
+}
+
+// renderVoucherExpired renders a voucher past its expiry date.
+func renderVoucherExpired(payload []byte, _ Refs) Rendered {
+	var decoded struct {
+		Name string `json:"name"`
+	}
+	_ = json.Unmarshal(payload, &decoded)
+	if decoded.Name == "" {
+		return Rendered{ActionURL: billingPath}
+	}
+	return Rendered{Title: "Voucher " + decoded.Name + " expired", ActionURL: billingPath}
+}
+
+// renderPublishableKey renders a publishable key event, by its label. Never
+// the key.
+func renderPublishableKey(titleFormat string) Renderer {
+	return func(payload []byte, _ Refs) Rendered {
+		var decoded struct {
+			Label string `json:"label"`
+		}
+		_ = json.Unmarshal(payload, &decoded)
+		return Rendered{Title: fmt.Sprintf(titleFormat, decoded.Label), ActionURL: billingSettingsPath}
+	}
 }
