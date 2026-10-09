@@ -106,6 +106,6 @@ type PublicAddOnEntitlement struct {
 
 // Capabilities is what the vendor's storefront can offer beyond showing prices.
 type PublicCatalogCapabilities struct {
-	Checkout       bool `json:"checkout" doc:"Whether self-serve checkout is available through the public surface. False in this release: checkout ships with customer sessions."`
+	Checkout       bool `json:"checkout" doc:"Whether a plan of the catalogue can be bought alone, through a customer session's checkout (POST /public/session/checkout)"`
 	PaymentMethods bool `json:"paymentMethods" doc:"Whether the organization's billing provider captures payment methods"`
 }

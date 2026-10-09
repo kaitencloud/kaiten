@@ -19,6 +19,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionpaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionportalsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getsessionportal"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listpublishablekeys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listsessioninvoices"
@@ -62,6 +63,7 @@ type UseCases struct {
 	ReactivateSessionSubscription *reactivatesessionsubscription.UseCase
 	ValidateSessionVoucher        *validatesessionvoucher.UseCase
 	SetSessionAddonQuantity       *setsessionaddonquantity.UseCase
+	GetSessionPortal              *getsessionportal.UseCase
 }
 
 // Ports are the other modules' operations the session routes run: a checkout
@@ -83,6 +85,10 @@ type Ports struct {
 	AddonAttach     setsessionaddonquantity.Attacher
 	AddonQuantity   setsessionaddonquantity.QuantitySetter
 	AddonDetach     setsessionaddonquantity.Detacher
+	Subscription    getsessionportal.SubscriptionReader
+	UpcomingInvoice getsessionportal.UpcomingInvoiceReader
+	Entitlements    getsessionportal.EntitlementReader
+	Redemptions     getsessionportal.VoucherReader
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -120,6 +126,10 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		SetSessionAddonQuantity: setsessionaddonquantity.NewUseCase(setsessionaddonquantity.Deps{
 			UserProvider: svc.UserProvider, Catalog: catalog,
 			List: from.AddonList, Attach: from.AddonAttach, SetQuantity: from.AddonQuantity, Detach: from.AddonDetach,
+		}),
+		GetSessionPortal: getsessionportal.NewUseCase(getsessionportal.Deps{
+			Queries: sessionDeps.Queries, Catalog: catalog, Subscription: from.Subscription, UpcomingInvoice: from.UpcomingInvoice,
+			Entitlements: from.Entitlements, AddOns: from.AddonList, Vouchers: from.Redemptions, CustomerBilling: from.CustomerBilling,
 		}),
 	}
 }

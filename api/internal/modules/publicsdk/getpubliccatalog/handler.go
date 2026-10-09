@@ -118,6 +118,7 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, query Q
 			plan.Currency = &currency
 		}
 		plan.SelfServe = selfServe(plan, captures)
+		out.Capabilities.Checkout = out.Capabilities.Checkout || plan.SelfServe
 		out.Plans = append(out.Plans, plan)
 	}
 	return out, nil

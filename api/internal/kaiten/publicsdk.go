@@ -19,6 +19,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionpaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionportalsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getsessionportal"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listpublishablekeys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listsessioninvoices"
@@ -170,6 +171,14 @@ func (p PublicSDK) SetSessionAddonQuantity(ctx context.Context, cl caller.Custom
 	return p.uc.SetSessionAddonQuantity.Execute(bindCustomerSession(ctx, cl), setsessionaddonquantity.Session{
 		InstanceSlug: cl.InstanceSlug(),
 	}, addonSlug, request)
+}
+
+// GetSessionPortal reads the portal of the session's customer, and its
+// instance when the session is bound to one.
+func (p PublicSDK) GetSessionPortal(ctx context.Context, cl caller.CustomerSessionCaller) (*getsessionportal.SessionPortal, error) {
+	return p.uc.GetSessionPortal.Execute(bindCustomerSession(ctx, cl), cl.OrganizationID(), getsessionportal.Session{
+		CustomerID: cl.CustomerID(), CustomerSlug: cl.CustomerSlug(), InstanceID: cl.InstanceID(), InstanceSlug: cl.InstanceSlug(),
+	})
 }
 
 // CreateSessionCheckout and ListSessionInvoices take a customer session caller,
