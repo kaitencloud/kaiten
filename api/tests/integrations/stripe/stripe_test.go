@@ -13,6 +13,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe/stripefake"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingcapabilities"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
@@ -89,9 +90,10 @@ func TestRefusedSettings(t *testing.T) {
 	require.Equal(t, fiber.StatusNotFound, call(t, "GET", "/api/connectors/"+connector+"/settings", nil).StatusCode, "nothing stored")
 
 	fake.Partition(true)
-	got := problem(t, fiber.StatusServiceUnavailable, "PUT", "/api/connectors/"+connector+"/settings",
-		map[string]any{"settings": map[string]any{"stripeSecretKey": testKey}})
+	unreachable := call(t, "PUT", "/api/connectors/"+connector+"/settings", map[string]any{"settings": map[string]any{"stripeSecretKey": testKey}})
+	got := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, unreachable, fiber.StatusServiceUnavailable)
 	require.Equal(t, "UpdateConnectorSettings.ProviderUnavailable", got.Code)
+	require.Equal(t, "30", unreachable.Header.Get("Retry-After"), "§12.1: nothing was written, retry in 30 s")
 	fake.Partition(false)
 }
 

@@ -7,7 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -83,6 +86,38 @@ type Error struct {
 	// Validation (whose entries come from Details): structured detail a
 	// client can act on, such as the original report behind a 409.
 	Errors []*ErrorDetail
+	// RetryAfter, when positive, is sent as the Retry-After header: how long
+	// to wait before trying again. Every 429 carries one, and so do the
+	// refusals only time resolves -- a period being closed, a provider that
+	// could not be reached. Set it with WithRetryAfter.
+	RetryAfter time.Duration
+}
+
+// WithRetryAfter sets how long the caller should wait before retrying, and
+// returns the error.
+func (e *Error) WithRetryAfter(d time.Duration) *Error {
+	e.RetryAfter = d
+	return e
+}
+
+// RetryAfterSeconds is RetryAfter in whole seconds, rounded up, as the header
+// carries it; 0 when there is none.
+func (e *Error) RetryAfterSeconds() int {
+	if e.RetryAfter <= 0 {
+		return 0
+	}
+	return int(math.Ceil(e.RetryAfter.Seconds()))
+}
+
+// GetHeaders makes *Error satisfy huma.HeadersError, so Huma sends
+// Retry-After with the problem body. pkg/fiberapi does the same for Fiber
+// routes.
+func (e *Error) GetHeaders() http.Header {
+	headers := http.Header{}
+	if seconds := e.RetryAfterSeconds(); seconds > 0 {
+		headers.Set("Retry-After", strconv.Itoa(seconds))
+	}
+	return headers
 }
 
 func (e *Error) Error() string {
@@ -246,9 +281,10 @@ func IsValidation(err error) bool    { return Is(err, KindValidation) }
 func IsUnprocessable(err error) bool { return Is(err, KindUnprocessable) }
 func IsUnavailable(err error) bool   { return Is(err, KindUnavailable) }
 
-// TooManyRequests is a caller over its rate. The caller sets Retry-After.
-func TooManyRequests(code, message string) *Error {
-	return &Error{Kind: KindTooManyRequests, Code: code, Message: message}
+// TooManyRequests is a caller over its rate, who may try again after
+// retryAfter (sent as Retry-After, at least one second).
+func TooManyRequests(code, message string, retryAfter time.Duration) *Error {
+	return &Error{Kind: KindTooManyRequests, Code: code, Message: message, RetryAfter: max(retryAfter, time.Second)}
 }
 
 // GetHTTPStatus extracts HTTP status from any error.

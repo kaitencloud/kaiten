@@ -285,6 +285,10 @@ func TestAddonBilling(t *testing.T) {
 		backdate(t, started.ID, 1)
 		require.Equal(t, "SetInstanceAddonQuantity.BoundaryPending", problemCode(t, fiber.StatusConflict, "PATCH", path+"/"+addon.Slug,
 			map[string]any{"quantity": 1}))
+		pending := call(t, "DELETE", path+"/"+addon.Slug, nil)
+		_ = pending.Body.Close()
+		require.Equal(t, fiber.StatusConflict, pending.StatusCode)
+		require.Equal(t, "60", pending.Header.Get("Retry-After"))
 		report := closePeriods(t, map[string]any{})
 		require.Equal(t, 1, report.Closed)
 		renewal := getInvoice(t, report.Invoices[0].ID)

@@ -23,6 +23,11 @@ import (
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
+// BoundaryRetryAfter is how long a change refused while a boundary is being
+// closed should wait (Appendix A: Retry-After: 60): the close runs every five
+// minutes at most, and usually much sooner after the boundary.
+const BoundaryRetryAfter = time.Minute
+
 // Lock locks an instance's subscription for a change; operation+".NotFound"
 // when the instance is unknown or was never subscribed.
 func Lock(ctx context.Context, q *db.Queries, organizationID uuid.UUID, instanceSlug, operation string) (db.InstanceBilling, error) {
@@ -47,7 +52,7 @@ func Lock(ctx context.Context, q *db.Queries, organizationID uuid.UUID, instance
 func BoundaryPending(operation string, sub db.InstanceBilling, now time.Time) error {
 	if subscriptions.Live(sub.Status) && !sub.CurrentPeriodEnd.Time.After(now) {
 		return kaitenerrors.Conflict(operation+".BoundaryPending",
-			"the subscription's period has ended and is being closed; retry in a minute")
+			"the subscription's period has ended and is being closed; retry in a minute").WithRetryAfter(BoundaryRetryAfter)
 	}
 	return nil
 }

@@ -3,6 +3,7 @@ package catalogue
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -35,7 +36,7 @@ func LiveSubscription(ctx context.Context, q *db.Queries, organizationID, instan
 func RefuseBoundaryPending(operation string, sub *Subscription) error {
 	if sub != nil && sub.BoundaryPending {
 		return kaitenerrors.Conflict(operation+".BoundaryPending",
-			"the subscription's period has ended and is being closed; retry in a minute")
+			"the subscription's period has ended and is being closed; retry in a minute").WithRetryAfter(time.Minute)
 	}
 	return nil
 }

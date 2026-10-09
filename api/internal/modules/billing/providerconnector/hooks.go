@@ -136,7 +136,7 @@ func (h *Hooks) refusal(err error) error {
 			}})
 	}
 	return kaitenerrors.Unavailable("UpdateConnectorSettings.ProviderUnavailable",
-		"the payment provider could not be reached to check the credentials; retry in a moment")
+		"the payment provider could not be reached to check the credentials; retry in a moment").WithRetryAfter(providers.UnavailableRetryAfter)
 }
 
 func (h *Hooks) secretsChanged(merged, stored map[string]any) bool {

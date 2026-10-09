@@ -179,6 +179,10 @@ func TestCancelAndReactivate(t *testing.T) {
 			"/api/instances/"+s.instance.Slug+"/billing/cancel", map[string]any{}))
 		require.Equal(t, "UpdateInstanceBilling.BoundaryPending", problemCode(t, fiber.StatusConflict, "PATCH",
 			"/api/instances/"+s.instance.Slug+"/billing", map[string]any{"daysUntilDue": 3}))
+		resp := call(t, "POST", "/api/instances/"+s.instance.Slug+"/billing/cancel", map[string]any{})
+		_ = resp.Body.Close()
+		require.Equal(t, fiber.StatusConflict, resp.StatusCode)
+		require.Equal(t, "60", resp.Header.Get("Retry-After"), "Appendix A: every BoundaryPending says when to retry")
 	})
 }
 

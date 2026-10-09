@@ -429,7 +429,8 @@ func translate(err error) error {
 		return kaitenerrors.UnprocessableEntityWithErrors(operation+".AddonInvalid", refusal.Message, refusal.Errors...)
 	case "SubscribeInstance.ProviderUnavailable", "CreatePaymentMethodSession.ProviderUnavailable",
 		"CompletePaymentMethodSession.ProviderUnavailable":
-		return kaitenerrors.Unavailable(operation+".ProviderUnavailable", "the payment provider could not be reached; retry in a moment")
+		return kaitenerrors.Unavailable(operation+".ProviderUnavailable", "the payment provider could not be reached; retry in a moment").
+			WithRetryAfter(max(refusal.RetryAfter, 30*time.Second))
 	case "SubscribeInstance.ProviderNotConnected", "SubscribeInstance.CollectionMethodUnsupported",
 		"SubscribeInstance.UnsupportedCurrency", "CreatePaymentMethodSession.ProviderNotConnected",
 		"CompletePaymentMethodSession.ProviderNotConnected":
