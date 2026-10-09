@@ -47,10 +47,11 @@ const (
 	releasesPath        = "/releases"
 	componentsPath      = "/releases/components"
 	deploymentZonePath  = "/releases/deployment-zones"
-	licensesPath        = "/licenses"
+	catalogPath         = "/catalog"
+	licensesPath        = catalogPath + "/licenses"
 	serviceAccountsPath = "/integrations/service-accounts"
 	invoicesPath        = "/invoices"
-	vouchersPath        = "/vouchers"
+	vouchersPath        = catalogPath + "/vouchers"
 	billingSettingsPath = "/settings/billing"
 
 	// instanceEntitlementsTab is the instance page's usage tab, where whoever
