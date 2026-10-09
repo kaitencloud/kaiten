@@ -91,3 +91,59 @@ test('dev:mock answers every request of the billing screens of the instances, th
 
   expect(errors).toEqual([]);
 });
+
+test('dev:mock answers every request of the vouchers, of what an instance redeemed and of the invoice a discount is on', async ({
+  page,
+}) => {
+  // Seven screens, each compiled by the dev server on its first visit.
+  test.setTimeout(180_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.text().includes('[MSW] Unhandled API request:'))
+      errors.push(message.text());
+  });
+
+  // The catalogue of vouchers, and the opening of one by the code someone sends.
+  await page.goto('/vouchers');
+  await expect(
+    page.getByRole('heading', { name: 'Vouchers', level: 1 }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('row').filter({ hasText: 'Launch discount' }),
+  ).toBeVisible();
+  // A voucher with its code, what it does in words and the instances that redeemed it.
+  await page.goto('/vouchers/voucher-launch');
+  await expect(page.getByTestId('voucher-code')).not.toHaveValue('');
+  await expect(page.getByTestId('voucher-summary')).toBeVisible();
+  await expect(
+    page.getByRole('row').filter({ hasText: 'globex-staging' }),
+  ).toBeVisible();
+  // The wizard reads the entitlements a boost can change.
+  await page.goto('/vouchers/new');
+  await page.getByRole('button', { name: /^Boost/ }).click();
+  await page.getByLabel(/^Name/).fill('More of everything');
+  await page.getByRole('button', { name: /^Next/ }).click();
+  await page.getByRole('button', { name: /Add a change/ }).click();
+  await page
+    .getByTestId('voucher-grant-row')
+    .getByRole('button')
+    .first()
+    .click();
+  await expect(page.getByRole('option').first()).toBeVisible();
+  // What an instance redeemed, and the dialog that checks a code against it.
+  await page.goto('/customers/instances/globex-staging/billing');
+  await expect(page.getByTestId('instance-vouchers')).toBeVisible();
+  await page.goto(
+    '/customers/instances/globex-production/billing/redeem-voucher',
+  );
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel(/^Voucher code/).fill('double-seats-globex');
+  await dialog.getByRole('button', { name: /^Check the code/ }).click();
+  await expect(page.getByTestId('redeem-verdict-valid')).toBeVisible();
+  // The invoice a discount is on, with how the discount was composed.
+  await page.goto('/billing/invoices/inv-acme-production-activation');
+  await expect(page.getByTestId('invoice-line-discount')).toBeVisible();
+
+  expect(errors).toEqual([]);
+});

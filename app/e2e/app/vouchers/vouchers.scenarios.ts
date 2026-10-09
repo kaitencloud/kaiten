@@ -1,4 +1,4 @@
-import type { Redemption, Voucher } from '@/api-client';
+import type { Invoice, Redemption, Voucher } from '@/api-client';
 import {
   buildEntitlement,
   buildRedemption,
@@ -274,11 +274,17 @@ const billingSeed = () => ({
   voucherCatalogue: voucherCatalogue(),
 });
 
-/** The billing of the world, on the capabilities of the stack with the add-ons and the vouchers. */
-export function createVouchersBillingModel() {
+/**
+ * The billing of the world, on the capabilities of the stack with the add-ons and the
+ * vouchers, and the invoices it has issued when a spec gives some.
+ */
+export function createVouchersBillingModel({
+  invoices,
+}: { invoices?: Invoice[] } = {}) {
   return new BillingAppModel({
     ...billingSeed(),
     capabilities: billingCapabilitiesProfiles.stackWithVouchers(),
+    invoices,
   });
 }
 
