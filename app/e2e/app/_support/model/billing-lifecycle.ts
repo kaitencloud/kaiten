@@ -13,6 +13,7 @@ import { parseContract } from '../contracts/openapi-contract';
 import { buildInvoice, buildInvoiceLine } from '../fixtures/build-invoice';
 import { type BillingInvoices, toSummary } from './billing-invoices';
 import { BillingProblem } from './billing-problem';
+import type { ProviderRules } from './billing-providers';
 import type {
   BillingCatalogue,
   SubscribableInstance,
@@ -25,11 +26,15 @@ const MAX_REASON_LENGTH = 500;
 /** What the lifecycle of a subscription needs of the model that holds the subscriptions. */
 export type LifecycleHost = {
   catalogue: () => BillingCatalogue;
+  /** The collection method of a subscription that names none: the organization's. */
+  defaultCollectionMethod: () => InstanceBilling['collectionMethod'];
   defaultDaysUntilDue: () => number;
   invoices: BillingInvoices;
   /** The id suffix of the next invoice the lifecycle issues. */
   nextSequence: () => number;
   now: () => number;
+  /** What a move to a provider checks of the world; none when no provider is modeled. */
+  providers: () => ProviderRules | undefined;
   subscriptionOf: (slug: string) => InstanceBilling | undefined;
   /** The invoice the next boundary would issue, when the model has been told one. */
   upcomingOf: (slug: string) => InvoicePreview | undefined;
@@ -39,6 +44,15 @@ export type LifecycleHost = {
 
 const isLive = (subscription: InstanceBilling) =>
   subscription.status !== 'CANCELED';
+
+/** The world of a deployment with no payment provider: NoOp is the only one connected. */
+const ONLY_NOOP: ProviderRules = {
+  acceptsCurrency: () => true,
+  connection: (kind) =>
+    kind === 'NOOP' ? { automaticCollection: false } : undefined,
+  customer: () => ({ hasUsablePaymentMethod: false }),
+  ensureCustomer: () => undefined,
+};
 
 function refuse(
   operation: string,
@@ -405,10 +419,80 @@ export class SubscriptionLifecycle {
   // --- Terms ----------------------------------------------------------------
 
   /**
-   * `PATCH /instances/{instanceSlug}/billing`: the payment terms, from the next
-   * invoice on. A member left out is left alone and `null` goes back to the
-   * organization's default, as the API reads a PATCH. Invoices already composed
-   * keep their own terms.
+   * What moving a subscription to a provider, or to another way of collecting,
+   * checks of the world before anything is written, in the order the API checks it
+   * (updateinstancebilling.checkProvider): the provider is connected, it can
+   * collect the way asked, the customer has a payment method to charge, then the
+   * currency, the billing e-mail and the registration of the customer.
+   */
+  private checkProvider(
+    operation: string,
+    subscription: InstanceBilling,
+    body: SubscriptionTerms,
+  ) {
+    const rules = this.host.providers() ?? ONLY_NOOP;
+    const target =
+      body.providerKind && body.providerKind !== subscription.providerKind
+        ? body.providerKind
+        : undefined;
+    const kind = target ?? subscription.providerKind;
+    let method = subscription.collectionMethod;
+    if (body.collectionMethod !== undefined) {
+      method = body.collectionMethod ?? this.host.defaultCollectionMethod();
+    }
+    if (method === 'SEND_INVOICE' && !target) {
+      return;
+    }
+    const connection = rules.connection(kind);
+    if (!connection) {
+      throw new BillingProblem(
+        422,
+        `${operation}.ProviderNotConnected`,
+        'the payment provider is not connected for this organization',
+      );
+    }
+    if (method !== 'SEND_INVOICE' && !connection.automaticCollection) {
+      throw new BillingProblem(
+        422,
+        `${operation}.CollectionMethodUnsupported`,
+        'only SEND_INVOICE is available: the payment provider cannot charge automatically',
+      );
+    }
+    const customer = rules.customer(subscription.customerSlug);
+    if (method === 'CHARGE_AUTOMATICALLY' && kind === 'STRIPE') {
+      if (!customer.hasUsablePaymentMethod) {
+        throw new BillingProblem(
+          422,
+          `${operation}.PaymentMethodRequired`,
+          'the customer has no usable payment method to charge: save one through a payment-method session first',
+        );
+      }
+    }
+    if (!target || kind !== 'STRIPE') {
+      return;
+    }
+    if (!rules.acceptsCurrency(subscription.currency)) {
+      throw new BillingProblem(
+        422,
+        `${operation}.UnsupportedCurrency`,
+        `the payment provider does not accept ${subscription.currency}`,
+      );
+    }
+    if (method === 'SEND_INVOICE' && !customer.billingEmail) {
+      throw new BillingProblem(
+        422,
+        `${operation}.BillingEmailMissing`,
+        'the customer has no billing e-mail: the payment provider sends the invoices there',
+      );
+    }
+    rules.ensureCustomer(subscription.customerSlug);
+  }
+
+  /**
+   * `PATCH /instances/{instanceSlug}/billing`: the payment provider, the collection
+   * method and the payment terms, from the next invoice on. A member left out is
+   * left alone and `null` goes back to the organization's default, as the API reads
+   * a PATCH. Invoices already composed keep their own provider and terms.
    */
   updateTerms(slug: string, body: SubscriptionTerms): InstanceBilling {
     const operation = 'UpdateInstanceBilling';
@@ -423,20 +507,7 @@ export class SubscriptionLifecycle {
         'daysUntilDue is between 0 and 365',
       );
     }
-    if (body.collectionMethod === 'CHARGE_AUTOMATICALLY') {
-      throw new BillingProblem(
-        422,
-        `${operation}.CollectionMethodUnsupported`,
-        'only SEND_INVOICE is available: the payment provider cannot charge automatically',
-      );
-    }
-    if (body.providerKind === 'STRIPE') {
-      throw new BillingProblem(
-        422,
-        `${operation}.ProviderNotConnected`,
-        'the payment provider is not connected',
-      );
-    }
+    this.checkProvider(operation, subscription, body);
     if (!isLive(subscription)) {
       throw new BillingProblem(
         409,
@@ -456,7 +527,13 @@ export class SubscriptionLifecycle {
     }
     if (body.collectionMethod === null) {
       delete next.collectionMethodOverride;
-      next.collectionMethod = 'SEND_INVOICE';
+      next.collectionMethod = this.host.defaultCollectionMethod();
+    } else if (body.collectionMethod !== undefined) {
+      next.collectionMethodOverride = body.collectionMethod;
+      next.collectionMethod = body.collectionMethod;
+    }
+    if (body.providerKind !== undefined) {
+      next.providerKind = body.providerKind;
     }
     next.updatedAt = new Date(this.host.now()).toISOString();
 

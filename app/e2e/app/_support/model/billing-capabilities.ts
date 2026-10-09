@@ -15,16 +15,65 @@ const NOOP_PROVIDER: Provider = {
   kind: 'NOOP',
 };
 
+const STRIPE_CAPABILITIES = {
+  automaticCollection: true,
+  billingPortal: true,
+  paymentMethodCapture: true,
+} as const;
+
 const STRIPE_PROVIDER: Provider = {
   available: true,
-  capabilities: {
-    automaticCollection: true,
-    billingPortal: true,
-    paymentMethodCapture: true,
-  },
+  capabilities: STRIPE_CAPABILITIES,
   connected: true,
   kind: 'STRIPE',
+  livemode: false,
 };
+
+/**
+ * Where Stripe stands for the organization, as the API tells it in `providers`:
+ * - `connected`, `connectedLive`: its connector is active, on a test or a live account;
+ * - `available`: it can be connected here and is not;
+ * - `notEntitled`: the plan of the organization does not include the connector (Cloud);
+ * - `vaultMissing`: a self-hosted deployment without the Vault that stores the key.
+ */
+export type StripeStanding =
+  | 'available'
+  | 'connected'
+  | 'connectedLive'
+  | 'notEntitled'
+  | 'vaultMissing';
+
+export function stripeProvider(standing: StripeStanding): Provider {
+  switch (standing) {
+    case 'connected':
+      return STRIPE_PROVIDER;
+    case 'connectedLive':
+      return { ...STRIPE_PROVIDER, livemode: true };
+    case 'available':
+      return {
+        available: true,
+        capabilities: STRIPE_CAPABILITIES,
+        connected: false,
+        kind: 'STRIPE',
+      };
+    case 'notEntitled':
+      return {
+        available: false,
+        capabilities: STRIPE_CAPABILITIES,
+        connected: false,
+        kind: 'STRIPE',
+        unavailableReason: 'NOT_ENTITLED',
+      };
+    case 'vaultMissing':
+      return {
+        available: false,
+        capabilities: STRIPE_CAPABILITIES,
+        connected: false,
+        kind: 'STRIPE',
+        unavailableReason: 'VAULT_NOT_CONFIGURED',
+      };
+  }
+}
 
 export const NO_BILLING_FEATURES: BillingFeatures = {
   addons: false,
@@ -84,6 +133,11 @@ export function billingCapabilities(
  *   what it redeemed and the dialog that subscribes one takes a code. It is the profile
  *   of `dev:mock`;
  * - `full`: Stripe connected and every part of billing shipped;
+ * - `stackWithStripe`: what the API serves now, Stripe included: every part of the
+ *   release the console has screens for, the provider as asked, and the three flags
+ *   the API fixes (`stripe: true`, `chargeAutomatically: false`, `publicSurface:
+ *   false`) as it fixes them, whatever the provider can do. It is the profile of
+ *   `dev:mock`, and what shows that no screen gates on those flags;
  * - `disabled`: billing off, for the reason the API gives. A disabled
  *   deployment still lists NoOp and the idempotency window: only `enabled`,
  *   `disabledReason` and the features say it is off.
@@ -118,6 +172,19 @@ export const billingCapabilitiesProfiles = {
         lifecycle: true,
         trials: true,
       },
+      usageHistoryRetentionMonths: 18,
+    }),
+  stackWithStripe: (standing: StripeStanding = 'connected') =>
+    billingCapabilities({
+      features: {
+        ...NO_BILLING_FEATURES,
+        addons: true,
+        lifecycle: true,
+        stripe: true,
+        trials: true,
+        vouchers: true,
+      },
+      providers: [NOOP_PROVIDER, stripeProvider(standing)],
       usageHistoryRetentionMonths: 18,
     }),
   stackWithVouchers: () =>

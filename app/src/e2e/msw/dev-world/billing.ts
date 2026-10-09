@@ -12,18 +12,24 @@ import {
   buildUsageReport,
   type InvoiceIdentity,
 } from '../../../../e2e/app/_support/fixtures/build-invoice';
-import { billingCapabilitiesProfiles } from '../../../../e2e/app/_support/model/billing-capabilities';
+import {
+  billingCapabilitiesProfiles,
+  type StripeStanding,
+} from '../../../../e2e/app/_support/model/billing-capabilities';
 import { bySlug } from './by-slug';
 import { createAgreementDiscountLine } from './vouchers';
 
 /**
- * What the mocked console reads of billing: on, with NoOp as the only provider
- * and the parts of the release the console has screens for: the lifecycle, the
- * trials, the add-ons and the vouchers (docker/config/api.yaml turns billing on). The invoices of
- * the world are attached to its customers, instances and licenses by slug.
+ * What the mocked console reads of billing: on, with NoOp and Stripe to collect
+ * invoices, and the parts of the release the console has screens for: the
+ * lifecycle, the trials, the add-ons and the vouchers (docker/config/api.yaml turns
+ * billing on). Stripe is connected to a test account unless the console is started
+ * with another standing for it (see `dev.ts`). The invoices of the world are
+ * attached to its customers, instances and licenses by slug.
  */
-export const createBillingCapabilities = (): BillingCapabilities =>
-  billingCapabilitiesProfiles.stackWithVouchers();
+export const createBillingCapabilities = (
+  stripe: StripeStanding = 'connected',
+): BillingCapabilities => billingCapabilitiesProfiles.stackWithStripe(stripe);
 
 // A usage report names the records it was made for by UUID. The world refers to
 // itself by slug, so the id of a record in a report is derived from it, the same
@@ -53,7 +59,7 @@ type BillingWorld = {
   licenses: License[];
 };
 
-const identityOf = (
+export const identityOf = (
   { customers, instances, licenses }: BillingWorld,
   instanceSlug: string,
 ): InvoiceIdentity => {

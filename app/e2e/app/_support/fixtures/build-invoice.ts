@@ -5,6 +5,7 @@ import type {
   InvoiceLineDiscount,
   InvoiceLineMetering,
   InvoiceLineOverage,
+  ProviderRecord,
   UsageReport,
 } from '@/api-client';
 
@@ -156,7 +157,8 @@ export function buildInvoice({
   kind = 'RENEWAL',
   lines,
   paidAt,
-  providerKind = 'NOOP',
+  provider,
+  providerKind = provider ? 'STRIPE' : 'NOOP',
   replacedByInvoiceId,
   replacesInvoiceId,
   status = 'MANUAL',
@@ -186,6 +188,8 @@ export function buildInvoice({
   kind?: Invoice['kind'];
   lines: InvoiceLine[];
   paidAt?: string;
+  /** The invoice in its payment provider; given, the invoice is Stripe's unless it says otherwise. */
+  provider?: Invoice['provider'];
   providerKind?: Invoice['providerKind'];
   replacedByInvoiceId?: string;
   replacesInvoiceId?: string;
@@ -247,6 +251,7 @@ export function buildInvoice({
     licenseSlug: identity.licenseSlug,
     lines,
     paidAt,
+    provider,
     providerKind,
     replacedByInvoiceId,
     replacesInvoiceId,
@@ -265,6 +270,39 @@ export function buildInvoice({
     updatedAt: updatedAt ?? created,
     voidReason,
     voidedAt,
+  };
+}
+
+/**
+ * Build the record of an invoice in its payment provider, as the API answers it:
+ * by default an invoice Stripe holds open, whose amounts it checked against Kaiten's
+ * and found the same. `externalInvoiceId` is also what the links to Stripe are made
+ * from. A test that wants another state gives what differs.
+ */
+export function buildProviderRecord({
+  externalInvoiceId = 'in_1Qx0',
+  externalCustomerId = 'cus_initech',
+  pushedAt,
+  total,
+  ...overrides
+}: Partial<ProviderRecord> & {
+  /** What Stripe totals the invoice at, excluding tax, for a matched invoice. */
+  total?: number;
+} = {}): ProviderRecord {
+  return {
+    externalCustomerId,
+    externalInvoiceId,
+    hostedInvoiceUrl: `https://invoice.stripe.com/i/acct_1/${externalInvoiceId}`,
+    invoiceNumber: `INV-${externalInvoiceId.slice(-4).toUpperCase()}`,
+    invoicePdfUrl: `https://pay.stripe.com/invoice/acct_1/${externalInvoiceId}/pdf`,
+    pushAttempts: 1,
+    pushedAt,
+    reconciledAt: pushedAt,
+    reconciliationStatus: 'MATCHED',
+    status: 'open',
+    syncedAt: pushedAt,
+    totalExcludingTax: total,
+    ...overrides,
   };
 }
 

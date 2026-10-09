@@ -77,6 +77,34 @@ export function createMockHandlers(
         effectiveConfig.releaseManagement,
       )
     : null;
+  // Stripe is billing's provider and the connectors' connector: when the page
+  // serves both, connecting it in one is seen by the other, and the billing
+  // e-mail of a customer typed on its page is the one a move to Stripe finds.
+  if (billing && connectors) {
+    connectors.setStripeWorld({
+      hasMappedCustomers: () => billing.providers.hasCustomers(),
+      onConnected: (livemode) => {
+        billing.setStripeConnection(true, livemode);
+        persist('billing', billing.serializeForMsw());
+      },
+      onDisconnected: () => {
+        billing.setStripeConnection(false);
+        persist('billing', billing.serializeForMsw());
+      },
+      routing: () => billing.stripeRouting(),
+      standing: () => billing.stripeStanding(),
+    });
+  }
+  if (billing && customers) {
+    billing.setEmailSource((customerSlug) => {
+      try {
+        return customers.getCustomer(customerSlug).billingEmail;
+      } catch {
+        // A customer this page does not serve: billing's own copy answers.
+        return undefined;
+      }
+    });
+  }
   const flagEvaluations =
     effectiveConfig.flagEvaluations ??
     (unmockedPlatform === 'off' ? NO_PLATFORM_FLAGS : null);
