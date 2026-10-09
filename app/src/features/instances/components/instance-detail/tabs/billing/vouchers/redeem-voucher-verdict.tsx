@@ -9,6 +9,8 @@ type RedeemVoucherVerdictProps = {
   /** The entitlements the instance has, to name what a boost changes. */
   entitlements: readonly Pick<Entitlement, 'name' | 'slug'>[];
   instanceName: string;
+  /** What is said of a code that is valid, in place of the sentence about redeeming it now. */
+  note?: string;
   validity: Validity;
 };
 
@@ -16,11 +18,14 @@ type RedeemVoucherVerdictProps = {
  * What the API said of a code for this instance. A valid code is shown as the offer it
  * makes, in plain language, before anything is redeemed; one that is not says which check
  * failed, and, for an instance that does not meet the voucher, which condition it breaks.
- * The API answers the first failing check only, and so does this.
+ * The API answers the first failing check only, and so does this. The dialog that
+ * subscribes an instance shows the same verdict for the code it was given, and says in its
+ * own `note` what happens next.
  */
 export function RedeemVoucherVerdict({
   entitlements,
   instanceName,
+  note,
   validity,
 }: RedeemVoucherVerdictProps) {
   const { i18n, t } = useTranslation();
@@ -50,10 +55,11 @@ export function RedeemVoucherVerdict({
             </span>
           </div>
           <p>
-            {t(
-              'Pages.Customers.Instances.Detail.Billing.Vouchers.Redeem.validNote',
-              { instance: instanceName },
-            )}
+            {note ??
+              t(
+                'Pages.Customers.Instances.Detail.Billing.Vouchers.Redeem.validNote',
+                { instance: instanceName },
+              )}
           </p>
         </AlertDescription>
       </Alert>

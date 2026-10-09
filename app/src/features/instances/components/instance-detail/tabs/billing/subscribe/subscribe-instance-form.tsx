@@ -16,6 +16,7 @@ import {
 import { createFormSubmitHandler } from '@/hooks/form';
 import { useSubscribeAddons } from '../../../../../hooks/use-subscribe-addons';
 import { useSubscribeInstanceForm } from '../../../../../hooks/use-subscribe-instance-form';
+import { useSubscribeVoucherCheck } from '../../../../../hooks/use-subscribe-voucher-check';
 import { BillingEmailNotice } from './billing-email-notice';
 import { AddonsReadNotice } from '../addons/addons-read-notice';
 import { SubscribeAddonsField } from './subscribe-addons-field';
@@ -67,6 +68,7 @@ export function SubscribeInstanceForm({
     familyId,
     instanceSlug,
   });
+  const voucherChecker = useSubscribeVoucherCheck(instanceSlug);
   const { failure, form } = useSubscribeInstanceForm({
     addons,
     defaultTrialDays,
@@ -98,6 +100,7 @@ export function SubscribeInstanceForm({
               form={form}
               prices={prices}
               trials={trials}
+              voucherChecker={voucherChecker}
               vouchers={vouchers}
             />
             {addons.length > 0 ? (

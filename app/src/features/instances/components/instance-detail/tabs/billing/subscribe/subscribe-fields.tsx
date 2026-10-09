@@ -11,6 +11,8 @@ import {
   MAX_TRIAL_DAYS,
   ProviderBadge,
 } from '@/domains/billing';
+import type { SubscribeVoucherChecker } from '../../../../../hooks/use-subscribe-voucher-check';
+import { SubscribeVoucherCheck } from './subscribe-voucher-check';
 
 type SubscribeFieldsProps = {
   /** The organization's payment terms, once read: what an empty field comes to. */
@@ -21,6 +23,8 @@ type SubscribeFieldsProps = {
   trials: boolean;
   /** Whether a voucher code can be redeemed with the subscription: the release has them and the session may redeem. */
   vouchers: boolean;
+  /** What checks that code against the price chosen, before the subscription is sent. */
+  voucherChecker: SubscribeVoucherChecker;
 };
 
 /** A price as an option reads: its label, what it charges, over what period, and when. */
@@ -45,13 +49,15 @@ function usePriceLabel() {
  * API cannot close yet: that says so instead. The payment terms and the start are
  * optional, and say what an empty field means. A voucher code can be given to be
  * redeemed with the subscription, where the release has vouchers and the session may
- * redeem one; it is never kept past the dialog.
+ * redeem one; it is never kept past the dialog, and can be checked against the price chosen
+ * before the subscription is sent.
  */
 export function SubscribeFields({
   defaultDaysUntilDue,
   form,
   prices,
   trials,
+  voucherChecker,
   vouchers,
 }: SubscribeFieldsProps) {
   const { t } = useTranslation();
@@ -166,22 +172,37 @@ export function SubscribeFields({
         )}
       </form.AppField>
       {vouchers ? (
-        <form.AppField name="voucherCode">
-          {(field: any) => (
-            <field.TextField
-              autoComplete="off"
-              description={t(
-                'Pages.Customers.Instances.Detail.Billing.Subscribe.Voucher.hint',
-              )}
-              label={t(
-                'Pages.Customers.Instances.Detail.Billing.Subscribe.Voucher.label',
-              )}
-              placeholder={t(
-                'Pages.Customers.Instances.Detail.Billing.Subscribe.Voucher.placeholder',
-              )}
-            />
-          )}
-        </form.AppField>
+        <>
+          <form.AppField name="voucherCode">
+            {(field: any) => (
+              <field.TextField
+                autoComplete="off"
+                description={t(
+                  'Pages.Customers.Instances.Detail.Billing.Subscribe.Voucher.hint',
+                )}
+                label={t(
+                  'Pages.Customers.Instances.Detail.Billing.Subscribe.Voucher.label',
+                )}
+                placeholder={t(
+                  'Pages.Customers.Instances.Detail.Billing.Subscribe.Voucher.placeholder',
+                )}
+              />
+            )}
+          </form.AppField>
+          <form.Subscribe
+            selector={(state: any) =>
+              [state.values.voucherCode, state.values.basePriceId] as const
+            }
+          >
+            {([code, licensePriceId]: readonly [string, string]) => (
+              <SubscribeVoucherCheck
+                checker={voucherChecker}
+                code={code}
+                licensePriceId={licensePriceId}
+              />
+            )}
+          </form.Subscribe>
+        </>
       ) : null}
     </Suspense>
   );
