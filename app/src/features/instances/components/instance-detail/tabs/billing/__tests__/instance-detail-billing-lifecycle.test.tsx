@@ -162,6 +162,22 @@ describe('what the tab says of a subscription that just runs', () => {
     expect(cancel).toHaveAttribute('data-params', '{"instanceSlug":"globex-production"}');
   });
 
+  it('names the terms for the provider as well where one is offered, and leads to the same dialog', async () => {
+    server.use(
+      handleGetBillingCapabilities({
+        body: billingCapabilitiesProfiles.stackWithStripe('connected'),
+      }),
+    );
+    serve(subscription());
+    renderTab();
+
+    const actions = await screen.findByTestId('subscription-actions');
+    expect(
+      await within(actions).findByRole('link', { name: 'Provider and terms' }),
+    ).toHaveAttribute('href', '/customers/instances/$instanceSlug/billing/terms');
+    expect(within(actions).queryByRole('link', { name: 'Payment terms' })).toBeNull();
+  });
+
   it('offers none of it to a session that may only read billing', async () => {
     getAuthToken.mockResolvedValue(sessionToken(['read:billing']));
     serve(subscription());

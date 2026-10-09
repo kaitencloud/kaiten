@@ -906,6 +906,61 @@ export default {
               notSubscribed: 'This instance has no subscription.',
               alreadyCanceled:
                 'This subscription has ended: it has no terms to change.',
+              openWithProvider: 'Provider and terms',
+              dialogTitleWithProvider: 'Provider and terms of {{name}}',
+              dialogDescriptionWithProvider:
+                'Who collects the invoices of this contract and how, and the days between the issue of an invoice and its due date.',
+              Provider: {
+                label: 'Collected by',
+                description:
+                  'Who issues and collects the invoices, from the next one on. Invoices already composed keep their own provider.',
+                NOOP: 'Manual hand-off',
+                STRIPE: 'Stripe',
+              },
+              Collection: {
+                label: 'Collection method',
+                description:
+                  'Sending the invoice lets the customer pay it. Charging automatically takes the payment method the customer saved with Stripe.',
+                SEND_INVOICE: 'Send the invoice',
+                CHARGE_AUTOMATICALLY: 'Charge automatically',
+                unavailable: '{{method}} (needs Stripe)',
+              },
+              Warnings: {
+                customer: 'Open the customer',
+                billingEmail:
+                  'This customer has no billing e-mail, and Stripe sends the invoices there.',
+                paymentMethod:
+                  'This customer has no payment method Stripe can charge.',
+                fromNextInvoice:
+                  'The new provider collects from the next invoice on.',
+              },
+              Switch: {
+                title: 'Invoices still open',
+                description:
+                  'Every invoice keeps its own provider, collection method and terms. This is what happens to each one.',
+                empty: 'This contract has no open invoice.',
+                Fate: {
+                  manual:
+                    'Ready to bill: it is settled only by marking it paid or writing it off, and it still counts toward a late payment.',
+                  held: 'Held: releasing it issues it under the provider it was composed for, and recomposing it uses the new provider.',
+                  queued:
+                    'It keeps being pushed to Stripe for as long as Stripe stays connected.',
+                  review:
+                    'It waits in Stripe to be finalized, or for a push from here.',
+                  collected:
+                    'Stripe collects it and Kaiten mirrors it. Stripe cannot be disconnected while it is open.',
+                  other: 'It keeps its own provider and terms.',
+                },
+                Move: {
+                  choose:
+                    'Release it to keep its provider, or recompose it to move it: choose deliberately.',
+                  voidAndRecompose: 'To move it: void it, then recompose it.',
+                  voidDeletesDraft:
+                    'To move it: void it, which deletes the draft in Stripe, then recompose it.',
+                  voidInBoth:
+                    'To move it: void it in both systems, then recompose it. Only do it if the customer must stop paying through Stripe.',
+                },
+              },
               Toasts: {
                 saved: 'The payment terms are saved',
                 reset: 'The terms of your organization apply again',
