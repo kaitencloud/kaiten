@@ -147,3 +147,62 @@ test('dev:mock answers every request of the vouchers, of what an instance redeem
 
   expect(errors).toEqual([]);
 });
+
+test('dev:mock answers every request of Stripe: its connector, the health of billing, an invoice it collects, the provider of a contract and the payment method of a customer', async ({
+  page,
+}) => {
+  // Eight screens, each compiled by the dev server on its first visit.
+  test.setTimeout(180_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.text().includes('[MSW] Unhandled API request:'))
+      errors.push(message.text());
+  });
+
+  // The tile of the connectors, among the connected ones, and the page of the connector,
+  // whose key is a password that is never read back.
+  await page.goto('/integrations/connectors');
+  await expect(
+    page.getByRole('button', { name: 'Manage' }).first(),
+  ).toBeVisible();
+  await page.goto('/integrations/connectors/stripe');
+  await expect(page.getByTestId('stripe-settings')).toBeVisible();
+  await expect(page.getByLabel('Restricted API key')).toHaveAttribute(
+    'type',
+    'password',
+  );
+  // Where Stripe stands in the settings of billing, and what needs attention.
+  await page.goto('/settings/billing');
+  await expect(page.getByTestId('billing-provider-stripe')).toContainText(
+    'Connected',
+  );
+  await expect(page.getByTestId('billing-provider-sync')).toBeVisible();
+  await expect(
+    page
+      .getByTestId('billing-health-tiles')
+      .or(page.getByTestId('billing-health-clear')),
+  ).toBeVisible();
+  // An invoice Stripe collects, how its amounts compare, and one whose push failed.
+  await page.goto('/billing/invoices/inv-acme-us-renewal-2');
+  await expect(page.getByTestId('invoice-provider-links')).toBeVisible();
+  await expect(page.getByTestId('reconciliation')).toContainText('Differ');
+  await page.goto('/billing/invoices/inv-acme-us-renewal-4');
+  await expect(page.getByTestId('invoice-push-error')).toBeVisible();
+  // The provider of a contract that Stripe collects, and the invoices still open.
+  await page.goto('/customers/instances/acme-us/billing/terms');
+  await expect(
+    page.getByRole('dialog').getByRole('combobox', { name: /Collected by/ }),
+  ).toBeVisible();
+  // The payment method of two customers, and the portal that follows from it.
+  await page.goto('/customers/globex');
+  await expect(page.getByTestId('payment-method')).toContainText(
+    'Visa ending in 4242',
+  );
+  await page.goto('/customers/acme-corp');
+  await expect(page.getByTestId('payment-method')).toContainText(
+    'Last charge failed',
+  );
+
+  expect(errors).toEqual([]);
+});

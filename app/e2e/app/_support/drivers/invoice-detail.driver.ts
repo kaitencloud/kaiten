@@ -41,6 +41,46 @@ export class InvoiceDetailDriver {
     return this.page.locator('div[data-provider]').first();
   }
 
+  // --- Where the invoice stands in its payment provider -------------------------
+
+  /** The card of where the invoice stands in Stripe: absent, not empty, for an invoice nobody collects through a provider. */
+  provider(): Locator {
+    return this.page.getByTestId('invoice-provider');
+  }
+
+  /** The two pages Stripe hosts for the invoice, when it has them. */
+  providerLinks(): Locator {
+    return this.page.getByTestId('invoice-provider-links');
+  }
+
+  /** How Kaiten's amounts compare with Stripe's, with what differs when they do. */
+  reconciliation(): Locator {
+    return this.page.getByTestId('reconciliation');
+  }
+
+  /** The push the person asked for: queued, or out of time. */
+  pushStatus(): Locator {
+    return this.page.getByTestId('invoice-push-status');
+  }
+
+  /** A draft Stripe holds for a person to finalize. */
+  awaitingFinalization(): Locator {
+    return this.page.getByTestId('invoice-awaiting-finalization');
+  }
+
+  pushError(): Locator {
+    return this.page.getByTestId('invoice-push-error');
+  }
+
+  paymentError(): Locator {
+    return this.page.getByTestId('invoice-payment-error');
+  }
+
+  /** What the dialog that voids says when Stripe reports the invoice paid and the read failed. */
+  voidPaidAtProvider(): Locator {
+    return this.dialog().getByTestId('void-paid-at-provider');
+  }
+
   // --- The figures under the header ------------------------------------------
 
   /** The row of the three figures: the total, the due date and the service period. */
@@ -142,6 +182,24 @@ export class InvoiceDetailDriver {
   /** The button of an action, on a screen wide enough for the buttons. */
   action(name: InvoiceActionName): Locator {
     return this.actions().getByRole('button', { name, exact: true });
+  }
+
+  /**
+   * The button of an action by what it does and not by what it is called, for a page read
+   * in another language: `retryPush`, `sync`, `void`, `markPaid`, `writeOff`, `recompose`,
+   * `releaseHold`.
+   */
+  actionOf(
+    action:
+      | 'markPaid'
+      | 'recompose'
+      | 'releaseHold'
+      | 'retryPush'
+      | 'sync'
+      | 'void'
+      | 'writeOff',
+  ): Locator {
+    return this.actions().locator(`button[data-action="${action}"]`);
   }
 
   /**
