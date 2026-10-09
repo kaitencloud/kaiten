@@ -14,5 +14,6 @@ export {
   handoffStatusOf,
   readHandoffSearch,
 } from './schemas/handoff-search.schema';
+export { readInvoiceListSeed } from './schemas/invoice-list-seed.schema';
 export { readInvoiceScope } from './schemas/invoice-scope.schema';
 export { getInvoiceTitle } from './utils/invoice-title';

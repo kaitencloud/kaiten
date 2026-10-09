@@ -95,6 +95,7 @@ value that contains a comma survives).
 | `pinnedFilterIds` | Fields shown as an always-visible search input |
 | `quickAccessFilterIds` | Extra quick-access fields, on top of the fields with `quickAccess: true` |
 | `defaultNormalFilterIds` | Filters that are active when the screen opens |
+| `initialNormalValues` | Values the normal filters hold when the screen opens, by filter id (`{ held: 'true' }`), for a link that opens a list already narrowed. A filter with a value is active, default or not, and the chips show from the start (the filters a screen opens with and leaves empty stay behind the Filter button). They are where the state starts and not what it goes back to: `resetAll` clears them, and a change of the prop does not touch filters already set |
 | `defaultAdvancedCombinator`, `defaultAdvancedRules` | Initial advanced rules and how they combine (`and` by default) |
 | `debounceMs` | Delay before a changed value reaches `filteredData`. Default 200 |
 | `resetOnDataChange` | Reset every filter when `data` changes identity. Default `false` |

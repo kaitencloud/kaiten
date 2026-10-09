@@ -2,11 +2,15 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
   invoicesQueryOptions,
-  useBillingCapabilities,
+  useBillingProvider,
   useCanPerform,
 } from '@/domains/billing';
 import { Page } from '@/functionals/page';
 import { dataModelIcons } from '@/lib/data-model-icons';
+import {
+  type InvoiceListSeed,
+  toInitialFilterValues,
+} from '../../schemas/invoice-list-seed.schema';
 import type { InvoiceScope } from '../../schemas/invoice-scope.schema';
 import { InvoicesList } from './invoices-list';
 
@@ -15,6 +19,8 @@ type InvoicesPageContentProps = {
   onScopeChange: (scope: InvoiceScope) => void;
   /** The customer or the instance the URL scopes the list to. */
   scope: InvoiceScope;
+  /** The filters the URL opens the list on; none for the bare path. */
+  seed?: InvoiceListSeed;
 };
 
 /**
@@ -27,15 +33,19 @@ type InvoicesPageContentProps = {
 export function InvoicesPageContent({
   onScopeChange,
   scope,
+  seed = {},
 }: InvoicesPageContentProps) {
   const { t } = useTranslation();
   const { data } = useSuspenseQuery(invoicesQueryOptions(scope));
-  const { capabilities } = useBillingCapabilities();
+  const stripe = useBillingProvider('STRIPE');
   const canExport = useCanPerform('invoices.export');
   const InvoiceIcon = dataModelIcons.invoice;
-  // With NoOp alone, who collects an invoice is never a question.
+  // With NoOp alone, who collects an invoice is never a question. Once Stripe
+  // collects any, the column and the filter say which, and they stay for the
+  // invoices of a Stripe that has been disconnected since.
   const showProvider =
-    capabilities?.providers.some(({ kind }) => kind === 'STRIPE') ?? false;
+    stripe.isConnected ||
+    data.items.some((invoice) => invoice.providerKind === 'STRIPE');
 
   return (
     <Page className="h-full min-h-0 overflow-hidden">
@@ -53,9 +63,13 @@ export function InvoicesPageContent({
         </Page.Leading>
       </Page.Header>
       <div className="flex-1 min-h-0">
+        {/* A link to another seed starts the filters over: they are the browser's,
+            and a seed is only where they start. */}
         <InvoicesList
           canExport={canExport}
+          initialFilterValues={toInitialFilterValues(seed)}
           invoices={data.items}
+          key={JSON.stringify(seed)}
           onScopeChange={onScopeChange}
           scope={scope}
           showProvider={showProvider}
