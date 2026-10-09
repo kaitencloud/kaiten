@@ -84,6 +84,7 @@ Small components that sit next to `ui/` in `app/src/components/`:
 | `GradientButton` | The call-to-action of a page, such as the create button of a list: a `label` and either `to` (a link) or `onClick`. | [gradient-button](../../src/components/stories/gradient-button.stories.tsx) |
 | `DestructiveActionButton` | A destructive button with a confirmation dialog. Disabled with a `disabledReason` shown in a tooltip. | [destructive-action-button](../../src/components/stories/destructive-action-button.stories.tsx) |
 | `ChoiceButton` | One choice among a few, as a button that is pressed when chosen: the shape of a price, the type of a voucher. A choice that cannot be made stays focusable and describes why. | [choice-button](../../src/components/stories/choice-button.stories.tsx) |
+| `CopyableValueField` | A value to read and to copy, in a read-only field with a Copy button that tells with a toast when the clipboard refuses: a key, a token or a code that is shown once. It carries no words; the caller gives the labels and the toasts. | [copyable-value-field](../../src/components/stories/copyable-value-field.stories.tsx) |
 | `ChartEmptyState` | The placeholder of a chart without data. | [chart-empty-state](../../src/components/stories/chart-empty-state.stories.tsx) |
 | `Atlassian`, `GitHub`, `Slack` and other company logos (`company-icons.tsx`) | SVG logos as components. | [company-icons](../../src/components/stories/company-icons.stories.tsx) |
 
