@@ -119,6 +119,11 @@ export type BillingInvoicesSeed = {
    * pushing one again fails again.
    */
   pushFailures?: Record<string, string>;
+  /**
+   * Invoices the push queue never gets to, by invoice id: the job is slow, and pushing
+   * one again leaves it queued for as long as a page is willing to wait.
+   */
+  stalledPushes?: string[];
   /** Where the usage the organization keeps begins; none keeps it all. */
   retentionStart?: string;
 };
@@ -133,6 +138,7 @@ export type SerializedBillingInvoices = {
   pushQueue?: Record<string, number>;
   providerTruth?: Record<string, ProviderTruth>;
   pushFailures?: Record<string, string>;
+  stalledPushes?: string[];
   retentionStart: string | null;
   sequence: number;
 };
@@ -288,6 +294,7 @@ export class BillingInvoices {
   /** The invoices queued for a push: the reads left until the job of the provider runs. */
   private pushQueue = new Map<string, number>();
   private pushFailures: Map<string, string>;
+  private stalledPushes: Set<string>;
   private reports: Map<string, UsageReport[]>;
   private retentionStart: string | null;
   private sequence = 1;
@@ -315,6 +322,7 @@ export class BillingInvoices {
     this.defaultDaysUntilDue = seed.defaultDaysUntilDue ?? 30;
     this.providerTruth = new Map(Object.entries(seed.providerTruth ?? {}));
     this.pushFailures = new Map(Object.entries(seed.pushFailures ?? {}));
+    this.stalledPushes = new Set(seed.stalledPushes ?? []);
     this.retentionStart = seed.retentionStart ?? null;
   }
 
@@ -331,6 +339,7 @@ export class BillingInvoices {
         providerTruth: state.providerTruth,
         pushFailures: state.pushFailures,
         retentionStart: state.retentionStart ?? undefined,
+        stalledPushes: state.stalledPushes,
       },
       now,
     );
@@ -361,6 +370,7 @@ export class BillingInvoices {
       providerTruth: Object.fromEntries(this.providerTruth),
       pushFailures: Object.fromEntries(this.pushFailures),
       pushQueue: Object.fromEntries(this.pushQueue),
+      stalledPushes: [...this.stalledPushes],
       retentionStart: this.retentionStart,
       sequence: this.sequence,
     };
@@ -1207,7 +1217,7 @@ export class BillingInvoices {
   /** The job of the push queue, run for an invoice that was queued and has been read enough times since. */
   private runQueuedPush(invoice: Invoice) {
     const left = this.pushQueue.get(invoice.id);
-    if (left === undefined) {
+    if (left === undefined || this.stalledPushes.has(invoice.id)) {
       return;
     }
     if (left > 1) {

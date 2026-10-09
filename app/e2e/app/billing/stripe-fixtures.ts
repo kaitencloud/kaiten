@@ -9,7 +9,7 @@ import type { BillingProvidersSeed } from '../_support/model/billing-providers';
 
 /**
  * The invoices Stripe collects, in every state the console shows about one:
- * - `inv-s1`: finalized, open in Stripe, amounts the same, past its due date;
+ * - `inv-s1`: finalized, open in Stripe, charged to the card on file, amounts the same;
  * - `inv-f1`: its push failed three times (Stripe refuses the customer's tax location);
  * - `inv-rv`: a draft waiting in Stripe for a human to finalize it (review mode);
  * - `inv-mm`: finalized, and Stripe's total is not Kaiten's (an item added there);
@@ -58,6 +58,7 @@ export const stripeInvoice = (
 export function stripeInvoices(): Invoice[] {
   return [
     stripeInvoice('inv-s1', {
+      collectionMethod: 'CHARGE_AUTOMATICALLY',
       provider: buildProviderRecord({
         externalInvoiceId: 'in_s1',
         pushedAt: ISSUED,
