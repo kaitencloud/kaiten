@@ -4101,6 +4101,7 @@ export default {
               reports: 'Reports',
               counter: 'Counter report',
             },
+            atReport: 'At report {{seq}}',
             release_NOOP:
               'Releasing accepts the amounts as composed. The invoice is issued with no payment provider and waits in the handoff queue for your ERP.',
             release_STRIPE:
