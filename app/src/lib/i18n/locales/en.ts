@@ -3066,6 +3066,7 @@ export default {
         Status: {
           connected: 'Connected',
           available: 'Available',
+          unavailable: 'Unavailable',
           comingH1: 'Coming H1',
           comingH2: 'Coming H2',
         },
@@ -3083,6 +3084,124 @@ export default {
           connected: 'Attio connector connected.',
           disconnected: 'Attio connector disconnected.',
           mappingUpdated: 'Attio field mappings updated.',
+        },
+        Stripe: {
+          title: 'Stripe connector',
+          subtitle:
+            'Kaiten composes what each customer owes. Stripe collects it.',
+          openInStripe: 'Open in Stripe',
+          disconnect: 'Disconnect',
+          Mode: {
+            test: 'Test mode',
+            live: 'Live mode',
+          },
+          Unavailable: {
+            VAULT_NOT_CONFIGURED: {
+              title: 'Stripe needs a configured Vault',
+              description:
+                'Kaiten stores the restricted key of your Stripe account in Vault, and this deployment has none. Set up Vault (VAULT_ADDR), then come back here to connect Stripe. Invoices are still composed and handed off to your accounting system meanwhile.',
+              tile: 'Stripe needs a configured Vault',
+            },
+            NOT_ENTITLED: {
+              title: 'Not included in your plan',
+              description:
+                'The Stripe connector is not part of the plan of this organization. Upgrade the plan to connect Stripe. Invoices are still composed and handed off to your accounting system meanwhile.',
+              tile: 'Not included in your plan',
+            },
+            UNKNOWN: {
+              title: 'Stripe is not available here',
+              description:
+                'This deployment does not offer Stripe to the organization. Invoices are composed and handed off to your accounting system.',
+              tile: 'Not available on this deployment',
+            },
+            vaultDocs: 'Self-hosting settings',
+          },
+          Settings: {
+            title: 'Connection',
+            description:
+              'The restricted key of your Stripe account, and how Kaiten builds and pushes invoices to it.',
+            readOnly:
+              'You can read these settings and not change them: the connector is configured by someone who can write the settings of the organization.',
+            connect: 'Connect Stripe',
+            reconnect: 'Connect Stripe with the stored key',
+            save: 'Save changes',
+            keyLabel: 'Restricted API key',
+            keyPlaceholder: 'rk_test_…',
+            keyOnFilePlaceholder:
+              'Key set ({{mode}}) — enter a new key to replace it',
+            keyOnFilePlaceholderNoMode:
+              'Key set — enter a new key to replace it',
+            keyHint:
+              'Create it in Stripe, under Developers → API keys. Kaiten stores it in Vault, checks it with a read-only call and never shows it again.',
+            keyReaches: 'This key reaches a Stripe account in {{mode}}.',
+            taxBehaviorLabel: 'Tax',
+            taxBehaviorHint:
+              'Whether the amounts Kaiten composes leave tax out (Stripe adds it) or already include it.',
+            TaxBehavior: {
+              EXCLUSIVE: 'Amounts exclude tax',
+              INCLUSIVE: 'Amounts include tax',
+            },
+            automaticTaxLabel: 'Compute tax automatically',
+            automaticTaxHint:
+              'Stripe Tax computes the tax of every invoice. It needs a complete address on the customer in Stripe, or the push of its invoices fails.',
+            autoFinalizeLabel: 'Finalize invoices automatically',
+            autoFinalizeHint:
+              'Off, an invoice stops as a draft in Stripe, where someone reviews it and Kaiten finalizes it on request.',
+            Errors: {
+              keyRequired: 'Paste the restricted key of your Stripe account.',
+              secretKey:
+                'Use a restricted key (rk_…): a secret key (sk_…) gives Kaiten access to far more than it needs.',
+              publishableKey:
+                'A publishable key (pk_…) cannot create invoices. Use a restricted key (rk_…).',
+              keyFormat:
+                'A restricted key starts with rk_test_ or rk_live_, followed by letters and digits.',
+            },
+          },
+          Split: {
+            title: 'Who does what',
+            kaiten: 'Kaiten owns',
+            stripe: 'Stripe owns',
+            Kaiten: {
+              catalogue: 'The catalogue and its prices',
+              entitlements: 'What each instance is entitled to',
+              usage: 'The journal of usage',
+              subscription: 'The subscription of each instance',
+              content: 'What each invoice says',
+            },
+            Stripe: {
+              tax: 'Tax',
+              numbering: 'Invoice numbers',
+              presentation: 'How an invoice looks and is sent',
+              payment: 'Payment and receipts',
+              dunning: 'Retries and reminders',
+            },
+          },
+          Permissions: {
+            title: 'Permissions of the key',
+            description:
+              'Create the restricted key with exactly these permissions: no more, and no less.',
+            write: '{{resource}}: write',
+            read: '{{resource}}: read',
+          },
+          Toast: {
+            connected: 'Stripe connected.',
+            saved: 'Stripe settings saved.',
+            disconnected: 'Stripe disconnected.',
+          },
+          Disconnect: {
+            title: 'Disconnect Stripe?',
+            description:
+              'Kaiten stops pushing invoices to Stripe and reading them back. The key stays stored, so that connecting again does not ask for it. Invoices already in Stripe are not touched.',
+            confirm: 'Disconnect',
+            subscriptions_one:
+              '{{count}} subscription that is not canceled is still collected through Stripe.',
+            subscriptions_other:
+              '{{count}} subscriptions that are not canceled are still collected through Stripe.',
+            invoices_one:
+              '{{count}} invoice that is not settled is still in Stripe.',
+            invoices_other:
+              '{{count}} invoices that are not settled are still in Stripe.',
+          },
         },
         Wizard: {
           headerTitle: 'Connect Attio',

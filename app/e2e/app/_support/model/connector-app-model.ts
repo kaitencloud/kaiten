@@ -157,12 +157,16 @@ export class ConnectorAppModel {
     return clone(this.stripe.settings);
   }
 
-  private failStripeSettings(location: string, message: string): never {
+  /**
+   * The settings do not match the schema the connector registers. The API answers
+   * with the words of the schema validator in the `detail` and locates nothing: a
+   * schema failure has no `errors`, so a screen shows it above its button.
+   */
+  private failStripeSettings(pointer: string, message: string): never {
     throw new BillingProblem(
       422,
       'UpdateConnectorSettings.InvalidPayloadSchema',
-      'the connector settings are not valid',
-      { errors: [{ location, message }] },
+      `Connector settings payload does not match schema for connector "${STRIPE_CONNECTOR_NAME}": at '${pointer}': ${message}`,
     );
   }
 
@@ -198,21 +202,18 @@ export class ConnectorAppModel {
     for (const member of Object.keys(given)) {
       if (!(STRIPE_SETTINGS as readonly string[]).includes(member)) {
         this.failStripeSettings(
-          `body.settings.${member}`,
-          'unexpected property',
+          `/${member}`,
+          'additional properties are not allowed',
         );
       }
     }
     if (keeps && !stored) {
-      this.failStripeSettings(
-        'body.settings.stripeSecretKey',
-        'stripeSecretKey is required',
-      );
+      this.failStripeSettings('', "missing property 'stripeSecretKey'");
     }
     if (!keeps && !STRIPE_KEY_PATTERN.test(String(typed))) {
       this.failStripeSettings(
-        'body.settings.stripeSecretKey',
-        'does not match ^rk_(live|test)_[A-Za-z0-9]+$',
+        '/stripeSecretKey',
+        'does not match pattern ^rk_(live|test)_[A-Za-z0-9]+$',
       );
     }
     if (
@@ -221,8 +222,8 @@ export class ConnectorAppModel {
       given.taxBehavior !== 'INCLUSIVE'
     ) {
       this.failStripeSettings(
-        'body.settings.taxBehavior',
-        'must be EXCLUSIVE or INCLUSIVE',
+        '/taxBehavior',
+        "value must be one of 'EXCLUSIVE', 'INCLUSIVE'",
       );
     }
     if (standing === 'notEntitled') {
