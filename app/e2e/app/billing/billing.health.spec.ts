@@ -304,29 +304,41 @@ test.describe('the health of billing', () => {
     }
   });
 
-  test('opens the list of invoices on the filter of a tile, with the chip that says it', async ({
-    page,
-  }) => {
-    const settings = new BillingSettingsDriver(page);
-    const list = new BillingInvoicesDriver(page);
-    const model = createStripeBillingModel();
-    model.providers.setHealth(NEEDS_ATTENTION);
-    await installBillingAppMocks(page, model);
+  for (const [tile, query, chip, status] of [
+    ['held', 'held=true', 'Held: True', 'Held'],
+    ['overdue', 'overdue=true', 'Overdue: True', 'Overdue'],
+    [
+      'pushFailures',
+      'status=PUSH_FAILED',
+      'Status: Push failed',
+      'Push failed',
+    ],
+  ] as const) {
+    test(`opens the list of invoices on the filter of the tile of ${tile}, with the chip that says it`, async ({
+      page,
+    }) => {
+      const settings = new BillingSettingsDriver(page);
+      const list = new BillingInvoicesDriver(page);
+      const model = createStripeBillingModel();
+      model.providers.setHealth(NEEDS_ATTENTION);
+      await installBillingAppMocks(page, model);
 
-    await settings.goto();
-    await settings.tile('pushFailures').getByRole('link').click();
+      await settings.goto();
+      await settings.tile(tile).getByRole('link').click();
 
-    await expect(page).toHaveURL(/\/billing\/invoices\?status=PUSH_FAILED$/);
-    await expect(
-      page.getByRole('heading', { level: 1, name: 'Invoices' }),
-    ).toBeVisible();
-    await list.expectChips(['Status: Push failed']);
-    await expect(list.rows().first()).toBeVisible();
-    const statuses = await list.statusBadges().allTextContents();
-    expect(new Set(statuses.map((status) => status.trim()))).toEqual(
-      new Set(['Push failed']),
-    );
-  });
+      await expect(page).toHaveURL(new RegExp(`/billing/invoices\\?${query}$`));
+      await expect(
+        page.getByRole('heading', { level: 1, name: 'Invoices' }),
+      ).toBeVisible();
+      await list.expectChips([chip]);
+      await expect(list.rows().first()).toBeVisible();
+      // Every invoice listed is what the tile counts.
+      const statuses = await list.statusBadges().allTextContents();
+      expect(new Set(statuses.map((text) => text.trim()))).toEqual(
+        new Set([status]),
+      );
+    });
+  }
 
   test('opens the queue of the accounting system from the tile of what waits for it', async ({
     page,
