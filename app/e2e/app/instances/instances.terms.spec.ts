@@ -14,8 +14,9 @@ import {
 // The payment terms of a contract are a route of its own over the Billing tab: the
 // days between issuing an invoice and its due date, for this contract, or the terms
 // of the organization when the field is empty. A change takes effect on the next
-// invoice: the invoices already issued keep their own due date. Only the days go to
-// the API: the collection method and the provider are not this screen's.
+// invoice: the invoices already issued keep their own due date. Where no payment
+// provider is offered, as here, only the days go to the API: who collects and how is
+// the same dialog's once Stripe is (`instances.provider.spec.ts`).
 
 const TERMS = /\/api\/instances\/[^/]+\/billing$/;
 
