@@ -11,6 +11,7 @@ import { InstanceAppModel } from '../../../e2e/app/_support/model/instance-app-m
 import { LicenseAppModel } from '../../../e2e/app/_support/model/license-app-model';
 import { NotificationAppModel } from '../../../e2e/app/_support/model/notification-app-model';
 import { NO_PLATFORM_FLAGS } from '../../../e2e/app/_support/model/platform-flags';
+import type { LicenseCatalogue } from '../../../e2e/app/_support/model/graphql-operations';
 import { ReleaseManagementAppModel } from '../../../e2e/app/_support/model/release-management-app-model';
 import { auditTrailHandlers } from './audit-trail-handlers';
 import { billingHandlers } from './billing-handlers';
@@ -109,6 +110,23 @@ export function createMockHandlers(
     effectiveConfig.flagEvaluations ??
     (unmockedPlatform === 'off' ? NO_PLATFORM_FLAGS : null);
 
+  // Where the licenses and their prices are, for the one document of billing that
+  // reads both: the slot of the licenses has them, and a page with instances and
+  // billing has the licenses of its instances and the prices billing knows.
+  // Whichever answers `GET /licenses` answers here too.
+  const licenseCatalogue: LicenseCatalogue | undefined = licenses
+    ? {
+        licenses: () => licenses.listLicenses(),
+        prices: (slug, filter) => licenses.listPrices(slug, filter),
+      }
+    : instances && billing
+      ? {
+          licenses: () => instances.listLicenses(),
+          prices: (slug, filter) =>
+            billing.subscriptions.listPrices(slug, filter),
+        }
+      : undefined;
+
   // Preserve first-match ownership and the original slot registration order.
   // Explicit sibling fallbacks are sorted last, after all installed owners.
   const handlers = [
@@ -131,6 +149,7 @@ export function createMockHandlers(
                 },
               }
             : undefined,
+          licenseCatalogue,
         )
       : []),
     ...(licenses

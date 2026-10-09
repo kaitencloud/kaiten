@@ -1,3 +1,4 @@
+import type { License, Price } from '@/api-client';
 import type {
   GetInstancesBillingQuery,
   GetLicensesWithPricesQuery,
@@ -81,6 +82,67 @@ export const instanceBillingOperations = (model: BillingAppModel) => ({
   ): GetInstancesBillingQuery => ({
     instances: graphqlPage(
       model.subscriptions.listInstanceBillingSummaries(),
+      variables,
+    ),
+  }),
+});
+
+/**
+ * Where the licenses and the prices they are sold at come from. They are not
+ * always in one slot of the mocks: the slot of the licenses has both, and a
+ * page with instances and billing but no licenses slot has the licenses of its
+ * instances and the prices of its billing.
+ */
+export type LicenseCatalogue = {
+  licenses(): License[];
+  prices(licenseSlug: string, filter: { status: Price['status'] }): Price[];
+};
+
+/** A license and its active prices, as `GetLicensesWithPrices` selects them. */
+export function toLicenseWithPrices(
+  license: License,
+  prices: readonly Price[],
+): GetLicensesWithPricesQuery['licenses']['items'][number] {
+  return {
+    id: license.id,
+    lifecycleState: license.lifecycleState ?? 'PUBLISHED',
+    name: license.name,
+    // A version nobody priced is sold by conversation; one with a price is sold.
+    pricingType: license.pricingType ?? (prices.length > 0 ? 'PAID' : 'CUSTOM'),
+    prices: prices.map((price) => ({
+      billingModel: price.billingModel,
+      billingPeriod: price.billingPeriod ?? null,
+      billingTiming: price.billingTiming,
+      currency: price.currency,
+      displayLabel: price.displayLabel ?? null,
+      displayOrder: price.displayOrder,
+      id: price.id,
+      isDefault: price.isDefault,
+      meteredEntitlement: price.metered?.entitlementSlug ?? null,
+      saleUnitFactor: price.metered?.saleUnitFactor ?? null,
+      status: price.status,
+      unitAmountDecimal: price.unitAmountDecimal,
+    })),
+    slug: license.slug ?? license.id,
+    version: license.version,
+    versionName: license.versionName ?? null,
+  };
+}
+
+/** The licenses with the prices they are sold at now, a page at a time. */
+export const licensePriceOperations = (catalogue: LicenseCatalogue) => ({
+  GetLicensesWithPrices: (
+    variables: GraphQLVariables,
+  ): GetLicensesWithPricesQuery => ({
+    licenses: graphqlPage(
+      catalogue
+        .licenses()
+        .map((license) =>
+          toLicenseWithPrices(
+            license,
+            catalogue.prices(license.slug ?? license.id, { status: 'ACTIVE' }),
+          ),
+        ),
       variables,
     ),
   }),
