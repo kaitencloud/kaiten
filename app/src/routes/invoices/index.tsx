@@ -13,7 +13,7 @@ import i18n from '@/lib/i18n/config';
 // be asked for by a link (held, overdue, one status, one handoff status), which only
 // sets where they start, so that a screen that counts invoices can lead to them.
 // Anything that does not read as a slug, or as one of those, is dropped.
-export const Route = createFileRoute('/billing/invoices/')({
+export const Route = createFileRoute('/invoices/')({
   component: InvoicesRoute,
   // The API's own words for why the invoices could not be read, around the
   // console that still works.

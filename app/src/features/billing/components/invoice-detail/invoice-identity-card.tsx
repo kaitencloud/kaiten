@@ -73,14 +73,14 @@ export function InvoiceIdentityCard({ invoice }: InvoiceIdentityCardProps) {
           <Link
             className="text-primary-subtle-foreground underline underline-offset-4"
             search={{ customerSlug: invoice.customerSlug }}
-            to="/billing/invoices"
+            to="/invoices"
           >
             {t('Pages.Billing.Invoices.Detail.Identity.customerInvoices')}
           </Link>
           <Link
             className="text-primary-subtle-foreground underline underline-offset-4"
             search={{ instanceSlug: invoice.instanceSlug }}
-            to="/billing/invoices"
+            to="/invoices"
           >
             {t('Pages.Billing.Invoices.Detail.Identity.instanceInvoices')}
           </Link>

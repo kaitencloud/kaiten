@@ -31,7 +31,7 @@ import { requireBillingCapability } from '../queries';
 
 // A guarded billing route as the console builds one, with a screen below it that
 // loads data, which is what the guard must keep from loading where billing is
-// not there. The guard is the one of `routes/billing/route.tsx`.
+// not there. The guard is the one of `routes/invoices/route.tsx`.
 beforeAll(async () => {
   testI18n.addResourceBundle('en', 'translation', en, true, true);
   await testI18n.changeLanguage('en');
@@ -70,11 +70,11 @@ function mount(path: string) {
   const root = createRootRouteWithContext<{ queryClient: QueryClient }>()({
     component: Outlet,
   });
-  const billing = createRoute({
+  const invoices = createRoute({
     beforeLoad: async ({ context }) => {
       await requireBillingCapability(context.queryClient);
     },
-    component: function BillingLayout() {
+    component: function InvoicesLayout() {
       return (
         <div data-testid="billing-layout">
           <Outlet />
@@ -83,19 +83,19 @@ function mount(path: string) {
     },
     getParentRoute: () => root,
     notFoundComponent: BillingNotFound,
-    path: 'billing',
+    path: 'invoices',
   });
-  const invoices = createRoute({
+  const list = createRoute({
     beforeLoad: screenBeforeLoad,
     component: () => <p>The invoices</p>,
-    getParentRoute: () => billing,
+    getParentRoute: () => invoices,
     loader: screenLoader,
-    path: 'invoices',
+    path: '/',
   });
   const router = createRouter({
     context: { queryClient },
     history: createMemoryHistory({ initialEntries: [path] }),
-    routeTree: root.addChildren([billing.addChildren([invoices])]),
+    routeTree: root.addChildren([invoices.addChildren([list])]),
   });
 
   render(<RouterProvider router={router} />);
@@ -106,7 +106,7 @@ function mount(path: string) {
 describe('the guard of a billing route', () => {
   it('lets the screens below it load and render where billing is on', async () => {
     answer();
-    const { screenLoader } = mount('/billing/invoices');
+    const { screenLoader } = mount('/invoices');
 
     expect(await screen.findByText('The invoices')).toBeInTheDocument();
 
@@ -121,7 +121,7 @@ describe('the guard of a billing route', () => {
     'explains, and loads nothing below it, where billing is off: %s',
     async (reason, title) => {
       answer(billingCapabilitiesProfiles.disabled(reason));
-      const { screenBeforeLoad, screenLoader } = mount('/billing/invoices');
+      const { screenBeforeLoad, screenLoader } = mount('/invoices');
 
       expect(await screen.findByText(title)).toBeInTheDocument();
 
@@ -143,7 +143,7 @@ describe('the guard of a billing route', () => {
   it('names the scope the session lacks when the capabilities are refused', async () => {
     vi.spyOn(logger, 'warn').mockImplementation(() => {});
     refuse(403, 'Auth.MissingScope', 'missing required scope: read:billing');
-    const { screenLoader } = mount('/billing/invoices');
+    const { screenLoader } = mount('/invoices');
 
     expect(
       await screen.findByText('You do not have access to billing'),
@@ -155,7 +155,7 @@ describe('the guard of a billing route', () => {
 
   it('explains too for a path under it that is no page', async () => {
     answer(billingCapabilitiesProfiles.disabled('DEPLOYMENT_DISABLED'));
-    mount('/billing/nowhere');
+    mount('/invoices/nowhere');
 
     expect(await screen.findByText('Billing is not enabled')).toBeInTheDocument();
     expect(screen.queryByText('Page not found')).toBeNull();
@@ -163,7 +163,7 @@ describe('the guard of a billing route', () => {
 
   it('says a path under it is no page where billing is on', async () => {
     answer();
-    mount('/billing/nowhere');
+    mount('/invoices/nowhere');
 
     expect(await screen.findByText('Page not found')).toBeInTheDocument();
     expect(screen.queryByTestId('billing-unavailable')).toBeNull();
@@ -173,7 +173,7 @@ describe('the guard of a billing route', () => {
     vi.spyOn(logger, 'warn').mockImplementation(() => {});
     const user = userEvent.setup();
     refuse(503, 'Billing.EntitlementCheckUnavailable', 'down');
-    const { screenLoader } = mount('/billing/invoices');
+    const { screenLoader } = mount('/invoices');
 
     const retry = await screen.findByRole('button', { name: 'Retry' });
     expect(screenLoader).not.toHaveBeenCalled();

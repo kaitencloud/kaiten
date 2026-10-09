@@ -145,7 +145,7 @@ test.describe('the queue of what waits', () => {
     await handoff.goto();
     await handoff.row('inv-g1').getByRole('link').first().click();
 
-    await expect(page).toHaveURL(/\/billing\/invoices\/inv-g1$/);
+    await expect(page).toHaveURL(/\/invoices\/inv-g1$/);
   });
 
   test('teaches the command that takes what waits when nothing does', async ({

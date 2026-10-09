@@ -24,7 +24,7 @@ export class InvoiceDetailDriver {
 
   /** Opens an invoice by its id, and waits for its title. */
   async goto(invoiceId: string) {
-    await this.page.goto(`/billing/invoices/${invoiceId}`);
+    await this.page.goto(`/invoices/${invoiceId}`);
     await expect(this.title()).toBeVisible();
   }
 

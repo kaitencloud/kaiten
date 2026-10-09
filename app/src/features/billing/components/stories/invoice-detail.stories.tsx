@@ -126,7 +126,7 @@ export const ReplacementChain: Story = {
 
     await expect(await canvas.findByRole('link', { name: 'inv-2' })).toHaveAttribute(
       'href',
-      '/billing/invoices/inv-2',
+      '/invoices/inv-2',
     );
     await expect(canvas.getByRole('link', { name: 'inv-0' })).toBeVisible();
     await expect(canvas.getByText('Replaces')).toBeVisible();

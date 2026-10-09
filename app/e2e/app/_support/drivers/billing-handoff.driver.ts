@@ -42,10 +42,8 @@ export class BillingHandoffDriver extends FilterToolbarDriver {
     return this.rows().evaluateAll((rows) =>
       rows.map((row) =>
         (
-          row
-            .querySelector('a[href^="/billing/invoices/"]')
-            ?.getAttribute('href') ?? ''
-        ).replace('/billing/invoices/', ''),
+          row.querySelector('a[href^="/invoices/"]')?.getAttribute('href') ?? ''
+        ).replace('/invoices/', ''),
       ),
     );
   }
@@ -58,7 +56,7 @@ export class BillingHandoffDriver extends FilterToolbarDriver {
 
   row(invoiceId: string): Locator {
     return this.rows().filter({
-      has: this.page.locator(`a[href="/billing/invoices/${invoiceId}"]`),
+      has: this.page.locator(`a[href="/invoices/${invoiceId}"]`),
     });
   }
 

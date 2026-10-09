@@ -294,7 +294,7 @@ export class InstanceLifecycleDriver {
     return this.openInvoices()
       .getByTestId('open-invoice')
       .filter({
-        has: this.page.locator(`a[href="/billing/invoices/${invoiceId}"]`),
+        has: this.page.locator(`a[href="/invoices/${invoiceId}"]`),
       });
   }
 

@@ -166,7 +166,7 @@ test.describe('the Billing tab of an instance', () => {
       .first()
       .click();
 
-    await expect(page).toHaveURL(/\/billing\/invoices\/inv-acme-renewal$/);
+    await expect(page).toHaveURL(/\/invoices\/inv-acme-renewal$/);
   });
 
   test('is a state and not an error for an instance nobody bills, with the way to subscribe', async ({

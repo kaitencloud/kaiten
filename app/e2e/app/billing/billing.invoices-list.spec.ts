@@ -6,6 +6,7 @@ import {
 } from '../_support/assertions/layout';
 import { expectErrorToast } from '../_support/assertions/toast';
 import { BillingInvoicesDriver } from '../_support/drivers/billing-invoices.driver';
+import { BillingNavDriver } from '../_support/drivers/billing-nav.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { BillingAppModel } from '../_support/model/billing-app-model';
 import { billingCapabilitiesProfiles } from '../_support/model/billing-capabilities';
@@ -193,7 +194,7 @@ test.describe('the list of invoices', () => {
     await list.gotoShowingEverything();
     await list.link('inv-p1').click();
 
-    await expect(page).toHaveURL(/\/billing\/invoices\/inv-p1$/);
+    await expect(page).toHaveURL(/\/invoices\/inv-p1$/);
     await expect(
       page.getByRole('heading', {
         level: 1,
@@ -229,7 +230,7 @@ test.describe('the search of the list', () => {
     // The console holds every invoice: nothing more was asked of the API, and the
     // URL does not carry the search.
     expect(reads).toHaveLength(1);
-    expect(list.pathAndSearch()).toBe('/billing/invoices');
+    expect(list.pathAndSearch()).toBe('/invoices');
   });
 
   test('says no invoice matches, and clears the search from the message', async ({
@@ -306,7 +307,7 @@ test.describe('the filters of the list', () => {
     // The console holds every invoice: it did not ask the API again, and the
     // URL does not carry a filter.
     expect(reads).toHaveLength(1);
-    expect(list.pathAndSearch()).toBe('/billing/invoices');
+    expect(list.pathAndSearch()).toBe('/invoices');
 
     // Resetting takes every filter off at once.
     await list.reset().click();
@@ -363,7 +364,7 @@ test.describe('the filters of the list', () => {
     await list.addFilter('Kind');
     await list.pick('Activation');
     await expect(list.chips()).toHaveCount(1);
-    expect(list.pathAndSearch()).toBe('/billing/invoices');
+    expect(list.pathAndSearch()).toBe('/invoices');
 
     await page.reload();
 
@@ -394,7 +395,7 @@ test.describe('the scope of the list', () => {
 
     await list.removeScope('Customer: globex');
 
-    await expect.poll(() => list.pathAndSearch()).toBe('/billing/invoices');
+    await expect.poll(() => list.pathAndSearch()).toBe('/invoices');
     await expect(list.chips()).toHaveCount(0);
     await expect(page.getByText(/Showing 1-\d+ of 11 records/)).toBeVisible();
     expect(new URLSearchParams(reads.at(-1)?.search).has('customerSlug')).toBe(
@@ -416,9 +417,7 @@ test.describe('the scope of the list', () => {
     await list.expectChips(['Instance: initech-prod', 'Kind: Activation']);
     await list.expectInvoiceIds(['inv-m1', 'inv-r1', 'inv-v1']);
     // The scope is in the URL and asked of the API; the filter is neither.
-    expect(list.pathAndSearch()).toBe(
-      '/billing/invoices?instanceSlug=initech-prod',
-    );
+    expect(list.pathAndSearch()).toBe('/invoices?instanceSlug=initech-prod');
     expect(reads).toHaveLength(1);
     expect(new URLSearchParams(reads[0].search).get('instanceSlug')).toBe(
       'initech-prod',
@@ -428,7 +427,7 @@ test.describe('the scope of the list', () => {
     await list.removeScope('Instance: initech-prod');
 
     // The filter stays where it was, on every invoice now.
-    await expect.poll(() => list.pathAndSearch()).toBe('/billing/invoices');
+    await expect.poll(() => list.pathAndSearch()).toBe('/invoices');
     await list.expectChips(['Kind: Activation']);
     await list.expectInvoiceIds(['inv-m1', 'inv-d2', 'inv-r1', 'inv-v1']);
   });
@@ -569,7 +568,7 @@ test.describe('the states of the list', () => {
       .getByRole('button', { name: 'Show every invoice' })
       .click();
 
-    await expect.poll(() => list.pathAndSearch()).toBe('/billing/invoices');
+    await expect.poll(() => list.pathAndSearch()).toBe('/invoices');
     await expect(list.rows()).toHaveCount(10);
     await expect(page.getByText('Showing 1-10 of 11 records')).toBeVisible();
   });
@@ -602,9 +601,7 @@ test.describe('the states of the list', () => {
     );
     await expect(list.error()).toContainText('Reference trace-list-1');
     // The console around it still works.
-    await expect(
-      page.getByRole('link', { name: 'Handoff', exact: true }),
-    ).toBeVisible();
+    await expect(new BillingNavDriver(page).entry('Invoices')).toBeVisible();
 
     await list.error().getByRole('button', { name: 'Retry' }).click();
 

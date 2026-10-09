@@ -12,6 +12,7 @@ import {
 } from '../../../../e2e/app/_support/model/billing-capabilities';
 import {
   useResolvedBillingItems,
+  useResolvedBillingRoutes,
   useResolvedIntegrationsItems,
 } from './side-nav-sections';
 
@@ -131,11 +132,11 @@ describe('useResolvedIntegrationsItems', () => {
   });
 });
 
-function billingPathsWith(
+function seededClient(
   capabilities: BillingCapabilities | undefined,
   // What the token of the session says: nothing about scopes by default, which the
   // console reads as every action being offered. `'unread'` leaves it unread.
-  scopes: GrantedScopes | 'unread' = null,
+  scopes: GrantedScopes | 'unread',
 ) {
   const queryClient = new QueryClient({
     // No capabilities seeded stays unread: the hook sees them loading.
@@ -150,25 +151,68 @@ function billingPathsWith(
   if (scopes !== 'unread') {
     queryClient.setQueryData(grantedScopesQueryKey, scopes);
   }
-  const wrapper = ({ children }: { children: ReactNode }) => (
+
+  return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
+}
 
-  const { result } = renderHook(() => useResolvedBillingItems(), { wrapper });
+function billingPathsWith(
+  capabilities: BillingCapabilities | undefined,
+  scopes: GrantedScopes | 'unread' = null,
+) {
+  const { result } = renderHook(() => useResolvedBillingItems(), {
+    wrapper: seededClient(capabilities, scopes),
+  });
   return result.current.map((item) => item.path);
 }
 
+function billingRoutePathsWith(
+  capabilities: BillingCapabilities | undefined,
+  scopes: GrantedScopes | 'unread' = null,
+) {
+  const { result } = renderHook(() => useResolvedBillingRoutes(), {
+    wrapper: seededClient(capabilities, scopes),
+  });
+  return result.current.map((route) => route.path);
+}
+
+describe('useResolvedBillingRoutes', () => {
+  it('lists the invoices as a first-level entry where billing is on', () => {
+    expect(billingRoutePathsWith(billingCapabilitiesProfiles.stack())).toEqual([
+      '/invoices',
+    ]);
+  });
+
+  it('lists them whatever the release ships besides', () => {
+    expect(billingRoutePathsWith(billingCapabilitiesProfiles.full())).toEqual([
+      '/invoices',
+    ]);
+  });
+
+  it.each(['DEPLOYMENT_DISABLED', 'NOT_ENTITLED'] as const)(
+    'lists nothing where billing is off: %s',
+    (reason) => {
+      expect(
+        billingRoutePathsWith(billingCapabilitiesProfiles.disabled(reason)),
+      ).toEqual([]);
+    },
+  );
+
+  it('lists nothing while the capabilities load', () => {
+    expect(billingRoutePathsWith(undefined)).toEqual([]);
+  });
+});
+
 describe('useResolvedBillingItems', () => {
-  it('lists the invoices and the handoff queue where billing is on', () => {
+  it('lists the handoff queue where billing is on', () => {
     expect(billingPathsWith(billingCapabilitiesProfiles.stack())).toEqual([
-      '/billing/invoices',
       '/billing/handoff',
     ]);
   });
 
   it('adds the add-ons and the vouchers where the release ships them', () => {
     expect(billingPathsWith(billingCapabilitiesProfiles.full())).toEqual([
-      '/billing/invoices',
       '/billing/handoff',
       '/addons',
       '/vouchers',
@@ -181,7 +225,7 @@ describe('useResolvedBillingItems', () => {
     it('hides them from a session whose scopes do not cover read:addons', () => {
       expect(
         billingPathsWith(full, ['read:billing', 'read:vouchers']),
-      ).toEqual(['/billing/invoices', '/billing/handoff', '/vouchers']);
+      ).toEqual(['/billing/handoff', '/vouchers']);
     });
 
     it.each([
@@ -203,7 +247,7 @@ describe('useResolvedBillingItems', () => {
     it('hides them from a session whose scopes do not cover read:vouchers', () => {
       expect(
         billingPathsWith(full, ['read:billing', 'read:addons']),
-      ).toEqual(['/billing/invoices', '/billing/handoff', '/addons']);
+      ).toEqual(['/billing/handoff', '/addons']);
     });
 
     it.each([
@@ -224,7 +268,7 @@ describe('useResolvedBillingItems', () => {
 
     expect(
       billingPathsWith({ ...stack, features: { ...stack.features, vouchers: true } }),
-    ).toEqual(['/billing/invoices', '/billing/handoff', '/vouchers']);
+    ).toEqual(['/billing/handoff', '/vouchers']);
   });
 
   it.each(['DEPLOYMENT_DISABLED', 'NOT_ENTITLED'] as const)(

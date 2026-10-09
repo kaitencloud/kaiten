@@ -214,7 +214,7 @@ test.describe('recomposing an invoice', () => {
     expect(writes.map((write) => write.pathname)).toEqual([
       '/api/invoices/inv-h2/recompose',
     ]);
-    await expect(page).toHaveURL(/\/billing\/invoices\/inv-h2$/);
+    await expect(page).toHaveURL(/\/invoices\/inv-h2$/);
     await expect(invoice.statusBadge()).toHaveText('Ready to bill');
     await expect(invoice.holdBanner()).toHaveCount(0);
   });
@@ -237,15 +237,13 @@ test.describe('recomposing an invoice', () => {
       .click();
 
     await expectToast(page, 'Replacement invoice composed');
-    await expect(page).toHaveURL(
-      /\/billing\/invoices\/inv-v2-replacement-\d+$/,
-    );
+    await expect(page).toHaveURL(/\/invoices\/inv-v2-replacement-\d+$/);
     await expect(invoice.summary()).toContainText('Replaces');
     await expect(invoice.replaces()).toHaveText('inv-v2');
 
     // The invoice it replaces points to it, and offers nothing more.
     await invoice.replaces().click();
-    await expect(page).toHaveURL(/\/billing\/invoices\/inv-v2$/);
+    await expect(page).toHaveURL(/\/invoices\/inv-v2$/);
     await expect(invoice.summary()).toContainText('Replaced by');
     await invoice.expectActions([]);
   });
@@ -276,7 +274,7 @@ test.describe('recomposing an invoice', () => {
       .getByRole('button', { name: 'Recompose', exact: true })
       .click();
 
-    await expect(page).toHaveURL(/\/billing\/invoices\/inv-r1$/);
+    await expect(page).toHaveURL(/\/invoices\/inv-r1$/);
     await expect(invoice.alertDialog()).toHaveCount(0);
   });
 
@@ -308,9 +306,7 @@ test.describe('recomposing an invoice', () => {
     await invoice.reason().fill('Journal replaced after the audit');
     await invoice.confirm('Void and recompose').click();
 
-    await expect(page).toHaveURL(
-      /\/billing\/invoices\/inv-h1-replacement-\d+$/,
-    );
+    await expect(page).toHaveURL(/\/invoices\/inv-h1-replacement-\d+$/);
     expect(writes.map((write) => write.pathname)).toEqual([
       '/api/invoices/inv-h1/recompose',
       '/api/invoices/inv-h1/void',

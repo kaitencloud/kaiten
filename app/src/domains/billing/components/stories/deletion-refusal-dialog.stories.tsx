@@ -74,7 +74,7 @@ export const InstanceWithInvoicesToSettle: Story = {
     await expect(dialog.getByText('2 invoices not settled')).toBeInTheDocument();
     await expect(dialog.getByRole('link', { name: 'inv-legacy-open' })).toHaveAttribute(
       'href',
-      '/billing/invoices/inv-legacy-open',
+      '/invoices/inv-legacy-open',
     );
     // With no explanation of the API, the console says it in its own words.
     await expect(

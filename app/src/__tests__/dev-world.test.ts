@@ -107,7 +107,7 @@ describe('dev world', () => {
       []) {
       const instance = /^\/customers\/instances\/([^/]+)/.exec(actionUrl);
       const release = /^\/releases\/([^/]+)$/.exec(actionUrl);
-      const invoice = /^\/billing\/invoices\/([^/]+)$/.exec(actionUrl);
+      const invoice = /^\/invoices\/([^/]+)$/.exec(actionUrl);
       const customer = /^\/customers\/([^/]+)$/.exec(actionUrl);
       if (instance) {
         expect(instanceSlugs).toContain(instance[1]);

@@ -34,7 +34,7 @@ function UnsettledInvoices({ ids }: { ids: string[] }) {
         <Link
           className="font-mono text-sm underline underline-offset-4"
           params={{ invoiceId: id }}
-          to="/billing/invoices/$invoiceId"
+          to="/invoices/$invoiceId"
         >
           {id}
         </Link>

@@ -487,7 +487,7 @@ describe('the invoices still open when the provider changes', () => {
     const rows = await screen.findAllByTestId('open-invoice');
     expect(within(rows[0]).getByRole('link')).toHaveAttribute(
       'href',
-      '/billing/invoices/inv-manual',
+      '/invoices/inv-manual',
     );
   });
 

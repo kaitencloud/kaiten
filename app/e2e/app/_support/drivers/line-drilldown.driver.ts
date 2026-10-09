@@ -15,7 +15,7 @@ export class LineDrilldownDriver {
 
   /** Opens the reports of a line by its URL, and waits for the line's title. */
   async goto(invoiceId: string, lineId: string, title: string) {
-    await this.page.goto(`/billing/invoices/${invoiceId}/lines/${lineId}`);
+    await this.page.goto(`/invoices/${invoiceId}/lines/${lineId}`);
     await expect(
       this.page.getByRole('heading', { level: 1, name: title }),
     ).toBeVisible();

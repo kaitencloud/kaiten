@@ -34,7 +34,7 @@ const translations: Record<string, string> = {
   'Common.new': 'New',
   'Errors.notFound': 'Page not found',
   'Features.Releases.Actions.deploy': 'Deploy',
-  'Pages.Billing.Invoices.title': 'Invoices',
+  'Pages.Billing.Handoff.title': 'Handoff',
   'Pages.Billing.title': 'Billing',
   'Pages.Customers.Instances.title': 'Instances',
   'Pages.Customers.title': 'Customers',
@@ -299,7 +299,7 @@ describe('PathBreadcrumbs', () => {
   });
 
   it('keeps the title of the trail for a route that explains its own not-found', () => {
-    mockRoutesByPath = { '/billing': {}, '/billing/invoices': {} };
+    mockRoutesByPath = { '/billing': {}, '/billing/handoff': {} };
     mockUseMatches.mockReturnValue([
       { pathname: '/', fullPath: '/', context: {} },
       {
@@ -314,8 +314,8 @@ describe('PathBreadcrumbs', () => {
         context: {},
       },
       {
-        pathname: '/billing/invoices',
-        fullPath: '/billing/invoices',
+        pathname: '/billing/handoff',
+        fullPath: '/billing/handoff',
         status: 'pending',
         context: {},
       },
@@ -323,7 +323,7 @@ describe('PathBreadcrumbs', () => {
 
     render(<PathBreadcrumbs />);
 
-    expect(document.title).toBe('Invoices · Billing · Kaiten');
+    expect(document.title).toBe('Handoff · Billing · Kaiten');
   });
 
   it('still titles the tab "Page not found" for a not-found that explains nothing', () => {

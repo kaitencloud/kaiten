@@ -75,7 +75,7 @@ test('cancels at once the subscription of a customer renamed while it billed, an
     .getByRole('link', { name: 'View the invoice' })
     .click();
 
-  await expect(page).toHaveURL(/\/billing\/invoices\/[^/]+$/);
+  await expect(page).toHaveURL(/\/invoices\/[^/]+$/);
   const invoice = new InvoiceDetailDriver(page);
   await expect(invoice.title()).toContainText('Final invoice');
   await expect(invoice.identity()).toContainText(renamed);

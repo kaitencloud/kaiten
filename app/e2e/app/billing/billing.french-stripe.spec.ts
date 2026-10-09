@@ -302,7 +302,7 @@ test.describe('an invoice that Stripe collects, read in French', () => {
     const invoice = new InvoiceDetailDriver(page);
     await installBillingAppMocks(page, createStripeBillingModel());
 
-    await page.goto('/billing/invoices/inv-mm');
+    await page.goto('/invoices/inv-mm');
 
     await expect(invoice.provider()).toContainText('Fournisseur de paiement');
     await expect(invoice.provider()).toContainText('Statut dans Stripe');
@@ -333,7 +333,7 @@ test.describe('an invoice that Stripe collects, read in French', () => {
     const invoice = new InvoiceDetailDriver(page);
     await installBillingAppMocks(page, createStripeBillingModel());
 
-    await page.goto('/billing/invoices/inv-f1');
+    await page.goto('/invoices/inv-f1');
     await expect(invoice.pushError()).toContainText(
       'L’envoi à Stripe a échoué',
     );
@@ -341,12 +341,12 @@ test.describe('an invoice that Stripe collects, read in French', () => {
     await expect(invoice.pushError()).toContainText('Prochaine tentative :');
     await expect(invoice.actionOf('retryPush')).toBeVisible();
 
-    await page.goto('/billing/invoices/inv-rv');
+    await page.goto('/invoices/inv-rv');
     await expect(invoice.awaitingFinalization()).toContainText(
       'En attente de finalisation dans Stripe',
     );
 
-    await page.goto('/billing/invoices/inv-pf');
+    await page.goto('/invoices/inv-pf');
     await expect(invoice.paymentError()).toContainText(
       'Stripe n’a pas pu encaisser le paiement',
     );
@@ -362,7 +362,7 @@ test.describe('an invoice that Stripe collects, read in French', () => {
     await page.clock.install({ time: new Date(BILLED_NOW) });
     await installBillingAppMocks(page, createStripeBillingModel());
 
-    await page.goto('/billing/invoices/inv-f1');
+    await page.goto('/invoices/inv-f1');
     await invoice.actionOf('retryPush').click();
 
     await expectToast(
@@ -383,7 +383,7 @@ test.describe('an invoice that Stripe collects, read in French', () => {
     const invoice = new InvoiceDetailDriver(page);
     await installBillingAppMocks(page, createStripeBillingModel());
 
-    await page.goto('/billing/invoices/inv-pp');
+    await page.goto('/invoices/inv-pp');
     await invoice.actionOf('void').click();
     await expect(invoice.dialog()).toContainText(
       'La facture est d’abord annulée chez votre fournisseur de paiement',

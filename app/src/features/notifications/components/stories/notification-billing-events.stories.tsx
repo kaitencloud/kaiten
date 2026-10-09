@@ -20,7 +20,7 @@ const at = '2026-10-07T11:00:00.000Z';
 // warning, and the routine news is in the default tone.
 const NOTIFICATIONS: Notification[] = [
   {
-    actionUrl: '/billing/invoices/inv-acme-us-renewal-4',
+    actionUrl: '/invoices/inv-acme-us-renewal-4',
     createdAt: at,
     eventName: 'INSTANCE_INVOICE_PUSH_FAILED',
     eventType: 'com.kaiten.instance.invoice.v1.push_failed',
@@ -29,7 +29,7 @@ const NOTIFICATIONS: Notification[] = [
     title: 'An invoice of acme-us could not be pushed to its payment provider',
   },
   {
-    actionUrl: '/billing/invoices/inv-acme-us-renewal-2',
+    actionUrl: '/invoices/inv-acme-us-renewal-2',
     createdAt: at,
     eventName: 'INSTANCE_INVOICE_RECONCILIATION_MISMATCH',
     eventType: 'com.kaiten.instance.invoice.v1.reconciliation_mismatch',
@@ -56,7 +56,7 @@ const NOTIFICATIONS: Notification[] = [
     title: "Globex's payment method expires soon",
   },
   {
-    actionUrl: '/billing/invoices/inv-acme-us-renewal-1',
+    actionUrl: '/invoices/inv-acme-us-renewal-1',
     createdAt: at,
     eventName: 'INSTANCE_INVOICE_PAID',
     eventType: 'com.kaiten.instance.invoice.v1.paid',

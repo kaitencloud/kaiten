@@ -56,7 +56,7 @@ export function LineDrilldownHeader({
             render={
               <Link
                 params={{ invoiceId: invoice.id }}
-                to="/billing/invoices/$invoiceId"
+                to="/invoices/$invoiceId"
               >
                 <ArrowLeft />
                 {t('Pages.Billing.Invoices.Drilldown.backToInvoice')}

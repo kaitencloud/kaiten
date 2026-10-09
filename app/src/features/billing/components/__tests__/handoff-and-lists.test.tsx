@@ -238,7 +238,7 @@ describe('the invoices of the handoff queue', () => {
 
     expect(screen.getByRole('link', { name: /Initech/ })).toHaveAttribute(
       'href',
-      '/billing/invoices/inv-1',
+      '/invoices/inv-1',
     );
   });
 

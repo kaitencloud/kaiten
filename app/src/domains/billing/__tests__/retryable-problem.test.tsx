@@ -25,7 +25,7 @@ vi.mock('@tanstack/react-router', () => ({
     select,
   }: {
     select: (state: { location: { pathname: string } }) => unknown;
-  }) => select({ location: { pathname: '/billing/invoices/inv-1' } }),
+  }) => select({ location: { pathname: '/invoices/inv-1' } }),
 }));
 
 beforeAll(async () => {

@@ -55,6 +55,7 @@ const SECTIONS = new Set([
   'entitlements',
   'feature-flags',
   'integrations',
+  'invoices',
   'licenses',
   'notifications',
   'releases',

@@ -46,15 +46,15 @@ describe('what the health of billing counts', () => {
 
     expect(byId.held).toMatchObject({
       count: 3,
-      link: { search: { held: true }, to: '/billing/invoices' },
+      link: { search: { held: true }, to: '/invoices' },
     });
     expect(byId.pushFailures).toMatchObject({
       count: 6,
-      link: { search: { status: 'PUSH_FAILED' }, to: '/billing/invoices' },
+      link: { search: { status: 'PUSH_FAILED' }, to: '/invoices' },
     });
     expect(byId.overdue).toMatchObject({
       count: 4,
-      link: { search: { overdue: true }, to: '/billing/invoices' },
+      link: { search: { overdue: true }, to: '/invoices' },
     });
     // What waits for the accounting system is what its queue lists.
     expect(byId.handoff).toMatchObject({

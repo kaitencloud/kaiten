@@ -60,7 +60,7 @@ test.describe('mobile (Pixel 5) read smoke', () => {
       createBillingOutageModel('missingScope'),
     );
 
-    await page.goto('/billing/invoices');
+    await page.goto('/invoices');
 
     await nav.expectUnavailable('MISSING_SCOPE');
     const scrollWidth = await page.evaluate(

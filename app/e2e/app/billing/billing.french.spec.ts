@@ -87,7 +87,7 @@ test.describe('the invoices, read in French', () => {
   test('a held draft, its hold, its lines and what its actions ask', async ({
     page,
   }) => {
-    await page.goto('/billing/invoices/inv-h1');
+    await page.goto('/invoices/inv-h1');
 
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       / · facture du \d+ \p{L}+\.? 20\d\d \(UTC\)$/u,
@@ -139,7 +139,7 @@ test.describe('the invoices, read in French', () => {
   }) => {
     const invoice = new InvoiceDetailDriver(page);
     // Long overdue, ready to bill, with one line.
-    await page.goto('/billing/invoices/inv-m1');
+    await page.goto('/invoices/inv-m1');
     await expect(invoice.stat('Total')).toContainText(/29,00\s\$US/);
     await expect(invoice.stat('Total')).toContainText('1 ligne');
     await expect(invoice.stat('Échéance de paiement')).toContainText(
@@ -156,11 +156,11 @@ test.describe('the invoices, read in French', () => {
     );
 
     // A draft was not issued, and an invoice that ended says when it did.
-    await page.goto('/billing/invoices/inv-h1');
+    await page.goto('/invoices/inv-h1');
     await expect(invoice.stat('Échéance de paiement')).toContainText(
       'Non émise',
     );
-    await page.goto('/billing/invoices/inv-d1');
+    await page.goto('/invoices/inv-d1');
     await expect(invoice.stat('Payée')).toContainText(
       /10 févr\. 2026\s*\(UTC\)/,
     );
@@ -170,7 +170,7 @@ test.describe('the invoices, read in French', () => {
   test('an invoice that waits for the ERP is marked paid from a dialog in French', async ({
     page,
   }) => {
-    await page.goto('/billing/invoices/inv-m1');
+    await page.goto('/invoices/inv-m1');
 
     await page
       .getByTestId('invoice-actions')
@@ -187,7 +187,7 @@ test.describe('the invoices, read in French', () => {
   });
 
   test('the usage behind a line, window by window', async ({ page }) => {
-    await page.goto('/billing/invoices/inv-p1/lines/inv-p1-line-1');
+    await page.goto('/invoices/inv-p1/lines/inv-p1-line-1');
 
     await expect(page.getByTestId('line-reports')).toBeVisible();
     await expect(page.getByText('Cette ligne', { exact: true })).toBeVisible();

@@ -4,7 +4,7 @@ import { BillingRouteError } from '@/domains/billing';
 import { getInvoiceTitle, invoiceQueryOptions } from '@/features/billing';
 import i18n from '@/lib/i18n/config';
 
-export const Route = createFileRoute('/billing/invoices/$invoiceId')({
+export const Route = createFileRoute('/invoices/$invoiceId')({
   component: InvoiceRouteLayout,
   // The API's own words for why an invoice could not be read, around the console
   // that still works: a missing invoice is a page that does not exist.

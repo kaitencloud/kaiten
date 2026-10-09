@@ -230,7 +230,7 @@ describe('the cancel dialog', () => {
       expect(done).toHaveTextContent('Subscription canceled');
       expect(done).toHaveTextContent('Final invoice: $42.00');
       const link = within(done).getByRole('link', { name: 'View the invoice' });
-      expect(link).toHaveAttribute('href', '/billing/invoices/$invoiceId');
+      expect(link).toHaveAttribute('href', '/invoices/$invoiceId');
       expect(link).toHaveAttribute('data-params', '{"invoiceId":"inv-final"}');
     });
 

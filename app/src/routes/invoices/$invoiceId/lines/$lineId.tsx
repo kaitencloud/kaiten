@@ -6,9 +6,7 @@ import {
   lineReportsQueryOptions,
 } from '@/features/billing';
 
-export const Route = createFileRoute(
-  '/billing/invoices/$invoiceId/lines/$lineId',
-)({
+export const Route = createFileRoute('/invoices/$invoiceId/lines/$lineId')({
   component: LineDrilldownRoute,
   beforeLoad: async ({ context, params: { invoiceId, lineId } }) => {
     const invoice = await context.queryClient.ensureQueryData(

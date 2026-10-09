@@ -267,7 +267,7 @@ describe('recomposing an invoice', () => {
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith({
         params: { invoiceId: 'inv-2' },
-        to: '/billing/invoices/$invoiceId',
+        to: '/invoices/$invoiceId',
       }),
     );
   });
@@ -289,7 +289,7 @@ describe('recomposing an invoice', () => {
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith({
         params: { invoiceId: 'inv-2' },
-        to: '/billing/invoices/$invoiceId',
+        to: '/invoices/$invoiceId',
       }),
     );
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());

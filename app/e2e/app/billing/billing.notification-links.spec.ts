@@ -40,7 +40,7 @@ const billingEvent = (
 
 const seed: Notification[] = [
   {
-    actionUrl: '/billing/invoices',
+    actionUrl: '/invoices',
     createdAt: '2026-10-07T11:50:00.000Z',
     eventName: 'INSTANCE_INVOICE_HELD',
     eventType: 'com.kaiten.instance.invoice.v1.held',
@@ -49,7 +49,7 @@ const seed: Notification[] = [
     title: 'An invoice is held',
   },
   {
-    actionUrl: `/billing/invoices/${INITECH_LATE_INVOICE_ID}`,
+    actionUrl: `/invoices/${INITECH_LATE_INVOICE_ID}`,
     body: 'Its usage journal failed a check: LEDGER_SEQUENCE_GAP',
     createdAt: '2026-10-07T11:40:00.000Z',
     eventName: 'INSTANCE_INVOICE_HELD',
@@ -166,7 +166,7 @@ test.describe('the notifications of billing', () => {
     await notifications.panelItem('An invoice of initech-late is held').click();
 
     await expect(page).toHaveURL(
-      new RegExp(`/billing/invoices/${INITECH_LATE_INVOICE_ID}$`),
+      new RegExp(`/invoices/${INITECH_LATE_INVOICE_ID}$`),
     );
     await expect(new InvoiceDetailDriver(page).title()).toContainText(
       'Activation invoice',
@@ -183,7 +183,7 @@ test.describe('the notifications of billing', () => {
 
     await notifications.panelItem('An invoice is held').click();
 
-    await expect(page).toHaveURL(/\/billing\/invoices$/);
+    await expect(page).toHaveURL(/\/invoices$/);
     await expect(
       page.getByRole('heading', { level: 1, name: 'Invoices' }),
     ).toBeVisible();

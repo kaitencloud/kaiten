@@ -75,7 +75,7 @@ test.describe('deleting an instance that bills', () => {
 
     await refusal.getByRole('link', { name: 'inv-legacy-open' }).click();
 
-    await expect(page).toHaveURL(/\/billing\/invoices\/inv-legacy-open$/);
+    await expect(page).toHaveURL(/\/invoices\/inv-legacy-open$/);
   });
 
   test('leaves the instance where it was, and the dialog closes on its button', async ({

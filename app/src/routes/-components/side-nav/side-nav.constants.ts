@@ -29,8 +29,11 @@ export type SideNavSubRouteDefinition = {
   needsBilling?: { action?: BillingAction };
 };
 
-/** An entry of the Billing section. */
-export type SideNavBillingRouteDefinition = {
+/**
+ * What an entry of billing needs of the deployment and of the session, to be
+ * listed at all.
+ */
+export type SideNavBillingGate = {
   /**
    * What the entry needs of the session besides: the action its screen is for,
    * listed only to a session whose scopes cover it. An entry of a catalogue the
@@ -47,6 +50,14 @@ export type SideNavBillingRouteDefinition = {
    * route guards itself as well.
    */
   capability: { feature?: BillingFeatureKey };
+};
+
+/** A first-level entry that exists only where billing is on. */
+export type SideNavBillingRouteDefinition = SideNavBillingGate &
+  SideNavRouteDefinition;
+
+/** An entry of the Billing section. */
+export type SideNavBillingSubRouteDefinition = SideNavBillingGate & {
   labelKey: string;
   path: string;
 };
@@ -89,6 +100,17 @@ export const topLevelRoutes: SideNavRouteDefinition[] = [
   },
 ];
 
+// The first-level entries of billing, listed after the primary routes and only
+// where billing is on.
+export const billingRoutes: SideNavBillingRouteDefinition[] = [
+  {
+    capability: {},
+    Icon: dataModelIcons.invoice,
+    path: '/invoices',
+    titleKey: 'Pages.Billing.Invoices.title',
+  },
+];
+
 // Pinned to the bottom of the nav, below the primary routes.
 export const footerRoutes: SideNavRouteDefinition[] = [
   {
@@ -126,12 +148,7 @@ export const integrationsSubRoutes: SideNavSubRouteDefinition[] = [
 
 // The Billing section: shown where billing is on, entry by entry by what the
 // release ships. It sits in the nav as one section because it is one gate.
-export const billingSubRoutes: SideNavBillingRouteDefinition[] = [
-  {
-    capability: {},
-    labelKey: 'Pages.Billing.Invoices.title',
-    path: '/billing/invoices',
-  },
+export const billingSubRoutes: SideNavBillingSubRouteDefinition[] = [
   {
     capability: {},
     labelKey: 'Pages.Billing.Handoff.title',

@@ -190,7 +190,7 @@ test.describe('the invoices, on the narrowest phone', () => {
     // The trail shows only the level above, which is no page: the way back is a button.
     await expect(drilldown.backToInvoice()).toBeVisible();
     await drilldown.backToInvoice().click();
-    await expect(page).toHaveURL(/\/billing\/invoices\/inv-p1$/);
+    await expect(page).toHaveURL(/\/invoices\/inv-p1$/);
   });
 
   test('the handoff queue keeps the width of the screen, and its dialog fits', async ({
