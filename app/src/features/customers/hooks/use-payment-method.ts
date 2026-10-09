@@ -72,6 +72,12 @@ export function usePaymentMethod(customerSlug: string) {
     setup: {
       error: startSetup.error,
       isPending: startSetup.isPending,
+      /** Asks again for the page that was refused, in the currency it was asked in. */
+      retry: () => {
+        if (startSetup.variables) {
+          startSetup.mutate(startSetup.variables);
+        }
+      },
       /** `currency` is for a customer with no live subscription to take it from. */
       start: (currency?: string) =>
         startSetup.mutateAsync({

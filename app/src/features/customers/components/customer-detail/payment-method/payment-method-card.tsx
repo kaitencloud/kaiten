@@ -206,9 +206,17 @@ export function PaymentMethodCard({
               </Button>
             </div>
           ) : null}
-          {setupFailed ? <ProblemAlert error={actions.setup.error} /> : null}
+          {setupFailed ? (
+            <ProblemAlert
+              error={actions.setup.error}
+              onRetry={actions.setup.retry}
+            />
+          ) : null}
           {actions.portal.error ? (
-            <ProblemAlert error={actions.portal.error} />
+            <ProblemAlert
+              error={actions.portal.error}
+              onRetry={actions.portal.open}
+            />
           ) : null}
           {renderBody()}
         </DetailCard.Content>
