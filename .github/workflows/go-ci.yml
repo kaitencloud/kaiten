@@ -8,10 +8,20 @@ on:
       # The console's GraphQL documents: the API holds a copy of each and pins
       # what it costs, and a test fails when the two part ways.
       - 'app/src/**/*.queries.ts'
+      # This workflow itself: a change to how the API is built, linted or tested
+      # (the Go version, the linter's) has to be proved by a run of it.
+      - '.github/workflows/go-ci.yml'
 
 concurrency:
   group: go-ci-api-${{ github.event.pull_request.number }}
   cancel-in-progress: true
+
+# The one place each Go version of this workflow is set. GO_VERSION builds,
+# tests and scans; LINT_GO_VERSION is the exception for golangci-lint only.
+# Both are explained above the first Set up Go step.
+env:
+  GO_VERSION: "1.27.x"
+  LINT_GO_VERSION: "1.27.1"
 
 jobs:
   lint:
@@ -39,10 +49,36 @@ jobs:
       #    somebody bumps first. 1.27.x satisfies both, newest patch.
       #
       # Same convention as the other Go repositories of the organization.
+      #
+      # 1.27.x resolves to 1.27.2 today, a security release: 1.27.1 carries
+      # GO-2026-6617 (HTTP/2 server crash) and GO-2026-6613 (HTTP/1 desync
+      # after a 2xx CONNECT), which govulncheck reports. Build, tests,
+      # codegen and govulncheck therefore run on the newest patch.
+      #
+      # golangci-lint is the one exception: it runs on LINT_GO_VERSION (1.27.1)
+      # in the steps around it. Go 1.27.2 writes export data version 5 and
+      # golangci-lint v2.13.1, as well as v2.14.0, bundles golang.org/x/tools
+      # 0.50.0, which fails on it with "cannot decode "bufio", export data
+      # version 5 is greater than maximum supported version 4". Remove those
+      # steps, and LINT_GO_VERSION, once a golangci-lint release bundles
+      # golang.org/x/tools v0.51.0 or newer, bumping golangci-lint with the
+      # rest as described below. x/tools v0.51.0 reads version 5, which is why
+      # api/go.mod is already on it.
+      #
+      # Go, golangci-lint and golang.org/x/tools move together, never one
+      # alone. A bump of any of them changes, in the same commit:
+      #  - GO_VERSION (and LINT_GO_VERSION while it exists) in this file and
+      #    GO_VERSION in pre-commit-ci.yml and release-openapi.yml;
+      #  - GOLANGCI_LINT_VERSION in Taskfile.yml (v2.13.1 today);
+      #  - the golangci-lint `rev` in .pre-commit-config.yaml;
+      #  - the `version:` of golangci-lint-action in this file;
+      #  - golang.org/x/tools in api/go.mod (v0.51.0 today). It matters as
+      #    much as the linter: Codegen (gqlgen) and the integration tests load
+      #    packages through x/tools too.
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.27.x"
+          go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: api/go.sum
 
       - name: Build
@@ -52,6 +88,15 @@ jobs:
       # this is the copy a --no-verify commit cannot skip.
       - name: API endpoints declare all returnable error statuses
         run: go run ./cmd/checkapierrors
+
+      # golangci-lint on LINT_GO_VERSION, not GO_VERSION: its bundled x/tools
+      # cannot read the export data of Go 1.27.2. See the first Set up Go step
+      # for why and for when to drop this step and the one after the linter.
+      - name: Set up Go for golangci-lint
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: ${{ env.LINT_GO_VERSION }}
+          cache: false
 
       # Pinned, not `latest`: an unpinned action turns an upstream release into
       # a red build on an unrelated PR. Must match Taskfile.yml's
@@ -69,6 +114,15 @@ jobs:
           version: v2.13.1
           args: --timeout=5m ./...
           working-directory: api/cmd/schema-docs
+
+      # Back to GO_VERSION for everything that is not the linter: the tidy
+      # check, govulncheck and the rest must see the standard library that
+      # ships.
+      - name: Set up Go again after golangci-lint
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
 
       # `go ... ./...` stops at a nested module, so both are named explicitly.
       - name: go.mod and go.sum are tidy
@@ -138,7 +192,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.27.x"
+          go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: api/go.sum
 
       # Same loop as `task generate:sqlc`; `go tool sqlc` is version-pinned by
@@ -207,7 +261,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.27.x"
+          go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: api/go.sum
 
       # -shuffle=on is the guard against a test that only passes because an

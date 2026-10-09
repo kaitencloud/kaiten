@@ -12,6 +12,10 @@ permissions:
   contents: read
   pull-requests: write
 
+env:
+  # In step with go-ci.yml, which explains the choice of version.
+  GO_VERSION: "1.27.x"
+
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
@@ -30,7 +34,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.27.x"
+          go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: api/go.sum
 
       - name: Install pre-commit

@@ -96,6 +96,10 @@ permissions:
   contents: read
   id-token: write # npm trusted publishing
 
+env:
+  # In step with go-ci.yml, which explains the choice of version.
+  GO_VERSION: "1.27.x"
+
 jobs:
   publish:
     if: github.repository == 'kaitencloud/kaiten'
@@ -109,7 +113,7 @@ jobs:
 
       - uses: actions/setup-go@v7.0.0
         with:
-          go-version: "1.27.x"
+          go-version: ${{ env.GO_VERSION }}
           cache: false
 
       # Pinned, like every other tool here. oasdiff decides what the version is,
