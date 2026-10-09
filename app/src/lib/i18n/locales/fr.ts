@@ -4853,16 +4853,13 @@ export default {
       },
       Detail: {
         subtitle: 'Code se terminant par {{hint}}',
-        Code: {
-          title: 'Code',
-          description:
-            'Donnez ce code au client. Quiconque le possède peut utiliser l’offre.',
-          hidden:
-            'Le code se terminant par {{hint}} n’est montré qu’aux sessions qui peuvent lire les codes promo.',
-        },
-        Summary: {
+        Offer: {
           title: 'Ce qu’il fait',
           description: 'En clair, tel que vous pouvez l’envoyer avec le code.',
+        },
+        Details: {
+          title: 'Détails',
+          description: 'Son statut, ses utilisations et sa date de création.',
         },
         Fields: {
           description: 'Description',

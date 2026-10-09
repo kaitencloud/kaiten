@@ -5,8 +5,8 @@ import { BILLED_NOW } from '../billing/billed-instances';
 import { installVouchersWorld } from './install-vouchers-world';
 import { createVouchersBillingModel } from './vouchers.scenarios';
 
-// The page of one voucher: its code, shown to whoever may read vouchers and never in the
-// address, what it does in plain language, what was redeemed of it with the way to revoke each
+// The page of one voucher: its code, in the header, shown to whoever may read vouchers and
+// never in the address, what it does in plain language beside its details, what was redeemed of it with the way to revoke each
 // redemption, and the actions its state offers. The page is frozen at BILLED_NOW.
 
 const WRITES =
@@ -17,7 +17,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('a voucher', () => {
-  test('is addressed by its id, and gives its code with a button to copy it', async ({
+  test('is addressed by its id, and gives its code in the header with a button to copy it', async ({
     page,
     context,
   }) => {
@@ -29,13 +29,56 @@ test.describe('a voucher', () => {
 
     await expect(page).toHaveURL('/vouchers/voucher-welcome');
     expect(page.url()).not.toMatch(/WELCOME-SPRING/i);
-    await expect(detail.code()).toHaveValue('WELCOME-SPRING-2027');
+    await expect(detail.code()).toHaveText('WELCOME-SPRING-2027');
+    await expect(detail.header().getByTestId('voucher-code')).toBeVisible();
+    await expect(detail.codeHint()).toHaveCount(0);
     await detail.copyButton().click();
     await expectToast(page, 'Code copied');
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
       'WELCOME-SPRING-2027',
     );
     await expect(page).toHaveURL('/vouchers/voucher-welcome');
+  });
+
+  test('puts what it does and its details side by side from the large breakpoint, of one height, and stacks them below', async ({
+    page,
+  }) => {
+    const detail = new VoucherDetailDriver(page);
+    await installVouchersWorld(page);
+
+    await page.setViewportSize({ height: 900, width: 1280 });
+    await detail.goto('voucher-welcome', 'Welcome spring');
+    await expect(detail.redemption('initech-annual')).toBeVisible();
+    const offer = await detail.offerCard().boundingBox();
+    const details = await detail.detailsCard().boundingBox();
+    const redemptions = await detail.redemptionsCard().boundingBox();
+
+    expect(offer).not.toBeNull();
+    expect(details).not.toBeNull();
+    expect(redemptions).not.toBeNull();
+    expect(Math.abs((offer?.y ?? 0) - (details?.y ?? 99))).toBeLessThanOrEqual(
+      1,
+    );
+    expect(
+      Math.abs((offer?.height ?? 0) - (details?.height ?? 99)),
+    ).toBeLessThanOrEqual(1);
+    expect((offer?.x ?? 0) + (offer?.width ?? 0)).toBeLessThanOrEqual(
+      details?.x ?? 0,
+    );
+    // The redemptions are below both, across the width of the two.
+    expect(redemptions?.y).toBeGreaterThan(
+      (offer?.y ?? 0) + (offer?.height ?? 0) - 1,
+    );
+    expect(redemptions?.width).toBeGreaterThan((offer?.width ?? 0) * 1.5);
+
+    await page.setViewportSize({ height: 900, width: 768 });
+    const stackedOffer = await detail.offerCard().boundingBox();
+    const stackedDetails = await detail.detailsCard().boundingBox();
+
+    expect(stackedDetails?.y).toBeGreaterThan(
+      (stackedOffer?.y ?? 0) + (stackedOffer?.height ?? 0) - 1,
+    );
+    expect(stackedDetails?.x).toBe(stackedOffer?.x);
   });
 
   test('says its state, and what it does in plain language, naming what it counts', async ({

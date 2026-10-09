@@ -100,7 +100,6 @@ test.describe('the catalogue of vouchers, read in French', () => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'Welcome spring' }),
     ).toBeVisible();
-    await expect(page.getByText('Code se terminant par 2027')).toBeVisible();
     for (const action of [
       'Modifier',
       'Ajouter un bonus de droits',
@@ -112,7 +111,7 @@ test.describe('the catalogue of vouchers, read in French', () => {
           .or(page.getByRole('button', { name: action })),
       ).toBeVisible();
     }
-    await expect(page.getByTestId('voucher-code')).toHaveValue(
+    await expect(page.getByTestId('voucher-code')).toHaveText(
       'WELCOME-SPRING-2027',
     );
     await expect(

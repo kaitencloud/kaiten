@@ -215,7 +215,7 @@ test.describe('a session that may only read the vouchers', () => {
 
     await detail.goto('voucher-welcome', 'Welcome spring');
 
-    await expect(detail.code()).toHaveValue('WELCOME-SPRING-2027');
+    await expect(detail.code()).toHaveText('WELCOME-SPRING-2027');
     await expect(detail.redemption('initech-annual')).toBeVisible();
     await expect(detail.editLink()).toHaveCount(0);
     await expect(detail.addBoostLink()).toHaveCount(0);

@@ -4785,16 +4785,13 @@ export default {
       },
       Detail: {
         subtitle: 'Code ending in {{hint}}',
-        Code: {
-          title: 'Code',
-          description:
-            'Give this code to the customer. Whoever has it can redeem the offer.',
-          hidden:
-            'The code ending in {{hint}} is only shown to sessions that can read vouchers.',
-        },
-        Summary: {
+        Offer: {
           title: 'What it does',
           description: 'In plain language, as you could send it with the code.',
+        },
+        Details: {
+          title: 'Details',
+          description: 'Its state, its redemptions and when it was made.',
         },
         Fields: {
           description: 'Description',

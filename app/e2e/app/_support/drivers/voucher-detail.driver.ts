@@ -1,9 +1,10 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
- * The page of one voucher: its code with a copy button, what it does in plain language, what
- * was redeemed of it with the way to revoke each, and the actions its state offers (edit, add
- * a boost, publish, archive). A voucher is addressed by its id and never by its code.
+ * The page of one voucher: its code with a copy button in the header, what it does in plain
+ * language beside its details, what was redeemed of it with the way to revoke each, and the
+ * actions its state offers (edit, add a boost, publish, archive). A voucher is addressed by
+ * its id and never by its code.
  */
 export class VoucherDetailDriver {
   constructor(private readonly page: Page) {}
@@ -38,8 +39,38 @@ export class VoucherDetailDriver {
     return this.page.getByRole('button', { name: 'Copy the code' });
   }
 
+  /** The header: the name, the state, the kind and the code under them. */
+  header(): Locator {
+    return this.page.locator('section').filter({ has: this.title() });
+  }
+
+  /** The line of the header that says only the end of the code, to a session that cannot read it. */
+  codeHint(): Locator {
+    return this.header().getByText(/^Code ending in /);
+  }
+
   summary(): Locator {
     return this.page.getByTestId('voucher-summary');
+  }
+
+  /** The card that says what the voucher does, in plain language. */
+  offerCard(): Locator {
+    return this.page
+      .locator('[data-slot="card"]')
+      .filter({ has: this.page.getByText('What it does', { exact: true }) });
+  }
+
+  /** The card of the figures that place the voucher: kind, state, redemptions and dates. */
+  detailsCard(): Locator {
+    return this.page
+      .locator('[data-slot="card"]')
+      .filter({ has: this.page.getByText('Details', { exact: true }) });
+  }
+
+  redemptionsCard(): Locator {
+    return this.page.locator('[data-slot="card"]').filter({
+      has: this.page.getByText('The instances that redeemed this voucher.'),
+    });
   }
 
   // --- What was redeemed ------------------------------------------------------------

@@ -243,8 +243,8 @@ export const WizardReview: Story = {
   },
 };
 
-// A published discount: its code to copy, what it does in plain language and the
-// instances that redeemed it, with the state of each redemption.
+// A published discount: its code in the header, to copy, what it does in plain language
+// beside its details, and the instances that redeemed it, with the state of each redemption.
 export const DetailOfADiscount: Story = {
   parameters: { msw: { handlers: handlersFor(WELCOME) } },
   render: () => (
@@ -253,9 +253,13 @@ export const DetailOfADiscount: Story = {
     </Frame>
   ),
   play: async () => {
-    await expect(await screen.findByTestId('voucher-code')).toHaveValue(
+    await expect(await screen.findByTestId('voucher-code')).toHaveTextContent(
       'WELCOME-SPRING-2027',
     );
+    await expect(
+      screen.getByRole('button', { name: 'Copy the code' }),
+    ).toBeVisible();
+    await expect(screen.getByText('Details')).toBeVisible();
     await expect(screen.getByTestId('voucher-summary')).toHaveTextContent(
       '20% off the base price, on the next 3 invoices.',
     );
@@ -267,6 +271,25 @@ export const DetailOfADiscount: Story = {
     await expect(
       await screen.findByRole('link', { name: 'Add a boost' }),
     ).toBeVisible();
+  },
+};
+
+// A session that may not read the code: only its end is said, as plain text, with no way to copy.
+export const DetailWithoutTheCode: Story = {
+  parameters: {
+    msw: { handlers: handlersFor({ ...WELCOME, code: undefined }) },
+  },
+  render: () => (
+    <Frame path="/vouchers/voucher-welcome">
+      <VoucherDetailPage voucherId="voucher-welcome" />
+    </Frame>
+  ),
+  play: async () => {
+    await expect(await screen.findByText('Code ending in 2027')).toBeVisible();
+    await expect(screen.queryByTestId('voucher-code')).not.toBeInTheDocument();
+    await expect(
+      screen.queryByRole('button', { name: 'Copy the code' }),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -316,7 +339,7 @@ export const DetailOfAnArchivedVoucher: Story = {
     </Frame>
   ),
   play: async () => {
-    await expect(await screen.findByTestId('voucher-code')).toHaveValue(
+    await expect(await screen.findByTestId('voucher-code')).toHaveTextContent(
       'BLACK-FRIDAY-2025',
     );
     for (const action of ['Publish', 'Archive']) {

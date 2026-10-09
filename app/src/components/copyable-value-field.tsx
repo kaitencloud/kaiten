@@ -1,6 +1,4 @@
-import { Copy } from 'lucide-react';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { CopyValueButton } from '@/components/copy-value-button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
@@ -33,9 +31,10 @@ type CopyableValueFieldProps = {
 /**
  * A value to read and to copy, in a read-only field with a Copy button beside it: a secret
  * that is shown once, such as a key or a code. The field selects itself on focus for
- * whoever prefers to copy it by hand. The value stays in the props of this component, which
- * puts it nowhere else; a clipboard that refuses is told with a toast instead of failing
- * silently. The words are the caller's, so that this file holds none.
+ * whoever prefers to copy it by hand. The Copy button is `CopyValueButton`, which puts the
+ * value on the clipboard and tells with a toast when it refuses. The value stays in the props
+ * of these components, which put it nowhere else. The words are the caller's, so that this
+ * file holds none.
  */
 export function CopyableValueField({
   autoFocus,
@@ -49,17 +48,6 @@ export function CopyableValueField({
   onCopied,
   value,
 }: CopyableValueFieldProps) {
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch {
-      toast.error(copyFailedMessage);
-      return;
-    }
-    toast.success(copiedMessage);
-    onCopied?.();
-  }
-
   return (
     <div className="flex gap-2">
       <Input
@@ -74,17 +62,14 @@ export function CopyableValueField({
         spellCheck={false}
         value={value}
       />
-      <Button
-        aria-label={copyLabel}
-        className="shrink-0"
-        data-testid={copyTestId}
-        onClick={() => void copy()}
-        size="icon"
-        type="button"
-        variant="outline"
-      >
-        <Copy className="size-4" />
-      </Button>
+      <CopyValueButton
+        copiedMessage={copiedMessage}
+        copyFailedMessage={copyFailedMessage}
+        label={copyLabel}
+        onCopied={onCopied}
+        testId={copyTestId}
+        value={value}
+      />
     </div>
   );
 }

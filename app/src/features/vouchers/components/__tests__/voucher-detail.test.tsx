@@ -85,13 +85,36 @@ const renderPage = (id = 'voucher-welcome') =>
 const title = () => screen.findByRole('heading', { level: 1 });
 
 describe('the page of a voucher', () => {
-  it('gives its code with a copy button, and the voucher by its name and its state', async () => {
+  it('gives its code in the header, under the name, with a copy button', async () => {
     renderPage();
 
-    expect(await title()).toHaveTextContent('Welcome spring');
-    expect(screen.getByTestId('voucher-code')).toHaveValue('WELCOME-SPRING-2027');
+    const heading = await title();
+    expect(heading).toHaveTextContent('Welcome spring');
+    const code = screen.getByTestId('voucher-code');
+    expect(code).toHaveTextContent('WELCOME-SPRING-2027');
+    // The header holds it, the title above it and the actions beside it; no card of its own.
+    expect(code.closest('section')).toContainElement(heading);
+    expect(screen.getByRole('group', { name: 'Voucher code' })).toContainElement(code);
     expect(screen.getByRole('button', { name: 'Copy the code' })).toBeInTheDocument();
-    expect(screen.getByText('Code ending in 2027')).toBeInTheDocument();
+    expect(screen.queryByText('Code ending in 2027')).not.toBeInTheDocument();
+    expect(screen.queryByText('Give this code to the customer.', { exact: false })).not.toBeInTheDocument();
+  });
+
+  it('puts what it does and its details side by side, each in a card of its own', async () => {
+    renderPage();
+
+    await title();
+    const offer = (await screen.findByText('What it does')).closest(
+      '[data-slot="card"]',
+    ) as HTMLElement;
+    const details = screen.getByText('Details').closest('[data-slot="card"]') as HTMLElement;
+    expect(offer).not.toBe(details);
+    expect(offer.parentElement).toBe(details.parentElement);
+    expect(within(offer).getByTestId('voucher-summary')).toBeInTheDocument();
+    expect(within(details).queryByTestId('voucher-summary')).not.toBeInTheDocument();
+    for (const label of ['Kind', 'Status', 'Redeemed', 'Created', 'Last changed']) {
+      expect(within(details).getByText(label)).toBeInTheDocument();
+    }
   });
 
   it('copies the code, and says it did', async () => {
@@ -108,15 +131,27 @@ describe('the page of a voucher', () => {
     expect(toast.success).toHaveBeenCalledWith('Code copied');
   });
 
-  it('shows only the end of the code to an answer that carries no code', async () => {
+  it('says so when the clipboard refuses, and does not say the code was copied', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+    });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Copy the code' }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('The code could not be copied'));
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it('shows only the end of the code, as plain text, to an answer that carries no code', async () => {
     serveVoucher({ ...WELCOME, code: undefined });
     renderPage();
 
     await title();
     expect(screen.queryByTestId('voucher-code')).not.toBeInTheDocument();
-    expect(
-      screen.getByText('The code ending in 2027 is only shown to sessions that can read vouchers.'),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy the code' })).not.toBeInTheDocument();
+    expect(screen.getByText('Code ending in 2027')).toBeInTheDocument();
   });
 
   it('keeps the code out of the address, the storage and the cache of the page', async () => {
