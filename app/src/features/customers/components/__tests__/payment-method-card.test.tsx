@@ -319,6 +319,86 @@ describe('saving a payment method', () => {
     ]);
   });
 
+  it('asks again from the card when Stripe could not be reached, and sends the browser to the page it gives', async () => {
+    let asked = 0;
+    server.use(
+      handleCreatePaymentMethodSession(() => {
+        asked += 1;
+
+        return asked === 1
+          ? refusal(503, {
+              code: 'CreatePaymentMethodSession.ProviderUnavailable',
+              detail: 'the payment provider could not be reached',
+            })
+          : HttpResponse.json({
+              expiresAt: '2027-03-10T13:00:00.000Z',
+              sessionId: 'cs_4',
+              url: 'https://checkout.stripe.test/c/setup/cs_4',
+            });
+      }),
+    );
+    renderCard();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Replace' }));
+    const refused = await screen.findByRole('alert');
+    expect(refused).toHaveTextContent('Nothing was changed.');
+    expect(leave).not.toHaveBeenCalled();
+    await userEvent.click(within(refused).getByRole('button', { name: 'Retry' }));
+
+    await waitFor(() =>
+      expect(leave).toHaveBeenCalledWith('https://checkout.stripe.test/c/setup/cs_4'),
+    );
+    expect(asked).toBe(2);
+  });
+
+  it('asks again, in the same currency, when a Stripe that could not be reached refused, and says nothing was changed', async () => {
+    const bodies: Array<Record<string, unknown>> = [];
+    server.use(
+      handleCreatePaymentMethodSession(async ({ request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        bodies.push(body);
+        if (!body.currency) {
+          return refusal(422, {
+            code: 'CreatePaymentMethodSession.CurrencyRequired',
+            detail: 'the customer has no live subscription: say which currency the payment method is set up in',
+          });
+        }
+
+        return bodies.length === 2
+          ? refusal(503, {
+              code: 'CreatePaymentMethodSession.ProviderUnavailable',
+              detail: 'the payment provider could not be reached',
+            })
+          : HttpResponse.json({
+              expiresAt: '2027-03-10T13:00:00.000Z',
+              sessionId: 'cs_3',
+              url: 'https://checkout.stripe.test/c/setup/cs_3',
+            });
+      }),
+    );
+    serveBilling(null);
+    renderCard();
+    await userEvent.click(await screen.findByRole('button', { name: 'Add a payment method' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Currency of the payment method' });
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Pick a currency' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'EUR' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Continue to Stripe' }));
+
+    const refused = await within(dialog).findByRole('alert');
+    expect(refused).toHaveTextContent(
+      'The payment provider could not be reached. Nothing was changed.',
+    );
+    await userEvent.click(within(refused).getByRole('button', { name: 'Retry' }));
+
+    await waitFor(() =>
+      expect(leave).toHaveBeenCalledWith('https://checkout.stripe.test/c/setup/cs_3'),
+    );
+    expect(bodies.at(-1)).toEqual({
+      currency: 'EUR',
+      returnUrl: 'https://console.test/customers/acme',
+    });
+  });
+
   it('shows any other refusal in the card, in the API\'s words, and goes nowhere', async () => {
     server.use(
       handleCreatePaymentMethodSession(() =>
@@ -357,6 +437,32 @@ describe('managing it in the portal of Stripe', () => {
       expect(leave).toHaveBeenCalledWith('https://billing.stripe.test/p/session/bps_1'),
     );
     expect(bodies).toEqual([{ returnUrl: 'https://console.test/customers/acme' }]);
+  });
+
+  it('asks again when Stripe could not be reached, and opens the portal', async () => {
+    let asked = 0;
+    server.use(
+      handleCreatePortalSession(() => {
+        asked += 1;
+
+        return asked === 1
+          ? refusal(503, {
+              code: 'CreatePortalSession.ProviderUnavailable',
+              detail: 'the payment provider could not be reached',
+            })
+          : HttpResponse.json({ url: 'https://billing.stripe.test/p/session/bps_2' });
+      }),
+    );
+    renderCard();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Manage in Stripe' }));
+    const refused = await screen.findByRole('alert');
+    expect(refused).toHaveTextContent('Nothing was changed.');
+    await userEvent.click(within(refused).getByRole('button', { name: 'Retry' }));
+
+    await waitFor(() =>
+      expect(leave).toHaveBeenCalledWith('https://billing.stripe.test/p/session/bps_2'),
+    );
   });
 
   it('shows a refusal in the API\'s words', async () => {
