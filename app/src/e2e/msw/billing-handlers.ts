@@ -2,7 +2,11 @@ import { delay } from 'msw';
 import { HttpResponse } from 'msw/http';
 import { handleGetBillingCapabilities } from '@/api-client/msw.gen';
 import type { BillingAppModel } from '../../../e2e/app/_support/model/billing-app-model';
-import { instanceBillingOperations } from '../../../e2e/app/_support/model/graphql-operations';
+import {
+  instanceBillingOperations,
+  type LicenseCatalogue,
+  licensePriceOperations,
+} from '../../../e2e/app/_support/model/graphql-operations';
 import {
   type EntitlementEffects,
   billingAddonHandlers,
@@ -28,14 +32,18 @@ import { noop, type PersistMswState } from './persistence';
  * `billing-provider-handlers`, and the publishable keys a web page reads the public
  * catalogue with by `billing-publishable-key-handlers`.
  *
- * The lists of instances read the subscription of each instance over GraphQL
- * (`GetInstancesBilling`), apart from the document of the instances they already
- * had: the subscriptions are the billing slot's own.
+ * The lists read two documents of billing over GraphQL, each apart from the
+ * documents they already had: the subscription of each instance
+ * (`GetInstancesBilling`), which is the billing slot's own, and the licenses with
+ * their active prices (`GetLicensesWithPrices`), which also needs to know where the
+ * licenses are (`licenses`). A page that has no slot of licenses leaves that
+ * document unanswered, as it does `GET /licenses`.
  */
 export const billingHandlers = (
   model: BillingAppModel,
   persist: PersistMswState = noop,
   addonEffects?: EntitlementEffects,
+  licenses?: LicenseCatalogue,
 ) => [
   handleGetBillingCapabilities(
     withProblems(async () => {
@@ -45,7 +53,10 @@ export const billingHandlers = (
       return HttpResponse.json(model.getCapabilities());
     }),
   ),
-  graphqlOperationHandler(instanceBillingOperations(model)),
+  graphqlOperationHandler({
+    ...instanceBillingOperations(model),
+    ...(licenses ? licensePriceOperations(licenses) : {}),
+  }),
   ...billingInvoiceHandlers(model, persist),
   ...billingProviderHandlers(model, persist),
   ...billingPublishableKeyHandlers(model, persist),

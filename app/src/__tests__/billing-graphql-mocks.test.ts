@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import { createDevMockConfig } from '@/e2e/msw/dev-world';
 import { createMockHandlers, undeclaredApiRequest } from '@/e2e/msw/handlers';
 import { sessionToken } from '@/test-fixtures/billing-test-support';
+import {
+  createLifecycleBillingModel,
+  createLifecycleInstancesModel,
+  createLifecycleLicensesModel,
+} from '../../e2e/app/billing/lifecycle-world';
 import { graphqlPage } from '../../e2e/app/_support/model/graphql-operations';
 import { server } from './msw-server';
 
@@ -180,5 +185,123 @@ describe('a document the session lacks a scope for', () => {
     useDevWorld();
 
     expect((await graphql('GetInstancesBilling', {})).status).toBe(200);
+  });
+});
+
+type VersionRow = {
+  lifecycleState: string;
+  prices: Array<{ id: string; status: string }>;
+  pricingType: string;
+  slug: string;
+};
+
+const versionsOf = async (variables: Record<string, unknown> = {}) =>
+  (await graphql('GetLicensesWithPrices', variables)).body.data.licenses
+    .items as VersionRow[];
+
+describe('GetLicensesWithPrices', () => {
+  it('answers the versions of the dev world with their active prices', async () => {
+    const config = useDevWorld();
+
+    const versions = await versionsOf({ limit: 200 });
+
+    expect(versions.map((version) => version.slug)).toEqual(
+      config.licenses?.licenses.map((license) => license.slug ?? license.id),
+    );
+    const priced = versions.filter((version) => version.prices.length > 0);
+    expect(priced.length).toBeGreaterThan(0);
+    // Only the prices on sale: a retired price is not offered.
+    for (const price of priced.flatMap((version) => version.prices)) {
+      expect(price.status).toBe('ACTIVE');
+    }
+  });
+
+  it('serves the licenses of the slot that has them, and the prices that slot keeps', async () => {
+    server.use(
+      ...createMockHandlers(
+        {
+          billing: createLifecycleBillingModel().serializeForMsw(),
+          instances: createLifecycleInstancesModel().serializeForMsw(),
+          licenses: createLifecycleLicensesModel().serializeForMsw(),
+        },
+        'off',
+        undefined,
+        true,
+      ),
+      undeclaredApiRequest,
+    );
+
+    const versions = await versionsOf({ limit: 200 });
+    const bySlug = Object.fromEntries(
+      versions.map((version) => [version.slug, version]),
+    );
+
+    expect(Object.keys(bySlug).sort()).toEqual([
+      'enterprise-v1',
+      'pro-v2',
+      'pro-v3',
+      'pro-v4',
+      'pro-v5',
+    ]);
+    // The retired price of pro-v5 is not among its active ones.
+    expect(bySlug['pro-v5']?.prices).toEqual([]);
+    expect(bySlug['pro-v2']?.prices.map((price) => price.id)).toEqual([
+      'price-pro-v2-monthly',
+      'price-pro-v2-annual',
+    ]);
+    expect(bySlug['pro-v3']).toMatchObject({
+      lifecycleState: 'PUBLISHED',
+      pricingType: 'PAID',
+    });
+  });
+
+  it('serves the licenses of the instances and the prices of billing when no slot has the licenses', async () => {
+    server.use(
+      ...createMockHandlers(
+        {
+          billing: createLifecycleBillingModel().serializeForMsw(),
+          instances: createLifecycleInstancesModel().serializeForMsw(),
+        },
+        'off',
+        undefined,
+        true,
+      ),
+      undeclaredApiRequest,
+    );
+
+    const versions = await versionsOf();
+
+    expect(versions.map((version) => version.slug)).toContain('pro-v3');
+    expect(
+      versions.find((version) => version.slug === 'pro-v3')?.prices,
+    ).toHaveLength(1);
+  });
+
+  it('leaves the document unanswered where nothing has the licenses, as it does the licenses', async () => {
+    server.use(
+      ...createMockHandlers(
+        { billing: createLifecycleBillingModel().serializeForMsw() },
+        'off',
+        undefined,
+        true,
+      ),
+      undeclaredApiRequest,
+    );
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(graphql('GetLicensesWithPrices')).rejects.toThrow();
+  });
+
+  it('pages the versions as the API pages a list', async () => {
+    useDevWorld();
+
+    const first = (await graphql('GetLicensesWithPrices', { limit: 2 })).body.data
+      .licenses;
+
+    expect(first.items).toHaveLength(2);
+    expect(first.hasMore).toBe(true);
+    expect(
+      (await versionsOf({ cursor: first.nextCursor, limit: 2 }))[0]?.slug,
+    ).not.toBe(first.items[0].slug);
   });
 });
