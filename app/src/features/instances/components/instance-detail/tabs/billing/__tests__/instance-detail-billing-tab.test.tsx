@@ -253,6 +253,34 @@ describe('a subscription', () => {
     expect(within(dialog).getByText('Business, monthly')).toBeInTheDocument();
   });
 
+  it('says what the discounts take off the next invoice beside its total, as the API states the sum', async () => {
+    serveSubscription(subscription());
+    server.use(
+      handleGetUpcomingInvoice({
+        body: upcoming({ discountTotal: 990, total: 8910 }),
+      }),
+    );
+    renderTab();
+
+    const card = await screen.findByText('Upcoming invoice');
+    const region = card.closest('[data-slot="card"]') as HTMLElement;
+    expect(within(region).getByText('$89.10')).toBeInTheDocument();
+    expect(within(region).getByTestId('invoice-discount-total')).toHaveTextContent(
+      'After $9.90 of discounts',
+    );
+  });
+
+  it('shows no discount under the total of an invoice that has none', async () => {
+    serveSubscription(subscription());
+    server.use(handleGetUpcomingInvoice({ body: upcoming({ total: 9900 }) }));
+    renderTab();
+
+    const card = await screen.findByText('Upcoming invoice');
+    const region = card.closest('[data-slot="card"]') as HTMLElement;
+    expect(within(region).getByText('$99.00')).toBeInTheDocument();
+    expect(within(region).queryByTestId('invoice-discount-total')).toBeNull();
+  });
+
   it('says an invoice would be held, names the meter and the check, and leads to its history', async () => {
     serveSubscription(subscription());
     server.use(

@@ -98,3 +98,11 @@ export {
   buildAddonGrant,
   buildInstanceAddon,
 } from '../../e2e/app/_support/fixtures/build-addon';
+
+// The vouchers and what an instance redeemed of them, and the entitlements a boost
+// changes, built as the mocks build them.
+export {
+  buildEntitlement,
+  buildRedemption,
+  buildVoucher,
+} from '../../e2e/app/_support/fixtures';
