@@ -273,3 +273,43 @@ test('dev:mock answers every request of the publishable keys: the list with and 
 
   expect(errors).toEqual([]);
 });
+
+test('dev:mock answers the Billing column of the lists of instances, a page of subscriptions at a time', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.text().includes('[MSW] Unhandled API request:'))
+      errors.push(message.text());
+  });
+
+  // The list of instances: each state of a subscription, and an instance nobody bills.
+  await page.goto('/customers/instances');
+  await expect(
+    page.getByRole('columnheader', { name: 'Billing' }),
+  ).toBeVisible();
+  const state = (name: string) =>
+    page.getByRole('row').filter({ hasText: name }).locator('[data-status]');
+  await expect(state('Globex Production')).toHaveText('Past due');
+  await expect(state('Beta Staging')).toHaveText('Trial');
+  await expect(state('Acme Legacy')).toHaveText('Canceled');
+  await expect(state('Globex Staging')).toHaveText('Cancels at period end');
+  await expect(state('Acme Production')).toHaveText('Active');
+  await expect(
+    page
+      .getByRole('row')
+      .filter({ hasText: 'Gamma Production' })
+      .getByText('Not subscribed'),
+  ).toBeAttached();
+  // The card of a customer's instances reads the same subscriptions.
+  await page.goto('/customers/globex');
+  await expect(
+    page
+      .getByRole('row')
+      .filter({ hasText: 'Globex Production' })
+      .locator('[data-status]'),
+  ).toHaveText('Past due');
+
+  expect(errors).toEqual([]);
+});

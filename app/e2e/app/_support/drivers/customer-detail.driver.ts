@@ -88,6 +88,36 @@ export class CustomerDetailDriver {
     return this.page.getByText(status, { exact: true });
   }
 
+  /** The card of the customer's instances, by its title. */
+  instancesCard(): Locator {
+    return this.page
+      .locator('[data-slot="card-title"]')
+      .filter({ hasText: /^Instances$/ })
+      .locator('xpath=ancestor::*[@data-slot="card"][1]')
+      .first();
+  }
+
+  /** The header of the Billing column of the card of the instances, absent where billing is not shown. */
+  instancesBillingHeader(): Locator {
+    return this.instancesCard().getByRole('columnheader', { name: 'Billing' });
+  }
+
+  /** The badge of the Billing column for an instance of the card. */
+  instanceBillingBadge(instanceName: string): Locator {
+    return this.instancesCard()
+      .getByRole('row')
+      .filter({ has: this.page.getByText(instanceName, { exact: true }) })
+      .locator('[data-status]');
+  }
+
+  /** What the Billing column says of an instance nobody ever subscribed. */
+  instanceNotSubscribed(instanceName: string): Locator {
+    return this.instancesCard()
+      .getByRole('row')
+      .filter({ has: this.page.getByText(instanceName, { exact: true }) })
+      .getByText('Not subscribed');
+  }
+
   async expectInstanceVisible(instanceName: string) {
     await expect(
       this.page.getByText(instanceName, { exact: true }),

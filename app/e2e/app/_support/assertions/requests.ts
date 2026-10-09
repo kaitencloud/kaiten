@@ -45,6 +45,44 @@ export function recordWrites(
   return writes;
 }
 
+/** A GraphQL request the page sent: which document, with the variables it took. */
+export type RecordedGraphQL = {
+  operationName: string;
+  variables: Record<string, unknown> | undefined;
+};
+
+/**
+ * Records, from now on, every GraphQL request the page sends, by the name of the
+ * document and the variables it took. The console sends the document and not its
+ * name, so the name is read out of it. A spec that asserts which documents a screen
+ * sends, and how many, reads it once the screen has settled: a list that asks for
+ * billing apart from its instances is two requests per page, and a session that may
+ * not read billing sends only the first.
+ */
+export function recordGraphQL(page: Page): RecordedGraphQL[] {
+  const requests: RecordedGraphQL[] = [];
+
+  page.on('request', (request) => {
+    if (
+      request.method() !== 'POST' ||
+      !new URL(request.url()).pathname.endsWith('/api/graphql')
+    ) {
+      return;
+    }
+    const body = request.postDataJSON() as {
+      query?: string;
+      variables?: Record<string, unknown>;
+    };
+    requests.push({
+      operationName:
+        body.query?.match(/\b(?:query|mutation)\s+([A-Za-z0-9_]+)/)?.[1] ?? '',
+      variables: body.variables,
+    });
+  });
+
+  return requests;
+}
+
 /**
  * Holds back every request that matches until `ms` have passed, in the page, so
  * that a spec can look at the screen while the API has not answered. The mocks

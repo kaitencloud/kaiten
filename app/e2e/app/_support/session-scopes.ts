@@ -7,6 +7,12 @@ import type { Page } from '@playwright/test';
 export const SESSION_SCOPES = {
   /** Everything. */
   admin: ['read:*', 'write:*'],
+  /**
+   * Lists the instances and nothing else: what the document of the lists needs
+   * (the instances, their customers and their licenses), with no billing. A session
+   * whose identity-provider template predates billing is this one.
+   */
+  instances: ['read:instances', 'read:customers', 'read:licenses'],
   /** Reads what billing shows, and acts on none of it. */
   reader: [
     'read:billing',

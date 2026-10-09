@@ -83,6 +83,7 @@ import {
   createEditableInstanceModel,
   createEmptyInstancesModel,
   createInstancesListModel,
+  createPagedBilledInstancesModels,
   createProvenanceInstancesModel,
   createTypedMetadataInstanceModel,
 } from '../instances/instances.scenarios';
@@ -166,6 +167,10 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   ],
   ['instances/createBilledInstancesModel', createBilledInstancesModel],
   ['instances/createProvenanceInstancesModel', createProvenanceInstancesModel],
+  [
+    'instances/createPagedBilledInstancesModels',
+    createPagedBilledInstancesModels,
+  ],
   ['dashboard/createDashboardReadModel', createDashboardReadModel],
   ['notifications/createNotificationsFeedModel', createNotificationsFeedModel],
   ['notifications/createMixedObjectsFeedModel', createMixedObjectsFeedModel],

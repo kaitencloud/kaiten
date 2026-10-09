@@ -14,6 +14,35 @@ export class InstancesListDriver {
     ).toBeVisible();
   }
 
+  /** The headers of the table, in order. */
+  columnHeaders(): Locator {
+    return this.page.getByRole('columnheader');
+  }
+
+  /** The header of the Billing column, absent where billing is not shown. */
+  billingHeader(): Locator {
+    return this.page.getByRole('columnheader', { name: 'Billing' });
+  }
+
+  /**
+   * The badge of the Billing column of an instance. It is told from the others of the
+   * row by the status it carries, which is the API's: `TRIAL`, `ACTIVE`, `PAST_DUE`,
+   * `CANCELED`.
+   */
+  billingBadge(name: string): Locator {
+    return this.instanceRow(name).locator('[data-status]');
+  }
+
+  /** What the Billing column says of an instance nobody ever subscribed: a dash, which a screen reader reads as this. */
+  notSubscribed(name: string, text = 'Not subscribed'): Locator {
+    return this.instanceRow(name).getByText(text);
+  }
+
+  /** The placeholders that hold the place of the badges while the subscriptions are read. */
+  billingPlaceholders(): Locator {
+    return this.page.getByTestId('billing-cell-pending');
+  }
+
   searchField(): Locator {
     return this.page.getByRole('textbox', { name: 'Name', exact: true });
   }
@@ -68,6 +97,11 @@ export class InstancesListDriver {
 
   async openMigrateDialog(name: string) {
     await this.migrateAction(name).click();
+  }
+
+  /** Waits for the rows of the list: what a spec counts the requests of the page after. */
+  async expectRowsLoaded() {
+    await expect(this.page.locator('tbody tr').first()).toBeVisible();
   }
 
   async expectInstanceVisible(name: string) {
