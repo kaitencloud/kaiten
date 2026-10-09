@@ -10,6 +10,7 @@ package telemetry
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -40,6 +41,11 @@ type instruments struct {
 	mismatches    metric.Int64Counter
 	recreated     metric.Int64Counter
 	dueDateDrift  metric.Int64Counter
+	itemFailures  metric.Int64Counter
+	duplicates    metric.Int64Counter
+	leaseExpired  metric.Int64Counter
+	negative      metric.Int64Counter
+	skipped       metric.Int64Counter
 }
 
 var get = sync.OnceValue(func() *instruments {
@@ -71,6 +77,16 @@ var get = sync.OnceValue(func() *instruments {
 			"Mapped provider customers that were deleted in the provider and created again", "{customer}"),
 		dueDateDrift: counter("kaiten.billing.provider.due_date_drift",
 			"Issued invoices whose due date in the provider differs from Kaiten's by more than a day", "{invoice}"),
+		itemFailures: counter("kaiten.billing.job.item_failures",
+			"Units a billing job failed on and left for a later pass, by job and reason (error, panic)", "{unit}"),
+		duplicates: counter("kaiten.billing.duplicate_suppressed",
+			"Writes a uniqueness key turned into no-ops, by job: a retry or a concurrent run got there first", "{write}"),
+		leaseExpired: counter("kaiten.billing.handoff.lease_expired",
+			"Handoff invoices claimed again after an earlier claim's lease expired", "{invoice}"),
+		negative: counter("kaiten.billing.usage.negative_segments",
+			"Usage segments that went down and were billed as 0 (D-06)", "{segment}"),
+		skipped: counter("kaiten.billing.voucher_currency_skipped",
+			"Fixed-amount vouchers left out of an invoice in another currency (§8.4 rule 5)", "{voucher}"),
 	}
 })
 
@@ -211,5 +227,70 @@ func timestamp(t time.Time) pgtype.Timestamp {
 func observe(o metric.Observer, gauge metric.Int64ObservableGauge, value int64) {
 	if gauge != nil {
 		o.ObserveInt64(gauge, value)
+	}
+}
+
+// Billing jobs, as their metrics name them.
+const (
+	JobPeriodClose  = "billing-period-close"
+	JobInvoicePush  = "billing-invoice-push"
+	JobProviderSync = "billing-provider-sync"
+	JobLifecycle    = "billing-lifecycle"
+)
+
+// Unit runs one unit of a job's pass (§16.1 rule 7): a panic in it fails that
+// unit only, and a failure is counted.
+func Unit(ctx context.Context, job string, work func() error) (err error) {
+	panicked := false
+	defer func() {
+		if r := recover(); r != nil {
+			panicked, err = true, fmt.Errorf("panic in %s: %v", job, r)
+		}
+		if err != nil {
+			ItemFailed(ctx, job, panicked)
+		}
+	}()
+	return work()
+}
+
+// ItemFailed counts a unit job failed on (§16.1 rule 7): reason is panic when
+// it panicked, error otherwise.
+func ItemFailed(ctx context.Context, job string, panicked bool) {
+	if c := get().itemFailures; c != nil {
+		reason := "error"
+		if panicked {
+			reason = "panic"
+		}
+		c.Add(ctx, 1, metric.WithAttributes(attribute.String("job", job), attribute.String("reason", reason)))
+	}
+}
+
+// DuplicateSuppressed counts a write a uniqueness key made a no-op (§16.1
+// rule 3).
+func DuplicateSuppressed(ctx context.Context, job string) {
+	if c := get().duplicates; c != nil {
+		c.Add(ctx, 1, metric.WithAttributes(attribute.String("job", job)))
+	}
+}
+
+// LeaseExpired counts handoff invoices claimed again after a lease expired.
+func LeaseExpired(ctx context.Context, n int) {
+	if c := get().leaseExpired; c != nil && n > 0 {
+		c.Add(ctx, int64(n))
+	}
+}
+
+// NegativeSegments counts usage segments floored at 0.
+func NegativeSegments(ctx context.Context, n int) {
+	if c := get().negative; c != nil && n > 0 {
+		c.Add(ctx, int64(n))
+	}
+}
+
+// VoucherCurrencySkipped counts fixed-amount vouchers left out of an invoice
+// in another currency.
+func VoucherCurrencySkipped(ctx context.Context, n int) {
+	if c := get().skipped; c != nil && n > 0 {
+		c.Add(ctx, int64(n))
 	}
 }

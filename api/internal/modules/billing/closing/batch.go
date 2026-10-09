@@ -2,8 +2,10 @@ package closing
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -56,12 +58,13 @@ func (c *Closer) CloseDue(ctx context.Context, scope Scope, limit int, actorFor 
 		}
 		for _, sub := range due {
 			report.Examined++
+			started := time.Now()
 			outcome, err := c.closeUnit(ctx, sub, actorFor)
 			switch {
 			case err != nil:
 				slog.ErrorContext(ctx, "billing period close failed",
 					"instance_billing_id", sub.ID, "organization_id", sub.OrganizationID, "error", err)
-				add(ctx, c.m.failed, 1)
+				c.m.failed(ctx, errors.Is(err, errPanicked))
 				report.Skipped++
 				excluded = append(excluded, sub.ID)
 			case !outcome.Closed:
@@ -69,10 +72,11 @@ func (c *Closer) CloseDue(ctx context.Context, scope Scope, limit int, actorFor 
 				excluded = append(excluded, sub.ID)
 			default:
 				report.Closed++
-				add(ctx, c.m.closed, 1)
+				if outcome.Invoice != nil {
+					c.m.closed(ctx, *outcome.Invoice, time.Since(started))
+				}
 				if outcome.Invoice.Held {
 					report.Held++
-					add(ctx, c.m.held, 1)
 				}
 				report.Invoices = append(report.Invoices, *outcome.Invoice)
 			}
@@ -105,10 +109,13 @@ func (c *Closer) selectDue(ctx context.Context, q *db.Queries, scope Scope, excl
 
 // closeUnit closes one subscription, turning a panic into an error so one
 // subscription cannot stop the batch.
+// errPanicked marks a unit that panicked, for the failure metric.
+var errPanicked = errors.New("panic")
+
 func (c *Closer) closeUnit(ctx context.Context, sub db.ListDueSubscriptionsRow, actorFor ActorFor) (outcome Outcome, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("panic closing subscription %s: %v", sub.ID, r)
+			err = fmt.Errorf("%w closing subscription %s: %v", errPanicked, sub.ID, r)
 		}
 	}()
 	actor, err := actorFor(ctx, sub.OrganizationID)

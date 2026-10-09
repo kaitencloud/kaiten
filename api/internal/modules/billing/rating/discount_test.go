@@ -213,3 +213,16 @@ func TestDiscountAllocationsInvariants(t *testing.T) {
 		}
 	}
 }
+
+// §8.4 rule 5: a fixed amount in another currency is left out, and counted.
+func TestDiscountInAnotherCurrencyIsSkippedAndCounted(t *testing.T) {
+	dollars := amountOff("Dollars", "500", AppliesBoth)
+	dollars.Currency = "USD"
+	out, err := ApplyDiscounts(composition(testBase(1, 2900)), []Discount{dollars, amountOff("Euros", "500", AppliesBoth)}, "EUR")
+	if err != nil {
+		t.Fatalf("ApplyDiscounts: %v", err)
+	}
+	if out.CurrencySkipped != 1 || out.DiscountTotal != 500 {
+		t.Fatalf("skipped %d, discount %d; want 1 and 500", out.CurrencySkipped, out.DiscountTotal)
+	}
+}

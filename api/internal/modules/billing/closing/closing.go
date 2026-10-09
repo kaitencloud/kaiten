@@ -28,6 +28,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/telemetry"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -57,6 +58,9 @@ type ClosedInvoice struct {
 	BoundaryAt   time.Time `json:"boundaryAt"`
 	Status       string    `json:"status" enum:"DRAFT,PUSHED,PUSH_FAILED,MANUAL,PAID,PAYMENT_FAILED,UNCOLLECTIBLE,VOID"`
 	Held         bool      `json:"held" doc:"Set when the invoice is a held DRAFT"`
+
+	// For the close's metrics only.
+	provider, holdReason string
 }
 
 // Closer closes due subscriptions.
@@ -122,7 +126,7 @@ func (c *Closer) CloseOne(ctx context.Context, subscriptionID, actor uuid.UUID) 
 		// our insert; the period it advanced is no longer due.
 		slog.InfoContext(ctx, "billing period close lost the race for a boundary, nothing issued",
 			"instance_billing_id", subscriptionID, "boundary_at", boundary)
-		add(ctx, c.m.duplicates, 1)
+		telemetry.DuplicateSuppressed(ctx, telemetry.JobPeriodClose)
 		return Outcome{Closed: false, Invoice: nil, SkipReason: "closed concurrently"}, nil
 	}
 	if err != nil {
@@ -256,6 +260,14 @@ func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boun
 		if err := metering.Consume(ctx, c.deps.Discounts, sub.OrganizationID, composition, now); err != nil {
 			return Outcome{}, err
 		}
+		floored := 0
+		for _, line := range composition.Lines {
+			if line.Metering != nil {
+				floored += line.Metering.NegativeSegmentsFloored
+			}
+		}
+		telemetry.NegativeSegments(ctx, floored)
+		telemetry.VoucherCurrencySkipped(ctx, composition.CurrencySkipped)
 		row = &inserted
 	}
 
@@ -266,7 +278,10 @@ func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boun
 	if row != nil {
 		outcome.Invoice = &ClosedInvoice{
 			ID: row.ID, InstanceSlug: row.InstanceSlug, Kind: string(row.Kind), BoundaryAt: boundary,
-			Status: string(row.Status), Held: row.HoldReason != nil,
+			Status: string(row.Status), Held: row.HoldReason != nil, provider: string(row.ProviderKind), holdReason: "",
+		}
+		if row.HoldReason != nil {
+			outcome.Invoice.holdReason = string(*row.HoldReason)
 		}
 	}
 	return outcome, nil

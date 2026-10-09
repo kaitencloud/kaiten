@@ -99,6 +99,7 @@ func ApplyDiscounts(comp Composition, discounts []Discount, currency money.Curre
 			continue
 		}
 		if d.Type == DiscountFixed && d.Currency != string(currency) {
+			comp.CurrencySkipped++
 			continue
 		}
 		targets := d.targets(comp.Lines)

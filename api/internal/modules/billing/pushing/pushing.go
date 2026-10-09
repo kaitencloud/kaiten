@@ -109,7 +109,7 @@ func (p *Pusher) Pass(ctx context.Context) (pushed int, err error) {
 		return 0, err
 	}
 	for _, id := range ids {
-		if err := p.Push(ctx, id, false); err != nil {
+		if err := telemetry.Unit(ctx, telemetry.JobInvoicePush, func() error { return p.Push(ctx, id, false) }); err != nil {
 			slog.WarnContext(ctx, "invoice push failed", "invoice_id", id, "error", err)
 			continue
 		}
