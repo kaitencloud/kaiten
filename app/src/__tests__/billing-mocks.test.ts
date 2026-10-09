@@ -26,10 +26,13 @@ describe('billing capabilities mocks', () => {
     const response = await capabilities();
 
     expect(response.status).toBe(200);
+    // As the API answers a deployment with billing off: the features are the ones of
+    // the release, and `enabled` and the public surface say it is off.
     expect(await response.json()).toMatchObject({
       disabledReason: 'DEPLOYMENT_DISABLED',
       enabled: false,
-      features: { addons: false, stripe: false },
+      features: { addons: true, chargeAutomatically: true, stripe: true },
+      publicSurface: { enabled: false },
     });
   });
 
