@@ -88,7 +88,8 @@ jobs:
       # Go, golangci-lint and golang.org/x/tools move together, never one
       # alone. A bump of any of them changes, in the same commit:
       #  - GO_VERSION (and LINT_GO_VERSION while it exists) in this file and
-      #    GO_VERSION in pre-commit-ci.yml and release-openapi.yml;
+      #    GO_VERSION in pre-commit-ci.yml, release-openapi.yml and
+      #    stripe-sandbox.yml;
       #  - GOLANGCI_LINT_VERSION in Taskfile.yml (v2.13.1 today);
       #  - the golangci-lint `rev` in .pre-commit-config.yaml;
       #  - the `version:` of golangci-lint-action in this file;
