@@ -49,8 +49,8 @@ const (
 	deploymentZonePath  = "/releases/deployment-zones"
 	licensesPath        = "/licenses"
 	serviceAccountsPath = "/integrations/service-accounts"
-	invoicesPath        = "/billing/invoices"
-	billingPath         = "/billing"
+	invoicesPath        = "/invoices"
+	vouchersPath        = "/vouchers"
 	billingSettingsPath = "/settings/billing"
 
 	// instanceEntitlementsTab is the instance page's usage tab, where whoever
@@ -826,9 +826,9 @@ func renderHeldInvoice(payload []byte, _ Refs) Rendered {
 	var decoded billingPayload
 	_ = json.Unmarshal(payload, &decoded)
 	if decoded.ID == "" {
-		return Rendered{ActionURL: "/billing/invoices"}
+		return Rendered{ActionURL: invoicesPath}
 	}
-	rendered := Rendered{Title: "An invoice of " + decoded.InstanceSlug + " is held", ActionURL: "/billing/invoices/" + decoded.ID}
+	rendered := Rendered{Title: "An invoice of " + decoded.InstanceSlug + " is held", ActionURL: invoicesPath + "/" + decoded.ID}
 	if decoded.HoldReason != "" {
 		rendered.Body = "Its usage journal failed a check: " + decoded.HoldReason
 	}
@@ -914,18 +914,29 @@ func renderSyncFailed(payload []byte, _ Refs) Rendered {
 	return rendered
 }
 
-// renderVoucherExhausted renders a voucher whose last redemption was taken.
-// Vouchers have no page of their own yet: it links to billing.
+// voucherPage is where a voucher notification goes: the voucher's own page when
+// the payload names it, the list of vouchers otherwise.
+func voucherPage(id string) string {
+	if id == "" {
+		return vouchersPath
+	}
+	return vouchersPath + "/" + id
+}
+
+// renderVoucherExhausted renders a voucher whose last redemption was taken,
+// linking to the voucher.
 func renderVoucherExhausted(payload []byte, _ Refs) Rendered {
 	var decoded struct {
+		ID             string `json:"id"`
 		Name           string `json:"name"`
 		MaxRedemptions *int32 `json:"maxRedemptions"`
 	}
 	_ = json.Unmarshal(payload, &decoded)
+	page := voucherPage(decoded.ID)
 	if decoded.Name == "" {
-		return Rendered{ActionURL: billingPath}
+		return Rendered{ActionURL: page}
 	}
-	rendered := Rendered{Title: "Voucher " + decoded.Name + " is used up", ActionURL: billingPath}
+	rendered := Rendered{Title: "Voucher " + decoded.Name + " is used up", ActionURL: page}
 	if decoded.MaxRedemptions != nil {
 		rendered.Body = fmt.Sprintf("All %d redemptions are taken", *decoded.MaxRedemptions)
 	}
@@ -981,16 +992,19 @@ func renderHandoffAcknowledged(payload []byte, _ Refs) Rendered {
 	return rendered
 }
 
-// renderVoucherExpired renders a voucher past its expiry date.
+// renderVoucherExpired renders a voucher past its expiry date, linking to the
+// voucher.
 func renderVoucherExpired(payload []byte, _ Refs) Rendered {
 	var decoded struct {
+		ID   string `json:"id"`
 		Name string `json:"name"`
 	}
 	_ = json.Unmarshal(payload, &decoded)
+	page := voucherPage(decoded.ID)
 	if decoded.Name == "" {
-		return Rendered{ActionURL: billingPath}
+		return Rendered{ActionURL: page}
 	}
-	return Rendered{Title: "Voucher " + decoded.Name + " expired", ActionURL: billingPath}
+	return Rendered{Title: "Voucher " + decoded.Name + " expired", ActionURL: page}
 }
 
 // renderPublishableKey renders a publishable key event, by its label. Never
