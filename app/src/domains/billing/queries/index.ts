@@ -20,6 +20,10 @@ export {
   instancesBillingQueryOptions,
 } from './instances-billing-query-options';
 export {
+  licensesWithPricesBaseQueryKey,
+  licensesWithPricesQueryOptions,
+} from './licenses-prices-query-options';
+export {
   type InvoicesScope,
   invoicesQueryOptions,
 } from './invoices-query-options';

@@ -595,6 +595,7 @@ var legitimateVariables = map[string]map[string]any{
 	"console/GetInstancesWithRelations": {"limit": consolePage},
 	"console/GetCustomersWithInstances": {"limit": consolePage},
 	"console/GetInstancesBilling":       {"limit": consolePage},
+	"console/GetLicensesWithPrices":     {"limit": consolePage},
 	heaviestClientQuery:                 {"limit": consolePage},
 	"console/MetadataFields":            {"limit": consolePage},
 	// The most the audit trail asks for, once "load more" has been pressed.
@@ -634,6 +635,18 @@ var legitimateQueries = map[string]string{
 			items {
 				slug
 				billing { status providerKind currentPeriodEnd cancelAtPeriodEnd pastDueSince trialEndsAt }
+			}
+		}
+	}`,
+	"console/GetLicensesWithPrices": `query GetLicensesWithPrices($limit: Int, $cursor: String) {
+		licenses(limit: $limit, cursor: $cursor) {
+			nextCursor hasMore
+			items {
+				id slug name version versionName lifecycleState pricingType
+				prices(status: "ACTIVE") {
+					id billingModel billingTiming billingPeriod currency unitAmountDecimal
+					meteredEntitlement saleUnitFactor displayLabel displayOrder isDefault status
+				}
 			}
 		}
 	}`,

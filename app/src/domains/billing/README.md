@@ -73,7 +73,8 @@ app/src/domains/billing/
 │                     # RedemptionsCard), the dialog that revokes one (RevokeRedemptionDialog), the
 │                     # explanation of a DISCOUNT line (InvoiceLineDiscount) and what a table says
 │                     # when it has no row (TableEmptyMessage), and the state of a subscription
-│                     # in a list of instances (InstanceBillingBadge, InstanceBillingCell)
+│                     # in a list of instances (InstanceBillingBadge, InstanceBillingCell), and
+│                     # how a license version is sold (LicensePriceSummaryText)
 ├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session
 │                     # (useGrantedScopes reads them, for a screen that filters on several);
 │                     # useInvoiceActionAccess, the same for the five actions on an invoice;
@@ -82,7 +83,8 @@ app/src/domains/billing/
 │                     # audited action; useBoundaryRetry, which waits
 │                     # out a period being closed; useExportInvoices;
 │                     # useUsageReports, over the pages of a list of usage reports;
-│                     # useInstancesBilling, the subscriptions of the lists of instances
+│                     # useInstancesBilling, the subscriptions of the lists of instances;
+│                     # useLicensesWithPrices, the license versions and their prices
 ├── logic/            # actions and their scopes, availability, problems, the placing of a
 │                     # refusal on the fields of a form (problem-field-errors), the reason an
 │                     # audited action takes (reason), statuses,
@@ -93,7 +95,10 @@ app/src/domains/billing/
 │                     # redemption read from their window and their count (voucher-status), and what a
 │                     # voucher does in plain language (voucher-offer),
 │                     # and what a price is called and how its amount is written
-│                     # (price-types, price-labels, price-display)
+│                     # (price-types, price-labels, price-display), the subscription of an
+│                     # instance as a list reads it (instance-billing-summary), the license
+│                     # versions with their prices (license-catalogue) and how one is sold
+│                     # (license-price-summary)
 ├── queries/          # the capabilities, the billing settings, the route guard, invalidation
 │                     # helpers (those of the vouchers and of an instance's redemptions included),
 │                     # the pages of the invoices of a subject, the pages of usage reports, the
@@ -151,6 +156,27 @@ page holds, or an export the API streams.
   console reads them: a state it does not know keeps what was sent (`rawStatus`) and shows
   as written, neutral (`InstanceBillingBadge`). `invalidateInstanceBillingQueries`
   refreshes it with the rest of a subscription.
+- `useLicensesWithPrices({ enabled })` reads every license version with the prices it is
+  sold at now, in a GraphQL document of its own, `GetLicensesWithPrices`
+  (`queries/licenses-prices.queries.ts`): `licenses { prices(status: "ACTIVE") }`, a page
+  of versions per request, where the REST API would take a read of the licenses and then
+  one read of the prices of every version (it has no list of the prices of an
+  organization). The list of licenses reads the summary of each family from it, and the
+  plans a subscription can move to (`features/instances`) are its flat fees. It is sent
+  only once the capabilities say billing is on; it checks no scope of the session, since
+  the screens that read the licenses already need `read:licenses`, all the document asks
+  for, and one that lacks it is shown the refusal of the API. The enums are strings in the
+  document, so `toLicenseWithPrices` checks each against the REST schema (`zLicense`,
+  `zPrice`) and hands the screens `LicenseWithPrices` and `CatalogPrice`: a price is the
+  contract's `Price` without its stamps, and one with a model, timing, period or status
+  the console does not know is dropped, a state or a pricing type it does not know is
+  `undefined`, so that no screen meets a value it has no label for.
+  `getLicensePriceSummary` says from the pricing type and the active prices how a version
+  is sold (`free`, `custom` or `priced`: the flat fee of each period, the default one, and
+  whether usage is billed on top; `unpriced` when it is sold and has no active price), and
+  `LicensePriceSummaryText` draws it. Amounts are the price's own, written from its decimal
+  string by `PriceAmount`; nothing is added up and no monthly equivalent is worked out, and
+  a free or custom version states no amount.
 - `usageReportPagesQueryOptions({ fetchPage, queryKey })` reads usage reports a page at a
   time by report number (`afterSeq`: the API answers with the number to read after, and
   none on the last page), under the generated key of the operation with an `_infinite`

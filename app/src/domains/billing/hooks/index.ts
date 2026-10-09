@@ -15,4 +15,5 @@ export {
   useInstancesBilling,
 } from './use-instances-billing';
 export { useInvoiceActionAccess } from './use-invoice-action-access';
+export { useLicensesWithPrices } from './use-licenses-with-prices';
 export { useUsageReports } from './use-usage-reports';

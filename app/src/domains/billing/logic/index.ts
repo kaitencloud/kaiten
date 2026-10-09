@@ -167,6 +167,20 @@ export {
   type PriceAmountParts,
 } from './price-display';
 export {
+  type CatalogPrice,
+  type CatalogPriceInput,
+  type LicensePricingType,
+  type LicenseWithPrices,
+  type LicenseWithPricesInput,
+  toCatalogPrice,
+  toLicenseWithPrices,
+  toLicensesWithPrices,
+} from './license-catalogue';
+export {
+  getLicensePriceSummary,
+  type LicensePriceSummary,
+} from './license-price-summary';
+export {
   type InstanceBillingEntry,
   type InstanceBillingSummary,
   type InstanceBillingSummaryInput,

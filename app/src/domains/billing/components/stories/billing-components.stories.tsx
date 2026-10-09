@@ -8,6 +8,7 @@ import {
   InstanceBillingBadge,
   InvoiceLineTypeBadge,
   InvoiceStatusBadge,
+  LicensePriceSummaryText,
   MissingScopeBanner,
   Money,
   ProblemAlert,
@@ -15,6 +16,7 @@ import {
   SubscriptionStatusBadge,
 } from '..';
 import {
+  type CatalogPrice,
   INVOICE_LINE_TYPES,
   INVOICE_STATUSES,
   type InstanceBillingSummary,
@@ -233,6 +235,78 @@ export const InstanceListBadges: Story = {
     await expect(canvas.getByText('Not subscribed')).toBeInTheDocument();
     // A state the console does not know is shown as the API wrote it.
     await expect(canvas.getByText('PAUSED')).toBeVisible();
+  },
+};
+
+const flatFee = (
+  billingPeriod: 'ANNUAL' | 'MONTHLY',
+  unitAmountDecimal: string,
+  currency = 'USD',
+): CatalogPrice => ({
+  billingModel: 'FLAT_FEE',
+  billingPeriod,
+  billingTiming: 'ADVANCE',
+  currency,
+  displayOrder: 0,
+  id: `price-${billingPeriod}-${currency}`,
+  isDefault: true,
+  status: 'ACTIVE',
+  unitAmountDecimal,
+});
+
+const perThousandRequests: CatalogPrice = {
+  billingModel: 'USAGE_BASED',
+  billingTiming: 'ARREARS',
+  currency: 'USD',
+  displayOrder: 2,
+  id: 'price-requests',
+  isDefault: false,
+  metered: { entitlementSlug: 'requests', saleUnitFactor: '1000' },
+  status: 'ACTIVE',
+  unitAmountDecimal: '0.2',
+};
+
+// How the version a family is shown under is sold, in a line of the list of licenses:
+// the flat fee of each period and usage billed on top, or that it is free or on request.
+// The amounts are the API's, written in the language of the app, and never added.
+export const LicensePriceSummaries: Story = {
+  render: () => (
+    <div className="grid gap-2">
+      <LicensePriceSummaryText
+        license={{
+          pricingType: 'PAID',
+          prices: [flatFee('MONTHLY', '3900'), flatFee('ANNUAL', '39000')],
+        }}
+      />
+      <LicensePriceSummaryText
+        license={{
+          pricingType: 'PAID',
+          prices: [flatFee('MONTHLY', '2900', 'EUR'), perThousandRequests],
+        }}
+      />
+      <LicensePriceSummaryText
+        license={{ pricingType: 'PAID', prices: [perThousandRequests] }}
+      />
+      <LicensePriceSummaryText license={{ pricingType: 'FREE', prices: [] }} />
+      <LicensePriceSummaryText
+        license={{ pricingType: 'CUSTOM', prices: [flatFee('ANNUAL', '9900000')] }}
+      />
+      <LicensePriceSummaryText license={{ pricingType: 'PAID', prices: [] }} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const lines = await canvas.findAllByTestId('license-price-summary');
+
+    await expect(lines).toHaveLength(6);
+    await expect(lines[0]).toHaveTextContent('$39.00/month·$390.00/year');
+    await expect(lines[1]).toHaveTextContent('€29.00/month+ usage');
+    await expect(lines[2]).toHaveTextContent('Usage-based');
+    await expect(lines[3]).toHaveTextContent('Free');
+    // A custom version states no amount, though a price is on file.
+    await expect(lines[4]).toHaveTextContent('Custom pricing');
+    await expect(lines[4]).not.toHaveTextContent('$');
+    await expect(lines[5]).toHaveTextContent('No price yet');
   },
 };
 

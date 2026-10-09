@@ -23,6 +23,7 @@ export { PeriodFilter } from './period-filter';
 export { PriceAmount } from './price-amount';
 export { InvoiceTotals } from './invoice-totals';
 export { InvoicesTable, type InvoicesTableColumn } from './invoices-table';
+export { LicensePriceSummaryText } from './license-price-summary-text';
 export { LineFingerprint } from './line-fingerprint';
 export { MissingScopeBanner } from './missing-scope-banner';
 export { Money } from './money';

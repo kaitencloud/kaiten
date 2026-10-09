@@ -5865,6 +5865,13 @@ export default {
         cancellationScheduled: 'Annulation en fin de période',
         none: 'Pas d’abonnement',
       },
+      LicensePriceSummary: {
+        free: 'Gratuit',
+        custom: 'Tarif sur mesure',
+        unpriced: 'Pas encore de prix',
+        usage: 'À l’usage',
+        plusUsage: '+ usage',
+      },
       SubscriptionActions: {
         Reasons: {
           trial: 'Indisponible pendant un essai',

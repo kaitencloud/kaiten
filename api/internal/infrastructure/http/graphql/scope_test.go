@@ -368,6 +368,7 @@ func TestClientDocumentsRequireTheseScopes(t *testing.T) {
 		"console/GetCustomers":              {readCustomers},
 		"console/GetInstances":              {readInstances, readLicenses},
 		"console/GetLicenses":               {readLicenses},
+		"console/GetLicensesWithPrices":     {readLicenses},
 		"console/GetGlobalAuditTrail":       {readOrganizations},
 		heaviestClientQuery: {
 			readReleases, readComponents, readDeploymentZones, readInstances, readCustomers,

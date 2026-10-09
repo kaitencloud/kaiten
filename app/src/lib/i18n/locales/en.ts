@@ -5772,6 +5772,13 @@ export default {
         cancellationScheduled: 'Cancels at period end',
         none: 'Not subscribed',
       },
+      LicensePriceSummary: {
+        free: 'Free',
+        custom: 'Custom pricing',
+        unpriced: 'No price yet',
+        usage: 'Usage-based',
+        plusUsage: '+ usage',
+      },
       SubscriptionActions: {
         Reasons: {
           trial: 'Unavailable during a trial',
