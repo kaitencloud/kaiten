@@ -30,6 +30,7 @@ import {
   createLifecycleBillingModel,
   createLifecycleInstancesModel,
   createLifecycleLicensesModel,
+  createLifecycleStripeModels,
 } from '../billing/lifecycle-world';
 import {
   createDisconnectedAttioModel,
@@ -50,6 +51,7 @@ import {
 import {
   createBillingCustomersModel,
   createCustomersListModel,
+  createStripeCustomersModels,
   createDeletableCustomerModel,
   createEditableCustomerModel,
   createEmptyCustomersModel,
@@ -134,7 +136,21 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   ['billing/createLifecycleBillingModel', createLifecycleBillingModel],
   ['billing/createLifecycleInstancesModel', createLifecycleInstancesModel],
   ['billing/createLifecycleLicensesModel', createLifecycleLicensesModel],
+  ['billing/createLifecycleStripeModels', createLifecycleStripeModels],
+  [
+    'billing/createLifecycleStripeModels({ billingEmail: null })',
+    () => createLifecycleStripeModels({ billingEmail: null }),
+  ],
+  [
+    "billing/createLifecycleStripeModels({ standing: 'available' })",
+    () => createLifecycleStripeModels({ standing: 'available' }),
+  ],
   ['customers/createBillingCustomersModel', createBillingCustomersModel],
+  ['customers/createStripeCustomersModels', createStripeCustomersModels],
+  [
+    "customers/createStripeCustomersModels({ standing: 'available' })",
+    () => createStripeCustomersModels({ standing: 'available' }),
+  ],
   [
     'entitlements/createReferencedEntitlementModel',
     createReferencedEntitlementModel,

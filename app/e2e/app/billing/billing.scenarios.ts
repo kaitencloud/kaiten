@@ -142,10 +142,14 @@ export function createInvoicesModel(
  * - `standing` is where the connector stands: connected (a test account by default),
  *   or one of the reasons it cannot be;
  * - `sync` is how the pass that mirrors Stripe went last: `healthy`, `failing` three
- *   times since an hour ago, or `never` run.
+ *   times since an hour ago, or `never` run;
+ * - `pushFailures` are the invoices whose push fails again each time, with what Stripe
+ *   answers; `stalledPushes` the ones the push queue never gets to.
  */
 export function createStripeBillingModel(
   options: {
+    pushFailures?: Record<string, string>;
+    stalledPushes?: string[];
     standing?: StripeStanding;
     sync?: 'failing' | 'healthy' | 'never';
   } = {},
@@ -162,6 +166,8 @@ export function createStripeBillingModel(
     invoices: [...invoices, ...stripeInvoices()],
     lineReports,
     providerTruth: stripeProviderTruth(),
+    pushFailures: options.pushFailures,
+    stalledPushes: options.stalledPushes,
     providers: {
       ...providers,
       sync:
