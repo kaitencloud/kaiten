@@ -12,7 +12,13 @@ import {
   useResolvedIntegrationsItems,
 } from './side-nav-sections';
 
-function integrationsPathsWith(webhooksServed: boolean | undefined) {
+function integrationsPathsWith(
+  webhooksServed: boolean | undefined,
+  capabilities?: BillingCapabilities,
+  // What the token of the session says: nothing about scopes by default, which the
+  // console reads as every action being offered. `'unread'` leaves it unread.
+  scopes: GrantedScopes | 'unread' = null,
+) {
   const queryClient = new QueryClient({
     // No answer seeded stays unread: the hook sees it being read.
     defaultOptions: { queries: { enabled: false } },
@@ -22,6 +28,15 @@ function integrationsPathsWith(webhooksServed: boolean | undefined) {
       webhooksServedQueryOptions.queryKey,
       webhooksServed,
     );
+  }
+  if (capabilities !== undefined) {
+    queryClient.setQueryData(
+      billingCapabilitiesQueryOptions.queryKey,
+      capabilities,
+    );
+  }
+  if (scopes !== 'unread') {
+    queryClient.setQueryData(grantedScopesQueryKey, scopes);
   }
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -50,6 +65,56 @@ describe('useResolvedIntegrationsItems', () => {
       '/integrations/service-accounts',
       '/integrations/connectors',
     ]);
+  });
+
+  describe('the publishable keys', () => {
+    const keys = '/integrations/publishable-keys';
+
+    it('are listed where billing is on, whatever the capabilities say of the public surface', () => {
+      const capabilities = billingCapabilitiesProfiles.stack();
+
+      // The API fixes both to false whatever the deployment can do.
+      expect(capabilities.features.publicSurface).toBe(false);
+      expect(capabilities.publicSurface.enabled).toBe(false);
+      expect(integrationsPathsWith(false, capabilities)).toContain(keys);
+    });
+
+    it('are not listed where billing is off, or while the capabilities are read', () => {
+      expect(
+        integrationsPathsWith(
+          false,
+          billingCapabilitiesProfiles.disabled('DEPLOYMENT_DISABLED'),
+        ),
+      ).not.toContain(keys);
+      expect(integrationsPathsWith(false, undefined)).not.toContain(keys);
+    });
+
+    it('are left to a session whose scopes cover read:publishable_keys', () => {
+      const capabilities = billingCapabilitiesProfiles.stack();
+
+      expect(
+        integrationsPathsWith(false, capabilities, ['read:billing']),
+      ).not.toContain(keys);
+      expect(
+        integrationsPathsWith(false, capabilities, [
+          'read:billing',
+          'read:publishable_keys',
+        ]),
+      ).toContain(keys);
+      expect(
+        integrationsPathsWith(false, capabilities, ['write:publishable_keys']),
+      ).toContain(keys);
+    });
+
+    it('are not listed while the scopes of the token are being read', () => {
+      expect(
+        integrationsPathsWith(
+          false,
+          billingCapabilitiesProfiles.stack(),
+          'unread',
+        ),
+      ).not.toContain(keys);
+    });
   });
 });
 

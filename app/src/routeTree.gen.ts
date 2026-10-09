@@ -32,6 +32,7 @@ import { Route as FeatureFlagsIndexRouteImport } from './routes/feature-flags/in
 import { Route as FeatureFlagsFeatureFlagSlugRouteRouteImport } from './routes/feature-flags/$featureFlagSlug/route'
 import { Route as IntegrationsIndexRouteImport } from './routes/integrations/index'
 import { Route as IntegrationsConnectorsRouteRouteImport } from './routes/integrations/connectors/route'
+import { Route as IntegrationsPublishableKeysRouteRouteImport } from './routes/integrations/publishable-keys/route'
 import { Route as IntegrationsServiceAccountsRouteRouteImport } from './routes/integrations/service-accounts/route'
 import { Route as IntegrationsWebhooksRouteRouteImport } from './routes/integrations/webhooks/route'
 import { Route as LicensesIndexRouteImport } from './routes/licenses/index'
@@ -74,6 +75,7 @@ import { Route as FeatureFlagsFeatureFlagSlugVariantsRouteImport } from './route
 import { Route as FeatureFlagsNewIndexRouteImport } from './routes/feature-flags/new/index'
 import { Route as IntegrationsConnectorsIndexRouteImport } from './routes/integrations/connectors/index'
 import { Route as IntegrationsConnectorsConnectorIdRouteImport } from './routes/integrations/connectors/$connectorId'
+import { Route as IntegrationsPublishableKeysIndexRouteImport } from './routes/integrations/publishable-keys/index'
 import { Route as IntegrationsServiceAccountsIndexRouteImport } from './routes/integrations/service-accounts/index'
 import { Route as IntegrationsWebhooksIndexRouteImport } from './routes/integrations/webhooks/index'
 import { Route as IntegrationsWebhooksHistoryRouteImport } from './routes/integrations/webhooks/history'
@@ -97,6 +99,8 @@ import { Route as CustomersInstancesInstanceSlugBillingRouteRouteImport } from '
 import { Route as CustomersInstancesInstanceSlugEditRouteImport } from './routes/customers/instances/$instanceSlug/edit'
 import { Route as CustomersInstancesInstanceSlugEntitlementsRouteImport } from './routes/customers/instances/$instanceSlug/entitlements'
 import { Route as CustomersInstancesNewIndexRouteImport } from './routes/customers/instances/new/index'
+import { Route as IntegrationsPublishableKeysKeyIdEditRouteImport } from './routes/integrations/publishable-keys/$keyId/edit'
+import { Route as IntegrationsPublishableKeysNewIndexRouteImport } from './routes/integrations/publishable-keys/new/index'
 import { Route as IntegrationsServiceAccountsNewIndexRouteImport } from './routes/integrations/service-accounts/new/index'
 import { Route as LicensesVersionsLicenseSlugIndexRouteImport } from './routes/licenses/versions/$licenseSlug/index'
 import { Route as LicensesVersionsNewIndexRouteImport } from './routes/licenses/versions/new/index'
@@ -237,6 +241,12 @@ const IntegrationsConnectorsRouteRoute =
   IntegrationsConnectorsRouteRouteImport.update({
     id: '/integrations/connectors',
     path: '/integrations/connectors',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IntegrationsPublishableKeysRouteRoute =
+  IntegrationsPublishableKeysRouteRouteImport.update({
+    id: '/integrations/publishable-keys',
+    path: '/integrations/publishable-keys',
     getParentRoute: () => rootRouteImport,
   } as any)
 const IntegrationsServiceAccountsRouteRoute =
@@ -472,6 +482,12 @@ const IntegrationsConnectorsConnectorIdRoute =
     path: '/$connectorId',
     getParentRoute: () => IntegrationsConnectorsRouteRoute,
   } as any)
+const IntegrationsPublishableKeysIndexRoute =
+  IntegrationsPublishableKeysIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => IntegrationsPublishableKeysRouteRoute,
+  } as any)
 const IntegrationsServiceAccountsIndexRoute =
   IntegrationsServiceAccountsIndexRouteImport.update({
     id: '/',
@@ -603,6 +619,18 @@ const CustomersInstancesNewIndexRoute =
     id: '/new/',
     path: '/new/',
     getParentRoute: () => CustomersInstancesRouteRoute,
+  } as any)
+const IntegrationsPublishableKeysKeyIdEditRoute =
+  IntegrationsPublishableKeysKeyIdEditRouteImport.update({
+    id: '/$keyId/edit',
+    path: '/$keyId/edit',
+    getParentRoute: () => IntegrationsPublishableKeysRouteRoute,
+  } as any)
+const IntegrationsPublishableKeysNewIndexRoute =
+  IntegrationsPublishableKeysNewIndexRouteImport.update({
+    id: '/new/',
+    path: '/new/',
+    getParentRoute: () => IntegrationsPublishableKeysRouteRoute,
   } as any)
 const IntegrationsServiceAccountsNewIndexRoute =
   IntegrationsServiceAccountsNewIndexRouteImport.update({
@@ -755,6 +783,7 @@ export interface FileRoutesByFullPath {
   '/entitlements/$entitlementSlug': typeof EntitlementsEntitlementSlugRouteRouteWithChildren
   '/feature-flags/$featureFlagSlug': typeof FeatureFlagsFeatureFlagSlugRouteRouteWithChildren
   '/integrations/connectors': typeof IntegrationsConnectorsRouteRouteWithChildren
+  '/integrations/publishable-keys': typeof IntegrationsPublishableKeysRouteRouteWithChildren
   '/integrations/service-accounts': typeof IntegrationsServiceAccountsRouteRouteWithChildren
   '/integrations/webhooks': typeof IntegrationsWebhooksRouteRouteWithChildren
   '/licenses/$licenseSlug': typeof LicensesLicenseSlugRouteRouteWithChildren
@@ -811,6 +840,7 @@ export interface FileRoutesByFullPath {
   '/feature-flags/$featureFlagSlug/': typeof FeatureFlagsFeatureFlagSlugIndexRoute
   '/feature-flags/new/': typeof FeatureFlagsNewIndexRoute
   '/integrations/connectors/': typeof IntegrationsConnectorsIndexRoute
+  '/integrations/publishable-keys/': typeof IntegrationsPublishableKeysIndexRoute
   '/integrations/service-accounts/': typeof IntegrationsServiceAccountsIndexRoute
   '/integrations/webhooks/': typeof IntegrationsWebhooksIndexRoute
   '/licenses/$licenseSlug/': typeof LicensesLicenseSlugIndexRoute
@@ -825,6 +855,7 @@ export interface FileRoutesByFullPath {
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
   '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRoute
+  '/integrations/publishable-keys/$keyId/edit': typeof IntegrationsPublishableKeysKeyIdEditRoute
   '/releases/deployment-zone/$zoneSlug/peers': typeof ReleasesDeploymentZoneZoneSlugPeersRoute
   '/releases/deployment-zones/$zoneSlug/deploy': typeof ReleasesDeploymentZonesZoneSlugDeployRoute
   '/releases/deployment-zones/$zoneSlug/edit': typeof ReleasesDeploymentZonesZoneSlugEditRoute
@@ -832,6 +863,7 @@ export interface FileRoutesByFullPath {
   '/billing/invoices/$invoiceId/': typeof BillingInvoicesInvoiceIdIndexRoute
   '/customers/instances/$instanceSlug/': typeof CustomersInstancesInstanceSlugIndexRoute
   '/customers/instances/new/': typeof CustomersInstancesNewIndexRoute
+  '/integrations/publishable-keys/new/': typeof IntegrationsPublishableKeysNewIndexRoute
   '/integrations/service-accounts/new/': typeof IntegrationsServiceAccountsNewIndexRoute
   '/licenses/versions/$licenseSlug/': typeof LicensesVersionsLicenseSlugIndexRoute
   '/licenses/versions/new/': typeof LicensesVersionsNewIndexRoute
@@ -903,6 +935,7 @@ export interface FileRoutesByTo {
   '/feature-flags/$featureFlagSlug': typeof FeatureFlagsFeatureFlagSlugIndexRoute
   '/feature-flags/new': typeof FeatureFlagsNewIndexRoute
   '/integrations/connectors': typeof IntegrationsConnectorsIndexRoute
+  '/integrations/publishable-keys': typeof IntegrationsPublishableKeysIndexRoute
   '/integrations/service-accounts': typeof IntegrationsServiceAccountsIndexRoute
   '/integrations/webhooks': typeof IntegrationsWebhooksIndexRoute
   '/licenses/$licenseSlug': typeof LicensesLicenseSlugIndexRoute
@@ -916,6 +949,7 @@ export interface FileRoutesByTo {
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
   '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRoute
+  '/integrations/publishable-keys/$keyId/edit': typeof IntegrationsPublishableKeysKeyIdEditRoute
   '/releases/deployment-zone/$zoneSlug/peers': typeof ReleasesDeploymentZoneZoneSlugPeersRoute
   '/releases/deployment-zones/$zoneSlug/deploy': typeof ReleasesDeploymentZonesZoneSlugDeployRoute
   '/releases/deployment-zones/$zoneSlug/edit': typeof ReleasesDeploymentZonesZoneSlugEditRoute
@@ -923,6 +957,7 @@ export interface FileRoutesByTo {
   '/billing/invoices/$invoiceId': typeof BillingInvoicesInvoiceIdIndexRoute
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugIndexRoute
   '/customers/instances/new': typeof CustomersInstancesNewIndexRoute
+  '/integrations/publishable-keys/new': typeof IntegrationsPublishableKeysNewIndexRoute
   '/integrations/service-accounts/new': typeof IntegrationsServiceAccountsNewIndexRoute
   '/licenses/versions/$licenseSlug': typeof LicensesVersionsLicenseSlugIndexRoute
   '/licenses/versions/new': typeof LicensesVersionsNewIndexRoute
@@ -959,6 +994,7 @@ export interface FileRoutesById {
   '/entitlements/$entitlementSlug': typeof EntitlementsEntitlementSlugRouteRouteWithChildren
   '/feature-flags/$featureFlagSlug': typeof FeatureFlagsFeatureFlagSlugRouteRouteWithChildren
   '/integrations/connectors': typeof IntegrationsConnectorsRouteRouteWithChildren
+  '/integrations/publishable-keys': typeof IntegrationsPublishableKeysRouteRouteWithChildren
   '/integrations/service-accounts': typeof IntegrationsServiceAccountsRouteRouteWithChildren
   '/integrations/webhooks': typeof IntegrationsWebhooksRouteRouteWithChildren
   '/licenses/$licenseSlug': typeof LicensesLicenseSlugRouteRouteWithChildren
@@ -1015,6 +1051,7 @@ export interface FileRoutesById {
   '/feature-flags/$featureFlagSlug/': typeof FeatureFlagsFeatureFlagSlugIndexRoute
   '/feature-flags/new/': typeof FeatureFlagsNewIndexRoute
   '/integrations/connectors/': typeof IntegrationsConnectorsIndexRoute
+  '/integrations/publishable-keys/': typeof IntegrationsPublishableKeysIndexRoute
   '/integrations/service-accounts/': typeof IntegrationsServiceAccountsIndexRoute
   '/integrations/webhooks/': typeof IntegrationsWebhooksIndexRoute
   '/licenses/$licenseSlug/': typeof LicensesLicenseSlugIndexRoute
@@ -1029,6 +1066,7 @@ export interface FileRoutesById {
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
   '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRoute
+  '/integrations/publishable-keys/$keyId/edit': typeof IntegrationsPublishableKeysKeyIdEditRoute
   '/releases/deployment-zone/$zoneSlug/peers': typeof ReleasesDeploymentZoneZoneSlugPeersRoute
   '/releases/deployment-zones/$zoneSlug/deploy': typeof ReleasesDeploymentZonesZoneSlugDeployRoute
   '/releases/deployment-zones/$zoneSlug/edit': typeof ReleasesDeploymentZonesZoneSlugEditRoute
@@ -1036,6 +1074,7 @@ export interface FileRoutesById {
   '/billing/invoices/$invoiceId/': typeof BillingInvoicesInvoiceIdIndexRoute
   '/customers/instances/$instanceSlug/': typeof CustomersInstancesInstanceSlugIndexRoute
   '/customers/instances/new/': typeof CustomersInstancesNewIndexRoute
+  '/integrations/publishable-keys/new/': typeof IntegrationsPublishableKeysNewIndexRoute
   '/integrations/service-accounts/new/': typeof IntegrationsServiceAccountsNewIndexRoute
   '/licenses/versions/$licenseSlug/': typeof LicensesVersionsLicenseSlugIndexRoute
   '/licenses/versions/new/': typeof LicensesVersionsNewIndexRoute
@@ -1073,6 +1112,7 @@ export interface FileRouteTypes {
     | '/entitlements/$entitlementSlug'
     | '/feature-flags/$featureFlagSlug'
     | '/integrations/connectors'
+    | '/integrations/publishable-keys'
     | '/integrations/service-accounts'
     | '/integrations/webhooks'
     | '/licenses/$licenseSlug'
@@ -1129,6 +1169,7 @@ export interface FileRouteTypes {
     | '/feature-flags/$featureFlagSlug/'
     | '/feature-flags/new/'
     | '/integrations/connectors/'
+    | '/integrations/publishable-keys/'
     | '/integrations/service-accounts/'
     | '/integrations/webhooks/'
     | '/licenses/$licenseSlug/'
@@ -1143,6 +1184,7 @@ export interface FileRouteTypes {
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
     | '/customers/instances/$instanceSlug/entitlements'
+    | '/integrations/publishable-keys/$keyId/edit'
     | '/releases/deployment-zone/$zoneSlug/peers'
     | '/releases/deployment-zones/$zoneSlug/deploy'
     | '/releases/deployment-zones/$zoneSlug/edit'
@@ -1150,6 +1192,7 @@ export interface FileRouteTypes {
     | '/billing/invoices/$invoiceId/'
     | '/customers/instances/$instanceSlug/'
     | '/customers/instances/new/'
+    | '/integrations/publishable-keys/new/'
     | '/integrations/service-accounts/new/'
     | '/licenses/versions/$licenseSlug/'
     | '/licenses/versions/new/'
@@ -1221,6 +1264,7 @@ export interface FileRouteTypes {
     | '/feature-flags/$featureFlagSlug'
     | '/feature-flags/new'
     | '/integrations/connectors'
+    | '/integrations/publishable-keys'
     | '/integrations/service-accounts'
     | '/integrations/webhooks'
     | '/licenses/$licenseSlug'
@@ -1234,6 +1278,7 @@ export interface FileRouteTypes {
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
     | '/customers/instances/$instanceSlug/entitlements'
+    | '/integrations/publishable-keys/$keyId/edit'
     | '/releases/deployment-zone/$zoneSlug/peers'
     | '/releases/deployment-zones/$zoneSlug/deploy'
     | '/releases/deployment-zones/$zoneSlug/edit'
@@ -1241,6 +1286,7 @@ export interface FileRouteTypes {
     | '/billing/invoices/$invoiceId'
     | '/customers/instances/$instanceSlug'
     | '/customers/instances/new'
+    | '/integrations/publishable-keys/new'
     | '/integrations/service-accounts/new'
     | '/licenses/versions/$licenseSlug'
     | '/licenses/versions/new'
@@ -1276,6 +1322,7 @@ export interface FileRouteTypes {
     | '/entitlements/$entitlementSlug'
     | '/feature-flags/$featureFlagSlug'
     | '/integrations/connectors'
+    | '/integrations/publishable-keys'
     | '/integrations/service-accounts'
     | '/integrations/webhooks'
     | '/licenses/$licenseSlug'
@@ -1332,6 +1379,7 @@ export interface FileRouteTypes {
     | '/feature-flags/$featureFlagSlug/'
     | '/feature-flags/new/'
     | '/integrations/connectors/'
+    | '/integrations/publishable-keys/'
     | '/integrations/service-accounts/'
     | '/integrations/webhooks/'
     | '/licenses/$licenseSlug/'
@@ -1346,6 +1394,7 @@ export interface FileRouteTypes {
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
     | '/customers/instances/$instanceSlug/entitlements'
+    | '/integrations/publishable-keys/$keyId/edit'
     | '/releases/deployment-zone/$zoneSlug/peers'
     | '/releases/deployment-zones/$zoneSlug/deploy'
     | '/releases/deployment-zones/$zoneSlug/edit'
@@ -1353,6 +1402,7 @@ export interface FileRouteTypes {
     | '/billing/invoices/$invoiceId/'
     | '/customers/instances/$instanceSlug/'
     | '/customers/instances/new/'
+    | '/integrations/publishable-keys/new/'
     | '/integrations/service-accounts/new/'
     | '/licenses/versions/$licenseSlug/'
     | '/licenses/versions/new/'
@@ -1385,6 +1435,7 @@ export interface RootRouteChildren {
   SignUpRoute: typeof SignUpRoute
   FeatureFlagsFeatureFlagSlugRouteRoute: typeof FeatureFlagsFeatureFlagSlugRouteRouteWithChildren
   IntegrationsConnectorsRouteRoute: typeof IntegrationsConnectorsRouteRouteWithChildren
+  IntegrationsPublishableKeysRouteRoute: typeof IntegrationsPublishableKeysRouteRouteWithChildren
   IntegrationsServiceAccountsRouteRoute: typeof IntegrationsServiceAccountsRouteRouteWithChildren
   IntegrationsWebhooksRouteRoute: typeof IntegrationsWebhooksRouteRouteWithChildren
   LicensesLicenseSlugRouteRoute: typeof LicensesLicenseSlugRouteRouteWithChildren
@@ -1566,6 +1617,13 @@ declare module '@tanstack/react-router' {
       path: '/integrations/connectors'
       fullPath: '/integrations/connectors'
       preLoaderRoute: typeof IntegrationsConnectorsRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/publishable-keys': {
+      id: '/integrations/publishable-keys'
+      path: '/integrations/publishable-keys'
+      fullPath: '/integrations/publishable-keys'
+      preLoaderRoute: typeof IntegrationsPublishableKeysRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/integrations/service-accounts': {
@@ -1862,6 +1920,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntegrationsConnectorsConnectorIdRouteImport
       parentRoute: typeof IntegrationsConnectorsRouteRoute
     }
+    '/integrations/publishable-keys/': {
+      id: '/integrations/publishable-keys/'
+      path: '/'
+      fullPath: '/integrations/publishable-keys/'
+      preLoaderRoute: typeof IntegrationsPublishableKeysIndexRouteImport
+      parentRoute: typeof IntegrationsPublishableKeysRouteRoute
+    }
     '/integrations/service-accounts/': {
       id: '/integrations/service-accounts/'
       path: '/'
@@ -2022,6 +2087,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/customers/instances/new/'
       preLoaderRoute: typeof CustomersInstancesNewIndexRouteImport
       parentRoute: typeof CustomersInstancesRouteRoute
+    }
+    '/integrations/publishable-keys/$keyId/edit': {
+      id: '/integrations/publishable-keys/$keyId/edit'
+      path: '/$keyId/edit'
+      fullPath: '/integrations/publishable-keys/$keyId/edit'
+      preLoaderRoute: typeof IntegrationsPublishableKeysKeyIdEditRouteImport
+      parentRoute: typeof IntegrationsPublishableKeysRouteRoute
+    }
+    '/integrations/publishable-keys/new/': {
+      id: '/integrations/publishable-keys/new/'
+      path: '/new'
+      fullPath: '/integrations/publishable-keys/new/'
+      preLoaderRoute: typeof IntegrationsPublishableKeysNewIndexRouteImport
+      parentRoute: typeof IntegrationsPublishableKeysRouteRoute
     }
     '/integrations/service-accounts/new/': {
       id: '/integrations/service-accounts/new/'
@@ -2600,6 +2679,27 @@ const IntegrationsConnectorsRouteRouteWithChildren =
     IntegrationsConnectorsRouteRouteChildren,
   )
 
+interface IntegrationsPublishableKeysRouteRouteChildren {
+  IntegrationsPublishableKeysIndexRoute: typeof IntegrationsPublishableKeysIndexRoute
+  IntegrationsPublishableKeysKeyIdEditRoute: typeof IntegrationsPublishableKeysKeyIdEditRoute
+  IntegrationsPublishableKeysNewIndexRoute: typeof IntegrationsPublishableKeysNewIndexRoute
+}
+
+const IntegrationsPublishableKeysRouteRouteChildren: IntegrationsPublishableKeysRouteRouteChildren =
+  {
+    IntegrationsPublishableKeysIndexRoute:
+      IntegrationsPublishableKeysIndexRoute,
+    IntegrationsPublishableKeysKeyIdEditRoute:
+      IntegrationsPublishableKeysKeyIdEditRoute,
+    IntegrationsPublishableKeysNewIndexRoute:
+      IntegrationsPublishableKeysNewIndexRoute,
+  }
+
+const IntegrationsPublishableKeysRouteRouteWithChildren =
+  IntegrationsPublishableKeysRouteRoute._addFileChildren(
+    IntegrationsPublishableKeysRouteRouteChildren,
+  )
+
 interface IntegrationsServiceAccountsRouteRouteChildren {
   IntegrationsServiceAccountsIndexRoute: typeof IntegrationsServiceAccountsIndexRoute
   IntegrationsServiceAccountsNewIndexRoute: typeof IntegrationsServiceAccountsNewIndexRoute
@@ -2667,6 +2767,8 @@ const rootRouteChildren: RootRouteChildren = {
     FeatureFlagsFeatureFlagSlugRouteRouteWithChildren,
   IntegrationsConnectorsRouteRoute:
     IntegrationsConnectorsRouteRouteWithChildren,
+  IntegrationsPublishableKeysRouteRoute:
+    IntegrationsPublishableKeysRouteRouteWithChildren,
   IntegrationsServiceAccountsRouteRoute:
     IntegrationsServiceAccountsRouteRouteWithChildren,
   IntegrationsWebhooksRouteRoute: IntegrationsWebhooksRouteRouteWithChildren,

@@ -161,16 +161,19 @@ function IntegrationsMenuContent({
 }
 
 function IntegrationsMenuPreview({
+  billing,
   collapsed = false,
   pathname = '/integrations/webhooks',
   webhooksServed,
 }: {
+  billing?: BillingCapabilities;
   collapsed?: boolean;
   pathname?: string;
   webhooksServed?: boolean;
 }) {
   return (
     <SideNavStoryRouter
+      billing={billing}
       defaultOpen={!collapsed}
       initialEntry={pathname}
       routePath={pathname}
@@ -311,6 +314,28 @@ export const IntegrationsMenu: Story = {
       await canvas.findByRole('button', { name: /integrations/i }),
     ).toBeVisible();
     await expect(canvas.getByRole('link', { name: 'Webhooks' })).toBeVisible();
+  },
+};
+
+// Billing on, with the capabilities the API serves now (the public surface is reported off):
+// the publishable keys, which a web page reads the public catalogue with, are listed after
+// the connectors. Where billing is off the menu goes without them, as the stories above show.
+export const IntegrationsMenuWithBilling: Story = {
+  render: () => (
+    <IntegrationsMenuPreview
+      billing={billingCapabilitiesProfiles.stack()}
+      pathname="/integrations/publishable-keys"
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      await canvas.findByRole('link', { name: 'Publishable keys' }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole('link', { name: 'Connectors' }),
+    ).toBeVisible();
   },
 };
 

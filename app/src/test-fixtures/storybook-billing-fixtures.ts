@@ -107,3 +107,7 @@ export {
   buildRedemption,
   buildVoucher,
 } from '../../e2e/app/_support/fixtures';
+
+// The publishable keys of an organization, built as the mocks build them: never the key
+// itself, only its last four characters.
+export { buildPublishableKey } from '../../e2e/app/_support/fixtures';

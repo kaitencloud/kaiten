@@ -159,6 +159,32 @@ describe('billing actions', () => {
     expect(canPerformAction(U_SALES, 'addons.list')).toBe(false);
   });
 
+  it('gates the publishable keys on the scopes of their own: read lists them, write issues, edits and revokes', () => {
+    expect(getActionScopes('publishableKeys.list')).toEqual([
+      'read:publishable_keys',
+    ]);
+    for (const action of [
+      'publishableKeys.create',
+      'publishableKeys.update',
+      'publishableKeys.revoke',
+    ] as const) {
+      expect(getActionScopes(action), action).toEqual([
+        'write:publishable_keys',
+      ]);
+      expect(
+        canPerformAction(['read:publishable_keys'], action),
+        action,
+      ).toBe(false);
+      expect(
+        canPerformAction(['write:publishable_keys'], action),
+        action,
+      ).toBe(true);
+    }
+    // No other billing scope reaches them.
+    expect(canPerformAction(U_SALES, 'publishableKeys.list')).toBe(false);
+    expect(canPerformAction(U_READER, 'publishableKeys.list')).toBe(false);
+  });
+
   it('offers an administrator everything', () => {
     expect(actions.filter((action) => !canPerformAction(U_ADMIN, action))).toEqual(
       [],
