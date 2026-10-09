@@ -54,7 +54,9 @@ export function InvoiceActions({
   pushPhase = 'idle',
 }: InvoiceActionsProps) {
   const { capabilities } = useBillingCapabilities();
-  const { retryPush, sync } = useInvoiceMutations(invoice.id);
+  const { retryPush, sync } = useInvoiceMutations(invoice.id, {
+    onPushRequested,
+  });
   const [dialog, setDialog] = useState<OpenDialog>(null);
   // The instance the API said was deleted: by its slug, so that another invoice
   // of the same page is not taken for one whose instance is gone.
@@ -80,7 +82,7 @@ export function InvoiceActions({
     const path = { invoiceId: invoice.id };
 
     if (action === 'retryPush') {
-      retryPush.mutate({ path }, { onSuccess: onPushRequested });
+      retryPush.mutate({ path });
     } else if (action === 'sync') {
       sync.mutate({ path });
     } else {

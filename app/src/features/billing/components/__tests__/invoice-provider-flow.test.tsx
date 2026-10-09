@@ -250,24 +250,40 @@ describe('pushing an invoice again', () => {
     expect(toast.success).not.toHaveBeenCalled();
   });
 
-  it('tells a Stripe that cannot be reached, so that the person knows nothing was changed', async () => {
+  it('tells a Stripe that cannot be reached, so that the person knows nothing was changed, and asks again when told to', async () => {
+    let asked = 0;
     server.use(
-      handleRetryInvoicePush(() =>
-        refusal(503, {
-          code: 'RetryInvoicePush.ProviderUnavailable',
-          detail: 'the payment provider could not be reached',
-        }),
-      ),
+      handleRetryInvoicePush(() => {
+        asked += 1;
+
+        return asked === 1
+          ? refusal(503, {
+              code: 'RetryInvoicePush.ProviderUnavailable',
+              detail: 'the payment provider could not be reached',
+            })
+          : HttpResponse.json(stripe(), { status: 202 });
+      }),
     );
-    await renderActions(inReview());
+    const onPushRequested = vi.fn();
+    await renderActions(inReview(), { onPushRequested });
 
     await userEvent.click(await action('Finalize in Stripe'));
 
-    await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith(
-        'the payment provider could not be reached',
-      ),
-    );
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    const [message, options] = toast.error.mock.calls[0];
+    expect(message).toBe('the payment provider could not be reached');
+    expect(options).toMatchObject({
+      action: { label: 'Retry' },
+      description:
+        'The payment provider could not be reached. Nothing was changed.',
+    });
+    // Nothing was pushed, and the page was not told it was.
+    expect(onPushRequested).not.toHaveBeenCalled();
+
+    options.action.onClick();
+
+    await waitFor(() => expect(asked).toBe(2));
+    await waitFor(() => expect(onPushRequested).toHaveBeenCalledTimes(1));
   });
 });
 
@@ -307,6 +323,36 @@ describe('reading an invoice back from Stripe', () => {
       expect(toast.success).toHaveBeenCalledWith(
         'Invoice read from Stripe: it is paid',
       ),
+    );
+  });
+
+  it('tells a Stripe that cannot be reached with a way to read again, and leaves the invoice as it was', async () => {
+    let asked = 0;
+    server.use(
+      handleSyncInvoice(() => {
+        asked += 1;
+
+        return asked === 1
+          ? refusal(503, {
+              code: 'SyncInvoice.ProviderUnavailable',
+              detail: 'the payment provider could not be reached',
+            })
+          : HttpResponse.json(stripe());
+      }),
+    );
+    await renderActions(stripe());
+
+    await userEvent.click(await action('Read from Stripe'));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    const [, options] = toast.error.mock.calls[0];
+    expect(options.action.label).toBe('Retry');
+    expect(toast.success).not.toHaveBeenCalled();
+
+    options.action.onClick();
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('Invoice read from Stripe'),
     );
   });
 
@@ -355,23 +401,7 @@ describe('voiding an invoice that is paid in Stripe', () => {
       ],
     });
 
-  it('says why it was refused and offers to read the payment instead', async () => {
-    server.use(handleVoidInvoice(() => paidAtProvider()));
-    await renderActions(stripe());
-
-    await openVoid();
-
-    const notice = await screen.findByTestId('void-paid-at-provider');
-    expect(notice).toHaveTextContent('Stripe reports this invoice as paid');
-    expect(
-      await screen.findByText('the payment provider reports this invoice paid'),
-    ).toBeInTheDocument();
-    expect(
-      within(notice).getByRole('button', { name: 'Read it from Stripe' }),
-    ).toBeEnabled();
-  });
-
-  it('reads the invoice from Stripe, closes, and leaves the invoice paid', async () => {
+  it('reads the payment from Stripe at once, once, and leaves the invoice paid with no error said', async () => {
     const asked: string[] = [];
     server.use(
       handleVoidInvoice(() => paidAtProvider()),
@@ -384,17 +414,73 @@ describe('voiding an invoice that is paid in Stripe', () => {
       }),
     );
     await renderActions(stripe());
+
     await openVoid();
 
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(asked).toEqual(['inv-1']);
+    expect(toast.info).toHaveBeenCalledWith(
+      'Not voided: Stripe reports this invoice as paid.',
+    );
+    expect(toast.success).toHaveBeenCalledWith(
+      'Invoice read from Stripe: it is paid',
+    );
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('void-paid-at-provider')).toBeNull();
+  });
+
+  it('says nothing of a void when what it read is not a payment', async () => {
+    server.use(
+      handleVoidInvoice(() => paidAtProvider()),
+      handleSyncInvoice(() => HttpResponse.json(stripe())),
+    );
+    await renderActions(stripe());
+
+    await openVoid();
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(toast.info).not.toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith('Invoice read from Stripe');
+  });
+
+  it('stays with the refusal and a button when the payment could not be read, and reads again when asked', async () => {
+    let reads = 0;
+    server.use(
+      handleVoidInvoice(() => paidAtProvider()),
+      handleSyncInvoice(() => {
+        reads += 1;
+
+        return reads === 1
+          ? refusal(503, {
+              code: 'SyncInvoice.ProviderUnavailable',
+              detail: 'the payment provider could not be reached',
+            })
+          : HttpResponse.json(
+              stripe({ paidAt: '2027-03-05T00:00:00.000Z', status: 'PAID' }),
+            );
+      }),
+    );
+    await renderActions(stripe());
+
+    await openVoid();
+
+    const notice = await screen.findByTestId('void-paid-at-provider');
+    expect(notice).toHaveTextContent('Stripe reports this invoice as paid');
+    expect(
+      await screen.findByText('the payment provider reports this invoice paid'),
+    ).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith(
+      'the payment provider could not be reached',
+      expect.objectContaining({ action: expect.objectContaining({ label: 'Retry' }) }),
+    );
+    expect(toast.info).not.toHaveBeenCalled();
+
     await userEvent.click(
-      await within(await screen.findByTestId('void-paid-at-provider')).findByRole(
-        'button',
-        { name: 'Read it from Stripe' },
-      ),
+      within(notice).getByRole('button', { name: 'Read it from Stripe' }),
     );
 
-    await waitFor(() => expect(asked).toEqual(['inv-1']));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(reads).toBe(2);
     expect(toast.success).toHaveBeenCalledWith(
       'Invoice read from Stripe: it is paid',
     );

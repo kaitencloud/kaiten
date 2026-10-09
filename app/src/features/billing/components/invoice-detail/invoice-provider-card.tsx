@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Invoice, ProviderRecord } from '@/api-client';
 import { Badge } from '@/components/ui/badge';
@@ -36,8 +37,9 @@ const Code = ({ children }: { children: string }) => (
  * Where an invoice stands in Stripe, the payment provider that collects it: its
  * status there, its number and identifiers, when it was pushed and last read back, how
  * the amounts compare, and the pages Stripe hosts for it. Every field is the provider's
- * record as the API mirrors it; nothing is worked out here. An invoice nobody collects
- * through a provider has no such card: it is absent, not empty.
+ * record as the API mirrors it; nothing is worked out here. An invoice Stripe does not
+ * have yet says so, whether the push has not run or has not worked. An invoice nobody
+ * collects through a provider has no such card: it is absent, not empty.
  */
 export function InvoiceProviderCard({
   className,
@@ -50,6 +52,81 @@ export function InvoiceProviderCard({
 
   if (invoice.providerKind !== 'STRIPE') {
     return null;
+  }
+  // What the record says, field by field: a field the provider has not given is no row.
+  const rows: Array<{ key: string; label: string; value: ReactNode }> = [];
+  if (provider?.status) {
+    rows.push({
+      key: 'status',
+      label: t(`${base}.status`),
+      value: (
+        <Badge
+          data-provider-status={provider.status}
+          variant={
+            isKnownStatus(provider.status)
+              ? STATUS_TONES[provider.status]
+              : 'outline'
+          }
+        >
+          {isKnownStatus(provider.status)
+            ? t(`${base}.Status.${provider.status}`)
+            : provider.status}
+        </Badge>
+      ),
+    });
+  }
+  if (provider?.invoiceNumber) {
+    rows.push({
+      key: 'number',
+      label: t(`${base}.number`),
+      value: <Code>{provider.invoiceNumber}</Code>,
+    });
+  }
+  if (provider?.externalInvoiceId) {
+    rows.push({
+      key: 'externalInvoice',
+      label: t(`${base}.externalInvoice`),
+      value: <Code>{provider.externalInvoiceId}</Code>,
+    });
+  }
+  if (provider?.externalCustomerId) {
+    rows.push({
+      key: 'externalCustomer',
+      label: t(`${base}.externalCustomer`),
+      value: <Code>{provider.externalCustomerId}</Code>,
+    });
+  }
+  if (provider?.pushedAt) {
+    rows.push({
+      key: 'pushedAt',
+      label: t(`${base}.pushedAt`),
+      value: formatInstant(provider.pushedAt, language),
+    });
+  }
+  if (provider?.syncedAt) {
+    rows.push({
+      key: 'syncedAt',
+      label: t(`${base}.syncedAt`),
+      value: formatInstant(provider.syncedAt, language),
+    });
+  }
+  if (provider?.reconciliationStatus) {
+    rows.push({
+      key: 'amounts',
+      label: t(`${base}.amounts`),
+      value: (
+        <Badge
+          data-reconciliation={provider.reconciliationStatus}
+          variant={
+            provider.reconciliationStatus === 'MATCHED'
+              ? 'success'
+              : 'destructive'
+          }
+        >
+          {t(`${base}.Reconciliation.${provider.reconciliationStatus}`)}
+        </Badge>
+      ),
+    });
   }
 
   return (
@@ -65,78 +142,15 @@ export function InvoiceProviderCard({
           </DetailCard.Description>
         </DetailCard.Header>
         <DetailCard.Content>
-          {provider ? (
+          {rows.length > 0 ? (
             <DetailCard.Rows>
-              {provider.status ? (
-                <DetailCard.Row
-                  label={t(`${base}.status`)}
-                  value={
-                    <Badge
-                      data-provider-status={provider.status}
-                      variant={
-                        isKnownStatus(provider.status)
-                          ? STATUS_TONES[provider.status]
-                          : 'outline'
-                      }
-                    >
-                      {isKnownStatus(provider.status)
-                        ? t(`${base}.Status.${provider.status}`)
-                        : provider.status}
-                    </Badge>
-                  }
-                />
-              ) : null}
-              {provider.invoiceNumber ? (
-                <DetailCard.Row
-                  label={t(`${base}.number`)}
-                  value={<Code>{provider.invoiceNumber}</Code>}
-                />
-              ) : null}
-              {provider.externalInvoiceId ? (
-                <DetailCard.Row
-                  label={t(`${base}.externalInvoice`)}
-                  value={<Code>{provider.externalInvoiceId}</Code>}
-                />
-              ) : null}
-              {provider.externalCustomerId ? (
-                <DetailCard.Row
-                  label={t(`${base}.externalCustomer`)}
-                  value={<Code>{provider.externalCustomerId}</Code>}
-                />
-              ) : null}
-              {provider.pushedAt ? (
-                <DetailCard.Row
-                  label={t(`${base}.pushedAt`)}
-                  value={formatInstant(provider.pushedAt, language)}
-                />
-              ) : null}
-              {provider.syncedAt ? (
-                <DetailCard.Row
-                  label={t(`${base}.syncedAt`)}
-                  value={formatInstant(provider.syncedAt, language)}
-                />
-              ) : null}
-              {provider.reconciliationStatus ? (
-                <DetailCard.Row
-                  label={t(`${base}.amounts`)}
-                  value={
-                    <Badge
-                      data-reconciliation={provider.reconciliationStatus}
-                      variant={
-                        provider.reconciliationStatus === 'MATCHED'
-                          ? 'success'
-                          : 'destructive'
-                      }
-                    >
-                      {t(
-                        `${base}.Reconciliation.${provider.reconciliationStatus}`,
-                      )}
-                    </Badge>
-                  }
-                />
-              ) : null}
+              {rows.map(({ key, label, value }) => (
+                <DetailCard.Row key={key} label={label} value={value} />
+              ))}
             </DetailCard.Rows>
-          ) : (
+          ) : null}
+          {/* A record with no invoice in it is a push that has not run, or has not worked. */}
+          {provider?.externalInvoiceId ? null : (
             <p className="text-sm text-muted-foreground">
               {t(`${base}.notPushed`)}
             </p>

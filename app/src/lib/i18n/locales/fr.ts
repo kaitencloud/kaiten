@@ -4153,8 +4153,10 @@ export default {
             PaidAtProvider: {
               title: 'Stripe indique que cette facture est payée',
               description:
-                'Une facture payée ne peut pas être annulée. Kaiten n’a pas encore lu le paiement : lisez la facture dans Stripe, et elle apparaîtra comme payée.',
+                'Une facture payée ne peut pas être annulée. Kaiten n’a pas pu lire le paiement dans Stripe à l’instant : lisez de nouveau la facture, et elle apparaîtra comme payée.',
               sync: 'La lire dans Stripe',
+              notVoided:
+                'Facture non annulée : Stripe indique qu’elle est payée.',
             },
           },
           VoidThenRecompose: {

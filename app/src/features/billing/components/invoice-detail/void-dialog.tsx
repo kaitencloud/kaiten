@@ -1,6 +1,7 @@
 import { CloudDownload } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import type { Invoice } from '@/api-client';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -21,24 +22,46 @@ type VoidDialogProps = {
  * applies.
  *
  * The API never voids an invoice its customer has paid. When Stripe reports it paid
- * and Kaiten has not read the payment yet, the refusal says so, and the dialog offers
- * to read the invoice from Stripe instead: the invoice then reads as paid, and there
- * is nothing left to void.
+ * and Kaiten has not read the payment yet, the refusal says so, and the dialog reads the
+ * invoice from Stripe at once: the invoice then reads as paid, there is nothing left to
+ * void, and the dialog closes on a word that says why. Only when that read fails does the
+ * dialog stay, with the refusal and a button to read the invoice again.
  */
 export function VoidDialog({ invoice, onClose }: VoidDialogProps) {
   const { t } = useTranslation();
   const { sync, voidInvoice } = useInvoiceMutations(invoice.id);
   const [paidAtProvider, setPaidAtProvider] = useState(false);
+  const base = 'Pages.Billing.Invoices.Detail.Void.PaidAtProvider';
 
   async function submit(reason: string) {
+    const path = { invoiceId: invoice.id };
+    let refused: unknown;
+
     try {
       return await voidInvoice.mutateAsync({
         body: voidValuesToBody({ reason }),
-        path: { invoiceId: invoice.id },
+        path,
       });
     } catch (error) {
-      setPaidAtProvider(isPaidAtProviderRefusal(error));
-      throw error;
+      if (!isPaidAtProviderRefusal(error)) {
+        throw error;
+      }
+      refused = error;
+    }
+
+    // The customer paid at Stripe, so there is nothing to void: the payment is what
+    // Kaiten has not read yet, and reading it settles the invoice.
+    try {
+      const read = await sync.mutateAsync({ path });
+      if (read.status === 'PAID') {
+        toast.info(t(`${base}.notVoided`));
+      }
+
+      return read;
+    } catch {
+      // The read said why it failed, as a toast: the refusal stays, with a way to read again.
+      setPaidAtProvider(true);
+      throw refused;
     }
   }
 
@@ -60,15 +83,9 @@ export function VoidDialog({ invoice, onClose }: VoidDialogProps) {
       {paidAtProvider ? (
         <Alert data-testid="void-paid-at-provider">
           <CloudDownload />
-          <AlertTitle>
-            {t('Pages.Billing.Invoices.Detail.Void.PaidAtProvider.title')}
-          </AlertTitle>
+          <AlertTitle>{t(`${base}.title`)}</AlertTitle>
           <AlertDescription>
-            <p>
-              {t(
-                'Pages.Billing.Invoices.Detail.Void.PaidAtProvider.description',
-              )}
-            </p>
+            <p>{t(`${base}.description`)}</p>
             <Button
               disabled={sync.isPending}
               onClick={() =>
@@ -81,7 +98,7 @@ export function VoidDialog({ invoice, onClose }: VoidDialogProps) {
               type="button"
               variant="outline"
             >
-              {t('Pages.Billing.Invoices.Detail.Void.PaidAtProvider.sync')}
+              {t(`${base}.sync`)}
             </Button>
           </AlertDescription>
         </Alert>

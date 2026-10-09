@@ -140,6 +140,26 @@ describe('where an invoice stands in Stripe', () => {
     expect(screen.queryByTestId('invoice-provider-links')).toBeNull();
   });
 
+  it('says so as well, with what the record has, when the push is queued or failed and no invoice exists in Stripe', () => {
+    render(
+      <InvoiceProviderCard
+        invoice={stripeInvoice({
+          provider: {
+            externalCustomerId: 'cus_initech',
+            nextPushAt: '2027-03-01T00:12:00.000Z',
+            pushAttempts: 2,
+          },
+          status: 'PUSH_FAILED',
+        })}
+      />,
+    );
+
+    const card = screen.getByTestId('invoice-provider');
+    expect(card).toHaveTextContent('Stripe does not have this invoice yet.');
+    expect(card).toHaveTextContent('cus_initech');
+    expect(screen.queryByTestId('invoice-provider-links')).toBeNull();
+  });
+
   it('shows no card, no alert and no reconciliation for an invoice nobody collects through a provider', () => {
     const invoice = noopInvoice();
     render(

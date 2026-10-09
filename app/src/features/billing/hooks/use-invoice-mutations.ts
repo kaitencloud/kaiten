@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import type { Invoice } from '@/api-client';
 import {
   markInvoicePaidMutation,
   recomposeInvoiceMutation,
@@ -15,6 +16,14 @@ import {
   handleBillingProblem,
   invalidateInvoiceQueries,
 } from '@/domains/billing';
+
+/** How long a refusal that offers to ask again stays: long enough to be read, and acted on. */
+const REFUSAL_TOAST_MS = 15_000;
+
+type InvoiceMutationsOptions = {
+  /** Told of the invoice the API answered a request to push again with: the page starts watching it. */
+  onPushRequested?: (invoice: Invoice) => void;
+};
 
 /**
  * What a person does to one invoice: accept a held one as composed, rebuild it,
@@ -35,11 +44,18 @@ import {
  *
  * Pushing again does not push: the API puts the invoice back in the queue (202) and
  * answers with it, unless the provider holds it as a draft for a person, which it
- * finalizes at once. The page then watches for the result (`usePushWatch`). Reading
- * the invoice back from the provider (`sync`) is immediate, and a payment made there
- * shows as the invoice being paid.
+ * finalizes at once. The page then watches for the result (`usePushWatch`): it is told
+ * of the answer through `onPushRequested`. Reading the invoice back from the provider
+ * (`sync`) is immediate, and a payment made there shows as the invoice being paid.
+ *
+ * Neither has a dialog to show a refusal in, so it is a toast in the API's words. A
+ * provider that cannot be reached changed nothing: the toast says so and offers to ask
+ * again, and the invoice stays what it was.
  */
-export function useInvoiceMutations(invoiceId: string) {
+export function useInvoiceMutations(
+  invoiceId: string,
+  { onPushRequested }: InvoiceMutationsOptions = {},
+) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -105,16 +121,30 @@ export function useInvoiceMutations(invoiceId: string) {
   });
 
   // A push or a read that is refused has no dialog to show it in: it is said as a toast.
-  const tellRefusal = (error: unknown) => {
+  const tellRefusal = (error: unknown, retry: () => void) => {
     refreshOnConflict(error);
-    toast.error(
-      handleBillingProblem(error).detail ??
-        t('Features.Billing.Problems.generic'),
-    );
+    const problem = handleBillingProblem(error);
+    const detail = problem.detail ?? t('Features.Billing.Problems.generic');
+
+    if (problem.kind !== 'transient') {
+      toast.error(detail);
+
+      return;
+    }
+    toast.error(detail, {
+      action: { label: t('Common.retry'), onClick: retry },
+      description: t(
+        problem.providerUnavailable
+          ? 'Features.Billing.Problems.providerUnreachable'
+          : 'Features.Billing.Problems.transient',
+      ),
+      duration: REFUSAL_TOAST_MS,
+    });
   };
   const retryPush = useMutation({
     ...retryInvoicePushMutation(),
-    onError: tellRefusal,
+    onError: (error, variables) =>
+      tellRefusal(error, () => retryPush.mutate(variables)),
     onSuccess: async (invoice) => {
       await refresh();
       toast.success(
@@ -124,11 +154,13 @@ export function useInvoiceMutations(invoiceId: string) {
             : 'Pages.Billing.Invoices.Toasts.finalized',
         ),
       );
+      onPushRequested?.(invoice);
     },
   });
   const sync = useMutation({
     ...syncInvoiceMutation(),
-    onError: tellRefusal,
+    onError: (error, variables) =>
+      tellRefusal(error, () => sync.mutate(variables)),
     onSuccess: async (invoice) => {
       await refresh();
       toast.success(
