@@ -22,6 +22,7 @@ import {
 } from '@/api-client/@tanstack/react-query.gen';
 import { invalidateInstanceQueries } from '@/domains/customer-management';
 import { STRIPE_CONNECTOR_NAME } from '../logic/billing-providers';
+import { instancesBillingBaseQueryKey } from './instances-billing-query-options';
 
 /**
  * What a billing mutation refreshes. Billing data is read in several places (an
@@ -37,8 +38,9 @@ import { STRIPE_CONNECTOR_NAME } from '../logic/billing-providers';
  * An instance's subscription changed (subscribed, cancelled, reactivated, moved
  * to another plan, its terms or provider changed): its subscription, its upcoming
  * invoice, its invoices and the organization's list, the add-ons it holds, the
- * effective usage its entitlements show, and the instance itself, whose customer
- * and license are frozen while the subscription lives.
+ * effective usage its entitlements show, the Billing column of the lists of
+ * instances (one read for every instance, so every instance's), and the instance
+ * itself, whose customer and license are frozen while the subscription lives.
  */
 export async function invalidateInstanceBillingQueries(
   queryClient: QueryClient,
@@ -57,6 +59,7 @@ export async function invalidateInstanceBillingQueries(
       queryKey: listInstanceInvoicesQueryKey({ path }),
     }),
     queryClient.invalidateQueries({ queryKey: listInvoicesQueryKey() }),
+    queryClient.invalidateQueries({ queryKey: instancesBillingBaseQueryKey }),
     queryClient.invalidateQueries({
       queryKey: listInstanceAddonsQueryKey({ path }),
     }),
@@ -174,9 +177,11 @@ export async function invalidateInstanceAddonQueries(
  * An invoice changed (paid, written off, voided, recomposed, released from its
  * hold, acknowledged, pushed again, read back from its provider): its page when
  * `invoiceId` is given, the organization's list, the handoff queue, the lists of
- * every instance, since a recompose replaces an invoice by another, and the health
+ * every instance, since a recompose replaces an invoice by another, the health
  * of billing, whose counts (held, overdue, failed pushes, waiting for the
- * accounting system) are made of invoices.
+ * accounting system) are made of invoices, and the Billing column of the lists of
+ * instances: a subscription leaves PAST_DUE once nothing of it is overdue, which
+ * settling, voiding or writing off its last overdue invoice brings about.
  */
 export async function invalidateInvoiceQueries(
   queryClient: QueryClient,
@@ -194,6 +199,7 @@ export async function invalidateInvoiceQueries(
       queryKey: [{ _id: instanceInvoicesId }],
     }),
     queryClient.invalidateQueries({ queryKey: getBillingHealthQueryKey() }),
+    queryClient.invalidateQueries({ queryKey: instancesBillingBaseQueryKey }),
   ];
 
   if (invoiceId) {

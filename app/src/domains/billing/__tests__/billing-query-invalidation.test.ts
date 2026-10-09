@@ -33,6 +33,7 @@ import {
   invalidateInvoiceQueries,
   invalidateLicensePriceQueries,
   invalidateProviderSyncQueries,
+  instancesBillingBaseQueryKey,
   invalidateVoucherQueries,
   invoicesQueryOptions,
 } from '../queries';
@@ -83,6 +84,8 @@ describe('invalidateInstanceBillingQueries', () => {
       listVoucherRedemptionsQueryKey({ path: { voucherId: 'v-1' } }),
       getEntitlementsUsageMetricsQueryKey({ path }),
       getInstanceQueryKey({ path }),
+      // The Billing column of the lists is one read for every instance.
+      instancesBillingBaseQueryKey,
     ];
     const untouched = [
       getInstanceBillingQueryKey({ path: otherPath }),
@@ -146,6 +149,8 @@ describe('invalidateInvoiceQueries', () => {
       instanceCardInvoices,
       otherInstanceCardInvoices,
       getInvoiceQueryKey({ path: { invoiceId: 'inv-m1' } }),
+      // Settling the last overdue invoice takes a subscription out of PAST_DUE.
+      instancesBillingBaseQueryKey,
     ];
     const untouched = [
       getInvoiceQueryKey({ path: { invoiceId: 'inv-h1' } }),

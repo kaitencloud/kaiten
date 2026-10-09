@@ -16,6 +16,10 @@ export {
 } from './billing-capabilities';
 export { downloadInvoiceExport } from './download-invoice-export';
 export {
+  instancesBillingBaseQueryKey,
+  instancesBillingQueryOptions,
+} from './instances-billing-query-options';
+export {
   type InvoicesScope,
   invoicesQueryOptions,
 } from './invoices-query-options';

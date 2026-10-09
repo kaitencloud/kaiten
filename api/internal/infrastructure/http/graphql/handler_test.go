@@ -594,6 +594,7 @@ const consolePage = 200
 var legitimateVariables = map[string]map[string]any{
 	"console/GetInstancesWithRelations": {"limit": consolePage},
 	"console/GetCustomersWithInstances": {"limit": consolePage},
+	"console/GetInstancesBilling":       {"limit": consolePage},
 	heaviestClientQuery:                 {"limit": consolePage},
 	"console/MetadataFields":            {"limit": consolePage},
 	// The most the audit trail asks for, once "load more" has been pressed.
@@ -624,6 +625,15 @@ var legitimateQueries = map[string]string{
 			items {
 				slug name externalCustomerId domain integrations createdAt updatedAt
 				instances { slug name description license { type } }
+			}
+		}
+	}`,
+	"console/GetInstancesBilling": `query GetInstancesBilling($limit: Int, $cursor: String) {
+		instances(limit: $limit, cursor: $cursor) {
+			nextCursor hasMore
+			items {
+				slug
+				billing { status providerKind currentPeriodEnd cancelAtPeriodEnd pastDueSince trialEndsAt }
 			}
 		}
 	}`,

@@ -11,6 +11,8 @@ export {
   InvoiceKindCell,
   InvoiceTotalCell,
 } from './invoice-cells';
+export { InstanceBillingBadge } from './instance-billing-badge';
+export { InstanceBillingCell } from './instance-billing-cell';
 export { InvoiceLineTypeBadge } from './invoice-line-type-badge';
 export { InvoiceLinesTable } from './invoice-lines-table';
 export { InvoicePreviewDialog } from './invoice-preview-dialog';

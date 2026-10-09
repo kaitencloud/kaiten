@@ -167,6 +167,13 @@ export {
   type PriceAmountParts,
 } from './price-display';
 export {
+  type InstanceBillingEntry,
+  type InstanceBillingSummary,
+  type InstanceBillingSummaryInput,
+  toInstanceBillingEntries,
+  toInstanceBillingSummary,
+} from './instance-billing-summary';
+export {
   getSubscriptionActions,
   getSubscriptionStatusLabelKey,
   isSubscriptionLive,

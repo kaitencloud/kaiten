@@ -5,6 +5,7 @@ import { storyBillingProblem } from '@/test-fixtures/storybook-billing-fixtures'
 import {
   BillingNotFound,
   BillingUnavailable,
+  InstanceBillingBadge,
   InvoiceLineTypeBadge,
   InvoiceStatusBadge,
   MissingScopeBanner,
@@ -16,7 +17,9 @@ import {
 import {
   INVOICE_LINE_TYPES,
   INVOICE_STATUSES,
+  type InstanceBillingSummary,
   SUBSCRIPTION_STATUSES,
+  toInstanceBillingSummary,
 } from '../../logic';
 import type { BillingUnavailableReason } from '../../types';
 
@@ -188,6 +191,48 @@ export const Statuses: Story = {
     await expect(canvas.getByText('Cancels at period end')).toBeVisible();
     await expect(canvas.getByText('Overage')).toBeVisible();
     await expect(canvas.getByText('Other')).toBeVisible();
+  },
+};
+
+const summaryOf = (
+  status: string,
+  cancelAtPeriodEnd = false,
+): InstanceBillingSummary =>
+  toInstanceBillingSummary({
+    cancelAtPeriodEnd,
+    currentPeriodEnd: '2027-04-01T00:00:00.000Z',
+    pastDueSince: null,
+    providerKind: 'NOOP',
+    status,
+    trialEndsAt: null,
+  });
+
+// The Billing column of the lists of instances: the state of the subscription
+// read from the GraphQL API, whose enums are plain strings the console checks
+// before it shows them. A dash for an instance nobody subscribed, and a state
+// it does not know as it was written, neutral.
+export const InstanceListBadges: Story = {
+  render: () => (
+    <div className="flex flex-wrap items-center gap-2">
+      {SUBSCRIPTION_STATUSES.map((status) => (
+        <InstanceBillingBadge key={status} summary={summaryOf(status)} />
+      ))}
+      <InstanceBillingBadge summary={summaryOf('ACTIVE', true)} />
+      <InstanceBillingBadge summary={null} />
+      <InstanceBillingBadge summary={summaryOf('PAUSED')} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(await canvas.findByText('Trial')).toBeVisible();
+    await expect(canvas.getByText('Active')).toBeVisible();
+    await expect(canvas.getByText('Past due')).toBeVisible();
+    await expect(canvas.getByText('Canceled')).toBeVisible();
+    await expect(canvas.getByText('Cancels at period end')).toBeVisible();
+    await expect(canvas.getByText('Not subscribed')).toBeInTheDocument();
+    // A state the console does not know is shown as the API wrote it.
+    await expect(canvas.getByText('PAUSED')).toBeVisible();
   },
 };
 

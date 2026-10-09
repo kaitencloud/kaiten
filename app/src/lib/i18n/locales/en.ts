@@ -448,6 +448,7 @@ export default {
             license: 'License',
             type: 'Type',
             status: 'Status',
+            billing: 'Billing',
             lifecycle: 'Lifecycle',
             start: 'Start',
             end: 'End',
@@ -513,6 +514,7 @@ export default {
             crmSync: 'CRM Sync',
             license: 'License',
             status: 'Status',
+            billing: 'Billing',
             lifecycleStage: 'Lifecycle',
             metadata: 'Metadata',
             extraMetadata: 'Extra metadata',
@@ -5768,6 +5770,7 @@ export default {
         PAST_DUE: 'Past due',
         CANCELED: 'Canceled',
         cancellationScheduled: 'Cancels at period end',
+        none: 'Not subscribed',
       },
       SubscriptionActions: {
         Reasons: {

@@ -459,6 +459,7 @@ export default {
             license: 'Licence',
             type: 'Type',
             status: 'Statut',
+            billing: 'Facturation',
             lifecycle: 'Cycle de vie',
             start: 'Début',
             end: 'Fin',
@@ -525,6 +526,7 @@ export default {
             crmSync: 'Synchro CRM',
             license: 'Licence',
             status: 'Statut',
+            billing: 'Facturation',
             lifecycleStage: 'Cycle de vie',
             metadata: 'Métadonnées',
             extraMetadata: 'Métadonnées hors schema',
@@ -5861,6 +5863,7 @@ export default {
         PAST_DUE: 'En retard de paiement',
         CANCELED: 'Annulé',
         cancellationScheduled: 'Annulation en fin de période',
+        none: 'Pas d’abonnement',
       },
       SubscriptionActions: {
         Reasons: {
