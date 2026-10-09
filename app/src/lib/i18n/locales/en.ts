@@ -1321,6 +1321,27 @@ export default {
                 'Visual overview of entitlement consumption for this instance',
               currentWindow: 'Current window: {{start}} → {{end}}',
             },
+            provenance: {
+              title: 'How this limit is composed',
+              trigger:
+                '{{limit}}: how the limit of {{entitlement}} is composed',
+              fromAddons: 'from add-ons',
+              unlimitedBy: 'Unlimited, granted by {{sources}}',
+              grantedBy: {
+                license: 'the license',
+                addon: 'an add-on',
+                voucher: 'a voucher',
+              },
+              terms: {
+                license: '{{amount}} license',
+                addon: '{{amount}} add-on',
+                addonReplace: '{{amount}} add-on (replaces the license)',
+                highest: 'max({{terms}})',
+                voucher: '{{amount}} voucher',
+                voucherSet:
+                  '{{amount}} voucher (replaces the license and the add-ons)',
+              },
+            },
             table: {
               title: 'All Entitlements',
               description:

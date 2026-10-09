@@ -1342,6 +1342,27 @@ export default {
                 'Vue visuelle de la consommation des droits pour cette instance',
               currentWindow: 'Fenêtre courante : {{start}} → {{end}}',
             },
+            provenance: {
+              title: 'Comment cette limite est composée',
+              trigger:
+                '{{limit}} : comment la limite de {{entitlement}} est composée',
+              fromAddons: 'via les add-ons',
+              unlimitedBy: 'Illimité, accordé par {{sources}}',
+              grantedBy: {
+                license: 'la licence',
+                addon: 'un add-on',
+                voucher: 'un code promo',
+              },
+              terms: {
+                license: '{{amount}} licence',
+                addon: '{{amount}} add-on',
+                addonReplace: '{{amount}} add-on (remplace la licence)',
+                highest: 'max({{terms}})',
+                voucher: '{{amount}} code promo',
+                voucherSet:
+                  '{{amount}} code promo (remplace la licence et les add-ons)',
+              },
+            },
             table: {
               title: 'Tous les droits',
               description:
