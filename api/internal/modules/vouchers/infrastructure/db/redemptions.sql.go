@@ -119,6 +119,70 @@ func (q *Queries) CustomerHasPaid(ctx context.Context, arg CustomerHasPaidParams
 	return paid, err
 }
 
+const expireRedemption = `-- name: ExpireRedemption :execrows
+UPDATE instance_voucher
+SET status     = 'EXPIRED',
+    expired_at = $1::timestamp,
+    updated_at = $1::timestamp
+WHERE organization_id = $2
+  AND id = $3
+  AND status = 'ACTIVE'
+  AND effective_expires_at <= $1::timestamp
+`
+
+type ExpireRedemptionParams struct {
+	Now            pgtype.Timestamp `json:"now"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	ID             uuid.UUID        `json:"id"`
+}
+
+func (q *Queries) ExpireRedemption(ctx context.Context, arg ExpireRedemptionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, expireRedemption, arg.Now, arg.OrganizationID, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const expireVoucher = `-- name: ExpireVoucher :one
+UPDATE voucher
+SET status        = 'EXPIRED',
+    updated_at    = $1::timestamp,
+    updated_by_id = $2::uuid
+WHERE organization_id = $3
+  AND id = $4
+  AND status = 'ACTIVE'
+  AND expires_at <= $1::timestamp
+RETURNING id, name, expires_at
+`
+
+type ExpireVoucherParams struct {
+	Now            pgtype.Timestamp `json:"now"`
+	UserID         uuid.UUID        `json:"user_id"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	ID             uuid.UUID        `json:"id"`
+}
+
+type ExpireVoucherRow struct {
+	ID        uuid.UUID        `json:"id"`
+	Name      string           `json:"name"`
+	ExpiresAt pgtype.Timestamp `json:"expires_at"`
+}
+
+// Marks a voucher EXPIRED if it still is ACTIVE and past its expires_at. No
+// row when another pass, or an edit of expiresAt, got there first.
+func (q *Queries) ExpireVoucher(ctx context.Context, arg ExpireVoucherParams) (ExpireVoucherRow, error) {
+	row := q.db.QueryRow(ctx, expireVoucher,
+		arg.Now,
+		arg.UserID,
+		arg.OrganizationID,
+		arg.ID,
+	)
+	var i ExpireVoucherRow
+	err := row.Scan(&i.ID, &i.Name, &i.ExpiresAt)
+	return i, err
+}
+
 const getInstanceForRedeem = `-- name: GetInstanceForRedeem :one
 SELECT i.id, i.slug, i.customer_id, i.license_id
 FROM instance i
@@ -222,6 +286,30 @@ func (q *Queries) GetRedeemSubscription(ctx context.Context, arg GetRedeemSubscr
 		&i.BaseAmount,
 	)
 	return i, err
+}
+
+const getVoucherSystemActor = `-- name: GetVoucherSystemActor :one
+SELECT u.id
+FROM "user" u
+JOIN user_on_organization m
+  ON m.user_id = u.id
+ AND m.organization_id = $1
+ AND m.deleted_at IS NULL
+WHERE u.external_id = $2
+`
+
+type GetVoucherSystemActorParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ExternalID     string    `json:"external_id"`
+}
+
+// system:kaiten's membership in an organization, which work Kaiten does on its
+// own behalf is recorded under.
+func (q *Queries) GetVoucherSystemActor(ctx context.Context, arg GetVoucherSystemActorParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getVoucherSystemActor, arg.OrganizationID, arg.ExternalID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const insertInstanceVoucher = `-- name: InsertInstanceVoucher :one
@@ -379,6 +467,89 @@ func (q *Queries) ListApplicableDiscounts(ctx context.Context, arg ListApplicabl
 			&i.DurationInPeriods,
 			&i.ApplicationsCount,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listExpiringRedemptions = `-- name: ListExpiringRedemptions :many
+SELECT iv.id, iv.organization_id
+FROM instance_voucher iv
+WHERE iv.status = 'ACTIVE'
+  AND iv.effective_expires_at <= $1::timestamp
+ORDER BY iv.effective_expires_at, iv.id
+LIMIT $2
+`
+
+type ListExpiringRedemptionsParams struct {
+	Now      pgtype.Timestamp `json:"now"`
+	PageSize int32            `json:"page_size"`
+}
+
+type ListExpiringRedemptionsRow struct {
+	ID             uuid.UUID `json:"id"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+}
+
+// ACTIVE redemptions past their effective_expires_at -- boosts whose window
+// ended -- oldest first (§11.5).
+func (q *Queries) ListExpiringRedemptions(ctx context.Context, arg ListExpiringRedemptionsParams) ([]ListExpiringRedemptionsRow, error) {
+	rows, err := q.db.Query(ctx, listExpiringRedemptions, arg.Now, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListExpiringRedemptionsRow
+	for rows.Next() {
+		var i ListExpiringRedemptionsRow
+		if err := rows.Scan(&i.ID, &i.OrganizationID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listExpiringVouchers = `-- name: ListExpiringVouchers :many
+SELECT v.id, v.organization_id
+FROM voucher v
+WHERE v.status = 'ACTIVE'
+  AND v.expires_at <= $1::timestamp
+ORDER BY v.expires_at, v.id
+LIMIT $2
+`
+
+type ListExpiringVouchersParams struct {
+	Now      pgtype.Timestamp `json:"now"`
+	PageSize int32            `json:"page_size"`
+}
+
+type ListExpiringVouchersRow struct {
+	ID             uuid.UUID `json:"id"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+}
+
+// ACTIVE vouchers past their expires_at, oldest first: what billing-lifecycle
+// marks EXPIRED (§11.5). Across organizations; each is expired in its own
+// transaction.
+func (q *Queries) ListExpiringVouchers(ctx context.Context, arg ListExpiringVouchersParams) ([]ListExpiringVouchersRow, error) {
+	rows, err := q.db.Query(ctx, listExpiringVouchers, arg.Now, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListExpiringVouchersRow
+	for rows.Next() {
+		var i ListExpiringVouchersRow
+		if err := rows.Scan(&i.ID, &i.OrganizationID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

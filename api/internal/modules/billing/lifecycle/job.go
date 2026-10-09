@@ -100,11 +100,23 @@ type daily interface {
 	Pass(ctx context.Context) (int, error)
 }
 
-func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize int, everyDay ...daily) *sweep.Job {
+// vouchers is the voucher bookkeeping of every pass (§16.2 (b)).
+type vouchers interface {
+	Pass(ctx context.Context, limit int) (int, error)
+}
+
+func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize int, expiry vouchers, everyDay ...daily) *sweep.Job {
 	return sweep.New("billing-lifecycle", pool, lockID, cfg, func(ctx context.Context, _ *pgxpool.Conn) error {
 		moved, err := overdue.Pass(ctx, batchSize)
 		if moved > 0 {
 			slog.InfoContext(ctx, "subscriptions moved in or out of PAST_DUE", "moved", moved)
+		}
+		if expiry != nil {
+			expired, expiryErr := expiry.Pass(ctx, batchSize)
+			if expired > 0 {
+				slog.InfoContext(ctx, "vouchers and redemptions expired", "count", expired)
+			}
+			err = errors.Join(err, expiryErr)
 		}
 		for _, work := range everyDay {
 			n, dailyErr := work.Pass(ctx)

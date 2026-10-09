@@ -2540,6 +2540,21 @@ components:
         - id
         - name
       type: object
+    ExpiredEvent:
+      additionalProperties: false
+      properties:
+        expiresAt:
+          format: date-time
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+      required:
+        - id
+        - name
+        - expiresAt
+      type: object
     ExtraDiscount:
       additionalProperties: false
       properties:
@@ -28706,7 +28721,7 @@ webhooks:
         - instances
   com.kaiten.instance.voucher.v1.expired:
     post:
-      description: Triggered when a PRICE redemption has discounted its last invoice.
+      description: Triggered when a PRICE redemption has discounted its last invoice, or a boost's window ends.
       operationId: onInstanceVoucherExpired
       requestBody:
         content:
@@ -29871,6 +29886,45 @@ webhooks:
         "200":
           description: Webhook processed successfully
       summary: Voucher Exhausted Webhook
+      tags:
+        - webhooks
+        - vouchers
+  com.kaiten.voucher.v1.expired:
+    post:
+      description: Triggered when an active voucher reaches its expiresAt and can no longer be redeemed.
+      operationId: onVoucherExpired
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/ExpiredEvent"
+                name:
+                  description: Event name
+                  enum:
+                    - VOUCHER_EXPIRED
+                  examples:
+                    - VOUCHER_EXPIRED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.voucher.v1.expired
+                  examples:
+                    - com.kaiten.voucher.v1.expired
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Voucher Expired Webhook
       tags:
         - webhooks
         - vouchers

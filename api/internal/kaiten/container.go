@@ -190,6 +190,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		Attacher:  addonModule.AttachInstanceAddon,
 		Redeemer:  voucherModule.RedeemVoucher,
 		Mover:     instanceModule.UpdateInstance,
+		Expiry:    voucherModule.Expiry,
 	})
 	customerModule := customers.NewUseCases(svc)
 

@@ -18,6 +18,13 @@ type VoucherRedeemer interface {
 	RedeemForSubscription(ctx context.Context, instanceSlug, code string) error
 }
 
+// VoucherExpiry marks vouchers and redemptions past their dates EXPIRED, up
+// to limit of each, for the billing-lifecycle job (§16.2 (b)). Implemented by
+// the vouchers module.
+type VoucherExpiry interface {
+	Pass(ctx context.Context, limit int) (int, error)
+}
+
 // InstanceVersionMover pins an instance to another licence version, inside the
 // caller's transaction, under the instance module's own rules. Implemented by
 // the instances module.

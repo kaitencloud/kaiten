@@ -8,6 +8,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/archivevoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/createvoucher"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/expiry"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/getvoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/listinstancevouchers"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/listvoucherredemptions"
@@ -33,6 +34,8 @@ type UseCases struct {
 	RedeemVoucher          *redeemvoucher.UseCase
 	ListInstanceVouchers   *listinstancevouchers.UseCase
 	RevokeInstanceVoucher  *revokeinstancevoucher.UseCase
+	// Expiry is the bookkeeping the billing-lifecycle job runs.
+	Expiry *expiry.Expiry
 }
 
 func NewUseCases(svc services.Container) *UseCases {
@@ -54,5 +57,6 @@ func NewUseCases(svc services.Container) *UseCases {
 		RedeemVoucher:          redeemvoucher.NewUseCase(deps),
 		ListInstanceVouchers:   listinstancevouchers.NewUseCase(deps),
 		RevokeInstanceVoucher:  revokeinstancevoucher.NewUseCase(deps),
+		Expiry:                 expiry.New(svc.Uof),
 	}
 }
