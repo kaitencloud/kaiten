@@ -59,7 +59,7 @@ export function VoucherWizardPage({ boostFor, draft }: VoucherWizardPageProps) {
     onDraftSaved: (saved) =>
       void navigate({
         params: { voucherId: saved.id },
-        to: '/vouchers/$voucherId',
+        to: '/catalog/vouchers/$voucherId',
       }),
     start,
   });

@@ -227,7 +227,7 @@ describe('the redemptions of an instance, led by the voucher', () => {
 
     expect(screen.getByRole('link', { name: /Tokens times two/ })).toHaveAttribute(
       'href',
-      '/vouchers/voucher-boost',
+      '/catalog/vouchers/voucher-boost',
     );
     unmount();
 

@@ -1557,6 +1557,9 @@ export default {
         },
       },
     },
+    Catalog: {
+      title: 'Catalogue',
+    },
     Licenses: {
       title: 'Licences',
       subtitle: 'Gérez les licences et les limites de droits',

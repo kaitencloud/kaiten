@@ -55,19 +55,19 @@ test('dev:mock answers every request of the billing screens of the instances, th
   await page.getByRole('option').first().click();
   await expect(page.getByTestId('attach-addon-details')).toBeVisible();
   // The catalogue of add-ons, and what a version grants, is sold for and fits.
-  await page.goto('/addons');
+  await page.goto('/catalog/addons');
   await expect(
     page.getByRole('heading', { name: 'Add-ons', level: 1 }),
   ).toBeVisible();
-  await page.goto('/addons/extra-seats/entitlements');
+  await page.goto('/catalog/addons/extra-seats/entitlements');
   await expect(
     page.getByRole('row').filter({ hasText: 'Seats' }),
   ).toBeVisible();
-  await page.goto('/addons/extra-seats/prices');
+  await page.goto('/catalog/addons/extra-seats/prices');
   await expect(
     page.getByRole('row').filter({ hasText: 'Extra seat, monthly' }),
   ).toBeVisible();
-  await page.goto('/addons/extra-seats/compatibility');
+  await page.goto('/catalog/addons/extra-seats/compatibility');
   await expect(
     page.getByRole('list', { name: 'License families' }),
   ).toBeVisible();
@@ -114,7 +114,7 @@ test('dev:mock answers every request of the vouchers, of what an instance redeem
   });
 
   // The catalogue of vouchers.
-  await page.goto('/vouchers');
+  await page.goto('/catalog/vouchers');
   await expect(
     page.getByRole('heading', { name: 'Vouchers', level: 1 }),
   ).toBeVisible();
@@ -123,14 +123,14 @@ test('dev:mock answers every request of the vouchers, of what an instance redeem
   ).toBeVisible();
   // A voucher with its code in the header, what it does in words and the instances that
   // redeemed it.
-  await page.goto('/vouchers/voucher-launch');
+  await page.goto('/catalog/vouchers/voucher-launch');
   await expect(page.getByTestId('voucher-code')).not.toBeEmpty();
   await expect(page.getByTestId('voucher-summary')).toBeVisible();
   await expect(
     page.getByRole('row').filter({ hasText: 'globex-staging' }),
   ).toBeVisible();
   // The wizard reads the entitlements a boost can change.
-  await page.goto('/vouchers/new');
+  await page.goto('/catalog/vouchers/new');
   await page.getByRole('button', { name: /^Boost/ }).click();
   await page.getByLabel(/^Name/).fill('More of everything');
   await page.getByRole('button', { name: /^Next/ }).click();
@@ -333,7 +333,7 @@ test('dev:mock answers the prices of the licenses in one document, for the list 
   });
 
   // How each family is sold: its fees and usage, free, or on request.
-  await page.goto('/licenses');
+  await page.goto('/catalog/licenses');
   const family = (name: string) =>
     page
       .locator('[data-slot="accordion-item"]')

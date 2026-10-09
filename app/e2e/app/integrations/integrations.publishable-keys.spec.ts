@@ -54,7 +54,7 @@ test.describe('the list of publishable keys', () => {
     await expect(keys.intro()).toContainText('GET /public/catalog');
     await expect(
       keys.intro().getByRole('link', { name: 'License families' }),
-    ).toHaveAttribute('href', '/licenses');
+    ).toHaveAttribute('href', '/catalog/licenses');
     // This release ships no add-ons on the stack's capabilities: no way to their switch.
     await expect(
       keys.intro().getByRole('link', { name: 'Add-on families' }),

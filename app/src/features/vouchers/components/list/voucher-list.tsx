@@ -61,7 +61,7 @@ export function VoucherList({ vouchers }: VoucherListProps) {
           {mayCreate ? (
             <GradientButton
               label={t('Pages.Vouchers.List.new')}
-              to="/vouchers/new"
+              to="/catalog/vouchers/new"
             />
           ) : null}
         </ListEmptyState>
@@ -78,7 +78,7 @@ export function VoucherList({ vouchers }: VoucherListProps) {
             <FilterTableLayout.Actions>
               <GradientButton
                 label={t('Pages.Vouchers.List.new')}
-                to="/vouchers/new"
+                to="/catalog/vouchers/new"
               />
             </FilterTableLayout.Actions>
           ) : null}

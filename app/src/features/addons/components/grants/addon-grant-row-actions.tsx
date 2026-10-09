@@ -124,7 +124,7 @@ export function AddonGrantRowActions(props: AddonGrantRowActionsProps) {
             <Link
               params={{ addonSlug }}
               search={{ grant: grant.entitlementSlug }}
-              to="/addons/$addonSlug/entitlements"
+              to="/catalog/addons/$addonSlug/entitlements"
             >
               <Pencil className="size-3" />
               {t('Pages.Addons.Grants.Actions.edit')}

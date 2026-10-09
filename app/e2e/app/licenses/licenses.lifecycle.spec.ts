@@ -22,7 +22,7 @@ test('publishes a draft version from the versions table', async ({ page }) => {
   await expectToast(page, 'Version published');
   await list.expectVersionState('Starter', 'Next', 'Published');
   // The action is not a click on the row, which would open the version.
-  await expect(page).toHaveURL('/licenses');
+  await expect(page).toHaveURL('/catalog/licenses');
 });
 
 test('changes nothing when the confirmation is cancelled', async ({ page }) => {

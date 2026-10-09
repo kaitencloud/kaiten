@@ -28,9 +28,9 @@ test.describe('the entry of the navigation', () => {
     await nav.open();
 
     await nav.expectEntries(['Invoices', 'Add-ons', 'Vouchers']);
-    await expect(nav.entry('Vouchers')).toHaveAttribute('href', '/vouchers');
+    await expect(nav.entry('Vouchers')).toHaveAttribute('href', '/catalog/vouchers');
     await nav.entry('Vouchers').click();
-    await expect(page).toHaveURL('/vouchers');
+    await expect(page).toHaveURL('/catalog/vouchers');
     await list.expectLoaded();
     // On a page of the section, the section stays open.
     await expect(nav.section()).toHaveAttribute('aria-expanded', 'true');
@@ -40,7 +40,7 @@ test.describe('the entry of the navigation', () => {
     const nav = new BillingNavDriver(page);
     await installVouchersWorld(page);
 
-    await page.goto('/vouchers/voucher-welcome');
+    await page.goto('/catalog/vouchers/voucher-welcome');
 
     await expect(nav.section()).toHaveAttribute('aria-expanded', 'true');
     await expect(nav.entry('Vouchers')).toHaveAttribute('aria-current', 'page');
@@ -83,10 +83,10 @@ test.describe('the entry of the navigation', () => {
 
 test.describe('where the release ships no vouchers', () => {
   for (const path of [
-    '/vouchers',
-    '/vouchers/new',
-    '/vouchers/voucher-welcome',
-    '/vouchers/voucher-draft/edit',
+    '/catalog/vouchers',
+    '/catalog/vouchers/new',
+    '/catalog/vouchers/voucher-welcome',
+    '/catalog/vouchers/voucher-draft/edit',
   ]) {
     test(`explains on ${path}, in place of the screen`, async ({ page }) => {
       const nav = new BillingNavDriver(page);
@@ -115,7 +115,7 @@ test.describe('where the release ships no vouchers', () => {
     });
     await installVouchersWorld(page, createVouchersNotShippedBillingModel());
 
-    await page.goto('/vouchers/voucher-welcome');
+    await page.goto('/catalog/vouchers/voucher-welcome');
     await nav.expectUnavailable('FEATURE_UNAVAILABLE');
 
     expect(requests).toEqual([]);
@@ -158,7 +158,7 @@ test.describe('a voucher the API refuses to give', () => {
     });
     await installVouchersWorld(page, model);
 
-    await page.goto('/vouchers/voucher-welcome');
+    await page.goto('/catalog/vouchers/voucher-welcome');
 
     const error = page.getByTestId('billing-route-error');
     await expect(error).toContainText(
@@ -179,7 +179,7 @@ test.describe('a voucher the API refuses to give', () => {
     });
     await installVouchersWorld(page, model);
 
-    await page.goto('/vouchers/new?boostFor=voucher-welcome');
+    await page.goto('/catalog/vouchers/new?boostFor=voucher-welcome');
 
     await expect(page.getByTestId('billing-route-error')).toContainText(
       'The scope read:vouchers is needed to read a voucher',
@@ -229,7 +229,7 @@ test.describe('a session that may only read the vouchers', () => {
   }) => {
     const detail = new VoucherDetailDriver(page);
 
-    await page.goto('/vouchers/voucher-welcome?mode=configure');
+    await page.goto('/catalog/vouchers/voucher-welcome?mode=configure');
     await detail.expectLoaded('Welcome spring');
 
     await expect(detail.dialog()).toHaveCount(0);

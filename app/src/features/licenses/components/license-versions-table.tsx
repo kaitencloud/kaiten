@@ -16,7 +16,7 @@ export const LicenseVersionsTable = ({
   const getLicensePath = (license: LicenseWithInstances) =>
     license.slug
       ? router.buildLocation({
-          to: '/licenses/$licenseSlug',
+          to: '/catalog/licenses/$licenseSlug',
           params: { licenseSlug: license.slug },
         }).pathname
       : undefined;

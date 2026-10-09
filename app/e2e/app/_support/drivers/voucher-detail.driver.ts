@@ -10,7 +10,7 @@ export class VoucherDetailDriver {
   constructor(private readonly page: Page) {}
 
   async goto(voucherId: string, title: string) {
-    await this.page.goto(`/vouchers/${voucherId}`);
+    await this.page.goto(`/catalog/vouchers/${voucherId}`);
     await this.expectLoaded(title);
   }
 

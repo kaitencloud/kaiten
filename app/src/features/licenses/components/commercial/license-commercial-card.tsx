@@ -78,7 +78,7 @@ export function LicenseCommercialCard({ license }: LicenseCommercialCardProps) {
                 <Link
                   params={{ licenseSlug: license.slug }}
                   search={{ mode: 'configure' }}
-                  to="/licenses/$licenseSlug"
+                  to="/catalog/licenses/$licenseSlug"
                 >
                   <Pencil className="size-3" />
                   {t('Common.edit')}

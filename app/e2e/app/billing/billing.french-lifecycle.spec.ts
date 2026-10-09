@@ -279,7 +279,7 @@ test.describe('the public catalogue of the licenses, read in French', () => {
     await installLicenseAppMocks(page, createLifecycleLicensesModel());
     await installBillingAppMocks(page, createLifecycleBillingModel());
 
-    await page.goto('/licenses');
+    await page.goto('/catalog/licenses');
     await expect(
       page.getByRole('switch', {
         name: 'Lister Enterprise dans le catalogue public',

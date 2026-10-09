@@ -47,7 +47,7 @@ export function LicenseDetailPage({
       label: t('Pages.Licenses.Detail.Tabs.overview'),
       params,
       search,
-      to: '/licenses/$licenseSlug',
+      to: '/catalog/licenses/$licenseSlug',
       value: 'overview',
     },
     ...(hasBilling
@@ -56,7 +56,7 @@ export function LicenseDetailPage({
             label: t('Pages.Licenses.Prices.title'),
             params,
             search,
-            to: '/licenses/$licenseSlug/prices',
+            to: '/catalog/licenses/$licenseSlug/prices',
             value: 'prices',
           },
         ]

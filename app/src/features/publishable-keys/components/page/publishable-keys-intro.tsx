@@ -35,14 +35,14 @@ export function PublishableKeysIntro() {
           <ul className="flex flex-wrap gap-x-4 gap-y-1">
             {mayOpenLicenses ? (
               <li>
-                <Link className={linkClassName} to="/licenses">
+                <Link className={linkClassName} to="/catalog/licenses">
                   {t('Pages.Integrations.PublishableKeys.Intro.licenses')}
                 </Link>
               </li>
             ) : null}
             {mayOpenAddons ? (
               <li>
-                <Link className={linkClassName} to="/addons">
+                <Link className={linkClassName} to="/catalog/addons">
                   {t('Pages.Integrations.PublishableKeys.Intro.addons')}
                 </Link>
               </li>

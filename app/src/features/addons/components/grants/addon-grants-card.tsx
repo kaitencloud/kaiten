@@ -52,7 +52,7 @@ export function AddonGrantsCard({ grants, onFrozen }: AddonGrantsCardProps) {
                 <Link
                   params={{ addonSlug: addon.slug }}
                   search={{ grant: 'new' }}
-                  to="/addons/$addonSlug/entitlements"
+                  to="/catalog/addons/$addonSlug/entitlements"
                 >
                   <Plus className="size-4" />
                   {t('Pages.Addons.Grants.Actions.add')}

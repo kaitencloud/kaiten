@@ -13,7 +13,7 @@ export class AddonsListDriver {
   constructor(private readonly page: Page) {}
 
   async goto() {
-    await this.page.goto('/addons');
+    await this.page.goto('/catalog/addons');
     await this.expectLoaded();
   }
 

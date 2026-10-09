@@ -126,7 +126,7 @@ describe('the catalogue of add-ons', () => {
     renderList();
 
     expect(await screen.findByTestId('addons-empty')).toHaveTextContent('No add-on yet');
-    expect(await within(screen.getByTestId('addons-empty')).findByRole('link', { name: 'New add-on' })).toHaveAttribute('href', '/addons/new');
+    expect(await within(screen.getByTestId('addons-empty')).findByRole('link', { name: 'New add-on' })).toHaveAttribute('href', '/catalog/addons/new');
   });
 
   it('offers a new add-on and a new version to a session that may write, and neither to one that may not', async () => {

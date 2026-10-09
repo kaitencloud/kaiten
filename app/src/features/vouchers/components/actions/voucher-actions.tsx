@@ -34,7 +34,7 @@ export function VoucherActions({ voucher }: VoucherActionsProps) {
             <Link
               data-voucher-edit
               params={{ voucherId: voucher.id }}
-              to="/vouchers/$voucherId/edit"
+              to="/catalog/vouchers/$voucherId/edit"
             >
               <Pencil className="size-3" />
               {t('Common.edit')}
@@ -72,7 +72,7 @@ export function VoucherActions({ voucher }: VoucherActionsProps) {
         <Button
           nativeButton={false}
           render={
-            <Link search={{ boostFor: voucher.id }} to="/vouchers/new">
+            <Link search={{ boostFor: voucher.id }} to="/catalog/vouchers/new">
               <Plus className="size-3" />
               {t('Pages.Vouchers.Actions.addBoost')}
             </Link>

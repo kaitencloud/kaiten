@@ -32,7 +32,10 @@ export function VersionStateNote({ addon, messages }: VersionStateNoteProps) {
           <Button
             nativeButton={false}
             render={
-              <Link search={{ family: addon.familySlug }} to="/addons/new">
+              <Link
+                search={{ family: addon.familySlug }}
+                to="/catalog/addons/new"
+              >
                 <CirclePlus className="size-4" />
                 {t('Pages.Addons.List.newVersionButton')}
               </Link>

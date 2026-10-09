@@ -230,7 +230,7 @@ describe('PriceTable', () => {
       const link = within(rowOf('Pro, monthly')).getByRole('link', {
         name: 'Edit Pro, monthly',
       });
-      expect(link).toHaveAttribute('href', '/licenses/pro-v2/prices?price=p-base');
+      expect(link).toHaveAttribute('href', '/catalog/licenses/pro-v2/prices?price=p-base');
     });
 
     it('offers neither edit nor deprecation on an archived version, but the deprecation of an active price', () => {

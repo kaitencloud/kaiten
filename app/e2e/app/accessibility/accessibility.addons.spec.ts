@@ -58,7 +58,7 @@ test.describe('accessibility of the catalogue of add-ons', () => {
   test('the dialog that makes an add-on is accessible', async ({ page }) => {
     const form = new AddonFormDriver(page);
 
-    await page.goto('/addons/new');
+    await page.goto('/catalog/addons/new');
     await form.expectOpen('New add-on');
     // The error shows on the field once it was typed in and emptied, and the focus stays inside.
     await form.nameField().fill('x');

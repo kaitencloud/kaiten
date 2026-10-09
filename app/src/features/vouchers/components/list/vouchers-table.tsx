@@ -167,7 +167,7 @@ export function VouchersTable({
   const getPath = (voucher: Voucher) =>
     router.buildLocation({
       params: { voucherId: voucher.id },
-      to: '/vouchers/$voucherId',
+      to: '/catalog/vouchers/$voucherId',
     }).pathname;
 
   return (

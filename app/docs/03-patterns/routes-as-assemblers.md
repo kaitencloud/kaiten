@@ -41,7 +41,7 @@ Without the preload, the data would load when the component renders, which means
 ### A list
 
 ```tsx
-// app/src/routes/licenses/index.tsx
+// app/src/routes/catalog/licenses/index.tsx
 import { createFileRoute } from '@tanstack/react-router';
 import {
   LicensesPageContent,
@@ -49,7 +49,7 @@ import {
   licensesWithInstancesQueryOptions,
 } from '@/features/licenses';
 
-export const Route = createFileRoute('/licenses/')({
+export const Route = createFileRoute('/catalog/licenses/')({
   component: LicensesPageContent,
   loader: ({ context }) => {
     return Promise.all([
@@ -65,8 +65,8 @@ The route preloads two queries in parallel. The page component reads them itself
 ### A detail page: `beforeLoad` and several queries
 
 ```tsx
-// app/src/routes/licenses/$licenseSlug/route.tsx (abridged)
-export const Route = createFileRoute('/licenses/$licenseSlug')({
+// app/src/routes/catalog/licenses/$licenseSlug/route.tsx (abridged)
+export const Route = createFileRoute('/catalog/licenses/$licenseSlug')({
   component: LicenseDetailRouteLayout,
   validateSearch: (search) => licenseDetailSearchSchema.parse(search),
   beforeLoad: async ({ context, params: { licenseSlug } }) => {
@@ -100,8 +100,8 @@ function LicenseDetailRouteLayout() {
 ```
 
 ```tsx
-// app/src/routes/licenses/$licenseSlug/index.tsx: the Overview tab loads its own queries
-export const Route = createFileRoute('/licenses/$licenseSlug/')({
+// app/src/routes/catalog/licenses/$licenseSlug/index.tsx: the Overview tab loads its own queries
+export const Route = createFileRoute('/catalog/licenses/$licenseSlug/')({
   component: LicenseOverviewRoute,
   loader: async ({ context, params: { licenseSlug } }) => {
     await Promise.all([
@@ -116,7 +116,7 @@ export const Route = createFileRoute('/licenses/$licenseSlug/')({
 
 `beforeLoad` runs before the loader and gives the breadcrumb its title; its `ensureQueryData` fills the cache, so the loader's call returns at once and the component reads the same query with `useSuspenseQuery`. The layout loads the version, which its title and its tabs need, and passes the search parameters it declares to the page as props. Each tab loads what it shows itself, in parallel with the code splitting of its component: a tab whose data the session may not read, or that exists only where billing does, never blanks the page around it.
 
-A loader that only warms a query the page reads without suspending, because the page has the states for it (a skeleton, the refusal with a Retry, an empty state), calls `prefetchQuery` or `prefetchInfiniteQuery` instead of `ensureQueryData`: a prefetch never throws, so a refusal does not replace the page by the error component of the route. The page shows it, with the screen around it intact. The reports behind an invoice line, in `app/src/routes/billing/`, do it, and their query options set `retryOnMount: false` so that the page shows the refusal the loader met instead of asking once more behind it. A record the page cannot show without (an invoice) is still `ensureQueryData`, and a refusal of it is the `errorComponent` of the route.
+A loader that only warms a query the page reads without suspending, because the page has the states for it (a skeleton, the refusal with a Retry, an empty state), calls `prefetchQuery` or `prefetchInfiniteQuery` instead of `ensureQueryData`: a prefetch never throws, so a refusal does not replace the page by the error component of the route. The page shows it, with the screen around it intact. The reports behind an invoice line, in `app/src/routes/invoices/`, do it, and their query options set `retryOnMount: false` so that the page shows the refusal the loader met instead of asking once more behind it. A record the page cannot show without (an invoice) is still `ensureQueryData`, and a refusal of it is the `errorComponent` of the route.
 
 ### A detail page with tabs
 
@@ -221,6 +221,10 @@ The guard throws because a `beforeLoad` that returns lets the `beforeLoad` and t
 
 `requireBillingCapability` and `BillingNotFound` come from `@/domains/billing`, and the guard fails closed: see [billing](../../src/domains/billing/README.md). A route that guards on a platform flag instead (`routes/integrations/webhooks/route.tsx`) answers with the plain not-found page.
 
+### A section that groups several features
+
+A segment can group the routes of several features without owning any screen. `app/src/routes/catalog/` holds `licenses/`, `entitlements/`, `addons/` and `vouchers/`, each a route tree of its own that renders its own feature, and the Catalog section of the side navigation lists them. The segment has no layout route: each tree keeps the layout and the guard it had (the add-ons and the vouchers guard themselves with `requireBillingCapability`, the licenses and the entitlements need no gate), so that grouping them changes no gate and shares no loader. `routes/catalog/index.tsx` is the only file of the segment: a section is not a page, so it redirects to its first entry, as `routes/integrations/index.tsx` does. There is no `catalog` feature: nothing is shared between the four that a domain or a feature would hold.
+
 ### Search parameters and edit dialogs
 
 A route declares the search parameters it accepts with `validateSearch`, and passes them to the feature as props. `app/src/routes/notifications/index.tsx` and `app/src/routes/feature-flags/index.tsx` do it for a status filter and a view mode, and `app/src/routes/invoices/index.tsx` for a view that reads another operation: its `loaderDeps` name the view and the part of the search that view reads, and its `loader` warms the query of that view only; see [URL state](./state-management.md#url-state). The edit mode of a detail page (`?mode=configure`) and the routes that render a dialog are in [dialog via route](./dialog-via-route.md).
@@ -237,7 +241,7 @@ A route does not declare its own `errorComponent`, with one exception below. `cr
 - `defaultNotFoundComponent` renders `NotFound`. It answers a URL that matches no route and a loader that throws `notFound()`, as the deployment zone edit route does for an unknown slug.
 - `defaultPendingComponent` renders `RoutePending`.
 
-A route that needs its own boundary sets `errorComponent`. It can render `RouteError`, which takes an `error` and an optional `reset`, or a component of its own when the default card says too little. The routes of the invoices, whose list also reads the handoff queue as one of its views, and of the vouchers do (`app/src/routes/invoices/$invoiceId/route.tsx`, `app/src/routes/invoices/index.tsx` and, for the guard, the list, a voucher and the wizard, `app/src/routes/vouchers/`): a refusal of the billing API carries a `detail` in its own words and a trace id that the person needs, so they set `BillingRouteError` (`app/src/domains/billing/components/billing-route-error.tsx`), which renders `NotFound` for a 404 and the refusal with a Retry for anything else. A route that reads one record for a screen that has states of its own (a skeleton, a refusal with a Retry, an empty state) does not need a boundary at all: it prefetches, as [A detail page: `beforeLoad` and several queries](#a-detail-page-beforeload-and-several-queries) describes.
+A route that needs its own boundary sets `errorComponent`. It can render `RouteError`, which takes an `error` and an optional `reset`, or a component of its own when the default card says too little. The routes of the invoices, whose list also reads the handoff queue as one of its views, and of the vouchers do (`app/src/routes/invoices/$invoiceId/route.tsx`, `app/src/routes/invoices/index.tsx` and, for the guard, the list, a voucher and the wizard, `app/src/routes/catalog/vouchers/`): a refusal of the billing API carries a `detail` in its own words and a trace id that the person needs, so they set `BillingRouteError` (`app/src/domains/billing/components/billing-route-error.tsx`), which renders `NotFound` for a 404 and the refusal with a Retry for anything else. A route that reads one record for a screen that has states of its own (a skeleton, a refusal with a Retry, an empty state) does not need a boundary at all: it prefetches, as [A detail page: `beforeLoad` and several queries](#a-detail-page-beforeload-and-several-queries) describes.
 
 ## Tests
 

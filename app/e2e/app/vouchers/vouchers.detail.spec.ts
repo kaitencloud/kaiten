@@ -27,7 +27,7 @@ test.describe('a voucher', () => {
 
     await detail.goto('voucher-welcome', 'Welcome spring');
 
-    await expect(page).toHaveURL('/vouchers/voucher-welcome');
+    await expect(page).toHaveURL('/catalog/vouchers/voucher-welcome');
     expect(page.url()).not.toMatch(/WELCOME-SPRING/i);
     await expect(detail.code()).toHaveText('WELCOME-SPRING-2027');
     await expect(detail.header().getByTestId('voucher-code')).toBeVisible();
@@ -37,7 +37,7 @@ test.describe('a voucher', () => {
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
       'WELCOME-SPRING-2027',
     );
-    await expect(page).toHaveURL('/vouchers/voucher-welcome');
+    await expect(page).toHaveURL('/catalog/vouchers/voucher-welcome');
   });
 
   test('puts what it does and its details side by side from the large breakpoint, of one height, and stacks them below', async ({
@@ -299,7 +299,9 @@ test.describe('changing a published voucher', () => {
 
     await detail.editLink().click();
 
-    await expect(page).toHaveURL('/vouchers/voucher-welcome?mode=configure');
+    await expect(page).toHaveURL(
+      '/catalog/vouchers/voucher-welcome?mode=configure',
+    );
     await expect(detail.nameField()).toHaveValue('Welcome spring');
     await expect(detail.descriptionField()).toHaveValue(
       'Twenty percent off the base price for the first three invoices',
@@ -399,7 +401,7 @@ test.describe('changing a published voucher', () => {
     const detail = new VoucherDetailDriver(page);
     await installVouchersWorld(page);
 
-    await page.goto('/vouchers/voucher-hooli-agreement?mode=configure');
+    await page.goto('/catalog/vouchers/voucher-hooli-agreement?mode=configure');
     await detail.expectLoaded('Hooli agreement');
 
     await expect(detail.dialog()).toHaveCount(0);
@@ -486,7 +488,7 @@ test.describe('publishing and archiving', () => {
     await detail.goto('voucher-draft', 'Summer sale');
     await expect(detail.editLink()).toHaveAttribute(
       'href',
-      '/vouchers/voucher-draft/edit',
+      '/catalog/vouchers/voucher-draft/edit',
     );
     await expect(detail.publishButton()).toBeVisible();
     await expect(detail.archiveButton()).toBeVisible();
@@ -512,7 +514,7 @@ test.describe('publishing and archiving', () => {
     await detail.goto('voucher-welcome', 'Welcome spring');
     await expect(detail.addBoostLink()).toHaveAttribute(
       'href',
-      '/vouchers/new?boostFor=voucher-welcome',
+      '/catalog/vouchers/new?boostFor=voucher-welcome',
     );
 
     await detail.goto('voucher-launch-boost', 'Launch boost');

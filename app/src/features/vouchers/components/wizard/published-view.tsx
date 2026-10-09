@@ -116,7 +116,10 @@ export function PublishedView({
               <Button
                 nativeButton={false}
                 render={
-                  <Link search={{ boostFor: voucher.id }} to="/vouchers/new">
+                  <Link
+                    search={{ boostFor: voucher.id }}
+                    to="/catalog/vouchers/new"
+                  >
                     {t('Pages.Vouchers.Published.boostAction')}
                   </Link>
                 }
@@ -135,7 +138,7 @@ export function PublishedView({
             render={
               <Link
                 params={{ voucherId: voucher.id }}
-                to="/vouchers/$voucherId"
+                to="/catalog/vouchers/$voucherId"
               >
                 {t('Pages.Vouchers.Published.view')}
               </Link>

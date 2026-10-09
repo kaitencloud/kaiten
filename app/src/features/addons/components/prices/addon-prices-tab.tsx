@@ -36,7 +36,7 @@ export function AddonPricesTab({ addonSlug, priceParam }: AddonPricesTabProps) {
     void navigate({
       params: { addonSlug },
       search: (previous) => ({ ...previous, price: undefined }),
-      to: '/addons/$addonSlug/prices',
+      to: '/catalog/addons/$addonSlug/prices',
     });
 
   return (
@@ -57,7 +57,7 @@ export function AddonPricesTab({ addonSlug, priceParam }: AddonPricesTabProps) {
           params={{ addonSlug }}
           replace
           search={(previous) => ({ ...previous, price: undefined })}
-          to="/addons/$addonSlug/prices"
+          to="/catalog/addons/$addonSlug/prices"
         />
       ) : null}
       {frozen ? (

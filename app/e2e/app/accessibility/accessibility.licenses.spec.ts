@@ -88,7 +88,7 @@ test.describe('accessibility of what a license version sells', () => {
     const drawer = new LicensePriceDrawerDriver(page);
     await installLicenseAppMocks(page, createPricedCatalogModel());
 
-    await page.goto('/licenses/pro-v4/prices?price=new');
+    await page.goto('/catalog/licenses/pro-v4/prices?price=new');
     await drawer.expectOpen('New price');
     await drawer.chooseModel('Overage');
     await expect(drawer.picker()).toBeVisible();
@@ -141,7 +141,7 @@ test.describe('accessibility of what a license version sells', () => {
     const drawer = new LicensePriceDrawerDriver(page);
     await installLicenseAppMocks(page, createPricedCatalogModel());
 
-    await page.goto('/licenses/pro-v4/prices?price=new');
+    await page.goto('/catalog/licenses/pro-v4/prices?price=new');
     await drawer.expectOpen('New price');
     await drawer.chooseModel('Usage-based');
     // The stocks the version grants are listed, disabled, beside the flows.
@@ -155,7 +155,7 @@ test.describe('accessibility of what a license version sells', () => {
     const drawer = new LicensePriceDrawerDriver(page);
     await installLicenseAppMocks(page, createDraftPricesModel());
 
-    await page.goto('/licenses/pro-v4/prices?price=price-1-base');
+    await page.goto('/catalog/licenses/pro-v4/prices?price=price-1-base');
     await drawer.expectOpen('Edit price');
     await expect(drawer.amount()).toHaveValue('39.00');
 

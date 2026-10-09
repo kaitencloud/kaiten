@@ -174,7 +174,7 @@ test.describe('the list of vouchers', () => {
     await list.open('Launch boost');
 
     await detail.expectLoaded('Launch boost');
-    await expect(page).toHaveURL('/vouchers/voucher-launch-boost');
+    await expect(page).toHaveURL('/catalog/vouchers/voucher-launch-boost');
   });
 
   test('offers to make a voucher, and says where one comes from when there is none', async ({
@@ -186,7 +186,10 @@ test.describe('the list of vouchers', () => {
     await list.goto();
 
     await expect(list.empty()).toContainText('No voucher yet');
-    await expect(list.newVoucher()).toHaveAttribute('href', '/vouchers/new');
+    await expect(list.newVoucher()).toHaveAttribute(
+      'href',
+      '/catalog/vouchers/new',
+    );
   });
 });
 
@@ -196,7 +199,7 @@ test.describe('a page that is none', () => {
   }) => {
     await installVouchersWorld(page);
 
-    await page.goto('/vouchers/no-such-voucher');
+    await page.goto('/catalog/vouchers/no-such-voucher');
 
     await expect(page.getByText('Page not found')).toBeVisible();
   });

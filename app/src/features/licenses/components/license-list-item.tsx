@@ -84,7 +84,7 @@ export const LicenseListItem = ({ group }: LicenseListItemProps) => {
               role="link"
               render={
                 <Link
-                  to="/licenses/versions/$licenseSlug"
+                  to="/catalog/licenses/versions/$licenseSlug"
                   params={{ licenseSlug: newVersionLicenseSlug }}
                 >
                   <CirclePlus className="size-4" />

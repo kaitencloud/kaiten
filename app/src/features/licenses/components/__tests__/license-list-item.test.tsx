@@ -100,7 +100,7 @@ describe('a family in the list of licenses', () => {
 
     expect(await screen.findByRole('link', { name: /New Version/ })).toHaveAttribute(
       'href',
-      '/licenses/versions/$licenseSlug',
+      '/catalog/licenses/versions/$licenseSlug',
     );
   });
 });

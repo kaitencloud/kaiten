@@ -31,7 +31,7 @@ test.describe('making an add-on', () => {
     await expect(list.empty()).toBeVisible();
     await list.newAddon().click();
     await form.expectOpen('New add-on');
-    await expect(page).toHaveURL('/addons/new');
+    await expect(page).toHaveURL('/catalog/addons/new');
 
     // A new add-on is a draft until the person says otherwise, and priced; it needs a name.
     await expect(form.draftCheckbox()).toBeChecked();
@@ -46,7 +46,7 @@ test.describe('making an add-on', () => {
     await form.submit();
 
     await expectToast(page, 'Add-on created');
-    await expect(page).toHaveURL('/addons/extra-projects');
+    await expect(page).toHaveURL('/catalog/addons/extra-projects');
     await expect(
       page.getByRole('heading', { level: 1, name: 'Extra projects' }),
     ).toBeVisible();
@@ -89,7 +89,7 @@ test.describe('making an add-on', () => {
     });
     await form.submit();
 
-    await expect(page).toHaveURL('/addons/history-pack');
+    await expect(page).toHaveURL('/catalog/addons/history-pack');
     await detail.expectState('Published');
     expect(writes).toEqual([
       {
@@ -127,7 +127,7 @@ test.describe('making an add-on', () => {
     ).toBeVisible();
     await expect(form.dialog()).toBeVisible();
     await expect(form.nameField()).toHaveValue('Another seats');
-    await expect(page).toHaveURL('/addons/new');
+    await expect(page).toHaveURL('/catalog/addons/new');
   });
 
   test('makes the next version of a family from its row, which starts empty and is a draft', async ({
@@ -143,7 +143,7 @@ test.describe('making an add-on', () => {
     await list.expandFamily('Extra seats');
     await list.startNewVersion('Extra seats');
     await form.expectOpen('New version of Extra seats');
-    await expect(page).toHaveURL('/addons/new?family=extra-seats');
+    await expect(page).toHaveURL('/catalog/addons/new?family=extra-seats');
 
     // The name and how it is sold are the family's; nothing else is copied.
     await expect(form.nameField()).toHaveValue('Extra seats');
@@ -151,7 +151,7 @@ test.describe('making an add-on', () => {
     await form.submit();
 
     await expectToast(page, 'Add-on created');
-    await expect(page).toHaveURL('/addons/extra-seats-v3');
+    await expect(page).toHaveURL('/catalog/addons/extra-seats-v3');
     await detail.expectState('Draft');
     await expect(detail.field('Version')).toContainText('3 (2028)');
     expect(writes).toEqual([
@@ -187,7 +187,7 @@ test.describe('making an add-on', () => {
   }) => {
     await installAddonsWorld(page);
 
-    await page.goto('/addons/new?family=no-such-family');
+    await page.goto('/catalog/addons/new?family=no-such-family');
 
     await expect(page.getByText('Page not found')).toBeVisible();
   });
@@ -205,12 +205,14 @@ test.describe('editing a version', () => {
     await detail.goto('extra-tokens-v1', 'Extra tokens');
     await detail.editLink().click();
     await form.expectOpen('Edit add-on');
-    await expect(page).toHaveURL('/addons/extra-tokens-v1?mode=configure');
+    await expect(page).toHaveURL(
+      '/catalog/addons/extra-tokens-v1?mode=configure',
+    );
     await form.descriptionField().fill('Twenty thousand more tokens a unit');
     await form.submit();
 
     await expectToast(page, 'Add-on updated');
-    await expect(page).toHaveURL('/addons/extra-tokens-v1');
+    await expect(page).toHaveURL('/catalog/addons/extra-tokens-v1');
     await expect(detail.field('Description')).toContainText(
       'Twenty thousand more tokens a unit',
     );
@@ -319,7 +321,7 @@ test.describe('moving a version along its life', () => {
     await expectToast(page, 'Version published');
     await list.expectVersionState('Extra seats', '2027', 'Published');
     // The action is not a click on the row, which would open the version.
-    await expect(page).toHaveURL('/addons');
+    await expect(page).toHaveURL('/catalog/addons');
     expect(writes).toEqual([
       {
         body: null,
@@ -539,7 +541,7 @@ test.describe('deleting a draft', () => {
     await detail.confirm('Delete');
 
     await expectToast(page, 'Draft deleted');
-    await expect(page).toHaveURL('/addons');
+    await expect(page).toHaveURL('/catalog/addons');
     await list.expectLoaded();
   });
 });

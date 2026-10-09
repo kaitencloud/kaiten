@@ -24,7 +24,7 @@ describe('where a new version opens', () => {
       }),
     ).toEqual({
       params: { licenseSlug: 'pro-v5' },
-      to: '/licenses/$licenseSlug/prices',
+      to: '/catalog/licenses/$licenseSlug/prices',
     });
   });
 
@@ -39,7 +39,7 @@ describe('where a new version opens', () => {
     ).toEqual({
       params: { licenseSlug: 'pro-v5' },
       search: { copyFrom: 'pro-v2' },
-      to: '/licenses/$licenseSlug/prices',
+      to: '/catalog/licenses/$licenseSlug/prices',
     });
   });
 
@@ -53,7 +53,7 @@ describe('where a new version opens', () => {
       }),
     ).toEqual({
       params: { licenseSlug: 'pro-v5' },
-      to: '/licenses/$licenseSlug',
+      to: '/catalog/licenses/$licenseSlug',
     });
   });
 

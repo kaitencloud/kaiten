@@ -38,7 +38,7 @@ export function EntitlementsTable({
   const getEntitlementPath = (entitlement: Entitlement) =>
     entitlement.slug
       ? router.buildLocation({
-          to: '/entitlements/$entitlementSlug',
+          to: '/catalog/entitlements/$entitlementSlug',
           params: { entitlementSlug: entitlement.slug },
         }).pathname
       : undefined;
@@ -50,7 +50,7 @@ export function EntitlementsTable({
           <FilterTableLayout.Search filterId="name" />
           <FilterTableLayout.Actions>
             <GradientButton
-              to="/entitlements/new"
+              to="/catalog/entitlements/new"
               label={t('Pages.Entitlements.Mutation.titleNew')}
             />
           </FilterTableLayout.Actions>

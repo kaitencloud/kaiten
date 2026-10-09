@@ -104,7 +104,7 @@ test.describe('how a family of licenses is sold, in the list', () => {
     await startInLanguage(page, 'fr');
 
     // The title of the page is French too: the driver waits for the English one.
-    await page.goto('/licenses');
+    await page.goto('/catalog/licenses');
 
     await expect(licenses.priceSummary('Free')).toHaveText('Gratuit');
     await expect(licenses.priceSummary('Enterprise')).toHaveText(

@@ -73,7 +73,7 @@ export const Catalogue: Story = {
     },
   },
   render: () => (
-    <StorybookRouter initialEntries={['/addons']}>
+    <StorybookRouter initialEntries={['/catalog/addons']}>
       <Suspense fallback={null}>
         <AddonsPageContent />
       </Suspense>

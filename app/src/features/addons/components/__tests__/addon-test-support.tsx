@@ -137,7 +137,7 @@ export function createAddonRouterModule(navigate: (options: unknown) => void) {
       select,
     }: {
       select: (state: { location: { pathname: string } }) => unknown;
-    }) => select({ location: { pathname: '/addons/extra-seats-v2' } }),
+    }) => select({ location: { pathname: '/catalog/addons/extra-seats-v2' } }),
   };
 }
 

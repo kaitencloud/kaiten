@@ -9,7 +9,7 @@ export class AddonPricesDriver {
   constructor(private readonly page: Page) {}
 
   async goto(slug: string, title: string) {
-    await this.page.goto(`/addons/${slug}/prices`);
+    await this.page.goto(`/catalog/addons/${slug}/prices`);
     await expect(
       this.page.getByRole('heading', { name: title, level: 1 }),
     ).toBeVisible();

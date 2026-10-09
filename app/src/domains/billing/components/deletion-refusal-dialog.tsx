@@ -184,7 +184,7 @@ function EntitlementBody({
         <Link
           className="text-sm underline underline-offset-4"
           params={{ entitlementSlug: slug }}
-          to="/entitlements/$entitlementSlug"
+          to="/catalog/entitlements/$entitlementSlug"
         >
           {t('Features.Billing.DeletionRefusal.openEntitlement')}
         </Link>

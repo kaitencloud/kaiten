@@ -58,7 +58,7 @@ test('shows the slug the name would give and leaves it to the API when blank', a
   await form.clickNext();
   await form.submitButton().click();
 
-  await expect(page).toHaveURL('/entitlements/storage-reads');
+  await expect(page).toHaveURL('/catalog/entitlements/storage-reads');
   expect(created).toHaveLength(1);
   expect(created[0]).toMatchObject({ name: 'Storage Reads' });
   expect(created[0]).not.toHaveProperty('slug');
@@ -86,7 +86,7 @@ test('creates the entitlement with the slug typed in the form', async ({
   await form.submitButton().click();
 
   // The slug of the form wins over the one the name would give.
-  await expect(page).toHaveURL('/entitlements/reads-v2');
+  await expect(page).toHaveURL('/catalog/entitlements/reads-v2');
   expect(created).toHaveLength(1);
   expect(created[0]).toMatchObject({ name: 'Storage Reads', slug: 'reads-v2' });
 });
@@ -134,7 +134,7 @@ test('reports a slug that another entitlement already uses', async ({
   await form.submitButton().click();
 
   await expectErrorToast(page);
-  await expect(page).toHaveURL('/entitlements/new');
+  await expect(page).toHaveURL('/catalog/entitlements/new');
 });
 
 test('shows the slug of an existing entitlement, locked, and saves without it', async ({
@@ -145,7 +145,7 @@ test('shows the slug of an existing entitlement, locked, and saves without it', 
   const updated = recordEntitlementBodies(page, 'PUT');
 
   await installEntitlementAppMocks(page, model);
-  await page.goto('/entitlements/advanced-analytics?mode=configure');
+  await page.goto('/catalog/entitlements/advanced-analytics?mode=configure');
 
   await expect(form.slugField()).toHaveValue('advanced-analytics');
   await expect(form.slugField()).toBeDisabled();
@@ -158,7 +158,7 @@ test('shows the slug of an existing entitlement, locked, and saves without it', 
 
   // A BOOLEAN entitlement has a single step: the update lands on its page,
   // under the slug it was created with.
-  await expect(page).toHaveURL('/entitlements/advanced-analytics');
+  await expect(page).toHaveURL('/catalog/entitlements/advanced-analytics');
   expect(updated).toHaveLength(1);
   expect(updated[0]).toMatchObject({ name: 'Advanced Analytics Plus' });
   expect(updated[0]).not.toHaveProperty('slug');

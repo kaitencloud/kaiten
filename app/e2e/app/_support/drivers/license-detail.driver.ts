@@ -4,7 +4,7 @@ export class LicenseDetailDriver {
   constructor(private readonly page: Page) {}
 
   async goto(slug: string, name: string) {
-    await this.page.goto(`/licenses/${slug}`);
+    await this.page.goto(`/catalog/licenses/${slug}`);
     await expect(
       this.page.getByRole('heading', { name, level: 1 }),
     ).toBeVisible();

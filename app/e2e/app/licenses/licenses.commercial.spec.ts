@@ -51,7 +51,7 @@ test.describe('the commercial terms of a version', () => {
 
     await detail.goto('pro-v4', 'Pro');
     await commercial.open();
-    await expect(page).toHaveURL('/licenses/pro-v4?mode=configure');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v4?mode=configure');
 
     // The terms as they are.
     await expect(commercial.pricingType()).toContainText('Paid');
@@ -69,7 +69,7 @@ test.describe('the commercial terms of a version', () => {
 
     await expectToast(page, 'Commercial terms updated');
     await expect(commercial.dialog()).toHaveCount(0);
-    await expect(page).toHaveURL('/licenses/pro-v4');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v4');
     await expect(commercial.field('Pricing type')).toContainText('Custom');
     await expect(commercial.field('Free trial')).toContainText('30 days');
     await expect(commercial.field('Payment method')).toContainText(
@@ -272,7 +272,7 @@ test.describe('the commercial terms of a version', () => {
     await commercial.cancel().click();
 
     await expect(commercial.dialog()).toHaveCount(0);
-    await expect(page).toHaveURL('/licenses/pro-v4');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v4');
     await expect(commercial.field('Free trial')).toContainText('14 days');
     expect(writes).toEqual([]);
   });
@@ -289,9 +289,9 @@ test.describe('the commercial terms of a version', () => {
     await page.goBack();
 
     await expect(commercial.dialog()).toHaveCount(0);
-    await expect(page).toHaveURL('/licenses/pro-v4');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v4');
 
-    await page.goto('/licenses/pro-v4?mode=configure');
+    await page.goto('/catalog/licenses/pro-v4?mode=configure');
     await expect(commercial.dialog()).toBeVisible();
   });
 
@@ -301,12 +301,12 @@ test.describe('the commercial terms of a version', () => {
     const commercial = new LicenseCommercialDriver(page);
     await installLicenseAppMocks(page, createPricedCatalogModel());
 
-    await page.goto('/licenses/pro-v4/prices?mode=configure');
+    await page.goto('/catalog/licenses/pro-v4/prices?mode=configure');
 
     await expect(commercial.dialog()).toBeVisible();
     await commercial.cancel().click();
     await expect(commercial.dialog()).toHaveCount(0);
-    await expect(page).toHaveURL('/licenses/pro-v4/prices');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v4/prices');
   });
 });
 
@@ -328,7 +328,7 @@ test.describe('where billing is not there', () => {
     await detail.goto('pro-v4', 'Pro');
     await expect(commercial.card()).toHaveCount(0);
 
-    await page.goto('/licenses/pro-v4?mode=configure');
+    await page.goto('/catalog/licenses/pro-v4?mode=configure');
     await detail.expectState('Draft');
     await expect(commercial.dialog()).toHaveCount(0);
   });

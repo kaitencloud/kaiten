@@ -9,7 +9,7 @@ export class AddonGrantsDriver {
   constructor(private readonly page: Page) {}
 
   async goto(slug: string, title: string) {
-    await this.page.goto(`/addons/${slug}/entitlements`);
+    await this.page.goto(`/catalog/addons/${slug}/entitlements`);
     await expect(
       this.page.getByRole('heading', { name: title, level: 1 }),
     ).toBeVisible();

@@ -19,13 +19,17 @@ type AddonDetailPageProps = {
 const TABS = [
   {
     suffix: '/entitlements',
-    to: '/addons/$addonSlug/entitlements',
+    to: '/catalog/addons/$addonSlug/entitlements',
     value: 'entitlements',
   },
-  { suffix: '/prices', to: '/addons/$addonSlug/prices', value: 'prices' },
+  {
+    suffix: '/prices',
+    to: '/catalog/addons/$addonSlug/prices',
+    value: 'prices',
+  },
   {
     suffix: '/compatibility',
-    to: '/addons/$addonSlug/compatibility',
+    to: '/catalog/addons/$addonSlug/compatibility',
     value: 'compatibility',
   },
 ] as const;
@@ -65,7 +69,7 @@ export function AddonDetailPage({
             {
               label: t('Pages.Addons.Detail.Tabs.overview'),
               params,
-              to: '/addons/$addonSlug',
+              to: '/catalog/addons/$addonSlug',
               value: 'overview',
             },
             ...TABS.map(({ to, value }) => ({

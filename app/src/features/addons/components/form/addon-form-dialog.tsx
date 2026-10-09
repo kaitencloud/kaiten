@@ -102,7 +102,7 @@ function getDialogText(
 
 /**
  * The dialog an add-on version is created or edited in, which the URL opens: a new
- * family (`/addons/new`), the next version of one (`/addons/new?family=<slug>`) or the
+ * family (`/catalog/addons/new`), the next version of one (`/catalog/addons/new?family=<slug>`) or the
  * edit of a version (`?mode=configure` on its page). A new version starts from
  * nothing the previous one had: the API copies no grant, no price and no license, and
  * the dialog says so.

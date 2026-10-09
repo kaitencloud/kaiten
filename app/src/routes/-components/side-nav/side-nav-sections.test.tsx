@@ -211,8 +211,8 @@ describe('useResolvedBillingItems', () => {
 
   it('lists the add-ons and the vouchers where the release ships them', () => {
     expect(billingPathsWith(billingCapabilitiesProfiles.full())).toEqual([
-      '/addons',
-      '/vouchers',
+      '/catalog/addons',
+      '/catalog/vouchers',
     ]);
   });
 
@@ -222,7 +222,7 @@ describe('useResolvedBillingItems', () => {
     it('hides them from a session whose scopes do not cover read:addons', () => {
       expect(
         billingPathsWith(full, ['read:billing', 'read:vouchers']),
-      ).toEqual(['/vouchers']);
+      ).toEqual(['/catalog/vouchers']);
     });
 
     it.each([
@@ -230,11 +230,11 @@ describe('useResolvedBillingItems', () => {
       ['write:addons, which covers it', ['read:billing', 'write:addons']],
       ['read:*', ['read:*']],
     ])('lists them for a session that holds %s', (_, scopes) => {
-      expect(billingPathsWith(full, scopes)).toContain('/addons');
+      expect(billingPathsWith(full, scopes)).toContain('/catalog/addons');
     });
 
     it('does not list them while the scopes of the token are being read', () => {
-      expect(billingPathsWith(full, 'unread')).not.toContain('/addons');
+      expect(billingPathsWith(full, 'unread')).not.toContain('/catalog/addons');
     });
   });
 
@@ -244,7 +244,7 @@ describe('useResolvedBillingItems', () => {
     it('hides them from a session whose scopes do not cover read:vouchers', () => {
       expect(
         billingPathsWith(full, ['read:billing', 'read:addons']),
-      ).toEqual(['/addons']);
+      ).toEqual(['/catalog/addons']);
     });
 
     it.each([
@@ -252,11 +252,11 @@ describe('useResolvedBillingItems', () => {
       ['write:vouchers, which covers it', ['read:billing', 'write:vouchers']],
       ['read:*', ['read:*']],
     ])('lists them for a session that holds %s', (_, scopes) => {
-      expect(billingPathsWith(full, scopes)).toContain('/vouchers');
+      expect(billingPathsWith(full, scopes)).toContain('/catalog/vouchers');
     });
 
     it('does not list them while the scopes of the token are being read', () => {
-      expect(billingPathsWith(full, 'unread')).not.toContain('/vouchers');
+      expect(billingPathsWith(full, 'unread')).not.toContain('/catalog/vouchers');
     });
   });
 
@@ -265,7 +265,7 @@ describe('useResolvedBillingItems', () => {
 
     expect(
       billingPathsWith({ ...stack, features: { ...stack.features, vouchers: true } }),
-    ).toEqual(['/vouchers']);
+    ).toEqual(['/catalog/vouchers']);
   });
 
   it.each(['DEPLOYMENT_DISABLED', 'NOT_ENTITLED'] as const)(

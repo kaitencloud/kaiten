@@ -58,7 +58,7 @@ export function AddonPricesCard({
                 <Link
                   params={{ addonSlug: addon.slug }}
                   search={{ price: 'new' }}
-                  to="/addons/$addonSlug/prices"
+                  to="/catalog/addons/$addonSlug/prices"
                 >
                   <Plus className="size-4" />
                   {t('Pages.Addons.Prices.Actions.add')}

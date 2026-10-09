@@ -29,7 +29,9 @@ test.describe('editing a price', () => {
     await prices.goto('pro-v4', 'Pro');
     await prices.edit('Pro, monthly').click();
     await drawer.expectOpen('Edit price');
-    await expect(page).toHaveURL('/licenses/pro-v4/prices?price=price-1-base');
+    await expect(page).toHaveURL(
+      '/catalog/licenses/pro-v4/prices?price=price-1-base',
+    );
 
     // The price as it is, its amount in major units.
     await expect(drawer.amount()).toHaveValue('39.00');

@@ -124,7 +124,7 @@ describe('the dialog of a refused deletion', () => {
     ).toEqual(['Granted by 1 license version', 'Metered by 3 license prices']);
     expect(
       screen.getByRole('link', { name: 'Open the entitlement' }),
-    ).toHaveAttribute('href', '/entitlements/api-calls');
+    ).toHaveAttribute('href', '/catalog/entitlements/api-calls');
   });
 
   it('asks for the references to be removed when they can be, and offers to hide the entitlement when a price or a boost holds it', () => {

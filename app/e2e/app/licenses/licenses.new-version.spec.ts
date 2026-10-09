@@ -51,7 +51,9 @@ test.describe('a new version of a version that cannot be changed any more', () =
     await freeze.createNewVersion().click();
 
     // The form starts from this version, as a draft: a draft is what can be changed.
-    await expect(page).toHaveURL('/licenses/versions/pro-v2?draft=true');
+    await expect(page).toHaveURL(
+      '/catalog/licenses/versions/pro-v2?draft=true',
+    );
     await form.expectLoaded('Pro');
     await expect(
       page.getByRole('checkbox', { name: 'Save as draft' }),
@@ -65,7 +67,7 @@ test.describe('a new version of a version that cannot be changed any more', () =
     await form.submit();
 
     // The new version opens on its prices, which are the two the old one bills.
-    await expect(page).toHaveURL('/licenses/pro-v5/prices');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v5/prices');
     await prices.expectLabels(['Pro, monthly', 'Traces, overage']);
     await expect(prices.row('Pro, monthly').getByText('$29.00')).toBeVisible();
     await expect(
@@ -146,7 +148,7 @@ test.describe('a new version of a version that cannot be changed any more', () =
       }
     });
 
-    await page.goto('/licenses/versions/pro-v2?draft=true');
+    await page.goto('/catalog/licenses/versions/pro-v2?draft=true');
     await form.expectLoaded('Pro');
 
     await expect(form.copyPrices()).toBeChecked();
@@ -160,7 +162,7 @@ test.describe('a new version of a version that cannot be changed any more', () =
 
     // The version has its entitlements and no price, and opens as any other
     // version does: what the person declined is not even read.
-    await expect(page).toHaveURL('/licenses');
+    await expect(page).toHaveURL('/catalog/licenses');
     expect(writesTo(writes, /^\/api\/licenses$/)).toHaveLength(1);
     expect(writesTo(writes, /\/entitlements$/).length).toBeGreaterThan(0);
     expect(writesTo(writes, /\/prices/)).toEqual([]);
@@ -183,7 +185,7 @@ test.describe('a new version of a version that cannot be changed any more', () =
     await installLicenseAppMocks(page, model);
     const writes = recordWrites(page, LICENSE_WRITES);
 
-    await page.goto('/licenses/versions/pro-v2?draft=true');
+    await page.goto('/catalog/licenses/versions/pro-v2?draft=true');
     await form.expectLoaded('Pro');
     await form.submit();
 
@@ -193,7 +195,9 @@ test.describe('a new version of a version that cannot be changed any more', () =
       page,
       'Saved as a draft, not published: an overage price needs a grant whose overage can be reached',
     );
-    await expect(page).toHaveURL('/licenses/pro-v5/prices?copyFrom=pro-v2');
+    await expect(page).toHaveURL(
+      '/catalog/licenses/pro-v5/prices?copyFrom=pro-v2',
+    );
     const banner = page
       .getByRole('alert')
       .filter({ hasText: 'The copy of prices stopped' });
@@ -211,9 +215,11 @@ test.describe('a new version of a version that cannot be changed any more', () =
     // What stopped a copy may be fixed elsewhere (a grant on the Overview): the
     // tabs carry it, so that coming back finds it.
     await prices.tab('Overview').click();
-    await expect(page).toHaveURL('/licenses/pro-v5?copyFrom=pro-v2');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v5?copyFrom=pro-v2');
     await prices.tab('Prices').click();
-    await expect(page).toHaveURL('/licenses/pro-v5/prices?copyFrom=pro-v2');
+    await expect(page).toHaveURL(
+      '/catalog/licenses/pro-v5/prices?copyFrom=pro-v2',
+    );
     await expect(banner).toBeVisible();
 
     writes.length = 0;
@@ -221,7 +227,7 @@ test.describe('a new version of a version that cannot be changed any more', () =
 
     await expectToast(page, 'Prices copied');
     await expect(banner).toHaveCount(0);
-    await expect(page).toHaveURL('/licenses/pro-v5/prices');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v5/prices');
     await prices.expectLabels(['Pro, monthly', 'Traces, overage']);
     // Only what was left was copied, after what was there; nothing was deleted
     // and nothing was sent to the version the prices come from.
@@ -252,7 +258,7 @@ test.describe('a new version offered from the prices of a version', () => {
     await prices.goto('pro-v2', 'Pro');
     await expect(prices.newVersion()).toHaveAttribute(
       'href',
-      '/licenses/versions/pro-v2?draft=true',
+      '/catalog/licenses/versions/pro-v2?draft=true',
     );
     // Archived: it takes no price at all.
     await prices.goto('pro', 'Pro');
@@ -263,7 +269,9 @@ test.describe('a new version offered from the prices of a version', () => {
     await prices.newVersion().click();
 
     // The form starts from this version, as a draft, with its prices.
-    await expect(page).toHaveURL('/licenses/versions/pro-v2?draft=true');
+    await expect(page).toHaveURL(
+      '/catalog/licenses/versions/pro-v2?draft=true',
+    );
     await form.expectLoaded('Pro');
     await expect(
       page.getByRole('checkbox', { name: 'Save as draft' }),
@@ -303,13 +311,13 @@ test.describe('where billing is not there', () => {
       }
     });
 
-    await page.goto('/licenses/versions/pro-v2');
+    await page.goto('/catalog/licenses/versions/pro-v2');
     await form.expectLoaded('Pro');
     // The prices are billing's: there is nothing to offer to copy.
     await expect(form.copyPrices()).toHaveCount(0);
     await form.submit();
 
-    await expect(page).toHaveURL('/licenses');
+    await expect(page).toHaveURL('/catalog/licenses');
     expect(writesTo(writes, /\/prices/)).toEqual([]);
     expect(requests).toEqual([]);
   });

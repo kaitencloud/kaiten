@@ -6,13 +6,13 @@ An entitlement is something a license can grant: a capability, a numeric allowan
 
 | URL | Route file | Renders |
 | --- | --- | --- |
-| `/entitlements` | `app/src/routes/entitlements/index.tsx` | `EntitlementsPageContent`: the table |
-| `/entitlements/new` | `app/src/routes/entitlements/new/index.tsx` | `EntitlementCreatePage` |
-| `/entitlements/$entitlementSlug` | `app/src/routes/entitlements/$entitlementSlug/index.tsx` | `EntitlementDetailOverviewTab` |
-| `/entitlements/$entitlementSlug/usage` | `app/src/routes/entitlements/$entitlementSlug/usage.tsx` | `EntitlementDetailUsageTab` |
-| `/entitlements/$entitlementSlug/customers` and `/licenses` | `customers.tsx`, `licenses.tsx` in the same folder | Redirect to `.../usage` |
+| `/catalog/entitlements` | `app/src/routes/catalog/entitlements/index.tsx` | `EntitlementsPageContent`: the table |
+| `/catalog/entitlements/new` | `app/src/routes/catalog/entitlements/new/index.tsx` | `EntitlementCreatePage` |
+| `/catalog/entitlements/$entitlementSlug` | `app/src/routes/catalog/entitlements/$entitlementSlug/index.tsx` | `EntitlementDetailOverviewTab` |
+| `/catalog/entitlements/$entitlementSlug/usage` | `app/src/routes/catalog/entitlements/$entitlementSlug/usage.tsx` | `EntitlementDetailUsageTab` |
+| `/catalog/entitlements/$entitlementSlug/customers` and `.../licenses` | `customers.tsx`, `licenses.tsx` in the same folder | Redirect to `.../usage` |
 
-`app/src/routes/entitlements/route.tsx` is the layout of the whole section. It loads the entitlements and the groups, and wraps the outlet in a Suspense boundary. `app/src/routes/entitlements/$entitlementSlug/route.tsx` loads one entitlement, sets its name as the breadcrumb title and renders `EntitlementDetailPageContent`, which draws the header, the stats strip and the two tabs (Overview and Usage) around the child route. It also opens `EntitlementFormDialog` when the URL carries `?mode=configure`; the Edit button of the Overview tab navigates there.
+`app/src/routes/catalog/entitlements/route.tsx` is the layout of the whole section. It loads the entitlements and the groups, and wraps the outlet in a Suspense boundary. `app/src/routes/catalog/entitlements/$entitlementSlug/route.tsx` loads one entitlement, sets its name as the breadcrumb title and renders `EntitlementDetailPageContent`, which draws the header, the stats strip and the two tabs (Overview and Usage) around the child route. It also opens `EntitlementFormDialog` when the URL carries `?mode=configure`; the Edit button of the Overview tab navigates there.
 
 ## Structure
 
@@ -71,7 +71,7 @@ Scopes: listing and reading entitlements and groups needs `read:entitlements`; c
 
 **Delete.** The delete dialog asks which licenses grant the entitlement, by reading all the licenses and their entitlements, and only when it opens. While it checks, and when at least one license grants the entitlement, the confirm button is disabled and the dialog says to remove the entitlement from those licenses first. The removal is optimistic: the row disappears, and comes back if the API refuses.
 
-**Create.** `/entitlements/new` is a page with a stepper of two steps. Step 1 holds the name (required), the slug (optional), the icon, the description, the groups, the "User facing" switch and the display order. Next stays disabled until step 1 validates. Step 2 holds the type and the options that depend on it. After a successful creation, the route opens the new entitlement's detail page.
+**Create.** `/catalog/entitlements/new` is a page with a stepper of two steps. Step 1 holds the name (required), the slug (optional), the icon, the description, the groups, the "User facing" switch and the display order. Next stays disabled until step 1 validates. Step 2 holds the type and the options that depend on it. After a successful creation, the route opens the new entitlement's detail page.
 
 **Edit.** `EntitlementFormDialog` holds the same fields in a dialog. It has two steps for a NUMBER entitlement and one for any other type, which has nothing to configure on the second step. The slug field shows the stored slug and is disabled: an entitlement is never renamed.
 
@@ -113,11 +113,11 @@ Routes import the following from `@/features/entitlements` (the root `index.ts`)
 
 | Export | Imported by |
 | --- | --- |
-| `EntitlementsPageContent`, `entitlementsQueryOptions`, `entitlementGroupsQueryOptions` | `app/src/routes/entitlements/index.tsx`, `app/src/routes/entitlements/route.tsx` |
-| `EntitlementCreatePage` | `app/src/routes/entitlements/new/index.tsx` |
-| `EntitlementDetailPageContent`, `EntitlementFormDialog`, `entitlementQueryOptions`, `entitlementGroupsQueryOptions` | `app/src/routes/entitlements/$entitlementSlug/route.tsx` |
-| `EntitlementDetailOverviewTab` | `app/src/routes/entitlements/$entitlementSlug/index.tsx` |
-| `EntitlementDetailUsageTab` | `app/src/routes/entitlements/$entitlementSlug/usage.tsx` |
+| `EntitlementsPageContent`, `entitlementsQueryOptions`, `entitlementGroupsQueryOptions` | `app/src/routes/catalog/entitlements/index.tsx`, `app/src/routes/catalog/entitlements/route.tsx` |
+| `EntitlementCreatePage` | `app/src/routes/catalog/entitlements/new/index.tsx` |
+| `EntitlementDetailPageContent`, `EntitlementFormDialog`, `entitlementQueryOptions`, `entitlementGroupsQueryOptions` | `app/src/routes/catalog/entitlements/$entitlementSlug/route.tsx` |
+| `EntitlementDetailOverviewTab` | `app/src/routes/catalog/entitlements/$entitlementSlug/index.tsx` |
+| `EntitlementDetailUsageTab` | `app/src/routes/catalog/entitlements/$entitlementSlug/usage.tsx` |
 
 The licenses feature does not import this one; it declares its own `entitlementsQueryOptions` over the same generated operation.
 

@@ -28,10 +28,10 @@ test.describe('the entry of the navigation', () => {
     await nav.open();
 
     await nav.expectEntries(['Invoices', 'Add-ons']);
-    await expect(nav.entry('Add-ons')).toHaveAttribute('href', '/addons');
+    await expect(nav.entry('Add-ons')).toHaveAttribute('href', '/catalog/addons');
     await expect(nav.entry('Vouchers')).toHaveCount(0);
     await nav.entry('Add-ons').click();
-    await expect(page).toHaveURL('/addons');
+    await expect(page).toHaveURL('/catalog/addons');
     await list.expectLoaded();
     // On a page of the section, the section stays open.
     await expect(nav.section()).toHaveAttribute('aria-expanded', 'true');
@@ -43,7 +43,7 @@ test.describe('the entry of the navigation', () => {
     const nav = new BillingNavDriver(page);
     await installAddonsWorld(page);
 
-    await page.goto('/addons/extra-seats-v1/prices');
+    await page.goto('/catalog/addons/extra-seats-v1/prices');
 
     await expect(nav.section()).toHaveAttribute('aria-expanded', 'true');
     await expect(nav.entry('Add-ons')).toHaveAttribute('aria-current', 'page');
@@ -88,12 +88,12 @@ test.describe('the entry of the navigation', () => {
 
 test.describe('where the release ships no add-ons', () => {
   for (const path of [
-    '/addons',
-    '/addons/new',
-    '/addons/extra-seats-v1',
-    '/addons/extra-seats-v1/entitlements',
-    '/addons/extra-seats-v1/prices',
-    '/addons/extra-seats-v1/compatibility',
+    '/catalog/addons',
+    '/catalog/addons/new',
+    '/catalog/addons/extra-seats-v1',
+    '/catalog/addons/extra-seats-v1/entitlements',
+    '/catalog/addons/extra-seats-v1/prices',
+    '/catalog/addons/extra-seats-v1/compatibility',
   ]) {
     test(`explains on ${path}, in place of the screen`, async ({ page }) => {
       const nav = new BillingNavDriver(page);
@@ -122,7 +122,7 @@ test.describe('where the release ships no add-ons', () => {
     });
     await installBillingAppMocks(page, createBillingStackModel());
 
-    await page.goto('/addons/extra-seats-v1');
+    await page.goto('/catalog/addons/extra-seats-v1');
     await nav.expectUnavailable('FEATURE_UNAVAILABLE');
 
     expect(requests).toEqual([]);
@@ -216,13 +216,13 @@ test.describe('a session that may only read the add-ons', () => {
   }) => {
     const prices = new AddonPricesDriver(page);
 
-    await page.goto('/addons/extra-seats-v2/prices?price=new');
+    await page.goto('/catalog/addons/extra-seats-v2/prices?price=new');
 
-    await expect(page).toHaveURL('/addons/extra-seats-v2/prices');
+    await expect(page).toHaveURL('/catalog/addons/extra-seats-v2/prices');
     await expect(prices.drawer()).toHaveCount(0);
 
-    await page.goto('/addons/extra-seats-v2/entitlements?grant=new');
-    await expect(page).toHaveURL('/addons/extra-seats-v2/entitlements');
+    await page.goto('/catalog/addons/extra-seats-v2/entitlements?grant=new');
+    await expect(page).toHaveURL('/catalog/addons/extra-seats-v2/entitlements');
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 });

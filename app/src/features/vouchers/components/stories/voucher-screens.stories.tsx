@@ -168,7 +168,7 @@ const nextButton = () => screen.findByRole('button', { name: /^Next/ });
 export const WizardKinds: Story = {
   parameters: { msw: { handlers: handlersFor() } },
   render: () => (
-    <Frame path="/vouchers/new">
+    <Frame path="/catalog/vouchers/new">
       <VoucherWizardPage />
     </Frame>
   ),
@@ -196,7 +196,7 @@ export const WizardKinds: Story = {
 export const WizardBoostOffer: Story = {
   parameters: { msw: { handlers: handlersFor() } },
   render: () => (
-    <Frame path="/vouchers/new">
+    <Frame path="/catalog/vouchers/new">
       <VoucherWizardPage />
     </Frame>
   ),
@@ -223,7 +223,7 @@ export const WizardBoostOffer: Story = {
 export const WizardReview: Story = {
   parameters: { msw: { handlers: handlersFor() } },
   render: () => (
-    <Frame path="/vouchers/new">
+    <Frame path="/catalog/vouchers/new">
       <VoucherWizardPage />
     </Frame>
   ),
@@ -248,7 +248,7 @@ export const WizardReview: Story = {
 export const DetailOfADiscount: Story = {
   parameters: { msw: { handlers: handlersFor(WELCOME) } },
   render: () => (
-    <Frame path="/vouchers/voucher-welcome">
+    <Frame path="/catalog/vouchers/voucher-welcome">
       <VoucherDetailPage voucherId="voucher-welcome" />
     </Frame>
   ),
@@ -280,7 +280,7 @@ export const DetailWithoutTheCode: Story = {
     msw: { handlers: handlersFor({ ...WELCOME, code: undefined }) },
   },
   render: () => (
-    <Frame path="/vouchers/voucher-welcome">
+    <Frame path="/catalog/vouchers/voucher-welcome">
       <VoucherDetailPage voucherId="voucher-welcome" />
     </Frame>
   ),
@@ -297,7 +297,7 @@ export const DetailWithoutTheCode: Story = {
 export const DetailOfABoost: Story = {
   parameters: { msw: { handlers: handlersFor(BOOST) } },
   render: () => (
-    <Frame path="/vouchers/voucher-boost">
+    <Frame path="/catalog/vouchers/voucher-boost">
       <VoucherDetailPage voucherId="voucher-boost" />
     </Frame>
   ),
@@ -315,7 +315,7 @@ export const DetailOfABoost: Story = {
 export const DetailOfADraft: Story = {
   parameters: { msw: { handlers: handlersFor(DRAFT) } },
   render: () => (
-    <Frame path="/vouchers/voucher-draft">
+    <Frame path="/catalog/vouchers/voucher-draft">
       <VoucherDetailPage voucherId="voucher-draft" />
     </Frame>
   ),
@@ -334,7 +334,7 @@ export const DetailOfADraft: Story = {
 export const DetailOfAnArchivedVoucher: Story = {
   parameters: { msw: { handlers: handlersFor(ARCHIVED) } },
   render: () => (
-    <Frame path="/vouchers/voucher-archived">
+    <Frame path="/catalog/vouchers/voucher-archived">
       <VoucherDetailPage voucherId="voucher-archived" />
     </Frame>
   ),

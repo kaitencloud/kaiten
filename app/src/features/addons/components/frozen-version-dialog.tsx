@@ -70,7 +70,10 @@ export function FrozenVersionDialog({
             <Button
               nativeButton={false}
               render={
-                <Link search={{ family: addon.familySlug }} to="/addons/new">
+                <Link
+                  search={{ family: addon.familySlug }}
+                  to="/catalog/addons/new"
+                >
                   {t('Pages.Addons.Freeze.createNewVersion')}
                 </Link>
               }

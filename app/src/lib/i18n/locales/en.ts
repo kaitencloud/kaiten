@@ -1536,6 +1536,9 @@ export default {
         },
       },
     },
+    Catalog: {
+      title: 'Catalog',
+    },
     Licenses: {
       title: 'Licenses',
       subtitle: 'Manage licenses and entitlement limits',

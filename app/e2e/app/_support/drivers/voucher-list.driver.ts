@@ -10,7 +10,7 @@ export class VoucherListDriver {
   constructor(private readonly page: Page) {}
 
   async goto() {
-    await this.page.goto('/vouchers');
+    await this.page.goto('/catalog/vouchers');
     await this.expectLoaded();
   }
 

@@ -42,7 +42,7 @@ test.describe('a version that cannot be changed any more', () => {
     );
     await expect(freeze.createNewVersion()).toHaveAttribute(
       'href',
-      '/licenses/versions/pro-v2?draft=true',
+      '/catalog/licenses/versions/pro-v2?draft=true',
     );
     // A dialog, not a toast.
     await expectNoToast(page);
@@ -88,7 +88,7 @@ test.describe('a version that cannot be changed any more', () => {
     await freeze.dialog().getByRole('button', { name: 'Cancel' }).click();
 
     await expect(freeze.dialog()).toHaveCount(0);
-    await expect(page).toHaveURL('/licenses/pro-v2');
+    await expect(page).toHaveURL('/catalog/licenses/pro-v2');
     await expect(
       detail.grantRow('Traces').getByRole('button', { name: '100,000' }),
     ).toBeVisible();

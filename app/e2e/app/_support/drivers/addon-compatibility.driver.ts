@@ -5,7 +5,7 @@ export class AddonCompatibilityDriver {
   constructor(private readonly page: Page) {}
 
   async goto(slug: string, title: string) {
-    await this.page.goto(`/addons/${slug}/compatibility`);
+    await this.page.goto(`/catalog/addons/${slug}/compatibility`);
     await expect(
       this.page.getByRole('heading', { name: title, level: 1 }),
     ).toBeVisible();

@@ -105,7 +105,7 @@ function handleLicenseVersionFormCancel({
     return;
   }
 
-  router.navigate({ to: '/licenses' });
+  router.navigate({ to: '/catalog/licenses' });
 }
 
 function useInitializeBaseEntitlements({
@@ -202,7 +202,7 @@ function useSubmitLicenseVersion({
         return;
       }
 
-      router.navigate({ to: '/licenses' });
+      router.navigate({ to: '/catalog/licenses' });
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     }
