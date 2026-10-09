@@ -227,6 +227,13 @@ describe('pushing an invoice again', () => {
     await waitFor(async () =>
       expect(await action('Push now')).toBeDisabled(),
     );
+    // The slow answer lands here, not in the next test, where its toast would
+    // read as the outcome of another request.
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        'Push requested. Kaiten checks again every few seconds.',
+      ),
+    );
   });
 
   it('tells the API\'s refusal as a toast, in its own words', async () => {
