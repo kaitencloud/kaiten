@@ -82,6 +82,7 @@ export const storyInvoicePreview: InvoicePreview = {
 export {
   buildInvoice,
   buildInvoiceLine,
+  buildProviderRecord,
   buildUsageReport,
 } from '../../e2e/app/_support/fixtures/build-invoice';
 

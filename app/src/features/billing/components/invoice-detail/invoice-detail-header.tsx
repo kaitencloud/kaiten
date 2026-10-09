@@ -3,11 +3,16 @@ import type { Invoice } from '@/api-client';
 import { InvoiceStatusBadge, ProviderBadge } from '@/domains/billing';
 import { Page } from '@/functionals/page';
 import { dataModelIcons } from '@/lib/data-model-icons';
+import type { PushPhase } from '../../hooks';
 import { getInvoiceTitle } from '../../utils/invoice-title';
 import { InvoiceActions } from './invoice-actions';
 
 type InvoiceDetailHeaderProps = {
   invoice: Invoice;
+  /** Starts watching the push the person just asked for. */
+  onPushRequested: (invoice: Invoice) => void;
+  /** Where the push the person asked for stands. */
+  pushPhase: PushPhase;
 };
 
 /**
@@ -15,7 +20,11 @@ type InvoiceDetailHeaderProps = {
  * and the actions its status offers. The header stays in place while the lines
  * scroll under it, so that a long invoice keeps its actions in reach.
  */
-export function InvoiceDetailHeader({ invoice }: InvoiceDetailHeaderProps) {
+export function InvoiceDetailHeader({
+  invoice,
+  onPushRequested,
+  pushPhase,
+}: InvoiceDetailHeaderProps) {
   const { i18n, t } = useTranslation();
   const InvoiceIcon = dataModelIcons.invoice;
 
@@ -42,7 +51,11 @@ export function InvoiceDetailHeader({ invoice }: InvoiceDetailHeaderProps) {
         </Page.Heading>
       </Page.Leading>
       <Page.Actions>
-        <InvoiceActions invoice={invoice} />
+        <InvoiceActions
+          invoice={invoice}
+          onPushRequested={onPushRequested}
+          pushPhase={pushPhase}
+        />
       </Page.Actions>
     </Page.Header>
   );
