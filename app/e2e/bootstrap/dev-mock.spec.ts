@@ -26,7 +26,7 @@ test('dev:mock boots its own world and reads it after reload without a stack', a
 test('dev:mock answers every request of the billing screens of the instances, the customers, the add-ons and the settings', async ({
   page,
 }) => {
-  // Eleven screens, each compiled by the dev server on its first visit: a cold
+  // Twelve screens, each compiled by the dev server on its first visit: a cold
   // server on a CI runner takes longer than the default 30 seconds.
   test.setTimeout(180_000);
   const errors: string[] = [];
@@ -73,6 +73,19 @@ test('dev:mock answers every request of the billing screens of the instances, th
   await expect(
     page.getByRole('list', { name: 'License families' }),
   ).toBeVisible();
+  // The seats of an instance that holds add-ons and redeemed a boost say how their limit is
+  // composed, and a limit only the license grants is a figure.
+  await page.goto('/customers/instances/globex-staging/entitlements');
+  await page
+    .getByRole('button', { name: /limit of Seats is composed/ })
+    .first()
+    .click();
+  await expect(page.getByTestId('limit-provenance')).toHaveText(
+    /^10 license \+ 2 × 5 add-on × 2 voucher =\s40$/,
+  );
+  const calls = page.getByRole('row').filter({ hasText: 'API Calls' });
+  await expect(calls).toBeVisible();
+  await expect(calls.getByTestId('limit-provenance-trigger')).toHaveCount(0);
   // The journal of usage of a counter, a page of it.
   await page.goto(
     '/customers/instances/globex-production/entitlements?history=api-calls',
