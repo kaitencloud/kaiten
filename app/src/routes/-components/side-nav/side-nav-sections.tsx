@@ -1,5 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { useBillingCapabilities } from '@/domains/billing';
+import {
+  canPerformAction,
+  useBillingCapabilities,
+  useGrantedScopes,
+} from '@/domains/billing';
 import { useWebhooksServed } from '@/domains/webhooks';
 import {
   billingSubRoutes,
@@ -65,16 +69,24 @@ export function useResolvedIntegrationsItems() {
 }
 
 /**
- * The entries of the Billing section the running deployment offers. Billing is
- * off until its capabilities say otherwise, so the list is empty while they load
- * and when they cannot be read, and the section is not drawn.
+ * The entries of the Billing section the running deployment offers, to the session
+ * that can use them. Billing is off until its capabilities say otherwise, so the
+ * list is empty while they load and when they cannot be read, and the section is not
+ * drawn. An entry that names an action is listed once the scopes of the session
+ * cover it: the add-ons are not offered to a session that may not read them.
  */
 export function useResolvedBillingItems() {
   const { t } = useTranslation();
   const billing = useBillingCapabilities();
+  const { isPending, scopes } = useGrantedScopes();
 
   return billingSubRoutes
-    .filter(({ capability }) => billing.has(capability.feature))
+    .filter(
+      ({ action, capability }) =>
+        billing.has(capability.feature) &&
+        (action === undefined ||
+          (!isPending && canPerformAction(scopes, action))),
+    )
     .map(({ labelKey, path }): SideNavResolvedSubRoute => ({
       label: t(labelKey),
       path,

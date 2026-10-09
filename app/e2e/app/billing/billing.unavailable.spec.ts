@@ -15,8 +15,8 @@ import {
 // and fails closed everywhere else: a link to a billing page then explains why
 // there is no billing, as an explanation and never as an error, and asks the API
 // for nothing but the capabilities. The routes of the billing screens that follow
-// join the deep links below as they are built (add-ons, vouchers, the settings
-// page, the tabs of an instance and of a license version).
+// join the deep links below as they are built (vouchers, the settings page, the
+// tabs of an instance and of a license version).
 
 const BILLING_DEEP_LINKS = [
   '/billing',
@@ -24,6 +24,10 @@ const BILLING_DEEP_LINKS = [
   '/billing/invoices/inv-1',
   '/billing/invoices/inv-1/lines/inv-1-line-1',
   '/billing/handoff',
+  '/addons',
+  '/addons/new',
+  '/addons/extra-seats-v1',
+  '/addons/extra-seats-v1/prices',
 ];
 
 test.describe('billing off on the deployment', () => {

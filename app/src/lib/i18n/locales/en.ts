@@ -3667,8 +3667,416 @@ export default {
     },
     Addons: {
       title: 'Add-ons',
+      subtitle:
+        'Extra quantities sold on top of a license: seats, instances, history.',
+      PricingTypes: {
+        FREE: 'Free',
+        PAID: 'Paid',
+        CUSTOM: 'Custom',
+      },
+      Lifecycle: {
+        DRAFT: 'Draft',
+        PUBLISHED: 'Published',
+        ARCHIVED: 'Archived',
+      },
+      Public: {
+        label: 'Public catalogue',
+        switchLabel: 'List {{name}} in the public catalogue',
+        badge: 'Public',
+        listed: 'The family is listed in the public catalogue',
+        unlisted: 'The family is no longer listed in the public catalogue',
+      },
+      List: {
+        addonName: 'Add-on name',
+        versionCount_one: '{{count}} version',
+        versionCount_other: '{{count}} versions',
+        defaultBadge: 'Default: {{version}}',
+        newVersionButton: 'New Version',
+        Empty: {
+          title: 'No add-on yet',
+          description:
+            'An add-on is an extra quantity of an entitlement, sold per unit: seats, instances, history. Create one, give it entitlements and a price, say which licenses it fits, then publish it.',
+        },
+      },
+      VersionsTable: {
+        Columns: {
+          versionName: 'Version name',
+          version: 'Version',
+          pricingType: 'Pricing',
+          lifecycleState: 'State',
+          default: 'Default',
+          maxQuantity: 'Max quantity',
+          actions: 'Actions',
+        },
+        default: 'Default',
+        unbounded: 'Unbounded',
+      },
+      LifecycleActions: {
+        publish: {
+          label: 'Publish',
+          title: 'Publish {{name}} v{{version}}?',
+          description:
+            'The version goes on sale: an instance on a license it fits can attach it, and it can be set as the default of its family.',
+          confirm: 'Publish',
+          success: 'Version published',
+          Notes: {
+            prices:
+              'Its prices cannot be edited: they can only be deprecated, and a price can still be added until an instance with a live subscription holds the version.',
+            grants:
+              'Its entitlements freeze as soon as an instance with a live subscription holds the version.',
+            compatibility:
+              'It is attachable only to the license families it fits: a version that fits none is attachable to nothing.',
+          },
+        },
+        archive: {
+          label: 'Archive',
+          title: 'Archive {{name}} v{{version}}?',
+          description:
+            'The version is withdrawn from sale: no instance can attach it any more. The instances that hold it keep it, and keep being billed for it. You can unarchive it later.',
+          confirm: 'Archive',
+          success: 'Version archived',
+        },
+        unarchive: {
+          label: 'Unarchive',
+          title: 'Unarchive {{name}} v{{version}}?',
+          description:
+            'The version goes back on sale: instances can attach it again, and it can be set as the default of its family again.',
+          confirm: 'Unarchive',
+          success: 'Version unarchived',
+        },
+        archiveDefaultUnavailable:
+          'The default version cannot be archived. Set another version as the default, or unset the default, first.',
+      },
+      DefaultActions: {
+        set: 'Set as default',
+        unset: 'Unset default',
+        setUnavailable: 'Only a published version can be set as the default',
+        setSuccess: 'Default version updated',
+        unsetSuccess: 'Default version unset',
+      },
+      DeleteDraft: {
+        label: 'Delete',
+        title: 'Delete the draft {{name}} v{{version}}?',
+        description:
+          'The draft, its prices, the licenses it fits and the entitlements it grants are deleted. It was never on sale, so no customer loses it. A version that was ever attached to an instance is history and cannot be deleted: archive it instead.',
+        confirm: 'Delete',
+        success: 'Draft deleted',
+      },
+      Form: {
+        titleNew: 'New add-on',
+        titleNewVersion: 'New version of {{name}}',
+        titleUpdate: 'Edit add-on',
+        descriptionNew:
+          'A new add-on opens a family. Its first version is created as a draft.',
+        descriptionNewVersion:
+          'A new version starts empty: nothing is copied from the previous one. Give it its entitlements, its prices and the licenses it fits, then publish it.',
+        descriptionEdit:
+          '{{name}}, version {{version}}. How it is sold and its entitlements are not changed here.',
+        createButton: 'Create add-on',
+        updateButton: 'Save',
+        Labels: {
+          name: 'Name',
+          slug: 'Slug',
+          description: 'Description',
+          pricingType: 'Pricing',
+          versionName: 'Version name',
+          maxQuantity: 'Maximum quantity',
+          createAsDraft: 'Create as a draft',
+        },
+        Placeholders: {
+          name: 'Extra seats',
+          slug: 'extra-seats',
+          description: 'Five more seats per unit',
+          versionName: 'Version - 1',
+          maxQuantity: 'Unbounded',
+        },
+        Descriptions: {
+          name: 'What the add-on is called. Every version of a family shares it.',
+          slug: 'Auto-generated — edit to set a custom one.',
+          description: 'What one unit gives an instance, in a sentence.',
+          pricingType:
+            'Free and paid add-ons can be attached by anyone who may; a paid one needs a default price for the billing period of the subscription it is attached to. A custom one is sold on request.',
+          versionName: 'Left empty, the version is called “Version - {n}”.',
+          maxQuantity:
+            'The most units an instance can hold. Leave empty for no maximum.',
+          createAsDraft:
+            'A draft is not on sale yet: it can be given its entitlements, its prices and the licenses it fits before it is. An instance nobody bills can still try it.',
+        },
+        Errors: {
+          name: 'Name is required',
+          maxQuantity:
+            'Enter a whole number of units, 1 or more, or leave it empty for no maximum.',
+          maxQuantityHeld:
+            '{{instance}} holds {{quantity}} units: lower its quantity there before lowering the maximum.',
+        },
+        Toasts: {
+          created: 'Add-on created',
+          updated: 'Add-on updated',
+        },
+      },
+      Detail: {
+        Tabs: {
+          overview: 'Overview',
+          entitlements: 'Entitlements',
+          prices: 'Prices',
+          compatibility: 'Compatible licenses',
+        },
+        cardTitle: 'Add-on details',
+        cardDescription:
+          'How this version is called and sold. Its entitlements, prices and compatible licenses are the tabs beside.',
+        defaultBadge: 'Default version',
+        unbounded: 'Unbounded',
+        Fields: {
+          name: 'Name',
+          version: 'Version',
+          lifecycleState: 'State',
+          default: 'Default',
+          pricingType: 'Pricing',
+          maxQuantity: 'Max quantity',
+          description: 'Description',
+        },
+      },
+      Freeze: {
+        billed: {
+          title: 'This version is held by a billed instance',
+          description:
+            'An instance with a live subscription holds this version, so its entitlements and prices are frozen: changing them would change a contract already sold. Create a new version to change what is sold. It starts empty: give it its entitlements, its prices and the licenses it fits, then move the instances onto it by detaching this version and attaching the new one.',
+        },
+        archived: {
+          title: 'This version takes no new price',
+          description:
+            'A version withdrawn from sale takes no new price. Create a new version to change what is sold. It starts empty: give it its entitlements, its prices and the licenses it fits.',
+        },
+        createNewVersion: 'Create a new version',
+      },
+      Grants: {
+        title: 'Entitlements',
+        tabDescription:
+          'What one unit of this add-on grants an instance that holds it. A number counts once per unit of quantity.',
+        Actions: {
+          add: 'Add entitlement',
+          edit: 'Edit',
+          editAria: 'Edit {{name}}',
+          remove: 'Remove',
+          removeAria: 'Remove {{name}}',
+        },
+        Notes: {
+          DRAFT:
+            'The entitlements of a draft can be changed until an instance with a live subscription holds the version.',
+          PUBLISHED:
+            'The entitlements of a published version freeze as soon as an instance with a live subscription holds it. Until then they can still be changed.',
+          ARCHIVED:
+            'This version is withdrawn from sale. The instances that hold it keep its entitlements; to change what is sold, create a new version.',
+        },
+        Table: {
+          Columns: {
+            entitlement: 'Entitlement',
+            type: 'Type',
+            value: 'Grants',
+            behavior: 'Combines',
+            overage: 'Overage allowance',
+          },
+          empty: 'This version grants nothing yet.',
+        },
+        Values: {
+          unlimited: 'Unlimited',
+          perUnit: '{{value}} per unit',
+          enabled: 'Enabled',
+          disabled: 'Disabled',
+          configured: 'Configured',
+        },
+        Behaviors: {
+          ADD: {
+            label: 'Add',
+            blurb:
+              'Adds value × quantity to what the license grants: 5 seats per unit, 3 units, 15 more seats.',
+          },
+          OVERRIDE: {
+            label: 'Override',
+            blurb:
+              'Replaces the license’s value with value × quantity. The add-on attached last wins.',
+          },
+          MAX: {
+            label: 'Maximum',
+            blurb:
+              'Keeps the larger of the license’s value and value × quantity.',
+          },
+        },
+        Overage: {
+          inherit: 'Inherit',
+          hard: 'Hard limit',
+          soft: '+{{percent}}%',
+          unlimited: 'Unlimited',
+        },
+        OverageWarning: {
+          message:
+            'This add-on allows an overage of {{addon}}%, and {{name}} allows {{license}}%.',
+          consequence:
+            'On every instance that attaches the add-on, its percentage replaces the license’s: usage is refused sooner than the license says.',
+        },
+        Remove: {
+          title: 'Remove {{name}} from this add-on?',
+          description:
+            'Instances that hold this version lose the entitlement at once.',
+          confirm: 'Remove',
+        },
+        Form: {
+          titleNew: 'Add entitlement',
+          titleEdit: 'Edit entitlement',
+          description: 'What one unit of {{name}} grants.',
+          create: 'Add entitlement',
+          update: 'Save entitlement',
+          Labels: {
+            entitlement: 'Entitlement',
+            number: 'Value per unit',
+            unlimited: 'Unlimited',
+            behavior: 'Combines with the license',
+            overage: 'Overage allowance (%)',
+            boolean: 'Enabled',
+            config: 'Configuration (JSON)',
+          },
+          Descriptions: {
+            entitlement: 'A version grants an entitlement once.',
+            number:
+              'What one unit of quantity grants. Three units of a value of 5 grant 15.',
+            behavior:
+              'How the value times the quantity combines with the license’s grant of the same entitlement: added to it, replacing it, or the larger of the two.',
+            overage:
+              'Leave empty to inherit the license’s allowance. Set, it replaces the license’s on every instance that attaches the add-on: 0 is a hard limit.',
+            boolean: 'A flag combines by OR with the license’s.',
+            config:
+              'A configuration replaces the license’s. The add-on attached last wins.',
+          },
+          Placeholders: {
+            entitlement: 'Select an entitlement',
+            number: '5',
+            overage: 'Inherit',
+          },
+          Errors: {
+            entitlement: 'Pick an entitlement.',
+            number: 'Enter a whole number, 0 or more, or choose unlimited.',
+            overage: 'Enter a whole percentage, 0 or more, or leave it empty.',
+            config: 'Enter a JSON object.',
+          },
+        },
+        Toasts: {
+          assigned: 'Entitlement added',
+          updated: 'Entitlement updated',
+          unassigned: 'Entitlement removed',
+        },
+      },
+      Prices: {
+        title: 'Prices',
+        tabDescription:
+          'What one unit of this add-on is billed, per billing period. A price is never edited: change it with a new price and the deprecation of the old one.',
+        defaultBadge: 'Default',
+        deprecatedOn: 'Deprecated {{date}}',
+        unvalued_one:
+          'This version also has {{count}} metered price, which billing does not value: it is not listed.',
+        unvalued_other:
+          'This version also has {{count}} metered prices, which billing does not value: they are not listed.',
+        Notes: {
+          DRAFT:
+            'The prices of a draft can be added to and deprecated until an instance with a live subscription holds the version.',
+          PUBLISHED:
+            'A price can still be added until an instance with a live subscription holds this version. A price is never edited, and the default price of a period cannot be deprecated: to change it, add a price and make it the default.',
+          ARCHIVED:
+            'This version is withdrawn from sale and takes no new price. The instances that hold it keep being billed from its prices.',
+        },
+        Slots: {
+          label: 'Default price of each billing period',
+          title: 'Default price of each billing period',
+          missing:
+            'No default price: this add-on cannot be attached to a subscription with {{period}} billing.',
+          noDefault:
+            'Priced, but no price is the default: this add-on cannot be attached to a subscription with {{period}} billing.',
+        },
+        Actions: {
+          add: 'Add price',
+          deprecate: 'Deprecate',
+          deprecateAria: 'Deprecate {{label}}',
+          deprecateDefaultHint:
+            'The default price of a period bills every instance that holds this version. Retire it through a new add-on version, or add a price and make it the default.',
+        },
+        Table: {
+          Columns: {
+            price: 'Price',
+            amount: 'Amount per unit',
+            billed: 'Billed',
+            status: 'Status',
+          },
+          empty: 'This version has no price yet.',
+        },
+        Drawer: {
+          titleNew: 'New price',
+          description:
+            '{{name}}, version {{version}}. A price becomes one line of an invoice.',
+          create: 'Create price',
+        },
+        Form: {
+          Labels: {
+            period: 'Billing period',
+            timing: 'Billing timing',
+            currency: 'Currency',
+            amount: 'Amount per unit',
+            label: 'Label on the invoice',
+            isDefault: 'Default price of this period',
+          },
+          Descriptions: {
+            period: 'How often the fee is billed.',
+            currency:
+              'A version bills in one currency, fixed by its first price.',
+            currencyLocked:
+              'This version bills in {{currency}}, fixed by its first price.',
+            amount:
+              'Billed for each unit held, per period. Type the amount in the currency’s own unit (for example 10.00).',
+            label:
+              'The name of the invoice line. Left empty, Kaiten derives one.',
+            isDefault:
+              'The default price of a period is the one that bills the instances that hold this version on a subscription of that period. A period has one.',
+          },
+          Placeholders: {
+            currency: 'Select a currency',
+            currencySearch: 'Search a currency',
+            amount: '0.00',
+            label: 'Extra seat, monthly',
+          },
+          livePreview: 'Reads as {{price}} per unit',
+          Errors: {
+            label: 'The label is at most 200 characters.',
+            currency: 'Pick a currency Kaiten supports.',
+            amount:
+              'Enter a valid amount: zero or more, with at most 12 decimals past the currency’s own and 12 digits in its smallest unit.',
+          },
+        },
+        ReplaceDefault: {
+          title: 'Replace the default {{period}} price?',
+          description:
+            'This price becomes the one that bills {{period}} subscriptions, in place of “{{label}}” ({{price}}). The old price stays listed and active, and can be deprecated once it is no longer the default.',
+          confirm: 'Replace the default',
+        },
+        Deprecate: {
+          title: 'Deprecate “{{label}}”?',
+          description:
+            'Instances already billed from this price keep being billed from it. It is no longer offered. This cannot be undone.',
+          confirm: 'Deprecate',
+        },
+        Toasts: {
+          created: 'Price created',
+          deprecated: 'Price deprecated',
+        },
+      },
       Compatibility: {
         title: 'Compatible licenses',
+        description:
+          'An instance can attach this version only when its license is of one of these families. Every version of a family counts, so a new license version never leaves the add-on orphaned.',
+        listLabel: 'License families',
+        noFamilies: 'There is no license family yet.',
+        Empty: {
+          title: 'Attachable to nothing',
+          description:
+            'No license family is compatible, so no instance can attach this version. Publishing it is allowed: pick the families it fits.',
+        },
       },
     },
     Vouchers: {

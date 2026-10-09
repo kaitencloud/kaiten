@@ -1,5 +1,5 @@
 import { Gauge, type LucideIcon, ScrollText, Settings } from 'lucide-react';
-import type { BillingFeatureKey } from '@/domains/billing';
+import type { BillingAction, BillingFeatureKey } from '@/domains/billing';
 import { dataModelIcons } from '@/lib/data-model-icons';
 
 export type SideNavRouteDefinition = {
@@ -22,6 +22,14 @@ export type SideNavSubRouteDefinition = {
 
 /** An entry of the Billing section. */
 export type SideNavBillingRouteDefinition = {
+  /**
+   * What the entry needs of the session besides: the action its screen is for,
+   * listed only to a session whose scopes cover it. An entry of a catalogue the
+   * session may not read leads nowhere it can use. Hidden while the scopes of the
+   * token are read, as an entry that appears a moment later is better than one that
+   * vanishes. Optional: the capabilities already ask for the scope of billing.
+   */
+  action?: BillingAction;
   /**
    * What the entry needs of billing (`GET /billing/capabilities`): billing on
    * and, when a `feature` is named, a release that ships it. It is hidden while
@@ -116,6 +124,7 @@ export const billingSubRoutes: SideNavBillingRouteDefinition[] = [
     path: '/billing/handoff',
   },
   {
+    action: 'addons.list',
     capability: { feature: 'addons' },
     labelKey: 'Pages.Addons.title',
     path: '/addons',

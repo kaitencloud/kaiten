@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vite-plus/test';
 import type { BillingCapabilities } from '@/api-client';
 import { billingCapabilitiesQueryOptions } from '@/domains/billing';
+import { type GrantedScopes, grantedScopesQueryKey } from '@/lib/granted-scopes';
 import { webhooksServedQueryOptions } from '@/domains/webhooks';
 import { billingCapabilitiesProfiles } from '../../../../e2e/app/_support/model/billing-capabilities';
 import {
@@ -52,7 +53,12 @@ describe('useResolvedIntegrationsItems', () => {
   });
 });
 
-function billingPathsWith(capabilities: BillingCapabilities | undefined) {
+function billingPathsWith(
+  capabilities: BillingCapabilities | undefined,
+  // What the token of the session says: nothing about scopes by default, which the
+  // console reads as every action being offered. `'unread'` leaves it unread.
+  scopes: GrantedScopes | 'unread' = null,
+) {
   const queryClient = new QueryClient({
     // No capabilities seeded stays unread: the hook sees them loading.
     defaultOptions: { queries: { enabled: false } },
@@ -62,6 +68,9 @@ function billingPathsWith(capabilities: BillingCapabilities | undefined) {
       billingCapabilitiesQueryOptions.queryKey,
       capabilities,
     );
+  }
+  if (scopes !== 'unread') {
+    queryClient.setQueryData(grantedScopesQueryKey, scopes);
   }
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -86,6 +95,28 @@ describe('useResolvedBillingItems', () => {
       '/addons',
       '/vouchers',
     ]);
+  });
+
+  describe('the add-ons, for a session that may not read them', () => {
+    const full = billingCapabilitiesProfiles.full();
+
+    it('hides them from a session whose scopes do not cover read:addons', () => {
+      expect(
+        billingPathsWith(full, ['read:billing', 'read:instances']),
+      ).toEqual(['/billing/invoices', '/billing/handoff', '/vouchers']);
+    });
+
+    it.each([
+      ['read:addons', ['read:billing', 'read:addons']],
+      ['write:addons, which covers it', ['read:billing', 'write:addons']],
+      ['read:*', ['read:*']],
+    ])('lists them for a session that holds %s', (_, scopes) => {
+      expect(billingPathsWith(full, scopes)).toContain('/addons');
+    });
+
+    it('does not list them while the scopes of the token are being read', () => {
+      expect(billingPathsWith(full, 'unread')).not.toContain('/addons');
+    });
   });
 
   it('lists an entry per part of the release, not a whole section at once', () => {
