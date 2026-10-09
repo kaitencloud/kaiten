@@ -116,15 +116,22 @@ func MapUsageRows(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) ([]e
 		if e.LicenseSlug != nil {
 			licenseSlug = *e.LicenseSlug
 		}
+		provenance, err := entitlementUsageSchema.ParseProvenance(e.Provenance)
+		if err != nil {
+			return nil, err
+		}
 		result = append(result, entitlementUsageSchema.EntitlementUsage{
-			EntitlementID:      e.EntitlementID,
-			EntitlementSlug:    e.EntitlementSlug,
-			LicenseID:          e.LicenseID,
-			LicenseSlug:        licenseSlug,
-			Value:              resolvedValue,
-			Limit:              limit,
-			CurrentPeriodStart: currentPeriodStart,
-			CurrentPeriodEnd:   currentPeriodEnd,
+			EntitlementID:                  e.EntitlementID,
+			EntitlementSlug:                e.EntitlementSlug,
+			LicenseID:                      e.LicenseID,
+			LicenseSlug:                    licenseSlug,
+			Value:                          resolvedValue,
+			Limit:                          limit,
+			CurrentPeriodStart:             currentPeriodStart,
+			CurrentPeriodEnd:               currentPeriodEnd,
+			LimitCapExceededOveragePercent: e.EffectiveOveragePercent,
+			Source:                         entitlementUsageSchema.SourceOf(e.LicenseEntitlementID),
+			Provenance:                     provenance,
 		})
 	}
 	return result, nil

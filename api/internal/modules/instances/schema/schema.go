@@ -166,6 +166,12 @@ type EntitlementUsage struct {
 	// current one, for reads as for reports.
 	CurrentPeriodStart *time.Time `json:"currentPeriodStart,omitempty" doc:"Start of the current usage window (inclusive). Null for a lifetime entitlement (no configured reset period)." example:"2026-03-01T00:00:00Z"`
 	CurrentPeriodEnd   *time.Time `json:"currentPeriodEnd,omitempty" doc:"End of the current usage window (exclusive). Null for a lifetime entitlement (no configured reset period)." example:"2026-04-01T00:00:00Z"`
+	// LimitCapExceededOveragePercent, Source and Provenance are the effective
+	// entitlement's (§7.4, §7.5): add-ons and boosts change limit, and this is
+	// how a reader tells why.
+	LimitCapExceededOveragePercent *int16      `json:"limitCapExceededOveragePercent,omitempty" doc:"How far above limit usage is still accepted, in percent: -1 unlimited, 0 a hard limit. Absent for BOOLEAN and CONFIG."`
+	Source                         string      `json:"source" enum:"license,addon" doc:"license: the licence grants it (add-ons and boosts may change it); addon: only add-ons do"`
+	Provenance                     *Provenance `json:"provenance,omitempty" doc:"What the licence, the add-ons and the boosts each contribute"`
 }
 
 type AuditTrail struct {
