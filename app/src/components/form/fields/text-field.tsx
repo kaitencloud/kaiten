@@ -16,6 +16,11 @@ type TextFieldProps = {
   description?: string;
   disabled?: boolean;
   onChange?: (value: string) => void;
+  /**
+   * `password` for a secret that is typed and never read back: the characters are
+   * hidden, and the browser is told not to offer it again.
+   */
+  type?: 'password' | 'text';
 };
 
 const TextField = ({
@@ -28,6 +33,7 @@ const TextField = ({
   description,
   disabled,
   onChange,
+  type,
 }: TextFieldProps) => {
   return (
     <FormField<string>
@@ -40,7 +46,7 @@ const TextField = ({
       {(field) => (
         <FormControl>
           <Input
-            autoComplete={autoComplete}
+            autoComplete={type === 'password' ? 'off' : autoComplete}
             inputMode={inputMode}
             placeholder={placeholder}
             value={field.value}
@@ -51,6 +57,7 @@ const TextField = ({
             onBlur={field.handleBlur}
             disabled={disabled}
             aria-invalid={field.hasError}
+            type={type}
           />
         </FormControl>
       )}

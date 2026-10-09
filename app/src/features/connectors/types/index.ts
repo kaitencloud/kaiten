@@ -8,6 +8,8 @@ export type ConnectorId =
 export type ConnectorStatus =
   | 'connected'
   | 'available'
+  /** Shipped, and not usable here: the organization cannot connect it. */
+  | 'unavailable'
   | 'coming-h1'
   | 'coming-h2';
 
@@ -32,4 +34,6 @@ export type ConnectorMeta = {
   tile: ConnectorTileTone;
   initial: string;
   logo?: ConnectorLogo;
+  /** Why an `unavailable` connector is, written under its tagline: a translation key. */
+  note?: string;
 };
