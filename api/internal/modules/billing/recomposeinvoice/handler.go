@@ -76,7 +76,10 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID uuid.UUID) (*Result, er
 			}
 		}
 
-		recomposed, err := u.closer.Recompose(ctx, q, sub, row, held)
+		// Its usage is read again from the journal: never from before the
+		// usage history (§8.8, §6.5 rule 3); a held one can then only be
+		// released (§8.7).
+		recomposed, err := u.closer.Recompose(ctx, q, sub, row, held, operation)
 		if errors.Is(err, rating.ErrAmountOverflow) {
 			return kaitenerrors.Internal("ComposeInvoice.AmountOverflow", "an invoice amount overflows 64-bit minor units")
 		}

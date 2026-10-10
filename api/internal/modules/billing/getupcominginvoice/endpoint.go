@@ -32,7 +32,7 @@ func RegisterEndpoint(api huma.API, app Getter) {
 		Summary:     "Preview an instance's upcoming invoice",
 		Description: "The invoice the subscription's next boundary will issue, composed from its usage so far, without writing anything: lines carry the period they will bill, quantities what was measured until now. wouldHold lists the meters whose usage journal fails a check and would hold the invoice. Requires billing to be enabled for the organization.",
 		Tags:        []string{"billing"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError, http.StatusServiceUnavailable},
+		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)
 		if err != nil {

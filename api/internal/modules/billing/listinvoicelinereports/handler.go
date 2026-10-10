@@ -3,6 +3,7 @@ package listinvoicelinereports
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -91,9 +92,12 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID, lineID uuid.UUID, q Qu
 		return nil, err
 	}
 	if start := u.deps.Usage.RetentionStart(ctx, user.OrganizationID, clock.Time.UTC()); start != nil && line.ServiceFrom.Before(*start) {
+		// errors[0] stays the line's metering (§6.5 rule 7); retentionStart
+		// follows, as every OutsideRetention names it.
 		return nil, kaitenerrors.UnprocessableEntityWithErrors(operation+".OutsideRetention",
 			"the line's period starts before the organization's usage history: its reports are gone, its metering remains",
-			&kaitenerrors.ErrorDetail{Message: "the line's metering", Location: "metering", Value: line.Metering})
+			&kaitenerrors.ErrorDetail{Message: "the line's metering", Location: "metering", Value: line.Metering},
+			&kaitenerrors.ErrorDetail{Message: "retentionStart", Location: "retentionStart", Value: start.UTC().Format(time.RFC3339Nano)})
 	}
 
 	ref := ports.UsageRef{OrganizationID: user.OrganizationID, InstanceID: instanceID, EntitlementID: *line.EntitlementID}

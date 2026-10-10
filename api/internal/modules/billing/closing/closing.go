@@ -409,6 +409,16 @@ func (c *Closer) transition(ctx context.Context, q *db.Queries, sub db.InstanceB
 	}
 }
 
+// periodStart is P0 of the elapsed period: its start, or the instant billing
+// went live when later.
+func (c *Closer) periodStart(sub db.InstanceBilling) time.Time {
+	periodStart := sub.CurrentPeriodStart.Time.UTC()
+	if started := sub.StartedAt.Time.UTC(); started.After(periodStart) {
+		periodStart = started
+	}
+	return periodStart
+}
+
 // compose rates the boundary a plan describes: the elapsed period's usage up
 // to measuredTo and its arrears base, from the later of the period's start
 // and the instant billing went live; then the next period's base in advance.
@@ -416,10 +426,7 @@ func (c *Closer) compose(ctx context.Context, q *db.Queries, sub db.InstanceBill
 	var lines []rating.InvoiceLine
 	var hold *invoices.Hold
 	if p.arrearsBase != nil {
-		periodStart := sub.CurrentPeriodStart.Time.UTC()
-		if started := sub.StartedAt.Time.UTC(); started.After(periodStart) {
-			periodStart = started
-		}
+		periodStart := c.periodStart(sub)
 		until := boundary
 		if measuredTo.Before(boundary) {
 			until = measuredTo
@@ -523,8 +530,10 @@ func (c *Closer) addons(ctx context.Context, sub db.InstanceBilling, period stri
 
 // Preview composes, without sealing or writing anything, the invoice the
 // subscription's next boundary would issue on its usage so far, and says
-// which meters' journals would hold it.
-func (c *Closer) Preview(ctx context.Context, sub db.InstanceBilling) (*rating.InvoicePreview, error) {
+// which meters' journals would hold it. operation names the user's read,
+// refused when it would read the journal from before the usage history
+// (§8.9 rule 2).
+func (c *Closer) Preview(ctx context.Context, sub db.InstanceBilling, operation string) (*rating.InvoicePreview, error) {
 	q := c.deps.Queries(ctx)
 	clock, err := q.BillingClock(ctx)
 	if err != nil {
@@ -539,6 +548,17 @@ func (c *Closer) Preview(ctx context.Context, sub db.InstanceBilling) (*rating.I
 	p, err := c.planFor(ctx, sub, base, boundary)
 	if err != nil {
 		return nil, err
+	}
+	if p.arrearsBase != nil && operation != "" {
+		metered, err := c.deps.Catalogue.MeteredPrices(ctx, sub.OrganizationID, p.arrearsBase.LicenseID)
+		if err != nil {
+			return nil, err
+		}
+		if len(metered) > 0 {
+			if err := c.refuseOutsideRetention(ctx, operation, sub.OrganizationID, c.periodStart(sub), now); err != nil {
+				return nil, err
+			}
+		}
 	}
 	composition, hold, err := c.compose(ctx, q, sub, p, boundary, now)
 	if err != nil {

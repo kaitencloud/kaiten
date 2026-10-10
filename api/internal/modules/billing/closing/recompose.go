@@ -38,7 +38,11 @@ type Recomposition struct {
 
 // Recompose composes row again. keepIDs keeps the kept lines' identifiers,
 // for an invoice rewritten in place.
-func (c *Closer) Recompose(ctx context.Context, q *db.Queries, sub db.InstanceBilling, row db.InstanceInvoice, keepIDs bool) (Recomposition, error) {
+//
+// operation names a user's recompose, refused when it would read the journal
+// from before the usage history (§8.8); "" is the system's re-check of held
+// invoices, which never is.
+func (c *Closer) Recompose(ctx context.Context, q *db.Queries, sub db.InstanceBilling, row db.InstanceInvoice, keepIDs bool, operation string) (Recomposition, error) {
 	var lines []rating.InvoiceLine
 	if err := json.Unmarshal(row.Lines, &lines); err != nil {
 		return Recomposition{}, fmt.Errorf("decode lines of invoice %s: %w", row.ID, err)
@@ -75,6 +79,15 @@ func (c *Closer) Recompose(ctx context.Context, q *db.Queries, sub db.InstanceBi
 	metered, err := c.deps.Catalogue.MeteredPrices(ctx, sub.OrganizationID, row.LicenseID)
 	if err != nil {
 		return Recomposition{}, err
+	}
+	if len(metered) > 0 && operation != "" {
+		clock, err := q.BillingClock(ctx)
+		if err != nil {
+			return Recomposition{}, err
+		}
+		if err := c.refuseOutsideRetention(ctx, operation, sub.OrganizationID, from, clock.Time.UTC()); err != nil {
+			return Recomposition{}, err
+		}
 	}
 	measures, hold, err := c.measure(ctx, q, sub, metered, from, boundary)
 	if err != nil {
@@ -287,7 +300,7 @@ func (c *Closer) recheckOne(ctx context.Context, invoiceID uuid.UUID) (released 
 		if row.HoldReason == nil || sub.InstanceID == nil {
 			return nil
 		}
-		recomposed, err := c.Recompose(ctx, q, sub, row, true)
+		recomposed, err := c.Recompose(ctx, q, sub, row, true, "")
 		if err != nil || recomposed.Hold != nil {
 			return err
 		}

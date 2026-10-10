@@ -51,5 +51,5 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string) (*rating.Inv
 	if !subscriptions.Live(sub.Status) {
 		return nil, kaitenerrors.Conflict(operation+".NotActive", "the subscription is canceled: it has no upcoming invoice")
 	}
-	return u.closer.Preview(ctx, sub)
+	return u.closer.Preview(ctx, sub, operation)
 }
