@@ -26,7 +26,7 @@ const (
 
 // BillingSettings is an organization's billing defaults as the API shows them.
 type BillingSettings struct {
-	DefaultCollectionMethod string `json:"defaultCollectionMethod" enum:"SEND_INVOICE,CHARGE_AUTOMATICALLY" doc:"How an invoice is collected when its subscription does not say: SEND_INVOICE sends it for payment. CHARGE_AUTOMATICALLY needs a payment provider and is refused until one is available." example:"SEND_INVOICE"`
+	DefaultCollectionMethod string `json:"defaultCollectionMethod" enum:"SEND_INVOICE,CHARGE_AUTOMATICALLY" doc:"How an invoice is collected when its subscription does not say: SEND_INVOICE sends it for payment; CHARGE_AUTOMATICALLY charges the customer's payment method, on a provider that can. A NOOP subscription sends its invoices whatever the default." example:"SEND_INVOICE"`
 	DefaultDaysUntilDue     int32  `json:"defaultDaysUntilDue" doc:"Days an invoice is due after it is issued, when its subscription does not say; 0 to 365." example:"30"`
 	HandoffStripeInvoices   bool   `json:"handoffStripeInvoices" doc:"Whether invoices a payment provider issues also enter the handoff queue, for an accounting system that wants every invoice. Invoices without a provider always do."`
 }

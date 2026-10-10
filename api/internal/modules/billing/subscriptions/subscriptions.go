@@ -83,6 +83,11 @@ func Terms(row db.InstanceBilling, defaults settings.BillingSettings) invoices.T
 	if row.CollectionMethod != nil {
 		terms.CollectionMethod = string(*row.CollectionMethod)
 	}
+	// Nothing charges a NOOP invoice: it is sent, whatever the organization's
+	// default (§12.5).
+	if row.ProviderKind == db.BillingProviderKindNOOP {
+		terms.CollectionMethod = settings.SendInvoice
+	}
 	if row.DaysUntilDue != nil {
 		terms.DaysUntilDue = *row.DaysUntilDue
 	}

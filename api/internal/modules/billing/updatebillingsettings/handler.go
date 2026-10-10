@@ -28,9 +28,12 @@ func (u *UseCase) Execute(ctx context.Context, next settings.BillingSettings) (*
 		return nil, kaitenerrors.UnprocessableEntity(operation+".InvalidDaysUntilDue",
 			"defaultDaysUntilDue is between 0 and 365")
 	}
-	if next.DefaultCollectionMethod != settings.SendInvoice {
+	// CHARGE_AUTOMATICALLY is a default like the other (§12.5, F-9): it
+	// applies to subscriptions with a provider that charges, and a NOOP one
+	// sends invoices whatever the default.
+	if next.DefaultCollectionMethod != settings.SendInvoice && next.DefaultCollectionMethod != settings.ChargeAutomatically {
 		return nil, kaitenerrors.UnprocessableEntity(operation+".InvalidCollectionMethod",
-			"only SEND_INVOICE is available: automatic collection needs a payment provider")
+			"defaultCollectionMethod is SEND_INVOICE or CHARGE_AUTOMATICALLY")
 	}
 
 	row, err := u.deps.Queries(ctx).UpsertBillingSettings(ctx, db.UpsertBillingSettingsParams{

@@ -485,6 +485,11 @@ func (u *UseCase) checkProvider(ctx context.Context, organizationID uuid.UUID, i
 		return "", err
 	}
 	method := defaults.DefaultCollectionMethod
+	if kind == db.BillingProviderKindNOOP {
+		// NOOP sends its invoices whatever the default; only an explicit
+		// CHARGE_AUTOMATICALLY is refused (§9.1, §12.5).
+		method = settings.SendInvoice
+	}
 	if cmd.CollectionMethod != nil {
 		method = *cmd.CollectionMethod
 	}
