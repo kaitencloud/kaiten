@@ -213,23 +213,26 @@ test.describe('the invoices, read in French', () => {
   test('the handoff queue, its view, its tabs, its search and its acknowledgement', async ({
     page,
   }) => {
-    await page.goto('/invoices?view=handoff');
+    await page.goto('/invoices?view=waiting');
 
     await expect(
       page.getByRole('heading', { level: 1, name: 'Factures' }),
     ).toBeVisible();
-    // The switch between every invoice and the queue, and the parts of the queue.
+    // The status views of the list, the two parts of the queue among them.
     await expect(
-      page.getByRole('link', { exact: true, name: 'Toutes' }),
+      page.getByRole('link', { name: /^Toutes \d+$/ }),
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { exact: true, name: 'Transmission' }),
+      page.getByRole('link', { name: /^En retard \d+$/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: /^Bloquées \d+$/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: /^En attente de votre ERP \d+$/ }),
     ).toHaveAttribute('aria-current', 'page');
     await expect(
-      page.getByRole('link', { exact: true, name: 'En attente' }),
-    ).toHaveAttribute('aria-current', 'page');
-    await expect(
-      page.getByRole('link', { exact: true, name: 'Acquittées' }),
+      page.getByRole('link', { name: /^Acquittées \d+$/ }),
     ).toBeVisible();
     await expect(
       page.getByPlaceholder('Client, instance ou facture'),

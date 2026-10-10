@@ -287,9 +287,9 @@ test.describe('the health of billing', () => {
     await settings.goto();
 
     const links = {
-      handoff: '/invoices?view=handoff',
-      held: '/invoices?held=true',
-      overdue: '/invoices?overdue=true',
+      handoff: '/invoices?view=waiting',
+      held: '/invoices?view=held',
+      overdue: '/invoices?view=overdue',
       pushFailures: '/invoices?status=PUSH_FAILED',
     } as const;
     for (const [id, href] of Object.entries(links)) {
@@ -304,17 +304,17 @@ test.describe('the health of billing', () => {
     }
   });
 
-  for (const [tile, query, chip, status] of [
-    ['held', 'held=true', 'Held: True', 'Held'],
-    ['overdue', 'overdue=true', 'Overdue: True', 'Overdue'],
+  for (const [tile, query, chips, status] of [
+    ['held', 'view=held', [], 'Held'],
+    ['overdue', 'view=overdue', [], 'Overdue'],
     [
       'pushFailures',
       'status=PUSH_FAILED',
-      'Status: Push failed',
+      ['Status: Push failed'],
       'Push failed',
     ],
   ] as const) {
-    test(`opens the list of invoices on the filter of the tile of ${tile}, with the chip that says it`, async ({
+    test(`opens the list of invoices on the view or the filter of the tile of ${tile}, with the chip that says it where it is a filter`, async ({
       page,
     }) => {
       const settings = new BillingSettingsDriver(page);
@@ -330,7 +330,7 @@ test.describe('the health of billing', () => {
       await expect(
         page.getByRole('heading', { level: 1, name: 'Invoices' }),
       ).toBeVisible();
-      await list.expectChips([chip]);
+      await list.expectChips([...chips]);
       await expect(list.rows().first()).toBeVisible();
       // Every invoice listed is what the tile counts.
       const statuses = await list.statusBadges().allTextContents();
@@ -351,10 +351,10 @@ test.describe('the health of billing', () => {
     await settings.goto();
     await settings.tile('handoff').getByRole('link').click();
 
-    await expect(page).toHaveURL(/\/invoices\?view=handoff$/);
-    // The queue is the handoff view of the list of invoices.
+    await expect(page).toHaveURL(/\/invoices\?view=waiting$/);
+    // The queue is a status view of the list of invoices.
     await expect(
-      page.getByRole('link', { exact: true, name: 'Waiting' }),
+      page.getByRole('link', { name: /^Waiting for your ERP/ }),
     ).toHaveAttribute('aria-current', 'page');
   });
 

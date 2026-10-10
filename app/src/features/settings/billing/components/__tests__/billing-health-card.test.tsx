@@ -182,7 +182,7 @@ describe('the health of billing', () => {
     expect(held).toHaveAttribute('data-count', '3');
     expect(
       await within(held).findByRole('link', { name: 'Held invoices' }),
-    ).toHaveAttribute('href', '/invoices?held=true');
+    ).toHaveAttribute('href', '/invoices?view=held');
     expect(
       within(await tile('pushFailures')).getByRole('link', {
         name: 'Failed pushes',
@@ -192,12 +192,12 @@ describe('the health of billing', () => {
       within(await tile('overdue')).getByRole('link', {
         name: 'Overdue invoices',
       }),
-    ).toHaveAttribute('href', '/invoices?overdue=true');
+    ).toHaveAttribute('href', '/invoices?view=overdue');
     expect(
       within(await tile('handoff')).getByRole('link', {
         name: 'Waiting for your accounting system',
       }),
-    ).toHaveAttribute('href', '/invoices?view=handoff');
+    ).toHaveAttribute('href', '/invoices?view=waiting');
   });
 
   it('shows a count that nothing lists as a figure and no link', async () => {

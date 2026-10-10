@@ -12,23 +12,21 @@ export type HealthItemId =
   | 'pushFailures';
 
 /**
- * The filter of the list of invoices that lists what an item counts: a few of the
- * filters the list opens with (`?held=true`).
+ * What of the list of invoices lists what an item counts: one of its status views
+ * (`?view=held`, `?view=overdue`, `?view=waiting` for what waits for the accounting
+ * system) or a filter it opens with (`?status=PUSH_FAILED`).
  */
-export type HealthItemFilter = {
-  held?: true;
-  overdue?: true;
-  status?: 'PUSH_FAILED';
-};
+export type HealthItemSearch =
+  | { status: 'PUSH_FAILED' }
+  | { view: 'held' | 'overdue' | 'waiting' };
 
 /**
  * Where a count leads to, to see what it counts: the list of invoices opened on a
- * filter, or on its handoff view, the queue of the accounting system, which is what
- * waits for it. An item that counts something nothing lists (an invoice whose
+ * status view or a filter, the Waiting view being the queue of the accounting system. An item that counts something nothing lists (an invoice whose
  * provider disagrees, a period, a subscription) has none, and is a figure and no link.
  */
 export type HealthLink = {
-  search: HealthItemFilter | { view: 'handoff' };
+  search: HealthItemSearch;
   to: '/invoices';
 };
 
@@ -57,7 +55,7 @@ export function getHealthItems(health: BillingHealth): HealthItem[] {
     {
       count: health.heldInvoices.count,
       id: 'held',
-      link: { search: { held: true }, to: '/invoices' },
+      link: { search: { view: 'held' }, to: '/invoices' },
       reasons: Object.entries(health.heldInvoices.byReason)
         .filter(([, count]) => count > 0)
         .map(([reason, count]) => ({ count, reason })),
@@ -71,12 +69,12 @@ export function getHealthItems(health: BillingHealth): HealthItem[] {
     {
       count: health.overdueInvoices,
       id: 'overdue',
-      link: { search: { overdue: true }, to: '/invoices' },
+      link: { search: { view: 'overdue' }, to: '/invoices' },
     },
     {
       count: health.handoff.pending,
       id: 'handoff',
-      link: { search: { view: 'handoff' }, to: '/invoices' },
+      link: { search: { view: 'waiting' }, to: '/invoices' },
       oldestAt: health.handoff.oldestPendingIssuedAt,
     },
     { count: health.reconciliationMismatches30d, id: 'mismatches' },

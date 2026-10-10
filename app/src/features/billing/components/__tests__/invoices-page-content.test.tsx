@@ -108,7 +108,7 @@ describe('the page of the invoices, opened by a link', () => {
 
   it('asks the API for the scope alone: the filter of the link is the page\'s', async () => {
     const asked = serveInvoices(pageOf([invoiceRow('inv-1', 'Initech')]));
-    renderPage({ customerSlug: 'initech', held: true, overdue: true });
+    renderPage({ customerSlug: 'initech', status: 'PUSH_FAILED', view: 'held' });
 
     await waitFor(() => expect(asked).toHaveLength(1));
     expect([...asked[0].keys()].sort()).toEqual(['customerSlug', 'limit']);
@@ -173,36 +173,90 @@ describe('who collects, on the page of the invoices', () => {
   });
 });
 
-describe('the way to the handoff queue, on the page of the invoices', () => {
-  it('is a link of the toolbar, to the handoff view, where the queue matters', async () => {
+describe('the status views, on the page of the invoices', () => {
+  const NOW = Date.now();
+  const rows = [
+    invoiceRow('inv-ok', 'Initech'),
+    invoiceRow('inv-late', 'Globex', {
+      dueAt: new Date(NOW - 5 * 24 * 3600 * 1000).toISOString(),
+      status: 'PUSHED',
+    }),
+    invoiceRow('inv-held', 'Umbrella', { holdReason: 'LEDGER_SEQUENCE_GAP' }),
+    invoiceRow('inv-waiting', 'Hooli', { handoffStatus: 'PENDING' }),
+    invoiceRow('inv-booked', 'Pied Piper', { handoffStatus: 'ACKNOWLEDGED' }),
+  ];
+
+  it('count the invoices of the list in each view, from that one read', async () => {
     server.use(
       handleGetBillingCapabilities({
         body: billingCapabilitiesProfiles.stack(),
       }),
     );
-    serveInvoices(pageOf([invoiceRow('inv-1', 'Initech')]));
+    const asked = serveInvoices(pageOf(rows));
     renderPage();
 
-    await screen.findByText('Initech');
+    await screen.findByRole('link', { name: 'Waiting for your ERP 1' });
 
-    expect(await screen.findByRole('link', { name: 'Handoff' })).toHaveAttribute(
-      'href',
-      '/invoices?view=handoff',
-    );
-    expect(screen.getByRole('link', { name: 'All' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'All 5' })).toHaveAttribute(
       'href',
       '/invoices',
     );
+    expect(screen.getByRole('link', { name: 'Overdue 1' })).toHaveAttribute(
+      'href',
+      '/invoices?view=overdue',
+    );
+    expect(screen.getByRole('link', { name: 'Held 1' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Waiting for your ERP 1' }),
+    ).toHaveAttribute('href', '/invoices?view=waiting');
+    expect(screen.getByRole('link', { name: 'Acknowledged 1' })).toBeVisible();
+    expect(asked).toHaveLength(1);
   });
 
-  it('is not there where billing says nothing of NoOp, and the list stays as it was', async () => {
+  it('draw every invoice on the bare path', async () => {
+    serveInvoices(pageOf(rows));
+    renderPage();
+
+    expect(await screen.findByText('Initech')).toBeInTheDocument();
+    expect(screen.getByText('Globex')).toBeInTheDocument();
+    expect(screen.getByText('Pied Piper')).toBeInTheDocument();
+  });
+
+  it('keep the overdue invoices in the overdue view', async () => {
+    serveInvoices(pageOf(rows));
+    renderPage({ view: 'overdue' });
+
+    expect(await screen.findByText('Globex')).toBeInTheDocument();
+    expect(screen.queryByText('Initech')).toBeNull();
+    expect(screen.queryByText('Umbrella')).toBeNull();
+  });
+
+  it('keep the held invoices in the held view, and leave the filters to narrow them further', async () => {
+    serveInvoices(pageOf(rows));
+    renderPage({ view: 'held' });
+
+    expect(await screen.findByText('Umbrella')).toBeInTheDocument();
+    expect(screen.queryByText('Initech')).toBeNull();
+    expect(document.querySelectorAll('[data-slot="filter-chip"]')).toHaveLength(0);
+  });
+
+  it('say so when a view holds nothing', async () => {
+    serveInvoices(pageOf([invoiceRow('inv-ok', 'Initech')]));
+    renderPage({ view: 'held' });
+
+    expect(await screen.findByTestId('invoices-empty')).toBeInTheDocument();
+    expect(screen.queryByText('Initech')).toBeNull();
+  });
+
+  it('are All, Overdue and Held where billing says nothing of NoOp, and the list stays as it was', async () => {
     serveInvoices(pageOf([invoiceRow('inv-1', 'Initech')]));
     renderPage();
 
     await screen.findByText('Initech');
 
-    expect(screen.queryByRole('link', { name: 'Handoff' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'All' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'All 1' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Held 0' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Waiting for your ERP/ })).toBeNull();
     expect(
       screen.getByPlaceholderText('Customer, instance or invoice'),
     ).toBeInTheDocument();

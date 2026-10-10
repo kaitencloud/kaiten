@@ -22,7 +22,7 @@ import {
   TableActionButton,
   TableActions,
 } from '@/functionals/table';
-import type { HandoffQueueStatus } from '../../schemas/handoff-search.schema';
+import type { HandoffQueueStatus } from '../../schemas/handoff-queue-status';
 
 function ClaimsCell({ invoice }: { invoice: QueuedInvoice }) {
   const { i18n, t } = useTranslation();

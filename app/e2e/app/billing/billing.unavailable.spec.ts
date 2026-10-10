@@ -20,7 +20,7 @@ import {
 
 const BILLING_DEEP_LINKS = [
   '/invoices',
-  '/invoices?view=handoff',
+  '/invoices?view=waiting',
   '/invoices/inv-1',
   '/invoices/inv-1/lines/inv-1-line-1',
   '/catalog/addons',

@@ -3997,6 +3997,10 @@ export default {
           'Toutes les factures de votre organisation, tous clients et instances confondus.',
         Views: {
           all: 'Toutes',
+          overdue: 'En retard',
+          held: 'Bloquées',
+          waiting: 'En attente de votre ERP',
+          acknowledged: 'Acquittées',
         },
         Lines: {
           title: 'Lignes',
@@ -4013,6 +4017,12 @@ export default {
           scopedDescription:
             'Rien n’a encore été facturé. Une facture est composée lorsqu’un abonnement atteint une échéance.',
           showAll: 'Afficher toutes les factures',
+          overdueTitle: 'Aucune facture en retard',
+          overdueDescription:
+            'Une facture impayée dont l’échéance est dépassée apparaît ici.',
+          heldTitle: 'Aucune facture bloquée',
+          heldDescription:
+            'Une facture bloquée par un contrôle apparaît ici jusqu’à ce que quelqu’un la libère ou la recompose.',
         },
         Filters: {
           clear: 'Effacer les filtres',
@@ -4366,13 +4376,8 @@ export default {
         },
       },
       Handoff: {
-        title: 'Transmission',
         subtitle:
           'Les factures en attente de votre ERP, les plus anciennes d’abord. Un job ou la CLI les prend dans la file et les acquitte une fois comptabilisées.',
-        Tabs: {
-          pending: 'En attente',
-          acknowledged: 'Acquittées',
-        },
         Columns: {
           issued: 'Émise le',
           booked: 'Comptabilisée',

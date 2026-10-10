@@ -147,7 +147,7 @@ test.describe('the icons of billing', () => {
 
   for (const [path, what] of [
     ['/invoices', 'the list of the invoices'],
-    ['/invoices?view=handoff', 'the handoff queue'],
+    ['/invoices?view=waiting', 'the handoff queue'],
     ['/invoices/inv-m1', 'one invoice'],
   ] as const) {
     test(`draws an invoice with the receipt with its lines in the header of ${what}`, async ({

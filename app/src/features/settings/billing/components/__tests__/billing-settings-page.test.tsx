@@ -138,7 +138,7 @@ describe('the providers', () => {
     // The scopes of the session are read from its token, which takes a moment.
     expect(
       await within(noop).findByRole('link', { name: 'Open the handoff queue' }),
-    ).toHaveAttribute('href', '/invoices?view=handoff');
+    ).toHaveAttribute('href', '/invoices?view=waiting');
     expect(screen.queryByTestId('billing-provider-stripe')).toBeNull();
   });
 
