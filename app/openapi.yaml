@@ -4246,13 +4246,19 @@ components:
             - FLAT_FEE
             - USAGE_BASED
             - OVERAGE
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         billingTiming:
           description: ADVANCE lines bill the period that starts at the boundary, ARREARS lines the one that ends there; absent on a DISCOUNT line
           enum:
             - ADVANCE
             - ARREARS
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         capped:
           description: "Set on a preview line whose sample exceeded what the licence accepts: reports above that are rejected, so the excess is not billed"
           type: boolean
@@ -4348,7 +4354,9 @@ components:
           description: The price's unit amount in minor units; absent on a DISCOUNT line
           examples:
             - "800"
-          type: string
+          type:
+            - string
+            - "null"
         voucherId:
           description: The voucher a DISCOUNT line applies
           type:
@@ -4357,6 +4365,8 @@ components:
       required:
         - seq
         - type
+        - billingModel
+        - billingTiming
         - licensePriceId
         - addonPriceId
         - addonId
@@ -4370,6 +4380,7 @@ components:
         - serviceFrom
         - serviceTo
         - quantity
+        - unitAmountDecimal
         - amount
         - metering
         - overage
@@ -10127,8 +10138,10 @@ components:
             - DISCOUNT
           type: string
         unitAmountDecimal:
-          description: Minor units; empty on a DISCOUNT line
-          type: string
+          description: Minor units; null on a DISCOUNT line
+          type:
+            - string
+            - "null"
       required:
         - seq
         - type

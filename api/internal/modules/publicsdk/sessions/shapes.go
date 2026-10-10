@@ -42,10 +42,15 @@ type SessionLine struct {
 	Label             string    `json:"label"`
 	Description       string    `json:"description"`
 	Quantity          string    `json:"quantity" doc:"In sale units, a decimal string"`
-	UnitAmountDecimal string    `json:"unitAmountDecimal" doc:"Minor units; empty on a DISCOUNT line"`
+	UnitAmountDecimal *string   `json:"unitAmountDecimal" doc:"Minor units; null on a DISCOUNT line"`
 	Amount            int64     `json:"amount" doc:"Minor units; negative on a DISCOUNT line"`
 	ServiceFrom       time.Time `json:"serviceFrom"`
 	ServiceTo         time.Time `json:"serviceTo"`
+}
+
+// TransformSchema publishes SessionLine's absent members as null (§13.15).
+func (SessionLine) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, SessionLine{})
 }
 
 // InvoiceFrom shows an invoice as a session does.

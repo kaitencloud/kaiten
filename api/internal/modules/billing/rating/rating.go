@@ -298,8 +298,8 @@ func baseLine(in Input, service Period) (InvoiceLine, error) {
 		ID:                nil,
 		Seq:               0,
 		Type:              LineBase,
-		BillingModel:      in.Base.BillingModel,
-		BillingTiming:     in.Base.BillingTiming,
+		BillingModel:      text(in.Base.BillingModel),
+		BillingTiming:     text(in.Base.BillingTiming),
 		LicensePriceID:    &price,
 		AddonPriceID:      nil,
 		AddonID:           nil,
@@ -313,7 +313,7 @@ func baseLine(in Input, service Period) (InvoiceLine, error) {
 		ServiceFrom:       service.From,
 		ServiceTo:         service.To,
 		Quantity:          money.FormatDecimal(quantity),
-		UnitAmountDecimal: money.FormatDecimal(in.Base.UnitAmountDecimal),
+		UnitAmountDecimal: text(money.FormatDecimal(in.Base.UnitAmountDecimal)),
 		Amount:            amount,
 		Metering:          nil,
 		Overage:           nil,
@@ -340,8 +340,8 @@ func addonLine(in Input, addon AddonCharge, service Period) (InvoiceLine, error)
 		ID:                nil,
 		Seq:               0,
 		Type:              LineAddon,
-		BillingModel:      addon.Price.BillingModel,
-		BillingTiming:     addon.Price.BillingTiming,
+		BillingModel:      text(addon.Price.BillingModel),
+		BillingTiming:     text(addon.Price.BillingTiming),
 		LicensePriceID:    nil,
 		AddonPriceID:      &price,
 		AddonID:           &addonID,
@@ -355,7 +355,7 @@ func addonLine(in Input, addon AddonCharge, service Period) (InvoiceLine, error)
 		ServiceFrom:       service.From,
 		ServiceTo:         service.To,
 		Quantity:          money.FormatDecimal(quantity),
-		UnitAmountDecimal: money.FormatDecimal(addon.Price.UnitAmountDecimal),
+		UnitAmountDecimal: text(money.FormatDecimal(addon.Price.UnitAmountDecimal)),
 		Amount:            amount,
 		Metering:          nil,
 		Overage:           nil,
@@ -443,8 +443,8 @@ func meteredLine(in Input, price Price) (InvoiceLine, bool, error) {
 		ID:                nil,
 		Seq:               0,
 		Type:              lineType,
-		BillingModel:      price.BillingModel,
-		BillingTiming:     price.BillingTiming,
+		BillingModel:      text(price.BillingModel),
+		BillingTiming:     text(price.BillingTiming),
 		LicensePriceID:    &priceID,
 		AddonPriceID:      nil,
 		AddonID:           nil,
@@ -458,7 +458,7 @@ func meteredLine(in Input, price Price) (InvoiceLine, bool, error) {
 		ServiceFrom:       in.Arrears.From,
 		ServiceTo:         in.Arrears.To,
 		Quantity:          money.FormatDecimal(quantity),
-		UnitAmountDecimal: money.FormatDecimal(price.UnitAmountDecimal),
+		UnitAmountDecimal: text(money.FormatDecimal(price.UnitAmountDecimal)),
 		Amount:            amount,
 		Metering: &InvoiceLineMetering{
 			SaleUnitFactor:          money.FormatDecimal(factor),
@@ -593,3 +593,6 @@ func PeriodMonths(billingPeriod string) int {
 		return 0
 	}
 }
+
+// text is a line member that is null on a line without a price (§13.15).
+func text(s string) *string { return &s }
