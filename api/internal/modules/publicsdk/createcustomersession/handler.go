@@ -57,7 +57,7 @@ func NewUseCase(deps sessions.Deps) *UseCase {
 // instances. The actor -- the caller -- is recorded on the session and is who
 // the writes made through it are attributed to.
 func (u *UseCase) Execute(ctx context.Context, draft CustomerSessionDraft) (*CreatedCustomerSession, error) {
-	user, err := u.deps.UserProvider.GetUser(ctx)
+	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return nil, err
 	}

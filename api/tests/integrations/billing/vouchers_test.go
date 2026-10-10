@@ -78,6 +78,9 @@ func TestVoucherCatalogue(t *testing.T) {
 		} {
 			require.Equal(t, code, problemCode(t, fiber.StatusUnprocessableEntity, "POST", "/api/vouchers", payload))
 		}
+		// C-10: the floor counts the normalized code, 11 characters here.
+		require.Equal(t, "CreateVoucher.WeakCodeUnbounded", problemCode(t, fiber.StatusUnprocessableEntity, "POST", "/api/vouchers",
+			percentOff("10", map[string]any{"name": "x", "duration": "FOREVER", "code": "SUM-MER-2027"})))
 
 		publish(t, custom)
 		require.Equal(t, "PublishVoucher.NotADraft", problemCode(t, fiber.StatusConflict, "POST", "/api/vouchers/"+custom.ID.String()+"/publish", nil))

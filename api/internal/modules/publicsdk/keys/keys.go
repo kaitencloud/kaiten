@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
@@ -61,6 +62,21 @@ type PublishableKeyCreated struct {
 type Deps struct {
 	UserProvider currentuser.Provider
 	Uof          *uow.UnitOfWork
+	// Gate keeps the management of publishable keys behind the billing switch
+	// (§13.12, S12-007).
+	Gate gate.Gate
+}
+
+// Caller is the user a management request acts for, past the billing gate.
+func (d Deps) Caller(ctx context.Context) (*currentuser.User, error) {
+	user, err := d.UserProvider.GetUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := d.Gate.Require(ctx, user.OrganizationID); err != nil {
+		return nil, err
+	}
+	return user, nil
 }
 
 // Queries binds to the transaction ctx carries, or the pool.
@@ -114,8 +130,10 @@ func NormalizeOrigins(operation string, origins []string) ([]string, error) {
 
 func normalizeOrigin(raw string) (string, bool) {
 	u, err := url.Parse(strings.TrimSpace(raw))
+	// An origin has no path, not even "/" (S15-062): what a browser sends in
+	// Origin never ends with one, and an entry with one would never match.
 	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" ||
-		(u.Path != "" && u.Path != "/") || u.Opaque != "" {
+		u.Path != "" || u.Opaque != "" || u.ForceQuery {
 		return "", false
 	}
 	scheme := strings.ToLower(u.Scheme)

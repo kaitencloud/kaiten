@@ -28,7 +28,7 @@ func NewUseCase(deps keys.Deps) *UseCase {
 
 // Execute issues a key and returns its plaintext, the only time it is shown.
 func (u *UseCase) Execute(ctx context.Context, draft PublishableKeyDraft) (*keys.PublishableKeyCreated, error) {
-	user, err := u.deps.UserProvider.GetUser(ctx)
+	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return nil, err
 	}

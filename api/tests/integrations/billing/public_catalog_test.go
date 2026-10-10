@@ -12,6 +12,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
+	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	"github.com/kaitencloud/kaiten/api/tests"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
@@ -253,4 +254,39 @@ func TestPublicCatalogSelfServe(t *testing.T) {
 
 	resp := publicGet(t, providerServer, "/api/public/catalog", key.Key, "https://www.example.com")
 	require.Equal(t, fiber.StatusForbidden, resp.StatusCode, "an empty allowlist admits no browser origin")
+}
+
+// S12-007 (C-12 of the console team's note): the six §13.12 operations are
+// behind the billing gate, as the catalogue is, and write nothing when
+// refused.
+func TestKeyAndSessionManagementIsBehindTheBillingGate(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	unknown := "00000000-0000-4000-8000-000000000000"
+	for _, op := range []struct{ method, path string }{
+		{"POST", "/api/publishable-keys"},
+		{"GET", "/api/publishable-keys"},
+		{"PATCH", "/api/publishable-keys/" + unknown},
+		{"POST", "/api/publishable-keys/" + unknown + "/revoke"},
+		{"POST", "/api/customer-sessions"},
+		{"POST", "/api/customer-sessions/" + unknown + "/revoke"},
+	} {
+		var body any
+		switch op.path {
+		case "/api/publishable-keys":
+			if op.method == "POST" {
+				body = map[string]any{"label": "shop", "allowedOrigins": []string{}}
+			}
+		case "/api/customer-sessions":
+			body = map[string]any{"customerSlug": "acme"}
+		default:
+			if op.method == "PATCH" {
+				body = map[string]any{"label": "x"}
+			}
+		}
+		problem := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, callOn(t, disabledServer, op.method, op.path, body), fiber.StatusForbidden)
+		require.Equal(t, "Billing.Disabled", problem.Code, "%s %s", op.method, op.path)
+	}
+	var keys int
+	require.NoError(t, testDb.DbPool.QueryRow(t.Context(), `SELECT count(*) FROM publishable_key`).Scan(&keys))
+	require.Zero(t, keys)
 }

@@ -17,7 +17,7 @@ func NewUseCase(deps keys.Deps) *UseCase { return &UseCase{deps: deps} }
 
 // Execute lists the organization's keys, newest first; revoked ones on request.
 func (u *UseCase) Execute(ctx context.Context, includeRevoked bool, cursor string, limit int32) (pagination.Page[keys.PublishableKey], error) {
-	user, err := u.deps.UserProvider.GetUser(ctx)
+	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return pagination.Page[keys.PublishableKey]{}, err
 	}

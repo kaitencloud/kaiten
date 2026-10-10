@@ -13,7 +13,7 @@ import (
 
 func TestNormalizeOrigins(t *testing.T) {
 	got, err := keys.NormalizeOrigins("Op", []string{
-		"https://WWW.Example.com", "https://www.example.com/", "http://localhost:5173", "https://shop.example.com:8443",
+		"https://WWW.Example.com", "https://www.example.com", "http://localhost:5173", "https://shop.example.com:8443",
 	})
 	require.NoError(t, err)
 	require.Equal(t, []string{"https://www.example.com", "http://localhost:5173", "https://shop.example.com:8443"}, got)
@@ -21,6 +21,8 @@ func TestNormalizeOrigins(t *testing.T) {
 	for _, bad := range []string{
 		"http://www.example.com",      // plain http off localhost
 		"https://www.example.com/app", // a path is not an origin
+		"https://www.example.com/",    // nor is "/" (S15-062)
+		"https://www.example.com?",
 		"https://www.example.com?x=1",
 		"https://user@www.example.com",
 		"www.example.com",

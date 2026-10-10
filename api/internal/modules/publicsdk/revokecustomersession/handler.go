@@ -21,7 +21,7 @@ func NewUseCase(deps sessions.Deps) *UseCase { return &UseCase{deps: deps} }
 // Execute revokes a session: it stops authenticating on the next request, as
 // sessions are looked up on every request. Revoking twice is a no-op.
 func (u *UseCase) Execute(ctx context.Context, sessionID uuid.UUID) error {
-	user, err := u.deps.UserProvider.GetUser(ctx)
+	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return err
 	}
