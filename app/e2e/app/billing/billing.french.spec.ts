@@ -229,7 +229,7 @@ test.describe('the invoices, read in French', () => {
       page.getByRole('link', { name: /^Bloquées \d+$/ }),
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: /^En attente de votre ERP \d+$/ }),
+      page.getByRole('link', { name: /^Transmission \d+$/ }),
     ).toHaveAttribute('aria-current', 'page');
     await expect(
       page.getByRole('link', { name: /^Acquittées \d+$/ }),

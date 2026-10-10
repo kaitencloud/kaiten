@@ -195,7 +195,7 @@ describe('the status views, on the page of the invoices', () => {
     const asked = serveInvoices(pageOf(rows));
     renderPage();
 
-    await screen.findByRole('link', { name: 'Waiting for your ERP 1' });
+    await screen.findByRole('link', { name: 'Handoff 1' });
 
     expect(screen.getByRole('link', { name: 'All 5' })).toHaveAttribute(
       'href',
@@ -207,7 +207,7 @@ describe('the status views, on the page of the invoices', () => {
     );
     expect(screen.getByRole('link', { name: 'Held 1' })).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'Waiting for your ERP 1' }),
+      screen.getByRole('link', { name: 'Handoff 1' }),
     ).toHaveAttribute('href', '/invoices?view=waiting');
     expect(screen.getByRole('link', { name: 'Acknowledged 1' })).toBeVisible();
     expect(asked).toHaveLength(1);
@@ -256,7 +256,7 @@ describe('the status views, on the page of the invoices', () => {
 
     expect(screen.getByRole('link', { name: 'All 1' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Held 0' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Waiting for your ERP/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Handoff \d+$/ })).toBeNull();
     expect(
       screen.getByPlaceholderText('Customer, instance or invoice'),
     ).toBeInTheDocument();

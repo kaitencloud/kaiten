@@ -42,7 +42,7 @@ function searchOf(view: InvoicesView, scope: InvoiceScope) {
 /**
  * The row of status views above the toolbar of the invoices, each with its count:
  * All, Overdue, Held and, where the queue matters (see `useHandoffViewAvailable`),
- * Waiting for your ERP and Acknowledged. They are links of one route told apart by
+ * Handoff (what waits for the ERP) and Acknowledged. They are links of one route told apart by
  * its search, so the view survives a reload and the back button leaves it; the row
  * is the one the customers and their instances have.
  */

@@ -38,23 +38,21 @@ test.describe('the status views of the invoices', () => {
     await list.goto();
 
     await expect(handoff.tab('All')).toHaveAttribute('aria-current', 'page');
-    await expect(handoff.tab('Waiting for your ERP')).not.toHaveAttribute(
-      'aria-current',
-    );
-    await expect(handoff.tab('Waiting for your ERP')).toHaveAttribute(
+    await expect(handoff.tab('Handoff')).not.toHaveAttribute('aria-current');
+    await expect(handoff.tab('Handoff')).toHaveAttribute(
       'href',
       '/invoices?view=waiting',
     );
     // The counts come from the list itself: the queue is not read to draw them.
     // Eleven invoices, of which the table shows a page of ten.
     expect(await handoff.count('All')).toBe(11);
-    expect(await handoff.count('Waiting for your ERP')).toBe(WAITING.length);
+    expect(await handoff.count('Handoff')).toBe(WAITING.length);
     expect(await handoff.count('Acknowledged')).toBe(ACKNOWLEDGED.length);
 
-    await handoff.tab('Waiting for your ERP').click();
+    await handoff.tab('Handoff').click();
 
     await expect(page).toHaveURL(/\/invoices\?view=waiting$/);
-    await expect(handoff.tab('Waiting for your ERP')).toHaveAttribute(
+    await expect(handoff.tab('Handoff')).toHaveAttribute(
       'aria-current',
       'page',
     );
@@ -87,9 +85,7 @@ test.describe('the status views of the invoices', () => {
       'aria-current',
       'page',
     );
-    await expect(handoff.tab('Waiting for your ERP')).not.toHaveAttribute(
-      'aria-current',
-    );
+    await expect(handoff.tab('Handoff')).not.toHaveAttribute('aria-current');
   });
 
   test('lets the back button leave the queue', async ({ page }) => {
@@ -98,7 +94,7 @@ test.describe('the status views of the invoices', () => {
     await installBillingAppMocks(page, createInvoicesModel());
 
     await list.goto();
-    await handoff.tab('Waiting for your ERP').click();
+    await handoff.tab('Handoff').click();
     await handoff.expectInvoiceIds(WAITING);
 
     await page.goBack();
@@ -115,7 +111,7 @@ test.describe('the status views of the invoices', () => {
     await installBillingAppMocks(page, createInvoicesModel());
 
     await list.goto('?customerSlug=globex');
-    await handoff.tab('Waiting for your ERP').click();
+    await handoff.tab('Handoff').click();
 
     await expect(page).toHaveURL(/\/invoices\?view=waiting$/);
     await handoff.expectInvoiceIds(WAITING);
@@ -472,7 +468,7 @@ test.describe('the search and the filters of the queue', () => {
     await handoff.goto('PENDING');
 
     await handoff.expectInvoiceIds(WAITING);
-    await expect(handoff.tab('Waiting for your ERP')).toHaveAttribute(
+    await expect(handoff.tab('Handoff')).toHaveAttribute(
       'aria-current',
       'page',
     );
@@ -520,12 +516,10 @@ test.describe('the queue of what was acknowledged', () => {
       'aria-current',
       'page',
     );
-    await expect(handoff.tab('Waiting for your ERP')).not.toHaveAttribute(
-      'aria-current',
-    );
+    await expect(handoff.tab('Handoff')).not.toHaveAttribute('aria-current');
     await handoff.expectInvoiceIds(ACKNOWLEDGED);
 
-    await handoff.showTab('Waiting for your ERP');
+    await handoff.showTab('Handoff');
     await expect.poll(() => new URL(page.url()).search).toBe('?view=waiting');
     await handoff.expectInvoiceIds(WAITING);
   });
