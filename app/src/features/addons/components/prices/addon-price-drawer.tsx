@@ -1,6 +1,5 @@
-import { Suspense, useId } from 'react';
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DialogFormSkeleton } from '@/components/dialog/dialog-form-skeleton';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -66,25 +65,21 @@ export function AddonPriceDrawer({
         >
           <form.AppForm>
             <div className="flex-1 space-y-5 overflow-y-auto p-4">
-              <Suspense fallback={<DialogFormSkeleton fields={6} />}>
-                <AddonPriceFields
-                  currencyLocked={pricing.currency !== undefined}
-                  flatFees={pricing.flatFees}
-                  form={form}
-                />
-              </Suspense>
+              <AddonPriceFields
+                currencyLocked={pricing.currency !== undefined}
+                flatFees={pricing.flatFees}
+                form={form}
+              />
               {failure ? <ProblemAlert error={failure} /> : null}
             </div>
             <SheetFooter className="flex-row justify-end border-t">
               <Button onClick={onClose} type="button" variant="outline">
                 {t('Common.cancel')}
               </Button>
-              <Suspense fallback={null}>
-                <form.SubmitButton
-                  form={formId}
-                  label={t('Pages.Addons.Prices.Drawer.create')}
-                />
-              </Suspense>
+              <form.SubmitButton
+                form={formId}
+                label={t('Pages.Addons.Prices.Drawer.create')}
+              />
             </SheetFooter>
           </form.AppForm>
         </form>

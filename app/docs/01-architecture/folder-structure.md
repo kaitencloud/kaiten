@@ -180,7 +180,7 @@ Where things go:
 
 ## `hooks/`: shared hooks
 
-[`src/hooks/`](../../src/hooks/) holds React hooks with no business logic that several features share. `form.ts` is the most important one: it exports `useAppForm`, `withForm`, `withFieldGroup` and `createFormSubmitHandler`, and wires the lazy-loaded field components of `components/form/` into TanStack Form. Hooks import only `components/`, `hooks/` and `lib/`.
+[`src/hooks/`](../../src/hooks/) holds React hooks with no business logic that several features share. `form.ts` is the most important one: it exports `useAppForm`, `withForm`, `withFieldGroup` and `createFormSubmitHandler`, and wires the field components of `components/form/` into TanStack Form. Hooks import only `components/`, `hooks/` and `lib/`.
 
 A hook used by one feature stays in `features/<name>/hooks/` and moves here when a second feature needs it: see "Extract late" in [Principles](../AI_CONTEXT.md#principles).
 

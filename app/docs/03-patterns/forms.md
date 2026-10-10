@@ -12,7 +12,9 @@ Forms use [TanStack Form](https://tanstack.com/form) for state and [Zod](https:/
 | `form.AppForm`, `form.AppField`, `field.<Name>`: the provider, one field, and the field components | `useAppForm`, with the components in `app/src/components/form/fields/` |
 | `form.SubmitButton` | `app/src/components/form/submit-button.tsx` |
 
-The field components and `SubmitButton` are loaded with `React.lazy`, so they suspend on their first render. Keep a `Suspense` boundary above them. A dialog form adds its own, as the example below and `features/customers/components/customer-form-fields.tsx` do. In the example the field boundary shows a `DialogFormSkeleton` and the button boundary shows nothing.
+The field components and `SubmitButton` are imported statically, so a form draws them on its first render and never suspends for them. They were `React.lazy` once, and a lazy component that suspends on its first render holds its fallback on screen for about 300 ms whatever the load time, because React delays revealing content after a fallback has been shown. Every form opened behind a spinner for that long, even with its chunks cached, and the fields weigh a few kilobytes: the heavy things they wrap are in chunks the app loads anyway. Do not wrap fields in a `Suspense` boundary, and do not make a field `lazy` to save a few kilobytes.
+
+`JsonField` is the one exception, because CodeMirror weighs more than all the other fields together. `hooks/form.ts` registers `components/form/fields/lazy-json-field.tsx`, which loads the editor when a form first draws it and carries a boundary of its own around the editor, so the form around it stays on screen and a field-shaped placeholder takes the editor's place.
 
 ## A form end to end
 
@@ -20,9 +22,7 @@ The field components and `SubmitButton` are loaded with `React.lazy`, so they su
 // app/src/features/service-accounts/components/create-dialog.tsx
 // (abridged: the dialog markup, the type cast on `defaultValues` and the
 // field's `description` are left out)
-import { Suspense } from 'react';
 import { zServiceAccountWritable } from '@/api-client/zod.gen';
-import { DialogFormSkeleton } from '@/components/dialog/dialog-form-skeleton';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
 
 const createServiceAccountSchema = zServiceAccountWritable
@@ -48,20 +48,16 @@ const form = useAppForm({
 return (
   <form onSubmit={createFormSubmitHandler(form.handleSubmit)}>
     <form.AppForm>
-      <Suspense fallback={<DialogFormSkeleton fields={1} />}>
-        <form.AppField name="name">
-          {(field) => (
-            <field.TextField
-              label={t('Pages.Integrations.ServiceAccounts.Dialog.nameLabel')}
-              required
-              placeholder={t('Pages.Integrations.ServiceAccounts.Dialog.namePlaceholder')}
-            />
-          )}
-        </form.AppField>
-      </Suspense>
-      <Suspense fallback={null}>
-        <form.SubmitButton label={t('Pages.Integrations.ServiceAccounts.Dialog.createButton')} />
-      </Suspense>
+      <form.AppField name="name">
+        {(field) => (
+          <field.TextField
+            label={t('Pages.Integrations.ServiceAccounts.Dialog.nameLabel')}
+            required
+            placeholder={t('Pages.Integrations.ServiceAccounts.Dialog.namePlaceholder')}
+          />
+        )}
+      </form.AppField>
+      <form.SubmitButton label={t('Pages.Integrations.ServiceAccounts.Dialog.createButton')} />
     </form.AppForm>
   </form>
 );
@@ -108,7 +104,7 @@ Every field takes `label` and, optionally, `description`, `required` and `classN
 | `DateRangePickerField` | `date-range-picker-field.tsx` | `DateRange \| undefined` (from `react-day-picker`) | the props of `DateRangePicker` in `components/date-range-picker.tsx` |
 | `JsonField` | `json-field.tsx` | `string`, the JSON text | `placeholder` and the props of the CodeMirror editor. Lints the JSON; an empty value is not flagged. |
 
-To add a field, build it on `FormField` and `useField` (`fields/form-field.tsx`, `fields/use-field.ts`) and add it to `fieldComponents` in `hooks/form.ts`.
+To add a field, build it on `FormField` and `useField` (`fields/form-field.tsx`, `fields/use-field.ts`) and import it in `hooks/form.ts`, then add it to `fieldComponents`. A field that drags in something heavy, as `JsonField` does with CodeMirror, goes behind a wrapper like `lazy-json-field.tsx` that owns its `Suspense`.
 
 ### Required fields
 

@@ -52,4 +52,4 @@ Three inputs sit at the top of `app/src/components/`, outside `ui/`: they compos
 
 ## Adding a field
 
-Build it on `FormField` and `useField`, then register it in `fieldComponents` of `app/src/hooks/form.ts`, next to the others (they are loaded with `React.lazy`). Reuse the existing fields before you add one.
+Build it on `FormField` and `useField`, then register it in `fieldComponents` of `app/src/hooks/form.ts`, next to the others, which are imported statically (`JsonField` alone is loaded on demand: see [forms](../03-patterns/forms.md#building-blocks)). Reuse the existing fields before you add one.

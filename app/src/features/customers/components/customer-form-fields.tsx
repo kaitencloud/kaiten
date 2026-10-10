@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { generateSlug } from '@/functionals/slug';
 
@@ -17,7 +16,7 @@ export const CustomerFormFields = ({
   const { t } = useTranslation();
 
   return (
-    <Suspense fallback={null}>
+    <>
       <form.AppField name="name">
         {(field: any) => (
           <field.TextField
@@ -89,6 +88,6 @@ export const CustomerFormFields = ({
           )}
         </form.AppField>
       ) : null}
-    </Suspense>
+    </>
   );
 };
