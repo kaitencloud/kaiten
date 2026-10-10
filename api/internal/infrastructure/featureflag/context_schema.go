@@ -112,7 +112,7 @@ func entitlementsNode(knownEntitlements []string) TargetingContextNode {
 	return TargetingContextNode{
 		Name:        EntitlementsRoot,
 		Type:        TargetingTypeMap,
-		Description: "Entitlement usage, keyed by slug. Readable as entitlements['seats'] or entitlements.seats.",
+		Description: "What the license grants, and what is used of it, keyed by entitlement slug. Readable as entitlements['seats'] or entitlements.seats.",
 		KnownKeys:   knownEntitlements,
 		Values:      &values,
 	}

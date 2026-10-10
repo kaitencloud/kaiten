@@ -80,8 +80,14 @@ type (
 	// false, it gets a CEL error — so every field is always present: an
 	// entitlement with no ceiling reports UnlimitedQuantity rather than
 	// omitting the number (see ofrep's entitlementFacts).
+	//
+	// Every grant has the same shape, whatever its entitlement's type. A
+	// NUMBER grant reports its cap and the usage measured against it. A
+	// BOOLEAN grant reports a ceiling of 1 when the license grants it and 0
+	// when it does not, with nothing used — `limit >= 1.0` reads "granted".
+	// A CONFIG grant has no quantity, and reports zeros.
 	EntitlementFact struct {
-		Limit      float64 `json:"limit" doc:"Ceiling granted for this entitlement. An entitlement with no ceiling reports a very large number rather than zero, so '< 5' means what it reads"`
+		Limit      float64 `json:"limit" doc:"Ceiling granted for this entitlement. An entitlement with no ceiling reports a very large number rather than zero, so '< 5' means what it reads. A BOOLEAN entitlement reports 1 when the license grants it and 0 when it does not"`
 		Used       float64 `json:"used" doc:"How much of the entitlement is currently consumed"`
 		Remaining  float64 `json:"remaining" doc:"Ceiling minus usage. Unlimited entitlements report a very large number"`
 		Percentage float64 `json:"percentage" doc:"Share of the ceiling consumed, between 0 and 1"`

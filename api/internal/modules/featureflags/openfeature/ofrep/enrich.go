@@ -41,8 +41,10 @@ const (
 	LicenseInput = featureflag.LicenseRoot
 	// EntitlementsInput maps each entitlement slug to a
 	// featureflag.EntitlementFact:
-	// `__kaiten.entitlements['seats'].percentage > 0.8`. Slugs contain
-	// hyphens, so index notation is required for most of them.
+	// `__kaiten.entitlements['seats'].percentage > 0.8` for a quantity, and
+	// `__kaiten.entitlements['sso'].limit >= 1.0` for a BOOLEAN capability
+	// the license grants. Slugs contain hyphens, so index notation is
+	// required for most of them.
 	EntitlementsInput = featureflag.EntitlementsRoot
 	// InstanceInput carries the calling instance's own registry facts, a
 	// featureflag.InstanceFact:
@@ -152,38 +154,87 @@ func entitlementFacts(rows []customertargetingfacts.TargetingFact) map[string]an
 			continue
 		}
 
-		limit, hasLimit := numberOf(row.LimitValue)
-		used, _ := numberOf(row.UsageValue)
-		unlimited := hasLimit && entitlementvalue.IsUnlimitedThreshold(limit)
-
-		fact := featureflag.EntitlementFact{Used: used, Unlimited: unlimited}
-
-		switch {
-		case unlimited:
-			// No ceiling to be near, so the ceiling reported is one no usage
-			// reaches: `remaining < 5` catches a customer running out, and a 0
-			// here would match for exactly the customers who cannot. Nothing is
-			// consumed of an infinite pool, so percentage stays 0. See
-			// featureflag.UnlimitedQuantity for why a number and not an omission.
-			fact.Limit, fact.Remaining = featureflag.UnlimitedQuantity, featureflag.UnlimitedQuantity
-		case !hasLimit:
-			// Not a numeric entitlement — both parsers require a "number"
-			// value, so this is a boolean or object grant, which has no
-			// quantity at all. The three stay 0: an entitlement with no number
-			// is not an entitlement with no ceiling, and giving it the
-			// unlimited sentinel would say the latter.
-		default:
-			fact.Limit = limit
-			fact.Remaining = max(limit-used, 0)
-			if limit > 0 {
-				fact.Percentage = used / limit
-			}
-		}
-
-		facts[*row.EntitlementSlug] = toFactMap(fact)
+		facts[*row.EntitlementSlug] = toFactMap(entitlementFact(row))
 	}
 
 	return facts
+}
+
+// entitlementFact is what one grant reads as in a rule, whatever the type of
+// its entitlement: a NUMBER grant is its cap and the usage measured against
+// it, a BOOLEAN grant a cap of one or zero, a CONFIG grant nothing.
+func entitlementFact(row customertargetingfacts.TargetingFact) featureflag.EntitlementFact {
+	if granted, ok := booleanGrant(row.LimitValue); ok {
+		// A capability, not a quantity, so it is given the one quantity that
+		// says on or off: a ceiling of 1 when the license grants it, 0 when it
+		// does not, and `limit >= 1.0` reads "granted". Before this a BOOLEAN
+		// grant reported 0 either way, so that rule matched nobody.
+		//
+		// The rest is what a NUMBER grant of 1 or 0 with nothing consumed
+		// reports, so a rule reads the same whichever kind it meets. Usage is
+		// only ever reported against the NUMBER family, so used is 0, and with
+		// it percentage: a capability cannot run out, so `percentage >= 0.9`
+		// never matches it. remaining is the ceiling itself, 1 or 0, which
+		// keeps `remaining > 0` meaning "has some" — a 0 there for a granted
+		// capability would make `remaining < 1` match exactly the customers
+		// who hold it. It has a ceiling, so it is never unlimited: `unlimited`
+		// stays the NUMBER sentinel, and a rule rewarding an uncapped plan
+		// does not match every customer granted some feature.
+		if granted {
+			return featureflag.EntitlementFact{Limit: 1, Remaining: 1}
+		}
+		return featureflag.EntitlementFact{}
+	}
+
+	limit, hasLimit := numberOf(row.LimitValue)
+	used, _ := numberOf(row.UsageValue)
+	unlimited := hasLimit && entitlementvalue.IsUnlimitedThreshold(limit)
+
+	fact := featureflag.EntitlementFact{Used: used, Unlimited: unlimited}
+
+	switch {
+	case unlimited:
+		// No ceiling to be near, so the ceiling reported is one no usage
+		// reaches: `remaining < 5` catches a customer running out, and a 0
+		// here would match for exactly the customers who cannot. Nothing is
+		// consumed of an infinite pool, so percentage stays 0. See
+		// featureflag.UnlimitedQuantity for why a number and not an omission.
+		fact.Limit, fact.Remaining = featureflag.UnlimitedQuantity, featureflag.UnlimitedQuantity
+	case !hasLimit:
+		// Neither a number nor a boolean — booleans were answered above and
+		// both parsers here require a "number" value — so this is an object
+		// grant, a CONFIG value with no quantity and no on or off to it, or a
+		// value nothing can read. The three stay 0: an entitlement with no
+		// number is not an entitlement with no ceiling, and giving it the
+		// unlimited sentinel would say the latter.
+	default:
+		fact.Limit = limit
+		fact.Remaining = max(limit-used, 0)
+		if limit > 0 {
+			fact.Percentage = used / limit
+		}
+	}
+
+	return fact
+}
+
+// booleanGrant reads a stored license value as a BOOLEAN grant: whether the
+// license grants the capability, and whether the value is a boolean grant at
+// all. A value of another type, or a malformed one, is not, and falls through
+// to the numeric reading — which gives it nothing, the safe direction for a
+// gate.
+func booleanGrant(raw []byte) (granted, ok bool) {
+	if len(raw) == 0 {
+		return false, false
+	}
+
+	value, err := entitlementvalue.ParseLicenseValue(raw)
+	if err != nil || value.Type != entitlementvalue.TypeBoolean {
+		return false, false
+	}
+
+	granted, ok = value.Value.(bool)
+	return granted, ok
 }
 
 // numberOf reads a stored entitlement value, whichever of the two shapes it is:
