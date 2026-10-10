@@ -61,7 +61,7 @@ const JsonField = ({
         <FormLabel>{label}</FormLabel>
         {required ? <RequiredMark /> : null}
       </div>
-      <FormControl>
+      <FormControl announceRequired={false}>
         <div
           className={cn(
             'border-input aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 rounded-md border overflow-hidden',

@@ -90,7 +90,7 @@ export function CelField({
           />
         )}
       </div>
-      <FormControl>
+      <FormControl announceRequired={false}>
         <CelRulePreview
           value={value}
           onOpen={() => setIsEditing(true)}
