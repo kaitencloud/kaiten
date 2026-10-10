@@ -1,32 +1,39 @@
+import { useSuspenseQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { invoicesQueryOptions } from '@/domains/billing';
 import { Page } from '@/functionals/page';
 import { dataModelIcons } from '@/lib/data-model-icons';
-import { handoffStatusOf } from '../../schemas/handoff-search.schema';
 import { readInvoiceListSeed } from '../../schemas/invoice-list-seed.schema';
 import {
   type InvoiceScope,
   readInvoiceScope,
 } from '../../schemas/invoice-scope.schema';
 import {
+  HANDOFF_VIEWS,
   type InvoicesSearch,
   invoicesViewOf,
+  isHandoffView,
 } from '../../schemas/invoices-search.schema';
+import { countInvoicesByView } from '../../utils/invoice-views';
 import { HandoffView } from '../handoff';
 import { InvoicesAllView } from './invoices-all-view';
+import { InvoicesViewTabs } from './invoices-view-tabs';
 
 type InvoicesPageContentProps = {
   /** Writes the scope to the URL, which the page follows. */
   onScopeChange: (scope: InvoiceScope) => void;
-  /** What the URL holds: the view, and under it the scope, the filters or the part of the queue. */
+  /** What the URL holds: the view, and under it the scope or the filters of the list. */
   search: InvoicesSearch;
 };
 
 /**
- * The invoices of the organization. It is one page with two views of its list, told
- * apart by the URL: every invoice, which is what finance works from and what makes a
- * deployment with no payment provider auditable, and the handoff queue its
- * accounting system reads. The route loads the view it was asked for, and the page
- * only draws it under one title.
+ * The invoices of the organization. It is one list with a row of status views above
+ * its toolbar, All, Overdue, Held and the two parts of the queue its accounting
+ * system reads, told apart by the URL. The first three narrow the list of invoices,
+ * which is what finance works from and what makes a deployment with no payment
+ * provider auditable; the last two show the handoff queue. The route loads what the
+ * view was asked for, and the page only draws it under one title.
  */
 export function InvoicesPageContent({
   onScopeChange,
@@ -34,7 +41,15 @@ export function InvoicesPageContent({
 }: InvoicesPageContentProps) {
   const { t } = useTranslation();
   const InvoiceIcon = dataModelIcons.invoice;
-  const isHandoff = invoicesViewOf(search) === 'handoff';
+  const view = invoicesViewOf(search);
+  const scope = readInvoiceScope(search);
+  // Where each count comes from: all of them from the list of invoices of the
+  // scope, which the route loads in every view and the console holds whole. All,
+  // Overdue and Held are the invoices that pass the view's test; Waiting and
+  // Acknowledged are the invoices whose `handoffStatus` is PENDING and ACKNOWLEDGED,
+  // so the queue itself is not read to count them.
+  const { data } = useSuspenseQuery(invoicesQueryOptions(scope));
+  const counts = useMemo(() => countInvoicesByView(data.items), [data.items]);
 
   return (
     <Page className="h-full min-h-0 overflow-hidden">
@@ -47,7 +62,7 @@ export function InvoicesPageContent({
             <Page.Title>{t('Pages.Billing.Invoices.title')}</Page.Title>
             <Page.Subtitle>
               {t(
-                isHandoff
+                isHandoffView(view)
                   ? 'Pages.Billing.Handoff.subtitle'
                   : 'Pages.Billing.Invoices.subtitle',
               )}
@@ -55,16 +70,20 @@ export function InvoicesPageContent({
           </Page.Heading>
         </Page.Leading>
       </Page.Header>
-      <div className="flex-1 min-h-0">
-        {isHandoff ? (
-          <HandoffView status={handoffStatusOf(search)} />
-        ) : (
-          <InvoicesAllView
-            onScopeChange={onScopeChange}
-            scope={readInvoiceScope(search)}
-            seed={readInvoiceListSeed(search)}
-          />
-        )}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <InvoicesViewTabs counts={counts} scope={scope} />
+        <div className="min-h-0 flex-1">
+          {isHandoffView(view) ? (
+            <HandoffView status={HANDOFF_VIEWS[view]} />
+          ) : (
+            <InvoicesAllView
+              onScopeChange={onScopeChange}
+              scope={scope}
+              seed={readInvoiceListSeed(search)}
+              view={view}
+            />
+          )}
+        </div>
       </div>
     </Page>
   );

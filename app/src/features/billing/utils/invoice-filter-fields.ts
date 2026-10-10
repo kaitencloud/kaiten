@@ -114,8 +114,12 @@ const overdueField = (t: TFunction): InvoiceFilterField => ({
   type: 'boolean',
 });
 
+/** Whether an invoice is on hold: the filter, the Held view and its count all ask this. */
+export const isInvoiceHeld = (invoice: InvoiceSummary): boolean =>
+  Boolean(invoice.holdReason);
+
 const heldField = (t: TFunction): InvoiceFilterField => ({
-  accessor: (invoice) => Boolean(invoice.holdReason),
+  accessor: isInvoiceHeld,
   id: INVOICE_FILTER_IDS.held,
   label: t('Pages.Billing.Invoices.Filters.held'),
   type: 'boolean',

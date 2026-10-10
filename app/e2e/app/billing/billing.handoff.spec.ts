@@ -19,7 +19,7 @@ import {
 // stands, and lets a person acknowledge one they booked by hand. The console reads
 // every invoice of the part of the queue it shows, 200 at a time, and searches,
 // filters, sorts and pages them itself like any other list; the URL holds the view
-// (`?view=handoff`, a view of the list of invoices) and the part of the queue alone.
+// (`?view=waiting` and `?view=acknowledged`, two status views of the list of invoices) alone.
 
 // Issued, oldest first: the replacement of a void invoice, the first invoice,
 // the renewal and Globex's.
@@ -27,8 +27,8 @@ const WAITING = ['inv-r1', 'inv-m1', 'inv-p1', 'inv-g1'];
 // Written off in December, then paid in January and in February.
 const ACKNOWLEDGED = ['inv-u1', 'inv-d2', 'inv-d1'];
 
-test.describe('the switch between every invoice and the queue', () => {
-  test('is in the toolbar of the list, leads to the queue and back, and is in the URL', async ({
+test.describe('the status views of the invoices', () => {
+  test('are a row of tabs above the toolbar of the list, each with its count, and lead to the queue and back', async ({
     page,
   }) => {
     const list = new BillingInvoicesDriver(page);
@@ -37,42 +37,44 @@ test.describe('the switch between every invoice and the queue', () => {
 
     await list.goto();
 
-    await expect(handoff.view('All')).toHaveAttribute('aria-current', 'page');
-    await expect(handoff.view('Handoff')).not.toHaveAttribute('aria-current');
-    await expect(handoff.view('Handoff')).toHaveAttribute(
-      'href',
-      '/invoices?view=handoff',
+    await expect(handoff.tab('All')).toHaveAttribute('aria-current', 'page');
+    await expect(handoff.tab('Waiting for your ERP')).not.toHaveAttribute(
+      'aria-current',
     );
+    await expect(handoff.tab('Waiting for your ERP')).toHaveAttribute(
+      'href',
+      '/invoices?view=waiting',
+    );
+    // The counts come from the list itself: the queue is not read to draw them.
+    // Eleven invoices, of which the table shows a page of ten.
+    expect(await handoff.count('All')).toBe(11);
+    expect(await handoff.count('Waiting for your ERP')).toBe(WAITING.length);
+    expect(await handoff.count('Acknowledged')).toBe(ACKNOWLEDGED.length);
 
-    await handoff.view('Handoff').click();
+    await handoff.tab('Waiting for your ERP').click();
 
-    await expect(page).toHaveURL(/\/invoices\?view=handoff$/);
-    await expect(handoff.view('Handoff')).toHaveAttribute(
+    await expect(page).toHaveURL(/\/invoices\?view=waiting$/);
+    await expect(handoff.tab('Waiting for your ERP')).toHaveAttribute(
       'aria-current',
       'page',
     );
-    // The queue, under the title of the invoices, with its parts and its own columns.
+    // The queue, under the title of the invoices, with its own columns.
     await expect(
       page.getByRole('heading', { level: 1, name: 'Invoices' }),
     ).toBeVisible();
     await handoff.expectInvoiceIds(WAITING);
-    await expect(handoff.tab('Waiting')).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
     await expect(
       page.getByRole('columnheader', { name: 'Claims' }),
     ).toBeVisible();
 
-    await handoff.view('All').click();
+    await handoff.tab('All').click();
 
     await expect(page).toHaveURL(/\/invoices$/);
-    await expect(handoff.view('All')).toHaveAttribute('aria-current', 'page');
-    await expect(handoff.tab('Waiting')).toHaveCount(0);
+    await expect(handoff.tab('All')).toHaveAttribute('aria-current', 'page');
     await expect(list.rows()).toHaveCount(10);
   });
 
-  test('is drawn in the toolbar of the queue as well, beside the parts of the queue', async ({
+  test('stay in the row of the queue, with the part of the queue the URL asks for as the current one', async ({
     page,
   }) => {
     const handoff = new BillingHandoffDriver(page);
@@ -80,14 +82,13 @@ test.describe('the switch between every invoice and the queue', () => {
 
     await handoff.goto('ACKNOWLEDGED');
 
-    await expect(handoff.view('All')).toBeVisible();
-    await expect(handoff.view('Handoff')).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    await expect(handoff.tab('All')).toBeVisible();
     await expect(handoff.tab('Acknowledged')).toHaveAttribute(
       'aria-current',
       'page',
+    );
+    await expect(handoff.tab('Waiting for your ERP')).not.toHaveAttribute(
+      'aria-current',
     );
   });
 
@@ -97,7 +98,7 @@ test.describe('the switch between every invoice and the queue', () => {
     await installBillingAppMocks(page, createInvoicesModel());
 
     await list.goto();
-    await handoff.view('Handoff').click();
+    await handoff.tab('Waiting for your ERP').click();
     await handoff.expectInvoiceIds(WAITING);
 
     await page.goBack();
@@ -106,7 +107,7 @@ test.describe('the switch between every invoice and the queue', () => {
     await expect(list.rows()).toHaveCount(10);
   });
 
-  test('starts the other view over: the scope of the list does not follow to the queue', async ({
+  test('start the other view over: the scope of the list does not follow to the queue', async ({
     page,
   }) => {
     const list = new BillingInvoicesDriver(page);
@@ -114,10 +115,36 @@ test.describe('the switch between every invoice and the queue', () => {
     await installBillingAppMocks(page, createInvoicesModel());
 
     await list.goto('?customerSlug=globex');
-    await handoff.view('Handoff').click();
+    await handoff.tab('Waiting for your ERP').click();
 
-    await expect(page).toHaveURL(/\/invoices\?view=handoff$/);
+    await expect(page).toHaveURL(/\/invoices\?view=waiting$/);
     await handoff.expectInvoiceIds(WAITING);
+  });
+
+  test('narrow the list to the overdue and to the held invoices, and keep the toolbar', async ({
+    page,
+  }) => {
+    const list = new BillingInvoicesDriver(page);
+    const handoff = new BillingHandoffDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await list.goto();
+    const overdue = await handoff.count('Overdue');
+    const held = await handoff.count('Held');
+
+    await handoff.showTab('Overdue');
+
+    await expect(page).toHaveURL(/\/invoices\?view=overdue$/);
+    await expect(list.rows()).toHaveCount(overdue);
+
+    await handoff.showTab('Held');
+
+    await expect(page).toHaveURL(/\/invoices\?view=held$/);
+    await expect(list.rows()).toHaveCount(held);
+    await expect(
+      page.getByPlaceholder('Customer, instance or invoice'),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Filter' })).toBeVisible();
   });
 });
 
@@ -341,7 +368,7 @@ test.describe('the search and the filters of the queue', () => {
     // The console holds the queue: nothing more was asked of the API, and the URL
     // holds the view and not the search.
     expect(reads).toHaveLength(1);
-    expect(new URL(page.url()).search).toBe('?view=handoff');
+    expect(new URL(page.url()).search).toBe('?view=waiting');
   });
 
   test('find an invoice by the number the accounting system booked it under', async ({
@@ -374,7 +401,7 @@ test.describe('the search and the filters of the queue', () => {
 
     await handoff.expectChips(['Kind: Activation', 'Overdue: True']);
     expect(reads).toHaveLength(1);
-    expect(new URL(page.url()).search).toBe('?view=handoff');
+    expect(new URL(page.url()).search).toBe('?view=waiting');
 
     await handoff.removeFilter('Kind');
     await handoff.expectChips(['Overdue: True']);
@@ -445,7 +472,7 @@ test.describe('the search and the filters of the queue', () => {
     await handoff.goto('PENDING');
 
     await handoff.expectInvoiceIds(WAITING);
-    await expect(handoff.tab('Waiting')).toHaveAttribute(
+    await expect(handoff.tab('Waiting for your ERP')).toHaveAttribute(
       'aria-current',
       'page',
     );
@@ -483,23 +510,23 @@ test.describe('the queue of what was acknowledged', () => {
     await installBillingAppMocks(page, createInvoicesModel());
 
     await handoff.goto();
-    expect(new URL(page.url()).search).toBe('?view=handoff');
+    expect(new URL(page.url()).search).toBe('?view=waiting');
 
     await handoff.showTab('Acknowledged');
-    await expect(page).toHaveURL(
-      /\/invoices\?view=handoff&queue=ACKNOWLEDGED$/,
-    );
+    await expect(page).toHaveURL(/\/invoices\?view=acknowledged$/);
     await page.reload();
 
     await expect(handoff.tab('Acknowledged')).toHaveAttribute(
       'aria-current',
       'page',
     );
-    await expect(handoff.tab('Waiting')).not.toHaveAttribute('aria-current');
+    await expect(handoff.tab('Waiting for your ERP')).not.toHaveAttribute(
+      'aria-current',
+    );
     await handoff.expectInvoiceIds(ACKNOWLEDGED);
 
-    await handoff.showTab('Waiting');
-    await expect.poll(() => new URL(page.url()).search).toBe('?view=handoff');
+    await handoff.showTab('Waiting for your ERP');
+    await expect.poll(() => new URL(page.url()).search).toBe('?view=waiting');
     await handoff.expectInvoiceIds(WAITING);
   });
 

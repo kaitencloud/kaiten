@@ -46,7 +46,7 @@ describe('what the health of billing counts', () => {
 
     expect(byId.held).toMatchObject({
       count: 3,
-      link: { search: { held: true }, to: '/invoices' },
+      link: { search: { view: 'held' }, to: '/invoices' },
     });
     expect(byId.pushFailures).toMatchObject({
       count: 6,
@@ -54,12 +54,12 @@ describe('what the health of billing counts', () => {
     });
     expect(byId.overdue).toMatchObject({
       count: 4,
-      link: { search: { overdue: true }, to: '/invoices' },
+      link: { search: { view: 'overdue' }, to: '/invoices' },
     });
     // What waits for the accounting system is what its queue lists, a view of the invoices.
     expect(byId.handoff).toMatchObject({
       count: 2,
-      link: { search: { view: 'handoff' }, to: '/invoices' },
+      link: { search: { view: 'waiting' }, to: '/invoices' },
     });
     expect(byId.mismatches).toMatchObject({ count: 7 });
     expect(byId.mismatches.link).toBeUndefined();

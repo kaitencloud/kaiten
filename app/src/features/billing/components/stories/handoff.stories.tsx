@@ -7,6 +7,7 @@ import { billingCapabilitiesProfiles } from '../../../../../e2e/app/_support/mod
 import { HandoffEmpty } from '../handoff/handoff-empty';
 import { HandoffList } from '../handoff/handoff-list';
 import { HandoffTable } from '../handoff/handoff-table';
+import { InvoicesViewTabs } from '../invoices/invoices-view-tabs';
 
 const meta = {
   title: 'Features/Billing/Handoff',
@@ -113,14 +114,13 @@ export const SearchedLikeTheOtherLists: Story = {
   },
 };
 
-// The queue is a view of the list of invoices: the two parts of the queue are tabs
-// above its toolbar, and the switch back to every invoice is on the right of the
-// toolbar, where the organization collects through NoOp and the session may read the
-// queue.
-export const InTheToolbarOfTheInvoices: Story = {
+// The queue is two views of the list of invoices: the two parts of the queue are tabs
+// of the row above its toolbar, with the other views and their counts, where the
+// organization collects through NoOp and the session may read the queue.
+export const AmongTheStatusViews: Story = {
   render: () => (
     <StorybookRouter
-      initialEntries={['/invoices?view=handoff']}
+      initialEntries={['/invoices?view=waiting']}
       routePath="/invoices"
       seed={(queryClient) =>
         queryClient.setQueryData(
@@ -129,27 +129,33 @@ export const InTheToolbarOfTheInvoices: Story = {
         )
       }
     >
-      <HandoffList invoices={WAITING} status="PENDING" />
+      <div className="flex h-[620px] flex-col px-6">
+        <InvoicesViewTabs
+          counts={{
+            acknowledged: 1,
+            all: 9,
+            held: 0,
+            overdue: 2,
+            waiting: WAITING.length,
+          }}
+          scope={{}}
+        />
+        <div className="min-h-0 flex-1">
+          <HandoffList invoices={WAITING} status="PENDING" />
+        </div>
+      </div>
     </StorybookRouter>
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
     await expect(
-      await canvas.findByRole('link', { name: 'Waiting' }),
+      await canvas.findByRole('link', { name: `Waiting for your ERP ${WAITING.length}` }),
     ).toHaveAttribute('aria-current', 'page');
-    await expect(canvas.getByRole('link', { name: 'Acknowledged' })).toHaveAttribute(
-      'href',
-      '/invoices?view=handoff&queue=ACKNOWLEDGED',
-    );
-    await expect(await canvas.findByRole('link', { name: 'All' })).toHaveAttribute(
-      'href',
-      '/invoices',
-    );
-    await expect(canvas.getByRole('link', { name: 'Handoff' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    await expect(
+      canvas.getByRole('link', { name: 'Acknowledged 1' }),
+    ).toHaveAttribute('href', '/invoices?view=acknowledged');
+    await expect(canvas.getByRole('link', { name: 'Held 0' })).toBeVisible();
   },
 };
 

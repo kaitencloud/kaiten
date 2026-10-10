@@ -3935,6 +3935,10 @@ export default {
           'Every invoice of your organization, across its customers and instances.',
         Views: {
           all: 'All',
+          overdue: 'Overdue',
+          held: 'Held',
+          waiting: 'Waiting for your ERP',
+          acknowledged: 'Acknowledged',
         },
         Lines: {
           title: 'Lines',
@@ -3951,6 +3955,12 @@ export default {
           scopedDescription:
             'Nothing was invoiced for it yet. An invoice is composed when a subscription reaches a boundary.',
           showAll: 'Show every invoice',
+          overdueTitle: 'No overdue invoice',
+          overdueDescription:
+            'An unpaid invoice past its due date appears here.',
+          heldTitle: 'No held invoice',
+          heldDescription:
+            'An invoice that a check held appears here until someone releases or recomposes it.',
         },
         Filters: {
           clear: 'Clear filters',
@@ -4302,13 +4312,8 @@ export default {
         },
       },
       Handoff: {
-        title: 'Handoff',
         subtitle:
           'The invoices waiting for your ERP, oldest first. A job or the CLI takes them from the queue and acknowledges them once booked.',
-        Tabs: {
-          pending: 'Waiting',
-          acknowledged: 'Acknowledged',
-        },
         Columns: {
           issued: 'Issued',
           booked: 'Booked',

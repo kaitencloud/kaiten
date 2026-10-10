@@ -5,6 +5,8 @@ import { billingCapabilitiesQueryOptions } from '@/domains/billing';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { billingCapabilitiesProfiles } from '../../../../../e2e/app/_support/model/billing-capabilities';
 import { InvoicesList } from '../invoices/invoices-list';
+import { InvoicesViewTabs } from '../invoices/invoices-view-tabs';
+import { countInvoicesByView, invoicesOfView } from '../../utils/invoice-views';
 
 const meta = {
   title: 'Features/Billing/InvoicesList',
@@ -111,13 +113,14 @@ export const Default: Story = {
   },
 };
 
-// Where the organization collects through NoOp and the session may read the queue,
-// the toolbar holds the switch between every invoice and the handoff queue, beside
-// the export. Billing is off by default in Storybook, and so is the switch.
-export const WithTheHandoffView: Story = {
+// The status views above the toolbar, each with its count, on the Held one: the list
+// holds the held invoices alone. Where the organization collects through NoOp and the
+// session may read the queue, the row also has its two parts. Billing is off by
+// default in Storybook, and so are those two.
+export const StatusViews: Story = {
   render: () => (
     <StorybookRouter
-      initialEntries={['/invoices']}
+      initialEntries={['/invoices?view=held']}
       routePath="/invoices"
       seed={(queryClient) =>
         queryClient.setQueryData(
@@ -126,28 +129,51 @@ export const WithTheHandoffView: Story = {
         )
       }
     >
-      <div className="h-[560px] px-6">
-        <InvoicesList
-          canExport
-          invoices={INVOICES}
-          onScopeChange={onScopeChange}
-          scope={{}}
-          showProvider={false}
-        />
+      <div className="flex h-[620px] flex-col px-6">
+        <InvoicesViewTabs counts={countInvoicesByView(INVOICES)} scope={{}} />
+        <div className="min-h-0 flex-1">
+          <InvoicesList
+            canExport
+            invoices={invoicesOfView(INVOICES, 'held')}
+            onScopeChange={onScopeChange}
+            scope={{}}
+            showProvider={false}
+            view="held"
+          />
+        </div>
       </div>
     </StorybookRouter>
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    const handoff = await canvas.findByRole('link', { name: 'Handoff' });
-
-    await expect(handoff).toHaveAttribute('href', '/invoices?view=handoff');
-    await expect(canvas.getByRole('link', { name: 'All' })).toHaveAttribute(
-      'aria-current',
-      'page',
+    await expect(
+      await canvas.findByRole('link', { name: 'Held 1' }),
+    ).toHaveAttribute('aria-current', 'page');
+    await expect(canvas.getByRole('link', { name: 'All 4' })).toHaveAttribute(
+      'href',
+      '/invoices',
     );
-    await expect(canvas.getByRole('button', { name: 'Export' })).toBeVisible();
+    await expect(canvas.getByRole('link', { name: 'Overdue 1' })).toHaveAttribute(
+      'href',
+      '/invoices?view=overdue',
+    );
+    await expect(
+      canvas.getByRole('link', { name: 'Waiting for your ERP 3' }),
+    ).toHaveAttribute('href', '/invoices?view=waiting');
+    await expect(canvas.getByRole('link', { name: 'Acknowledged 1' })).toBeVisible();
+    await expect(canvas.getByText('Hooli')).toBeVisible();
+    await expect(canvas.queryByText('Globex')).toBeNull();
+  },
+};
+
+// A view with nothing in it says so, in the cell of the table.
+export const NothingHeld: Story = {
+  render: () => list({ invoices: [], view: 'held' }),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByText('No held invoice'),
+    ).toBeVisible();
   },
 };
 

@@ -218,7 +218,7 @@ export const HealthNeedsAttention: Story = {
     await expect(held).toHaveAttribute('data-count', '2');
     await expect(
       within(held).getByRole('link', { name: 'Held invoices' }),
-    ).toHaveAttribute('href', expect.stringContaining('held=true'));
+    ).toHaveAttribute('href', expect.stringContaining('view=held'));
     await expect(canvas.getByTestId('billing-health-mismatches')).toHaveAttribute(
       'data-count',
       '5',

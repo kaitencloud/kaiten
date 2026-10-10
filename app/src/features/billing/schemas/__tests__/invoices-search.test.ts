@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
+  handoffQueueOf,
   invoicesViewOf,
   readInvoicesLoaderDeps,
   readInvoicesSearch,
@@ -11,42 +12,63 @@ describe('the search of the list of invoices', () => {
 
     expect(read).toEqual({});
     expect(invoicesViewOf(read)).toBe('all');
+    expect(handoffQueueOf(read)).toBeUndefined();
   });
 
-  it('reads the scope and the filters a link starts the list on, in the all view', () => {
+  it('reads the scope and the filters a link starts the list on, in the views of invoices', () => {
     expect(
       readInvoicesSearch({
         customerSlug: 'initech',
-        held: 'true',
         status: 'PUSH_FAILED',
       }),
-    ).toEqual({ customerSlug: 'initech', held: true, status: 'PUSH_FAILED' });
+    ).toEqual({ customerSlug: 'initech', status: 'PUSH_FAILED' });
   });
 
-  it('opens the queue for ?view=handoff, on what waits', () => {
-    const read = readInvoicesSearch({ view: 'handoff' });
-
-    expect(read).toEqual({ view: 'handoff' });
-    expect(invoicesViewOf(read)).toBe('handoff');
-  });
-
-  it('reads the part of the queue in the handoff view, and nothing of the other view', () => {
-    expect(
-      readInvoicesSearch({
+  it.each(['overdue', 'held'] as const)(
+    'reads ?view=%s, which keeps the scope and the filters',
+    (view) => {
+      const read = readInvoicesSearch({
         customerSlug: 'initech',
-        held: 'true',
-        queue: 'ACKNOWLEDGED',
         status: 'PUSH_FAILED',
-        view: 'handoff',
-      }),
-    ).toEqual({ queue: 'ACKNOWLEDGED', view: 'handoff' });
+        view,
+      });
+
+      expect(read).toEqual({
+        customerSlug: 'initech',
+        status: 'PUSH_FAILED',
+        view,
+      });
+      expect(invoicesViewOf(read)).toBe(view);
+      expect(handoffQueueOf(read)).toBeUndefined();
+    },
+  );
+
+  it.each([
+    ['waiting', 'PENDING'],
+    ['acknowledged', 'ACKNOWLEDGED'],
+  ] as const)(
+    'reads ?view=%s as the queue in %s, and nothing of the other views',
+    (view, queue) => {
+      const read = readInvoicesSearch({
+        customerSlug: 'initech',
+        status: 'PUSH_FAILED',
+        view,
+      });
+
+      expect(read).toEqual({ view });
+      expect(invoicesViewOf(read)).toBe(view);
+      expect(handoffQueueOf(read)).toBe(queue);
+    },
+  );
+
+  it('does not read the views and the queue tabs of the earlier versions', () => {
+    expect(readInvoicesSearch({ held: true, overdue: true })).toEqual({});
+    expect(
+      readInvoicesSearch({ queue: 'ACKNOWLEDGED', view: 'handoff' }),
+    ).toEqual({});
   });
 
-  it('reads nothing of the queue in the all view', () => {
-    expect(readInvoicesSearch({ queue: 'ACKNOWLEDGED' })).toEqual({});
-  });
-
-  it.each(['all', 'ALL', 'queue', '', 3, null, ['handoff']])(
+  it.each(['all', 'ALL', 'queue', 'handoff', '', 3, null, ['held']])(
     'opens on every invoice for the view %j',
     (view) => {
       const read = readInvoicesSearch({ customerSlug: 'initech', view });
@@ -56,23 +78,22 @@ describe('the search of the list of invoices', () => {
     },
   );
 
-  it('loads the scope of the invoices in the all view, and nothing else', () => {
+  it('loads the scope of the invoices in a view of invoices, and no part of the queue', () => {
     expect(
-      readInvoicesLoaderDeps({ customerSlug: 'initech', held: true, page: 2 }),
-    ).toEqual({ scope: { customerSlug: 'initech' }, view: 'all' });
+      readInvoicesLoaderDeps({ customerSlug: 'initech', page: 2, view: 'held' }),
+    ).toEqual({ queue: undefined, scope: { customerSlug: 'initech' } });
+    expect(readInvoicesLoaderDeps({ view: 'overdue' })).toEqual(
+      readInvoicesLoaderDeps({}),
+    );
   });
 
-  it('loads the part of the queue in the handoff view', () => {
-    expect(readInvoicesLoaderDeps({ view: 'handoff' })).toEqual({
+  it('loads the invoices, which the tabs count, and the part of the queue in the views of the queue', () => {
+    expect(readInvoicesLoaderDeps({ view: 'waiting' })).toEqual({
       queue: 'PENDING',
-      view: 'handoff',
+      scope: {},
     });
     expect(
-      readInvoicesLoaderDeps({
-        customerSlug: 'initech',
-        queue: 'ACKNOWLEDGED',
-        view: 'handoff',
-      }),
-    ).toEqual({ queue: 'ACKNOWLEDGED', view: 'handoff' });
+      readInvoicesLoaderDeps({ customerSlug: 'initech', view: 'acknowledged' }),
+    ).toEqual({ queue: 'ACKNOWLEDGED', scope: {} });
   });
 });

@@ -2,7 +2,7 @@ import { useRouter } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import type { QueuedInvoice } from '@/api-client';
 import { DataTable } from '@/functionals/table';
-import type { HandoffQueueStatus } from '../../schemas/handoff-search.schema';
+import type { HandoffQueueStatus } from '../../schemas/handoff-queue-status';
 import { useHandoffColumns } from './handoff-table-columns';
 
 type HandoffTableProps = {

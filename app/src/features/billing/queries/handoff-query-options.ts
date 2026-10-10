@@ -1,5 +1,5 @@
 import { allHandoffOptions } from '@/lib/api/all-pages-query-options';
-import type { HandoffQueueStatus } from '../schemas/handoff-search.schema';
+import type { HandoffQueueStatus } from '../schemas/handoff-queue-status';
 
 /**
  * The handoff queue in one status, read whole, oldest issue first as the API gives

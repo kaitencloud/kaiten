@@ -38,7 +38,7 @@ function NoopRow() {
       {mayReadHandoff ? (
         <Link
           className="text-sm underline underline-offset-4"
-          search={{ view: 'handoff' }}
+          search={{ view: 'waiting' }}
           to="/invoices"
         >
           {t('Pages.Settings.Billing.Providers.Noop.handoff')}

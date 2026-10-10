@@ -8,9 +8,11 @@ import type { PageQueuedInvoice } from '@/api-client';
 import {
   handleGetBillingCapabilities,
   handleListHandoff,
+  handleListInvoices,
 } from '@/api-client/msw.gen';
 import {
   createLoadedPageClient,
+  invoiceRow,
   pageOf,
   queuedRow,
   renderWithClient,
@@ -24,7 +26,7 @@ const getAuthToken = vi.hoisted(() => vi.fn());
 // Where the page is, which the tabs follow: a test moves it to the other part.
 const location = vi.hoisted(() => ({
   pathname: '/invoices',
-  search: { view: 'handoff' } as Record<string, unknown>,
+  search: { view: 'waiting' } as Record<string, unknown>,
 }));
 
 vi.mock('@/lib/auth-token', () => ({ getAuthToken }));
@@ -38,9 +40,22 @@ vi.mock('@tanstack/react-router', async () =>
 useBillingTexts();
 
 beforeEach(() => {
-  location.search = { view: 'handoff' };
+  location.search = { view: 'waiting' };
   // A session that may write billing, as an administrator does.
   getAuthToken.mockResolvedValue(sessionToken(['write:billing']));
+  // The tabs of the page count the invoices, which the views of the queue load too:
+  // two wait for the accounting system, one was acknowledged.
+  server.use(
+    handleListInvoices(() =>
+      HttpResponse.json(
+        pageOf([
+          invoiceRow('inv-1', 'Initech', { handoffStatus: 'PENDING' }),
+          invoiceRow('inv-2', 'Globex', { handoffStatus: 'PENDING' }),
+          invoiceRow('inv-3', 'Umbrella', { handoffStatus: 'ACKNOWLEDGED' }),
+        ]),
+      ),
+    ),
+  );
 });
 
 /** Answers each read of the queue with the next of `pages`, and records what the API was asked. */
@@ -57,13 +72,10 @@ function serveQueue(...pages: PageQueuedInvoice[]) {
   return asked;
 }
 
-const renderPage = (queue?: 'ACKNOWLEDGED' | 'PENDING') =>
+const renderPage = (view: 'acknowledged' | 'waiting' = 'waiting') =>
   renderWithClient(
     <Suspense fallback={<p>Loading</p>}>
-      <InvoicesPageContent
-        onScopeChange={vi.fn()}
-        search={{ queue, view: 'handoff' }}
-      />
+      <InvoicesPageContent onScopeChange={vi.fn()} search={{ view }} />
     </Suspense>,
     createLoadedPageClient(),
   );
@@ -118,40 +130,49 @@ describe('the handoff view of the invoices', () => {
 
   it('asks for the other part of the queue when the URL does', async () => {
     const asked = serveQueue(pageOf([queuedRow('inv-1', 'Initech')]));
-    renderPage('ACKNOWLEDGED');
+    renderPage('acknowledged');
 
     await screen.findByText('Initech');
 
     expect(asked[0].get('status')).toBe('ACKNOWLEDGED');
   });
 
-  it('has a tab for each part of the queue, and what waits is the bare view', async () => {
+  it('has a tab for each part of the queue, with how many invoices it holds', async () => {
+    server.use(
+      handleGetBillingCapabilities({
+        body: billingCapabilitiesProfiles.stack(),
+      }),
+    );
     serveQueue(pageOf([queuedRow('inv-1', 'Initech')]));
     renderPage();
 
-    expect(await screen.findByRole('link', { name: 'Waiting' })).toHaveAttribute(
-      'href',
-      '/invoices?view=handoff',
-    );
-    expect(screen.getByRole('link', { name: 'Acknowledged' })).toHaveAttribute(
-      'href',
-      '/invoices?view=handoff&queue=ACKNOWLEDGED',
-    );
+    const waiting = await screen.findByRole('link', {
+      name: 'Waiting for your ERP 2',
+    });
+    expect(waiting).toHaveAttribute('href', '/invoices?view=waiting');
+    expect(
+      screen.getByRole('link', { name: 'Acknowledged 1' }),
+    ).toHaveAttribute('href', '/invoices?view=acknowledged');
   });
 
   it('draws as active the tab of the part of the queue the URL asks for', async () => {
+    server.use(
+      handleGetBillingCapabilities({
+        body: billingCapabilitiesProfiles.stack(),
+      }),
+    );
     serveQueue(pageOf([queuedRow('inv-1', 'Initech')]));
-    location.search = { queue: 'ACKNOWLEDGED', view: 'handoff' };
-    renderPage('ACKNOWLEDGED');
+    location.search = { view: 'acknowledged' };
+    renderPage('acknowledged');
 
     const acknowledged = await screen.findByRole('link', {
-      name: 'Acknowledged',
+      name: 'Acknowledged 1',
     });
 
     expect(acknowledged).toHaveClass('bg-background');
-    expect(screen.getByRole('link', { name: 'Waiting' })).not.toHaveClass(
-      'bg-background',
-    );
+    expect(
+      screen.getByRole('link', { name: 'Waiting for your ERP 2' }),
+    ).not.toHaveClass('bg-background');
   });
 
   it('starts each part of the queue with a search of its own', async () => {
@@ -176,7 +197,7 @@ describe('the handoff view of the invoices', () => {
       <Suspense fallback={<p>Loading</p>}>
         <InvoicesPageContent
           onScopeChange={vi.fn()}
-          search={{ queue: 'ACKNOWLEDGED', view: 'handoff' }}
+          search={{ view: 'acknowledged' }}
         />
       </Suspense>,
     );
@@ -186,26 +207,5 @@ describe('the handoff view of the invoices', () => {
     expect(
       screen.getByPlaceholderText('Customer, instance or invoice'),
     ).toHaveValue('');
-  });
-
-  it('has the way back to every invoice in its toolbar, where the queue matters', async () => {
-    server.use(
-      handleGetBillingCapabilities({
-        body: billingCapabilitiesProfiles.stack(),
-      }),
-    );
-    serveQueue(pageOf([queuedRow('inv-1', 'Initech')]));
-    renderPage();
-
-    await screen.findByText('Initech');
-
-    expect(await screen.findByRole('link', { name: 'All' })).toHaveAttribute(
-      'href',
-      '/invoices',
-    );
-    expect(screen.getByRole('link', { name: 'Handoff' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
   });
 });

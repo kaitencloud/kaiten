@@ -1,19 +1,32 @@
 import { expect, type Locator } from '@playwright/test';
 import { FilterToolbarDriver } from './filter-toolbar.driver';
 
-/** The two parts of the queue: what waits, which is the bare view, and what was acknowledged. */
+/** The two parts of the queue: what waits for the accounting system, and what it acknowledged. */
 export type QueuePart = 'ACKNOWLEDGED' | 'PENDING';
 
+/** The status views of the list of invoices, the tabs above its toolbar, as their link says them. */
+export type InvoicesViewName =
+  | 'Acknowledged'
+  | 'All'
+  | 'Held'
+  | 'Overdue'
+  | 'Waiting for your ERP';
+
+const QUEUE_VIEWS = {
+  ACKNOWLEDGED: 'acknowledged',
+  PENDING: 'waiting',
+} as const satisfies Record<QueuePart, string>;
+
 /**
- * The queue the organization's accounting system reads, which is the handoff view of
- * the list of invoices (`?view=handoff`): what waits and what was acknowledged, oldest
- * issue first, and the acknowledgement by hand. The console holds every invoice of the
- * part of the queue it shows and searches, filters, sorts and pages them itself; the
- * URL holds the view and the part of the queue alone.
+ * The queue the organization's accounting system reads, which is two status
+ * views of the list of invoices (`?view=waiting`, `?view=acknowledged`): what waits and
+ * what was acknowledged, oldest issue first, and the acknowledgement by hand. The
+ * console holds every invoice of the part of the queue it shows and searches, filters,
+ * sorts and pages them itself; the URL holds the view alone.
  */
 export class BillingHandoffDriver extends FilterToolbarDriver {
-  private path(queue?: QueuePart) {
-    return `/invoices?view=handoff${queue ? `&queue=${queue}` : ''}`;
+  private path(queue: QueuePart = 'PENDING') {
+    return `/invoices?view=${QUEUE_VIEWS[queue]}`;
   }
 
   async goto(queue?: QueuePart) {
@@ -21,8 +34,8 @@ export class BillingHandoffDriver extends FilterToolbarDriver {
     await expect(
       this.page.getByRole('heading', { level: 1, name: 'Invoices' }),
     ).toBeVisible();
-    // The parts of the queue are drawn in the handoff view only.
-    await expect(this.tab('Waiting')).toBeVisible();
+    // The parts of the queue are tabs of the row, where the queue matters.
+    await expect(this.tab('Waiting for your ERP')).toBeVisible();
   }
 
   /** Opens the queue where the API is armed to refuse it: there is no page, so no title to wait for. */
@@ -31,19 +44,26 @@ export class BillingHandoffDriver extends FilterToolbarDriver {
     await expect(this.error()).toBeVisible();
   }
 
-  /** The tab of a part of the queue: a link to it, which the page marks as the current one. */
-  tab(name: 'Waiting' | 'Acknowledged'): Locator {
-    return this.page.getByRole('link', { name, exact: true });
+  /**
+   * The tab of a status view: a link to it, which the page marks as the current one.
+   * Its name holds the count that follows the label, so it is matched as a prefix.
+   */
+  tab(name: InvoicesViewName): Locator {
+    return this.page.getByRole('link', {
+      name: new RegExp(`^${name}( \\d+)?$`),
+    });
   }
 
-  async showTab(name: 'Waiting' | 'Acknowledged') {
+  /** The count a tab shows next to its label. */
+  async count(name: InvoicesViewName): Promise<number> {
+    const text = (await this.tab(name).textContent()) ?? '';
+
+    return Number(text.replace(name, '').trim());
+  }
+
+  async showTab(name: InvoicesViewName) {
     await this.tab(name).click();
     await expect(this.tab(name)).toHaveAttribute('aria-current', 'page');
-  }
-
-  /** The control of the toolbar that moves between every invoice and the queue. */
-  view(name: 'All' | 'Handoff'): Locator {
-    return this.page.getByRole('link', { name, exact: true });
   }
 
   rows(): Locator {

@@ -16,7 +16,8 @@ import {
   billingCapabilitiesProfiles,
   stripeProvider,
 } from '../../../../../e2e/app/_support/model/billing-capabilities';
-import { InvoicesViewSwitcher } from '../handoff/invoices-view-switcher';
+import type { InvoiceScope } from '../../schemas/invoice-scope.schema';
+import { InvoicesViewTabs } from '../invoices/invoices-view-tabs';
 
 const getAuthToken = vi.hoisted(() => vi.fn());
 // Where the page is, which the links follow: a test moves it to the other view.
@@ -44,16 +45,22 @@ beforeEach(() => {
 const answerWith = (capabilities = billingCapabilitiesProfiles.stack()) =>
   server.use(handleGetBillingCapabilities({ body: capabilities }));
 
-const renderSwitcher = () =>
-  renderWithClient(<InvoicesViewSwitcher />, createLoadedPageClient());
+const COUNTS = { acknowledged: 4, all: 12, held: 2, overdue: 0, waiting: 5 };
+
+const renderTabs = (scope: InvoiceScope = {}) =>
+  renderWithClient(
+    <InvoicesViewTabs counts={COUNTS} scope={scope} />,
+    createLoadedPageClient(),
+  );
 
 const links = () => screen.queryAllByRole('link');
 
 /**
- * Waits until what decides the switch is known, the capabilities and the scopes of
- * the token, and says the switch is not drawn: not that it has not been drawn yet.
+ * Waits until what decides whether the queue's tabs are drawn is known, the
+ * capabilities and the scopes of the token, and says they are not: not that they have
+ * not been drawn yet.
  */
-async function expectNoSwitch(client: ReturnType<typeof renderSwitcher>['client']) {
+async function expectNoQueueTabs(client: ReturnType<typeof renderTabs>['client']) {
   await waitFor(() => {
     expect(
       client.getQueryState(billingCapabilitiesQueryOptions.queryKey)?.status,
@@ -61,105 +68,177 @@ async function expectNoSwitch(client: ReturnType<typeof renderSwitcher>['client'
     expect(client.getQueryState(grantedScopesQueryKey)?.status).toBe('success');
   });
 
-  expect(links()).toHaveLength(0);
+  expect(screen.queryByRole('link', { name: /Waiting for your ERP/ })).toBeNull();
+  expect(screen.queryByRole('link', { name: /Acknowledged/ })).toBeNull();
+  expect(screen.getByRole('link', { name: /All/ })).toBeVisible();
 }
 
-describe('the switch between every invoice and the handoff queue', () => {
-  it('leads to each view of the list of invoices, and every invoice is the bare path', async () => {
+describe('the status views of the invoices', () => {
+  it('lead to each view of the list, each with its count, and every invoice is the bare path', async () => {
     answerWith();
-    renderSwitcher();
+    renderTabs();
 
-    expect(await screen.findByRole('link', { name: 'All' })).toHaveAttribute(
+    // The tabs of the queue come once the capabilities and the scopes are read.
+    await screen.findByRole('link', { name: 'Waiting for your ERP 5' });
+
+    expect(screen.getByRole('link', { name: 'All 12' })).toHaveAttribute(
       'href',
       '/invoices',
     );
-    expect(screen.getByRole('link', { name: 'Handoff' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Overdue 0' })).toHaveAttribute(
       'href',
-      '/invoices?view=handoff',
+      '/invoices?view=overdue',
+    );
+    expect(screen.getByRole('link', { name: 'Held 2' })).toHaveAttribute(
+      'href',
+      '/invoices?view=held',
+    );
+    expect(
+      screen.getByRole('link', { name: 'Waiting for your ERP 5' }),
+    ).toHaveAttribute('href', '/invoices?view=waiting');
+    expect(screen.getByRole('link', { name: 'Acknowledged 4' })).toHaveAttribute(
+      'href',
+      '/invoices?view=acknowledged',
     );
   });
 
-  it('draws as the current one the view the URL asks for', async () => {
+  it('are drawn in the order All, Overdue, Held, Waiting, Acknowledged', async () => {
     answerWith();
-    renderSwitcher();
+    renderTabs();
 
-    expect(await screen.findByRole('link', { name: 'All' })).toHaveAttribute(
+    await screen.findByRole('link', { name: /Acknowledged/ });
+
+    expect(links().map((link) => link.textContent)).toEqual([
+      'All 12',
+      'Overdue 0',
+      'Held 2',
+      'Waiting for your ERP 5',
+      'Acknowledged 4',
+    ]);
+  });
+
+  it('keep the scope of the list on the views of invoices, and drop it on the queue', async () => {
+    answerWith();
+    renderTabs({ customerSlug: 'initech' });
+
+    await screen.findByRole('link', { name: 'Waiting for your ERP 5' });
+
+    expect(screen.getByRole('link', { name: 'All 12' })).toHaveAttribute(
+      'href',
+      '/invoices?customerSlug=initech',
+    );
+    expect(screen.getByRole('link', { name: 'Held 2' })).toHaveAttribute(
+      'href',
+      '/invoices?customerSlug=initech&view=held',
+    );
+    expect(
+      screen.getByRole('link', { name: 'Waiting for your ERP 5' }),
+    ).toHaveAttribute('href', '/invoices?view=waiting');
+  });
+
+  it('draw as the current one the view the URL asks for', async () => {
+    location.search = { view: 'held' };
+    answerWith();
+    renderTabs();
+
+    expect(await screen.findByRole('link', { name: 'Held 2' })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    expect(screen.getByRole('link', { name: 'Handoff' })).not.toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'All 12' })).not.toHaveAttribute(
       'aria-current',
     );
   });
 
-  it('draws the queue as the current view when the URL is the queue', async () => {
-    location.search = { view: 'handoff' };
+  it('draw All as the current one on the bare path', async () => {
     answerWith();
-    renderSwitcher();
+    renderTabs();
 
-    expect(await screen.findByRole('link', { name: 'Handoff' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'All 12' })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    expect(screen.getByRole('link', { name: 'All' })).not.toHaveAttribute(
+  });
+
+  it('draw a part of the queue as the current one when the URL is that part', async () => {
+    location.search = { view: 'acknowledged' };
+    answerWith();
+    renderTabs();
+
+    expect(
+      await screen.findByRole('link', { name: 'Acknowledged 4' }),
+    ).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'All 12' })).not.toHaveAttribute(
       'aria-current',
     );
   });
 
-  it('is not there while the capabilities are being read', async () => {
+  it('are All, Overdue and Held while the capabilities are being read', async () => {
     answerWith();
-    renderSwitcher();
+    renderTabs();
 
-    expect(links()).toHaveLength(0);
+    expect(links().map((link) => link.textContent)).toEqual([
+      'All 12',
+      'Overdue 0',
+      'Held 2',
+    ]);
 
-    await screen.findByRole('link', { name: 'All' });
+    await screen.findByRole('link', { name: /Waiting for your ERP/ });
   });
 
-  it('is not there where billing is off, and the list is the list of invoices alone', async () => {
-    // Billing is off by default: nothing is drawn once the capabilities are in.
-    const { client } = renderSwitcher();
+  it('are All, Overdue and Held where billing is off', async () => {
+    // Billing is off by default: the queue's tabs are not drawn once the capabilities are in.
+    const { client } = renderTabs();
 
-    await expectNoSwitch(client);
+    await expectNoQueueTabs(client);
+    expect(links()).toHaveLength(3);
   });
 
-  it('is not there where NoOp is not a way the organization collects', async () => {
+  it('have no queue where NoOp is not a way the organization collects', async () => {
     answerWith(
       billingCapabilities({ providers: [stripeProvider('connected')] }),
     );
-    const { client } = renderSwitcher();
+    const { client } = renderTabs();
 
-    await expectNoSwitch(client);
+    await expectNoQueueTabs(client);
   });
 
-  it('is not there for a session whose scopes do not cover reading the queue', async () => {
+  it('have no queue for a session whose scopes do not cover reading it', async () => {
     getAuthToken.mockResolvedValue(sessionToken(['read:instances']));
     answerWith();
-    const { client } = renderSwitcher();
+    const { client } = renderTabs();
 
-    await expectNoSwitch(client);
+    await expectNoQueueTabs(client);
   });
 
-  it('is there for a session that holds write:billing, which covers reading', async () => {
+  it('have the queue for a session that holds write:billing, which covers reading', async () => {
     getAuthToken.mockResolvedValue(sessionToken(['write:billing']));
     answerWith();
-    renderSwitcher();
+    renderTabs();
 
-    expect(await screen.findByRole('link', { name: 'Handoff' })).toBeVisible();
+    expect(
+      await screen.findByRole('link', { name: 'Waiting for your ERP 5' }),
+    ).toBeVisible();
   });
 
-  it('is read in French', async () => {
+  it('are read in French', async () => {
     await testI18n.changeLanguage('fr');
     try {
       answerWith();
-      renderSwitcher();
+      renderTabs();
 
-      expect(
-        await screen.findByRole('link', { name: 'Toutes' }),
-      ).toHaveAttribute('href', '/invoices');
-      expect(screen.getByRole('link', { name: 'Transmission' })).toHaveAttribute(
+      await screen.findByRole('link', { name: 'En attente de votre ERP 5' });
+
+      expect(screen.getByRole('link', { name: 'Toutes 12' })).toHaveAttribute(
         'href',
-        '/invoices?view=handoff',
+        '/invoices',
       );
+      expect(screen.getByRole('link', { name: 'En retard 0' })).toBeVisible();
+      expect(screen.getByRole('link', { name: 'Bloquées 2' })).toBeVisible();
+      expect(
+        screen.getByRole('link', { name: 'En attente de votre ERP 5' }),
+      ).toHaveAttribute('href', '/invoices?view=waiting');
+      expect(screen.getByRole('link', { name: 'Acquittées 4' })).toBeVisible();
     } finally {
       await testI18n.changeLanguage('en');
     }
