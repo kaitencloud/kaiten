@@ -275,6 +275,11 @@ func (p *Profile) seedEntitlements(ctx context.Context, sc *seeder.SeederContext
 			AggregationMethod: ent.AggregationMethod,
 			ResetPeriod:       ent.ResetPeriod,
 			ResetAnchor:       ent.ResetAnchor,
+			Icon:              ptr.To(ent.Icon),
+			UnitSingular:      ent.UnitSingular,
+			UnitPlural:        ent.UnitPlural,
+			UserFacing:        ptr.To(ent.UserFacing),
+			DisplayOrder:      ptr.To(ent.DisplayOrder),
 		}
 		created, err := sc.Entitlements.CreateEntitlement.Execute(ctx, cmd)
 		if err != nil {
@@ -981,8 +986,8 @@ func (p *Profile) seedFeatureFlags(ctx context.Context, sc *seeder.SeederContext
 // as, and returns its user ID. Its token carries the console's "Control plane"
 // preset (TOKEN_PRESETS.controlPlane in app/src/features/service-accounts)
 // plus the three modules the dataset also writes -- entitlements, feature flags
-// and metadata fields -- the same account the hosted demo seed creates, which
-// makes every call with that token. This seed calls the use cases directly,
+// and metadata fields -- which is what an account making each of these calls
+// through the API needs. This seed calls the use cases directly,
 // which check no scope, so here the token describes the account rather than
 // bounding what the seed may do as it.
 func (p *Profile) seedOpsTeam(ctx context.Context, sc *seeder.SeederContext) (uuid.UUID, error) {

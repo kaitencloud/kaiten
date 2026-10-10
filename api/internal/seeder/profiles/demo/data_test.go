@@ -56,6 +56,29 @@ func TestEntitlementGroupsCoverAllSampleEntitlements(t *testing.T) {
 	}
 }
 
+// TestEntitlementsArePresentedToCustomers keeps the demo catalogue renderable by
+// customer-facing components, which show only user-facing entitlements, in
+// display order, with their icon and unit labels: a catalogue without them
+// renders as an empty pricing table. Each field passes the validation
+// create-entitlement applies, and display orders are distinct, so the order is
+// the dataset's rather than the database's.
+func TestEntitlementsArePresentedToCustomers(t *testing.T) {
+	owners := make(map[int32]string, len(entitlements))
+	for _, ent := range entitlements {
+		require.Truef(t, ent.UserFacing, "entitlement %q is hidden from customer-facing components", ent.Slug)
+		require.NoErrorf(t, entitlementschema.ValidateIcon(ent.Icon), "entitlement %q icon", ent.Slug)
+		require.NoErrorf(t, entitlementschema.ValidateUnitsConfiguration(ent.Type, ent.UnitSingular, ent.UnitPlural, nil, nil, nil),
+			"entitlement %q units", ent.Slug)
+		if ent.Type == entitlementschema.Number {
+			require.NotNilf(t, ent.UnitSingular, "NUMBER entitlement %q has no unit labels", ent.Slug)
+		}
+
+		owner, taken := owners[ent.DisplayOrder]
+		require.Falsef(t, taken, "display order %d belongs to both %q and %q", ent.DisplayOrder, owner, ent.Slug)
+		owners[ent.DisplayOrder] = ent.Slug
+	}
+}
+
 // TestUsageRowsFollowTheirEntitlementsResetPeriod guards the window each seeded
 // usage row is dated to. A periodic row of a lifetime entitlement claims a
 // reset the entitlement does not have, and a lifetime row of a periodic one

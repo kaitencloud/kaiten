@@ -110,6 +110,22 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 		WHERE eu.organization_id = $1 AND (eu.period_start IS NULL) <> (e.reset_period IS NULL)
 	`, orgID))
 
+	// Every entitlement is presented to customers: user-facing, in its own
+	// display order, with an icon, and the NUMBER ones with their unit labels.
+	require.Equal(t, []string{
+		"1 menu-items lucide:utensils menu item/menu items",
+		"2 monthly-orders lucide:shopping-cart order/orders",
+		"3 delivery-drivers lucide:bike driver/drivers",
+		"4 locations lucide:map-pin location/locations",
+		"5 delivery-tracking lucide:navigation -",
+		"6 support-tier lucide:life-buoy -",
+	}, stringColumn(t, ctx, testDB, `
+		SELECT display_order || ' ' || slug || ' ' || icon || ' ' || COALESCE(unit_singular || '/' || unit_plural, '-')
+		FROM entitlement
+		WHERE organization_id = $1 AND user_facing
+		ORDER BY display_order
+	`, orgID))
+
 	// The releases carry fixed slugs rather than the version plus six random
 	// characters a slugless create gets.
 	require.Equal(t, []string{"2026.7.0 r-2026-7-0", "2026.8.0 r-2026-8-0"}, stringColumn(t, ctx, testDB, `

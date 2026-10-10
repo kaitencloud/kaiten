@@ -120,6 +120,11 @@ const (
 // window its entitlement measures (usagePeriodStart), so which entitlements
 // reset is said once, here. The anchor is spelled out even where it is the
 // default the API would fill in, because the seed computes the window from it.
+//
+// The presentation fields are what customer-facing components render: a
+// pricing table or a usage meter shows the user-facing entitlements, in
+// DisplayOrder, with their icon and unit labels, and hides the rest. Unit
+// labels go on NUMBER entitlements only, both or neither.
 type entitlementDef struct {
 	Name              string
 	Slug              string
@@ -129,6 +134,11 @@ type entitlementDef struct {
 	AggregationMethod *entitlementschema.AggregationMethod
 	ResetPeriod       *period.ResetPeriod
 	ResetAnchor       *period.ResetAnchor
+	Icon              string
+	UnitSingular      *string
+	UnitPlural        *string
+	UserFacing        bool
+	DisplayOrder      int32
 }
 
 var entitlementGroups = []seedkit.EntitlementGroupDef{
@@ -144,6 +154,11 @@ var entitlements = []entitlementDef{
 		GroupSlugs:        []string{"restaurant-operations"},
 		Type:              entitlementschema.Number,
 		AggregationMethod: ptr.To(entitlementschema.Latest),
+		Icon:              "lucide:utensils",
+		UnitSingular:      ptr.To("menu item"),
+		UnitPlural:        ptr.To("menu items"),
+		UserFacing:        true,
+		DisplayOrder:      1,
 	},
 	{
 		Name:              "Monthly Orders",
@@ -155,8 +170,13 @@ var entitlements = []entitlementDef{
 		// The one periodic entitlement: orders count per calendar month, as
 		// its name says. Menu items, delivery drivers and locations are
 		// lifetime counters.
-		ResetPeriod: ptr.To(period.Month),
-		ResetAnchor: ptr.To(period.Calendar),
+		ResetPeriod:  ptr.To(period.Month),
+		ResetAnchor:  ptr.To(period.Calendar),
+		Icon:         "lucide:shopping-cart",
+		UnitSingular: ptr.To("order"),
+		UnitPlural:   ptr.To("orders"),
+		UserFacing:   true,
+		DisplayOrder: 2,
 	},
 	{
 		Name:              "Delivery Drivers",
@@ -165,6 +185,11 @@ var entitlements = []entitlementDef{
 		GroupSlugs:        []string{"delivery"},
 		Type:              entitlementschema.Number,
 		AggregationMethod: ptr.To(entitlementschema.Latest),
+		Icon:              "lucide:bike",
+		UnitSingular:      ptr.To("driver"),
+		UnitPlural:        ptr.To("drivers"),
+		UserFacing:        true,
+		DisplayOrder:      3,
 	},
 	{
 		Name:              "Locations",
@@ -173,13 +198,21 @@ var entitlements = []entitlementDef{
 		GroupSlugs:        []string{"restaurant-operations"},
 		Type:              entitlementschema.Number,
 		AggregationMethod: ptr.To(entitlementschema.Latest),
+		Icon:              "lucide:map-pin",
+		UnitSingular:      ptr.To("location"),
+		UnitPlural:        ptr.To("locations"),
+		UserFacing:        true,
+		DisplayOrder:      4,
 	},
 	{
-		Name:        "Delivery Tracking",
-		Slug:        "delivery-tracking",
-		Description: "Real-time delivery tracking for end customers.",
-		GroupSlugs:  []string{"delivery"},
-		Type:        entitlementschema.Boolean,
+		Name:         "Delivery Tracking",
+		Slug:         "delivery-tracking",
+		Description:  "Real-time delivery tracking for end customers.",
+		GroupSlugs:   []string{"delivery"},
+		Type:         entitlementschema.Boolean,
+		Icon:         "lucide:navigation",
+		UserFacing:   true,
+		DisplayOrder: 5,
 	},
 	{
 		Name:        "Support Tier",
@@ -188,8 +221,11 @@ var entitlements = []entitlementDef{
 		// The source dataset's entitlement_groups only cover the other five
 		// entitlements. Grouped here anyway so every entitlement belongs to
 		// at least one group, per data_test.go's coverage check.
-		GroupSlugs: []string{"restaurant-operations"},
-		Type:       entitlementschema.Config,
+		GroupSlugs:   []string{"restaurant-operations"},
+		Type:         entitlementschema.Config,
+		Icon:         "lucide:life-buoy",
+		UserFacing:   true,
+		DisplayOrder: 6,
 	},
 }
 
