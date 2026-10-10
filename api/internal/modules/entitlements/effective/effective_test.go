@@ -152,6 +152,11 @@ func TestResolveBooleanAndConfig(t *testing.T) {
 	require.Nil(t, r.Pct)
 	require.Zero(t, r.BoostGrantCount, "boosts do not apply to a BOOLEAN")
 
+	falseGrant := on
+	falseGrant.Value = json.RawMessage(`{"type":"boolean","value":false}`)
+	r, _ = effective.Resolve(effective.Input{Type: effective.TypeBoolean, Licence: nil, Addons: []effective.AddonGrant{falseGrant}, At: at})
+	require.JSONEq(t, `{"type":"boolean","value":false}`, string(r.Value), "a false grant grants nothing")
+
 	basic := &effective.LicenceGrant{Value: json.RawMessage(`{"type":"object","value":{"tier":"basic"}}`)}
 	pro := effective.AddonGrant{ID: uuid.New(), AttachedAt: t0, Quantity: 1, Behavior: effective.BehaviorAdd, Value: json.RawMessage(`{"type":"object","value":{"tier":"pro"}}`)}
 	ent := effective.AddonGrant{ID: uuid.New(), AttachedAt: t0.Add(time.Minute), Quantity: 1, Behavior: effective.BehaviorAdd, Value: json.RawMessage(`{"type":"object","value":{"tier":"ent"}}`)}
