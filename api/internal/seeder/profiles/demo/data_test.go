@@ -493,6 +493,22 @@ func TestLicenseSlugsAreFixedAndDistinct(t *testing.T) {
 	}
 }
 
+// TestReleaseSlugsAreFixedAndDistinct pins the releases' addresses, as
+// TestLicenseSlugsAreFixedAndDistinct pins the catalogue's: one valid slug per
+// release, the same on every seed, so a link to a release keeps working after a
+// reseed.
+func TestReleaseSlugsAreFixedAndDistinct(t *testing.T) {
+	owners := make(map[string]string, len(releases))
+	for _, rel := range releases {
+		_, err := slugutil.New(rel.Slug)
+		require.NoErrorf(t, err, "release %q has an invalid slug %q", rel.Version, rel.Slug)
+
+		owner, taken := owners[rel.Slug]
+		require.Falsef(t, taken, "slug %q belongs to both %q and %q", rel.Slug, owner, rel.Version)
+		owners[rel.Slug] = rel.Version
+	}
+}
+
 // TestSomeFamilyPutsAnOlderVersionForward keeps in the catalogue the case the
 // default exists for: a family whose default is a published version older
 // than its highest published one. Without it every family resolves to the same

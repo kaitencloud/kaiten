@@ -652,7 +652,12 @@ type componentPatch struct {
 	RemoveSlug   *string
 }
 
+// releaseDef.Slug is fixed rather than generated, for the reason licenseDef's
+// is: a release created without one gets its version plus six random
+// characters, so every seed would give the same release a new address and
+// nothing could link to one.
 type releaseDef struct {
+	Slug            string
 	Version         string
 	Description     string
 	PreviousVersion string
@@ -682,6 +687,7 @@ func removeComp(slug string) componentPatch {
 
 var releases = []releaseDef{
 	{
+		Slug:        "r-2026-7-0",
 		Version:     "2026.7.0",
 		Description: "July platform release.",
 		Patches: []componentPatch{
@@ -695,6 +701,7 @@ var releases = []releaseDef{
 		// Upgrades three of July's four components and keeps Kitchen Display.
 		// Each new version replaces the one it follows, so the release ships
 		// four components, one version of each, as July did.
+		Slug:            "r-2026-8-0",
 		Version:         "2026.8.0",
 		PreviousVersion: "2026.7.0",
 		Description:     "Introduces real-time delivery tracking.",

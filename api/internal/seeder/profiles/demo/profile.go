@@ -527,6 +527,7 @@ func (p *Profile) seedReleases(ctx context.Context, sc *seeder.SeederContext) (m
 		}
 
 		created, err := sc.Releases.CreateRelease.Execute(ctx, &createrelease.Command{
+			Slug:         ptr.To(rel.Slug),
 			Version:      rel.Version,
 			Description:  ptr.To(rel.Description),
 			ComponentIDs: componentIDs,

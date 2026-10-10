@@ -110,6 +110,12 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 		WHERE eu.organization_id = $1 AND (eu.period_start IS NULL) <> (e.reset_period IS NULL)
 	`, orgID))
 
+	// The releases carry fixed slugs rather than the version plus six random
+	// characters a slugless create gets.
+	require.Equal(t, []string{"2026.7.0 r-2026-7-0", "2026.8.0 r-2026-8-0"}, stringColumn(t, ctx, testDB, `
+		SELECT version || ' ' || slug FROM release WHERE organization_id = $1 ORDER BY version
+	`, orgID))
+
 	// 2026.8.0 upgrades three of July's four components and keeps Kitchen
 	// Display. It once shipped both versions of each component it upgraded;
 	// it ships four, one version of each, every new version the successor of
