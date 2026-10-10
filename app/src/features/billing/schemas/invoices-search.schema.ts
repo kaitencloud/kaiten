@@ -30,22 +30,20 @@ export const HANDOFF_VIEWS = {
   waiting: 'PENDING',
 } as const satisfies Partial<Record<InvoicesView, HandoffQueueStatus>>;
 
-export type HandoffView = keyof typeof HANDOFF_VIEWS;
+export type HandoffQueueView = keyof typeof HANDOFF_VIEWS;
 
 /** The view the list opens on, and what the bare path shows. */
 export const DEFAULT_INVOICES_VIEW: InvoicesView = 'all';
 
-export const isHandoffView = (view: InvoicesView): view is HandoffView =>
+export const isHandoffView = (view: InvoicesView): view is HandoffQueueView =>
   view in HANDOFF_VIEWS;
 
 // Only the views other than the default are spelled out: `?view=all` is the bare
 // path, and reads as it. A value that is not a view is dropped, like the rest of
-// a link.
+// a link. The list of views is INVOICES_VIEWS, once: a view added there is read here
+// and typed below, with nothing else to keep in step.
 const invoicesViewSchema = z.object({
-  view: z
-    .enum(['overdue', 'held', 'waiting', 'acknowledged'])
-    .optional()
-    .catch(undefined),
+  view: z.enum(INVOICES_VIEWS).exclude(['all']).optional().catch(undefined),
 });
 
 /**
@@ -55,7 +53,8 @@ const invoicesViewSchema = z.object({
  * link of one view does not carry the search of the other.
  */
 export type InvoicesSearch = InvoiceListSeed &
-  InvoiceScope & { view?: Exclude<InvoicesView, 'all'> };
+  InvoiceScope &
+  z.output<typeof invoicesViewSchema>;
 
 export function readInvoicesSearch(
   search: Record<string, unknown>,
@@ -87,10 +86,11 @@ export function handoffQueueOf(
 }
 
 /**
- * What the route's loader depends on, and so what it loads: always the invoices of
- * the scope (the tabs count them), and the part of the queue in the views of the
- * queue. Moving between All, Overdue and Held changes neither, so it reloads nothing.
- * Everything else in the URL is the page's, in the browser.
+ * What the route's loader depends on, and so what it loads: the invoices of the
+ * scope in the views of invoices, and the part of the queue in the views of the
+ * queue (which only ask for the invoices, to count the tabs, without waiting for
+ * them). Moving between All, Overdue and Held changes neither, so it reloads
+ * nothing. Everything else in the URL is the page's, in the browser.
  */
 export function readInvoicesLoaderDeps(search: Record<string, unknown>) {
   const read = readInvoicesSearch(search);

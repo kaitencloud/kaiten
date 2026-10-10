@@ -11,7 +11,7 @@ import {
 } from '../../schemas/invoice-list-seed.schema';
 import type { InvoiceScope } from '../../schemas/invoice-scope.schema';
 import type {
-  HandoffView,
+  HandoffQueueView,
   InvoicesView,
 } from '../../schemas/invoices-search.schema';
 import { invoicesOfView } from '../../utils/invoice-views';
@@ -25,7 +25,7 @@ type InvoicesAllViewProps = {
   /** The filters the URL opens the list on; none for the bare path. */
   seed: InvoiceListSeed;
   /** Which part of the list the tab asks for: every invoice, the overdue ones or the held ones. */
-  view: Exclude<InvoicesView, HandoffView>;
+  view: Exclude<InvoicesView, HandoffQueueView>;
 };
 
 /**

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
   handoffQueueOf,
+  INVOICES_VIEWS,
   invoicesViewOf,
   readInvoicesLoaderDeps,
   readInvoicesSearch,
@@ -61,6 +62,16 @@ describe('the search of the list of invoices', () => {
     },
   );
 
+  it.each(INVOICES_VIEWS.filter((view) => view !== 'all'))(
+    'reads every view of the list, once: ?view=%s is the view it names',
+    (view) => {
+      const read = readInvoicesSearch({ view });
+
+      expect(read.view).toBe(view);
+      expect(invoicesViewOf(read)).toBe(view);
+    },
+  );
+
   it('does not read the views and the queue tabs of the earlier versions', () => {
     expect(readInvoicesSearch({ held: true, overdue: true })).toEqual({});
     expect(
@@ -87,7 +98,7 @@ describe('the search of the list of invoices', () => {
     );
   });
 
-  it('loads the invoices, which the tabs count, and the part of the queue in the views of the queue', () => {
+  it('loads the part of the queue in the views of the queue, whatever the scope of the link', () => {
     expect(readInvoicesLoaderDeps({ view: 'waiting' })).toEqual({
       queue: 'PENDING',
       scope: {},
