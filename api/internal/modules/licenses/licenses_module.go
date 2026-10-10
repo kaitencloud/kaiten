@@ -55,7 +55,9 @@ type UseCases struct {
 	UpdateLicenseFamily             *updatelicensefamily.UseCase
 }
 
-func NewUseCases(svc services.Container) *UseCases {
+// NewUseCases builds the licences module; preview is what its invoice preview
+// reads of the other modules (§8.9), nil for a sample only.
+func NewUseCases(svc services.Container, preview previewlicenseinvoice.Sources) *UseCases {
 	queries := db.New(svc.Pool)
 	entitlementReader := licenseview.New(svc.Pool)
 	priceDeps := prices.Deps{
@@ -145,7 +147,7 @@ func NewUseCases(svc services.Container) *UseCases {
 		CreateLicensePrice:    createlicenseprice.NewUseCase(priceDeps),
 		UpdateLicensePrice:    updatelicenseprice.NewUseCase(priceDeps),
 		DeprecateLicensePrice: deprecatelicenseprice.NewUseCase(priceDeps),
-		PreviewLicenseInvoice: previewlicenseinvoice.NewUseCase(priceDeps),
+		PreviewLicenseInvoice: previewlicenseinvoice.NewUseCase(priceDeps, preview),
 		UpdateLicenseFamily: updatelicensefamily.NewUseCase(updatelicensefamily.Deps{
 			UserProvider: svc.UserProvider, Uof: svc.Uof, Gate: priceDeps.Gate,
 		}),

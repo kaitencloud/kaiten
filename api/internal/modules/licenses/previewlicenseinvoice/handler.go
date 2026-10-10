@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/money"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/effective"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -18,11 +20,14 @@ import (
 
 const operation = "PreviewLicenseInvoice"
 
-// Scenario is what to preview: which base price, and how much of each metered
-// entitlement was used.
+// Scenario is what to preview (§8.9): which base price; the instance whose
+// usage is rated, or a sample of it; the add-ons and the voucher to price in.
 type Scenario struct {
-	BasePriceID *uuid.UUID
-	SampleUsage []Sample
+	BasePriceID  *uuid.UUID
+	InstanceSlug *string
+	SampleUsage  []Sample
+	AddOns       []AddonQuantity
+	VoucherCode  *string
 }
 
 // Sample is a quantity of one metered entitlement, in its measured units.
@@ -31,17 +36,39 @@ type Sample struct {
 	Quantity        string
 }
 
-type UseCase struct {
-	deps prices.Deps
+// AddonQuantity is an add-on version the preview prices in, and how many.
+type AddonQuantity struct {
+	AddonSlug string
+	Quantity  int32
 }
 
-func NewUseCase(deps prices.Deps) *UseCase { return &UseCase{deps: deps} }
+type UseCase struct {
+	deps    prices.Deps
+	sources Sources
+}
+
+// NewUseCase builds the preview; sources may be nil, and a preview then takes
+// a sample only.
+func NewUseCase(deps prices.Deps, sources Sources) *UseCase {
+	return &UseCase{deps: deps, sources: sources}
+}
+
+// meter is an entitlement a price of the preview meters.
+type meter struct {
+	id   uuid.UUID
+	slug string
+}
 
 // Execute composes the RENEWAL a subscription to the version would be billed
-// at a boundary now: the sample usage rated in arrears over the period that
-// ends, the base price in advance or in arrears as it says. It writes
-// nothing, and works on a DRAFT version, which is how a price is checked
-// before it is published.
+// at a boundary now, writing nothing, on a DRAFT version too (how a price is
+// checked before it is published):
+//   - the base price in advance, or in arrears as it says;
+//   - the listed add-ons' fees, and their metered prices;
+//   - the metered usage of the period that ends: the instance's own, read
+//     from its journal over [P0, now), or the sample, rated against the
+//     version's grant with the listed add-ons' (§7.2);
+//   - the voucher's discount, as a redemption would apply it, consuming
+//     nothing.
 func (u *UseCase) Execute(ctx context.Context, licenseSlug string, scenario Scenario) (*rating.InvoicePreview, error) {
 	user, err := u.deps.Caller(ctx)
 	if err != nil {
@@ -50,6 +77,14 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, scenario Scen
 	samples, err := parseSamples(scenario.SampleUsage)
 	if err != nil {
 		return nil, err
+	}
+	if scenario.InstanceSlug != nil && len(samples) > 0 {
+		return nil, kaitenerrors.UnprocessableEntity(operation+".InvalidSampleUsage",
+			"rate an instance's usage (instanceSlug) or a sample (sampleUsage), not both")
+	}
+	if (scenario.InstanceSlug != nil || len(scenario.AddOns) > 0 || scenario.VoucherCode != nil) && u.sources == nil {
+		return nil, kaitenerrors.UnprocessableEntity(operation+".InvalidSampleUsage",
+			"this deployment previews a sample only")
 	}
 
 	queries := u.deps.Queries(ctx)
@@ -72,21 +107,30 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, scenario Scen
 	if err != nil {
 		return nil, err
 	}
-
-	in := rating.Input{
-		Kind:        rating.KindRenewal,
-		Currency:    money.Currency(base.Currency),
-		LicenseName: version.Name,
-		Base:        ratingPrice(base, nil),
-		Metered:     nil,
-		Measures:    map[uuid.UUID]rating.Measure{},
-		Advance:     rating.Period{},
-		Arrears:     rating.Period{},
+	period := "MONTHLY"
+	if base.BillingPeriod != nil {
+		period = *base.BillingPeriod
 	}
+
+	clock, err := queries.BillingClock(ctx)
+	if err != nil {
+		return nil, err
+	}
+	now := clock.Time.UTC()
+	months := rating.PeriodMonths(period)
+	in := rating.Input{
+		Kind: rating.KindRenewal, Currency: money.Currency(base.Currency), LicenseName: version.Name,
+		Base: ratingPrice(base, nil), Metered: nil, Measures: map[uuid.UUID]rating.Measure{}, Addons: nil, AddonMetered: nil,
+		Advance: rating.Period{From: now, To: rating.AddMonthsClamped(now, months)},
+		Arrears: rating.Period{From: rating.AddMonthsClamped(now, -months), To: now},
+	}
+
+	// The version's metered prices, and the entitlements they meter.
 	bySlug := make(map[string]db.ListMeteredGrantsRow, len(grants))
 	for _, grant := range grants {
 		bySlug[grant.Slug] = grant
 	}
+	meters := map[string]meter{}
 	for _, price := range all {
 		if price.Status != prices.StatusActive || price.Metered == nil {
 			continue
@@ -96,27 +140,67 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, scenario Scen
 			continue
 		}
 		in.Metered = append(in.Metered, ratingPrice(price, &grant))
-	}
-	for slug, quantity := range samples {
-		grant, ok := bySlug[slug]
-		if !ok {
-			return nil, kaitenerrors.UnprocessableEntity(operation+".InvalidSampleUsage",
-				"no active price of this version meters "+slug)
-		}
-		in.Measures[grant.ID] = rating.Sample(quantity, toGrant(grant))
+		meters[grant.Slug] = meter{id: grant.ID, slug: grant.Slug}
 	}
 
-	clock, err := queries.BillingClock(ctx)
-	if err != nil {
-		return nil, err
+	// The listed add-ons: their fees and metered prices, and their grants
+	// for the sample's effective grant. Listed later counts as attached
+	// later.
+	addonGrants := map[uuid.UUID][]effective.AddonGrant{}
+	listed := map[string]bool{}
+	for i, wanted := range scenario.AddOns {
+		if wanted.Quantity < 1 || listed[wanted.AddonSlug] {
+			return nil, kaitenerrors.UnprocessableEntity(operation+".InvalidAddOns",
+				"addOns names each add-on version once, with a quantity of at least 1")
+		}
+		listed[wanted.AddonSlug] = true
+		addon, err := u.sources.Addon(ctx, user.OrganizationID, wanted.AddonSlug, period, base.Currency)
+		if err != nil {
+			return nil, err
+		}
+		if addon == nil {
+			return nil, kaitenerrors.NotFoundf(operation+".AddonNotFound", "add-on version %q not found", wanted.AddonSlug)
+		}
+		if addon.Flat != nil {
+			in.Addons = append(in.Addons, rating.AddonCharge{
+				InstanceAddonID: uuid.Nil, AddonID: addon.ID, Name: addon.Name, Quantity: wanted.Quantity, Price: *addon.Flat, Service: nil,
+			})
+		}
+		for _, price := range addon.Metered {
+			in.AddonMetered = append(in.AddonMetered, rating.AddonMeter{
+				InstanceAddonID: uuid.Nil, AddonID: addon.ID, Price: price, Window: in.Arrears, Measure: rating.Measure{},
+			})
+			meters[price.Meter.EntitlementSlug] = meter{id: price.Meter.EntitlementID, slug: price.Meter.EntitlementSlug}
+		}
+		for _, grant := range addon.Grants {
+			g := grant.Grant
+			g.Quantity, g.AttachedAt = wanted.Quantity, now.Add(time.Duration(i)*time.Millisecond)
+			addonGrants[grant.EntitlementID] = append(addonGrants[grant.EntitlementID], g)
+		}
 	}
-	boundary := clock.Time.UTC()
-	months := 1
-	if base.BillingPeriod != nil {
-		months = rating.PeriodMonths(*base.BillingPeriod)
+
+	switch {
+	case scenario.InstanceSlug != nil:
+		if err := u.measureInstance(ctx, user.OrganizationID, *scenario.InstanceSlug, meters, &in, now); err != nil {
+			return nil, err
+		}
+	default:
+		for slug, quantity := range samples {
+			m, ok := meters[slug]
+			if !ok {
+				return nil, kaitenerrors.UnprocessableEntity(operation+".InvalidSampleUsage",
+					"no active price of this version or of the listed add-ons meters "+slug)
+			}
+			var licence *effective.LicenceGrant
+			if grant, ok := bySlug[slug]; ok && grant.GrantValue != nil {
+				licence = &effective.LicenceGrant{Value: grant.GrantValue, Pct: grant.GrantOveragePercent}
+			}
+			in.Measures[m.id] = rating.Sample(quantity, grantOf(licence, addonGrants[m.id], now))
+		}
 	}
-	in.Advance = rating.Period{From: boundary, To: rating.AddMonthsClamped(boundary, months)}
-	in.Arrears = rating.Period{From: rating.AddMonthsClamped(boundary, -months), To: boundary}
+	for i := range in.AddonMetered {
+		in.AddonMetered[i].Measure = in.Measures[in.AddonMetered[i].Price.Meter.EntitlementID]
+	}
 
 	composition, err := rating.Compose(in)
 	if errors.Is(err, rating.ErrAmountOverflow) {
@@ -125,8 +209,78 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, scenario Scen
 	if err != nil {
 		return nil, err
 	}
-	preview := rating.Preview(rating.KindRenewal, boundary, boundary, licenseSlug, base.Currency, composition)
+	if scenario.VoucherCode != nil {
+		discount, found, err := u.sources.Discount(ctx, user.OrganizationID, *scenario.VoucherCode)
+		if err != nil {
+			return nil, err
+		}
+		if !found {
+			return nil, kaitenerrors.NotFound(operation+".VoucherNotFound", "no voucher has this code")
+		}
+		if discount == nil {
+			return nil, kaitenerrors.UnprocessableEntity(operation+".VoucherInvalid", "the voucher is not an ACTIVE PRICE voucher")
+		}
+		if composition, err = rating.ApplyDiscounts(composition, []rating.Discount{*discount}, money.Currency(base.Currency)); err != nil {
+			return nil, err
+		}
+	}
+	preview := rating.Preview(rating.KindRenewal, now, now, licenseSlug, base.Currency, composition)
 	return &preview, nil
+}
+
+// measureInstance rates the instance's own usage of every meter over
+// [P0, now): P0 of its live subscription, else one period back (§8.9).
+func (u *UseCase) measureInstance(ctx context.Context, organizationID uuid.UUID, slug string, meters map[string]meter, in *rating.Input, now time.Time) error {
+	instance, err := u.sources.Instance(ctx, organizationID, slug)
+	if err != nil {
+		return err
+	}
+	if instance == nil {
+		return kaitenerrors.NotFoundf(operation+".InstanceNotFound", "instance %q not found", slug)
+	}
+	if instance.PeriodStart != nil && instance.PeriodStart.Before(now) {
+		in.Arrears.From = *instance.PeriodStart
+		for i := range in.AddonMetered {
+			in.AddonMetered[i].Window = in.Arrears
+		}
+	}
+	if len(meters) == 0 {
+		return nil
+	}
+	if start := u.sources.RetentionStart(ctx, organizationID, now); start != nil && in.Arrears.From.Before(*start) {
+		return kaitenerrors.UnprocessableEntityWithErrors(operation+".OutsideRetention",
+			"the period starts before the organization's usage history: its usage reports are gone",
+			&kaitenerrors.ErrorDetail{Message: "retentionStart", Location: "retentionStart", Value: start.UTC().Format(time.RFC3339Nano)})
+	}
+	for _, m := range meters {
+		measure, err := u.sources.Measure(ctx, organizationID, instance.ID, m.id, in.Arrears.From, now)
+		if err != nil {
+			return err
+		}
+		in.Measures[m.id] = measure
+	}
+	return nil
+}
+
+// grantOf is a sample's grant: the version's, with the listed add-ons'
+// (§7.2, §7.3). No grant at all, or a value of -1, is unlimited.
+func grantOf(licence *effective.LicenceGrant, addons []effective.AddonGrant, now time.Time) rating.Grant {
+	unlimited := rating.Grant{Limit: decimal.Zero, Unlimited: true, OveragePercent: -1}
+	resolved, ok := effective.Resolve(effective.Input{Type: effective.TypeNumber, Licence: licence, Addons: addons, Boosts: nil, At: now})
+	if !ok || resolved.Pct == nil {
+		return unlimited
+	}
+	var value struct {
+		Value json.Number `json:"value"`
+	}
+	if json.Unmarshal(resolved.Value, &value) != nil {
+		return unlimited
+	}
+	limit, err := decimal.NewFromString(value.Value.String())
+	if err != nil || limit.IsNegative() {
+		return unlimited
+	}
+	return rating.Grant{Limit: limit, Unlimited: false, OveragePercent: int32(*resolved.Pct)}
 }
 
 // parseSamples reads the sample quantities: non-negative decimals, one per
@@ -196,24 +350,4 @@ func ratingPrice(price prices.Price, grant *db.ListMeteredGrantsRow) rating.Pric
 		}
 	}
 	return out
-}
-
-// toGrant reads the version's grant of a metered entitlement. No grant, or a
-// limit of -1, is unlimited.
-func toGrant(row db.ListMeteredGrantsRow) rating.Grant {
-	unlimited := rating.Grant{Limit: decimal.Zero, Unlimited: true, OveragePercent: -1}
-	if row.GrantValue == nil || row.GrantOveragePercent == nil {
-		return unlimited
-	}
-	var value struct {
-		Value json.Number `json:"value"`
-	}
-	if json.Unmarshal(row.GrantValue, &value) != nil {
-		return unlimited
-	}
-	limit, err := decimal.NewFromString(value.Value.String())
-	if err != nil || limit.IsNegative() {
-		return unlimited
-	}
-	return rating.Grant{Limit: limit, Unlimited: false, OveragePercent: int32(*row.GrantOveragePercent)}
 }

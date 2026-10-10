@@ -162,3 +162,63 @@ func TestPreviewLicenseInvoice(t *testing.T) {
 		require.Equal(t, "Billing.Disabled", problem.Code)
 	})
 }
+
+// §8.9: the listed add-ons are priced in, their grants raise the sample's
+// limit (§7.2), and a voucher's discount applies as a redemption would.
+func TestPreviewWithAddonsAndAVoucher(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	slug := pricedVersion(t)
+	created := func(path string, body map[string]any) {
+		t.Helper()
+		resp := call(t, "POST", path, body)
+		_ = resp.Body.Close()
+		require.Less(t, resp.StatusCode, 300, path)
+	}
+	created("/api/addons", map[string]any{"name": "Token pack", "slug": "token-pack", "description": "d", "pricingType": "PAID"})
+	created("/api/addons/token-pack/entitlements", map[string]any{
+		"entitlementSlug": "tokens", "value": map[string]any{"type": "number", "value": 10000}, "overrideBehavior": "ADD",
+	})
+	fee := flatFee("500", "MONTHLY")
+	fee["isDefault"] = true
+	created("/api/addons/token-pack/prices", fee)
+
+	// 130,500 used: 30,500 above 100,000; with 3 packs the limit is 130,000.
+	got := preview(t, slug, map[string]any{
+		"sampleUsage": []map[string]any{{"entitlementSlug": "tokens", "quantity": "130500"}},
+		"addOns":      []map[string]any{{"addonSlug": "token-pack", "quantity": 3}},
+	})
+	byType := map[rating.LineType]rating.InvoiceLine{}
+	for _, line := range got.Lines {
+		byType[line.Type] = line
+	}
+	require.Equal(t, "500", byType[rating.LineOverage].Metering.MeasuredQuantity, "above 100,000 + 3 × 10,000")
+	require.EqualValues(t, 1500, byType[rating.LineAddon].Amount, "3 × 5.00 EUR")
+	require.Equal(t, "3", byType[rating.LineAddon].Quantity)
+
+	created("/api/vouchers", map[string]any{
+		"name": "Launch", "code": "LAUNCH-2027-SPRING", "voucherType": "PRICE", "duration": "FOREVER",
+		"priceDiscountType": "PERCENTAGE", "priceDiscountValue": "10", "priceAppliesTo": "LICENSE_BASE",
+	})
+	// A DRAFT voucher discounts nothing yet.
+	problem := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t,
+		call(t, "POST", "/api/licenses/"+slug+"/invoice-preview", map[string]any{"voucherCode": "LAUNCH-2027-SPRING"}), fiber.StatusUnprocessableEntity)
+	require.Equal(t, "PreviewLicenseInvoice.VoucherInvalid", problem.Code)
+	var voucherID string
+	require.NoError(t, testDb.DbPool.QueryRow(t.Context(), `SELECT id::text FROM voucher WHERE name = 'Launch'`).Scan(&voucherID))
+	created("/api/vouchers/"+voucherID+"/publish", nil)
+	discounted := preview(t, slug, map[string]any{"voucherCode": "launch-2027-spring"})
+	require.EqualValues(t, 290, discounted.DiscountTotal, "10 % of the 29.00 EUR base")
+	require.EqualValues(t, 2610, discounted.Total)
+
+	for code, body := range map[string]map[string]any{
+		"PreviewLicenseInvoice.AddonNotFound":   {"addOns": []map[string]any{{"addonSlug": "nope", "quantity": 1}}},
+		"PreviewLicenseInvoice.VoucherNotFound": {"voucherCode": "NOPE-NOPE-NOPE"},
+	} {
+		problem := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t,
+			call(t, "POST", "/api/licenses/"+slug+"/invoice-preview", body), fiber.StatusNotFound)
+		require.Equal(t, code, problem.Code)
+	}
+	problem = commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, call(t, "POST", "/api/licenses/"+slug+"/invoice-preview",
+		map[string]any{"addOns": []map[string]any{{"addonSlug": "token-pack", "quantity": 0}}}), fiber.StatusUnprocessableEntity)
+	require.Equal(t, "PreviewLicenseInvoice.InvalidAddOns", problem.Code)
+}

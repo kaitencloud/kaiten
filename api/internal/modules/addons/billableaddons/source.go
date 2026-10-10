@@ -4,9 +4,11 @@ package billableaddons
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/shopspring/decimal"
 
@@ -93,36 +95,11 @@ func (s *Source) BillableAttachments(ctx context.Context, organizationID, instan
 			removed := row.RemovedAt.Time.UTC()
 			attachment.RemovedAt = &removed
 		}
-		for _, price := range byAddon[row.AddonID] {
-			switch {
-			case price.BillingModel == db.BillingModelFLATFEE:
-				if !price.IsDefault || price.BillingPeriod == nil || string(*price.BillingPeriod) != billingPeriod {
-					continue
-				}
-				amount, err := decimal.NewFromString(price.UnitAmountDecimal)
-				if err != nil {
-					return nil, err
-				}
-				label := ""
-				if price.DisplayLabel != nil {
-					label = *price.DisplayLabel
-				}
-				attachment.Flat = &ports.BillableAddon{
-					InstanceAddonID: row.InstanceAddonID, AddonID: row.AddonID, Name: row.AddonName, Quantity: row.Quantity,
-					PriceID: price.ID, BillingTiming: string(price.BillingTiming), UnitAmountDecimal: amount,
-					Currency: price.Currency, DisplayLabel: label,
-				}
-			case price.MetersEntitlementID != nil:
-				name := ""
-				if price.EntitlementName != nil {
-					name = *price.EntitlementName
-				}
-				attachment.Metered = append(attachment.Metered, ports.CataloguePrice{
-					Price: catalogue.ToPrice(price), LicenseID: uuid.Nil, LicenseSlug: "", LicenseName: "", LicenseState: "",
-					EntitlementID: price.MetersEntitlementID, EntitlementName: name,
-				})
-			}
+		flat, metered, err := split(byAddon[row.AddonID], row.InstanceAddonID, row.AddonID, row.AddonName, row.Quantity, billingPeriod)
+		if err != nil {
+			return nil, err
 		}
+		attachment.Flat, attachment.Metered = flat, metered
 		out = append(out, attachment)
 	}
 	return out, nil
@@ -130,4 +107,75 @@ func (s *Source) BillableAttachments(ctx context.Context, organizationID, instan
 
 func timestamp(t time.Time) pgtype.Timestamp {
 	return pgtype.Timestamp{Time: t.UTC(), InfinityModifier: pgtype.Finite, Valid: true}
+}
+
+// split sorts an add-on version's ACTIVE prices into its default FLAT_FEE
+// price for billingPeriod and its metered prices.
+func split(rows []db.ListAddonPricesRow, attachmentID, addonID uuid.UUID, name string, quantity int32, billingPeriod string) (*ports.BillableAddon, []ports.CataloguePrice, error) {
+	var flat *ports.BillableAddon
+	var metered []ports.CataloguePrice
+	for _, price := range rows {
+		switch {
+		case price.BillingModel == db.BillingModelFLATFEE:
+			if !price.IsDefault || price.BillingPeriod == nil || string(*price.BillingPeriod) != billingPeriod {
+				continue
+			}
+			amount, err := decimal.NewFromString(price.UnitAmountDecimal)
+			if err != nil {
+				return nil, nil, err
+			}
+			label := ""
+			if price.DisplayLabel != nil {
+				label = *price.DisplayLabel
+			}
+			flat = &ports.BillableAddon{
+				InstanceAddonID: attachmentID, AddonID: addonID, Name: name, Quantity: quantity,
+				PriceID: price.ID, BillingTiming: string(price.BillingTiming), UnitAmountDecimal: amount,
+				Currency: price.Currency, DisplayLabel: label,
+			}
+		case price.MetersEntitlementID != nil:
+			entitlementName := ""
+			if price.EntitlementName != nil {
+				entitlementName = *price.EntitlementName
+			}
+			metered = append(metered, ports.CataloguePrice{
+				Price: catalogue.ToPrice(price), LicenseID: uuid.Nil, LicenseSlug: "", LicenseName: "", LicenseState: "",
+				EntitlementID: price.MetersEntitlementID, EntitlementName: entitlementName,
+			})
+		}
+	}
+	return flat, metered, nil
+}
+
+// PreviewAddon implements ports.AddonSource.
+func (s *Source) PreviewAddon(ctx context.Context, organizationID uuid.UUID, slug, billingPeriod string) (*ports.PreviewAddon, error) {
+	q := db.New(s.uof.DBTX(ctx))
+	addon, err := q.GetAddonBySlug(ctx, db.GetAddonBySlugParams{OrganizationID: organizationID, Slug: slug})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	grants, err := q.ListAddonEntitlements(ctx, db.ListAddonEntitlementsParams{OrganizationID: organizationID, AddonID: addon.ID, EntitlementSlug: nil})
+	if err != nil {
+		return nil, err
+	}
+	active := db.PriceStatusACTIVE
+	priceRows, err := q.ListAddonPrices(ctx, db.ListAddonPricesParams{OrganizationID: organizationID, AddonIds: []uuid.UUID{addon.ID}, Status: &active})
+	if err != nil {
+		return nil, err
+	}
+	flat, metered, err := split(priceRows, uuid.Nil, addon.ID, addon.Name, 0, billingPeriod)
+	if err != nil {
+		return nil, err
+	}
+	out := &ports.PreviewAddon{AddonID: addon.ID, Name: addon.Name, Grants: nil, Flat: flat, Metered: metered}
+	for _, grant := range grants {
+		out.Grants = append(out.Grants, ports.AddonGrantRef{
+			EntitlementID: grant.EntitlementID, Behavior: string(grant.OverrideBehavior),
+			Value: grant.Value, Pct: grant.LimitCapExceededOveragePercent,
+		})
+	}
+	return out, nil
 }

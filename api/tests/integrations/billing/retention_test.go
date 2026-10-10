@@ -9,6 +9,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	"github.com/kaitencloud/kaiten/api/tests"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
@@ -54,4 +55,33 @@ func TestReadsBeforeTheUsageHistory(t *testing.T) {
 		call(t, "POST", "/api/invoices/"+renewal.String()+"/void", map[string]any{"reason": "re-issue"}), fiber.StatusOK)
 	refused("RecomposeInvoice.OutsideRetention", "POST", "/api/invoices/"+renewal.String()+"/recompose")
 	require.Equal(t, fiber.StatusCreated, call(t, "POST", "/api/invoices/"+renewal.String()+"/recompose", nil).StatusCode)
+}
+
+// §8.9: with instanceSlug, the preview rates the instance's own usage of its
+// live period, [P0, now).
+func TestLicensePreviewOfAnInstance(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	s := meteredSold(t)
+	subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+	reportTokens(t, s.instance.Slug, 130500)
+
+	got := commonfixture.AssertJSONResponse[rating.InvoicePreview](t, call(t, "POST", "/api/licenses/"+s.version.Slug+"/invoice-preview",
+		map[string]any{"instanceSlug": s.instance.Slug, "basePriceId": s.monthly.ID}), fiber.StatusOK)
+	var overage *rating.InvoiceLine
+	for i := range got.Lines {
+		if got.Lines[i].Type == rating.LineOverage {
+			overage = &got.Lines[i]
+		}
+	}
+	require.NotNil(t, overage, "%+v", got.Lines)
+	require.Equal(t, "30500", overage.Metering.MeasuredQuantity, "130,500 reported, 100,000 granted")
+	require.NotNil(t, overage.Metering.Ledger, "measured from the journal")
+
+	problem := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, call(t, "POST", "/api/licenses/"+s.version.Slug+"/invoice-preview",
+		map[string]any{"instanceSlug": "nope", "basePriceId": s.monthly.ID}), fiber.StatusNotFound)
+	require.Equal(t, "PreviewLicenseInvoice.InstanceNotFound", problem.Code)
+	problem = commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, call(t, "POST", "/api/licenses/"+s.version.Slug+"/invoice-preview",
+		map[string]any{"instanceSlug": s.instance.Slug, "basePriceId": s.monthly.ID, "sampleUsage": []map[string]any{{"entitlementSlug": "tokens", "quantity": "1"}}}),
+		fiber.StatusUnprocessableEntity)
+	require.Equal(t, "PreviewLicenseInvoice.InvalidSampleUsage", problem.Code)
 }

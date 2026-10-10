@@ -211,7 +211,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		Identity:        identity.NewUseCases(svc),
 		Instances:       instanceModule,
 		Integrations:    integrations.NewUseCases(svc),
-		Licenses:        licenses.NewUseCases(svc),
+		Licenses:        licenses.NewUseCases(svc, billingModule.LicensePreview),
 		MetadataFields:  metadatafields.NewUseCases(svc),
 		Organization:    organization.NewUseCases(svc),
 		PublicSDK: publicsdk.NewUseCases(svc, publicsdk.Ports{
