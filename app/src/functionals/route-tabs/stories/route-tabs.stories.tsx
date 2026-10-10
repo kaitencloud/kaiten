@@ -123,3 +123,30 @@ export const SearchTabActive: Story = {
     />
   ),
 };
+
+// Each tab can show a count next to its label, a 0 included.
+export const WithCounts: Story = {
+  render: () => (
+    <RouteTabsStoryFrame
+      initialEntry="/invoices?view=held"
+      routePath="/invoices"
+      tabs={[
+        { count: 12, id: 'all', label: 'All', to: '/invoices' },
+        {
+          count: 3,
+          id: 'overdue',
+          label: 'Overdue',
+          search: { view: 'overdue' },
+          to: '/invoices',
+        },
+        {
+          count: 0,
+          id: 'held',
+          label: 'Held',
+          search: { view: 'held' },
+          to: '/invoices',
+        },
+      ]}
+    />
+  ),
+};

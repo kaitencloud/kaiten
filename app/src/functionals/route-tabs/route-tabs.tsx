@@ -5,8 +5,10 @@ export type RouteTab = {
   id: string;
   label: string;
   to: string;
+  /** A number to show next to the label, such as how many rows the tab holds. A 0 is shown. */
+  count?: number;
   /**
-   * For tabs that are one route told apart by its search (`?view=handoff`):
+   * For tabs that are one route told apart by its search (`?view=overdue`):
    * the search this tab leads to. The tab that has none is the one the route opens
    * on, and is active when no other tab of the same path matches the search.
    */
@@ -99,6 +101,19 @@ export function RouteTabs({
               )}
             >
               {tab.label}
+              {tab.count === undefined ? null : (
+                // The space is dropped by the layout of the tab, and read by a screen
+                // reader and by the name a test looks a tab up by: "Held 2".
+                <>
+                  {' '}
+                  <span
+                    className="ml-1.5 text-xs font-normal tabular-nums text-muted-foreground"
+                    data-slot="route-tab-count"
+                  >
+                    {tab.count}
+                  </span>
+                </>
+              )}
             </Link>
           );
         })}
