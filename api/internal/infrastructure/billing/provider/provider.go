@@ -270,6 +270,10 @@ type NormalizedDiscount struct {
 	// Label is the DISCOUNT line's label, shown by the provider.
 	Label     string
 	VoucherID uuid.UUID
+	// Recreation is the line's (NormalizedLine.Recreation) when the discount
+	// is given again to a line added again: a provider may count the removed
+	// line's redemption of the first one (Stripe does).
+	Recreation int
 }
 
 // LineDiscount is a provider discount on a line.

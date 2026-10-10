@@ -485,6 +485,9 @@ func (p *Pusher) lines(ctx context.Context, q *db.Queries, conn *provider.Connec
 				return false, err
 			}
 			ok, want.Recreation = false, max(1, int(row.PushAttempts))
+			if stopped, err := p.rediscount(ctx, q, conn, row, invoiceID, normalized, lines, &want, now); stopped || err != nil {
+				return stopped, err
+			}
 		}
 		if !ok {
 			callCtx, cancel := providers.Bound(ctx, p.cfg.Timeout)
@@ -498,6 +501,61 @@ func (p *Pusher) lines(ctx context.Context, q *db.Queries, conn *provider.Connec
 		if stopped, err := p.record(ctx, q, conn, row, invoiceID, lines, now); stopped || err != nil {
 			return stopped, err
 		}
+	}
+	return false, nil
+}
+
+// rediscount gives a line about to be added again fresh provider discounts:
+// the provider may count the removed line's redemption of the first ones,
+// which are redeemable once (Stripe does: TestStripeSpike). The new ids are
+// recorded on the DISCOUNT lines before the line is added, so a retry bears
+// them too; the used-up ones are removed, best effort.
+func (p *Pusher) rediscount(ctx context.Context, q *db.Queries, conn *provider.Connection, row db.InstanceInvoice, invoiceID string,
+	normalized provider.NormalizedInvoice, lines []rating.InvoiceLine, want *provider.NormalizedLine, now time.Time,
+) (stopped bool, err error) {
+	if len(want.Discounts) == 0 {
+		return false, nil
+	}
+	var used []string
+	for j, borne := range want.Discounts {
+		var discount provider.NormalizedDiscount
+		for _, d := range normalized.Discounts {
+			if d.Seq == borne.Seq && d.TargetSeq == want.Seq {
+				discount = d
+			}
+		}
+		discount.Recreation = want.Recreation
+		callCtx, cancel := providers.Bound(ctx, p.cfg.Timeout)
+		id, err := conn.Adapter.AddDiscount(callCtx, conn.Ref, invoiceID, normalized, discount)
+		cancel()
+		if err != nil {
+			return false, err
+		}
+		if borne.ExternalID != "" && borne.ExternalID != id {
+			used = append(used, borne.ExternalID)
+		}
+		want.Discounts[j].ExternalID = id
+		for i := range lines {
+			line := &lines[i]
+			if line.Seq != borne.Seq || line.Discount == nil || line.Provider == nil {
+				continue
+			}
+			for k, allocation := range line.Discount.Allocations {
+				if allocation.TargetSeq == want.Seq && k < len(line.Provider.CouponIDs) {
+					line.Provider.CouponIDs[k] = id
+				}
+			}
+		}
+	}
+	if stopped, err := p.record(ctx, q, conn, row, invoiceID, lines, now); stopped || err != nil {
+		return stopped, err
+	}
+	for _, id := range used {
+		callCtx, cancel := providers.Bound(ctx, p.cfg.Timeout)
+		if err := conn.Adapter.DeleteDiscount(callCtx, conn.Ref, id); err != nil {
+			slog.WarnContext(ctx, "could not remove a used-up provider discount", "invoice_id", row.ID, "discount_id", id, "error", err)
+		}
+		cancel()
 	}
 	return false, nil
 }

@@ -27,6 +27,17 @@ func CouponID(kaitenInvoiceID uuid.UUID, seq, targetSeq int) string {
 	return "kt_" + strings.ReplaceAll(kaitenInvoiceID.String(), "-", "") + "_" + strconv.Itoa(seq) + "_" + strconv.Itoa(targetSeq)
 }
 
+// RecreatedCouponID is the coupon of an allocation given again to a line
+// added again: Stripe keeps counting the removed item's redemption of the
+// first coupon, which is redeemable once (measured: TestStripeSpike).
+func RecreatedCouponID(kaitenInvoiceID uuid.UUID, seq, targetSeq, recreation int) string {
+	id := CouponID(kaitenInvoiceID, seq, targetSeq)
+	if recreation > 0 {
+		id += "_r" + strconv.Itoa(recreation)
+	}
+	return id
+}
+
 // AddDiscount implements provider.Adapter: a coupon of the allocation's
 // amount, once, redeemable once. A coupon already there under its id (the
 // answer lost beyond the key horizon) is adopted when it is the same one, and
@@ -39,7 +50,7 @@ func (a *Adapter) AddDiscount(ctx context.Context, ref provider.Ref, _ string, i
 	if err != nil {
 		return "", err
 	}
-	id := CouponID(in.KaitenInvoiceID, d.Seq, d.TargetSeq)
+	id := RecreatedCouponID(in.KaitenInvoiceID, d.Seq, d.TargetSeq, d.Recreation)
 	currency := strings.ToLower(in.Currency)
 	params := &stripego.CouponCreateParams{
 		ID: stripego.String(id), AmountOff: stripego.Int64(d.AmountMinor), Currency: stripego.String(currency),
@@ -51,7 +62,11 @@ func (a *Adapter) AddDiscount(ctx context.Context, ref provider.Ref, _ string, i
 			"kaiten_voucher_id": d.VoucherID.String(),
 		},
 	}
-	params.SetIdempotencyKey(in.KaitenInvoiceID.String() + ":coupon:" + strconv.Itoa(d.Seq) + ":" + strconv.Itoa(d.TargetSeq))
+	key := in.KaitenInvoiceID.String() + ":coupon:" + strconv.Itoa(d.Seq) + ":" + strconv.Itoa(d.TargetSeq)
+	if d.Recreation > 0 {
+		key += ":r" + strconv.Itoa(d.Recreation)
+	}
+	params.SetIdempotencyKey(key)
 	created, err := sc.V1Coupons.Create(ctx, params)
 	if err == nil {
 		return created.ID, nil

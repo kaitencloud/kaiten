@@ -139,9 +139,13 @@ func Reconcile(lines []rating.InvoiceLine, totalMinor int64, currency string, re
 
 	compared := read.TotalExcludingTax
 	if inclusiveTax {
+		// Stripe's subtotal already has the item-level discounts taken off,
+		// and every discount Kaiten sends is on an item (CR-001): it is the
+		// tax-inclusive amount Kaiten's total is (CR-001 §7.6, measured
+		// against Stripe test mode).
 		subtotal, discount := read.Subtotal, read.TotalDiscount
 		detail.Totals.ProviderSubtotal, detail.Totals.ProviderTotalDiscount = &subtotal, &discount
-		compared = subtotal - discount
+		compared = subtotal
 	}
 	if compared != totalMinor {
 		matched = false

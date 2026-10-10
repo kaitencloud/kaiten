@@ -285,7 +285,7 @@ func TestDiscountReconciliation(t *testing.T) {
 		}}, detail.Discounts)
 		require.EqualValues(t, 1870, detail.Totals.ProviderTotalExcludingTax)
 	})
-	t.Run("InclusiveTaxComparesTheSubtotalLessTheDiscounts", func(t *testing.T) {
+	t.Run("InclusiveTaxComparesTheSubtotal", func(t *testing.T) {
 		fresh(t)
 		connect(t, map[string]any{"stripeSecretKey": testKey, "automaticTax": true, "taxBehavior": "INCLUSIVE"})
 		activation := discounted(t)
@@ -314,7 +314,9 @@ func TestDiscountPushRecreatesAnItemMissingItsCoupons(t *testing.T) {
 	items := fake.ItemsOf(stripefake.DefaultAccount, deref(pushed.Provider.ExternalInvoiceID))
 	require.Len(t, items, 1)
 	require.NotEqual(t, item, items[0])
-	require.Equal(t, []string{couponID(activation, 2, 1), couponID(activation, 3, 1)}, fake.ItemCoupons(stripefake.DefaultAccount, items[0]))
+	require.Equal(t, []string{
+		billingstripe.RecreatedCouponID(activation.ID, 2, 1, 1), billingstripe.RecreatedCouponID(activation.ID, 3, 1, 1),
+	}, fake.ItemCoupons(stripefake.DefaultAccount, items[0]), "Stripe counts the deleted item's redemption: the item added again bears new coupons")
 	creates := fake.CallsOf(stripefake.OpCreateItem)
 	require.Equal(t, activation.ID.String()+":line:1:r1", creates[len(creates)-1].IdempotencyKey)
 }

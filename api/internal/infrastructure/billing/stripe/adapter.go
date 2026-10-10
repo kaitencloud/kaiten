@@ -336,6 +336,19 @@ func (a *Adapter) Finalize(ctx context.Context, ref provider.Ref, externalInvoic
 	if current.Status != stripego.InvoiceStatusDraft {
 		return a.read(ctx, sc, current)
 	}
+	if current.CollectionMethod == stripego.InvoiceCollectionMethodSendInvoice && in.DaysUntilDue != nil {
+		// Stripe counts days_until_due from the draft's creation (measured:
+		// TestStripeSpike), Kaiten from the finalization (§12.4 rule 4): a
+		// draft that waited, or a push retried for hours, would fall due
+		// early. Its due date is set from now, just before it is finalized;
+		// the minute is slack for the finalization's own delay.
+		due := a.opts.Now().Add(time.Duration(*in.DaysUntilDue)*24*time.Hour + time.Minute)
+		update := &stripego.InvoiceUpdateParams{DueDate: stripego.Int64(due.Unix())}
+		update.SetIdempotencyKey(in.KaitenInvoiceID.String() + ":due_date:" + strconv.FormatInt(due.Unix()/3600, 10))
+		if _, err := sc.V1Invoices.Update(ctx, externalInvoiceID, update); err != nil {
+			return provider.Invoice{}, classify(err, objectInvoice)
+		}
+	}
 	params := &stripego.InvoiceFinalizeInvoiceParams{AutoAdvance: stripego.Bool(true)}
 	params.SetIdempotencyKey(in.KaitenInvoiceID.String() + ":finalize")
 	finalized, err := sc.V1Invoices.FinalizeInvoice(ctx, externalInvoiceID, params)
