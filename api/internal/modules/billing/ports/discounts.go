@@ -26,6 +26,11 @@ type Discount struct {
 // DiscountSource is the PRICE vouchers an instance redeemed, as billing reads
 // and consumes them. Every method acts in the transaction ctx carries.
 type DiscountSource interface {
+	// PreviewDiscount reads a voucher by code as a preview applies it
+	// (§8.9): the discount a redemption of it would apply, no application
+	// consumed. found is false when no voucher has the code; the discount is
+	// nil when it has one that is not an ACTIVE PRICE voucher.
+	PreviewDiscount(ctx context.Context, organizationID uuid.UUID, code string) (discount *Discount, found bool, err error)
 	// Discounts reads the redemptions that may apply to an invoice composed
 	// at the instant: redeemed by then, in their window, ACTIVE; oldest
 	// first.

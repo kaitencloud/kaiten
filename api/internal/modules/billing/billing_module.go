@@ -29,6 +29,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getupcominginvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/licensepreview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listinstanceinvoices"
@@ -68,6 +69,9 @@ type Ports struct {
 }
 
 type UseCases struct {
+	// LicensePreview is what the licences module's invoice preview reads of
+	// billing (§8.9).
+	LicensePreview         *licensepreview.Sources
 	GetBillingSettings     *getbillingsettings.UseCase
 	UpdateBillingSettings  *updatebillingsettings.UseCase
 	SubscribeInstance      *subscribeinstance.UseCase
@@ -142,6 +146,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		ListInstanceInvoices:   listinstanceinvoices.NewUseCase(deps),
 		GetInvoice:             getinvoice.NewUseCase(deps),
 		GetUpcomingInvoice:     getupcominginvoice.NewUseCase(deps, closer),
+		LicensePreview:         licensepreview.New(deps),
 		MarkInvoicePaid:        markinvoicepaid.NewUseCase(deps),
 		WriteOffInvoice:        writeoffinvoice.NewUseCase(deps),
 		VoidInvoice:            voidinvoice.NewUseCase(deps),

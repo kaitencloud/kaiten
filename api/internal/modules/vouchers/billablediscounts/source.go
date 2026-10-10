@@ -5,6 +5,7 @@ package billablediscounts
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -83,4 +84,36 @@ func (s *Source) Applied(ctx context.Context, organizationID, instanceVoucherID 
 
 func stamp(t time.Time) pgtype.Timestamp {
 	return pgtype.Timestamp{Time: t.UTC(), Valid: true, InfinityModifier: pgtype.Finite}
+}
+
+// errNoVoucher is what One answers for a code no voucher has.
+var errNoVoucher = errors.New("no voucher has this code")
+
+// PreviewDiscount implements ports.DiscountSource.
+func (s *Source) PreviewDiscount(ctx context.Context, organizationID uuid.UUID, code string) (*ports.Discount, bool, error) {
+	voucher, err := catalogue.One(ctx, db.New(s.uof.DBTX(ctx)), organizationID, nil, &code, false, errNoVoucher)
+	if errors.Is(err, errNoVoucher) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	if voucher.Status != catalogue.StatusActive || voucher.VoucherType != catalogue.TypePrice ||
+		voucher.PriceDiscountType == nil || voucher.PriceDiscountValue == nil || voucher.PriceAppliesTo == nil {
+		return nil, true, nil
+	}
+	value, err := decimal.NewFromString(*voucher.PriceDiscountValue)
+	if err != nil {
+		return nil, true, err
+	}
+	currency := ""
+	if voucher.Currency != nil {
+		currency = *voucher.Currency
+	}
+	return &ports.Discount{
+		InstanceVoucherID: uuid.Nil, VoucherID: voucher.ID, Name: voucher.Name, Type: *voucher.PriceDiscountType,
+		Value: value, Currency: currency, AppliesTo: *voucher.PriceAppliesTo,
+		LicensePriceIDs: voucher.ApplicableLicensePriceIDs, AddonPriceIDs: voucher.ApplicableAddonPriceIDs,
+		Applications: 0, ApplicationsMax: catalogue.ApplicationsMax(db.VoucherDuration(voucher.Duration), voucher.DurationInPeriods),
+	}, true, nil
 }
