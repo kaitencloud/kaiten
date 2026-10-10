@@ -70,7 +70,10 @@ export function VoucherWizardPage({ boostFor, draft }: VoucherWizardPageProps) {
       state.values.voucherType === 'PRICE' &&
       state.values.priceAppliesTo === 'SELECTED_PRICES',
   );
-  const references = useVoucherReferences({ withPrices: choosesPrices });
+  const references = useVoucherReferences({
+    startedByLoader: true,
+    withPrices: choosesPrices,
+  });
   const stepName = VOUCHER_STEPS[wizard.step];
   const steps = VOUCHER_STEPS.map((id) => ({
     id,

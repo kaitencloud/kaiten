@@ -4,4 +4,9 @@ export {
   VoucherWizardPage,
   VouchersPageContent,
 } from './components';
-export { voucherQueryOptions, vouchersQueryOptions } from './queries';
+export {
+  loadVoucherWizard,
+  voucherQueryOptions,
+  vouchersQueryOptions,
+  warmVoucherReferences,
+} from './queries';

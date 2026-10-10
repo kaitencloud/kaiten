@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next';
 import type { Addon, License } from '@/api-client';
 import { addonVersionsQueryOptions, useCanPerform } from '@/domains/billing';
 import {
-  allCustomersOptions,
-  allEntitlementsOptions,
-  allLicensesOptions,
-} from '@/lib/api/all-pages-query-options';
+  voucherCustomersQueryOptions,
+  voucherEntitlementsQueryOptions,
+  voucherLicensesQueryOptions,
+} from '../queries';
 import { buildVoucherNames } from '../utils/voucher-references';
 import { useVoucherPrices } from './use-voucher-prices';
 
@@ -19,38 +19,45 @@ const NO_LICENSES: readonly License[] = [];
  * customers it can be reserved for, the license versions and the add-ons it can be
  * limited to, and the entitlements a boost changes. Each is asked only of a session whose
  * scopes read it, and none is retried: a refusal is shown by the picker it leaves
- * short, with a way to ask again.
+ * short, with a way to ask again. The wizard's route starts these reads in its loader
+ * (`loadVoucherWizard`), so its pickers are usually full when a step draws them: it
+ * says so with `startedByLoader`, and a read the loader met a refusal on is then shown
+ * as it is rather than asked once more behind it. A screen whose loader started
+ * nothing, such as the voucher page, asks again when it mounts on a failed read.
  *
  * The prices come with the versions they belong to, one read for each, so they are only
  * read when the screen needs them (`withPrices`): to choose among them, or to name those
  * a voucher is limited to. `names` writes out the ids and the slugs a voucher holds.
  */
 export function useVoucherReferences({
+  startedByLoader = false,
   withPrices = false,
-}: { withPrices?: boolean } = {}) {
+}: { startedByLoader?: boolean; withPrices?: boolean } = {}) {
   const { t } = useTranslation();
   const mayListCustomers = useCanPerform('customers.list');
   const mayListLicenses = useCanPerform('licenses.list');
   const mayReadAddons = useCanPerform('addons.read');
   const mayListEntitlements = useCanPerform('entitlements.list');
+  const retryOnMount = !startedByLoader;
   const customers = useQuery({
-    ...allCustomersOptions(),
+    ...voucherCustomersQueryOptions(),
     enabled: mayListCustomers,
-    retry: false,
+    retryOnMount,
   });
   const licenses = useQuery({
-    ...allLicensesOptions(),
+    ...voucherLicensesQueryOptions(),
     enabled: mayListLicenses,
-    retry: false,
+    retryOnMount,
   });
   const addons = useQuery({
     ...addonVersionsQueryOptions(),
     enabled: mayReadAddons,
+    retryOnMount,
   });
   const entitlements = useQuery({
-    ...allEntitlementsOptions(),
+    ...voucherEntitlementsQueryOptions(),
     enabled: mayListEntitlements,
-    retry: false,
+    retryOnMount,
   });
   const prices = useVoucherPrices({
     addons: addons.data?.items ?? NO_ADDONS,
