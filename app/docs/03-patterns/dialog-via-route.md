@@ -255,6 +255,7 @@ A nested entity can open from a search parameter of its tab in the same way, in 
 | `<Suspense fallback={null}>` around the `<Outlet />` | A dialog that suspends, for example while it reads a query, does not trigger a fallback higher up that would blank the page. |
 | `ensureQueryData` in the layout route's `loader` | The page data is loaded before the first render. A query already in the cache returns at once. |
 | `useSuspenseQuery` in the components | Reads from the cache, with no request when the data is there. |
+| Fields that do not suspend | The form fields are imported statically (see [forms](./forms.md#building-blocks)), so a dialog opens on its form and not on a skeleton held for 300 ms. |
 
 ## The dialog shell
 
