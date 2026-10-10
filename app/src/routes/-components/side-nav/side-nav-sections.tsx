@@ -79,14 +79,14 @@ export function useResolvedBillingRoutes(): SideNavRouteDefinition[] {
 }
 
 export function SideNavPrimaryRoutes({ pathname }: SideNavRoutesProps) {
+  return <SideNavRouteList pathname={pathname} routes={topLevelRoutes} />;
+}
+
+/** The first-level entries of billing, drawn between the Catalog and the Integrations. */
+export function SideNavBillingRoutes({ pathname }: SideNavRoutesProps) {
   const billing = useResolvedBillingRoutes();
 
-  return (
-    <SideNavRouteList
-      pathname={pathname}
-      routes={[...topLevelRoutes, ...billing]}
-    />
-  );
+  return <SideNavRouteList pathname={pathname} routes={billing} />;
 }
 
 /**

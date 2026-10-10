@@ -17,6 +17,7 @@ import { isRouteActive } from '../side-nav.constants';
 import { SideNav } from '../side-nav';
 import { SideNavCollapsibleMenu } from '../side-nav-collapsible-menu';
 import {
+  SideNavBillingRoutes,
   SideNavFooterRoutes,
   SideNavPrimaryRoutes,
   useResolvedIntegrationsItems,
@@ -123,6 +124,7 @@ function SideNavSectionsPreview() {
       <div className="w-72 border-r bg-sidebar p-3 text-sidebar-foreground">
         <SidebarMenu className="gap-1.5">
           <SideNavPrimaryRoutes pathname="/releases/components" />
+          <SideNavBillingRoutes pathname="/releases/components" />
           <SideNavFooterRoutes pathname="/settings" />
         </SidebarMenu>
       </div>
@@ -235,10 +237,20 @@ export const BillingOn: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
+    const invoices = await canvas.findByRole('link', { name: 'Invoices' });
+    await expect(invoices).toBeVisible();
+    // The invoices sit between the Catalog and the Integrations.
+    const catalog = canvas.getByRole('button', { name: 'Catalog' });
+    const integrations = canvas.getByRole('button', { name: 'Integrations' });
     await expect(
-      await canvas.findByRole('link', { name: 'Invoices' }),
-    ).toBeVisible();
-    await userEvent.click(canvas.getByRole('button', { name: 'Catalog' }));
+      catalog.compareDocumentPosition(invoices) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await expect(
+      invoices.compareDocumentPosition(integrations) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await userEvent.click(catalog);
     for (const name of ['Licenses', 'Entitlements']) {
       await expect(canvas.getByRole('link', { name })).toBeVisible();
     }

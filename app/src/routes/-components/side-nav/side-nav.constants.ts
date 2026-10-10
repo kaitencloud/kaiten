@@ -82,8 +82,8 @@ export const topLevelRoutes: SideNavRouteDefinition[] = [
   },
 ];
 
-// The first-level entries of billing, listed after the primary routes and only
-// where billing is on.
+// The first-level entries of billing, listed between the Catalog and the
+// Integrations, and only where billing is on.
 export const billingRoutes: SideNavBillingRouteDefinition[] = [
   {
     capability: {},
