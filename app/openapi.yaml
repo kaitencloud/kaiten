@@ -24256,6 +24256,9 @@ paths:
             Cache-Control:
               schema:
                 type: string
+            Vary:
+              schema:
+                type: string
         "400":
           content:
             application/problem+json:
