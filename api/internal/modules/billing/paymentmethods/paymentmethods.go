@@ -25,6 +25,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -43,9 +44,14 @@ type PaymentMethodLabels struct {
 type CustomerInProvider struct {
 	ProviderKind       string               `json:"providerKind" enum:"STRIPE"`
 	ExternalCustomerID string               `json:"externalCustomerId" doc:"The customer's id in the provider"`
-	WebURL             *string              `json:"webUrl,omitempty" doc:"The customer's page in the provider's dashboard"`
-	SyncedAt           *time.Time           `json:"syncedAt,omitempty"`
+	WebURL             *string              `json:"webUrl" doc:"The customer's page in the provider's dashboard"`
+	SyncedAt           *time.Time           `json:"syncedAt"`
 	PaymentMethod      *PaymentMethodLabels `json:"paymentMethod" doc:"Its default payment method; null when there is none"`
+}
+
+// TransformSchema publishes CustomerInProvider's absent members as null (§13.15).
+func (CustomerInProvider) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, CustomerInProvider{})
 }
 
 // View is a customer billing row as the API shows it.

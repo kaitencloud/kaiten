@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
+
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
 // Sources of an effective entitlement (§7.4): the instance's licence grants
@@ -25,6 +28,11 @@ type Provenance struct {
 	Addons  []ProvenanceAddon  `json:"addons" nullable:"false" doc:"The active add-on grants, in attachment order"`
 	Boosts  []ProvenanceBoost  `json:"boosts" nullable:"false" doc:"The boosts in their window, in redemption order"`
 	Number  *ProvenanceNumber  `json:"number" doc:"How a number was composed; null for BOOLEAN and CONFIG, and when no add-on or boost changes it"`
+}
+
+// TransformSchema publishes Provenance's absent members as null (§13.15).
+func (Provenance) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, Provenance{})
 }
 
 // ProvenanceLicense is the licence layer.

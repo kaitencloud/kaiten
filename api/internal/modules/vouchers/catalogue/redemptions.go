@@ -12,6 +12,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
 // Redemption is a voucher an instance redeemed.
@@ -24,13 +25,18 @@ type Redemption struct {
 	InstanceSlug       string     `json:"instanceSlug"`
 	RedeemedAt         time.Time  `json:"redeemedAt"`
 	EffectiveStartsAt  time.Time  `json:"effectiveStartsAt"`
-	EffectiveExpiresAt *time.Time `json:"effectiveExpiresAt,omitempty" doc:"When a boost stops applying; absent for a PRICE voucher, counted in invoices, and for FOREVER"`
+	EffectiveExpiresAt *time.Time `json:"effectiveExpiresAt" doc:"When a boost stops applying; null for a PRICE voucher, counted in invoices, and for FOREVER"`
 	ApplicationsCount  int32      `json:"applicationsCount" doc:"Invoices a PRICE voucher discounted"`
-	ApplicationsMax    *int32     `json:"applicationsMax,omitempty" doc:"1 for ONE_TIME, durationInPeriods for REPEATING; absent for FOREVER"`
+	ApplicationsMax    *int32     `json:"applicationsMax" doc:"1 for ONE_TIME, durationInPeriods for REPEATING; null for FOREVER"`
 	Status             string     `json:"status" enum:"ACTIVE,EXPIRED,REVOKED"`
-	ExpiredAt          *time.Time `json:"expiredAt,omitempty"`
-	RevokedAt          *time.Time `json:"revokedAt,omitempty"`
-	RevokedReason      *string    `json:"revokedReason,omitempty"`
+	ExpiredAt          *time.Time `json:"expiredAt"`
+	RevokedAt          *time.Time `json:"revokedAt"`
+	RevokedReason      *string    `json:"revokedReason"`
+}
+
+// TransformSchema publishes Redemption's absent members as null (§13.15).
+func (Redemption) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, Redemption{})
 }
 
 // ApplicationsMax is how many invoices a PRICE voucher of this duration
