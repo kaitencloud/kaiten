@@ -103,7 +103,10 @@ JOIN addon_family f ON f.id = a.family_id AND f.organization_id = a.organization
 WHERE a.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(lifecycle_state)::license_lifecycle_state IS NULL OR a.lifecycle_state = sqlc.narg(lifecycle_state))
   AND (sqlc.narg(family_slug)::text IS NULL OR f.slug = sqlc.narg(family_slug))
-ORDER BY a.created_at DESC, a.id DESC;
+  AND (sqlc.narg(cursor_at)::timestamp IS NULL
+    OR (a.created_at, a.id) < (sqlc.narg(cursor_at)::timestamp, sqlc.narg(cursor_id)::uuid))
+ORDER BY a.created_at DESC, a.id DESC
+LIMIT sqlc.narg(row_limit)::integer;
 
 
 -- name: ListAddonsByFamilyIDs :many

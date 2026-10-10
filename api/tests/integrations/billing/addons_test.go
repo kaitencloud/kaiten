@@ -12,6 +12,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
@@ -85,8 +86,8 @@ func TestAddonCatalogue(t *testing.T) {
 		family := commonfixture.AssertJSONResponse[catalogue.AddonFamily](t, call(t, "GET", "/api/addon-families/extra-seats", nil), fiber.StatusOK)
 		require.Len(t, family.Versions, 2)
 		require.Equal(t, first.ID, family.CurrentVersion.ID)
-		drafts := commonfixture.AssertJSONResponse[[]catalogue.Addon](t, call(t, "GET", "/api/addons?lifecycleState=DRAFT", nil), fiber.StatusOK)
-		require.Len(t, drafts, 1)
+		drafts := commonfixture.AssertJSONResponse[pagination.Page[catalogue.Addon]](t, call(t, "GET", "/api/addons?lifecycleState=DRAFT", nil), fiber.StatusOK)
+		require.Len(t, drafts.Items, 1)
 
 		require.Equal(t, "CreateAddon.SlugConflict", problemCode(t, fiber.StatusConflict, "POST", "/api/addons",
 			map[string]any{"name": "x", "slug": "extra-seats", "description": "", "pricingType": "FREE"}))

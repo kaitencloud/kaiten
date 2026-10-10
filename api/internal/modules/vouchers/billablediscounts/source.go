@@ -72,6 +72,7 @@ func (s *Source) Applied(ctx context.Context, organizationID, instanceVoucherID 
 	}
 	list, err := catalogue.Redemptions(ctx, q, db.ListRedemptionsParams{
 		OrganizationID: organizationID, InstanceID: nil, VoucherID: nil, ID: &instanceVoucherID, Status: nil,
+		CursorAt: pgtype.Timestamp{}, CursorID: nil, RowLimit: nil,
 	})
 	if err != nil || len(list) == 0 {
 		return err

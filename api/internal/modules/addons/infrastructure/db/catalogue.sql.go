@@ -820,13 +820,19 @@ JOIN addon_family f ON f.id = a.family_id AND f.organization_id = a.organization
 WHERE a.organization_id = $1
   AND ($2::license_lifecycle_state IS NULL OR a.lifecycle_state = $2)
   AND ($3::text IS NULL OR f.slug = $3)
+  AND ($4::timestamp IS NULL
+    OR (a.created_at, a.id) < ($4::timestamp, $5::uuid))
 ORDER BY a.created_at DESC, a.id DESC
+LIMIT $6::integer
 `
 
 type ListAddonsParams struct {
 	OrganizationID uuid.UUID              `json:"organization_id"`
 	LifecycleState *LicenseLifecycleState `json:"lifecycle_state"`
 	FamilySlug     *string                `json:"family_slug"`
+	CursorAt       pgtype.Timestamp       `json:"cursor_at"`
+	CursorID       *uuid.UUID             `json:"cursor_id"`
+	RowLimit       *int32                 `json:"row_limit"`
 }
 
 type ListAddonsRow struct {
@@ -850,7 +856,14 @@ type ListAddonsRow struct {
 }
 
 func (q *Queries) ListAddons(ctx context.Context, arg ListAddonsParams) ([]ListAddonsRow, error) {
-	rows, err := q.db.Query(ctx, listAddons, arg.OrganizationID, arg.LifecycleState, arg.FamilySlug)
+	rows, err := q.db.Query(ctx, listAddons,
+		arg.OrganizationID,
+		arg.LifecycleState,
+		arg.FamilySlug,
+		arg.CursorAt,
+		arg.CursorID,
+		arg.RowLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

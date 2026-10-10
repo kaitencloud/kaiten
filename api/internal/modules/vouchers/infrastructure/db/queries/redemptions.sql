@@ -104,7 +104,11 @@ WHERE iv.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(voucher_id)::uuid IS NULL OR iv.voucher_id = sqlc.narg(voucher_id))
   AND (sqlc.narg(id)::uuid IS NULL OR iv.id = sqlc.narg(id))
   AND (sqlc.narg(status)::instance_voucher_status IS NULL OR iv.status = sqlc.narg(status))
-ORDER BY iv.redeemed_at DESC, iv.id DESC;
+  AND (sqlc.narg(cursor_at)::timestamp IS NULL
+    OR (iv.redeemed_at, iv.id) < (sqlc.narg(cursor_at)::timestamp, sqlc.narg(cursor_id)::uuid))
+ORDER BY iv.redeemed_at DESC, iv.id DESC
+-- NULL reads every match: an instance's redemptions, and the single reads.
+LIMIT sqlc.narg(row_limit)::integer;
 
 
 -- name: LockInstanceVoucher :one

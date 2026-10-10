@@ -55,11 +55,11 @@ func (p PublicSDK) CreatePublishableKey(ctx context.Context, cl caller.Organizat
 	return p.uc.CreatePublishableKey.Execute(bindOrganization(ctx, cl), draft)
 }
 
-func (p PublicSDK) ListPublishableKeys(ctx context.Context, cl caller.OrganizationCaller, includeRevoked bool) ([]keys.PublishableKey, error) {
+func (p PublicSDK) ListPublishableKeys(ctx context.Context, cl caller.OrganizationCaller, includeRevoked bool, cursor string, limit int32) (pagination.Page[keys.PublishableKey], error) {
 	if err := cl.Require(listpublishablekeys.RequiredScope); err != nil {
-		return nil, err
+		return pagination.Page[keys.PublishableKey]{}, err
 	}
-	return p.uc.ListPublishableKeys.Execute(bindOrganization(ctx, cl), includeRevoked)
+	return p.uc.ListPublishableKeys.Execute(bindOrganization(ctx, cl), includeRevoked, cursor, limit)
 }
 
 func (p PublicSDK) UpdatePublishableKey(ctx context.Context, cl caller.OrganizationCaller, keyID uuid.UUID, patch updatepublishablekey.PublishableKeyPatch) (*keys.PublishableKey, error) {

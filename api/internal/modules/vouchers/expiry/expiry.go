@@ -128,6 +128,7 @@ func (e *Expiry) redemption(ctx context.Context, q *db.Queries, organizationID, 
 	}
 	list, err := catalogue.Redemptions(ctx, q, db.ListRedemptionsParams{
 		OrganizationID: organizationID, InstanceID: nil, VoucherID: nil, ID: &id, Status: nil,
+		CursorAt: pgtype.Timestamp{}, CursorID: nil, RowLimit: nil,
 	})
 	if err != nil || len(list) == 0 {
 		return false, err

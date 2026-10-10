@@ -129,12 +129,18 @@ SELECT id, label, key_hint, allowed_origins, last_used_at, created_at, updated_a
 FROM publishable_key
 WHERE organization_id = $1
   AND ($2::boolean OR revoked_at IS NULL)
-ORDER BY created_at DESC, id
+  AND ($3::timestamp IS NULL
+    OR (created_at, id) < ($3::timestamp, $4::uuid))
+ORDER BY created_at DESC, id DESC
+LIMIT $5::integer
 `
 
 type ListPublishableKeysParams struct {
-	OrganizationID uuid.UUID `json:"organization_id"`
-	IncludeRevoked bool      `json:"include_revoked"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	IncludeRevoked bool             `json:"include_revoked"`
+	CursorAt       pgtype.Timestamp `json:"cursor_at"`
+	CursorID       *uuid.UUID       `json:"cursor_id"`
+	RowLimit       *int32           `json:"row_limit"`
 }
 
 type ListPublishableKeysRow struct {
@@ -151,7 +157,13 @@ type ListPublishableKeysRow struct {
 // Newest first. Revoked keys only on request: they authenticate nothing and
 // are kept for the audit of who held what.
 func (q *Queries) ListPublishableKeys(ctx context.Context, arg ListPublishableKeysParams) ([]ListPublishableKeysRow, error) {
-	rows, err := q.db.Query(ctx, listPublishableKeys, arg.OrganizationID, arg.IncludeRevoked)
+	rows, err := q.db.Query(ctx, listPublishableKeys,
+		arg.OrganizationID,
+		arg.IncludeRevoked,
+		arg.CursorAt,
+		arg.CursorID,
+		arg.RowLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
