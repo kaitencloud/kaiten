@@ -135,14 +135,14 @@ const handlersFor = (voucher?: Voucher): RequestHandler[] => [
   }),
   handleListCustomers(onePage(CUSTOMERS)),
   handleGetLicenses(onePage(LICENSES)),
-  handleListAddons({ body: [] }),
+  handleListAddons(onePage([])),
   handleListEntitlements(onePage(ENTITLEMENTS)),
   ...(voucher
     ? [
         handleGetVoucher({ body: voucher }),
-        handleListVoucherRedemptions({
-          body: voucher.id === WELCOME.id ? REDEMPTIONS : [],
-        }),
+        handleListVoucherRedemptions(
+          onePage(voucher.id === WELCOME.id ? REDEMPTIONS : []),
+        ),
       ]
     : []),
 ];

@@ -19,6 +19,9 @@ const send = (method: string, path: string, body?: unknown) =>
   });
 
 const json = async <T>(response: Response) => (await response.json()) as T;
+/** The rows of a list the API pages: the first page holds them all in these seeds. */
+const items = async <T>(response: Response) =>
+  (await json<{ hasMore: boolean; items: T[] }>(response)).items;
 const refusal = async (response: Response) =>
   json<{ code?: string; detail?: string }>(response);
 
@@ -34,10 +37,10 @@ beforeEach(() => {
 
 describe('the publishable keys, as the mocks serve them', () => {
   it('lists the live keys newest first, and the revoked ones on request', async () => {
-    const live = await json<PublishableKey[]>(
+    const live = await items<PublishableKey>(
       await send('GET', '/publishable-keys'),
     );
-    const all = await json<PublishableKey[]>(
+    const all = await items<PublishableKey>(
       await send('GET', '/publishable-keys?includeRevoked=true'),
     );
 
@@ -61,7 +64,7 @@ describe('the publishable keys, as the mocks serve them', () => {
       allowedOrigins: ['https://Shop.Acme.test/', 'http://localhost:5173'],
       label: '  pricing page  ',
     });
-    const listed = await json<Array<PublishableKey & { key?: string }>>(
+    const listed = await items<PublishableKey & { key?: string }>(
       await send('GET', '/publishable-keys'),
     );
     const kept = listed.find(({ id }) => id === created.id);
@@ -200,7 +203,7 @@ describe('the publishable keys, as the mocks serve them', () => {
     const again = await json<PublishableKey>(
       await send('POST', '/publishable-keys/publishable-key-pricing/revoke'),
     );
-    const live = await json<PublishableKey[]>(
+    const live = await items<PublishableKey>(
       await send('GET', '/publishable-keys'),
     );
     const missing = await send('POST', '/publishable-keys/ghost/revoke');

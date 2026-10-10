@@ -76,7 +76,7 @@ const handlersFor = (check: RequestHandler): RequestHandler[] => [
     ),
   ),
   handleListInstanceAddons({ body: [] }),
-  handleListAddons({ body: [] }),
+  handleListAddons(onePage([])),
   handleListLicenseFamilies(onePage([])),
   handleListAddonCompatibility({ body: { familySlugs: [] } }),
   handleListLicensePrices({ body: [MONTHLY, ANNUAL] }),

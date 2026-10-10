@@ -102,7 +102,7 @@ beforeEach(() => {
     handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stackWithAddons() }),
     handleGetInstanceBilling({ body: subscription() }),
     handleListInstanceAddons({ body: [heldSeats()] }),
-    handleListAddons({ body: [SEATS_V1, DRAFT_V2, STORAGE_V1, SUPPORT_V1] }),
+    handleListAddons({ body: pageOf([SEATS_V1, DRAFT_V2, STORAGE_V1, SUPPORT_V1]) }),
     handleListLicenseFamilies({ body: pageOf([BUSINESS_FAMILY]) }),
     handleListAddonCompatibility(({ params }) =>
       HttpResponse.json({ familySlugs: FITS[String(params.addonSlug)] ?? [] }),
@@ -376,7 +376,7 @@ describe('when there is nothing to add', () => {
 
         return calls === 1
           ? refusal(503, { detail: 'the catalogue is unavailable' })
-          : HttpResponse.json([STORAGE_V1]);
+          : HttpResponse.json(pageOf([STORAGE_V1]));
       }),
     );
     renderDialog();

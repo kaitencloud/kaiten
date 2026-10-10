@@ -89,9 +89,12 @@ export function serveKeys(
       );
       requested.push(includeRevoked);
 
-      return HttpResponse.json(
-        keys.filter((key) => includeRevoked === 'true' || !key.revokedAt),
-      );
+      return HttpResponse.json({
+        hasMore: false,
+        items: keys.filter(
+          (key) => includeRevoked === 'true' || !key.revokedAt,
+        ),
+      });
     }),
   );
 

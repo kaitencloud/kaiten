@@ -40,7 +40,7 @@ async function mountAfterRefusedCustomers(startedByLoader: boolean) {
       return refusal(403, { code: 'Auth.MissingScope', detail: 'read' });
     }),
     handleGetLicenses(() => HttpResponse.json(pageOf([]))),
-    handleListAddons(() => HttpResponse.json([])),
+    handleListAddons(() => HttpResponse.json(pageOf([]))),
     handleListEntitlements(() => HttpResponse.json(pageOf([]))),
   );
   // The loader read the scopes first, so the hook knows at once what it may read.

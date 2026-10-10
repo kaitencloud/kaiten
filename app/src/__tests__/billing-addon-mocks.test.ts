@@ -29,6 +29,9 @@ const send = (method: string, path: string, body?: unknown) =>
   });
 
 const json = async <T>(response: Response) => (await response.json()) as T;
+/** The rows of a list the API pages: the first page holds them all in these seeds. */
+const items = async <T>(response: Response) =>
+  (await json<{ hasMore: boolean; items: T[] }>(response)).items;
 const refusal = async (response: Response) =>
   json<{
     code?: string;
@@ -93,10 +96,10 @@ describe('the add-on catalogue, as the mocks serve it', () => {
   });
 
   it('serves a version by the state asked for', async () => {
-    const published = await json<Addon[]>(
+    const published = await items<Addon>(
       await send('GET', '/addons?lifecycleState=PUBLISHED'),
     );
-    const family = await json<Addon[]>(await send('GET', '/addons?familySlug=extra-storage'));
+    const family = await items<Addon>(await send('GET', '/addons?familySlug=extra-storage'));
 
     expect(published.every(({ lifecycleState }) => lifecycleState === 'PUBLISHED')).toBe(
       true,

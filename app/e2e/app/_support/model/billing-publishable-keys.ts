@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type {
+  PagePublishableKey,
   PublishableKey,
   PublishableKeyCreated,
   PublishableKeyDraft,
@@ -8,6 +9,7 @@ import type {
 import { zPublishableKey } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 import { ArmedProblems, type ArmedBillingProblem } from './armed-problems';
+import { type PageRequest, pageOfRows } from './billing-pages';
 import { BillingProblem } from './billing-problem';
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -182,11 +184,11 @@ export class BillingPublishableKeys {
     return key;
   }
 
-  /** `GET /publishable-keys`: newest first; the revoked ones on request. Never the key. */
-  listKeys(includeRevoked = false): PublishableKey[] {
+  /** `GET /publishable-keys`: newest first, a cursor per page; the revoked ones on request. Never the key. */
+  listKeys(includeRevoked = false, page: PageRequest = {}): PagePublishableKey {
     this.problems.consume('listPublishableKeys');
 
-    return this.keys
+    const rows = this.keys
       .filter((key) => includeRevoked || !key.revokedAt)
       .sort(
         (a, b) =>
@@ -194,6 +196,8 @@ export class BillingPublishableKeys {
           b.id.localeCompare(a.id),
       )
       .map(clone);
+
+    return pageOfRows(rows, page, 'PublishableKeys');
   }
 
   /** `POST /publishable-keys`: the key comes back once, with the record that keeps its last four characters. */

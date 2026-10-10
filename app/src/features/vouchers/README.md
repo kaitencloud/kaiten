@@ -41,7 +41,7 @@ app/src/features/vouchers/
 ├── hooks/                  # use-voucher-form (the wizard), use-voucher-edit-form, use-voucher-transitions,
 │                           # use-voucher-references (what a voucher refers to, by name),
 │                           # use-voucher-prices, use-voucher-customers
-├── queries/                # the list, one voucher and its redemptions, read through `toListPage`
+├── queries/                # the list, one voucher and its redemptions; the two lists are read across every page
 ├── schemas/                # the form (derived from the generated `zVoucherDraft`), one schema per step, the body
 │                           # the form builds and the form a voucher gives back, the edit of a published voucher,
 │                           # and where a refusal of the API is shown

@@ -70,9 +70,10 @@ const serve = (keys: PublishableKey[]) => [
     const includeRevoked =
       new URL(request.url).searchParams.get('includeRevoked') === 'true';
 
-    return HttpResponse.json(
-      keys.filter((key) => includeRevoked || !key.revokedAt),
-    );
+    return HttpResponse.json({
+      hasMore: false,
+      items: keys.filter((key) => includeRevoked || !key.revokedAt),
+    });
   }),
 ];
 

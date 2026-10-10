@@ -9,6 +9,7 @@ import type {
   NewAddon,
   NewAddonGrant,
   NewAddonPrice,
+  PageAddon,
   Price,
 } from '@/api-client';
 import {
@@ -20,6 +21,7 @@ import {
 import { parseContract } from '../contracts/openapi-contract';
 import { buildPrice } from '../fixtures/build-pricing';
 import { ArmedProblems, type ArmedBillingProblem } from './armed-problems';
+import { type PageRequest, pageOfRows } from './billing-pages';
 import { BillingProblem } from './billing-problem';
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -356,22 +358,30 @@ export class AddonCatalogue {
 
   // --- Versions -----------------------------------------------------------------
 
-  /** `GET /addons`: the versions, newest first. */
-  listVersions(filter: {
-    familySlug?: string;
-    lifecycleState?: Addon['lifecycleState'];
-  }): Addon[] {
+  /** `GET /addons`: the versions, newest first, a cursor per page. */
+  listVersions(
+    filter: {
+      familySlug?: string;
+      lifecycleState?: Addon['lifecycleState'];
+    },
+    page: PageRequest = {},
+  ): PageAddon {
     this.problems.consume('listAddons');
 
-    return clone(
-      [...this.versions]
-        .filter(
-          (version) =>
-            (!filter.familySlug || version.familySlug === filter.familySlug) &&
-            (!filter.lifecycleState ||
-              version.lifecycleState === filter.lifecycleState),
-        )
-        .sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+    return pageOfRows(
+      clone(
+        [...this.versions]
+          .filter(
+            (version) =>
+              (!filter.familySlug ||
+                version.familySlug === filter.familySlug) &&
+              (!filter.lifecycleState ||
+                version.lifecycleState === filter.lifecycleState),
+          )
+          .sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+      ),
+      page,
+      'Addons',
     );
   }
 

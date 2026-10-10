@@ -92,7 +92,7 @@ export function serveReferences({
     }),
     handleListCustomers(() => HttpResponse.json(pageOf(customers))),
     handleGetLicenses(() => HttpResponse.json(pageOf(licenses))),
-    handleListAddons(() => HttpResponse.json(addons)),
+    handleListAddons(() => HttpResponse.json(pageOf(addons))),
     handleListEntitlements(() => HttpResponse.json(pageOf(entitlements))),
   );
 }

@@ -103,7 +103,7 @@ beforeEach(() => {
       body: { defaultCollectionMethod: 'SEND_INVOICE', defaultDaysUntilDue: 30, handoffStripeInvoices: false },
     }),
     handleListInstanceAddons({ body: [] }),
-    handleListAddons({ body: [] }),
+    handleListAddons({ body: pageOf([]) }),
     handleListLicenseFamilies({ body: pageOf([]) }),
     handleListAddonCompatibility({ body: { familySlugs: [] } }),
   );

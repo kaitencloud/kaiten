@@ -56,7 +56,7 @@ function serveReferences() {
   server.use(
     handleListCustomers(answer('customers', pageOf([]))),
     handleGetLicenses(answer('licenses', pageOf([]))),
-    handleListAddons(answer('addons', [])),
+    handleListAddons(answer('addons', pageOf([]))),
     handleListEntitlements(answer('entitlements', pageOf([]))),
   );
 
@@ -143,7 +143,7 @@ describe('warmVoucherReferences', () => {
         refusal(403, { code: 'Auth.MissingScope', detail: 'read:licenses' }),
       ),
       handleListCustomers(() => HttpResponse.json(pageOf([]))),
-      handleListAddons(() => HttpResponse.json([])),
+      handleListAddons(() => HttpResponse.json(pageOf([]))),
       handleListEntitlements(() => HttpResponse.json(pageOf([]))),
     );
 
