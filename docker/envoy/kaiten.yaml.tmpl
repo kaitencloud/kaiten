@@ -80,7 +80,10 @@ static_resources:
                             - exact: "__KAITEN_APP_URL__"
                           allow_methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
                           allow_headers: "content-type,authorization"
-                          expose_headers: "content-type,authorization"
+                          # Retry-After says when to retry a 429, a .BoundaryPending
+                          # or a .ProviderUnavailable (§13.1); Content-Disposition
+                          # names an export's file.
+                          expose_headers: "content-type,authorization,retry-after,content-disposition"
                           max_age: "100"
                           allow_credentials: true
                       routes:
@@ -113,6 +116,8 @@ static_resources:
                                 - safe_regex: { regex: ".*" }
                               allow_methods: "GET, POST, PUT, OPTIONS"
                               allow_headers: "content-type,authorization,x-kaiten-publishable-key"
+                              # The SDK waits as long as Retry-After says (§13.1).
+                              expose_headers: "retry-after"
                               max_age: "600"
                               allow_credentials: false
                         # ---- /api/docs, /api/openapi*, /api/healthz — public ----

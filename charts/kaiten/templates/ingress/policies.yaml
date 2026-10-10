@@ -30,7 +30,7 @@ spec:
       {{- toYaml $mw.cors.allowOrigins | nindent 6 }}
     allowMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
     allowHeaders: [Content-Type, Authorization]
-    exposeHeaders: [Content-Type, Authorization]
+    exposeHeaders: [Content-Type, Authorization, Retry-After, Content-Disposition]
     allowCredentials: true
     maxAge: 100s
 ---
@@ -57,6 +57,8 @@ spec:
     allowOrigins: ["*"]
     allowMethods: [GET, POST, PUT, OPTIONS]
     allowHeaders: [Content-Type, Authorization, X-Kaiten-Publishable-Key]
+    # The SDK waits as long as Retry-After says (§13.1).
+    exposeHeaders: [Retry-After]
     allowCredentials: false
     maxAge: 600s
 ---
@@ -80,7 +82,7 @@ spec:
       {{- toYaml $mw.cors.allowOrigins | nindent 6 }}
     allowMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
     allowHeaders: [Content-Type, Authorization]
-    exposeHeaders: [Content-Type, Authorization]
+    exposeHeaders: [Content-Type, Authorization, Retry-After, Content-Disposition]
     allowCredentials: true
     maxAge: 100s
   {{- end }}
@@ -183,7 +185,7 @@ spec:
       {{- toYaml $mw.cors.allowOrigins | nindent 6 }}
     allowMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
     allowHeaders: [Content-Type, Authorization]
-    exposeHeaders: [Content-Type, Authorization]
+    exposeHeaders: [Content-Type, Authorization, Retry-After, Content-Disposition]
     allowCredentials: true
     maxAge: 100s
   {{- end }}

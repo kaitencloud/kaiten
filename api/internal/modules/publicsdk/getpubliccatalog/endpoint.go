@@ -23,7 +23,11 @@ type Request struct {
 
 type Response struct {
 	CacheControl string `header:"Cache-Control"`
-	Body         *PublicCatalog
+	// Vary keeps a shared cache from answering one organization's key with
+	// another's catalogue, or an origin the key refuses with a page it
+	// allowed.
+	Vary string `header:"Vary"`
+	Body *PublicCatalog
 }
 
 func RegisterEndpoint(api huma.API, app Reader) {
@@ -51,6 +55,6 @@ func RegisterEndpoint(api huma.API, app Reader) {
 		if err != nil {
 			return nil, err
 		}
-		return &Response{CacheControl: "public, max-age=60", Body: catalog}, nil
+		return &Response{CacheControl: "public, max-age=60", Vary: "X-Kaiten-Publishable-Key, Origin", Body: catalog}, nil
 	})
 }

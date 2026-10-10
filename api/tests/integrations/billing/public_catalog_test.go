@@ -120,6 +120,7 @@ func TestPublicCatalog(t *testing.T) {
 	t.Run("the key reads its organization's public catalogue", func(t *testing.T) {
 		resp := publicGet(t, testServer, "/api/public/catalog", key.Key, "https://www.example.com")
 		require.Equal(t, "public, max-age=60", resp.Header.Get("Cache-Control"))
+		require.Equal(t, "X-Kaiten-Publishable-Key, Origin", resp.Header.Get("Vary"))
 		catalog := commonfixture.AssertJSONResponse[getpubliccatalog.PublicCatalog](t, resp, fiber.StatusOK)
 
 		require.Len(t, catalog.Plans, 1, "the private family is not listed")

@@ -461,8 +461,11 @@ api:
   middlewares:
     cors:
       enabled: true
-      allowOrigins:
-        - "*"
+      # None by default (§14.2): the console is same-origin and needs no CORS.
+      # A deployment that calls the API from another origin lists it here.
+      # (Up to chart 0.x this was ["*"], with credentials.) The public SDK
+      # route, /api/public, has its own policy: any origin, no credentials.
+      allowOrigins: []
     # PAT (ksh_*) validation via Envoy's ext_authz, calling api's own
     # /api/tokens/validate.
     forwardAuth:
