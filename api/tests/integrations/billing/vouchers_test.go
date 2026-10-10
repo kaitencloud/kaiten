@@ -82,8 +82,10 @@ func TestVoucherCatalogue(t *testing.T) {
 		require.Equal(t, "CreateVoucher.InvalidApplicability", problemCode(t, fiber.StatusUnprocessableEntity, "POST", "/api/vouchers",
 			percentOff("10", map[string]any{"name": "x", "duration": "FOREVER", "applicableLicenseIds": []string{"00000000-0000-4000-8000-000000000000"}})))
 		require.Equal(t, "CreateVoucher.InvalidRedemptionRules", problemCode(t, fiber.StatusUnprocessableEntity, "POST", "/api/vouchers",
-			percentOff("10", map[string]any{"name": "x", "duration": "FOREVER",
-				"redemptionRules": map[string]any{"minimumSubscriptionAmount": map[string]any{"currency": "eur", "unitAmountDecimal": "100"}}})))
+			percentOff("10", map[string]any{
+				"name": "x", "duration": "FOREVER",
+				"redemptionRules": map[string]any{"minimumSubscriptionAmount": map[string]any{"currency": "eur", "unitAmountDecimal": "100"}},
+			})))
 		// C-10: the floor counts the normalized code, 11 characters here.
 		require.Equal(t, "CreateVoucher.WeakCodeUnbounded", problemCode(t, fiber.StatusUnprocessableEntity, "POST", "/api/vouchers",
 			percentOff("10", map[string]any{"name": "x", "duration": "FOREVER", "code": "SUM-MER-2027"})))
@@ -345,8 +347,10 @@ func TestAnActiveVouchersTermsAreFixed(t *testing.T) {
 	require.Equal(t, "Launch week", updated.Name, "the same value, written otherwise, is no change")
 
 	minimum := func(amount string) map[string]any {
-		return percentOff("10", map[string]any{"name": "Floor", "duration": "FOREVER",
-			"redemptionRules": map[string]any{"minimumSubscriptionAmount": map[string]any{"currency": "EUR", "unitAmountDecimal": amount}}})
+		return percentOff("10", map[string]any{
+			"name": "Floor", "duration": "FOREVER",
+			"redemptionRules": map[string]any{"minimumSubscriptionAmount": map[string]any{"currency": "EUR", "unitAmountDecimal": amount}},
+		})
 	}
 	price := newVoucher(t, minimum("2900"))
 	publish(t, price)
