@@ -64,12 +64,22 @@ func (u *UseCase) checkProvider(ctx context.Context, organizationID uuid.UUID, i
 	if err != nil {
 		return nil, err
 	}
-	method := subscriptions.Terms(sub, defaults).CollectionMethod
+	// The subscription's own method, as the change leaves it; the default
+	// otherwise, which a NOOP subscription does not take (§12.5).
+	var own *string
+	if sub.CollectionMethod != nil {
+		value := string(*sub.CollectionMethod)
+		own = &value
+	}
 	if cmd.CollectionMethod.Set {
-		method = defaults.DefaultCollectionMethod
-		if cmd.CollectionMethod.Value != nil {
-			method = *cmd.CollectionMethod.Value
-		}
+		own = cmd.CollectionMethod.Value
+	}
+	method := defaults.DefaultCollectionMethod
+	switch {
+	case own != nil:
+		method = *own
+	case kind == db.BillingProviderKindNOOP:
+		method = settings.SendInvoice
 	}
 	if method == settings.SendInvoice && target == nil {
 		return nil, nil

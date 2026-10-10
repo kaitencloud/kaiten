@@ -678,7 +678,7 @@ components:
       additionalProperties: false
       properties:
         defaultCollectionMethod:
-          description: "How an invoice is collected when its subscription does not say: SEND_INVOICE sends it for payment. CHARGE_AUTOMATICALLY needs a payment provider and is refused until one is available."
+          description: "How an invoice is collected when its subscription does not say: SEND_INVOICE sends it for payment; CHARGE_AUTOMATICALLY charges the customer's payment method, on a provider that can. A NOOP subscription sends its invoices whatever the default."
           enum:
             - SEND_INVOICE
             - CHARGE_AUTOMATICALLY

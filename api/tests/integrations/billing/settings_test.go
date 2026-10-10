@@ -47,8 +47,20 @@ func TestBillingSettings(t *testing.T) {
 			require.Equal(t, "UpdateBillingSettings.InvalidDaysUntilDue", problemCode(t, fiber.StatusUnprocessableEntity, "PUT", "/api/billing/settings",
 				map[string]any{"defaultCollectionMethod": "SEND_INVOICE", "defaultDaysUntilDue": days, "handoffStripeInvoices": false}))
 		}
-		require.Equal(t, "UpdateBillingSettings.InvalidCollectionMethod", problemCode(t, fiber.StatusUnprocessableEntity, "PUT", "/api/billing/settings",
-			map[string]any{"defaultCollectionMethod": "CHARGE_AUTOMATICALLY", "defaultDaysUntilDue": 30, "handoffStripeInvoices": false}))
+	})
+
+	// F-9 of the console team's note: CHARGE_AUTOMATICALLY is a default like
+	// the other (§12.5), and a NOOP subscription still sends its invoices.
+	t.Run("ChargeAutomatically_IsADefault_ThatNoopIgnores", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		commonfixture.AssertJSONResponse[settings.BillingSettings](t, call(t, "PUT", "/api/billing/settings",
+			map[string]any{"defaultCollectionMethod": "CHARGE_AUTOMATICALLY", "defaultDaysUntilDue": 30, "handoffStripeInvoices": false}), fiber.StatusOK)
+		require.Equal(t, "CHARGE_AUTOMATICALLY", readSettings(t).DefaultCollectionMethod)
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		require.Equal(t, "SEND_INVOICE", started.CollectionMethod)
+		require.Equal(t, "MANUAL", getInvoice(t, started.ActivationInvoice.ID).Status)
+		require.Equal(t, "SEND_INVOICE", getInvoice(t, started.ActivationInvoice.ID).CollectionMethod)
 	})
 
 	t.Run("BehindTheBillingGate", func(t *testing.T) {
