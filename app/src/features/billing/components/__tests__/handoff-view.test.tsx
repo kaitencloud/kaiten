@@ -15,6 +15,7 @@ import {
   invoiceRow,
   pageOf,
   queuedRow,
+  refusal,
   renderWithClient,
   sessionToken,
   useBillingTexts,
@@ -153,6 +154,44 @@ describe('the handoff view of the invoices', () => {
     expect(
       screen.getByRole('link', { name: 'Acknowledged 1' }),
     ).toHaveAttribute('href', '/invoices?view=acknowledged');
+  });
+
+  it('shows the queue, with no counts on its tabs, when the invoices are refused', async () => {
+    server.use(
+      handleGetBillingCapabilities({
+        body: billingCapabilitiesProfiles.stack(),
+      }),
+      handleListInvoices(() =>
+        refusal(403, { detail: 'The token lacks read:billing.' }),
+      ),
+    );
+    serveQueue(pageOf([queuedRow('inv-1', 'Initech')]));
+    renderPage();
+
+    expect(await screen.findByText('Initech')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('link', { name: 'Acknowledged' }),
+    ).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Handoff' })).toHaveAttribute(
+      'href',
+      '/invoices?view=waiting',
+    );
+    expect(screen.queryByText(/not allowed|lacks read:billing/)).toBeNull();
+  });
+
+  it('does not wait for the invoices to show the queue', async () => {
+    server.use(
+      handleListInvoices(async () => {
+        await delay('infinite');
+
+        return HttpResponse.json(pageOf([]));
+      }),
+    );
+    serveQueue(pageOf([queuedRow('inv-1', 'Initech')]));
+    renderPage();
+
+    expect(await screen.findByText('Initech')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Invoices' })).toBeVisible();
   });
 
   it('draws as active the tab of the part of the queue the URL asks for', async () => {

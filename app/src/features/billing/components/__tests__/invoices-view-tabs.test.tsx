@@ -17,6 +17,8 @@ import {
   stripeProvider,
 } from '../../../../../e2e/app/_support/model/billing-capabilities';
 import type { InvoiceScope } from '../../schemas/invoice-scope.schema';
+import type { InvoicesView } from '../../schemas/invoices-search.schema';
+import type { InvoicesViewCounts } from '../../utils/invoice-views';
 import { InvoicesViewTabs } from '../invoices/invoices-view-tabs';
 
 const getAuthToken = vi.hoisted(() => vi.fn());
@@ -47,9 +49,13 @@ const answerWith = (capabilities = billingCapabilitiesProfiles.stack()) =>
 
 const COUNTS = { acknowledged: 4, all: 12, held: 2, overdue: 0, waiting: 5 };
 
-const renderTabs = (scope: InvoiceScope = {}) =>
+const renderTabs = (
+  scope: InvoiceScope = {},
+  view: InvoicesView = 'all',
+  counts: InvoicesViewCounts | null = COUNTS,
+) =>
   renderWithClient(
-    <InvoicesViewTabs counts={COUNTS} scope={scope} />,
+    <InvoicesViewTabs counts={counts ?? undefined} scope={scope} view={view} />,
     createLoadedPageClient(),
   );
 
@@ -121,7 +127,7 @@ describe('the status views of the invoices', () => {
     answerWith();
     renderTabs({ customerSlug: 'initech' });
 
-    await screen.findByRole('link', { name: 'Handoff 5' });
+    await screen.findByRole('link', { name: 'Handoff' });
 
     expect(screen.getByRole('link', { name: 'All 12' })).toHaveAttribute(
       'href',
@@ -131,9 +137,40 @@ describe('the status views of the invoices', () => {
       'href',
       '/invoices?customerSlug=initech&view=held',
     );
-    expect(
-      screen.getByRole('link', { name: 'Handoff 5' }),
-    ).toHaveAttribute('href', '/invoices?view=waiting');
+    expect(screen.getByRole('link', { name: 'Handoff' })).toHaveAttribute(
+      'href',
+      '/invoices?view=waiting',
+    );
+  });
+
+  it('count the queue only for the whole organization: in a scoped list the queue tabs have no count', async () => {
+    answerWith();
+    renderTabs({ instanceSlug: 'initech-production' });
+
+    await screen.findByRole('link', { name: 'Handoff' });
+
+    expect(links().map((link) => link.textContent)).toEqual([
+      'All 12',
+      'Overdue 0',
+      'Held 2',
+      'Handoff',
+      'Acknowledged',
+    ]);
+  });
+
+  it('have no counts while the list of invoices is being read or was refused', async () => {
+    answerWith();
+    renderTabs({}, 'all', null);
+
+    await screen.findByRole('link', { name: 'Handoff' });
+
+    expect(links().map((link) => link.textContent)).toEqual([
+      'All',
+      'Overdue',
+      'Held',
+      'Handoff',
+      'Acknowledged',
+    ]);
   });
 
   it('draw as the current one the view the URL asks for', async () => {
@@ -192,6 +229,33 @@ describe('the status views of the invoices', () => {
 
     await expectNoQueueTabs(client);
     expect(links()).toHaveLength(3);
+  });
+
+  it('keep the tab of the queue the page is on, and mark it, where the queue is not offered', async () => {
+    location.search = { view: 'waiting' };
+    getAuthToken.mockResolvedValue(sessionToken(['read:instances']));
+    answerWith();
+    const { client } = renderTabs({}, 'waiting');
+
+    await waitFor(() => {
+      expect(client.getQueryState(grantedScopesQueryKey)?.status).toBe(
+        'success',
+      );
+    });
+
+    expect(links().map((link) => link.textContent)).toEqual([
+      'All 12',
+      'Overdue 0',
+      'Held 2',
+      'Handoff 5',
+    ]);
+    expect(screen.getByRole('link', { name: 'Handoff 5' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.getByRole('link', { name: 'All 12' })).not.toHaveAttribute(
+      'aria-current',
+    );
   });
 
   it('have no queue where NoOp is not a way the organization collects', async () => {

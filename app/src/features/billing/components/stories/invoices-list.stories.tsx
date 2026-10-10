@@ -130,7 +130,11 @@ export const StatusViews: Story = {
       }
     >
       <div className="flex h-[620px] flex-col px-6">
-        <InvoicesViewTabs counts={countInvoicesByView(INVOICES)} scope={{}} />
+        <InvoicesViewTabs
+          counts={countInvoicesByView(INVOICES)}
+          scope={{}}
+          view="held"
+        />
         <div className="min-h-0 flex-1">
           <InvoicesList
             canExport

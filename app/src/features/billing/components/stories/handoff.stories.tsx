@@ -139,6 +139,7 @@ export const AmongTheStatusViews: Story = {
             waiting: WAITING.length,
           }}
           scope={{}}
+          view="waiting"
         />
         <div className="min-h-0 flex-1">
           <HandoffList invoices={WAITING} status="PENDING" />
