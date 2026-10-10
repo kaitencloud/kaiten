@@ -369,7 +369,8 @@ func (f *Fake) recompute(inv *invoice) {
 			discounted += take
 		}
 	}
-	inv.Subtotal, inv.TotalDiscount, inv.TotalExcludingTax = subtotal, discounted, subtotal-discounted
+	// The subtotal is net of the line discounts, as Stripe's is.
+	inv.Subtotal, inv.TotalDiscount, inv.TotalExcludingTax = subtotal-discounted, discounted, subtotal-discounted
 }
 
 func (inv *invoice) snapshot() provider.Invoice {
@@ -512,7 +513,7 @@ func (f *Fake) AddDiscount(_ context.Context, _ provider.Ref, externalID string,
 	if d.AmountMinor <= 0 {
 		return "", &provider.Error{Class: provider.ClassRejected, Code: "parameter_invalid", Message: "a discount is positive"}
 	}
-	key := in.KaitenInvoiceID.String() + ":" + strconv.Itoa(d.Seq) + ":" + strconv.Itoa(d.TargetSeq)
+	key := in.KaitenInvoiceID.String() + ":" + strconv.Itoa(d.Seq) + ":" + strconv.Itoa(d.TargetSeq) + ":r" + strconv.Itoa(d.Recreation)
 	if existing, ok := f.discounts[key]; ok && !existing.Deleted {
 		if existing.Amount != d.AmountMinor {
 			return "", &provider.Error{Class: provider.ClassRejected, Code: "coupon_conflict", Message: "the discount exists with another amount"}

@@ -19,7 +19,7 @@
 //     a line's discount_amounts and an invoice's total_discount_amounts name
 //     their discount by id, and a line's discounts are ids unless expanded
 //     (expand[]=data.discounts on its lines). A coupon is redeemed once per
-//     live item that bears it.
+//     item that ever bore it, deleted or not, unless its invoice is deleted.
 //
 // Never imported by production code (an architecture test enforces it).
 package stripefake
@@ -103,8 +103,12 @@ type account struct {
 	order     []string // invoice ids, creation order
 	items     map[string]*item
 	coupons   map[string]*coupon
-	events    []*event
-	payments  *payments
+	// redeemed is, per coupon, the invoice of every item that ever bore it:
+	// deleting the item does not give the redemption back, as Stripe test
+	// mode showed (TestStripeSpike); deleting its invoice does.
+	redeemed map[string][]string
+	events   []*event
+	payments *payments
 }
 
 type customer struct {
@@ -482,7 +486,7 @@ func (f *Fake) transition(accountID, id, status, at, eventType string) {
 func (f *Fake) acct(id string) *account {
 	a, ok := f.state[id]
 	if !ok {
-		a = &account{customers: map[string]*customer{}, invoices: map[string]*invoice{}, items: map[string]*item{}, coupons: map[string]*coupon{}}
+		a = &account{customers: map[string]*customer{}, invoices: map[string]*invoice{}, items: map[string]*item{}, coupons: map[string]*coupon{}, redeemed: map[string][]string{}}
 		f.state[id] = a
 	}
 	return a
@@ -513,8 +517,10 @@ func (f *Fake) finalize(a *account, inv *invoice) {
 	f.emit(a, "invoice.finalized", inv)
 }
 
-// retotal totals an invoice: subtotal before discounts, total excluding tax
-// after them (the fake computes no tax).
+// retotal totals an invoice as Stripe does: the subtotal has the item-level
+// discounts already taken off -- only an invoice-level discount, which Kaiten
+// never sends, would come after it -- and so has the total excluding tax (the
+// fake computes no tax). Measured against Stripe test mode: TestStripeSpike.
 func (f *Fake) retotal(a *account, inv *invoice) {
 	var sum, discounted int64
 	for _, id := range inv.itemIDs {
@@ -523,7 +529,7 @@ func (f *Fake) retotal(a *account, inv *invoice) {
 			discounted += d.amount
 		}
 	}
-	inv.Subtotal, inv.TotalExcludingTax, inv.Total = sum, sum-discounted, sum-discounted
+	inv.Subtotal, inv.TotalExcludingTax, inv.Total = sum-discounted, sum-discounted, sum-discounted
 }
 
 type discountAmount struct {
@@ -553,14 +559,9 @@ func (f *Fake) discountAmounts(a *account, it *item) []discountAmount {
 // redemptions counts the live items bearing a coupon.
 func (f *Fake) redemptions(a *account, couponID string) int64 {
 	var n int64
-	for _, it := range a.items {
-		if inv, ok := a.invoices[it.Invoice]; !ok || inv.deleted {
-			continue
-		}
-		for _, d := range it.discounts {
-			if d.Coupon == couponID {
-				n++
-			}
+	for _, invoiceID := range a.redeemed[couponID] {
+		if inv, ok := a.invoices[invoiceID]; ok && !inv.deleted {
+			n++
 		}
 	}
 	return n

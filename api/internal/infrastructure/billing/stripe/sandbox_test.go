@@ -33,10 +33,10 @@ func TestStripeSpike(t *testing.T) {
 
 	t.Run("CR-001 §7.1, §7.3, §7.8: coupons on items under automatic tax, then deleted (§7.4)", s.couponsUnderAutomaticTax)
 	t.Run("CR-001 §7.4: a coupon deleted while the invoice is a draft", s.couponDeletedOnADraft)
-	t.Run("CR-001 §7.6: inclusive tax reconciles on subtotal less discounts", s.inclusiveTax)
+	t.Run("CR-001 §7.6: inclusive tax reconciles on the subtotal", s.inclusiveTax)
 	t.Run("CR-001 §7.7: an automatic charge takes the total", s.chargeAutomatically)
 	t.Run("CR-001 §7.2: discounts on one item", s.discountsPerItem)
-	t.Run("CR-001: an item deleted frees its coupon for the next one", s.itemDeletedFreesItsCoupon)
+	t.Run("CR-001: an item re-created takes a fresh coupon", s.itemDeletedFreesItsCoupon)
 	t.Run("§12.4 rule 4: what days_until_due counts from", s.dueDateSemantics)
 	t.Run("§12.5: days_until_due = 0", s.zeroDaysUntilDue)
 	t.Run("§12.5 spike 1: tax ids and customer updates in a setup session", s.setupSessionOptions)
@@ -261,9 +261,11 @@ func (s *spike) inclusiveTax(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Finalize: %v", err)
 	}
-	if got := finalized.Subtotal - finalized.TotalDiscount; got != 1820 {
-		t.Errorf("subtotal − discounts = %d − %d = %d, want 1820: the INCLUSIVE reconciliation formula does not hold",
-			finalized.Subtotal, finalized.TotalDiscount, got)
+	// Item-level discounts are already off the subtotal: the subtotal is the
+	// tax-inclusive total Kaiten composed.
+	if finalized.Subtotal != 1820 {
+		t.Errorf("subtotal %d (discounts %d), want 1820: the INCLUSIVE reconciliation compares Kaiten's total with the subtotal",
+			finalized.Subtotal, finalized.TotalDiscount)
 	}
 	s.finding(t, "subtotal %d, discounts %d, total excluding tax %d", finalized.Subtotal, finalized.TotalDiscount, finalized.TotalExcludingTax)
 }
@@ -361,11 +363,28 @@ func (s *spike) itemDeletedFreesItsCoupon(t *testing.T) {
 		t.Fatalf("DeleteLine: %v", err)
 	}
 	line.Recreation = 1
-	if _, err := s.adapter.AddLine(ctx, ref, draft.ExternalID, in, line); err != nil {
-		t.Errorf("an item re-created with the coupon of the item it replaces is refused (%v): the push's re-creation of an item would need new coupons", err)
-		return
+	if _, err := s.adapter.AddLine(ctx, ref, draft.ExternalID, in, line); err == nil {
+		s.finding(t, "deleting an item now frees its coupon's single redemption: the push's fresh coupons are no longer needed")
+	} else {
+		s.finding(t, "an item re-created with the deleted item's coupon is refused (%v): the push gives it fresh coupons", err)
 	}
-	s.finding(t, "deleting an item frees its coupon's single redemption: the re-created item takes it")
+
+	// What the push does: a fresh coupon for the item added again.
+	again := in.Discounts[0]
+	again.Recreation = 1
+	fresh, err := s.adapter.AddDiscount(ctx, ref, draft.ExternalID, in, again)
+	if err != nil {
+		t.Fatalf("AddDiscount (recreation): %v", err)
+	}
+	t.Cleanup(func() { _ = s.adapter.DeleteDiscount(context.Background(), ref, fresh) })
+	if fresh != RecreatedCouponID(in.KaitenInvoiceID, 2, 1, 1) {
+		t.Errorf("the fresh coupon is %q", fresh)
+	}
+	line.Recreation = 2
+	line.Discounts = []provider.LineDiscount{{Seq: 2, ExternalID: fresh, AmountMinor: 580}}
+	if _, err := s.adapter.AddLine(ctx, ref, draft.ExternalID, in, line); err != nil {
+		t.Errorf("an item re-created with a fresh coupon is refused: %v", err)
+	}
 }
 
 func (s *spike) dueDateSemantics(t *testing.T) {

@@ -499,6 +499,9 @@ func (f *Fake) handle(accountID, apiKey, op, id string, form url.Values) (int, [
 			}
 			discounts = append(discounts, itemDiscount{ID: f.next("di"), Coupon: id})
 		}
+		for _, d := range discounts {
+			a.redeemed[d.Coupon] = append(a.redeemed[d.Coupon], inv.ID)
+		}
 		it := &item{
 			ID: f.next("ii"), Object: "invoiceitem", Customer: form.Get("customer"), Invoice: inv.ID,
 			Amount: asInt(form.Get("amount")), Currency: form.Get("currency"), Description: form.Get("description"),

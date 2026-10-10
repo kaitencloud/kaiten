@@ -23,6 +23,9 @@ type Subject struct {
 // Run checks the contract. An adapter that does not push invoices must
 // refuse every push call with provider.ErrUnsupported and void locally; one
 // that pushes must be idempotent on every step and report its changes.
+// contractDaysUntilDue is the contract invoice's payment terms.
+var contractDaysUntilDue int32 = 30
+
 func Run(t *testing.T, newSubject func(t *testing.T) Subject) {
 	t.Helper()
 	t.Run("CapabilitiesAreConsistent", func(t *testing.T) {
@@ -106,7 +109,9 @@ func pushContract(t *testing.T, s Subject) {
 	discountLine := uuid.New()
 	invoice := provider.NormalizedInvoice{
 		KaitenInvoiceID: uuid.New(), ExternalCustomerID: first.ExternalID, Kind: "RENEWAL", BoundaryAt: start,
-		Currency: "EUR", CollectionMethod: "SEND_INVOICE", DaysUntilDue: nil, TotalMinor: 2030,
+		// Billing always sends a SEND_INVOICE invoice's terms; Stripe refuses one
+		// without them.
+		Currency: "EUR", CollectionMethod: "SEND_INVOICE", DaysUntilDue: &contractDaysUntilDue, TotalMinor: 2030,
 		Lines: []provider.NormalizedLine{
 			{LineID: uuid.New(), Seq: 1, AmountMinor: 2900, Description: "Pro — base", ServiceFrom: start, ServiceTo: start.AddDate(0, 1, 0)},
 		},
@@ -159,7 +164,9 @@ func pushContract(t *testing.T, s Subject) {
 		t.Fatalf("GetInvoice: %v", err)
 	}
 	if read.Status != provider.StatusDraft || len(read.Lines) != len(invoice.Lines) || read.TotalExcludingTax != invoice.TotalMinor ||
-		read.Subtotal != 2900 || read.TotalDiscount != 870 {
+		read.Subtotal != invoice.TotalMinor || read.TotalDiscount != 870 {
+		// The subtotal has the item-level discounts taken off already, as
+		// Stripe test mode has it.
 		t.Fatalf("the draft read back is what was pushed: %+v", read)
 	}
 	if got := read.Lines[0].Discounts; len(got) != 1 || got[0].ExternalID != discountID || got[0].AmountMinor != 870 || read.Lines[0].AmountMinor != 2900 {
