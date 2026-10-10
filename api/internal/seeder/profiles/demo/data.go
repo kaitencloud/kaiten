@@ -1,7 +1,9 @@
 package demo
 
 import (
+	"fmt"
 	"maps"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -631,13 +633,23 @@ const (
 	opRemove releaseComponentPatchOp = "remove"
 )
 
+// componentPatch changes what a release ships relative to its previous
+// release: an add creates a component and bundles it, a remove takes out one
+// the release inherited.
+//
+// PreviousSlug, on an add, names the component the new one is the next version
+// of. It is created as that component's successor (previous_component_id),
+// which is how the catalogue shows a component's version chain. It does not
+// take the older version out of the release -- a remove patch does -- so a
+// release that upgrades a component carries both patches.
 type componentPatch struct {
-	Op          releaseComponentPatchOp
-	Name        *string
-	Version     *string
-	Slug        *string
-	Description *string
-	RemoveSlug  *string
+	Op           releaseComponentPatchOp
+	Name         *string
+	Version      *string
+	Slug         *string
+	Description  *string
+	PreviousSlug *string
+	RemoveSlug   *string
 }
 
 type releaseDef struct {
@@ -657,6 +669,17 @@ func addComp(name, version, slug, description string) componentPatch {
 	}
 }
 
+// nextComp adds the next version of the component slugged previousSlug.
+func nextComp(previousSlug, name, version, slug, description string) componentPatch {
+	patch := addComp(name, version, slug, description)
+	patch.PreviousSlug = ptr.To(previousSlug)
+	return patch
+}
+
+func removeComp(slug string) componentPatch {
+	return componentPatch{Op: opRemove, RemoveSlug: ptr.To(slug)}
+}
+
 var releases = []releaseDef{
 	{
 		Version:     "2026.7.0",
@@ -669,15 +692,61 @@ var releases = []releaseDef{
 		},
 	},
 	{
+		// Upgrades three of July's four components and keeps Kitchen Display.
+		// Each new version replaces the one it follows, so the release ships
+		// four components, one version of each, as July did.
 		Version:         "2026.8.0",
 		PreviousVersion: "2026.7.0",
 		Description:     "Introduces real-time delivery tracking.",
 		Patches: []componentPatch{
-			addComp("API", "2026.8.0", "api-2026-8-0", "Adds delivery tracking endpoints."),
-			addComp("Web App", "2026.8.0", "web-app-2026-8-0", "Delivery tracking UI."),
-			addComp("Delivery Service", "1.0.0", "delivery-service-1-0-0", "GA: real-time position streaming."),
+			removeComp("api-2026-7-0"),
+			nextComp("api-2026-7-0", "API", "2026.8.0", "api-2026-8-0", "Adds delivery tracking endpoints."),
+			removeComp("web-app-2026-7-0"),
+			nextComp("web-app-2026-7-0", "Web App", "2026.8.0", "web-app-2026-8-0", "Delivery tracking UI."),
+			removeComp("delivery-service-0-9-0"),
+			nextComp("delivery-service-0-9-0", "Delivery Service", "1.0.0", "delivery-service-1-0-0", "GA: real-time position streaming."),
 		},
 	},
+}
+
+// releaseBundles is what each release ships, keyed by version, as component
+// slugs: what its previous release shipped, with its own patches applied in
+// order. Releases are listed oldest first, and a release whose previous one
+// comes later is refused here. seedReleases bundles exactly this, and
+// data_test.go reads it, so the two cannot disagree on what a release
+// contains.
+func releaseBundles() (map[string][]string, error) {
+	bundles := make(map[string][]string, len(releases))
+
+	for _, rel := range releases {
+		var slugs []string
+		if rel.PreviousVersion != "" {
+			inherited, ok := bundles[rel.PreviousVersion]
+			if !ok {
+				return nil, fmt.Errorf("release %q references unknown previous version %q", rel.Version, rel.PreviousVersion)
+			}
+			slugs = slices.Clone(inherited)
+		}
+
+		for _, patch := range rel.Patches {
+			switch patch.Op {
+			case opAdd:
+				slugs = append(slugs, *patch.Slug)
+			case opRemove:
+				i := slices.Index(slugs, *patch.RemoveSlug)
+				if i < 0 {
+					return nil, fmt.Errorf("release %q cannot remove component %q, which it does not bundle", rel.Version, *patch.RemoveSlug)
+				}
+				slugs = slices.Delete(slugs, i, i+1)
+			default:
+				return nil, fmt.Errorf("release %q has an unsupported component patch op %q", rel.Version, patch.Op)
+			}
+		}
+
+		bundles[rel.Version] = slugs
+	}
+
+	return bundles, nil
 }
 
 // ── Feature Flags ──────────────────────────────────────────────────────────

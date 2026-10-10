@@ -476,50 +476,54 @@ func (p *Profile) seedLicenseEntitlements(
 func (p *Profile) seedReleases(ctx context.Context, sc *seeder.SeederContext) (map[string]uuid.UUID, error) {
 	slog.Info("📦 Creating releases and components...")
 
+	// What each release ships is settled before anything is created, so a
+	// patch that removes a component the release does not have fails the seed
+	// here rather than halfway through the catalogue.
+	bundles, err := releaseBundles()
+	if err != nil {
+		return nil, err
+	}
+
 	releaseIDsByVersion := make(map[string]uuid.UUID)
-	componentIDsByVersion := make(map[string][]uuid.UUID)
 	componentIDsBySlug := make(map[string]uuid.UUID)
 
 	for _, rel := range releases {
-		componentIDs := make([]uuid.UUID, 0)
-
-		// inherit previous release's components
-		if rel.PreviousVersion != "" {
-			prev, ok := componentIDsByVersion[rel.PreviousVersion]
-			if !ok {
-				return nil, fmt.Errorf("release %q references unknown previous version %q", rel.Version, rel.PreviousVersion)
+		for _, patch := range rel.Patches {
+			if patch.Op != opAdd {
+				continue
 			}
-			componentIDs = append(componentIDs, prev...)
+
+			// A component's next version is created as the successor of the
+			// one it follows, which an earlier patch created.
+			var previousID *uuid.UUID
+			if patch.PreviousSlug != nil {
+				id, ok := componentIDsBySlug[*patch.PreviousSlug]
+				if !ok {
+					return nil, fmt.Errorf("component %q %s follows unknown component slug %q", *patch.Name, *patch.Version, *patch.PreviousSlug)
+				}
+				previousID = &id
+			}
+
+			comp, err := sc.Components.CreateComponent.Execute(ctx, &createcomponent.Command{
+				Name:                *patch.Name,
+				Version:             *patch.Version,
+				Slug:                patch.Slug,
+				Description:         patch.Description,
+				PreviousComponentID: previousID,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("component %q: %w", *patch.Name, err)
+			}
+			componentIDsBySlug[comp.Slug] = comp.ID
 		}
 
-		for _, patch := range rel.Patches {
-			switch patch.Op {
-			case opAdd:
-				comp, err := sc.Components.CreateComponent.Execute(ctx, &createcomponent.Command{
-					Name:        *patch.Name,
-					Version:     *patch.Version,
-					Slug:        patch.Slug,
-					Description: patch.Description,
-				})
-				if err != nil {
-					return nil, fmt.Errorf("component %q: %w", *patch.Name, err)
-				}
-				componentIDs = append(componentIDs, comp.ID)
-				componentIDsBySlug[comp.Slug] = comp.ID
-
-			case opRemove:
-				cid, ok := componentIDsBySlug[*patch.RemoveSlug]
-				if !ok {
-					return nil, fmt.Errorf("release %q: cannot remove unknown component slug %q", rel.Version, *patch.RemoveSlug)
-				}
-				filtered := make([]uuid.UUID, 0, len(componentIDs)-1)
-				for _, id := range componentIDs {
-					if id != cid {
-						filtered = append(filtered, id)
-					}
-				}
-				componentIDs = filtered
+		componentIDs := make([]uuid.UUID, 0, len(bundles[rel.Version]))
+		for _, slug := range bundles[rel.Version] {
+			id, ok := componentIDsBySlug[slug]
+			if !ok {
+				return nil, fmt.Errorf("release %q bundles component %q, which no patch created", rel.Version, slug)
 			}
+			componentIDs = append(componentIDs, id)
 		}
 
 		created, err := sc.Releases.CreateRelease.Execute(ctx, &createrelease.Command{
@@ -532,7 +536,6 @@ func (p *Profile) seedReleases(ctx context.Context, sc *seeder.SeederContext) (m
 		}
 
 		releaseIDsByVersion[rel.Version] = created.ID
-		componentIDsByVersion[rel.Version] = append([]uuid.UUID(nil), componentIDs...)
 		slog.Info("   ✓ Created release", "version", rel.Version)
 	}
 

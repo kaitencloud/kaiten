@@ -14,6 +14,7 @@ import (
 	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
 )
 
@@ -182,6 +183,62 @@ func TestDeploymentsReferenceKnownZonesAndReleases(t *testing.T) {
 		_, ok = knownReleases[d.ReleaseVersion]
 		require.Truef(t, ok, "deployment references unknown release %q", d.ReleaseVersion)
 	}
+}
+
+// TestReleasesShipOneVersionOfEachComponent guards what each release bundles.
+// A release inherits its previous release's components, so one that brings in
+// a component's next version has to take out the version it inherited, or it
+// ships both: 2026.8.0 once bundled two APIs, two web apps and two delivery
+// services, seven components where it has four. The next version also follows
+// the one it replaces, so the catalogue shows the chain.
+func TestReleasesShipOneVersionOfEachComponent(t *testing.T) {
+	bundles, err := releaseBundles()
+	require.NoError(t, err)
+
+	// Every component, by slug, in the order the patches create them. A new
+	// version may only follow a component created before it, and one of the
+	// same name: the next version of something else is not a version.
+	components := make(map[string]componentPatch)
+	for _, rel := range releases {
+		for _, patch := range rel.Patches {
+			if patch.Op != opAdd {
+				continue
+			}
+			if patch.PreviousSlug != nil {
+				previous, ok := components[*patch.PreviousSlug]
+				require.Truef(t, ok, "component %q follows %q, which no earlier patch creates", *patch.Slug, *patch.PreviousSlug)
+				require.Equalf(t, *previous.Name, *patch.Name, "component %q follows %q, another component", *patch.Slug, *patch.PreviousSlug)
+			}
+			components[*patch.Slug] = patch
+		}
+	}
+	nameOf := func(slug string) string { return *components[slug].Name }
+
+	upgrades := 0
+	for _, rel := range releases {
+		shipped := make(map[string]string, len(bundles[rel.Version])) // component name → slug
+		for _, slug := range bundles[rel.Version] {
+			other, twice := shipped[nameOf(slug)]
+			require.Falsef(t, twice, "release %q ships two versions of %q: %q and %q", rel.Version, nameOf(slug), other, slug)
+			shipped[nameOf(slug)] = slug
+		}
+
+		// A component the release ships in another version than its previous
+		// release did is the successor of the version it replaces.
+		if rel.PreviousVersion == "" {
+			continue
+		}
+		for _, inherited := range bundles[rel.PreviousVersion] {
+			replacement, kept := shipped[nameOf(inherited)]
+			if !kept || replacement == inherited {
+				continue
+			}
+			upgrades++
+			require.Equalf(t, ptr.To(inherited), components[replacement].PreviousSlug,
+				"release %q replaces %q with %q, which does not follow it", rel.Version, inherited, replacement)
+		}
+	}
+	require.NotZero(t, upgrades, "no release upgrades a component any more; this test guards nothing")
 }
 
 // TestDeploymentZoneTypesAreEnvironments keeps a zone's type to the environment

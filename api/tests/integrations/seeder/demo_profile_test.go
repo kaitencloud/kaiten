@@ -110,6 +110,37 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 		WHERE eu.organization_id = $1 AND (eu.period_start IS NULL) <> (e.reset_period IS NULL)
 	`, orgID))
 
+	// 2026.8.0 upgrades three of July's four components and keeps Kitchen
+	// Display. It once shipped both versions of each component it upgraded;
+	// it ships four, one version of each, every new version the successor of
+	// the one it replaces.
+	require.Equal(t, 4, countRows(t, ctx, testDB, `
+		SELECT COUNT(*)
+		FROM component_release cr
+		       JOIN release r ON r.id = cr.release_id
+		WHERE r.organization_id = $1 AND r.version = '2026.8.0'
+	`, orgID))
+	require.Zero(t, countRows(t, ctx, testDB, `
+		SELECT COUNT(*)
+		FROM (SELECT 1
+		      FROM component_release cr
+		             JOIN component c ON c.id = cr.component_id
+		      WHERE cr.organization_id = $1
+		      GROUP BY cr.release_id, c.name
+		      HAVING COUNT(*) > 1) AS shipped_twice
+	`, orgID), "no release ships two versions of one component")
+	require.Equal(t, []string{
+		"api-2026-8-0 follows api-2026-7-0",
+		"delivery-service-1-0-0 follows delivery-service-0-9-0",
+		"web-app-2026-8-0 follows web-app-2026-7-0",
+	}, stringColumn(t, ctx, testDB, `
+		SELECT c.slug || ' follows ' || prev.slug
+		FROM component c
+		       JOIN component prev ON prev.id = c.previous_component_id
+		WHERE c.organization_id = $1
+		ORDER BY c.slug
+	`, orgID))
+
 	// Sakura Dedicated stays on the July release -- the "pending upgrade"
 	// zone the deployment journal exists to show.
 	require.Equal(t, 1, countRows(t, ctx, testDB, `
