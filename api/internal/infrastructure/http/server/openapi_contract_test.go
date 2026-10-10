@@ -679,3 +679,35 @@ func walkNames(node any, visit func(string)) {
 		}
 	}
 }
+
+// What the handlers and the error factory add to a response is in the
+// contract (B-14, C-4): Retry-After on every 429 and 503 and on a
+// BoundaryPending 409, and both success statuses of an operation that answers
+// two.
+func TestContractDeclaresRetryAfterAndBothSuccesses(t *testing.T) {
+	doc := newContractDocument(t)
+	for path, item := range doc.Paths {
+		for method, op := range map[string]*huma.Operation{"GET": item.Get, "POST": item.Post, "PUT": item.Put, "PATCH": item.Patch, "DELETE": item.Delete} {
+			if op == nil {
+				continue
+			}
+			for _, status := range []string{"429", "503"} {
+				if response := op.Responses[status]; response != nil {
+					assert.Contains(t, response.Headers, "Retry-After", "%s %s %s", method, path, status)
+				}
+			}
+		}
+	}
+	assert.Contains(t, doc.Paths["/instances/{instanceSlug}/billing/cancel"].Post.Responses["409"].Headers, "Retry-After")
+	assert.NotContains(t, doc.Paths["/invoices/{invoiceId}/void"].Post.Responses["409"].Headers, "Retry-After")
+	for path, statuses := range map[string][]string{
+		"/invoices/{invoiceId}/recompose": {"200", "201"},
+		"/public/session/checkout":        {"200", "201"},
+	} {
+		for _, status := range statuses {
+			response := doc.Paths[path].Post.Responses[status]
+			require.NotNil(t, response, "%s %s", path, status)
+			assert.NotEmpty(t, response.Content, "%s %s", path, status)
+		}
+	}
+}

@@ -52,6 +52,7 @@ func RegisterEndpoint(api huma.API, app Updater) {
 		Summary:     "Update a license",
 		Description: "Update a license with the provided details",
 		Tags:        []string{"licenses"},
+		Metadata:    kaitenhuma.SchemaCodes(map[string]string{"body.trialPeriodDays": "UpdateLicense.InvalidTrialPeriodDays", "body.selfServeCtaUrl": "UpdateLicense.InvalidSelfServeCtaUrl"}),
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*struct{}, error) {
 		cl, err := caller.Organization(ctx)

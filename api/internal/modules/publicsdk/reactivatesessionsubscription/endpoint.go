@@ -28,7 +28,8 @@ func RegisterEndpoint(api huma.API, app FacadeReactivator) {
 		Summary:     "Keep a subscription scheduled for cancellation",
 		Description: "Takes back a cancellation scheduled for the period's end, before it: the subscription renews as before. " +
 			"409 .NotScheduledForCancellation when none is scheduled (or the subscription has already ended), .BoundaryPending while the period that ended is being closed (Retry-After); 422 .InstanceRequired for a session bound to no instance.",
-		Tags: []string{"public"},
+		Tags:     []string{"public"},
+		Metadata: kaitenhuma.BoundaryPending(),
 		Errors: []int{
 			http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusConflict,
 			http.StatusUnprocessableEntity, http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusServiceUnavailable,

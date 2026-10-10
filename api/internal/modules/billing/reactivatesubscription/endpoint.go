@@ -32,6 +32,7 @@ func RegisterEndpoint(api huma.API, app Reactivator) {
 		Summary:     "Reactivate a subscription",
 		Description: "Reverts a cancellation scheduled for the period end, before it. A canceled subscription is subscribed again instead. Requires billing to be enabled for the organization.",
 		Tags:        []string{"billing"},
+		Metadata:    kaitenhuma.BoundaryPending(),
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)

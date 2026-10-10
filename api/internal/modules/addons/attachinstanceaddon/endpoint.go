@@ -33,6 +33,7 @@ func RegisterEndpoint(api huma.API, app Attacher) {
 		Summary:       "Attach an add-on to an instance",
 		Description:   "Gives an instance an add-on version and a quantity. The entitlements apply at once; a subscription bills the quantity held at each boundary, without proration. One version per family: moving to another version is detach then attach. Emits INSTANCE_ADDON_ADDED. Requires billing to be enabled for the organization.",
 		Tags:          []string{"instances"},
+		Metadata:      kaitenhuma.BoundaryPending(),
 		DefaultStatus: http.StatusCreated,
 		Errors:        []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {

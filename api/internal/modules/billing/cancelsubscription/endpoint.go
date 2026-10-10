@@ -38,6 +38,7 @@ func RegisterEndpoint(api huma.API, app Canceler) {
 		Summary:     "Cancel a subscription",
 		Description: "Cancels an instance's subscription: a trial at once with no invoice; otherwise at the period's end (repeating it changes nothing), or immediately with a FINAL invoice. Cancellation changes billing only: entitlements and licence dates stay the vendor's to change. Requires billing to be enabled for the organization.",
 		Tags:        []string{"billing"},
+		Metadata:    kaitenhuma.BoundaryPending(),
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)

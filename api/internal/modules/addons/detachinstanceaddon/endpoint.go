@@ -28,6 +28,7 @@ func RegisterEndpoint(api huma.API, app Detacher) {
 		Summary:       "Remove an add-on from an instance",
 		Description:   "Removes an add-on from an instance. The entitlements drop at once; nothing is refunded. The attachment stays readable with includeRemoved. Emits INSTANCE_ADDON_REMOVED. Requires billing to be enabled for the organization.",
 		Tags:          []string{"instances"},
+		Metadata:      kaitenhuma.BoundaryPending(),
 		DefaultStatus: http.StatusNoContent,
 		Errors:        []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*struct{}, error) {

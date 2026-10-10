@@ -3,6 +3,7 @@ package huma
 import (
 	"errors"
 	"log/slog"
+	"net/http"
 	"sync"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -120,8 +121,14 @@ func newError(ctx huma.Context, status int, msg string, errs ...error) huma.Stat
 	if len(withheld) > 0 {
 		model.ErrorID = uuid.NewString()
 		logWithheld(ctx, model, withheld)
+		return model
 	}
 
+	// A bound the schema publishes, for which the operation names its
+	// Appendix A code (SchemaCodes).
+	if status == http.StatusUnprocessableEntity && len(model.Errors) > 0 {
+		return withSchemaCode(ctx, model, instance)
+	}
 	return model
 }
 

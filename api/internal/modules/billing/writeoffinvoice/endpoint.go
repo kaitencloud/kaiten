@@ -19,7 +19,7 @@ type WriterOff interface {
 
 // InvoiceWriteOff is why the invoice is written off.
 type InvoiceWriteOff struct {
-	Reason string `json:"reason,omitempty" doc:"1 to 500 characters; .ReasonRequired otherwise"`
+	Reason string `json:"reason" minLength:"1" maxLength:"500" doc:"1 to 500 characters; .ReasonRequired otherwise"`
 }
 
 type Request struct {
@@ -39,6 +39,7 @@ func RegisterEndpoint(api huma.API, app WriterOff) {
 		Summary:     "Write off an invoice",
 		Description: "Records that the organization gave up collecting a MANUAL invoice: it becomes UNCOLLECTIBLE. A handoff still pending stays so, and its consumer sees the new status. Writing off an UNCOLLECTIBLE invoice again answers it unchanged. Requires billing to be enabled for the organization.",
 		Tags:        []string{"billing"},
+		Metadata:    kaitenhuma.SchemaCodes(map[string]string{"body.reason": "WriteOffInvoice.ReasonRequired"}),
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)

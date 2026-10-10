@@ -17,7 +17,7 @@ type Lister interface {
 }
 
 type Request struct {
-	Status string `query:"status" doc:"PENDING (the default) or ACKNOWLEDGED; .InvalidStatus otherwise"`
+	Status string `query:"status" enum:"PENDING,ACKNOWLEDGED" doc:"PENDING (the default) or ACKNOWLEDGED; .InvalidStatus otherwise"`
 	Cursor string `query:"cursor" doc:"Opaque cursor from the previous page's nextCursor"`
 	Limit  int32  `query:"limit" minimum:"0" maximum:"200" doc:"Page size, 50 by default, 200 at most"`
 }
@@ -34,6 +34,7 @@ func RegisterEndpoint(api huma.API, app Lister) {
 		Summary:     "List the handoff queue",
 		Description: "The invoices waiting for the organization's accounting system (PENDING), or already acknowledged by it, oldest issue first. Reading never leases: claim to take invoices. Requires billing to be enabled for the organization.",
 		Tags:        []string{"billing"},
+		Metadata:    kaitenhuma.SchemaCodes(map[string]string{"query.status": "ListHandoff.InvalidStatus"}),
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)

@@ -39,6 +39,7 @@ func RegisterEndpoint(api huma.API, app Scheduler) {
 		Summary:     "Schedule a plan change",
 		Description: "Schedules a move to another FLAT_FEE price, of any PUBLISHED licence version in the subscription's currency, for the next boundary. That boundary's RENEWAL bills the old plan's arrears and the new plan's advance, and moves the instance to the new version; there is no proration. Scheduling another target replaces the change, the same one changes nothing. A scheduled target's price cannot be deprecated, nor its version archived. Requires billing to be enabled for the organization.",
 		Tags:        []string{"billing"},
+		Metadata:    kaitenhuma.BoundaryPending(),
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)

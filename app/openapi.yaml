@@ -3002,7 +3002,11 @@ components:
       properties:
         reason:
           description: 1 to 500 characters; .ReasonRequired otherwise
+          maxLength: 500
+          minLength: 1
           type: string
+      required:
+        - reason
       type: object
     Impact:
       additionalProperties: false
@@ -4509,14 +4513,22 @@ components:
       properties:
         reason:
           description: 1 to 500 characters; .ReasonRequired otherwise
+          maxLength: 500
+          minLength: 1
           type: string
+      required:
+        - reason
       type: object
     InvoiceWriteOff:
       additionalProperties: false
       properties:
         reason:
           description: 1 to 500 characters; .ReasonRequired otherwise
+          maxLength: 500
+          minLength: 1
           type: string
+      required:
+        - reason
       type: object
     IssuedInvoice:
       additionalProperties: false
@@ -4734,6 +4746,7 @@ components:
           description: "Where a buyer is sent when this version cannot be bought self-serve: an http(s) URL of at most 2048 characters (CreateLicense.InvalidSelfServeCtaUrl). Absent when there is none. On update, omit it to keep the stored value, or send an empty string to remove it."
           examples:
             - https://example.com/contact-sales
+          maxLength: 2048
           type: string
         slug:
           description: Optional URL-friendly identifier, unique per organization. When omitted, a new version of an existing family takes {familySlug}-v{version}, and any other license gets one generated from its name. A license that opens a new family gives the family its slug.
@@ -4748,6 +4761,7 @@ components:
           examples:
             - 14
           format: int32
+          minimum: 0
           type: integer
         type:
           description: Type of the license determining its capabilities and restrictions
@@ -9023,7 +9037,11 @@ components:
           description: 1 to 500 characters; .ReasonRequired otherwise
           examples:
             - Granted by mistake
+          maxLength: 500
+          minLength: 1
           type: string
+      required:
+        - reason
       type: object
     RolloutDate:
       additionalProperties: false
@@ -11113,6 +11131,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:addons
@@ -11182,6 +11206,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:addons
@@ -11256,6 +11286,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:addons
@@ -11336,6 +11372,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:addons
@@ -11406,6 +11448,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:addons
@@ -11477,6 +11525,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:addons
@@ -11545,6 +11599,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:addons
@@ -11625,6 +11685,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:addons
@@ -11700,6 +11766,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:addons
@@ -11769,6 +11841,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:addons
@@ -11843,6 +11921,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:addons
@@ -11916,6 +12000,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:addons
@@ -11987,6 +12077,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:addons
@@ -12067,6 +12163,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:addons
@@ -12147,6 +12249,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:addons
@@ -12224,6 +12332,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:addons
@@ -12313,6 +12427,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:addons
@@ -12394,6 +12514,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:addons
@@ -12474,6 +12600,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:addons
@@ -12556,6 +12688,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:addons
@@ -12631,6 +12769,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:addons
@@ -12706,6 +12850,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:addons
@@ -12747,6 +12897,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:billing
@@ -12812,6 +12968,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -12829,6 +12991,9 @@ paths:
           name: status
           schema:
             description: PENDING (the default) or ACKNOWLEDGED; .InvalidStatus otherwise
+            enum:
+              - PENDING
+              - ACKNOWLEDGED
             type: string
         - description: Opaque cursor from the previous page's nextCursor
           explode: false
@@ -12890,6 +13055,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:billing
@@ -12949,6 +13120,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -13028,6 +13205,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -13075,6 +13258,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:billing
@@ -13116,6 +13305,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:billing
@@ -13174,6 +13369,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -13227,6 +13428,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -13362,6 +13569,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:components
@@ -13780,6 +13993,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:organizations
@@ -14090,6 +14309,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:organizations
@@ -14149,6 +14374,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
         "500":
           content:
             application/problem+json:
@@ -14347,6 +14578,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:customers
@@ -14593,6 +14830,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:billing
@@ -14662,6 +14905,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -14741,6 +14990,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -14821,6 +15076,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -14900,6 +15161,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -15330,6 +15597,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:deployment_zones
@@ -15626,6 +15899,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:entitlements
@@ -16126,6 +16405,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:entitlements
@@ -16442,6 +16727,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:feature_flags
@@ -16880,6 +17171,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:instances
@@ -17213,6 +17510,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:instances
@@ -17275,6 +17578,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Conflict
+          headers:
+            Retry-After:
+              description: "On .BoundaryPending: seconds until the period's close is expected to have run"
+              schema:
+                minimum: 0
+                type: integer
         "422":
           content:
             application/problem+json:
@@ -17293,6 +17602,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:instances
@@ -17355,6 +17670,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Conflict
+          headers:
+            Retry-After:
+              description: "On .BoundaryPending: seconds until the period's close is expected to have run"
+              schema:
+                minimum: 0
+                type: integer
         "422":
           content:
             application/problem+json:
@@ -17373,6 +17694,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:instances
@@ -17444,6 +17771,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Conflict
+          headers:
+            Retry-After:
+              description: "On .BoundaryPending: seconds until the period's close is expected to have run"
+              schema:
+                minimum: 0
+                type: integer
         "422":
           content:
             application/problem+json:
@@ -17462,6 +17795,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:instances
@@ -17626,6 +17965,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:billing
@@ -17693,6 +18038,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Conflict
+          headers:
+            Retry-After:
+              description: "On .BoundaryPending: seconds until the period's close is expected to have run"
+              schema:
+                minimum: 0
+                type: integer
         "422":
           content:
             application/problem+json:
@@ -17711,6 +18062,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -17791,6 +18148,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -17854,6 +18217,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Conflict
+          headers:
+            Retry-After:
+              description: "On .BoundaryPending: seconds until the period's close is expected to have run"
+              schema:
+                minimum: 0
+                type: integer
         "422":
           content:
             application/problem+json:
@@ -17872,6 +18241,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -17929,6 +18304,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Conflict
+          headers:
+            Retry-After:
+              description: "On .BoundaryPending: seconds until the period's close is expected to have run"
+              schema:
+                minimum: 0
+                type: integer
         "422":
           content:
             application/problem+json:
@@ -17947,6 +18328,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -18004,6 +18391,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Conflict
+          headers:
+            Retry-After:
+              description: "On .BoundaryPending: seconds until the period's close is expected to have run"
+              schema:
+                minimum: 0
+                type: integer
         "422":
           content:
             application/problem+json:
@@ -18022,6 +18415,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -18084,6 +18483,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Conflict
+          headers:
+            Retry-After:
+              description: "On .BoundaryPending: seconds until the period's close is expected to have run"
+              schema:
+                minimum: 0
+                type: integer
         "422":
           content:
             application/problem+json:
@@ -18102,6 +18507,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -18171,6 +18582,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:billing
@@ -18408,6 +18825,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:instances
@@ -19122,6 +19545,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:billing
@@ -19202,6 +19631,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:voucher_redemptions
@@ -19283,6 +19718,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:voucher_redemptions
@@ -19371,6 +19812,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:vouchers
@@ -19527,6 +19974,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:customers
@@ -19684,6 +20137,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:instances
@@ -19870,6 +20329,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:billing
@@ -20081,6 +20546,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:billing
@@ -20142,6 +20613,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:billing
@@ -20247,6 +20724,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:billing
@@ -20326,6 +20809,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -20351,6 +20840,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Invoice"
           description: OK
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+          description: The replacement of a VOID invoice, for the same boundary
         "401":
           content:
             application/problem+json:
@@ -20393,6 +20888,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -20472,6 +20973,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -20545,6 +21052,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -20618,6 +21131,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -20697,6 +21216,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -20776,6 +21301,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:billing
@@ -21135,6 +21666,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:licenses
@@ -21551,6 +22088,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:licenses
@@ -21820,6 +22363,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:licenses
@@ -21912,6 +22461,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:licenses
@@ -21992,6 +22547,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:licenses
@@ -22068,6 +22629,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:licenses
@@ -22155,6 +22722,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:licenses
@@ -22231,6 +22804,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:licenses
@@ -22507,6 +23086,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:metadata_fields
@@ -23048,6 +23633,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
         "500":
           content:
             application/problem+json:
@@ -23060,6 +23651,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - publishableKey: []
       summary: Get the public catalogue
@@ -23116,6 +23713,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Conflict
+          headers:
+            Retry-After:
+              description: "On .BoundaryPending: seconds until the period's close is expected to have run"
+              schema:
+                minimum: 0
+                type: integer
         "422":
           content:
             application/problem+json:
@@ -23128,6 +23731,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
         "500":
           content:
             application/problem+json:
@@ -23140,6 +23749,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - customerSession: []
       summary: Set how many of an add-on the instance holds
@@ -23186,6 +23801,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Conflict
+          headers:
+            Retry-After:
+              description: "On .BoundaryPending: seconds until the period's close is expected to have run"
+              schema:
+                minimum: 0
+                type: integer
         "422":
           content:
             application/problem+json:
@@ -23198,6 +23819,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
         "500":
           content:
             application/problem+json:
@@ -23210,6 +23837,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - customerSession: []
       summary: Cancel the subscription at the period's end
@@ -23274,6 +23907,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
         "500":
           content:
             application/problem+json:
@@ -23286,6 +23925,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - customerSession: []
       summary: Open a page to save a payment method
@@ -23354,6 +23999,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
         "500":
           content:
             application/problem+json:
@@ -23366,6 +24017,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - customerSession: []
       summary: Complete a payment method page
@@ -23430,6 +24087,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
         "500":
           content:
             application/problem+json:
@@ -23442,6 +24105,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - customerSession: []
       summary: Open the payment provider's customer portal
@@ -23482,6 +24151,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Conflict
+          headers:
+            Retry-After:
+              description: "On .BoundaryPending: seconds until the period's close is expected to have run"
+              schema:
+                minimum: 0
+                type: integer
         "422":
           content:
             application/problem+json:
@@ -23494,6 +24169,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
         "500":
           content:
             application/problem+json:
@@ -23506,6 +24187,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - customerSession: []
       summary: Keep a subscription scheduled for cancellation
@@ -23522,6 +24209,12 @@ paths:
               $ref: "#/components/schemas/SessionCheckoutOrder"
         required: true
       responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionCheckout"
+          description: "A preview (dryRun), or requires_payment_method with the hosted setup page: nothing was subscribed"
         "201":
           content:
             application/json:
@@ -23564,6 +24257,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
         "500":
           content:
             application/problem+json:
@@ -23576,6 +24275,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - customerSession: []
       summary: Check out
@@ -23640,6 +24345,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
         "500":
           content:
             application/problem+json:
@@ -23680,6 +24391,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
         "500":
           content:
             application/problem+json:
@@ -23692,6 +24409,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - customerSession: []
       summary: Read the customer portal
@@ -23744,6 +24467,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
         "500":
           content:
             application/problem+json:
@@ -23756,6 +24485,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - customerSession: []
       summary: Check a voucher code
@@ -24133,6 +24868,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:releases
@@ -24397,6 +25138,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:tokens
@@ -24689,6 +25436,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:tokens
@@ -25196,6 +25949,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:vouchers
@@ -25266,6 +26025,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:vouchers
@@ -25331,6 +26096,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:vouchers
@@ -25390,6 +26161,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
         "500":
           content:
             application/problem+json:
@@ -25402,6 +26179,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:voucher_redemptions
@@ -25469,6 +26252,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:vouchers
@@ -25547,6 +26336,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:vouchers
@@ -25620,6 +26415,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:vouchers
@@ -25693,6 +26494,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:vouchers
@@ -25762,6 +26569,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:vouchers

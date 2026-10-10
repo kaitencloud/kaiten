@@ -524,6 +524,7 @@ func (s *Server) setupAPI() {
 
 	config = kaitenhuma.ConfigureSecurity(config)
 	config = kaitenhuma.ConfigureErrors(config)
+	config = kaitenhuma.ConfigureResponses(config)
 
 	config.Webhooks = make(map[string]*huma.PathItem)
 
@@ -559,6 +560,7 @@ func platformAPIConfig() huma.Config {
 
 	config = kaitenhuma.ConfigurePlatformSecurity(config)
 	config = kaitenhuma.ConfigureErrors(config)
+	config = kaitenhuma.ConfigureResponses(config)
 
 	return config
 }
