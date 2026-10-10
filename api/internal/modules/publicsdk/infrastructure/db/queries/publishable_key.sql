@@ -13,7 +13,10 @@ SELECT id, label, key_hint, allowed_origins, last_used_at, created_at, updated_a
 FROM publishable_key
 WHERE organization_id = sqlc.arg(organization_id)
   AND (sqlc.arg(include_revoked)::boolean OR revoked_at IS NULL)
-ORDER BY created_at DESC, id;
+  AND (sqlc.narg(cursor_at)::timestamp IS NULL
+    OR (created_at, id) < (sqlc.narg(cursor_at)::timestamp, sqlc.narg(cursor_id)::uuid))
+ORDER BY created_at DESC, id DESC
+LIMIT sqlc.narg(row_limit)::integer;
 
 
 -- name: GetPublishableKeyForUpdate :one

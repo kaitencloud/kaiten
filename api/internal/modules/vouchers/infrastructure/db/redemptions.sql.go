@@ -572,7 +572,10 @@ WHERE iv.organization_id = $1
   AND ($3::uuid IS NULL OR iv.voucher_id = $3)
   AND ($4::uuid IS NULL OR iv.id = $4)
   AND ($5::instance_voucher_status IS NULL OR iv.status = $5)
+  AND ($6::timestamp IS NULL
+    OR (iv.redeemed_at, iv.id) < ($6::timestamp, $7::uuid))
 ORDER BY iv.redeemed_at DESC, iv.id DESC
+LIMIT $8::integer
 `
 
 type ListRedemptionsParams struct {
@@ -581,6 +584,9 @@ type ListRedemptionsParams struct {
 	VoucherID      *uuid.UUID             `json:"voucher_id"`
 	ID             *uuid.UUID             `json:"id"`
 	Status         *InstanceVoucherStatus `json:"status"`
+	CursorAt       pgtype.Timestamp       `json:"cursor_at"`
+	CursorID       *uuid.UUID             `json:"cursor_id"`
+	RowLimit       *int32                 `json:"row_limit"`
 }
 
 type ListRedemptionsRow struct {
@@ -602,6 +608,7 @@ type ListRedemptionsRow struct {
 	DurationInPeriods  *int32                `json:"duration_in_periods"`
 }
 
+// NULL reads every match: an instance's redemptions, and the single reads.
 func (q *Queries) ListRedemptions(ctx context.Context, arg ListRedemptionsParams) ([]ListRedemptionsRow, error) {
 	rows, err := q.db.Query(ctx, listRedemptions,
 		arg.OrganizationID,
@@ -609,6 +616,9 @@ func (q *Queries) ListRedemptions(ctx context.Context, arg ListRedemptionsParams
 		arg.VoucherID,
 		arg.ID,
 		arg.Status,
+		arg.CursorAt,
+		arg.CursorID,
+		arg.RowLimit,
 	)
 	if err != nil {
 		return nil, err

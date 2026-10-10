@@ -6353,6 +6353,23 @@ components:
         - overagePercent
         - rows
       type: object
+    PageAddon:
+      additionalProperties: false
+      properties:
+        hasMore:
+          description: Whether more rows exist beyond this page.
+          type: boolean
+        items:
+          items:
+            $ref: "#/components/schemas/Addon"
+          type: array
+        nextCursor:
+          description: Opaque cursor for the next page. Absent when hasMore is false.
+          type: string
+      required:
+        - items
+        - hasMore
+      type: object
     PageAuditTrail:
       additionalProperties: false
       properties:
@@ -6574,6 +6591,23 @@ components:
         - items
         - hasMore
       type: object
+    PagePublishableKey:
+      additionalProperties: false
+      properties:
+        hasMore:
+          description: Whether more rows exist beyond this page.
+          type: boolean
+        items:
+          items:
+            $ref: "#/components/schemas/PublishableKey"
+          type: array
+        nextCursor:
+          description: Opaque cursor for the next page. Absent when hasMore is false.
+          type: string
+      required:
+        - items
+        - hasMore
+      type: object
     PageQueuedInvoice:
       additionalProperties: false
       properties:
@@ -6583,6 +6617,23 @@ components:
         items:
           items:
             $ref: "#/components/schemas/QueuedInvoice"
+          type: array
+        nextCursor:
+          description: Opaque cursor for the next page. Absent when hasMore is false.
+          type: string
+      required:
+        - items
+        - hasMore
+      type: object
+    PageRedemption:
+      additionalProperties: false
+      properties:
+        hasMore:
+          description: Whether more rows exist beyond this page.
+          type: boolean
+        items:
+          items:
+            $ref: "#/components/schemas/Redemption"
           type: array
         nextCursor:
           description: Opaque cursor for the next page. Absent when hasMore is false.
@@ -6651,6 +6702,23 @@ components:
         items:
           items:
             $ref: "#/components/schemas/Token"
+          type: array
+        nextCursor:
+          description: Opaque cursor for the next page. Absent when hasMore is false.
+          type: string
+      required:
+        - items
+        - hasMore
+      type: object
+    PageVoucher:
+      additionalProperties: false
+      properties:
+        hasMore:
+          description: Whether more rows exist beyond this page.
+          type: boolean
+        items:
+          items:
+            $ref: "#/components/schemas/Voucher"
           type: array
         nextCursor:
           description: Opaque cursor for the next page. Absent when hasMore is false.
@@ -11891,14 +11959,29 @@ paths:
           schema:
             description: Only versions of this family
             type: string
+        - description: Opaque pagination cursor from a previous response's nextCursor
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: Opaque pagination cursor from a previous response's nextCursor
+            type: string
+        - description: Maximum number of entries to return (default 50, max 200)
+          explode: false
+          in: query
+          name: limit
+          schema:
+            description: Maximum number of entries to return (default 50, max 200)
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
       responses:
         "200":
           content:
             application/json:
               schema:
-                items:
-                  $ref: "#/components/schemas/Addon"
-                type: array
+                $ref: "#/components/schemas/PageAddon"
           description: OK
         "400":
           content:
@@ -25078,14 +25161,29 @@ paths:
           schema:
             description: Also list revoked keys
             type: boolean
+        - description: Opaque pagination cursor from a previous response's nextCursor
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: Opaque pagination cursor from a previous response's nextCursor
+            type: string
+        - description: Maximum number of entries to return (default 50, max 200)
+          explode: false
+          in: query
+          name: limit
+          schema:
+            description: Maximum number of entries to return (default 50, max 200)
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
       responses:
         "200":
           content:
             application/json:
               schema:
-                items:
-                  $ref: "#/components/schemas/PublishableKey"
-                type: array
+                $ref: "#/components/schemas/PagePublishableKey"
           description: OK
         "400":
           content:
@@ -26468,14 +26566,29 @@ paths:
           name: restrictedCustomerSlug
           schema:
             type: string
+        - description: Opaque pagination cursor from a previous response's nextCursor
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: Opaque pagination cursor from a previous response's nextCursor
+            type: string
+        - description: Maximum number of entries to return (default 50, max 200)
+          explode: false
+          in: query
+          name: limit
+          schema:
+            description: Maximum number of entries to return (default 50, max 200)
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
       responses:
         "200":
           content:
             application/json:
               schema:
-                items:
-                  $ref: "#/components/schemas/Voucher"
-                type: array
+                $ref: "#/components/schemas/PageVoucher"
           description: OK
         "400":
           content:
@@ -27088,14 +27201,29 @@ paths:
           schema:
             description: Voucher id
             type: string
+        - description: Opaque pagination cursor from a previous response's nextCursor
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: Opaque pagination cursor from a previous response's nextCursor
+            type: string
+        - description: Maximum number of entries to return (default 50, max 200)
+          explode: false
+          in: query
+          name: limit
+          schema:
+            description: Maximum number of entries to return (default 50, max 200)
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
       responses:
         "200":
           content:
             application/json:
               schema:
-                items:
-                  $ref: "#/components/schemas/Redemption"
-                type: array
+                $ref: "#/components/schemas/PageRedemption"
           description: OK
         "400":
           content:

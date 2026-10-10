@@ -35,6 +35,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/updateaddonfamily"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
+	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
 
 // Addons is the add-on module's operations: the add-on catalogue, and the
@@ -78,11 +79,11 @@ func (a Addons) CreateAddon(ctx context.Context, cl caller.OrganizationCaller, c
 	return a.uc.CreateAddon.Execute(bindOrganization(ctx, cl), command)
 }
 
-func (a Addons) ListAddons(ctx context.Context, cl caller.OrganizationCaller, lifecycleState, familySlug string) ([]catalogue.Addon, error) {
+func (a Addons) ListAddons(ctx context.Context, cl caller.OrganizationCaller, lifecycleState, familySlug, cursor string, limit int32) (pagination.Page[catalogue.Addon], error) {
 	if err := cl.Require(listaddons.RequiredScope); err != nil {
-		return nil, err
+		return pagination.Page[catalogue.Addon]{}, err
 	}
-	return a.uc.ListAddons.Execute(bindOrganization(ctx, cl), lifecycleState, familySlug)
+	return a.uc.ListAddons.Execute(bindOrganization(ctx, cl), lifecycleState, familySlug, cursor, limit)
 }
 
 func (a Addons) GetAddon(ctx context.Context, cl caller.OrganizationCaller, addonSlug string) (*catalogue.Addon, error) {

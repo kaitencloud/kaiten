@@ -309,16 +309,22 @@ WHERE v.organization_id = $1
   AND ($4::voucher_status IS NULL OR v.status = $4)
   AND ($5::voucher_type IS NULL OR v.voucher_type = $5)
   AND ($6::text IS NULL OR c.slug = $6)
+  AND ($7::timestamp IS NULL
+    OR (v.created_at, v.id) < ($7::timestamp, $8::uuid))
 ORDER BY v.created_at DESC, v.id DESC
+LIMIT $9::integer
 `
 
 type ListVouchersParams struct {
-	OrganizationID uuid.UUID      `json:"organization_id"`
-	ID             *uuid.UUID     `json:"id"`
-	Code           *string        `json:"code"`
-	Status         *VoucherStatus `json:"status"`
-	VoucherType    *VoucherType   `json:"voucher_type"`
-	CustomerSlug   *string        `json:"customer_slug"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	ID             *uuid.UUID       `json:"id"`
+	Code           *string          `json:"code"`
+	Status         *VoucherStatus   `json:"status"`
+	VoucherType    *VoucherType     `json:"voucher_type"`
+	CustomerSlug   *string          `json:"customer_slug"`
+	CursorAt       pgtype.Timestamp `json:"cursor_at"`
+	CursorID       *uuid.UUID       `json:"cursor_id"`
+	RowLimit       *int32           `json:"row_limit"`
 }
 
 type ListVouchersRow struct {
@@ -352,6 +358,7 @@ type ListVouchersRow struct {
 
 // Vouchers with their decimals as text, newest first; id narrows to one,
 // code to the one a normalized code names.
+// NULL reads every match: the single reads and the eligibility checks.
 func (q *Queries) ListVouchers(ctx context.Context, arg ListVouchersParams) ([]ListVouchersRow, error) {
 	rows, err := q.db.Query(ctx, listVouchers,
 		arg.OrganizationID,
@@ -360,6 +367,9 @@ func (q *Queries) ListVouchers(ctx context.Context, arg ListVouchersParams) ([]L
 		arg.Status,
 		arg.VoucherType,
 		arg.CustomerSlug,
+		arg.CursorAt,
+		arg.CursorID,
+		arg.RowLimit,
 	)
 	if err != nil {
 		return nil, err

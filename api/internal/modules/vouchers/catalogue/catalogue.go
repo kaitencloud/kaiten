@@ -224,6 +224,7 @@ func List(ctx context.Context, q *db.Queries, params db.ListVouchersParams, with
 func One(ctx context.Context, q *db.Queries, organizationID uuid.UUID, id *uuid.UUID, code *string, withCode bool, notFound error) (Voucher, error) {
 	list, err := List(ctx, q, db.ListVouchersParams{
 		OrganizationID: organizationID, ID: id, Code: code, Status: nil, VoucherType: nil, CustomerSlug: nil,
+		CursorAt: pgtype.Timestamp{}, CursorID: nil, RowLimit: nil,
 	}, withCode)
 	if err != nil {
 		return Voucher{}, err

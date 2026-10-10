@@ -94,6 +94,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, code string) (*cata
 		}
 		list, err := catalogue.Redemptions(ctx, q, db.ListRedemptionsParams{
 			OrganizationID: user.OrganizationID, InstanceID: nil, VoucherID: nil, ID: &id, Status: nil,
+			CursorAt: pgtype.Timestamp{}, CursorID: nil, RowLimit: nil,
 		})
 		if err != nil {
 			return err

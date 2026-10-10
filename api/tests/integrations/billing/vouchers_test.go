@@ -9,6 +9,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/validatevoucher"
+	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
@@ -86,8 +87,8 @@ func TestVoucherCatalogue(t *testing.T) {
 		require.Equal(t, "UpdateVoucher.NotEditable", problemCode(t, fiber.StatusConflict, "PUT", "/api/vouchers/"+custom.ID.String(),
 			percentOff("20", map[string]any{"name": "Summer", "duration": "FOREVER"})), "an active voucher's discount is fixed")
 
-		active := commonfixture.AssertJSONResponse[[]catalogue.Voucher](t, call(t, "GET", "/api/vouchers?status=ACTIVE", nil), fiber.StatusOK)
-		require.Len(t, active, 1)
+		active := commonfixture.AssertJSONResponse[pagination.Page[catalogue.Voucher]](t, call(t, "GET", "/api/vouchers?status=ACTIVE", nil), fiber.StatusOK)
+		require.Len(t, active.Items, 1)
 		archived := commonfixture.AssertJSONResponse[catalogue.Voucher](t, call(t, "POST", "/api/vouchers/"+custom.ID.String()+"/archive", nil), fiber.StatusOK)
 		require.Equal(t, catalogue.StatusArchived, archived.Status)
 		require.Equal(t, "ArchiveVoucher.AlreadyArchived", problemCode(t, fiber.StatusConflict, "POST", "/api/vouchers/"+custom.ID.String()+"/archive", nil))
@@ -281,4 +282,34 @@ func TestDiscountLines(t *testing.T) {
 		require.EqualValues(t, 0, activation.Total)
 		require.Equal(t, "PAID", activation.Status, "nothing is owed")
 	})
+}
+
+// §13.12: GET /vouchers is a Page<Voucher> (C-1 of the console team's note),
+// as /addons, /vouchers/{id}/redemptions and /publishable-keys are.
+func TestVoucherListIsPaged(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	created := map[string]bool{}
+	for _, name := range []string{"One", "Two", "Three"} {
+		created[newVoucher(t, percentOff("10", map[string]any{"name": name})).ID.String()] = true
+	}
+
+	first := commonfixture.AssertJSONResponse[pagination.Page[catalogue.Voucher]](t, call(t, "GET", "/api/vouchers?limit=2", nil), fiber.StatusOK)
+	require.Len(t, first.Items, 2)
+	require.True(t, first.HasMore)
+	require.NotNil(t, first.NextCursor)
+	second := commonfixture.AssertJSONResponse[pagination.Page[catalogue.Voucher]](t,
+		call(t, "GET", "/api/vouchers?limit=2&cursor="+*first.NextCursor, nil), fiber.StatusOK)
+	require.Len(t, second.Items, 1)
+	require.False(t, second.HasMore)
+	require.Nil(t, second.NextCursor)
+	seen := map[string]bool{}
+	for _, v := range append(first.Items, second.Items...) {
+		seen[v.ID.String()] = true
+	}
+	require.Equal(t, created, seen, "every voucher once, newest first")
+	require.True(t, !first.Items[0].CreatedAt.Before(first.Items[1].CreatedAt))
+
+	require.Equal(t, "Vouchers.InvalidCursor", problemCode(t, fiber.StatusBadRequest, "GET", "/api/vouchers?cursor=nope", nil))
+	require.Equal(t, "Addons.InvalidCursor", problemCode(t, fiber.StatusBadRequest, "GET", "/api/addons?cursor=nope", nil))
+	require.Equal(t, "PublishableKeys.InvalidCursor", problemCode(t, fiber.StatusBadRequest, "GET", "/api/publishable-keys?cursor=nope", nil))
 }

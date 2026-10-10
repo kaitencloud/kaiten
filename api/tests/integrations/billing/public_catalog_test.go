@@ -175,11 +175,11 @@ func TestPublicCatalog(t *testing.T) {
 	})
 
 	t.Run("listing never returns the key, and records its use", func(t *testing.T) {
-		listed := commonfixture.AssertJSONResponse[[]map[string]any](t, call(t, "GET", "/api/publishable-keys", nil), fiber.StatusOK)
-		require.Len(t, listed, 1)
-		require.NotContains(t, listed[0], "key")
-		require.Equal(t, key.KeyHint, listed[0]["keyHint"])
-		require.NotNil(t, listed[0]["lastUsedAt"])
+		listed := commonfixture.AssertJSONResponse[pagination.Page[map[string]any]](t, call(t, "GET", "/api/publishable-keys", nil), fiber.StatusOK)
+		require.Len(t, listed.Items, 1)
+		require.NotContains(t, listed.Items[0], "key")
+		require.Equal(t, key.KeyHint, listed.Items[0]["keyHint"])
+		require.NotNil(t, listed.Items[0]["lastUsedAt"])
 	})
 
 	t.Run("origins can change, and apply to the next request", func(t *testing.T) {
@@ -206,11 +206,11 @@ func TestPublicCatalog(t *testing.T) {
 		require.NotNil(t, revokedEvents[0]["revokedAt"])
 		require.Equal(t, "UpdatePublishableKey.Revoked", problemCode(t, fiber.StatusConflict, "PATCH",
 			"/api/publishable-keys/"+key.ID.String(), map[string]any{"label": "x"}))
-		listed := commonfixture.AssertJSONResponse[[]keys.PublishableKey](t, call(t, "GET", "/api/publishable-keys", nil), fiber.StatusOK)
-		require.Empty(t, listed)
-		withRevoked := commonfixture.AssertJSONResponse[[]keys.PublishableKey](t,
+		listed := commonfixture.AssertJSONResponse[pagination.Page[keys.PublishableKey]](t, call(t, "GET", "/api/publishable-keys", nil), fiber.StatusOK)
+		require.Empty(t, listed.Items)
+		withRevoked := commonfixture.AssertJSONResponse[pagination.Page[keys.PublishableKey]](t,
 			call(t, "GET", "/api/publishable-keys?includeRevoked=true", nil), fiber.StatusOK)
-		require.Len(t, withRevoked, 1)
+		require.Len(t, withRevoked.Items, 1)
 	})
 
 	t.Run("no key, and an unknown key, get one answer", func(t *testing.T) {

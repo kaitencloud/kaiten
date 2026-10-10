@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/shopspring/decimal"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/infrastructure/db"
@@ -54,6 +55,7 @@ type Candidate struct {
 func FindByCode(ctx context.Context, q *db.Queries, organizationID uuid.UUID, code string) (*Candidate, error) {
 	rows, err := q.ListVouchers(ctx, db.ListVouchersParams{
 		OrganizationID: organizationID, ID: nil, Code: &code, Status: nil, VoucherType: nil, CustomerSlug: nil,
+		CursorAt: pgtype.Timestamp{}, CursorID: nil, RowLimit: nil,
 	})
 	if err != nil {
 		return nil, err

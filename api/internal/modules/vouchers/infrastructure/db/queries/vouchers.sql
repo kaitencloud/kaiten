@@ -82,7 +82,11 @@ WHERE v.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(status)::voucher_status IS NULL OR v.status = sqlc.narg(status))
   AND (sqlc.narg(voucher_type)::voucher_type IS NULL OR v.voucher_type = sqlc.narg(voucher_type))
   AND (sqlc.narg(customer_slug)::text IS NULL OR c.slug = sqlc.narg(customer_slug))
-ORDER BY v.created_at DESC, v.id DESC;
+  AND (sqlc.narg(cursor_at)::timestamp IS NULL
+    OR (v.created_at, v.id) < (sqlc.narg(cursor_at)::timestamp, sqlc.narg(cursor_id)::uuid))
+ORDER BY v.created_at DESC, v.id DESC
+-- NULL reads every match: the single reads and the eligibility checks.
+LIMIT sqlc.narg(row_limit)::integer;
 
 
 -- name: LockVoucher :one

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/infrastructure/db"
@@ -29,7 +30,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, status string) ([]c
 	if err != nil {
 		return nil, err
 	}
-	params := db.ListRedemptionsParams{OrganizationID: user.OrganizationID, InstanceID: &instance.ID, VoucherID: nil, ID: nil, Status: nil}
+	params := db.ListRedemptionsParams{OrganizationID: user.OrganizationID, InstanceID: &instance.ID, VoucherID: nil, ID: nil, Status: nil, CursorAt: pgtype.Timestamp{}, CursorID: nil, RowLimit: nil}
 	if status != "" {
 		s := db.InstanceVoucherStatus(status)
 		params.Status = &s
