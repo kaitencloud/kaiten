@@ -39,8 +39,10 @@ describe('resolveBillingAvailability', () => {
   });
 
   it('reads a disabled answer with no reason as a disabled deployment', () => {
-    const { disabledReason: _omitted, ...capabilities } =
-      billingCapabilitiesProfiles.disabled();
+    const capabilities = {
+      ...billingCapabilitiesProfiles.disabled(),
+      disabledReason: null,
+    };
 
     expect(resolveBillingAvailability(capabilities, null)).toEqual({
       available: false,

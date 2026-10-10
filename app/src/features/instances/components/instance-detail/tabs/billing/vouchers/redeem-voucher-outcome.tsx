@@ -59,7 +59,7 @@ export function RedeemVoucherOutcome({
           <DetailCard.Row
             label={t(`${base}.applications`)}
             value={
-              redemption.applicationsMax === undefined
+              redemption.applicationsMax === null
                 ? t(`${base}.everyInvoice`)
                 : t(`${base}.invoices`, { count: redemption.applicationsMax })
             }

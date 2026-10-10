@@ -531,9 +531,10 @@ export class BillingProviders {
     const now = this.host.now();
     const invoices = this.host.invoices().snapshot();
     const subscriptions = this.host.subscriptions();
-    const oldest = (instants: Array<string | undefined>) => {
+    const oldest = (instants: Array<string | null | undefined>) => {
       const known = instants.filter(
-        (instant): instant is string => instant !== undefined,
+        (instant): instant is string =>
+          instant !== undefined && instant !== null,
       );
 
       return known.length > 0

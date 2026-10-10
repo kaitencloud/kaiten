@@ -9,6 +9,9 @@ import {
 
 const NOW = Date.parse('2027-03-10T12:00:00.000Z');
 
+// A subscription with no plan change scheduled: the contract has the member null, as an object or null.
+const NO_CHANGE = null as never;
+
 describe('the days of a trial that are left', () => {
   it('rounds up, so that a trial ending in five hours has a day left', () => {
     expect(getDaysUntil('2027-03-10T17:00:00.000Z', NOW)).toBe(1);
@@ -59,6 +62,7 @@ describe('when the first invoice of a trial is issued', () => {
         basePrice: buildPrice({ id: 'a', unitAmountDecimal: '1' }),
         billingPeriod: 'MONTHLY',
         currentPeriodEnd: '2027-03-15T00:00:00.000Z',
+        trialEndsAt: null,
       }),
     ).toBe('2027-03-15T00:00:00.000Z');
   });
@@ -68,18 +72,18 @@ describe('which notices a subscription calls for', () => {
   const change = { effectiveAt: '2027-04-01T00:00:00.000Z', price: buildPrice({ id: 'p', unitAmountDecimal: '1' }), scheduledAt: '2027-03-01T00:00:00.000Z' };
 
   it('has none while it just runs, and none once it ended, whatever else it still carries', () => {
-    expect(getSubscriptionNotices({ cancelAtPeriodEnd: false, status: 'ACTIVE' })).toEqual([]);
+    expect(getSubscriptionNotices({ cancelAtPeriodEnd: false, scheduledChange: NO_CHANGE, status: 'ACTIVE' })).toEqual([]);
     expect(
       getSubscriptionNotices({ cancelAtPeriodEnd: true, scheduledChange: change, status: 'CANCELED' }),
     ).toEqual([]);
   });
 
   it.each([
-    [{ cancelAtPeriodEnd: false, status: 'TRIAL' }, ['trial']],
-    [{ cancelAtPeriodEnd: false, status: 'PAST_DUE' }, ['past-due']],
-    [{ cancelAtPeriodEnd: true, status: 'ACTIVE' }, ['cancellation']],
+    [{ cancelAtPeriodEnd: false, scheduledChange: NO_CHANGE, status: 'TRIAL' }, ['trial']],
+    [{ cancelAtPeriodEnd: false, scheduledChange: NO_CHANGE, status: 'PAST_DUE' }, ['past-due']],
+    [{ cancelAtPeriodEnd: true, scheduledChange: NO_CHANGE, status: 'ACTIVE' }, ['cancellation']],
     [{ cancelAtPeriodEnd: false, scheduledChange: change, status: 'ACTIVE' }, ['scheduled-change']],
-    [{ cancelAtPeriodEnd: true, status: 'PAST_DUE' }, ['past-due', 'cancellation']],
+    [{ cancelAtPeriodEnd: true, scheduledChange: NO_CHANGE, status: 'PAST_DUE' }, ['past-due', 'cancellation']],
     [{ cancelAtPeriodEnd: false, scheduledChange: change, status: 'PAST_DUE' }, ['past-due', 'scheduled-change']],
   ] as const)('tells %j in this order: %j', (subscription, notices) => {
     expect(getSubscriptionNotices(subscription)).toEqual(notices);

@@ -5,6 +5,7 @@ import type {
   Price,
 } from '@/api-client';
 import { TEST_USER } from './build-customer';
+import { NULL_OBJECT } from './null-object';
 
 const CREATED_AT = '2026-03-01T09:00:00.000Z';
 
@@ -131,20 +132,20 @@ export function buildPrice({
 
   return {
     billingModel,
-    billingPeriod: isMetered ? undefined : (billingPeriod ?? 'MONTHLY'),
+    billingPeriod: isMetered ? null : (billingPeriod ?? 'MONTHLY'),
     billingTiming: billingTiming ?? (isMetered ? 'ARREARS' : 'ADVANCE'),
     createdAt,
     currency,
-    deprecatedAt,
-    displayLabel,
+    deprecatedAt: deprecatedAt ?? null,
+    displayLabel: displayLabel ?? null,
     displayOrder,
     id,
     isDefault,
-    metered,
+    metered: metered ?? NULL_OBJECT,
     status,
     unitAmount: /^\d+$/.test(unitAmountDecimal)
       ? Number(unitAmountDecimal)
-      : undefined,
+      : null,
     unitAmountDecimal,
     updatedAt: createdAt,
   };

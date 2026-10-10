@@ -55,11 +55,11 @@ describe('toCatalogPrice', () => {
     });
   });
 
-  it('leaves out what the API sends as null, since the contract leaves it out', () => {
+  it('keeps what the API sends as null, since the contract has those members null too', () => {
     const price = toCatalogPrice(priceInput({ displayLabel: null }));
 
     expect(price).not.toBeNull();
-    expect(price).not.toHaveProperty('displayLabel');
+    expect(price).toHaveProperty('displayLabel', null);
     expect(price).not.toHaveProperty('metered');
   });
 
@@ -80,7 +80,7 @@ describe('toCatalogPrice', () => {
       metered: { entitlementSlug: 'requests', saleUnitFactor: '1000' },
       unitAmountDecimal: '0.2',
     });
-    expect(price).not.toHaveProperty('billingPeriod');
+    expect(price).toHaveProperty('billingPeriod', null);
   });
 
   it('takes a sale unit of one for a metered price that names none', () => {

@@ -24,7 +24,7 @@ describe('the push a person asked for', () => {
       attempts: 3,
       startedAt: 1_000,
     });
-    expect(startPushWatch({}, 5)).toEqual({ attempts: 0, startedAt: 5 });
+    expect(startPushWatch({ provider: null as never }, 5)).toEqual({ attempts: 0, startedAt: 5 });
   });
 
   it('has not had its turn while the invoice waits in the queue', () => {

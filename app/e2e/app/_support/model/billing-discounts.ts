@@ -37,9 +37,9 @@ const isTarget = (voucher: Voucher, line: InvoiceLine): boolean => {
       return line.type === 'BASE' || line.type === 'ADDON';
     case 'SELECTED_PRICES':
       return (
-        (line.licensePriceId !== undefined &&
+        (line.licensePriceId !== null &&
           voucher.applicableLicensePriceIds.includes(line.licensePriceId)) ||
-        (line.addonPriceId !== undefined &&
+        (line.addonPriceId !== null &&
           voucher.applicableAddonPriceIds.includes(line.addonPriceId))
       );
     default:
@@ -64,9 +64,9 @@ export function appliesAt(
     voucher.voucherType === 'PRICE' &&
     Date.parse(redemption.redeemedAt) <= at &&
     Date.parse(redemption.effectiveStartsAt) <= at &&
-    (redemption.effectiveExpiresAt === undefined ||
+    (redemption.effectiveExpiresAt === null ||
       at < Date.parse(redemption.effectiveExpiresAt)) &&
-    (redemption.applicationsMax === undefined ||
+    (redemption.applicationsMax === null ||
       redemption.applicationsCount < redemption.applicationsMax) &&
     (voucher.priceDiscountType !== 'FIXED_AMOUNT' ||
       voucher.currency === currency)
@@ -243,7 +243,7 @@ export function composeDiscounts({
             applicationsMax: redemption.applicationsMax,
             appliesTo: voucher.priceAppliesTo ?? 'LICENSE_BASE',
             base: String(discount.base),
-            currency: percentage ? undefined : voucher.currency,
+            currency: percentage ? null : (voucher.currency ?? null),
             discountType: voucher.priceDiscountType ?? 'PERCENTAGE',
             discountValue: voucher.priceDiscountValue ?? '0',
             targetSeqs: discount.targets,

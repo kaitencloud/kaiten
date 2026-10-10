@@ -89,7 +89,7 @@ export function priceToFormValues(price: Price): LicensePriceFormValues {
   return {
     amount: minorToMajorDecimal(price.unitAmountDecimal, price.currency) ?? '',
     billingModel: price.billingModel,
-    billingPeriod: price.billingPeriod,
+    billingPeriod: price.billingPeriod ?? undefined,
     billingTiming: price.billingTiming,
     currency: price.currency,
     displayLabel: price.displayLabel ?? '',

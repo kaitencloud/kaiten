@@ -489,7 +489,7 @@ describe('the retention', () => {
   it('says no limit is reported when the deployment gives none', async () => {
     server.use(
       handleGetBillingCapabilities({
-        body: billingCapabilities({ usageHistoryRetentionMonths: undefined }),
+        body: billingCapabilities({ usageHistoryRetentionMonths: null }),
       }),
     );
     renderPage();

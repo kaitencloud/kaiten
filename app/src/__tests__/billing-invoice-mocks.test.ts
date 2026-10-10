@@ -320,7 +320,7 @@ describe('the actions on an invoice, as the mocks serve them', () => {
       hold: { releaseReason: 'Accepted after review' },
       status: 'MANUAL',
     });
-    expect(invoice.holdReason).toBeUndefined();
+    expect(invoice.holdReason).toBeNull();
     expect(invoice.dueAt).toBeDefined();
   });
 

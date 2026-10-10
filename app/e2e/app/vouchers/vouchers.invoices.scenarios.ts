@@ -80,6 +80,7 @@ const INVOICES: Invoice[] = [
             { amount: 300, targetSeq: 2 },
           ],
           application: 4,
+          applicationsMax: null,
           appliesTo: 'BOTH',
           base: '5000',
           currency: 'USD',

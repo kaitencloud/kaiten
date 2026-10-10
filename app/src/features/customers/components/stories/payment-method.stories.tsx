@@ -41,6 +41,7 @@ const billing = (paymentMethod: PaymentMethodLabels | null) =>
               externalCustomerId: 'cus_acme',
               paymentMethod,
               providerKind: 'STRIPE',
+              syncedAt: null,
               webUrl: 'https://dashboard.stripe.com/test/customers/cus_acme',
             },
           ]

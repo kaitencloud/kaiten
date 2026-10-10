@@ -1,4 +1,4 @@
-import type { License, Price } from '@/api-client';
+import type { License, Price, PriceMeter } from '@/api-client';
 import type { GetLicensesWithPricesQuery } from '@/api-client/graphql/graphql';
 import { zLicense, zPrice, zPriceMeter } from '@/api-client/zod.gen';
 
@@ -13,12 +13,15 @@ export type CatalogPriceInput = PriceItem;
  * A price as the screens that read the catalogue show it. It has the members of the
  * contract's `Price` that a price is described by (its model, period, timing,
  * currency, amount and meter, its label and order, whether it is the default of its
- * period), and none of the stamps the GraphQL document leaves out.
+ * period), and none of the stamps the GraphQL document leaves out. The document
+ * does not carry the amount as an integer (`unitAmount`) either, only the decimal
+ * one every screen reads, and a price with no meter has none, where the contract
+ * has it null.
  */
 export type CatalogPrice = Omit<
   Price,
-  'createdAt' | 'deprecatedAt' | 'updatedAt'
->;
+  'createdAt' | 'deprecatedAt' | 'metered' | 'unitAmount' | 'updatedAt'
+> & { metered?: PriceMeter };
 
 /** How a license version is sold (`License.pricingType`). */
 export type LicensePricingType = NonNullable<License['pricingType']>;
@@ -61,12 +64,6 @@ const catalogPriceSchema = zPrice.pick({
   unitAmountDecimal: true,
 });
 
-/** The GraphQL API sends `null` for a member a price does not have; the contract leaves it out. */
-const withoutNulls = <T extends object>(value: T) =>
-  Object.fromEntries(
-    Object.entries(value).filter(([, member]) => member !== null),
-  );
-
 /**
  * A price of the document as the contract has it, or nothing when one of its enums is
  * not the contract's: a price whose model, timing, period or status the console cannot
@@ -74,20 +71,18 @@ const withoutNulls = <T extends object>(value: T) =>
  * entitlement it measures and the units in a sale unit.
  */
 export function toCatalogPrice(input: CatalogPriceInput): CatalogPrice | null {
-  const price = catalogPriceSchema.safeParse(
-    withoutNulls({
-      billingModel: input.billingModel,
-      billingPeriod: input.billingPeriod,
-      billingTiming: input.billingTiming,
-      currency: input.currency,
-      displayLabel: input.displayLabel,
-      displayOrder: input.displayOrder,
-      id: input.id,
-      isDefault: input.isDefault,
-      status: input.status,
-      unitAmountDecimal: input.unitAmountDecimal,
-    }),
-  );
+  const price = catalogPriceSchema.safeParse({
+    billingModel: input.billingModel,
+    billingPeriod: input.billingPeriod,
+    billingTiming: input.billingTiming,
+    currency: input.currency,
+    displayLabel: input.displayLabel,
+    displayOrder: input.displayOrder,
+    id: input.id,
+    isDefault: input.isDefault,
+    status: input.status,
+    unitAmountDecimal: input.unitAmountDecimal,
+  });
   if (!price.success) {
     return null;
   }

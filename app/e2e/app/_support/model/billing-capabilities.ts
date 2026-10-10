@@ -132,10 +132,12 @@ export function billingCapabilities(
   return parseContract(
     zBillingCapabilities,
     {
+      disabledReason: null,
       enabled,
       features: SHIPPED_BILLING_FEATURES,
       providers: [NOOP_PROVIDER],
       publicSurface: { enabled },
+      usageHistoryRetentionMonths: null,
       usageIdempotencyWindowDays: 35,
       ...overrides,
     },

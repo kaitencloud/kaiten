@@ -8,6 +8,7 @@ import type {
   ProviderRecord,
   UsageReport,
 } from '@/api-client';
+import { NULL_OBJECT } from './null-object';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -42,6 +43,45 @@ const addDays = (instant: string, days: number) =>
   new Date(Date.parse(instant) + days * DAY_MS).toISOString();
 
 /**
+ * The members a line of an invoice may not have, all null, for a line a mock or a story
+ * composes itself (a preview) and fills in with the few members it does have.
+ */
+export const NULL_LINE_MEMBERS: Pick<
+  InvoiceLine,
+  | 'addonId'
+  | 'addonPriceId'
+  | 'billingModel'
+  | 'billingTiming'
+  | 'discount'
+  | 'entitlementId'
+  | 'entitlementSlug'
+  | 'instanceAddonId'
+  | 'instanceVoucherId'
+  | 'licensePriceId'
+  | 'metering'
+  | 'overage'
+  | 'provider'
+  | 'unitAmountDecimal'
+  | 'voucherId'
+> = {
+  addonId: null,
+  addonPriceId: null,
+  billingModel: null,
+  billingTiming: null,
+  discount: NULL_OBJECT,
+  entitlementId: null,
+  entitlementSlug: null,
+  instanceAddonId: null,
+  instanceVoucherId: null,
+  licensePriceId: null,
+  metering: NULL_OBJECT,
+  overage: NULL_OBJECT,
+  provider: NULL_OBJECT,
+  unitAmountDecimal: null,
+  voucherId: null,
+};
+
+/**
  * Build a line of an invoice, as the API answers it. The amount is the API's
  * field, so it is given and never worked out from a quantity and a price: a
  * test that wants a line that disagrees with its totals can have one.
@@ -69,67 +109,70 @@ export function buildInvoiceLine({
   voucherId,
 }: {
   /** The add-on price an ADDON line bills. */
-  addonPriceId?: string;
+  addonPriceId?: string | null;
   amount: number;
   description: string;
   /** How a DISCOUNT line was computed: what it discounts, and the application it is. */
-  discount?: InvoiceLineDiscount;
-  entitlementId?: string;
-  entitlementSlug?: string;
+  discount?: InvoiceLineDiscount | null;
+  entitlementId?: string | null;
+  entitlementSlug?: string | null;
   id?: string;
   /** The redemption a DISCOUNT line applies. */
-  instanceVoucherId?: string;
+  instanceVoucherId?: string | null;
   invoiceId: string;
   label: string;
   /** The license price the line bills; a stand-in name when left out. */
-  licensePriceId?: string;
-  metering?: InvoiceLineMetering;
-  overage?: InvoiceLineOverage;
+  licensePriceId?: string | null;
+  metering?: InvoiceLineMetering | null;
+  overage?: InvoiceLineOverage | null;
   quantity?: string;
   seq: number;
   serviceFrom: string;
   serviceTo: string;
   type: InvoiceLine['type'];
-  unitAmountDecimal?: string;
+  unitAmountDecimal?: string | null;
   /** The voucher a DISCOUNT line applies. */
-  voucherId?: string;
+  voucherId?: string | null;
 }): InvoiceLine {
   const isDiscount = type === 'DISCOUNT';
   const isMetered = type === 'USAGE' || type === 'OVERAGE';
 
+  // The members a line does not have are null, as the contract has them: a discount
+  // has no price of its own, an add-on no license price, a flat fee no metering.
   return {
-    addonPriceId: type === 'ADDON' ? addonPriceId : undefined,
+    addonId: null,
+    addonPriceId: type === 'ADDON' ? (addonPriceId ?? null) : null,
     amount,
-    // A discount has no price of its own, and an add-on no license price: the
-    // contract leaves those members out of such a line.
     billingModel: isDiscount
-      ? undefined
+      ? null
       : type === 'OVERAGE'
         ? 'OVERAGE'
         : type === 'USAGE'
           ? 'USAGE_BASED'
           : 'FLAT_FEE',
-    billingTiming: isDiscount ? undefined : isMetered ? 'ARREARS' : 'ADVANCE',
+    billingTiming: isDiscount ? null : isMetered ? 'ARREARS' : 'ADVANCE',
     description,
-    discount: isDiscount ? discount : undefined,
-    entitlementId: isMetered ? entitlementId : undefined,
-    entitlementSlug: isMetered ? entitlementSlug : undefined,
+    discount: isDiscount ? (discount ?? NULL_OBJECT) : NULL_OBJECT,
+    entitlementId: isMetered ? (entitlementId ?? null) : null,
+    entitlementSlug: isMetered ? (entitlementSlug ?? null) : null,
     id: id ?? `${invoiceId}-line-${seq}`,
-    instanceVoucherId: isDiscount ? instanceVoucherId : undefined,
+    instanceAddonId: null,
+    instanceVoucherId: isDiscount ? (instanceVoucherId ?? null) : null,
     label,
     licensePriceId:
       isDiscount || type === 'ADDON'
-        ? undefined
+        ? null
         : (licensePriceId ?? `price-${type.toLowerCase()}`),
-    metering: isMetered ? metering : undefined,
-    overage: type === 'OVERAGE' ? overage : undefined,
+    metering: isMetered ? (metering ?? NULL_OBJECT) : NULL_OBJECT,
+    overage: type === 'OVERAGE' ? (overage ?? NULL_OBJECT) : NULL_OBJECT,
+    provider: NULL_OBJECT,
     quantity,
     seq,
     serviceFrom,
     serviceTo,
     type,
-    unitAmountDecimal: isDiscount ? undefined : unitAmountDecimal,
-    voucherId: isDiscount ? voucherId : undefined,
+    unitAmountDecimal: isDiscount ? null : (unitAmountDecimal ?? null),
+    voucherId: isDiscount ? (voucherId ?? null) : null,
   };
 }
 
@@ -174,9 +217,10 @@ export function buildInvoice({
   collectionMethod?: Invoice['collectionMethod'];
   createdAt?: string;
   currency?: string;
-  daysUntilDue?: number;
+  /** Null: the invoice has no terms. */
+  daysUntilDue?: number | null;
   discountTotal?: number;
-  dueAt?: string;
+  dueAt?: string | null;
   handoff?: Partial<InvoiceHandoff>;
   hold?: Invoice['hold'];
   holdDetail?: Invoice['holdDetail'];
@@ -187,19 +231,19 @@ export function buildInvoice({
   issuedAt?: string | null;
   kind?: Invoice['kind'];
   lines: InvoiceLine[];
-  paidAt?: string;
+  paidAt?: string | null;
   /** The invoice in its payment provider; given, the invoice is Stripe's unless it says otherwise. */
   provider?: Invoice['provider'];
   providerKind?: Invoice['providerKind'];
-  replacedByInvoiceId?: string;
-  replacesInvoiceId?: string;
+  replacedByInvoiceId?: string | null;
+  replacesInvoiceId?: string | null;
   status?: Invoice['status'];
   subtotal?: number;
   total?: number;
-  uncollectibleAt?: string;
+  uncollectibleAt?: string | null;
   updatedAt?: string;
-  voidReason?: string;
-  voidedAt?: string;
+  voidReason?: string | null;
+  voidedAt?: string | null;
 }): Invoice {
   const positives = lines.filter((line) => line.amount > 0);
   const negatives = lines.filter((line) => line.amount < 0);
@@ -214,14 +258,14 @@ export function buildInvoice({
   const composedDiscount = discountTotal ?? -sumOf(negatives);
   const issued =
     issuedAt === null || (issuedAt === undefined && status === 'DRAFT')
-      ? undefined
+      ? null
       : (issuedAt ?? boundaryAt);
   const periodStarts = lines.map((line) => Date.parse(line.serviceFrom));
   const periodEnds = lines.map((line) => Date.parse(line.serviceTo));
   const created = createdAt ?? boundaryAt;
 
   return {
-    billingEmail: billingEmail ?? undefined,
+    billingEmail,
     boundaryAt,
     collectionMethod:
       collectionMethod ??
@@ -230,18 +274,21 @@ export function buildInvoice({
     currency,
     customerName: identity.customerName,
     customerSlug: identity.customerSlug,
-    daysUntilDue: issued ? daysUntilDue : undefined,
+    daysUntilDue: issued ? daysUntilDue : null,
     discountTotal: composedDiscount,
-    dueAt: issued ? (dueAt ?? addDays(issued, daysUntilDue)) : undefined,
+    dueAt: issued
+      ? (dueAt ??
+        (daysUntilDue === null ? null : addDays(issued, daysUntilDue)))
+      : null,
     handoff: {
       claimCount: 0,
       status: 'NOT_REQUIRED',
       ...handoff,
     },
     handoffStatus: handoff?.status ?? 'NOT_REQUIRED',
-    hold,
-    holdDetail,
-    holdReason,
+    hold: hold ?? NULL_OBJECT,
+    holdDetail: holdDetail ?? NULL_OBJECT,
+    holdReason: holdReason ?? null,
     id,
     instanceName: identity.instanceName,
     instanceSlug: identity.instanceSlug,
@@ -250,11 +297,11 @@ export function buildInvoice({
     licenseId: identity.licenseId,
     licenseSlug: identity.licenseSlug,
     lines,
-    paidAt,
-    provider,
+    paidAt: paidAt ?? null,
+    provider: provider ?? NULL_OBJECT,
     providerKind,
-    replacedByInvoiceId,
-    replacesInvoiceId,
+    replacedByInvoiceId: replacedByInvoiceId ?? null,
+    replacesInvoiceId: replacesInvoiceId ?? null,
     serviceFrom: new Date(
       periodStarts.length > 0
         ? Math.min(...periodStarts)
@@ -266,10 +313,10 @@ export function buildInvoice({
     status,
     subtotal: composedSubtotal,
     total: total ?? composedSubtotal - composedDiscount,
-    uncollectibleAt,
+    uncollectibleAt: uncollectibleAt ?? null,
     updatedAt: updatedAt ?? created,
-    voidReason,
-    voidedAt,
+    voidReason: voidReason ?? null,
+    voidedAt: voidedAt ?? null,
   };
 }
 

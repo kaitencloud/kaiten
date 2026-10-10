@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test';
 import { testI18n } from '@/__tests__/test-i18n';
 import type { InvoiceLine, InvoicePreview } from '@/api-client';
+import { NULL_LINE_MEMBERS } from '../../../../e2e/app/_support/fixtures/build-invoice';
 import en from '@/lib/i18n/locales/en';
 import fr from '@/lib/i18n/locales/fr';
 import {
@@ -30,6 +31,7 @@ const PERIOD = {
 
 const line = (overrides: Partial<InvoiceLine> & Pick<InvoiceLine, 'seq'>) =>
   ({
+    ...NULL_LINE_MEMBERS,
     amount: 2900,
     description: '1 × 29.00 USD',
     label: 'Pro, base',

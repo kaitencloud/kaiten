@@ -4,6 +4,7 @@ import type { AnchorHTMLAttributes } from 'react';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vite-plus/test';
 import { testI18n } from '@/__tests__/test-i18n';
 import type { InvoiceLine, UsageReport } from '@/api-client';
+import { NULL_LINE_MEMBERS } from '../../../../../e2e/app/_support/fixtures/build-invoice';
 import { getLimitChangeSeqs } from '@/domains/billing';
 import { ApiError } from '@/lib/errors';
 import en from '@/lib/i18n/locales/en';
@@ -210,6 +211,7 @@ describe('the card of a reset window', () => {
 });
 
 const line = (overrides: Partial<InvoiceLine> = {}): InvoiceLine => ({
+  ...NULL_LINE_MEMBERS,
   amount: 420,
   description: '4,200 × $0.001 per call',
   id: 'line-1',
@@ -217,6 +219,7 @@ const line = (overrides: Partial<InvoiceLine> = {}): InvoiceLine => ({
   metering: {
     ledger: {
       firstSeq: 301,
+      instanceId: null,
       lastSeq: 305,
       rows: 5,
       sumDelta: '104200',

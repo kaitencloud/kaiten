@@ -144,13 +144,19 @@ export const Statuses: Story = {
       <div className="flex flex-wrap gap-2">
         {INVOICE_STATUSES.map((status) => (
           <InvoiceStatusBadge
-            invoice={{ collectionMethod: 'SEND_INVOICE', status }}
+            invoice={{
+              collectionMethod: 'SEND_INVOICE',
+              dueAt: null,
+              holdReason: null,
+              status,
+            }}
             key={status}
           />
         ))}
         <InvoiceStatusBadge
           invoice={{
             collectionMethod: 'SEND_INVOICE',
+            dueAt: null,
             holdReason: 'LEDGER_SEQUENCE_GAP',
             status: 'DRAFT',
           }}
@@ -159,6 +165,7 @@ export const Statuses: Story = {
           invoice={{
             collectionMethod: 'SEND_INVOICE',
             dueAt: '2027-03-01T00:00:00Z',
+            holdReason: null,
             status: 'MANUAL',
           }}
           now={Date.parse('2027-03-15T00:00:00Z')}
@@ -247,6 +254,7 @@ const flatFee = (
   billingPeriod,
   billingTiming: 'ADVANCE',
   currency,
+  displayLabel: null,
   displayOrder: 0,
   id: `price-${billingPeriod}-${currency}`,
   isDefault: true,
@@ -256,8 +264,10 @@ const flatFee = (
 
 const perThousandRequests: CatalogPrice = {
   billingModel: 'USAGE_BASED',
+  billingPeriod: null,
   billingTiming: 'ARREARS',
   currency: 'USD',
+  displayLabel: null,
   displayOrder: 2,
   id: 'price-requests',
   isDefault: false,

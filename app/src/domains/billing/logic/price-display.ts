@@ -6,6 +6,13 @@ import {
   BILLING_PERIOD_SUFFIX_KEYS,
 } from './price-labels';
 
+/**
+ * The meter of a price as the helpers read it. The API sends null for a price that
+ * measures nothing, and the catalogue and the price forms leave the member out: both
+ * mean the price has none.
+ */
+export type PriceMeterMember = { metered?: PriceMeter | null };
+
 /** A price as it is read: its amount, and what the amount is for. */
 export type PriceAmountParts = {
   amount: string;
@@ -51,10 +58,8 @@ export function getPriceUnitLabel(
  * anything: one per sale unit is read for what it is.
  */
 export function getPriceAmountParts(
-  price: Pick<
-    Price,
-    'billingPeriod' | 'currency' | 'metered' | 'unitAmountDecimal'
-  >,
+  price: Pick<Price, 'billingPeriod' | 'currency' | 'unitAmountDecimal'> &
+    PriceMeterMember,
   entitlement: EntitlementLabels | undefined,
   t: TFunction,
   locale: string,
@@ -86,7 +91,7 @@ export function getPriceAmountParts(
  * flat fee by its shape.
  */
 export function getPriceLabel(
-  price: Pick<Price, 'billingModel' | 'displayLabel' | 'metered'>,
+  price: Pick<Price, 'billingModel' | 'displayLabel'> & PriceMeterMember,
   entitlement: Pick<Entitlement, 'name'> | undefined,
   t: TFunction,
 ): string {

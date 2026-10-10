@@ -108,9 +108,7 @@ export function SubscriptionTermsRows({
               'Pages.Customers.Instances.Detail.Billing.Subscription.daysUntilDue',
               { count: subscription.daysUntilDue },
             )}
-            <TermsSource
-              own={subscription.daysUntilDueOverride !== undefined}
-            />
+            <TermsSource own={subscription.daysUntilDueOverride !== null} />
           </>
         }
       />

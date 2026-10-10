@@ -52,7 +52,7 @@ export function InvoiceSummaryCard({ invoice }: InvoiceSummaryCardProps) {
               value={formatInstant(invoice.issuedAt, language)}
             />
           ) : null}
-          {invoice.issuedAt && invoice.daysUntilDue !== undefined ? (
+          {invoice.issuedAt && invoice.daysUntilDue !== null ? (
             <DetailCard.Row
               label={t('Pages.Billing.Invoices.Detail.Summary.terms')}
               value={t('Pages.Billing.Invoices.Detail.Summary.termsValue', {

@@ -75,7 +75,7 @@ export function InvoiceLineDiscount({
         )}
       </p>
       <p>
-        {discount.applicationsMax === undefined
+        {discount.applicationsMax === null
           ? t(`${KEYS}.applicationUnbounded`, {
               application: discount.application,
             })

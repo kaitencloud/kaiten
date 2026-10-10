@@ -60,7 +60,7 @@ export const PriceAmountSection = withForm({
         : joinPriceAmount(
             getPriceAmountParts(
               {
-                billingPeriod: metered ? undefined : period,
+                billingPeriod: metered ? null : (period ?? null),
                 currency,
                 metered: picked ? meterOfEntitlement(picked) : undefined,
                 unitAmountDecimal: minor,

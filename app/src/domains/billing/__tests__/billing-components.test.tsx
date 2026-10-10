@@ -169,7 +169,9 @@ describe('ServicePeriod', () => {
 describe('InvoiceStatusBadge', () => {
   it('reads a manual invoice as ready to bill', () => {
     render(
-      <InvoiceStatusBadge invoice={{ collectionMethod: 'SEND_INVOICE', status: 'MANUAL' }} />,
+      <InvoiceStatusBadge
+        invoice={{ collectionMethod: 'SEND_INVOICE', dueAt: null, holdReason: null, status: 'MANUAL' }}
+      />,
     );
 
     expect(screen.getByText('Ready to bill')).toBeInTheDocument();
@@ -181,6 +183,7 @@ describe('InvoiceStatusBadge', () => {
       <InvoiceStatusBadge
         invoice={{
           collectionMethod: 'SEND_INVOICE',
+          dueAt: null,
           holdReason: 'LEDGER_SEQUENCE_GAP',
           status: 'DRAFT',
         }}
@@ -200,7 +203,9 @@ describe('InvoiceStatusBadge', () => {
   it('adds nothing to reach for on a status that has no reason behind it', async () => {
     const user = userEvent.setup();
     render(
-      <InvoiceStatusBadge invoice={{ collectionMethod: 'SEND_INVOICE', status: 'PAID' }} />,
+      <InvoiceStatusBadge
+        invoice={{ collectionMethod: 'SEND_INVOICE', dueAt: null, holdReason: null, status: 'PAID' }}
+      />,
     );
 
     await user.tab();
@@ -215,6 +220,7 @@ describe('InvoiceStatusBadge', () => {
         invoice={{
           collectionMethod: 'SEND_INVOICE',
           dueAt: '2027-03-01T00:00:00Z',
+          holdReason: null,
           status: 'MANUAL',
         }}
         now={Date.parse('2027-03-15T00:00:00Z')}
@@ -232,7 +238,7 @@ describe('InvoiceStatusBadge', () => {
       <>
         {statuses.map((status) => (
           <InvoiceStatusBadge
-            invoice={{ collectionMethod: 'SEND_INVOICE', status }}
+            invoice={{ collectionMethod: 'SEND_INVOICE', dueAt: null, holdReason: null, status }}
             key={status}
           />
         ))}

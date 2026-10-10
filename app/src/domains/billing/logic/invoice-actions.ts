@@ -53,11 +53,11 @@ export type InvoiceActionsInput = Pick<
    * Where the invoice stands in its payment provider, once it is there: its id
    * there is what lets it be read back. Absent for an invoice nobody pushed.
    */
-  provider?: Pick<ProviderRecord, 'externalInvoiceId' | 'nextPushAt'>;
+  provider?: Pick<ProviderRecord, 'externalInvoiceId' | 'nextPushAt'> | null;
   /** Who collects the invoice; none reads as the organization itself. */
   providerKind?: InvoiceSummary['providerKind'];
-  /** The invoice recomposed from this VOID one, once there is one. */
-  replacedByInvoiceId?: string;
+  /** The invoice recomposed from this VOID one, once there is one; null while there is none. */
+  replacedByInvoiceId?: string | null;
 };
 
 export type InvoiceActionsContext = {

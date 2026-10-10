@@ -684,7 +684,7 @@ describe('validating and redeeming a code, as the mocks serve it', () => {
       voucherId: 'voucher-launch',
       voucherType: 'PRICE',
     });
-    expect(redemption.effectiveExpiresAt).toBeUndefined();
+    expect(redemption.effectiveExpiresAt).toBeNull();
     expect(voucher.redemptionsCount).toBe(3);
     expect(listed.map(({ id }) => id)).toEqual([redemption.id]);
     expect(byVoucher).toHaveLength(3);

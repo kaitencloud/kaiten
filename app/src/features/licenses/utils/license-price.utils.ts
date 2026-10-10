@@ -179,7 +179,7 @@ export function getMeterOptions({
         (price) =>
           isActivePrice(price) &&
           price.id !== editingPriceId &&
-          price.metered !== undefined,
+          Boolean(price.metered),
       )
       .map((price) => price.metered?.entitlementSlug),
   );

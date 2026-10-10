@@ -123,14 +123,14 @@ describe('the state of a redemption', () => {
   });
 
   it('keeps a redemption with no end, and one the API ended, as it is', () => {
-    expect(getRedemptionStatus({ status: 'ACTIVE' }, NOW)).toBe('ACTIVE');
+    expect(getRedemptionStatus({ effectiveExpiresAt: null, status: 'ACTIVE' }, NOW)).toBe('ACTIVE');
     expect(
       getRedemptionStatus({ effectiveExpiresAt: FUTURE, status: 'REVOKED' }, NOW),
     ).toBe('REVOKED');
     expect(
       getRedemptionStatus({ effectiveExpiresAt: PAST, status: 'REVOKED' }, NOW),
     ).toBe('REVOKED');
-    expect(getRedemptionStatus({ status: 'EXPIRED' }, NOW)).toBe('EXPIRED');
+    expect(getRedemptionStatus({ effectiveExpiresAt: null, status: 'EXPIRED' }, NOW)).toBe('EXPIRED');
   });
 });
 

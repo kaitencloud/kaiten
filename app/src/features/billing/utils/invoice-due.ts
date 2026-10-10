@@ -68,18 +68,28 @@ export function getInvoiceDue(
   const dueAt = dueDateOf(invoice);
 
   if (invoice.status === 'PAID') {
-    return { at: invoice.paidAt, dueAt, ending: 'paid', kind: 'ended' };
+    return {
+      at: invoice.paidAt ?? undefined,
+      dueAt,
+      ending: 'paid',
+      kind: 'ended',
+    };
   }
   if (invoice.status === 'UNCOLLECTIBLE') {
     return {
-      at: invoice.uncollectibleAt,
+      at: invoice.uncollectibleAt ?? undefined,
       dueAt,
       ending: 'written-off',
       kind: 'ended',
     };
   }
   if (invoice.status === 'VOID') {
-    return { at: invoice.voidedAt, dueAt, ending: 'voided', kind: 'ended' };
+    return {
+      at: invoice.voidedAt ?? undefined,
+      dueAt,
+      ending: 'voided',
+      kind: 'ended',
+    };
   }
   if (invoice.status === 'DRAFT' || !invoice.issuedAt) {
     return { kind: 'not-issued' };

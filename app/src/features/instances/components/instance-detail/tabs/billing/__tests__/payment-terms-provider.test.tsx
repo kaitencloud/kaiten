@@ -93,6 +93,7 @@ beforeEach(() => {
     handleListInstanceInvoices({ body: pageOf([]) }),
     handleGetCustomerBilling({
       body: {
+        billingEmail: null,
         providers: [
           {
             externalCustomerId: 'cus_globex',
@@ -105,6 +106,8 @@ beforeEach(() => {
               status: 'ACTIVE',
             },
             providerKind: 'STRIPE',
+            syncedAt: null,
+            webUrl: null,
           },
         ],
       },
@@ -343,7 +346,7 @@ describe('moving a contract to Stripe', () => {
 
   it('warns that there is no card to charge when charging automatically', async () => {
     server.use(
-      handleGetCustomerBilling({ body: { providers: [{ externalCustomerId: 'cus_globex', paymentMethod: null as never, providerKind: 'STRIPE' }] } }),
+      handleGetCustomerBilling({ body: { billingEmail: null, providers: [{ externalCustomerId: 'cus_globex', paymentMethod: null as never, providerKind: 'STRIPE', syncedAt: null, webUrl: null }] } }),
     );
     renderDialog();
 
@@ -359,11 +362,14 @@ describe('moving a contract to Stripe', () => {
     server.use(
       handleGetCustomerBilling({
         body: {
+          billingEmail: null,
           providers: [
             {
               externalCustomerId: 'cus_globex',
               paymentMethod: { last4: '4242', status: 'FAILED' },
               providerKind: 'STRIPE',
+              syncedAt: null,
+              webUrl: null,
             },
           ],
         },

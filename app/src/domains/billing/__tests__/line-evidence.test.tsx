@@ -18,6 +18,7 @@ afterAll(async () => {
 
 const ledger = (overrides: Partial<InvoiceLineLedger> = {}): InvoiceLineLedger => ({
   firstSeq: 41,
+  instanceId: null,
   lastSeq: 45,
   rows: 5,
   sumDelta: '172345',

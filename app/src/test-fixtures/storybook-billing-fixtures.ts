@@ -1,6 +1,7 @@
 import type { InvoicePreview, License, Price } from '@/api-client';
 import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
 import { ApiError } from '@/lib/errors';
+import { NULL_LINE_MEMBERS } from '../../e2e/app/_support/fixtures/build-invoice';
 import { licensePriceOperations } from '../../e2e/app/_support/model/graphql-operations';
 
 export { billingCapabilitiesProfiles } from '../../e2e/app/_support/model/billing-capabilities';
@@ -43,6 +44,7 @@ export const storyInvoicePreview: InvoicePreview = {
   licenseSlug: 'pro-v2',
   lines: [
     {
+      ...NULL_LINE_MEMBERS,
       amount: 579,
       description:
         '72,345 above the allowance (100,000): 0.72345 × $8.00 per 100k traces',
@@ -53,6 +55,7 @@ export const storyInvoicePreview: InvoicePreview = {
       ...SERVICE_PERIOD,
     },
     {
+      ...NULL_LINE_MEMBERS,
       amount: 840,
       capped: true,
       description:
@@ -64,6 +67,7 @@ export const storyInvoicePreview: InvoicePreview = {
       ...SERVICE_PERIOD,
     },
     {
+      ...NULL_LINE_MEMBERS,
       amount: 2900,
       description: '1 × $29.00',
       label: 'Pro, base',
@@ -86,6 +90,7 @@ export {
   buildInvoiceLine,
   buildProviderRecord,
   buildUsageReport,
+  NULL_LINE_MEMBERS,
 } from '../../e2e/app/_support/fixtures/build-invoice';
 
 // The subscription of an instance and the price it is pinned to, built as the

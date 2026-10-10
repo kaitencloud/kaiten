@@ -101,7 +101,7 @@ function ApplicationsCell({ redemption }: { redemption: Redemption }) {
 
   return (
     <span className="text-sm tabular-nums">
-      {redemption.applicationsMax === undefined
+      {redemption.applicationsMax === null
         ? t('Features.Billing.Redemptions.applicationsUnbounded', {
             count: redemption.applicationsCount,
           })
