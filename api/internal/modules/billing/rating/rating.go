@@ -134,6 +134,10 @@ type Input struct {
 	// Addons are the add-ons the instance holds at the boundary, each with the
 	// FLAT_FEE price its period bills.
 	Addons []AddonCharge
+	// AddonMetered are the metered prices of the add-ons attached during the
+	// arrears period, each rated over its attachment's window (§8.2 rule 4,
+	// §10.4).
+	AddonMetered []AddonMeter
 	// Measures holds each meter's measure, by entitlement id. A meter with
 	// none measured nothing.
 	Measures map[uuid.UUID]Measure
@@ -152,6 +156,20 @@ type AddonCharge struct {
 	Name            string
 	Quantity        int32
 	Price           Price
+	// Service replaces the period an ARREARS fee bills: the attachment's
+	// window within it, [max(P0, attached), min(B, removed)) (§10.4).
+	Service *Period
+}
+
+// AddonMeter is one metered price of an attachment, rated over the
+// attachment's window of the arrears period with what its meter measured
+// there.
+type AddonMeter struct {
+	InstanceAddonID uuid.UUID
+	AddonID         uuid.UUID
+	Price           Price
+	Window          Period
+	Measure         Measure
 }
 
 // Composition is an invoice's lines and totals.
@@ -194,6 +212,9 @@ func Compose(in Input) (Composition, error) {
 			service = &in.Advance
 		case !inAdvance && (in.Kind == KindRenewal || in.Kind == KindFinal):
 			service = &in.Arrears
+			if addon.Service != nil {
+				service = addon.Service
+			}
 		}
 		if service == nil {
 			continue
@@ -220,11 +241,27 @@ func MeteredLines(in Input) ([]InvoiceLine, error) {
 	}
 	var lines []InvoiceLine
 	for _, price := range in.Metered {
-		line, ok, err := meteredLine(in, price)
+		if price.Meter == nil {
+			continue
+		}
+		line, ok, err := meteredLine(in.Currency, price, in.Arrears, in.Measures[price.Meter.EntitlementID])
 		if err != nil {
 			return nil, err
 		}
 		if ok {
+			priceID := price.ID
+			line.LicensePriceID = &priceID
+			lines = appendLine(lines, line)
+		}
+	}
+	for _, meter := range in.AddonMetered {
+		line, ok, err := meteredLine(in.Currency, meter.Price, meter.Window, meter.Measure)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			priceID, addonID, attachment := meter.Price.ID, meter.AddonID, meter.InstanceAddonID
+			line.AddonPriceID, line.AddonID, line.InstanceAddonID = &priceID, &addonID, &attachment
 			lines = appendLine(lines, line)
 		}
 	}
@@ -377,14 +414,14 @@ func (l InvoiceLine) priceKey() string {
 	return ""
 }
 
-// meteredLine rates one metered price over the arrears period. A price whose
+// meteredLine rates one metered price over a period with what its meter
+// measured there; the caller names the price on the line. A price whose
 // quantity is 0 produces no line; one whose quantity is positive does, even
 // when its amount rounds to 0.
-func meteredLine(in Input, price Price) (InvoiceLine, bool, error) {
-	if price.Meter == nil || in.Arrears.empty() {
+func meteredLine(currency money.Currency, price Price, period Period, measure Measure) (InvoiceLine, bool, error) {
+	if price.Meter == nil || period.empty() {
 		return InvoiceLine{}, false, nil
 	}
-	measure := in.Measures[price.Meter.EntitlementID]
 	lineType, measured := LineUsage, measure.Usage
 	if price.BillingModel == ModelOverage {
 		if measure.Unlimited {
@@ -416,7 +453,7 @@ func meteredLine(in Input, price Price) (InvoiceLine, bool, error) {
 			label += " — overage"
 		}
 	}
-	description := arithmetic(quantity, price.UnitAmountDecimal, in.Currency, price.Meter.SaleUnit)
+	description := arithmetic(quantity, price.UnitAmountDecimal, currency, price.Meter.SaleUnit)
 	var overage *InvoiceLineOverage
 	if lineType == LineOverage {
 		description += fmt.Sprintf("; %s used; %s above the applied limit%s",
@@ -438,14 +475,14 @@ func meteredLine(in Input, price Price) (InvoiceLine, bool, error) {
 		description += "; corrections below 0 not credited"
 	}
 
-	entitlementID, entitlementSlug, priceID := price.Meter.EntitlementID, price.Meter.EntitlementSlug, price.ID
+	entitlementID, entitlementSlug := price.Meter.EntitlementID, price.Meter.EntitlementSlug
 	return InvoiceLine{
 		ID:                nil,
 		Seq:               0,
 		Type:              lineType,
 		BillingModel:      text(price.BillingModel),
 		BillingTiming:     text(price.BillingTiming),
-		LicensePriceID:    &priceID,
+		LicensePriceID:    nil,
 		AddonPriceID:      nil,
 		AddonID:           nil,
 		InstanceAddonID:   nil,
@@ -455,8 +492,8 @@ func meteredLine(in Input, price Price) (InvoiceLine, bool, error) {
 		EntitlementSlug:   &entitlementSlug,
 		Label:             truncate(label),
 		Description:       truncate(description),
-		ServiceFrom:       in.Arrears.From,
-		ServiceTo:         in.Arrears.To,
+		ServiceFrom:       period.From,
+		ServiceTo:         period.To,
 		Quantity:          money.FormatDecimal(quantity),
 		UnitAmountDecimal: text(money.FormatDecimal(price.UnitAmountDecimal)),
 		Amount:            amount,

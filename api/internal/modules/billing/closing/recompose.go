@@ -97,9 +97,16 @@ func (c *Closer) Recompose(ctx context.Context, q *db.Queries, sub db.InstanceBi
 	for i, price := range metered {
 		rated[i] = metering.Price(price)
 	}
+	// The add-ons' metered prices are measured again over their windows; their
+	// fees are kept from the original, as BASE and ADDON lines are.
+	_, addonMeters, addonHeld, err := c.addonArrears(ctx, q, sub, from, boundary, boundary)
+	if err != nil {
+		return Recomposition{}, err
+	}
+	hold = withPairs(hold, addonHeld)
 	meteredLines, err := rating.MeteredLines(rating.Input{
 		Kind: kind, Currency: money.Currency(row.Currency), LicenseName: "", Base: rating.Price{},
-		Metered: rated, Measures: measures,
+		Metered: rated, Measures: measures, Addons: nil, AddonMetered: addonMeters,
 		Advance: rating.Period{From: boundary, To: boundary}, Arrears: rating.Period{From: from, To: boundary},
 	})
 	if err != nil {

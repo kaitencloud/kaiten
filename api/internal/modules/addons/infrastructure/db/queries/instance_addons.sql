@@ -47,12 +47,20 @@ WHERE p.addon_id = sqlc.arg(addon_id);
 
 
 -- name: AddonHasDefaultPriceFor :one
-SELECT EXISTS (SELECT 1
-               FROM addon_price p
-               WHERE p.addon_id = sqlc.arg(addon_id)
-                 AND p.billing_period = sqlc.arg(billing_period)::billing_period
-                 AND p.is_default
-                 AND p.status = 'ACTIVE')::boolean AS priced;
+-- Whether a billed subscription of that period can bill the add-on's flat
+-- fee (§10.2): it has a default ACTIVE FLAT_FEE price for the period, or no
+-- FLAT_FEE price at all (a metered-only add-on bills its usage).
+SELECT (EXISTS (SELECT 1
+                FROM addon_price p
+                WHERE p.addon_id = sqlc.arg(addon_id)
+                  AND p.billing_period = sqlc.arg(billing_period)::billing_period
+                  AND p.is_default
+                  AND p.status = 'ACTIVE')
+        OR NOT EXISTS (SELECT 1
+                       FROM addon_price p
+                       WHERE p.addon_id = sqlc.arg(addon_id)
+                         AND p.billing_model = 'FLAT_FEE'
+                         AND p.status = 'ACTIVE'))::boolean AS priced;
 
 
 -- name: MeteredEntitlementConflicts :many
@@ -172,7 +180,12 @@ WHERE ia.organization_id = sqlc.arg(organization_id)
                                              WHERE p.addon_id = ia.addon_id
                                                AND p.billing_period = sqlc.arg(billing_period)::billing_period
                                                AND p.is_default
-                                               AND p.status = 'ACTIVE')))
+                                               AND p.status = 'ACTIVE')
+                               AND EXISTS (SELECT 1
+                                           FROM addon_price p
+                                           WHERE p.addon_id = ia.addon_id
+                                             AND p.billing_model = 'FLAT_FEE'
+                                             AND p.status = 'ACTIVE')))
 ORDER BY a.slug;
 
 
@@ -187,4 +200,19 @@ JOIN addon_family f ON f.id = ia.addon_family_id AND f.organization_id = ia.orga
 WHERE ia.organization_id = sqlc.arg(organization_id)
   AND ia.instance_id = ANY (sqlc.arg(instance_ids)::uuid[])
   AND ia.removed_at IS NULL
+ORDER BY ia.created_at, ia.id;
+
+
+-- name: ListBillableAttachments :many
+-- The attachments an arrears period bills (§10.4): every one active at any
+-- time in [from, to) -- attached before to, not removed by from -- removed
+-- ones included, in attachment order.
+SELECT ia.id AS instance_addon_id, ia.addon_id, ia.addon_family_id, ia.quantity, ia.created_at AS attached_at,
+       ia.removed_at, a.name AS addon_name
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = sqlc.arg(instance_id)
+  AND ia.created_at < sqlc.arg(to_at)
+  AND (ia.removed_at IS NULL OR ia.removed_at > sqlc.arg(from_at))
 ORDER BY ia.created_at, ia.id;

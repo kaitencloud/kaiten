@@ -39,12 +39,17 @@ func (q *Queries) AddonCurrencies(ctx context.Context, addonID uuid.UUID) ([]str
 }
 
 const addonHasDefaultPriceFor = `-- name: AddonHasDefaultPriceFor :one
-SELECT EXISTS (SELECT 1
-               FROM addon_price p
-               WHERE p.addon_id = $1
-                 AND p.billing_period = $2::billing_period
-                 AND p.is_default
-                 AND p.status = 'ACTIVE')::boolean AS priced
+SELECT (EXISTS (SELECT 1
+                FROM addon_price p
+                WHERE p.addon_id = $1
+                  AND p.billing_period = $2::billing_period
+                  AND p.is_default
+                  AND p.status = 'ACTIVE')
+        OR NOT EXISTS (SELECT 1
+                       FROM addon_price p
+                       WHERE p.addon_id = $1
+                         AND p.billing_model = 'FLAT_FEE'
+                         AND p.status = 'ACTIVE'))::boolean AS priced
 `
 
 type AddonHasDefaultPriceForParams struct {
@@ -52,6 +57,9 @@ type AddonHasDefaultPriceForParams struct {
 	BillingPeriod BillingPeriod `json:"billing_period"`
 }
 
+// Whether a billed subscription of that period can bill the add-on's flat
+// fee (§10.2): it has a default ACTIVE FLAT_FEE price for the period, or no
+// FLAT_FEE price at all (a metered-only add-on bills its usage).
 func (q *Queries) AddonHasDefaultPriceFor(ctx context.Context, arg AddonHasDefaultPriceForParams) (bool, error) {
 	row := q.db.QueryRow(ctx, addonHasDefaultPriceFor, arg.AddonID, arg.BillingPeriod)
 	var priced bool
@@ -95,7 +103,12 @@ WHERE ia.organization_id = $1
                                              WHERE p.addon_id = ia.addon_id
                                                AND p.billing_period = $4::billing_period
                                                AND p.is_default
-                                               AND p.status = 'ACTIVE')))
+                                               AND p.status = 'ACTIVE')
+                               AND EXISTS (SELECT 1
+                                           FROM addon_price p
+                                           WHERE p.addon_id = ia.addon_id
+                                             AND p.billing_model = 'FLAT_FEE'
+                                             AND p.status = 'ACTIVE')))
 ORDER BY a.slug
 `
 
@@ -352,6 +365,71 @@ func (q *Queries) ListBillableAddons(ctx context.Context, arg ListBillableAddons
 			&i.UnitAmountDecimal,
 			&i.Currency,
 			&i.DisplayLabel,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBillableAttachments = `-- name: ListBillableAttachments :many
+SELECT ia.id AS instance_addon_id, ia.addon_id, ia.addon_family_id, ia.quantity, ia.created_at AS attached_at,
+       ia.removed_at, a.name AS addon_name
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+WHERE ia.organization_id = $1
+  AND ia.instance_id = $2
+  AND ia.created_at < $3
+  AND (ia.removed_at IS NULL OR ia.removed_at > $4)
+ORDER BY ia.created_at, ia.id
+`
+
+type ListBillableAttachmentsParams struct {
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	InstanceID     uuid.UUID        `json:"instance_id"`
+	ToAt           pgtype.Timestamp `json:"to_at"`
+	FromAt         pgtype.Timestamp `json:"from_at"`
+}
+
+type ListBillableAttachmentsRow struct {
+	InstanceAddonID uuid.UUID        `json:"instance_addon_id"`
+	AddonID         uuid.UUID        `json:"addon_id"`
+	AddonFamilyID   uuid.UUID        `json:"addon_family_id"`
+	Quantity        int32            `json:"quantity"`
+	AttachedAt      pgtype.Timestamp `json:"attached_at"`
+	RemovedAt       pgtype.Timestamp `json:"removed_at"`
+	AddonName       string           `json:"addon_name"`
+}
+
+// The attachments an arrears period bills (§10.4): every one active at any
+// time in [from, to) -- attached before to, not removed by from -- removed
+// ones included, in attachment order.
+func (q *Queries) ListBillableAttachments(ctx context.Context, arg ListBillableAttachmentsParams) ([]ListBillableAttachmentsRow, error) {
+	rows, err := q.db.Query(ctx, listBillableAttachments,
+		arg.OrganizationID,
+		arg.InstanceID,
+		arg.ToAt,
+		arg.FromAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListBillableAttachmentsRow
+	for rows.Next() {
+		var i ListBillableAttachmentsRow
+		if err := rows.Scan(
+			&i.InstanceAddonID,
+			&i.AddonID,
+			&i.AddonFamilyID,
+			&i.Quantity,
+			&i.AttachedAt,
+			&i.RemovedAt,
+			&i.AddonName,
 		); err != nil {
 			return nil, err
 		}
