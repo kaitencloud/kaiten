@@ -391,29 +391,43 @@ func (s *spike) dueDateSemantics(t *testing.T) {
 	ctx := context.Background()
 	ref := s.ref(Settings{AutomaticTax: false, TaxBehavior: TaxExclusive, AutoFinalize: true})
 	thirty := int32(30)
-	in := invoiceFor(s.customer(t, ref), "EUR", "SEND_INVOICE", &thirty, lineOf(1, 2900))
-	id := s.push(t, ref, &in)
-	time.Sleep(5 * time.Second) // a gap between creation and finalization that the due date shows
-	if _, err := s.adapter.Finalize(ctx, ref, id, in); err != nil {
-		t.Fatalf("Finalize: %v", err)
-	}
-	raw, err := s.sc.V1Invoices.Retrieve(ctx, id, nil)
-	if err != nil {
-		t.Fatalf("read the invoice: %v", err)
-	}
-	var finalizedAt int64
-	if raw.StatusTransitions != nil {
-		finalizedAt = raw.StatusTransitions.FinalizedAt
-	}
 	days := int64(30 * 24 * 3600)
-	switch raw.DueDate {
+
+	// Stripe's own rule: finalized directly, without the adapter's due_date.
+	raw := invoiceFor(s.customer(t, ref), "EUR", "SEND_INVOICE", &thirty, lineOf(1, 2900))
+	rawID := s.push(t, ref, &raw)
+	time.Sleep(5 * time.Second) // a gap between creation and finalization that the due date shows
+	params := &stripego.InvoiceFinalizeInvoiceParams{AutoAdvance: stripego.Bool(false)}
+	direct, err := s.sc.V1Invoices.FinalizeInvoice(ctx, rawID, params)
+	if err != nil {
+		t.Fatalf("finalize directly: %v", err)
+	}
+	switch finalizedAt := direct.StatusTransitions.FinalizedAt; direct.DueDate {
 	case finalizedAt + days:
-		s.finding(t, "days_until_due counts from the finalization: Kaiten's due_at matches, no due_date update is needed")
-	case raw.Created + days:
+		s.finding(t, "days_until_due counts from the finalization: no due_date update is needed")
+	case direct.Created + days:
 		s.finding(t, "days_until_due counts from the draft's creation: §12.4 rule 4's due_date update before the finalization is needed")
 	default:
-		s.finding(t, "due_date %d is neither created + 30 days (%d) nor finalized + 30 days (%d)", raw.DueDate, raw.Created+days, finalizedAt+days)
+		s.finding(t, "due_date %d is neither created + 30 days (%d) nor finalized + 30 days (%d)", direct.DueDate, direct.Created+days, finalizedAt+days)
 	}
+
+	// The adapter's: the due date it sets is Kaiten's due_at, within the
+	// reconciliation's tolerance.
+	in := invoiceFor(s.customer(t, ref), "EUR", "SEND_INVOICE", &thirty, lineOf(1, 2900))
+	id := s.push(t, ref, &in)
+	time.Sleep(5 * time.Second)
+	finalized, err := s.adapter.Finalize(ctx, ref, id, in)
+	if err != nil {
+		t.Fatalf("Finalize: %v", err)
+	}
+	if finalized.DueAt == nil || finalized.FinalizedAt == nil {
+		t.Fatalf("no due date or finalization instant: %+v", finalized)
+	}
+	drift := finalized.DueAt.Sub(finalized.FinalizedAt.Add(30 * 24 * time.Hour))
+	if drift < 0 || drift > 2*time.Minute {
+		t.Errorf("the due date the adapter set is %s from finalization + 30 days", drift)
+	}
+	s.finding(t, "through the adapter, Stripe's due date is finalization + 30 days + %s", drift)
 }
 
 func (s *spike) zeroDaysUntilDue(t *testing.T) {
@@ -432,21 +446,24 @@ func (s *spike) zeroDaysUntilDue(t *testing.T) {
 func (s *spike) setupSessionOptions(t *testing.T) {
 	ref := s.ref(Settings{AutomaticTax: false, TaxBehavior: TaxExclusive, AutoFinalize: true})
 	customerID := s.customer(t, ref)
-	_, err := s.sc.V1CheckoutSessions.Create(context.Background(), &stripego.CheckoutSessionCreateParams{
-		Mode: stripego.String("setup"), Customer: stripego.String(customerID), Currency: stripego.String("eur"),
-		SuccessURL:               stripego.String("https://sandbox.kaiten.test/billing?kaiten_setup_session={CHECKOUT_SESSION_ID}"),
-		CancelURL:                stripego.String("https://sandbox.kaiten.test/billing"),
-		BillingAddressCollection: stripego.String("required"),
-		TaxIDCollection:          &stripego.CheckoutSessionCreateTaxIDCollectionParams{Enabled: stripego.Bool(true)},
-		CustomerUpdate: &stripego.CheckoutSessionCreateCustomerUpdateParams{
-			Address: stripego.String("auto"), Name: stripego.String("auto"),
-		},
+	// The adapter's own session, with tax_id_collection and customer_update.
+	link, err := s.adapter.CreateSetupSession(context.Background(), ref, provider.SetupSession{
+		ExternalCustomerID: customerID, Currency: "EUR", ReturnURL: "https://sandbox.kaiten.test/billing",
+		Metadata: map[string]string{"kaiten_customer_id": uuid.NewString()},
 	})
 	if err != nil {
-		s.finding(t, "a setup session with tax_id_collection and customer_update is refused: %v; collect tax ids in the portal", err)
+		s.finding(t, "the adapter's setup session, with tax_id_collection and customer_update, is refused: %v", err)
+		t.Errorf("CreateSetupSession: %v", err)
 		return
 	}
-	s.finding(t, "a setup session accepts tax_id_collection and customer_update: the payment-method session can send them, as §12.5 has it")
+	session, err := s.sc.V1CheckoutSessions.Retrieve(context.Background(), link.SessionID, nil)
+	if err != nil {
+		t.Fatalf("read the session: %v", err)
+	}
+	if session.TaxIDCollection == nil || !session.TaxIDCollection.Enabled {
+		t.Errorf("the session does not collect tax ids: %+v", session.TaxIDCollection)
+	}
+	s.finding(t, "the adapter's setup session is accepted with tax_id_collection and customer_update (§12.5)")
 }
 
 func (s *spike) refusedCurrencies(t *testing.T) {

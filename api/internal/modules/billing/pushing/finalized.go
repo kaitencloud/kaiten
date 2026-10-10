@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -62,7 +61,6 @@ func Finalized(ctx context.Context, deps access.Deps, box *outbox.ScopedReposito
 			return err
 		}
 		pushed = &updated
-		checkDueDate(ctx, updated, read)
 		invoice, err := invoices.FromRow(updated)
 		if err != nil {
 			return err
@@ -88,7 +86,11 @@ func Reconcile(ctx context.Context, deps access.Deps, box *outbox.ScopedReposito
 	if err := json.Unmarshal(row.Lines, &lines); err != nil {
 		return fmt.Errorf("decode lines of invoice %s: %w", row.ID, err)
 	}
-	outcome := providers.Reconcile(lines, row.TotalMinor, row.Currency, read, inclusiveTax)
+	var dueAt *time.Time
+	if row.CollectionMethod == db.CollectionMethodSENDINVOICE && row.DueAt.Valid {
+		dueAt = &row.DueAt.Time
+	}
+	outcome := providers.Reconcile(lines, row.TotalMinor, row.Currency, read, inclusiveTax, dueAt)
 	encoded, err := encodeLines(outcome.Lines)
 	if err != nil {
 		return err
@@ -145,40 +147,6 @@ func Settle(ctx context.Context, deps access.Deps, box *outbox.ScopedRepository,
 	}
 	providers.ReleaseDiscounts(ctx, conn, row.ID, lines, timeout)
 	return nil
-}
-
-// dueDateTolerance is how far the provider's due date may be from Kaiten's
-// before it is reported: Stripe keeps dates to the second, and a day boundary
-// may fall between the two clocks.
-const dueDateTolerance = 24 * time.Hour
-
-// checkDueDate reports an issued invoice whose due date in the provider
-// differs from Kaiten's due_at by more than a day (§12.4 rule 4). Stripe may
-// count days_until_due from the draft's creation rather than its
-// finalization, which a draft reviewed for days, or a push retried over
-// hours, would show. Until the sandbox spike settles it, the drift is logged
-// and counted; PAST_DUE keys on Kaiten's due_at whatever the provider says.
-func checkDueDate(ctx context.Context, row db.InstanceInvoice, read provider.Invoice) {
-	drift, ok := dueDateDrift(row, read)
-	if !ok {
-		return
-	}
-	slog.WarnContext(ctx, "the provider's due date differs from Kaiten's", "invoice_id", row.ID,
-		"kaiten_due_at", row.DueAt.Time.UTC(), "provider_due_at", read.DueAt.UTC(), "drift", drift.String())
-	telemetry.DueDateDrift(ctx, string(row.ProviderKind))
-}
-
-// dueDateDrift is how far the provider's due date is from Kaiten's, when both
-// exist and are further apart than the tolerance.
-func dueDateDrift(row db.InstanceInvoice, read provider.Invoice) (time.Duration, bool) {
-	if row.CollectionMethod != db.CollectionMethodSENDINVOICE || !row.DueAt.Valid || read.DueAt == nil {
-		return 0, false
-	}
-	drift := read.DueAt.Sub(row.DueAt.Time)
-	if drift > -dueDateTolerance && drift < dueDateTolerance {
-		return 0, false
-	}
-	return drift, true
 }
 
 func encodeLines(lines []rating.InvoiceLine) ([]byte, error) {

@@ -461,6 +461,7 @@ func TestErrorMappingAndScrubbing(t *testing.T) {
 		in.DaysUntilDue = &days
 		_, err = f.adapter.CreateDraft(f.ctx, f.ref, in)
 		require.Equal(t, provider.ClassParametersChanged, provider.ClassOf(err))
+		require.Contains(t, provider.Summary(err), "idempotency_parameters_changed")
 	})
 
 	t.Run("network", func(t *testing.T) {

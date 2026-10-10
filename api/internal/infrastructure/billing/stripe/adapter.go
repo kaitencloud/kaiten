@@ -344,7 +344,9 @@ func (a *Adapter) Finalize(ctx context.Context, ref provider.Ref, externalInvoic
 		// the minute is slack for the finalization's own delay.
 		due := a.opts.Now().Add(time.Duration(*in.DaysUntilDue)*24*time.Hour + time.Minute)
 		update := &stripego.InvoiceUpdateParams{DueDate: stripego.Int64(due.Unix())}
-		update.SetIdempotencyKey(in.KaitenInvoiceID.String() + ":due_date:" + strconv.FormatInt(due.Unix()/3600, 10))
+		// Keyed on the date itself: a retry computes another one, and the
+		// same key with another date would answer idempotency_error.
+		update.SetIdempotencyKey(in.KaitenInvoiceID.String() + ":due_date:" + strconv.FormatInt(due.Unix(), 10))
 		if _, err := sc.V1Invoices.Update(ctx, externalInvoiceID, update); err != nil {
 			return provider.Invoice{}, classify(err, objectInvoice)
 		}

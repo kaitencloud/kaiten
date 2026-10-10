@@ -110,7 +110,13 @@ func (a *Adapter) CreateSetupSession(ctx context.Context, ref provider.Ref, sess
 		SuccessURL:               stripego.String(withSessionID(session.ReturnURL)),
 		CancelURL:                stripego.String(session.ReturnURL),
 		BillingAddressCollection: stripego.String("required"),
-		Metadata:                 session.Metadata,
+		// The customer's tax id, address and name, which automatic tax and the
+		// invoices need, are saved on the Stripe customer (§12.5).
+		TaxIDCollection: &stripego.CheckoutSessionCreateTaxIDCollectionParams{Enabled: stripego.Bool(true)},
+		CustomerUpdate: &stripego.CheckoutSessionCreateCustomerUpdateParams{
+			Address: stripego.String("auto"), Name: stripego.String("auto"),
+		},
+		Metadata: session.Metadata,
 	}
 	created, err := sc.V1CheckoutSessions.Create(ctx, params)
 	if err != nil {
