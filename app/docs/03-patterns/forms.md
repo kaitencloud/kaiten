@@ -108,7 +108,7 @@ To add a field, build it on `FormField` and `useField` (`fields/form-field.tsx`,
 
 ### Required fields
 
-- Pass `required` to the field. `RequiredMark` draws an asterisk beside the label, outside the `<label>`, and `FormControl` sets `aria-required` on the control. Never write the asterisk in the label text: it would change the name that tests and screen readers use for the field.
+- Pass `required` to the field. `RequiredMark` draws an asterisk beside the label, outside the `<label>`, and `FormControl` sets `aria-required` on the control. A control that is a button or a bare container cannot carry it (axe reports `aria-allowed-attr`): wrap it in `<FormControl announceRequired={false}>`, and put the attribute on the element that has a role allowing it, as `CheckboxField` does on its checkbox. Never write the asterisk in the label text: it would change the name that tests and screen readers use for the field.
 - Mark what the schema requires, nothing more. A field with a default value is not required from the user's point of view.
 
 ## Validation schemas
