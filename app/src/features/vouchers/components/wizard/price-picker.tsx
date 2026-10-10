@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { RetryableProblem } from '@/domains/billing';
+import { PagedListSkeleton, RetryableProblem } from '@/domains/billing';
 import type { PriceOption } from '../../types';
 import { ReferenceChecklist } from './reference-checklist';
 
@@ -35,9 +35,11 @@ export function PricePicker({
   }
   if (isPending) {
     return (
-      <p className="text-sm text-muted-foreground">
-        {t('Pages.Vouchers.Wizard.Prices.loading')}
-      </p>
+      <PagedListSkeleton
+        label={t('Pages.Vouchers.Wizard.Prices.loading')}
+        rowClassName="h-11"
+        rows={4}
+      />
     );
   }
   if (options.length === 0) {

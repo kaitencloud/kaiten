@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import FormField from '@/components/form/fields/form-field';
-import { RetryableProblem } from '@/domains/billing';
+import { PagedListSkeleton, RetryableProblem } from '@/domains/billing';
 import {
   type ChecklistOption,
   ReferenceChecklist,
@@ -23,9 +23,10 @@ type ChecklistFormFieldProps = {
 
 /**
  * A checklist as a field of the form (inside the `AppField` of the list it fills): it
- * says it is loading, says why it could not read with a way to ask again, and, for a
- * session that may not read what it lists, says so and keeps what is already checked,
- * listed by its id, since a limit the person cannot see must still be one they can lift.
+ * draws rows to be while it loads, says why it could not read with a way to ask again,
+ * and, for a session that may not read what it lists, says so and keeps what is already
+ * checked, listed by its id, since a limit the person cannot see must still be one they
+ * can lift.
  */
 export function ChecklistFormField({
   description,
@@ -48,9 +49,11 @@ export function ChecklistFormField({
         }
         if (query.data === undefined && query.fetchStatus !== 'idle') {
           return (
-            <p className="text-sm text-muted-foreground">
-              {t('Pages.Vouchers.Wizard.Checklist.loading')}
-            </p>
+            <PagedListSkeleton
+              label={t('Pages.Vouchers.Wizard.Checklist.loading')}
+              rowClassName="h-7"
+              rows={3}
+            />
           );
         }
 

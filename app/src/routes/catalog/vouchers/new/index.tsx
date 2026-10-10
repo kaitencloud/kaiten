@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 import { BillingRouteError } from '@/domains/billing';
-import { VoucherWizardPage, voucherQueryOptions } from '@/features/vouchers';
+import { loadVoucherWizard, VoucherWizardPage } from '@/features/vouchers';
 import i18n from '@/lib/i18n/config';
 
 // `?boostFor=<voucher id>` opens the wizard as the boost that goes with that discount,
@@ -15,10 +15,10 @@ export const Route = createFileRoute('/catalog/vouchers/new/')({
   errorComponent: BillingRouteError,
   validateSearch: (search) => newVoucherSearchSchema.parse(search),
   loaderDeps: ({ search }) => ({ boostFor: search.boostFor }),
+  // Starts the reads the pickers of the later steps show, and loads the discount a
+  // boost is made for.
   loader: ({ context, deps }) =>
-    deps.boostFor
-      ? context.queryClient.ensureQueryData(voucherQueryOptions(deps.boostFor))
-      : undefined,
+    loadVoucherWizard(context.queryClient, deps.boostFor),
   beforeLoad: () => ({
     getTitle: () => i18n.t('Pages.Vouchers.Wizard.title'),
   }),

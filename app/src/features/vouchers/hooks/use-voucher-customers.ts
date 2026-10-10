@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useCanPerform } from '@/domains/billing';
-import { allCustomersOptions } from '@/lib/api/all-pages-query-options';
+import { voucherCustomersQueryOptions } from '../queries';
 import { toCustomerNames } from '../utils/voucher-references';
 
 /**
@@ -12,9 +12,8 @@ import { toCustomerNames } from '../utils/voucher-references';
 export function useVoucherCustomerNames(): Readonly<Record<string, string>> {
   const mayListCustomers = useCanPerform('customers.list');
   const customers = useQuery({
-    ...allCustomersOptions(),
+    ...voucherCustomersQueryOptions(),
     enabled: mayListCustomers,
-    retry: false,
   });
 
   return useMemo(
