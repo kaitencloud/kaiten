@@ -1,0 +1,74 @@
+name: Stripe sandbox
+
+# The Stripe adapter against Stripe's own test mode: the provider contract
+# (TestStripeSandbox) and what the adapter assumes of Stripe (TestStripeSpike:
+# the CR-001 sandbox checks and the spike items of spec §12.4 and §12.5).
+#
+# It needs the repository secret KAITEN_STRIPE_TEST_KEY: a restricted rk_test_
+# key of a Stripe test account with Stripe Tax active in test mode, and the
+# permissions the Stripe connector documents (Customers, Invoices, Invoice
+# items, Coupons, Payment methods, Checkout Sessions and the Customer portal
+# write; Events read). Without it the job reports so and passes.
+#
+# The findings land in the job summary and as the stripe-spike artifact.
+
+on:
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stripe-sandbox
+  cancel-in-progress: false
+
+env:
+  # In step with go-ci.yml, which explains the choice of version.
+  GO_VERSION: "1.27.x"
+
+jobs:
+  sandbox:
+    name: Stripe sandbox
+    if: github.repository == 'kaitencloud/kaiten'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: api
+    env:
+      KAITEN_STRIPE_TEST_KEY: ${{ secrets.KAITEN_STRIPE_TEST_KEY }}
+      KAITEN_STRIPE_SPIKE_REPORT: ${{ github.workspace }}/stripe-spike.md
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: api/go.sum
+
+      - name: Without a key
+        if: env.KAITEN_STRIPE_TEST_KEY == ''
+        run: echo "::notice title=Stripe sandbox::KAITEN_STRIPE_TEST_KEY is not set; nothing ran."
+
+      - name: Contract and spike checks against Stripe test mode
+        if: env.KAITEN_STRIPE_TEST_KEY != ''
+        run: go test -count=1 -v -run 'TestStripeSandbox|TestStripeSpike' ./internal/infrastructure/billing/...
+
+      - name: Findings
+        if: always() && env.KAITEN_STRIPE_TEST_KEY != ''
+        run: |
+          if [ -f "$KAITEN_STRIPE_SPIKE_REPORT" ]; then
+            cat "$KAITEN_STRIPE_SPIKE_REPORT" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Keep the findings
+        if: always() && env.KAITEN_STRIPE_TEST_KEY != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: stripe-spike
+          path: stripe-spike.md
+          if-no-files-found: ignore

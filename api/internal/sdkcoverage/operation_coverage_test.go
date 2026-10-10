@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/goccy/go-yaml"
@@ -46,6 +47,110 @@ var consoleAuthoringOperations = map[string]string{
 	"get-targeting-context":      "the editor's autocomplete schema; SDK callers author rules from their own knowledge",
 	"lint-targeting-rule":        "per-keystroke feedback for the editor; SDK callers get the same verdict from the write path",
 	"test-targeting-rule":        "interactive dry-run for the editor; nothing programmatic rehearses a rule it is about to submit",
+}
+
+/*
+awaitingSDKOperations are Core operations the public SDK will model but does
+not yet: the contract shipped first, and the SDK follows in its own release.
+
+Unlike consoleAuthoringOperations this is debt, not a decision: an entry says
+the operation has SDK callers and names what it waits for. The test keeps it
+honest the same two ways -- an entry must name a live operation, and it must
+be deleted, not kept, once the SDK maps the operation.
+*/
+// awaitsBilling is the reason every billing operation gives: the SDK models the
+// priced catalogue and the billing module in one release, after the contract.
+const awaitsBilling = "billing: the SDK models it in its billing release"
+
+var awaitingSDKOperations = map[string]string{
+	"listLicensePrices":        awaitsBilling,
+	"getLicensePrice":          awaitsBilling,
+	"createLicensePrice":       awaitsBilling,
+	"updateLicensePrice":       awaitsBilling,
+	"deprecateLicensePrice":    awaitsBilling,
+	"previewLicenseInvoice":    awaitsBilling,
+	"getBillingSettings":       awaitsBilling,
+	"updateBillingSettings":    awaitsBilling,
+	"subscribeInstance":        awaitsBilling,
+	"getInstanceBilling":       awaitsBilling,
+	"closeBillingPeriods":      awaitsBilling,
+	"listInvoices":             awaitsBilling,
+	"listInstanceInvoices":     awaitsBilling,
+	"getInvoice":               awaitsBilling,
+	"getUpcomingInvoice":       awaitsBilling,
+	"markInvoicePaid":          awaitsBilling,
+	"writeOffInvoice":          awaitsBilling,
+	"voidInvoice":              awaitsBilling,
+	"releaseInvoiceHold":       awaitsBilling,
+	"recomposeInvoice":         awaitsBilling,
+	"listHandoff":              awaitsBilling,
+	"claimHandoff":             awaitsBilling,
+	"ackHandoff":               awaitsBilling,
+	"exportInvoices":           awaitsBilling,
+	"listInvoiceLineReports":   awaitsBilling,
+	"getBillingCapabilities":   awaitsBilling,
+	"cancelSubscription":       awaitsBilling,
+	"reactivateSubscription":   awaitsBilling,
+	"schedulePlanChange":       awaitsBilling,
+	"cancelPlanChange":         awaitsBilling,
+	"updateInstanceBilling":    awaitsBilling,
+	"updateLicenseFamily":      awaitsBilling,
+	"listAddonFamilies":        awaitsBilling,
+	"getAddonFamily":           awaitsBilling,
+	"updateAddonFamily":        awaitsBilling,
+	"createAddon":              awaitsBilling,
+	"listAddons":               awaitsBilling,
+	"getAddon":                 awaitsBilling,
+	"updateAddon":              awaitsBilling,
+	"deleteAddon":              awaitsBilling,
+	"publishAddon":             awaitsBilling,
+	"archiveAddon":             awaitsBilling,
+	"unarchiveAddon":           awaitsBilling,
+	"listAddonPrices":          awaitsBilling,
+	"createAddonPrice":         awaitsBilling,
+	"deprecateAddonPrice":      awaitsBilling,
+	"listAddonEntitlements":    awaitsBilling,
+	"getAddonEntitlement":      awaitsBilling,
+	"assignAddonEntitlement":   awaitsBilling,
+	"updateAddonEntitlement":   awaitsBilling,
+	"unassignAddonEntitlement": awaitsBilling,
+	"listAddonCompatibility":   awaitsBilling,
+	"setAddonCompatibility":    awaitsBilling,
+	"removeAddonCompatibility": awaitsBilling,
+	"listInstanceAddons":       awaitsBilling,
+	"attachInstanceAddon":      awaitsBilling,
+	"setInstanceAddonQuantity": awaitsBilling,
+	"detachInstanceAddon":      awaitsBilling,
+	"createVoucher":            awaitsBilling,
+	"listVouchers":             awaitsBilling,
+	"getVoucher":               awaitsBilling,
+	"lookupVoucher":            awaitsBilling,
+	"updateVoucher":            awaitsBilling,
+	"publishVoucher":           awaitsBilling,
+	"archiveVoucher":           awaitsBilling,
+	"listVoucherRedemptions":   awaitsBilling,
+	"validateVoucher":          awaitsBilling,
+	"redeemVoucher":            awaitsBilling,
+	"listInstanceVouchers":     awaitsBilling,
+	"revokeInstanceVoucher":    awaitsBilling,
+	"retryInvoicePush":         awaitsBilling,
+	"syncBillingProvider":      awaitsBilling,
+	"syncInvoice":              awaitsBilling,
+
+	"getCustomerBilling":           awaitsBilling,
+	"createPaymentMethodSession":   awaitsBilling,
+	"completePaymentMethodSession": awaitsBilling,
+	"createPortalSession":          awaitsBilling,
+	"detachPaymentMethod":          awaitsBilling,
+	"getBillingHealth":             awaitsBilling,
+
+	"createPublishableKey": awaitsBilling,
+	"listPublishableKeys":  awaitsBilling,
+	"updatePublishableKey": awaitsBilling,
+	"revokePublishableKey": awaitsBilling,
+
+	"createCustomerSession": awaitsBilling,
+	"revokeCustomerSession": awaitsBilling,
 }
 
 func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
@@ -98,6 +203,9 @@ func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
 		"getEntitlementsUsageMetrics":        {receiver: client.Instances, method: "ListEntitlementUsageMetrics"},
 		"getEntitlementUsageMetrics":         {receiver: client.Instances, method: "GetEntitlementUsageMetric"},
 		"reportEntitlementUsageMetric":       {receiver: client.Instances, method: "ReportEntitlementUsageMetric"},
+		"listUsageReports":                   {receiver: client.Instances, method: "ListUsageReports"},
+		"exportUsageReports":                 {receiver: client.Instances, method: "ExportUsageReports"},
+		"exportOrganizationUsageReports":     {receiver: client.Instances, method: "ExportOrganizationUsageReports"},
 		"get-licenses":                       {receiver: client.Licenses, method: "List"},
 		"create-license":                     {receiver: client.Licenses, method: "Create"},
 		"delete-license":                     {receiver: client.Licenses, method: "Delete"},
@@ -145,6 +253,9 @@ func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
 		if _, exempt := consoleAuthoringOperations[operationID]; exempt {
 			continue
 		}
+		if _, awaiting := awaitingSDKOperations[operationID]; awaiting {
+			continue
+		}
 		if _, ok := implemented[operationID]; !ok {
 			missingMappings = append(missingMappings, operationID)
 		}
@@ -181,6 +292,14 @@ func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
 		}
 		if _, ok := implemented[operationID]; ok {
 			t.Fatalf("operation %q is both SDK-mapped and console-authoring-exempt — pick one", operationID)
+		}
+	}
+	for operationID := range awaitingSDKOperations {
+		if _, ok := currentOperations[operationID]; !ok {
+			t.Fatalf("awaiting-SDK entry %q names an operation no longer in the OpenAPI spec — delete the entry", operationID)
+		}
+		if _, ok := implemented[operationID]; ok {
+			t.Fatalf("operation %q is SDK-mapped now — delete its awaiting-SDK entry", operationID)
 		}
 	}
 }
@@ -240,6 +359,13 @@ func loadOpenAPIOperationIDs(t *testing.T) map[string]struct{} {
 }
 
 func shouldSkipSDKPath(path string) bool {
+	// The public SDK surface is called with a publishable key or a customer
+	// session, by @kaitencloud/client in a browser. This SDK authenticates with
+	// an organization credential, which those routes refuse: there is nothing
+	// for it to call, on any of them. Minting the sessions is on the Core API.
+	if strings.HasPrefix(path, "/public/") {
+		return true
+	}
 	switch path {
 	case "/ofrep/v1/evaluate/flags", "/ofrep/v1/evaluate/flags/{key}", "/openfeature/v0/manifest":
 		return true

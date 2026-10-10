@@ -5,6 +5,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/registerconnector"
 	connectorschema "github.com/kaitencloud/kaiten/api/internal/modules/connectors/schema"
@@ -27,15 +30,16 @@ import (
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
-// Platform is the Platform API's nine operations: everything system:kaiten can
+// Platform is the Platform API's ten operations: everything system:kaiten can
 // do while holding a credential that names no organization.
 //
-// It spans four modules, which is why it is a namespace of its own rather than a
-// method set on each. What these nine have in common is the credential class, not
+// It spans five modules, which is why it is a namespace of its own rather than a
+// method set on each. What these ten have in common is the credential class, not
 // the table they touch -- and the credential class is the thing a caller has to get
 // right. A driver reaching for one of these has a ksm_ token, or it has no business
 // here.
 type Platform struct {
+	billing    *billing.UseCases
 	connectors *connectors.UseCases
 	identity   *identity.UseCases
 	org        *organization.UseCases
@@ -46,6 +50,7 @@ type Platform struct {
 // module pointers and no state of its own, so copying it is copying four words.
 func (k *Kaiten) Platform() Platform {
 	return Platform{
+		billing:    k.modules.Billing,
 		connectors: k.modules.Connectors,
 		identity:   k.modules.Identity,
 		org:        k.modules.Organization,
@@ -194,6 +199,20 @@ func (p Platform) RevokeOrganizationToken(
 	}
 
 	return p.identity.RevokeOrganizationToken.Execute(ctx, tokenSlug)
+}
+
+// CloseBillingPeriods closes target's due subscriptions now, on behalf of the
+// platform: what operations and the nightly sandbox run instead of waiting for
+// the period-close job.
+func (p Platform) CloseBillingPeriods(
+	ctx context.Context, cl caller.PlatformCaller, target uuid.UUID, instanceSlug *string,
+) (*closing.ClosePeriodsReport, error) {
+	ctx, err := p.bindTarget(ctx, cl, closebillingperiods.RequiredScope, target)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.billing.CloseBillingPeriods.ExecuteFor(ctx, target, instanceSlug)
 }
 
 // bindTarget authorizes a platform call that acts inside one named organization,

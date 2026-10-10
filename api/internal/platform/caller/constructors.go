@@ -2,6 +2,7 @@ package caller
 
 import (
 	"context"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -42,6 +43,49 @@ func Platform(ctx context.Context) (PlatformCaller, error) {
 	return PlatformCaller{
 		platformTokenID: i.PlatformTokenID,
 		scopes:          i.Scopes,
+	}, nil
+}
+
+// PublishableKey derives a [PublishableKeyCaller] from an authenticated
+// request. Every other credential class is refused with the shared
+// wrong-credential answer -- see [Organization].
+func PublishableKey(ctx context.Context) (PublishableKeyCaller, error) {
+	i, err := principalOfKind(ctx, principal.KindPublishableKey)
+	if err != nil {
+		return PublishableKeyCaller{}, err
+	}
+
+	return PublishableKeyCaller{
+		organizationID: i.OrganizationID,
+		keyID:          i.PublishableKeyID,
+	}, nil
+}
+
+// CustomerSession derives a [CustomerSessionCaller] from an authenticated
+// request. Every other credential class is refused with the shared
+// wrong-credential answer -- see [Organization].
+func CustomerSession(ctx context.Context) (CustomerSessionCaller, error) {
+	i, err := principalOfKind(ctx, principal.KindCustomerSession)
+	if err != nil {
+		return CustomerSessionCaller{}, err
+	}
+	if i.CustomerSession == nil {
+		// Unreachable from the authenticator, which always sets it; stated so a
+		// principal built without it fails closed instead of reading as a
+		// session bound to no customer.
+		return CustomerSessionCaller{}, kaitenerrors.Forbidden(principal.ErrCodeWrongCredentialKind,
+			principal.ErrMsgWrongCredentialKind)
+	}
+
+	return CustomerSessionCaller{
+		organizationID: i.OrganizationID,
+		sessionID:      i.CustomerSession.ID,
+		actorID:        i.UserID,
+		customerID:     i.CustomerSession.CustomerID,
+		customerSlug:   i.CustomerSession.CustomerSlug,
+		instanceID:     i.CustomerSession.InstanceID,
+		instanceSlug:   i.CustomerSession.InstanceSlug,
+		allowedOrigins: slices.Clone(i.CustomerSession.AllowedOrigins),
 	}, nil
 }
 

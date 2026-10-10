@@ -62,14 +62,13 @@ func (r *QueryRepository) GetEntitlementGroupUsage(ctx context.Context, groupSlu
 			// now (database time) comes from row.Now -- folded into
 			// GetEntitlementGroupUsage itself rather than a separate
 			// GetDatabaseNow round trip.
-			window, err := period.Current(row.Now.Time.UTC(), period.ResetPeriod(*row.ResetPeriod), period.ResetAnchor(*row.ResetAnchor), row.StartLicenseDate.Time.UTC())
-			if err != nil {
-				return nil, err
-			}
-
 			var storedPeriodStart *time.Time
 			if row.PeriodStart.Valid {
 				storedPeriodStart = ptr.To(row.PeriodStart.Time.UTC())
+			}
+			window, _, err := period.ResolveCurrent(row.Now.Time.UTC(), storedPeriodStart, period.ResetPeriod(*row.ResetPeriod), period.ResetAnchor(*row.ResetAnchor), row.StartLicenseDate.Time.UTC())
+			if err != nil {
+				return nil, err
 			}
 			resolved := entitlementvalue.ResolveCurrentWindowUsage(stored, storedPeriodStart, window)
 

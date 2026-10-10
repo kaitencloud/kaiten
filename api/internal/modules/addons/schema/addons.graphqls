@@ -1,0 +1,21 @@
+"""
+An add-on version an instance holds, and how many units.
+"""
+type InstanceAddon {
+  id: UUID!
+  addonId: UUID!
+  addonSlug: String!
+  familySlug: String!
+  name: String!
+  quantity: Int!
+  """The most one instance may hold; null when unbounded."""
+  maxQuantity: Int
+  attachedAt: Time!
+}
+
+extend type Instance {
+  """
+  The add-ons the instance holds now, oldest attachment first.
+  """
+  addons: [InstanceAddon!]!
+}

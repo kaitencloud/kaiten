@@ -35,6 +35,9 @@ func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries) {
 		newLicenseFamilyBatchFn(queries),
 	))
 	// License.entitlements -- what GET /licenses/{slug}/entitlements bills.
+	// License.prices -- part of the licence read, as GET /licenses/{slug}/prices
+	// is of the licence it lists.
+	loaders.Register(LicensePricesLoaderName, dataloaderLib.NewBatchedLoader(newLicensePricesBatchFn(queries)))
 	loaders.Register(LicenseEntitlementsLoaderName, dataloaderLib.NewBatchedLoader(
 		dataloader.Metered(loaders, dogfooding.LicenseEntitlementReadEntitlementSlug, newLicenseEntitlementsBatchFn(queries)),
 	))

@@ -68,6 +68,7 @@ func RegisterEndpoint(api huma.API, app Updater) {
 			Name:               request.Body.Name,
 			ExternalCustomerID: request.Body.ExternalCustomerID,
 			Domain:             request.Body.Domain,
+			BillingEmail:       request.Body.BillingEmail,
 		}
 		if _, err := app.Update(ctx, cl, request.Slug, command); err != nil {
 			return nil, err
@@ -81,7 +82,7 @@ func RegisterEndpoint(api huma.API, app Updater) {
 func RegisterWebhook(api huma.API) {
 	webhook.Declare(api, webhook.Declaration{
 		Event:       events.CustomerUpdated,
-		Data:        (*schema.Customer)(nil),
+		Data:        (*schema.CustomerEvent)(nil),
 		OperationID: "onCustomerUpdated",
 		Summary:     "Customer Updated Webhook",
 		Description: "Triggered when a customer is updated.",

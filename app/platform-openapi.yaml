@@ -1,5 +1,84 @@
 components:
   schemas:
+    ClosePeriodsReport:
+      additionalProperties: false
+      properties:
+        closed:
+          description: Periods closed into an invoice
+          format: int64
+          type: integer
+        examined:
+          description: Subscriptions the batch looked at
+          format: int64
+          type: integer
+        hasMore:
+          description: Set when due subscriptions are left beyond the batch
+          type: boolean
+        held:
+          description: Of those, invoices held as DRAFTs for their usage journal
+          format: int64
+          type: integer
+        invoices:
+          items:
+            $ref: "#/components/schemas/ClosedInvoice"
+          type: array
+        skipped:
+          description: "Subscriptions left for later: held by another transaction, their meters' clock not at the boundary, or failed (logged)"
+          format: int64
+          type: integer
+      required:
+        - examined
+        - closed
+        - held
+        - skipped
+        - hasMore
+        - invoices
+      type: object
+    ClosePeriodsScope:
+      additionalProperties: false
+      properties:
+        instanceSlug:
+          description: Close only this instance's subscription
+          type: string
+      type: object
+    ClosedInvoice:
+      additionalProperties: false
+      properties:
+        boundaryAt:
+          format: date-time
+          type: string
+        held:
+          description: Set when the invoice is a held DRAFT
+          type: boolean
+        id:
+          type: string
+        instanceSlug:
+          type: string
+        kind:
+          enum:
+            - ACTIVATION
+            - RENEWAL
+            - FINAL
+          type: string
+        status:
+          enum:
+            - DRAFT
+            - PUSHED
+            - PUSH_FAILED
+            - MANUAL
+            - PAID
+            - PAYMENT_FAILED
+            - UNCOLLECTIBLE
+            - VOID
+          type: string
+      required:
+        - id
+        - instanceSlug
+        - kind
+        - boundaryAt
+        - status
+        - held
+      type: object
     Connector:
       additionalProperties: false
       properties:
@@ -612,6 +691,86 @@ paths:
       summary: Get an organization by ID
       tags:
         - organizations
+  /platform/organizations/{orgId}/billing/close-periods:
+    post:
+      description: "Closes the subscriptions whose period has ended now, rather than at the period-close job's next pass: each one's RENEWAL invoice is composed and issued (or held, when its usage journal fails a check) and its period advances. A subscription several periods behind closes one period at a time until it is current. Only what is due closes, at most the configured batch size per call. Platform API: requires a Kaiten platform token (`ksm_...`) with write:billing; the closes are recorded under system:kaiten."
+      operationId: platform-close-billing-periods
+      parameters:
+        - description: Organization ID
+          in: path
+          name: orgId
+          required: true
+          schema:
+            description: Organization ID
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClosePeriodsScope"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClosePeriodsReport"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
+      security:
+        - platformAuth:
+            - write:billing
+      summary: Close an organization's due billing periods
+      tags:
+        - billing
   /platform/organizations/{orgId}/memberships/{userId}:
     delete:
       description: "Soft-deletes a single membership. Platform API: requires a Kaiten platform token (`ksm_...`) with delete:memberships. The system:kaiten membership cannot be removed — the database refuses it, and this answers 403."

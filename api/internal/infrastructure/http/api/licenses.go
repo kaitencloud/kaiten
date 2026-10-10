@@ -7,26 +7,34 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/archivelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicense"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deletelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deletelicenseentitlement"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deprecatelicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseentitlements"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicensefamily"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenses"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicensefamilies"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicenseprices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/previewlicenseinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/publishlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/unarchivelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseentitlement"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicensefamily"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseprice"
 )
 
-// registerLicenses publishes the licenses module's fifteen operations and the
-// twelve webhook contracts its writes emit -- six for the license itself (three of
-// them lifecycle moves), three for the family it belongs to, and three for the
-// entitlement values attached to it, since a subscriber cares which of them moved.
+// registerLicenses publishes the licenses module's twenty-one operations and the
+// fifteen webhook contracts its writes emit -- six for the license itself (three of
+// them lifecycle moves), three for the family it belongs to, three for the
+// entitlement values attached to it, and three for its prices, since a subscriber
+// cares which of them moved.
 //
-// All fifteen receive the same value -- the facade's licenses surface -- and each
+// All twenty-one receive the same value -- the facade's licenses surface -- and each
 // takes it as its own one-method interface, so what an operation can reach is what
 // it named.
 func registerLicenses(core huma.API, app kaiten.Licenses) {
@@ -55,4 +63,14 @@ func registerLicenses(core huma.API, app kaiten.Licenses) {
 	deletelicenseentitlement.RegisterWebhook(core)
 	updatelicenseentitlement.RegisterEndpoint(core, app)
 	updatelicenseentitlement.RegisterWebhook(core)
+	listlicenseprices.RegisterEndpoint(core, app)
+	getlicenseprice.RegisterEndpoint(core, app)
+	createlicenseprice.RegisterEndpoint(core, app)
+	createlicenseprice.RegisterWebhook(core)
+	updatelicenseprice.RegisterEndpoint(core, app)
+	updatelicenseprice.RegisterWebhook(core)
+	deprecatelicenseprice.RegisterEndpoint(core, app)
+	deprecatelicenseprice.RegisterWebhook(core)
+	previewlicenseinvoice.RegisterEndpoint(core, app)
+	updatelicensefamily.RegisterEndpoint(core, app)
 }

@@ -99,6 +99,28 @@ func assertEveryOperationDeclaresItsScope(t *testing.T, oapi *huma.OpenAPI, expe
 		count++
 		require.NotEmpty(t, op.Security, "%s %s (%s) declares no security requirement", method, path, op.OperationID)
 
+		// The public SDK surface takes credentials that carry no scope -- a
+		// publishable key on /public, a customer session on /public/session --
+		// and each declares its scheme alone, on its paths and only there.
+		onSessionPath := strings.HasPrefix(path, kaitenhuma.SessionPathPrefix+"/")
+		onPublicPath := strings.HasPrefix(path, kaitenhuma.PublicPathPrefix+"/") && !onSessionPath
+		for _, surface := range []struct {
+			scheme string
+			on     bool
+		}{{kaitenhuma.PublishableKeyAuth, onPublicPath}, {kaitenhuma.CustomerSessionAuth, onSessionPath}} {
+			scopes, declared := op.Security[0][surface.scheme]
+			require.Equal(t, surface.on, declared,
+				"%s %s: the %s scheme belongs to its own public paths and only to them", method, path, surface.scheme)
+			if declared {
+				require.Len(t, op.Security, 1, "%s %s must accept its one public credential and nothing else", method, path)
+				require.Len(t, op.Security[0], 1, "%s %s must accept its one public credential and nothing else", method, path)
+				require.Empty(t, scopes, "%s %s: a public credential carries no scope to require", method, path)
+			}
+		}
+		if onPublicPath || onSessionPath {
+			return
+		}
+
 		scopes, ok := op.Security[0][expectedScheme]
 		require.True(t, ok, "%s %s must require the %q scheme", method, path, expectedScheme)
 		require.NotEmpty(t, scopes, "%s %s must say which scope it needs", method, path)
@@ -654,6 +676,38 @@ func walkNames(node any, visit func(string)) {
 	case []any:
 		for _, v := range n {
 			walkNames(v, visit)
+		}
+	}
+}
+
+// What the handlers and the error factory add to a response is in the
+// contract (B-14, C-4): Retry-After on every 429 and 503 and on a
+// BoundaryPending 409, and both success statuses of an operation that answers
+// two.
+func TestContractDeclaresRetryAfterAndBothSuccesses(t *testing.T) {
+	doc := newContractDocument(t)
+	for path, item := range doc.Paths {
+		for method, op := range map[string]*huma.Operation{"GET": item.Get, "POST": item.Post, "PUT": item.Put, "PATCH": item.Patch, "DELETE": item.Delete} {
+			if op == nil {
+				continue
+			}
+			for _, status := range []string{"429", "503"} {
+				if response := op.Responses[status]; response != nil {
+					assert.Contains(t, response.Headers, "Retry-After", "%s %s %s", method, path, status)
+				}
+			}
+		}
+	}
+	assert.Contains(t, doc.Paths["/instances/{instanceSlug}/billing/cancel"].Post.Responses["409"].Headers, "Retry-After")
+	assert.NotContains(t, doc.Paths["/invoices/{invoiceId}/void"].Post.Responses["409"].Headers, "Retry-After")
+	for path, statuses := range map[string][]string{
+		"/invoices/{invoiceId}/recompose": {"200", "201"},
+		"/public/session/checkout":        {"200", "201"},
+	} {
+		for _, status := range statuses {
+			response := doc.Paths[path].Post.Responses[status]
+			require.NotNil(t, response, "%s %s", path, status)
+			assert.NotEmpty(t, response.Content, "%s %s", path, status)
 		}
 	}
 }

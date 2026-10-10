@@ -63,16 +63,16 @@ func (r *fakeRows) Next() bool {
 }
 
 // Scan fills only the two columns the page cursor is built from -- id
-// (first) and created_at (eighth) in GetCustomers' select list -- and
+// (first) and created_at (ninth) in GetCustomers' select list -- and
 // leaves the rest of the row at its zero value.
 func (r *fakeRows) Scan(dest ...any) error {
 	id, ok := dest[0].(*uuid.UUID)
 	if !ok {
 		return fmt.Errorf("fakeRows: expected *uuid.UUID at column 1, got %T", dest[0])
 	}
-	createdAt, ok := dest[7].(*pgtype.Timestamp)
+	createdAt, ok := dest[8].(*pgtype.Timestamp)
 	if !ok {
-		return fmt.Errorf("fakeRows: expected *pgtype.Timestamp at column 8, got %T", dest[7])
+		return fmt.Errorf("fakeRows: expected *pgtype.Timestamp at column 9, got %T", dest[8])
 	}
 
 	*id = uuid.New()

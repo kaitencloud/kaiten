@@ -3,6 +3,8 @@
 
 schema:
   - "schema.graphqls"
+  - "../../../modules/addons/schema/*.graphqls"
+  - "../../../modules/billing/schema/*.graphqls"
   - "../../../modules/components/schema/*.graphqls"
   - "../../../modules/customers/schema/*.graphqls"
   - "../../../modules/deploymentzones/schema/*.graphqls"
@@ -77,6 +79,16 @@ models:
         resolver: true
       entitlementUsage:
         resolver: true
+      billing:
+        resolver: true
+      addons:
+        resolver: true
+  InstanceBillingSummary:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/billing/graphql.InstanceBillingSummary
+  InstanceAddon:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue.InstanceAddon
   InstancePage:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.InstancePage
@@ -88,6 +100,8 @@ models:
         resolver: true
       limit:
         resolver: true
+      provenance:
+        resolver: true
   InstanceStatus:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.InstanceStatus
@@ -98,6 +112,16 @@ models:
       entitlements:
         resolver: true
       family:
+        resolver: true
+      prices:
+        resolver: true
+  LicensePrice:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices.Price
+    fields:
+      meteredEntitlement:
+        resolver: true
+      saleUnitFactor:
         resolver: true
   LicenseFamily:
     model:

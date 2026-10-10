@@ -6,6 +6,8 @@ type Customer {
   name: String!
   slug: String!
   externalCustomerId: String
+  """Where the customer's invoices are sent. Personal data."""
+  billingEmail: String
   domain: String
   integrations: Map!
   createdBy: User!

@@ -39,6 +39,7 @@ func RegisterEndpoint(api huma.API, app Creator) {
 		Summary:       "Create a new license",
 		Description:   "Create a new license with the provided details. Without familySlug or familyId this creates a new license family and the license becomes its version 1. With one of them it adds the next version to that family (familySlug names it by slug, familyId by identifier; sent together they must agree), and the version number is assigned by the server as the next one in the family's sequence. The version starts PUBLISHED, or DRAFT when lifecycleState says so; ARCHIVED is refused (422 CreateLicense.LifecycleStateNotSettable), because a version is archived with archive-license once it has been on sale.\n\nWhere the deployment limits how many licenses an organization may have, only a new family counts against that limit (409 CreateLicense.EntitlementLimitReached once it is reached): a new version of an existing family never does.",
 		Tags:          []string{"licenses"},
+		Metadata:      kaitenhuma.SchemaCodes(map[string]string{"body.trialPeriodDays": "CreateLicense.InvalidTrialPeriodDays", "body.selfServeCtaUrl": "CreateLicense.InvalidSelfServeCtaUrl"}),
 		DefaultStatus: http.StatusCreated,
 		// 404 is reachable since the license-family split: familySlug names a family that has to
 		// already exist, so a create can now fail on a resource lookup the way
@@ -90,6 +91,11 @@ func RegisterEndpoint(api huma.API, app Creator) {
 			FamilyID:       familyID,
 			IsDefault:      input.Body.IsDefault,
 			LifecycleState: input.Body.LifecycleState,
+
+			PricingType:           input.Body.PricingType,
+			TrialPeriodDays:       input.Body.TrialPeriodDays,
+			RequiresPaymentMethod: input.Body.RequiresPaymentMethod != nil && *input.Body.RequiresPaymentMethod,
+			SelfServeCtaURL:       input.Body.SelfServeCtaURL,
 		}
 
 		license, err := app.Create(ctx, cl, command)

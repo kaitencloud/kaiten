@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"log/slog"
 	"sync"
 
@@ -10,6 +12,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kaitencloud/kaiten/api/config"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/connectorhooks"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/pgnotify"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
@@ -127,6 +131,44 @@ func ConnectorEntitlementsOrAlways(checker ConnectorEntitlements) ConnectorEntit
 	return checker
 }
 
+// EntitlementConfig reads a CONFIG entitlement of an organization's licence: a
+// setting the licence states, such as how long usage history is kept.
+//
+// Separate from ConnectorEntitlements for the same reason that one is separate from
+// UsageReporter: a different question, and a different shape of answer.
+type EntitlementConfig interface {
+	// ConfigValue returns the entitlement's object value for organizationID, or
+	// nil when the licence does not grant it. ErrNoLicensingAuthority means this
+	// deployment has nobody to ask, and the caller falls back to its own
+	// configuration; any other error means the value is unknown right now.
+	ConfigValue(ctx context.Context, organizationID uuid.UUID, entitlementSlug string) (json.RawMessage, error)
+}
+
+// ErrNoLicensingAuthority is what EntitlementConfig answers on a deployment no
+// licence governs: every self-hosted one, and the licensing deployment itself for
+// its own organization.
+var ErrNoLicensingAuthority = errors.New("no licensing authority answers for this organization")
+
+// NoLicensingAuthority answers ErrNoLicensingAuthority for every setting. Wiring
+// substitutes it wherever the real reader is absent, for the reason AlwaysEntitled
+// exists.
+type NoLicensingAuthority struct{}
+
+var _ EntitlementConfig = NoLicensingAuthority{}
+
+func (NoLicensingAuthority) ConfigValue(context.Context, uuid.UUID, string) (json.RawMessage, error) {
+	return nil, ErrNoLicensingAuthority
+}
+
+// EntitlementConfigOrNone returns reader, or NoLicensingAuthority when reader is
+// nil. See UsageReporterOrNoop.
+func EntitlementConfigOrNone(reader EntitlementConfig) EntitlementConfig {
+	if reader == nil {
+		return NoLicensingAuthority{}
+	}
+	return reader
+}
+
 // WorkerRegistry collects shutdown hooks from modules that manage background workers.
 // Each module calls OnStop during initialisation; the server calls StopAll once the
 // HTTP router has finished draining in-flight requests.
@@ -166,6 +208,18 @@ type Container struct {
 	// ConnectorEntitlements answers whether an organization's license permits a
 	// connector. Never nil: see ConnectorEntitlementsOrAlways.
 	ConnectorEntitlements ConnectorEntitlements
+
+	// EntitlementConfig reads the settings an organization's licence states.
+	// Never nil: see EntitlementConfigOrNone.
+	EntitlementConfig EntitlementConfig
+
+	// BillingProviders resolves the payment providers invoices are issued
+	// through. Never nil: NOOP alone when the driver registers none.
+	BillingProviders provider.Registry
+
+	// ConnectorHooks are the lifecycle rules of the connectors that have
+	// their own (a payment provider's), by connector name. Nil has none.
+	ConnectorHooks connectorhooks.Registry
 
 	// WorkerRegistry is never nil, so a module registers its shutdown hook
 	// unconditionally rather than asking whether anyone is collecting them. A

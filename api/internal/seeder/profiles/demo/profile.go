@@ -13,16 +13,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/createcomponent"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/createcustomer"
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/createdeploymentzone"
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/updatedeploymentzone"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlement"
-	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
-	instancesdb "github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicense"
@@ -167,7 +166,7 @@ func (p *Profile) seedOrganization(ctx context.Context, sc *seeder.SeederContext
 	}
 
 	// Step 8: usage metrics
-	if err := p.seedUsageMetrics(ctx, orgCtx, organization.ID, now, instancesSeeded, entitlementIDs); err != nil {
+	if err := p.seedUsageMetrics(ctx, orgCtx, organization.ID, instancesSeeded, entitlementIDs); err != nil {
 		return err
 	}
 
@@ -272,6 +271,8 @@ func (p *Profile) seedEntitlements(ctx context.Context, sc *seeder.SeederContext
 			GroupSlugs:        ent.GroupSlugs,
 			Type:              ent.Type,
 			AggregationMethod: ent.AggregationMethod,
+			ResetPeriod:       ent.ResetPeriod,
+			ResetAnchor:       ent.ResetAnchor,
 		}
 		created, err := sc.Entitlements.CreateEntitlement.Execute(ctx, cmd)
 		if err != nil {
@@ -763,7 +764,6 @@ func (p *Profile) seedUsageMetrics(
 	ctx context.Context,
 	orgCtx *seeder.SeederContext,
 	orgID uuid.UUID,
-	now time.Time,
 	instances []seededInstance,
 	entitlementIDs map[string]uuid.UUID,
 ) error {
@@ -781,35 +781,20 @@ func (p *Profile) seedUsageMetrics(
 				continue
 			}
 
-			entID, ok := entitlementIDs[entSlug]
-			if !ok {
+			if _, ok := entitlementIDs[entSlug]; !ok {
 				continue
 			}
 
-			usageBytes, err := entitlementvalue.ToBytes(&entitlementvalue.NumberUsageValue{
-				Type:       entitlementvalue.TypeNumber,
-				Value:      float64(usage.Value),
-				EventCount: usage.EventCount,
-			})
-			if err != nil {
-				return err
-			}
-
-			// monthly-orders resets MONTH/CALENDAR: its usage row needs a
-			// period_start so the dashboard shows the current window. Every
-			// other entitlement here is a lifetime counter (period_start NULL).
-			var periodStart pgtype.Timestamp
-			if entSlug == monthlyResetEntitlementSlug {
-				startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-				periodStart = pgtype.Timestamp{Time: startOfMonth, Valid: true}
-			}
-
-			if err := instancesdb.New(orgCtx.Pool()).ReportEntitlementUsage(ctx, instancesdb.ReportEntitlementUsageParams{
-				EntitlementID:  entID,
-				InstanceID:     inst.ID,
-				Value:          usageBytes,
-				OrganizationID: orgID,
-				PeriodStart:    periodStart,
+			// Written with its usage_ledger row, so the journal explains the
+			// seeded counter. A periodic entitlement (monthly-orders resets
+			// MONTH/CALENDAR) lands in its current window, which is what the
+			// dashboard shows; the others are lifetime counters.
+			if err := reportentitlementusagemetric.WriteSnapshot(ctx, uow.NewUnitOfWork(orgCtx.Pool()), reportentitlementusagemetric.Snapshot{
+				OrganizationID:  orgID,
+				InstanceSlug:    inst.Slug,
+				EntitlementSlug: entSlug,
+				Value:           float64(usage.Value),
+				EventCount:      usage.EventCount,
 			}); err != nil {
 				return fmt.Errorf("report usage %q/%q: %w", inst.ID, entSlug, err)
 			}

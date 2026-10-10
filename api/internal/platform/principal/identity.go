@@ -44,6 +44,22 @@ const (
 	// is. currentuser.GetUser does accept it, because it names an organization and
 	// an actor, which is the whole question that provider answers.
 	KindSystem Kind = "system"
+
+	// KindPublishableKey authenticates a vendor's web page by its publishable key
+	// (pk_), on the /api/public routes only. It names an organization and no
+	// actor: UserID is uuid.Nil, there are no scopes, and JIT provisioning skips
+	// it. What bounds it is that only caller.PublishableKey accepts it, and only
+	// the public catalogue asks for that caller.
+	KindPublishableKey Kind = "publishable_key"
+
+	// KindCustomerSession authenticates a vendor's customer, through a session
+	// (kst_) the vendor's backend minted, on the /api/public/session routes
+	// only. UserID is the vendor principal that minted the session: Kaiten
+	// cannot tell the vendor's end users apart, so the writes a session makes
+	// are attributed to whoever vouched for it. It carries no scopes; what
+	// bounds it is its customer (and instance, when bound), in CustomerSession,
+	// and that only caller.CustomerSession accepts it.
+	KindCustomerSession Kind = "customer_session"
 )
 
 // ErrCodeWrongCredentialKind and ErrMsgWrongCredentialKind are the single answer
@@ -87,9 +103,15 @@ type Principal struct {
 	// and only if Kind is KindPlatform. It arrives in the signed platform JWT, so
 	// it is not client-controllable, and it is what links a minted organization
 	// token back to its parent for cascade revocation and audit attribution.
-	PlatformTokenID uuid.UUID    `json:"-"`
-	Scopes          []string     `json:"scopes"`
-	Provisioning    Provisioning `json:"-"`
+	PlatformTokenID uuid.UUID `json:"-"`
+	// CustomerSession is what a customer session is bound to, set if and only
+	// if Kind is KindCustomerSession.
+	CustomerSession *CustomerSession `json:"-"`
+	// PublishableKeyID is the key that authenticated the request, set if and
+	// only if Kind is KindPublishableKey.
+	PublishableKeyID uuid.UUID    `json:"-"`
+	Scopes           []string     `json:"scopes"`
+	Provisioning     Provisioning `json:"-"`
 }
 
 // IsPlatform reports whether this is a platform credential. Nil-safe, because
@@ -116,4 +138,16 @@ func (p *Principal) HasScope(required string) bool {
 // Delegates to scope.HasAllScopes for centralized permission logic
 func (p *Principal) HasAllScopes(required []string) bool {
 	return scope.HasAllScopes(p.Scopes, required)
+}
+
+// CustomerSession is the customer, and optionally the instance, a customer
+// session acts for, and the browser origins it may be used from: the union of
+// its organization's live publishable keys' allowed origins.
+type CustomerSession struct {
+	ID             uuid.UUID
+	CustomerID     uuid.UUID
+	CustomerSlug   string
+	InstanceID     *uuid.UUID
+	InstanceSlug   *string
+	AllowedOrigins []string
 }

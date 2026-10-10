@@ -110,6 +110,10 @@ func newComplexityRoot() generated.ComplexityRoot {
 	root.Release.Instances = unbounded
 	root.Release.Deployments = unbounded
 	root.Instance.EntitlementUsage = unbounded
+	root.Instance.Addons = unbounded
+	root.License.Prices = func(childComplexity int, _ *string) int {
+		return fanOut(assumedFanout, childComplexity)
+	}
 	root.Entitlement.EntitlementGroups = unbounded
 
 	return root

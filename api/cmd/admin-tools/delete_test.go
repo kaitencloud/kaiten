@@ -123,9 +123,9 @@ func TestDeleteCommandsReportAnUnknownTarget(t *testing.T) {
 // against, so a completed value cannot be one the server rejects. A hand-kept list
 // would have been a second copy of that set, and the copy is what drifts.
 func TestScopeCompletionOffersOnlyValidScopes(t *testing.T) {
-	completions, directive := completeScopes(&cobra.Command{}, nil, "read:cus")
+	completions, directive := completeScopes(&cobra.Command{}, nil, "read:deploy")
 
-	require.Equal(t, []cobra.Completion{"read:customers"}, completions)
+	require.Equal(t, []cobra.Completion{"read:deployment_zones"}, completions)
 	require.NotZero(t, directive&cobra.ShellCompDirectiveNoSpace,
 		"a comma-separated value must not have a space appended after each element")
 	require.NotZero(t, directive&cobra.ShellCompDirectiveNoFileComp)
@@ -143,7 +143,7 @@ func TestScopeCompletionCompletesTheLastCSVElement(t *testing.T) {
 // TestScopeCompletionSkipsWhatIsAlreadyChosen: offering a scope the value already
 // carries would complete straight into a duplicate.
 func TestScopeCompletionSkipsWhatIsAlreadyChosen(t *testing.T) {
-	completions, _ := completeScopes(&cobra.Command{}, nil, "read:customers,read:cus")
+	completions, _ := completeScopes(&cobra.Command{}, nil, "read:deployment_zones,read:deploy")
 
 	require.Empty(t, completions)
 }

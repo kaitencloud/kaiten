@@ -80,10 +80,46 @@ static_resources:
                             - exact: "__KAITEN_APP_URL__"
                           allow_methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
                           allow_headers: "content-type,authorization"
-                          expose_headers: "content-type,authorization"
+                          # Retry-After says when to retry a 429, a .BoundaryPending
+                          # or a .ProviderUnavailable (§13.1); Content-Disposition
+                          # names an export's file.
+                          expose_headers: "content-type,authorization,retry-after,content-disposition"
                           max_age: "100"
                           allow_credentials: true
                       routes:
+                        # ---- /api/public — the public SDK surface (pk_, kst_) ----
+                        # A vendor's web page reads its public catalogue here
+                        # with a publishable key in X-Kaiten-Publishable-Key, and
+                        # its customer checks out on /api/public/session with a
+                        # customer session as Authorization: Bearer kst_...
+                        # Neither jwt_authn nor ext_authz runs: the API verifies
+                        # both credentials itself, by digest, and refuses any
+                        # other class on these paths. Its own CORS
+                        # policy, because the virtual host's (one exact origin,
+                        # credentials) would refuse every vendor origin: any
+                        # origin, never credentials -- no cookie is read or set
+                        # here; a session travels in a header -- and the origin
+                        # allowlists are enforced by the API on the actual
+                        # request, since a preflight carries no credential.
+                        - match: { prefix: "/api/public/" }
+                          route: { cluster: api }
+                          typed_per_filter_config:
+                            envoy.filters.http.jwt_authn:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.PerRouteConfig
+                              disabled: true
+                            envoy.filters.http.ext_authz.pat:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthzPerRoute
+                              disabled: true
+                            envoy.filters.http.cors:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy
+                              allow_origin_string_match:
+                                - safe_regex: { regex: ".*" }
+                              allow_methods: "GET, POST, PUT, OPTIONS"
+                              allow_headers: "content-type,authorization,x-kaiten-publishable-key"
+                              # The SDK waits as long as Retry-After says (§13.1).
+                              expose_headers: "retry-after"
+                              max_age: "600"
+                              allow_credentials: false
                         # ---- /api/docs, /api/openapi*, /api/healthz — public ----
                         - match: { prefix: "/api/docs" }
                           route: { cluster: api }

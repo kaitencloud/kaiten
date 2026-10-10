@@ -6,6 +6,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kaitencloud/kaiten/api/config"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
+	billingstripe "github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 )
@@ -64,6 +66,21 @@ type Options struct {
 	// self-hosted deployment wants: there is no licensing authority to ask, so every
 	// registered connector is available to every organization.
 	ConnectorEntitlements services.ConnectorEntitlements
+
+	// EntitlementConfig reads the settings an organization's licence states, such
+	// as how long its usage history is kept. Nil is legal and becomes
+	// services.NoLicensingAuthority: a self-hosted deployment reads those settings
+	// from its own configuration.
+	EntitlementConfig services.EntitlementConfig
+
+	// BillingProviders resolves the payment providers invoices are issued
+	// through. Nil is legal and becomes the providers this binary ships: NOOP,
+	// and Stripe through its connector.
+	BillingProviders provider.Registry
+
+	// Stripe configures the Stripe adapter of the default providers; the zero
+	// value reaches Stripe itself. Tests point it at a fake Stripe.
+	Stripe billingstripe.Options
 
 	// BackgroundWorkers is whether this process runs background work: the
 	// pgnotify listeners, the retired-token sweep, the feature-flag evaluation

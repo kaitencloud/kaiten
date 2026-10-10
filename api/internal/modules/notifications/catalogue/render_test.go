@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/events"
+	addonevents "github.com/kaitencloud/kaiten/api/internal/modules/addons/events"
+	billingevents "github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
 	componentevents "github.com/kaitencloud/kaiten/api/internal/modules/components/events"
 	customerevents "github.com/kaitencloud/kaiten/api/internal/modules/customers/events"
 	deploymentzoneevents "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/events"
@@ -14,7 +16,9 @@ import (
 	instanceevents "github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	licenseevents "github.com/kaitencloud/kaiten/api/internal/modules/licenses/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/notifications/catalogue"
+	publicsdkevents "github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/events"
 	releaseevents "github.com/kaitencloud/kaiten/api/internal/modules/releases/events"
+	voucherevents "github.com/kaitencloud/kaiten/api/internal/modules/vouchers/events"
 )
 
 var (
@@ -170,6 +174,104 @@ func TestClickingANotificationOpensWhatItIsAbout(t *testing.T) {
 			payload:   `{"name":"ci-deploy","slug":"system-kaiten-9f2c1a"}`,
 			wantTitle: "A token was issued for ci-deploy",
 			wantURL:   "/integrations/service-accounts",
+		},
+		{
+			name:      "a failed push opens the invoice",
+			event:     billingevents.InstanceInvoicePushFailed,
+			payload:   `{"id":"4f8c","instanceSlug":"ninja-osaka-prod","pushAttempts":5,"lastPushError":"UNAVAILABLE: Stripe did not answer in time"}`,
+			wantTitle: "An invoice of ninja-osaka-prod could not be pushed to its payment provider",
+			wantURL:   "/billing/invoices/4f8c",
+		},
+		{
+			name:      "a failed payment opens the invoice",
+			event:     billingevents.InstanceInvoicePaymentFailed,
+			payload:   `{"id":"4f8c","instanceSlug":"ninja-osaka-prod","failureCode":"card_declined"}`,
+			wantTitle: "The payment of an invoice of ninja-osaka-prod failed",
+			wantURL:   "/billing/invoices/4f8c",
+		},
+		{
+			name:      "a reconciliation mismatch opens the invoice",
+			event:     billingevents.InstanceInvoiceReconciliationMismatch,
+			payload:   `{"id":"4f8c","instanceSlug":"ninja-osaka-prod"}`,
+			wantTitle: "An invoice of ninja-osaka-prod differs in its payment provider",
+			wantURL:   "/billing/invoices/4f8c",
+		},
+		{
+			name:      "an invoice event without an id opens the invoice list",
+			event:     billingevents.InstanceInvoicePushFailed,
+			payload:   `{}`,
+			wantTitle: "Invoice push failed",
+			wantURL:   "/billing/invoices",
+		},
+		{
+			name:      "an expiring payment method opens its customer",
+			event:     billingevents.CustomerPaymentMethodExpiring,
+			payload:   `{"customerSlug":"ninja-osaka","providerKind":"STRIPE","expiresAt":"2027-03-31T23:59:59Z"}`,
+			wantTitle: "ninja-osaka's payment method expires soon",
+			wantURL:   "/customers/ninja-osaka",
+		},
+		{
+			name:      "a failing provider sync opens the billing settings",
+			event:     billingevents.BillingProviderSyncFailed,
+			payload:   `{"providerKind":"STRIPE","consecutiveFailures":3,"lastSyncError":"UNAVAILABLE"}`,
+			wantTitle: "Payments from STRIPE are not being read",
+			wantURL:   "/settings/billing",
+		},
+		{
+			name:      "a used-up voucher opens billing",
+			event:     voucherevents.VoucherExhausted,
+			payload:   `{"id":"9a1b","name":"LAUNCH20","maxRedemptions":100}`,
+			wantTitle: "Voucher LAUNCH20 is used up",
+			wantURL:   "/billing",
+		},
+		{
+			name:      "a disconnected provider opens the billing settings",
+			event:     billingevents.BillingProviderDisconnected,
+			payload:   `{"providerKind":"STRIPE","connectorName":"stripe","livemode":true}`,
+			wantTitle: "STRIPE was disconnected: its invoices are no longer pushed",
+			wantURL:   "/settings/billing",
+		},
+		{
+			name:      "an issued invoice opens the invoice",
+			event:     billingevents.InstanceInvoiceIssued,
+			payload:   `{"id":"7f3c","instanceSlug":"acme-prod"}`,
+			wantTitle: "An invoice of acme-prod was issued",
+			wantURL:   "/billing/invoices/7f3c",
+		},
+		{
+			name:      "a handed-off invoice opens the invoice",
+			event:     billingevents.InstanceInvoiceHandoffAcknowledged,
+			payload:   `{"invoiceId":"7f3c","externalReference":"INV-42"}`,
+			wantTitle: "An invoice was handed off",
+			wantURL:   "/billing/invoices/7f3c",
+		},
+		{
+			name:      "a saved payment method opens the customer, without its labels",
+			event:     billingevents.CustomerPaymentMethodAttached,
+			payload:   `{"customerSlug":"acme","providerKind":"STRIPE","status":"ACTIVE"}`,
+			wantTitle: "acme saved a payment method",
+			wantURL:   "/customers/acme",
+		},
+		{
+			name:      "an added add-on opens the instance's billing",
+			event:     addonevents.InstanceAddonAdded,
+			payload:   `{"instanceSlug":"acme-prod","addonSlug":"extra-seats-v1","quantity":2}`,
+			wantTitle: "An add-on was added to acme-prod",
+			wantURL:   "/customers/instances/acme-prod/billing",
+		},
+		{
+			name:      "an expired voucher opens billing",
+			event:     voucherevents.VoucherExpired,
+			payload:   `{"id":"9a1b","name":"SPRING","expiresAt":"2026-10-01T00:00:00Z"}`,
+			wantTitle: "Voucher SPRING expired",
+			wantURL:   "/billing",
+		},
+		{
+			name:      "a publishable key is named by its label, never its key",
+			event:     publicsdkevents.PublishableKeyRevoked,
+			payload:   `{"id":"1","label":"Marketing site","keyHint":"x9Qa"}`,
+			wantTitle: "Publishable key Marketing site was revoked",
+			wantURL:   "/settings/billing",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

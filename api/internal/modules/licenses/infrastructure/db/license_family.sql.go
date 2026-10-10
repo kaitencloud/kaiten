@@ -40,7 +40,7 @@ const createLicenseFamily = `-- name: CreateLicenseFamily :one
 INSERT INTO license_family (organization_id, slug)
 VALUES ($1,
         $2)
-RETURNING id, organization_id, slug, last_version, created_at, updated_at
+RETURNING id, organization_id, slug, last_version, created_at, updated_at, is_public
 `
 
 type CreateLicenseFamilyParams struct {
@@ -62,6 +62,7 @@ func (q *Queries) CreateLicenseFamily(ctx context.Context, arg CreateLicenseFami
 		&i.LastVersion,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsPublic,
 	)
 	return i, err
 }
@@ -95,7 +96,7 @@ func (q *Queries) DeleteLicenseFamilyIfEmpty(ctx context.Context, arg DeleteLice
 }
 
 const getCurrentLicenseVersionsByFamilyIDs = `-- name: GetCurrentLicenseVersionsByFamilyIDs :many
-SELECT DISTINCT ON (l.family_id) l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state
+SELECT DISTINCT ON (l.family_id) l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state, l.pricing_type, l.trial_period_days, l.requires_payment_method, l.self_serve_cta_url
 FROM license l
 WHERE l.organization_id = $1
   AND l.family_id = ANY ($2::uuid[])
@@ -144,6 +145,10 @@ func (q *Queries) GetCurrentLicenseVersionsByFamilyIDs(ctx context.Context, arg 
 			&i.UpdatedAt,
 			&i.FamilyID,
 			&i.LifecycleState,
+			&i.PricingType,
+			&i.TrialPeriodDays,
+			&i.RequiresPaymentMethod,
+			&i.SelfServeCtaUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -156,7 +161,7 @@ func (q *Queries) GetCurrentLicenseVersionsByFamilyIDs(ctx context.Context, arg 
 }
 
 const getLicenseFamiliesByIDs = `-- name: GetLicenseFamiliesByIDs :many
-SELECT f.id, f.organization_id, f.slug, f.last_version, f.created_at, f.updated_at
+SELECT f.id, f.organization_id, f.slug, f.last_version, f.created_at, f.updated_at, f.is_public
 FROM license_family f
 WHERE f.organization_id = $1
   AND f.id = ANY ($2::uuid[])
@@ -186,6 +191,7 @@ func (q *Queries) GetLicenseFamiliesByIDs(ctx context.Context, arg GetLicenseFam
 			&i.LastVersion,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsPublic,
 		); err != nil {
 			return nil, err
 		}
@@ -198,7 +204,7 @@ func (q *Queries) GetLicenseFamiliesByIDs(ctx context.Context, arg GetLicenseFam
 }
 
 const getLicenseFamilyByIDForUpdate = `-- name: GetLicenseFamilyByIDForUpdate :one
-SELECT id, organization_id, slug, last_version, created_at, updated_at
+SELECT id, organization_id, slug, last_version, created_at, updated_at, is_public
 FROM license_family
 WHERE organization_id = $1
   AND id = $2
@@ -224,12 +230,13 @@ func (q *Queries) GetLicenseFamilyByIDForUpdate(ctx context.Context, arg GetLice
 		&i.LastVersion,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsPublic,
 	)
 	return i, err
 }
 
 const getLicenseFamilyBySlug = `-- name: GetLicenseFamilyBySlug :one
-SELECT f.id, f.organization_id, f.slug, f.last_version, f.created_at, f.updated_at
+SELECT f.id, f.organization_id, f.slug, f.last_version, f.created_at, f.updated_at, f.is_public
 FROM license_family f
 WHERE f.organization_id = $1
   AND f.slug = $2
@@ -250,12 +257,13 @@ func (q *Queries) GetLicenseFamilyBySlug(ctx context.Context, arg GetLicenseFami
 		&i.LastVersion,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsPublic,
 	)
 	return i, err
 }
 
 const getLicenseFamilyForUpdate = `-- name: GetLicenseFamilyForUpdate :one
-SELECT id, organization_id, slug, last_version, created_at, updated_at
+SELECT id, organization_id, slug, last_version, created_at, updated_at, is_public
 FROM license_family
 WHERE organization_id = $1
   AND slug = $2
@@ -284,6 +292,7 @@ func (q *Queries) GetLicenseFamilyForUpdate(ctx context.Context, arg GetLicenseF
 		&i.LastVersion,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IsPublic,
 	)
 	return i, err
 }
@@ -319,7 +328,7 @@ func (q *Queries) GetLicenseIdentityBySlug(ctx context.Context, arg GetLicenseId
 }
 
 const getLicenseVersionInFamily = `-- name: GetLicenseVersionInFamily :one
-SELECT l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state
+SELECT l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state, l.pricing_type, l.trial_period_days, l.requires_payment_method, l.self_serve_cta_url
 FROM license l
 WHERE l.organization_id = $1
   AND l.family_id = $2
@@ -354,12 +363,16 @@ func (q *Queries) GetLicenseVersionInFamily(ctx context.Context, arg GetLicenseV
 		&i.UpdatedAt,
 		&i.FamilyID,
 		&i.LifecycleState,
+		&i.PricingType,
+		&i.TrialPeriodDays,
+		&i.RequiresPaymentMethod,
+		&i.SelfServeCtaUrl,
 	)
 	return i, err
 }
 
 const listLicenseFamiliesByCursor = `-- name: ListLicenseFamiliesByCursor :many
-SELECT f.id, f.organization_id, f.slug, f.last_version, f.created_at, f.updated_at,
+SELECT f.id, f.organization_id, f.slug, f.last_version, f.created_at, f.updated_at, f.is_public,
        (SELECT count(*) FROM license l WHERE l.family_id = f.id)::integer AS version_count
 FROM license_family f
 WHERE f.organization_id = $1
@@ -385,6 +398,7 @@ type ListLicenseFamiliesByCursorRow struct {
 	LastVersion    int32            `json:"last_version"`
 	CreatedAt      pgtype.Timestamp `json:"created_at"`
 	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
+	IsPublic       bool             `json:"is_public"`
 	VersionCount   int32            `json:"version_count"`
 }
 
@@ -420,6 +434,7 @@ func (q *Queries) ListLicenseFamiliesByCursor(ctx context.Context, arg ListLicen
 			&i.LastVersion,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsPublic,
 			&i.VersionCount,
 		); err != nil {
 			return nil, err
@@ -433,7 +448,7 @@ func (q *Queries) ListLicenseFamiliesByCursor(ctx context.Context, arg ListLicen
 }
 
 const listLicenseVersionsInFamily = `-- name: ListLicenseVersionsInFamily :many
-SELECT l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state
+SELECT l.id, l.name, l.slug, l.description, l.type, l.version, l.version_name, l.is_default, l.features, l.organization_id, l.created_at, l.updated_at, l.family_id, l.lifecycle_state, l.pricing_type, l.trial_period_days, l.requires_payment_method, l.self_serve_cta_url
 FROM license l
 WHERE l.organization_id = $1
   AND l.family_id = $2
@@ -472,6 +487,10 @@ func (q *Queries) ListLicenseVersionsInFamily(ctx context.Context, arg ListLicen
 			&i.UpdatedAt,
 			&i.FamilyID,
 			&i.LifecycleState,
+			&i.PricingType,
+			&i.TrialPeriodDays,
+			&i.RequiresPaymentMethod,
+			&i.SelfServeCtaUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -504,6 +523,29 @@ type LockLicenseFamilyOfLicenseParams struct {
 // family between that count and the delete.
 func (q *Queries) LockLicenseFamilyOfLicense(ctx context.Context, arg LockLicenseFamilyOfLicenseParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, lockLicenseFamilyOfLicense, arg.OrganizationID, arg.Slug)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const setLicenseFamilyPublic = `-- name: SetLicenseFamilyPublic :one
+UPDATE license_family
+SET is_public = $1
+WHERE organization_id = $2
+  AND slug = $3
+RETURNING id
+`
+
+type SetLicenseFamilyPublicParams struct {
+	IsPublic       bool      `json:"is_public"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+// Lists the family in the public catalogue, or takes it out. updated_at is
+// left alone: it says when a version was last added.
+func (q *Queries) SetLicenseFamilyPublic(ctx context.Context, arg SetLicenseFamilyPublicParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, setLicenseFamilyPublic, arg.IsPublic, arg.OrganizationID, arg.Slug)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err

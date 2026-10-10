@@ -32,6 +32,24 @@ type EntitlementUsage {
   entitlement (no configured reset period).
   """
   currentPeriodEnd: Time
+
+  """
+  license when the licence grants it (add-ons and boosts may change it), addon
+  when only add-ons do.
+  """
+  source: String!
+
+  """
+  How far above limit usage is still accepted, in percent: -1 unlimited, 0 a
+  hard limit. Null for BOOLEAN and CONFIG.
+  """
+  limitCapExceededOveragePercent: Int
+
+  """
+  What the licence, the add-ons and the boosts each contribute (§7.5), as the
+  REST gauge read returns it.
+  """
+  provenance: Map
 }
 
 extend type Instance {

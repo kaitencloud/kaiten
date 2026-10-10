@@ -21,6 +21,10 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/resolver"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
+	addonsGraphql "github.com/kaitencloud/kaiten/api/internal/modules/addons/graphql"
+	addonsdb "github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
+	billingGraphql "github.com/kaitencloud/kaiten/api/internal/modules/billing/graphql"
+	billingdb "github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/releaselink"
 	customersGraphql "github.com/kaitencloud/kaiten/api/internal/modules/customers/graphql"
 	customersdb "github.com/kaitencloud/kaiten/api/internal/modules/customers/infrastructure/db"
@@ -287,6 +291,8 @@ func withOperationDeadline(next http.Handler) http.Handler {
 // Each module registers its own dataloaders.
 func (h *Handler) newLoaders() *dataloader.Loaders {
 	loaders := dataloader.NewLoaders(h.config.UsageReporter)
+	addonsGraphql.RegisterDataloaders(loaders, addonsdb.New(h.pool))
+	billingGraphql.RegisterDataloaders(loaders, billingdb.New(h.pool))
 	customersGraphql.RegisterDataloaders(loaders, customersdb.New(h.pool))
 	deploymentzonesGraphql.RegisterDataloaders(loaders, deploymentzonesdb.New(h.pool))
 	entitlementsGraphql.RegisterDataloaders(loaders, entitlementsdb.New(h.pool))

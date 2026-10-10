@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/config"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
+	billingstripe "github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/server"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/platform/auth"
@@ -135,6 +137,19 @@ type TestServerOptions struct {
 	// licences gets.
 	ConnectorEntitlements services.ConnectorEntitlements
 
+	// EntitlementConfig stands in for the licensing deployment's CONFIG
+	// entitlements, such as an organization's usage history retention. Nil means
+	// services.NoLicensingAuthority: the self-hosted shape, where those settings
+	// come from the configuration.
+	EntitlementConfig services.EntitlementConfig
+
+	// BillingProviders stands in for the payment providers a deployment
+	// registers. Nil means the providers the binary ships: NOOP and Stripe.
+	BillingProviders provider.Registry
+
+	// Stripe points the shipped Stripe adapter somewhere (a stripefake).
+	Stripe billingstripe.Options
+
 	// PlatformCredential makes BOTH of the server's listeners authenticate every
 	// request as a platform credential (StubPlatformMiddleware) instead of an
 	// organization one.
@@ -242,6 +257,24 @@ func NewTestServer(tdb *TestDatabase, opts ...TestServerOptions) *TestServer {
 				return opts[0].ConnectorEntitlements
 			}
 			return nil
+		}(),
+		EntitlementConfig: func() services.EntitlementConfig {
+			if len(opts) > 0 {
+				return opts[0].EntitlementConfig
+			}
+			return nil
+		}(),
+		BillingProviders: func() provider.Registry {
+			if len(opts) > 0 {
+				return opts[0].BillingProviders
+			}
+			return nil
+		}(),
+		Stripe: func() billingstripe.Options {
+			if len(opts) > 0 {
+				return opts[0].Stripe
+			}
+			return billingstripe.Options{}
 		}(),
 	}
 
