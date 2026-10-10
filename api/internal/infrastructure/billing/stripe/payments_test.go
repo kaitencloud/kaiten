@@ -107,6 +107,9 @@ func TestSetupSessionAndDefaultPaymentMethod(t *testing.T) {
 	require.Equal(t, "eur", create.Form.Get("currency"))
 	require.Equal(t, "https://app.acme.test/billing?tab=card&kaiten_setup_session={CHECKOUT_SESSION_ID}", create.Form.Get("success_url"))
 	require.Equal(t, "required", create.Form.Get("billing_address_collection"))
+	require.Equal(t, "true", create.Form.Get("tax_id_collection[enabled]"))
+	require.Equal(t, "auto", create.Form.Get("customer_update[address]"))
+	require.Equal(t, "auto", create.Form.Get("customer_update[name]"))
 	require.Equal(t, c.CustomerID.String(), create.Form.Get("metadata[kaiten_customer_id]"))
 
 	open, err := f.adapter.GetSetupSession(f.ctx, f.ref, link.SessionID)

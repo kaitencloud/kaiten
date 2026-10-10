@@ -102,7 +102,15 @@ type Reconciliation struct {
 	Discounts         []DiscountDifference `json:"discounts" nullable:"false" doc:"Allocations of DISCOUNT lines the provider applied with another amount, or not at all"`
 	ExtraDiscounts    []ExtraDiscount      `json:"extraDiscounts" nullable:"false" doc:"Discounts the provider applied that Kaiten did not create, such as a coupon added in its dashboard"`
 	Totals            TotalsDifference     `json:"totals"`
-	InclusiveTax      bool                 `json:"inclusiveTax" doc:"Whether the provider's subtotal less its discounts was compared, its tax being included in the amounts"`
+	InclusiveTax      bool                 `json:"inclusiveTax" doc:"Whether the provider's subtotal was compared, its tax being included in the amounts"`
+	DueDate           *DueDateDifference   `json:"dueDate,omitempty" doc:"A SEND_INVOICE invoice the provider gives another due date than Kaiten's dueAt"`
+}
+
+// DueDateDifference is a due date the provider set apart from Kaiten's,
+// further than DueDateTolerance (§12.4 rule 4). PAST_DUE keys on Kaiten's.
+type DueDateDifference struct {
+	KaitenDueAt   time.Time `json:"kaitenDueAt"`
+	ProviderDueAt time.Time `json:"providerDueAt"`
 }
 
 // DiscountDifference is an allocation of a DISCOUNT line whose amount, on
@@ -137,7 +145,7 @@ type TotalsDifference struct {
 	KaitenTotal               int64  `json:"kaitenTotal"`
 	ProviderTotalExcludingTax int64  `json:"providerTotalExcludingTax"`
 	ProviderSubtotal          *int64 `json:"providerSubtotal,omitempty"`
-	ProviderTotalDiscount     *int64 `json:"providerTotalDiscount,omitempty" doc:"With inclusive tax: the provider's discounts, taken off its subtotal"`
+	ProviderTotalDiscount     *int64 `json:"providerTotalDiscount,omitempty" doc:"With inclusive tax: the provider's discounts, already taken off its subtotal"`
 }
 
 // PushedInvoice is the payload of INSTANCE_INVOICE_PUSHED.

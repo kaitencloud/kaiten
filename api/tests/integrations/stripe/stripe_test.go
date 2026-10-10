@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/require"
@@ -200,6 +202,51 @@ func TestReviewMode(t *testing.T) {
 	require.Equal(t, fiber.StatusAccepted, call(t, "POST", "/api/invoices/"+started.ActivationInvoice.ID.String()+"/retry-push", nil).StatusCode)
 	waitFor(t, started.ActivationInvoice.ID, func(i invoices.Invoice) bool { return i.Status == "PUSHED" }, "retry-push finalizes it")
 	require.Equal(t, 1, fake.Count(stripefake.OpFinalizeInvoice))
+}
+
+// §12.4 rule 4: Stripe counts days_until_due from the draft's creation, Kaiten
+// from the finalization. Kaiten sets the due date before it finalizes; a draft
+// a human finalizes in the dashboard after days falls due early in Stripe,
+// which reconciliation reports.
+func TestDueDate(t *testing.T) {
+	t.Run("set before Kaiten finalizes", func(t *testing.T) {
+		fresh(t)
+		connect(t, nil)
+		started := subscribe(t, newSold(t, "acme"))
+		pushed := waitFor(t, started.ActivationInvoice.ID, func(i invoices.Invoice) bool {
+			return i.Status == "PUSHED" && i.Provider != nil && i.Provider.ReconciliationStatus != nil
+		}, "pushed and reconciled")
+		require.Equal(t, "MATCHED", *pushed.Provider.ReconciliationStatus, "%+v", pushed.Provider.ReconciliationDetails)
+		updates := fake.CallsOf(stripefake.OpUpdateInvoice)
+		require.Len(t, updates, 1)
+		require.True(t, strings.HasPrefix(updates[0].IdempotencyKey, started.ActivationInvoice.ID.String()+":due_date:"))
+		due, err := strconv.ParseInt(updates[0].Form.Get("due_date"), 10, 64)
+		require.NoError(t, err)
+		require.WithinDuration(t, *pushed.DueAt, time.Unix(due, 0), 2*time.Minute)
+	})
+
+	t.Run("finalized in the dashboard three days later", func(t *testing.T) {
+		fresh(t)
+		connect(t, map[string]any{"stripeSecretKey": testKey, "autoFinalize": false})
+		started := subscribe(t, newSold(t, "acme"))
+		waiting := waitFor(t, started.ActivationInvoice.ID, func(i invoices.Invoice) bool {
+			return i.Provider != nil && deref(i.Provider.Status) == "draft"
+		}, "the draft waits for review")
+
+		fake.Advance(72 * time.Hour)
+		fake.FinalizeInStripe(stripefake.DefaultAccount, deref(waiting.Provider.ExternalInvoiceID))
+		require.Equal(t, fiber.StatusAccepted, call(t, "POST", "/api/billing/sync", nil).StatusCode)
+
+		issued := invoice(t, started.ActivationInvoice.ID)
+		require.Equal(t, "PUSHED", issued.Status)
+		require.Equal(t, "MISMATCH", deref(issued.Provider.ReconciliationStatus))
+		detail := issued.Provider.ReconciliationDetails
+		require.NotNil(t, detail.DueDate)
+		require.WithinDuration(t, *issued.DueAt, detail.DueDate.KaitenDueAt, time.Second)
+		require.WithinDuration(t, detail.DueDate.KaitenDueAt.Add(-72*time.Hour), detail.DueDate.ProviderDueAt, time.Minute)
+		require.Empty(t, detail.Lines)
+		require.Empty(t, detail.MissingInProvider)
+	})
 }
 
 // S09-058: a draft whose answer was lost is replayed under its key: still one

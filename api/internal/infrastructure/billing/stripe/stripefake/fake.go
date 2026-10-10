@@ -511,7 +511,9 @@ func (f *Fake) finalize(a *account, inv *invoice) {
 	inv.HostedInvoiceURL = "https://invoice.stripe.test/i/" + inv.ID
 	inv.InvoicePDF = "https://pay.stripe.test/" + inv.ID + "/pdf"
 	inv.StatusTransitions["finalized_at"] = f.clock().Unix()
-	if inv.CollectionMethod == "send_invoice" {
+	// Stripe counts days_until_due from the draft's creation, and keeps a
+	// due_date set on the draft (TestStripeSpike).
+	if inv.CollectionMethod == "send_invoice" && inv.DueDate == 0 {
 		inv.DueDate = inv.Created + inv.DaysUntilDue*86400
 	}
 	f.emit(a, "invoice.finalized", inv)

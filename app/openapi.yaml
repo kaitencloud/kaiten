@@ -2073,6 +2073,19 @@ components:
         - providerAmount
         - couponId
       type: object
+    DueDateDifference:
+      additionalProperties: false
+      properties:
+        kaitenDueAt:
+          format: date-time
+          type: string
+        providerDueAt:
+          format: date-time
+          type: string
+      required:
+        - kaitenDueAt
+        - providerDueAt
+      type: object
     DueToday:
       additionalProperties: false
       properties:
@@ -8628,6 +8641,9 @@ components:
           items:
             $ref: "#/components/schemas/DiscountDifference"
           type: array
+        dueDate:
+          $ref: "#/components/schemas/DueDateDifference"
+          description: A SEND_INVOICE invoice the provider gives another due date than Kaiten's dueAt
         extraDiscounts:
           description: Discounts the provider applied that Kaiten did not create, such as a coupon added in its dashboard
           items:
@@ -8639,7 +8655,7 @@ components:
             type: string
           type: array
         inclusiveTax:
-          description: Whether the provider's subtotal less its discounts was compared, its tax being included in the amounts
+          description: Whether the provider's subtotal was compared, its tax being included in the amounts
           type: boolean
         lines:
           items:
@@ -10242,7 +10258,7 @@ components:
           format: int64
           type: integer
         providerTotalDiscount:
-          description: "With inclusive tax: the provider's discounts, taken off its subtotal"
+          description: "With inclusive tax: the provider's discounts, already taken off its subtotal"
           format: int64
           type: integer
         providerTotalExcludingTax:

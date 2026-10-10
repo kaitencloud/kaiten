@@ -50,10 +50,8 @@ func classify(err error, about object) error {
 		// Another request with the same key is still running: retry later.
 		out.Class = provider.ClassUnavailable
 	case stripeErr.Type == stripego.ErrorTypeIdempotency:
-		out.Class = provider.ClassParametersChanged
-		if out.Code == "" {
-			out.Code = "idempotency_error"
-		}
+		// The code last_push_error records (§12.4 rule 2).
+		out.Class, out.Code = provider.ClassParametersChanged, "idempotency_parameters_changed"
 	case status == http.StatusUnauthorized:
 		out.Class, out.Code = provider.ClassNotConnected, "credentials_rejected"
 	case status == http.StatusForbidden:

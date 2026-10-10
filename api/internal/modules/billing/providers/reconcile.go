@@ -1,6 +1,8 @@
 package providers
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
@@ -17,6 +19,14 @@ type Reconciliation struct {
 	Lines []rating.InvoiceLine
 }
 
+// DueDateTolerance is how far the provider's due date may be from Kaiten's.
+// Kaiten sets it just before finalizing, a minute ahead for the
+// finalization's own delay, and counts its own from the finalization
+// instant: the two are seconds apart. A due date the provider counted from
+// the draft's creation (a draft finalized in its dashboard after a review)
+// is as far off as the draft waited.
+const DueDateTolerance = time.Hour
+
 // Reconcile compares an invoice with its provider's copy, once, right after
 // finalization. Tolerance is 0 (CR-001 §5):
 //   - the provider's lines that belong to the invoice match Kaiten's lines
@@ -27,11 +37,13 @@ type Reconciliation struct {
 //     added in the provider) is extra;
 //   - the provider's total excluding tax (after discounts) equals Kaiten's
 //     total, or, when the provider's tax is included in the amounts, its
-//     subtotal less its discounts does.
+//     subtotal (already net of the item discounts) does;
+//   - when dueAt is given (a SEND_INVOICE invoice), the provider's due date
+//     is within DueDateTolerance of it (§12.4 rule 4).
 //
 // Kaiten never corrects itself from the provider: a mismatch is reported, and
 // remedied by a void and a recompose.
-func Reconcile(lines []rating.InvoiceLine, totalMinor int64, currency string, read provider.Invoice, inclusiveTax bool) Reconciliation {
+func Reconcile(lines []rating.InvoiceLine, totalMinor int64, currency string, read provider.Invoice, inclusiveTax bool, dueAt *time.Time) Reconciliation {
 	byLine := map[uuid.UUID]provider.Line{}
 	var extra []string
 	for _, line := range read.Lines {
@@ -149,6 +161,12 @@ func Reconcile(lines []rating.InvoiceLine, totalMinor int64, currency string, re
 	}
 	if compared != totalMinor {
 		matched = false
+	}
+	if dueAt != nil && read.DueAt != nil {
+		if drift := read.DueAt.Sub(*dueAt); drift <= -DueDateTolerance || drift >= DueDateTolerance {
+			matched = false
+			detail.DueDate = &invoices.DueDateDifference{KaitenDueAt: dueAt.UTC(), ProviderDueAt: read.DueAt.UTC()}
+		}
 	}
 	if matched {
 		return Reconciliation{Matched: true, Detail: nil, Lines: out}
