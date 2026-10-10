@@ -21,8 +21,8 @@ type InvoiceLine struct {
 	ID                *uuid.UUID           `json:"id,omitempty" doc:"The line's identifier, stable for the invoice's life; absent on a preview"`
 	Seq               int                  `json:"seq" doc:"Position on the invoice, from 1"`
 	Type              LineType             `json:"type" enum:"BASE,ADDON,USAGE,OVERAGE,DISCOUNT" doc:"BASE: the subscription's FLAT_FEE price. ADDON: an add-on's FLAT_FEE price times the quantity held at the boundary. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit. DISCOUNT: a PRICE voucher's discount, negative."`
-	BillingModel      string               `json:"billingModel,omitempty" enum:"FLAT_FEE,USAGE_BASED,OVERAGE" doc:"The price's billing model; absent on a DISCOUNT line"`
-	BillingTiming     string               `json:"billingTiming,omitempty" enum:"ADVANCE,ARREARS" doc:"ADVANCE lines bill the period that starts at the boundary, ARREARS lines the one that ends there; absent on a DISCOUNT line"`
+	BillingModel      *string              `json:"billingModel" enum:"FLAT_FEE,USAGE_BASED,OVERAGE" doc:"The price's billing model; absent on a DISCOUNT line"`
+	BillingTiming     *string              `json:"billingTiming" enum:"ADVANCE,ARREARS" doc:"ADVANCE lines bill the period that starts at the boundary, ARREARS lines the one that ends there; absent on a DISCOUNT line"`
 	LicensePriceID    *uuid.UUID           `json:"licensePriceId" doc:"The licence price the line bills; null on an ADDON line"`
 	AddonPriceID      *uuid.UUID           `json:"addonPriceId" doc:"The add-on price an ADDON line bills"`
 	AddonID           *uuid.UUID           `json:"addonId" doc:"The add-on version an ADDON line bills"`
@@ -36,7 +36,7 @@ type InvoiceLine struct {
 	ServiceFrom       time.Time            `json:"serviceFrom" doc:"Start of the period the line bills (inclusive)"`
 	ServiceTo         time.Time            `json:"serviceTo" doc:"End of the period the line bills (exclusive)"`
 	Quantity          string               `json:"quantity" doc:"In sale units, a decimal string: 1 on a BASE line, the quantity held on an ADDON line" example:"3.05"`
-	UnitAmountDecimal string               `json:"unitAmountDecimal,omitempty" doc:"The price's unit amount in minor units; absent on a DISCOUNT line" example:"800"`
+	UnitAmountDecimal *string              `json:"unitAmountDecimal" doc:"The price's unit amount in minor units; absent on a DISCOUNT line" example:"800"`
 	Amount            int64                `json:"amount" doc:"round_half_up(quantity × unitAmountDecimal), in minor units; negative on a DISCOUNT line" example:"2440"`
 	Metering          *InvoiceLineMetering `json:"metering" doc:"How a USAGE or OVERAGE line's quantity was measured"`
 	Overage           *InvoiceLineOverage  `json:"overage" doc:"The arithmetic of an OVERAGE line"`

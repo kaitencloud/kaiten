@@ -290,12 +290,12 @@ func discountLine(d Discount, targets []InvoiceLine, base, raw decimal.Decimal, 
 	}
 	voucher, redemption := d.VoucherID, d.InstanceVoucherID
 	return InvoiceLine{
-		ID: nil, Seq: 0, Type: LineDiscount, BillingModel: "", BillingTiming: "",
+		ID: nil, Seq: 0, Type: LineDiscount, BillingModel: nil, BillingTiming: nil,
 		LicensePriceID: nil, AddonPriceID: nil, AddonID: nil, InstanceAddonID: nil,
 		VoucherID: &voucher, InstanceVoucherID: &redemption,
 		EntitlementID: nil, EntitlementSlug: nil,
 		Label: truncate(label), Description: truncate("on " + major(base, currency) + " " + string(currency)),
-		ServiceFrom: from, ServiceTo: to, Quantity: "1", UnitAmountDecimal: "",
+		ServiceFrom: from, ServiceTo: to, Quantity: "1", UnitAmountDecimal: nil,
 		Amount:   -money.RoundMinor(raw),
 		Metering: nil, Overage: nil, Capped: false, Provider: nil,
 		Discount: &InvoiceLineDiscount{

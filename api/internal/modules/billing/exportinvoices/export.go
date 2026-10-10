@@ -179,7 +179,7 @@ func (e *csvEncoder) invoice(i invoices.Invoice) error {
 func lineCells(line rating.InvoiceLine) []string {
 	return []string{
 		strconv.Itoa(line.Seq), string(line.Type), textCell(line.Label), textCell(line.Description), line.Quantity,
-		line.UnitAmountDecimal, strconv.FormatInt(line.Amount, 10), line.ServiceFrom.Format(timeLayout),
+		deref(line.UnitAmountDecimal), strconv.FormatInt(line.Amount, 10), line.ServiceFrom.Format(timeLayout),
 		line.ServiceTo.Format(timeLayout), textCell(deref(line.EntitlementSlug)), "",
 	}
 }
