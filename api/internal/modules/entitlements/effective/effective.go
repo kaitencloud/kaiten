@@ -137,7 +137,10 @@ func boolean(raw json.RawMessage) (value, ok bool) {
 	if !parsed || t.Type != "boolean" {
 		return false, false
 	}
-	return json.Unmarshal(t.Value, &value) == nil, true
+	if json.Unmarshal(t.Value, &value) != nil {
+		return false, false
+	}
+	return value, true
 }
 
 var minusOne = decimal.NewFromInt(-1)
