@@ -57,7 +57,11 @@ beforeEach(() => {
   toast.error.mockReset();
   toast.success.mockReset();
   getAuthToken.mockResolvedValue(sessionWith());
-  server.use(handleListPublishableKeys(() => HttpResponse.json([PRICING])));
+  server.use(
+    handleListPublishableKeys(() =>
+      HttpResponse.json({ hasMore: false, items: [PRICING] }),
+    ),
+  );
 });
 
 const fill = async (

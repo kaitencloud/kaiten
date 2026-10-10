@@ -145,7 +145,7 @@ const handlersFor = (
         ),
   ),
   handleListInstanceAddons({ body: held }),
-  handleListAddons({ body: [SEATS, STORAGE] }),
+  handleListAddons(onePage([SEATS, STORAGE])),
   handleListLicenseFamilies(onePage([ENTERPRISE_FAMILY])),
   handleListAddonCompatibility({ body: { familySlugs: ['enterprise'] } }),
   handleListAddonPrices(({ params }) =>

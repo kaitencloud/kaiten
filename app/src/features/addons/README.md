@@ -55,7 +55,7 @@ app/src/features/addons/
 
 ## Data
 
-Every read is REST, and the API answers a plain array for each list of the add-ons.
+Every read is REST. The API pages `GET /addons`, the versions, which `addonVersionsQueryOptions` (the billing domain's) reads across every page, and answers a plain array for the other lists of the add-ons.
 
 - `addonFamiliesQueryOptions` reads `GET /addon-families`, every family with its versions, and is the one place that turns the array into the shape the other lists have (`toListPage`, in `app/src/lib/api/pagination.ts`): a paged answer, the day it comes, changes this read and nothing the screens do. It keeps the generated key. The same reading is what the Billing tab of an instance selects add-ons from.
 - `addonQueryOptions(addonSlug)` reads one version and `addonGrantsQueryOptions` what it grants. Its prices (`addonPricesQueryOptions`, in the order the API lists them: display order, then id), the slugs of the license families it fits (`addonCompatibilityQueryOptions`) and the license families (`addonLicenseFamiliesQueryOptions`) are read the same way by the Billing tab of an instance, so they are the billing domain's (`@/domains/billing`); none is retried, a refusal of billing being the screen's to show.

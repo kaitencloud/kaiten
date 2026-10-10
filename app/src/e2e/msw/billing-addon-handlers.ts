@@ -28,6 +28,7 @@ import {
 } from '@/api-client/msw.gen';
 import type { Addon, Price } from '@/api-client';
 import type { BillingAppModel } from '../../../e2e/app/_support/model/billing-app-model';
+import { pageRequestOf } from '../../../e2e/app/_support/model/billing-pages';
 import { withProblems } from './billing-problems';
 import { noop, type PersistMswState } from './persistence';
 
@@ -90,13 +91,16 @@ const catalogueHandlers = (
         const query = new URL(request.url).searchParams;
 
         return HttpResponse.json(
-          addons.listVersions({
-            familySlug: query.get('familySlug') ?? undefined,
-            lifecycleState: oneOf(
-              LIFECYCLE_STATES,
-              query.get('lifecycleState'),
-            ),
-          }),
+          addons.listVersions(
+            {
+              familySlug: query.get('familySlug') ?? undefined,
+              lifecycleState: oneOf(
+                LIFECYCLE_STATES,
+                query.get('lifecycleState'),
+              ),
+            },
+            pageRequestOf(query),
+          ),
         );
       }),
     ),

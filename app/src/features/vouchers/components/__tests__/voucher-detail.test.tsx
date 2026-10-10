@@ -67,7 +67,9 @@ function serveVoucher(
 ) {
   server.use(
     handleGetVoucher(() => HttpResponse.json(voucher)),
-    handleListVoucherRedemptions(() => HttpResponse.json(redemptions)),
+    handleListVoucherRedemptions(() =>
+      HttpResponse.json({ hasMore: false, items: redemptions }),
+    ),
   );
 }
 

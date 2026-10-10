@@ -117,7 +117,7 @@ beforeEach(() => {
       body: { defaultCollectionMethod: 'SEND_INVOICE', defaultDaysUntilDue: 30, handoffStripeInvoices: false },
     }),
     handleListInstanceAddons({ body: [] }),
-    handleListAddons({ body: [SEATS_V1, DRAFT_V2, STORAGE_V1, SUPPORT_V1] }),
+    handleListAddons({ body: pageOf([SEATS_V1, DRAFT_V2, STORAGE_V1, SUPPORT_V1]) }),
     handleListLicenseFamilies({ body: pageOf([BUSINESS_FAMILY]) }),
     handleListAddonCompatibility(({ params }) =>
       HttpResponse.json({ familySlugs: FITS[String(params.addonSlug)] ?? [] }),

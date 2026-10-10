@@ -6,6 +6,7 @@ import {
   handleUpdatePublishableKey,
 } from '@/api-client/msw.gen';
 import type { BillingAppModel } from '../../../e2e/app/_support/model/billing-app-model';
+import { pageRequestOf } from '../../../e2e/app/_support/model/billing-pages';
 import { withProblems } from './billing-problems';
 import { noop, type PersistMswState } from './persistence';
 
@@ -22,13 +23,16 @@ export const billingPublishableKeyHandlers = (
 
   return [
     handleListPublishableKeys(
-      withProblems(({ request }) =>
-        HttpResponse.json(
+      withProblems(({ request }) => {
+        const query = new URL(request.url).searchParams;
+
+        return HttpResponse.json(
           publishableKeys.listKeys(
-            new URL(request.url).searchParams.get('includeRevoked') === 'true',
+            query.get('includeRevoked') === 'true',
+            pageRequestOf(query),
           ),
-        ),
-      ),
+        );
+      }),
     ),
     handleCreatePublishableKey(
       withProblems(async ({ request }) => {

@@ -27,9 +27,10 @@ const serve = () => {
       );
       queries.push(includeRevoked);
 
-      return HttpResponse.json(
-        includeRevoked === 'true' ? [LIVE, REVOKED] : [LIVE],
-      );
+      return HttpResponse.json({
+        hasMore: false,
+        items: includeRevoked === 'true' ? [LIVE, REVOKED] : [LIVE],
+      });
     }),
   );
 

@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import type {
   InstanceBilling,
+  PageRedemption,
+  PageVoucher,
   Price,
   Redemption,
   Validity,
@@ -13,6 +15,7 @@ import { parseContract } from '../contracts/openapi-contract';
 import { ArmedProblems, type ArmedBillingProblem } from './armed-problems';
 import { BillingProblem } from './billing-problem';
 import type { DiscountSource } from './billing-discounts';
+import { type PageRequest, pageOfRows } from './billing-pages';
 import {
   applicationsMaxOf,
   boostEnd,
@@ -242,17 +245,18 @@ export class BillingVouchers {
 
   // --- The catalogue -----------------------------------------------------------------
 
-  /** `GET /vouchers`: newest first, with the codes. */
+  /** `GET /vouchers`: newest first, with the codes, a cursor per page. */
   listVouchers(
     filter: {
       restrictedCustomerSlug?: string;
       status?: Voucher['status'];
       voucherType?: Voucher['voucherType'];
     } = {},
-  ): Voucher[] {
+    page: PageRequest = {},
+  ): PageVoucher {
     this.problems.consume('listVouchers');
 
-    return this.vouchers
+    const rows = this.vouchers
       .filter(
         (voucher) =>
           (!filter.status || voucher.status === filter.status) &&
@@ -266,6 +270,8 @@ export class BillingVouchers {
           b.id.localeCompare(a.id),
       )
       .map((voucher) => this.view(voucher, true));
+
+    return pageOfRows(rows, page, 'Vouchers');
   }
 
   /** `GET /vouchers/{voucherId}`. */
@@ -766,8 +772,8 @@ export class BillingVouchers {
       );
   }
 
-  /** `GET /vouchers/{voucherId}/redemptions`. */
-  listRedemptions(voucherId: string): Redemption[] {
+  /** `GET /vouchers/{voucherId}/redemptions`: newest first, a cursor per page. */
+  listRedemptions(voucherId: string, page: PageRequest = {}): PageRedemption {
     this.problems.consume('listVoucherRedemptions');
     if (!this.find(voucherId)) {
       throw denied(
@@ -776,10 +782,14 @@ export class BillingVouchers {
       );
     }
 
-    return this.newestFirst(
-      this.redemptions.filter(
-        (redemption) => redemption.voucherId === voucherId,
+    return pageOfRows(
+      this.newestFirst(
+        this.redemptions.filter(
+          (redemption) => redemption.voucherId === voucherId,
+        ),
       ),
+      page,
+      'VoucherRedemptions',
     );
   }
 

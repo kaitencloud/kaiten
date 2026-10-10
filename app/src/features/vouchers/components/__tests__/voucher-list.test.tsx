@@ -68,7 +68,11 @@ const BOOST = buildVoucher({
 const VOUCHERS = [WELCOME, HOOLI, LAPSED, DRAFT, SCHEDULED, BOOST];
 
 const serveList = (vouchers: Voucher[] = VOUCHERS) =>
-  server.use(handleListVouchers(() => HttpResponse.json(vouchers)));
+  server.use(
+    handleListVouchers(() =>
+      HttpResponse.json({ hasMore: false, items: vouchers }),
+    ),
+  );
 
 beforeEach(() => {
   navigate.mockReset();

@@ -15,6 +15,7 @@ import {
 } from '@/api-client/msw.gen';
 import type { Redemption, Voucher } from '@/api-client';
 import type { BillingAppModel } from '../../../e2e/app/_support/model/billing-app-model';
+import { pageRequestOf } from '../../../e2e/app/_support/model/billing-pages';
 import type { EntitlementEffects } from './billing-addon-handlers';
 import { withProblems } from './billing-problems';
 import { noop, type PersistMswState } from './persistence';
@@ -58,12 +59,15 @@ const catalogueHandlers = (
         const query = new URL(request.url).searchParams;
 
         return HttpResponse.json(
-          vouchers.listVouchers({
-            restrictedCustomerSlug:
-              query.get('restrictedCustomerSlug') ?? undefined,
-            status: oneOf(VOUCHER_STATUSES, query.get('status')),
-            voucherType: oneOf(VOUCHER_TYPES, query.get('voucherType')),
-          }),
+          vouchers.listVouchers(
+            {
+              restrictedCustomerSlug:
+                query.get('restrictedCustomerSlug') ?? undefined,
+              status: oneOf(VOUCHER_STATUSES, query.get('status')),
+              voucherType: oneOf(VOUCHER_TYPES, query.get('voucherType')),
+            },
+            pageRequestOf(query),
+          ),
         );
       }),
     ),
@@ -114,8 +118,13 @@ const catalogueHandlers = (
       }),
     ),
     handleListVoucherRedemptions(
-      withProblems(({ params }) =>
-        HttpResponse.json(vouchers.listRedemptions(params.voucherId)),
+      withProblems(({ params, request }) =>
+        HttpResponse.json(
+          vouchers.listRedemptions(
+            params.voucherId,
+            pageRequestOf(new URL(request.url).searchParams),
+          ),
+        ),
       ),
     ),
   ];

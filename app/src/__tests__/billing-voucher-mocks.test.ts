@@ -28,6 +28,9 @@ const send = (method: string, path: string, body?: unknown) =>
   });
 
 const json = async <T>(response: Response) => (await response.json()) as T;
+/** The rows of a list the API pages: the first page holds them all in these seeds. */
+const items = async <T>(response: Response) =>
+  (await json<{ hasMore: boolean; items: T[] }>(response)).items;
 const refusal = async (response: Response) =>
   json<{
     code?: string;
@@ -70,14 +73,14 @@ beforeEach(() => {
 
 describe('the vouchers, as the mocks serve them', () => {
   it('lists them newest first with their codes, and filters by status, type and customer', async () => {
-    const all = await json<Voucher[]>(await send('GET', '/vouchers'));
-    const byStatus = await json<Voucher[]>(
+    const all = await items<Voucher>(await send('GET', '/vouchers'));
+    const byStatus = await items<Voucher>(
       await send('GET', '/vouchers?status=DRAFT'),
     );
-    const boosts = await json<Voucher[]>(
+    const boosts = await items<Voucher>(
       await send('GET', '/vouchers?voucherType=ENTITLEMENT_BOOST'),
     );
-    const acme = await json<Voucher[]>(
+    const acme = await items<Voucher>(
       await send('GET', '/vouchers?restrictedCustomerSlug=acme-corp'),
     );
 
@@ -140,7 +143,7 @@ describe('the vouchers, as the mocks serve them', () => {
     });
     expect(created.code).toMatch(/^[0-9A-HJKMNP-TV-Z]{16}$/);
     expect(
-      (await json<Voucher[]>(await send('GET', '/vouchers')))[0].id,
+      (await items<Voucher>(await send('GET', '/vouchers')))[0].id,
     ).toBe(created.id);
   });
 
@@ -667,7 +670,7 @@ describe('validating and redeeming a code, as the mocks serve it', () => {
     const listed = await json<Redemption[]>(
       await send('GET', '/instances/gamma-production/vouchers'),
     );
-    const byVoucher = await json<Redemption[]>(
+    const byVoucher = await items<Redemption>(
       await send('GET', '/vouchers/voucher-launch/redemptions'),
     );
 

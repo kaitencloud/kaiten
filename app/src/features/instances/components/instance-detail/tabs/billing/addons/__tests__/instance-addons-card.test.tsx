@@ -15,6 +15,7 @@ import {
   handleSetInstanceAddonQuantity,
 } from '@/api-client/msw.gen';
 import {
+  pageOf,
   refusal,
   renderWithClient,
   sessionToken,
@@ -82,7 +83,7 @@ beforeEach(() => {
   };
   server.use(
     handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stackWithAddons() }),
-    handleListAddons({ body: [SEATS_V1, STORAGE_V1] }),
+    handleListAddons({ body: pageOf([SEATS_V1, STORAGE_V1]) }),
   );
 });
 
@@ -247,7 +248,7 @@ describe('what the card lists', () => {
       handleListAddons(() => {
         catalogue();
 
-        return HttpResponse.json([SEATS_V1]);
+        return HttpResponse.json(pageOf([SEATS_V1]));
       }),
     );
     serveHeld([heldSeats()]);
@@ -261,7 +262,7 @@ describe('what the card lists', () => {
 
   it('says an add-on that was withdrawn from sale since is kept until it is removed', async () => {
     server.use(
-      handleListAddons({ body: [{ ...SEATS_V1, lifecycleState: 'ARCHIVED' }] }),
+      handleListAddons({ body: pageOf([{ ...SEATS_V1, lifecycleState: 'ARCHIVED' }]) }),
     );
     serveHeld([heldSeats()]);
     renderCard();
@@ -273,7 +274,7 @@ describe('what the card lists', () => {
     ['FREE', 'Free'],
     ['CUSTOM', 'On request'],
   ] as const)('says a %s add-on costs what it does, since it has no price', async (pricingType, label) => {
-    server.use(handleListAddons({ body: [{ ...SEATS_V1, pricingType }] }));
+    server.use(handleListAddons({ body: pageOf([{ ...SEATS_V1, pricingType }]) }));
     serveHeld([heldSeats({ prices: [] })]);
     renderCard();
 

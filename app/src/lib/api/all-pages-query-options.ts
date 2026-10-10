@@ -52,9 +52,10 @@ import { fetchAllPages, MAX_PAGE_SIZE } from './pagination';
 // every invalidation and cache update aimed at that key still lands: only the
 // fetch changes, and walks every page. Screens read these lists through here,
 // never through the generated options, or the cache would hold a first page
-// where a whole list is expected.
+// where a whole list is expected. The lists of billing are walked the same way in
+// `all-billing-pages-query-options.ts`.
 
-type QueryContext = { signal: AbortSignal };
+export type QueryContext = { signal: AbortSignal };
 
 /**
  * The filters of the list of invoices: what narrows it, never where it is read
@@ -77,7 +78,7 @@ type HandoffQuery = Omit<
 
 // What a list is asked for besides its page: the filters of the operation, which
 // every request of the walk repeats.
-const pageRequest = <TQuery extends object>(
+export const pageRequest = <TQuery extends object>(
   cursor: string | undefined,
   signal: AbortSignal,
   query?: TQuery,

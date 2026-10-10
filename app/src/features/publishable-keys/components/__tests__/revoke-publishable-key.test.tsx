@@ -87,7 +87,7 @@ describe('revoking a publishable key', () => {
       }),
       handleListPublishableKeys(() => {
         listed += 1;
-        return HttpResponse.json([]);
+        return HttpResponse.json({ hasMore: false, items: [] });
       }),
     );
 
