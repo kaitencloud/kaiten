@@ -382,11 +382,11 @@ test.describe('accessibility of the handoff queue', () => {
     await installBillingAppMocks(page, createInvoicesModel());
 
     await handoff.goto();
-    await expect(handoff.tab('Waiting for your ERP')).toHaveAttribute(
+    await expect(handoff.tab('Handoff')).toHaveAttribute(
       'aria-current',
       'page',
     );
-    await handoff.tab('Waiting for your ERP').focus();
+    await handoff.tab('Handoff').focus();
     await page.keyboard.press('Tab');
     await expect(handoff.tab('Acknowledged')).toBeFocused();
     await page.keyboard.press('Enter');
@@ -395,9 +395,7 @@ test.describe('accessibility of the handoff queue', () => {
       'aria-current',
       'page',
     );
-    await expect(handoff.tab('Waiting for your ERP')).not.toHaveAttribute(
-      'aria-current',
-    );
+    await expect(handoff.tab('Handoff')).not.toHaveAttribute('aria-current');
   });
 
   test('the dialog that acknowledges an invoice is accessible', async ({

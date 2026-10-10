@@ -10,7 +10,7 @@ export type InvoicesViewName =
   | 'All'
   | 'Held'
   | 'Overdue'
-  | 'Waiting for your ERP';
+  | 'Handoff';
 
 const QUEUE_VIEWS = {
   ACKNOWLEDGED: 'acknowledged',
@@ -35,7 +35,7 @@ export class BillingHandoffDriver extends FilterToolbarDriver {
       this.page.getByRole('heading', { level: 1, name: 'Invoices' }),
     ).toBeVisible();
     // The parts of the queue are tabs of the row, where the queue matters.
-    await expect(this.tab('Waiting for your ERP')).toBeVisible();
+    await expect(this.tab('Handoff')).toBeVisible();
   }
 
   /** Opens the queue where the API is armed to refuse it: there is no page, so no title to wait for. */

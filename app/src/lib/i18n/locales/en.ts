@@ -3931,13 +3931,21 @@ export default {
       title: 'Billing',
       Invoices: {
         title: 'Invoices',
-        subtitle:
-          'Every invoice of your organization, across its customers and instances.',
+        Subtitles: {
+          all: 'Every invoice of your organization, across its customers and instances.',
+          overdue:
+            'The invoices past their due date and still unpaid, across your customers and instances.',
+          held: 'The invoices held back before they were issued. Each waits for someone to check it, then release or recompose it.',
+          waiting:
+            'The invoices waiting for your ERP, oldest first. A job or the CLI takes them from the queue and acknowledges them once booked.',
+          acknowledged:
+            'The invoices your ERP took from the queue and acknowledged once booked.',
+        },
         Views: {
           all: 'All',
           overdue: 'Overdue',
           held: 'Held',
-          waiting: 'Waiting for your ERP',
+          waiting: 'Handoff',
           acknowledged: 'Acknowledged',
         },
         Lines: {
@@ -4312,8 +4320,6 @@ export default {
         },
       },
       Handoff: {
-        subtitle:
-          'The invoices waiting for your ERP, oldest first. A job or the CLI takes them from the queue and acknowledges them once booked.',
         Columns: {
           issued: 'Issued',
           booked: 'Booked',

@@ -354,7 +354,7 @@ test.describe('the health of billing', () => {
     await expect(page).toHaveURL(/\/invoices\?view=waiting$/);
     // The queue is a status view of the list of invoices.
     await expect(
-      page.getByRole('link', { name: /^Waiting for your ERP/ }),
+      page.getByRole('link', { name: /^Handoff \d+$/ }),
     ).toHaveAttribute('aria-current', 'page');
   });
 

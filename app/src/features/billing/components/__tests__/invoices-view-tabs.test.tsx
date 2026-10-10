@@ -68,7 +68,7 @@ async function expectNoQueueTabs(client: ReturnType<typeof renderTabs>['client']
     expect(client.getQueryState(grantedScopesQueryKey)?.status).toBe('success');
   });
 
-  expect(screen.queryByRole('link', { name: /Waiting for your ERP/ })).toBeNull();
+  expect(screen.queryByRole('link', { name: /^Handoff \d+$/ })).toBeNull();
   expect(screen.queryByRole('link', { name: /Acknowledged/ })).toBeNull();
   expect(screen.getByRole('link', { name: /All/ })).toBeVisible();
 }
@@ -79,7 +79,7 @@ describe('the status views of the invoices', () => {
     renderTabs();
 
     // The tabs of the queue come once the capabilities and the scopes are read.
-    await screen.findByRole('link', { name: 'Waiting for your ERP 5' });
+    await screen.findByRole('link', { name: 'Handoff 5' });
 
     expect(screen.getByRole('link', { name: 'All 12' })).toHaveAttribute(
       'href',
@@ -94,7 +94,7 @@ describe('the status views of the invoices', () => {
       '/invoices?view=held',
     );
     expect(
-      screen.getByRole('link', { name: 'Waiting for your ERP 5' }),
+      screen.getByRole('link', { name: 'Handoff 5' }),
     ).toHaveAttribute('href', '/invoices?view=waiting');
     expect(screen.getByRole('link', { name: 'Acknowledged 4' })).toHaveAttribute(
       'href',
@@ -112,7 +112,7 @@ describe('the status views of the invoices', () => {
       'All 12',
       'Overdue 0',
       'Held 2',
-      'Waiting for your ERP 5',
+      'Handoff 5',
       'Acknowledged 4',
     ]);
   });
@@ -121,7 +121,7 @@ describe('the status views of the invoices', () => {
     answerWith();
     renderTabs({ customerSlug: 'initech' });
 
-    await screen.findByRole('link', { name: 'Waiting for your ERP 5' });
+    await screen.findByRole('link', { name: 'Handoff 5' });
 
     expect(screen.getByRole('link', { name: 'All 12' })).toHaveAttribute(
       'href',
@@ -132,7 +132,7 @@ describe('the status views of the invoices', () => {
       '/invoices?customerSlug=initech&view=held',
     );
     expect(
-      screen.getByRole('link', { name: 'Waiting for your ERP 5' }),
+      screen.getByRole('link', { name: 'Handoff 5' }),
     ).toHaveAttribute('href', '/invoices?view=waiting');
   });
 
@@ -183,7 +183,7 @@ describe('the status views of the invoices', () => {
       'Held 2',
     ]);
 
-    await screen.findByRole('link', { name: /Waiting for your ERP/ });
+    await screen.findByRole('link', { name: /^Handoff \d+$/ });
   });
 
   it('are All, Overdue and Held where billing is off', async () => {
@@ -217,7 +217,7 @@ describe('the status views of the invoices', () => {
     renderTabs();
 
     expect(
-      await screen.findByRole('link', { name: 'Waiting for your ERP 5' }),
+      await screen.findByRole('link', { name: 'Handoff 5' }),
     ).toBeVisible();
   });
 
@@ -227,7 +227,7 @@ describe('the status views of the invoices', () => {
       answerWith();
       renderTabs();
 
-      await screen.findByRole('link', { name: 'En attente de votre ERP 5' });
+      await screen.findByRole('link', { name: 'Transmission 5' });
 
       expect(screen.getByRole('link', { name: 'Toutes 12' })).toHaveAttribute(
         'href',
@@ -236,7 +236,7 @@ describe('the status views of the invoices', () => {
       expect(screen.getByRole('link', { name: 'En retard 0' })).toBeVisible();
       expect(screen.getByRole('link', { name: 'Bloquées 2' })).toBeVisible();
       expect(
-        screen.getByRole('link', { name: 'En attente de votre ERP 5' }),
+        screen.getByRole('link', { name: 'Transmission 5' }),
       ).toHaveAttribute('href', '/invoices?view=waiting');
       expect(screen.getByRole('link', { name: 'Acquittées 4' })).toBeVisible();
     } finally {

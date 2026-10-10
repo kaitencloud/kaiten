@@ -3993,13 +3993,21 @@ export default {
       title: 'Facturation',
       Invoices: {
         title: 'Factures',
-        subtitle:
-          'Toutes les factures de votre organisation, tous clients et instances confondus.',
+        Subtitles: {
+          all: 'Toutes les factures de votre organisation, tous clients et instances confondus.',
+          overdue:
+            'Les factures dont l’échéance est passée et qui restent impayées, tous clients et instances confondus.',
+          held: 'Les factures bloquées avant leur émission. Chacune attend qu’on la vérifie, puis qu’on la débloque ou la recompose.',
+          waiting:
+            'Les factures en attente de votre ERP, les plus anciennes d’abord. Un job ou la CLI les prend dans la file et les acquitte une fois comptabilisées.',
+          acknowledged:
+            'Les factures que votre ERP a prises dans la file et acquittées une fois comptabilisées.',
+        },
         Views: {
           all: 'Toutes',
           overdue: 'En retard',
           held: 'Bloquées',
-          waiting: 'En attente de votre ERP',
+          waiting: 'Transmission',
           acknowledged: 'Acquittées',
         },
         Lines: {
@@ -4376,8 +4384,6 @@ export default {
         },
       },
       Handoff: {
-        subtitle:
-          'Les factures en attente de votre ERP, les plus anciennes d’abord. Un job ou la CLI les prend dans la file et les acquitte une fois comptabilisées.',
         Columns: {
           issued: 'Émise le',
           booked: 'Comptabilisée',

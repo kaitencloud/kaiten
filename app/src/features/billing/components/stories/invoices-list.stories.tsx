@@ -159,7 +159,7 @@ export const StatusViews: Story = {
       '/invoices?view=overdue',
     );
     await expect(
-      canvas.getByRole('link', { name: 'Waiting for your ERP 3' }),
+      canvas.getByRole('link', { name: 'Handoff 3' }),
     ).toHaveAttribute('href', '/invoices?view=waiting');
     await expect(canvas.getByRole('link', { name: 'Acknowledged 1' })).toBeVisible();
     await expect(canvas.getByText('Hooli')).toBeVisible();

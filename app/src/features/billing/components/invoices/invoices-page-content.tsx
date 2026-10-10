@@ -12,6 +12,7 @@ import {
 import {
   HANDOFF_VIEWS,
   type InvoicesSearch,
+  type InvoicesView,
   invoicesViewOf,
   isHandoffView,
 } from '../../schemas/invoices-search.schema';
@@ -19,6 +20,16 @@ import { countInvoicesByView } from '../../utils/invoice-views';
 import { HandoffView } from '../handoff';
 import { InvoicesAllView } from './invoices-all-view';
 import { InvoicesViewTabs } from './invoices-view-tabs';
+
+// Each view says what it shows: the page keeps its title, and its subtitle follows the
+// view the person is on.
+const SUBTITLE_KEYS = {
+  acknowledged: 'Pages.Billing.Invoices.Subtitles.acknowledged',
+  all: 'Pages.Billing.Invoices.Subtitles.all',
+  held: 'Pages.Billing.Invoices.Subtitles.held',
+  overdue: 'Pages.Billing.Invoices.Subtitles.overdue',
+  waiting: 'Pages.Billing.Invoices.Subtitles.waiting',
+} as const satisfies Record<InvoicesView, string>;
 
 type InvoicesPageContentProps = {
   /** Writes the scope to the URL, which the page follows. */
@@ -60,13 +71,7 @@ export function InvoicesPageContent({
           </Page.Icon>
           <Page.Heading>
             <Page.Title>{t('Pages.Billing.Invoices.title')}</Page.Title>
-            <Page.Subtitle>
-              {t(
-                isHandoffView(view)
-                  ? 'Pages.Billing.Handoff.subtitle'
-                  : 'Pages.Billing.Invoices.subtitle',
-              )}
-            </Page.Subtitle>
+            <Page.Subtitle>{t(SUBTITLE_KEYS[view])}</Page.Subtitle>
           </Page.Heading>
         </Page.Leading>
       </Page.Header>

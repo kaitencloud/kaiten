@@ -147,7 +147,7 @@ describe('the handoff view of the invoices', () => {
     renderPage();
 
     const waiting = await screen.findByRole('link', {
-      name: 'Waiting for your ERP 2',
+      name: 'Handoff 2',
     });
     expect(waiting).toHaveAttribute('href', '/invoices?view=waiting');
     expect(
@@ -171,7 +171,7 @@ describe('the handoff view of the invoices', () => {
 
     expect(acknowledged).toHaveClass('bg-background');
     expect(
-      screen.getByRole('link', { name: 'Waiting for your ERP 2' }),
+      screen.getByRole('link', { name: 'Handoff 2' }),
     ).not.toHaveClass('bg-background');
   });
 

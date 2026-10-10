@@ -150,7 +150,7 @@ export const AmongTheStatusViews: Story = {
     const canvas = within(canvasElement);
 
     await expect(
-      await canvas.findByRole('link', { name: `Waiting for your ERP ${WAITING.length}` }),
+      await canvas.findByRole('link', { name: `Handoff ${WAITING.length}` }),
     ).toHaveAttribute('aria-current', 'page');
     await expect(
       canvas.getByRole('link', { name: 'Acknowledged 1' }),
