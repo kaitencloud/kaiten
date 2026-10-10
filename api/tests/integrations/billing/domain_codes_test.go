@@ -10,7 +10,8 @@ import (
 
 // Appendix A names a domain code for these refusals; the request schema used
 // to answer first, with Huma's generic 422, or a 500 (CEO review of #16, low
-// list).
+// list). The schema keeps publishing the bounds (C-5, C-6, C-7), and the
+// refusal still carries the code.
 func TestRefusalsAnswerTheirDomainCodes(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	s := newSold(t, flatFee("2900", "MONTHLY"))
@@ -39,6 +40,13 @@ func TestRefusalsAnswerTheirDomainCodes(t *testing.T) {
 		},
 		{"WriteOffInvoice.ReasonRequired", "POST", "/api/invoices/" + unknown + "/write-off", fiber.StatusUnprocessableEntity, map[string]any{}},
 		{"VoidInvoice.ReasonRequired", "POST", "/api/invoices/" + unknown + "/void", fiber.StatusUnprocessableEntity, map[string]any{}},
+		{"VoidInvoice.ReasonRequired", "POST", "/api/invoices/" + unknown + "/void", fiber.StatusUnprocessableEntity, map[string]any{"reason": ""}},
+		{"VoidInvoice.ReasonRequired", "POST", "/api/invoices/" + unknown + "/void", fiber.StatusUnprocessableEntity, map[string]any{"reason": strings.Repeat("x", 501)}},
+		{"CreateLicense.InvalidTrialPeriodDays", "POST", "/api/licenses", fiber.StatusUnprocessableEntity, license(map[string]any{"trialPeriodDays": -1})},
+		{
+			"CreateLicense.InvalidSelfServeCtaUrl", "POST", "/api/licenses", fiber.StatusUnprocessableEntity,
+			license(map[string]any{"selfServeCtaUrl": "https://a.test/" + strings.Repeat("x", 2040)}),
+		},
 		{"ReleaseInvoiceHold.ReasonRequired", "POST", "/api/invoices/" + unknown + "/release-hold", fiber.StatusUnprocessableEntity, map[string]any{}},
 		{"ClaimHandoff.InvalidLimit", "POST", "/api/billing/handoff/claim", fiber.StatusUnprocessableEntity, map[string]any{"limit": 0}},
 		{"ListHandoff.InvalidStatus", "GET", "/api/billing/handoff?status=NOPE", fiber.StatusUnprocessableEntity, nil},

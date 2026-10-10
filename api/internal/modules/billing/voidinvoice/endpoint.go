@@ -19,7 +19,7 @@ type Voider interface {
 
 // InvoiceVoid is why the invoice is voided.
 type InvoiceVoid struct {
-	Reason string `json:"reason,omitempty" doc:"1 to 500 characters; .ReasonRequired otherwise"`
+	Reason string `json:"reason" minLength:"1" maxLength:"500" doc:"1 to 500 characters; .ReasonRequired otherwise"`
 }
 
 type Request struct {
@@ -39,6 +39,7 @@ func RegisterEndpoint(api huma.API, app Voider) {
 		Summary:     "Void an invoice",
 		Description: "Voids an invoice not yet settled -- a DRAFT, held or not, a MANUAL one, or one a payment provider issued -- which frees its boundary for a recompose. A provider's invoice is voided there first, and here only once the provider confirms (503 VoidInvoice.ProviderUnavailable leaves it unchanged); one the provider reports paid is refused. A paid or written-off invoice cannot be voided. A handoff still pending stays so, and its consumer sees the VOID. Voiding a VOID invoice again answers it unchanged. Requires billing to be enabled for the organization.",
 		Tags:        []string{"billing"},
+		Metadata:    kaitenhuma.SchemaCodes(map[string]string{"body.reason": "VoidInvoice.ReasonRequired"}),
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)

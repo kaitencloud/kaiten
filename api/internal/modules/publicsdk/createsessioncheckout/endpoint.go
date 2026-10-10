@@ -37,6 +37,7 @@ func RegisterEndpoint(api huma.API, app Checkouter) {
 			"and payment.status says how that went -- poll GET /public/session/invoices on processing or requires_action. " +
 			"Needs a session bound to an instance.",
 		Tags:          []string{"public"},
+		Metadata:      kaitenhuma.AlsoResponds(http.StatusOK, "A preview (dryRun), or requires_payment_method with the hosted setup page: nothing was subscribed"),
 		DefaultStatus: http.StatusCreated,
 		Errors:        []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, func(ctx context.Context, request *Request) (*Response, error) {

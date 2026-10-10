@@ -43,6 +43,7 @@ func RegisterEndpoint(api huma.API, app Updater) {
 		Summary:     "Change a subscription's terms or provider",
 		Description: "Changes the subscription's payment provider, collection method and payment terms from its next invoice on; null restores the organization's default. Invoices already composed keep their own, and keep routing to the provider that issued them. Moving to a provider that pushes invoices registers the customer with it first (503 UpdateInstanceBilling.ProviderUnavailable when it cannot be reached). A provider change emits INSTANCE_BILLING_PROVIDER_CHANGED. Requires billing to be enabled for the organization.",
 		Tags:        []string{"billing"},
+		Metadata:    kaitenhuma.BoundaryPending(),
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)

@@ -759,6 +759,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - platformAuth:
             - write:billing

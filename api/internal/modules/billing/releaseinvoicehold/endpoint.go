@@ -19,7 +19,7 @@ type Releaser interface {
 
 // HoldRelease is why the invoice is released despite its journal.
 type HoldRelease struct {
-	Reason string `json:"reason,omitempty" doc:"1 to 500 characters; .ReasonRequired otherwise"`
+	Reason string `json:"reason" minLength:"1" maxLength:"500" doc:"1 to 500 characters; .ReasonRequired otherwise"`
 }
 
 type Request struct {
@@ -39,6 +39,7 @@ func RegisterEndpoint(api huma.API, app Releaser) {
 		Summary:     "Release a held invoice",
 		Description: "Accepts a held invoice as composed and issues it: MANUAL and pending in the handoff queue, or PAID when nothing is owed. The release keeps who released it and why. Requires billing to be enabled for the organization.",
 		Tags:        []string{"billing"},
+		Metadata:    kaitenhuma.SchemaCodes(map[string]string{"body.reason": "ReleaseInvoiceHold.ReasonRequired"}),
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)

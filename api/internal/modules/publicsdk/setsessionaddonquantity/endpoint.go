@@ -34,7 +34,8 @@ func RegisterEndpoint(api huma.API, app FacadeSetter) {
 		Description: "Attaches the add-on to the session's instance, changes its quantity, or removes it with 0. Entitlements change at once; the subscription bills the quantity held at each renewal, with no proration. " +
 			"Setting the quantity held changes nothing. 409 .OtherVersionAttached when another version of the same add-on is held, .BoundaryPending while the period that ended is being closed (Retry-After); " +
 			"422 .AddonNotPublic, .Incompatible, .QuantityExceedsMax, .CurrencyMismatch, .InstanceRequired.",
-		Tags: []string{"public"},
+		Tags:     []string{"public"},
+		Metadata: kaitenhuma.BoundaryPending(),
 		Errors: []int{
 			http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusConflict,
 			http.StatusUnprocessableEntity, http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusServiceUnavailable,

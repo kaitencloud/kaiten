@@ -111,9 +111,9 @@ type License struct {
 	UpdatedAt      time.Time      `json:"updatedAt" readOnly:"true" example:"2023-10-02T12:00:00Z" doc:"Timestamp when this license was last updated"`
 
 	PricingType           PricingType `json:"pricingType,omitempty" example:"PAID" enum:"FREE,PAID,CUSTOM" doc:"How this version is sold. FREE and PAID can be bought self-serve; CUSTOM sends a buyer to selfServeCtaUrl or a conversation. Always present in responses. On create it defaults to CUSTOM; on update, omit it to keep the stored value."`
-	TrialPeriodDays       *int32      `json:"trialPeriodDays,omitempty" example:"14" doc:"Trial length, in days, a subscription to this version starts with by default. Absent when there is none. Must be at least 1 on create (CreateLicense.InvalidTrialPeriodDays). On update, omit it to keep the stored value, or send 0 to remove the trial."`
+	TrialPeriodDays       *int32      `json:"trialPeriodDays,omitempty" example:"14" minimum:"0" doc:"Trial length, in days, a subscription to this version starts with by default. Absent when there is none. Must be at least 1 on create (CreateLicense.InvalidTrialPeriodDays). On update, omit it to keep the stored value, or send 0 to remove the trial."`
 	RequiresPaymentMethod *bool       `json:"requiresPaymentMethod,omitempty" example:"false" doc:"Whether self-serve signup captures a payment method before activation. Always present in responses; false when omitted on create. On update, omit it to keep the stored value."`
-	SelfServeCtaURL       *string     `json:"selfServeCtaUrl,omitempty" example:"https://example.com/contact-sales" doc:"Where a buyer is sent when this version cannot be bought self-serve: an http(s) URL of at most 2048 characters (CreateLicense.InvalidSelfServeCtaUrl). Absent when there is none. On update, omit it to keep the stored value, or send an empty string to remove it."`
+	SelfServeCtaURL       *string     `json:"selfServeCtaUrl,omitempty" example:"https://example.com/contact-sales" maxLength:"2048" doc:"Where a buyer is sent when this version cannot be bought self-serve: an http(s) URL of at most 2048 characters (CreateLicense.InvalidSelfServeCtaUrl). Absent when there is none. On update, omit it to keep the stored value, or send an empty string to remove it."`
 }
 
 // LicenseFamily is the product a license is a version of, as the GraphQL

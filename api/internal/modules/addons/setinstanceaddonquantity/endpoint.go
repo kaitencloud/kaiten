@@ -38,6 +38,7 @@ func RegisterEndpoint(api huma.API, app Setter) {
 		Summary:     "Change an instance add-on's quantity",
 		Description: "Changes how many units of an add-on an instance holds. The entitlements follow at once; the next invoice bills the new quantity. Emits INSTANCE_ADDON_QUANTITY_CHANGED. Requires billing to be enabled for the organization.",
 		Tags:        []string{"instances"},
+		Metadata:    kaitenhuma.BoundaryPending(),
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)

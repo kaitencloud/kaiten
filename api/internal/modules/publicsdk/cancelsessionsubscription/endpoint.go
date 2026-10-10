@@ -32,7 +32,8 @@ func RegisterEndpoint(api huma.API, app FacadeCanceler) {
 		Summary:     "Cancel the subscription at the period's end",
 		Description: "Cancels the subscription of the session's instance at the end of the period paid for: it keeps billing and granting until then, and reactivating before then keeps it. " +
 			"A trial ends at once, with nothing to pay. Repeating it changes nothing. 409 .NotActive when there is no live subscription, .BoundaryPending while the period that ended is being closed (Retry-After); 422 .InstanceRequired for a session bound to no instance.",
-		Tags: []string{"public"},
+		Tags:     []string{"public"},
+		Metadata: kaitenhuma.BoundaryPending(),
 		Errors: []int{
 			http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusConflict,
 			http.StatusUnprocessableEntity, http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusServiceUnavailable,

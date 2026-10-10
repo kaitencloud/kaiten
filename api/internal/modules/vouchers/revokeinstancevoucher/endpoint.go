@@ -19,7 +19,7 @@ type Revoker interface {
 
 // RevocationReason is why a redemption is revoked.
 type RevocationReason struct {
-	Reason string `json:"reason,omitempty" doc:"1 to 500 characters; .ReasonRequired otherwise" example:"Granted by mistake"`
+	Reason string `json:"reason" minLength:"1" maxLength:"500" doc:"1 to 500 characters; .ReasonRequired otherwise" example:"Granted by mistake"`
 }
 type Request struct {
 	InstanceSlug      string    `path:"instanceSlug" doc:"Instance slug" example:"acme-prod"`
@@ -39,6 +39,7 @@ func RegisterEndpoint(api huma.API, app Revoker) {
 		Summary:     "Revoke a redemption",
 		Description: "Stops a redemption from applying: a boost ends at once, a discount applies to no further invoice. Invoices already issued are untouched. Emits INSTANCE_VOUCHER_REVOKED. Requires billing to be enabled for the organization.",
 		Tags:        []string{"vouchers"},
+		Metadata:    kaitenhuma.SchemaCodes(map[string]string{"body.reason": "RevokeInstanceVoucher.ReasonRequired"}),
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)
