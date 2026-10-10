@@ -20,6 +20,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/createdeploymentzone"
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/updatedeploymentzone"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlement"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
 	instancesdb "github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
@@ -272,6 +273,13 @@ func (p *Profile) seedEntitlements(ctx context.Context, sc *seeder.SeederContext
 			GroupSlugs:        ent.GroupSlugs,
 			Type:              ent.Type,
 			AggregationMethod: ent.AggregationMethod,
+			ResetPeriod:       ent.ResetPeriod,
+			ResetAnchor:       ent.ResetAnchor,
+			Icon:              ptr.To(ent.Icon),
+			UnitSingular:      ent.UnitSingular,
+			UnitPlural:        ent.UnitPlural,
+			UserFacing:        ptr.To(ent.UserFacing),
+			DisplayOrder:      ptr.To(ent.DisplayOrder),
 		}
 		created, err := sc.Entitlements.CreateEntitlement.Execute(ctx, cmd)
 		if err != nil {
@@ -473,53 +481,58 @@ func (p *Profile) seedLicenseEntitlements(
 func (p *Profile) seedReleases(ctx context.Context, sc *seeder.SeederContext) (map[string]uuid.UUID, error) {
 	slog.Info("📦 Creating releases and components...")
 
+	// What each release ships is settled before anything is created, so a
+	// patch that removes a component the release does not have fails the seed
+	// here rather than halfway through the catalogue.
+	bundles, err := releaseBundles()
+	if err != nil {
+		return nil, err
+	}
+
 	releaseIDsByVersion := make(map[string]uuid.UUID)
-	componentIDsByVersion := make(map[string][]uuid.UUID)
 	componentIDsBySlug := make(map[string]uuid.UUID)
 
 	for _, rel := range releases {
-		componentIDs := make([]uuid.UUID, 0)
-
-		// inherit previous release's components
-		if rel.PreviousVersion != "" {
-			prev, ok := componentIDsByVersion[rel.PreviousVersion]
-			if !ok {
-				return nil, fmt.Errorf("release %q references unknown previous version %q", rel.Version, rel.PreviousVersion)
+		for _, patch := range rel.Patches {
+			if patch.Op != opAdd {
+				continue
 			}
-			componentIDs = append(componentIDs, prev...)
+
+			// A component's next version is created as the successor of the
+			// one it follows, which an earlier patch created.
+			var previousID *uuid.UUID
+			if patch.PreviousSlug != nil {
+				id, ok := componentIDsBySlug[*patch.PreviousSlug]
+				if !ok {
+					return nil, fmt.Errorf("component %q %s follows unknown component slug %q", *patch.Name, *patch.Version, *patch.PreviousSlug)
+				}
+				previousID = &id
+			}
+
+			comp, err := sc.Components.CreateComponent.Execute(ctx, &createcomponent.Command{
+				Name:                *patch.Name,
+				Version:             *patch.Version,
+				Slug:                patch.Slug,
+				Description:         patch.Description,
+				PreviousComponentID: previousID,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("component %q: %w", *patch.Name, err)
+			}
+			componentIDsBySlug[comp.Slug] = comp.ID
 		}
 
-		for _, patch := range rel.Patches {
-			switch patch.Op {
-			case opAdd:
-				comp, err := sc.Components.CreateComponent.Execute(ctx, &createcomponent.Command{
-					Name:        *patch.Name,
-					Version:     *patch.Version,
-					Slug:        patch.Slug,
-					Description: patch.Description,
-				})
-				if err != nil {
-					return nil, fmt.Errorf("component %q: %w", *patch.Name, err)
-				}
-				componentIDs = append(componentIDs, comp.ID)
-				componentIDsBySlug[comp.Slug] = comp.ID
-
-			case opRemove:
-				cid, ok := componentIDsBySlug[*patch.RemoveSlug]
-				if !ok {
-					return nil, fmt.Errorf("release %q: cannot remove unknown component slug %q", rel.Version, *patch.RemoveSlug)
-				}
-				filtered := make([]uuid.UUID, 0, len(componentIDs)-1)
-				for _, id := range componentIDs {
-					if id != cid {
-						filtered = append(filtered, id)
-					}
-				}
-				componentIDs = filtered
+		componentIDs := make([]uuid.UUID, 0, len(bundles[rel.Version]))
+		for _, slug := range bundles[rel.Version] {
+			id, ok := componentIDsBySlug[slug]
+			if !ok {
+				return nil, fmt.Errorf("release %q bundles component %q, which no patch created", rel.Version, slug)
 			}
+			componentIDs = append(componentIDs, id)
 		}
 
 		created, err := sc.Releases.CreateRelease.Execute(ctx, &createrelease.Command{
+			Slug:         ptr.To(rel.Slug),
 			Version:      rel.Version,
 			Description:  ptr.To(rel.Description),
 			ComponentIDs: componentIDs,
@@ -529,7 +542,6 @@ func (p *Profile) seedReleases(ctx context.Context, sc *seeder.SeederContext) (m
 		}
 
 		releaseIDsByVersion[rel.Version] = created.ID
-		componentIDsByVersion[rel.Version] = append([]uuid.UUID(nil), componentIDs...)
 		slog.Info("   ✓ Created release", "version", rel.Version)
 	}
 
@@ -663,7 +675,9 @@ type seededInstance struct {
 	Slug        string
 	LicenseName string
 	CustomerID  uuid.UUID
-	UsageValues map[string]usageEntry
+	// StartLicenseDate is what a LICENSE_START reset window is phased off.
+	StartLicenseDate time.Time
+	UsageValues      map[string]usageEntry
 }
 
 func (p *Profile) seedCustomersAndInstances(
@@ -702,6 +716,7 @@ func (p *Profile) seedCustomersAndInstances(
 			}
 
 			instanceName := fmt.Sprintf("%s %s", cust.Name, inst.NameSuffix)
+			startLicenseDate := now
 
 			createdInst, err := orgCtx.Instances.CreateInstance.Execute(ctx, &createinstance.Command{
 				Name:             instanceName,
@@ -710,8 +725,8 @@ func (p *Profile) seedCustomersAndInstances(
 				CustomerID:       created.ID,
 				LicenseID:        licenseID,
 				DeploymentZoneID: &zoneID,
-				StartLicenseDate: now,
-				EndLicenseDate:   now.AddDate(1, 0, 0),
+				StartLicenseDate: startLicenseDate,
+				EndLicenseDate:   startLicenseDate.AddDate(1, 0, 0),
 				Metadata: map[string]any{
 					"environment": inst.Environment,
 				},
@@ -744,11 +759,12 @@ func (p *Profile) seedCustomersAndInstances(
 			}
 
 			allInstances = append(allInstances, seededInstance{
-				ID:          createdInst.ID,
-				Slug:        inst.Slug,
-				LicenseName: inst.LicenseName,
-				CustomerID:  created.ID,
-				UsageValues: inst.UsageValues,
+				ID:               createdInst.ID,
+				Slug:             inst.Slug,
+				LicenseName:      inst.LicenseName,
+				CustomerID:       created.ID,
+				StartLicenseDate: startLicenseDate,
+				UsageValues:      inst.UsageValues,
 			})
 			slog.Info("   ✓ Created instance", "name", instanceName)
 		}
@@ -785,6 +801,10 @@ func (p *Profile) seedUsageMetrics(
 			if !ok {
 				continue
 			}
+			ent, ok := entitlementBySlug(entSlug)
+			if !ok {
+				return fmt.Errorf("report usage %q/%q: entitlement not defined", inst.ID, entSlug)
+			}
 
 			usageBytes, err := entitlementvalue.ToBytes(&entitlementvalue.NumberUsageValue{
 				Type:       entitlementvalue.TypeNumber,
@@ -795,13 +815,9 @@ func (p *Profile) seedUsageMetrics(
 				return err
 			}
 
-			// monthly-orders resets MONTH/CALENDAR: its usage row needs a
-			// period_start so the dashboard shows the current window. Every
-			// other entitlement here is a lifetime counter (period_start NULL).
-			var periodStart pgtype.Timestamp
-			if entSlug == monthlyResetEntitlementSlug {
-				startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-				periodStart = pgtype.Timestamp{Time: startOfMonth, Valid: true}
+			periodStart, err := usagePeriodStart(ent, now, inst.StartLicenseDate)
+			if err != nil {
+				return fmt.Errorf("report usage %q/%q: %w", inst.ID, entSlug, err)
 			}
 
 			if err := instancesdb.New(orgCtx.Pool()).ReportEntitlementUsage(ctx, instancesdb.ReportEntitlementUsageParams{
@@ -818,6 +834,32 @@ func (p *Profile) seedUsageMetrics(
 
 	slog.Info("   ✓ Reported entitlement usage")
 	return nil
+}
+
+// usagePeriodStart is the period_start a usage row of ent is stored with, the
+// one the report path would store: the start of the window now falls in when
+// ent resets, NULL when it is a lifetime counter.
+//
+// The read path computes that window from the same definition and shows a
+// periodic row's usage only when the row is dated to it -- a row dated to
+// anything else is a window already over, and reads as zero. So the decision
+// is made here, from the entitlement, and not from a list of slugs kept beside
+// it: such a list is how monthly-orders came to have month-dated usage rows
+// while the entitlement itself, created without a reset period, counted over
+// the life of the instance.
+func usagePeriodStart(ent entitlementDef, now, licenseStart time.Time) (pgtype.Timestamp, error) {
+	if ent.ResetPeriod == nil {
+		return pgtype.Timestamp{}, nil
+	}
+	if ent.ResetAnchor == nil {
+		return pgtype.Timestamp{}, fmt.Errorf("entitlement %q resets without an anchor", ent.Slug)
+	}
+
+	window, err := period.Current(now, *ent.ResetPeriod, *ent.ResetAnchor, licenseStart)
+	if err != nil {
+		return pgtype.Timestamp{}, fmt.Errorf("entitlement %q: %w", ent.Slug, err)
+	}
+	return pgtype.Timestamp{Time: window.Start, Valid: true}, nil
 }
 
 // ── Audit Trail ────────────────────────────────────────────────────────────
@@ -944,8 +986,8 @@ func (p *Profile) seedFeatureFlags(ctx context.Context, sc *seeder.SeederContext
 // as, and returns its user ID. Its token carries the console's "Control plane"
 // preset (TOKEN_PRESETS.controlPlane in app/src/features/service-accounts)
 // plus the three modules the dataset also writes -- entitlements, feature flags
-// and metadata fields -- the same account the hosted demo seed creates, which
-// makes every call with that token. This seed calls the use cases directly,
+// and metadata fields -- which is what an account making each of these calls
+// through the API needs. This seed calls the use cases directly,
 // which check no scope, so here the token describes the account rather than
 // bounding what the seed may do as it.
 func (p *Profile) seedOpsTeam(ctx context.Context, sc *seeder.SeederContext) (uuid.UUID, error) {

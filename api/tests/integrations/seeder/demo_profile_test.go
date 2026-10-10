@@ -94,6 +94,74 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 		JOIN entitlement e ON e.id = eu.entitlement_id
 		WHERE eu.organization_id = $1 AND e.slug != 'monthly-orders' AND eu.period_start IS NOT NULL
 	`, orgID))
+	// The entitlement says so too. Its rows were once dated to the month while
+	// the entitlement itself was created without a reset period, which made
+	// "monthly" orders a lifetime counter: a row is dated to a window exactly
+	// when its entitlement has one.
+	require.Equal(t, []string{"monthly-orders MONTH CALENDAR"}, stringColumn(t, ctx, testDB, `
+		SELECT slug || ' ' || reset_period::text || ' ' || reset_anchor::text
+		FROM entitlement
+		WHERE organization_id = $1 AND reset_period IS NOT NULL
+	`, orgID))
+	require.Zero(t, countRows(t, ctx, testDB, `
+		SELECT COUNT(*)
+		FROM entitlement_usage eu
+		JOIN entitlement e ON e.id = eu.entitlement_id
+		WHERE eu.organization_id = $1 AND (eu.period_start IS NULL) <> (e.reset_period IS NULL)
+	`, orgID))
+
+	// Every entitlement is presented to customers: user-facing, in its own
+	// display order, with an icon, and the NUMBER ones with their unit labels.
+	require.Equal(t, []string{
+		"1 menu-items lucide:utensils menu item/menu items",
+		"2 monthly-orders lucide:shopping-cart order/orders",
+		"3 delivery-drivers lucide:bike driver/drivers",
+		"4 locations lucide:map-pin location/locations",
+		"5 delivery-tracking lucide:navigation -",
+		"6 support-tier lucide:life-buoy -",
+	}, stringColumn(t, ctx, testDB, `
+		SELECT display_order || ' ' || slug || ' ' || icon || ' ' || COALESCE(unit_singular || '/' || unit_plural, '-')
+		FROM entitlement
+		WHERE organization_id = $1 AND user_facing
+		ORDER BY display_order
+	`, orgID))
+
+	// The releases carry fixed slugs rather than the version plus six random
+	// characters a slugless create gets.
+	require.Equal(t, []string{"2026.7.0 r-2026-7-0", "2026.8.0 r-2026-8-0"}, stringColumn(t, ctx, testDB, `
+		SELECT version || ' ' || slug FROM release WHERE organization_id = $1 ORDER BY version
+	`, orgID))
+
+	// 2026.8.0 upgrades three of July's four components and keeps Kitchen
+	// Display. It once shipped both versions of each component it upgraded;
+	// it ships four, one version of each, every new version the successor of
+	// the one it replaces.
+	require.Equal(t, 4, countRows(t, ctx, testDB, `
+		SELECT COUNT(*)
+		FROM component_release cr
+		       JOIN release r ON r.id = cr.release_id
+		WHERE r.organization_id = $1 AND r.version = '2026.8.0'
+	`, orgID))
+	require.Zero(t, countRows(t, ctx, testDB, `
+		SELECT COUNT(*)
+		FROM (SELECT 1
+		      FROM component_release cr
+		             JOIN component c ON c.id = cr.component_id
+		      WHERE cr.organization_id = $1
+		      GROUP BY cr.release_id, c.name
+		      HAVING COUNT(*) > 1) AS shipped_twice
+	`, orgID), "no release ships two versions of one component")
+	require.Equal(t, []string{
+		"api-2026-8-0 follows api-2026-7-0",
+		"delivery-service-1-0-0 follows delivery-service-0-9-0",
+		"web-app-2026-8-0 follows web-app-2026-7-0",
+	}, stringColumn(t, ctx, testDB, `
+		SELECT c.slug || ' follows ' || prev.slug
+		FROM component c
+		       JOIN component prev ON prev.id = c.previous_component_id
+		WHERE c.organization_id = $1
+		ORDER BY c.slug
+	`, orgID))
 
 	// Sakura Dedicated stays on the July release -- the "pending upgrade"
 	// zone the deployment journal exists to show.
