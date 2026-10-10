@@ -42,16 +42,16 @@ const webhookRouteTabs: RouteTab[] = [
 ];
 
 // One route, told apart by its search: every invoice is the bare path.
-const queueRouteTabs: RouteTab[] = [
+const viewRouteTabs: RouteTab[] = [
   {
     id: 'all',
     label: 'All',
     to: '/invoices',
   },
   {
-    id: 'handoff',
-    label: 'Handoff',
-    search: { view: 'handoff' },
+    id: 'held',
+    label: 'Held',
+    search: { view: 'held' },
     to: '/invoices',
   },
 ];
@@ -109,7 +109,7 @@ export const SearchTabDefault: Story = {
     <RouteTabsStoryFrame
       initialEntry="/invoices"
       routePath="/invoices"
-      tabs={queueRouteTabs}
+      tabs={viewRouteTabs}
     />
   ),
 };
@@ -117,9 +117,9 @@ export const SearchTabDefault: Story = {
 export const SearchTabActive: Story = {
   render: () => (
     <RouteTabsStoryFrame
-      initialEntry="/invoices?view=handoff"
+      initialEntry="/invoices?view=held"
       routePath="/invoices"
-      tabs={queueRouteTabs}
+      tabs={viewRouteTabs}
     />
   ),
 };
