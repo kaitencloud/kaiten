@@ -1,6 +1,6 @@
-import { type QueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useSuspenseQuery } from '@tanstack/react-query';
 import { useRouteContext, useRouter } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
@@ -9,11 +9,7 @@ import { useAppForm } from '@/hooks/form';
 import { useCreateLicenseVersion } from '../../hooks/use-create-license-version';
 import { useLicenseEntitlementsDraft } from '../../hooks/use-license-entitlements-draft';
 import { useLicenseVersionFormStore } from '../../hooks/use-license-version-form-store';
-import {
-  entitlementsQueryOptions,
-  licenseEntitlementsQueryOptions,
-} from '../../queries';
-import { resolveLicenseEntitlements } from '../../utils';
+import { entitlementsQueryOptions } from '../../queries';
 import { getCopyFailure } from '../../utils/license-price-copy.utils';
 import { getCreatedVersionDestination } from '../../utils/license-version-destination.utils';
 import {
@@ -21,6 +17,11 @@ import {
   licenseVersionFormSchema,
   licenseVersionFormValuesToLicenseInput,
 } from './license-version-form.schema';
+import {
+  getReadBaseEntitlements,
+  useInitializeBaseEntitlements,
+  useSyncDraftEntitlementsFromBase,
+} from './use-base-entitlements';
 import { useLicenseVersionFormOptions } from './use-license-version-form-options';
 
 type UseLicenseVersionFormOptions = {
@@ -32,47 +33,6 @@ type UseLicenseVersionFormOptions = {
   selectedLicenseSlug?: string;
   startAsDraft?: boolean;
 };
-
-type SyncDraftEntitlementsFromBaseOptions = {
-  entitlements: Entitlement[];
-  queryClient: QueryClient;
-  resetDraftEntitlements: () => void;
-  setDraftEntitlements: ReturnType<
-    typeof useLicenseEntitlementsDraft
-  >['setDraftEntitlements'];
-};
-
-function useSyncDraftEntitlementsFromBase({
-  entitlements,
-  queryClient,
-  resetDraftEntitlements,
-  setDraftEntitlements,
-}: SyncDraftEntitlementsFromBaseOptions) {
-  return useCallback(
-    async (baseLicenseSlug: string) => {
-      if (!baseLicenseSlug) {
-        resetDraftEntitlements();
-        return;
-      }
-
-      try {
-        const baseEntitlements = await queryClient.fetchQuery(
-          licenseEntitlementsQueryOptions(baseLicenseSlug),
-        );
-        setDraftEntitlements(
-          resolveLicenseEntitlements(
-            baseEntitlements?.items ?? [],
-            entitlements,
-          ),
-        );
-      } catch (error) {
-        toast.error(getApiErrorMessage(error));
-        resetDraftEntitlements();
-      }
-    },
-    [entitlements, queryClient, resetDraftEntitlements, setDraftEntitlements],
-  );
-}
 
 function getSelectedLicenseVersionsWithSlug(
   selectedLicenseVersions: License[],
@@ -106,32 +66,6 @@ function handleLicenseVersionFormCancel({
   }
 
   router.navigate({ to: '/catalog/licenses' });
-}
-
-function useInitializeBaseEntitlements({
-  hasInitializedBaseEntitlements,
-  initialBaseLicenseSlug,
-  initializeBaseEntitlements,
-  syncDraftEntitlementsFromBase,
-}: {
-  hasInitializedBaseEntitlements: boolean;
-  initialBaseLicenseSlug: string;
-  initializeBaseEntitlements: (baseLicenseSlug: string) => void;
-  syncDraftEntitlementsFromBase: (baseLicenseSlug: string) => Promise<void>;
-}) {
-  useEffect(() => {
-    if (hasInitializedBaseEntitlements || !initialBaseLicenseSlug) {
-      return;
-    }
-
-    initializeBaseEntitlements(initialBaseLicenseSlug);
-    void syncDraftEntitlementsFromBase(initialBaseLicenseSlug);
-  }, [
-    hasInitializedBaseEntitlements,
-    initialBaseLicenseSlug,
-    initializeBaseEntitlements,
-    syncDraftEntitlementsFromBase,
-  ]);
 }
 
 type SubmitLicenseVersionOptions = Pick<
@@ -220,14 +154,6 @@ export function useLicenseVersionForm({
 }: UseLicenseVersionFormOptions) {
   const { t } = useTranslation();
   const router = useRouter();
-  const {
-    addDraftEntitlement,
-    draftEntitlements,
-    removeDraftEntitlement,
-    resetDraftEntitlements,
-    setDraftEntitlements,
-    updateDraftEntitlementGrant,
-  } = useLicenseEntitlementsDraft();
   const { queryClient } = useRouteContext({ from: '__root__' });
   const { data: entitlementsData } = useSuspenseQuery(entitlementsQueryOptions);
   const entitlements = entitlementsData?.items ?? [];
@@ -239,6 +165,23 @@ export function useLicenseVersionForm({
       selectedLicenseSlug,
       startAsDraft,
     });
+  // Decided once, when the form opens: the draft is a buffer the person edits, not a
+  // view of the cache.
+  const [startingRows] = useState(() =>
+    getReadBaseEntitlements(
+      queryClient,
+      initialValues.baseLicenseSlug,
+      entitlements,
+    ),
+  );
+  const {
+    addDraftEntitlement,
+    draftEntitlements,
+    removeDraftEntitlement,
+    resetDraftEntitlements,
+    setDraftEntitlements,
+    updateDraftEntitlementGrant,
+  } = useLicenseEntitlementsDraft(startingRows);
 
   const {
     hasInitializedBaseEntitlements,
@@ -257,6 +200,7 @@ export function useLicenseVersionForm({
     hasInitializedBaseEntitlements,
     initialBaseLicenseSlug: initialValues.baseLicenseSlug,
     initializeBaseEntitlements,
+    startedWithBase: startingRows !== undefined,
     syncDraftEntitlementsFromBase,
   });
 

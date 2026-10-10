@@ -4,6 +4,7 @@ import { z } from 'zod';
 import {
   entitlementsQueryOptions,
   LicenseVersionForm,
+  licenseEntitlementsQueryOptions,
   licenseFamiliesQueryOptions,
   licenseQueryOptions,
   licensesQueryOptions,
@@ -30,12 +31,23 @@ export const Route = createFileRoute(
         i18n.t('Pages.Licenses.Version.titleNewOf', { name: license.name }),
     };
   },
+  // The router runs `beforeLoad` to its end first, so the form costs two round trips: the
+  // license, then these reads. Starting them beside it would leave a rejection that
+  // nobody awaits when the license is missing, to save one round trip.
   loader: ({ context, params: { licenseSlug } }) => {
     return Promise.all([
       context.queryClient.ensureQueryData(licensesQueryOptions),
       context.queryClient.ensureQueryData(licenseFamiliesQueryOptions),
       context.queryClient.ensureQueryData(licenseQueryOptions(licenseSlug)),
       context.queryClient.ensureQueryData(entitlementsQueryOptions),
+      // The grants of the version the form starts from, which the new version starts
+      // with. The form reads without suspending and copes with a refusal (a toast, and
+      // a version with none), so a prefetch: it never throws, and is not retried so that
+      // a refusal does not hold the page.
+      context.queryClient.prefetchQuery({
+        ...licenseEntitlementsQueryOptions(licenseSlug),
+        retry: false,
+      }),
     ]);
   },
 });
