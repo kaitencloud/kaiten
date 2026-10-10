@@ -5,12 +5,9 @@ package getcustomerbilling
 import (
 	"context"
 
-	"github.com/danielgtaylor/huma/v2"
-
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/paymentmethods"
-	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
 const operation = "GetCustomerBilling"
@@ -19,11 +16,6 @@ const operation = "GetCustomerBilling"
 type CustomerBilling struct {
 	BillingEmail *string                             `json:"billingEmail" doc:"Where the customer's invoices are sent. Personal data"`
 	Providers    []paymentmethods.CustomerInProvider `json:"providers" nullable:"false" doc:"The customer in each payment provider; none for NOOP"`
-}
-
-// TransformSchema publishes CustomerBilling's absent members as null (§13.15).
-func (CustomerBilling) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
-	return nullable.Pointers(s, CustomerBilling{})
 }
 
 type UseCase struct{ deps access.Deps }
