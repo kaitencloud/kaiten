@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
@@ -108,6 +109,24 @@ func onlyActiveMembersChange(stored catalogue.Voucher, d catalogue.VoucherDraft)
 	same := func(a, b *string) bool { return (a == nil && b == nil) || (a != nil && b != nil && *a == *b) }
 	sameInt := func(a, b *int32) bool { return (a == nil && b == nil) || (a != nil && b != nil && *a == *b) }
 	sameTime := func(a, b *time.Time) bool { return (a == nil && b == nil) || (a != nil && b != nil && a.Equal(*b)) }
+	// Decimals compare as numbers: "2" and "2.0" are one value.
+	sameDecimal := func(a, b *string) bool {
+		if a == nil || b == nil {
+			return a == nil && b == nil
+		}
+		x, errX := decimal.NewFromString(*a)
+		y, errY := decimal.NewFromString(*b)
+		if errX != nil || errY != nil {
+			return *a == *b
+		}
+		return x.Equal(y)
+	}
+	sameMinimum := func(a, b *catalogue.MinimumAmount) bool {
+		if a == nil || b == nil {
+			return a == nil && b == nil
+		}
+		return a.Currency == b.Currency && sameDecimal(&a.UnitAmountDecimal, &b.UnitAmountDecimal)
+	}
 	sameIDs := func(a, b []uuid.UUID) bool {
 		if len(a) != len(b) {
 			return false
@@ -124,7 +143,8 @@ func onlyActiveMembersChange(stored catalogue.Voucher, d catalogue.VoucherDraft)
 	}
 	for i := range d.Grants {
 		if !slices.ContainsFunc(stored.Grants, func(g catalogue.Grant) bool {
-			return g.EntitlementSlug == d.Grants[i].EntitlementSlug && g.ModifierType == d.Grants[i].ModifierType
+			return g.EntitlementSlug == d.Grants[i].EntitlementSlug && g.ModifierType == d.Grants[i].ModifierType &&
+				sameDecimal(g.ModifierValue, d.Grants[i].ModifierValue)
 		}) {
 			return false
 		}
@@ -137,5 +157,6 @@ func onlyActiveMembersChange(stored catalogue.Voucher, d catalogue.VoucherDraft)
 		sameIDs(stored.ApplicableAddonPriceIDs, d.ApplicableAddonPriceIDs) &&
 		sameIDs(stored.ApplicableLicenseIDs, d.ApplicableLicenseIDs) && sameIDs(stored.ApplicableAddonIDs, d.ApplicableAddonIDs) &&
 		stored.RedemptionRules.FirstTimeOnly == d.RedemptionRules.FirstTimeOnly &&
-		stored.RedemptionRules.AnnualOnly == d.RedemptionRules.AnnualOnly
+		stored.RedemptionRules.AnnualOnly == d.RedemptionRules.AnnualOnly &&
+		sameMinimum(stored.RedemptionRules.MinimumSubscriptionAmount, d.RedemptionRules.MinimumSubscriptionAmount)
 }
