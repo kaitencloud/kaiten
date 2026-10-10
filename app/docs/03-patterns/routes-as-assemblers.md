@@ -26,7 +26,7 @@ On each URL change the router (TanStack Router) runs, in this order:
 
 1. **Matching.** The params are parsed and `validateSearch` runs, from the parent route down.
 2. **`beforeLoad`**, in series, parent first. It can add to the route context.
-3. **Loading, in parallel.** The code of the route component is preloaded and the `loader`s run. If a loader takes longer than the router's pending delay (one second by default), `pendingComponent` is shown.
+3. **Loading, in parallel.** The code of the route component is preloaded and the `loader`s run. If a loader takes longer than the router's pending delay (`pendingMs`, one second by default), `pendingComponent` is shown, and once shown it stays for at least `pendingMinMs` (half a second by default). A load shorter than a second therefore shows nothing and a longer one does not flicker; the app keeps both defaults.
 
 In this app:
 
@@ -116,7 +116,7 @@ export const Route = createFileRoute('/catalog/licenses/$licenseSlug/')({
 
 `beforeLoad` runs before the loader and gives the breadcrumb its title; its `ensureQueryData` fills the cache, so the loader's call returns at once and the component reads the same query with `useSuspenseQuery`. The layout loads the version, which its title and its tabs need, and passes the search parameters it declares to the page as props. Each tab loads what it shows itself, in parallel with the code splitting of its component: a tab whose data the session may not read, or that exists only where billing does, never blanks the page around it.
 
-A loader that only warms a query the page reads without suspending, because the page has the states for it (a skeleton, the refusal with a Retry, an empty state), calls `prefetchQuery` or `prefetchInfiniteQuery` instead of `ensureQueryData`: a prefetch never throws, so a refusal does not replace the page by the error component of the route. The page shows it, with the screen around it intact. The reports behind an invoice line, in `app/src/routes/invoices/`, do it, and their query options set `retryOnMount: false` so that the page shows the refusal the loader met instead of asking once more behind it. A record the page cannot show without (an invoice) is still `ensureQueryData`, and a refusal of it is the `errorComponent` of the route.
+A loader that only warms a query the page reads without suspending, because the page has the states for it (a skeleton, the refusal with a Retry, an empty state), calls `prefetchQuery` or `prefetchInfiniteQuery` instead of `ensureQueryData`: a prefetch never throws, so a refusal does not replace the page by the error component of the route. The page shows it, with the screen around it intact. The reports behind an invoice line, in `app/src/routes/invoices/`, do it, and their query options set `retryOnMount: false` so that the page shows the refusal the loader met instead of asking once more behind it. The voucher wizard does it for what its pickers show (`loadVoucherWizard` in `app/src/features/vouchers/queries/`): a new voucher opens without waiting for them, since the first step needs none and they are in the cache by the time a person reaches the offer, while a boost or a draft, which open on a later step, wait. A record the page cannot show without (an invoice) is still `ensureQueryData`, and a refusal of it is the `errorComponent` of the route.
 
 ### A detail page with tabs
 
@@ -232,6 +232,19 @@ A route declares the search parameters it accepts with `validateSearch`, and pas
 ## Layout routes and Suspense
 
 A `route.tsx` file has no URL segment of its own: it is the layout of the routes beside it. Wrap the `<Outlet />` in `<Suspense fallback={null}>`: a child route that suspends, such as a dialog reading a query, then does not blank the page around it. A layout route often carries the loader that preloads the data of the page, so that a dialog opens on a page that is already loaded. See [dialog via route](./dialog-via-route.md#avoiding-a-flash).
+
+The router also wraps every route match in a `Suspense` of its own, whose fallback is the route's `pendingComponent`: a child route that suspends is caught there first, and the boundary of the layout only covers what no match boundary does. That first boundary draws `RoutePending` in place of the whole route (a dialog route draws nothing, with `pendingComponent: () => null`), which is why a part of a page that can wait needs a boundary of its own, as the next section says.
+
+## Loading states
+
+A person should not see a spinner for what the loader could have had ready, nor for code that could have shipped with the page. These are the rules, in the order they apply:
+
+1. **A loader warms what the first screen reads.** `ensureQueryData` for a record the page cannot be drawn without, `prefetchQuery` for what it reads without suspending. A loader waits for what the screen it opens on shows, and starts without waiting what a later step or a picker will show: awaiting a prefetch waits for the answer and never throws, not awaiting it only starts the request. The router runs `beforeLoad` to its end before the loader, so a read that does not depend on what `beforeLoad` returns starts there, beside it (`void`, for a prefetch), and the loader waits for it: the request is joined, not repeated, while the data is fresh.
+2. **Secondary data is read without suspending.** A picker, a card the session may be refused, a list that fills a field: `useQuery`, and the states are drawn inline: rows to be (`PagedListSkeleton`, or the `Skeleton` primitive) while it loads, the refusal with its Retry, an empty state. `useSuspenseQuery` is for what the screen cannot be drawn without, because the boundary it reaches is the route's own and replaces the whole page by `RoutePending`.
+3. **The `Suspense` sits around the part that waits.** The body of a drawer that reads with `useSuspenseQuery`, the JSON editor inside a form (`LazyJsonField`): a boundary there, with a skeleton of the part's size, keeps the rest of the screen and what has been typed on it. Where nothing under a part suspends, as in the voucher wizard's steps, there is no boundary to add. `fallback={null}` is for a dialog route over a page that is already drawn, as in [Layout routes and Suspense](#layout-routes-and-suspense).
+4. **Code does not wait on its first render.** A `React.lazy` component that suspends on its first render holds its fallback for about 300 ms whatever the load time: React delays revealing content after a fallback has been shown, and a lazy component suspends on its first render even when its chunk is cached. So the form fields are imported statically (see [forms](./forms.md#building-blocks)), and a component is made lazy only when it is heavy and optional, with a boundary of its own around it.
+5. **An input that changes a query key keeps the previous screen.** `placeholderData: keepPreviousData` on the query, as the audit trail does, or `useDeferredValue` on the input, so that typing in a filter does not put a skeleton in place of the list.
+6. **The router's pending screen is a last resort.** `pendingMs` and `pendingMinMs` keep their defaults: a loader under a second shows nothing. A dialog route sets `pendingComponent: () => null`, see [dialog via route](./dialog-via-route.md#avoiding-a-flash).
 
 ## Errors and not-found
 
