@@ -385,7 +385,7 @@ test.describe('recomposing an invoice', () => {
     await expect(invoice.action('Recompose')).toBeEnabled();
   });
 
-  test('is not held back by the retention for a held draft: its usage is spared whatever its age', async ({
+  test('is offered disabled for a held draft too, whose recompose the API refuses, and leaves it to be released', async ({
     page,
   }) => {
     const invoice = new InvoiceDetailDriver(page);
@@ -396,7 +396,8 @@ test.describe('recomposing an invoice', () => {
 
     await invoice.goto('inv-h1');
 
-    await expect(invoice.action('Recompose')).toBeEnabled();
+    await expect(invoice.action('Recompose')).toBeDisabled();
+    await expect(invoice.action('Release the hold')).toBeEnabled();
   });
 });
 

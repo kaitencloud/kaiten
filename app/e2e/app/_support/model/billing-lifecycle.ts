@@ -27,8 +27,13 @@ const MAX_REASON_LENGTH = 500;
 /** What the lifecycle of a subscription needs of the model that holds the subscriptions. */
 export type LifecycleHost = {
   catalogue: () => BillingCatalogue;
-  /** The collection method of a subscription that names none: the organization's. */
-  defaultCollectionMethod: () => InstanceBilling['collectionMethod'];
+  /**
+   * The collection method of a subscription that names none: the organization's, and
+   * always SEND_INVOICE on NOOP, which nothing charges.
+   */
+  defaultCollectionMethod: (
+    providerKind: InstanceBilling['providerKind'],
+  ) => InstanceBilling['collectionMethod'];
   defaultDaysUntilDue: () => number;
   invoices: BillingInvoices;
   /** The id suffix of the next invoice the lifecycle issues. */
@@ -439,7 +444,7 @@ export class SubscriptionLifecycle {
     const kind = target ?? subscription.providerKind;
     let method = subscription.collectionMethod;
     if (body.collectionMethod !== undefined) {
-      method = body.collectionMethod ?? this.host.defaultCollectionMethod();
+      method = body.collectionMethod ?? this.host.defaultCollectionMethod(kind);
     }
     if (method === 'SEND_INVOICE' && !target) {
       return;
@@ -526,15 +531,17 @@ export class SubscriptionLifecycle {
       next.daysUntilDueOverride = body.daysUntilDue;
       next.daysUntilDue = body.daysUntilDue;
     }
+    if (body.providerKind !== undefined) {
+      next.providerKind = body.providerKind;
+    }
     if (body.collectionMethod === null) {
       next.collectionMethodOverride = null;
-      next.collectionMethod = this.host.defaultCollectionMethod();
+      next.collectionMethod = this.host.defaultCollectionMethod(
+        next.providerKind,
+      );
     } else if (body.collectionMethod !== undefined) {
       next.collectionMethodOverride = body.collectionMethod;
       next.collectionMethod = body.collectionMethod;
-    }
-    if (body.providerKind !== undefined) {
-      next.providerKind = body.providerKind;
     }
     next.updatedAt = new Date(this.host.now()).toISOString();
 

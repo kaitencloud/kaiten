@@ -216,7 +216,8 @@ export class BillingSubscriptions {
     this.invoices.setDefaultDaysUntilDue(this.settings.defaultDaysUntilDue);
     this.lifecycle = new SubscriptionLifecycle({
       catalogue: () => this.catalogue,
-      defaultCollectionMethod: () => this.settings.defaultCollectionMethod,
+      defaultCollectionMethod: (providerKind) =>
+        this.defaultCollectionMethodOf(providerKind),
       defaultDaysUntilDue: () => this.settings.defaultDaysUntilDue,
       invoices: this.invoices,
       nextSequence: () => this.sequence++,
@@ -700,6 +701,15 @@ export class BillingSubscriptions {
     this.providerRules = rules;
   }
 
+  /** The collection method a subscription takes when it names none: SEND_INVOICE on NOOP, which nothing charges, else the organization's. */
+  private defaultCollectionMethodOf(
+    providerKind: InstanceBilling['providerKind'],
+  ) {
+    return providerKind === 'NOOP'
+      ? 'SEND_INVOICE'
+      : this.settings.defaultCollectionMethod;
+  }
+
   /** `GET /billing/settings`. */
   getSettings(): BillingSettings {
     this.problems.consume('getBillingSettings');
@@ -717,17 +727,16 @@ export class BillingSubscriptions {
         'defaultDaysUntilDue is between 0 and 365',
       );
     }
-    // Automatic collection needs a connected provider that charges by itself.
-    const charges = ['STRIPE', 'NOOP'].some(
-      (kind) =>
-        this.providerRules?.()?.connection(kind as 'NOOP' | 'STRIPE')
-          ?.automaticCollection,
-    );
-    if (body.defaultCollectionMethod !== 'SEND_INVOICE' && !charges) {
+    // Either method is a default: it applies to the subscriptions of a provider that
+    // charges, and a NOOP subscription sends its invoices whatever it is.
+    if (
+      body.defaultCollectionMethod !== 'SEND_INVOICE' &&
+      body.defaultCollectionMethod !== 'CHARGE_AUTOMATICALLY'
+    ) {
       throw new BillingProblem(
         422,
         'UpdateBillingSettings.InvalidCollectionMethod',
-        'only SEND_INVOICE is available: automatic collection needs a payment provider',
+        'defaultCollectionMethod is SEND_INVOICE or CHARGE_AUTOMATICALLY',
       );
     }
     this.settings = parseContract(
@@ -740,6 +749,11 @@ export class BillingSubscriptions {
     for (const subscription of this.subscriptions) {
       if (subscription.daysUntilDueOverride === null) {
         subscription.daysUntilDue = this.settings.defaultDaysUntilDue;
+      }
+      if (subscription.collectionMethodOverride === null) {
+        subscription.collectionMethod = this.defaultCollectionMethodOf(
+          subscription.providerKind,
+        );
       }
     }
 

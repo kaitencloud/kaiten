@@ -198,16 +198,22 @@ describe('a recompose the screen can tell would be refused', () => {
     ).toEqual([{ action: 'recompose' }]);
   });
 
-  it('is not held back by the retention for a held draft: its usage is spared whatever its age', () => {
-    expect(
-      getInvoiceActions(
-        invoice('DRAFT', {
-          holdReason: 'LEDGER_CHAIN_BREAK',
-          serviceFrom: '2020-01-01T00:00:00.000Z',
-        }),
-        { retentionStart },
-      ).find(({ action }) => action === 'recompose'),
-    ).toEqual({ action: 'recompose' });
+  it('holds back the recompose of a held draft too, since the API refuses it, and keeps the release', () => {
+    const actions = getInvoiceActions(
+      invoice('DRAFT', {
+        holdReason: 'LEDGER_CHAIN_BREAK',
+        serviceFrom: '2020-01-01T00:00:00.000Z',
+      }),
+      { retentionStart },
+    );
+
+    expect(actions.find(({ action }) => action === 'recompose')).toEqual({
+      action: 'recompose',
+      unavailable: { reason: 'purged-usage', retentionStart },
+    });
+    expect(actions.find(({ action }) => action === 'releaseHold')).toEqual({
+      action: 'releaseHold',
+    });
   });
 
   it('says the instance was deleted before it says the usage is gone', () => {

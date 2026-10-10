@@ -88,7 +88,8 @@ export function getVoucherEditErrors(
  * members it does not let change with what it holds, answering 409 when one differs, and
  * it writes the rules and the description it is given and drops what is missing, so a
  * body with only the four members would clear the minimum amount of the rules. Its
- * grants are compared and not rewritten, so they go as they are stored too.
+ * grants, with their values, and the minimum amount of its rules are compared with
+ * what it holds and answer 409 when one differs, so they go as they are stored too.
  */
 export function voucherToEditBody(
   voucher: Voucher,

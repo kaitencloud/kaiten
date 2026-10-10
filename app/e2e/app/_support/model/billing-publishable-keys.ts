@@ -59,11 +59,12 @@ function validateLabel(operation: string, label: string): string {
 
 /**
  * An origin as a browser sends it, `scheme://host[:port]`: https, or http for
- * localhost. A path of `/` is let through and dropped, as the API does; anything
- * else after the host, or a user, makes it no origin.
+ * localhost. It has no path, not even `/`, since a browser never sends one and an
+ * entry with one would never match; anything after the host, or a user, makes it
+ * no origin.
  */
 function normalizeOrigin(raw: string): string | undefined {
-  const match = /^(https?):\/\/([^\s/?#@]+)\/?$/i.exec(raw.trim());
+  const match = /^(https?):\/\/([^\s/?#@]+)$/i.exec(raw.trim());
   if (!match) {
     return undefined;
   }

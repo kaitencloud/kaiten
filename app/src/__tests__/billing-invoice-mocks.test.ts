@@ -243,10 +243,16 @@ describe('the usage behind a metered line, as the mocks serve it', () => {
     const body = await problem(purged);
     expect(purged.status).toBe(422);
     expect(body.code).toBe('ListInvoiceLineReports.OutsideRetention');
-    // The refusal carries the line's metering, which is what remains of it.
+    // The refusal carries the line's metering, which is what remains of it, and
+    // names where the kept usage begins after it.
     expect(body.errors?.[0]).toMatchObject({
       location: 'metering',
       value: { ledger: { firstSeq: 41, lastSeq: 45, rows: 5 } },
+    });
+    expect(body.errors?.[1]).toMatchObject({
+      location: 'retentionStart',
+      message: 'retentionStart',
+      value: '2026-04-01T00:00:00.000Z',
     });
   });
 });
@@ -349,6 +355,27 @@ describe('the actions on an invoice, as the mocks serve them', () => {
       hold: { releaseReason: 'recomposed' },
       status: 'MANUAL',
     });
+  });
+
+  it('refuses to recompose an invoice whose usage is no longer kept, held or void, naming where the kept usage begins', async () => {
+    install(createInvoicesModel({ retentionStart: '2026-06-01T00:00:00.000Z' }));
+
+    // inv-h2 is a held draft that bills metered usage from May.
+    const held = await send('POST', '/invoices/inv-h2/recompose');
+    const refusal = await problem(held);
+    expect(held.status).toBe(422);
+    expect(refusal.code).toBe('RecomposeInvoice.OutsideRetention');
+    expect(refusal.errors?.[0]).toMatchObject({
+      location: 'retentionStart',
+      value: '2026-06-01T00:00:00.000Z',
+    });
+    // Nothing was recomposed.
+    expect(
+      ((await (await send('GET', '/invoices/inv-h2')).json()) as Invoice).holdReason,
+    ).not.toBeNull();
+
+    // An invoice that bills no usage has none to be missing: its replacement is made.
+    expect((await send('POST', '/invoices/inv-v2/recompose')).status).toBe(201);
   });
 
   it('gives a VOID invoice its replacement with a 201, once', async () => {

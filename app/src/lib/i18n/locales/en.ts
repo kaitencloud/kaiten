@@ -4019,7 +4019,7 @@ export default {
             finalize: 'Finalize in Stripe',
             sync: 'Read from Stripe',
             purgedUsage:
-              'The usage of this period is no longer kept (before {{date}}): a recompose would leave out its usage lines.',
+              'The usage of this period is no longer kept (before {{date}}): it cannot be recomposed.',
             instanceDeleted:
               'The instance of this invoice was deleted, so nothing can be recomposed for it.',
           },

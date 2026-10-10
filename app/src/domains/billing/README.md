@@ -354,9 +354,9 @@ page holds, or an export the API streams.
   `INVOICE_ACTION_SCOPES` names the billing action, hence the scope, of each, and
   `useInvoiceActionAccess` reads them once for a screen. An
   action the status allows and the screen knows the API would refuse is returned
-  disabled, with why: a recompose of a void invoice whose usage is no longer kept
-  (`getRetentionStart(months)` from `usageHistoryRetentionMonths`, which a held draft
-  is exempt from) and one for an instance that was deleted. The API has the last
+  disabled, with why: a recompose of an invoice, held draft or void, whose usage is no
+  longer kept (`getRetentionStart(months)` from `usageHistoryRetentionMonths`) and one
+  for an instance that was deleted. The API has the last
   word. `isHandoffLeased` says whether a consumer holds an invoice of the handoff
   queue, from its lease; an expired lease is as good as none.
   `isPaidAtProviderRefusal` reads the void the API refused because the provider reports

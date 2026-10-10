@@ -9,10 +9,8 @@ export const WEAK_CODE_LENGTH = 12;
  * Whether a code chosen by hand is short enough to be guessed and has neither a
  * maximum of redemptions nor an end date: the API refuses it (422
  * `CreateVoucher.WeakCodeUnbounded`). The wizard warns before it does. A code left
- * empty is generated, with eighty random bits, and needs no bound. The API counts the
- * characters of the code as typed, hyphens included, where the spec counts the
- * normalized ones, which are never more; the warning follows the spec, which is the
- * stricter, so that a code it lets through is one the API takes.
+ * empty is generated, with eighty random bits, and needs no bound. Both the API and the
+ * warning count the normalized characters, hyphens and other separators left out.
  */
 export function isWeakUnboundedCode({
   code,

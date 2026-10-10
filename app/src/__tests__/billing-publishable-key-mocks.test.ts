@@ -61,7 +61,7 @@ describe('the publishable keys, as the mocks serve them', () => {
 
   it('returns the key once at creation, then lists only its last four characters', async () => {
     const created = await createKey({
-      allowedOrigins: ['https://Shop.Acme.test/', 'http://localhost:5173'],
+      allowedOrigins: ['https://Shop.Acme.test', 'http://localhost:5173'],
       label: '  pricing page  ',
     });
     const listed = await items<PublishableKey & { key?: string }>(
@@ -100,6 +100,7 @@ describe('the publishable keys, as the mocks serve them', () => {
   it.each([
     'http://shop.acme.test',
     'https://shop.acme.test/pricing',
+    'https://shop.acme.test/',
     'https://shop.acme.test?x=1',
     'https://user@shop.acme.test',
     'shop.acme.test',
@@ -122,7 +123,7 @@ describe('the publishable keys, as the mocks serve them', () => {
         'https://shop.acme.test:8443',
         'http://localhost',
         'http://127.0.0.1:3000',
-        'https://shop.acme.test:8443/',
+        'HTTPS://Shop.Acme.test:8443',
       ],
       label: 'pricing',
     });

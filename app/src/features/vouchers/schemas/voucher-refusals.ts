@@ -16,7 +16,6 @@ type Placement = { field: string; step: AskingStep };
 // field in prose, in `detail`, and does not locate it. Each is shown on its field, in
 // the API's own words, where the person is looking.
 const PLACEMENTS: Readonly<Record<string, Placement>> = {
-  AddonNotFound: { field: 'applicableAddonIds', step: 'eligibility' },
   BoostUnsupportedEntitlementType: { field: 'grants', step: 'offer' },
   CodeConflict: { field: 'code', step: 'eligibility' },
   CurrencyRequired: { field: 'currency', step: 'offer' },
@@ -30,7 +29,6 @@ const PLACEMENTS: Readonly<Record<string, Placement>> = {
   InvalidGrant: { field: 'grants', step: 'offer' },
   InvalidRedemptionRules: { field: 'minimumAmount', step: 'eligibility' },
   InvalidWindow: { field: 'expiresAt', step: 'eligibility' },
-  LicenseNotFound: { field: 'applicableLicenseIds', step: 'eligibility' },
   PriceNotFound: { field: 'applicableLicensePriceIds', step: 'offer' },
   SelectedPricesRequired: { field: 'applicableLicensePriceIds', step: 'offer' },
   UnsupportedType: { field: 'voucherType', step: 'type' },
@@ -52,6 +50,17 @@ export function getVoucherRefusalTarget(
 
   if (!name || !problem.detail) {
     return null;
+  }
+  if (name === 'InvalidApplicability') {
+    // One code for an id that is no licence version and for one that is no add-on
+    // version: the API tells which in its words, and the field is the one it names.
+    return {
+      field: /add-on/i.test(problem.detail)
+        ? 'applicableAddonIds'
+        : 'applicableLicenseIds',
+      message: problem.detail,
+      step: 'eligibility',
+    };
   }
   if (name === 'InvalidDiscount') {
     return {
