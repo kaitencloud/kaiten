@@ -164,3 +164,23 @@ describe('the tabs of one route told apart by its search', () => {
     expect(isActive('Handoff')).toBe(false);
   });
 });
+
+describe('the count of a tab', () => {
+  it('is shown next to its label, and a 0 is shown', async () => {
+    renderTabs('/invoices', '/invoices', [
+      { count: 12, id: 'all', label: 'All', to: '/invoices' },
+      {
+        count: 0,
+        id: 'held',
+        label: 'Held',
+        search: { view: 'held' },
+        to: '/invoices',
+      },
+      { id: 'plain', label: 'Plain', search: { view: 'plain' }, to: '/invoices' },
+    ]);
+
+    expect(await screen.findByRole('link', { name: 'All 12' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Held 0' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Plain' })).toBeVisible();
+  });
+});
