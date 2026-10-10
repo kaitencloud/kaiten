@@ -8,6 +8,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/events/webhook"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
 // StatusChange is the payload of INSTANCE_BILLING_STATUS_CHANGED.
@@ -29,7 +30,13 @@ type CancellationChange struct {
 type Cancellation struct {
 	InstanceBilling
 	Mode           string     `json:"mode" enum:"AT_PERIOD_END,IMMEDIATE" doc:"How it was canceled; a trial is canceled at once in either mode"`
-	FinalInvoiceID *uuid.UUID `json:"finalInvoiceId,omitempty" doc:"The FINAL invoice, when the cancellation issued one"`
+	FinalInvoiceID *uuid.UUID `json:"finalInvoiceId" doc:"The FINAL invoice; null when the cancellation issued none (a trial)"`
+}
+
+// TransformSchema publishes Cancellation's absent members as null (§15.1:
+// finalInvoiceId|null), its InstanceBilling ones included.
+func (Cancellation) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, Cancellation{})
 }
 
 // PlanChangeSchedule is the payload of a plan change scheduled or cancelled.

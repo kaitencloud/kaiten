@@ -44,3 +44,29 @@ func TestPointers(t *testing.T) {
 	require.Len(t, s.Properties["in"].OneOf, 2)
 	require.False(t, s.Properties["kept"].Nullable, "omitempty members are left alone")
 }
+
+// Base is exported, as the embedded shapes are: Huma flattens only those.
+type Base struct {
+	Reason *string `json:"reason" enum:"X,Y"`
+	In     *inner  `json:"in"`
+}
+
+type outer struct {
+	Base
+	Extra *inner `json:"extra"`
+}
+
+func (outer) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, outer{})
+}
+
+// A shape embedding another marks the embedded members too: Huma flattens
+// them into its schema.
+func TestPointersOfAnEmbeddingShape(t *testing.T) {
+	registry := huma.NewMapRegistry("#/components/schemas/", huma.DefaultSchemaNamer)
+	registry.Schema(reflect.TypeFor[outer](), true, "")
+	s := registry.Map()["Outer"]
+	require.Contains(t, s.Properties["reason"].Enum, nil, "an embedded member")
+	require.Len(t, s.Properties["in"].OneOf, 2, "an embedded member")
+	require.Len(t, s.Properties["extra"].OneOf, 2, "its own member")
+}
