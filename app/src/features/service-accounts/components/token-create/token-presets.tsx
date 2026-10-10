@@ -93,7 +93,7 @@ function PresetToggle({
         </span>
         <span
           id={`${id}-grants`}
-          className="block text-xs text-muted-foreground/80"
+          className="block text-xs text-muted-foreground"
         >
           {grants}
         </span>
