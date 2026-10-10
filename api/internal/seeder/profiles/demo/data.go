@@ -8,6 +8,7 @@ import (
 
 	deploymentzoneevents "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/events"
 	entitlementevents "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/events"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	featureflagevents "github.com/kaitencloud/kaiten/api/internal/modules/featureflags/events"
@@ -108,6 +109,15 @@ const (
 
 // ── Entitlements ───────────────────────────────────────────────────────────
 
+// entitlementDef is one catalogue entitlement.
+//
+// ResetPeriod and ResetAnchor make a NUMBER entitlement periodic: its usage is
+// counted in a window that restarts on that cadence instead of over the life
+// of the instance. Both nil is a lifetime counter. They go to create-entitlement
+// as written, and seedUsageMetrics reads them to store each usage row in the
+// window its entitlement measures (usagePeriodStart), so which entitlements
+// reset is said once, here. The anchor is spelled out even where it is the
+// default the API would fill in, because the seed computes the window from it.
 type entitlementDef struct {
 	Name              string
 	Slug              string
@@ -115,6 +125,8 @@ type entitlementDef struct {
 	GroupSlugs        []string
 	Type              entitlementschema.Type
 	AggregationMethod *entitlementschema.AggregationMethod
+	ResetPeriod       *period.ResetPeriod
+	ResetAnchor       *period.ResetAnchor
 }
 
 var entitlementGroups = []seedkit.EntitlementGroupDef{
@@ -138,6 +150,11 @@ var entitlements = []entitlementDef{
 		GroupSlugs:        []string{"restaurant-operations"},
 		Type:              entitlementschema.Number,
 		AggregationMethod: ptr.To(entitlementschema.Sum),
+		// The one periodic entitlement: orders count per calendar month, as
+		// its name says. Menu items, delivery drivers and locations are
+		// lifetime counters.
+		ResetPeriod: ptr.To(period.Month),
+		ResetAnchor: ptr.To(period.Calendar),
 	},
 	{
 		Name:              "Delivery Drivers",
@@ -172,6 +189,17 @@ var entitlements = []entitlementDef{
 		GroupSlugs: []string{"restaurant-operations"},
 		Type:       entitlementschema.Config,
 	},
+}
+
+// entitlementBySlug is the definition of the entitlement slugged slug, the key
+// usage values and grants name it by.
+func entitlementBySlug(slug string) (entitlementDef, bool) {
+	for _, ent := range entitlements {
+		if ent.Slug == slug {
+			return ent, true
+		}
+	}
+	return entitlementDef{}, false
 }
 
 // ── Licenses ───────────────────────────────────────────────────────────────
@@ -520,11 +548,6 @@ var customers = []customerDef{
 // usageEntitlementOrder defines the deterministic iteration order for usage
 // values, avoiding map iteration non-determinism.
 var usageEntitlementOrder = []string{"menu-items", "monthly-orders", "delivery-drivers", "locations"}
-
-// monthlyResetEntitlementSlug is the one entitlement with a MONTH/CALENDAR
-// reset period (menu-items/delivery-drivers/locations are lifetime
-// counters).
-const monthlyResetEntitlementSlug = "monthly-orders"
 
 // ── Deployment Zones ───────────────────────────────────────────────────────
 

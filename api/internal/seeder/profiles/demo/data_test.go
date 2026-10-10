@@ -10,6 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/featureflag"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
+	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
+	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
 )
@@ -50,6 +53,66 @@ func TestEntitlementGroupsCoverAllSampleEntitlements(t *testing.T) {
 			)
 		}
 	}
+}
+
+// TestUsageRowsFollowTheirEntitlementsResetPeriod guards the window each seeded
+// usage row is dated to. A periodic row of a lifetime entitlement claims a
+// reset the entitlement does not have, and a lifetime row of a periodic one
+// reads as zero. monthly-orders was the first case: its rows were dated to the
+// month, from a slug kept beside the definitions, while the entitlement was
+// created without a reset period. The row's window now comes from the
+// definition (usagePeriodStart), so this checks that derivation on every row
+// the dataset reports, and that each definition is one create-entitlement
+// accepts -- the database refuses the rest, but only once a seed runs.
+func TestUsageRowsFollowTheirEntitlementsResetPeriod(t *testing.T) {
+	for _, ent := range entitlements {
+		// The check create-entitlement runs, on the anchor as written: the
+		// seed computes the window from it, so it does not get the default
+		// the API would fill in.
+		require.NoErrorf(t,
+			entitlementschema.ValidateResetConfiguration(ent.Type, ent.AggregationMethod, ent.ResetPeriod, ent.ResetAnchor),
+			"entitlement %q", ent.Slug)
+	}
+
+	// The seed runs at any time; the dataset's own "today" will do. Instances
+	// start their license when they are seeded, so that is their start too.
+	now := datasetReferenceDate
+	periodic := 0
+	for _, cust := range customers {
+		for _, inst := range cust.Instances {
+			for slug, usage := range inst.UsageValues {
+				require.Containsf(t, usageEntitlementOrder, slug,
+					"instance %q reports usage of %q, which seedUsageMetrics never reads", inst.Slug, slug)
+				ent, ok := entitlementBySlug(slug)
+				require.Truef(t, ok, "instance %q reports usage of unknown entitlement %q", inst.Slug, slug)
+				require.Truef(t, entitlementschema.IsNumberFamily(ent.Type),
+					"instance %q reports usage of %q, a %s entitlement, which takes none", inst.Slug, slug, ent.Type)
+
+				start, err := usagePeriodStart(ent, now, now)
+				require.NoError(t, err)
+				require.Equalf(t, ent.ResetPeriod != nil, start.Valid,
+					"instance %q: the %q usage row is periodic (%t) and the entitlement resets (%t)",
+					inst.Slug, slug, start.Valid, ent.ResetPeriod != nil)
+				if !start.Valid {
+					continue
+				}
+				periodic++
+
+				// And the read path takes the row for the current window's
+				// usage rather than a past one's.
+				window, err := period.Current(now, *ent.ResetPeriod, *ent.ResetAnchor, now)
+				require.NoError(t, err)
+				stored := &entitlementvalue.NumberUsageValue{
+					Type:       entitlementvalue.TypeNumber,
+					Value:      float64(usage.Value),
+					EventCount: usage.EventCount,
+				}
+				require.Samef(t, stored, entitlementvalue.ResolveCurrentWindowUsage(stored, &start.Time, window),
+					"instance %q: its %q usage row is dated %s, outside the current window", inst.Slug, slug, start.Time)
+			}
+		}
+	}
+	require.NotZero(t, periodic, "no usage row is periodic any more; this test guards nothing")
 }
 
 // TestSakuraTokyoInstancesResolveDifferentLicenses guards the dataset's

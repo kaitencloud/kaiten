@@ -94,6 +94,21 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 		JOIN entitlement e ON e.id = eu.entitlement_id
 		WHERE eu.organization_id = $1 AND e.slug != 'monthly-orders' AND eu.period_start IS NOT NULL
 	`, orgID))
+	// The entitlement says so too. Its rows were once dated to the month while
+	// the entitlement itself was created without a reset period, which made
+	// "monthly" orders a lifetime counter: a row is dated to a window exactly
+	// when its entitlement has one.
+	require.Equal(t, []string{"monthly-orders MONTH CALENDAR"}, stringColumn(t, ctx, testDB, `
+		SELECT slug || ' ' || reset_period::text || ' ' || reset_anchor::text
+		FROM entitlement
+		WHERE organization_id = $1 AND reset_period IS NOT NULL
+	`, orgID))
+	require.Zero(t, countRows(t, ctx, testDB, `
+		SELECT COUNT(*)
+		FROM entitlement_usage eu
+		JOIN entitlement e ON e.id = eu.entitlement_id
+		WHERE eu.organization_id = $1 AND (eu.period_start IS NULL) <> (e.reset_period IS NULL)
+	`, orgID))
 
 	// Sakura Dedicated stays on the July release -- the "pending upgrade"
 	// zone the deployment journal exists to show.
