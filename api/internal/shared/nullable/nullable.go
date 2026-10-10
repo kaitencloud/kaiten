@@ -14,10 +14,21 @@ import (
 // member without omitempty as nullable: a $ref becomes oneOf [$ref, null], an
 // enum lists null, and a type that Huma left non-nullable (uuid.UUID) takes
 // null too. Call it from the shape's TransformSchema.
+//
+// Huma flattens an embedded struct's members into the schema, so they are
+// walked too. A shape that embeds another inherits its TransformSchema: one
+// with pointer members of its own needs its own, naming itself.
 func Pointers(s *huma.Schema, shape any) *huma.Schema {
-	t := reflect.TypeOf(shape)
+	return pointers(s, reflect.TypeOf(shape))
+}
+
+func pointers(s *huma.Schema, t reflect.Type) *huma.Schema {
 	for i := range t.NumField() {
 		field := t.Field(i)
+		if field.Anonymous && field.Type.Kind() == reflect.Struct && field.Tag.Get("json") == "" {
+			pointers(s, field.Type)
+			continue
+		}
 		if field.Type.Kind() != reflect.Pointer || !field.IsExported() {
 			continue
 		}

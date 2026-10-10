@@ -1107,8 +1107,10 @@ components:
             - integer
             - "null"
         finalInvoiceId:
-          description: The FINAL invoice, when the cancellation issued one
-          type: string
+          description: The FINAL invoice; null when the cancellation issued none (a trial)
+          type:
+            - string
+            - "null"
         id:
           type: string
         instanceName:
@@ -1161,6 +1163,7 @@ components:
           type: string
       required:
         - mode
+        - finalInvoiceId
         - id
         - instanceSlug
         - instanceName
@@ -4036,6 +4039,7 @@ components:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
+            - null
           type:
             - string
             - "null"
