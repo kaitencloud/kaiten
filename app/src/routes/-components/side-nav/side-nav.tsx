@@ -17,6 +17,7 @@ import { isRouteActive } from './side-nav.constants';
 import { SideNavCollapsibleMenu } from './side-nav-collapsible-menu';
 import { SideNavLogo } from './side-nav-logo';
 import {
+  SideNavBillingRoutes,
   SideNavFooterRoutes,
   SideNavPrimaryRoutes,
   useResolvedCatalogItems,
@@ -58,6 +59,7 @@ export function SideNav() {
                   title={t('Pages.Catalog.title')}
                 />
               </SidebarMenuItem>
+              <SideNavBillingRoutes pathname={pathname} />
               <SidebarMenuItem>
                 <SideNavCollapsibleMenu
                   Icon={Zap}
