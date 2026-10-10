@@ -1,4 +1,4 @@
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoicesQueryOptions } from '@/domains/billing';
@@ -55,12 +55,18 @@ export function InvoicesPageContent({
   const view = invoicesViewOf(search);
   const scope = readInvoiceScope(search);
   // Where each count comes from: all of them from the list of invoices of the
-  // scope, which the route loads in every view and the console holds whole. All,
-  // Overdue and Held are the invoices that pass the view's test; Waiting and
-  // Acknowledged are the invoices whose `handoffStatus` is PENDING and ACKNOWLEDGED,
-  // so the queue itself is not read to count them.
-  const { data } = useSuspenseQuery(invoicesQueryOptions(scope));
-  const counts = useMemo(() => countInvoicesByView(data.items), [data.items]);
+  // scope. The views of invoices have it loaded, since they show it. The views of the
+  // queue only ask for it, to count the tabs, and the queue must not depend on it: the
+  // read does not suspend, and while it is pending or refused (a session may read the
+  // queue and not the invoices) the tabs have no counts. All, Overdue and Held are the
+  // invoices that pass the view's test; Waiting and Acknowledged are the invoices whose
+  // `handoffStatus` is PENDING and ACKNOWLEDGED, so the queue itself is not read to
+  // count them.
+  const { data } = useQuery(invoicesQueryOptions(scope));
+  const counts = useMemo(
+    () => (data ? countInvoicesByView(data.items) : undefined),
+    [data],
+  );
 
   return (
     <Page className="h-full min-h-0 overflow-hidden">
@@ -76,7 +82,7 @@ export function InvoicesPageContent({
         </Page.Leading>
       </Page.Header>
       <div className="flex min-h-0 flex-1 flex-col">
-        <InvoicesViewTabs counts={counts} scope={scope} />
+        <InvoicesViewTabs counts={counts} scope={scope} view={view} />
         <div className="min-h-0 flex-1">
           {isHandoffView(view) ? (
             <HandoffView status={HANDOFF_VIEWS[view]} />

@@ -29,15 +29,22 @@ export const Route = createFileRoute('/invoices/')({
   // API must not be asked for them. Only the scope of the invoices and the part of
   // the queue are the API's.
   loaderDeps: ({ search }) => readInvoicesLoaderDeps(search),
-  // Loads every invoice of the scope in every view, which the tabs count, and the
-  // part of the queue in the views of the queue, like the other list pages load theirs.
+  // Each view loads what it shows. The views of invoices load every invoice of the
+  // scope, like the other list pages load theirs. The views of the queue load their
+  // part of the queue; the invoices there only count the tabs, so they are asked for
+  // without being waited for and without being able to fail the route: a session that
+  // may read the queue but not the invoices still gets the queue, with no counts.
   loader: async ({ context, deps }) => {
-    await Promise.all([
-      context.queryClient.ensureQueryData(invoicesQueryOptions(deps.scope)),
-      deps.queue
-        ? context.queryClient.ensureQueryData(handoffQueryOptions(deps.queue))
-        : undefined,
-    ]);
+    const invoices = invoicesQueryOptions(deps.scope);
+
+    if (!deps.queue) {
+      await context.queryClient.ensureQueryData(invoices);
+
+      return;
+    }
+
+    void context.queryClient.prefetchQuery(invoices);
+    await context.queryClient.ensureQueryData(handoffQueryOptions(deps.queue));
   },
   beforeLoad: () => ({
     getTitle: () => i18n.t('Pages.Billing.Invoices.title'),
