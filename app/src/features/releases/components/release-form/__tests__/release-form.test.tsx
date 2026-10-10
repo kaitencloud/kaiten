@@ -222,8 +222,7 @@ describe('ReleaseForm', () => {
     });
     renderForm();
 
-    // No base choice is offered; the form opens straight on the version field
-    // (the field is lazy-loaded, hence findBy).
+    // No base choice is offered; the form opens straight on the version field.
     expect(await screen.findByPlaceholderText('v1.0.0')).toBeInTheDocument();
     expect(
       screen.queryByText('How do you want to start?'),
