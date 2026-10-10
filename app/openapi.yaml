@@ -263,13 +263,16 @@ components:
             - OVERAGE
           type: string
         billingPeriod:
-          description: The period a FLAT_FEE price is charged for. Absent on metered prices, which bill on the subscription's period.
+          description: The period a FLAT_FEE price is charged for. Null on metered prices, which bill on the subscription's period.
           enum:
             - MONTHLY
             - QUARTERLY
             - SEMI_ANNUAL
             - ANNUAL
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         billingTiming:
           description: ADVANCE bills the period that starts; ARREARS the period that ended. Metered prices are always ARREARS.
           enum:
@@ -288,12 +291,16 @@ components:
         deprecatedAt:
           description: When the price was deprecated
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         displayLabel:
-          description: The invoice line's label; a default is derived when absent.
+          description: The invoice line's label; a default is derived when it is null.
           examples:
             - Pro plan
-          type: string
+          type:
+            - string
+            - "null"
         displayOrder:
           description: Order among the version's prices
           examples:
@@ -308,8 +315,11 @@ components:
           description: The FLAT_FEE price picked for its billing period when none is named. At most one per period; only an ACTIVE FLAT_FEE price.
           type: boolean
         metered:
-          $ref: "#/components/schemas/PriceMeter"
-          description: What a metered price measures. Absent on FLAT_FEE prices.
+          description: What a metered price measures. Null on FLAT_FEE prices.
+          oneOf:
+            - $ref: "#/components/schemas/PriceMeter"
+            - enum:
+                - null
         status:
           description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
           enum:
@@ -317,11 +327,13 @@ components:
             - DEPRECATED
           type: string
         unitAmount:
-          description: unitAmountDecimal as an integer number of minor units, when it is one; absent otherwise.
+          description: unitAmountDecimal as an integer number of minor units, when it is one; null otherwise.
           examples:
             - 2900
           format: int64
-          type: integer
+          type:
+            - integer
+            - "null"
         unitAmountDecimal:
           description: "Amount in the currency's minor units (cents for EUR): per period for FLAT_FEE, per sale unit for metered prices. Up to 12 decimal places."
           examples:
@@ -336,11 +348,16 @@ components:
         - id
         - billingModel
         - billingTiming
+        - billingPeriod
         - currency
+        - unitAmount
         - unitAmountDecimal
+        - metered
+        - displayLabel
         - displayOrder
         - isDefault
         - status
+        - deprecatedAt
         - createdAt
         - updatedAt
       type: object
@@ -526,7 +543,10 @@ components:
           enum:
             - DEPLOYMENT_DISABLED
             - NOT_ENTITLED
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         enabled:
           description: Whether the billing routes answer for this organization
           type: boolean
@@ -541,17 +561,21 @@ components:
         publicSurface:
           $ref: "#/components/schemas/PublicSurface"
         usageHistoryRetentionMonths:
-          description: How long usage reports are kept, in months; absent when they are kept forever or it cannot be told
+          description: How long usage reports are kept, in months; null when they are kept forever or it cannot be told
           format: int64
-          type: integer
+          type:
+            - integer
+            - "null"
         usageIdempotencyWindowDays:
           description: How long a usage report's transactionId is remembered, in days
           format: int64
           type: integer
       required:
         - enabled
+        - disabledReason
         - providers
         - publicSurface
+        - usageHistoryRetentionMonths
         - usageIdempotencyWindowDays
         - features
       type: object
@@ -696,12 +720,18 @@ components:
           type: boolean
         cancelRequestedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         canceledAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         cancellationReason:
-          type: string
+          type:
+            - string
+            - "null"
         collectionMethod:
           description: "Effective: the subscription's own, else the organization's default"
           enum:
@@ -709,8 +739,10 @@ components:
             - CHARGE_AUTOMATICALLY
           type: string
         collectionMethodOverride:
-          description: The subscription's own collection method; absent when it takes the organization's
-          type: string
+          description: The subscription's own collection method; null when it takes the organization's
+          type:
+            - string
+            - "null"
         createdAt:
           format: date-time
           type: string
@@ -734,9 +766,11 @@ components:
           format: int32
           type: integer
         daysUntilDueOverride:
-          description: The subscription's own payment terms; absent when it takes the organization's
+          description: The subscription's own payment terms; null when it takes the organization's
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         id:
           type: string
         instanceName:
@@ -746,7 +780,9 @@ components:
           type: string
         pastDueSince:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -757,8 +793,11 @@ components:
           description: Set when a CANCELED subscription was subscribed again
           type: boolean
         scheduledChange:
-          $ref: "#/components/schemas/ScheduledChange"
           description: A plan change waiting for the next boundary
+          oneOf:
+            - $ref: "#/components/schemas/ScheduledChange"
+            - enum:
+                - null
         startedAt:
           description: "When billing started: usage before it is never billed"
           format: date-time
@@ -773,7 +812,9 @@ components:
         trialEndsAt:
           description: "When the trial ends, or ended: usage before it is never billed"
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         updatedAt:
           format: date-time
           type: string
@@ -787,7 +828,9 @@ components:
         - status
         - providerKind
         - collectionMethod
+        - collectionMethodOverride
         - daysUntilDue
+        - daysUntilDueOverride
         - basePrice
         - billingPeriod
         - currency
@@ -795,7 +838,13 @@ components:
         - startedAt
         - currentPeriodStart
         - currentPeriodEnd
+        - trialEndsAt
+        - scheduledChange
         - cancelAtPeriodEnd
+        - cancelRequestedAt
+        - canceledAt
+        - cancellationReason
+        - pastDueSince
         - createdAt
         - updatedAt
       type: object
@@ -858,12 +907,18 @@ components:
           type: boolean
         cancelRequestedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         canceledAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         cancellationReason:
-          type: string
+          type:
+            - string
+            - "null"
         collectionMethod:
           description: "Effective: the subscription's own, else the organization's default"
           enum:
@@ -871,8 +926,10 @@ components:
             - CHARGE_AUTOMATICALLY
           type: string
         collectionMethodOverride:
-          description: The subscription's own collection method; absent when it takes the organization's
-          type: string
+          description: The subscription's own collection method; null when it takes the organization's
+          type:
+            - string
+            - "null"
         createdAt:
           format: date-time
           type: string
@@ -896,9 +953,11 @@ components:
           format: int32
           type: integer
         daysUntilDueOverride:
-          description: The subscription's own payment terms; absent when it takes the organization's
+          description: The subscription's own payment terms; null when it takes the organization's
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         finalInvoice:
           $ref: "#/components/schemas/InvoiceSummary"
           description: The FINAL invoice of an immediate cancellation
@@ -911,7 +970,9 @@ components:
           type: string
         pastDueSince:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -919,8 +980,11 @@ components:
             - STRIPE
           type: string
         scheduledChange:
-          $ref: "#/components/schemas/ScheduledChange"
           description: A plan change waiting for the next boundary
+          oneOf:
+            - $ref: "#/components/schemas/ScheduledChange"
+            - enum:
+                - null
         startedAt:
           description: "When billing started: usage before it is never billed"
           format: date-time
@@ -935,7 +999,9 @@ components:
         trialEndsAt:
           description: "When the trial ends, or ended: usage before it is never billed"
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         updatedAt:
           format: date-time
           type: string
@@ -948,7 +1014,9 @@ components:
         - status
         - providerKind
         - collectionMethod
+        - collectionMethodOverride
         - daysUntilDue
+        - daysUntilDueOverride
         - basePrice
         - billingPeriod
         - currency
@@ -956,7 +1024,13 @@ components:
         - startedAt
         - currentPeriodStart
         - currentPeriodEnd
+        - trialEndsAt
+        - scheduledChange
         - cancelAtPeriodEnd
+        - cancelRequestedAt
+        - canceledAt
+        - cancellationReason
+        - pastDueSince
         - createdAt
         - updatedAt
       type: object
@@ -981,12 +1055,18 @@ components:
           type: boolean
         cancelRequestedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         canceledAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         cancellationReason:
-          type: string
+          type:
+            - string
+            - "null"
         collectionMethod:
           description: "Effective: the subscription's own, else the organization's default"
           enum:
@@ -994,8 +1074,10 @@ components:
             - CHARGE_AUTOMATICALLY
           type: string
         collectionMethodOverride:
-          description: The subscription's own collection method; absent when it takes the organization's
-          type: string
+          description: The subscription's own collection method; null when it takes the organization's
+          type:
+            - string
+            - "null"
         createdAt:
           format: date-time
           type: string
@@ -1019,9 +1101,11 @@ components:
           format: int32
           type: integer
         daysUntilDueOverride:
-          description: The subscription's own payment terms; absent when it takes the organization's
+          description: The subscription's own payment terms; null when it takes the organization's
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         finalInvoiceId:
           description: The FINAL invoice, when the cancellation issued one
           type: string
@@ -1040,7 +1124,9 @@ components:
           type: string
         pastDueSince:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -1048,8 +1134,11 @@ components:
             - STRIPE
           type: string
         scheduledChange:
-          $ref: "#/components/schemas/ScheduledChange"
           description: A plan change waiting for the next boundary
+          oneOf:
+            - $ref: "#/components/schemas/ScheduledChange"
+            - enum:
+                - null
         startedAt:
           description: "When billing started: usage before it is never billed"
           format: date-time
@@ -1064,7 +1153,9 @@ components:
         trialEndsAt:
           description: "When the trial ends, or ended: usage before it is never billed"
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         updatedAt:
           format: date-time
           type: string
@@ -1078,7 +1169,9 @@ components:
         - status
         - providerKind
         - collectionMethod
+        - collectionMethodOverride
         - daysUntilDue
+        - daysUntilDueOverride
         - basePrice
         - billingPeriod
         - currency
@@ -1086,7 +1179,13 @@ components:
         - startedAt
         - currentPeriodStart
         - currentPeriodEnd
+        - trialEndsAt
+        - scheduledChange
         - cancelAtPeriodEnd
+        - cancelRequestedAt
+        - canceledAt
+        - cancellationReason
+        - pastDueSince
         - createdAt
         - updatedAt
       type: object
@@ -1111,12 +1210,18 @@ components:
           type: boolean
         cancelRequestedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         canceledAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         cancellationReason:
-          type: string
+          type:
+            - string
+            - "null"
         collectionMethod:
           description: "Effective: the subscription's own, else the organization's default"
           enum:
@@ -1124,8 +1229,10 @@ components:
             - CHARGE_AUTOMATICALLY
           type: string
         collectionMethodOverride:
-          description: The subscription's own collection method; absent when it takes the organization's
-          type: string
+          description: The subscription's own collection method; null when it takes the organization's
+          type:
+            - string
+            - "null"
         createdAt:
           format: date-time
           type: string
@@ -1149,9 +1256,11 @@ components:
           format: int32
           type: integer
         daysUntilDueOverride:
-          description: The subscription's own payment terms; absent when it takes the organization's
+          description: The subscription's own payment terms; null when it takes the organization's
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         effectiveAt:
           description: The boundary the cancellation takes effect at
           format: date-time
@@ -1165,7 +1274,9 @@ components:
           type: string
         pastDueSince:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -1173,8 +1284,11 @@ components:
             - STRIPE
           type: string
         scheduledChange:
-          $ref: "#/components/schemas/ScheduledChange"
           description: A plan change waiting for the next boundary
+          oneOf:
+            - $ref: "#/components/schemas/ScheduledChange"
+            - enum:
+                - null
         startedAt:
           description: "When billing started: usage before it is never billed"
           format: date-time
@@ -1189,7 +1303,9 @@ components:
         trialEndsAt:
           description: "When the trial ends, or ended: usage before it is never billed"
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         updatedAt:
           format: date-time
           type: string
@@ -1203,7 +1319,9 @@ components:
         - status
         - providerKind
         - collectionMethod
+        - collectionMethodOverride
         - daysUntilDue
+        - daysUntilDueOverride
         - basePrice
         - billingPeriod
         - currency
@@ -1211,7 +1329,13 @@ components:
         - startedAt
         - currentPeriodStart
         - currentPeriodEnd
+        - trialEndsAt
+        - scheduledChange
         - cancelAtPeriodEnd
+        - cancelRequestedAt
+        - canceledAt
+        - cancellationReason
+        - pastDueSince
         - createdAt
         - updatedAt
       type: object
@@ -1662,13 +1786,16 @@ components:
       properties:
         billingEmail:
           description: Where the customer's invoices are sent. Personal data
-          type: string
+          type:
+            - string
+            - "null"
         providers:
           description: The customer in each payment provider; none for NOOP
           items:
             $ref: "#/components/schemas/CustomerInProvider"
           type: array
       required:
+        - billingEmail
         - providers
       type: object
     CustomerBody:
@@ -1790,21 +1917,30 @@ components:
           description: The customer's id in the provider
           type: string
         paymentMethod:
-          $ref: "#/components/schemas/PaymentMethodLabels"
           description: Its default payment method; null when there is none
+          oneOf:
+            - $ref: "#/components/schemas/PaymentMethodLabels"
+            - enum:
+                - null
         providerKind:
           enum:
             - STRIPE
           type: string
         syncedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         webUrl:
           description: The customer's page in the provider's dashboard
-          type: string
+          type:
+            - string
+            - "null"
       required:
         - providerKind
         - externalCustomerId
+        - webUrl
+        - syncedAt
         - paymentMethod
       type: object
     CustomerIntegration:
@@ -2433,7 +2569,7 @@ components:
             - enterprise-license
           type: string
         limit:
-          description: License grant this usage is measured against, discriminated by the 'type' field. Null when the license grants no value; -1 means unlimited for a NUMBER entitlement.
+          description: The effective value this usage is measured against (the licence's grant, with the instance's add-ons and boosts applied; source and provenance say which), discriminated by the 'type' field. Absent when nothing grants the entitlement a value; -1 means unlimited for a NUMBER entitlement.
           discriminator:
             mapping:
               boolean: "#/components/schemas/BooleanEntitlementValue"
@@ -2798,7 +2934,9 @@ components:
           type: string
         daysUntilDue:
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         discountTotal:
           description: Sum of the discounts, in minor units
           format: int64
@@ -2806,7 +2944,9 @@ components:
         dueAt:
           description: issuedAt + daysUntilDue
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         handoffStatus:
           description: "PENDING: waiting in the handoff queue for the organization's accounting system"
           enum:
@@ -2822,7 +2962,10 @@ components:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         id:
           description: "The invoice's identifier: the key an accounting system deduplicates on"
           type: string
@@ -2832,7 +2975,9 @@ components:
           type: string
         issuedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         kind:
           description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
           enum:
@@ -2844,7 +2989,9 @@ components:
           type: string
         paidAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects it. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -2890,12 +3037,17 @@ components:
         - serviceFrom
         - serviceTo
         - status
+        - holdReason
         - providerKind
         - collectionMethod
         - currency
         - subtotal
         - discountTotal
         - total
+        - issuedAt
+        - daysUntilDue
+        - dueAt
+        - paidAt
         - customerSlug
         - customerName
         - instanceSlug
@@ -3305,12 +3457,18 @@ components:
           type: boolean
         cancelRequestedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         canceledAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         cancellationReason:
-          type: string
+          type:
+            - string
+            - "null"
         collectionMethod:
           description: "Effective: the subscription's own, else the organization's default"
           enum:
@@ -3318,8 +3476,10 @@ components:
             - CHARGE_AUTOMATICALLY
           type: string
         collectionMethodOverride:
-          description: The subscription's own collection method; absent when it takes the organization's
-          type: string
+          description: The subscription's own collection method; null when it takes the organization's
+          type:
+            - string
+            - "null"
         createdAt:
           format: date-time
           type: string
@@ -3343,9 +3503,11 @@ components:
           format: int32
           type: integer
         daysUntilDueOverride:
-          description: The subscription's own payment terms; absent when it takes the organization's
+          description: The subscription's own payment terms; null when it takes the organization's
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         id:
           type: string
         instanceName:
@@ -3355,7 +3517,9 @@ components:
           type: string
         pastDueSince:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -3363,8 +3527,11 @@ components:
             - STRIPE
           type: string
         scheduledChange:
-          $ref: "#/components/schemas/ScheduledChange"
           description: A plan change waiting for the next boundary
+          oneOf:
+            - $ref: "#/components/schemas/ScheduledChange"
+            - enum:
+                - null
         startedAt:
           description: "When billing started: usage before it is never billed"
           format: date-time
@@ -3379,7 +3546,9 @@ components:
         trialEndsAt:
           description: "When the trial ends, or ended: usage before it is never billed"
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         updatedAt:
           format: date-time
           type: string
@@ -3392,7 +3561,9 @@ components:
         - status
         - providerKind
         - collectionMethod
+        - collectionMethodOverride
         - daysUntilDue
+        - daysUntilDueOverride
         - basePrice
         - billingPeriod
         - currency
@@ -3400,7 +3571,13 @@ components:
         - startedAt
         - currentPeriodStart
         - currentPeriodEnd
+        - trialEndsAt
+        - scheduledChange
         - cancelAtPeriodEnd
+        - cancelRequestedAt
+        - canceledAt
+        - cancellationReason
+        - pastDueSince
         - createdAt
         - updatedAt
       type: object
@@ -3793,7 +3970,9 @@ components:
       properties:
         billingEmail:
           description: "The address the invoice is for, as it was when composed. Personal data: it appears in no event"
-          type: string
+          type:
+            - string
+            - "null"
         boundaryAt:
           description: The boundary the invoice bills. With the kind, it identifies the invoice within its subscription
           format: date-time
@@ -3817,7 +3996,9 @@ components:
           type: string
         daysUntilDue:
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         discountTotal:
           description: Sum of the discounts, in minor units
           format: int64
@@ -3825,7 +4006,9 @@ components:
         dueAt:
           description: issuedAt + daysUntilDue
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         handoff:
           $ref: "#/components/schemas/InvoiceHandoff"
         handoffStatus:
@@ -3836,18 +4019,26 @@ components:
             - ACKNOWLEDGED
           type: string
         hold:
-          $ref: "#/components/schemas/HoldRecord"
           description: When the invoice was held and released
+          oneOf:
+            - $ref: "#/components/schemas/HoldRecord"
+            - enum:
+                - null
         holdDetail:
-          $ref: "#/components/schemas/HoldDetail"
           description: Every meter whose journal failed a check
+          oneOf:
+            - $ref: "#/components/schemas/HoldDetail"
+            - enum:
+                - null
         holdReason:
           description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
           enum:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
-          type: string
+          type:
+            - string
+            - "null"
         id:
           description: "The invoice's identifier: the key an accounting system deduplicates on"
           type: string
@@ -3857,7 +4048,9 @@ components:
           type: string
         issuedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         kind:
           description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
           enum:
@@ -3875,10 +4068,15 @@ components:
           type: array
         paidAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         provider:
-          $ref: "#/components/schemas/ProviderRecord"
-          description: The invoice in its payment provider; absent for NOOP
+          description: The invoice in its payment provider; null for NOOP
+          oneOf:
+            - $ref: "#/components/schemas/ProviderRecord"
+            - enum:
+                - null
         providerKind:
           description: "Who collects it. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -3887,10 +4085,14 @@ components:
           type: string
         replacedByInvoiceId:
           description: The invoice recomposed from this VOID one
-          type: string
+          type:
+            - string
+            - "null"
         replacesInvoiceId:
           description: The VOID invoice this one was recomposed from
-          type: string
+          type:
+            - string
+            - "null"
         serviceFrom:
           description: Earliest start of its lines' service periods
           format: date-time
@@ -3921,31 +4123,51 @@ components:
           type: integer
         uncollectibleAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         updatedAt:
           format: date-time
           type: string
         voidReason:
-          type: string
+          type:
+            - string
+            - "null"
         voidedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
       required:
         - licenseId
         - lines
+        - billingEmail
+        - holdDetail
+        - hold
         - handoff
+        - uncollectibleAt
+        - voidedAt
+        - voidReason
+        - replacesInvoiceId
+        - replacedByInvoiceId
+        - provider
         - id
         - kind
         - boundaryAt
         - serviceFrom
         - serviceTo
         - status
+        - holdReason
         - providerKind
         - collectionMethod
         - currency
         - subtotal
         - discountTotal
         - total
+        - issuedAt
+        - daysUntilDue
+        - dueAt
+        - paidAt
         - customerSlug
         - customerName
         - instanceSlug
@@ -4000,10 +4222,14 @@ components:
       properties:
         addonId:
           description: The add-on version an ADDON line bills
-          type: string
+          type:
+            - string
+            - "null"
         addonPriceId:
           description: The add-on price an ADDON line bills
-          type: string
+          type:
+            - string
+            - "null"
         amount:
           description: round_half_up(quantity × unitAmountDecimal), in minor units; negative on a DISCOUNT line
           examples:
@@ -4032,40 +4258,62 @@ components:
             - 3.05 × 8.00 EUR (per 10k tokens); 130,500 used; 30,500 above the applied limit (100,000)
           type: string
         discount:
-          $ref: "#/components/schemas/InvoiceLineDiscount"
           description: How a DISCOUNT line was computed
+          oneOf:
+            - $ref: "#/components/schemas/InvoiceLineDiscount"
+            - enum:
+                - null
         entitlementId:
           description: The metered entitlement, on USAGE and OVERAGE lines
-          type: string
+          type:
+            - string
+            - "null"
         entitlementSlug:
           description: Its slug, as it was when the line was composed
-          type: string
+          type:
+            - string
+            - "null"
         id:
           description: The line's identifier, stable for the invoice's life; absent on a preview
           type: string
         instanceAddonId:
           description: The instance's attachment an ADDON line bills
-          type: string
+          type:
+            - string
+            - "null"
         instanceVoucherId:
           description: The redemption a DISCOUNT line applies
-          type: string
+          type:
+            - string
+            - "null"
         label:
           description: The price's display label, else a derived one
           examples:
             - Tokens — overage
           type: string
         licensePriceId:
-          description: The licence price the line bills; absent on an ADDON line
-          type: string
+          description: The licence price the line bills; null on an ADDON line
+          type:
+            - string
+            - "null"
         metering:
-          $ref: "#/components/schemas/InvoiceLineMetering"
           description: How a USAGE or OVERAGE line's quantity was measured
+          oneOf:
+            - $ref: "#/components/schemas/InvoiceLineMetering"
+            - enum:
+                - null
         overage:
-          $ref: "#/components/schemas/InvoiceLineOverage"
           description: The arithmetic of an OVERAGE line
+          oneOf:
+            - $ref: "#/components/schemas/InvoiceLineOverage"
+            - enum:
+                - null
         provider:
-          $ref: "#/components/schemas/InvoiceLineProvider"
           description: The line in the payment provider, once pushed
+          oneOf:
+            - $ref: "#/components/schemas/InvoiceLineProvider"
+            - enum:
+                - null
         quantity:
           description: "In sale units, a decimal string: 1 on a BASE line, the quantity held on an ADDON line"
           examples:
@@ -4099,16 +4347,30 @@ components:
           type: string
         voucherId:
           description: The voucher a DISCOUNT line applies
-          type: string
+          type:
+            - string
+            - "null"
       required:
         - seq
         - type
+        - licensePriceId
+        - addonPriceId
+        - addonId
+        - instanceAddonId
+        - voucherId
+        - instanceVoucherId
+        - entitlementId
+        - entitlementSlug
         - label
         - description
         - serviceFrom
         - serviceTo
         - quantity
         - amount
+        - metering
+        - overage
+        - discount
+        - provider
       type: object
     InvoiceLineDiscount:
       additionalProperties: false
@@ -4124,9 +4386,11 @@ components:
           format: int32
           type: integer
         applicationsMax:
-          description: How many invoices the redemption discounts; absent for FOREVER
+          description: How many invoices the redemption discounts; null for FOREVER
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         appliesTo:
           enum:
             - LICENSE_BASE
@@ -4138,7 +4402,9 @@ components:
           description: What its targets still amounted to before it, exact, in minor units
           type: string
         currency:
-          type: string
+          type:
+            - string
+            - "null"
         discountType:
           enum:
             - PERCENTAGE
@@ -4158,10 +4424,12 @@ components:
       required:
         - discountType
         - discountValue
+        - currency
         - appliesTo
         - targetSeqs
         - base
         - application
+        - applicationsMax
         - allocations
       type: object
     InvoiceLineLedger:
@@ -4175,7 +4443,9 @@ components:
             - "null"
         instanceId:
           description: "The instance whose reports these are: with the line's entitlement, the pair the journal is kept by. It outlives the instance"
-          type: string
+          type:
+            - string
+            - "null"
         lastSeq:
           description: Last report of the period, null when it has none
           format: int64
@@ -4195,6 +4465,7 @@ components:
             - string
             - "null"
       required:
+        - instanceId
         - firstSeq
         - lastSeq
         - rows
@@ -4205,8 +4476,11 @@ components:
       additionalProperties: false
       properties:
         ledger:
-          $ref: "#/components/schemas/InvoiceLineLedger"
           description: The usage journal rows the line was measured from
+          oneOf:
+            - $ref: "#/components/schemas/InvoiceLineLedger"
+            - enum:
+                - null
         measuredQuantity:
           description: "In measured units: the usage for a USAGE line, the overage for an OVERAGE line"
           examples:
@@ -4234,6 +4508,7 @@ components:
         - measuredQuantity
         - windows
         - negativeSegmentsFloored
+        - ledger
       type: object
     InvoiceLineOverage:
       additionalProperties: false
@@ -4404,7 +4679,9 @@ components:
           type: string
         daysUntilDue:
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         discountTotal:
           description: Sum of the discounts, in minor units
           format: int64
@@ -4412,7 +4689,9 @@ components:
         dueAt:
           description: issuedAt + daysUntilDue
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         handoffStatus:
           description: "PENDING: waiting in the handoff queue for the organization's accounting system"
           enum:
@@ -4426,7 +4705,10 @@ components:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         id:
           description: "The invoice's identifier: the key an accounting system deduplicates on"
           type: string
@@ -4436,7 +4718,9 @@ components:
           type: string
         issuedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         kind:
           description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
           enum:
@@ -4448,7 +4732,9 @@ components:
           type: string
         paidAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects it. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -4493,12 +4779,17 @@ components:
         - serviceFrom
         - serviceTo
         - status
+        - holdReason
         - providerKind
         - collectionMethod
         - currency
         - subtotal
         - discountTotal
         - total
+        - issuedAt
+        - daysUntilDue
+        - dueAt
+        - paidAt
         - customerSlug
         - customerName
         - instanceSlug
@@ -4556,7 +4847,9 @@ components:
           type: string
         daysUntilDue:
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         discountTotal:
           description: Sum of the discounts, in minor units
           format: int64
@@ -4564,7 +4857,9 @@ components:
         dueAt:
           description: issuedAt + daysUntilDue
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         handoffStatus:
           description: "PENDING: waiting in the handoff queue for the organization's accounting system"
           enum:
@@ -4578,7 +4873,10 @@ components:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         id:
           description: "The invoice's identifier: the key an accounting system deduplicates on"
           type: string
@@ -4588,7 +4886,9 @@ components:
           type: string
         issuedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         kind:
           description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
           enum:
@@ -4609,7 +4909,9 @@ components:
           type: boolean
         paidAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects it. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -4656,12 +4958,17 @@ components:
         - serviceFrom
         - serviceTo
         - status
+        - holdReason
         - providerKind
         - collectionMethod
         - currency
         - subtotal
         - discountTotal
         - total
+        - issuedAt
+        - daysUntilDue
+        - dueAt
+        - paidAt
         - customerSlug
         - customerName
         - instanceSlug
@@ -5003,13 +5310,16 @@ components:
             - OVERAGE
           type: string
         billingPeriod:
-          description: The period a FLAT_FEE price is charged for. Absent on metered prices, which bill on the subscription's period.
+          description: The period a FLAT_FEE price is charged for. Null on metered prices, which bill on the subscription's period.
           enum:
             - MONTHLY
             - QUARTERLY
             - SEMI_ANNUAL
             - ANNUAL
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         billingTiming:
           description: ADVANCE bills the period that starts; ARREARS the period that ended. Metered prices are always ARREARS.
           enum:
@@ -5028,12 +5338,16 @@ components:
         deprecatedAt:
           description: When the price was deprecated
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         displayLabel:
-          description: The invoice line's label; a default is derived when absent.
+          description: The invoice line's label; a default is derived when it is null.
           examples:
             - Pro plan
-          type: string
+          type:
+            - string
+            - "null"
         displayOrder:
           description: Order among the version's prices
           examples:
@@ -5054,8 +5368,11 @@ components:
           description: The licence version the price belongs to
           type: string
         metered:
-          $ref: "#/components/schemas/PriceMeter"
-          description: What a metered price measures. Absent on FLAT_FEE prices.
+          description: What a metered price measures. Null on FLAT_FEE prices.
+          oneOf:
+            - $ref: "#/components/schemas/PriceMeter"
+            - enum:
+                - null
         status:
           description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
           enum:
@@ -5063,11 +5380,13 @@ components:
             - DEPRECATED
           type: string
         unitAmount:
-          description: unitAmountDecimal as an integer number of minor units, when it is one; absent otherwise.
+          description: unitAmountDecimal as an integer number of minor units, when it is one; null otherwise.
           examples:
             - 2900
           format: int64
-          type: integer
+          type:
+            - integer
+            - "null"
         unitAmountDecimal:
           description: "Amount in the currency's minor units (cents for EUR): per period for FLAT_FEE, per sale unit for metered prices. Up to 12 decimal places."
           examples:
@@ -5083,11 +5402,16 @@ components:
         - id
         - billingModel
         - billingTiming
+        - billingPeriod
         - currency
+        - unitAmount
         - unitAmountDecimal
+        - metered
+        - displayLabel
         - displayOrder
         - isDefault
         - status
+        - deprecatedAt
         - createdAt
         - updatedAt
       type: object
@@ -5102,13 +5426,16 @@ components:
             - OVERAGE
           type: string
         billingPeriod:
-          description: The period a FLAT_FEE price is charged for. Absent on metered prices, which bill on the subscription's period.
+          description: The period a FLAT_FEE price is charged for. Null on metered prices, which bill on the subscription's period.
           enum:
             - MONTHLY
             - QUARTERLY
             - SEMI_ANNUAL
             - ANNUAL
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         billingTiming:
           description: ADVANCE bills the period that starts; ARREARS the period that ended. Metered prices are always ARREARS.
           enum:
@@ -5134,12 +5461,16 @@ components:
         deprecatedAt:
           description: When the price was deprecated
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         displayLabel:
-          description: The invoice line's label; a default is derived when absent.
+          description: The invoice line's label; a default is derived when it is null.
           examples:
             - Pro plan
-          type: string
+          type:
+            - string
+            - "null"
         displayOrder:
           description: Order among the version's prices
           examples:
@@ -5160,8 +5491,11 @@ components:
           description: The licence version the price belongs to
           type: string
         metered:
-          $ref: "#/components/schemas/PriceMeter"
-          description: What a metered price measures. Absent on FLAT_FEE prices.
+          description: What a metered price measures. Null on FLAT_FEE prices.
+          oneOf:
+            - $ref: "#/components/schemas/PriceMeter"
+            - enum:
+                - null
         status:
           description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
           enum:
@@ -5169,11 +5503,13 @@ components:
             - DEPRECATED
           type: string
         unitAmount:
-          description: unitAmountDecimal as an integer number of minor units, when it is one; absent otherwise.
+          description: unitAmountDecimal as an integer number of minor units, when it is one; null otherwise.
           examples:
             - 2900
           format: int64
-          type: integer
+          type:
+            - integer
+            - "null"
         unitAmountDecimal:
           description: "Amount in the currency's minor units (cents for EUR): per period for FLAT_FEE, per sale unit for metered prices. Up to 12 decimal places."
           examples:
@@ -5190,11 +5526,16 @@ components:
         - id
         - billingModel
         - billingTiming
+        - billingPeriod
         - currency
+        - unitAmount
         - unitAmountDecimal
+        - metered
+        - displayLabel
         - displayOrder
         - isDefault
         - status
+        - deprecatedAt
         - createdAt
         - updatedAt
       type: object
@@ -5444,7 +5785,9 @@ components:
           type: string
         daysUntilDue:
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         discountTotal:
           description: Sum of the discounts, in minor units
           format: int64
@@ -5452,7 +5795,9 @@ components:
         dueAt:
           description: issuedAt + daysUntilDue
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         handoffStatus:
           description: "PENDING: waiting in the handoff queue for the organization's accounting system"
           enum:
@@ -5466,7 +5811,10 @@ components:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         id:
           description: "The invoice's identifier: the key an accounting system deduplicates on"
           type: string
@@ -5476,7 +5824,9 @@ components:
           type: string
         issuedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         kind:
           description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
           enum:
@@ -5488,7 +5838,9 @@ components:
           type: string
         paidAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects it. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -5536,12 +5888,17 @@ components:
         - serviceFrom
         - serviceTo
         - status
+        - holdReason
         - providerKind
         - collectionMethod
         - currency
         - subtotal
         - discountTotal
         - total
+        - issuedAt
+        - daysUntilDue
+        - dueAt
+        - paidAt
         - customerSlug
         - customerName
         - instanceSlug
@@ -6328,7 +6685,9 @@ components:
           type: string
         daysUntilDue:
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         discountTotal:
           description: Sum of the discounts, in minor units
           format: int64
@@ -6336,7 +6695,9 @@ components:
         dueAt:
           description: issuedAt + daysUntilDue
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         externalReference:
           type: string
         handoffStatus:
@@ -6352,7 +6713,10 @@ components:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         id:
           description: "The invoice's identifier: the key an accounting system deduplicates on"
           type: string
@@ -6362,7 +6726,9 @@ components:
           type: string
         issuedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         kind:
           description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
           enum:
@@ -6377,7 +6743,9 @@ components:
           type: string
         paidAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects it. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -6430,12 +6798,17 @@ components:
         - serviceFrom
         - serviceTo
         - status
+        - holdReason
         - providerKind
         - collectionMethod
         - currency
         - subtotal
         - discountTotal
         - total
+        - issuedAt
+        - daysUntilDue
+        - dueAt
+        - paidAt
         - customerSlug
         - customerName
         - instanceSlug
@@ -6508,7 +6881,9 @@ components:
           type: string
         daysUntilDue:
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         discountTotal:
           description: Sum of the discounts, in minor units
           format: int64
@@ -6516,7 +6891,9 @@ components:
         dueAt:
           description: issuedAt + daysUntilDue
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         failureCode:
           description: The provider's decline or failure code, such as card_declined, expired_card, authentication_required or no_payment_method
           type: string
@@ -6533,7 +6910,10 @@ components:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         id:
           description: "The invoice's identifier: the key an accounting system deduplicates on"
           type: string
@@ -6543,7 +6923,9 @@ components:
           type: string
         issuedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         kind:
           description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
           enum:
@@ -6555,7 +6937,9 @@ components:
           type: string
         paidAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects it. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -6605,12 +6989,17 @@ components:
         - serviceFrom
         - serviceTo
         - status
+        - holdReason
         - providerKind
         - collectionMethod
         - currency
         - subtotal
         - discountTotal
         - total
+        - issuedAt
+        - daysUntilDue
+        - dueAt
+        - paidAt
         - customerSlug
         - customerName
         - instanceSlug
@@ -6905,6 +7294,9 @@ components:
             - $ref: "#/components/schemas/NumberEntitlementValue"
             - $ref: "#/components/schemas/BooleanEntitlementValue"
             - $ref: "#/components/schemas/ConfigEntitlementValue"
+          type:
+            - ""
+            - "null"
         maximumAllowedUsage:
           description: The most usage accepted, limit × (1 + percent ÷ 100); null when unlimited, and for BOOLEAN and CONFIG
           format: double
@@ -6922,8 +7314,11 @@ components:
             - number
             - "null"
         provenance:
-          $ref: "#/components/schemas/Provenance"
           description: What the licence, the add-ons and the boosts each contribute
+          oneOf:
+            - $ref: "#/components/schemas/Provenance"
+            - enum:
+                - null
         slug:
           examples:
             - seats
@@ -6993,6 +7388,7 @@ components:
             - ACTIVE
             - PAST_DUE
             - CANCELED
+            - null
           type:
             - string
             - "null"
@@ -7215,13 +7611,16 @@ components:
             - OVERAGE
           type: string
         billingPeriod:
-          description: The period a FLAT_FEE price is charged for. Absent on metered prices, which bill on the subscription's period.
+          description: The period a FLAT_FEE price is charged for. Null on metered prices, which bill on the subscription's period.
           enum:
             - MONTHLY
             - QUARTERLY
             - SEMI_ANNUAL
             - ANNUAL
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         billingTiming:
           description: ADVANCE bills the period that starts; ARREARS the period that ended. Metered prices are always ARREARS.
           enum:
@@ -7240,12 +7639,16 @@ components:
         deprecatedAt:
           description: When the price was deprecated
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         displayLabel:
-          description: The invoice line's label; a default is derived when absent.
+          description: The invoice line's label; a default is derived when it is null.
           examples:
             - Pro plan
-          type: string
+          type:
+            - string
+            - "null"
         displayOrder:
           description: Order among the version's prices
           examples:
@@ -7260,8 +7663,11 @@ components:
           description: The FLAT_FEE price picked for its billing period when none is named. At most one per period; only an ACTIVE FLAT_FEE price.
           type: boolean
         metered:
-          $ref: "#/components/schemas/PriceMeter"
-          description: What a metered price measures. Absent on FLAT_FEE prices.
+          description: What a metered price measures. Null on FLAT_FEE prices.
+          oneOf:
+            - $ref: "#/components/schemas/PriceMeter"
+            - enum:
+                - null
         status:
           description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
           enum:
@@ -7269,11 +7675,13 @@ components:
             - DEPRECATED
           type: string
         unitAmount:
-          description: unitAmountDecimal as an integer number of minor units, when it is one; absent otherwise.
+          description: unitAmountDecimal as an integer number of minor units, when it is one; null otherwise.
           examples:
             - 2900
           format: int64
-          type: integer
+          type:
+            - integer
+            - "null"
         unitAmountDecimal:
           description: "Amount in the currency's minor units (cents for EUR): per period for FLAT_FEE, per sale unit for metered prices. Up to 12 decimal places."
           examples:
@@ -7287,11 +7695,16 @@ components:
         - id
         - billingModel
         - billingTiming
+        - billingPeriod
         - currency
+        - unitAmount
         - unitAmountDecimal
+        - metered
+        - displayLabel
         - displayOrder
         - isDefault
         - status
+        - deprecatedAt
         - createdAt
         - updatedAt
       type: object
@@ -7383,11 +7796,17 @@ components:
             $ref: "#/components/schemas/ProvenanceBoost"
           type: array
         license:
-          $ref: "#/components/schemas/ProvenanceLicense"
           description: The licence's grant; null when only add-ons grant the entitlement
+          oneOf:
+            - $ref: "#/components/schemas/ProvenanceLicense"
+            - enum:
+                - null
         number:
-          $ref: "#/components/schemas/ProvenanceNumber"
           description: How a number was composed; null for BOOLEAN and CONFIG, and when no add-on or boost changes it
+          oneOf:
+            - $ref: "#/components/schemas/ProvenanceNumber"
+            - enum:
+                - null
       required:
         - license
         - addons
@@ -8240,7 +8659,9 @@ components:
           type: string
         daysUntilDue:
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         discountTotal:
           description: Sum of the discounts, in minor units
           format: int64
@@ -8248,7 +8669,9 @@ components:
         dueAt:
           description: issuedAt + daysUntilDue
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         handoffStatus:
           description: "PENDING: waiting in the handoff queue for the organization's accounting system"
           enum:
@@ -8262,7 +8685,10 @@ components:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         id:
           description: "The invoice's identifier: the key an accounting system deduplicates on"
           type: string
@@ -8272,7 +8698,9 @@ components:
           type: string
         issuedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         kind:
           description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
           enum:
@@ -8287,7 +8715,9 @@ components:
           type: string
         paidAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects it. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -8337,12 +8767,17 @@ components:
         - serviceFrom
         - serviceTo
         - status
+        - holdReason
         - providerKind
         - collectionMethod
         - currency
         - subtotal
         - discountTotal
         - total
+        - issuedAt
+        - daysUntilDue
+        - dueAt
+        - paidAt
         - customerSlug
         - customerName
         - instanceSlug
@@ -8390,7 +8825,9 @@ components:
           type: string
         daysUntilDue:
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         discountTotal:
           description: Sum of the discounts, in minor units
           format: int64
@@ -8398,7 +8835,9 @@ components:
         dueAt:
           description: issuedAt + daysUntilDue
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         externalInvoiceId:
           type: string
         handoffStatus:
@@ -8414,7 +8853,10 @@ components:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         id:
           description: "The invoice's identifier: the key an accounting system deduplicates on"
           type: string
@@ -8424,7 +8866,9 @@ components:
           type: string
         issuedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         kind:
           description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
           enum:
@@ -8436,7 +8880,9 @@ components:
           type: string
         paidAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerInvoiceNumber:
           type: string
         providerKind:
@@ -8484,12 +8930,17 @@ components:
         - serviceFrom
         - serviceTo
         - status
+        - holdReason
         - providerKind
         - collectionMethod
         - currency
         - subtotal
         - discountTotal
         - total
+        - issuedAt
+        - daysUntilDue
+        - dueAt
+        - paidAt
         - customerSlug
         - customerName
         - instanceSlug
@@ -8525,7 +8976,9 @@ components:
           type: string
         daysUntilDue:
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         discountTotal:
           description: Sum of the discounts, in minor units
           format: int64
@@ -8533,7 +8986,9 @@ components:
         dueAt:
           description: issuedAt + daysUntilDue
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         handoff:
           $ref: "#/components/schemas/InvoiceHandoff"
         handoffStatus:
@@ -8549,7 +9004,10 @@ components:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         id:
           description: "The invoice's identifier: the key an accounting system deduplicates on"
           type: string
@@ -8559,7 +9017,9 @@ components:
           type: string
         issuedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         kind:
           description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
           enum:
@@ -8571,7 +9031,9 @@ components:
           type: string
         paidAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects it. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -8617,12 +9079,17 @@ components:
         - serviceFrom
         - serviceTo
         - status
+        - holdReason
         - providerKind
         - collectionMethod
         - currency
         - subtotal
         - discountTotal
         - total
+        - issuedAt
+        - daysUntilDue
+        - dueAt
+        - paidAt
         - customerSlug
         - customerName
         - instanceSlug
@@ -8711,21 +9178,27 @@ components:
           format: int32
           type: integer
         applicationsMax:
-          description: 1 for ONE_TIME, durationInPeriods for REPEATING; absent for FOREVER
+          description: 1 for ONE_TIME, durationInPeriods for REPEATING; null for FOREVER
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         codeHint:
           type: string
         effectiveExpiresAt:
-          description: When a boost stops applying; absent for a PRICE voucher, counted in invoices, and for FOREVER
+          description: When a boost stops applying; null for a PRICE voucher, counted in invoices, and for FOREVER
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         effectiveStartsAt:
           format: date-time
           type: string
         expiredAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         id:
           readOnly: true
           type: string
@@ -8736,9 +9209,13 @@ components:
           type: string
         revokedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         revokedReason:
-          type: string
+          type:
+            - string
+            - "null"
         status:
           enum:
             - ACTIVE
@@ -8763,8 +9240,13 @@ components:
         - instanceSlug
         - redeemedAt
         - effectiveStartsAt
+        - effectiveExpiresAt
         - applicationsCount
+        - applicationsMax
         - status
+        - expiredAt
+        - revokedAt
+        - revokedReason
       type: object
     RedemptionRules:
       additionalProperties: false
@@ -8870,7 +9352,9 @@ components:
           type: string
         daysUntilDue:
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         discountTotal:
           description: Sum of the discounts, in minor units
           format: int64
@@ -8878,7 +9362,9 @@ components:
         dueAt:
           description: issuedAt + daysUntilDue
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         handoffStatus:
           description: "PENDING: waiting in the handoff queue for the organization's accounting system"
           enum:
@@ -8895,7 +9381,10 @@ components:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         id:
           description: "The invoice's identifier: the key an accounting system deduplicates on"
           type: string
@@ -8905,7 +9394,9 @@ components:
           type: string
         issuedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         kind:
           description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
           enum:
@@ -8917,7 +9408,9 @@ components:
           type: string
         paidAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects it. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -8970,12 +9463,17 @@ components:
         - serviceFrom
         - serviceTo
         - status
+        - holdReason
         - providerKind
         - collectionMethod
         - currency
         - subtotal
         - discountTotal
         - total
+        - issuedAt
+        - daysUntilDue
+        - dueAt
+        - paidAt
         - customerSlug
         - customerName
         - instanceSlug
@@ -9588,22 +10086,34 @@ components:
             $ref: "#/components/schemas/PortalEntitlement"
           type: array
         instance:
-          $ref: "#/components/schemas/PortalInstance"
           description: The session's instance; null for a session bound to the customer only
+          oneOf:
+            - $ref: "#/components/schemas/PortalInstance"
+            - enum:
+                - null
         instances:
           description: The customer's instances, for a session bound to the customer only; empty otherwise
           items:
             $ref: "#/components/schemas/PortalInstanceSummary"
           type: array
         paymentMethod:
-          $ref: "#/components/schemas/PortalPaymentMethod"
           description: The payment method the customer's invoices are charged to; null when none is saved
+          oneOf:
+            - $ref: "#/components/schemas/PortalPaymentMethod"
+            - enum:
+                - null
         subscription:
-          $ref: "#/components/schemas/SessionSubscription"
           description: The instance's subscription; null when it has none, or the session is bound to no instance
+          oneOf:
+            - $ref: "#/components/schemas/SessionSubscription"
+            - enum:
+                - null
         upcomingInvoice:
-          $ref: "#/components/schemas/PortalUpcomingInvoice"
           description: What the next boundary will bill, on usage so far; null without a live subscription
+          oneOf:
+            - $ref: "#/components/schemas/PortalUpcomingInvoice"
+            - enum:
+                - null
         updatedAt:
           description: When this snapshot was read
           format: date-time
@@ -9677,8 +10187,11 @@ components:
             - STRIPE
           type: string
         scheduledChange:
-          $ref: "#/components/schemas/SessionScheduledChange"
           description: A plan change the vendor scheduled for the next boundary
+          oneOf:
+            - $ref: "#/components/schemas/SessionScheduledChange"
+            - enum:
+                - null
         status:
           enum:
             - TRIAL
@@ -9792,12 +10305,18 @@ components:
           type: boolean
         cancelRequestedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         canceledAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         cancellationReason:
-          type: string
+          type:
+            - string
+            - "null"
         collectionMethod:
           description: "Effective: the subscription's own, else the organization's default"
           enum:
@@ -9805,8 +10324,10 @@ components:
             - CHARGE_AUTOMATICALLY
           type: string
         collectionMethodOverride:
-          description: The subscription's own collection method; absent when it takes the organization's
-          type: string
+          description: The subscription's own collection method; null when it takes the organization's
+          type:
+            - string
+            - "null"
         createdAt:
           format: date-time
           type: string
@@ -9830,9 +10351,11 @@ components:
           format: int32
           type: integer
         daysUntilDueOverride:
-          description: The subscription's own payment terms; absent when it takes the organization's
+          description: The subscription's own payment terms; null when it takes the organization's
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         id:
           type: string
         instanceName:
@@ -9842,7 +10365,9 @@ components:
           type: string
         pastDueSince:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -9850,8 +10375,11 @@ components:
             - STRIPE
           type: string
         scheduledChange:
-          $ref: "#/components/schemas/ScheduledChange"
           description: A plan change waiting for the next boundary
+          oneOf:
+            - $ref: "#/components/schemas/ScheduledChange"
+            - enum:
+                - null
         startedAt:
           description: "When billing started: usage before it is never billed"
           format: date-time
@@ -9866,7 +10394,9 @@ components:
         trialEndsAt:
           description: "When the trial ends, or ended: usage before it is never billed"
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         updatedAt:
           format: date-time
           type: string
@@ -9879,7 +10409,9 @@ components:
         - status
         - providerKind
         - collectionMethod
+        - collectionMethodOverride
         - daysUntilDue
+        - daysUntilDueOverride
         - basePrice
         - billingPeriod
         - currency
@@ -9887,7 +10419,13 @@ components:
         - startedAt
         - currentPeriodStart
         - currentPeriodEnd
+        - trialEndsAt
+        - scheduledChange
         - cancelAtPeriodEnd
+        - cancelRequestedAt
+        - canceledAt
+        - cancellationReason
+        - pastDueSince
         - createdAt
         - updatedAt
       type: object
@@ -10312,7 +10850,9 @@ components:
           type: string
         daysUntilDue:
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         discountTotal:
           description: Sum of the discounts, in minor units
           format: int64
@@ -10320,7 +10860,9 @@ components:
         dueAt:
           description: issuedAt + daysUntilDue
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         handoffStatus:
           description: "PENDING: waiting in the handoff queue for the organization's accounting system"
           enum:
@@ -10334,7 +10876,10 @@ components:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         id:
           description: "The invoice's identifier: the key an accounting system deduplicates on"
           type: string
@@ -10344,7 +10889,9 @@ components:
           type: string
         issuedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         kind:
           description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
           enum:
@@ -10356,7 +10903,9 @@ components:
           type: string
         paidAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects it. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -10404,12 +10953,17 @@ components:
         - serviceFrom
         - serviceTo
         - status
+        - holdReason
         - providerKind
         - collectionMethod
         - currency
         - subtotal
         - discountTotal
         - total
+        - issuedAt
+        - daysUntilDue
+        - dueAt
+        - paidAt
         - customerSlug
         - customerName
         - instanceSlug
@@ -10637,7 +11191,9 @@ components:
           type: string
         daysUntilDue:
           format: int32
-          type: integer
+          type:
+            - integer
+            - "null"
         discountTotal:
           description: Sum of the discounts, in minor units
           format: int64
@@ -10645,7 +11201,9 @@ components:
         dueAt:
           description: issuedAt + daysUntilDue
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         handoffStatus:
           description: "PENDING: waiting in the handoff queue for the organization's accounting system"
           enum:
@@ -10659,7 +11217,10 @@ components:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         id:
           description: "The invoice's identifier: the key an accounting system deduplicates on"
           type: string
@@ -10669,7 +11230,9 @@ components:
           type: string
         issuedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         kind:
           description: ACTIVATION bills a subscription's first period, RENEWAL the period that ended and the one that starts, FINAL what is left when a subscription ends
           enum:
@@ -10681,7 +11244,9 @@ components:
           type: string
         paidAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects it. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -10729,12 +11294,17 @@ components:
         - serviceFrom
         - serviceTo
         - status
+        - holdReason
         - providerKind
         - collectionMethod
         - currency
         - subtotal
         - discountTotal
         - total
+        - issuedAt
+        - daysUntilDue
+        - dueAt
+        - paidAt
         - customerSlug
         - customerName
         - instanceSlug

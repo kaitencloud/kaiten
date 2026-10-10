@@ -6,10 +6,12 @@ package invoices
 import (
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
 // Statuses, handoff states and kinds, as the API spells them.
@@ -35,17 +37,17 @@ type InvoiceSummary struct {
 	ServiceFrom      time.Time  `json:"serviceFrom" doc:"Earliest start of its lines' service periods"`
 	ServiceTo        time.Time  `json:"serviceTo" doc:"Latest end of its lines' service periods"`
 	Status           string     `json:"status" enum:"DRAFT,PUSHED,PUSH_FAILED,MANUAL,PAID,PAYMENT_FAILED,UNCOLLECTIBLE,VOID" doc:"MANUAL: issued, for the organization to collect. PAID, UNCOLLECTIBLE and VOID are final. DRAFT: held, waiting for a release or a recompose"`
-	HoldReason       *string    `json:"holdReason,omitempty" enum:"LEDGER_SEQUENCE_GAP,LEDGER_CHAIN_BREAK,LEDGER_COUNTER_MISMATCH" doc:"Why a DRAFT is held: the usage journal it was measured from failed a consistency check"`
+	HoldReason       *string    `json:"holdReason" enum:"LEDGER_SEQUENCE_GAP,LEDGER_CHAIN_BREAK,LEDGER_COUNTER_MISMATCH" doc:"Why a DRAFT is held: the usage journal it was measured from failed a consistency check"`
 	ProviderKind     string     `json:"providerKind" enum:"NOOP,STRIPE" doc:"Who collects it. NOOP: the organization itself, through the handoff queue"`
 	CollectionMethod string     `json:"collectionMethod" enum:"SEND_INVOICE,CHARGE_AUTOMATICALLY"`
 	Currency         string     `json:"currency" example:"EUR"`
 	Subtotal         int64      `json:"subtotal" doc:"Sum of the lines, in minor units"`
 	DiscountTotal    int64      `json:"discountTotal" doc:"Sum of the discounts, in minor units"`
 	Total            int64      `json:"total" doc:"subtotal − discountTotal, in minor units"`
-	IssuedAt         *time.Time `json:"issuedAt,omitempty"`
-	DaysUntilDue     *int32     `json:"daysUntilDue,omitempty"`
-	DueAt            *time.Time `json:"dueAt,omitempty" doc:"issuedAt + daysUntilDue"`
-	PaidAt           *time.Time `json:"paidAt,omitempty"`
+	IssuedAt         *time.Time `json:"issuedAt"`
+	DaysUntilDue     *int32     `json:"daysUntilDue"`
+	DueAt            *time.Time `json:"dueAt" doc:"issuedAt + daysUntilDue"`
+	PaidAt           *time.Time `json:"paidAt"`
 	CustomerSlug     string     `json:"customerSlug" doc:"As it was when the invoice was composed"`
 	CustomerName     string     `json:"customerName"`
 	InstanceSlug     string     `json:"instanceSlug"`
@@ -56,21 +58,31 @@ type InvoiceSummary struct {
 	UpdatedAt        time.Time  `json:"updatedAt"`
 }
 
+// TransformSchema publishes InvoiceSummary's absent members as null (§13.15).
+func (InvoiceSummary) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, InvoiceSummary{})
+}
+
 // Invoice is an invoice with its lines and everything that happened to it.
 type Invoice struct {
 	InvoiceSummary
 	LicenseID           uuid.UUID            `json:"licenseId"`
 	Lines               []rating.InvoiceLine `json:"lines" nullable:"false"`
-	BillingEmail        *string              `json:"billingEmail,omitempty" doc:"The address the invoice is for, as it was when composed. Personal data: it appears in no event"`
-	HoldDetail          *HoldDetail          `json:"holdDetail,omitempty" doc:"Every meter whose journal failed a check"`
-	Hold                *HoldRecord          `json:"hold,omitempty" doc:"When the invoice was held and released"`
+	BillingEmail        *string              `json:"billingEmail" doc:"The address the invoice is for, as it was when composed. Personal data: it appears in no event"`
+	HoldDetail          *HoldDetail          `json:"holdDetail" doc:"Every meter whose journal failed a check"`
+	Hold                *HoldRecord          `json:"hold" doc:"When the invoice was held and released"`
 	Handoff             InvoiceHandoff       `json:"handoff"`
-	UncollectibleAt     *time.Time           `json:"uncollectibleAt,omitempty"`
-	VoidedAt            *time.Time           `json:"voidedAt,omitempty"`
-	VoidReason          *string              `json:"voidReason,omitempty"`
-	ReplacesInvoiceID   *uuid.UUID           `json:"replacesInvoiceId,omitempty" doc:"The VOID invoice this one was recomposed from"`
-	ReplacedByInvoiceID *uuid.UUID           `json:"replacedByInvoiceId,omitempty" doc:"The invoice recomposed from this VOID one"`
-	Provider            *ProviderRecord      `json:"provider,omitempty" doc:"The invoice in its payment provider; absent for NOOP"`
+	UncollectibleAt     *time.Time           `json:"uncollectibleAt"`
+	VoidedAt            *time.Time           `json:"voidedAt"`
+	VoidReason          *string              `json:"voidReason"`
+	ReplacesInvoiceID   *uuid.UUID           `json:"replacesInvoiceId" doc:"The VOID invoice this one was recomposed from"`
+	ReplacedByInvoiceID *uuid.UUID           `json:"replacedByInvoiceId" doc:"The invoice recomposed from this VOID one"`
+	Provider            *ProviderRecord      `json:"provider" doc:"The invoice in its payment provider; null for NOOP"`
+}
+
+// TransformSchema publishes Invoice's absent members as null (§13.15).
+func (Invoice) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, Invoice{})
 }
 
 // ProviderRecord is where an invoice stands in the payment provider that

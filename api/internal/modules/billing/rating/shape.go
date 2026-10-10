@@ -3,7 +3,10 @@ package rating
 import (
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
+
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
 // InvoiceLine is one invoice line as the API returns it. It explains itself: its
@@ -20,14 +23,14 @@ type InvoiceLine struct {
 	Type              LineType             `json:"type" enum:"BASE,ADDON,USAGE,OVERAGE,DISCOUNT" doc:"BASE: the subscription's FLAT_FEE price. ADDON: an add-on's FLAT_FEE price times the quantity held at the boundary. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit. DISCOUNT: a PRICE voucher's discount, negative."`
 	BillingModel      string               `json:"billingModel,omitempty" enum:"FLAT_FEE,USAGE_BASED,OVERAGE" doc:"The price's billing model; absent on a DISCOUNT line"`
 	BillingTiming     string               `json:"billingTiming,omitempty" enum:"ADVANCE,ARREARS" doc:"ADVANCE lines bill the period that starts at the boundary, ARREARS lines the one that ends there; absent on a DISCOUNT line"`
-	LicensePriceID    *uuid.UUID           `json:"licensePriceId,omitempty" doc:"The licence price the line bills; absent on an ADDON line"`
-	AddonPriceID      *uuid.UUID           `json:"addonPriceId,omitempty" doc:"The add-on price an ADDON line bills"`
-	AddonID           *uuid.UUID           `json:"addonId,omitempty" doc:"The add-on version an ADDON line bills"`
-	InstanceAddonID   *uuid.UUID           `json:"instanceAddonId,omitempty" doc:"The instance's attachment an ADDON line bills"`
-	VoucherID         *uuid.UUID           `json:"voucherId,omitempty" doc:"The voucher a DISCOUNT line applies"`
-	InstanceVoucherID *uuid.UUID           `json:"instanceVoucherId,omitempty" doc:"The redemption a DISCOUNT line applies"`
-	EntitlementID     *uuid.UUID           `json:"entitlementId,omitempty" doc:"The metered entitlement, on USAGE and OVERAGE lines"`
-	EntitlementSlug   *string              `json:"entitlementSlug,omitempty" doc:"Its slug, as it was when the line was composed"`
+	LicensePriceID    *uuid.UUID           `json:"licensePriceId" doc:"The licence price the line bills; null on an ADDON line"`
+	AddonPriceID      *uuid.UUID           `json:"addonPriceId" doc:"The add-on price an ADDON line bills"`
+	AddonID           *uuid.UUID           `json:"addonId" doc:"The add-on version an ADDON line bills"`
+	InstanceAddonID   *uuid.UUID           `json:"instanceAddonId" doc:"The instance's attachment an ADDON line bills"`
+	VoucherID         *uuid.UUID           `json:"voucherId" doc:"The voucher a DISCOUNT line applies"`
+	InstanceVoucherID *uuid.UUID           `json:"instanceVoucherId" doc:"The redemption a DISCOUNT line applies"`
+	EntitlementID     *uuid.UUID           `json:"entitlementId" doc:"The metered entitlement, on USAGE and OVERAGE lines"`
+	EntitlementSlug   *string              `json:"entitlementSlug" doc:"Its slug, as it was when the line was composed"`
 	Label             string               `json:"label" doc:"The price's display label, else a derived one" example:"Tokens — overage"`
 	Description       string               `json:"description" doc:"The arithmetic of the line" example:"3.05 × 8.00 EUR (per 10k tokens); 130,500 used; 30,500 above the applied limit (100,000)"`
 	ServiceFrom       time.Time            `json:"serviceFrom" doc:"Start of the period the line bills (inclusive)"`
@@ -35,13 +38,18 @@ type InvoiceLine struct {
 	Quantity          string               `json:"quantity" doc:"In sale units, a decimal string: 1 on a BASE line, the quantity held on an ADDON line" example:"3.05"`
 	UnitAmountDecimal string               `json:"unitAmountDecimal,omitempty" doc:"The price's unit amount in minor units; absent on a DISCOUNT line" example:"800"`
 	Amount            int64                `json:"amount" doc:"round_half_up(quantity × unitAmountDecimal), in minor units; negative on a DISCOUNT line" example:"2440"`
-	Metering          *InvoiceLineMetering `json:"metering,omitempty" doc:"How a USAGE or OVERAGE line's quantity was measured"`
-	Overage           *InvoiceLineOverage  `json:"overage,omitempty" doc:"The arithmetic of an OVERAGE line"`
-	Discount          *InvoiceLineDiscount `json:"discount,omitempty" doc:"How a DISCOUNT line was computed"`
-	Provider          *InvoiceLineProvider `json:"provider,omitempty" doc:"The line in the payment provider, once pushed"`
+	Metering          *InvoiceLineMetering `json:"metering" doc:"How a USAGE or OVERAGE line's quantity was measured"`
+	Overage           *InvoiceLineOverage  `json:"overage" doc:"The arithmetic of an OVERAGE line"`
+	Discount          *InvoiceLineDiscount `json:"discount" doc:"How a DISCOUNT line was computed"`
+	Provider          *InvoiceLineProvider `json:"provider" doc:"The line in the payment provider, once pushed"`
 	Capped            bool                 `json:"capped,omitempty" doc:"Set on a preview line whose sample exceeded what the licence accepts: reports above that are rejected, so the excess is not billed"`
 
 	displayOrder int32
+}
+
+// TransformSchema publishes InvoiceLine's absent members as null (§13.15).
+func (InvoiceLine) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, InvoiceLine{})
 }
 
 // InvoiceLineProvider is a line as its payment provider holds it.
@@ -59,18 +67,28 @@ type InvoiceLineMetering struct {
 	Windows                 int    `json:"windows" doc:"Reset windows the period spans" example:"1"`
 	NegativeSegmentsFloored int    `json:"negativeSegmentsFloored" doc:"Windows whose net movement was negative and counted as 0" example:"0"`
 	// Ledger is absent on a preview from sample usage, which has no rows.
-	Ledger *InvoiceLineLedger `json:"ledger,omitempty" doc:"The usage journal rows the line was measured from"`
+	Ledger *InvoiceLineLedger `json:"ledger" doc:"The usage journal rows the line was measured from"`
+}
+
+// TransformSchema publishes InvoiceLineMetering's absent members as null (§13.15).
+func (InvoiceLineMetering) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, InvoiceLineMetering{})
 }
 
 // InvoiceLineLedger identifies the usage journal rows a metered line was
 // measured from: with them, the line can be recomputed.
 type InvoiceLineLedger struct {
-	InstanceID *uuid.UUID `json:"instanceId,omitempty" doc:"The instance whose reports these are: with the line's entitlement, the pair the journal is kept by. It outlives the instance"`
+	InstanceID *uuid.UUID `json:"instanceId" doc:"The instance whose reports these are: with the line's entitlement, the pair the journal is kept by. It outlives the instance"`
 	FirstSeq   *int64     `json:"firstSeq" doc:"First report of the period, null when it has none"`
 	LastSeq    *int64     `json:"lastSeq" doc:"Last report of the period, null when it has none"`
 	Rows       int64      `json:"rows" doc:"Reports in the period"`
 	SumDelta   string     `json:"sumDelta" doc:"Sum of the reports' movements, before any floor"`
 	SumOverage *string    `json:"sumOverage" doc:"Sum of their movements above the limit, before any floor"`
+}
+
+// TransformSchema publishes InvoiceLineLedger's absent members as null (§13.15).
+func (InvoiceLineLedger) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, InvoiceLineLedger{})
 }
 
 // InvoiceLineOverage is the arithmetic of an OVERAGE line.
@@ -80,11 +98,21 @@ type InvoiceLineOverage struct {
 	Limits          []OverageLimit `json:"limits" nullable:"false" doc:"The limits applied, in the order they first applied"`
 }
 
+// TransformSchema publishes InvoiceLineOverage's absent members as null (§13.15).
+func (InvoiceLineOverage) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, InvoiceLineOverage{})
+}
+
 // OverageLimit is one limit an overage was measured against.
 type OverageLimit struct {
 	LimitValue     *string `json:"limitValue" doc:"The limit, null when unlimited" example:"100000"`
 	OveragePercent int32   `json:"overagePercent" doc:"Usage accepted above the limit, as a percent of it" example:"50"`
 	Rows           int     `json:"rows" doc:"Usage reports measured against it; 0 for a sample"`
+}
+
+// TransformSchema publishes OverageLimit's absent members as null (§13.15).
+func (OverageLimit) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, OverageLimit{})
 }
 
 // InvoicePreview is an invoice that was composed but not issued: what a

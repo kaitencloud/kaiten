@@ -157,7 +157,7 @@ type EntitlementUsage struct {
 	// license entitlement. Null when the license grants no value; for a NUMBER
 	// entitlement a value of -1 means unlimited. BOOLEAN and CONFIG
 	// entitlements have no usage of their own, so Value repeats it.
-	Limit *EntitlementValue `json:"limit,omitempty" doc:"License grant this usage is measured against, discriminated by the 'type' field. Null when the license grants no value; -1 means unlimited for a NUMBER entitlement."`
+	Limit *EntitlementValue `json:"limit,omitempty" doc:"The effective value this usage is measured against (the licence's grant, with the instance's add-ons and boosts applied; source and provenance say which), discriminated by the 'type' field. Absent when nothing grants the entitlement a value; -1 means unlimited for a NUMBER entitlement."`
 	// CurrentPeriodStart/End are null for a lifetime entitlement (no configured
 	// reset period). For a periodic entitlement, these are the bounds of the
 	// window containing "now" at read time, computed lazily -- whether or not

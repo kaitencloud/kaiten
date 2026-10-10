@@ -3,10 +3,13 @@ package sessions
 import (
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
+
 	addoncatalogue "github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
 // SessionInvoice is an invoice as a vendor's customer sees it (§14.4): what it
@@ -106,6 +109,11 @@ type SessionSubscription struct {
 	TrialEndsAt        *time.Time                   `json:"trialEndsAt"`
 	CancelAtPeriodEnd  bool                         `json:"cancelAtPeriodEnd" doc:"The subscription ends at currentPeriodEnd; reactivate it before then to keep it"`
 	ScheduledChange    *SessionScheduledChange      `json:"scheduledChange" doc:"A plan change the vendor scheduled for the next boundary"`
+}
+
+// TransformSchema publishes SessionSubscription's absent members as null (§13.15).
+func (SessionSubscription) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, SessionSubscription{})
 }
 
 // SessionScheduledChange is a plan change waiting for the next boundary.

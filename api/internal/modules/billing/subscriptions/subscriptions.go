@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
@@ -14,6 +15,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
 // Statuses, as the API spells them.
@@ -41,9 +43,9 @@ type InstanceBilling struct {
 	Status                   string           `json:"status" enum:"TRIAL,ACTIVE,PAST_DUE,CANCELED"`
 	ProviderKind             string           `json:"providerKind" enum:"NOOP,STRIPE" doc:"Who collects its invoices. NOOP: the organization itself, through the handoff queue"`
 	CollectionMethod         string           `json:"collectionMethod" enum:"SEND_INVOICE,CHARGE_AUTOMATICALLY" doc:"Effective: the subscription's own, else the organization's default"`
-	CollectionMethodOverride *string          `json:"collectionMethodOverride,omitempty" doc:"The subscription's own collection method; absent when it takes the organization's"`
+	CollectionMethodOverride *string          `json:"collectionMethodOverride" doc:"The subscription's own collection method; null when it takes the organization's"`
 	DaysUntilDue             int32            `json:"daysUntilDue" doc:"Effective: the subscription's own, else the organization's default"`
-	DaysUntilDueOverride     *int32           `json:"daysUntilDueOverride,omitempty" doc:"The subscription's own payment terms; absent when it takes the organization's"`
+	DaysUntilDueOverride     *int32           `json:"daysUntilDueOverride" doc:"The subscription's own payment terms; null when it takes the organization's"`
 	BasePrice                prices.Price     `json:"basePrice" doc:"The FLAT_FEE price the subscription is pinned to, deprecated or not"`
 	BillingPeriod            string           `json:"billingPeriod" enum:"MONTHLY,QUARTERLY,SEMI_ANNUAL,ANNUAL"`
 	Currency                 string           `json:"currency" example:"EUR"`
@@ -51,15 +53,20 @@ type InstanceBilling struct {
 	StartedAt                time.Time        `json:"startedAt" doc:"When billing started: usage before it is never billed"`
 	CurrentPeriodStart       time.Time        `json:"currentPeriodStart"`
 	CurrentPeriodEnd         time.Time        `json:"currentPeriodEnd" doc:"The next boundary: the period closes, and its invoice is composed, after it"`
-	TrialEndsAt              *time.Time       `json:"trialEndsAt,omitempty" doc:"When the trial ends, or ended: usage before it is never billed"`
-	ScheduledChange          *ScheduledChange `json:"scheduledChange,omitempty" doc:"A plan change waiting for the next boundary"`
+	TrialEndsAt              *time.Time       `json:"trialEndsAt" doc:"When the trial ends, or ended: usage before it is never billed"`
+	ScheduledChange          *ScheduledChange `json:"scheduledChange" doc:"A plan change waiting for the next boundary"`
 	CancelAtPeriodEnd        bool             `json:"cancelAtPeriodEnd"`
-	CancelRequestedAt        *time.Time       `json:"cancelRequestedAt,omitempty"`
-	CanceledAt               *time.Time       `json:"canceledAt,omitempty"`
-	CancellationReason       *string          `json:"cancellationReason,omitempty"`
-	PastDueSince             *time.Time       `json:"pastDueSince,omitempty"`
+	CancelRequestedAt        *time.Time       `json:"cancelRequestedAt"`
+	CanceledAt               *time.Time       `json:"canceledAt"`
+	CancellationReason       *string          `json:"cancellationReason"`
+	PastDueSince             *time.Time       `json:"pastDueSince"`
 	CreatedAt                time.Time        `json:"createdAt"`
 	UpdatedAt                time.Time        `json:"updatedAt"`
+}
+
+// TransformSchema publishes InstanceBilling's absent members as null (§13.15).
+func (InstanceBilling) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, InstanceBilling{})
 }
 
 // ScheduledChange is a plan change waiting for the next boundary.

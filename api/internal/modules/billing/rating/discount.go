@@ -4,10 +4,12 @@ import (
 	"slices"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/money"
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
 // Discount types and scopes, as vouchers spell them.
@@ -43,13 +45,18 @@ type Discount struct {
 type InvoiceLineDiscount struct {
 	DiscountType    string               `json:"discountType" enum:"PERCENTAGE,FIXED_AMOUNT"`
 	DiscountValue   string               `json:"discountValue" doc:"The percentage, or the amount in minor units"`
-	Currency        *string              `json:"currency,omitempty"`
+	Currency        *string              `json:"currency"`
 	AppliesTo       string               `json:"appliesTo" enum:"LICENSE_BASE,ADDONS,BOTH,SELECTED_PRICES"`
 	TargetSeqs      []int                `json:"targetSeqs" doc:"The lines it discounts"`
 	Base            string               `json:"base" doc:"What its targets still amounted to before it, exact, in minor units"`
 	Application     int32                `json:"application" doc:"Which invoice of the redemption this is, from 1"`
-	ApplicationsMax *int32               `json:"applicationsMax,omitempty" doc:"How many invoices the redemption discounts; absent for FOREVER"`
+	ApplicationsMax *int32               `json:"applicationsMax" doc:"How many invoices the redemption discounts; null for FOREVER"`
 	Allocations     []DiscountAllocation `json:"allocations" nullable:"false" readOnly:"true" doc:"The part of the line each target bears, by ascending targetSeq: they sum to the line's magnitude, and no target is discounted below 0. A payment provider applies each one to its target line"`
+}
+
+// TransformSchema publishes InvoiceLineDiscount's absent members as null (§13.15).
+func (InvoiceLineDiscount) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, InvoiceLineDiscount{})
 }
 
 // DiscountAllocation is the part of a DISCOUNT line one target line bears.
