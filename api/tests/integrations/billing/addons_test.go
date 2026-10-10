@@ -3,6 +3,7 @@ package billing_test
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/require"
@@ -269,6 +270,10 @@ func TestAddonBilling(t *testing.T) {
 		started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
 		path := "/api/instances/" + s.instance.Slug + "/addons"
 
+		// Flat fees, none for the subscription's period (§10.2).
+		annual := flatFee("9000", "ANNUAL")
+		annual["isDefault"] = true
+		addonPrice(t, addon.Slug, annual)
 		require.Equal(t, "AttachInstanceAddon.NoPriceForBillingPeriod", problemCode(t, fiber.StatusUnprocessableEntity, "POST", path,
 			map[string]any{"addonSlug": addon.Slug, "quantity": 1}))
 		monthly := flatFee("900", "MONTHLY")
@@ -303,6 +308,78 @@ func TestAddonBilling(t *testing.T) {
 		require.Equal(t, attached.ID, *line.InstanceAddonID)
 		require.Nil(t, line.LicensePriceID)
 		require.EqualValues(t, 5600, renewal.Total)
+	})
+
+	// §10.4, §8.2 rule 4 (PR20-03): an add-on's metered price bills the
+	// usage of its attachment's window, under the add-on's ids.
+	t.Run("AMeteredAddon_BillsTheUsageOfItsWindow", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		newEntitlement(t, "tokens", 10000)
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		addon := newAddon(t, map[string]any{"name": "Token pack", "slug": "token-pack"})
+		addonGrant(t, addon.Slug, "tokens", 100000, "ADD")
+		price := addonPrice(t, addon.Slug, metered("USAGE_BASED", "tokens", "50"))
+		fits(t, addon.Slug, s.version.Slug)
+		started := subscribe(t, s.instance.Slug, map[string]any{
+			"basePriceId": s.monthly.ID, "startAt": time.Now().UTC().AddDate(0, -1, 0).Add(3 * time.Second),
+		})
+		attached := attach(t, s.instance.Slug, addon.Slug, 1)
+		reportTokens(t, s.instance.Slug, 20000)
+		time.Sleep(time.Until(started.CurrentPeriodEnd.Add(100 * time.Millisecond)))
+
+		report := closePeriods(t, map[string]any{})
+		require.Equal(t, 1, report.Closed)
+		require.Zero(t, report.Held)
+		renewal := getInvoice(t, report.Invoices[0].ID)
+		var usage *rating.InvoiceLine
+		for i := range renewal.Lines {
+			if renewal.Lines[i].Type == rating.LineUsage {
+				usage = &renewal.Lines[i]
+			}
+		}
+		require.NotNil(t, usage, "%+v", renewal.Lines)
+		require.Equal(t, price.ID, *usage.AddonPriceID)
+		require.Equal(t, attached.ID, *usage.InstanceAddonID)
+		require.Nil(t, usage.LicensePriceID)
+		require.Equal(t, "20000", usage.Metering.MeasuredQuantity)
+		require.Equal(t, "2", usage.Quantity, "per 10,000 tokens")
+		require.EqualValues(t, 100, usage.Amount)
+		require.True(t, usage.ServiceFrom.Equal(attached.AttachedAt), "from the attachment")
+		require.True(t, usage.ServiceTo.Equal(started.CurrentPeriodEnd))
+	})
+
+	// §10.4: an ARREARS fee is billed for the period an attachment was held
+	// in, even when it was removed before the boundary (proposed, §24).
+	t.Run("AnArrearsAddonRemovedMidPeriod_IsBilledForItsWindow", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		addon := newAddon(t, map[string]any{"name": "Support", "slug": "support"})
+		fee := flatFee("1500", "MONTHLY")
+		fee["isDefault"], fee["billingTiming"] = true, "ARREARS"
+		addonPrice(t, addon.Slug, fee)
+		fits(t, addon.Slug, s.version.Slug)
+		started := subscribe(t, s.instance.Slug, map[string]any{
+			"basePriceId": s.monthly.ID, "startAt": time.Now().UTC().AddDate(0, -1, 0).Add(3 * time.Second),
+		})
+		attached := attach(t, s.instance.Slug, addon.Slug, 2)
+		require.Equal(t, fiber.StatusNoContent, call(t, "DELETE", "/api/instances/"+s.instance.Slug+"/addons/"+addon.Slug, nil).StatusCode)
+		time.Sleep(time.Until(started.CurrentPeriodEnd.Add(100 * time.Millisecond)))
+
+		report := closePeriods(t, map[string]any{})
+		require.Equal(t, 1, report.Closed)
+		renewal := getInvoice(t, report.Invoices[0].ID)
+		var line *rating.InvoiceLine
+		for i := range renewal.Lines {
+			if renewal.Lines[i].Type == rating.LineAddon {
+				line = &renewal.Lines[i]
+			}
+		}
+		require.NotNil(t, line, "%+v", renewal.Lines)
+		require.Equal(t, attached.ID, *line.InstanceAddonID)
+		require.Equal(t, "2", line.Quantity, "the last quantity held")
+		require.EqualValues(t, 3000, line.Amount, "in full")
+		require.True(t, line.ServiceFrom.Equal(attached.AttachedAt))
+		require.True(t, line.ServiceTo.Before(started.CurrentPeriodEnd), "to the removal")
 	})
 
 	t.Run("TheActivation_BillsTheAddonsAlreadyHeld", func(t *testing.T) {

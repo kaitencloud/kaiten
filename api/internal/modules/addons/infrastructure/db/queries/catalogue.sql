@@ -203,7 +203,7 @@ WHERE organization_id = sqlc.arg(organization_id)
 -- name: ListAddonPrices :many
 SELECT p.id, p.addon_id, p.billing_model, p.billing_timing, p.billing_period,
        p.unit_amount_decimal::text AS unit_amount_decimal, p.currency::text AS currency, p.meters_entitlement_id,
-       coalesce(p.sale_unit_factor::text, '')::text AS sale_unit_factor, e.slug AS entitlement_slug,
+       coalesce(p.sale_unit_factor::text, '')::text AS sale_unit_factor, e.slug AS entitlement_slug, e.name AS entitlement_name,
        e.sale_unit_singular, e.sale_unit_plural, p.display_label, p.display_order, p.is_default, p.status,
        p.deprecated_at, p.created_at, p.updated_at
 FROM addon_price p

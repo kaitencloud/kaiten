@@ -150,8 +150,9 @@ func (c *Closer) CloseOne(ctx context.Context, subscriptionID, actor uuid.UUID) 
 	return outcome, nil
 }
 
-// seal seals every metered pair of the subscription's base version at
-// through; a deferral when the clock has not reached it.
+// seal seals every metered pair of the subscription's base version, and of
+// the add-ons attached during the period, at through; a deferral when the
+// clock has not reached it.
 func (c *Closer) seal(ctx context.Context, sub db.InstanceBilling, through time.Time) (*Outcome, error) {
 	if sub.InstanceID == nil {
 		return nil, nil
@@ -164,8 +165,22 @@ func (c *Closer) seal(ctx context.Context, sub db.InstanceBilling, through time.
 	if err != nil {
 		return nil, err
 	}
+	entitlements := make([]uuid.UUID, 0, len(metered))
 	for _, price := range metered {
-		ref := ports.UsageRef{OrganizationID: sub.OrganizationID, InstanceID: *sub.InstanceID, EntitlementID: *price.EntitlementID}
+		entitlements = append(entitlements, *price.EntitlementID)
+	}
+	// And the pairs the add-ons attached during the period meter (§16.2).
+	byAddons, err := c.addonMeteredEntitlements(ctx, sub, c.periodStart(sub), through)
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range byAddons {
+		if !slices.Contains(entitlements, id) {
+			entitlements = append(entitlements, id)
+		}
+	}
+	for _, entitlementID := range entitlements {
+		ref := ports.UsageRef{OrganizationID: sub.OrganizationID, InstanceID: *sub.InstanceID, EntitlementID: entitlementID}
 		if _, err := c.deps.Usage.Seal(ctx, ref, through); errors.Is(err, ports.ErrClockBehind) {
 			return &Outcome{Closed: false, Invoice: nil, SkipReason: "clock behind"}, nil
 		} else if err != nil {
@@ -447,13 +462,14 @@ func (c *Closer) compose(ctx context.Context, q *db.Queries, sub db.InstanceBill
 		for i, price := range meteredPrices {
 			rated[i] = metering.Price(price)
 		}
-		held, err := c.addons(ctx, sub, string(sub.BillingPeriod))
+		fees, addonMeters, addonHeld, err := c.addonArrears(ctx, q, sub, periodStart, boundary, until)
 		if err != nil {
 			return rating.Composition{}, nil, err
 		}
+		hold = withPairs(hold, addonHeld)
 		arrears, err := rating.Compose(rating.Input{
 			Kind: rating.KindFinal, Currency: money.Currency(sub.Currency), LicenseName: p.arrearsBase.LicenseName,
-			Base: metering.Price(*p.arrearsBase), Metered: rated, Measures: measures, Addons: held,
+			Base: metering.Price(*p.arrearsBase), Metered: rated, Measures: measures, Addons: fees, AddonMetered: addonMeters,
 			Advance: rating.Period{From: boundary, To: boundary}, Arrears: rating.Period{From: periodStart, To: boundary},
 		})
 		if err != nil {
@@ -554,7 +570,11 @@ func (c *Closer) Preview(ctx context.Context, sub db.InstanceBilling, operation 
 		if err != nil {
 			return nil, err
 		}
-		if len(metered) > 0 {
+		byAddons, err := c.addonMeteredEntitlements(ctx, sub, c.periodStart(sub), now)
+		if err != nil {
+			return nil, err
+		}
+		if len(metered) > 0 || len(byAddons) > 0 {
 			if err := c.refuseOutsideRetention(ctx, operation, sub.OrganizationID, c.periodStart(sub), now); err != nil {
 				return nil, err
 			}

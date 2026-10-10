@@ -734,7 +734,7 @@ func (q *Queries) ListAddonFamilies(ctx context.Context, organizationID uuid.UUI
 const listAddonPrices = `-- name: ListAddonPrices :many
 SELECT p.id, p.addon_id, p.billing_model, p.billing_timing, p.billing_period,
        p.unit_amount_decimal::text AS unit_amount_decimal, p.currency::text AS currency, p.meters_entitlement_id,
-       coalesce(p.sale_unit_factor::text, '')::text AS sale_unit_factor, e.slug AS entitlement_slug,
+       coalesce(p.sale_unit_factor::text, '')::text AS sale_unit_factor, e.slug AS entitlement_slug, e.name AS entitlement_name,
        e.sale_unit_singular, e.sale_unit_plural, p.display_label, p.display_order, p.is_default, p.status,
        p.deprecated_at, p.created_at, p.updated_at
 FROM addon_price p
@@ -762,6 +762,7 @@ type ListAddonPricesRow struct {
 	MetersEntitlementID *uuid.UUID       `json:"meters_entitlement_id"`
 	SaleUnitFactor      string           `json:"sale_unit_factor"`
 	EntitlementSlug     *string          `json:"entitlement_slug"`
+	EntitlementName     *string          `json:"entitlement_name"`
 	SaleUnitSingular    *string          `json:"sale_unit_singular"`
 	SaleUnitPlural      *string          `json:"sale_unit_plural"`
 	DisplayLabel        *string          `json:"display_label"`
@@ -793,6 +794,7 @@ func (q *Queries) ListAddonPrices(ctx context.Context, arg ListAddonPricesParams
 			&i.MetersEntitlementID,
 			&i.SaleUnitFactor,
 			&i.EntitlementSlug,
+			&i.EntitlementName,
 			&i.SaleUnitSingular,
 			&i.SaleUnitPlural,
 			&i.DisplayLabel,
