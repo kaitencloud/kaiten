@@ -24,7 +24,7 @@ The table components are not here: they live in the `table` functional, see [Tab
 
 | Component | Use | Story |
 | --- | --- | --- |
-| `FormDialog` | The shell of a form in a dialog. A root with named parts: `FormDialog.Header`, `.Title`, `.Description`, `.Content` and `.Footer`. The header and footer stay fixed and only the content scrolls. `.Content` shows a `DialogFormSkeleton` while a lazy form loads. | [`form-dialog.stories.tsx`](../../src/components/dialog/stories/form-dialog.stories.tsx) |
+| `FormDialog` | The shell of a form in a dialog. A root with named parts: `FormDialog.Header`, `.Title`, `.Description`, `.Content` and `.Footer`. The header and footer stay fixed and only the content scrolls. `.Content` shows a `DialogFormSkeleton` while its content suspends. | [`form-dialog.stories.tsx`](../../src/components/dialog/stories/form-dialog.stories.tsx) |
 | `DeleteConfirmationDialog` | A confirmation dialog, built on `AlertDialog`, around any trigger you pass in. `TableDeleteDialog` and `DestructiveActionButton` are built on it. | [`delete-confirmation-dialog.stories.tsx`](../../src/components/dialog/stories/delete-confirmation-dialog.stories.tsx) |
 | `DialogFormSkeleton`, `DialogFormSkeletonCard` | Field-shaped and card-shaped placeholders for the time a dialog form loads. | [`dialog-form-skeleton.stories.tsx`](../../src/components/dialog/stories/dialog-form-skeleton.stories.tsx) |
 
