@@ -227,7 +227,7 @@ A segment can group the routes of several features without owning any screen. `a
 
 ### Search parameters and edit dialogs
 
-A route declares the search parameters it accepts with `validateSearch`, and passes them to the feature as props. `app/src/routes/notifications/index.tsx` and `app/src/routes/feature-flags/index.tsx` do it for a status filter and a view mode, and `app/src/routes/invoices/index.tsx` for a view that reads another operation: its `loaderDeps` name the view and the part of the search that view reads, and its `loader` warms the query of that view only; see [URL state](./state-management.md#url-state). The edit mode of a detail page (`?mode=configure`) and the routes that render a dialog are in [dialog via route](./dialog-via-route.md).
+A route declares the search parameters it accepts with `validateSearch`, and passes them to the feature as props. `app/src/routes/notifications/index.tsx` and `app/src/routes/feature-flags/index.tsx` do it for a status filter and a view mode, and `app/src/routes/invoices/index.tsx` for a view that reads another operation: its `loaderDeps` name the scope of the invoices and the part of the queue, and its `loader` warms what the view shows, the invoices of the scope in the views of invoices and the part of the queue in the views of the queue. The queue's views also ask for the invoices, to count the tabs, but with `prefetchQuery` and without waiting: a refusal of the list must not fail the queue, so the page reads those counts without suspending. See [URL state](./state-management.md#url-state). The edit mode of a detail page (`?mode=configure`) and the routes that render a dialog are in [dialog via route](./dialog-via-route.md).
 
 ## Layout routes and Suspense
 
