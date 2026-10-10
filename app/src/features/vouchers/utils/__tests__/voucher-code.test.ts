@@ -28,7 +28,7 @@ describe('a code that can be guessed', () => {
     expect(
       isWeakUnboundedCode({ ...none, code: 'A'.repeat(WEAK_CODE_LENGTH) }),
     ).toBe(false);
-    // Twelve characters with hyphens are fewer once normalized: the stricter count is the spec's.
+    // Thirteen characters with hyphens are eleven once normalized, and the API counts those.
     expect(isWeakUnboundedCode({ ...none, code: 'ABCD-EFGH-IJK' })).toBe(true);
   });
 

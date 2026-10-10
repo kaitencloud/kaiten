@@ -208,18 +208,20 @@ function checkReferences(
       );
     }
   }
+  // The ids restrict the voucher and address nothing: one that is not a version of
+  // the organization is a refusal of the body, not a missing resource.
   if (missing(draft.applicableLicenseIds, references.hasLicense)) {
-    throw notFound(
+    throw unprocessable(
       operation,
-      'LicenseNotFound',
-      'an applicable licence version does not exist',
+      'InvalidApplicability',
+      'an applicable licence id is not a licence version of the organization',
     );
   }
   if (missing(draft.applicableAddonIds, references.hasAddon)) {
-    throw notFound(
+    throw unprocessable(
       operation,
-      'AddonNotFound',
-      'an applicable add-on version does not exist',
+      'InvalidApplicability',
+      'an applicable add-on id is not an add-on version of the organization',
     );
   }
   if (
@@ -251,9 +253,9 @@ export function checkDraft(
         'a code is 8 to 64 of A-Z, a-z, 0-9, _ and -',
       );
     }
-    // The raw length, not the normalized one: that is what the API checks.
+    // The floor counts the normalized code: SUM-MER-27 is 8 characters.
     if (
-      draft.code.length < 12 &&
+      normalizeVoucherCode(draft.code).length < 12 &&
       draft.maxRedemptions === undefined &&
       draft.expiresAt === undefined
     ) {
@@ -301,7 +303,7 @@ export function checkDraft(
     if (!CURRENCY_EXPONENTS.has(minimum.currency)) {
       throw unprocessable(
         operation,
-        'InvalidCurrency',
+        'InvalidRedemptionRules',
         'minimumSubscriptionAmount.currency is an upper-case ISO 4217 code',
       );
     }
@@ -353,8 +355,9 @@ function sameIds(a: readonly string[], b: readonly string[]) {
 /**
  * Whether a draft changes nothing an ACTIVE voucher keeps: its code, discount,
  * applicability, grants, rules, duration and start. The API compares the grants by
- * entitlement and modifier alone and the rules by their two flags alone, which is why
- * an update must restate the rest as it stands: what it compares is not what it writes.
+ * entitlement, modifier and value, the values as numbers (`"3"` and `"3.0"` are one),
+ * and the rules by their two flags and their minimum amount, which is why an update
+ * restates all of them as they stand.
  */
 export function onlyActiveMembersChange(
   stored: Voucher,
@@ -364,6 +367,18 @@ export function onlyActiveMembersChange(
   const sameTime = (a?: string, b?: string) =>
     (a === undefined && b === undefined) ||
     (a !== undefined && b !== undefined && Date.parse(a) === Date.parse(b));
+  const sameDecimal = (a?: string, b?: string) =>
+    a === undefined || b === undefined ? a === b : Number(a) === Number(b);
+  const sameMinimum = (
+    a: Voucher['redemptionRules']['minimumSubscriptionAmount'],
+    b: NonNullable<
+      VoucherDraft['redemptionRules']
+    >['minimumSubscriptionAmount'],
+  ) =>
+    a === undefined || b === undefined
+      ? a === b
+      : a.currency === b.currency &&
+        sameDecimal(a.unitAmountDecimal, b.unitAmountDecimal);
   const grants = draft.grants ?? [];
 
   return (
@@ -372,7 +387,8 @@ export function onlyActiveMembersChange(
       stored.grants.some(
         (held) =>
           held.entitlementSlug === grant.entitlementSlug &&
-          held.modifierType === grant.modifierType,
+          held.modifierType === grant.modifierType &&
+          sameDecimal(held.modifierValue, grant.modifierValue),
       ),
     ) &&
     same(stored.code, draft.code) &&
@@ -397,7 +413,11 @@ export function onlyActiveMembersChange(
     Boolean(stored.redemptionRules.firstTimeOnly) ===
       Boolean(draft.redemptionRules?.firstTimeOnly) &&
     Boolean(stored.redemptionRules.annualOnly) ===
-      Boolean(draft.redemptionRules?.annualOnly)
+      Boolean(draft.redemptionRules?.annualOnly) &&
+    sameMinimum(
+      stored.redemptionRules.minimumSubscriptionAmount,
+      draft.redemptionRules?.minimumSubscriptionAmount,
+    )
   );
 }
 
@@ -663,7 +683,7 @@ export function isInForce(redemption: Redemption, now: number): boolean {
   return (
     redemption.status === 'ACTIVE' &&
     Date.parse(redemption.effectiveStartsAt) <= now &&
-    (redemption.effectiveExpiresAt === undefined ||
+    (redemption.effectiveExpiresAt === null ||
       now < Date.parse(redemption.effectiveExpiresAt))
   );
 }

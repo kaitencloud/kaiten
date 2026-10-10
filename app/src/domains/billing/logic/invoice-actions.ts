@@ -71,7 +71,7 @@ export type InvoiceActionsContext = {
  * The actions an invoice offers, in the order they are shown, from its status:
  *
  * - a held DRAFT is accepted as composed (release), rebuilt from the journal as
- *   it is now (recompose) or voided;
+ *   it is now (recompose, unless the usage it would read is gone) or voided;
  * - a MANUAL invoice, issued and waiting for the organization's own accounts
  *   receivable, is marked paid, written off or voided;
  * - a draft a payment provider has not taken, and a push that failed, can only be
@@ -79,7 +79,8 @@ export type InvoiceActionsContext = {
  *   finalizes a draft waiting for it in Stripe, and read back once it is there (`sync`);
  * - an invoice Stripe has accepted (PUSHED, PAYMENT_FAILED) is read back (`sync`) or
  *   voided, in Stripe first;
- * - a VOID invoice is recomposed into its replacement, once;
+ * - a VOID invoice is recomposed into its replacement, once, unless the usage it
+ *   would read is gone;
  * - a PAID, written-off or replaced invoice is final.
  *
  * An invoice a payment provider has accepted offers neither mark paid nor write
@@ -98,7 +99,7 @@ export function getInvoiceActions(
       return invoice.holdReason
         ? [
             { action: 'releaseHold' },
-            recompose(invoice, context, false),
+            recompose(invoice, context),
             { action: 'void' },
           ]
         : [...pushActions(invoice), { action: 'void' }];
@@ -118,7 +119,7 @@ export function getInvoiceActions(
     case 'VOID':
       return invoice.replacedByInvoiceId
         ? []
-        : [recompose(invoice, context, true)];
+        : [recompose(invoice, context)];
     default:
       return [];
   }
@@ -148,15 +149,14 @@ function pushActions(invoice: InvoiceActionsInput): InvoiceActionState[] {
 function recompose(
   invoice: InvoiceActionsInput,
   { instanceDeleted, retentionStart }: InvoiceActionsContext,
-  checksRetention: boolean,
 ): InvoiceActionState {
   if (instanceDeleted) {
     return { action: 'recompose', unavailable: { reason: 'instance-deleted' } };
   }
-  // A held DRAFT keeps its usage whatever its age; a VOID invoice does not, and the
-  // API does not refuse its recompose: it would give a replacement with no usage.
+  // A recompose reads the usage journal again, and the API refuses it for a period
+  // that starts before the usage history it keeps, a held DRAFT's as well as a VOID
+  // invoice's: a held one can then only be released.
   if (
-    checksRetention &&
     retentionStart &&
     Date.parse(invoice.serviceFrom) < retentionStart.getTime()
   ) {

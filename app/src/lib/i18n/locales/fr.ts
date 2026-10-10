@@ -4081,7 +4081,7 @@ export default {
             finalize: 'Finaliser dans Stripe',
             sync: 'Lire dans Stripe',
             purgedUsage:
-              'L’usage de cette période n’est plus conservé (avant le {{date}}) : une recomposition omettrait ses lignes d’usage.',
+              'L’usage de cette période n’est plus conservé (avant le {{date}}) : elle ne peut pas être recomposée.',
             instanceDeleted:
               'L’instance de cette facture a été supprimée : rien ne peut être recomposé pour elle.',
           },

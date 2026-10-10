@@ -755,11 +755,18 @@ export class BillingInvoices {
         'ListInvoiceLineReports.OutsideRetention',
         "the line's period starts before the organization's usage history: its reports are gone, its metering remains",
         {
+          // The line's metering first, which is what remains of it; the start of
+          // the usage that is kept after it, as every such refusal names it.
           errors: [
             {
               location: 'metering',
               message: "the line's metering",
               value: line.metering,
+            },
+            {
+              location: 'retentionStart',
+              message: 'retentionStart',
+              value: this.retentionStart,
             },
           ],
         },
@@ -958,6 +965,41 @@ export class BillingInvoices {
   }
 
   /**
+   * A recompose reads the usage journal again, which the API refuses for a period
+   * that starts before the usage history it keeps (`422 <operation>.OutsideRetention`,
+   * naming `retentionStart`), held draft or void invoice alike. The version has
+   * metered prices when a line of the invoice is metered; an activation invoice
+   * bills no usage.
+   */
+  private refuseOutsideRetention(operation: string, invoice: Invoice) {
+    const start = this.retentionStart;
+    if (
+      start === null ||
+      invoice.kind === 'ACTIVATION' ||
+      !invoice.lines.some(
+        (line) =>
+          line.metering && Date.parse(line.serviceFrom) < Date.parse(start),
+      )
+    ) {
+      return;
+    }
+    throw new BillingProblem(
+      422,
+      `${operation}.OutsideRetention`,
+      "the period starts before the organization's usage history: its usage reports are gone",
+      {
+        errors: [
+          {
+            location: 'retentionStart',
+            message: 'retentionStart',
+            value: start,
+          },
+        ],
+      },
+    );
+  }
+
+  /**
    * `POST /invoices/{invoiceId}/recompose`: a held DRAFT is rewritten in place
    * (its journal is read as sound now); a VOID invoice gets a replacement.
    */
@@ -979,6 +1021,7 @@ export class BillingInvoices {
         "the invoice's instance was deleted: its usage cannot be measured again",
       );
     }
+    this.refuseOutsideRetention('RecomposeInvoice', invoice);
     if (held) {
       this.clearHold(invoice, 'recomposed', ACTOR);
       this.issue(invoice);

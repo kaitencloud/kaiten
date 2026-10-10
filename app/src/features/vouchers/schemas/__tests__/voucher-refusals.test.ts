@@ -14,8 +14,6 @@ describe('where a refusal of a voucher is shown', () => {
     ['CreateVoucher.InvalidCode', 'code', 'eligibility'],
     ['CreateVoucher.WeakCodeUnbounded', 'code', 'eligibility'],
     ['CreateVoucher.CustomerNotFound', 'restrictedCustomerSlug', 'eligibility'],
-    ['CreateVoucher.LicenseNotFound', 'applicableLicenseIds', 'eligibility'],
-    ['CreateVoucher.AddonNotFound', 'applicableAddonIds', 'eligibility'],
     ['CreateVoucher.InvalidWindow', 'expiresAt', 'eligibility'],
     ['CreateVoucher.InvalidRedemptionRules', 'minimumAmount', 'eligibility'],
     ['CreateVoucher.InvalidDuration', 'durationInPeriods', 'offer'],
@@ -41,6 +39,27 @@ describe('where a refusal of a voucher is shown', () => {
     expect(
       getVoucherRefusalTarget(refusal('UpdateVoucher.CodeConflict', 'taken'), PERCENT),
     ).toEqual({ field: 'code', message: 'taken', step: 'eligibility' });
+  });
+
+  it('puts a refusal of an applicability id on the licenses or on the add-ons, whichever its words name', () => {
+    expect(
+      getVoucherRefusalTarget(
+        refusal(
+          'CreateVoucher.InvalidApplicability',
+          'an applicable licence id is not a licence version of the organization',
+        ),
+        PERCENT,
+      ),
+    ).toMatchObject({ field: 'applicableLicenseIds', step: 'eligibility' });
+    expect(
+      getVoucherRefusalTarget(
+        refusal(
+          'UpdateVoucher.InvalidApplicability',
+          'an applicable add-on id is not an add-on version of the organization',
+        ),
+        PERCENT,
+      ),
+    ).toMatchObject({ field: 'applicableAddonIds', step: 'eligibility' });
   });
 
   it('puts a refusal of the discount on the percentage or on the amount, whichever the voucher takes', () => {

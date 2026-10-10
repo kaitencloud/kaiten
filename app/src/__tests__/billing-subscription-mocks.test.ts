@@ -362,7 +362,7 @@ describe('the billing defaults, as the mocks serve them', () => {
     expect(started.daysUntilDue).toBe(15);
   });
 
-  it('refuses terms beyond a year and a collection that needs a provider, with the code of each', async () => {
+  it('refuses terms beyond a year and a collection method that is neither of the two, with the code of each', async () => {
     install(createSubscriptionsModel());
 
     const days = await send('PUT', '/billing/settings', {
@@ -371,7 +371,7 @@ describe('the billing defaults, as the mocks serve them', () => {
       handoffStripeInvoices: false,
     });
     const method = await send('PUT', '/billing/settings', {
-      defaultCollectionMethod: 'CHARGE_AUTOMATICALLY',
+      defaultCollectionMethod: 'WIRE_TRANSFER',
       defaultDaysUntilDue: 30,
       handoffStripeInvoices: false,
     });
@@ -384,6 +384,31 @@ describe('the billing defaults, as the mocks serve them', () => {
     expect((await refusal(method)).code).toBe(
       'UpdateBillingSettings.InvalidCollectionMethod',
     );
+  });
+
+  it('takes automatic collection as the default, which a subscription with no provider ignores', async () => {
+    install(createSubscriptionsModel());
+
+    const saved = await send('PUT', '/billing/settings', {
+      defaultCollectionMethod: 'CHARGE_AUTOMATICALLY',
+      defaultDaysUntilDue: 30,
+      handoffStripeInvoices: false,
+    });
+    const subscription = (await (
+      await send('GET', '/instances/acme-production/billing')
+    ).json()) as InstanceBilling;
+
+    expect(saved.status).toBe(200);
+    expect(
+      ((await (await send('GET', '/billing/settings')).json()) as {
+        defaultCollectionMethod: string;
+      }).defaultCollectionMethod,
+    ).toBe('CHARGE_AUTOMATICALLY');
+    // Nothing charges a NOOP invoice: it is sent, whatever the default.
+    expect(subscription).toMatchObject({
+      collectionMethod: 'SEND_INVOICE',
+      providerKind: 'NOOP',
+    });
   });
 
   it('refuses once with the problem a spec armed, then answers again', async () => {

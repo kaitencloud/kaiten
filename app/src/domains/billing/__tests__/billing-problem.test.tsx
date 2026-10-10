@@ -271,6 +271,34 @@ describe('handleBillingProblem', () => {
     });
   });
 
+  it('reads where the kept usage begins from the error that names it, after the line\'s metering', () => {
+    // The refusal of an invoice line keeps its metering first, which is what remains
+    // of the line, and names retentionStart after it.
+    expect(
+      handleBillingProblem(
+        apiError(422, {
+          code: 'ListInvoiceLineReports.OutsideRetention',
+          errors: [
+            {
+              location: 'metering',
+              message: "the line's metering",
+              value: { measuredQuantity: '4200' },
+            },
+            {
+              location: 'retentionStart',
+              message: 'retentionStart',
+              value: '2026-11-01T00:00:00Z',
+            },
+          ],
+          status: 422,
+        }),
+      ),
+    ).toMatchObject({
+      kind: 'outside-retention',
+      retentionStart: '2026-11-01T00:00:00Z',
+    });
+  });
+
   it('never reads a retention start from what is not a date', () => {
     for (const value of ['soon', 42, null, { metering: {} }, undefined]) {
       expect(

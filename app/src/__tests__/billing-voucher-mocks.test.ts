@@ -158,13 +158,17 @@ describe('the vouchers, as the mocks serve them', () => {
       422,
       'CreateVoucher.InvalidCode',
     ]);
-    // The raw length counts, not the length without separators.
+    // The length without separators counts: SUM-MER-2027 is ten characters.
     expect(await code(percentOff({ code: 'SPRING2027' }))).toEqual([
       422,
       'CreateVoucher.WeakCodeUnbounded',
     ]);
+    expect(await code(percentOff({ code: 'AB-CD-EF-GH-JK' }))).toEqual([
+      422,
+      'CreateVoucher.WeakCodeUnbounded',
+    ]);
     expect(
-      (await send('POST', '/vouchers', percentOff({ code: 'AB-CD-EF-GH-JK' })))
+      (await send('POST', '/vouchers', percentOff({ code: 'ABCD-EFGH-JKLM' })))
         .status,
     ).toBe(201);
     expect(
@@ -203,13 +207,30 @@ describe('the vouchers, as the mocks serve them', () => {
     expect(await code(percentOff({ priceAppliesTo: 'SELECTED_PRICES' }))).toEqual(
       [422, 'CreateVoucher.SelectedPricesRequired'],
     );
+    // An id that restricts the voucher and addresses nothing is a refusal of the body.
+    expect(await code(percentOff({ applicableLicenseIds: ['ghost'] }))).toEqual([
+      422,
+      'CreateVoucher.InvalidApplicability',
+    ]);
+    expect(await code(percentOff({ applicableAddonIds: ['ghost'] }))).toEqual([
+      422,
+      'CreateVoucher.InvalidApplicability',
+    ]);
+    expect(
+      await code(
+        percentOff({
+          redemptionRules: {
+            minimumSubscriptionAmount: { currency: 'eur', unitAmountDecimal: '100' },
+          },
+        }),
+      ),
+    ).toEqual([422, 'CreateVoucher.InvalidRedemptionRules']);
     expect(
       await code(percentOff({ restrictedCustomerSlug: 'ghost' })),
     ).toEqual([404, 'CreateVoucher.CustomerNotFound']);
-    expect(await code(percentOff({ code: 'launch-20-off' }))).toEqual([
-      409,
-      'CreateVoucher.CodeConflict',
-    ]);
+    expect(
+      await code(percentOff({ code: 'launch-20-off', maxRedemptions: 5 })),
+    ).toEqual([409, 'CreateVoucher.CodeConflict']);
   });
 
   it('refuses a boost that has no grant, or one on an entitlement it cannot change', async () => {
@@ -394,43 +415,62 @@ describe('the vouchers, as the mocks serve them', () => {
     expect(bare.maxRedemptions).toBeUndefined();
   });
 
-  it('does not rewrite the grants of an active boost, nor keep the minimum amount it is not given', async () => {
+  it('takes the value of a boost and the minimum amount of an active voucher as they are, a decimal written otherwise being the same', async () => {
     const boost = await json<Voucher>(
       await send('GET', '/vouchers/voucher-api-boost'),
     );
-    const sameBody = {
+    const value = boost.grants[0].modifierValue ?? '1';
+    const boostBody = (modifierValue: string, name = boost.name) => ({
       code: boost.code,
       duration: boost.duration,
       durationInPeriods: boost.durationInPeriods,
-      grants: [{ ...boost.grants[0], modifierValue: '99' }],
+      grants: [{ ...boost.grants[0], modifierValue }],
       maxRedemptions: boost.maxRedemptions,
-      name: boost.name,
+      name,
       voucherType: boost.voucherType,
-    };
-    const updated = await json<Voucher>(
-      await send('PUT', '/vouchers/voucher-api-boost', sameBody),
+    });
+
+    // A value that differs is refused, and not dropped to the one the voucher had.
+    const changed = await send(
+      'PUT',
+      '/vouchers/voucher-api-boost',
+      boostBody(String(Number(value) + 1)),
     );
+    expect(changed.status).toBe(409);
+    expect((await refusal(changed)).code).toBe('UpdateVoucher.NotEditable');
 
-    // The API answers 200 and keeps the grant it had.
-    expect(updated.grants).toEqual(boost.grants);
+    // "3" and "3.0" are one value: the voucher is renamed and keeps its grant.
+    const renamed = await json<Voucher>(
+      await send(
+        'PUT',
+        '/vouchers/voucher-api-boost',
+        boostBody(`${value}.0`, 'API calls boost, again'),
+      ),
+    );
+    expect(renamed.name).toBe('API calls boost, again');
+    expect(renamed.grants).toEqual(boost.grants);
 
-    const guarded = await createVoucher(
+    const minimum = (unitAmountDecimal: string) =>
       percentOff({
         redemptionRules: {
-          minimumSubscriptionAmount: { currency: 'USD', unitAmountDecimal: '2900' },
+          minimumSubscriptionAmount: { currency: 'USD', unitAmountDecimal },
         },
-      }),
-    );
+      });
+    const guarded = await createVoucher(minimum('2900'));
     await send('POST', `/vouchers/${guarded.id}/publish`);
-    const rewritten = await json<Voucher>(
-      await send('PUT', `/vouchers/${guarded.id}`, {
-        ...percentOff({ code: guarded.code }),
-        name: 'Renamed',
-      }),
-    );
+    const put = (body: Record<string, unknown>) =>
+      send('PUT', `/vouchers/${guarded.id}`, { ...body, code: guarded.code });
 
-    expect(rewritten.name).toBe('Renamed');
-    expect(rewritten.redemptionRules).toEqual({});
+    // A minimum that differs, or none where there was one, is refused too.
+    expect((await put(minimum('100'))).status).toBe(409);
+    expect((await put(percentOff())).status).toBe(409);
+    const kept = await json<Voucher>(
+      await put({ ...minimum('2900.0'), name: 'Renamed' }),
+    );
+    expect(kept.name).toBe('Renamed');
+    expect(kept.redemptionRules.minimumSubscriptionAmount).toMatchObject({
+      currency: 'USD',
+    });
   });
 
   it('refuses to change a voucher that is neither a draft nor active', async () => {

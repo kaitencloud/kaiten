@@ -164,7 +164,7 @@ describe('the actions of an invoice', () => {
     expect(onRun).not.toHaveBeenCalled();
   });
 
-  it('say where the usage that is kept begins when a recompose would leave out its lines', async () => {
+  it('say where the usage that is kept begins when a recompose would be refused for it', async () => {
     const { buttons } = renderButtons({
       states: [
         {
