@@ -35,7 +35,7 @@ func RegisterEndpoint(api huma.API, app Lister) {
 		Summary:     "List publishable keys",
 		Description: "The organization's publishable keys, newest first. The keys themselves are never returned, only their last four characters.",
 		Tags:        []string{"publishable-keys"},
-		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusInternalServerError},
+		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)
 		if err != nil {

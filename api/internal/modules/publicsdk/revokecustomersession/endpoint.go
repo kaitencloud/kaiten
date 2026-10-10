@@ -29,7 +29,7 @@ func RegisterEndpoint(api huma.API, app Revoker) {
 		Description:   "The session stops authenticating on the next request: on sign-out, or when the customer's access changes. Idempotent.",
 		Tags:          []string{"customer-sessions"},
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusInternalServerError},
+		Errors:        []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*struct{}, error) {
 		cl, err := caller.Organization(ctx)
 		if err != nil {

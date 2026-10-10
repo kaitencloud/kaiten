@@ -257,9 +257,9 @@ func TestPublicCatalogSelfServe(t *testing.T) {
 	require.Equal(t, fiber.StatusForbidden, resp.StatusCode, "an empty allowlist admits no browser origin")
 }
 
-// S12-007 (C-12 of the console team's note): the six §13.12 operations are
-// behind the billing gate, as the catalogue is, and write nothing when
-// refused.
+// S12-007 (C-12 of the console team's note): the six §13.12 operations, and
+// the family's public listing (§13.3), are behind the billing gate, as the
+// catalogue is, and write nothing when refused.
 func TestKeyAndSessionManagementIsBehindTheBillingGate(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	unknown := "00000000-0000-4000-8000-000000000000"
@@ -270,6 +270,7 @@ func TestKeyAndSessionManagementIsBehindTheBillingGate(t *testing.T) {
 		{"POST", "/api/publishable-keys/" + unknown + "/revoke"},
 		{"POST", "/api/customer-sessions"},
 		{"POST", "/api/customer-sessions/" + unknown + "/revoke"},
+		{"PATCH", "/api/license-families/pro"}, // PR19-03: listing a family in the catalogue
 	} {
 		var body any
 		switch op.path {
@@ -279,6 +280,8 @@ func TestKeyAndSessionManagementIsBehindTheBillingGate(t *testing.T) {
 			}
 		case "/api/customer-sessions":
 			body = map[string]any{"customerSlug": "acme"}
+		case "/api/license-families/pro":
+			body = map[string]any{"isPublic": true}
 		default:
 			if op.method == "PATCH" {
 				body = map[string]any{"label": "x"}

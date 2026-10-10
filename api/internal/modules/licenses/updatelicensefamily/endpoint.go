@@ -38,7 +38,7 @@ func RegisterEndpoint(api huma.API, app Updater) {
 		Summary:     "Update a license family",
 		Description: "Lists the family in the public catalogue, or takes it out. Families are private until made public.",
 		Tags:        []string{"licenses"},
-		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusUnprocessableEntity, http.StatusInternalServerError},
+		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)
 		if err != nil {
