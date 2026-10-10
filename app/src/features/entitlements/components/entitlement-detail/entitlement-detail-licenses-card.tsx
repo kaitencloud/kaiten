@@ -61,7 +61,7 @@ function LicenseRow({
     <li className="flex items-start justify-between gap-4">
       <div className="min-w-0">
         <Link
-          to="/licenses/$licenseSlug"
+          to="/catalog/licenses/$licenseSlug"
           params={{ licenseSlug: license.licenseSlug }}
           className="text-sm font-medium hover:underline"
         >

@@ -68,7 +68,7 @@ export const useEntitlementMutationForm = (
           return;
         }
 
-        navigate({ to: '/entitlements' });
+        navigate({ to: '/catalog/entitlements' });
       } catch (error) {
         toast.error(getApiErrorMessage(error));
       }

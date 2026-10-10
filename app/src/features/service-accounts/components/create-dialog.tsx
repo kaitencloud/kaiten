@@ -1,9 +1,7 @@
 import { Button } from '@/components/ui/button';
-import { Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { z } from 'zod';
 import { zServiceAccountWritable } from '@/api-client/zod.gen';
-import { DialogFormSkeleton } from '@/components/dialog/dialog-form-skeleton';
 import {
   Dialog,
   DialogBody,
@@ -78,36 +76,32 @@ export function CreateServiceAccountDialog({
         >
           <form.AppForm>
             <DialogBody className="space-y-6">
-              <Suspense fallback={<DialogFormSkeleton fields={1} />}>
-                <form.AppField name="name">
-                  {(field) => (
-                    <field.TextField
-                      label={t(
-                        'Pages.Integrations.ServiceAccounts.Dialog.nameLabel',
-                      )}
-                      required
-                      placeholder={t(
-                        'Pages.Integrations.ServiceAccounts.Dialog.namePlaceholder',
-                      )}
-                      description={t(
-                        'Pages.Integrations.ServiceAccounts.Dialog.nameDescription',
-                      )}
-                    />
-                  )}
-                </form.AppField>
-              </Suspense>
+              <form.AppField name="name">
+                {(field) => (
+                  <field.TextField
+                    label={t(
+                      'Pages.Integrations.ServiceAccounts.Dialog.nameLabel',
+                    )}
+                    required
+                    placeholder={t(
+                      'Pages.Integrations.ServiceAccounts.Dialog.namePlaceholder',
+                    )}
+                    description={t(
+                      'Pages.Integrations.ServiceAccounts.Dialog.nameDescription',
+                    )}
+                  />
+                )}
+              </form.AppField>
             </DialogBody>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleClose}>
                 {t('Common.cancel')}
               </Button>
-              <Suspense fallback={null}>
-                <form.SubmitButton
-                  label={t(
-                    'Pages.Integrations.ServiceAccounts.Dialog.createButton',
-                  )}
-                />
-              </Suspense>
+              <form.SubmitButton
+                label={t(
+                  'Pages.Integrations.ServiceAccounts.Dialog.createButton',
+                )}
+              />
             </DialogFooter>
           </form.AppForm>
         </form>

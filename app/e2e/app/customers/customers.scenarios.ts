@@ -1,7 +1,18 @@
 import { faker } from '@faker-js/faker';
 import type { GetInstancesWithRelationsQuery } from '@/api-client/graphql/graphql';
 import { buildCustomer } from '../_support/fixtures';
+import { BillingAppModel } from '../_support/model/billing-app-model';
+import {
+  billingCapabilitiesProfiles,
+  type StripeStanding,
+} from '../_support/model/billing-capabilities';
 import { CustomerAppModel } from '../_support/model/customer-app-model';
+import {
+  ACME_PRODUCTION_SUBSCRIPTION,
+  billedCatalogue,
+  STARTER_MONTHLY,
+} from '../billing/billed-instances';
+import { buildSubscription } from '../_support/fixtures/build-subscription';
 
 type InstanceRow = GetInstancesWithRelationsQuery['instances']['items'][number];
 type InstanceLicenseType = InstanceRow['license']['type'];
@@ -211,4 +222,130 @@ export function createDeletableCustomerModel() {
       }),
     ],
   });
+}
+
+/**
+ * The customers the end-to-end specs of billing read: Acme has a billing
+ * e-mail and two instances, Beta has neither an e-mail nor a subscribed
+ * instance, and Gamma has no instance left but an invoice that was never
+ * settled, which keeps it from being deleted. The invoices Acme has had are in
+ * the billing slot of `createSubscriptionsModel`.
+ */
+export function createBillingCustomersModel() {
+  const acme = buildCustomer({
+    billingEmail: 'ap@acme.com',
+    domain: 'acme.com',
+    externalCustomerId: 'crm-acme-001',
+    id: 'customer-acme',
+    name: 'Acme Corp',
+    slug: 'acme-corp',
+  });
+  const beta = buildCustomer({
+    domain: 'beta.test',
+    id: 'customer-beta',
+    name: 'Beta Industries',
+    slug: 'beta-industries',
+  });
+  const gamma = buildCustomer({
+    id: 'customer-gamma',
+    name: 'Gamma Labs',
+    slug: 'gamma-labs',
+  });
+  const instanceOf = (
+    customer: typeof acme,
+    name: string,
+    slug: string,
+    license: { id: string; name: string },
+  ) =>
+    buildInstance({
+      customerId: customer.id,
+      customerName: customer.name,
+      customerSlug: customer.slug ?? '',
+      description: `${name} environment`,
+      licenseId: license.id,
+      licenseName: license.name,
+      licenseType: 'PAID',
+      name,
+      slug,
+    });
+  const enterprise = { id: 'license-enterprise', name: 'Enterprise' };
+
+  return new CustomerAppModel({
+    billingBlocks: {
+      'acme-corp': { live: true, unpaidInvoiceIds: ['inv-acme-renewal'] },
+      'gamma-labs': { live: false, unpaidInvoiceIds: ['inv-gamma-open'] },
+    },
+    customers: [acme, beta, gamma],
+    instances: [
+      instanceOf(acme, 'Acme Production', 'acme-production', enterprise),
+      instanceOf(acme, 'Acme Legacy', 'acme-legacy', enterprise),
+      instanceOf(beta, 'Beta Staging', 'beta-staging', {
+        id: 'license-starter',
+        name: 'Starter',
+      }),
+    ],
+  });
+}
+
+/**
+ * The customers of `createBillingCustomersModel` and the billing that collects them through
+ * Stripe, for the specs of the payment method a customer saves there:
+ * - Acme Corp has a card that works (a Visa ending 4242, good until the end of 2030) and a
+ *   live contract that Stripe charges automatically, so the card cannot be removed;
+ * - Beta Industries is registered in Stripe with no payment method, and has a live contract
+ *   that sends the invoice, which gives the currency a card is saved in;
+ * - Gamma Labs has never been to Stripe, and has no contract to take a currency from.
+ *
+ * `standing` is where Stripe stands: connected, or one of the reasons it is not.
+ */
+export function createStripeCustomersModels(
+  options: { standing?: StripeStanding } = {},
+) {
+  const billing = new BillingAppModel({
+    capabilities: billingCapabilitiesProfiles.stackWithStripe(
+      options.standing ?? 'connected',
+    ),
+    catalogue: billedCatalogue(),
+    providers: {
+      customers: {
+        'acme-corp': {
+          externalCustomerId: 'cus_acme',
+          paymentMethod: {
+            attachedAt: '2026-02-10T09:00:00.000Z',
+            brand: 'visa',
+            expMonth: 12,
+            expYear: 2030,
+            last4: '4242',
+            status: 'ACTIVE',
+          },
+          syncedAt: '2026-10-01T00:00:00.000Z',
+        },
+        'beta-industries': { externalCustomerId: 'cus_beta' },
+        'gamma-labs': {},
+      },
+    },
+    subscriptions: [
+      {
+        ...ACME_PRODUCTION_SUBSCRIPTION,
+        collectionMethod: 'CHARGE_AUTOMATICALLY',
+        collectionMethodOverride: 'CHARGE_AUTOMATICALLY',
+        providerKind: 'STRIPE',
+      },
+      {
+        ...buildSubscription({
+          anchorAt: '2026-08-15T00:00:00.000Z',
+          basePrice: STARTER_MONTHLY,
+          currentPeriodEnd: '2026-10-15T00:00:00.000Z',
+          currentPeriodStart: '2026-09-15T00:00:00.000Z',
+          customerName: 'Beta Industries',
+          customerSlug: 'beta-industries',
+          instanceName: 'Beta Staging',
+          instanceSlug: 'beta-staging',
+        }),
+        providerKind: 'STRIPE',
+      },
+    ],
+  });
+
+  return { billing, customers: createBillingCustomersModel() };
 }

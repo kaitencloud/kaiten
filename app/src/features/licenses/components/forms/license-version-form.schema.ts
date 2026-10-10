@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { LicenseWritable, License } from '@/api-client';
+import { getCommercialFieldsToCopy } from '../../utils/license-commercial.utils';
 
 // The new version's number is not collected: POST /licenses assigns the next
 // one in the family server-side. Which family is the base license's own, named
@@ -11,6 +12,9 @@ export const licenseVersionFormSchema = z.object({
     .string()
     .min(1, 'Pages.Licenses.Version.Form.Errors.baseLicenseRequired'),
   baseVersion: z.string().optional(),
+  // Whether the new version starts with the prices of its base, which only
+  // exist where billing is on.
+  copyPrices: z.boolean(),
   // The state the new version starts in; it moves through publish, archive
   // and unarchive afterwards.
   createAsDraft: z.boolean(),
@@ -37,6 +41,8 @@ export function licenseVersionFormValuesToLicenseInput(
     name: baseLicense.name,
     type: baseLicense.type,
     versionName: values.versionName,
+    // How the version is sold carries over, as its description does.
+    ...getCommercialFieldsToCopy(baseLicense),
   };
 }
 

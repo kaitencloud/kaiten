@@ -77,6 +77,99 @@ const eventMeta: EventNameMap<NotificationEventMeta> = {
     Icon: dataModelIcons.license,
     tone: 'default',
   },
+  // The billing group of the catalogue (36 events). A subscription is the
+  // billing of an instance, and the notification is about that instance. An
+  // invoice, a customer's payment method, an add-on, a voucher and a publishable
+  // key each have their entity's icon while the news is routine. What needs
+  // someone to look keeps a state icon, as the other groups do: a warning for what
+  // may be wrong (AlertTriangle) and a destructive tone for what failed (XCircle).
+  INSTANCE_BILLING_STARTED: { Icon: dataModelIcons.instance, tone: 'default' },
+  // Whether it is bad news depends on the new status (a return to ACTIVE is not),
+  // and the row carries no status to tell them apart: it keeps the default tone.
+  INSTANCE_BILLING_STATUS_CHANGED: {
+    Icon: dataModelIcons.instance,
+    tone: 'default',
+  },
+  INSTANCE_BILLING_CANCELED: { Icon: dataModelIcons.instance, tone: 'default' },
+  INSTANCE_BILLING_CANCELLATION_SCHEDULED: {
+    Icon: dataModelIcons.instance,
+    tone: 'default',
+  },
+  INSTANCE_BILLING_CANCELLATION_REVERTED: {
+    Icon: dataModelIcons.instance,
+    tone: 'default',
+  },
+  INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED: {
+    Icon: dataModelIcons.instance,
+    tone: 'default',
+  },
+  INSTANCE_BILLING_PLAN_CHANGE_CANCELLED: {
+    Icon: dataModelIcons.instance,
+    tone: 'default',
+  },
+  INSTANCE_BILLING_PLAN_CHANGED: {
+    Icon: dataModelIcons.instance,
+    tone: 'default',
+  },
+  INSTANCE_BILLING_PROVIDER_CHANGED: {
+    Icon: dataModelIcons.instance,
+    tone: 'default',
+  },
+  INSTANCE_INVOICE_HELD: { Icon: AlertTriangle, tone: 'warning' },
+  INSTANCE_INVOICE_ISSUED: { Icon: dataModelIcons.invoice, tone: 'default' },
+  INSTANCE_INVOICE_RELEASED: { Icon: dataModelIcons.invoice, tone: 'default' },
+  INSTANCE_INVOICE_PUSHED: { Icon: dataModelIcons.invoice, tone: 'default' },
+  INSTANCE_INVOICE_PAID: { Icon: dataModelIcons.invoice, tone: 'default' },
+  INSTANCE_INVOICE_VOIDED: { Icon: dataModelIcons.invoice, tone: 'default' },
+  INSTANCE_INVOICE_HANDOFF_ACKNOWLEDGED: {
+    Icon: dataModelIcons.invoice,
+    tone: 'default',
+  },
+  // Written off: the money will not come, which is for someone to know about.
+  INSTANCE_INVOICE_MARKED_UNCOLLECTIBLE: {
+    Icon: AlertTriangle,
+    tone: 'warning',
+  },
+  // The invoice differs at the payment provider: it may be paid for another amount.
+  INSTANCE_INVOICE_RECONCILIATION_MISMATCH: {
+    Icon: AlertTriangle,
+    tone: 'warning',
+  },
+  INSTANCE_INVOICE_PUSH_FAILED: { Icon: XCircle, tone: 'destructive' },
+  INSTANCE_INVOICE_PAYMENT_FAILED: { Icon: XCircle, tone: 'destructive' },
+  CUSTOMER_PAYMENT_METHOD_ATTACHED: {
+    Icon: dataModelIcons.customer,
+    tone: 'default',
+  },
+  CUSTOMER_PAYMENT_METHOD_DETACHED: {
+    Icon: dataModelIcons.customer,
+    tone: 'default',
+  },
+  CUSTOMER_PAYMENT_METHOD_EXPIRING: { Icon: AlertTriangle, tone: 'warning' },
+  // No entity of its own for a payment provider: it is billing's, whose icon is
+  // the area's.
+  BILLING_PROVIDER_CONNECTED: { Icon: dataModelIcons.billing, tone: 'default' },
+  BILLING_PROVIDER_DISCONNECTED: { Icon: XCircle, tone: 'destructive' },
+  BILLING_PROVIDER_SYNC_FAILED: { Icon: AlertTriangle, tone: 'warning' },
+  INSTANCE_ADDON_ADDED: { Icon: dataModelIcons.addon, tone: 'default' },
+  INSTANCE_ADDON_QUANTITY_CHANGED: {
+    Icon: dataModelIcons.addon,
+    tone: 'default',
+  },
+  INSTANCE_ADDON_REMOVED: { Icon: dataModelIcons.addon, tone: 'default' },
+  VOUCHER_EXHAUSTED: { Icon: dataModelIcons.voucher, tone: 'default' },
+  VOUCHER_EXPIRED: { Icon: dataModelIcons.voucher, tone: 'default' },
+  INSTANCE_VOUCHER_REDEEMED: { Icon: dataModelIcons.voucher, tone: 'default' },
+  INSTANCE_VOUCHER_REVOKED: { Icon: dataModelIcons.voucher, tone: 'default' },
+  INSTANCE_VOUCHER_EXPIRED: { Icon: dataModelIcons.voucher, tone: 'default' },
+  PUBLISHABLE_KEY_CREATED: {
+    Icon: dataModelIcons.publishableKey,
+    tone: 'default',
+  },
+  PUBLISHABLE_KEY_REVOKED: {
+    Icon: dataModelIcons.publishableKey,
+    tone: 'default',
+  },
   SYSTEM_ORGANIZATION_TOKEN_ISSUED: { Icon: ShieldAlert, tone: 'warning' },
 };
 

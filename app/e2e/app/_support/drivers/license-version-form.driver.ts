@@ -23,6 +23,13 @@ export class LicenseVersionFormDriver {
       .fill(versionName);
   }
 
+  /** Where billing is on: whether the version starts with the prices of its base. */
+  copyPrices() {
+    return this.page.getByRole('checkbox', {
+      name: 'Copy the prices of the base version',
+    });
+  }
+
   async saveAsDraft() {
     await this.page.getByRole('checkbox', { name: 'Save as draft' }).check();
   }

@@ -1,5 +1,10 @@
 import { Card } from '@/components/ui/card';
-import { createContext, type PropsWithChildren, use } from 'react';
+import {
+  type ComponentProps,
+  createContext,
+  type PropsWithChildren,
+  use,
+} from 'react';
 import { cn } from '@/lib/utils';
 
 // Density is a property of a whole row: a `dense` row makes every card in it
@@ -59,18 +64,21 @@ const Row = ({
   </DenseContext>
 );
 
-type StatCardRootProps = PropsWithChildren<{
-  className?: string;
-  dense?: boolean;
-}>;
+type StatCardRootProps = Omit<ComponentProps<typeof Card>, 'children'> &
+  PropsWithChildren<{
+    dense?: boolean;
+  }>;
 
-const Root = ({ className, dense, children }: StatCardRootProps) => {
+// What a card is given besides its look (a test id, a title, an aria attribute)
+// goes to the card itself, so that a page can address one figure of a row.
+const Root = ({ className, dense, children, ...props }: StatCardRootProps) => {
   const rowDense = useDense();
   const isDense = dense ?? rowDense;
 
   return (
     <DenseContext value={isDense}>
       <Card
+        {...props}
         data-slot="stat-card"
         data-dense={isDense || undefined}
         className={cn(

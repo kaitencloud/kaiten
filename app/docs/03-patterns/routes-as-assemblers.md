@@ -26,7 +26,7 @@ On each URL change the router (TanStack Router) runs, in this order:
 
 1. **Matching.** The params are parsed and `validateSearch` runs, from the parent route down.
 2. **`beforeLoad`**, in series, parent first. It can add to the route context.
-3. **Loading, in parallel.** The code of the route component is preloaded and the `loader`s run. If a loader takes longer than the router's pending delay (one second by default), `pendingComponent` is shown.
+3. **Loading, in parallel.** The code of the route component is preloaded and the `loader`s run. If a loader takes longer than the router's pending delay (`pendingMs`, one second by default), `pendingComponent` is shown, and once shown it stays for at least `pendingMinMs` (half a second by default). A load shorter than a second therefore shows nothing and a longer one does not flicker; the app keeps both defaults.
 
 In this app:
 
@@ -41,7 +41,7 @@ Without the preload, the data would load when the component renders, which means
 ### A list
 
 ```tsx
-// app/src/routes/licenses/index.tsx
+// app/src/routes/catalog/licenses/index.tsx
 import { createFileRoute } from '@tanstack/react-router';
 import {
   LicensesPageContent,
@@ -49,7 +49,7 @@ import {
   licensesWithInstancesQueryOptions,
 } from '@/features/licenses';
 
-export const Route = createFileRoute('/licenses/')({
+export const Route = createFileRoute('/catalog/licenses/')({
   component: LicensesPageContent,
   loader: ({ context }) => {
     return Promise.all([
@@ -65,27 +65,46 @@ The route preloads two queries in parallel. The page component reads them itself
 ### A detail page: `beforeLoad` and several queries
 
 ```tsx
-// app/src/routes/licenses/$licenseSlug/index.tsx
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
-import {
-  entitlementsQueryOptions,
-  LicenseDetailPage,
-  licenseEntitlementsQueryOptions,
-  licenseQueryOptions,
-} from '@/features/licenses';
-
-export const Route = createFileRoute('/licenses/$licenseSlug/')({
-  component: LicenseDetailRoute,
+// app/src/routes/catalog/licenses/$licenseSlug/route.tsx (abridged)
+export const Route = createFileRoute('/catalog/licenses/$licenseSlug')({
+  component: LicenseDetailRouteLayout,
+  validateSearch: (search) => licenseDetailSearchSchema.parse(search),
   beforeLoad: async ({ context, params: { licenseSlug } }) => {
     const license = await context.queryClient.ensureQueryData(
       licenseQueryOptions(licenseSlug),
     );
     return { getTitle: () => license.name };
   },
+  loader: ({ context, params: { licenseSlug } }) =>
+    context.queryClient.ensureQueryData(licenseQueryOptions(licenseSlug)),
+});
+
+function LicenseDetailRouteLayout() {
+  const { licenseSlug } = Route.useParams();
+  const { copyFrom, mode } = Route.useSearch();
+  const { data: license } = useSuspenseQuery(licenseQueryOptions(licenseSlug));
+
+  return (
+    <LicenseDetailPage
+      copyFrom={copyFrom}
+      license={license}
+      licenseSlug={licenseSlug}
+    >
+      {/* the commercial dialog while `mode` is `configure` */}
+      <Suspense fallback={null}>
+        <Outlet />
+      </Suspense>
+    </LicenseDetailPage>
+  );
+}
+```
+
+```tsx
+// app/src/routes/catalog/licenses/$licenseSlug/index.tsx: the Overview tab loads its own queries
+export const Route = createFileRoute('/catalog/licenses/$licenseSlug/')({
+  component: LicenseOverviewRoute,
   loader: async ({ context, params: { licenseSlug } }) => {
     await Promise.all([
-      context.queryClient.ensureQueryData(licenseQueryOptions(licenseSlug)),
       context.queryClient.ensureQueryData(
         licenseEntitlementsQueryOptions(licenseSlug),
       ),
@@ -93,16 +112,11 @@ export const Route = createFileRoute('/licenses/$licenseSlug/')({
     ]);
   },
 });
-
-function LicenseDetailRoute() {
-  const { licenseSlug } = Route.useParams();
-  const { data: license } = useSuspenseQuery(licenseQueryOptions(licenseSlug));
-
-  return <LicenseDetailPage license={license} licenseSlug={licenseSlug} />;
-}
 ```
 
-`beforeLoad` runs before the loader and gives the breadcrumb its title. The loader runs in parallel with the code splitting of the component and loads every query the page needs. The second `ensureQueryData` for the license returns from the cache. `LicenseDetailPage` reads the other queries itself.
+`beforeLoad` runs before the loader and gives the breadcrumb its title; its `ensureQueryData` fills the cache, so the loader's call returns at once and the component reads the same query with `useSuspenseQuery`. The layout loads the version, which its title and its tabs need, and passes the search parameters it declares to the page as props. Each tab loads what it shows itself, in parallel with the code splitting of its component: a tab whose data the session may not read, or that exists only where billing does, never blanks the page around it.
+
+A loader that only warms a query the page reads without suspending, because the page has the states for it (a skeleton, the refusal with a Retry, an empty state), calls `prefetchQuery` or `prefetchInfiniteQuery` instead of `ensureQueryData`: a prefetch never throws, so a refusal does not replace the page by the error component of the route. The page shows it, with the screen around it intact. The reports behind an invoice line, in `app/src/routes/invoices/`, do it, and their query options set `retryOnMount: false` so that the page shows the refusal the loader met instead of asking once more behind it. The voucher wizard does it for what its pickers show (`loadVoucherWizard` in `app/src/features/vouchers/queries/`): a new voucher opens without waiting for them, since the first step needs none and they are in the cache by the time a person reaches the offer, while a boost or a draft, which open on a later step, wait. A record the page cannot show without (an invoice) is still `ensureQueryData`, and a refusal of it is the `errorComponent` of the route.
 
 ### A detail page with tabs
 
@@ -180,23 +194,67 @@ function RouteComponent() {
 
 The mutation, the validation and the navigation after the submit are all in `FeatureFlagForm`.
 
+### A route that exists only where a capability says so
+
+A route can depend on what the deployment ships: billing exists only where `GET /billing/capabilities` says so. Its guard is a `beforeLoad` that reads the capability from the cache. Where the capability is there, the route loads. Where it is not, the guard throws `notFound({ data })` with the reason, and the route's `notFoundComponent` renders an explanation in place of the screen: a link to a screen that is not there explains why instead of failing or sending the person elsewhere. The same `notFoundComponent` answers a path under the layout that is no page.
+
+```tsx
+// app/src/routes/invoices/route.tsx (abridged)
+export const Route = createFileRoute('/invoices')({
+  component: InvoicesLayout,
+  notFoundComponent: BillingNotFound,
+  beforeLoad: async ({ context }) => {
+    await requireBillingCapability(context.queryClient);
+  },
+});
+
+function InvoicesLayout() {
+  return (
+    <Suspense fallback={null}>
+      <Outlet />
+    </Suspense>
+  );
+}
+```
+
+The guard throws because a `beforeLoad` that returns lets the `beforeLoad` and the `loader` of every route below it run, whatever it put in the route context. A screen under a closed gate would ask the API for data that is not there. A throw stops them all, and only the capabilities are requested. A `notFound` that carries `data` is a not-found the route explains itself, so the tab title keeps the title of the trail instead of reading "Page not found" (`isNotFoundPage` in `app/src/routes/-components/path-breadcrumbs/breadcrumb-items.ts`).
+
+`requireBillingCapability` and `BillingNotFound` come from `@/domains/billing`, and the guard fails closed: see [billing](../../src/domains/billing/README.md). A route that guards on a platform flag instead (`routes/integrations/webhooks/route.tsx`) answers with the plain not-found page.
+
+### A section that groups several features
+
+A segment can group the routes of several features without owning any screen. `app/src/routes/catalog/` holds `licenses/`, `entitlements/`, `addons/` and `vouchers/`, each a route tree of its own that renders its own feature, and the Catalog section of the side navigation lists them. The segment has no layout route: each tree keeps the layout and the guard it had (the add-ons and the vouchers guard themselves with `requireBillingCapability`, the licenses and the entitlements need no gate), so that grouping them changes no gate and shares no loader. `routes/catalog/index.tsx` is the only file of the segment: a section is not a page, so it redirects to its first entry, as `routes/integrations/index.tsx` does. There is no `catalog` feature: nothing is shared between the four that a domain or a feature would hold.
+
 ### Search parameters and edit dialogs
 
-A route declares the search parameters it accepts with `validateSearch`, and passes them to the feature as props. `app/src/routes/notifications/index.tsx` and `app/src/routes/feature-flags/index.tsx` do it for a status filter and a view mode; see [URL state](./state-management.md#url-state). The edit mode of a detail page (`?mode=configure`) and the routes that render a dialog are in [dialog via route](./dialog-via-route.md).
+A route declares the search parameters it accepts with `validateSearch`, and passes them to the feature as props. `app/src/routes/notifications/index.tsx` and `app/src/routes/feature-flags/index.tsx` do it for a status filter and a view mode, and `app/src/routes/invoices/index.tsx` for a view that reads another operation: its `loaderDeps` name the scope of the invoices and the part of the queue, and its `loader` warms what the view shows, the invoices of the scope in the views of invoices and the part of the queue in the views of the queue. The queue's views also ask for the invoices, to count the tabs, but with `prefetchQuery` and without waiting: a refusal of the list must not fail the queue, so the page reads those counts without suspending. See [URL state](./state-management.md#url-state). The edit mode of a detail page (`?mode=configure`) and the routes that render a dialog are in [dialog via route](./dialog-via-route.md).
 
 ## Layout routes and Suspense
 
 A `route.tsx` file has no URL segment of its own: it is the layout of the routes beside it. Wrap the `<Outlet />` in `<Suspense fallback={null}>`: a child route that suspends, such as a dialog reading a query, then does not blank the page around it. A layout route often carries the loader that preloads the data of the page, so that a dialog opens on a page that is already loaded. See [dialog via route](./dialog-via-route.md#avoiding-a-flash).
 
+The router also wraps every route match in a `Suspense` of its own, whose fallback is the route's `pendingComponent`: a child route that suspends is caught there first, and the boundary of the layout only covers what no match boundary does. That first boundary draws `RoutePending` in place of the whole route (a dialog route draws nothing, with `pendingComponent: () => null`), which is why a part of a page that can wait needs a boundary of its own, as the next section says.
+
+## Loading states
+
+A person should not see a spinner for what the loader could have had ready, nor for code that could have shipped with the page. These are the rules, in the order they apply:
+
+1. **A loader warms what the first screen reads.** `ensureQueryData` for a record the page cannot be drawn without, `prefetchQuery` for what it reads without suspending. A loader waits for what the screen it opens on shows, and starts without waiting what a later step or a picker will show: awaiting a prefetch waits for the answer and never throws, not awaiting it only starts the request. The router runs `beforeLoad` to its end before the loader, so a read that does not depend on what `beforeLoad` returns starts there, beside it (`void`, for a prefetch), and the loader waits for it: the request is joined, not repeated, while the data is fresh.
+2. **Secondary data is read without suspending.** A picker, a card the session may be refused, a list that fills a field: `useQuery`, and the states are drawn inline: rows to be (`PagedListSkeleton`, or the `Skeleton` primitive) while it loads, the refusal with its Retry, an empty state. `useSuspenseQuery` is for what the screen cannot be drawn without, because the boundary it reaches is the route's own and replaces the whole page by `RoutePending`.
+3. **The `Suspense` sits around the part that waits.** The body of a drawer that reads with `useSuspenseQuery`, the JSON editor inside a form (`LazyJsonField`): a boundary there, with a skeleton of the part's size, keeps the rest of the screen and what has been typed on it. Where nothing under a part suspends, as in the voucher wizard's steps, there is no boundary to add. `fallback={null}` is for a dialog route over a page that is already drawn, as in [Layout routes and Suspense](#layout-routes-and-suspense).
+4. **Code does not wait on its first render.** A `React.lazy` component that suspends on its first render holds its fallback for about 300 ms whatever the load time: React delays revealing content after a fallback has been shown, and a lazy component suspends on its first render even when its chunk is cached. So the form fields are imported statically (see [forms](./forms.md#building-blocks)), and a component is made lazy only when it is heavy and optional, with a boundary of its own around it.
+5. **An input that changes a query key keeps the previous screen.** `placeholderData: keepPreviousData` on the query, as the audit trail does, or `useDeferredValue` on the input, so that typing in a filter does not put a skeleton in place of the list.
+6. **The router's pending screen is a last resort.** `pendingMs` and `pendingMinMs` keep their defaults: a loader under a second shows nothing. A dialog route sets `pendingComponent: () => null`, see [dialog via route](./dialog-via-route.md#avoiding-a-flash).
+
 ## Errors and not-found
 
-A route does not declare its own `errorComponent`. `createRouter` in `app/src/main.tsx` sets the defaults for every route:
+A route does not declare its own `errorComponent`, with one exception below. `createRouter` in `app/src/main.tsx` sets the defaults for every route:
 
 - `defaultErrorComponent` renders `RouteError` (`app/src/components/route/route-error.tsx`). An error that is an API 404 (a missing entity) shows the not-found page, and one that is an API 403 (a read the session is refused) the restricted-access page. Any other error shows a card with the message, a "Go Home" button and a "Try Again" button that runs `router.invalidate()`, which reloads the loaders and resets the error boundary.
 - `defaultNotFoundComponent` renders `NotFound`. It answers a URL that matches no route and a loader that throws `notFound()`, as the deployment zone edit route does for an unknown slug.
 - `defaultPendingComponent` renders `RoutePending`.
 
-A route that needs its own boundary sets `errorComponent` and renders `RouteError`, which takes an `error` and an optional `reset`.
+A route that needs its own boundary sets `errorComponent`. It can render `RouteError`, which takes an `error` and an optional `reset`, or a component of its own when the default card says too little. The routes of the invoices, whose list also reads the handoff queue as one of its views, and of the vouchers do (`app/src/routes/invoices/$invoiceId/route.tsx`, `app/src/routes/invoices/index.tsx` and, for the guard, the list, a voucher and the wizard, `app/src/routes/catalog/vouchers/`): a refusal of the billing API carries a `detail` in its own words and a trace id that the person needs, so they set `BillingRouteError` (`app/src/domains/billing/components/billing-route-error.tsx`), which renders `NotFound` for a 404 and the refusal with a Retry for anything else. A route that reads one record for a screen that has states of its own (a skeleton, a refusal with a Retry, an empty state) does not need a boundary at all: it prefetches, as [A detail page: `beforeLoad` and several queries](#a-detail-page-beforeload-and-several-queries) describes.
 
 ## Tests
 

@@ -1,17 +1,17 @@
 # Connectors
 
-Connectors sync Kaiten data with the tools an organization already uses. From Integrations > Connectors, a user connects Attio with an API token, chooses how Kaiten fields map to Attio attributes, and then sees which customers and instances are synced and whether a sync failed. Attio is the only working connector. HubSpot, Salesforce, Stripe and Lago appear in the catalog as disabled tiles labelled "Coming H1" or "Coming H2".
+Connectors sync Kaiten data with the tools an organization already uses. From Integrations > Connectors, a user connects Attio with an API token, chooses how Kaiten fields map to Attio attributes, and then sees which customers and instances are synced and whether a sync failed. Attio and Stripe are the two working connectors. Stripe is the payment provider that collects the invoices of the subscriptions that use it: its page is where the restricted key of the Stripe account is typed, the options of the invoices are chosen and the connection is ended. HubSpot, Salesforce and Lago appear in the catalog as disabled tiles labelled "Coming H1" or "Coming H2".
 
 ## Routes
 
 | URL | Route file | Renders |
 | --- | --- | --- |
 | `/integrations/connectors` | `app/src/routes/integrations/connectors/index.tsx` | The catalog, or the setup wizard, inside `ConnectorsPageShell` |
-| `/integrations/connectors/$connectorId` | `app/src/routes/integrations/connectors/$connectorId.tsx` | `AttioConnectorDetail` |
+| `/integrations/connectors/$connectorId` | `app/src/routes/integrations/connectors/$connectorId.tsx` | `AttioConnectorDetail`, or `StripeConnectorDetail` for `stripe` |
 
 `route.tsx` in the same folder is the layout: it sets the "Connectors" breadcrumb title and a Suspense boundary. The side navigation entry comes from `integrationsSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`.
 
-The wizard has no route of its own. It is a view of the index route, switched by the setup store (`view: 'index' | 'wizard'`). The detail route accepts only `attio` as `connectorId`. Any other id, or an Attio connector that is not connected, redirects to `/integrations/connectors`. Both routes load `attioSettingsQueryOptions` in their loader.
+The wizard has no route of its own. It is a view of the index route, switched by the setup store (`view: 'index' | 'wizard'`). The detail route accepts `attio` and `stripe` as `connectorId`. Any other id (Lago, an unknown one), or an Attio connector that is not connected, redirects to `/integrations/connectors`. The index loads `attioSettingsQueryOptions` in its loader. For Stripe the route guards on billing (`requireBillingCapability`, with `BillingNotFound` as its not-found component, so that a link to the page explains why billing is not there instead of failing) and loads `stripeSettingsQueryOptions`: the page opens connected or not, so there is no wizard and no redirect for a connector that is not connected yet.
 
 ## Structure
 
@@ -22,20 +22,28 @@ app/src/features/connectors/
 ├── types/                 # ConnectorMeta and the catalog types
 ├── components/            # generic: page shell, page content (index or wizard), tiles grid, tile
 │   └── stories/           # connectors.stories.tsx
-└── attio/                 # everything specific to Attio
-    ├── attio.api.ts       # upsertAttioSettings, deleteAttioSettings
-    ├── constants.ts       # default API URL, sync policies, source fields, default mappings
-    ├── components/        # wizard (two steps), detail page, mapping editor dialog, synced records table
-    ├── hooks/             # useAttioSettingsMutations, useAttioSetupStore
-    ├── queries/           # settings query options, synced records, invalidation
-    ├── store/             # wizard state (TanStack Store)
-    ├── types/
-    └── utils/             # payload builders, mapping validation, slug check
+├── attio/                 # everything specific to Attio
+│   ├── attio.api.ts       # upsertAttioSettings, deleteAttioSettings
+│   ├── constants.ts       # default API URL, sync policies, source fields, default mappings
+│   ├── components/        # wizard (two steps), detail page, mapping editor dialog, synced records table
+│   ├── hooks/             # useAttioSettingsMutations, useAttioSetupStore
+│   ├── queries/           # settings query options, synced records, invalidation
+│   ├── store/             # wizard state (TanStack Store)
+│   ├── types/
+│   └── utils/             # payload builders, mapping validation, slug check
+└── stripe/                # everything specific to Stripe
+    ├── constants.ts       # the tile, the tax behaviors, the permissions of the key, the docs link
+    ├── components/        # detail page, header, standing notice, settings card and fields, disconnect dialog, overview
+    │   └── stories/       # stripe-connector.stories.tsx
+    ├── hooks/             # useStripeConnector (save, disconnect)
+    ├── queries/           # stripeSettingsQueryOptions
+    ├── schemas/           # the form of the connection, and its body
+    └── utils/             # reading the stored settings, the mode of a key, what still routes to Stripe
 ```
 
 In this page, a file inside the feature is written relative to `app/src/features/connectors/`. Any other path starts at the repository root.
 
-The catalog, its tiles and the page shell are generic. A tile shows the connector logo in its light or dark variant, or the connector's initial on a tinted background when it has no logo. The Attio logos are `app/public/images/connectors/attio/logo-black.svg` and `logo-white.svg`, referenced by `ATTIO_LOGO_ASSETS`.
+The catalog, its tiles and the page shell are generic. The Stripe tile reads where Stripe stands from the billing capabilities (see [Stripe](#stripe)), not from the catalog. A tile shows the connector logo in its light or dark variant, or the connector's initial on a tinted background when it has no logo. The Attio logos are `app/public/images/connectors/attio/logo-black.svg` and `logo-white.svg`, referenced by `ATTIO_LOGO_ASSETS`.
 
 What customers and instances share with this feature lives in the `crm-sync` domain (`app/src/domains/crm-sync/`, the paths below are relative to it), because a feature does not import another feature (see [Import rules](../../../docs/AI_CONTEXT.md#import-rules)):
 
@@ -64,13 +72,13 @@ The settings payload is `{ attioApiKey, attioApiUrl, syncPolicy, fieldsMapping }
 
 `attioApiKey` is write-only. GET and PUT responses return it redacted (`***`), and a PUT that omits it, or sends `***` or an empty value, keeps the stored key. Only the wizard sends a key. The mapping editor builds its payload with `buildMappingUpdateSettings`, which never includes it.
 
-The console does not call the other operations of the connectors API: `GET /connectors`, `GET /connectors/{connectorName}`, `GET .../settings/schema`, `GET .../state` and `PUT`/`DELETE .../activation`. `state` returns three independent booleans (`available`, `entitled`, `activated`) and answers 200 even when `available` is false. Because the console ignores it, it cannot tell "not in the organization's license" from "not configured yet"; when a save is refused, the API's error message appears in a toast.
+The console does not call the other operations of the connectors API: `GET /connectors`, `GET /connectors/{connectorName}`, `GET .../settings/schema`, `GET .../state` and `PUT .../activation` (Stripe's page calls `DELETE .../activation`, see [Stripe](#stripe)). `state` returns three independent booleans (`available`, `entitled`, `activated`) and answers 200 even when `available` is false. Because the console ignores it, it cannot tell "not in the organization's license" from "not configured yet"; when a save is refused, the API's error message appears in a toast.
 
 A save also activates the connector for the organization, and a delete deactivates it, so the wizard needs no extra call. The API refuses activation when the organization's license does not include the connector.
 
 Registering a connector is not part of this surface. It is `POST /api/platform/connectors`, a deployment-wide platform operation (`app/platform-openapi.yaml`). Attio never goes through it: the connector is compiled into the API (`api/internal/modules/connectors/attio/`) and registers its manifest at startup.
 
-Scopes of the REST operations: reading the settings needs `read:organizations`, and saving or deleting them needs `write:organizations`. The sync watcher's reads need `read:customers` for a customer and `read:instances` for an instance. The screens do not check scopes themselves.
+Scopes of the REST operations: reading the settings needs `read:organizations`, and saving, deleting or deactivating them needs `write:organizations`. The sync watcher's reads need `read:customers` for a customer and `read:instances` for an instance. The screens do not check scopes themselves.
 
 ## Behaviour
 
@@ -110,6 +118,18 @@ The mapping editor dialog reuses the wizard's schema step. It rebuilds its rows 
 
 **Sync state in customers and instances.** After a customer or an instance is created or updated, the customers and instances features call `startAttioSyncWatcher` (from `@/domains/crm-sync`). When Attio is connected, the watcher polls the entity's integration every 2 seconds for the first 10 seconds, then every 5 seconds, for at most 45 seconds. It stops early when the sync data changes, or after three consecutive errors other than 404. Meanwhile the badge and the card show a pending state, and a delayed state if nothing changed in time; the delayed state expires after 5 minutes. When the sync data changes, the entity's queries are refreshed. The state lives in the query cache under `['crm-sync', 'state', entityKind, entitySlug]`.
 
+### Stripe
+
+The connector name is `kaiten.integration.billing.stripe` (`STRIPE_CONNECTOR_NAME`, in the `billing` domain), and `stripe` is the id the console puts in its address. It uses the same connector operations as Attio, told apart by the name in the path, and `deactivateConnector` (`DELETE /connectors/{connectorName}/activation`), which Attio never needs. Where Stripe stands comes from the `providers` of the billing capabilities (`useBillingProvider('STRIPE')`: `connected` with the account it reaches, `available`, or `unavailableReason`), never from `features.stripe`, which says that the release ships Stripe and which the API answers `true` whatever the organization can connect here.
+
+- **Tile.** Under the billing group, from the capabilities: Available (opens the page), Connected (in the connected section, to manage), or Unavailable with its reason under its name ("Not included in your plan", "Stripe needs a configured Vault", or the generic one for an API that does not list Stripe), and no way to try. The tile says the plan leaves Stripe out even where billing is off for that very reason: `useBillingProvider` offers nothing where billing is off, but its `listedStanding` reads the entry whether billing is on or not. Until the capabilities are in the tile keeps its catalog entry rather than claim Stripe is unavailable.
+- **Page.** A header (Stripe, its standing and, once connected, a Test mode or Live mode badge, a link to the dashboard of that account and the Disconnect button for a session that may write the settings of the organization), a notice where Stripe cannot be connected, the connection, and what Kaiten and Stripe each do with the permissions the key needs.
+- **The key** is a password field (`TextField type="password"`) of a restricted key, `^rk_(live|test)_[A-Za-z0-9]+$`. A secret key (`sk_`) or a publishable one (`pk_`) is refused in words, before anything is sent. It is write-only: the field opens empty and says there is one on file ("Key set (Test mode)..."), an empty field keeps it, and what is typed is cleared once saved. As it is typed, the field says which account it reaches. A save also connects, and the button reads Connect Stripe, Connect Stripe with the stored key (after a disconnection, which keeps the key) or Save changes.
+- **The options** are the tax behavior of the amounts (exclusive or inclusive), whether Stripe computes tax and whether it finalizes invoices at once (off, an invoice stops as a draft in Stripe for a person to review, and the invoice page offers to finalize it). The body sends the options always and the key only when one was typed.
+- **Refusals** are shown where the person is looking, in the API's words, with what was typed kept: Stripe rejecting the credentials (422 `CredentialsRejected`) on the key field; an account that changed (409 `AccountChanged`, a key of another account while customers already live in this one), a Stripe that cannot be reached (503, with Retry) and a settings schema failure above the button.
+- **Where it cannot be connected** (the plan leaves it out, or a self-hosted deployment has no Vault to keep the key in, with a link to the settings of the deployment) the page says why, and the key and the button are there and off. A session that may read the settings and not write them sees them with a notice and no button.
+- **Disconnecting** asks for confirmation. The API refuses (409 `DeactivateConnector.BillingActive`) while a subscription that is not canceled or an invoice that is not settled still routes to Stripe: the dialog stays on the API's words with how many there are, and the connector stays connected. The key stays stored, so that connecting again asks for none. Connecting or disconnecting refreshes the billing capabilities, the health of billing and the settings.
+
 ### What the sync does
 
 The connector runs inside the API process. It is event-driven: Debezium change data capture feeds RabbitMQ, and one Dapr subscription hands each delivery to the audit trail and to the connector, each with its own inbox mark, so a failed sync retries alone. The connector reacts to `com.kaiten.customer.v1.created`, `com.kaiten.customer.v1.updated`, `com.kaiten.instance.v1.created` and `com.kaiten.instance.v1.updated`.
@@ -131,9 +151,10 @@ The API keeps connector settings, and so the Attio key, in Vault. Locally it use
   - `components/connector-tile.test.tsx` and `components/connectors-page-content.test.tsx`.
   - `attio/store/attio-setup-store.test.ts`, `attio/queries/synced-records-query-options.test.ts` and, in `attio/utils/`, `attio-mapping-validation.test.ts`, `attio-slug.test.ts` and `build-attio-settings.test.ts`.
   - The `crm-sync` domain has its own tests: `app/src/domains/crm-sync/components/__tests__/`, `app/src/domains/crm-sync/logic/__tests__/`, `app/src/domains/crm-sync/queries/attio-sync-coordinator.test.ts` and `app/src/domains/crm-sync/queries/attio-sync-state.test.ts`.
-- Stories: `components/stories/connectors.stories.tsx` (`Features/Connectors/Attio`) has the `Catalog`, `SetupWizard`, `Detail` and `DetailSyncError` stories, with `play` functions. They open in Storybook (`pnpm run storybook` from `app/`). `app/vite.config.ts` excludes the file from `pnpm run test:stories`, because the end-to-end spec covers the flow.
-- End to end: `app/e2e/app/connectors/connectors.lifecycle.spec.ts` connects Attio through the wizard, checks the synced records and disconnects. It runs with `pnpm run test:e2e:app` from `app/`, on the mocks in `app/e2e/app/_support/mocks/install-connector-app-mocks.ts` and the model `app/e2e/app/_support/model/connector-app-model.ts`.
+  - Stripe: `components/connectors-stripe-tile.test.tsx` (the tile in each standing), `stripe/components/stripe-connector-detail.test.tsx` (the page and its refusals), `stripe/schemas/stripe-settings.schema.test.ts`, and `stripe/utils/stripe-settings.test.ts` and `stripe-refusals.test.ts`.
+- Stories: `stripe/components/stories/stripe-connector.stories.tsx` (`Features/Connectors/Stripe`: not connected, a key rejected, a Stripe that cannot be reached, connected in each mode, an account that changed, a disconnection refused, and the two reasons it cannot be connected) and `components/stories/connectors-stripe-tile.stories.tsx` (the tile in each standing). `components/stories/connectors.stories.tsx` (`Features/Connectors/Attio`) has the `Catalog`, `SetupWizard`, `Detail` and `DetailSyncError` stories, with `play` functions. They open in Storybook (`pnpm run storybook` from `app/`). `app/vite.config.ts` excludes the file from `pnpm run test:stories`, because the end-to-end spec covers the flow.
+- End to end: `app/e2e/app/connectors/connectors.lifecycle.spec.ts` connects Attio through the wizard, checks the synced records and disconnects. `connectors.stripe.spec.ts` (driven by `StripeConnectorDriver`) walks the Stripe tile and page: the tile in each standing, Lago and unknown ids redirecting, the key that is write-only, each refusal, the reasons it cannot be connected, a session that may only read, and a disconnection that is refused and one that succeeds. They run with `pnpm run test:e2e:app` from `app/`, on the mocks in `app/e2e/app/_support/mocks/install-connector-app-mocks.ts` (and `install-billing-app-mocks.ts`, for Stripe's standing) and the model `app/e2e/app/_support/model/connector-app-model.ts`.
 
 ## Public API
 
-`index.ts` exports `ConnectorsPageContent`, `ConnectorsPageShell`, `AttioConnectorDetail`, `attioSettingsQueryOptions` and `ATTIO_CONNECTOR`. Only the two route files import them, as `@/features/connectors`. `attioSettingsQueryOptions` is defined in the `crm-sync` domain and re-exported here.
+`index.ts` exports `ConnectorsPageContent`, `ConnectorsPageShell`, `AttioConnectorDetail`, `attioSettingsQueryOptions`, `ATTIO_CONNECTOR`, `StripeConnectorDetail`, `stripeSettingsQueryOptions` and `STRIPE_CONNECTOR`. Only the two route files import them, as `@/features/connectors`. `attioSettingsQueryOptions` is defined in the `crm-sync` domain and re-exported here.

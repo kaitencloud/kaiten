@@ -3,7 +3,14 @@ import type { TFunction } from 'i18next';
 // A URL segment names a place in the app. These are the labels the side nav,
 // the tabs and the page headers already give those places.
 const SEGMENT_LABEL_KEYS: Record<string, string> = {
+  addons: 'Pages.Addons.title',
+  'attach-addon':
+    'Pages.Customers.Instances.Detail.Billing.Addons.Attach.title',
   'audit-trail': 'Pages.AuditTrail.title',
+  billing: 'Pages.Billing.title',
+  cancel: 'Pages.Customers.Instances.Detail.Billing.Cancel.title',
+  catalog: 'Pages.Catalog.title',
+  compatibility: 'Pages.Addons.Compatibility.title',
   components: 'Pages.Releases.Components.title',
   connectors: 'Pages.Integrations.Connectors.title',
   customers: 'Pages.Customers.title',
@@ -18,25 +25,41 @@ const SEGMENT_LABEL_KEYS: Record<string, string> = {
   history: 'Pages.Integrations.Webhooks.Tabs.history',
   instances: 'Pages.Customers.Instances.title',
   integrations: 'Pages.Integrations.title',
+  invoices: 'Pages.Billing.Invoices.title',
   licenses: 'Pages.Licenses.title',
+  lines: 'Pages.Billing.Invoices.Lines.title',
   new: 'Common.new',
   notifications: 'Pages.Notifications.title',
+  'plan-change': 'Pages.Customers.Instances.Detail.Billing.PlanChange.title',
+  prices: 'Pages.Licenses.Prices.title',
+  'publishable-keys': 'Pages.Integrations.PublishableKeys.title',
+  'redeem-voucher':
+    'Pages.Customers.Instances.Detail.Billing.Vouchers.Redeem.breadcrumb',
   releases: 'Pages.Releases.title',
   'service-accounts': 'Pages.Integrations.ServiceAccounts.title',
   settings: 'Pages.Settings.title',
+  subscribe: 'Pages.Customers.Instances.Detail.Billing.Subscribe.title',
+  terms: 'Pages.Customers.Instances.Detail.Billing.Terms.title',
+  vouchers: 'Pages.Vouchers.title',
   webhooks: 'Pages.Integrations.Webhooks.sectionTitle',
 };
 
-// The side nav's sections: whatever lies under one of them, the section's own
-// page exists.
+// The side nav's sections, by path: whatever lies under one of them, the
+// section's own page exists. The entries of the catalog are sections of their
+// own, so that the way back from a license that does not exist is the licenses,
+// not the catalog.
 const SECTIONS = new Set([
   'audit-trail',
+  'catalog',
+  'catalog/addons',
+  'catalog/entitlements',
+  'catalog/licenses',
+  'catalog/vouchers',
   'customers',
   'dashboard',
-  'entitlements',
   'feature-flags',
   'integrations',
-  'licenses',
+  'invoices',
   'notifications',
   'releases',
   'settings',
@@ -63,16 +86,21 @@ export function getSegmentLabel(segment: string, t: TFunction): string {
   return key ? t(key, { defaultValue: fallback }) : fallback;
 }
 
-/** The side-nav section a path lies under, if any. */
+/** The side-nav section a path lies under, if any: the deepest one it names. */
 export function getSectionForPath(
   pathname: string,
   t: TFunction,
 ): Section | undefined {
-  const [segment] = pathname.split('/').filter(Boolean);
+  const [first, second] = pathname.split('/').filter(Boolean);
+  const nested = first && second ? `${first}/${second}` : undefined;
+  const section = nested && SECTIONS.has(nested) ? nested : first;
 
-  if (!segment || !SECTIONS.has(segment)) {
+  if (!section || !SECTIONS.has(section)) {
     return undefined;
   }
 
-  return { href: `/${segment}`, label: getSegmentLabel(segment, t) };
+  return {
+    href: `/${section}`,
+    label: getSegmentLabel(section.split('/').pop() ?? section, t),
+  };
 }

@@ -1,16 +1,22 @@
 import { expect, test } from '../_support/app-test';
 import { expectNoAccessibilityViolations } from '../_support/assertions/accessibility';
+import { BillingNavDriver } from '../_support/drivers/billing-nav.driver';
 import { CustomersListDriver } from '../_support/drivers/customers-list.driver';
 import { EntitlementsListDriver } from '../_support/drivers/entitlements-list.driver';
 import { FeatureFlagsListDriver } from '../_support/drivers/feature-flags-list.driver';
 import { InstancesListDriver } from '../_support/drivers/instances-list.driver';
 import { ReleaseManagementTabsDriver } from '../_support/drivers/release-management-tabs.driver';
+import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installCustomerAppMocks } from '../_support/mocks/install-customer-app-mocks';
 import { installDashboardAppMocks } from '../_support/mocks/install-dashboard-app-mocks';
 import { installEntitlementAppMocks } from '../_support/mocks/install-entitlement-app-mocks';
 import { installFeatureFlagAppMocks } from '../_support/mocks/install-feature-flag-app-mocks';
 import { installInstanceAppMocks } from '../_support/mocks/install-instance-app-mocks';
 import { installReleaseManagementAppMocks } from '../_support/mocks/install-release-management-app-mocks';
+import {
+  createBillingDisabledModel,
+  createBillingOutageModel,
+} from '../billing/billing.scenarios';
 import { createCustomersListModel } from '../customers/customers.scenarios';
 import { createDashboardReadModel } from '../dashboard/dashboard.scenarios';
 import { createEntitlementsListModel } from '../entitlements/entitlements.scenarios';
@@ -86,4 +92,29 @@ test.describe('accessibility smoke', () => {
 
     await expectNoAccessibilityViolations(page);
   });
+
+  for (const [name, model, reason] of [
+    [
+      'billing is off',
+      createBillingDisabledModel('DEPLOYMENT_DISABLED'),
+      'DEPLOYMENT_DISABLED',
+    ],
+    [
+      'the session lacks the scope of billing',
+      createBillingOutageModel('missingScope'),
+      'MISSING_SCOPE',
+    ],
+  ] as const) {
+    test(`the explanation of a billing link has no WCAG A/AA violations when ${name}`, async ({
+      page,
+    }) => {
+      const nav = new BillingNavDriver(page);
+      await installBillingAppMocks(page, model);
+
+      await page.goto('/invoices');
+
+      await nav.expectUnavailable(reason);
+      await expectNoAccessibilityViolations(page);
+    });
+  }
 });

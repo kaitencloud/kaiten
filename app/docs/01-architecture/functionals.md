@@ -103,7 +103,7 @@ no route or page.
 | `page` | `Page` compound component for headers and layouts, and `EditableTitle` | [README](../../src/functionals/page/README.md) |
 | `progress-stepper` | Numbered step strip and progress bar for full-page create wizards | |
 | `risk-ranking-list-card` | Card that ranks items by a ratio with proportional bars, with loading and empty states | |
-| `route-tabs` | Tab strip whose active tab follows the current route | |
+| `route-tabs` | Tab strip whose active tab follows the current route: by path prefix, and by search for tabs that share a path. It marks that tab, and only that one, with `aria-current` | |
 | `slug` | `generateSlug(name)`: a slug in the alphabet the API accepts | |
 | `stacked-form-dialog` | Form dialog shell: one panel, or stacked wizard cards on `step-stack`, with a prompt before unsaved changes are discarded | |
 | `stat-card` | KPI card, alone or in a row whose labels, values and helpers line up | [stats-cards.md](../03-patterns/stats-cards.md) |

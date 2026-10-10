@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { FilterOptionList } from '../components/shared/filter-option-list';
 import { FILTER_MULTI_SELECT_SEPARATOR } from '../constants';
@@ -102,6 +102,29 @@ describe('FilterOptionList', () => {
     expect(shown()).toEqual([
       'https://hooks.billing.example.com/kaiten/events',
     ]);
+  });
+
+  it('names the list after the field it lists, since nothing else says what it holds', () => {
+    renderList(objectField);
+
+    expect(screen.getByRole('listbox', { name: 'Object' })).toBeVisible();
+  });
+
+  it('draws the check of a multi-choice option without a control inside the option', () => {
+    renderList(objectField, 'instance');
+
+    const picked = screen.getByRole('option', { name: 'Instance' });
+    const other = screen.getByRole('option', { name: 'Customer' });
+
+    // The option says whether it is checked; what is drawn beside it is only a mark.
+    expect(picked).toHaveAttribute('aria-checked', 'true');
+    expect(other).toHaveAttribute('aria-checked', 'false');
+    for (const option of [picked, other]) {
+      expect(within(option).queryByRole('checkbox', { hidden: true })).toBeNull();
+      expect(option.querySelector('button, input')).toBeNull();
+    }
+    expect(picked.querySelector('svg')).not.toBeNull();
+    expect(other.querySelector('svg')).toBeNull();
   });
 
   it('toggles a multi-choice option and stays open', () => {

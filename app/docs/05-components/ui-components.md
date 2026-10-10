@@ -28,7 +28,7 @@ In a form, use the [form fields](./form-components.md): they wrap these controls
 | --- | --- | --- |
 | `Input`, `Textarea` | The text controls. | [textarea](../../src/components/ui/stories/textarea.stories.tsx) |
 | `NumberInput` | A number field with stepper buttons, on Base UI. Its value is `null` when the field is empty. | [number-input](../../src/components/ui/stories/number-input.stories.tsx) |
-| `Select` | A single choice from a list: `Select`, `SelectTrigger`, `SelectValue`, `SelectContent`, `SelectItem` and their siblings. Pass `items` with value/label pairs so the trigger shows its label before opening, and use `null` for no selection. | [select](../../src/components/ui/stories/select.stories.tsx) |
+| `Select` | A single choice from a list: `Select`, `SelectTrigger`, `SelectValue`, `SelectContent`, `SelectItem` and their siblings. Pass `items` with value/label pairs so the trigger shows its label before opening, and use `null` for no selection. The list is never wider than the space the page leaves it (`max-w-(--available-width)`), so a long option wraps on a phone and does not scroll the page sideways. | [select](../../src/components/ui/stories/select.stories.tsx) |
 | `Checkbox`, `Switch`, `Slider` | A boolean, an on and off setting, a range value. | [checkbox](../../src/components/ui/stories/checkbox.stories.tsx), [switch](../../src/components/ui/stories/switch.stories.tsx), [slider](../../src/components/ui/stories/slider.stories.tsx) |
 | `Toggle`, `ToggleGroup` | A two-state button, and a group of them. | [toggle](../../src/components/ui/stories/toggle.stories.tsx), [toggle-group](../../src/components/ui/stories/toggle-group.stories.tsx) |
 | `Label` | The label of a control. | none |
@@ -46,6 +46,7 @@ In a form, use the [form fields](./form-components.md): they wrap these controls
 | `AlertDialog` | A modal that asks for a decision. `AlertDialogAction` is a button; compose `AlertDialogClose render={<AlertDialogAction ... />}` when confirming should also close the dialog. | [alert-dialog](../../src/components/ui/stories/alert-dialog.stories.tsx) |
 | `Sheet` | A panel that slides in from an edge. | [sheet](../../src/components/ui/stories/sheet.stories.tsx) |
 | `Popover` | A floating panel anchored to a trigger. | none |
+| `DropdownMenu` | A menu of actions that opens from a button, on Base UI's Menu: `DropdownMenu`, `DropdownMenuTrigger` (pass the button with `render`), `DropdownMenuContent`, `DropdownMenuItem` (`variant="destructive"` for what cannot be undone), `DropdownMenuGroup`, `DropdownMenuLabel`, `DropdownMenuSeparator`. For the actions that do not fit beside each other, such as the actions of an invoice on a phone. A choice that stays, a value, is a `Select`. | [dropdown-menu](../../src/components/ui/stories/dropdown-menu.stories.tsx) |
 
 For a form in a dialog and for confirmations, see the dialog shells of [`components/dialog`](./README.md#dialogs).
 
@@ -54,7 +55,7 @@ For a form in a dialog and for confirmations, see the dialog shells of [`compone
 | Component | What it is | Story |
 | --- | --- | --- |
 | `Card` | `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardAction`, `CardContent`, `CardFooter`. | none |
-| `Tabs` | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`. Pages with a route per tab use `RouteTabs` (a functional). | [tabs](../../src/components/ui/stories/tabs.stories.tsx) |
+| `Tabs` | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`. Pages with a route per tab use `RouteTabs` (a functional), which also takes tabs that are one route told apart by its search (`?view=held`), can show a count next to each label, and sits under a page title. | [tabs](../../src/components/ui/stories/tabs.stories.tsx) |
 | `Accordion` | `Accordion`, `AccordionItem`, `AccordionTrigger`, `AccordionContent`. | [accordion](../../src/components/ui/stories/accordion.stories.tsx) |
 | `ActionAccordion` | An accordion whose header has room for actions next to the trigger. | [action-accordion](../../src/components/stories/action-accordion.stories.tsx) |
 | `Breadcrumb` | The breadcrumb parts. | [breadcrumb](../../src/components/ui/stories/breadcrumb.stories.tsx) |
@@ -82,6 +83,9 @@ Small components that sit next to `ui/` in `app/src/components/`:
 | --- | --- | --- |
 | `GradientButton` | The call-to-action of a page, such as the create button of a list: a `label` and either `to` (a link) or `onClick`. | [gradient-button](../../src/components/stories/gradient-button.stories.tsx) |
 | `DestructiveActionButton` | A destructive button with a confirmation dialog. Disabled with a `disabledReason` shown in a tooltip. | [destructive-action-button](../../src/components/stories/destructive-action-button.stories.tsx) |
+| `ChoiceButton` | One choice among a few, as a button that is pressed when chosen: the shape of a price, the type of a voucher. A choice that cannot be made stays focusable and describes why. | [choice-button](../../src/components/stories/choice-button.stories.tsx) |
+| `CopyableValueField` | A value to read and to copy, in a read-only field with a Copy button that tells with a toast when the clipboard refuses: a key, a token or a code that is shown once. It carries no words; the caller gives the labels and the toasts. Its button is `CopyValueButton`. | [copyable-value-field](../../src/components/stories/copyable-value-field.stories.tsx) |
+| `CopyValueButton` | An icon button that puts a value on the clipboard and tells with a toast when it is done or when the clipboard refuses: a code shown in a header, or the button of a `CopyableValueField`. It carries no words; the caller gives the label and the toasts. | [copy-value-button](../../src/components/stories/copy-value-button.stories.tsx) |
 | `ChartEmptyState` | The placeholder of a chart without data. | [chart-empty-state](../../src/components/stories/chart-empty-state.stories.tsx) |
 | `Atlassian`, `GitHub`, `Slack` and other company logos (`company-icons.tsx`) | SVG logos as components. | [company-icons](../../src/components/stories/company-icons.stories.tsx) |
 

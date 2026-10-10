@@ -7,7 +7,7 @@ export class LicensesListDriver {
   constructor(private readonly page: Page) {}
 
   async goto() {
-    await this.page.goto('/licenses');
+    await this.page.goto('/catalog/licenses');
     await this.expectLoaded();
   }
 
@@ -28,6 +28,23 @@ export class LicensesListDriver {
     return this.family(name).getByRole('button', {
       name: new RegExp(`^${escapeRegExp(name)}\\b`),
     });
+  }
+
+  /** The switch that lists a family in the public catalogue, or takes it out. */
+  publicSwitch(name: string): Locator {
+    return this.family(name).getByRole('switch', {
+      name: `List ${name} in the public catalogue`,
+    });
+  }
+
+  /** How the version a family is shown under is sold: its prices, or that it is free or on request. */
+  priceSummary(name: string): Locator {
+    return this.family(name).getByTestId('license-price-summary');
+  }
+
+  /** What a family says of itself when it is listed in the public catalogue. */
+  publicBadge(name: string): Locator {
+    return this.family(name).getByText('Public', { exact: true });
   }
 
   /** Opens the family's versions table, unless it is already open. */
@@ -75,5 +92,33 @@ export class LicensesListDriver {
         exact: true,
       }),
     ).toBeVisible();
+  }
+
+  /** A column of a family's versions table, by its header. */
+  columnHeader(familyName: string, column: string): Locator {
+    return this.family(familyName).getByRole('columnheader', {
+      name: column,
+      exact: true,
+    });
+  }
+
+  /** What one version's row shows under a column of the table. */
+  async versionCell(
+    familyName: string,
+    versionName: string,
+    column: string,
+  ): Promise<Locator> {
+    const headers = (
+      await this.family(familyName).getByRole('columnheader').allInnerTexts()
+    ).map((text) => text.trim());
+    const index = headers.indexOf(column);
+    expect(
+      index,
+      `a "${column}" column in ${headers.join(', ')}`,
+    ).toBeGreaterThan(-1);
+
+    return this.versionRow(familyName, versionName)
+      .getByRole('cell')
+      .nth(index);
   }
 }

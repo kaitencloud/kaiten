@@ -11,6 +11,11 @@ import { buildAssociateLicenseEntitlementBody } from '../utils/license-entitleme
 import { getEntitlementSlug } from '../utils/license-entitlements.utils';
 
 type CreateLicenseWithGrantsOptions = {
+  // Runs once the grants are attached and before the version is published, with
+  // what the version has been given so far. What a version also sells (its
+  // prices) is added here, so that it is never served half made. A failure
+  // leaves the draft it was created as, like a grant that fails.
+  afterGrants?: (license: License & { slug: string }) => Promise<void>;
   // body.lifecycleState is the state the version ends in: DRAFT keeps it a
   // draft, anything else publishes it once its grants are attached.
   body: LicenseWritable;
@@ -25,15 +30,10 @@ export type CreateLicenseWithGrantsResult = {
   license: License;
 };
 
-export const useLicenseSave = (entitlements: Entitlement[]) => {
+// Attaches the grants a new version was given in its form, once it exists.
+function useAttachDraftEntitlements(entitlements: Entitlement[]) {
   const attachEntitlementMutation = useMutation({
     ...associateEntitlementWithLicenseMutation(),
-  });
-  const { mutateAsync: createLicense } = useMutation({
-    ...createLicenseMutation(),
-  });
-  const { mutateAsync: publishLicense } = useMutation({
-    ...publishLicenseMutation(),
   });
 
   const entitlementSlugById = useMemo(
@@ -97,13 +97,27 @@ export const useLicenseSave = (entitlements: Entitlement[]) => {
     [attachEntitlementMutation, entitlementSlugById],
   );
 
+  return attachDraftEntitlements;
+}
+
+export const useLicenseSave = (entitlements: Entitlement[]) => {
+  const attachDraftEntitlements = useAttachDraftEntitlements(entitlements);
+  const { mutateAsync: createLicense } = useMutation({
+    ...createLicenseMutation(),
+  });
+  const { mutateAsync: publishLicense } = useMutation({
+    ...publishLicenseMutation(),
+  });
+
   // A new version is created as a DRAFT, given its grants, and only then
   // published. Published first, it would be served with some of its grants or
   // none until the last one landed: a family with no default serves its newest
   // published version. A create that fails throws, and nothing was saved; a
-  // grant or a publish that fails afterwards leaves a draft nothing serves.
+  // grant, a price or a publish that fails afterwards leaves a draft nothing
+  // serves.
   const createLicenseWithGrants = useCallback(
     async ({
+      afterGrants,
       body,
       draftEntitlements,
     }: CreateLicenseWithGrantsOptions): Promise<CreateLicenseWithGrantsResult> => {
@@ -117,6 +131,7 @@ export const useLicenseSave = (entitlements: Entitlement[]) => {
 
       try {
         await attachDraftEntitlements(licenseSlug, draftEntitlements);
+        await afterGrants?.({ ...license, slug: licenseSlug });
         if (body.lifecycleState === 'DRAFT') {
           return { license };
         }

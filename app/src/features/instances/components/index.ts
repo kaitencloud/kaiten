@@ -4,11 +4,18 @@ export {
   InstanceDeploymentTableAction,
 } from './instance-deployment';
 export {
+  AttachAddonDialog,
+  CancelSubscriptionDialog,
   InstanceDetailAuditTrailTab,
+  InstanceDetailBillingTab,
   InstanceDetailEntitlementsTab,
   InstanceDetailLayout,
   InstanceDetailOverviewTab,
   InstanceDetailProvider,
+  PaymentTermsDialog,
+  RedeemVoucherDialog,
+  SchedulePlanChangeDialog,
+  SubscribeInstanceDialog,
   useInstanceDetail,
 } from './instance-detail';
 export { InstanceForm, InstanceFormDialog } from './instance-form';

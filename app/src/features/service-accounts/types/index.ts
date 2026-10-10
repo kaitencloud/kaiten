@@ -27,6 +27,7 @@ export type ScopeGroupId =
   | 'licensing'
   | 'featureFlags'
   | 'releases'
+  | 'billing'
   | 'organization';
 
 export type TokenPresetId = 'dataPlane' | 'controlPlane';

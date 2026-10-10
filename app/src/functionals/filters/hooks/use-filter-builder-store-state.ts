@@ -1,7 +1,7 @@
 import { useStore } from '@tanstack/react-store';
 import { useEffect, useMemo } from 'react';
 import { debounce } from '@/lib/debounce';
-import { createResetState } from '../logic/filter-builder-defaults';
+import { createInitialState } from '../logic/filter-builder-defaults';
 import {
   createFilterBuilderStore,
   type FilterBuilderStoreActions,
@@ -15,7 +15,11 @@ type UseFilterBuilderStoreStateOptions<T> = {
   data: T[];
   resetOnDataChange: boolean;
   debounceMs: number;
+  /** Filters that are always shown, and so need no place among the active ones. */
+  alwaysShownIds: string[];
   defaultActiveFilterIds: string[];
+  /** What the normal filters hold when the store is created: where the state starts, not what it resets to. */
+  initialValues: Record<string, string>;
   defaultAdvancedCombinator: FilterCombinator;
   sanitizedDefaultAdvancedRules: AdvancedFilterRule[];
 };
@@ -36,8 +40,10 @@ export const useFilterBuilderStoreState = <T>({
   data,
   resetOnDataChange,
   debounceMs,
+  alwaysShownIds,
   defaultActiveFilterIds,
   defaultAdvancedCombinator,
+  initialValues,
   sanitizedDefaultAdvancedRules,
 }: UseFilterBuilderStoreStateOptions<T>) => {
   const storeKey = resetOnDataChange ? data : STABLE_STORE_KEY;
@@ -53,8 +59,10 @@ export const useFilterBuilderStoreState = <T>({
   const { store, actions } = useMemo(
     () =>
       createFilterBuilderStore(
-        createResetState(
+        createInitialState(
           defaultActiveFilterIds,
+          initialValues,
+          alwaysShownIds,
           sanitizedDefaultAdvancedRules,
           defaultAdvancedCombinator,
         ),

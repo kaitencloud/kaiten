@@ -28,6 +28,7 @@ const GROUP_ICONS: Record<ScopeGroupId, LucideIcon> = {
   licensing: dataModelIcons.license,
   featureFlags: dataModelIcons.featureFlag,
   releases: dataModelIcons.release,
+  billing: dataModelIcons.billing,
   organization: Building2,
 };
 

@@ -11,9 +11,13 @@ const INITIAL_UI_STATE: FilterToolbarUiState = {
   openNormalFilterId: null,
 };
 
-const useFilterToolbarUiStore = () => {
+const useFilterToolbarUiStore = (startsWithFilterRow: boolean) => {
   const [uiStore] = useState(
-    () => new Store<FilterToolbarUiState>({ ...INITIAL_UI_STATE }),
+    () =>
+      new Store<FilterToolbarUiState>({
+        ...INITIAL_UI_STATE,
+        isFilterRowVisible: startsWithFilterRow,
+      }),
   );
   const uiState = useStore(uiStore, (snapshot) => snapshot);
 
@@ -198,6 +202,15 @@ export function useFilterToolbarUiState<T>(
   controller: UseFilterBuilderResult<T>,
   showAdvancedOption: boolean,
 ) {
+  const activeNormalCount = controller.normal.activeFilterIds.length;
+  // A screen opened with a value in a filter (a link that narrows its list) shows
+  // the chips from the start, so that nothing narrows the list out of sight. The
+  // filters it opens with and leaves empty stay behind the Filter button.
+  const startsWithFilterRow =
+    activeNormalCount > 0 &&
+    Object.values(controller.normal.values).some(
+      (value) => value.trim() !== '',
+    );
   const {
     uiState,
     uiStore,
@@ -205,8 +218,7 @@ export function useFilterToolbarUiState<T>(
     setAdvancedOpen,
     setFilterMenuOpen,
     setOpenNormalFilterId,
-  } = useFilterToolbarUiStore();
-  const activeNormalCount = controller.normal.activeFilterIds.length;
+  } = useFilterToolbarUiStore(startsWithFilterRow);
   const activeAdvancedCount = controller.advanced.ruleCount;
   const activeFilterCount = activeNormalCount + activeAdvancedCount;
   const hasAvailableNormalFilters =

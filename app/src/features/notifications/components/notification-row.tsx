@@ -92,7 +92,7 @@ function NotificationRowDesktop({
         <p className="text-xs text-muted-foreground">
           {formatRelativeTimeToNow(notification.createdAt, locale)}
         </p>
-        <p className="font-mono text-[11px] text-muted-foreground/70">
+        <p className="font-mono text-[11px] text-muted-foreground">
           {formatTimeOfDay(notification.createdAt, locale)}
         </p>
       </div>

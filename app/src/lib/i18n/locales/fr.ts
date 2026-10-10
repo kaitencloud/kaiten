@@ -375,10 +375,80 @@ export default {
             name: 'Nom',
             externalId: 'ID externe',
             domain: 'Domaine',
+            billingEmail: 'E-mail de facturation',
             createdAt: 'Créé le',
             updatedAt: 'Mis à jour le',
           },
           by: 'par',
+          billingEmailNone: 'Non renseigné',
+        },
+        paymentMethod: {
+          title: 'Moyen de paiement',
+          description:
+            'La carte que Stripe prélève pour les contrats de ce client qui encaissent automatiquement. Kaiten en garde la marque, les quatre derniers chiffres et l’expiration, jamais le numéro.',
+          loading: 'Chargement du moyen de paiement',
+          add: 'Ajouter un moyen de paiement',
+          replace: 'Remplacer',
+          portal: 'Gérer dans Stripe',
+          remove: 'Retirer',
+          openInStripe: 'Ouvrir le client dans Stripe',
+          setupFailed:
+            'Le moyen de paiement n’a pas été enregistré. Si le client a terminé sur la page de Stripe, vérifiez à nouveau ; sinon, recommencez avec le bouton ci-dessus.',
+          checkAgain: 'Vérifier à nouveau',
+          None: {
+            title: 'Aucun moyen de paiement enregistré',
+            description:
+              'Sans lui, aucun contrat de ce client ne peut être prélevé automatiquement. Un contrat qui envoie la facture n’en a pas besoin.',
+          },
+          Card: {
+            brandAndLast4: '{{brand}} se terminant par {{last4}}',
+            last4Only: 'Carte se terminant par {{last4}}',
+            expires: 'Expire le {{month}}/{{year}}',
+          },
+          Status: {
+            active: 'Active',
+            expiresSoon: 'Expire bientôt',
+            expired: 'Expirée',
+            failed: 'Dernier prélèvement refusé',
+          },
+          Unusable: {
+            expired:
+              'Cette carte a expiré. Stripe ne peut pas la prélever : enregistrez-en une autre.',
+            failed:
+              'Un prélèvement a indiqué que cette carte ne peut plus servir. Enregistrez-en une autre.',
+          },
+          Currency: {
+            title: 'Devise du moyen de paiement',
+            description:
+              'Ce client n’a aucun abonnement en cours dont reprendre la devise : indiquez la devise dans laquelle le moyen de paiement est configuré.',
+            label: 'Devise',
+            hint: 'Le moyen de paiement est configuré dans cette devise, et prélevé pour les contrats facturés dans celle-ci.',
+            placeholder: 'Choisissez une devise',
+            search: 'Rechercher une devise',
+            confirm: 'Continuer vers Stripe',
+            Errors: {
+              currency: 'Choisissez l’une des devises de la liste',
+            },
+          },
+          Remove: {
+            title: 'Retirer le moyen de paiement ?',
+            description:
+              'Stripe ne pourra plus prélever ce client. Un contrat qui envoie la facture n’est pas concerné.',
+            confirm: 'Retirer',
+            inUse:
+              'Passez les contrats de ce client qui sont prélevés automatiquement à l’envoi de la facture, dans l’onglet Facturation de leur instance, puis retirez le moyen de paiement.',
+          },
+          Toasts: {
+            saved: 'Moyen de paiement enregistré',
+            removed: 'Moyen de paiement retiré',
+          },
+        },
+        Billing: {
+          Invoices: {
+            description:
+              'Les factures de toutes les instances de ce client, de la plus récente à la plus ancienne.',
+            empty: 'Aucune instance de ce client n’a encore été facturée.',
+          },
         },
         instances: {
           title: 'Instances',
@@ -389,6 +459,7 @@ export default {
             license: 'Licence',
             type: 'Type',
             status: 'Statut',
+            billing: 'Facturation',
             lifecycle: 'Cycle de vie',
             start: 'Début',
             end: 'Fin',
@@ -405,12 +476,14 @@ export default {
             customId: 'ID externe',
             domain: 'Domaine',
             slug: 'Slug',
+            billingEmail: 'E-mail de facturation',
           },
           Placeholders: {
             name: 'Acme Inc.',
             customId: 'ID HubSpot',
             domain: 'acme.com',
             slug: 'acme-inc',
+            billingEmail: 'facturation@acme.com',
           },
           Descriptions: {
             name: "L'entreprise ou l'organisation, telle que votre équipe la connaît.",
@@ -421,11 +494,17 @@ export default {
             slug: 'Généré automatiquement — modifiable.',
             slugLocked:
               'Défini à la création du client, il ne peut plus changer.',
+            billingEmail:
+              'L’adresse que portent les factures de ce client, pour votre comptabilité. Facultatif : videz le champ pour la retirer.',
           },
           Errors: {
             name: 'Le nom est requis',
             domain:
               'Le domaine doit être un nom de domaine valide (ex: acme.com)',
+            billingEmail:
+              'Saisissez une adresse e-mail valide, par exemple facturation@acme.com',
+            billingEmailTooLong:
+              'L’adresse e-mail est trop longue (254 caractères au plus)',
           },
           createSuccess: 'Client créé avec succès',
           updateSuccess: 'Client mis à jour avec succès',
@@ -447,6 +526,7 @@ export default {
             crmSync: 'Synchro CRM',
             license: 'Licence',
             status: 'Statut',
+            billing: 'Facturation',
             lifecycleStage: 'Cycle de vie',
             metadata: 'Métadonnées',
             extraMetadata: 'Métadonnées hors schema',
@@ -523,6 +603,9 @@ export default {
             createSuccess: 'Instance créée avec succès',
             updateSuccess: 'Instance mise à jour avec succès',
             updateError: "Erreur lors de la mise à jour de l'instance",
+            Frozen: {
+              openSubscription: 'Ouvrir l’abonnement',
+            },
           },
         },
         Deployment: {
@@ -543,9 +626,610 @@ export default {
         },
         Detail: {
           editName: 'Modifier le nom',
+          Billing: {
+            loading: 'Chargement de la facturation',
+            NotSubscribed: {
+              title: 'Non abonnée',
+              description:
+                'Aucun abonnement ne facture encore cette instance. Souscrivez-la à un prix de sa licence pour commencer à facturer.',
+            },
+            Subscribe: {
+              title: 'Souscrire',
+              open: 'Souscrire',
+              dialogTitle: 'Souscrire un abonnement pour {{name}}',
+              description:
+                'Rattachez cette instance à un prix de sa licence et commencez à la facturer. Les factures sont enregistrées ici puis transmises à votre propre système.',
+              confirm: 'Souscrire',
+              provider: 'Fournisseur de paiement',
+              providerHint:
+                'Les factures sont enregistrées ici puis transmises à votre ERP. Rien n’est encaissé auprès du client.',
+              basePrice: 'Prix de base',
+              basePriceHint:
+                'Le forfait auquel cet abonnement est rattaché. Seuls les forfaits actifs de la version de licence sont proposés.',
+              priceOption: '{{label}} · {{price}} · {{timing}}',
+              daysUntilDue: 'Délai de paiement (jours)',
+              daysUntilDueHint:
+                'Nombre de jours entre l’émission d’une facture et son échéance. Laissez vide pour appliquer le délai de votre organisation.',
+              daysUntilDuePlaceholder: 'Défaut de l’organisation : {{days}}',
+              daysUntilDuePlaceholderUnknown: 'Défaut de l’organisation',
+              trialDays: 'Essai (jours)',
+              trialDaysHint:
+                'Rien n’est facturé pendant l’essai, et son usage n’est jamais facturé. La première facture est émise à sa fin ; 0 démarre la facturation tout de suite. La licence peut porter un défaut.',
+              trialDaysArrears:
+                'Un essai n’est pas proposé sur une offre facturée à terme échu : l’abonnement démarre sans essai.',
+              startAt: 'Début de la facturation (UTC)',
+              startAtHint:
+                'Laissez vide pour démarrer maintenant. Un contrat commencé plus tôt peut démarrer jusqu’à une période de facturation en arrière, jamais dans le futur.',
+              licenseNotPublished:
+                'Cette instance utilise {{name}} v{{version}} ({{state}}). Seule une version de licence publiée peut faire l’objet d’un abonnement.',
+              licenseNotPublishedDialog:
+                '{{name}} v{{version}} n’est pas publiée, et seule une version de licence publiée peut faire l’objet d’un abonnement. Passez d’abord l’instance sur une version publiée.',
+              noBasePrice:
+                '{{name}} v{{version}} n’a aucun forfait actif auquel souscrire. Ajoutez-en un sur la licence d’abord.',
+              Summary: {
+                trial:
+                  'Aucune facture maintenant. La première facture est émise à la fin de l’essai, le {{date}}.',
+                now: 'La première facture est émise dès le démarrage de l’abonnement.',
+                arrears:
+                  'Rien n’est facturé avant la clôture de la première période : la première facture est émise le {{date}}.',
+                arrearsDue:
+                  'La première période s’est déjà close le {{date}} : sa facture est émise peu après le démarrage de l’abonnement.',
+              },
+              Started: {
+                title: 'Abonnement démarré',
+                trial:
+                  'L’essai dure jusqu’au {{date}}, et la première facture est émise alors.',
+                period: 'Période en cours :',
+                activation: 'Facture d’activation :',
+                viewInvoice: 'Voir la facture',
+                noActivation:
+                  'Rien n’est encore facturé : la première facture est émise le {{date}}.',
+              },
+              Addons: {
+                title: 'Add-ons',
+                description:
+                  'Facultatif. Elles sont attachées au démarrage de l’abonnement et facturées dès sa première facture. Si l’une ne peut pas l’être, l’abonnement ne démarre pas.',
+                maxQuantity_one: 'Jusqu’à {{count}} unité',
+                maxQuantity_other: 'Jusqu’à {{count}} unités',
+              },
+              BillingEmail: {
+                title: '{{customer}} n’a pas d’e-mail de facturation',
+                description:
+                  'Les factures portent cette adresse pour votre comptabilité. Renseignez-la maintenant, ou plus tard depuis la page du client.',
+                label: 'E-mail de facturation',
+                placeholder: 'facturation@exemple.fr',
+                save: 'Enregistrer l’e-mail',
+                saved: 'E-mail de facturation enregistré',
+              },
+              Errors: {
+                addOns:
+                  'Saisissez un nombre entier d’unités pour chaque add-on, dans la limite qu’il autorise',
+                basePrice: 'Choisissez un prix de base',
+                daysUntilDue: 'Saisissez un nombre entier de jours, de 0 à 365',
+                trialDays: 'Saisissez un nombre entier de jours, de 0 à 365',
+                startAt: 'Saisissez une date et une heure valides',
+                startAtFuture:
+                  'La facturation ne peut pas démarrer dans le futur',
+                startAtTooEarly:
+                  'La facturation ne peut pas démarrer plus d’une période de facturation en arrière',
+              },
+              Voucher: {
+                label: 'Code promo',
+                placeholder: 'Collez le code',
+                hint: 'Facultatif. Le code est utilisé avec l’abonnement ; s’il ne peut pas l’être, l’abonnement n’est pas démarré. Vous pouvez le vérifier avant, pour le prix choisi.',
+                check: 'Vérifier le code',
+                validNote:
+                  'Il peut être utilisé avec cet abonnement, sur le prix choisi. L’abonnement le vérifie de nouveau quand il démarre.',
+              },
+            },
+            Subscription: {
+              title: 'Abonnement',
+              description: 'La façon dont cette instance est facturée.',
+              descriptionEnded:
+                'Cet abonnement est terminé. Souscrivez à nouveau pour reprendre la facturation de l’instance.',
+              fields: {
+                status: 'Statut',
+                pastDueSince: 'En retard depuis',
+                provider: 'Fournisseur',
+                collection: 'Encaissement',
+                terms: 'Délai de paiement',
+                basePrice: 'Prix de base',
+                currentPeriod: 'Période en cours',
+                canceledAt: 'Annulé le',
+                cancellationReason: 'Motif',
+                nextBoundary: 'Prochaine échéance',
+                endsAt: 'Se termine le',
+                trialEndsAt: 'Fin de l’essai',
+                firstInvoice: 'Première facture',
+                startedAt: 'Démarré le',
+              },
+              collectionMethod: {
+                CHARGE_AUTOMATICALLY: 'Prélevé automatiquement',
+                SEND_INVOICE: 'Facture envoyée au client',
+              },
+              termsSource: {
+                contract: 'Ce contrat',
+                organization: 'Défaut de l’organisation',
+              },
+              daysUntilDue_one: 'Payable sous {{count}} jour',
+              daysUntilDue_other: 'Payable sous {{count}} jours',
+              priceLine: '{{price}} · {{timing}}',
+              nextBoundaryHint:
+                'La période se termine alors et sa facture est composée.',
+              endsAtHint:
+                'L’abonnement prend fin alors, après sa facture finale.',
+            },
+            Upcoming: {
+              title: 'Prochaine facture',
+              description:
+                'Ce que la prochaine échéance émettra, composé d’après l’usage à ce jour. Rien n’est enregistré ni facturé.',
+              loading: 'Chargement de la prochaine facture',
+              view: 'Voir les lignes',
+              kind: 'Type',
+              issuedAt: 'Émise le',
+              period: 'Période de service',
+              lines: 'Lignes',
+              lineCount_one: '{{count}} ligne',
+              lineCount_other: '{{count}} lignes',
+              total: 'Total',
+              asOf: 'Composée {{date}} d’après l’usage à ce jour.',
+              dialogTitle: 'Prochaine facture',
+              dialogDescription:
+                'La facture que la prochaine échéance émettrait. C’est un aperçu : rien n’est enregistré, envoyé ni facturé.',
+              WouldHold: {
+                title: 'Cette facture serait bloquée',
+                description:
+                  'Le journal d’usage de ces compteurs échoue à un contrôle, et la facturation n’émet pas une facture dont elle ne peut pas répondre :',
+                item: '{{entitlement}} : {{reason}}.',
+                unknownEntitlement: 'Un droit',
+                history: 'Voir son historique d’usage',
+              },
+            },
+            Invoices: {
+              description:
+                'Toutes les factures de cette instance, sur l’ensemble des périodes où elle a été abonnée, de la plus récente à la plus ancienne.',
+              empty: 'Aucune facture n’a encore été émise pour cette instance.',
+            },
+            Reactivate: {
+              action: 'Réactiver',
+              success: 'L’annulation a été retirée',
+              subscribeAgain: 'Souscrire de nouveau',
+            },
+            Notices: {
+              Trial: {
+                title: 'Essai jusqu’au {{date}}',
+                description_one:
+                  'Il reste {{count}} jour. Rien n’est facturé pendant l’essai, et son usage n’est jamais facturé.',
+                description_other:
+                  'Il reste {{count}} jours. Rien n’est facturé pendant l’essai, et son usage n’est jamais facturé.',
+                firstInvoice: 'La première facture est émise le {{date}}.',
+              },
+              PastDue: {
+                title_one:
+                  'En retard de paiement depuis le {{date}} ({{count}} jour)',
+                title_other:
+                  'En retard de paiement depuis le {{date}} ({{count}} jours)',
+                titleUnknown: 'En retard de paiement',
+                invoice:
+                  'La facture de type {{kind}} pour {{period}} est impayée depuis son échéance du {{due}}.',
+                invoiceUnknown:
+                  'Une facture de cet abonnement est impayée après son échéance.',
+                viewInvoice: 'Voir la facture',
+                accessUnchanged:
+                  'L’accès est inchangé : Kaiten ne restreint pas un client qui a une facture impayée dans cette version.',
+              },
+              Cancellation: {
+                title: 'Prend fin le {{date}}',
+                description:
+                  'La période est payée, rien ne change donc d’ici là. À cette échéance, une facture finale facture ce qui a été utilisé à terme échu, éventuellement rien, et l’abonnement s’arrête. Vous pouvez retirer l’annulation jusque-là.',
+                reason: 'Motif : {{reason}}',
+              },
+              ScheduledChange: {
+                title: 'Passe à {{plan}} ({{amount}}) le {{date}}',
+                description:
+                  'Rien n’est proratisé : la facture de ce jour facture ce que l’offre actuelle doit à terme échu et la première période de la nouvelle offre à terme à échoir.',
+              },
+            },
+            Cancel: {
+              title: 'Annuler',
+              open: 'Annuler l’abonnement',
+              dialogTitle: 'Annuler l’abonnement de {{name}}',
+              dialogDescription:
+                'Met fin à la facturation de cette instance. Rien d’autre ne change, sauf si vous le choisissez ci-dessous.',
+              confirm: 'Annuler l’abonnement',
+              confirmTrial: 'Terminer l’essai',
+              keep: 'Garder l’abonnement',
+              keepTrial: 'Garder l’essai',
+              notSubscribed: 'Cette instance n’a pas d’abonnement à annuler.',
+              alreadyCanceled: 'Cet abonnement est déjà annulé.',
+              Fields: {
+                mode: 'Quand',
+                reason: 'Motif',
+                reasonPlaceholder:
+                  'Pourquoi l’abonnement prend-il fin ? (facultatif)',
+                reasonCounter: '{{count}}/{{max}} caractères',
+              },
+              Mode: {
+                AT_PERIOD_END: 'À la fin de la période : {{date}}',
+                IMMEDIATE: 'Immédiatement',
+              },
+              Explain: {
+                scheduled: {
+                  title: 'L’abonnement prend fin le {{date}}',
+                  already:
+                    'Il est déjà programmé pour se terminer à cette date : confirmer de nouveau ne change rien. Choisissez Immédiatement pour y mettre fin maintenant.',
+                  paid: 'La période est payée : l’accès et les droits ne changent pas avant le {{date}}.',
+                  invoice:
+                    'À cette échéance, une facture finale facture ce qui a été utilisé à terme échu, éventuellement rien, et aucune nouvelle période ne commence.',
+                  undo: 'Vous pouvez réactiver l’abonnement depuis l’onglet Facturation jusque-là.',
+                },
+                immediate: {
+                  title: 'L’abonnement prend fin maintenant',
+                  invoice:
+                    'Une facture finale est émise maintenant pour l’usage à ce jour. Sans proratisation. Le forfait déjà payé pour cette période n’est pas remboursé.',
+                  arrears:
+                    'Ce qui se facture à terme échu l’est en entier pour la part de la période écoulée.',
+                  final:
+                    'C’est irréversible : pour facturer à nouveau l’instance, souscrivez-la de nouveau.',
+                },
+                planChangeDropped:
+                  'Le changement d’offre prévu le {{date}} est abandonné par cette annulation.',
+                trial: {
+                  title: 'L’essai prend fin maintenant',
+                  nothing:
+                    'Rien n’est facturé : aucune facture n’est émise, et l’usage de l’essai n’est jamais facturé.',
+                },
+              },
+              FollowUps: {
+                title: 'En plus de l’annulation',
+                description:
+                  'Annuler ne change que la facturation. Les add-ons, les utilisations de codes promo et les dates de la licence restent tels quels, et les factures déjà émises restent recouvrables, sauf si vous choisissez autrement ici.',
+                removeAddons: 'Retirer aussi les add-ons',
+                removeAddonsDescription:
+                  'Retire {{addons}} de l’instance maintenant. Leurs droits s’arrêtent aussitôt et rien n’est remboursé.',
+                removeAddonsLoading: 'Lecture des add-ons de cette instance…',
+                removeAddonsNone: 'Cette instance n’a aucun add-on.',
+                removeAddonsUnknown:
+                  'Les add-ons de cette instance n’ont pas pu être lus.',
+                setEndDate: 'Fixer aussi la date de fin de licence',
+                setEndDateDescription:
+                  'La licence de cette instance se termine le {{date}}. Les droits la suivent, pas l’abonnement.',
+                endDate: 'Fin de la licence (UTC)',
+              },
+              Done: {
+                scheduledTitle: 'Annulation programmée',
+                scheduled:
+                  'L’abonnement prend fin le {{date}}. D’ici là rien ne change, et vous pouvez le réactiver depuis l’onglet Facturation.',
+                immediateTitle: 'Abonnement annulé',
+                immediate:
+                  'L’abonnement est terminé et sa facture finale a été émise.',
+                finalInvoice: 'Facture finale :',
+                viewInvoice: 'Voir la facture',
+                noFinalInvoice: 'L’API n’a renvoyé aucune facture finale.',
+                trialTitle: 'Essai terminé',
+                trial: 'L’abonnement est annulé. Rien n’a été facturé.',
+                addonsRemoved: 'Add-ons retirés : {{addons}}.',
+                addonFailed: '{{addon}} n’a pas pu être retiré. {{detail}}',
+                endDateSet: 'La licence se termine maintenant le {{date}}.',
+                endDateFailed:
+                  'La fin de la licence n’a pas pu être fixée. {{detail}}',
+                retryFollowUps: 'Réessayer',
+              },
+              Errors: {
+                reason: 'Le motif fait au plus 500 caractères',
+                endDate: 'Saisissez une date et une heure valides',
+              },
+            },
+            PlanChange: {
+              title: 'Changement d’offre',
+              open: 'Changer d’offre',
+              dialogTitle: 'Changer l’offre de {{name}}',
+              dialogDescription:
+                'Fait passer l’abonnement à une autre offre à la fin de la période en cours.',
+              version: '{{name}} v{{version}}',
+              currentPlan: 'Offre actuelle :',
+              currentPlanValue: '{{price}} · {{amount}}',
+              timeline:
+                'Le changement prend effet le {{date}}, quand la période en cours se termine. La facture de ce jour facture ce que l’offre actuelle doit à terme échu et la première période de la nouvelle offre à terme à échoir. Rien n’est proratisé.',
+              upcoming:
+                'Sans le changement, la prochaine facture serait une facture de type {{kind}} de',
+              upcomingScheduled:
+                'La prochaine facture applique déjà le changement programmé : une facture de type {{kind}} de',
+              noPreview:
+                'Kaiten ne peut pas composer la facture d’un changement qui n’est pas encore programmé : celle-ci est la facture en l’état.',
+              target: 'Nouvelle offre',
+              targetHint:
+                'Les forfaits actifs des versions de licence en vente, dans la devise de l’abonnement.',
+              targetPlaceholder: 'Choisissez une offre',
+              option: '{{version}} · {{price}} · {{amount}} · {{timing}}',
+              optionBlocked: '{{label}} — Devise différente ({{currency}})',
+              noPlan:
+                'Aucune autre offre n’est accessible : aucune autre version de licence publiée n’a de forfait actif.',
+              confirm: 'Programmer le changement',
+              alreadyScheduled:
+                'Un passage à {{plan}} ({{amount}}) est déjà programmé pour le {{date}}. Choisir une autre offre le remplace.',
+              drop: 'Annuler le changement',
+              scheduledToast: 'Le changement d’offre est programmé',
+              droppedToast: 'Le changement d’offre a été annulé',
+              notSubscribed: 'Cette instance n’a pas d’abonnement.',
+              alreadyCanceled:
+                'Cet abonnement est terminé : souscrivez de nouveau l’instance pour choisir une offre.',
+              trial:
+                'Une offre ne peut pas changer pendant un essai. Annulez l’essai et souscrivez de nouveau l’instance avec la nouvelle offre.',
+              cancellationScheduled:
+                'Une annulation est programmée pour la fin de la période. Réactivez d’abord l’abonnement pour changer son offre.',
+              Errors: {
+                target: 'Choisissez une offre',
+              },
+            },
+            Terms: {
+              title: 'Conditions de paiement',
+              open: 'Conditions de paiement',
+              dialogTitle: 'Conditions de paiement de {{name}}',
+              dialogDescription:
+                'Le nombre de jours entre l’émission d’une facture et son échéance, pour ce contrat.',
+              currentContract_one:
+                'Les factures sont payables sous {{count}} jour (conditions de ce contrat).',
+              currentContract_other:
+                'Les factures sont payables sous {{count}} jours (conditions de ce contrat).',
+              currentOrganization_one:
+                'Les factures sont payables sous {{count}} jour (défaut de votre organisation).',
+              currentOrganization_other:
+                'Les factures sont payables sous {{count}} jours (défaut de votre organisation).',
+              daysUntilDue: 'Délai de paiement (jours)',
+              daysUntilDueHint:
+                'De 0 à 365 jours. Laissez vide pour appliquer le délai de votre organisation.',
+              placeholder: 'Défaut de l’organisation : {{days}}',
+              placeholderUnknown: 'Défaut de l’organisation',
+              nextInvoice:
+                'Le changement prend effet à la prochaine facture. Les factures déjà émises gardent leur propre échéance.',
+              save: 'Enregistrer',
+              useDefault: 'Appliquer le défaut de l’organisation',
+              notSubscribed: 'Cette instance n’a pas d’abonnement.',
+              alreadyCanceled:
+                'Cet abonnement est terminé : il n’a pas de conditions à changer.',
+              openWithProvider: 'Fournisseur et conditions',
+              dialogTitleWithProvider: 'Fournisseur et conditions de {{name}}',
+              dialogDescriptionWithProvider:
+                'Qui encaisse les factures de ce contrat et comment, et les jours entre l’émission d’une facture et son échéance.',
+              Provider: {
+                label: 'Encaissé par',
+                description:
+                  'Qui émet et encaisse les factures, à partir de la prochaine. Les factures déjà composées gardent leur propre fournisseur.',
+                NOOP: 'Transmission manuelle',
+                STRIPE: 'Stripe',
+                STRIPE_notConnected: 'Stripe (non connecté)',
+                notConnected:
+                  'Stripe n’est pas encore connecté pour votre organisation : connectez-le pour encaisser les factures de ce contrat par son intermédiaire.',
+                connect: 'Connecter Stripe',
+              },
+              Collection: {
+                label: 'Mode d’encaissement',
+                description:
+                  'Envoyer la facture laisse le client la payer. Prélever automatiquement utilise le moyen de paiement que le client a enregistré dans Stripe.',
+                SEND_INVOICE: 'Envoyer la facture',
+                CHARGE_AUTOMATICALLY: 'Prélever automatiquement',
+                unavailable: '{{method}} (nécessite Stripe)',
+              },
+              Warnings: {
+                customer: 'Ouvrir le client',
+                billingEmail:
+                  'Ce client n’a pas d’e-mail de facturation, et Stripe y envoie les factures.',
+                paymentMethod:
+                  'Ce client n’a aucun moyen de paiement que Stripe puisse prélever.',
+                fromNextInvoice:
+                  'Le changement prend effet à partir de la prochaine facture ; les factures déjà émises gardent leur fournisseur.',
+              },
+              Switch: {
+                title: 'Factures encore ouvertes',
+                description:
+                  'Chaque facture garde son propre fournisseur, mode d’encaissement et conditions. Voici ce qui arrive à chacune.',
+                empty: 'Ce contrat n’a aucune facture ouverte.',
+                Fate: {
+                  manual:
+                    'Prête à facturer : elle ne se règle qu’en la marquant payée ou en la passant en perte, et elle compte toujours pour un retard de paiement.',
+                  held: 'Bloquée : la débloquer l’émet avec le fournisseur pour lequel elle a été composée, et la recomposer utilise le nouveau fournisseur.',
+                  queued:
+                    'Elle continue d’être envoyée à Stripe tant que Stripe reste connecté.',
+                  review:
+                    'Elle attend dans Stripe d’être finalisée, ou un envoi depuis ici.',
+                  collected:
+                    'Stripe l’encaisse et Kaiten la reflète. Stripe ne peut pas être déconnecté tant qu’elle est ouverte.',
+                  other: 'Elle garde son propre fournisseur et ses conditions.',
+                },
+                Move: {
+                  choose:
+                    'La débloquer pour garder son fournisseur, ou la recomposer pour la déplacer : choisissez délibérément.',
+                  voidAndRecompose:
+                    'Pour la déplacer : l’annuler, puis la recomposer.',
+                  voidDeletesDraft:
+                    'Pour la déplacer : l’annuler, ce qui supprime le brouillon dans Stripe, puis la recomposer.',
+                  voidInBoth:
+                    'Pour la déplacer : l’annuler dans les deux systèmes, puis la recomposer. À ne faire que si le client doit cesser de payer par Stripe.',
+                },
+              },
+              Toasts: {
+                saved: 'Les conditions de paiement sont enregistrées',
+                reset:
+                  'Les conditions de votre organisation s’appliquent de nouveau',
+              },
+              Errors: {
+                daysUntilDue: 'Saisissez un nombre entier de jours, de 0 à 365',
+              },
+            },
+            Addons: {
+              title: 'Add-ons',
+              description:
+                'Des droits supplémentaires que cette instance détient en plus de sa licence, facturés avec son abonnement.',
+              loading: 'Chargement des add-ons',
+              attach: 'Ajouter un add-on',
+              note: 'Le droit change tout de suite ; facturé dès le prochain renouvellement ; ni proratisation ni remboursement.',
+              notLive:
+                'Des add-ons peuvent être ajoutés tant que l’abonnement est actif. Avant cela, ajoutez-les en abonnant l’instance.',
+              Empty: {
+                title: 'Aucun add-on',
+                description:
+                  'Cette instance ne détient aucun add-on. Ajoutez-en un pour relever ses limites ou activer une fonctionnalité.',
+              },
+              Table: {
+                Columns: {
+                  addon: 'Add-on',
+                  quantity: 'Quantité',
+                  price: 'Prix à l’unité',
+                  since: 'Depuis',
+                },
+                free: 'Gratuit',
+                onRequest: 'Sur demande',
+                notBilled: 'Non facturée',
+                withdrawn: 'Retirée de la vente',
+                withdrawnHint:
+                  'Cette version a été retirée de la vente. L’instance la garde jusqu’à ce qu’on la retire.',
+              },
+              Quantity: {
+                group: 'Quantité de {{name}}',
+                decrease: 'Une unité de moins de {{name}}',
+                increase: 'Une unité de plus de {{name}}',
+              },
+              Remove: {
+                action: 'Retirer',
+                aria: 'Retirer {{name}}',
+                title: 'Retirer {{name}} de cette instance ?',
+                description: 'Ses droits prennent fin tout de suite.',
+                refund:
+                  'La période en cours n’est pas remboursée, et l’add-on n’est plus facturé à partir de la prochaine facture.',
+                arrears:
+                  'Cet add-on est facturé à terme échu : la période en cours reste facturée en entier, à la dernière quantité détenue, sur la prochaine facture. Rien n’est remboursé.',
+                confirm: 'Retirer',
+              },
+              Toasts: {
+                attached: '{{name}} ajoutée (× {{quantity}})',
+                quantity: '{{name}} : désormais × {{quantity}}',
+                removed: '{{name}} retirée',
+              },
+              Effect: {
+                change: '{{entitlement}} : {{before}} → {{after}}',
+                configured: 'Configuré',
+                none: 'Non accordé',
+              },
+              Unread: {
+                all: 'Les add-ons n’ont pas pu être lus, aucun n’est donc proposé.',
+                partial:
+                  'Certains add-ons n’ont pas pu être comparés à la licence de cette instance, ils ne sont donc pas listés.',
+              },
+              Attach: {
+                title: 'Ajouter un add-on',
+                dialogTitle: 'Ajouter un add-on à {{name}}',
+                description:
+                  'Attachez un add-on à cette instance. Ses droits s’appliquent tout de suite.',
+                addon: 'Add-on',
+                addonHint:
+                  'Les add-ons en vente qui conviennent à la licence de cette instance.',
+                addonPlaceholder: 'Choisissez un add-on',
+                quantity: 'Quantité',
+                quantityHint: 'Au moins 1.',
+                quantityHintMax: 'De 1 à {{max}}.',
+                confirm: 'Ajouter l’add-on',
+                none: 'Aucun add-on ne peut être ajouté : aucun de ceux en vente ne convient à la licence de cette instance, ou elle en détient déjà une version de chacun.',
+                notLive:
+                  'Des add-ons ne peuvent être ajoutés que tant que l’abonnement est actif : en essai, actif ou en retard de paiement.',
+                Price: {
+                  perUnit: 'l’unité, facturé dès le prochain renouvellement.',
+                  free: 'Gratuit : rien n’est facturé pour lui.',
+                  custom:
+                    'Vendue sur demande : aucun prix n’est fixé, donc rien n’est facturé ici pour elle.',
+                  none: 'Cet add-on n’a pas de prix par défaut pour la période de facturation de l’abonnement ({{period}}), et l’API le refusera.',
+                  loading: 'Lecture de son prix…',
+                  unknown: 'Son prix n’a pas pu être lu.',
+                },
+                Errors: {
+                  addon: 'Choisissez un add-on',
+                  quantity: 'Saisissez un nombre entier d’unités, au moins 1',
+                  quantityMax: 'Cet add-on autorise moins d’unités',
+                },
+              },
+            },
+            Vouchers: {
+              apply: 'Appliquer un code',
+              description:
+                'Les codes promo que cette instance a utilisés. Un bonus de droits modifie ses limites tant qu’il dure ; une remise réduit les factures qui lui sont émises.',
+              empty:
+                'Cette instance n’a utilisé aucun code promo. Appliquez-en un pour lui donner un bonus de droits ou une remise.',
+              Redeem: {
+                breadcrumb: 'Appliquer un code',
+                title: 'Appliquer un code à {{name}}',
+                description:
+                  'Le code est d’abord vérifié : rien n’est utilisé tant que vous ne confirmez pas.',
+                doneTitle: 'Code appliqué à {{name}}',
+                doneDescription:
+                  'Ce qui suit est lu sur l’instance avant et après l’utilisation.',
+                code: 'Code promo',
+                codePlaceholder: 'Collez le code',
+                codeHint:
+                  'Lettres et chiffres ; la casse et les tirets n’ont pas d’importance.',
+                check: 'Vérifier le code',
+                confirm: 'Utiliser le code',
+                validTitle: '{{name}} peut être utilisé',
+                validNote:
+                  '{{instance}} remplit toutes les conditions de ce code promo. L’utiliser l’applique tout de suite ; seule une révocation l’annule.',
+                invalidTitle: 'Ce code ne peut pas être utilisé',
+                Errors: {
+                  code: 'Saisissez le code',
+                  codeTooLong: 'Un code compte 64 caractères au plus',
+                },
+              },
+              Reasons: {
+                NOT_FOUND: 'Ce code promo n’existe pas.',
+                NOT_ACTIVE:
+                  'Ce code promo n’est pas actif : c’est un brouillon ou il a été archivé.',
+                NOT_YET_VALID:
+                  'Ce code promo ne peut pas encore être utilisé : sa période n’a pas commencé.',
+                EXPIRED: 'Ce code promo a expiré.',
+                EXHAUSTED:
+                  'Ce code promo a été utilisé autant de fois qu’il le permet.',
+                ALREADY_REDEEMED:
+                  'Cette instance a déjà utilisé ce code promo.',
+                NOT_ELIGIBLE:
+                  'Cette instance n’est pas éligible à ce code promo.',
+                CURRENCY_MISMATCH:
+                  'Cette remise est dans une autre devise que celle de l’abonnement.',
+              },
+              Rules: {
+                RESTRICTED_CUSTOMER:
+                  'Ce code promo est réservé à un autre client.',
+                LICENSE_NOT_APPLICABLE:
+                  'Ce code promo ne s’applique pas à la licence de cette instance.',
+                ADDON_NOT_APPLICABLE:
+                  'Ce code promo exige un add-on que cette instance ne détient pas.',
+                FIRST_TIME_ONLY:
+                  'Ce code promo est destiné aux clients qui n’ont encore payé aucune facture.',
+                ANNUAL_ONLY: 'Ce code promo exige un abonnement annuel.',
+                MINIMUM_SUBSCRIPTION_AMOUNT:
+                  'L’abonnement est en dessous du montant minimum que ce code promo exige.',
+                NOTHING_TO_BOOST:
+                  'Ce bonus ne modifie rien de ce que détient l’instance : aucun des droits qu’il vise n’est un nombre que l’instance possède.',
+              },
+              Outcome: {
+                voucher: 'Code promo',
+                status: 'Statut',
+                until: 'S’applique jusqu’au',
+                applications: 'Remise sur',
+                invoices_one: 'La prochaine facture',
+                invoices_other: 'Les {{count}} prochaines factures',
+                everyInvoice: 'Toutes les factures',
+                changes: 'Ce qui a changé',
+                nextInvoice: 'La prochaine facture',
+                before: 'Avant',
+                after: 'Après',
+                discount: 'Remise',
+                discountNote:
+                  'La remise apparaîtra sur la prochaine facture émise pour cette instance.',
+              },
+            },
+          },
           tabs: {
             overview: 'Overview',
             entitlements: 'Entitlements & Usage',
+            billing: 'Facturation',
             auditTrail: 'Journal d’audit',
           },
           status: {
@@ -663,6 +1347,27 @@ export default {
                 'Vue visuelle de la consommation des droits pour cette instance',
               currentWindow: 'Fenêtre courante : {{start}} → {{end}}',
             },
+            provenance: {
+              title: 'Comment cette limite est composée',
+              trigger:
+                '{{limit}} : comment la limite de {{entitlement}} est composée',
+              fromAddons: 'via les add-ons',
+              unlimitedBy: 'Illimité, accordé par {{sources}}',
+              grantedBy: {
+                license: 'la licence',
+                addon: 'un add-on',
+                voucher: 'un code promo',
+              },
+              terms: {
+                license: '{{amount}} licence',
+                addon: '{{amount}} add-on',
+                addonReplace: '{{amount}} add-on (remplace la licence)',
+                highest: 'max({{terms}})',
+                voucher: '{{amount}} code promo',
+                voucherSet:
+                  '{{amount}} code promo (remplace la licence et les add-ons)',
+              },
+            },
             table: {
               title: 'Tous les droits',
               description:
@@ -674,12 +1379,40 @@ export default {
                 threshold: 'Seuil',
                 currentPeriod: 'Fenêtre courante',
                 status: 'Statut',
+                history: 'Historique',
               },
             },
             status: {
               enabled: 'Activé',
               disabled: 'Désactivé',
               unknown: 'Inconnu',
+            },
+            history: {
+              open: 'Historique',
+              openLabel: 'Historique d’usage de {{entitlement}}',
+              title: 'Historique d’usage',
+              description:
+                '{{entitlement}} sur {{instance}} : tous les rapports acceptés pour ce compteur, dans l’ordre où ils l’ont été.',
+              region: 'Rapports d’usage de {{entitlement}}',
+              loading: 'Chargement de l’historique d’usage',
+              period: 'Période (UTC)',
+              defaultPeriod:
+                'Sans période, les 30 derniers jours sont affichés, dans la limite de ce que votre organisation conserve.',
+              export: 'Exporter en CSV',
+              exportTooLong:
+                'Un CSV couvre 366 jours au plus : réduisez la période pour l’exporter.',
+              Empty: {
+                title: 'Aucun rapport d’usage',
+                description:
+                  'Aucun rapport n’a été accepté pendant cette période.',
+              },
+              loadMore: 'Charger plus de rapports',
+              OutsideRetention: {
+                title_one: 'Au-delà de votre rétention de {{count}} mois',
+                title_other: 'Au-delà de votre rétention de {{count}} mois',
+                titleUnknown: 'Au-delà de ce que votre organisation conserve',
+                showFrom: 'Afficher à partir du {{date}}',
+              },
             },
           },
           auditTrail: {
@@ -824,9 +1557,265 @@ export default {
         },
       },
     },
+    Catalog: {
+      title: 'Catalogue',
+    },
     Licenses: {
       title: 'Licences',
       subtitle: 'Gérez les licences et les limites de droits',
+      Public: {
+        label: 'Catalogue public',
+        switchLabel: 'Lister {{name}} dans le catalogue public',
+        badge: 'Public',
+        listed: 'La famille est listée dans le catalogue public',
+        unlisted: 'La famille n’est plus listée dans le catalogue public',
+      },
+      Freeze: {
+        billed: {
+          title: 'Cette version est facturée',
+          description:
+            'Un abonnement actif facture cette version : ses droits et ses prix sont gelés, car les modifier changerait un contrat déjà vendu. Créez une nouvelle version pour changer ce qui est vendu. Elle part des droits et des prix de celle-ci, en brouillon modifiable, et les abonnements restent sur cette version jusqu’à ce qu’ils passent à la nouvelle.',
+        },
+        published: {
+          title: 'Les prix d’une version publiée sont immuables',
+          description:
+            'Dépréciez un prix pour le retirer, ou créez une nouvelle version pour changer ce qui est vendu. La nouvelle version part des droits et des prix de celle-ci, en brouillon modifiable.',
+        },
+        archived: {
+          title: 'Cette version n’accepte aucun nouveau prix',
+          description:
+            'Une version retirée de la vente n’accepte aucun nouveau prix. Créez une nouvelle version pour changer ce qui est vendu. Elle part des droits et des prix de celle-ci, en brouillon modifiable.',
+        },
+        createNewVersion: 'Créer une nouvelle version',
+      },
+      PriceCopy: {
+        title: 'La copie des prix s’est arrêtée',
+        description:
+          'Les prix de {{name}} v{{version}} étaient copiés vers cette version, et {{copied}} sur {{total}} sont passés. Le reste peut être copié à partir de là où elle s’est arrêtée. Rien n’a été supprimé, et rien n’a été modifié sur {{name}} v{{version}}.',
+        copiedHeading: 'Copiés',
+        pendingHeading: 'Restent à copier',
+        resume: 'Reprendre la copie',
+        Toasts: {
+          done: 'Prix copiés',
+        },
+      },
+      Commercial: {
+        cardTitle: 'Conditions commerciales',
+        cardDescription: 'Comment cette version est vendue.',
+        dialogTitle: 'Modifier les conditions commerciales',
+        dialogDescription:
+          'Comment {{name}}, version {{version}}, est vendue. Rien d’autre ne change dans la version.',
+        Fields: {
+          pricingType: 'Type de tarification',
+          trial: 'Essai gratuit',
+          paymentMethod: 'Moyen de paiement',
+          ctaUrl: 'URL d’appel à l’action',
+        },
+        PricingTypes: {
+          FREE: 'Gratuit',
+          PAID: 'Payant',
+          CUSTOM: 'Sur mesure',
+        },
+        Values: {
+          noTrial: 'Pas d’essai',
+          trialDays_one: '{{count}} jour',
+          trialDays_other: '{{count}} jours',
+          paymentRequired: 'Saisi à l’inscription',
+          paymentNotRequired: 'Non requis',
+        },
+        Form: {
+          save: 'Enregistrer',
+          Labels: {
+            pricingType: 'Type de tarification',
+            trial: 'Durée de l’essai (jours)',
+            paymentMethod: 'Exiger un moyen de paiement à l’inscription',
+            ctaUrl: 'URL d’appel à l’action',
+          },
+          Descriptions: {
+            pricingType:
+              'Une version gratuite ou payante peut être achetée en libre-service ; une version sur mesure envoie l’acheteur vers l’URL d’appel à l’action ou vers une conversation.',
+            trial:
+              'Un abonnement à cette version démarre avec cet essai. Laissez vide pour aucun essai.',
+            paymentMethod:
+              'L’inscription en libre-service saisit un moyen de paiement avant de s’activer.',
+            ctaUrl:
+              'Où l’acheteur est envoyé quand cette version ne peut pas être achetée en libre-service : une URL http ou https de 2 048 caractères au plus. Laissez vide pour aucune.',
+          },
+          Placeholders: {
+            trial: '14',
+            ctaUrl: 'https://acme.test/contact',
+          },
+          Errors: {
+            trialMin: 'Doit être d’au moins 1',
+            trialWhole: 'Saisissez un nombre entier de jours',
+            urlScheme: 'Saisissez une URL http ou https',
+            urlLength: '2 048 caractères au plus',
+          },
+        },
+        Toasts: {
+          updated: 'Conditions commerciales mises à jour',
+        },
+      },
+      Prices: {
+        title: 'Prix',
+        tabDescription:
+          'Un prix est une chose facturable, et devient une ligne de facture.',
+        defaultBadge: 'Par défaut',
+        deprecatedOn: 'Déprécié le {{date}}',
+        Summary: {
+          empty: 'Aucun prix actif pour l’instant',
+          or: 'ou',
+          overage: '{{price}} au-delà de l’allocation',
+        },
+        Notes: {
+          draft:
+            'Les prix d’un brouillon se modifient. Une fois la version publiée, ils deviennent immuables : dépréciez-en un, ou créez une nouvelle version pour changer ce qui est vendu.',
+          published:
+            'Les prix d’une version publiée sont immuables. Dépréciez un prix pour le retirer, ou créez une nouvelle version pour changer ce qui est vendu. Un prix peut encore être ajouté tant qu’aucun abonnement ne facture cette version.',
+          archived:
+            'Cette version est retirée de la vente. Ses prix sont immuables et elle n’accepte aucun nouveau prix ; les abonnements qui la facturent continuent de l’être.',
+        },
+        Meter: {
+          overage:
+            'Facture au-delà de {{limit}} {{unit}}/{{period}}, jusqu’à {{cap}}',
+          overageUnknown:
+            'Facture l’usage au-delà de l’allocation accordée par la version',
+          usageSum: 'Somme, remis à zéro chaque {{period}}',
+          usageCount: 'Décompte, remis à zéro chaque {{period}}',
+        },
+        Actions: {
+          add: 'Ajouter un prix',
+          edit: 'Modifier',
+          editAria: 'Modifier {{label}}',
+          deprecate: 'Déprécier',
+          deprecateAria: 'Déprécier {{label}}',
+        },
+        Drawer: {
+          titleNew: 'Nouveau prix',
+          titleEdit: 'Modifier le prix',
+          description:
+            '{{name}}, version {{version}}. Un prix devient une ligne de facture.',
+          create: 'Créer le prix',
+          update: 'Enregistrer le prix',
+        },
+        Form: {
+          Labels: {
+            model: 'Forme',
+            timing: 'Moment de facturation',
+            period: 'Période de facturation',
+            currency: 'Devise',
+            label: 'Libellé sur la facture',
+            meter: 'Droit mesuré',
+            amount: 'Montant',
+            amountPer: 'Montant par {{unit}}',
+            isDefault: 'Prix par défaut de cette période',
+          },
+          Descriptions: {
+            modelLocked:
+              'La forme d’un prix ne change plus une fois créé. Dépréciez-le et ajoutez-en un autre pour la changer.',
+            timingLocked:
+              'Un prix mesuré est toujours facturé à terme échu : l’usage ne peut pas être facturé avant d’avoir eu lieu.',
+            period: 'À quelle fréquence le montant est facturé.',
+            currency:
+              'Une version facture dans une seule devise, fixée par son premier prix.',
+            currencyLocked:
+              'Cette version facture en {{currency}}, devise fixée par son premier prix.',
+            label:
+              'Le nom de la ligne sur la facture. Laissé vide, Kaiten en déduit un.',
+            amountFlat:
+              'Facturé une fois par période. Saisissez le montant dans l’unité de la devise (par exemple 49,00).',
+            amountUsage:
+              'Appliqué dès la première unité. Saisissez le montant dans l’unité de la devise (par exemple 0,075).',
+            amountOverage:
+              'Appliqué seulement aux unités au-delà de la limite. Saisissez le montant dans l’unité de la devise (par exemple 0,075).',
+            isDefault:
+              'Le prix que le catalogue et l’aperçu de facture utilisent pour cette période de facturation. Une période n’en a qu’un.',
+          },
+          Placeholders: {
+            amount: '0,00',
+            currency: 'Choisir une devise',
+            currencySearch: 'Rechercher une devise',
+            label: 'Pro, mensuel',
+          },
+          Meter: {
+            none: 'Cette version n’accorde aucun droit qu’un prix puisse mesurer. Accordez un nombre compté ou sommé qui se remet à zéro, puis revenez.',
+            stock:
+              'Un stock : il ne se remet jamais à zéro, il ne peut donc pas être mesuré.',
+            stockHint:
+              'Un stock, comme des sièges ou du stockage, se vend comme un add-on avec une quantité, il ne se mesure pas.',
+            stockHintLink: 'Voir les add-ons',
+            overageUnreachable:
+              'Le dépassement ne peut pas survenir sur cet octroi : sa limite est dure ou illimitée.',
+          },
+          livePreview: 'Se lit {{price}}',
+          Errors: {
+            label: 'Le libellé fait 200 caractères au plus.',
+            currency: 'Choisissez une devise prise en charge par Kaiten.',
+            amount:
+              'Saisissez un montant valide : zéro ou plus, avec au plus 12 décimales au-delà de celles de la devise et 12 chiffres dans sa plus petite unité.',
+            meter: 'Choisissez le droit que ce prix mesure.',
+            period: 'Choisissez la période de facturation.',
+          },
+        },
+        Deprecate: {
+          PlanChangeTarget: {
+            looking: 'Recherche des instances concernées…',
+            instances:
+              'Ces instances sont programmées pour passer à ce prix. Annulez le changement dans l’onglet Facturation de chacune, puis dépréciez le prix :',
+            moves: '({{customer}}, à partir du {{date}})',
+          },
+          title: 'Déprécier « {{label}} » ?',
+          descriptionFlat:
+            'Les abonnements déjà épinglés à ce prix continuent d’être facturés à partir de lui. Il n’est plus proposé aux nouvelles souscriptions, ni comme cible d’un changement de plan. Cette action est irréversible.',
+          descriptionMetered:
+            'Ce prix ne produit plus de ligne à partir de la prochaine facture, et il n’est plus proposé. Ce qu’il a déjà facturé ne change pas. Cette action est irréversible.',
+          defaultNote:
+            'C’est le prix par défaut de sa période : le déprécier retire l’indicateur par défaut dans la même écriture.',
+          confirm: 'Déprécier',
+        },
+        Toasts: {
+          created: 'Prix créé',
+          updated: 'Prix mis à jour',
+          deprecated: 'Prix déprécié',
+        },
+        Preview: {
+          open: 'Aperçu de facture',
+          unavailable:
+            'Ajoutez d’abord un forfait actif : une facture part toujours d’un forfait.',
+          title: 'Aperçu d’une facture',
+          description:
+            'Ce que facturerait, à son prochain renouvellement, un abonnement à {{name}}, version {{version}}. Rien n’est créé.',
+          hint: 'Lancez l’aperçu pour voir la facture.',
+          run: 'Lancer l’aperçu',
+          Labels: {
+            base: 'Prix de base',
+            samples: 'Usage simulé',
+          },
+          Descriptions: {
+            base: 'Le forfait dont part la facture.',
+            samples:
+              'Ce que chaque droit a consommé sur la période qui se termine, dans ses propres unités. Laissez un champ vide pour aucun usage.',
+          },
+          Placeholders: {
+            quantity: '0',
+          },
+          Errors: {
+            quantity:
+              'Saisissez une quantité : zéro ou plus, avec un point pour les décimales.',
+          },
+        },
+        Table: {
+          Columns: {
+            price: 'Prix',
+            shape: 'Forme',
+            meter: 'Mesure',
+            amount: 'Montant',
+            billed: 'Facturation',
+            status: 'Statut',
+          },
+          empty: 'Cette version n’a pas encore de prix.',
+        },
+      },
       Table: {
         Columns: {
           name: 'Nom',
@@ -901,6 +1890,11 @@ export default {
             licenseName: 'Nom de la licence',
             versionName: 'Nom de version',
             baseVersion: 'Version de base (existante)',
+            copyPrices: 'Copier les prix de la version de base',
+          },
+          Descriptions: {
+            copyPrices:
+              "Chaque prix actif de la version de base est ajouté à la nouvelle, dans le même ordre, une fois ses droits en place. Les abonnements restent sur leur version tant que chacun n'est pas programmé vers la nouvelle.",
           },
           Placeholders: {
             selectLicenseName: 'Sélectionner un nom de licence',
@@ -940,6 +1934,14 @@ export default {
             'La version est mise en vente et peut devenir la version par défaut. Une licence sans version par défaut sert sa version publiée la plus récente, qui peut être celle-ci.',
           confirm: 'Publier',
           success: 'Version publiée',
+          Billing: {
+            prices:
+              'Ses prix deviennent immuables : ils ne pourront plus qu’être dépréciés.',
+            grants:
+              'Ses droits sont gelés dès qu’un abonnement facture cette version.',
+            others:
+              'Les abonnements des autres versions ne sont pas touchés, et rien n’est archivé.',
+          },
         },
         archive: {
           label: 'Archiver',
@@ -970,6 +1972,8 @@ export default {
         title: 'Supprimer le brouillon {{name}} v{{version}} ?',
         description:
           "Le brouillon et les droits qu'il accorde sont supprimés. Il n'a jamais été en vente : aucun client ne le perd. Une instance qui l'utilise encore empêche la suppression.",
+        descriptionBilling:
+          "Le brouillon, ses prix et les droits qu'il accorde sont supprimés. Il n'a jamais été en vente : aucun client ne le perd. Une instance qui l'utilise encore empêche la suppression.",
         confirm: 'Supprimer',
         success: 'Brouillon supprimé',
       },
@@ -979,6 +1983,7 @@ export default {
           version: 'Version',
           type: 'Type',
           lifecycleState: 'État',
+          pricingType: 'Tarification',
           default: 'Par défaut',
           instances: 'Instances',
           actions: 'Actions',
@@ -989,6 +1994,9 @@ export default {
           'Seule une version publiée peut devenir la version par défaut',
       },
       Detail: {
+        Tabs: {
+          overview: 'Vue d’ensemble',
+        },
         cardTitle: 'Détails de la licence',
         cardDescription:
           'Nom, type, version. Les droits et limites sont gérés ci-dessous.',
@@ -2243,6 +3251,121 @@ export default {
     },
     Integrations: {
       title: 'Intégrations',
+      PublishableKeys: {
+        title: 'Clés publiables',
+        subtitle:
+          'Les clés avec lesquelles une page web lit votre catalogue public',
+        Intro: {
+          purpose:
+            'Une clé publiable permet à une page web de lire votre catalogue public : elle envoie la clé dans l’en-tête X-Kaiten-Publishable-Key vers GET /public/catalog. Ce n’est pas un secret, et elle ne lit rien d’autre.',
+          listing:
+            'Ce que le catalogue liste est décidé par l’interrupteur « Catalogue public » de chaque famille :',
+          licenses: 'Familles de licences',
+          addons: 'Familles d’add-ons',
+        },
+        List: {
+          new: 'Nouvelle clé publiable',
+          includeRevoked: 'Inclure les clés révoquées',
+          keyHint: '…{{hint}}',
+          neverUsed: 'Jamais utilisée',
+          noOrigins: 'Aucune origine de navigateur',
+          showMore: 'Afficher {{count}} de plus',
+          showFewer: 'Afficher moins',
+          Columns: {
+            label: 'Libellé',
+            key: 'Clé',
+            origins: 'Origines autorisées',
+            created: 'Créée le',
+            lastUsed: 'Dernière utilisation',
+            status: 'Statut',
+          },
+          Status: {
+            live: 'Active',
+            revoked: 'Révoquée',
+          },
+          Actions: {
+            edit: 'Modifier {{label}}',
+            revoke: 'Révoquer {{label}}',
+          },
+          Filters: {
+            search: 'Recherche',
+            searchPlaceholder: 'Rechercher par libellé, fin de clé ou origine',
+            clear: 'Effacer la recherche',
+          },
+          Empty: {
+            title: 'Aucune clé publiable',
+            description:
+              'Créez une clé pour qu’une page web puisse lire votre catalogue public.',
+            filteredTitle: 'Aucune clé ne correspond',
+            filteredDescription:
+              'Aucune clé publiable ne correspond à cette recherche.',
+          },
+        },
+        Create: {
+          title: 'Nouvelle clé publiable',
+          description: 'La clé n’est affichée qu’une fois, à sa création.',
+          submit: 'Créer la clé',
+          Created: {
+            title: 'Clé publiable créée',
+            description:
+              'Copiez la clé maintenant et placez-la dans votre page web.',
+            warning:
+              'Vous ne reverrez plus cette clé. Seuls ses quatre derniers caractères, {{hint}}, restent visibles dans la liste.',
+            keyLabel: 'Clé {{label}}',
+            copy: 'Copier la clé',
+            copied: 'Clé copiée',
+            copyFailed: 'La clé n’a pas pu être copiée',
+            done: 'Terminé',
+            Leave: {
+              title: 'Fermer sans la clé ?',
+              description:
+                'Vous n’avez pas copié cette clé et elle ne sera plus affichée. Si vous fermez maintenant, vous devrez créer une nouvelle clé.',
+              stay: 'Revenir à la clé',
+              leave: 'Fermer sans copier',
+            },
+          },
+        },
+        Edit: {
+          title: 'Modifier {{label}}',
+          description:
+            'Changez à quoi sert la clé et les origines qui peuvent l’envoyer. La clé elle-même ne change pas.',
+          save: 'Enregistrer',
+          saved: '{{label}} enregistrée',
+          revoked:
+            'Cette clé a été révoquée entre-temps. Une clé révoquée ne peut plus changer : créez-en une nouvelle à sa place.',
+        },
+        Form: {
+          Labels: {
+            label: 'Libellé',
+            origins: 'Origines autorisées',
+          },
+          Placeholders: {
+            label: 'Site marketing',
+            origins: 'https://www.example.com',
+          },
+          Descriptions: {
+            label:
+              'À quoi sert la clé, pour distinguer vos clés (100 caractères au plus).',
+            origins:
+              'Une origine par ligne, {{max}} au plus : https://hôte, ou http://localhost, avec un port s’il y en a un. Sans chemin. Laissez vide pour n’autoriser aucune origine de navigateur.',
+          },
+          rejected: 'Pas une origine : {{origins}}',
+          Errors: {
+            label: 'Saisissez un libellé',
+            labelTooLong: 'Ce libellé est trop long',
+            origins:
+              'Chaque origine est https://hôte[:port], ou http://localhost[:port], sans chemin, paramètres ni fragment',
+            tooManyOrigins: 'C’est trop d’origines pour une seule clé',
+          },
+        },
+        Revoke: {
+          title: 'Révoquer {{label}} ?',
+          description:
+            'La clé qui se termine par {{hint}} cesse de fonctionner à la requête suivante, et toute page qui l’envoie cesse de lire votre catalogue. Une clé révoquée ne peut pas être rétablie : créez-en une nouvelle pour la remplacer.',
+          confirm: 'Révoquer la clé',
+          success: '{{label}} révoquée',
+        },
+      },
       Connectors: {
         title: 'Connecteurs',
         pageDescription:
@@ -2250,6 +3373,7 @@ export default {
         Status: {
           connected: 'Connecté',
           available: 'Disponible',
+          unavailable: 'Indisponible',
           comingH1: 'Prévu S1',
           comingH2: 'Prévu S2',
         },
@@ -2267,6 +3391,124 @@ export default {
           connected: 'Connecteur Attio connecté.',
           disconnected: 'Connecteur Attio déconnecté.',
           mappingUpdated: 'Associations de champs Attio mises à jour.',
+        },
+        Stripe: {
+          title: 'Connecteur Stripe',
+          subtitle:
+            'Kaiten compose ce que chaque client doit. Stripe l’encaisse.',
+          openInStripe: 'Ouvrir dans Stripe',
+          disconnect: 'Déconnecter',
+          Mode: {
+            test: 'Mode test',
+            live: 'Mode production',
+          },
+          Unavailable: {
+            VAULT_NOT_CONFIGURED: {
+              title: 'Stripe nécessite un Vault configuré',
+              description:
+                'Kaiten stocke la clé restreinte de votre compte Stripe dans Vault, et ce déploiement n’en a pas. Configurez Vault (VAULT_ADDR), puis revenez ici pour connecter Stripe. Les factures restent composées et transmises à votre outil de comptabilité en attendant.',
+              tile: 'Stripe nécessite un Vault configuré',
+            },
+            NOT_ENTITLED: {
+              title: 'Non inclus dans votre offre',
+              description:
+                'Le connecteur Stripe ne fait pas partie de l’offre de cette organisation. Changez d’offre pour connecter Stripe. Les factures restent composées et transmises à votre outil de comptabilité en attendant.',
+              tile: 'Non inclus dans votre offre',
+            },
+            UNKNOWN: {
+              title: 'Stripe n’est pas disponible ici',
+              description:
+                'Ce déploiement ne propose pas Stripe à l’organisation. Les factures sont composées et transmises à votre outil de comptabilité.',
+              tile: 'Indisponible sur ce déploiement',
+            },
+            vaultDocs: 'Paramètres d’auto-hébergement',
+          },
+          Settings: {
+            title: 'Connexion',
+            description:
+              'La clé restreinte de votre compte Stripe, et la façon dont Kaiten construit et envoie les factures.',
+            readOnly:
+              'Vous pouvez lire ces paramètres sans les modifier : le connecteur est configuré par quelqu’un qui peut écrire les paramètres de l’organisation.',
+            connect: 'Connecter Stripe',
+            reconnect: 'Connecter Stripe avec la clé enregistrée',
+            save: 'Enregistrer les modifications',
+            keyLabel: 'Clé API restreinte',
+            keyPlaceholder: 'rk_test_…',
+            keyOnFilePlaceholder:
+              'Clé enregistrée ({{mode}}) — saisissez-en une nouvelle pour la remplacer',
+            keyOnFilePlaceholderNoMode:
+              'Clé enregistrée — saisissez-en une nouvelle pour la remplacer',
+            keyHint:
+              'Créez-la dans Stripe, sous Développeurs → Clés API. Kaiten la stocke dans Vault, la vérifie par un appel en lecture seule et ne l’affiche plus jamais.',
+            keyReaches: 'Cette clé atteint un compte Stripe en {{mode}}.',
+            taxBehaviorLabel: 'Taxes',
+            taxBehaviorHint:
+              'Si les montants composés par Kaiten excluent la taxe (Stripe l’ajoute) ou l’incluent déjà.',
+            TaxBehavior: {
+              EXCLUSIVE: 'Montants hors taxes',
+              INCLUSIVE: 'Montants toutes taxes comprises',
+            },
+            automaticTaxLabel: 'Calculer la taxe automatiquement',
+            automaticTaxHint:
+              'Stripe Tax calcule la taxe de chaque facture. Il exige une adresse complète sur le client dans Stripe, sans quoi l’envoi de ses factures échoue.',
+            autoFinalizeLabel: 'Finaliser les factures automatiquement',
+            autoFinalizeHint:
+              'Désactivé, une facture reste un brouillon dans Stripe, où quelqu’un la relit, et Kaiten la finalise à la demande.',
+            Errors: {
+              keyRequired: 'Collez la clé restreinte de votre compte Stripe.',
+              secretKey:
+                'Utilisez une clé restreinte (rk_…) : une clé secrète (sk_…) donne à Kaiten un accès bien plus large que nécessaire.',
+              publishableKey:
+                'Une clé publiable (pk_…) ne peut pas créer de factures. Utilisez une clé restreinte (rk_…).',
+              keyFormat:
+                'Une clé restreinte commence par rk_test_ ou rk_live_, suivi de lettres et de chiffres.',
+            },
+          },
+          Split: {
+            title: 'Qui fait quoi',
+            kaiten: 'Kaiten gère',
+            stripe: 'Stripe gère',
+            Kaiten: {
+              catalogue: 'Le catalogue et ses prix',
+              entitlements: 'Ce à quoi chaque instance a droit',
+              usage: 'Le journal d’usage',
+              subscription: 'L’abonnement de chaque instance',
+              content: 'Ce que dit chaque facture',
+            },
+            Stripe: {
+              tax: 'La taxe',
+              numbering: 'La numérotation des factures',
+              presentation: 'L’aspect d’une facture et son envoi',
+              payment: 'Le paiement et les reçus',
+              dunning: 'Les relances',
+            },
+          },
+          Permissions: {
+            title: 'Permissions de la clé',
+            description:
+              'Créez la clé restreinte avec exactement ces permissions : ni plus, ni moins.',
+            write: '{{resource}} : écriture',
+            read: '{{resource}} : lecture',
+          },
+          Toast: {
+            connected: 'Stripe est connecté.',
+            saved: 'Paramètres Stripe enregistrés.',
+            disconnected: 'Stripe est déconnecté.',
+          },
+          Disconnect: {
+            title: 'Déconnecter Stripe ?',
+            description:
+              'Kaiten cesse d’envoyer les factures à Stripe et de les relire. La clé reste enregistrée, pour que se reconnecter ne la redemande pas. Les factures déjà dans Stripe ne sont pas touchées.',
+            confirm: 'Déconnecter',
+            subscriptions_one:
+              '{{count}} abonnement non annulé est encore encaissé par Stripe.',
+            subscriptions_other:
+              '{{count}} abonnements non annulés sont encore encaissés par Stripe.',
+            invoices_one:
+              '{{count}} facture non réglée est encore dans Stripe.',
+            invoices_other:
+              '{{count}} factures non réglées sont encore dans Stripe.',
+          },
         },
         Wizard: {
           headerTitle: 'Connecter Attio',
@@ -2481,6 +3723,7 @@ export default {
               'Vous ne pourrez plus le voir une fois cette page quittée.',
             copyToken: 'Copier le token',
             copied: 'Token copié dans le presse-papiers',
+            copyFailed: 'Le token n’a pas pu être copié',
             detailsTitle: 'Détails',
             scopes: 'Scopes',
             expires: 'Expire',
@@ -2501,6 +3744,7 @@ export default {
             licensing: { label: 'Licences' },
             featureFlags: { label: 'Feature flags' },
             releases: { label: 'Releases' },
+            billing: { label: 'Facturation' },
             organization: { label: 'Organisation' },
           },
           Presets: {
@@ -2542,6 +3786,11 @@ export default {
               label: 'Droits',
               description: 'Accès aux définitions de droits',
             },
+            addons: {
+              label: 'Add-ons',
+              description:
+                "Accès au catalogue des add-ons : versions, prix et droits qu'ils accordent",
+            },
             deploymentZones: {
               label: 'Zones de déploiement',
               description: 'Accès à la gestion des zones de déploiement',
@@ -2558,6 +3807,31 @@ export default {
               label: 'Notifications',
               description:
                 'Accès à son propre fil de notifications et à ses préférences',
+            },
+            billing: {
+              label: 'Facturation',
+              description:
+                'Accès aux abonnements, aux factures, à la file de transmission et aux réglages de facturation',
+            },
+            vouchers: {
+              label: 'Codes promo',
+              description:
+                "Accès aux codes promo : création, publication, archivage et révocation d'une utilisation",
+            },
+            voucherRedemptions: {
+              label: 'Utilisations de codes promo',
+              description:
+                "Accès aux codes promo d'une instance : vérifier un code et l'utiliser",
+            },
+            customerSessions: {
+              label: 'Sessions client',
+              description:
+                "Accès aux sessions client : en ouvrir une pour la page de facturation en libre-service d'un client, et y mettre fin",
+            },
+            publishableKeys: {
+              label: 'Clés publiables',
+              description:
+                'Accès aux clés publiables : émettre et révoquer les clés pk_ avec lesquelles une page web lit le catalogue public',
             },
             organizations: {
               label: 'Organisations',
@@ -2616,9 +3890,14 @@ export default {
           instance: 'Instances',
           license: 'Licences',
           licenseFamily: 'Familles de licences',
+          addon: 'Add-ons',
           entitlement: 'Droits',
           entitlementGroup: 'Groupes de droits',
           usage: 'Utilisation',
+          subscription: 'Abonnements',
+          invoice: 'Factures',
+          voucher: 'Codes promo',
+          payment: 'Paiements',
           featureFlag: 'Feature flags',
           release: 'Releases',
           deploymentZone: 'Zones de déploiement',
@@ -2707,6 +3986,1234 @@ export default {
             statusCodeLabel: 'Statut HTTP :',
             responseLabel: 'Réponse :',
           },
+        },
+      },
+    },
+    Billing: {
+      title: 'Facturation',
+      Invoices: {
+        title: 'Factures',
+        Subtitles: {
+          all: 'Toutes les factures de votre organisation, tous clients et instances confondus.',
+          overdue:
+            'Les factures dont l’échéance est passée et qui restent impayées, tous clients et instances confondus.',
+          held: 'Les factures bloquées avant leur émission. Chacune attend qu’on la vérifie, puis qu’on la débloque ou la recompose.',
+          waiting:
+            'Les factures en attente de votre ERP, les plus anciennes d’abord. Un job ou la CLI les prend dans la file et les acquitte une fois comptabilisées.',
+          acknowledged:
+            'Les factures que votre ERP a prises dans la file et acquittées une fois comptabilisées.',
+        },
+        Views: {
+          all: 'Toutes',
+          overdue: 'En retard',
+          held: 'Bloquées',
+          waiting: 'Transmission',
+          acknowledged: 'Acquittées',
+        },
+        Lines: {
+          title: 'Lignes',
+        },
+        Empty: {
+          title: 'Aucune facture pour le moment',
+          description:
+            'Une facture est composée lorsqu’un abonnement atteint une échéance. Abonnez une instance pour commencer à facturer.',
+          instances: 'Aller aux instances',
+          filteredTitle: 'Aucune facture ne correspond à ces filtres',
+          filteredDescription: 'Effacez les filtres pour en voir davantage.',
+          scopedCustomerTitle: 'Aucune facture pour ce client',
+          scopedInstanceTitle: 'Aucune facture pour cette instance',
+          scopedDescription:
+            'Rien n’a encore été facturé. Une facture est composée lorsqu’un abonnement atteint une échéance.',
+          showAll: 'Afficher toutes les factures',
+          overdueTitle: 'Aucune facture en retard',
+          overdueDescription:
+            'Une facture impayée dont l’échéance est dépassée apparaît ici.',
+          heldTitle: 'Aucune facture bloquée',
+          heldDescription:
+            'Une facture bloquée par un contrôle apparaît ici jusqu’à ce que quelqu’un la libère ou la recompose.',
+        },
+        Filters: {
+          clear: 'Effacer les filtres',
+          remove: 'Retirer le filtre {{filter}}',
+          chip: '{{field}} : {{value}}',
+          search: 'Recherche',
+          searchPlaceholder: 'Client, instance ou facture',
+          status: 'Statut',
+          kind: 'Type',
+          provider: 'Fournisseur',
+          handoff: 'Transmission',
+          overdue: 'En retard',
+          held: 'Bloquées',
+          customer: 'Client',
+          instance: 'Instance',
+          issued: 'Émission',
+          servicePeriod: 'Début de la période de service',
+        },
+        Toasts: {
+          released: 'Facture débloquée',
+          paid: 'Facture marquée comme payée',
+          writtenOff: 'Facture passée en perte',
+          voided: 'Facture annulée',
+          recomposed: 'Facture recomposée',
+          replaced: 'Facture de remplacement composée',
+          pushRequested:
+            'Envoi demandé. Kaiten vérifie à nouveau toutes les quelques secondes.',
+          finalized: 'Facture finalisée dans Stripe',
+          synced: 'Facture lue dans Stripe',
+          syncedPaid: 'Facture lue dans Stripe : elle est payée',
+          pushed: 'Stripe a la facture',
+          pushFailedAgain: 'L’envoi a de nouveau échoué',
+          awaitingFinalization:
+            'Stripe a le brouillon. Finalisez-le une fois relu.',
+        },
+        Detail: {
+          title: '{{kind}} · facture du {{date}}',
+          subtitle: '{{customer}} · {{instance}}',
+          Actions: {
+            menu: 'Actions',
+            markPaid: 'Marquer comme payée',
+            recompose: 'Recomposer',
+            releaseHold: 'Débloquer la facture',
+            void: 'Annuler la facture',
+            writeOff: 'Passer en perte',
+            retryPush: 'Relancer l’envoi',
+            push: 'Envoyer maintenant',
+            finalize: 'Finaliser dans Stripe',
+            sync: 'Lire dans Stripe',
+            purgedUsage:
+              'L’usage de cette période n’est plus conservé (avant le {{date}}) : elle ne peut pas être recomposée.',
+            instanceDeleted:
+              'L’instance de cette facture a été supprimée : rien ne peut être recomposé pour elle.',
+          },
+          Provider: {
+            title: 'Fournisseur de paiement',
+            Collection: {
+              SEND_INVOICE:
+                'Stripe envoie la facture au client et encaisse le paiement.',
+              CHARGE_AUTOMATICALLY:
+                'Stripe prélève le moyen de paiement enregistré à l’échéance de la facture.',
+            },
+            status: 'Statut dans Stripe',
+            Status: {
+              draft: 'Brouillon',
+              open: 'Ouverte',
+              paid: 'Payée',
+              uncollectible: 'Irrécouvrable',
+              void: 'Annulée',
+            },
+            number: 'Numéro de facture',
+            externalInvoice: 'Facture Stripe',
+            externalCustomer: 'Client Stripe',
+            pushedAt: 'Envoyée',
+            syncedAt: 'Dernière lecture dans Stripe',
+            amounts: 'Montants',
+            Reconciliation: {
+              MATCHED: 'Identiques',
+              MISMATCH: 'Différents',
+            },
+            notPushed: 'Stripe n’a pas encore cette facture.',
+            hostedInvoice: 'Facture hébergée',
+            pdf: 'PDF',
+            Push: {
+              waiting: {
+                title: 'Envoi à Stripe en cours…',
+                description:
+                  'La facture est en file d’attente. Kaiten vérifie toutes les 5 secondes, pendant deux minutes au plus.',
+              },
+              expired: {
+                title: 'Toujours en file d’attente',
+                description:
+                  'L’envoi n’a pas encore eu lieu. Il aura lieu au prochain passage et Kaiten continue d’essayer seul : rechargez la page pour vérifier.',
+              },
+            },
+            Review: {
+              title: 'En attente de finalisation dans Stripe',
+              description:
+                'Stripe garde cette facture en brouillon. Relisez-la là-bas, puis finalisez-la ici ou dans Stripe : elle est envoyée au client une fois finalisée.',
+            },
+            PushError: {
+              title: 'L’envoi à Stripe a échoué',
+              attempts_one: 'Tentative {{count}}.',
+              attempts_other: '{{count}} tentatives.',
+              next: 'Prochaine tentative : {{date}}.',
+              manual: 'Relancez-le depuis les actions ci-dessus.',
+            },
+            PaymentError: {
+              title: 'Stripe n’a pas pu encaisser le paiement',
+              Codes: {
+                authentication_required:
+                  'Le client doit confirmer le paiement sur la page de la facture hébergée.',
+                card_declined: 'La carte a été refusée.',
+                expired_card: 'La carte a expiré.',
+                no_payment_method:
+                  'Le client n’a aucun moyen de paiement à prélever.',
+              },
+            },
+          },
+          Reconciliation: {
+            title: 'Rapprochement',
+            matched: 'Stripe détient les mêmes montants que Kaiten.',
+            mismatch:
+              'Stripe détient des montants qui ne sont pas ceux composés par Kaiten. La facture dans Stripe est celle que le client paie : réglez l’écart là-bas.',
+            checked: 'Vérifié le {{date}}.',
+            kaitenTotal: 'Total composé par Kaiten',
+            providerTotal: 'Total dans Stripe, hors taxes',
+            providerSubtotal: 'Sous-total dans Stripe',
+            providerDiscounts: 'Remises dans Stripe',
+            inclusiveTax:
+              'La taxe est comprise dans les montants : le sous-total de Stripe, remises déduites, a été comparé.',
+            line: 'Ligne',
+            kaiten: 'Kaiten',
+            provider: 'Stripe',
+            differingLines: 'Lignes dont le montant diffère',
+            lineNumber: 'Ligne {{seq}}',
+            differingDiscounts: 'Remises appliquées avec un autre montant',
+            discountOnLine: 'Remise {{seq}} sur la ligne {{target}}',
+            missingInProvider: 'Lignes composées par Kaiten que Stripe n’a pas',
+            extraInProvider: 'Lignes de Stripe que Kaiten n’a pas composées',
+            extraDiscounts:
+              'Remises appliquées par Stripe que Kaiten n’a pas créées',
+            extraDiscountsHint:
+              'Comme un coupon ajouté dans le tableau de bord Stripe.',
+            discount: 'Remise',
+            providerLine: 'Sur la ligne Stripe',
+          },
+          Chain: {
+            replaces: 'Remplace',
+            replacedBy: 'Remplacée par',
+          },
+          Stats: {
+            total: 'Total',
+            totalLines_one: '{{count}} ligne',
+            totalLines_other: '{{count}} lignes',
+            due: 'Échéance de paiement',
+            noDueDate: 'Sans échéance',
+            overdue_one: 'en retard de {{count}} jour',
+            overdue_other: 'en retard de {{count}} jours',
+            overdueToday: 'en retard depuis aujourd’hui',
+            paid: 'Payée',
+            writtenOff: 'Passée en perte',
+            voided: 'Annulée',
+            period: 'Période de service',
+            totalLinesDiscounted_one:
+              '{{count}} ligne, après {{discount}} de remises',
+            totalLinesDiscounted_other:
+              '{{count}} lignes, après {{discount}} de remises',
+          },
+          Hold: {
+            title: 'Bloquée : {{reason}}',
+            description:
+              'Après la clôture de la période, le journal d’usage de cette facture a échoué à un contrôle de cohérence. La facture a été composée mais pas émise : la facturation ne facture pas un montant dont elle ne peut pas répondre.',
+            Columns: {
+              meter: 'Compteur',
+              check: 'Contrôle',
+              expected: 'Attendu',
+              found: 'Constaté',
+              reports: 'Rapports',
+              counter: 'Rapport du compteur',
+            },
+            atReport: 'Au rapport {{seq}}',
+            release_NOOP:
+              'Le déblocage accepte les montants tels que composés. La facture est émise sans fournisseur de paiement et attend votre ERP dans la file de transmission.',
+            release_STRIPE:
+              'Le déblocage accepte les montants tels que composés. La facture est envoyée à Stripe, qui l’encaisse.',
+            recompose:
+              'La recomposition compose à nouveau la facture à partir du journal d’usage tel qu’il est maintenant, avec le fournisseur actuel de l’abonnement.',
+          },
+          Summary: {
+            title: 'Résumé',
+            boundary: 'Échéance de facturation',
+            provider: 'Fournisseur',
+            heldSince: 'Bloquée depuis',
+            issued: 'Émise le',
+            terms: 'Conditions de paiement',
+            termsValue_one: '{{count}} jour',
+            termsValue_other: '{{count}} jours',
+            due: 'Échéance de paiement',
+            voidReason: 'Motif d’annulation',
+            released: 'Blocage levé',
+            releasedValue:
+              '{{date}}, par une personne, pour ce motif : {{reason}}',
+            releasedAutomatically:
+              '{{date}}, automatiquement : un contrôle ultérieur a jugé le journal d’usage sain',
+          },
+          Lines: {
+            title: 'Lignes',
+            viewReports_one: 'Voir {{count}} rapport d’usage',
+            viewReports_other: 'Voir {{count}} rapports d’usage',
+          },
+          Handoff: {
+            title: 'Transmission',
+            waiting:
+              'Un job ou la CLI la prend dans la file, la comptabilise et l’acquitte.',
+            waiting_VOID:
+              'Cette facture est annulée et sa transmission reste en attente : le système qui lit la file la voit comme annulée, et l’acquitte.',
+            waiting_UNCOLLECTIBLE:
+              'Cette facture a été passée en perte et sa transmission reste en attente : le système qui lit la file la voit comme passée en perte, et l’acquitte.',
+            status: 'Statut',
+            claims: 'Réservations',
+            leasedUntil: 'Réservée jusqu’au',
+            reference: 'Référence ERP',
+            noReference: 'Acquittée sans référence',
+            acknowledgedAt: 'Acquittée le',
+          },
+          Identity: {
+            title: 'Facturée à',
+            description:
+              'Tel qu’au moment de la composition de la facture. Un changement de nom depuis ne la modifie pas.',
+            customer: 'Client',
+            instance: 'Instance',
+            license: 'Licence',
+            billingEmail: 'E-mail de facturation',
+            customerInvoices: 'Factures de ce client',
+            instanceInvoices: 'Factures de cette instance',
+          },
+          MarkPaid: {
+            title: 'Marquer comme payée',
+            description:
+              'Enregistrez que cette facture a été payée. Les heures sont lues en UTC.',
+            descriptionPending:
+              'Enregistrez que cette facture a été payée. Cela acquitte aussi la facture dans la file de transmission, sous la référence indiquée.',
+            reference: 'Référence externe',
+            referenceHint:
+              'Le numéro de la facture dans votre ERP, {{max}} caractères au plus. Facultatif.',
+            paidAt: 'Payée le (UTC)',
+            paidAtHint: 'Maintenant ou avant. Laissez vide pour maintenant.',
+            note: 'Note',
+            noteHint:
+              'Par exemple la référence du virement. Elle n’est conservée que dans l’événement de paiement.',
+            confirm: 'Marquer comme payée',
+          },
+          Release: {
+            title: 'Débloquer la facture',
+            description:
+              'Accepter les montants tels que composés, bien que le journal d’usage n’ait pas pu les garantir. La facture est ensuite émise.',
+            reason: 'Motif',
+            reasonHint:
+              'Pourquoi les montants sont fiables. Conservé avec votre nom dans le journal d’audit.',
+            effect_NOOP:
+              'La facture est émise sans fournisseur de paiement et attend votre ERP dans la file de transmission.',
+            effect_STRIPE: 'La facture est envoyée à Stripe, qui l’encaisse.',
+            confirm: 'Débloquer',
+          },
+          Recompose: {
+            title: 'Recomposer la facture',
+            descriptionHeld:
+              'Composer à nouveau ce brouillon bloqué à partir du journal d’usage tel qu’il est maintenant.',
+            descriptionVoid:
+              'Composer une facture de remplacement pour l’échéance que cette facture annulée facturait.',
+            effectHeld:
+              'Le brouillon est réécrit sur place. Si le journal est sain, la facture est émise avec le fournisseur actuel de l’abonnement.',
+            effectVoid:
+              'La remplaçante est émise avec le fournisseur actuel de l’abonnement, et cette facture pointe vers elle.',
+            confirm: 'Recomposer',
+          },
+          Void: {
+            title: 'Annuler la facture',
+            descriptionNoop:
+              'L’annulation retire la facture de l’échéance qu’elle facturait, qu’une recomposition peut ensuite remplir. Une transmission en attente reste en attente, avec l’annulation dans sa charge utile.',
+            descriptionProvider:
+              'La facture est d’abord annulée chez votre fournisseur de paiement, puis ici. Cette action est irréversible.',
+            reason: 'Motif',
+            confirm: 'Annuler la facture',
+            PaidAtProvider: {
+              title: 'Stripe indique que cette facture est payée',
+              description:
+                'Une facture payée ne peut pas être annulée. Kaiten n’a pas pu lire le paiement dans Stripe à l’instant : lisez de nouveau la facture, et elle apparaîtra comme payée.',
+              sync: 'La lire dans Stripe',
+              notVoided:
+                'Facture non annulée : Stripe indique qu’elle est payée.',
+            },
+          },
+          VoidThenRecompose: {
+            title: 'Annuler et recomposer',
+            description:
+              'Cette facture n’est pas un brouillon bloqué : elle ne peut pas être modifiée. Elle est annulée, puis une remplaçante est composée à partir du journal d’usage tel qu’il est maintenant. Un seul motif couvre les deux.',
+            confirm: 'Annuler et recomposer',
+          },
+          WriteOff: {
+            title: 'Passer la facture en perte',
+            description:
+              'Renoncer à encaisser cette facture. Elle devient irrécouvrable, ce qui est définitif. Une transmission en attente reste en attente.',
+            reason: 'Motif',
+            confirm: 'Passer en perte',
+          },
+        },
+        Drilldown: {
+          subtitle: 'Usage derrière une ligne de cette facture : {{invoice}}',
+          backToInvoice: 'Retour à la facture',
+          region: 'Rapports d’usage de la ligne',
+          export: 'Exporter en CSV',
+          loading: 'Chargement des rapports d’usage',
+          Empty: {
+            title: 'Aucun rapport d’usage',
+            description:
+              'Aucun rapport n’a été accepté pendant la période de cette ligne.',
+          },
+          Summary: {
+            title: 'Cette ligne',
+            period: 'Période de service',
+            measured: 'Quantité mesurée',
+            billed: 'Quantité facturée',
+            saleUnit: 'Unités mesurées par unité de vente',
+            windows: 'Fenêtres de remise à zéro',
+            windowsValue_one: '{{count}} fenêtre',
+            windowsValue_other: '{{count}} fenêtres',
+            windowsFloored_one:
+              '{{count}} fenêtre a un mouvement négatif, comptée pour 0',
+            windowsFloored_other:
+              '{{count}} fenêtres ont un mouvement négatif, comptées pour 0',
+            amount: 'Montant de la ligne',
+          },
+          lifetime: 'Toute la durée de vie',
+          windowUsage_one: '{{count}} rapport · usage {{sum}}',
+          windowUsage_other: '{{count}} rapports · usage {{sum}}',
+          windowOverage_one: '{{count}} rapport · dépassement {{sum}}',
+          windowOverage_other: '{{count}} rapports · dépassement {{sum}}',
+          windowPartial_one:
+            '{{count}} rapport pour l’instant · d’autres à charger',
+          windowPartial_other:
+            '{{count}} rapports pour l’instant · d’autres à charger',
+          loadMore: 'Charger plus de rapports',
+          OutsideRetention: {
+            title: 'Les rapports de cette ligne ne sont plus conservés',
+            description:
+              'L’usage derrière cette ligne est plus ancien que l’historique conservé par votre organisation. La facture en a gardé l’empreinte : les rapports dont elle a été mesurée et leur somme.',
+            kept: 'Ce que la facture a conservé',
+          },
+        },
+      },
+      Handoff: {
+        Columns: {
+          issued: 'Émise le',
+          booked: 'Comptabilisée',
+          claims: 'Réservations',
+        },
+        claims_one: '{{count}} réservation',
+        claims_other: '{{count}} réservations',
+        reservedUntil: 'Réservée jusqu’au {{date}}',
+        noReference: 'Sans référence',
+        acknowledge: 'Acquitter',
+        Empty: {
+          pendingTitle: 'Rien n’attend votre ERP',
+          pendingDescription:
+            'Les factures qu’aucun fournisseur de paiement n’encaisse attendent ici qu’un job ou un terminal les prenne. Pour les prendre depuis un terminal, lancez :',
+          acknowledgedTitle: 'Rien n’a encore été acquitté',
+          acknowledgedDescription:
+            'Les factures comptabilisées dans votre ERP apparaissent ici une fois acquittées.',
+          filteredTitle: 'Aucune facture ne correspond à ces filtres',
+          filteredDescription: 'Effacez les filtres pour en voir davantage.',
+          clearFilters: 'Effacer les filtres',
+        },
+        Acknowledge: {
+          title: 'Acquitter la facture',
+          description:
+            'Enregistrez que votre ERP a comptabilisé cette facture. Ne le faites que pour une facture que vous avez comptabilisée vous-même : un job ou la CLI acquitte celles qu’il prend.',
+          leased:
+            'Un consommateur détient cette facture jusqu’au {{date}}. L’acquitter maintenant peut la comptabiliser deux fois.',
+          reference: 'Référence externe',
+          referenceHint:
+            'Le numéro de la facture dans votre ERP, {{max}} caractères au plus. Facultatif.',
+          confirm: 'Acquitter',
+        },
+        Toasts: {
+          acknowledged: 'Facture acquittée',
+        },
+      },
+    },
+    Addons: {
+      title: 'Add-ons',
+      subtitle:
+        'Des quantités supplémentaires vendues en plus d’une licence : sièges, instances, historique.',
+      PricingTypes: {
+        FREE: 'Gratuit',
+        PAID: 'Payant',
+        CUSTOM: 'Sur mesure',
+      },
+      Lifecycle: {
+        DRAFT: 'Brouillon',
+        PUBLISHED: 'Publiée',
+        ARCHIVED: 'Archivée',
+      },
+      Public: {
+        label: 'Catalogue public',
+        switchLabel: 'Lister {{name}} dans le catalogue public',
+        badge: 'Public',
+        listed: 'La famille est listée dans le catalogue public',
+        unlisted: 'La famille n’est plus listée dans le catalogue public',
+      },
+      List: {
+        addonName: 'Nom de l’add-on',
+        versionCount_one: '{{count}} version',
+        versionCount_other: '{{count}} versions',
+        defaultBadge: 'Par défaut : {{version}}',
+        newVersionButton: 'Nouvelle version',
+        Empty: {
+          title: 'Aucun add-on pour l’instant',
+          description:
+            'Un add-on est une quantité supplémentaire d’un droit, vendue à l’unité : sièges, instances, historique. Créez-en un, donnez-lui des droits et un prix, dites quelles licences il complète, puis publiez-le.',
+        },
+      },
+      VersionsTable: {
+        Columns: {
+          versionName: 'Nom de version',
+          version: 'Version',
+          pricingType: 'Tarification',
+          lifecycleState: 'État',
+          default: 'Par défaut',
+          maxQuantity: 'Quantité max.',
+          actions: 'Actions',
+        },
+        default: 'Par défaut',
+        unbounded: 'Illimitée',
+      },
+      LifecycleActions: {
+        publish: {
+          label: 'Publier',
+          title: 'Publier {{name}} v{{version}} ?',
+          description:
+            'La version est mise en vente : une instance dont la licence lui convient peut l’attacher, et elle peut devenir la version par défaut de sa famille.',
+          confirm: 'Publier',
+          success: 'Version publiée',
+          Notes: {
+            prices:
+              'Ses prix ne peuvent plus être modifiés : ils ne peuvent qu’être dépréciés, et un prix peut encore être ajouté tant qu’aucune instance avec un abonnement actif ne détient la version.',
+            grants:
+              'Ses droits sont gelés dès qu’une instance avec un abonnement actif détient la version.',
+            compatibility:
+              'Elle ne peut être attachée qu’aux familles de licences qu’elle complète : une version qui n’en complète aucune ne peut être attachée à rien.',
+          },
+        },
+        archive: {
+          label: 'Archiver',
+          title: 'Archiver {{name}} v{{version}} ?',
+          description:
+            'La version est retirée de la vente : aucune instance ne peut plus l’attacher. Les instances qui la détiennent la conservent, et continuent d’être facturées pour elle. Vous pourrez la désarchiver plus tard.',
+          confirm: 'Archiver',
+          success: 'Version archivée',
+        },
+        unarchive: {
+          label: 'Désarchiver',
+          title: 'Désarchiver {{name}} v{{version}} ?',
+          description:
+            'La version est remise en vente : les instances peuvent de nouveau l’attacher, et elle peut redevenir la version par défaut de sa famille.',
+          confirm: 'Désarchiver',
+          success: 'Version désarchivée',
+        },
+        archiveDefaultUnavailable:
+          'La version par défaut ne peut pas être archivée. Définissez d’abord une autre version par défaut, ou retirez le défaut.',
+      },
+      DefaultActions: {
+        set: 'Définir par défaut',
+        unset: 'Retirer le défaut',
+        setUnavailable:
+          'Seule une version publiée peut devenir la version par défaut',
+        setSuccess: 'Version par défaut mise à jour',
+        unsetSuccess: 'Version par défaut retirée',
+      },
+      DeleteDraft: {
+        label: 'Supprimer',
+        title: 'Supprimer le brouillon {{name}} v{{version}} ?',
+        description:
+          'Le brouillon, ses prix, les licences qu’il complète et les droits qu’il accorde sont supprimés. Il n’a jamais été en vente : aucun client ne le perd. Une version qui a déjà été attachée à une instance fait partie de l’historique et ne peut pas être supprimée : archivez-la.',
+        confirm: 'Supprimer',
+        success: 'Brouillon supprimé',
+      },
+      Form: {
+        titleNew: 'Nouvel add-on',
+        titleNewVersion: 'Nouvelle version de {{name}}',
+        titleUpdate: 'Modifier l’add-on',
+        descriptionNew:
+          'Un nouvel add-on ouvre une famille. Sa première version est créée en brouillon.',
+        descriptionNewVersion:
+          'Une nouvelle version part de zéro : rien n’est copié de la précédente. Donnez-lui ses droits, ses prix et les licences qu’elle complète, puis publiez-la.',
+        descriptionEdit:
+          '{{name}}, version {{version}}. La façon dont elle est vendue et ses droits ne se modifient pas ici.',
+        createButton: 'Créer l’add-on',
+        updateButton: 'Enregistrer',
+        Labels: {
+          name: 'Nom',
+          slug: 'Slug',
+          description: 'Description',
+          pricingType: 'Tarification',
+          versionName: 'Nom de version',
+          maxQuantity: 'Quantité maximale',
+          createAsDraft: 'Créer en brouillon',
+        },
+        Placeholders: {
+          name: 'Sièges supplémentaires',
+          slug: 'sieges-supplementaires',
+          description: 'Cinq sièges de plus par unité',
+          versionName: 'Version - 1',
+          maxQuantity: 'Illimitée',
+        },
+        Descriptions: {
+          name: 'Le nom de l’add-on. Toutes les versions d’une famille le partagent.',
+          slug: 'Généré automatiquement — modifiez-le pour en choisir un autre.',
+          description: 'Ce qu’une unité apporte à une instance, en une phrase.',
+          pricingType:
+            'Un add-on gratuit ou payant peut être attaché par qui en a le droit ; un add-on payant a besoin d’un prix par défaut pour la période de facturation de l’abonnement auquel on l’attache. Un add-on sur mesure se vend sur demande.',
+          versionName: 'Laissé vide, la version s’appelle « Version - {n} ».',
+          maxQuantity:
+            'Le nombre maximal d’unités qu’une instance peut détenir. Laissez vide pour aucun maximum.',
+          createAsDraft:
+            'Un brouillon n’est pas encore en vente : on peut lui donner ses droits, ses prix et les licences qu’il complète avant qu’il le soit. Une instance que personne ne facture peut tout de même l’essayer.',
+        },
+        Errors: {
+          name: 'Le nom est requis',
+          maxQuantity:
+            'Saisissez un nombre entier d’unités, 1 ou plus, ou laissez vide pour aucun maximum.',
+          maxQuantityHeld:
+            '{{instance}} détient {{quantity}} unités : baissez-y d’abord la quantité avant de baisser le maximum.',
+        },
+        Toasts: {
+          created: 'Add-on créé',
+          updated: 'Add-on mis à jour',
+        },
+      },
+      Detail: {
+        Tabs: {
+          overview: 'Aperçu',
+          entitlements: 'Droits',
+          prices: 'Prix',
+          compatibility: 'Licences compatibles',
+        },
+        cardTitle: 'Détails de l’add-on',
+        cardDescription:
+          'Comment cette version s’appelle et se vend. Ses droits, ses prix et ses licences compatibles sont dans les onglets voisins.',
+        defaultBadge: 'Version par défaut',
+        unbounded: 'Illimitée',
+        Fields: {
+          name: 'Nom',
+          version: 'Version',
+          lifecycleState: 'État',
+          default: 'Par défaut',
+          pricingType: 'Tarification',
+          maxQuantity: 'Quantité max.',
+          description: 'Description',
+        },
+      },
+      Freeze: {
+        billed: {
+          title: 'Cette version est détenue par une instance facturée',
+          description:
+            'Une instance avec un abonnement actif détient cette version : ses droits et ses prix sont gelés, car les modifier changerait un contrat déjà vendu. Créez une nouvelle version pour changer ce qui est vendu. Elle part de zéro : donnez-lui ses droits, ses prix et les licences qu’elle complète, puis faites passer les instances dessus en détachant cette version et en attachant la nouvelle.',
+        },
+        archived: {
+          title: 'Cette version n’accepte aucun nouveau prix',
+          description:
+            'Une version retirée de la vente n’accepte aucun nouveau prix. Créez une nouvelle version pour changer ce qui est vendu. Elle part de zéro : donnez-lui ses droits, ses prix et les licences qu’elle complète.',
+        },
+        createNewVersion: 'Créer une nouvelle version',
+      },
+      Grants: {
+        title: 'Droits',
+        tabDescription:
+          'Ce qu’une unité de cet add-on accorde à une instance qui le détient. Un nombre compte une fois par unité de quantité.',
+        Actions: {
+          add: 'Ajouter un droit',
+          edit: 'Modifier',
+          editAria: 'Modifier {{name}}',
+          remove: 'Retirer',
+          removeAria: 'Retirer {{name}}',
+        },
+        Notes: {
+          DRAFT:
+            'Les droits d’un brouillon peuvent être modifiés tant qu’aucune instance avec un abonnement actif ne détient la version.',
+          PUBLISHED:
+            'Les droits d’une version publiée sont gelés dès qu’une instance avec un abonnement actif la détient. Jusque-là, ils peuvent encore être modifiés.',
+          ARCHIVED:
+            'Cette version est retirée de la vente. Les instances qui la détiennent conservent ses droits ; pour changer ce qui est vendu, créez une nouvelle version.',
+        },
+        Table: {
+          Columns: {
+            entitlement: 'Droit',
+            type: 'Type',
+            value: 'Accorde',
+            behavior: 'Se combine',
+            overage: 'Dépassement toléré',
+          },
+          empty: 'Cette version n’accorde encore rien.',
+        },
+        Values: {
+          unlimited: 'Illimité',
+          perUnit: '{{value}} par unité',
+          enabled: 'Activé',
+          disabled: 'Désactivé',
+          configured: 'Configuré',
+        },
+        Behaviors: {
+          ADD: {
+            label: 'Additionner',
+            blurb:
+              'Ajoute valeur × quantité à ce que la licence accorde : 5 sièges par unité, 3 unités, 15 sièges de plus.',
+          },
+          OVERRIDE: {
+            label: 'Remplacer',
+            blurb:
+              'Remplace la valeur de la licence par valeur × quantité. L’add-on attaché en dernier l’emporte.',
+          },
+          MAX: {
+            label: 'Maximum',
+            blurb:
+              'Garde la plus grande de la valeur de la licence et de valeur × quantité.',
+          },
+        },
+        Overage: {
+          inherit: 'Hériter',
+          hard: 'Limite stricte',
+          soft: '+{{percent}} %',
+          unlimited: 'Illimité',
+        },
+        OverageWarning: {
+          message:
+            'Cet add-on tolère un dépassement de {{addon}} %, et {{name}} en tolère {{license}} %.',
+          consequence:
+            'Sur chaque instance qui attache l’add-on, son pourcentage remplace celui de la licence : l’usage est refusé plus tôt que la licence ne le dit.',
+        },
+        Remove: {
+          title: 'Retirer {{name}} de cet add-on ?',
+          description:
+            'Les instances qui détiennent cette version perdent ce droit immédiatement.',
+          confirm: 'Retirer',
+        },
+        Form: {
+          titleNew: 'Ajouter un droit',
+          titleEdit: 'Modifier le droit',
+          description: 'Ce qu’une unité de {{name}} accorde.',
+          create: 'Ajouter le droit',
+          update: 'Enregistrer le droit',
+          Labels: {
+            entitlement: 'Droit',
+            number: 'Valeur par unité',
+            unlimited: 'Illimité',
+            behavior: 'Se combine avec la licence',
+            overage: 'Dépassement toléré (%)',
+            boolean: 'Activé',
+            config: 'Configuration (JSON)',
+          },
+          Descriptions: {
+            entitlement: 'Une version accorde un droit une seule fois.',
+            number:
+              'Ce qu’une unité de quantité accorde. Trois unités d’une valeur de 5 en accordent 15.',
+            behavior:
+              'Comment la valeur multipliée par la quantité se combine avec ce que la licence accorde pour le même droit : ajoutée, en remplacement, ou la plus grande des deux.',
+            overage:
+              'Laissez vide pour hériter de la tolérance de la licence. Renseignée, elle remplace celle de la licence sur chaque instance qui attache l’add-on : 0 est une limite stricte.',
+            boolean:
+              'Un indicateur se combine par OU avec celui de la licence.',
+            config:
+              'Une configuration remplace celle de la licence. L’add-on attaché en dernier l’emporte.',
+          },
+          Placeholders: {
+            entitlement: 'Choisir un droit',
+            number: '5',
+            overage: 'Hériter',
+          },
+          Errors: {
+            entitlement: 'Choisissez un droit.',
+            number:
+              'Saisissez un nombre entier, 0 ou plus, ou choisissez illimité.',
+            overage:
+              'Saisissez un pourcentage entier, 0 ou plus, ou laissez vide.',
+            config: 'Saisissez un objet JSON.',
+          },
+        },
+        Toasts: {
+          assigned: 'Droit ajouté',
+          updated: 'Droit mis à jour',
+          unassigned: 'Droit retiré',
+        },
+      },
+      Prices: {
+        title: 'Prix',
+        tabDescription:
+          'Ce que coûte une unité de cet add-on, par période de facturation. Un prix ne se modifie jamais : changez-le par un nouveau prix et la dépréciation de l’ancien.',
+        defaultBadge: 'Par défaut',
+        deprecatedOn: 'Déprécié le {{date}}',
+        unvalued_one:
+          'Cette version a aussi {{count}} prix mesuré, que la facturation ne valorise pas : il n’est pas listé.',
+        unvalued_other:
+          'Cette version a aussi {{count}} prix mesurés, que la facturation ne valorise pas : ils ne sont pas listés.',
+        Notes: {
+          DRAFT:
+            'Les prix d’un brouillon peuvent être ajoutés et dépréciés tant qu’aucune instance avec un abonnement actif ne détient la version.',
+          PUBLISHED:
+            'Un prix peut encore être ajouté tant qu’aucune instance avec un abonnement actif ne détient cette version. Un prix ne se modifie jamais, et le prix par défaut d’une période ne peut pas être déprécié : pour le changer, ajoutez un prix et faites-en le prix par défaut.',
+          ARCHIVED:
+            'Cette version est retirée de la vente et n’accepte aucun nouveau prix. Les instances qui la détiennent continuent d’être facturées d’après ses prix.',
+        },
+        Slots: {
+          label: 'Prix par défaut de chaque période de facturation',
+          title: 'Prix par défaut de chaque période de facturation',
+          missing:
+            'Aucun prix par défaut : cet add-on ne peut pas être attaché à un abonnement {{period}}.',
+          noDefault:
+            'Payant, mais aucun prix n’est le prix par défaut : cet add-on ne peut pas être attaché à un abonnement {{period}}.',
+        },
+        Actions: {
+          add: 'Ajouter un prix',
+          deprecate: 'Déprécier',
+          deprecateAria: 'Déprécier {{label}}',
+          deprecateDefaultHint:
+            'Le prix par défaut d’une période facture chaque instance qui détient cette version. Retirez-le par une nouvelle version de l’add-on, ou ajoutez un prix et faites-en le prix par défaut.',
+        },
+        Table: {
+          Columns: {
+            price: 'Prix',
+            amount: 'Montant par unité',
+            billed: 'Facturé',
+            status: 'Statut',
+          },
+          empty: 'Cette version n’a encore aucun prix.',
+        },
+        Drawer: {
+          titleNew: 'Nouveau prix',
+          description:
+            '{{name}}, version {{version}}. Un prix devient une ligne de facture.',
+          create: 'Créer le prix',
+        },
+        Form: {
+          Labels: {
+            period: 'Période de facturation',
+            timing: 'Échéance de facturation',
+            currency: 'Devise',
+            amount: 'Montant par unité',
+            label: 'Libellé sur la facture',
+            isDefault: 'Prix par défaut de cette période',
+          },
+          Descriptions: {
+            period: 'À quelle fréquence le montant est facturé.',
+            currency:
+              'Une version est facturée dans une seule devise, fixée par son premier prix.',
+            currencyLocked:
+              'Cette version est facturée en {{currency}}, devise fixée par son premier prix.',
+            amount:
+              'Facturé pour chaque unité détenue, par période. Saisissez le montant dans l’unité propre à la devise (par exemple 10,00).',
+            label:
+              'Le nom de la ligne de facture. Laissé vide, Kaiten en déduit un.',
+            isDefault:
+              'Le prix par défaut d’une période est celui qui facture les instances qui détiennent cette version sur un abonnement de cette période. Une période n’en a qu’un.',
+          },
+          Placeholders: {
+            currency: 'Choisir une devise',
+            currencySearch: 'Rechercher une devise',
+            amount: '0,00',
+            label: 'Siège supplémentaire, mensuel',
+          },
+          livePreview: 'Se lit {{price}} par unité',
+          Errors: {
+            label: 'Le libellé fait 200 caractères au plus.',
+            currency: 'Choisissez une devise que Kaiten prend en charge.',
+            amount:
+              'Saisissez un montant valide : zéro ou plus, avec au plus 12 décimales au-delà de celles de la devise et 12 chiffres dans sa plus petite unité.',
+          },
+        },
+        ReplaceDefault: {
+          title: 'Remplacer le prix par défaut {{period}} ?',
+          description:
+            'Ce prix devient celui qui facture les abonnements {{period}}, à la place de « {{label}} » ({{price}}). L’ancien prix reste listé et actif, et pourra être déprécié dès qu’il n’est plus le prix par défaut.',
+          confirm: 'Remplacer le prix par défaut',
+        },
+        Deprecate: {
+          title: 'Déprécier « {{label}} » ?',
+          description:
+            'Les instances déjà facturées d’après ce prix continuent de l’être. Il n’est plus proposé. Cette action est irréversible.',
+          confirm: 'Déprécier',
+        },
+        Toasts: {
+          created: 'Prix créé',
+          deprecated: 'Prix déprécié',
+        },
+      },
+      Compatibility: {
+        title: 'Licences compatibles',
+        description:
+          'Une instance ne peut attacher cette version que si sa licence appartient à l’une de ces familles. Toutes les versions d’une famille comptent : une nouvelle version de licence ne laisse donc jamais l’add-on orphelin.',
+        listLabel: 'Familles de licences',
+        noFamilies: 'Il n’y a encore aucune famille de licences.',
+        Empty: {
+          title: 'Attachable à rien',
+          description:
+            'Aucune famille de licences n’est compatible : aucune instance ne peut attacher cette version. Vous pouvez tout de même la publier : choisissez les familles qu’elle complète.',
+        },
+      },
+    },
+    Vouchers: {
+      title: 'Codes promo',
+      subtitle:
+        'Des codes qui donnent à une instance une remise sur ses factures ou un bonus de droits.',
+      Actions: {
+        addBoost: 'Ajouter un bonus de droits',
+        publish: {
+          label: 'Publier',
+          title: 'Publier {{name}} ?',
+          description:
+            'Publier rend le code utilisable. Un code promo publié garde son offre : seuls son nom, sa description, sa date de fin et son nombre maximal d’utilisations peuvent changer ensuite.',
+          confirm: 'Publier',
+          success: 'Code promo publié',
+        },
+        archive: {
+          label: 'Archiver',
+          title: 'Archiver {{name}} ?',
+          description:
+            'Plus aucune instance ne pourra utiliser le code. Les utilisations déjà faites continuent de s’appliquer, et le code promo reste consultable.',
+          confirm: 'Archiver',
+          success: 'Code promo archivé',
+        },
+      },
+      Code: {
+        label: 'Code promo',
+        copy: 'Copier le code',
+        copied: 'Code copié',
+        copyFailed: 'Le code n’a pas pu être copié',
+      },
+      Detail: {
+        subtitle: 'Code se terminant par {{hint}}',
+        Offer: {
+          title: 'Ce qu’il fait',
+          description: 'En clair, tel que vous pouvez l’envoyer avec le code.',
+        },
+        Details: {
+          title: 'Détails',
+          description: 'Son statut, ses utilisations et sa date de création.',
+        },
+        Fields: {
+          description: 'Description',
+          type: 'Type',
+          status: 'Statut',
+          redeemed: 'Utilisations',
+          created: 'Créé le',
+          updated: 'Dernière modification',
+        },
+        Redemptions: {
+          description: 'Les instances qui ont utilisé ce code promo.',
+          empty: 'Aucune instance n’a encore utilisé ce code promo.',
+        },
+      },
+      Edit: {
+        title: 'Modifier {{name}}',
+        description:
+          'Un code promo publié garde son offre. Son nom, sa description, sa date de fin et son nombre maximal d’utilisations peuvent changer.',
+        save: 'Enregistrer',
+        saved: 'Code promo enregistré',
+        Descriptions: {
+          expiresAt:
+            'Date et heure en UTC. Laissez vide pour aucune date de fin.',
+          maxRedemptions_one:
+            'Laissez vide pour aucune limite. Il ne peut pas être inférieur à l’utilisation déjà faite ({{count}}).',
+          maxRedemptions_other:
+            'Laissez vide pour aucune limite. Il ne peut pas être inférieur aux {{count}} utilisations déjà faites.',
+        },
+        Errors: {
+          name: 'Saisissez un nom',
+          nameTooLong: 'Un nom compte 200 caractères au plus',
+          descriptionTooLong: 'Une description compte 2000 caractères au plus',
+          date: 'Saisissez une date et une heure valides',
+          maxRedemptions:
+            'Saisissez un nombre entier à partir de 1, ou laissez vide pour aucune limite',
+          belowCount: 'Le code promo a déjà été utilisé plus de fois que cela',
+        },
+      },
+      List: {
+        new: 'Nouveau code promo',
+        Columns: {
+          name: 'Nom',
+          code: 'Code',
+          type: 'Type',
+          status: 'Statut',
+          redeemed: 'Utilisations',
+          expires: 'Valide jusqu’au',
+          customer: 'Client',
+        },
+        Empty: {
+          title: 'Aucun code promo pour l’instant',
+          description:
+            'Un code promo donne à une instance une remise sur ses factures ou un bonus de droits. Créez-en un, puis donnez son code à un client.',
+          filteredTitle: 'Aucun code promo ne correspond',
+          filteredDescription:
+            'Aucun code promo ne correspond à cette recherche ou à ces filtres.',
+        },
+        Filters: {
+          search: 'Recherche',
+          searchPlaceholder: 'Nom, code ou client',
+          status: 'Statut',
+          type: 'Type',
+          clear: 'Effacer les filtres',
+        },
+        anyCustomer: 'Tous les clients',
+        codeHint: 'se termine par {{hint}}',
+        noEnd: 'Sans date de fin',
+        redeemed: '{{count}} sur {{max}}',
+        redeemedUnbounded: '{{count}} (sans limite)',
+        startsOn: 'Débute le {{date}}',
+      },
+      Published: {
+        title: 'Code promo publié',
+        subtitle: '{{name}} peut maintenant être utilisé.',
+        codeTitle: 'Son code',
+        codeDescription:
+          'Copiez-le et donnez-le au client. Quiconque possède le code peut utiliser l’offre.',
+        codeHidden:
+          'Le code se termine par {{hint}}. Il n’est montré qu’aux sessions qui peuvent lire les codes promo.',
+        summaryTitle: 'Ce qu’il fait',
+        summaryDescription: 'En clair, à envoyer avec le code.',
+        boostTitle: 'Ajouter un bonus de droits pour la même offre',
+        boostDescription:
+          'Démarrez un bonus de droits qui dure autant que cette remise, avec les mêmes conditions et les mêmes limites. Vous choisissez les droits qu’il modifie.',
+        boostAction: 'Ajouter un bonus de droits',
+        another: 'Créer un autre code promo',
+        view: 'Voir le code promo',
+      },
+      References: {
+        license: '{{name}} v{{version}}',
+        draft: '{{label}} (brouillon)',
+        archived: '{{label}} (archivée)',
+        unknown: 'une version absente de la liste',
+      },
+      Review: {
+        name: 'Nom',
+        code: 'Code',
+        codeGenerated: 'Un code est généré à la publication',
+        summary: 'Le code promo en clair',
+        publishNote:
+          'Publier rend le code utilisable. Enregistrez plutôt un brouillon pour continuer à y travailler : un brouillon ne peut pas être utilisé.',
+        unlimited: 'il n’a pas de limite d’utilisations',
+        limited_one: 'il ne peut être utilisé qu’une fois',
+        limited_other: 'il peut être utilisé {{count}} fois',
+        reservedFor: 'il est réservé à {{customer}}',
+        anyCustomer: 'tout client peut l’utiliser, une fois par instance',
+        licenses: 'il ne s’applique qu’aux instances sous {{licenses}}',
+        addons: 'il ne s’applique qu’aux instances qui détiennent {{addons}}',
+        licensesAndAddons:
+          'il ne s’applique qu’aux instances sous {{licenses}} qui détiennent {{addons}}',
+        window: 'il peut être utilisé du {{from}} au {{to}}',
+        until: 'il peut être utilisé jusqu’au {{date}}',
+        from: 'il peut être utilisé à partir du {{date}}',
+        noWindow: 'il n’a pas de date de fin',
+        firstTimeOnly:
+          'seuls les clients qui n’ont encore payé aucune facture peuvent l’utiliser',
+        annualOnly:
+          'seules les instances avec un abonnement annuel peuvent l’utiliser',
+        minimumAmount:
+          'le prix de base de l’abonnement doit être d’au moins {{amount}}',
+      },
+      Wizard: {
+        title: 'Nouveau code promo',
+        titleDraft: 'Terminer le brouillon',
+        subtitle:
+          'Dites ce qu’il offre, qui peut l’utiliser et combien de fois, puis relisez-le en clair avant de le publier.',
+        boostName: '{{name}} (bonus)',
+        draftKept:
+          'Le code promo a été enregistré en brouillon. Envoyer de nouveau le remplace par ce que contient cette page et le publie.',
+        anyCustomer: 'Tous les clients',
+        unlimitedNote:
+          'Aucune limite sur ce droit tant que le code promo s’applique.',
+        addChange: 'Ajouter une modification',
+        removeChange: 'Retirer la modification {{position}}',
+        Steps: {
+          type: 'Type',
+          offer: 'Offre',
+          eligibility: 'Qui et quand',
+          review: 'Relecture',
+        },
+        Buttons: {
+          back: 'Retour',
+          next: 'Suivant',
+          saveDraft: 'Enregistrer en brouillon',
+          publish: 'Publier',
+        },
+        Toasts: {
+          draftSaved: 'Brouillon enregistré',
+          published: 'Code promo publié',
+        },
+        Type: {
+          label: 'De quel type de code promo s’agit-il ?',
+          later: 'Disponible dans une prochaine version',
+          FLAG_GRANT: 'Activation de fonctionnalité',
+          COMPOSITE: 'Lot',
+          Detail: {
+            PRICE:
+              'Un pourcentage ou un montant en moins sur les factures de l’instance.',
+            ENTITLEMENT_BOOST:
+              'Fixe, augmente, multiplie ou lève la limite de droits numériques.',
+          },
+        },
+        Labels: {
+          name: 'Nom',
+          description: 'Description',
+          discountType: 'Comment la remise est-elle calculée ?',
+          percentage: 'Pourcentage',
+          currency: 'Devise',
+          amount: 'Montant',
+          appliesTo: 'À quoi s’applique-t-elle ?',
+          prices: 'Prix',
+          grants: 'Ce qu’il modifie',
+          entitlement: 'Droit',
+          modifier: 'Modification',
+          value: 'Valeur',
+          duration: 'Combien de temps dure-t-elle ?',
+          durationInInvoices: 'Nombre de factures',
+          durationInPeriods: 'Nombre de périodes de facturation',
+          code: 'Code personnalisé',
+          restrictedCustomer: 'Réservé à',
+          maxRedemptions: 'Nombre maximal d’utilisations',
+          startsAt: 'Utilisable à partir du',
+          expiresAt: 'Utilisable jusqu’au',
+          licenseVersions: 'Versions de licence',
+          addonVersions: 'Versions d’add-on',
+          firstTimeOnly: 'Nouveaux clients uniquement',
+          annualOnly: 'Abonnements annuels uniquement',
+          minimumCurrency: 'Devise du minimum',
+          minimumAmount: 'Prix de base minimum',
+        },
+        Descriptions: {
+          name: 'Le nom que vous lui donnez dans la console ; les clients ne le voient pas.',
+          description: 'Facultatif. À quoi il sert, en quelques mots.',
+          percentage:
+            'Plus de 0 et jusqu’à 100. Les décimales sont acceptées, par exemple 12,5.',
+          currency:
+            'Un montant fixe ne s’applique qu’aux abonnements facturés dans cette devise.',
+          amount:
+            'Dans la devise, en unités principales : 50,00 pour cinquante dollars.',
+          prices:
+            'Cochez les prix auxquels la remise s’applique. Les prix d’une version qui n’est plus en vente sont aussi listés.',
+          grants:
+            'Chaque ligne modifie un droit numérique. Un droit ne peut être modifié qu’une fois.',
+          durationInInvoices: 'À combien de factures la remise s’applique.',
+          durationInPeriods:
+            'Pendant combien de périodes de facturation le bonus dure. Un mois, un trimestre ou un an, selon la facturation de l’abonnement.',
+          code: 'Laissez vide pour qu’un long code soit généré. Sinon, de 8 à 64 lettres, chiffres, tirets ou tirets bas ; la casse et les tirets n’ont pas d’importance à l’utilisation.',
+          restrictedCustomer:
+            'Seules les instances de ce client peuvent l’utiliser.',
+          restrictedCustomerSlug:
+            'Le slug du client. Les clients n’ont pas pu être listés avec cette session.',
+          maxRedemptions:
+            'Laissez vide pour aucune limite. Chaque instance ne peut l’utiliser qu’une fois.',
+          startsAt:
+            'Date et heure en UTC. Laissez vide pour démarrer dès la publication.',
+          expiresAt:
+            'Date et heure en UTC. Laissez vide pour aucune date de fin.',
+          licenseVersions:
+            'Seules les instances sur l’une des versions cochées peuvent l’utiliser.',
+          addonVersions:
+            'Seules les instances qui détiennent l’une des versions cochées peuvent l’utiliser.',
+          firstTimeOnly:
+            'Uniquement les clients dont aucune instance n’a payé de facture.',
+          annualOnly:
+            'Uniquement les instances avec un abonnement annuel actif.',
+          minimumCurrency:
+            'Le minimum est comparé au prix de base de l’abonnement, dans cette devise.',
+          minimumAmount:
+            'Facultatif. L’abonnement doit coûter au moins ce montant.',
+        },
+        Placeholders: {
+          name: 'Remise de lancement',
+          percentage: '20',
+          currency: 'Choisissez une devise',
+          currencySearch: 'Rechercher une devise',
+          amount: '50,00',
+          entitlement: 'Choisissez un droit',
+          entitlementSearch: 'Rechercher un droit',
+          value: '50000',
+          code: 'LANCEMENT-20',
+          customerSearch: 'Rechercher un client',
+        },
+        DiscountType: {
+          PERCENTAGE: 'Un pourcentage',
+          FIXED_AMOUNT: 'Un montant fixe',
+        },
+        AppliesTo: {
+          LICENSE_BASE: 'Le prix de base',
+          ADDONS: 'Les add-ons',
+          BOTH: 'Les deux',
+          SELECTED_PRICES: 'Des prix choisis',
+          Blurb: {
+            LICENSE_BASE:
+              'Le prix de la licence, hors add-ons et consommation.',
+            ADDONS: 'Ce que coûtent les add-ons détenus par une instance.',
+            BOTH: 'Le prix de la licence et les add-ons ensemble.',
+            SELECTED_PRICES: 'Uniquement les prix que vous cochez ci-dessous.',
+          },
+        },
+        Prices: {
+          label: 'Prix auxquels la remise s’applique',
+          loading: 'Chargement des prix',
+          none: 'Aucun prix à choisir.',
+          deprecated: '{{amount}} · déprécié',
+        },
+        Modifier: {
+          SET: 'Fixer à',
+          ADD: 'Ajouter',
+          MULTIPLY: 'Multiplier par',
+          UNLIMITED: 'Rendre illimité',
+        },
+        Duration: {
+          ONE_TIME: 'Une fois',
+          REPEATING: 'Un nombre de fois',
+          FOREVER: 'Sans fin',
+          Blurb: {
+            priceONE_TIME:
+              'La remise s’applique à une seule facture : la première émise après l’utilisation du code.',
+            priceREPEATING:
+              'La remise s’applique à un nombre de factures, compté en factures et non en mois.',
+            priceFOREVER:
+              'La remise s’applique à toutes les factures jusqu’à ce que l’utilisation soit révoquée.',
+            boostONE_TIME:
+              'Le bonus dure une période de facturation à partir de l’utilisation.',
+            boostREPEATING:
+              'Le bonus dure un nombre de périodes de facturation, compté en périodes et non en factures.',
+            boostFOREVER:
+              'Le bonus n’a pas de fin jusqu’à ce que l’utilisation soit révoquée.',
+          },
+        },
+        Sections: {
+          code: 'Code',
+          customer: 'Client',
+          customerDescription:
+            'Réservez le code promo à un client, ou laissez n’importe quel client l’utiliser.',
+          limits: 'Limites',
+          limitsDescription:
+            'Combien de fois il peut être utilisé, et quand. Les dates sont en UTC.',
+          versions: 'Versions de licence et d’add-on',
+          versionsDescription:
+            'Limitez le code promo aux instances sur certaines versions. Rien de coché, c’est aucune limite.',
+          conditions: 'Conditions',
+          conditionsDescription:
+            'Ce qu’une instance doit remplir pour utiliser le code promo.',
+        },
+        WeakCode: {
+          title: 'Un code court peut être deviné',
+          description:
+            'Ajoutez un nombre maximal d’utilisations ou une date de fin, ou laissez le code vide pour qu’un code long soit généré.',
+        },
+        Checklist: {
+          loading: 'Chargement',
+          notAllowed:
+            'Cette session ne peut pas les lister. Ce qui est déjà coché reste.',
+        },
+        Errors: {
+          name: 'Saisissez un nom',
+          nameTooLong: 'Un nom compte 200 caractères au plus',
+          descriptionTooLong: 'Une description compte 2000 caractères au plus',
+          percentage: 'Saisissez un pourcentage supérieur à 0 et jusqu’à 100',
+          currency: 'Devise requise',
+          amount:
+            'Saisissez un montant supérieur à 0, sans plus de décimales que la devise n’en a',
+          prices: 'Cochez au moins un prix',
+          durationInPeriods: 'Saisissez un nombre entier à partir de 1',
+          grants: 'Ajoutez au moins une modification',
+          entitlement: 'Choisissez un droit',
+          duplicate: 'Ce droit est déjà modifié par une autre ligne',
+          setValue: 'Saisissez un nombre, 0 ou plus',
+          positiveValue: 'Saisissez un nombre supérieur à 0',
+          code: 'Utilisez de 8 à 64 lettres, chiffres, tirets ou tirets bas, ou laissez vide',
+          minimumAmount:
+            'Saisissez un montant, sans plus de décimales que la devise n’en a',
+          date: 'Saisissez une date et une heure valides',
+          window: 'La fin doit être postérieure au début',
+          maxRedemptions:
+            'Saisissez un nombre entier à partir de 1, ou laissez vide pour aucune limite',
         },
       },
     },
@@ -2900,6 +5407,10 @@ export default {
             label: 'Licences',
             description: 'Licences et entitlements qui y sont rattachés.',
           },
+          billing: {
+            label: 'Facturation',
+            description: "Abonnements et factures qu'ils émettent.",
+          },
           security: {
             label: 'Sécurité',
             description: 'Identifiants émis pour votre organisation.',
@@ -2953,6 +5464,14 @@ export default {
             'Un entitlement a été ajouté à une licence.',
           LICENSE_ENTITLEMENT_UNASSIGNED:
             "Un entitlement a été retiré d'une licence.",
+          INSTANCE_BILLING_STARTED:
+            'Une instance a été abonnée, ou un abonnement résilié a repris.',
+          INSTANCE_BILLING_STATUS_CHANGED:
+            'Un essai a été converti, ou un abonnement est passé en retard de paiement ou en est sorti.',
+          INSTANCE_BILLING_CANCELED:
+            'Un abonnement a été résilié, en fin de période ou immédiatement.',
+          INSTANCE_INVOICE_HELD:
+            "Une facture a été retenue car son journal d'usage a échoué à une vérification ; elle attend d'être libérée ou recomposée.",
           SYSTEM_ORGANIZATION_TOKEN_ISSUED:
             'Un identifiant a été émis pour votre organisation.',
         },
@@ -2978,6 +5497,182 @@ export default {
           description:
             'Cette action restaure la navigation latérale et les futurs paramètres stockés dans le navigateur à leurs valeurs par défaut sur cet appareil.',
           confirmButton: 'Réinitialiser les paramètres',
+        },
+      },
+      Billing: {
+        title: 'Facturation',
+        subtitle:
+          'Qui encaisse vos factures, les valeurs par défaut d’un abonnement et la durée de conservation de l’usage.',
+        cardDescription:
+          'Qui encaisse vos factures, les valeurs par défaut d’un abonnement et la durée de conservation de l’usage.',
+        configureButton: 'Ouvrir les réglages de facturation',
+        loading: 'Chargement des réglages de facturation',
+        Providers: {
+          title: 'Fournisseurs de paiement',
+          description: 'Qui encaisse les factures de votre organisation.',
+          available: 'Disponible',
+          connected: 'Connecté',
+          notConnected: 'Non connecté',
+          Noop: {
+            title: 'Transmission manuelle',
+            description:
+              'Rien à connecter. Kaiten enregistre chaque facture et la transmet à votre propre système, comme votre ERP, par la file de transmission ; vous l’encaissez comme aujourd’hui.',
+            handoff: 'Ouvrir la file de transmission',
+          },
+          unavailable: 'Indisponible',
+          Stripe: {
+            description:
+              'Encaisse les factures des abonnements qui l’utilisent.',
+            connect: 'Connecter Stripe',
+            manage: 'Gérer la connexion',
+            why: 'Voir pourquoi',
+            Mode: {
+              test: 'Mode test',
+              live: 'Mode production',
+            },
+            Unavailable: {
+              NOT_ENTITLED: 'Non inclus dans votre offre.',
+              VAULT_NOT_CONFIGURED:
+                'Nécessite un Vault pour stocker la clé, et ce déploiement n’en a pas de configuré.',
+              UNKNOWN: 'Indisponible sur ce déploiement.',
+            },
+            Sync: {
+              never:
+                'Pas encore lu : aucune synchronisation de Stripe n’a eu lieu.',
+              ok: 'Dernière synchronisation : {{ago}}.',
+              partial:
+                'Dernière synchronisation : {{ago}}, mais certaines factures n’ont pas pu être appliquées.',
+              failing_one: 'La dernière synchronisation a échoué : {{ago}}.',
+              failing_other:
+                '{{count}} synchronisations de suite ont échoué. La dernière : {{ago}}.',
+              error: 'Dernière erreur : {{error}}',
+            },
+          },
+        },
+        Health: {
+          title: 'Santé',
+          description:
+            'Ce qui demande de l’attention en facturation, et si votre fournisseur de paiement est à jour.',
+          loading: 'Chargement de la santé de la facturation',
+          syncNow: 'Synchroniser maintenant',
+          syncing: 'Synchronisation…',
+          AllClear: {
+            title: 'Tout est en ordre',
+            description:
+              'Rien n’est retenu, en retard ou en attente, et aucun fournisseur de paiement n’est décalé.',
+          },
+          Sync: {
+            nothingNew:
+              'Synchronisé avec le fournisseur de paiement. Rien n’avait changé.',
+            done_one:
+              'Synchronisé avec le fournisseur de paiement : {{count}} facture mise à jour.',
+            done_other:
+              'Synchronisé avec le fournisseur de paiement : {{count}} factures mises à jour.',
+            partial:
+              'Synchronisé avec le fournisseur de paiement, avec des problèmes.',
+            failed:
+              'La synchronisation avec le fournisseur de paiement a échoué.',
+          },
+          Items: {
+            held: {
+              label: 'Factures retenues',
+              helper: 'En attente que quelqu’un les libère ou les recompose.',
+            },
+            pushFailures: {
+              label: 'Envois en échec',
+              helper: 'Le fournisseur de paiement continue de les refuser.',
+              oldest: 'La plus ancienne a échoué {{ago}}.',
+            },
+            overdue: {
+              label: 'Factures en retard',
+              helper: 'Impayées après leur échéance.',
+            },
+            handoff: {
+              label: 'En attente de votre comptabilité',
+              helper: 'Émises, et pas encore comptabilisées.',
+              oldest: 'La plus ancienne a été émise {{ago}}.',
+            },
+            mismatches: {
+              label: 'Montants différents, 30 derniers jours',
+              helper:
+                'Kaiten et le fournisseur de paiement ne s’accordent pas sur le total.',
+            },
+            closeBacklog: {
+              label: 'Périodes non clôturées',
+              helper: 'Périodes terminées et pas encore clôturées.',
+              oldest: 'La plus ancienne était due {{ago}}.',
+            },
+            pastDue: {
+              label: 'Abonnements en retard de paiement',
+              helper: 'Leur paiement est en retard.',
+            },
+          },
+        },
+        Defaults: {
+          title: 'Valeurs par défaut des abonnements',
+          description:
+            'Un abonnement qui ne précise pas ses propres conditions prend celles-ci. Elles s’appliquent aux factures émises à partir de maintenant : une facture déjà émise garde les conditions de son émission.',
+          save: 'Enregistrer les valeurs par défaut',
+          saved: 'Valeurs par défaut de facturation enregistrées',
+          readOnly:
+            'Votre session peut lire ces valeurs par défaut, mais pas les modifier.',
+          Labels: {
+            collectionMethod: 'Mode d’encaissement',
+            daysUntilDue: 'Délai de paiement (jours)',
+            handoffStripeInvoices: 'Transmettre les factures Stripe',
+          },
+          Descriptions: {
+            collectionMethod:
+              'La façon d’encaisser une facture quand son abonnement ne le précise pas.',
+            daysUntilDue:
+              'Nombre de jours entre l’émission d’une facture et son échéance, de 0 à 365.',
+            handoffStripeInvoices:
+              'Place aussi dans la file de transmission les factures émises par un fournisseur de paiement, pour une comptabilité qui veut toutes les factures.',
+          },
+          CollectionMethod: {
+            SEND_INVOICE: 'Envoyer la facture',
+            CHARGE_AUTOMATICALLY: 'Prélever automatiquement',
+            unavailable: '{{method}} (nécessite un fournisseur de paiement)',
+            perContract: '{{method}} (à régler sur chaque contrat)',
+          },
+          Errors: {
+            daysUntilDue: 'Saisissez un nombre entier de jours, de 0 à 365',
+          },
+        },
+        Retention: {
+          title: 'Conservation de l’usage',
+          description:
+            'La durée pendant laquelle les rapports d’usage derrière vos factures sont conservés.',
+          months_one: 'Les rapports d’usage sont conservés {{count}} mois.',
+          months_other: 'Les rapports d’usage sont conservés {{count}} mois.',
+          unlimited:
+            'Aucune limite de durée n’est indiquée pour les rapports d’usage de ce déploiement.',
+          idempotency_one:
+            'Un rapport renvoyé avec le même identifiant de transaction est ignoré pendant {{count}} jour.',
+          idempotency_other:
+            'Un rapport renvoyé avec le même identifiant de transaction est ignoré pendant {{count}} jours.',
+        },
+      },
+      DataExport: {
+        title: 'Exportez vos données',
+        description:
+          'Supprimer une organisation efface ce que la facturation a enregistré pour elle, le journal d’usage compris, et Kaiten n’est pas votre outil de comptabilité. Exportez ce que vous devez conserver avant de le faire.',
+        Invoices: {
+          title: 'Factures',
+          description:
+            'Toutes les factures de l’organisation, avec leurs lignes.',
+        },
+        Usage: {
+          title: 'Rapports d’usage',
+          description_one:
+            'Les rapports de toutes les instances, un fichier par mois. Kaiten conserve {{count}} mois d’usage.',
+          description_other:
+            'Les rapports de toutes les instances, un fichier par mois. Kaiten conserve {{count}} mois d’usage.',
+          descriptionUnknown:
+            'Les rapports de toutes les instances, un fichier par mois. Les {{count}} derniers mois sont listés ; une période plus ancienne s’exporte par l’API.',
+          list: 'Mois d’usage',
+          export: 'Exporter en CSV',
+          exportMonth: 'Exporter l’usage de {{month}} en CSV',
         },
       },
       Metadata: {
@@ -3090,14 +5785,444 @@ export default {
     },
   },
   Features: {
+    Billing: {
+      Unavailable: {
+        DEPLOYMENT_DISABLED: {
+          title: 'La facturation n’est pas activée',
+          description:
+            'La facturation est désactivée sur ce déploiement. Positionnez KAITEN_BILLING_ENABLED à true sur l’API pour l’activer.',
+        },
+        NOT_ENTITLED: {
+          title: 'La facturation ne fait pas partie de votre offre',
+          description:
+            'L’offre de votre organisation n’inclut pas la facturation. Passez à une offre supérieure pour l’utiliser.',
+        },
+        MISSING_SCOPE: {
+          title: 'Vous n’avez pas accès à la facturation',
+          description:
+            'La facturation ne peut pas être ouverte avec les accès de cette session.',
+        },
+        FEATURE_UNAVAILABLE: {
+          title: 'Indisponible dans cette version',
+          description:
+            'Cette partie de la facturation n’est pas fournie par la version de Kaiten que vous utilisez.',
+        },
+        UNREACHABLE: {
+          title: 'La facturation est injoignable',
+          description:
+            'Les capacités de facturation n’ont pas pu être chargées : la facturation reste masquée. Rien n’a été modifié. Réessayez dans un instant.',
+        },
+      },
+      MissingScope: {
+        title: 'Accès manquant',
+        description: 'Le jeton de votre session ne porte pas le scope requis :',
+        unknownScope: 'un scope requis par cette action',
+        templateHint:
+          'Si vous devriez l’avoir, le modèle de jeton de votre fournisseur d’identité doit lister les scopes de facturation (read:billing et write:billing).',
+      },
+      Problems: {
+        title: 'La requête a été refusée',
+        generic: 'Une erreur est survenue en dialoguant avec la facturation.',
+        transient: 'Rien n’a été modifié. Vous pouvez réessayer.',
+        providerUnreachable:
+          'Le fournisseur de paiement est injoignable. Rien n’a été modifié.',
+        boundaryPending:
+          'La période de cet abonnement est terminée et en cours de clôture. Rien n’a été modifié. Réessayez dans une minute.',
+        rateLimited:
+          'Trop de requêtes ont été envoyées en peu de temps. C’est temporaire : réessayez dans une minute.',
+        BoundaryClosing: {
+          title: 'Clôture de la période…',
+          description:
+            'La période de cet abonnement est terminée et en cours de clôture. Votre demande est renvoyée dans un instant.',
+        },
+        reference: 'Référence {{id}}',
+        outsideRetention: 'L’usage antérieur au {{date}} n’est plus conservé.',
+        providerCode: 'Code : {{code}}',
+        providerParam: 'Champ : {{param}}',
+        providerRequest: 'Requête : {{id}}',
+        openConnector: 'Ouvrir le connecteur Stripe',
+      },
+      InvoiceStatus: {
+        DRAFT: 'Brouillon',
+        MANUAL: 'Prêt à facturer',
+        PUSHED: 'En attente de paiement',
+        PAID: 'Payée',
+        PUSH_FAILED: 'Envoi échoué',
+        PAYMENT_FAILED: 'Paiement échoué',
+        UNCOLLECTIBLE: 'Passée en perte',
+        VOID: 'Annulée',
+        held: 'Bloquée',
+        overdue: 'En retard',
+      },
+      HoldReason: {
+        LEDGER_SEQUENCE_GAP: 'Des rapports d’usage manquent dans le journal',
+        LEDGER_CHAIN_BREAK: 'La chaîne du journal d’usage est rompue',
+        LEDGER_COUNTER_MISMATCH:
+          'Le compteur d’usage ne correspond pas au journal',
+      },
+      InvoiceLineType: {
+        BASE: 'Forfait',
+        ADDON: 'Option',
+        USAGE: 'Consommation',
+        OVERAGE: 'Dépassement',
+        DISCOUNT: 'Remise',
+        unknown: 'Autre',
+      },
+      SubscriptionStatus: {
+        TRIAL: 'Essai',
+        ACTIVE: 'Actif',
+        PAST_DUE: 'En retard de paiement',
+        CANCELED: 'Annulé',
+        cancellationScheduled: 'Annulation en fin de période',
+        none: 'Pas d’abonnement',
+      },
+      LicensePriceSummary: {
+        free: 'Gratuit',
+        custom: 'Tarif sur mesure',
+        unpriced: 'Pas encore de prix',
+        usage: 'À l’usage',
+        plusUsage: '+ usage',
+      },
+      SubscriptionActions: {
+        Reasons: {
+          trial: 'Indisponible pendant un essai',
+          cancellationScheduled: 'Réactivez d’abord l’abonnement',
+        },
+      },
+      InvoiceKind: {
+        ACTIVATION: 'Activation',
+        RENEWAL: 'Renouvellement',
+        FINAL: 'Finale',
+      },
+      InvoiceLines: {
+        capped: 'Plafonnée',
+        cappedExplanation:
+          'L’échantillon dépasse ce que la licence accepte. Les rapports au-delà du plafond sont rejetés : l’excédent n’est donc pas facturé.',
+        empty: 'Cette facture n’a aucune ligne.',
+        Columns: {
+          line: 'Ligne',
+          servicePeriod: 'Période de service',
+          amount: 'Montant',
+        },
+        Discount: {
+          line: 'Ligne {{seq}}',
+          percentageOf: '{{value}} de {{base}}',
+          amountOff: '{{value}} de remise sur {{base}}',
+          application:
+            'Facture {{application}} sur {{max}} pour cette utilisation',
+          applicationUnbounded:
+            'Facture {{application}} pour cette utilisation',
+          bearsOn: 'Porte sur {{targets}}',
+        },
+      },
+      InvoiceTotals: {
+        subtotal: 'Sous-total',
+        discounts: 'Remises',
+        total: 'Total',
+        discounted: 'Après {{amount}} de remises',
+      },
+      InvoicePreview: {
+        bannerTitle: 'Aperçu, pas une facture',
+        bannerDescription:
+          'Voici ce que serait la facture à une échéance maintenant. Rien n’est enregistré, envoyé ni facturé.',
+        resultLabel: 'Aperçu de facture',
+        composed: 'Facture de type {{kind}}, composée le {{asOf}}.',
+      },
+      Fingerprint: {
+        empty: 'Aucun rapport d’usage sur cette période.',
+        summary_one: 'Rapport {{first}} · {{count}} ligne · Σ {{sum}}',
+        summary_other:
+          'Rapports {{first}}–{{last}} · {{count}} lignes · Σ {{sum}}',
+      },
+      HandoffStatus: {
+        PENDING: 'En attente de votre ERP',
+        ACKNOWLEDGED: 'Acquittée',
+        NOT_REQUIRED: 'Non requise',
+      },
+      Invoices: {
+        notIssued: 'Non émise',
+        Columns: {
+          customer: 'Client',
+          invoice: 'Facture',
+          period: 'Période de service',
+          total: 'Total',
+          status: 'Statut',
+          due: 'Échéance de paiement',
+          provider: 'Fournisseur',
+          handoff: 'Transmission',
+        },
+      },
+      MarkPaid: {
+        Errors: {
+          referenceTooLong: 'La référence est trop longue',
+          noteTooLong: 'La note est trop longue',
+          paidAtInvalid: 'Saisissez une date et une heure valides',
+          paidAtInFuture: 'Le paiement ne peut pas être dans le futur',
+        },
+      },
+      Overage: {
+        unlimited: 'Aucune limite',
+        limit: 'Limite {{limit}} (+{{percent}} % accepté)',
+        reports_one: '{{count}} rapport',
+        reports_other: '{{count}} rapports',
+        measured: 'Usage {{usage}}, dont {{overage}} au-dessus de la limite',
+        limitsLabel: 'Limites appliquées',
+      },
+      ProviderKind: {
+        NOOP: 'Manuel',
+        STRIPE: 'Stripe',
+      },
+      Price: {
+        perUnit: 'par {{unit}}',
+        Models: {
+          FLAT_FEE: {
+            label: 'Forfait',
+            blurb: 'Revient à chaque période, quantité 1.',
+          },
+          USAGE_BASED: {
+            label: 'À l’usage',
+            blurb: 'Mesuré dès la première unité, par unité de vente.',
+          },
+          OVERAGE: {
+            label: 'Dépassement',
+            blurb:
+              'Facture seulement ce qui dépasse l’octroi, jusqu’à son plafond.',
+          },
+        },
+        Timings: {
+          ADVANCE: {
+            label: 'À l’avance',
+            blurb: 'Facture la période qui commence à l’échéance.',
+          },
+          ARREARS: {
+            label: 'À terme échu',
+            blurb: 'Facture la période qui se termine à l’échéance.',
+          },
+        },
+        Periods: {
+          MONTHLY: 'Mensuel',
+          QUARTERLY: 'Trimestriel',
+          SEMI_ANNUAL: 'Semestriel',
+          ANNUAL: 'Annuel',
+        },
+        PeriodSuffix: {
+          MONTHLY: '/mois',
+          QUARTERLY: '/trimestre',
+          SEMI_ANNUAL: '/semestre',
+          ANNUAL: '/an',
+        },
+        Status: {
+          ACTIVE: 'Actif',
+          DEPRECATED: 'Déprécié',
+        },
+        ResetUnits: {
+          HOUR: 'heure',
+          DAY: 'jour',
+          WEEK: 'semaine',
+          MONTH: 'mois',
+          YEAR: 'an',
+        },
+      },
+      Reason: {
+        description:
+          'Obligatoire, {{max}} caractères au plus. Conservé avec votre nom dans le journal d’audit.',
+        Errors: {
+          required: 'Un motif est obligatoire',
+          tooLong: 'Le motif est trop long',
+        },
+      },
+      UsageReports: {
+        Columns: {
+          report: 'Rapport',
+          reportedAt: 'Reçu le',
+          behavior: 'Mode',
+          value: 'Valeur',
+          counter: 'Compteur',
+          delta: 'Variation',
+          overageDelta: 'Variation du dépassement',
+          limit: 'Limite',
+          transaction: 'Transaction',
+          properties: 'Propriétés',
+        },
+        Behavior: {
+          append: 'Ajout',
+          set: 'Remplacement',
+        },
+        unlimited: 'Sans limite',
+        limitChanged: 'Limite modifiée',
+        propertiesTitle: 'Propriétés du rapport {{report}}',
+        propertiesOpen: 'Afficher les propriétés du rapport {{report}}',
+      },
+      PeriodFilter: {
+        from: 'Du',
+        before: 'Avant le',
+        periodInvalid: 'La période doit se terminer après son début.',
+      },
+      InvoiceExport: {
+        button: 'Exporter',
+        csvLines: 'CSV par ligne de facture',
+        csvInvoices: 'CSV par facture',
+        ndjson: 'NDJSON, une facture par ligne',
+        unapplied_one: 'Ce filtre n’est pas appliqué au fichier : {{filters}}.',
+        unapplied_other:
+          'Ces filtres ne sont pas appliqués au fichier : {{filters}}.',
+      },
+      InvoicesCard: {
+        title: 'Factures',
+        loading: 'Chargement des factures',
+        emptyTitle: 'Aucune facture pour le moment',
+      },
+      DeletionRefusal: {
+        title: {
+          instance: 'Cette instance ne peut pas être supprimée',
+          customer: 'Ce client ne peut pas être supprimé',
+          entitlement: 'Ce droit ne peut pas être supprimé',
+        },
+        description: {
+          instance:
+            'La facturation dépend encore de cette instance : elle a été conservée. Rien n’a été supprimé.',
+          customer:
+            'La facturation dépend encore de ce client : il a été conservé. Rien n’a été supprimé.',
+          entitlement:
+            'Quelque chose accorde, compte ou facture encore ce droit : il a été conservé. Rien n’a été supprimé.',
+        },
+        subscriptionTitle: 'Abonnement',
+        subscriptionLive: 'L’abonnement est toujours en cours.',
+        subscriptionEnded:
+          'L’abonnement est terminé, mais certaines de ses factures ne sont pas réglées.',
+        openSubscription: 'Ouvrir l’abonnement',
+        customerLive:
+          'L’abonnement d’une de ses instances est toujours en cours.',
+        customerNoneLive:
+          'Aucun de ses abonnements n’est en cours, mais certaines factures ne sont pas réglées.',
+        openInstances: 'Ouvrir le client',
+        unsettledTitle_one: '{{count}} facture non réglée',
+        unsettledTitle_other: '{{count}} factures non réglées',
+        unsettledHint:
+          'Réglez-les une à une (payée, annulée ou passée en perte), puis réessayez.',
+        referencesTitle: 'Encore utilisé',
+        references: {
+          licenseGrants_one: 'Accordé par {{count}} version de licence',
+          licenseGrants_other: 'Accordé par {{count}} versions de licence',
+          usageCounters_one: 'Usage enregistré sur {{count}} instance',
+          usageCounters_other: 'Usage enregistré sur {{count}} instances',
+          licensePrices_one: 'Mesuré par {{count}} prix de licence',
+          licensePrices_other: 'Mesuré par {{count}} prix de licence',
+          addonPrices_one: 'Mesuré par {{count}} prix d’option',
+          addonPrices_other: 'Mesuré par {{count}} prix d’option',
+          addonGrants_one: 'Accordé par {{count}} option',
+          addonGrants_other: 'Accordé par {{count}} options',
+          boostGrants_one: 'Accordé par {{count}} bonus de code promo',
+          boostGrants_other: 'Accordé par {{count}} bonus de codes promo',
+        },
+        removeFirst:
+          'Retirez ces références, puis supprimez à nouveau le droit.',
+        hideInstead:
+          'Un prix ou un bonus de code promo ne peut plus être retiré une fois créé : ce droit ne peut donc plus être supprimé. Pour ne plus l’afficher dans les composants destinés aux clients, désactivez « Visible côté client » sur sa page.',
+        openEntitlement: 'Ouvrir le droit',
+      },
+      VoucherStatus: {
+        DRAFT: 'Brouillon',
+        ACTIVE: 'Actif',
+        EXPIRED: 'Expiré',
+        EXHAUSTED: 'Épuisé',
+        ARCHIVED: 'Archivé',
+      },
+      VoucherType: {
+        PRICE: 'Remise',
+        ENTITLEMENT_BOOST: 'Bonus de droits',
+      },
+      RedemptionStatus: {
+        ACTIVE: 'Active',
+        EXPIRED: 'Expirée',
+        REVOKED: 'Révoquée',
+      },
+      Redemptions: {
+        title: 'Utilisations',
+        loading: 'Chargement des utilisations',
+        emptyTitle: 'Aucune utilisation pour l’instant',
+        codeHint: 'Code se terminant par {{hint}}',
+        from: 'Depuis le {{date}}',
+        applications: '{{count}}/{{max}} factures',
+        applicationsUnbounded_one: '{{count}} facture jusqu’ici',
+        applicationsUnbounded_other: '{{count}} factures jusqu’ici',
+        revokedBecause: 'Révoquée : {{reason}}',
+        revoke: 'Révoquer {{name}}',
+        Columns: {
+          instance: 'Instance',
+          voucher: 'Code promo',
+          redeemed: 'Utilisée le',
+          window: 'S’applique',
+          applications: 'Factures',
+          status: 'Statut',
+        },
+        Revoke: {
+          title: 'Révoquer {{name}} sur {{instance}}',
+          description:
+            'Un bonus cesse de s’appliquer immédiatement et une remise ne s’applique plus à aucune facture à venir. Les factures déjà émises ne changent pas, et le code promo continue de compter cette utilisation.',
+          reason: 'Motif',
+          confirm: 'Révoquer',
+          success: '{{name}} révoqué',
+        },
+      },
+      Voucher: {
+        Offer: {
+          price: '{{discount}} de remise sur {{target}}, {{duration}}',
+          boost: '{{changes}}, {{duration}}',
+          Target: {
+            LICENSE_BASE: 'le prix de base',
+            ADDONS: 'les add-ons',
+            BOTH: 'le prix de base et les add-ons',
+            SELECTED_PRICES_one: 'le prix sélectionné',
+            SELECTED_PRICES_other: 'les {{count}} prix sélectionnés',
+          },
+          PriceDuration: {
+            ONE_TIME: 'sur une seule facture',
+            REPEATING_one: 'sur la prochaine facture',
+            REPEATING_other: 'sur les {{count}} prochaines factures',
+            FOREVER: 'sur toutes les factures',
+          },
+          BoostDuration: {
+            ONE_TIME: 'pendant une période de facturation',
+            REPEATING_one: 'pendant {{count}} période de facturation',
+            REPEATING_other: 'pendant {{count}} périodes de facturation',
+            FOREVER: 'sans limite de durée',
+          },
+          Change: {
+            SET: '{{entitlement}} fixé à {{value}}',
+            ADD: '{{entitlement}} + {{value}}',
+            MULTIPLY: '{{entitlement}} × {{value}}',
+            UNLIMITED: '{{entitlement}} illimité',
+          },
+        },
+      },
+    },
     AuditTrail: {
       events: {
+        ADDON_ARCHIVED: "Version d'add-on archivée",
+        ADDON_CREATED: 'Add-on créé',
+        ADDON_DELETED: 'Add-on supprimé',
+        ADDON_ENTITLEMENT_ASSIGNED: 'Droit attribué à un add-on',
+        ADDON_ENTITLEMENT_UNASSIGNED: "Droit retiré d'un add-on",
+        ADDON_ENTITLEMENT_UPDATED: 'Droit modifié sur un add-on',
+        ADDON_PRICE_CREATED: "Prix d'add-on ajouté",
+        ADDON_PRICE_DEPRECATED: "Prix d'add-on déprécié",
+        ADDON_PUBLISHED: "Version d'add-on publiée",
+        ADDON_UNARCHIVED: "Version d'add-on désarchivée",
+        ADDON_UPDATED: 'Add-on mis à jour',
+        BILLING_PROVIDER_CONNECTED: 'Fournisseur de paiement connecté',
+        BILLING_PROVIDER_DISCONNECTED: 'Fournisseur de paiement déconnecté',
+        BILLING_PROVIDER_SYNC_FAILED:
+          'Échec de synchronisation du fournisseur de paiement',
         COMPONENT_CREATED: 'Component ajouté',
         COMPONENT_DELETED: 'Component supprimé',
         COMPONENT_UPDATED: 'Component mis à jour',
         CUSTOMER_CREATED: 'Client créé',
         CUSTOMER_CREATION_REJECTED: 'Création de client refusée',
         CUSTOMER_DELETED: 'Client supprimé',
+        CUSTOMER_PAYMENT_METHOD_ATTACHED: 'Moyen de paiement ajouté',
+        CUSTOMER_PAYMENT_METHOD_DETACHED: 'Moyen de paiement retiré',
+        CUSTOMER_PAYMENT_METHOD_EXPIRING: 'Moyen de paiement bientôt expiré',
         CUSTOMER_UPDATED: 'Client mis à jour',
         DEPLOYMENT_ZONE_CREATED: 'Zone de déploiement créée',
         DEPLOYMENT_ZONE_DELETED: 'Zone de déploiement supprimée',
@@ -3115,6 +6240,21 @@ export default {
         FEATURE_FLAG_DELETED: 'Feature flag supprimé',
         FEATURE_FLAG_EVALUATED: 'Feature flag évalué',
         FEATURE_FLAG_UPDATED: 'Feature flag mis à jour',
+        INSTANCE_ADDON_ADDED: 'Add-on ajouté à une instance',
+        INSTANCE_ADDON_QUANTITY_CHANGED: "Quantité d'add-on modifiée",
+        INSTANCE_ADDON_REMOVED: "Add-on retiré d'une instance",
+        INSTANCE_BILLING_CANCELED: 'Abonnement résilié',
+        INSTANCE_BILLING_CANCELLATION_REVERTED:
+          "Résiliation de l'abonnement annulée",
+        INSTANCE_BILLING_CANCELLATION_SCHEDULED:
+          "Résiliation de l'abonnement programmée",
+        INSTANCE_BILLING_PLAN_CHANGED: "Plan de l'abonnement modifié",
+        INSTANCE_BILLING_PLAN_CHANGE_CANCELLED: 'Changement de plan annulé',
+        INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED: 'Changement de plan programmé',
+        INSTANCE_BILLING_PROVIDER_CHANGED:
+          "Fournisseur de paiement de l'abonnement modifié",
+        INSTANCE_BILLING_STARTED: 'Abonnement démarré',
+        INSTANCE_BILLING_STATUS_CHANGED: "Statut de l'abonnement modifié",
         INSTANCE_CREATED: 'Instance créée',
         INSTANCE_DELETED: 'Instance supprimée',
         INSTANCE_DEPLOYED: 'Instance déployée',
@@ -3124,10 +6264,27 @@ export default {
         INSTANCE_ENTITLEMENT_USAGE_REACHED: 'Droit entièrement consommé',
         INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED:
           'Droit proche du seuil',
+        INSTANCE_INVOICE_HANDOFF_ACKNOWLEDGED:
+          'Transmission de facture confirmée',
+        INSTANCE_INVOICE_HELD: 'Facture retenue',
+        INSTANCE_INVOICE_ISSUED: 'Facture émise',
+        INSTANCE_INVOICE_MARKED_UNCOLLECTIBLE: 'Facture déclarée irrécouvrable',
+        INSTANCE_INVOICE_PAID: 'Facture payée',
+        INSTANCE_INVOICE_PAYMENT_FAILED: 'Échec du paiement de la facture',
+        INSTANCE_INVOICE_PUSHED: 'Facture envoyée au fournisseur de paiement',
+        INSTANCE_INVOICE_PUSH_FAILED:
+          "Échec de l'envoi de la facture au fournisseur de paiement",
+        INSTANCE_INVOICE_RECONCILIATION_MISMATCH:
+          'Montants de la facture différents chez le fournisseur de paiement',
+        INSTANCE_INVOICE_RELEASED: 'Facture retenue libérée',
+        INSTANCE_INVOICE_VOIDED: 'Facture annulée',
         INSTANCE_LIFECYCLE_STAGE_CHANGED: "Cycle de vie de l'instance modifié",
         INSTANCE_MIGRATED: 'Instance migrée',
         INSTANCE_STATUS_CHANGED: "Statut de l'instance modifié",
         INSTANCE_UPDATED: 'Instance mise à jour',
+        INSTANCE_VOUCHER_EXPIRED: "Utilisation d'un code promo expirée",
+        INSTANCE_VOUCHER_REDEEMED: 'Code promo utilisé',
+        INSTANCE_VOUCHER_REVOKED: "Utilisation d'un code promo révoquée",
         LICENSE_ARCHIVED: 'Version de licence archivée',
         LICENSE_CREATED: 'Licence créée',
         LICENSE_DELETED: 'Licence supprimée',
@@ -3137,6 +6294,9 @@ export default {
         LICENSE_FAMILY_CREATED: 'Famille de licences créée',
         LICENSE_FAMILY_DELETED: 'Famille de licences supprimée',
         LICENSE_FAMILY_UPDATED: 'Famille de licences mise à jour',
+        LICENSE_PRICE_CREATED: 'Prix de licence ajouté',
+        LICENSE_PRICE_DEPRECATED: 'Prix de licence déprécié',
+        LICENSE_PRICE_UPDATED: 'Prix de licence mis à jour',
         LICENSE_PUBLISHED: 'Version de licence publiée',
         LICENSE_UNARCHIVED: 'Version de licence désarchivée',
         LICENSE_UPDATED: 'Licence mise à jour',
@@ -3145,10 +6305,18 @@ export default {
         METADATA_FIELD_REORDERED: 'Champs de métadonnées réordonnés',
         METADATA_FIELD_UNARCHIVED: 'Champ de métadonnées désarchivé',
         METADATA_FIELD_UPDATED: 'Champ de métadonnées mis à jour',
+        PUBLISHABLE_KEY_CREATED: 'Clé publiable créée',
+        PUBLISHABLE_KEY_REVOKED: 'Clé publiable révoquée',
         RELEASE_CREATED: 'Release publiée',
         RELEASE_DELETED: 'Release supprimée',
         RELEASE_DEPLOYED: 'Release déployée sur une zone',
         SYSTEM_ORGANIZATION_TOKEN_ISSUED: "Token d'organisation émis",
+        VOUCHER_ARCHIVED: 'Code promo archivé',
+        VOUCHER_CREATED: 'Code promo créé',
+        VOUCHER_EXHAUSTED: 'Code promo épuisé',
+        VOUCHER_EXPIRED: 'Code promo expiré',
+        VOUCHER_PUBLISHED: 'Code promo publié',
+        VOUCHER_UPDATED: 'Code promo mis à jour',
       },
     },
     EntitlementUsage: {

@@ -12,9 +12,11 @@ const isPublished = (license: License) =>
  * highest-numbered published one, else to none. A family carries the slug of
  * the version that opened it. The console takes this answer as given and never
  * applies the rule itself, so the mocks standing in for the API restate it.
+ * Families are private until listed: `publicFamilyIds` names the ones that are.
  */
 export function listLicenseFamilyViews(
   licenses: License[],
+  publicFamilyIds: ReadonlySet<string> = new Set(),
 ): LicenseFamilyView[] {
   const versionsByFamily = new Map<string, License[]>();
   for (const license of licenses) {
@@ -39,6 +41,7 @@ export function listLicenseFamilyViews(
         newestFirst.find((license) => license.isDefault) ??
         newestFirst.find(isPublished),
       id,
+      isPublic: publicFamilyIds.has(id),
       slug: opener.slug ?? id,
       updatedAt: newest.createdAt,
       versionCount: versions.length,

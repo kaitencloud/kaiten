@@ -110,7 +110,7 @@ rg -n 'useMutation|useState|useEffect|<form|toast\.' src/routes --glob '!*.md'
 rg -n "from ['\"]@/features/" src/features src/domains src/functionals src/components --glob '!*.md'
 rg -n "from ['\"]@/functionals/[^/'\"]+/" src --glob '!*.md'
 rg -n '^export \* from' src --glob '!src/api-client/**' --glob '!*.md'
-rg -nU "import [{][^}]*[^A-Za-z](Boxes|Braces|FileText|Flag|MapPinned|Package|Rocket|Server|Tag|UserKey|Users)[^A-Za-z][^}]*[}] from .lucide-react." src --glob '!src/lib/data-model-icons.ts' --glob '!*.md'
+rg -nU "import [{][^}]*[^A-Za-z](Boxes|Braces|Coins|FileText|Flag|MapPinned|Package|Puzzle|Receipt|ReceiptText|Repeat|Rocket|Server|Tag|Ticket|UserKey|Users)[^A-Za-z][^}]*[}] from .lucide-react." src --glob '!src/lib/data-model-icons.ts' --glob '!*.md'
 ```
 
 ## Output

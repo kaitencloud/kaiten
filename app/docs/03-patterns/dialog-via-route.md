@@ -28,7 +28,7 @@ A full page fits when:
 
 If a dialog only works by stacking tabs, a wizard or nested dialogs, it is a page.
 
-In the code, `/customers/new`, `/integrations/service-accounts/new` and `/releases/deployment-zones/$zoneSlug/edit` are dialog routes. `/releases/new` (a multi-step form), `/feature-flags/new`, `/entitlements/new` and `/licenses/new` are full pages.
+In the code, `/customers/new`, `/integrations/service-accounts/new`, `/releases/deployment-zones/$zoneSlug/edit` and the four dialogs of a subscription, `/customers/instances/$instanceSlug/billing/subscribe`, `/cancel`, `/plan-change` and `/terms`, are dialog routes. The last four stand over a tab: the layout route (`billing/route.tsx`) draws the Billing tab and renders the `Outlet`, so that the tab stays where it was behind the dialog, and the `index` route beside it renders nothing. The two dialogs of the publishable keys, `/integrations/publishable-keys/new` and `/integrations/publishable-keys/$keyId/edit`, stand over the list the same way, and keep the search of the list (`?includeRevoked`) when they close. `/releases/new` (a multi-step form), `/feature-flags/new`, `/catalog/entitlements/new` and `/catalog/licenses/new` are full pages.
 
 ## A dialog route
 
@@ -243,7 +243,9 @@ function CustomerDetailRouteLayout() {
 - **Any tab.** The form belongs to the layout route, so it opens over whichever tab route is active.
 - **Other search parameters.** `.loose()` keeps the keys the schema does not name instead of stripping them (a plain `z.object` drops them), so the parsed search still carries any other parameter of the URL.
 - **Old URLs.** `/customers/$customerSlug/edit` and `/customers/instances/$instanceSlug/edit` redirect to the detail route with `mode: 'configure'`, keeping the other search parameters (`app/src/routes/customers/$customerSlug/edit.tsx`).
-- **Where it is used.** Customers, instances and entitlements show a dialog. The feature flag route shows `FeatureFlagConfigurePage`, a full-page form that replaces the detail page while `mode` is `configure`.
+- **Where it is used.** Customers, instances and entitlements show a dialog. The feature flag route shows `FeatureFlagConfigurePage`, a full-page form that replaces the detail page while `mode` is `configure`. A license version shows `LicenseCommercialDialog`, which edits how it is sold and nothing else (the console does not edit the rest of a version); its layout route drops only `mode` on close (`search: (previous) => ({ ...previous, mode: undefined })`, `to: '.'`), since a tab of the version has search of its own.
+
+A nested entity can open from a search parameter of its tab in the same way, in a drawer: the Prices tab of a license version opens the drawer of a price from `?price=new` and `?price=<id>`. The tab reads the parameter, so a link can open it and the back button closes it; a link that cannot open it (an unknown id, a published version) is replaced by the tab, once what decides it is known.
 
 ## Avoiding a flash
 
@@ -253,6 +255,7 @@ function CustomerDetailRouteLayout() {
 | `<Suspense fallback={null}>` around the `<Outlet />` | A dialog that suspends, for example while it reads a query, does not trigger a fallback higher up that would blank the page. |
 | `ensureQueryData` in the layout route's `loader` | The page data is loaded before the first render. A query already in the cache returns at once. |
 | `useSuspenseQuery` in the components | Reads from the cache, with no request when the data is there. |
+| Fields that do not suspend | The form fields are imported statically (see [forms](./forms.md#building-blocks)), so a dialog opens on its form and not on a skeleton held for 300 ms. |
 
 ## The dialog shell
 
@@ -309,4 +312,4 @@ function handleSuccess(savedCustomer: Customer) {
 
 ## When local state is enough
 
-A dialog that is not the main action of a screen can use local state: a delete confirmation (`TableDeleteDialog`) or a dialog that edits one item of a list held by a form that is submitted as a whole, such as the targeting rule dialog inside the feature flag form (`app/src/features/feature-flags/targeting/components/use-targeting-list-controller.ts`). Some create dialogs also open from local state, for example the webhook creation dialog (`app/src/features/webhooks/components/webhook-list/webhook-list.controller.ts`). A new create or edit dialog for an entity gets a route.
+A dialog that is not the main action of a screen can use local state: a delete confirmation (`TableDeleteDialog`) or a dialog that edits one item of a list held by a form that is submitted as a whole, such as the targeting rule dialog inside the feature flag form (`app/src/features/feature-flags/targeting/components/use-targeting-list-controller.ts`). So can a confirmation of an action on the entity of a page that is not an edit of it: it asks for a reason or a reference and sends it, and what it changes shows on the page behind it. The deprecation of a price (`app/src/features/licenses/components/prices/deprecate-price-dialog.tsx`) and the audited actions of an invoice (release, mark paid, write off, void, recompose, acknowledge; `app/src/features/billing/components/invoice-detail/` and `.../handoff/`) are these. Some create dialogs also open from local state, for example the webhook creation dialog (`app/src/features/webhooks/components/webhook-list/webhook-list.controller.ts`). A new create or edit dialog for an entity gets a route.

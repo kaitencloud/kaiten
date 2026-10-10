@@ -24,7 +24,7 @@ export function EntitlementDetailOverviewTab() {
     }
 
     navigate({
-      to: '/entitlements/$entitlementSlug',
+      to: '/catalog/entitlements/$entitlementSlug',
       params: { entitlementSlug: entitlement.slug },
       search: { mode: 'configure' },
     });

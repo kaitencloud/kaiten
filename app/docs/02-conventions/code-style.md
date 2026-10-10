@@ -102,7 +102,7 @@ enforces them. In practice:
   module's own files with a relative path.
 
 ```ts
-// app/src/routes/licenses/index.tsx (abridged)
+// app/src/routes/catalog/licenses/index.tsx (abridged)
 import { LicensesPageContent } from '@/features/licenses';
 
 // app/src/features/feature-flags/components/feature-flag-form/targeting-form.tsx

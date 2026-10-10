@@ -7,6 +7,7 @@ import {
   getLicenseQueryKey,
   getLicensesQueryKey,
   listLicenseFamiliesQueryKey,
+  listLicensePricesOptions,
 } from '@/api-client/@tanstack/react-query.gen';
 import {
   allEntitlementsOptions,
@@ -14,6 +15,7 @@ import {
   allLicenseFamiliesOptions,
   allLicensesOptions,
 } from '@/lib/api/all-pages-query-options';
+import { licensesWithPricesBaseQueryKey } from '@/domains/billing';
 import { fetchAllPages, MAX_PAGE_SIZE } from '@/lib/api/pagination';
 import { buildLicensesWithInstancesRows } from '../utils/license-list.utils';
 
@@ -28,6 +30,12 @@ export const licenseQueryOptions = (licenseSlug: string) =>
   getLicenseOptions({ path: { licenseSlug } });
 
 export const entitlementsQueryOptions = allEntitlementsOptions();
+
+// The prices of one version, in the order the API lists them: display order,
+// then id. Billing screens only: where billing is not there the route that reads
+// them is not reached (see the guard of the prices route).
+export const licensePricesQueryOptions = (licenseSlug: string) =>
+  listLicensePricesOptions({ path: { licenseSlug } });
 
 export const licenseEntitlementsQueryOptions = (licenseSlug: string) =>
   allLicenseEntitlementsOptions(licenseSlug);
@@ -63,13 +71,16 @@ export const licensesWithInstancesQueryOptions = queryOptions({
 // The license lists, refetched only where they are on screen: a version's own
 // change touches one row of them, and a list nobody shows is simply marked
 // stale for its next read. The family list is one of them: a version's state,
-// default flag or name can change what its family resolves to.
+// default flag or name can change what its family resolves to. So are the
+// versions read with their prices, which say how each family is sold and which
+// versions are on sale.
 export async function invalidateLicenseLists(queryClient: QueryClient) {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: getLicensesQueryKey() }),
     queryClient.invalidateQueries({
       queryKey: licensesWithInstancesBaseQueryKey,
     }),
+    queryClient.invalidateQueries({ queryKey: licensesWithPricesBaseQueryKey }),
     queryClient.invalidateQueries({
       queryKey: listLicenseFamiliesQueryKey(),
     }),
@@ -93,6 +104,7 @@ export async function invalidateLicenseQueries(
     queryClient.invalidateQueries({
       queryKey: licensesWithInstancesBaseQueryKey,
     }),
+    queryClient.invalidateQueries({ queryKey: licensesWithPricesBaseQueryKey }),
     queryClient.invalidateQueries({
       queryKey: listLicenseFamiliesQueryKey(),
     }),

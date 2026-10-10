@@ -22,8 +22,25 @@ import type {
 // - INSTANCE_ENTITLEMENT_CAP_EXCEEDED: a soft limit took a report above the
 //   cap and kept it, the overage included.
 //
+// Three billing events warn too, each for a reason of its own:
+//
+// - INSTANCE_INVOICE_HELD: a period closed into an invoice held as a draft,
+//   because the usage journal it was measured from failed a consistency
+//   check. It is neither issued nor handed off until someone releases or
+//   recomposes it;
+// - INSTANCE_INVOICE_RECONCILIATION_MISMATCH: the payment provider holds
+//   amounts that differ from Kaiten's, and Kaiten never corrects itself:
+//   someone voids and recomposes the invoice;
+// - CUSTOMER_PAYMENT_METHOD_EXPIRING: a customer's card ends within 30 days,
+//   and automatic collection fails once it has, unless it is replaced.
+//
 // A refusal is not a warning: ENTITLEMENT_USAGE_REPORT_REJECTED and
 // CUSTOMER_CREATION_REJECTED read as rejected.
+//
+// Nor is a revocation a refusal: INSTANCE_VOUCHER_REVOKED is a person taking a
+// redemption back, and PUBLISHABLE_KEY_REVOKED a person retiring a key, removals
+// like a deletion, so they read as a plain read rather than as rejected from
+// their last word.
 const KNOWN_CATEGORIES = {
   ENTITLEMENT_VALUE_GET: 'read',
   ENTITLEMENT_USAGE_REPORT_ACCEPTED: 'accepted',
@@ -31,14 +48,20 @@ const KNOWN_CATEGORIES = {
   INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED: 'warning',
   INSTANCE_ENTITLEMENT_USAGE_REACHED: 'warning',
   INSTANCE_ENTITLEMENT_CAP_EXCEEDED: 'warning',
+  INSTANCE_INVOICE_HELD: 'warning',
+  INSTANCE_INVOICE_RECONCILIATION_MISMATCH: 'warning',
+  CUSTOMER_PAYMENT_METHOD_EXPIRING: 'warning',
+  INSTANCE_VOUCHER_REVOKED: 'read',
+  PUBLISHABLE_KEY_REVOKED: 'read',
 } as const satisfies Partial<Record<AuditEventName, AuditEventCategory>>;
 
 // Any other event is coloured from its last word, so that failures read red and
 // completions read green, and defaults to the neutral "read" tone. Among the
-// events of the contract, only the `_CREATED`, `_DEPLOYED` and `_ASSIGNED` ones
-// and `CUSTOMER_CREATION_REJECTED` reach a hint; the rest are there for an event
-// newer than this build, which the API can emit before the console has its
-// label (see humanizeEventName). There is no hint for `warning`: no event ends
+// events of the contract, only the `_CREATED`, `_DEPLOYED`, `_ASSIGNED` and
+// `_FAILED` ones and `CUSTOMER_CREATION_REJECTED` reach a hint (a payment
+// provider that failed a sync, a push or a payment reads red); the rest are
+// there for an event newer than this build, which the API can emit before the
+// console has its label (see humanizeEventName). There is no hint for `warning`: no event ends
 // the way a warning would, and a guessed ending would be as likely to mislabel
 // an event as to catch one. A warning is named in KNOWN_CATEGORIES.
 const REJECTED_HINTS = [

@@ -93,7 +93,13 @@ export function useAddEntitlementAction({
       payload.enabled = newBooleanValue;
     }
 
-    await onAddEntitlement(payload);
+    try {
+      await onAddEntitlement(payload);
+    } catch {
+      // The mutation owning the request already reports the failure, and the
+      // dialog stays open for another try.
+      return;
+    }
     resetAddDialogState();
     closeAddDialog();
   }, [

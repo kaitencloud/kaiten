@@ -67,6 +67,14 @@ export function StatusBadge({ status }: { status: ConnectorStatus }) {
     );
   }
 
+  if (status === 'unavailable') {
+    return (
+      <Badge variant="outline">
+        {t('Pages.Integrations.Connectors.Status.unavailable')}
+      </Badge>
+    );
+  }
+
   if (status === 'coming-h1') {
     return (
       <Badge variant="outline">

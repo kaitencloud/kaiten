@@ -22,7 +22,7 @@ skeletons are not in the barrel: import them from
 | `FormDialog` | A controlled `Dialog` and its `DialogContent`. It takes `open`, `onOpenChange`, `children`, `className` and `onInteractOutside`. |
 | `FormDialog.Header` | `DialogHeader`, which does not shrink. |
 | `FormDialog.Title`, `FormDialog.Description` | `DialogTitle` and `DialogDescription`. |
-| `FormDialog.Content` | The scrolling body. Its optional `loadingFields` (default `3`) sizes the `DialogFormSkeleton` that shows while a lazy child suspends. |
+| `FormDialog.Content` | The scrolling body. Its optional `loadingFields` (default `3`) sizes the `DialogFormSkeleton` that shows while a child suspends, such as a form that reads a query. |
 | `FormDialog.Footer` | `DialogFooter`, which does not shrink. |
 
 The panel is at most `90vh` high and `sm:max-w-lg` wide. `className` is merged

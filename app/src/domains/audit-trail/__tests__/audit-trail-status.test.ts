@@ -16,15 +16,23 @@ import {
 // and the CSV export. Every event not listed reads as a plain read.
 
 // An entitlement's usage is approaching, at or past its limit, while the API
-// still accepts the usage.
+// still accepts the usage; an invoice is held, neither issued nor handed off,
+// until someone releases or recomposes it; its amounts differ at the payment
+// provider; or a customer's payment method is about to expire.
 const WARNING_EVENTS = [
+  'CUSTOMER_PAYMENT_METHOD_EXPIRING',
   'INSTANCE_ENTITLEMENT_CAP_EXCEEDED',
   'INSTANCE_ENTITLEMENT_USAGE_REACHED',
   'INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED',
+  'INSTANCE_INVOICE_HELD',
+  'INSTANCE_INVOICE_RECONCILIATION_MISMATCH',
 ];
 
 // Something was taken, created or put in place.
 const ACCEPTED_EVENTS = [
+  'ADDON_CREATED',
+  'ADDON_ENTITLEMENT_ASSIGNED',
+  'ADDON_PRICE_CREATED',
   'COMPONENT_CREATED',
   'CUSTOMER_CREATED',
   'DEPLOYMENT_ZONE_CREATED',
@@ -37,15 +45,21 @@ const ACCEPTED_EVENTS = [
   'LICENSE_CREATED',
   'LICENSE_ENTITLEMENT_ASSIGNED',
   'LICENSE_FAMILY_CREATED',
+  'LICENSE_PRICE_CREATED',
   'METADATA_FIELD_CREATED',
+  'PUBLISHABLE_KEY_CREATED',
   'RELEASE_CREATED',
   'RELEASE_DEPLOYED',
+  'VOUCHER_CREATED',
 ];
 
-// The API refused.
+// The API refused, or the payment provider failed what was asked of it.
 const REJECTED_EVENTS = [
+  'BILLING_PROVIDER_SYNC_FAILED',
   'CUSTOMER_CREATION_REJECTED',
   'ENTITLEMENT_USAGE_REPORT_REJECTED',
+  'INSTANCE_INVOICE_PAYMENT_FAILED',
+  'INSTANCE_INVOICE_PUSH_FAILED',
 ];
 
 const eventsWithStatus = (category: string) =>
@@ -68,7 +82,7 @@ const withStatus = (status: string): AuditFilters => ({
 const label = (eventName: string) => eventName;
 
 describe('event status', () => {
-  it('reads as a warning exactly the usage events that say a limit is at hand', () => {
+  it('reads as a warning exactly the events that ask for attention', () => {
     expect(eventsWithStatus('warning')).toEqual(WARNING_EVENTS);
   });
 
@@ -76,7 +90,7 @@ describe('event status', () => {
     expect(eventsWithStatus('accepted')).toEqual(ACCEPTED_EVENTS);
   });
 
-  it('reads as rejected exactly the events where the API refused', () => {
+  it('reads as rejected exactly the events where the API or the provider failed', () => {
     expect(eventsWithStatus('rejected')).toEqual(REJECTED_EVENTS);
   });
 
@@ -95,6 +109,11 @@ describe('event status', () => {
     // assignment: `unassigned` is not the word `assigned`.
     ['LICENSE_ENTITLEMENT_UNASSIGNED', 'read'],
     ['LICENSE_ENTITLEMENT_ASSIGNED', 'accepted'],
+    // A revoked redemption was taken back by a person, not refused by the
+    // API: it reads like a removal, not from its last word.
+    ['INSTANCE_VOUCHER_REVOKED', 'read'],
+    // A revoked key was retired by a person, not refused by the API.
+    ['PUBLISHABLE_KEY_REVOKED', 'read'],
   ])('reads %s as %s', (eventName, category) => {
     expect(getEventCategory(eventName)).toBe(category);
   });

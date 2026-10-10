@@ -1,6 +1,7 @@
 import { HttpResponse, http } from 'msw/http';
 import type { E2EMswConfig } from '../../../e2e/app/_support/contracts/msw-slots';
 import { AuditTrailAppModel } from '../../../e2e/app/_support/model/audit-trail-app-model';
+import { BillingAppModel } from '../../../e2e/app/_support/model/billing-app-model';
 import { ConnectorAppModel } from '../../../e2e/app/_support/model/connector-app-model';
 import { CustomerAppModel } from '../../../e2e/app/_support/model/customer-app-model';
 import { DashboardAppModel } from '../../../e2e/app/_support/model/dashboard-app-model';
@@ -10,8 +11,10 @@ import { InstanceAppModel } from '../../../e2e/app/_support/model/instance-app-m
 import { LicenseAppModel } from '../../../e2e/app/_support/model/license-app-model';
 import { NotificationAppModel } from '../../../e2e/app/_support/model/notification-app-model';
 import { NO_PLATFORM_FLAGS } from '../../../e2e/app/_support/model/platform-flags';
+import type { LicenseCatalogue } from '../../../e2e/app/_support/model/graphql-operations';
 import { ReleaseManagementAppModel } from '../../../e2e/app/_support/model/release-management-app-model';
 import { auditTrailHandlers } from './audit-trail-handlers';
+import { billingHandlers } from './billing-handlers';
 import { connectorHandlers } from './connector-handlers';
 import { customerHandlers } from './customer-handlers';
 import { dashboardHandlers } from './dashboard-handlers';
@@ -43,6 +46,9 @@ export function createMockHandlers(
   const auditTrail = effectiveConfig.auditTrail
     ? AuditTrailAppModel.fromSerialized(effectiveConfig.auditTrail)
     : null;
+  const billing = effectiveConfig.billing
+    ? BillingAppModel.fromSerialized(effectiveConfig.billing)
+    : null;
   const connectors = effectiveConfig.connectors
     ? ConnectorAppModel.fromSerialized(effectiveConfig.connectors)
     : null;
@@ -72,14 +78,80 @@ export function createMockHandlers(
         effectiveConfig.releaseManagement,
       )
     : null;
+  // Stripe is billing's provider and the connectors' connector: when the page
+  // serves both, connecting it in one is seen by the other, and the billing
+  // e-mail of a customer typed on its page is the one a move to Stripe finds.
+  if (billing && connectors) {
+    connectors.setStripeWorld({
+      hasMappedCustomers: () => billing.providers.hasCustomers(),
+      onConnected: (livemode) => {
+        billing.setStripeConnection(true, livemode);
+        persist('billing', billing.serializeForMsw());
+      },
+      onDisconnected: () => {
+        billing.setStripeConnection(false);
+        persist('billing', billing.serializeForMsw());
+      },
+      routing: () => billing.stripeRouting(),
+      standing: () => billing.stripeStanding(),
+    });
+  }
+  if (billing && customers) {
+    billing.setEmailSource((customerSlug) => {
+      try {
+        return customers.getCustomer(customerSlug).billingEmail;
+      } catch {
+        // A customer this page does not serve: billing's own copy answers.
+        return undefined;
+      }
+    });
+  }
   const flagEvaluations =
     effectiveConfig.flagEvaluations ??
     (unmockedPlatform === 'off' ? NO_PLATFORM_FLAGS : null);
+
+  // Where the licenses and their prices are, for the one document of billing that
+  // reads both: the slot of the licenses has them, and a page with instances and
+  // billing has the licenses of its instances and the prices billing knows.
+  // Whichever answers `GET /licenses` answers here too.
+  const licenseCatalogue: LicenseCatalogue | undefined = licenses
+    ? {
+        licenses: () => licenses.listLicenses(),
+        prices: (slug, filter) => licenses.listPrices(slug, filter),
+      }
+    : instances && billing
+      ? {
+          licenses: () => instances.listLicenses(),
+          prices: (slug, filter) =>
+            billing.subscriptions.listPrices(slug, filter),
+        }
+      : undefined;
 
   // Preserve first-match ownership and the original slot registration order.
   // Explicit sibling fallbacks are sorted last, after all installed owners.
   const handlers = [
     ...(auditTrail ? auditTrailHandlers(auditTrail) : []),
+    ...(billing
+      ? billingHandlers(
+          billing,
+          () => persist('billing', billing.serializeForMsw()),
+          // An add-on, or a boost, applies at once: the instances, when this page
+          // serves them, read the effective values of the instance it changed again.
+          instances
+            ? {
+                syncEffectiveValues: (instanceSlug) => {
+                  instances.applyAddonContributions(
+                    instanceSlug,
+                    billing.instanceAddons.contributionsOf(instanceSlug),
+                    billing.vouchers.boostsOf(instanceSlug),
+                  );
+                  persist('instances', instances.serializeForMsw());
+                },
+              }
+            : undefined,
+          licenseCatalogue,
+        )
+      : []),
     ...(licenses
       ? licenseHandlers(licenses, () =>
           persist('licenses', licenses.serializeForMsw()),

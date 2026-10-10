@@ -27,10 +27,15 @@ export const attioLink = (
   },
 });
 
-/** Three customers with instances, and Gamma Labs, signed this week, with none yet. */
+/**
+ * Three customers with instances, and Gamma Labs, signed this week, whose first
+ * instance is not billed yet. Acme and Globex have a billing e-mail; Beta and
+ * Gamma have none.
+ */
 export const createCustomers = (): Customer[] => [
   {
     ...buildCustomer({
+      billingEmail: 'ap@acme.com',
       createdAt: daysAgo(420),
       domain: 'acme.com',
       externalCustomerId: 'crm-acme-001',
@@ -50,6 +55,7 @@ export const createCustomers = (): Customer[] => [
   }),
   {
     ...buildCustomer({
+      billingEmail: 'billing@globex.com',
       createdAt: daysAgo(45),
       domain: 'globex.com',
       externalCustomerId: 'crm-globex-003',
@@ -129,8 +135,17 @@ export const createEntitlements = (): Entitlement[] => [
   }),
 ];
 
+type CommercialFields = Pick<
+  License,
+  | 'pricingType'
+  | 'requiresPaymentMethod'
+  | 'selfServeCtaUrl'
+  | 'trialPeriodDays'
+>;
+
 const familyVersion = ({
   ageInDays,
+  commercial,
   family,
   isDefault = false,
   lifecycleState,
@@ -139,14 +154,16 @@ const familyVersion = ({
   versionName,
 }: {
   ageInDays: number;
+  /** How the version is sold; a version left out is sold on request. */
+  commercial?: CommercialFields;
   family: { description: string; name: string; slug: string };
   isDefault?: boolean;
   lifecycleState: License['lifecycleState'];
   type?: License['type'];
   version: number;
   versionName: string;
-}) =>
-  buildLicense({
+}): License => ({
+  ...buildLicense({
     createdAt: daysAgo(ageInDays),
     description: family.description,
     familyId: `family-${family.slug}`,
@@ -160,7 +177,22 @@ const familyVersion = ({
     type,
     version: String(version),
     versionName,
-  });
+  }),
+  ...commercial,
+});
+
+// Self-serve with a card on file and a trial, self-serve for free, or a
+// conversation: the three ways a version is sold.
+const SELF_SERVE: CommercialFields = {
+  pricingType: 'PAID',
+  requiresPaymentMethod: true,
+  trialPeriodDays: 14,
+};
+const FREE_TRIAL: CommercialFields = { pricingType: 'FREE' };
+const CONTACT_SALES: CommercialFields = {
+  pricingType: 'CUSTOM',
+  selfServeCtaUrl: 'https://kaiten-sushi.example/contact-sales',
+};
 
 const TRIAL = {
   description: 'Thirty days to try the product',
@@ -191,6 +223,7 @@ const ENTERPRISE = {
 export const createLicenses = (): License[] => [
   familyVersion({
     ageInDays: 400,
+    commercial: FREE_TRIAL,
     family: TRIAL,
     isDefault: true,
     lifecycleState: 'PUBLISHED',
@@ -207,6 +240,7 @@ export const createLicenses = (): License[] => [
   }),
   familyVersion({
     ageInDays: 200,
+    commercial: SELF_SERVE,
     family: STARTER,
     isDefault: true,
     lifecycleState: 'PUBLISHED',
@@ -215,6 +249,7 @@ export const createLicenses = (): License[] => [
   }),
   familyVersion({
     ageInDays: 3,
+    commercial: SELF_SERVE,
     family: STARTER,
     lifecycleState: 'DRAFT',
     version: 3,
@@ -222,6 +257,7 @@ export const createLicenses = (): License[] => [
   }),
   familyVersion({
     ageInDays: 120,
+    commercial: { pricingType: 'PAID', requiresPaymentMethod: false },
     family: BUSINESS,
     isDefault: true,
     lifecycleState: 'PUBLISHED',
@@ -237,6 +273,7 @@ export const createLicenses = (): License[] => [
   }),
   familyVersion({
     ageInDays: 180,
+    commercial: CONTACT_SALES,
     family: ENTERPRISE,
     isDefault: true,
     lifecycleState: 'PUBLISHED',

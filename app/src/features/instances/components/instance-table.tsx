@@ -3,6 +3,7 @@ import { useRouter } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GradientButton } from '@/components/gradient-button';
+import type { InstancesBilling } from '@/domains/billing';
 import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
 import {
   type FilterFieldDefinition,
@@ -25,6 +26,8 @@ import {
 } from './instance-table-columns';
 
 type InstancesTableProps = {
+  /** The subscription of each instance, where billing is on and the session may read it: adds the Billing column. */
+  billing?: InstancesBilling;
   instances: InstanceRow[];
 };
 
@@ -33,7 +36,7 @@ type InstancesTableProps = {
 // filters, and close a metadata dialog opened in the meantime.
 const NO_METADATA_FIELDS: MetadataFieldDescriptor[] = [];
 
-export const InstancesTable = ({ instances }: InstancesTableProps) => {
+export const InstancesTable = ({ billing, instances }: InstancesTableProps) => {
   const { t } = useTranslation();
   const router = useRouter();
 
@@ -64,8 +67,8 @@ export const InstancesTable = ({ instances }: InstancesTableProps) => {
   );
 
   const columns = useMemo(
-    () => createColumns(t, metadataFields, showExtraMetadata),
-    [t, metadataFields, showExtraMetadata],
+    () => createColumns(t, metadataFields, showExtraMetadata, billing),
+    [t, metadataFields, showExtraMetadata, billing],
   );
 
   const customerOptions = useMemo(() => {

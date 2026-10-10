@@ -363,10 +363,81 @@ export default {
             name: 'Name',
             externalId: 'External ID',
             domain: 'Domain',
+            billingEmail: 'Billing e-mail',
             createdAt: 'Created at',
             updatedAt: 'Updated at',
           },
           by: 'by',
+          billingEmailNone: 'Not set',
+        },
+        paymentMethod: {
+          title: 'Payment method',
+          description:
+            'The card Stripe charges for the contracts of this customer that collect automatically. Kaiten keeps its brand, its last four digits and its expiry, and never the number.',
+          loading: 'Loading the payment method',
+          add: 'Add a payment method',
+          replace: 'Replace',
+          portal: 'Manage in Stripe',
+          remove: 'Remove',
+          openInStripe: 'Open the customer in Stripe',
+          setupFailed:
+            'The payment method was not saved. If the customer has finished on the page of Stripe, check again; otherwise start over with the button above.',
+          checkAgain: 'Check again',
+          None: {
+            title: 'No payment method on file',
+            description:
+              'Without one, no contract of this customer can be charged automatically. A contract that sends the invoice needs none.',
+          },
+          Card: {
+            brandAndLast4: '{{brand}} ending in {{last4}}',
+            last4Only: 'Card ending in {{last4}}',
+            expires: 'Expires {{month}}/{{year}}',
+          },
+          Status: {
+            active: 'Active',
+            expiresSoon: 'Expires soon',
+            expired: 'Expired',
+            failed: 'Last charge failed',
+          },
+          Unusable: {
+            expired:
+              'This card has expired. Stripe cannot charge it: save another one.',
+            failed:
+              'A charge said this card can no longer be used. Save another one.',
+          },
+          Currency: {
+            title: 'Currency of the payment method',
+            description:
+              'This customer has no live subscription to take a currency from: say the currency the payment method is set up in.',
+            label: 'Currency',
+            hint: 'The payment method is set up in this currency, and is charged for the contracts billed in it.',
+            placeholder: 'Pick a currency',
+            search: 'Search a currency',
+            confirm: 'Continue to Stripe',
+            Errors: {
+              currency: 'Pick one of the currencies in the list',
+            },
+          },
+          Remove: {
+            title: 'Remove the payment method?',
+            description:
+              'Stripe will no longer be able to charge this customer. A contract that sends the invoice is not affected.',
+            confirm: 'Remove',
+            inUse:
+              'Switch the contracts of this customer that are charged automatically to sending the invoice, in the Billing tab of their instance, then remove the payment method.',
+          },
+          Toasts: {
+            saved: 'Payment method saved',
+            removed: 'Payment method removed',
+          },
+        },
+        Billing: {
+          Invoices: {
+            description:
+              'The invoices of every instance of this customer, newest first.',
+            empty:
+              'None of the instances of this customer has been invoiced yet.',
+          },
         },
         instances: {
           title: 'Instances',
@@ -377,6 +448,7 @@ export default {
             license: 'License',
             type: 'Type',
             status: 'Status',
+            billing: 'Billing',
             lifecycle: 'Lifecycle',
             start: 'Start',
             end: 'End',
@@ -393,12 +465,14 @@ export default {
             customId: 'External ID',
             domain: 'Domain',
             slug: 'Slug',
+            billingEmail: 'Billing e-mail',
           },
           Placeholders: {
             name: 'Acme Inc.',
             customId: 'HubSpot ID',
             domain: 'acme.com',
             slug: 'acme-inc',
+            billingEmail: 'billing@acme.com',
           },
           Descriptions: {
             name: 'The company or organization, as your team knows it.',
@@ -409,10 +483,16 @@ export default {
             slug: 'Auto-generated — edit to set a custom one.',
             slugLocked:
               "Set when the customer was created. It can't be changed.",
+            billingEmail:
+              'Where the invoices of this customer are addressed, for your accounting system. Optional: empty it to remove it.',
           },
           Errors: {
             name: 'Name is required',
             domain: 'Domain must be a valid domain name (e.g. acme.com)',
+            billingEmail:
+              'Enter a valid e-mail address, such as billing@acme.com',
+            billingEmailTooLong:
+              'The e-mail address is too long (254 characters at most)',
           },
           createSuccess: 'Customer created successfully',
           updateSuccess: 'Customer updated successfully',
@@ -434,6 +514,7 @@ export default {
             crmSync: 'CRM Sync',
             license: 'License',
             status: 'Status',
+            billing: 'Billing',
             lifecycleStage: 'Lifecycle',
             metadata: 'Metadata',
             extraMetadata: 'Extra metadata',
@@ -510,6 +591,9 @@ export default {
             createSuccess: 'Instance created successfully',
             updateSuccess: 'Instance updated successfully',
             updateError: 'Error updating instance',
+            Frozen: {
+              openSubscription: 'Open the subscription',
+            },
           },
         },
         Deployment: {
@@ -530,9 +614,602 @@ export default {
         },
         Detail: {
           editName: 'Edit name',
+          Billing: {
+            loading: 'Loading billing',
+            NotSubscribed: {
+              title: 'Not subscribed',
+              description:
+                'No subscription bills this instance yet. Subscribe it to a price of its license to start invoicing.',
+            },
+            Subscribe: {
+              title: 'Subscribe',
+              open: 'Subscribe',
+              dialogTitle: 'Subscribe {{name}}',
+              description:
+                'Pin this instance to a price of its license and start billing it. Invoices are recorded here and handed to your own system.',
+              confirm: 'Subscribe',
+              provider: 'Payment provider',
+              providerHint:
+                'Invoices are recorded here and handed to your ERP. Nothing is collected from the customer.',
+              basePrice: 'Base price',
+              basePriceHint:
+                'The flat fee this subscription is pinned to. Only the active flat fees of the license version are offered.',
+              priceOption: '{{label}} · {{price}} · {{timing}}',
+              daysUntilDue: 'Payment terms (days)',
+              daysUntilDueHint:
+                'Days between issuing an invoice and its due date. Leave empty to use the terms of your organization.',
+              daysUntilDuePlaceholder: 'Organization default: {{days}}',
+              daysUntilDuePlaceholderUnknown: 'Organization default',
+              trialDays: 'Trial (days)',
+              trialDaysHint:
+                'Nothing is billed during the trial, and its usage is never billed. The first invoice is issued when it ends; 0 starts billing at once. The license can carry a default.',
+              trialDaysArrears:
+                'A trial is not offered on a plan billed in arrears: the subscription starts without one.',
+              startAt: 'Billing starts (UTC)',
+              startAtHint:
+                'Leave empty to start now. A contract that began earlier can start up to one billing period back, never in the future.',
+              licenseNotPublished:
+                'This instance runs {{name}} v{{version}} ({{state}}). Only a published license version can be subscribed to.',
+              licenseNotPublishedDialog:
+                '{{name}} v{{version}} is not published, and only a published license version can be subscribed to. Move the instance to a published version first.',
+              noBasePrice:
+                '{{name}} v{{version}} has no active flat fee to subscribe to. Add one on the license first.',
+              Summary: {
+                trial:
+                  'No invoice now. The first invoice is issued at the end of the trial, on {{date}}.',
+                now: 'The first invoice is issued as soon as the subscription starts.',
+                arrears:
+                  'Nothing is invoiced until the first period closes: the first invoice is issued on {{date}}.',
+                arrearsDue:
+                  'The first period already closed on {{date}}: its invoice is issued shortly after the subscription starts.',
+              },
+              Started: {
+                title: 'Subscription started',
+                trial:
+                  'The trial runs until {{date}}, and the first invoice is issued then.',
+                period: 'Current period:',
+                activation: 'Activation invoice:',
+                viewInvoice: 'View the invoice',
+                noActivation:
+                  'Nothing is invoiced yet: the first invoice is issued on {{date}}.',
+              },
+              Addons: {
+                title: 'Add-ons',
+                description:
+                  'Optional. They are attached when the subscription starts and billed from its first invoice. If one cannot be attached, the subscription does not start.',
+                maxQuantity_one: 'Up to {{count}} unit',
+                maxQuantity_other: 'Up to {{count}} units',
+              },
+              BillingEmail: {
+                title: '{{customer}} has no billing e-mail',
+                description:
+                  'Invoices carry this address for your accounting system. Set it now, or later from the customer page.',
+                label: 'Billing e-mail',
+                placeholder: 'billing@example.com',
+                save: 'Save e-mail',
+                saved: 'Billing e-mail saved',
+              },
+              Errors: {
+                addOns:
+                  'Enter a whole number of units for each add-on, within what it allows',
+                basePrice: 'Choose a base price',
+                daysUntilDue: 'Enter a whole number of days, from 0 to 365',
+                trialDays: 'Enter a whole number of days, from 0 to 365',
+                startAt: 'Enter a valid date and time',
+                startAtFuture: 'Billing cannot start in the future',
+                startAtTooEarly:
+                  'Billing cannot start more than one billing period ago',
+              },
+              Voucher: {
+                label: 'Voucher code',
+                placeholder: 'Paste the code',
+                hint: 'Optional. The code is redeemed with the subscription; if it cannot be redeemed, the subscription is not started. You can check it first, against the price chosen.',
+                check: 'Check the code',
+                validNote:
+                  'It can be redeemed with this subscription, on the price chosen. The subscription checks it again when it starts.',
+              },
+            },
+            Subscription: {
+              title: 'Subscription',
+              description: 'How this instance is billed.',
+              descriptionEnded:
+                'This subscription has ended. Subscribe the instance again to resume billing.',
+              fields: {
+                status: 'Status',
+                pastDueSince: 'Past due since',
+                provider: 'Provider',
+                collection: 'Collection',
+                terms: 'Payment terms',
+                basePrice: 'Base price',
+                currentPeriod: 'Current period',
+                canceledAt: 'Canceled on',
+                cancellationReason: 'Reason',
+                nextBoundary: 'Next boundary',
+                endsAt: 'Ends on',
+                trialEndsAt: 'Trial ends',
+                firstInvoice: 'First invoice',
+                startedAt: 'Started',
+              },
+              collectionMethod: {
+                CHARGE_AUTOMATICALLY: 'Charged automatically',
+                SEND_INVOICE: 'Invoice sent to the customer',
+              },
+              termsSource: {
+                contract: 'This contract',
+                organization: 'Organization default',
+              },
+              daysUntilDue_one: 'Payable within {{count}} day',
+              daysUntilDue_other: 'Payable within {{count}} days',
+              priceLine: '{{price}} · {{timing}}',
+              nextBoundaryHint:
+                'The period ends then and its invoice is composed.',
+              endsAtHint:
+                'The subscription ends then, after its final invoice.',
+            },
+            Upcoming: {
+              title: 'Upcoming invoice',
+              description:
+                'What the next boundary will issue, composed from the usage so far. Nothing is saved or billed.',
+              loading: 'Loading the upcoming invoice',
+              view: 'View the lines',
+              kind: 'Type',
+              issuedAt: 'Issued at',
+              period: 'Service period',
+              lines: 'Lines',
+              lineCount_one: '{{count}} line',
+              lineCount_other: '{{count}} lines',
+              total: 'Total',
+              asOf: 'Composed {{date}} from the usage so far.',
+              dialogTitle: 'Upcoming invoice',
+              dialogDescription:
+                'The invoice the next boundary would issue. It is a preview: nothing is saved, sent or billed.',
+              WouldHold: {
+                title: 'This invoice would be held',
+                description:
+                  'The usage journal of these meters fails a check, and billing does not issue an invoice it cannot vouch for:',
+                item: '{{entitlement}}: {{reason}}.',
+                unknownEntitlement: 'An entitlement',
+                history: 'See its usage history',
+              },
+            },
+            Invoices: {
+              description:
+                'Every invoice of this instance, across the times it was subscribed, newest first.',
+              empty: 'No invoice has been issued for this instance yet.',
+            },
+            Reactivate: {
+              action: 'Reactivate',
+              success: 'The cancellation was taken back',
+              subscribeAgain: 'Subscribe again',
+            },
+            Notices: {
+              Trial: {
+                title: 'Trial until {{date}}',
+                description_one:
+                  '{{count}} day left. Nothing is billed during the trial, and its usage is never billed.',
+                description_other:
+                  '{{count}} days left. Nothing is billed during the trial, and its usage is never billed.',
+                firstInvoice: 'The first invoice is issued on {{date}}.',
+              },
+              PastDue: {
+                title_one: 'Past due since {{date}} ({{count}} day)',
+                title_other: 'Past due since {{date}} ({{count}} days)',
+                titleUnknown: 'Past due',
+                invoice:
+                  'The {{kind}} invoice for {{period}} has been unpaid since it fell due on {{due}}.',
+                invoiceUnknown:
+                  'An invoice of this subscription is unpaid past its due date.',
+                viewInvoice: 'View the invoice',
+                accessUnchanged:
+                  'Access is unchanged: Kaiten does not restrict a customer with an unpaid invoice in this version.',
+              },
+              Cancellation: {
+                title: 'Cancels on {{date}}',
+                description:
+                  'The period is paid for, so nothing changes until then. At that boundary a final invoice bills what was used in arrears, which may be nothing, and the subscription ends. You can take the cancellation back until then.',
+                reason: 'Reason: {{reason}}',
+              },
+              ScheduledChange: {
+                title: 'Changes to {{plan}} ({{amount}}) on {{date}}',
+                description:
+                  'Nothing is prorated: the invoice of that day bills what the current plan owes in arrears and the first period of the new plan in advance.',
+              },
+            },
+            Cancel: {
+              title: 'Cancel',
+              open: 'Cancel subscription',
+              dialogTitle: 'Cancel the subscription of {{name}}',
+              dialogDescription:
+                'Ends the billing of this instance. Nothing else about it changes, unless you choose it below.',
+              confirm: 'Cancel subscription',
+              confirmTrial: 'End the trial',
+              keep: 'Keep the subscription',
+              keepTrial: 'Keep the trial',
+              notSubscribed: 'This instance has no subscription to cancel.',
+              alreadyCanceled: 'This subscription is already canceled.',
+              Fields: {
+                mode: 'When',
+                reason: 'Reason',
+                reasonPlaceholder: 'Why does the subscription end? (optional)',
+                reasonCounter: '{{count}}/{{max}} characters',
+              },
+              Mode: {
+                AT_PERIOD_END: 'At the end of the period: {{date}}',
+                IMMEDIATE: 'Immediately',
+              },
+              Explain: {
+                scheduled: {
+                  title: 'The subscription ends on {{date}}',
+                  already:
+                    'It is already set to end then: confirming again changes nothing. Choose Immediately to end it now.',
+                  paid: 'The period is paid for, so access and entitlements do not change until {{date}}.',
+                  invoice:
+                    'At that boundary a final invoice bills what was used in arrears, which may be nothing, and no new period starts.',
+                  undo: 'You can reactivate the subscription from the Billing tab until then.',
+                },
+                immediate: {
+                  title: 'The subscription ends now',
+                  invoice:
+                    'A final invoice is issued now for usage to date. No proration. The base fee already paid for this period is not refunded.',
+                  arrears:
+                    'What bills in arrears is billed in full for the part of the period that has gone by.',
+                  final:
+                    'This cannot be undone: to bill the instance again, subscribe it anew.',
+                },
+                planChangeDropped:
+                  'The plan change scheduled for {{date}} is dropped by this cancellation.',
+                trial: {
+                  title: 'The trial ends now',
+                  nothing:
+                    'Nothing is billed: no invoice is issued, and the usage of the trial is never billed.',
+                },
+              },
+              FollowUps: {
+                title: 'Beside the cancellation',
+                description:
+                  'Cancelling changes billing only. Add-ons, voucher redemptions and the license dates stay as they are, and invoices already issued stay collectible, unless you choose otherwise here.',
+                removeAddons: 'Also remove the add-ons',
+                removeAddonsDescription:
+                  'Takes {{addons}} off the instance now. Their entitlements end at once and nothing is refunded.',
+                removeAddonsLoading: 'Reading the add-ons of this instance…',
+                removeAddonsNone: 'This instance holds no add-on.',
+                removeAddonsUnknown:
+                  'The add-ons of this instance could not be read.',
+                setEndDate: 'Also set the license end date',
+                setEndDateDescription:
+                  'The license of this instance ends on {{date}}. Entitlements follow it, not the subscription.',
+                endDate: 'License ends (UTC)',
+              },
+              Done: {
+                scheduledTitle: 'Cancellation scheduled',
+                scheduled:
+                  'The subscription ends on {{date}}. Until then nothing changes, and you can reactivate it from the Billing tab.',
+                immediateTitle: 'Subscription canceled',
+                immediate:
+                  'The subscription has ended and its final invoice was issued.',
+                finalInvoice: 'Final invoice:',
+                viewInvoice: 'View the invoice',
+                noFinalInvoice: 'The API returned no final invoice.',
+                trialTitle: 'Trial ended',
+                trial: 'The subscription is canceled. Nothing was billed.',
+                addonsRemoved: 'Add-ons removed: {{addons}}.',
+                addonFailed: '{{addon}} could not be removed. {{detail}}',
+                endDateSet: 'The license now ends on {{date}}.',
+                endDateFailed:
+                  'The end of the license could not be set. {{detail}}',
+                retryFollowUps: 'Try again',
+              },
+              Errors: {
+                reason: 'The reason is at most 500 characters',
+                endDate: 'Enter a valid date and time',
+              },
+            },
+            PlanChange: {
+              title: 'Plan change',
+              open: 'Change plan',
+              dialogTitle: 'Change the plan of {{name}}',
+              dialogDescription:
+                'Moves the subscription to another plan at the end of the current period.',
+              version: '{{name}} v{{version}}',
+              currentPlan: 'Current plan:',
+              currentPlanValue: '{{price}} · {{amount}}',
+              timeline:
+                'The change takes effect on {{date}}, when the current period ends. The invoice of that day bills what the current plan owes in arrears and the first period of the new plan in advance. Nothing is prorated.',
+              upcoming:
+                'Without the change, the next invoice would be a {{kind}} invoice of',
+              upcomingScheduled:
+                'The next invoice already applies the scheduled change: a {{kind}} invoice of',
+              noPreview:
+                'Kaiten cannot compose the invoice of a change that is not scheduled yet, so this is the invoice as things stand.',
+              target: 'New plan',
+              targetHint:
+                'The active flat fees of the license versions on sale, in the currency of the subscription.',
+              targetPlaceholder: 'Choose a plan',
+              option: '{{version}} · {{price}} · {{amount}} · {{timing}}',
+              optionBlocked: '{{label}} — Different currency ({{currency}})',
+              noPlan:
+                'No other plan can be reached: no other published license version has an active flat fee.',
+              confirm: 'Schedule the change',
+              alreadyScheduled:
+                'A change to {{plan}} ({{amount}}) is already scheduled for {{date}}. Choosing another plan replaces it.',
+              drop: 'Cancel the change',
+              scheduledToast: 'The plan change is scheduled',
+              droppedToast: 'The plan change was canceled',
+              notSubscribed: 'This instance has no subscription.',
+              alreadyCanceled:
+                'This subscription has ended: subscribe the instance again to choose a plan.',
+              trial:
+                'A plan cannot change during a trial. Cancel the trial and subscribe the instance again with the new plan.',
+              cancellationScheduled:
+                'A cancellation is scheduled for the end of the period. Reactivate the subscription first to change its plan.',
+              Errors: {
+                target: 'Choose a plan',
+              },
+            },
+            Terms: {
+              title: 'Payment terms',
+              open: 'Payment terms',
+              dialogTitle: 'Payment terms of {{name}}',
+              dialogDescription:
+                'The days between the issue of an invoice and its due date, for this contract.',
+              currentContract_one:
+                'Invoices are payable within {{count}} day (the terms of this contract).',
+              currentContract_other:
+                'Invoices are payable within {{count}} days (the terms of this contract).',
+              currentOrganization_one:
+                'Invoices are payable within {{count}} day (the default of your organization).',
+              currentOrganization_other:
+                'Invoices are payable within {{count}} days (the default of your organization).',
+              daysUntilDue: 'Payment terms (days)',
+              daysUntilDueHint:
+                'From 0 to 365 days. Leave empty to use the terms of your organization.',
+              placeholder: 'Organization default: {{days}}',
+              placeholderUnknown: 'Organization default',
+              nextInvoice:
+                'The change takes effect on the next invoice. Invoices already issued keep their own due date.',
+              save: 'Save',
+              useDefault: 'Use organization default',
+              notSubscribed: 'This instance has no subscription.',
+              alreadyCanceled:
+                'This subscription has ended: it has no terms to change.',
+              openWithProvider: 'Provider and terms',
+              dialogTitleWithProvider: 'Provider and terms of {{name}}',
+              dialogDescriptionWithProvider:
+                'Who collects the invoices of this contract and how, and the days between the issue of an invoice and its due date.',
+              Provider: {
+                label: 'Collected by',
+                description:
+                  'Who issues and collects the invoices, from the next one on. Invoices already composed keep their own provider.',
+                NOOP: 'Manual hand-off',
+                STRIPE: 'Stripe',
+                STRIPE_notConnected: 'Stripe (not connected)',
+                notConnected:
+                  'Stripe is not connected for your organization yet: connect it to collect the invoices of this contract through it.',
+                connect: 'Connect Stripe',
+              },
+              Collection: {
+                label: 'Collection method',
+                description:
+                  'Sending the invoice lets the customer pay it. Charging automatically takes the payment method the customer saved with Stripe.',
+                SEND_INVOICE: 'Send the invoice',
+                CHARGE_AUTOMATICALLY: 'Charge automatically',
+                unavailable: '{{method}} (needs Stripe)',
+              },
+              Warnings: {
+                customer: 'Open the customer',
+                billingEmail:
+                  'This customer has no billing e-mail, and Stripe sends the invoices there.',
+                paymentMethod:
+                  'This customer has no payment method Stripe can charge.',
+                fromNextInvoice:
+                  'The change takes effect from the next invoice; invoices already issued keep their provider.',
+              },
+              Switch: {
+                title: 'Invoices still open',
+                description:
+                  'Every invoice keeps its own provider, collection method and terms. This is what happens to each one.',
+                empty: 'This contract has no open invoice.',
+                Fate: {
+                  manual:
+                    'Ready to bill: it is settled only by marking it paid or writing it off, and it still counts toward a late payment.',
+                  held: 'Held: releasing it issues it under the provider it was composed for, and recomposing it uses the new provider.',
+                  queued:
+                    'It keeps being pushed to Stripe for as long as Stripe stays connected.',
+                  review:
+                    'It waits in Stripe to be finalized, or for a push from here.',
+                  collected:
+                    'Stripe collects it and Kaiten mirrors it. Stripe cannot be disconnected while it is open.',
+                  other: 'It keeps its own provider and terms.',
+                },
+                Move: {
+                  choose:
+                    'Release it to keep its provider, or recompose it to move it: choose deliberately.',
+                  voidAndRecompose: 'To move it: void it, then recompose it.',
+                  voidDeletesDraft:
+                    'To move it: void it, which deletes the draft in Stripe, then recompose it.',
+                  voidInBoth:
+                    'To move it: void it in both systems, then recompose it. Only do it if the customer must stop paying through Stripe.',
+                },
+              },
+              Toasts: {
+                saved: 'The payment terms are saved',
+                reset: 'The terms of your organization apply again',
+              },
+              Errors: {
+                daysUntilDue: 'Enter a whole number of days, from 0 to 365',
+              },
+            },
+            Addons: {
+              title: 'Add-ons',
+              description:
+                'Extra entitlements this instance holds on top of its license, billed with its subscription.',
+              loading: 'Loading the add-ons',
+              attach: 'Add an add-on',
+              note: 'Entitlement changes now; billed from the next renewal; no proration or refund.',
+              notLive:
+                'Add-ons can be added while the subscription is live. Before that, add them when subscribing the instance.',
+              Empty: {
+                title: 'No add-on',
+                description:
+                  'This instance holds no add-on. Add one to raise its limits or switch on a feature.',
+              },
+              Table: {
+                Columns: {
+                  addon: 'Add-on',
+                  quantity: 'Quantity',
+                  price: 'Price per unit',
+                  since: 'Since',
+                },
+                free: 'Free',
+                onRequest: 'On request',
+                notBilled: 'Not billed',
+                withdrawn: 'Withdrawn',
+                withdrawnHint:
+                  'This version was withdrawn from sale. The instance keeps it until it is removed.',
+              },
+              Quantity: {
+                group: 'Quantity of {{name}}',
+                decrease: 'One unit fewer of {{name}}',
+                increase: 'One unit more of {{name}}',
+              },
+              Remove: {
+                action: 'Remove',
+                aria: 'Remove {{name}}',
+                title: 'Remove {{name}} from this instance?',
+                description: 'Its entitlements end at once.',
+                refund:
+                  'The current period is not refunded, and the add-on is no longer billed from the next invoice.',
+                arrears:
+                  'This add-on is billed in arrears: the period under way is still billed in full, at the last quantity held, on the next invoice. Nothing is refunded.',
+                confirm: 'Remove',
+              },
+              Toasts: {
+                attached: '{{name}} added (× {{quantity}})',
+                quantity: '{{name}}: now × {{quantity}}',
+                removed: '{{name}} removed',
+              },
+              Effect: {
+                change: '{{entitlement}}: {{before}} → {{after}}',
+                configured: 'Configured',
+                none: 'Not granted',
+              },
+              Unread: {
+                all: 'The add-ons could not be read, so none is offered.',
+                partial:
+                  'Some add-ons could not be checked against the license of this instance, so they are not listed.',
+              },
+              Attach: {
+                title: 'Add an add-on',
+                dialogTitle: 'Add an add-on to {{name}}',
+                description:
+                  'Attach an add-on to this instance. Its entitlements apply at once.',
+                addon: 'Add-on',
+                addonHint:
+                  'The add-ons on sale that fit the license of this instance.',
+                addonPlaceholder: 'Choose an add-on',
+                quantity: 'Quantity',
+                quantityHint: 'At least 1.',
+                quantityHintMax: 'From 1 to {{max}}.',
+                confirm: 'Add the add-on',
+                none: 'No add-on can be added: none on sale fits the license of this instance, or it holds a version of each already.',
+                notLive:
+                  'Add-ons can only be added while the subscription is live: in trial, active or past due.',
+                Price: {
+                  perUnit: 'per unit, billed from the next renewal.',
+                  free: 'Free: nothing is billed for it.',
+                  custom:
+                    'Sold on request: no price is set, so nothing is billed for it here.',
+                  none: 'This add-on has no default price for the billing period of the subscription ({{period}}), and the API will refuse it.',
+                  loading: 'Reading its price…',
+                  unknown: 'Its price could not be read.',
+                },
+                Errors: {
+                  addon: 'Choose an add-on',
+                  quantity: 'Enter a whole number of units, at least 1',
+                  quantityMax: 'This add-on allows fewer units',
+                },
+              },
+            },
+            Vouchers: {
+              apply: 'Apply a code',
+              description:
+                'The vouchers this instance redeemed. A boost changes its limits while it lasts; a discount reduces the invoices it is issued.',
+              empty:
+                'This instance has not redeemed any voucher. Apply a code to give it a boost or a discount.',
+              Redeem: {
+                breadcrumb: 'Apply a code',
+                title: 'Apply a code to {{name}}',
+                description:
+                  'The code is checked first: nothing is redeemed until you confirm.',
+                doneTitle: 'Code applied to {{name}}',
+                doneDescription:
+                  'What follows is read from the instance before and after the redemption.',
+                code: 'Voucher code',
+                codePlaceholder: 'Paste the code',
+                codeHint: 'Letters and digits; case and dashes do not matter.',
+                check: 'Check the code',
+                confirm: 'Redeem the code',
+                validTitle: '{{name}} can be redeemed',
+                validNote:
+                  '{{instance}} meets every condition of this voucher. Redeeming applies it now; only revoking it takes it back.',
+                invalidTitle: 'This code cannot be redeemed',
+                Errors: {
+                  code: 'Enter the code',
+                  codeTooLong: 'A code has at most 64 characters',
+                },
+              },
+              Reasons: {
+                NOT_FOUND: 'No voucher has this code.',
+                NOT_ACTIVE:
+                  'This voucher is not active: it is a draft or it was archived.',
+                NOT_YET_VALID:
+                  'This voucher cannot be redeemed yet: its window has not opened.',
+                EXPIRED: 'This voucher has expired.',
+                EXHAUSTED:
+                  'This voucher has been redeemed as many times as it allows.',
+                ALREADY_REDEEMED:
+                  'This instance has already redeemed this voucher.',
+                NOT_ELIGIBLE: 'This instance is not eligible for this voucher.',
+                CURRENCY_MISMATCH:
+                  'This discount is in a currency other than the one of the subscription.',
+              },
+              Rules: {
+                RESTRICTED_CUSTOMER:
+                  'This voucher is reserved for another customer.',
+                LICENSE_NOT_APPLICABLE:
+                  'This voucher does not apply to the license of this instance.',
+                ADDON_NOT_APPLICABLE:
+                  'This voucher needs an add-on that this instance does not hold.',
+                FIRST_TIME_ONLY:
+                  'This voucher is for customers that have not paid an invoice yet.',
+                ANNUAL_ONLY: 'This voucher needs an annual subscription.',
+                MINIMUM_SUBSCRIPTION_AMOUNT:
+                  'The subscription is below the minimum amount this voucher requires.',
+                NOTHING_TO_BOOST:
+                  'This boost changes nothing this instance has: none of the entitlements it targets is a number that the instance holds.',
+              },
+              Outcome: {
+                voucher: 'Voucher',
+                status: 'Status',
+                until: 'Applies until',
+                applications: 'Discounts',
+                invoices_one: 'The next invoice',
+                invoices_other: 'The next {{count}} invoices',
+                everyInvoice: 'Every invoice',
+                changes: 'What changed',
+                nextInvoice: 'The next invoice',
+                before: 'Before',
+                after: 'After',
+                discount: 'Discount',
+                discountNote:
+                  'The discount will show on the next invoice this instance is issued.',
+              },
+            },
+          },
           tabs: {
             overview: 'Overview',
             entitlements: 'Entitlements & Usage',
+            billing: 'Billing',
             auditTrail: 'Audit Trail',
           },
           status: {
@@ -649,6 +1326,27 @@ export default {
                 'Visual overview of entitlement consumption for this instance',
               currentWindow: 'Current window: {{start}} → {{end}}',
             },
+            provenance: {
+              title: 'How this limit is composed',
+              trigger:
+                '{{limit}}: how the limit of {{entitlement}} is composed',
+              fromAddons: 'from add-ons',
+              unlimitedBy: 'Unlimited, granted by {{sources}}',
+              grantedBy: {
+                license: 'the license',
+                addon: 'an add-on',
+                voucher: 'a voucher',
+              },
+              terms: {
+                license: '{{amount}} license',
+                addon: '{{amount}} add-on',
+                addonReplace: '{{amount}} add-on (replaces the license)',
+                highest: 'max({{terms}})',
+                voucher: '{{amount}} voucher',
+                voucherSet:
+                  '{{amount}} voucher (replaces the license and the add-ons)',
+              },
+            },
             table: {
               title: 'All Entitlements',
               description:
@@ -660,12 +1358,39 @@ export default {
                 threshold: 'Threshold',
                 currentPeriod: 'Current window',
                 status: 'Status',
+                history: 'History',
               },
             },
             status: {
               enabled: 'Enabled',
               disabled: 'Disabled',
               unknown: 'Unknown',
+            },
+            history: {
+              open: 'History',
+              openLabel: 'Usage history of {{entitlement}}',
+              title: 'Usage history',
+              description:
+                '{{entitlement}} on {{instance}}: every report accepted for this counter, in the order it was accepted.',
+              region: 'Usage reports of {{entitlement}}',
+              loading: 'Loading the usage history',
+              period: 'Period (UTC)',
+              defaultPeriod:
+                'With no period, the last 30 days are shown, as far back as your organization keeps usage.',
+              export: 'Export CSV',
+              exportTooLong:
+                'A CSV covers up to 366 days: narrow the period to export it.',
+              Empty: {
+                title: 'No usage reports',
+                description: 'No report was accepted during this period.',
+              },
+              loadMore: 'Load more reports',
+              OutsideRetention: {
+                title_one: 'Beyond your retention of {{count}} month',
+                title_other: 'Beyond your retention of {{count}} months',
+                titleUnknown: 'Beyond what your organization keeps',
+                showFrom: 'Show from {{date}}',
+              },
             },
           },
           auditTrail: {
@@ -811,9 +1536,263 @@ export default {
         },
       },
     },
+    Catalog: {
+      title: 'Catalog',
+    },
     Licenses: {
       title: 'Licenses',
       subtitle: 'Manage licenses and entitlement limits',
+      Public: {
+        label: 'Public catalogue',
+        switchLabel: 'List {{name}} in the public catalogue',
+        badge: 'Public',
+        listed: 'The family is listed in the public catalogue',
+        unlisted: 'The family is no longer listed in the public catalogue',
+      },
+      Freeze: {
+        billed: {
+          title: 'This version is billed',
+          description:
+            'A live subscription bills this version, so its entitlements and prices are frozen: changing them would change a contract already sold. Create a new version to change what is sold. It starts from this version’s entitlements and prices, as a draft you can change, and subscriptions stay on this version until they move to the new one.',
+        },
+        published: {
+          title: 'The prices of a published version are immutable',
+          description:
+            'Deprecate a price to retire it, or create a new version to change what is sold. The new version starts from this version’s entitlements and prices, as a draft you can change.',
+        },
+        archived: {
+          title: 'This version takes no new price',
+          description:
+            'A version withdrawn from sale takes no new price. Create a new version to change what is sold. It starts from this version’s entitlements and prices, as a draft you can change.',
+        },
+        createNewVersion: 'Create a new version',
+      },
+      PriceCopy: {
+        title: 'The copy of prices stopped',
+        description:
+          'The prices of {{name}} v{{version}} were being copied to this version, and {{copied}} of {{total}} are in. The rest can be copied from where it stopped. Nothing was deleted, and nothing was changed on {{name}} v{{version}}.',
+        copiedHeading: 'Copied',
+        pendingHeading: 'Still to copy',
+        resume: 'Resume the copy',
+        Toasts: {
+          done: 'Prices copied',
+        },
+      },
+      Commercial: {
+        cardTitle: 'Commercial terms',
+        cardDescription: 'How this version is sold.',
+        dialogTitle: 'Edit commercial terms',
+        dialogDescription:
+          'How {{name}}, version {{version}}, is sold. Nothing else about the version changes.',
+        Fields: {
+          pricingType: 'Pricing type',
+          trial: 'Free trial',
+          paymentMethod: 'Payment method',
+          ctaUrl: 'Call-to-action URL',
+        },
+        PricingTypes: {
+          FREE: 'Free',
+          PAID: 'Paid',
+          CUSTOM: 'Custom',
+        },
+        Values: {
+          noTrial: 'No trial',
+          trialDays_one: '{{count}} day',
+          trialDays_other: '{{count}} days',
+          paymentRequired: 'Captured at sign-up',
+          paymentNotRequired: 'Not required',
+        },
+        Form: {
+          save: 'Save',
+          Labels: {
+            pricingType: 'Pricing type',
+            trial: 'Trial length (days)',
+            paymentMethod: 'Require a payment method at sign-up',
+            ctaUrl: 'Call-to-action URL',
+          },
+          Descriptions: {
+            pricingType:
+              'Free and paid versions can be bought self-serve; a custom one sends a buyer to the call-to-action URL or to a conversation.',
+            trial:
+              'A subscription to this version starts with this trial. Leave empty for no trial.',
+            paymentMethod:
+              'Self-serve sign-up captures a payment method before it activates.',
+            ctaUrl:
+              'Where a buyer is sent when this version cannot be bought self-serve: an http or https URL of at most 2,048 characters. Leave empty for none.',
+          },
+          Placeholders: {
+            trial: '14',
+            ctaUrl: 'https://acme.test/contact',
+          },
+          Errors: {
+            trialMin: 'Must be at least 1',
+            trialWhole: 'Enter a whole number of days',
+            urlScheme: 'Enter an http or https URL',
+            urlLength: 'At most 2,048 characters',
+          },
+        },
+        Toasts: {
+          updated: 'Commercial terms updated',
+        },
+      },
+      Prices: {
+        title: 'Prices',
+        tabDescription:
+          'One price is one billable concern, and becomes one line of an invoice.',
+        defaultBadge: 'Default',
+        deprecatedOn: 'Deprecated {{date}}',
+        Summary: {
+          empty: 'No active price yet',
+          or: 'or',
+          overage: '{{price}} above the allowance',
+        },
+        Notes: {
+          draft:
+            'The prices of a draft can be edited. Once the version is published they become immutable: deprecate one, or create a new version to change what is sold.',
+          published:
+            'The prices of a published version are immutable. Deprecate a price to retire it, or create a new version to change what is sold. A price can still be added until a subscription bills this version.',
+          archived:
+            'This version is withdrawn from sale. Its prices are immutable and it takes no new price; subscriptions that bill it keep being billed.',
+        },
+        Meter: {
+          overage: 'Bills above {{limit}} {{unit}}/{{period}}, up to {{cap}}',
+          overageUnknown:
+            'Bills the usage above the allowance the version grants',
+          usageSum: 'Summed, resets every {{period}}',
+          usageCount: 'Counted, resets every {{period}}',
+        },
+        Actions: {
+          add: 'Add price',
+          edit: 'Edit',
+          editAria: 'Edit {{label}}',
+          deprecate: 'Deprecate',
+          deprecateAria: 'Deprecate {{label}}',
+        },
+        Drawer: {
+          titleNew: 'New price',
+          titleEdit: 'Edit price',
+          description:
+            '{{name}}, version {{version}}. A price becomes one line of an invoice.',
+          create: 'Create price',
+          update: 'Save price',
+        },
+        Form: {
+          Labels: {
+            model: 'Shape',
+            timing: 'Billing timing',
+            period: 'Billing period',
+            currency: 'Currency',
+            label: 'Label on the invoice',
+            meter: 'Metered entitlement',
+            amount: 'Amount',
+            amountPer: 'Amount per {{unit}}',
+            isDefault: 'Default price of this period',
+          },
+          Descriptions: {
+            modelLocked:
+              'The shape of a price cannot change once it exists. Deprecate it and add another to change it.',
+            timingLocked:
+              'A metered price is always billed in arrears: usage cannot be billed before it happens.',
+            period: 'How often the fee is billed.',
+            currency:
+              'A version bills in one currency, fixed by its first price.',
+            currencyLocked:
+              'This version bills in {{currency}}, fixed by its first price.',
+            label:
+              'The name of the invoice line. Left empty, Kaiten derives one.',
+            amountFlat:
+              'Billed once per period. Type the amount in the currency’s own unit (for example 49.00).',
+            amountUsage:
+              'Applied from the first unit. Type the amount in the currency’s own unit (for example 0.075).',
+            amountOverage:
+              'Applied only to the units above the limit. Type the amount in the currency’s own unit (for example 0.075).',
+            isDefault:
+              'The price the catalogue and the invoice preview use for this billing period. A period has one.',
+          },
+          Placeholders: {
+            amount: '0.00',
+            currency: 'Select a currency',
+            currencySearch: 'Search a currency',
+            label: 'Pro, monthly',
+          },
+          Meter: {
+            none: 'This version grants no entitlement a price can meter. Grant a counted or summed number that resets, then come back.',
+            stock: 'A stock: it never resets, so it cannot be metered.',
+            stockHint:
+              'A stock, such as seats or storage, is sold as an add-on with a quantity, not metered.',
+            stockHintLink: 'See the add-ons',
+            overageUnreachable:
+              'Overage cannot occur on this grant: its limit is hard or unlimited.',
+          },
+          livePreview: 'Reads as {{price}}',
+          Errors: {
+            label: 'The label is at most 200 characters.',
+            currency: 'Pick a currency Kaiten supports.',
+            amount:
+              'Enter a valid amount: zero or more, with at most 12 decimals past the currency’s own and 12 digits in its smallest unit.',
+            meter: 'Pick the entitlement this price measures.',
+            period: 'Pick the billing period.',
+          },
+        },
+        Deprecate: {
+          PlanChangeTarget: {
+            looking: 'Looking for the instances concerned…',
+            instances:
+              'These instances are scheduled to move to this price. Cancel the change on the Billing tab of each one, then deprecate the price:',
+            moves: '({{customer}}, from {{date}})',
+          },
+          title: 'Deprecate “{{label}}”?',
+          descriptionFlat:
+            'Subscriptions already pinned to this price keep being billed from it. It is no longer offered to new subscriptions, nor as the target of a plan change. This cannot be undone.',
+          descriptionMetered:
+            'This price produces no line from the next invoice on, and it is no longer offered. What it already billed is unchanged. This cannot be undone.',
+          defaultNote:
+            'It is the default price of its period: deprecating it clears the default flag in the same write.',
+          confirm: 'Deprecate',
+        },
+        Toasts: {
+          created: 'Price created',
+          updated: 'Price updated',
+          deprecated: 'Price deprecated',
+        },
+        Preview: {
+          open: 'Preview invoice',
+          unavailable:
+            'Add an active flat fee first: an invoice always starts from one.',
+          title: 'Preview an invoice',
+          description:
+            'What a subscription to {{name}}, version {{version}}, would be billed at its next renewal. Nothing is created.',
+          hint: 'Run the preview to see the invoice.',
+          run: 'Run preview',
+          Labels: {
+            base: 'Base price',
+            samples: 'Sample usage',
+          },
+          Descriptions: {
+            base: 'The flat fee the invoice starts from.',
+            samples:
+              'What each entitlement used over the period that ends, in its own units. Leave a field empty for no usage.',
+          },
+          Placeholders: {
+            quantity: '0',
+          },
+          Errors: {
+            quantity:
+              'Enter a quantity: zero or more, with a point for decimals.',
+          },
+        },
+        Table: {
+          Columns: {
+            price: 'Price',
+            shape: 'Shape',
+            meter: 'Meters',
+            amount: 'Amount',
+            billed: 'Billed',
+            status: 'Status',
+          },
+          empty: 'This version has no price yet.',
+        },
+      },
       Table: {
         Columns: {
           name: 'Name',
@@ -886,6 +1865,11 @@ export default {
             licenseName: 'License name',
             versionName: 'Version name',
             baseVersion: 'Base version (existing)',
+            copyPrices: 'Copy the prices of the base version',
+          },
+          Descriptions: {
+            copyPrices:
+              'Each active price of the base version is added to the new one, in the same order, once its entitlements are. Subscriptions stay on their version until each one is scheduled onto the new one.',
           },
           Placeholders: {
             selectLicenseName: 'Select license name',
@@ -925,6 +1909,14 @@ export default {
             'The version goes on sale and can be set as the default. A license without a default version serves its newest published one, which may be this one.',
           confirm: 'Publish',
           success: 'Version published',
+          Billing: {
+            prices:
+              'Its prices become immutable: from then on they can only be deprecated.',
+            grants:
+              'Its entitlements are frozen as soon as a subscription bills this version.',
+            others:
+              'Subscriptions on other versions are not affected, and nothing is archived.',
+          },
         },
         archive: {
           label: 'Archive',
@@ -955,6 +1947,8 @@ export default {
         title: 'Delete the draft {{name}} v{{version}}?',
         description:
           'The draft and the entitlements it grants are deleted. It was never on sale, so no customer loses it. An instance still on it prevents the deletion.',
+        descriptionBilling:
+          'The draft, its prices and the entitlements it grants are deleted. It was never on sale, so no customer loses it. An instance still on it prevents the deletion.',
         confirm: 'Delete',
         success: 'Draft deleted',
       },
@@ -964,6 +1958,7 @@ export default {
           version: 'Version',
           type: 'Type',
           lifecycleState: 'State',
+          pricingType: 'Pricing',
           default: 'Default',
           instances: 'Instances',
           actions: 'Actions',
@@ -974,6 +1969,9 @@ export default {
           'Only a published version can be set as the default',
       },
       Detail: {
+        Tabs: {
+          overview: 'Overview',
+        },
         cardTitle: 'License details',
         cardDescription:
           'Name, type, version. Entitlements and limits are managed below.',
@@ -2207,6 +3205,118 @@ export default {
     },
     Integrations: {
       title: 'Integrations',
+      PublishableKeys: {
+        title: 'Publishable keys',
+        subtitle: 'The keys a web page reads your public catalogue with',
+        Intro: {
+          purpose:
+            'A publishable key lets a web page read your public catalogue: it sends the key in the X-Kaiten-Publishable-Key header to GET /public/catalog. It is not a secret, and it reads nothing else.',
+          listing:
+            'What the catalogue lists is decided by the Public catalogue switch of each family:',
+          licenses: 'License families',
+          addons: 'Add-on families',
+        },
+        List: {
+          new: 'New publishable key',
+          includeRevoked: 'Include revoked',
+          keyHint: '…{{hint}}',
+          neverUsed: 'Never used',
+          noOrigins: 'No browser origin',
+          showMore: 'Show {{count}} more',
+          showFewer: 'Show fewer',
+          Columns: {
+            label: 'Label',
+            key: 'Key',
+            origins: 'Allowed origins',
+            created: 'Created',
+            lastUsed: 'Last used',
+            status: 'Status',
+          },
+          Status: {
+            live: 'Live',
+            revoked: 'Revoked',
+          },
+          Actions: {
+            edit: 'Edit {{label}}',
+            revoke: 'Revoke {{label}}',
+          },
+          Filters: {
+            search: 'Search',
+            searchPlaceholder: 'Search by label, key ending or origin',
+            clear: 'Clear the search',
+          },
+          Empty: {
+            title: 'No publishable key yet',
+            description:
+              'Issue a key to let a web page read your public catalogue.',
+            filteredTitle: 'No key matches',
+            filteredDescription: 'No publishable key matches this search.',
+          },
+        },
+        Create: {
+          title: 'New publishable key',
+          description: 'The key is shown once, when you create it.',
+          submit: 'Create key',
+          Created: {
+            title: 'Publishable key created',
+            description: 'Copy the key now and put it in your web page.',
+            warning:
+              'You will not see this key again. Only its last four characters, {{hint}}, stay visible in the list.',
+            keyLabel: 'Key {{label}}',
+            copy: 'Copy the key',
+            copied: 'Key copied',
+            copyFailed: 'The key could not be copied',
+            done: 'Done',
+            Leave: {
+              title: 'Close without the key?',
+              description:
+                'You have not copied this key, and it will not be shown again. If you close now, you will have to create a new key.',
+              stay: 'Back to the key',
+              leave: 'Close without copying',
+            },
+          },
+        },
+        Edit: {
+          title: 'Edit {{label}}',
+          description:
+            'Change what the key is for and the origins that may send it. The key itself does not change.',
+          save: 'Save',
+          saved: '{{label}} saved',
+          revoked:
+            'This key was revoked in the meantime. A revoked key can no longer change: create a new key instead.',
+        },
+        Form: {
+          Labels: {
+            label: 'Label',
+            origins: 'Allowed origins',
+          },
+          Placeholders: {
+            label: 'Marketing site',
+            origins: 'https://www.example.com',
+          },
+          Descriptions: {
+            label:
+              'What the key is for, to tell your keys apart (up to 100 characters).',
+            origins:
+              'One origin per line, at most {{max}}: https://host, or http://localhost, with a port if there is one. No path. Leave it empty to allow no browser origin.',
+          },
+          rejected: 'Not an origin: {{origins}}',
+          Errors: {
+            label: 'Enter a label',
+            labelTooLong: 'That label is too long',
+            origins:
+              'Each origin is https://host[:port], or http://localhost[:port], with no path, query or fragment',
+            tooManyOrigins: 'That is too many origins for one key',
+          },
+        },
+        Revoke: {
+          title: 'Revoke {{label}}?',
+          description:
+            'The key ending in {{hint}} stops working on the next request, and every page that sends it stops reading your catalogue. A revoked key cannot be restored: create a new one to replace it.',
+          confirm: 'Revoke key',
+          success: '{{label}} revoked',
+        },
+      },
       Connectors: {
         title: 'Connectors',
         pageDescription:
@@ -2214,6 +3324,7 @@ export default {
         Status: {
           connected: 'Connected',
           available: 'Available',
+          unavailable: 'Unavailable',
           comingH1: 'Coming H1',
           comingH2: 'Coming H2',
         },
@@ -2231,6 +3342,124 @@ export default {
           connected: 'Attio connector connected.',
           disconnected: 'Attio connector disconnected.',
           mappingUpdated: 'Attio field mappings updated.',
+        },
+        Stripe: {
+          title: 'Stripe connector',
+          subtitle:
+            'Kaiten composes what each customer owes. Stripe collects it.',
+          openInStripe: 'Open in Stripe',
+          disconnect: 'Disconnect',
+          Mode: {
+            test: 'Test mode',
+            live: 'Live mode',
+          },
+          Unavailable: {
+            VAULT_NOT_CONFIGURED: {
+              title: 'Stripe needs a configured Vault',
+              description:
+                'Kaiten stores the restricted key of your Stripe account in Vault, and this deployment has none. Set up Vault (VAULT_ADDR), then come back here to connect Stripe. Invoices are still composed and handed off to your accounting system meanwhile.',
+              tile: 'Stripe needs a configured Vault',
+            },
+            NOT_ENTITLED: {
+              title: 'Not included in your plan',
+              description:
+                'The Stripe connector is not part of the plan of this organization. Upgrade the plan to connect Stripe. Invoices are still composed and handed off to your accounting system meanwhile.',
+              tile: 'Not included in your plan',
+            },
+            UNKNOWN: {
+              title: 'Stripe is not available here',
+              description:
+                'This deployment does not offer Stripe to the organization. Invoices are composed and handed off to your accounting system.',
+              tile: 'Not available on this deployment',
+            },
+            vaultDocs: 'Self-hosting settings',
+          },
+          Settings: {
+            title: 'Connection',
+            description:
+              'The restricted key of your Stripe account, and how Kaiten builds and pushes invoices to it.',
+            readOnly:
+              'You can read these settings and not change them: the connector is configured by someone who can write the settings of the organization.',
+            connect: 'Connect Stripe',
+            reconnect: 'Connect Stripe with the stored key',
+            save: 'Save changes',
+            keyLabel: 'Restricted API key',
+            keyPlaceholder: 'rk_test_…',
+            keyOnFilePlaceholder:
+              'Key set ({{mode}}) — enter a new key to replace it',
+            keyOnFilePlaceholderNoMode:
+              'Key set — enter a new key to replace it',
+            keyHint:
+              'Create it in Stripe, under Developers → API keys. Kaiten stores it in Vault, checks it with a read-only call and never shows it again.',
+            keyReaches: 'This key reaches a Stripe account in {{mode}}.',
+            taxBehaviorLabel: 'Tax',
+            taxBehaviorHint:
+              'Whether the amounts Kaiten composes leave tax out (Stripe adds it) or already include it.',
+            TaxBehavior: {
+              EXCLUSIVE: 'Amounts exclude tax',
+              INCLUSIVE: 'Amounts include tax',
+            },
+            automaticTaxLabel: 'Compute tax automatically',
+            automaticTaxHint:
+              'Stripe Tax computes the tax of every invoice. It needs a complete address on the customer in Stripe, or the push of its invoices fails.',
+            autoFinalizeLabel: 'Finalize invoices automatically',
+            autoFinalizeHint:
+              'Off, an invoice stops as a draft in Stripe, where someone reviews it and Kaiten finalizes it on request.',
+            Errors: {
+              keyRequired: 'Paste the restricted key of your Stripe account.',
+              secretKey:
+                'Use a restricted key (rk_…): a secret key (sk_…) gives Kaiten access to far more than it needs.',
+              publishableKey:
+                'A publishable key (pk_…) cannot create invoices. Use a restricted key (rk_…).',
+              keyFormat:
+                'A restricted key starts with rk_test_ or rk_live_, followed by letters and digits.',
+            },
+          },
+          Split: {
+            title: 'Who does what',
+            kaiten: 'Kaiten owns',
+            stripe: 'Stripe owns',
+            Kaiten: {
+              catalogue: 'The catalogue and its prices',
+              entitlements: 'What each instance is entitled to',
+              usage: 'The journal of usage',
+              subscription: 'The subscription of each instance',
+              content: 'What each invoice says',
+            },
+            Stripe: {
+              tax: 'Tax',
+              numbering: 'Invoice numbers',
+              presentation: 'How an invoice looks and is sent',
+              payment: 'Payment and receipts',
+              dunning: 'Retries and reminders',
+            },
+          },
+          Permissions: {
+            title: 'Permissions of the key',
+            description:
+              'Create the restricted key with exactly these permissions: no more, and no less.',
+            write: '{{resource}}: write',
+            read: '{{resource}}: read',
+          },
+          Toast: {
+            connected: 'Stripe connected.',
+            saved: 'Stripe settings saved.',
+            disconnected: 'Stripe disconnected.',
+          },
+          Disconnect: {
+            title: 'Disconnect Stripe?',
+            description:
+              'Kaiten stops pushing invoices to Stripe and reading them back. The key stays stored, so that connecting again does not ask for it. Invoices already in Stripe are not touched.',
+            confirm: 'Disconnect',
+            subscriptions_one:
+              '{{count}} subscription that is not canceled is still collected through Stripe.',
+            subscriptions_other:
+              '{{count}} subscriptions that are not canceled are still collected through Stripe.',
+            invoices_one:
+              '{{count}} invoice that is not settled is still in Stripe.',
+            invoices_other:
+              '{{count}} invoices that are not settled are still in Stripe.',
+          },
         },
         Wizard: {
           headerTitle: 'Connect Attio',
@@ -2439,6 +3668,7 @@ export default {
               "You won't be able to see it again once you leave this page.",
             copyToken: 'Copy token',
             copied: 'Token copied to clipboard',
+            copyFailed: 'The token could not be copied',
             detailsTitle: 'Details',
             scopes: 'Scopes',
             expires: 'Expires',
@@ -2459,6 +3689,7 @@ export default {
             licensing: { label: 'Licensing' },
             featureFlags: { label: 'Feature Flags' },
             releases: { label: 'Releases' },
+            billing: { label: 'Billing' },
             organization: { label: 'Organization' },
           },
           Presets: {
@@ -2498,6 +3729,11 @@ export default {
               label: 'Entitlements',
               description: 'Access to entitlement definitions',
             },
+            addons: {
+              label: 'Add-ons',
+              description:
+                'Access to the add-on catalogue: versions, prices and the entitlements they grant',
+            },
             deploymentZones: {
               label: 'Deployment Zones',
               description: 'Access to deployment zone management',
@@ -2514,6 +3750,31 @@ export default {
               label: 'Notifications',
               description:
                 'Access to its own notification feed and preferences',
+            },
+            billing: {
+              label: 'Billing',
+              description:
+                'Access to subscriptions, invoices, the handoff queue and billing settings',
+            },
+            vouchers: {
+              label: 'Vouchers',
+              description:
+                'Access to vouchers: create, publish and archive them, and revoke a redemption',
+            },
+            voucherRedemptions: {
+              label: 'Voucher redemptions',
+              description:
+                "Access to an instance's vouchers: check a code and redeem it",
+            },
+            customerSessions: {
+              label: 'Customer sessions',
+              description:
+                "Access to customer sessions: open one for a customer's self-serve billing page, and end it",
+            },
+            publishableKeys: {
+              label: 'Publishable keys',
+              description:
+                'Access to publishable keys: issue and revoke the pk_ keys a web page reads the public catalogue with',
             },
             organizations: {
               label: 'Organizations',
@@ -2570,9 +3831,14 @@ export default {
           instance: 'Instances',
           license: 'Licenses',
           licenseFamily: 'License families',
+          addon: 'Add-ons',
           entitlement: 'Entitlements',
           entitlementGroup: 'Entitlement groups',
           usage: 'Usage',
+          subscription: 'Subscriptions',
+          invoice: 'Invoices',
+          voucher: 'Vouchers',
+          payment: 'Payments',
           featureFlag: 'Feature flags',
           release: 'Releases',
           deploymentZone: 'Deployment zones',
@@ -2658,6 +3924,1223 @@ export default {
             statusCodeLabel: 'HTTP status:',
             responseLabel: 'Response:',
           },
+        },
+      },
+    },
+    Billing: {
+      title: 'Billing',
+      Invoices: {
+        title: 'Invoices',
+        Subtitles: {
+          all: 'Every invoice of your organization, across its customers and instances.',
+          overdue:
+            'The invoices past their due date and still unpaid, across your customers and instances.',
+          held: 'The invoices held back before they were issued. Each waits for someone to check it, then release or recompose it.',
+          waiting:
+            'The invoices waiting for your ERP, oldest first. A job or the CLI takes them from the queue and acknowledges them once booked.',
+          acknowledged:
+            'The invoices your ERP took from the queue and acknowledged once booked.',
+        },
+        Views: {
+          all: 'All',
+          overdue: 'Overdue',
+          held: 'Held',
+          waiting: 'Handoff',
+          acknowledged: 'Acknowledged',
+        },
+        Lines: {
+          title: 'Lines',
+        },
+        Empty: {
+          title: 'No invoices yet',
+          description:
+            'An invoice is composed when a subscription reaches a boundary. Subscribe an instance to start billing.',
+          instances: 'Go to instances',
+          filteredTitle: 'No invoice matches these filters',
+          filteredDescription: 'Clear the filters to see more.',
+          scopedCustomerTitle: 'No invoice for this customer',
+          scopedInstanceTitle: 'No invoice for this instance',
+          scopedDescription:
+            'Nothing was invoiced for it yet. An invoice is composed when a subscription reaches a boundary.',
+          showAll: 'Show every invoice',
+          overdueTitle: 'No overdue invoice',
+          overdueDescription:
+            'An unpaid invoice past its due date appears here.',
+          heldTitle: 'No held invoice',
+          heldDescription:
+            'An invoice that a check held appears here until someone releases or recomposes it.',
+        },
+        Filters: {
+          clear: 'Clear filters',
+          remove: 'Remove the filter {{filter}}',
+          chip: '{{field}}: {{value}}',
+          search: 'Search',
+          searchPlaceholder: 'Customer, instance or invoice',
+          status: 'Status',
+          kind: 'Kind',
+          provider: 'Provider',
+          handoff: 'Handoff',
+          overdue: 'Overdue',
+          held: 'Held',
+          customer: 'Customer',
+          instance: 'Instance',
+          issued: 'Issued',
+          servicePeriod: 'Service period start',
+        },
+        Toasts: {
+          released: 'Invoice released',
+          paid: 'Invoice marked as paid',
+          writtenOff: 'Invoice written off',
+          voided: 'Invoice voided',
+          recomposed: 'Invoice recomposed',
+          replaced: 'Replacement invoice composed',
+          pushRequested:
+            'Push requested. Kaiten checks again every few seconds.',
+          finalized: 'Invoice finalized in Stripe',
+          synced: 'Invoice read from Stripe',
+          syncedPaid: 'Invoice read from Stripe: it is paid',
+          pushed: 'Stripe has the invoice',
+          pushFailedAgain: 'The push failed again',
+          awaitingFinalization:
+            'Stripe has the draft. Finalize it once you have reviewed it.',
+        },
+        Detail: {
+          title: '{{kind}} invoice, {{date}}',
+          subtitle: '{{customer}} · {{instance}}',
+          Actions: {
+            menu: 'Actions',
+            markPaid: 'Mark as paid',
+            recompose: 'Recompose',
+            releaseHold: 'Release the hold',
+            void: 'Void',
+            writeOff: 'Write off',
+            retryPush: 'Retry push',
+            push: 'Push now',
+            finalize: 'Finalize in Stripe',
+            sync: 'Read from Stripe',
+            purgedUsage:
+              'The usage of this period is no longer kept (before {{date}}): it cannot be recomposed.',
+            instanceDeleted:
+              'The instance of this invoice was deleted, so nothing can be recomposed for it.',
+          },
+          Provider: {
+            title: 'Payment provider',
+            Collection: {
+              SEND_INVOICE:
+                'Stripe sends the invoice to the customer and collects the payment.',
+              CHARGE_AUTOMATICALLY:
+                'Stripe charges the payment method on file when the invoice is due.',
+            },
+            status: 'Status in Stripe',
+            Status: {
+              draft: 'Draft',
+              open: 'Open',
+              paid: 'Paid',
+              uncollectible: 'Uncollectible',
+              void: 'Void',
+            },
+            number: 'Invoice number',
+            externalInvoice: 'Stripe invoice',
+            externalCustomer: 'Stripe customer',
+            pushedAt: 'Pushed',
+            syncedAt: 'Last read from Stripe',
+            amounts: 'Amounts',
+            Reconciliation: {
+              MATCHED: 'Match',
+              MISMATCH: 'Differ',
+            },
+            notPushed: 'Stripe does not have this invoice yet.',
+            hostedInvoice: 'Hosted invoice',
+            pdf: 'PDF',
+            Push: {
+              waiting: {
+                title: 'Pushing to Stripe…',
+                description:
+                  'The invoice is queued. Kaiten checks again every 5 seconds, for up to two minutes.',
+              },
+              expired: {
+                title: 'Still queued',
+                description:
+                  'The push has not run yet. It runs on its next pass and Kaiten keeps trying by itself: reload the page to check.',
+              },
+            },
+            Review: {
+              title: 'Awaiting finalization in Stripe',
+              description:
+                'Stripe holds this invoice as a draft. Review it there, then finalize it here or in Stripe: it is sent to the customer once it is finalized.',
+            },
+            PushError: {
+              title: 'The push to Stripe failed',
+              attempts_one: 'Attempt {{count}}.',
+              attempts_other: '{{count}} attempts.',
+              next: 'Next attempt: {{date}}.',
+              manual: 'Retry it from the actions above.',
+            },
+            PaymentError: {
+              title: 'Stripe could not collect the payment',
+              Codes: {
+                authentication_required:
+                  'The customer must confirm the payment on the hosted invoice page.',
+                card_declined: 'The card was declined.',
+                expired_card: 'The card has expired.',
+                no_payment_method:
+                  'The customer has no payment method to charge.',
+              },
+            },
+          },
+          Reconciliation: {
+            title: 'Reconciliation',
+            matched: 'Stripe holds the same amounts as Kaiten.',
+            mismatch:
+              'Stripe holds amounts that are not the ones Kaiten composed. The invoice in Stripe is the one the customer pays: settle the difference there.',
+            checked: 'Checked {{date}}.',
+            kaitenTotal: 'Total composed by Kaiten',
+            providerTotal: 'Total in Stripe, excluding tax',
+            providerSubtotal: 'Subtotal in Stripe',
+            providerDiscounts: 'Discounts in Stripe',
+            inclusiveTax:
+              'Tax is included in the amounts, so the subtotal of Stripe less its discounts was compared.',
+            line: 'Line',
+            kaiten: 'Kaiten',
+            provider: 'Stripe',
+            differingLines: 'Lines whose amount differs',
+            lineNumber: 'Line {{seq}}',
+            differingDiscounts: 'Discounts applied with another amount',
+            discountOnLine: 'Discount {{seq}} on line {{target}}',
+            missingInProvider:
+              'Lines Kaiten composed that Stripe does not have',
+            extraInProvider: 'Lines Stripe has that Kaiten did not compose',
+            extraDiscounts:
+              'Discounts Stripe applied that Kaiten did not create',
+            extraDiscountsHint:
+              'Such as a coupon added in the Stripe dashboard.',
+            discount: 'Discount',
+            providerLine: 'On the Stripe line',
+          },
+          Chain: {
+            replaces: 'Replaces',
+            replacedBy: 'Replaced by',
+          },
+          Stats: {
+            total: 'Total',
+            totalLines_one: '{{count}} line',
+            totalLines_other: '{{count}} lines',
+            due: 'Due',
+            noDueDate: 'No due date',
+            overdue_one: 'overdue for {{count}} day',
+            overdue_other: 'overdue for {{count}} days',
+            overdueToday: 'overdue since today',
+            paid: 'Paid',
+            writtenOff: 'Written off',
+            voided: 'Voided',
+            period: 'Service period',
+            totalLinesDiscounted_one:
+              '{{count}} line, after {{discount}} of discounts',
+            totalLinesDiscounted_other:
+              '{{count}} lines, after {{discount}} of discounts',
+          },
+          Hold: {
+            title: 'Held: {{reason}}',
+            description:
+              'After the period closed, the usage journal behind this invoice failed a consistency check. The invoice was composed but not issued: billing does not bill an amount it cannot vouch for.',
+            Columns: {
+              meter: 'Meter',
+              check: 'Check',
+              expected: 'Expected',
+              found: 'Found',
+              reports: 'Reports',
+              counter: 'Counter report',
+            },
+            atReport: 'At report {{seq}}',
+            release_NOOP:
+              'Releasing accepts the amounts as composed. The invoice is issued with no payment provider and waits in the handoff queue for your ERP.',
+            release_STRIPE:
+              'Releasing accepts the amounts as composed. The invoice is pushed to Stripe, which collects it.',
+            recompose:
+              'Recomposing composes the invoice again from the usage journal as it is now, under the provider the subscription uses now.',
+          },
+          Summary: {
+            title: 'Summary',
+            boundary: 'Boundary',
+            provider: 'Provider',
+            heldSince: 'Held since',
+            issued: 'Issued',
+            terms: 'Payment terms',
+            termsValue_one: '{{count}} day',
+            termsValue_other: '{{count}} days',
+            due: 'Due',
+            voidReason: 'Void reason',
+            released: 'Hold released',
+            releasedValue: '{{date}}, by a person, for this reason: {{reason}}',
+            releasedAutomatically:
+              '{{date}}, automatically: a later check found the usage journal sound',
+          },
+          Lines: {
+            title: 'Lines',
+            viewReports_one: 'View {{count}} usage report',
+            viewReports_other: 'View {{count}} usage reports',
+          },
+          Handoff: {
+            title: 'Handoff',
+            waiting:
+              'A job or the CLI takes it from the queue, books it and acknowledges it.',
+            waiting_VOID:
+              'This invoice is void and its handoff stays pending: the system that reads the queue sees it as void, and acknowledges it.',
+            waiting_UNCOLLECTIBLE:
+              'This invoice was written off and its handoff stays pending: the system that reads the queue sees it as written off, and acknowledges it.',
+            status: 'Status',
+            claims: 'Claims',
+            leasedUntil: 'Reserved until',
+            reference: 'ERP reference',
+            noReference: 'Acknowledged without a reference',
+            acknowledgedAt: 'Acknowledged',
+          },
+          Identity: {
+            title: 'Billed to',
+            description:
+              'As it was when the invoice was composed. A rename since does not change it.',
+            customer: 'Customer',
+            instance: 'Instance',
+            license: 'License',
+            billingEmail: 'Billing e-mail',
+            customerInvoices: 'Invoices of this customer',
+            instanceInvoices: 'Invoices of this instance',
+          },
+          MarkPaid: {
+            title: 'Mark as paid',
+            description:
+              'Record that this invoice was paid. Times are read as UTC.',
+            descriptionPending:
+              'Record that this invoice was paid. It also acknowledges the invoice in the handoff queue, under the reference you give.',
+            reference: 'External reference',
+            referenceHint:
+              'The invoice’s number in your ERP, up to {{max}} characters. Optional.',
+            paidAt: 'Paid at (UTC)',
+            paidAtHint: 'Now or earlier. Leave it empty for now.',
+            note: 'Note',
+            noteHint:
+              'For example the reference of the transfer. It is kept in the paid event only.',
+            confirm: 'Mark as paid',
+          },
+          Release: {
+            title: 'Release the hold',
+            description:
+              'Accept the amounts as composed, although the usage journal could not vouch for them. The invoice is then issued.',
+            reason: 'Reason',
+            reasonHint:
+              'Why the amounts can be trusted. It is kept with your name in the audit trail.',
+            effect_NOOP:
+              'The invoice is issued with no payment provider and waits in the handoff queue for your ERP.',
+            effect_STRIPE:
+              'The invoice is pushed to Stripe, which collects it.',
+            confirm: 'Release',
+          },
+          Recompose: {
+            title: 'Recompose the invoice',
+            descriptionHeld:
+              'Compose this held draft again from the usage journal as it is now.',
+            descriptionVoid:
+              'Compose a replacement for the boundary this void invoice billed.',
+            effectHeld:
+              'The draft is rewritten in place. If the journal is sound, the invoice is issued under the provider the subscription uses now.',
+            effectVoid:
+              'The replacement is issued under the provider the subscription uses now, and this invoice points to it.',
+            confirm: 'Recompose',
+          },
+          Void: {
+            title: 'Void the invoice',
+            descriptionNoop:
+              'Voiding takes the invoice off the boundary it billed, which a recompose can then fill. A handoff still pending stays pending, with the void in its payload.',
+            descriptionProvider:
+              'The invoice is voided at your payment provider first, then here. This cannot be undone.',
+            reason: 'Reason',
+            confirm: 'Void invoice',
+            PaidAtProvider: {
+              title: 'Stripe reports this invoice as paid',
+              description:
+                'A paid invoice cannot be voided. Kaiten could not read the payment from Stripe just now: read the invoice again, and it will show as paid.',
+              sync: 'Read it from Stripe',
+              notVoided: 'Not voided: Stripe reports this invoice as paid.',
+            },
+          },
+          VoidThenRecompose: {
+            title: 'Void and recompose',
+            description:
+              'This invoice is not a held draft, so it cannot be edited: it is voided, and a replacement is composed from the usage journal as it is now. One reason covers both.',
+            confirm: 'Void and recompose',
+          },
+          WriteOff: {
+            title: 'Write the invoice off',
+            description:
+              'Give up collecting this invoice. It becomes uncollectible, which is final. A handoff still pending stays pending.',
+            reason: 'Reason',
+            confirm: 'Write off',
+          },
+        },
+        Drilldown: {
+          subtitle: 'Usage behind a line of this invoice: {{invoice}}',
+          backToInvoice: 'Back to the invoice',
+          region: 'Usage reports of the line',
+          export: 'Export CSV',
+          loading: 'Loading the usage reports',
+          Empty: {
+            title: 'No usage reports',
+            description:
+              'No report was accepted during the period of this line.',
+          },
+          Summary: {
+            title: 'This line',
+            period: 'Service period',
+            measured: 'Measured quantity',
+            billed: 'Billed quantity',
+            saleUnit: 'Measured units per sale unit',
+            windows: 'Reset windows',
+            windowsValue_one: '{{count}} window',
+            windowsValue_other: '{{count}} windows',
+            windowsFloored_one:
+              '{{count}} window had a negative movement and counted as 0',
+            windowsFloored_other:
+              '{{count}} windows had a negative movement and counted as 0',
+            amount: 'Line amount',
+          },
+          lifetime: 'Whole lifetime',
+          windowUsage_one: '{{count}} report · usage {{sum}}',
+          windowUsage_other: '{{count}} reports · usage {{sum}}',
+          windowOverage_one: '{{count}} report · overage {{sum}}',
+          windowOverage_other: '{{count}} reports · overage {{sum}}',
+          windowPartial_one: '{{count}} report so far · more to load',
+          windowPartial_other: '{{count}} reports so far · more to load',
+          loadMore: 'Load more reports',
+          OutsideRetention: {
+            title: 'The reports of this line are no longer kept',
+            description:
+              'The usage behind this line is older than the history your organization keeps. The invoice kept a fingerprint of it: which reports it was measured from, and what they sum to.',
+            kept: 'What the invoice kept',
+          },
+        },
+      },
+      Handoff: {
+        Columns: {
+          issued: 'Issued',
+          booked: 'Booked',
+          claims: 'Claims',
+        },
+        claims_one: '{{count}} claim',
+        claims_other: '{{count}} claims',
+        reservedUntil: 'Reserved until {{date}}',
+        noReference: 'No reference',
+        acknowledge: 'Acknowledge',
+        Empty: {
+          pendingTitle: 'Nothing is waiting for your ERP',
+          pendingDescription:
+            'Invoices that no payment provider collects wait here until a job or a terminal takes them. To take them from a terminal, run:',
+          acknowledgedTitle: 'Nothing acknowledged yet',
+          acknowledgedDescription:
+            'Invoices booked in your ERP appear here once they are acknowledged.',
+          filteredTitle: 'No invoice matches these filters',
+          filteredDescription: 'Clear the filters to see more.',
+          clearFilters: 'Clear filters',
+        },
+        Acknowledge: {
+          title: 'Acknowledge the invoice',
+          description:
+            'Record that your ERP booked this invoice. Do it only for an invoice you booked yourself: a job or the CLI acknowledges the ones it takes.',
+          leased:
+            'A consumer holds this invoice until {{date}}. Acknowledging it now may book it twice.',
+          reference: 'External reference',
+          referenceHint:
+            'The invoice’s number in your ERP, up to {{max}} characters. Optional.',
+          confirm: 'Acknowledge',
+        },
+        Toasts: {
+          acknowledged: 'Invoice acknowledged',
+        },
+      },
+    },
+    Addons: {
+      title: 'Add-ons',
+      subtitle:
+        'Extra quantities sold on top of a license: seats, instances, history.',
+      PricingTypes: {
+        FREE: 'Free',
+        PAID: 'Paid',
+        CUSTOM: 'Custom',
+      },
+      Lifecycle: {
+        DRAFT: 'Draft',
+        PUBLISHED: 'Published',
+        ARCHIVED: 'Archived',
+      },
+      Public: {
+        label: 'Public catalogue',
+        switchLabel: 'List {{name}} in the public catalogue',
+        badge: 'Public',
+        listed: 'The family is listed in the public catalogue',
+        unlisted: 'The family is no longer listed in the public catalogue',
+      },
+      List: {
+        addonName: 'Add-on name',
+        versionCount_one: '{{count}} version',
+        versionCount_other: '{{count}} versions',
+        defaultBadge: 'Default: {{version}}',
+        newVersionButton: 'New Version',
+        Empty: {
+          title: 'No add-on yet',
+          description:
+            'An add-on is an extra quantity of an entitlement, sold per unit: seats, instances, history. Create one, give it entitlements and a price, say which licenses it fits, then publish it.',
+        },
+      },
+      VersionsTable: {
+        Columns: {
+          versionName: 'Version name',
+          version: 'Version',
+          pricingType: 'Pricing',
+          lifecycleState: 'State',
+          default: 'Default',
+          maxQuantity: 'Max quantity',
+          actions: 'Actions',
+        },
+        default: 'Default',
+        unbounded: 'Unbounded',
+      },
+      LifecycleActions: {
+        publish: {
+          label: 'Publish',
+          title: 'Publish {{name}} v{{version}}?',
+          description:
+            'The version goes on sale: an instance on a license it fits can attach it, and it can be set as the default of its family.',
+          confirm: 'Publish',
+          success: 'Version published',
+          Notes: {
+            prices:
+              'Its prices cannot be edited: they can only be deprecated, and a price can still be added until an instance with a live subscription holds the version.',
+            grants:
+              'Its entitlements freeze as soon as an instance with a live subscription holds the version.',
+            compatibility:
+              'It is attachable only to the license families it fits: a version that fits none is attachable to nothing.',
+          },
+        },
+        archive: {
+          label: 'Archive',
+          title: 'Archive {{name}} v{{version}}?',
+          description:
+            'The version is withdrawn from sale: no instance can attach it any more. The instances that hold it keep it, and keep being billed for it. You can unarchive it later.',
+          confirm: 'Archive',
+          success: 'Version archived',
+        },
+        unarchive: {
+          label: 'Unarchive',
+          title: 'Unarchive {{name}} v{{version}}?',
+          description:
+            'The version goes back on sale: instances can attach it again, and it can be set as the default of its family again.',
+          confirm: 'Unarchive',
+          success: 'Version unarchived',
+        },
+        archiveDefaultUnavailable:
+          'The default version cannot be archived. Set another version as the default, or unset the default, first.',
+      },
+      DefaultActions: {
+        set: 'Set as default',
+        unset: 'Unset default',
+        setUnavailable: 'Only a published version can be set as the default',
+        setSuccess: 'Default version updated',
+        unsetSuccess: 'Default version unset',
+      },
+      DeleteDraft: {
+        label: 'Delete',
+        title: 'Delete the draft {{name}} v{{version}}?',
+        description:
+          'The draft, its prices, the licenses it fits and the entitlements it grants are deleted. It was never on sale, so no customer loses it. A version that was ever attached to an instance is history and cannot be deleted: archive it instead.',
+        confirm: 'Delete',
+        success: 'Draft deleted',
+      },
+      Form: {
+        titleNew: 'New add-on',
+        titleNewVersion: 'New version of {{name}}',
+        titleUpdate: 'Edit add-on',
+        descriptionNew:
+          'A new add-on opens a family. Its first version is created as a draft.',
+        descriptionNewVersion:
+          'A new version starts empty: nothing is copied from the previous one. Give it its entitlements, its prices and the licenses it fits, then publish it.',
+        descriptionEdit:
+          '{{name}}, version {{version}}. How it is sold and its entitlements are not changed here.',
+        createButton: 'Create add-on',
+        updateButton: 'Save',
+        Labels: {
+          name: 'Name',
+          slug: 'Slug',
+          description: 'Description',
+          pricingType: 'Pricing',
+          versionName: 'Version name',
+          maxQuantity: 'Maximum quantity',
+          createAsDraft: 'Create as a draft',
+        },
+        Placeholders: {
+          name: 'Extra seats',
+          slug: 'extra-seats',
+          description: 'Five more seats per unit',
+          versionName: 'Version - 1',
+          maxQuantity: 'Unbounded',
+        },
+        Descriptions: {
+          name: 'What the add-on is called. Every version of a family shares it.',
+          slug: 'Auto-generated — edit to set a custom one.',
+          description: 'What one unit gives an instance, in a sentence.',
+          pricingType:
+            'Free and paid add-ons can be attached by anyone who may; a paid one needs a default price for the billing period of the subscription it is attached to. A custom one is sold on request.',
+          versionName: 'Left empty, the version is called “Version - {n}”.',
+          maxQuantity:
+            'The most units an instance can hold. Leave empty for no maximum.',
+          createAsDraft:
+            'A draft is not on sale yet: it can be given its entitlements, its prices and the licenses it fits before it is. An instance nobody bills can still try it.',
+        },
+        Errors: {
+          name: 'Name is required',
+          maxQuantity:
+            'Enter a whole number of units, 1 or more, or leave it empty for no maximum.',
+          maxQuantityHeld:
+            '{{instance}} holds {{quantity}} units: lower its quantity there before lowering the maximum.',
+        },
+        Toasts: {
+          created: 'Add-on created',
+          updated: 'Add-on updated',
+        },
+      },
+      Detail: {
+        Tabs: {
+          overview: 'Overview',
+          entitlements: 'Entitlements',
+          prices: 'Prices',
+          compatibility: 'Compatible licenses',
+        },
+        cardTitle: 'Add-on details',
+        cardDescription:
+          'How this version is called and sold. Its entitlements, prices and compatible licenses are the tabs beside.',
+        defaultBadge: 'Default version',
+        unbounded: 'Unbounded',
+        Fields: {
+          name: 'Name',
+          version: 'Version',
+          lifecycleState: 'State',
+          default: 'Default',
+          pricingType: 'Pricing',
+          maxQuantity: 'Max quantity',
+          description: 'Description',
+        },
+      },
+      Freeze: {
+        billed: {
+          title: 'This version is held by a billed instance',
+          description:
+            'An instance with a live subscription holds this version, so its entitlements and prices are frozen: changing them would change a contract already sold. Create a new version to change what is sold. It starts empty: give it its entitlements, its prices and the licenses it fits, then move the instances onto it by detaching this version and attaching the new one.',
+        },
+        archived: {
+          title: 'This version takes no new price',
+          description:
+            'A version withdrawn from sale takes no new price. Create a new version to change what is sold. It starts empty: give it its entitlements, its prices and the licenses it fits.',
+        },
+        createNewVersion: 'Create a new version',
+      },
+      Grants: {
+        title: 'Entitlements',
+        tabDescription:
+          'What one unit of this add-on grants an instance that holds it. A number counts once per unit of quantity.',
+        Actions: {
+          add: 'Add entitlement',
+          edit: 'Edit',
+          editAria: 'Edit {{name}}',
+          remove: 'Remove',
+          removeAria: 'Remove {{name}}',
+        },
+        Notes: {
+          DRAFT:
+            'The entitlements of a draft can be changed until an instance with a live subscription holds the version.',
+          PUBLISHED:
+            'The entitlements of a published version freeze as soon as an instance with a live subscription holds it. Until then they can still be changed.',
+          ARCHIVED:
+            'This version is withdrawn from sale. The instances that hold it keep its entitlements; to change what is sold, create a new version.',
+        },
+        Table: {
+          Columns: {
+            entitlement: 'Entitlement',
+            type: 'Type',
+            value: 'Grants',
+            behavior: 'Combines',
+            overage: 'Overage allowance',
+          },
+          empty: 'This version grants nothing yet.',
+        },
+        Values: {
+          unlimited: 'Unlimited',
+          perUnit: '{{value}} per unit',
+          enabled: 'Enabled',
+          disabled: 'Disabled',
+          configured: 'Configured',
+        },
+        Behaviors: {
+          ADD: {
+            label: 'Add',
+            blurb:
+              'Adds value × quantity to what the license grants: 5 seats per unit, 3 units, 15 more seats.',
+          },
+          OVERRIDE: {
+            label: 'Override',
+            blurb:
+              'Replaces the license’s value with value × quantity. The add-on attached last wins.',
+          },
+          MAX: {
+            label: 'Maximum',
+            blurb:
+              'Keeps the larger of the license’s value and value × quantity.',
+          },
+        },
+        Overage: {
+          inherit: 'Inherit',
+          hard: 'Hard limit',
+          soft: '+{{percent}}%',
+          unlimited: 'Unlimited',
+        },
+        OverageWarning: {
+          message:
+            'This add-on allows an overage of {{addon}}%, and {{name}} allows {{license}}%.',
+          consequence:
+            'On every instance that attaches the add-on, its percentage replaces the license’s: usage is refused sooner than the license says.',
+        },
+        Remove: {
+          title: 'Remove {{name}} from this add-on?',
+          description:
+            'Instances that hold this version lose the entitlement at once.',
+          confirm: 'Remove',
+        },
+        Form: {
+          titleNew: 'Add entitlement',
+          titleEdit: 'Edit entitlement',
+          description: 'What one unit of {{name}} grants.',
+          create: 'Add entitlement',
+          update: 'Save entitlement',
+          Labels: {
+            entitlement: 'Entitlement',
+            number: 'Value per unit',
+            unlimited: 'Unlimited',
+            behavior: 'Combines with the license',
+            overage: 'Overage allowance (%)',
+            boolean: 'Enabled',
+            config: 'Configuration (JSON)',
+          },
+          Descriptions: {
+            entitlement: 'A version grants an entitlement once.',
+            number:
+              'What one unit of quantity grants. Three units of a value of 5 grant 15.',
+            behavior:
+              'How the value times the quantity combines with the license’s grant of the same entitlement: added to it, replacing it, or the larger of the two.',
+            overage:
+              'Leave empty to inherit the license’s allowance. Set, it replaces the license’s on every instance that attaches the add-on: 0 is a hard limit.',
+            boolean: 'A flag combines by OR with the license’s.',
+            config:
+              'A configuration replaces the license’s. The add-on attached last wins.',
+          },
+          Placeholders: {
+            entitlement: 'Select an entitlement',
+            number: '5',
+            overage: 'Inherit',
+          },
+          Errors: {
+            entitlement: 'Pick an entitlement.',
+            number: 'Enter a whole number, 0 or more, or choose unlimited.',
+            overage: 'Enter a whole percentage, 0 or more, or leave it empty.',
+            config: 'Enter a JSON object.',
+          },
+        },
+        Toasts: {
+          assigned: 'Entitlement added',
+          updated: 'Entitlement updated',
+          unassigned: 'Entitlement removed',
+        },
+      },
+      Prices: {
+        title: 'Prices',
+        tabDescription:
+          'What one unit of this add-on is billed, per billing period. A price is never edited: change it with a new price and the deprecation of the old one.',
+        defaultBadge: 'Default',
+        deprecatedOn: 'Deprecated {{date}}',
+        unvalued_one:
+          'This version also has {{count}} metered price, which billing does not value: it is not listed.',
+        unvalued_other:
+          'This version also has {{count}} metered prices, which billing does not value: they are not listed.',
+        Notes: {
+          DRAFT:
+            'The prices of a draft can be added to and deprecated until an instance with a live subscription holds the version.',
+          PUBLISHED:
+            'A price can still be added until an instance with a live subscription holds this version. A price is never edited, and the default price of a period cannot be deprecated: to change it, add a price and make it the default.',
+          ARCHIVED:
+            'This version is withdrawn from sale and takes no new price. The instances that hold it keep being billed from its prices.',
+        },
+        Slots: {
+          label: 'Default price of each billing period',
+          title: 'Default price of each billing period',
+          missing:
+            'No default price: this add-on cannot be attached to a subscription with {{period}} billing.',
+          noDefault:
+            'Priced, but no price is the default: this add-on cannot be attached to a subscription with {{period}} billing.',
+        },
+        Actions: {
+          add: 'Add price',
+          deprecate: 'Deprecate',
+          deprecateAria: 'Deprecate {{label}}',
+          deprecateDefaultHint:
+            'The default price of a period bills every instance that holds this version. Retire it through a new add-on version, or add a price and make it the default.',
+        },
+        Table: {
+          Columns: {
+            price: 'Price',
+            amount: 'Amount per unit',
+            billed: 'Billed',
+            status: 'Status',
+          },
+          empty: 'This version has no price yet.',
+        },
+        Drawer: {
+          titleNew: 'New price',
+          description:
+            '{{name}}, version {{version}}. A price becomes one line of an invoice.',
+          create: 'Create price',
+        },
+        Form: {
+          Labels: {
+            period: 'Billing period',
+            timing: 'Billing timing',
+            currency: 'Currency',
+            amount: 'Amount per unit',
+            label: 'Label on the invoice',
+            isDefault: 'Default price of this period',
+          },
+          Descriptions: {
+            period: 'How often the fee is billed.',
+            currency:
+              'A version bills in one currency, fixed by its first price.',
+            currencyLocked:
+              'This version bills in {{currency}}, fixed by its first price.',
+            amount:
+              'Billed for each unit held, per period. Type the amount in the currency’s own unit (for example 10.00).',
+            label:
+              'The name of the invoice line. Left empty, Kaiten derives one.',
+            isDefault:
+              'The default price of a period is the one that bills the instances that hold this version on a subscription of that period. A period has one.',
+          },
+          Placeholders: {
+            currency: 'Select a currency',
+            currencySearch: 'Search a currency',
+            amount: '0.00',
+            label: 'Extra seat, monthly',
+          },
+          livePreview: 'Reads as {{price}} per unit',
+          Errors: {
+            label: 'The label is at most 200 characters.',
+            currency: 'Pick a currency Kaiten supports.',
+            amount:
+              'Enter a valid amount: zero or more, with at most 12 decimals past the currency’s own and 12 digits in its smallest unit.',
+          },
+        },
+        ReplaceDefault: {
+          title: 'Replace the default {{period}} price?',
+          description:
+            'This price becomes the one that bills {{period}} subscriptions, in place of “{{label}}” ({{price}}). The old price stays listed and active, and can be deprecated once it is no longer the default.',
+          confirm: 'Replace the default',
+        },
+        Deprecate: {
+          title: 'Deprecate “{{label}}”?',
+          description:
+            'Instances already billed from this price keep being billed from it. It is no longer offered. This cannot be undone.',
+          confirm: 'Deprecate',
+        },
+        Toasts: {
+          created: 'Price created',
+          deprecated: 'Price deprecated',
+        },
+      },
+      Compatibility: {
+        title: 'Compatible licenses',
+        description:
+          'An instance can attach this version only when its license is of one of these families. Every version of a family counts, so a new license version never leaves the add-on orphaned.',
+        listLabel: 'License families',
+        noFamilies: 'There is no license family yet.',
+        Empty: {
+          title: 'Attachable to nothing',
+          description:
+            'No license family is compatible, so no instance can attach this version. Publishing it is allowed: pick the families it fits.',
+        },
+      },
+    },
+    Vouchers: {
+      title: 'Vouchers',
+      subtitle:
+        'Codes that give an instance a discount on its invoices or a boost of its entitlements.',
+      Actions: {
+        addBoost: 'Add a boost',
+        publish: {
+          label: 'Publish',
+          title: 'Publish {{name}}?',
+          description:
+            'Publishing makes the code redeemable. A published voucher keeps its offer: only its name, description, end date and maximum number of redemptions can change afterwards.',
+          confirm: 'Publish',
+          success: 'Voucher published',
+        },
+        archive: {
+          label: 'Archive',
+          title: 'Archive {{name}}?',
+          description:
+            'No instance can redeem the code any more. Redemptions already made keep applying, and the voucher stays readable.',
+          confirm: 'Archive',
+          success: 'Voucher archived',
+        },
+      },
+      Code: {
+        label: 'Voucher code',
+        copy: 'Copy the code',
+        copied: 'Code copied',
+        copyFailed: 'The code could not be copied',
+      },
+      Detail: {
+        subtitle: 'Code ending in {{hint}}',
+        Offer: {
+          title: 'What it does',
+          description: 'In plain language, as you could send it with the code.',
+        },
+        Details: {
+          title: 'Details',
+          description: 'Its state, its redemptions and when it was made.',
+        },
+        Fields: {
+          description: 'Description',
+          type: 'Kind',
+          status: 'Status',
+          redeemed: 'Redeemed',
+          created: 'Created',
+          updated: 'Last changed',
+        },
+        Redemptions: {
+          description: 'The instances that redeemed this voucher.',
+          empty: 'No instance has redeemed this voucher yet.',
+        },
+      },
+      Edit: {
+        title: 'Edit {{name}}',
+        description:
+          'A published voucher keeps its offer. Its name, description, end date and maximum number of redemptions can change.',
+        save: 'Save',
+        saved: 'Voucher saved',
+        Descriptions: {
+          expiresAt: 'Date and time in UTC. Leave empty for no end date.',
+          maxRedemptions_one:
+            'Leave empty for no limit. It cannot be below the {{count}} redemption already made.',
+          maxRedemptions_other:
+            'Leave empty for no limit. It cannot be below the {{count}} redemptions already made.',
+        },
+        Errors: {
+          name: 'Enter a name',
+          nameTooLong: 'A name has at most 200 characters',
+          descriptionTooLong: 'A description has at most 2000 characters',
+          date: 'Enter a valid date and time',
+          maxRedemptions:
+            'Enter a whole number from 1, or leave empty for no limit',
+          belowCount:
+            'The voucher has already been redeemed more times than that',
+        },
+      },
+      List: {
+        new: 'New voucher',
+        Columns: {
+          name: 'Name',
+          code: 'Code',
+          type: 'Kind',
+          status: 'Status',
+          redeemed: 'Redeemed',
+          expires: 'Valid until',
+          customer: 'Customer',
+        },
+        Empty: {
+          title: 'No voucher yet',
+          description:
+            'A voucher is a code that gives an instance a discount on its invoices or a boost of its entitlements. Make one, then give its code to a customer.',
+          filteredTitle: 'No voucher matches',
+          filteredDescription:
+            'No voucher matches this search or these filters.',
+        },
+        Filters: {
+          search: 'Search',
+          searchPlaceholder: 'Name, code or customer',
+          status: 'Status',
+          type: 'Kind',
+          clear: 'Clear the filters',
+        },
+        anyCustomer: 'Any customer',
+        codeHint: 'ends in {{hint}}',
+        noEnd: 'No end date',
+        redeemed: '{{count}} of {{max}}',
+        redeemedUnbounded: '{{count}} (no limit)',
+        startsOn: 'Starts {{date}}',
+      },
+      Published: {
+        title: 'Voucher published',
+        subtitle: '{{name}} can now be redeemed.',
+        codeTitle: 'Its code',
+        codeDescription:
+          'Copy it and give it to the customer. Whoever has the code can redeem the offer.',
+        codeHidden:
+          'The code ends in {{hint}}. It is only shown to sessions that can read vouchers.',
+        summaryTitle: 'What it does',
+        summaryDescription: 'In plain language, to send with the code.',
+        boostTitle: 'Add a boost for the same offer',
+        boostDescription:
+          'Start a boost that lasts as long as this discount, with the same conditions and limits. You choose which entitlements it changes.',
+        boostAction: 'Add a boost',
+        another: 'Make another voucher',
+        view: 'View the voucher',
+      },
+      References: {
+        license: '{{name}} v{{version}}',
+        draft: '{{label}} (draft)',
+        archived: '{{label}} (archived)',
+        unknown: 'a version that is not listed',
+      },
+      Review: {
+        name: 'Name',
+        code: 'Code',
+        codeGenerated: 'A code is generated when you publish',
+        summary: 'The voucher in plain language',
+        publishNote:
+          'Publishing makes the code redeemable. Save it as a draft instead to keep working on it: a draft cannot be redeemed.',
+        unlimited: 'it has no limit on the number of redemptions',
+        limited_one: 'it can be redeemed once',
+        limited_other: 'it can be redeemed {{count}} times',
+        reservedFor: 'it is reserved for {{customer}}',
+        anyCustomer: 'any customer can redeem it, once per instance',
+        licenses: 'it applies only to instances on {{licenses}}',
+        addons: 'it applies only to instances that hold {{addons}}',
+        licensesAndAddons:
+          'it applies only to instances on {{licenses}} that hold {{addons}}',
+        window: 'it can be redeemed from {{from}} to {{to}}',
+        until: 'it can be redeemed until {{date}}',
+        from: 'it can be redeemed from {{date}}',
+        noWindow: 'it has no end date',
+        firstTimeOnly:
+          'only customers that have not paid an invoice yet can redeem it',
+        annualOnly: 'only instances with an annual subscription can redeem it',
+        minimumAmount:
+          'the base price of the subscription must be at least {{amount}}',
+      },
+      Wizard: {
+        title: 'New voucher',
+        titleDraft: 'Finish the draft',
+        subtitle:
+          'Say what it offers, who can redeem it and how often, then review it in plain language before it is published.',
+        boostName: '{{name}} (boost)',
+        draftKept:
+          'The voucher was saved as a draft. Sending again replaces it with what is on this page and publishes it.',
+        anyCustomer: 'Any customer',
+        unlimitedNote:
+          'No limit on this entitlement while the voucher applies.',
+        addChange: 'Add a change',
+        removeChange: 'Remove change {{position}}',
+        Steps: {
+          type: 'Kind',
+          offer: 'Offer',
+          eligibility: 'Who and when',
+          review: 'Review',
+        },
+        Buttons: {
+          back: 'Back',
+          next: 'Next',
+          saveDraft: 'Save as a draft',
+          publish: 'Publish',
+        },
+        Toasts: {
+          draftSaved: 'Draft saved',
+          published: 'Voucher published',
+        },
+        Type: {
+          label: 'What kind of voucher is it?',
+          later: 'Available in a later version',
+          FLAG_GRANT: 'Feature grant',
+          COMPOSITE: 'Bundle',
+          Detail: {
+            PRICE:
+              'A percentage or an amount off the invoices of the instance.',
+            ENTITLEMENT_BOOST:
+              'Sets, adds to, multiplies or lifts the limit of numeric entitlements.',
+          },
+        },
+        Labels: {
+          name: 'Name',
+          description: 'Description',
+          discountType: 'How is the discount worked out?',
+          percentage: 'Percentage',
+          currency: 'Currency',
+          amount: 'Amount',
+          appliesTo: 'What does it apply to?',
+          prices: 'Prices',
+          grants: 'What it changes',
+          entitlement: 'Entitlement',
+          modifier: 'Change',
+          value: 'Value',
+          duration: 'How long does it last?',
+          durationInInvoices: 'Number of invoices',
+          durationInPeriods: 'Number of billing periods',
+          code: 'Custom code',
+          restrictedCustomer: 'Reserved for',
+          maxRedemptions: 'Maximum number of redemptions',
+          startsAt: 'Can be redeemed from',
+          expiresAt: 'Can be redeemed until',
+          licenseVersions: 'License versions',
+          addonVersions: 'Add-on versions',
+          firstTimeOnly: 'First-time customers only',
+          annualOnly: 'Annual subscriptions only',
+          minimumCurrency: 'Currency of the minimum',
+          minimumAmount: 'Minimum base price',
+        },
+        Descriptions: {
+          name: 'What you call it in the console; customers do not see it.',
+          description: 'Optional. What it is for, in a few words.',
+          percentage:
+            'More than 0 and up to 100. Decimals are accepted, such as 12.5.',
+          currency:
+            'A fixed amount only applies to subscriptions billed in this currency.',
+          amount: 'In the currency, in major units: 50.00 for fifty dollars.',
+          prices:
+            'Tick the prices the discount applies to. The prices of a version that is no longer on sale are listed too.',
+          grants:
+            'Each line changes one numeric entitlement. An entitlement can be changed once.',
+          durationInInvoices: 'How many invoices the discount applies to.',
+          durationInPeriods:
+            'How many billing periods the boost lasts. A month, a quarter or a year, as the subscription is billed.',
+          code: 'Leave empty to have a long code generated. Otherwise 8 to 64 letters, digits, dashes or underscores; case and dashes do not matter when it is redeemed.',
+          restrictedCustomer:
+            'Only the instances of this customer can redeem it.',
+          restrictedCustomerSlug:
+            'The slug of the customer. The customers could not be listed with this session.',
+          maxRedemptions:
+            'Leave empty for no limit. Each instance can redeem it once.',
+          startsAt:
+            'Date and time in UTC. Leave empty to start as soon as it is published.',
+          expiresAt: 'Date and time in UTC. Leave empty for no end date.',
+          licenseVersions:
+            'Only instances on one of the ticked versions can redeem it.',
+          addonVersions:
+            'Only instances that hold one of the ticked versions can redeem it.',
+          firstTimeOnly:
+            'Only customers none of whose instances has paid an invoice.',
+          annualOnly: 'Only instances with a live annual subscription.',
+          minimumCurrency:
+            'The minimum is compared with the base price of the subscription, in this currency.',
+          minimumAmount:
+            'Optional. The subscription must cost at least this much.',
+        },
+        Placeholders: {
+          name: 'Launch discount',
+          percentage: '20',
+          currency: 'Choose a currency',
+          currencySearch: 'Search a currency',
+          amount: '50.00',
+          entitlement: 'Choose an entitlement',
+          entitlementSearch: 'Search an entitlement',
+          value: '50000',
+          code: 'LAUNCH-20-OFF',
+          customerSearch: 'Search a customer',
+        },
+        DiscountType: {
+          PERCENTAGE: 'A percentage',
+          FIXED_AMOUNT: 'A fixed amount',
+        },
+        AppliesTo: {
+          LICENSE_BASE: 'The base price',
+          ADDONS: 'The add-ons',
+          BOTH: 'Both',
+          SELECTED_PRICES: 'Chosen prices',
+          Blurb: {
+            LICENSE_BASE: 'The fee of the license, before add-ons and usage.',
+            ADDONS: 'What the add-ons an instance holds cost.',
+            BOTH: 'The license fee and the add-ons together.',
+            SELECTED_PRICES: 'Only the prices you tick below.',
+          },
+        },
+        Prices: {
+          label: 'Prices the discount applies to',
+          loading: 'Loading the prices',
+          none: 'No price to choose from.',
+          deprecated: '{{amount}} · deprecated',
+        },
+        Modifier: {
+          SET: 'Set to',
+          ADD: 'Add',
+          MULTIPLY: 'Multiply by',
+          UNLIMITED: 'Make unlimited',
+        },
+        Duration: {
+          ONE_TIME: 'Once',
+          REPEATING: 'A number of times',
+          FOREVER: 'With no end',
+          Blurb: {
+            priceONE_TIME:
+              'The discount applies to one invoice: the first one issued after the code is redeemed.',
+            priceREPEATING:
+              'The discount applies to a number of invoices, counted in invoices and not in months.',
+            priceFOREVER:
+              'The discount applies to every invoice until the redemption is revoked.',
+            boostONE_TIME:
+              'The boost lasts one billing period from the redemption.',
+            boostREPEATING:
+              'The boost lasts a number of billing periods, counted in periods and not in invoices.',
+            boostFOREVER:
+              'The boost has no end until the redemption is revoked.',
+          },
+        },
+        Sections: {
+          code: 'Code',
+          customer: 'Customer',
+          customerDescription:
+            'Reserve the voucher for one customer, or let any customer redeem it.',
+          limits: 'Limits',
+          limitsDescription:
+            'How many times it can be redeemed, and when. Dates are in UTC.',
+          versions: 'License and add-on versions',
+          versionsDescription:
+            'Limit the voucher to instances on some versions. Nothing ticked is no limit.',
+          conditions: 'Conditions',
+          conditionsDescription:
+            'What an instance must meet to redeem the voucher.',
+        },
+        WeakCode: {
+          title: 'A short code can be guessed',
+          description:
+            'Add a maximum number of redemptions or an end date, or leave the code empty to have a long one generated.',
+        },
+        Checklist: {
+          loading: 'Loading',
+          notAllowed:
+            'This session cannot list them. What is already ticked stays.',
+        },
+        Errors: {
+          name: 'Enter a name',
+          nameTooLong: 'A name has at most 200 characters',
+          descriptionTooLong: 'A description has at most 2000 characters',
+          percentage: 'Enter a percentage above 0 and up to 100',
+          currency: 'Currency required',
+          amount:
+            'Enter an amount above 0, with no more decimals than the currency has',
+          prices: 'Tick at least one price',
+          durationInPeriods: 'Enter a whole number from 1',
+          grants: 'Add at least one change',
+          entitlement: 'Choose an entitlement',
+          duplicate: 'This entitlement is already changed by another line',
+          setValue: 'Enter a number, 0 or more',
+          positiveValue: 'Enter a number above 0',
+          code: 'Use 8 to 64 letters, digits, dashes or underscores, or leave it empty',
+          minimumAmount:
+            'Enter an amount, with no more decimals than the currency has',
+          date: 'Enter a valid date and time',
+          window: 'The end must be after the start',
+          maxRedemptions:
+            'Enter a whole number from 1, or leave empty for no limit',
         },
       },
     },
@@ -2842,6 +5325,10 @@ export default {
             label: 'Licensing',
             description: 'Licenses and the entitlements attached to them.',
           },
+          billing: {
+            label: 'Billing',
+            description: 'Subscriptions and the invoices they issue.',
+          },
           security: {
             label: 'Security',
             description: 'Credentials issued against your organization.',
@@ -2891,6 +5378,14 @@ export default {
             'An entitlement was added to a license.',
           LICENSE_ENTITLEMENT_UNASSIGNED:
             'An entitlement was removed from a license.',
+          INSTANCE_BILLING_STARTED:
+            'An instance was subscribed, or a canceled subscription started again.',
+          INSTANCE_BILLING_STATUS_CHANGED:
+            'A trial converted, or a subscription became past due or left that status.',
+          INSTANCE_BILLING_CANCELED:
+            'A subscription was canceled, at the end of its period or immediately.',
+          INSTANCE_INVOICE_HELD:
+            'An invoice was held because its usage journal failed a check; it waits to be released or recomposed.',
           SYSTEM_ORGANIZATION_TOKEN_ISSUED:
             'A credential was issued for your organization.',
         },
@@ -2916,6 +5411,176 @@ export default {
           description:
             'This will restore the side navigation and future browser-stored settings to their default values on this device.',
           confirmButton: 'Reset settings',
+        },
+      },
+      Billing: {
+        title: 'Billing',
+        subtitle:
+          'Who collects your invoices, the defaults a subscription takes, and how long usage is kept.',
+        cardDescription:
+          'Who collects your invoices, the defaults a subscription takes, and how long usage is kept.',
+        configureButton: 'Open billing settings',
+        loading: 'Loading the billing settings',
+        Providers: {
+          title: 'Payment providers',
+          description: 'Who collects the invoices of your organization.',
+          available: 'Available',
+          connected: 'Connected',
+          notConnected: 'Not connected',
+          Noop: {
+            title: 'Manual hand-off',
+            description:
+              'Nothing to connect. Kaiten records each invoice and hands it to your own system, such as your ERP, through the handoff queue, and you collect it as you do today.',
+            handoff: 'Open the handoff queue',
+          },
+          unavailable: 'Unavailable',
+          Stripe: {
+            description:
+              'Collects the invoices of the subscriptions that use it.',
+            connect: 'Connect Stripe',
+            manage: 'Manage the connection',
+            why: 'See why',
+            Mode: {
+              test: 'Test mode',
+              live: 'Live mode',
+            },
+            Unavailable: {
+              NOT_ENTITLED: 'Not included in your plan.',
+              VAULT_NOT_CONFIGURED:
+                'Needs a Vault to store the key in, and this deployment has none configured.',
+              UNKNOWN: 'Not available on this deployment.',
+            },
+            Sync: {
+              never: 'Not read yet: no pass of Stripe has run.',
+              ok: 'Last synced {{ago}}.',
+              partial:
+                'Last synced {{ago}}, but some invoices could not be applied.',
+              failing_one: 'The last sync failed {{ago}}.',
+              failing_other:
+                '{{count}} syncs in a row failed. The last was {{ago}}.',
+              error: 'Last error: {{error}}',
+            },
+          },
+        },
+        Health: {
+          title: 'Health',
+          description:
+            'What needs attention in billing, and whether your payment provider is in step.',
+          loading: 'Loading the health of billing',
+          syncNow: 'Sync now',
+          syncing: 'Syncing…',
+          AllClear: {
+            title: 'All clear',
+            description:
+              'Nothing is held, overdue or waiting, and no payment provider is out of step.',
+          },
+          Sync: {
+            nothingNew:
+              'Synced with the payment provider. Nothing had changed.',
+            done_one:
+              'Synced with the payment provider: {{count}} invoice updated.',
+            done_other:
+              'Synced with the payment provider: {{count}} invoices updated.',
+            partial: 'Synced with the payment provider, with problems.',
+            failed: 'The sync with the payment provider failed.',
+          },
+          Items: {
+            held: {
+              label: 'Held invoices',
+              helper: 'Waiting for someone to release or recompose them.',
+            },
+            pushFailures: {
+              label: 'Failed pushes',
+              helper: 'The payment provider keeps refusing them.',
+              oldest: 'The oldest failed {{ago}}.',
+            },
+            overdue: {
+              label: 'Overdue invoices',
+              helper: 'Unpaid past their due date.',
+            },
+            handoff: {
+              label: 'Waiting for your accounting system',
+              helper: 'Issued, and not booked yet.',
+              oldest: 'The oldest was issued {{ago}}.',
+            },
+            mismatches: {
+              label: 'Amounts that differ, last 30 days',
+              helper: 'Kaiten and the payment provider disagree on the total.',
+            },
+            closeBacklog: {
+              label: 'Periods not closed',
+              helper: 'Periods that ended and have not closed yet.',
+              oldest: 'The oldest was due {{ago}}.',
+            },
+            pastDue: {
+              label: 'Subscriptions past due',
+              helper: 'Their payment is late.',
+            },
+          },
+        },
+        Defaults: {
+          title: 'Defaults for subscriptions',
+          description:
+            'A subscription that names no terms of its own takes these. They apply to the invoices issued from now on: an invoice already issued keeps the terms it was issued with.',
+          save: 'Save the defaults',
+          saved: 'Billing defaults saved',
+          readOnly: 'Your session can read these defaults but not change them.',
+          Labels: {
+            collectionMethod: 'Collection method',
+            daysUntilDue: 'Payment terms (days)',
+            handoffStripeInvoices: 'Hand off Stripe invoices',
+          },
+          Descriptions: {
+            collectionMethod:
+              'How an invoice is collected when its subscription does not say.',
+            daysUntilDue:
+              'Days between issuing an invoice and its due date, from 0 to 365.',
+            handoffStripeInvoices:
+              'Also put the invoices a payment provider issues in the handoff queue, for an accounting system that wants every invoice.',
+          },
+          CollectionMethod: {
+            SEND_INVOICE: 'Send the invoice',
+            CHARGE_AUTOMATICALLY: 'Charge automatically',
+            unavailable: '{{method}} (needs a payment provider)',
+            perContract: '{{method}} (set on each contract)',
+          },
+          Errors: {
+            daysUntilDue: 'Enter a whole number of days, from 0 to 365',
+          },
+        },
+        Retention: {
+          title: 'Usage retention',
+          description:
+            'How long the usage reports behind your invoices are kept.',
+          months_one: 'Usage reports are kept for {{count}} month.',
+          months_other: 'Usage reports are kept for {{count}} months.',
+          unlimited:
+            'No time limit is reported for usage reports on this deployment.',
+          idempotency_one:
+            'A report sent again with the same transaction id is ignored for {{count}} day.',
+          idempotency_other:
+            'A report sent again with the same transaction id is ignored for {{count}} days.',
+        },
+      },
+      DataExport: {
+        title: 'Export your data',
+        description:
+          'Deleting an organization erases what billing recorded for it, the journal of usage included, and Kaiten is not your accounting system. Export what you need to keep before you do.',
+        Invoices: {
+          title: 'Invoices',
+          description: 'Every invoice of the organization, with its lines.',
+        },
+        Usage: {
+          title: 'Usage reports',
+          description_one:
+            'The reports of every instance, one file for each month. Kaiten keeps {{count}} month of usage.',
+          description_other:
+            'The reports of every instance, one file for each month. Kaiten keeps {{count}} months of usage.',
+          descriptionUnknown:
+            'The reports of every instance, one file for each month. The last {{count}} months are listed; an older period is exported through the API.',
+          list: 'Months of usage',
+          export: 'Export CSV',
+          exportMonth: 'Export the usage of {{month}} as a CSV',
         },
       },
       Metadata: {
@@ -3027,14 +5692,440 @@ export default {
     },
   },
   Features: {
+    Billing: {
+      Unavailable: {
+        DEPLOYMENT_DISABLED: {
+          title: 'Billing is not enabled',
+          description:
+            'Billing is switched off on this deployment. Set KAITEN_BILLING_ENABLED to true on the API to turn it on.',
+        },
+        NOT_ENTITLED: {
+          title: 'Billing is not part of your plan',
+          description:
+            "Your organization's plan does not include billing. Upgrade your plan to use it.",
+        },
+        MISSING_SCOPE: {
+          title: 'You do not have access to billing',
+          description:
+            'Billing cannot be opened with the access of this session.',
+        },
+        FEATURE_UNAVAILABLE: {
+          title: 'Not available in this version',
+          description:
+            'This part of billing is not shipped by the version of Kaiten you are running.',
+        },
+        UNREACHABLE: {
+          title: 'Billing could not be reached',
+          description:
+            'The billing capabilities did not load, so billing stays hidden. Nothing was changed. Try again in a moment.',
+        },
+      },
+      MissingScope: {
+        title: 'Missing access',
+        description:
+          'The token of your session does not carry the scope this needs:',
+        unknownScope: 'a scope this action requires',
+        templateHint:
+          'If you should have it, the token template of your identity provider must list the billing scopes (read:billing and write:billing).',
+      },
+      Problems: {
+        title: 'The request was refused',
+        generic: 'Something went wrong while talking to billing.',
+        transient: 'Nothing was changed. You can try again.',
+        providerUnreachable:
+          'The payment provider could not be reached. Nothing was changed.',
+        boundaryPending:
+          'The period of this subscription has ended and is being closed. Nothing was changed. Try again in a minute.',
+        rateLimited:
+          'Too many requests were sent in a short time. This is temporary: try again in a minute.',
+        BoundaryClosing: {
+          title: 'Closing the period…',
+          description:
+            'The period of this subscription has ended and is being closed. Your request is sent again in a moment.',
+        },
+        reference: 'Reference {{id}}',
+        outsideRetention: 'Usage before {{date}} is no longer kept.',
+        providerCode: 'Code: {{code}}',
+        providerParam: 'Field: {{param}}',
+        providerRequest: 'Request: {{id}}',
+        openConnector: 'Open the Stripe connector',
+      },
+      InvoiceStatus: {
+        DRAFT: 'Draft',
+        MANUAL: 'Ready to bill',
+        PUSHED: 'Awaiting payment',
+        PAID: 'Paid',
+        PUSH_FAILED: 'Push failed',
+        PAYMENT_FAILED: 'Payment failed',
+        UNCOLLECTIBLE: 'Written off',
+        VOID: 'Void',
+        held: 'Held',
+        overdue: 'Overdue',
+      },
+      HoldReason: {
+        LEDGER_SEQUENCE_GAP: 'Usage reports are missing from the journal',
+        LEDGER_CHAIN_BREAK: 'The usage journal chain is broken',
+        LEDGER_COUNTER_MISMATCH: 'The usage counter does not match the journal',
+      },
+      InvoiceLineType: {
+        BASE: 'Base',
+        ADDON: 'Add-on',
+        USAGE: 'Usage',
+        OVERAGE: 'Overage',
+        DISCOUNT: 'Discount',
+        unknown: 'Other',
+      },
+      SubscriptionStatus: {
+        TRIAL: 'Trial',
+        ACTIVE: 'Active',
+        PAST_DUE: 'Past due',
+        CANCELED: 'Canceled',
+        cancellationScheduled: 'Cancels at period end',
+        none: 'Not subscribed',
+      },
+      LicensePriceSummary: {
+        free: 'Free',
+        custom: 'Custom pricing',
+        unpriced: 'No price yet',
+        usage: 'Usage-based',
+        plusUsage: '+ usage',
+      },
+      SubscriptionActions: {
+        Reasons: {
+          trial: 'Unavailable during a trial',
+          cancellationScheduled: 'Reactivate the subscription first',
+        },
+      },
+      InvoiceKind: {
+        ACTIVATION: 'Activation',
+        RENEWAL: 'Renewal',
+        FINAL: 'Final',
+      },
+      InvoiceLines: {
+        capped: 'Capped',
+        cappedExplanation:
+          'The sample is above what the license accepts. Reports over the cap are rejected, so the excess is not billed.',
+        empty: 'This invoice has no lines.',
+        Columns: {
+          line: 'Line',
+          servicePeriod: 'Service period',
+          amount: 'Amount',
+        },
+        Discount: {
+          line: 'Line {{seq}}',
+          percentageOf: '{{value}} of {{base}}',
+          amountOff: '{{value}} off {{base}}',
+          application: 'Invoice {{application}} of {{max}} for this redemption',
+          applicationUnbounded: 'Invoice {{application}} for this redemption',
+          bearsOn: 'Bears on {{targets}}',
+        },
+      },
+      InvoiceTotals: {
+        subtotal: 'Subtotal',
+        discounts: 'Discounts',
+        total: 'Total',
+        discounted: 'After {{amount}} of discounts',
+      },
+      InvoicePreview: {
+        bannerTitle: 'Preview, not an invoice',
+        bannerDescription:
+          'This is what the invoice would come to at a boundary now. Nothing is saved, sent or billed.',
+        resultLabel: 'Invoice preview',
+        composed: '{{kind}} invoice, composed {{asOf}}.',
+      },
+      Fingerprint: {
+        empty: 'No usage reports in this period.',
+        summary_one: 'Report {{first}} · {{count}} row · Σ {{sum}}',
+        summary_other:
+          'Reports {{first}}–{{last}} · {{count}} rows · Σ {{sum}}',
+      },
+      HandoffStatus: {
+        PENDING: 'Waiting for your ERP',
+        ACKNOWLEDGED: 'Acknowledged',
+        NOT_REQUIRED: 'Not required',
+      },
+      Invoices: {
+        notIssued: 'Not issued',
+        Columns: {
+          customer: 'Customer',
+          invoice: 'Invoice',
+          period: 'Service period',
+          total: 'Total',
+          status: 'Status',
+          due: 'Due',
+          provider: 'Provider',
+          handoff: 'Handoff',
+        },
+      },
+      MarkPaid: {
+        Errors: {
+          referenceTooLong: 'The reference is too long',
+          noteTooLong: 'The note is too long',
+          paidAtInvalid: 'Enter a valid date and time',
+          paidAtInFuture: 'The payment cannot be in the future',
+        },
+      },
+      Overage: {
+        unlimited: 'No limit',
+        limit: 'Limit {{limit}} (+{{percent}}% accepted)',
+        reports_one: '{{count}} report',
+        reports_other: '{{count}} reports',
+        measured: 'Usage {{usage}}, of which {{overage}} above the limit',
+        limitsLabel: 'Limits applied',
+      },
+      ProviderKind: {
+        NOOP: 'Manual',
+        STRIPE: 'Stripe',
+      },
+      Price: {
+        perUnit: 'per {{unit}}',
+        Models: {
+          FLAT_FEE: {
+            label: 'Flat fee',
+            blurb: 'Recurs each period, quantity 1.',
+          },
+          USAGE_BASED: {
+            label: 'Usage-based',
+            blurb: 'Meters from the first unit, per sale unit.',
+          },
+          OVERAGE: {
+            label: 'Overage',
+            blurb: 'Bills only what exceeds the grant, up to its cap.',
+          },
+        },
+        Timings: {
+          ADVANCE: {
+            label: 'In advance',
+            blurb: 'Bills the period that starts at the boundary.',
+          },
+          ARREARS: {
+            label: 'In arrears',
+            blurb: 'Bills the period that ends at the boundary.',
+          },
+        },
+        Periods: {
+          MONTHLY: 'Monthly',
+          QUARTERLY: 'Quarterly',
+          SEMI_ANNUAL: 'Every 6 months',
+          ANNUAL: 'Annual',
+        },
+        PeriodSuffix: {
+          MONTHLY: '/month',
+          QUARTERLY: '/quarter',
+          SEMI_ANNUAL: '/6 months',
+          ANNUAL: '/year',
+        },
+        Status: {
+          ACTIVE: 'Active',
+          DEPRECATED: 'Deprecated',
+        },
+        ResetUnits: {
+          HOUR: 'hour',
+          DAY: 'day',
+          WEEK: 'week',
+          MONTH: 'month',
+          YEAR: 'year',
+        },
+      },
+      Reason: {
+        description:
+          'Required, up to {{max}} characters. It is kept with your name in the audit trail.',
+        Errors: {
+          required: 'A reason is required',
+          tooLong: 'The reason is too long',
+        },
+      },
+      UsageReports: {
+        Columns: {
+          report: 'Report',
+          reportedAt: 'Reported at',
+          behavior: 'Behavior',
+          value: 'Value',
+          counter: 'Counter',
+          delta: 'Change',
+          overageDelta: 'Overage change',
+          limit: 'Limit',
+          transaction: 'Transaction',
+          properties: 'Properties',
+        },
+        Behavior: {
+          append: 'Append',
+          set: 'Set',
+        },
+        unlimited: 'No limit',
+        limitChanged: 'Limit changed',
+        propertiesTitle: 'Properties of report {{report}}',
+        propertiesOpen: 'Show the properties of report {{report}}',
+      },
+      PeriodFilter: {
+        from: 'From',
+        before: 'Before',
+        periodInvalid: 'The period must end after it starts.',
+      },
+      InvoiceExport: {
+        button: 'Export',
+        csvLines: 'CSV by invoice line',
+        csvInvoices: 'CSV by invoice',
+        ndjson: 'NDJSON, one invoice per line',
+        unapplied_one: 'This filter is not applied to the file: {{filters}}.',
+        unapplied_other:
+          'These filters are not applied to the file: {{filters}}.',
+      },
+      InvoicesCard: {
+        title: 'Invoices',
+        loading: 'Loading invoices',
+        emptyTitle: 'No invoices yet',
+      },
+      DeletionRefusal: {
+        title: {
+          instance: 'This instance cannot be deleted',
+          customer: 'This customer cannot be deleted',
+          entitlement: 'This entitlement cannot be deleted',
+        },
+        description: {
+          instance:
+            'Billing still depends on this instance, so it was kept. Nothing was deleted.',
+          customer:
+            'Billing still depends on this customer, so it was kept. Nothing was deleted.',
+          entitlement:
+            'Something still grants, counts or prices this entitlement, so it was kept. Nothing was deleted.',
+        },
+        subscriptionTitle: 'Subscription',
+        subscriptionLive: 'The subscription is still running.',
+        subscriptionEnded:
+          'The subscription has ended, but some of its invoices are not settled.',
+        openSubscription: 'Open the subscription',
+        customerLive:
+          'A subscription of one of its instances is still running.',
+        customerNoneLive:
+          'None of its subscriptions is running, but some invoices are not settled.',
+        openInstances: 'Open the customer',
+        unsettledTitle_one: '{{count}} invoice not settled',
+        unsettledTitle_other: '{{count}} invoices not settled',
+        unsettledHint:
+          'Settle each one (paid, void or written off), then try again.',
+        referencesTitle: 'Still in use',
+        references: {
+          licenseGrants_one: 'Granted by {{count}} license version',
+          licenseGrants_other: 'Granted by {{count}} license versions',
+          usageCounters_one: 'Usage recorded on {{count}} instance',
+          usageCounters_other: 'Usage recorded on {{count}} instances',
+          licensePrices_one: 'Metered by {{count}} license price',
+          licensePrices_other: 'Metered by {{count}} license prices',
+          addonPrices_one: 'Metered by {{count}} add-on price',
+          addonPrices_other: 'Metered by {{count}} add-on prices',
+          addonGrants_one: 'Granted by {{count}} add-on',
+          addonGrants_other: 'Granted by {{count}} add-ons',
+          boostGrants_one: 'Granted by {{count}} voucher boost',
+          boostGrants_other: 'Granted by {{count}} voucher boosts',
+        },
+        removeFirst:
+          'Remove these references, then delete the entitlement again.',
+        hideInstead:
+          'A price or a voucher boost cannot be removed once it exists, so this entitlement can no longer be deleted. To stop showing it in customer-facing components, turn off “User facing” on its page.',
+        openEntitlement: 'Open the entitlement',
+      },
+      VoucherStatus: {
+        DRAFT: 'Draft',
+        ACTIVE: 'Active',
+        EXPIRED: 'Expired',
+        EXHAUSTED: 'Fully redeemed',
+        ARCHIVED: 'Archived',
+      },
+      VoucherType: {
+        PRICE: 'Discount',
+        ENTITLEMENT_BOOST: 'Boost',
+      },
+      RedemptionStatus: {
+        ACTIVE: 'Active',
+        EXPIRED: 'Expired',
+        REVOKED: 'Revoked',
+      },
+      Redemptions: {
+        title: 'Redemptions',
+        loading: 'Loading redemptions',
+        emptyTitle: 'No redemption yet',
+        codeHint: 'Code ending in {{hint}}',
+        from: 'From {{date}}',
+        applications: '{{count}}/{{max}} invoices',
+        applicationsUnbounded_one: '{{count}} invoice so far',
+        applicationsUnbounded_other: '{{count}} invoices so far',
+        revokedBecause: 'Revoked: {{reason}}',
+        revoke: 'Revoke {{name}}',
+        Columns: {
+          instance: 'Instance',
+          voucher: 'Voucher',
+          redeemed: 'Redeemed',
+          window: 'Applies',
+          applications: 'Invoices',
+          status: 'Status',
+        },
+        Revoke: {
+          title: 'Revoke {{name}} on {{instance}}',
+          description:
+            'A boost stops applying at once and a discount applies to no further invoice. Invoices already issued are not changed, and the voucher keeps counting this redemption.',
+          reason: 'Reason',
+          confirm: 'Revoke',
+          success: '{{name}} revoked',
+        },
+      },
+      Voucher: {
+        Offer: {
+          price: '{{discount}} off {{target}}, {{duration}}',
+          boost: '{{changes}}, {{duration}}',
+          Target: {
+            LICENSE_BASE: 'the base price',
+            ADDONS: 'the add-ons',
+            BOTH: 'the base price and the add-ons',
+            SELECTED_PRICES_one: 'the selected price',
+            SELECTED_PRICES_other: 'the {{count}} selected prices',
+          },
+          PriceDuration: {
+            ONE_TIME: 'on one invoice',
+            REPEATING_one: 'on the next invoice',
+            REPEATING_other: 'on the next {{count}} invoices',
+            FOREVER: 'on every invoice',
+          },
+          BoostDuration: {
+            ONE_TIME: 'for one billing period',
+            REPEATING_one: 'for {{count}} billing period',
+            REPEATING_other: 'for {{count}} billing periods',
+            FOREVER: 'with no end',
+          },
+          Change: {
+            SET: '{{entitlement}} set to {{value}}',
+            ADD: '{{entitlement}} + {{value}}',
+            MULTIPLY: '{{entitlement}} × {{value}}',
+            UNLIMITED: '{{entitlement}} unlimited',
+          },
+        },
+      },
+    },
     AuditTrail: {
       events: {
+        ADDON_ARCHIVED: 'Add-on version archived',
+        ADDON_CREATED: 'Add-on created',
+        ADDON_DELETED: 'Add-on deleted',
+        ADDON_ENTITLEMENT_ASSIGNED: 'Entitlement assigned to an add-on',
+        ADDON_ENTITLEMENT_UNASSIGNED: 'Entitlement unassigned from an add-on',
+        ADDON_ENTITLEMENT_UPDATED: 'Entitlement updated on an add-on',
+        ADDON_PRICE_CREATED: 'Add-on price added',
+        ADDON_PRICE_DEPRECATED: 'Add-on price deprecated',
+        ADDON_PUBLISHED: 'Add-on version published',
+        ADDON_UNARCHIVED: 'Add-on version unarchived',
+        ADDON_UPDATED: 'Add-on updated',
+        BILLING_PROVIDER_CONNECTED: 'Payment provider connected',
+        BILLING_PROVIDER_DISCONNECTED: 'Payment provider disconnected',
+        BILLING_PROVIDER_SYNC_FAILED: 'Payment provider sync failed',
         COMPONENT_CREATED: 'Component added',
         COMPONENT_DELETED: 'Component deleted',
         COMPONENT_UPDATED: 'Component updated',
         CUSTOMER_CREATED: 'Customer created',
         CUSTOMER_CREATION_REJECTED: 'Customer creation rejected',
         CUSTOMER_DELETED: 'Customer deleted',
+        CUSTOMER_PAYMENT_METHOD_ATTACHED: 'Payment method added',
+        CUSTOMER_PAYMENT_METHOD_DETACHED: 'Payment method removed',
+        CUSTOMER_PAYMENT_METHOD_EXPIRING: 'Payment method about to expire',
         CUSTOMER_UPDATED: 'Customer updated',
         DEPLOYMENT_ZONE_CREATED: 'Deployment zone created',
         DEPLOYMENT_ZONE_DELETED: 'Deployment zone deleted',
@@ -3052,6 +6143,21 @@ export default {
         FEATURE_FLAG_DELETED: 'Feature flag deleted',
         FEATURE_FLAG_EVALUATED: 'Feature flag evaluated',
         FEATURE_FLAG_UPDATED: 'Feature flag updated',
+        INSTANCE_ADDON_ADDED: 'Add-on attached to an instance',
+        INSTANCE_ADDON_QUANTITY_CHANGED: 'Add-on quantity changed',
+        INSTANCE_ADDON_REMOVED: 'Add-on removed from an instance',
+        INSTANCE_BILLING_CANCELED: 'Subscription canceled',
+        INSTANCE_BILLING_CANCELLATION_REVERTED:
+          'Subscription cancellation reverted',
+        INSTANCE_BILLING_CANCELLATION_SCHEDULED:
+          'Subscription cancellation scheduled',
+        INSTANCE_BILLING_PLAN_CHANGED: 'Subscription plan changed',
+        INSTANCE_BILLING_PLAN_CHANGE_CANCELLED: 'Plan change canceled',
+        INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED: 'Plan change scheduled',
+        INSTANCE_BILLING_PROVIDER_CHANGED:
+          'Subscription payment provider changed',
+        INSTANCE_BILLING_STARTED: 'Subscription started',
+        INSTANCE_BILLING_STATUS_CHANGED: 'Subscription status changed',
         INSTANCE_CREATED: 'Instance created',
         INSTANCE_DELETED: 'Instance deleted',
         INSTANCE_DEPLOYED: 'Instance deployed',
@@ -3061,10 +6167,26 @@ export default {
         INSTANCE_ENTITLEMENT_USAGE_REACHED: 'Entitlement fully used',
         INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED:
           'Entitlement near limit',
+        INSTANCE_INVOICE_HANDOFF_ACKNOWLEDGED: 'Invoice handoff acknowledged',
+        INSTANCE_INVOICE_HELD: 'Invoice held',
+        INSTANCE_INVOICE_ISSUED: 'Invoice issued',
+        INSTANCE_INVOICE_MARKED_UNCOLLECTIBLE: 'Invoice marked uncollectible',
+        INSTANCE_INVOICE_PAID: 'Invoice paid',
+        INSTANCE_INVOICE_PAYMENT_FAILED: 'Invoice payment failed',
+        INSTANCE_INVOICE_PUSHED: 'Invoice sent to the payment provider',
+        INSTANCE_INVOICE_PUSH_FAILED:
+          'Invoice not sent to the payment provider',
+        INSTANCE_INVOICE_RECONCILIATION_MISMATCH:
+          'Invoice amounts differ at the payment provider',
+        INSTANCE_INVOICE_RELEASED: 'Held invoice released',
+        INSTANCE_INVOICE_VOIDED: 'Invoice voided',
         INSTANCE_LIFECYCLE_STAGE_CHANGED: 'Instance lifecycle stage changed',
         INSTANCE_MIGRATED: 'Instance migrated',
         INSTANCE_STATUS_CHANGED: 'Instance status changed',
         INSTANCE_UPDATED: 'Instance updated',
+        INSTANCE_VOUCHER_EXPIRED: 'Voucher redemption expired',
+        INSTANCE_VOUCHER_REDEEMED: 'Voucher redeemed',
+        INSTANCE_VOUCHER_REVOKED: 'Voucher redemption revoked',
         LICENSE_ARCHIVED: 'License version archived',
         LICENSE_CREATED: 'License created',
         LICENSE_DELETED: 'License deleted',
@@ -3074,6 +6196,9 @@ export default {
         LICENSE_FAMILY_CREATED: 'License family created',
         LICENSE_FAMILY_DELETED: 'License family deleted',
         LICENSE_FAMILY_UPDATED: 'License family updated',
+        LICENSE_PRICE_CREATED: 'License price added',
+        LICENSE_PRICE_DEPRECATED: 'License price deprecated',
+        LICENSE_PRICE_UPDATED: 'License price updated',
         LICENSE_PUBLISHED: 'License version published',
         LICENSE_UNARCHIVED: 'License version unarchived',
         LICENSE_UPDATED: 'License updated',
@@ -3082,10 +6207,18 @@ export default {
         METADATA_FIELD_REORDERED: 'Metadata fields reordered',
         METADATA_FIELD_UNARCHIVED: 'Metadata field unarchived',
         METADATA_FIELD_UPDATED: 'Metadata field updated',
+        PUBLISHABLE_KEY_CREATED: 'Publishable key created',
+        PUBLISHABLE_KEY_REVOKED: 'Publishable key revoked',
         RELEASE_CREATED: 'Release published',
         RELEASE_DELETED: 'Release deleted',
         RELEASE_DEPLOYED: 'Release deployed to a zone',
         SYSTEM_ORGANIZATION_TOKEN_ISSUED: 'Organization token issued',
+        VOUCHER_ARCHIVED: 'Voucher archived',
+        VOUCHER_CREATED: 'Voucher created',
+        VOUCHER_EXHAUSTED: 'Voucher fully redeemed',
+        VOUCHER_EXPIRED: 'Voucher expired',
+        VOUCHER_PUBLISHED: 'Voucher published',
+        VOUCHER_UPDATED: 'Voucher updated',
       },
     },
     EntitlementUsage: {

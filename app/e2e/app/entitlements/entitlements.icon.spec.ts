@@ -26,7 +26,7 @@ test('selects a Lucide icon when creating an entitlement', async ({ page }) => {
   await form.clickNext();
   await form.submitButton().click();
 
-  await expect(page).toHaveURL('/entitlements/storage-reads');
+  await expect(page).toHaveURL('/catalog/entitlements/storage-reads');
   await list.goto();
   await list.expectEntitlementVisible('Storage Reads');
 });
@@ -38,7 +38,7 @@ test('pre-fills the icon picker when editing an entitlement that has one', async
   const form = new EntitlementFormDriver(page);
 
   await installEntitlementAppMocks(page, model);
-  await page.goto('/entitlements/priority-support?mode=configure');
+  await page.goto('/catalog/entitlements/priority-support?mode=configure');
 
   await expect(
     page.getByRole('heading', { name: 'Edit Entitlement' }).first(),

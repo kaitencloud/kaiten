@@ -1,5 +1,26 @@
+import type { StripeStanding } from '../../../e2e/app/_support/model/billing-capabilities';
 import { startE2EMockServiceWorker } from './browser';
 import { createDevMockConfig } from './dev-world';
+
+const STRIPE_STANDINGS: readonly StripeStanding[] = [
+  'available',
+  'connected',
+  'connectedLive',
+  'notEntitled',
+  'vaultMissing',
+];
+
+/**
+ * Where the Stripe connector starts: connected to a test account, unless the
+ * address names another (`?stripe=vaultMissing`, `notEntitled`, `available` or
+ * `connectedLive`), so that each state of its page can be looked at. It is read
+ * when a tab starts, and what the tab changes lives in `sessionStorage` after that.
+ */
+const readStripeStanding = (): StripeStanding => {
+  const asked = new URLSearchParams(window.location.search).get('stripe');
+
+  return STRIPE_STANDINGS.find((standing) => standing === asked) ?? 'connected';
+};
 
 /**
  * The console without a backend (`pnpm run dev:mock`, VITE_MOCK_API=true): the
@@ -10,7 +31,8 @@ import { createDevMockConfig } from './dev-world';
  * (./browser.ts).
  */
 export async function startDevMocks() {
-  await startE2EMockServiceWorker(createDevMockConfig(), {
-    warnUnhandledApiRequests: true,
-  });
+  await startE2EMockServiceWorker(
+    createDevMockConfig({ stripe: readStripeStanding() }),
+    { warnUnhandledApiRequests: true },
+  );
 }

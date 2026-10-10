@@ -75,6 +75,14 @@ const GROUP_DEFS: PreferenceGroupDef[] = [
     descriptionFallback: 'Licenses and the entitlements attached to them.',
   },
   {
+    id: 'billing',
+    Icon: dataModelIcons.billing,
+    labelKey: 'Pages.Settings.Notifications.Groups.billing.label',
+    labelFallback: 'Billing',
+    descriptionKey: 'Pages.Settings.Notifications.Groups.billing.description',
+    descriptionFallback: 'Subscriptions and the invoices they issue.',
+  },
+  {
     id: 'security',
     Icon: ShieldAlert,
     labelKey: 'Pages.Settings.Notifications.Groups.security.label',
@@ -137,6 +145,14 @@ const EVENT_DESCRIPTION_KEYS: EventNameMap<string> = {
     'Pages.Settings.Notifications.Events.LICENSE_ENTITLEMENT_ASSIGNED',
   LICENSE_ENTITLEMENT_UNASSIGNED:
     'Pages.Settings.Notifications.Events.LICENSE_ENTITLEMENT_UNASSIGNED',
+  INSTANCE_BILLING_STARTED:
+    'Pages.Settings.Notifications.Events.INSTANCE_BILLING_STARTED',
+  INSTANCE_BILLING_STATUS_CHANGED:
+    'Pages.Settings.Notifications.Events.INSTANCE_BILLING_STATUS_CHANGED',
+  INSTANCE_BILLING_CANCELED:
+    'Pages.Settings.Notifications.Events.INSTANCE_BILLING_CANCELED',
+  INSTANCE_INVOICE_HELD:
+    'Pages.Settings.Notifications.Events.INSTANCE_INVOICE_HELD',
   SYSTEM_ORGANIZATION_TOKEN_ISSUED:
     'Pages.Settings.Notifications.Events.SYSTEM_ORGANIZATION_TOKEN_ISSUED',
 };

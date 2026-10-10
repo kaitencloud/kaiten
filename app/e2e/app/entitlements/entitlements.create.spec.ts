@@ -13,7 +13,7 @@ test('creates an entitlement from its creation page', async ({ page }) => {
   await list.goto();
   await list.openCreatePage();
 
-  await expect(page).toHaveURL('/entitlements/new');
+  await expect(page).toHaveURL('/catalog/entitlements/new');
   await form.expectLoaded('create');
 
   await form.fill({
@@ -24,7 +24,7 @@ test('creates an entitlement from its creation page', async ({ page }) => {
   await form.submitButton().click();
 
   // Creating lands on the new entitlement, not back on the list.
-  await expect(page).toHaveURL('/entitlements/storage-reads');
+  await expect(page).toHaveURL('/catalog/entitlements/storage-reads');
   await list.goto();
   await list.expectEntitlementVisible('Storage Reads');
 });

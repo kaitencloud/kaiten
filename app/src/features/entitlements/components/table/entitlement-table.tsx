@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
 import { GradientButton } from '@/components/gradient-button';
+import { useDeletionRefusal } from '@/domains/billing';
 import { useFilterBuilder } from '@/functionals/filters';
 import { DataTable, FilterTableLayout } from '@/functionals/table';
 import { createEntitlementTableColumns } from './entitlement-table-columns';
@@ -16,7 +17,14 @@ export function EntitlementsTable({
   const { t } = useTranslation();
   const router = useRouter();
 
-  const columns = useMemo(() => createEntitlementTableColumns(t), [t]);
+  // An entitlement that is still granted, counted or priced is kept, and the
+  // dialog that says so is held here, above the rows: a row leaves the list while
+  // the API answers and, when it is the last, unmounts, with whatever it holds.
+  const deletion = useDeletionRefusal();
+  const columns = useMemo(
+    () => createEntitlementTableColumns(t, deletion.showRefusal),
+    [t, deletion.showRefusal],
+  );
   const filterFields = useEntitlementTableFilterFields(entitlements, t);
 
   const filterController = useFilterBuilder({
@@ -30,7 +38,7 @@ export function EntitlementsTable({
   const getEntitlementPath = (entitlement: Entitlement) =>
     entitlement.slug
       ? router.buildLocation({
-          to: '/entitlements/$entitlementSlug',
+          to: '/catalog/entitlements/$entitlementSlug',
           params: { entitlementSlug: entitlement.slug },
         }).pathname
       : undefined;
@@ -42,7 +50,7 @@ export function EntitlementsTable({
           <FilterTableLayout.Search filterId="name" />
           <FilterTableLayout.Actions>
             <GradientButton
-              to="/entitlements/new"
+              to="/catalog/entitlements/new"
               label={t('Pages.Entitlements.Mutation.titleNew')}
             />
           </FilterTableLayout.Actions>
@@ -58,6 +66,7 @@ export function EntitlementsTable({
           getPath={getEntitlementPath}
           bodyScrollable
         />
+        {deletion.dialog}
       </FilterTableLayout.Content>
     </FilterTableLayout>
   );

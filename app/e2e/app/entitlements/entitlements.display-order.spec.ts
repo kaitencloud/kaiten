@@ -22,10 +22,10 @@ test('creates an entitlement with a display order', async ({ page }) => {
   await form.displayOrderField().fill('25');
   await form.clickNext();
   await form.submitButton().click();
-  await expect(page).toHaveURL('/entitlements/ordered-feature');
+  await expect(page).toHaveURL('/catalog/entitlements/ordered-feature');
 
   // Round-trip: the configure wizard reflects the stored order on its first step.
-  await page.goto('/entitlements/ordered-feature?mode=configure');
+  await page.goto('/catalog/entitlements/ordered-feature?mode=configure');
   await expect(form.displayOrderField()).toHaveValue('25');
 });
 
@@ -47,9 +47,9 @@ test('clearing the display order field keeps the form submittable (saves 0)', as
   await form.displayOrderField().fill('');
   await form.clickNext();
   await form.submitButton().click();
-  await expect(page).toHaveURL('/entitlements/cleared-order');
+  await expect(page).toHaveURL('/catalog/entitlements/cleared-order');
 
-  await page.goto('/entitlements/cleared-order?mode=configure');
+  await page.goto('/catalog/entitlements/cleared-order?mode=configure');
   await expect(form.displayOrderField()).toHaveValue('0');
 });
 
@@ -60,15 +60,15 @@ test('defaults display order to 0 and can be changed on edit', async ({
   const form = new EntitlementFormDriver(page);
 
   await installEntitlementAppMocks(page, model);
-  await page.goto('/entitlements/priority-support?mode=configure');
+  await page.goto('/catalog/entitlements/priority-support?mode=configure');
 
   await expect(form.displayOrderField()).toHaveValue('0');
   await form.displayOrderField().fill('3');
   // A BOOLEAN entitlement has no type step, so the update button lives on the
   // single identity step — no need to advance the wizard.
   await form.updateButton().click();
-  await expect(page).toHaveURL('/entitlements/priority-support');
+  await expect(page).toHaveURL('/catalog/entitlements/priority-support');
 
-  await page.goto('/entitlements/priority-support?mode=configure');
+  await page.goto('/catalog/entitlements/priority-support?mode=configure');
   await expect(form.displayOrderField()).toHaveValue('3');
 });

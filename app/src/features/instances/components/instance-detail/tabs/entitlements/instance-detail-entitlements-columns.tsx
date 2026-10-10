@@ -1,19 +1,23 @@
+import { Link } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { EntityIcon } from '@/components/ui/icon';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, History, XCircle } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  getHighestAcceptedUsage,
   getUsageStatus,
-  isSoftLimit,
-  isUnlimitedThreshold,
   UsageMeter,
   UsageStatusBadge,
 } from '@/domains/entitlement-usage';
 import type { ColumnDef } from '@/functionals/table';
 import { formatUsageWindowBound } from '@/lib/detail';
 import type { useInstanceDetail } from '../../instance-detail-context';
+import {
+  AddonSourceHint,
+  EntitlementLimitFigure,
+  SoftLimitHint,
+} from './entitlement-limit';
 
 export type InstanceEntitlementRow = ReturnType<
   typeof useInstanceDetail
@@ -105,49 +109,6 @@ function buildUsageColumn(t: TranslateFn, locale: string): EntitlementColumn {
   };
 }
 
-// A soft limit still grants `threshold`; the percentage is how far past it the
-// API keeps accepting usage. Showing only the granted figure would read as a
-// hard cap, which is what the usage bar used to imply. Renders nothing for a
-// grant that has no overage to announce, so no caller has to remember to ask.
-export function SoftLimitHint({
-  locale,
-  row,
-  t,
-}: {
-  locale: string;
-  row: Pick<
-    InstanceEntitlementRow,
-    'limitCapExceededOveragePercent' | 'threshold'
-  >;
-  t: TranslateFn;
-}) {
-  const highestAcceptedUsage = getHighestAcceptedUsage(
-    row.threshold,
-    row.limitCapExceededOveragePercent,
-  );
-
-  if (
-    highestAcceptedUsage === null ||
-    !isSoftLimit(row.threshold, row.limitCapExceededOveragePercent)
-  ) {
-    return null;
-  }
-
-  return (
-    <span
-      className="text-xs text-muted-foreground"
-      title={t(
-        'Pages.Customers.Instances.Detail.entitlements.softLimitDescription',
-        { max: highestAcceptedUsage.toLocaleString(locale) },
-      )}
-    >
-      {t('Pages.Customers.Instances.Detail.entitlements.softLimitHint', {
-        percent: row.limitCapExceededOveragePercent,
-      })}
-    </span>
-  );
-}
-
 function buildThresholdColumn(
   t: TranslateFn,
   locale: string,
@@ -159,16 +120,9 @@ function buildThresholdColumn(
     ),
     cell: ({ row }) => (
       <span className="flex items-baseline gap-1 text-sm text-muted-foreground">
-        <span>
-          {row.original.entitlementType === 'BOOLEAN' ||
-          row.original.entitlementType === 'CONFIG' ||
-          row.original.threshold === null
-            ? '-'
-            : isUnlimitedThreshold(row.original.threshold)
-              ? t('Pages.Customers.Instances.Detail.entitlements.unlimited')
-              : row.original.threshold.toLocaleString(locale)}
-        </span>
+        <EntitlementLimitFigure locale={locale} row={row.original} />
         <SoftLimitHint locale={locale} row={row.original} t={t} />
+        <AddonSourceHint row={row.original} />
       </span>
     ),
   };
@@ -252,8 +206,61 @@ function buildStatusColumn(t: TranslateFn): EntitlementColumn {
   };
 }
 
-export const useEntitlementsColumns = (locale: string) => {
+// The usage reports are a counter's: a flag or a configuration reports none. The
+// link opens the drawer the URL controls, over the tab, and a click on the row
+// elsewhere still leads to the entitlement.
+function buildHistoryColumn(
+  t: TranslateFn,
+  instanceSlug: string,
+): EntitlementColumn {
+  return {
+    id: 'history',
+    header: t(
+      'Pages.Customers.Instances.Detail.entitlements.table.headers.history',
+    ),
+    enableSorting: false,
+    cell: ({ row }) =>
+      row.original.entitlementType === 'NUMBER' &&
+      row.original.entitlementSlug ? (
+        <Button
+          aria-label={t(
+            'Pages.Customers.Instances.Detail.entitlements.history.openLabel',
+            { entitlement: row.original.entitlementName },
+          )}
+          nativeButton={false}
+          render={
+            <Link
+              params={{ instanceSlug }}
+              search={{ history: row.original.entitlementSlug }}
+              to="/customers/instances/$instanceSlug/entitlements"
+            >
+              <History className="size-4" />
+              {t('Pages.Customers.Instances.Detail.entitlements.history.open')}
+            </Link>
+          }
+          role="link"
+          size="sm"
+          variant="ghost"
+        />
+      ) : null,
+  };
+}
+
+type EntitlementsColumnsOptions = {
+  /**
+   * Where the history of an entitlement is opened, which is the instance the
+   * table is of: left out, the table offers no history (the session may not read
+   * it, and is not offered what it would be refused).
+   */
+  history?: { instanceSlug: string };
+};
+
+export const useEntitlementsColumns = (
+  locale: string,
+  { history }: EntitlementsColumnsOptions = {},
+) => {
   const { t } = useTranslation();
+  const historySlug = history?.instanceSlug;
 
   return useMemo<EntitlementColumn[]>(
     () => [
@@ -263,7 +270,10 @@ export const useEntitlementsColumns = (locale: string) => {
       buildThresholdColumn(t, locale),
       buildCurrentPeriodColumn(t, locale),
       buildStatusColumn(t),
+      ...(historySlug === undefined
+        ? []
+        : [buildHistoryColumn(t, historySlug)]),
     ],
-    [locale, t],
+    [historySlug, locale, t],
   );
 };

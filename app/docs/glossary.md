@@ -18,11 +18,15 @@ The URL-friendly identifier of a resource, optional on create (the API generates
 
 ### Customer
 
-A customer of the organization: a name, an optional `domain`, an optional `externalCustomerId` (its identifier in another system) and its `integrations`. A customer has instances. Feature: `app/src/features/customers/`.
+A customer of the organization: a name, an optional `domain`, an optional `externalCustomerId` (its identifier in another system) and its `integrations`. A customer has instances. Where billing is on, it also has an optional `billingEmail` that its invoices carry (cleared with the empty string) and the invoices composed for it. Feature: `app/src/features/customers/`.
 
 ### Instance
 
-A customer's use of a license. It references one customer and one license version, has start and end license dates, an operational `status` (`HEALTHY`, `DEGRADED`, `INCIDENT` or `MAINTENANCE`), a free-form commercial `lifecycleStage` and typed `metadata`, and can be placed on a deployment zone. Its entitlement usage and its audit trail are read per instance. Feature: `app/src/features/instances/`.
+A customer's use of a license. It references one customer and one license version, has start and end license dates, an operational `status` (`HEALTHY`, `DEGRADED`, `INCIDENT` or `MAINTENANCE`), a free-form commercial `lifecycleStage` and typed `metadata`, and can be placed on a deployment zone. Its entitlement usage and its audit trail are read per instance, and where billing is on so is its [subscription](#subscription). Feature: `app/src/features/instances/`.
+
+### Catalog
+
+What the organization sells, as one entry of the side navigation: the licenses, the entitlements, and, where billing is on and the release ships them, the add-ons and the vouchers. The routes are under `/catalog` (`/catalog/licenses`, `/catalog/entitlements`, `/catalog/addons`, `/catalog/vouchers`), and `/catalog` opens on the licenses. It is a section of the console, not a feature: each of the four keeps its own folder in `app/src/features/`.
 
 ### License
 
@@ -31,6 +35,62 @@ What an instance is on: a named set of entitlement grants. One license record is
 ### License family
 
 The product that several license versions belong to (`familyId`, `familySlug`), stable across renames and new versions. A family resolves to one version, its `currentVersion`: the version marked as default (at most one, and it must be published), otherwise its highest-numbered published version. The console groups versions by `familyId`, never by name.
+
+### License price
+
+One billable concern of a license version, which becomes one line of an invoice (`/licenses/{licenseSlug}/prices`). Its `billingModel` is `FLAT_FEE` (a fee each period, quantity 1), `USAGE_BASED` (metered from the first unit) or `OVERAGE` (metered above what the version grants, up to the cap its overage percent allows). Its `billingTiming` is `ADVANCE` or `ARREARS`, and a metered price is always in arrears; only a flat fee has a `billingPeriod`; a version bills in one `currency`. Its amount is `unitAmountDecimal`, a decimal string in the currency's minor units (`"7.5"` is 7.5 cents), per sale unit for a metered price, which names the entitlement it meters. The prices of a draft are edited; once the version is published they are immutable and can only be deprecated, and a deprecated price keeps billing what is pinned to it. Code: `app/src/features/licenses/components/prices/` and `app/src/domains/billing/`.
+
+### Add-on
+
+An extra quantity of an entitlement, sold per unit on top of a license: seats, instances, history. Like a license it has a **family** (`familySlug`, the product its versions share) and **versions**, each with a lifecycle state (`DRAFT`, `PUBLISHED`, `ARCHIVED`), an optional default flag per family, a `pricingType` (`FREE`, `PAID` or `CUSTOM`) and the most units an instance can hold (`maxQuantity`). A version grants entitlements per unit of quantity, combined with the license's by `ADD`, `OVERRIDE` or `MAX`; it is sold by flat-fee prices, of which the default active one of a period bills the subscriptions of that period; and it fits the license **families** it is declared compatible with (`/addons`, `/addon-families`). An instance holds a version with a quantity (`/instances/{instanceSlug}/addons`), one version per family at a time, while its subscription lives. A new version starts empty. Code: `app/src/features/addons/` and the add-ons card of `app/src/features/instances/`.
+
+### Voucher
+
+A code that gives an instance a discount on its invoices or a boost of its entitlements (`/vouchers`). It has a `voucherType` (`PRICE`, a percentage or an amount in one currency off the base price, the add-ons, both or chosen prices, counted in **invoices**; `ENTITLEMENT_BOOST`, which sets, adds to, multiplies or lifts the limit of numeric entitlements, counted in **billing periods**; `FLAG_GRANT` and `COMPOSITE` exist in the API and are not offered yet), a duration (`ONE_TIME`, `REPEATING` or `FOREVER`), a lifecycle state (`DRAFT`, `ACTIVE`, `EXPIRED`, `EXHAUSTED`, `ARCHIVED`) and optional eligibility (a customer, license and add-on versions, first-time customers, annual subscriptions, a minimum base price) and limits (a window in UTC, a maximum number of redemptions). The API never sets `EXPIRED` and leaves an `ACTIVE` voucher active past its end, so the console reads the state of a voucher from its window and its count. The code is returned only to sessions that may read vouchers, matched without case or separators, and never appears in an address, a query key or a storage of the browser: a voucher is opened by its id, or by its code through a request that carries it in the body. Code: `app/src/features/vouchers/` and the vouchers card of `app/src/features/instances/`.
+
+### Redemption
+
+What an instance gets from a voucher once it redeems its code (`/instances/{instanceSlug}/vouchers`): the window it applies in (`effectiveStartsAt`, `effectiveExpiresAt`), for a discount the invoices it has discounted of the invoices it can discount (`applicationsCount` of `applicationsMax`), and a state (`ACTIVE`, `EXPIRED`, `REVOKED`, with the reason of a revocation). A boost changes the effective value of an entitlement at once; a discount becomes a negative `DISCOUNT` line of each invoice it applies to. An instance redeems a voucher once, with the code on its Billing tab or with its subscription, and a redemption is taken back by revoking it, which needs a reason and does not change the invoices already issued.
+
+### Subscription
+
+What bills an instance. It pins the instance to a flat-fee price of its license version and has a `status` (`TRIAL`, `ACTIVE`, `PAST_DUE` or `CANCELED`), a provider that collects its invoices (`NOOP`: the organization itself, through the [handoff queue](#handoff-queue)), a collection method and payment terms (its own, or the organization's defaults) and a billing period counted in UTC from the instant it started. An instance has one live subscription at most, and one that ended stays as `CANCELED` and can be subscribed again. While it lives, the customer and the license of the instance cannot change (`UpdateInstance.BillingActive`), and the instance cannot be deleted while it lives or an invoice of it is not settled (`DeleteInstance.BillingActive`). The **upcoming invoice** is what its next boundary will issue, composed from the usage so far and written to nothing. An instance can be started with a **trial**, a number of days in which nothing is billed and whose usage is never billed (`trialDays`, which the license version carries by default). A live subscription can be **canceled** at the end of its period, which is paid for, or at once, which issues a `FINAL` invoice for what was used in arrears and refunds nothing; a cancellation scheduled for the end of the period can be **reactivated** until then; a **plan change** to the price of another version takes effect at the next boundary, nothing prorated; and the **payment terms** of one contract can differ from the organization's. The console shows and starts it from the Billing tab of the instance (`GET` and `POST /instances/{instanceSlug}/billing`), and cancels, reactivates, moves and re-terms it from the dialogs and notices of that tab (`POST .../billing/cancel` and `.../billing/reactivate`, `PUT` and `DELETE .../billing/scheduled-change`, `PATCH .../billing`). Code: `app/src/features/instances/components/instance-detail/tabs/billing/`.
+
+### Billing settings
+
+The defaults of an organization for the subscriptions that name none of their own: how an invoice is collected, the days it is due and whether the invoices of a payment provider also enter the handoff queue (`GET` and `PUT /billing/settings`, a `PUT` replaces the three). The retention of usage is not one of them: the deployment says it in its capabilities. Code: `app/src/features/settings/billing/`.
+
+### Usage history
+
+The usage reports an instance sent for one of its counters, every one that was accepted, in the order it was accepted, with the counter before and after it and the limit in force (`GET /instances/{instanceSlug}/entitlements/{entitlementSlug}/usage/reports`). It belongs to the instances and not to billing, so it is read with billing off. The organization keeps it for a retention, and a period that reaches before what is kept is refused with `ListUsageReports.OutsideRetention`, which the console tells apart from a failure. Code: `app/src/features/instances/components/instance-detail/tabs/entitlements/usage-history/`.
+
+### Invoice preview
+
+The renewal invoice a subscription to a license version would be billed at its next boundary, composed by the API from a base flat fee and a sample usage (`POST /licenses/{licenseSlug}/invoice-preview`). It writes nothing and works on a draft. The console shows the lines, their arithmetic and the totals as the API sent them, and says it is a preview and not an invoice. Code: `app/src/domains/billing/` and `app/src/features/licenses/`.
+
+### Commercial terms
+
+How a license version is sold: its `pricingType` (`FREE`, `PAID` or `CUSTOM`), the `trialPeriodDays` a subscription starts with, whether sign-up captures a payment method (`requiresPaymentMethod`) and the `selfServeCtaUrl` a buyer is sent to when the version cannot be bought self-serve. They are fields of the version, written by `PUT /licenses/{licenseSlug}`, which keeps what an update leaves out: a trial is cleared with `0` and the URL with the empty string. Feature: `app/src/features/licenses/`.
+
+### Frozen version
+
+A license version whose grants and prices can no longer change where they are. A live subscription freezes the grants and the prices of the version it bills (`*.BillingActive`), the prices of a published version are immutable (`UpdateLicensePrice.VersionNotDraft`) and an archived version takes no new price (`CreateLicensePrice.VersionArchived`). Every such refusal has the same way out, a new version, which the console offers. No field of a version says it is billed, so the refusal is the only signal. An add-on version is frozen the same way, once an instance with a live subscription holds it (`AssignAddonEntitlement.BillingActive`, `CreateAddonPrice.BillingActive`, and the like) or, for its prices, when it is archived (`CreateAddonPrice.VersionArchived`).
+
+### Invoice
+
+What the API composes for a subscription at each boundary of its billing period (`/invoices`): a kind (`ACTIVATION`, `RENEWAL` or `FINAL`), the lines it bills with their service periods, and totals that are fields of the invoice, which the console never adds up. Its `status` is `DRAFT`, `MANUAL` (issued, for the organization to collect), `PUSHED`, `PUSH_FAILED`, `PAYMENT_FAILED`, `PAID`, `UNCOLLECTIBLE` or `VOID`; the console reads `MANUAL` as "Ready to bill", never as a failure, and derives "overdue" for an unpaid invoice past its due date. Who it was composed for (customer, instance, license) is a snapshot that outlives them. An issued invoice is never edited: a correction is a void invoice and its replacement, which point to each other. Code: `app/src/features/billing/` and `app/src/domains/billing/`.
+
+### Hold
+
+A draft whose usage journal failed a consistency check after the period closed (`holdReason`): it is composed but not issued, because billing does not bill an amount it cannot vouch for. It leaves the hold by being released (the amounts are accepted as composed, with a reason), recomposed from the journal as it is now, or voided. Code: `app/src/features/billing/components/invoice-detail/`.
+
+### Handoff queue
+
+How an invoice that no payment provider collects reaches the organization's accounting system: it waits in a queue (`PENDING`) that a job or the CLI reads and takes under a lease (a claim), and is acknowledged once booked, with the number the accounting system gave it (`externalReference`). The console shows the queue as two status views of the list of invoices (`/invoices?view=waiting` and `?view=acknowledged`) and lets a person acknowledge an invoice they booked themselves; it never claims one. Code: `app/src/features/billing/components/handoff/`.
+
+### Line fingerprint
+
+What an invoice keeps of the usage a metered line was measured from (`metering.ledger`): the numbers of the first and last report, how many there are and what they sum to. It still reads once the reports themselves are purged after the retention, which is what the usage page of a line shows instead of them. The reports are grouped by **reset window**, the period an entitlement counts over (a month, a day), and the quantity of a line is the sum of its windows, each floored at zero. Code: `app/src/features/billing/components/line-drilldown/`.
 
 ### Entitlement
 
@@ -94,7 +154,11 @@ A machine user of an organization. It holds API tokens (`/service-accounts/{serv
 
 ### Token and scope
 
-A **token** authenticates a service account. Its value is returned once, when it is created. A **scope** is `read:<resource>` or `write:<resource>`; a token carries the scopes it was given. The resources are the ones of `app/src/lib/api/scopes.gen.ts`, generated from the contract.
+A **token** authenticates a service account. Its value is returned once, when it is created. A **scope** is `read:<resource>` or `write:<resource>`; a token carries the scopes it was given. The resources are the ones of `app/src/lib/api/scopes.gen.ts`, generated from the contract, and the scope each operation requires is `OPERATION_SCOPES` in `app/src/lib/api/operation-scopes.gen.ts`. The billing domain reads the scopes of the session from its token (`app/src/lib/granted-scopes.ts`, through `useCanPerform`), only to hide the actions the API would refuse.
+
+### Billing capabilities
+
+`GET /billing/capabilities` says whether billing is on for the organization (`enabled`, and `disabledReason` when it is not), which providers can collect invoices and which `features` the running release ships. The console shows billing only when it answers `enabled`: the side navigation and the guards of the billing routes read it, and a failure to read it reads as off. Code: `app/src/domains/billing/`.
 
 ### Webhook
 

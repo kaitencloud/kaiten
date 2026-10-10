@@ -1,5 +1,9 @@
 import type { RequestHandler } from 'msw';
 import { HttpResponse, http } from 'msw/http';
+import { handleGetBillingCapabilities } from '../src/api-client/msw.gen';
+import { billingCapabilitiesProfiles } from '../e2e/app/_support/model/billing-capabilities';
+import { emptyBillingDocuments } from '../e2e/app/_support/model/graphql-operations';
+import { graphqlOperationHandler } from '../src/e2e/msw/handler-factory';
 import { createPageNetwork } from '../src/e2e/msw/page-network';
 
 /**
@@ -11,6 +15,14 @@ import { createPageNetwork } from '../src/e2e/msw/page-network';
 export type MswParameters = {
 	msw?: { handlers?: RequestHandler[] };
 };
+
+// What every story's API answers unless it declares otherwise: the app shell
+// reads the billing capabilities, and billing is off by default; and the two
+// documents the lists read once billing is on, with a page with nothing in it.
+const defaultHandlers = [
+	handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.disabled() }),
+	graphqlOperationHandler(emptyBillingDocuments),
+];
 
 // Answers last, so only a request to the API that the story declares no
 // handler for: a network error, as from an API that is down, and a console
@@ -48,6 +60,7 @@ export async function mswLoader({
 	await enabled;
 	network.resetHandlers(
 		...(parameters.msw?.handlers ?? []),
+		...defaultHandlers,
 		undeclaredApiRequest,
 	);
 	return {};

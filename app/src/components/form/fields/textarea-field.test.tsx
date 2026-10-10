@@ -37,7 +37,6 @@ describe('TextareaField', () => {
   it('does not emit a controlled-component warning when the value is null', async () => {
     render(<Harness />);
 
-    // The field is lazy-loaded behind Suspense; wait for it to mount.
     const textarea = await screen.findByLabelText('Description');
 
     // The DOM value is coerced to '' so React treats it as controlled.

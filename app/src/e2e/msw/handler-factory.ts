@@ -1,6 +1,9 @@
 /** Shared HTTP helpers for MSW handlers. */
 import type { DefaultBodyType, PathParams, RequestHandler } from 'msw';
 import { HttpResponse, type HttpResponseResolver, http } from 'msw/http';
+import type { ErrorDetail } from '@/api-client';
+import { decodeGrantedScopes } from '@/lib/scope-claims';
+import { BillingProblem } from '../../../e2e/app/_support/model/billing-problem';
 import {
   extractOperationName,
   messageForError,
@@ -8,6 +11,7 @@ import {
   type GraphQLRequestBody,
   type GraphQLVariables,
 } from '../../../e2e/app/_support/contracts/mock-http';
+import { findMissingDocumentScope } from './graphql-scope-gate';
 export {
   messageForError,
   statusForError,
@@ -31,6 +35,54 @@ export const withFallbacksLast = <T extends RequestHandler>(
   ...handlers.filter((handler) => !fallbackHandlers.has(handler)),
   ...handlers.filter((handler) => fallbackHandlers.has(handler)),
 ];
+
+/**
+ * A refusal as the Core API words it: a problem document, so that the console
+ * shows the API's own reason, code and field errors, and reads a `Retry-After`
+ * the way it does against the real backend.
+ */
+export const problemJson = (
+  status: number,
+  detail: string,
+  code?: string,
+  extras: {
+    errorId?: string;
+    errors?: ErrorDetail[];
+    headers?: Record<string, string>;
+  } = {},
+) =>
+  HttpResponse.json(
+    {
+      type: 'about:blank',
+      title: 'Error',
+      status,
+      detail,
+      code,
+      errorId: extras.errorId,
+      errors: extras.errors,
+    },
+    {
+      status,
+      headers: {
+        'Content-Type': 'application/problem+json',
+        ...extras.headers,
+      },
+    },
+  );
+
+/**
+ * The answer to a call a model refused with a problem document (`BillingProblem`):
+ * its status, its code, its field errors and the `Retry-After` it carries.
+ */
+export const billingProblemResponse = (problem: BillingProblem) =>
+  problemJson(problem.httpStatus, problem.message, problem.code, {
+    errorId: problem.errorId,
+    errors: problem.errors,
+    headers:
+      problem.retryAfterSeconds === undefined
+        ? undefined
+        : { 'Retry-After': String(problem.retryAfterSeconds) },
+  });
 
 export const parseRequestJson = async <T>(request: Request): Promise<T> => {
   const body = await request.json();
@@ -64,6 +116,11 @@ export const withErrorHandling = <
       return result;
     } catch (error) {
       persistError?.();
+      // A refusal the model words as the API does, with its code and its field
+      // errors, which the console shows as the API's own reason.
+      if (error instanceof BillingProblem) {
+        return billingProblemResponse(error);
+      }
       return HttpResponse.json(
         { message: messageForError(error, errorMessage) },
         { status: statusForError(error) },
@@ -72,10 +129,18 @@ export const withErrorHandling = <
   };
 };
 
+/** The token a request carries, whatever it is: `Bearer <token>`. */
+const bearerToken = (request: Request) =>
+  request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
+
 /**
  * Build a GraphQL operation router. Reads `operationName` from the body,
  * dispatches to the matching handler, and falls through to the next MSW
  * handler when the operation is unknown.
+ *
+ * Like the API, it refuses a whole document when the token of the request says
+ * it lacks a scope the document needs (`GRAPHQL_DOCUMENT_SCOPES`): a 403
+ * problem that names the scope, and no data at all.
  */
 export const graphqlOperationHandler = (
   operations: Record<string, (variables: GraphQLVariables) => unknown>,
@@ -99,6 +164,18 @@ export const graphqlOperationHandler = (
 
     if (!handler) {
       return undefined;
+    }
+
+    const missing = findMissingDocumentScope(
+      operationName,
+      decodeGrantedScopes(bearerToken(request)),
+    );
+    if (missing) {
+      return problemJson(
+        403,
+        `missing required scope: ${missing}`,
+        'Auth.MissingScope',
+      );
     }
 
     try {

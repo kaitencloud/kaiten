@@ -3,6 +3,10 @@
 // read models the two features share.
 export { InstanceLifecycleStageBadge, InstanceStatusBadge } from './components';
 export {
+  BILLING_EMAIL_ERROR_KEYS,
+  BILLING_EMAIL_MAX_LENGTH,
+  billingEmailSchema,
+  customerBillingEmailToUpdateBody,
   DEFAULT_INSTANCE_STATUS,
   getInstanceStatusFilterOptions,
   getInstanceStatusLabel,
@@ -11,6 +15,7 @@ export {
   getLifecycleStageLabel,
   getLifecycleStageSuggestions,
   isDefaultLifecycleStage,
+  isValidBillingEmail,
   LIFECYCLE_STAGE_DEFAULTS,
 } from './logic';
 export type { InstanceStatus, DefaultLifecycleStage } from './logic';

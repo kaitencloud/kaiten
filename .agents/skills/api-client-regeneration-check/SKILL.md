@@ -24,7 +24,8 @@ Keep generated API client artifacts synchronized with backend contracts.
      `generate`: `generate-api-sdk` alone rewrites `src/api-client` and deletes
      the GraphQL types under `src/api-client/graphql`.
 4. Verify generated outputs are not manually edited (`app/src/api-client/**`,
-   `app/src/lib/api/scopes.gen.ts`, `app/openapi.yaml`).
+   `app/src/lib/api/scopes.gen.ts`, `app/src/lib/api/operation-scopes.gen.ts`,
+   `app/openapi.yaml`).
 5. Update feature schemas/forms that extend generated Zod contracts.
 6. Report contract deltas and required follow-up refactors.
 

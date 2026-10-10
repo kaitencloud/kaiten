@@ -12,6 +12,11 @@ import {
   type ListDeploymentZonesResponse,
   type ListEntitlementGroupsResponse,
   type ListEntitlementsResponse,
+  type ListHandoffData,
+  type ListHandoffResponse,
+  type ListInstanceInvoicesResponse,
+  type ListInvoicesData,
+  type ListInvoicesResponse,
   type ListLicenseFamiliesResponse,
   type ListReleasesResponse,
   listComponents,
@@ -19,6 +24,9 @@ import {
   listDeploymentZones,
   listEntitlementGroups,
   listEntitlements,
+  listHandoff,
+  listInstanceInvoices,
+  listInvoices,
   listLicenseFamilies,
   listReleases,
 } from '@/api-client';
@@ -32,6 +40,9 @@ import {
   listDeploymentZonesOptions,
   listEntitlementGroupsOptions,
   listEntitlementsOptions,
+  listHandoffOptions,
+  listInstanceInvoicesOptions,
+  listInvoicesOptions,
   listLicenseFamiliesOptions,
   listReleasesOptions,
 } from '@/api-client/@tanstack/react-query.gen';
@@ -41,12 +52,38 @@ import { fetchAllPages, MAX_PAGE_SIZE } from './pagination';
 // every invalidation and cache update aimed at that key still lands: only the
 // fetch changes, and walks every page. Screens read these lists through here,
 // never through the generated options, or the cache would hold a first page
-// where a whole list is expected.
+// where a whole list is expected. The lists of billing are walked the same way in
+// `all-billing-pages-query-options.ts`.
 
-type QueryContext = { signal: AbortSignal };
+export type QueryContext = { signal: AbortSignal };
 
-const pageRequest = (cursor: string | undefined, signal: AbortSignal) => ({
-  query: { cursor, limit: MAX_PAGE_SIZE },
+/**
+ * The filters of the list of invoices: what narrows it, never where it is read
+ * from (the cursor and the page size are the walk's) nor what reorders it
+ * (`updatedSince` reads the changes in the order they were made).
+ */
+export type InvoicesQuery = Omit<
+  NonNullable<ListInvoicesData['query']>,
+  'cursor' | 'limit' | 'updatedSince'
+>;
+
+/**
+ * What narrows the handoff queue: the part of it a screen reads. The cursor and
+ * the page size are the walk's.
+ */
+type HandoffQuery = Omit<
+  NonNullable<ListHandoffData['query']>,
+  'cursor' | 'limit'
+>;
+
+// What a list is asked for besides its page: the filters of the operation, which
+// every request of the walk repeats.
+export const pageRequest = <TQuery extends object>(
+  cursor: string | undefined,
+  signal: AbortSignal,
+  query?: TQuery,
+) => ({
+  query: { ...query, cursor, limit: MAX_PAGE_SIZE },
   signal,
   throwOnError: true as const,
 });
@@ -134,12 +171,55 @@ export const allFeatureFlagsOptions = () => ({
   }),
 });
 
+export const allHandoffOptions = (query: HandoffQuery = {}) => ({
+  ...listHandoffOptions({ query }),
+  queryFn: async ({ signal }: QueryContext): Promise<ListHandoffResponse> => ({
+    hasMore: false,
+    items: await fetchAllPages(
+      async (cursor) =>
+        (await listHandoff(pageRequest(cursor, signal, query))).data,
+      signal,
+    ),
+  }),
+});
+
+export const allInstanceInvoicesOptions = (instanceSlug: string) => ({
+  ...listInstanceInvoicesOptions({ path: { instanceSlug } }),
+  queryFn: async ({
+    signal,
+  }: QueryContext): Promise<ListInstanceInvoicesResponse> => ({
+    hasMore: false,
+    items: await fetchAllPages(
+      async (cursor) =>
+        (
+          await listInstanceInvoices({
+            ...pageRequest(cursor, signal),
+            path: { instanceSlug },
+          })
+        ).data,
+      signal,
+    ),
+  }),
+});
+
 export const allInstancesOptions = () => ({
   ...getInstancesOptions(),
   queryFn: async ({ signal }: QueryContext): Promise<GetInstancesResponse> => ({
     hasMore: false,
     items: await fetchAllPages(
       async (cursor) => (await getInstances(pageRequest(cursor, signal))).data,
+      signal,
+    ),
+  }),
+});
+
+export const allInvoicesOptions = (query: InvoicesQuery = {}) => ({
+  ...listInvoicesOptions({ query }),
+  queryFn: async ({ signal }: QueryContext): Promise<ListInvoicesResponse> => ({
+    hasMore: false,
+    items: await fetchAllPages(
+      async (cursor) =>
+        (await listInvoices(pageRequest(cursor, signal, query))).data,
       signal,
     ),
   }),
