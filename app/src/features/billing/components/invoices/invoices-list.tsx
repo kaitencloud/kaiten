@@ -13,7 +13,7 @@ import {
 import { FilterTableLayout } from '@/functionals/table';
 import type { InvoiceScope } from '../../schemas/invoice-scope.schema';
 import type {
-  HandoffView,
+  HandoffQueueView,
   InvoicesView,
 } from '../../schemas/invoices-search.schema';
 import {
@@ -41,7 +41,7 @@ type InvoicesListProps = {
   /** Whether Stripe collects invoices here: with NoOp alone the provider is not worth a column or a filter. */
   showProvider: boolean;
   /** The part of the list the tab asks for: `invoices` is already narrowed to it. */
-  view?: Exclude<InvoicesView, HandoffView>;
+  view?: Exclude<InvoicesView, HandoffQueueView>;
 };
 
 // The same array on every render: the table builds its columns from it.
