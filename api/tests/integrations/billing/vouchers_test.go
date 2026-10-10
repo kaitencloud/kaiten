@@ -78,6 +78,12 @@ func TestVoucherCatalogue(t *testing.T) {
 		} {
 			require.Equal(t, code, problemCode(t, fiber.StatusUnprocessableEntity, "POST", "/api/vouchers", payload))
 		}
+		// PR21-05: applicability ids restrict the voucher, they address nothing.
+		require.Equal(t, "CreateVoucher.InvalidApplicability", problemCode(t, fiber.StatusUnprocessableEntity, "POST", "/api/vouchers",
+			percentOff("10", map[string]any{"name": "x", "duration": "FOREVER", "applicableLicenseIds": []string{"00000000-0000-4000-8000-000000000000"}})))
+		require.Equal(t, "CreateVoucher.InvalidRedemptionRules", problemCode(t, fiber.StatusUnprocessableEntity, "POST", "/api/vouchers",
+			percentOff("10", map[string]any{"name": "x", "duration": "FOREVER",
+				"redemptionRules": map[string]any{"minimumSubscriptionAmount": map[string]any{"currency": "eur", "unitAmountDecimal": "100"}}})))
 		// C-10: the floor counts the normalized code, 11 characters here.
 		require.Equal(t, "CreateVoucher.WeakCodeUnbounded", problemCode(t, fiber.StatusUnprocessableEntity, "POST", "/api/vouchers",
 			percentOff("10", map[string]any{"name": "x", "duration": "FOREVER", "code": "SUM-MER-2027"})))
@@ -315,4 +321,36 @@ func TestVoucherListIsPaged(t *testing.T) {
 	require.Equal(t, "Vouchers.InvalidCursor", problemCode(t, fiber.StatusBadRequest, "GET", "/api/vouchers?cursor=nope", nil))
 	require.Equal(t, "Addons.InvalidCursor", problemCode(t, fiber.StatusBadRequest, "GET", "/api/addons?cursor=nope", nil))
 	require.Equal(t, "PublishableKeys.InvalidCursor", problemCode(t, fiber.StatusBadRequest, "GET", "/api/publishable-keys?cursor=nope", nil))
+}
+
+// §11.1 (PR21-01 of the console team's note): an ACTIVE voucher takes a new
+// name, description, expiresAt and maxRedemptions only. A boost's value and a
+// minimum subscription amount were let through, the first then dropped, the
+// second written.
+func TestAnActiveVouchersTermsAreFixed(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	newEntitlement(t, "seats", 0)
+	boostBody := func(value string) map[string]any {
+		return map[string]any{
+			"name": "Launch", "voucherType": "ENTITLEMENT_BOOST", "duration": "FOREVER",
+			"grants": []map[string]any{{"entitlementSlug": "seats", "modifierType": "MULTIPLY", "modifierValue": value}},
+		}
+	}
+	boost := newVoucher(t, boostBody("3"))
+	publish(t, boost)
+	require.Equal(t, "UpdateVoucher.NotEditable", problemCode(t, fiber.StatusConflict, "PUT", "/api/vouchers/"+boost.ID.String(), boostBody("4")))
+	renamed := boostBody("3.0")
+	renamed["name"] = "Launch week"
+	updated := commonfixture.AssertJSONResponse[catalogue.Voucher](t, call(t, "PUT", "/api/vouchers/"+boost.ID.String(), renamed), fiber.StatusOK)
+	require.Equal(t, "Launch week", updated.Name, "the same value, written otherwise, is no change")
+
+	minimum := func(amount string) map[string]any {
+		return percentOff("10", map[string]any{"name": "Floor", "duration": "FOREVER",
+			"redemptionRules": map[string]any{"minimumSubscriptionAmount": map[string]any{"currency": "EUR", "unitAmountDecimal": amount}}})
+	}
+	price := newVoucher(t, minimum("2900"))
+	publish(t, price)
+	require.Equal(t, "UpdateVoucher.NotEditable", problemCode(t, fiber.StatusConflict, "PUT", "/api/vouchers/"+price.ID.String(), minimum("100")))
+	stored := commonfixture.AssertJSONResponse[catalogue.Voucher](t, call(t, "GET", "/api/vouchers/"+price.ID.String(), nil), fiber.StatusOK)
+	require.Equal(t, "2900", stored.RedemptionRules.MinimumSubscriptionAmount.UnitAmountDecimal)
 }

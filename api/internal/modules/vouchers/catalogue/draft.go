@@ -84,7 +84,7 @@ func (d VoucherDraft) Resolve(ctx context.Context, q *db.Queries, operation stri
 	}
 	if m := d.RedemptionRules.MinimumSubscriptionAmount; m != nil {
 		if _, err := money.ParseCurrency(m.Currency); err != nil {
-			return Resolved{}, invalid("InvalidCurrency", "minimumSubscriptionAmount.currency is an upper-case ISO 4217 code")
+			return Resolved{}, invalid("InvalidRedemptionRules", "minimumSubscriptionAmount.currency is an upper-case ISO 4217 code")
 		}
 		if _, err := money.ParseUnitAmount(m.UnitAmountDecimal); err != nil {
 			return Resolved{}, invalid("InvalidRedemptionRules", "minimumSubscriptionAmount.unitAmountDecimal is a non-negative decimal in minor units")
@@ -111,13 +111,13 @@ func (d VoucherDraft) Resolve(ctx context.Context, q *db.Queries, operation stri
 		if err := d.discount(operation, &params); err != nil {
 			return Resolved{}, err
 		}
-		if err := countAll(ctx, operation+".PriceNotFound", "a selected price does not exist",
+		if err := countAll(ctx, kaitenerrors.NotFound(operation+".PriceNotFound", "a selected price does not exist"),
 			func() (int32, error) {
 				return q.CountLicensePrices(ctx, db.CountLicensePricesParams{OrganizationID: organizationID, Ids: params.ApplicableLicensePriceIds})
 			}, len(params.ApplicableLicensePriceIds)); err != nil {
 			return Resolved{}, err
 		}
-		if err := countAll(ctx, operation+".PriceNotFound", "a selected add-on price does not exist",
+		if err := countAll(ctx, kaitenerrors.NotFound(operation+".PriceNotFound", "a selected add-on price does not exist"),
 			func() (int32, error) {
 				return q.CountAddonPrices(ctx, db.CountAddonPricesParams{OrganizationID: organizationID, Ids: params.ApplicableAddonPriceIds})
 			}, len(params.ApplicableAddonPriceIds)); err != nil {
@@ -149,13 +149,16 @@ func (d VoucherDraft) Resolve(ctx context.Context, q *db.Queries, operation stri
 		}
 	}
 
-	if err := countAll(ctx, operation+".LicenseNotFound", "an applicable licence version does not exist",
+	// An applicability id that is not a licence (or add-on) version of the
+	// organization is a 422 (§11.1, Appendix A), not a 404: the ids restrict
+	// the voucher, they address nothing.
+	if err := countAll(ctx, invalidApplicability(operation, "an applicable licence id is not a licence version of the organization"),
 		func() (int32, error) {
 			return q.CountLicenses(ctx, db.CountLicensesParams{OrganizationID: organizationID, Ids: params.ApplicableLicenseIds})
 		}, len(params.ApplicableLicenseIds)); err != nil {
 		return Resolved{}, err
 	}
-	if err := countAll(ctx, operation+".AddonNotFound", "an applicable add-on version does not exist",
+	if err := countAll(ctx, invalidApplicability(operation, "an applicable add-on id is not an add-on version of the organization"),
 		func() (int32, error) {
 			return q.CountAddons(ctx, db.CountAddonsParams{OrganizationID: organizationID, Ids: params.ApplicableAddonIds})
 		}, len(params.ApplicableAddonIds)); err != nil {
@@ -238,7 +241,12 @@ func (g Grant) validate(operation string) error {
 	return nil
 }
 
-func countAll(_ context.Context, code, reason string, count func() (int32, error), want int) error {
+func invalidApplicability(operation, reason string) error {
+	return kaitenerrors.UnprocessableEntity(operation+".InvalidApplicability", reason)
+}
+
+// countAll answers refusal when count finds fewer than want rows.
+func countAll(_ context.Context, refusal error, count func() (int32, error), want int) error {
 	if want == 0 {
 		return nil
 	}
@@ -247,7 +255,7 @@ func countAll(_ context.Context, code, reason string, count func() (int32, error
 		return err
 	}
 	if int(got) != want {
-		return kaitenerrors.NotFound(code, reason)
+		return refusal
 	}
 	return nil
 }
