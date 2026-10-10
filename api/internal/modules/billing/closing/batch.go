@@ -72,9 +72,12 @@ func (c *Closer) CloseDue(ctx context.Context, scope Scope, limit int, actorFor 
 				excluded = append(excluded, sub.ID)
 			default:
 				report.Closed++
-				if outcome.Invoice != nil {
-					c.m.closed(ctx, *outcome.Invoice, time.Since(started))
+				// A trial converted on an all-ARREARS plan closes without an
+				// invoice: it has no ACTIVATION (§8.1).
+				if outcome.Invoice == nil {
+					break
 				}
+				c.m.closed(ctx, *outcome.Invoice, time.Since(started))
 				if outcome.Invoice.Held {
 					report.Held++
 				}

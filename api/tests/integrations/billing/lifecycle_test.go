@@ -65,6 +65,28 @@ func TestTrials(t *testing.T) {
 		require.Equal(t, "TRIAL_ENDED", changes[0]["reason"])
 	})
 
+	// PR19-01: an all-ARREARS plan has no ACTIVATION (§8.1); its trial's
+	// conversion closes without an invoice, and the batch goes on.
+	t.Run("ATrialOnAnArrearsPlan_ConvertsWithoutAnInvoice", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		arrears := flatFee("2900", "MONTHLY")
+		arrears["billingTiming"] = "ARREARS"
+		s := newSold(t, arrears)
+		started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID, "trialDays": 14})
+		require.Equal(t, subscriptions.StatusTrial, started.Status)
+		customer := newCustomer(t, "globex")
+		other := newInstance(t, "Globex", customer.ID, s.version.ID)
+		renewing := subscribe(t, other.Slug, map[string]any{"basePriceId": s.monthly.ID, "trialDays": 0})
+
+		backdateTrial(t, started.ID, 15)
+		backdate(t, renewing.ID, 1)
+		report := closePeriods(t, map[string]any{})
+		require.Equal(t, 2, report.Closed, "the conversion does not stop the batch")
+		require.Len(t, report.Invoices, 1)
+		require.Equal(t, "RENEWAL", report.Invoices[0].Kind)
+		require.Equal(t, subscriptions.StatusActive, readBilling(t, s.instance.Slug).Status)
+	})
+
 	t.Run("TheLicencesTrial_IsTheDefault_AndZeroIsNone", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 		s := newSold(t, flatFee("2900", "MONTHLY"))
