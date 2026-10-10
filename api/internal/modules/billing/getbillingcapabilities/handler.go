@@ -5,13 +5,11 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
-	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -25,11 +23,6 @@ type BillingCapabilities struct {
 	UsageHistoryRetentionMonths *int              `json:"usageHistoryRetentionMonths" doc:"How long usage reports are kept, in months; null when they are kept forever or it cannot be told"`
 	UsageIdempotencyWindowDays  int               `json:"usageIdempotencyWindowDays" doc:"How long a usage report's transactionId is remembered, in days"`
 	Features                    BillingFeatures   `json:"features" doc:"Which parts of billing this release ships"`
-}
-
-// TransformSchema publishes BillingCapabilities's absent members as null (§13.15).
-func (BillingCapabilities) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
-	return nullable.Pointers(s, BillingCapabilities{})
 }
 
 // BillingProvider is one way of collecting invoices.

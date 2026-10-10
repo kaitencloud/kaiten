@@ -8,6 +8,7 @@ import (
 
 	kaitenhuma "github.com/kaitencloud/kaiten/api/internal/infrastructure/http/huma"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
 // Getter is the one facade method this operation calls.
@@ -39,4 +40,9 @@ func RegisterEndpoint(api huma.API, app Getter) {
 		}
 		return &Response{Body: capabilities}, nil
 	})
+}
+
+// TransformSchema publishes BillingCapabilities's absent members as null (§13.15).
+func (BillingCapabilities) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, BillingCapabilities{})
 }

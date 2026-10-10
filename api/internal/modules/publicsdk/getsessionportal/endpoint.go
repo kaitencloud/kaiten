@@ -8,6 +8,7 @@ import (
 
 	kaitenhuma "github.com/kaitencloud/kaiten/api/internal/infrastructure/http/huma"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
 // FacadeReader is the one facade method this operation calls.
@@ -43,4 +44,34 @@ func RegisterEndpoint(api huma.API, app FacadeReader) {
 		}
 		return &Response{Body: portal}, nil
 	})
+}
+
+// TransformSchema publishes SessionPortal's absent members as null (§13.15).
+func (SessionPortal) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, SessionPortal{})
+}
+
+// TransformSchema publishes PortalCustomer's absent members as null (§13.15).
+func (PortalCustomer) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, PortalCustomer{})
+}
+
+// TransformSchema publishes PortalInstanceSummary's absent members as null (§13.15).
+func (PortalInstanceSummary) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, PortalInstanceSummary{})
+}
+
+// TransformSchema publishes PortalEntitlement's absent members as null (§13.15).
+func (PortalEntitlement) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, PortalEntitlement{})
+}
+
+// TransformSchema publishes PortalVoucher's absent members as null (§13.15).
+func (PortalVoucher) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, PortalVoucher{})
+}
+
+// TransformSchema publishes PortalPaymentMethod's absent members as null (§13.15).
+func (PortalPaymentMethod) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, PortalPaymentMethod{})
 }

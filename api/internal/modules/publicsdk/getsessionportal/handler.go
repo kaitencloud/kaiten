@@ -15,7 +15,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
@@ -28,7 +27,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
 	vouchercatalogue "github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
-	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -47,21 +45,11 @@ type SessionPortal struct {
 	UpdatedAt       time.Time                     `json:"updatedAt" doc:"When this snapshot was read"`
 }
 
-// TransformSchema publishes SessionPortal's absent members as null (§13.15).
-func (SessionPortal) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
-	return nullable.Pointers(s, SessionPortal{})
-}
-
 // PortalCustomer is the session's customer.
 type PortalCustomer struct {
 	Slug         string  `json:"slug" example:"acme"`
 	Name         string  `json:"name" example:"Acme"`
 	BillingEmail *string `json:"billingEmail" doc:"Where its invoices are sent"`
-}
-
-// TransformSchema publishes PortalCustomer's absent members as null (§13.15).
-func (PortalCustomer) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
-	return nullable.Pointers(s, PortalCustomer{})
 }
 
 // PortalInstance is the session's instance.
@@ -78,11 +66,6 @@ type PortalInstanceSummary struct {
 	Name          string  `json:"name" example:"Acme prod"`
 	LicenseSlug   string  `json:"licenseSlug" example:"pro-v2"`
 	BillingStatus *string `json:"billingStatus" enum:"TRIAL,ACTIVE,PAST_DUE,CANCELED" doc:"Its subscription's status; null when it was never subscribed"`
-}
-
-// TransformSchema publishes PortalInstanceSummary's absent members as null (§13.15).
-func (PortalInstanceSummary) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
-	return nullable.Pointers(s, PortalInstanceSummary{})
 }
 
 // PortalEntitlement is one of the instance's effective entitlements.
@@ -102,11 +85,6 @@ type PortalEntitlement struct {
 	Provenance                     *instanceschema.Provenance       `json:"provenance" doc:"What the licence, the add-ons and the boosts each contribute"`
 }
 
-// TransformSchema publishes PortalEntitlement's absent members as null (§13.15).
-func (PortalEntitlement) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
-	return nullable.Pointers(s, PortalEntitlement{})
-}
-
 // PortalVoucher is a voucher the instance redeemed.
 type PortalVoucher struct {
 	Name               string     `json:"name" example:"Summer launch"`
@@ -114,11 +92,6 @@ type PortalVoucher struct {
 	Status             string     `json:"status" enum:"ACTIVE,EXPIRED,REVOKED"`
 	EffectiveStartsAt  time.Time  `json:"effectiveStartsAt"`
 	EffectiveExpiresAt *time.Time `json:"effectiveExpiresAt" doc:"When a boost stops applying; null when it does not expire, and for a PRICE voucher, counted in invoices"`
-}
-
-// TransformSchema publishes PortalVoucher's absent members as null (§13.15).
-func (PortalVoucher) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
-	return nullable.Pointers(s, PortalVoucher{})
 }
 
 // PortalPaymentMethod is the payment method's labels, as the provider gave
@@ -129,11 +102,6 @@ type PortalPaymentMethod struct {
 	Last4    *string `json:"last4" example:"4242"`
 	ExpMonth *int    `json:"expMonth" example:"12"`
 	ExpYear  *int    `json:"expYear" example:"2030"`
-}
-
-// TransformSchema publishes PortalPaymentMethod's absent members as null (§13.15).
-func (PortalPaymentMethod) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
-	return nullable.Pointers(s, PortalPaymentMethod{})
 }
 
 // PortalUpcomingInvoice is what the next boundary bills, on usage so far.
