@@ -33,7 +33,7 @@ func RegisterEndpoint(api huma.API, app Revoker) {
 		Summary:     "Revoke a publishable key",
 		Description: "The key stops authenticating on the next request. Idempotent; revocation is final.",
 		Tags:        []string{"publishable-keys"},
-		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusInternalServerError},
+		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)
 		if err != nil {

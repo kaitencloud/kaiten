@@ -15039,6 +15039,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:customer_sessions
@@ -15096,6 +15108,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:customer_sessions
@@ -22181,6 +22205,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:licenses
@@ -25218,6 +25254,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - read:publishable_keys
@@ -25270,6 +25318,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:publishable_keys
@@ -25343,6 +25403,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:publishable_keys
@@ -25404,6 +25476,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:publishable_keys

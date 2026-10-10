@@ -6,6 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/familyview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
@@ -21,6 +22,9 @@ const operation = "UpdateLicenseFamily"
 type Deps struct {
 	UserProvider currentuser.Provider
 	Uof          *uow.UnitOfWork
+	// Gate: listing a family in the public catalogue is a billing route (G,
+	// §13.3), as the catalogue it feeds is.
+	Gate gate.Gate
 }
 
 type UseCase struct {
@@ -35,6 +39,9 @@ func NewUseCase(deps Deps) *UseCase { return &UseCase{deps: deps} }
 func (u *UseCase) Execute(ctx context.Context, familySlug string, isPublic bool) (*schema.LicenseFamilyView, error) {
 	user, err := u.deps.UserProvider.GetUser(ctx)
 	if err != nil {
+		return nil, err
+	}
+	if err := u.deps.Gate.Require(ctx, user.OrganizationID); err != nil {
 		return nil, err
 	}
 	var view *schema.LicenseFamilyView

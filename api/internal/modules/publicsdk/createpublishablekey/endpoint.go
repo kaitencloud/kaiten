@@ -33,7 +33,7 @@ func RegisterEndpoint(api huma.API, app Creator) {
 		Description:   "Issues a pk_ key for a web page to read the organization's public catalogue (GET /api/public/catalog) and nothing else. The key is returned once; only its digest is stored.",
 		Tags:          []string{"publishable-keys"},
 		DefaultStatus: http.StatusCreated,
-		Errors:        []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity, http.StatusInternalServerError},
+		Errors:        []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)
 		if err != nil {

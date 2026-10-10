@@ -147,7 +147,7 @@ func NewUseCases(svc services.Container) *UseCases {
 		DeprecateLicensePrice: deprecatelicenseprice.NewUseCase(priceDeps),
 		PreviewLicenseInvoice: previewlicenseinvoice.NewUseCase(priceDeps),
 		UpdateLicenseFamily: updatelicensefamily.NewUseCase(updatelicensefamily.Deps{
-			UserProvider: svc.UserProvider, Uof: svc.Uof,
+			UserProvider: svc.UserProvider, Uof: svc.Uof, Gate: priceDeps.Gate,
 		}),
 	}
 }
