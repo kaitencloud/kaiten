@@ -92,13 +92,14 @@ type Ports struct {
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
-	deps := keys.Deps{UserProvider: svc.UserProvider, Uof: svc.Uof}
+	billingGate := gate.NewCached(svc.Config.Billing.Enabled, svc.ConnectorEntitlements, svc.Config.Billing.EntitlementCacheTTL)
+	deps := keys.Deps{UserProvider: svc.UserProvider, Uof: svc.Uof, Gate: billingGate}
 	catalog := getpubliccatalog.NewUseCase(getpubliccatalog.Deps{
 		Uof:       svc.Uof,
-		Gate:      gate.NewCached(svc.Config.Billing.Enabled, svc.ConnectorEntitlements, svc.Config.Billing.EntitlementCacheTTL),
+		Gate:      billingGate,
 		Providers: svc.BillingProviders,
 	})
-	sessionDeps := sessions.Deps{UserProvider: svc.UserProvider, Uof: svc.Uof}
+	sessionDeps := sessions.Deps{UserProvider: svc.UserProvider, Uof: svc.Uof, Gate: billingGate}
 	return &UseCases{
 		CreateCustomerSession:       createcustomersession.NewUseCase(sessionDeps),
 		RevokeCustomerSession:       revokecustomersession.NewUseCase(sessionDeps),

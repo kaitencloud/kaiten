@@ -29,7 +29,7 @@ func NewUseCase(deps keys.Deps) *UseCase {
 // that answers the first revocation; PUBLISHABLE_KEY_REVOKED is recorded
 // once, by the revocation that took the key out of service.
 func (u *UseCase) Execute(ctx context.Context, keyID uuid.UUID) (*keys.PublishableKey, error) {
-	user, err := u.deps.UserProvider.GetUser(ctx)
+	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return nil, err
 	}

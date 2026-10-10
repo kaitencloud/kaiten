@@ -266,6 +266,18 @@ func GenerateCode() (string, error) {
 // ValidCode reports whether a code has the accepted shape.
 func ValidCode(code string) bool { return codePattern.MatchString(code) }
 
+// NormalizeCode is a code as the voucher_code_normalized column stores it,
+// and as redemption, validation, lookup and the entropy floor read it
+// (§11.2 rules 1 and 3): upper case, everything outside [A-Za-z0-9] removed.
+func NormalizeCode(code string) string {
+	return strings.ToUpper(strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			return r
+		}
+		return -1
+	}, code))
+}
+
 func timePtr(ts pgtype.Timestamp) *time.Time {
 	if !ts.Valid {
 		return nil

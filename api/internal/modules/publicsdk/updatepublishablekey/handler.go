@@ -27,7 +27,7 @@ func NewUseCase(deps keys.Deps) *UseCase { return &UseCase{deps: deps} }
 
 // Execute changes a live key's label or origins. A revoked key cannot change.
 func (u *UseCase) Execute(ctx context.Context, keyID uuid.UUID, patch PublishableKeyPatch) (*keys.PublishableKey, error) {
-	user, err := u.deps.UserProvider.GetUser(ctx)
+	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -57,7 +57,8 @@ func (d VoucherDraft) Resolve(ctx context.Context, q *db.Queries, operation stri
 		if !ValidCode(code) {
 			return Resolved{}, invalid("InvalidCode", "a code is 8 to 64 of A-Z, a-z, 0-9, _ and -")
 		}
-		if len(code) < 12 && d.MaxRedemptions == nil && d.ExpiresAt == nil {
+		// The floor counts the normalized code: SUM-MER-27 is 8 characters.
+		if len(NormalizeCode(code)) < 12 && d.MaxRedemptions == nil && d.ExpiresAt == nil {
 			return Resolved{}, invalid("WeakCodeUnbounded",
 				"a code shorter than 12 characters can be guessed: bound it with maxRedemptions or expiresAt")
 		}
