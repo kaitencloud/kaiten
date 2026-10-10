@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, fn, userEvent, within } from 'storybook/test';
-import { storyInvoicePreview } from '@/test-fixtures/storybook-billing-fixtures';
+import {
+  NULL_LINE_MEMBERS,
+  storyInvoicePreview,
+} from '@/test-fixtures/storybook-billing-fixtures';
 import {
   InvoiceLinesTable,
   InvoicePreviewDialog,
@@ -47,6 +50,7 @@ export const WithDiscount: Story = {
         lines={[
           { ...storyInvoicePreview.lines[2] },
           {
+            ...NULL_LINE_MEMBERS,
             amount: -580,
             description: 'LAUNCH: 20% off the base',
             label: 'LAUNCH',

@@ -52,7 +52,7 @@ export function PaymentTermsForm({
       subscription,
       withProvider,
     });
-  const own = subscription.daysUntilDueOverride !== undefined;
+  const own = subscription.daysUntilDueOverride !== null;
   const defaultDays = settings.data?.defaultDaysUntilDue;
 
   return (

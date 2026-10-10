@@ -49,7 +49,7 @@ export function priceCopyBody(
 
   return {
     billingModel: price.billingModel,
-    billingPeriod: price.billingPeriod,
+    billingPeriod: price.billingPeriod ?? undefined,
     billingTiming: price.billingTiming,
     currency: price.currency,
     displayLabel: price.displayLabel || undefined,

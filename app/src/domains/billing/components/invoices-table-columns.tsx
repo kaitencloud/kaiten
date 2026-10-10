@@ -52,8 +52,8 @@ type ColumnSort = {
   alignRight?: boolean;
 };
 
-const instant = (value: string | undefined) =>
-  value === undefined ? undefined : Date.parse(value);
+const instant = (value: string | null | undefined) =>
+  value === undefined || value === null ? undefined : Date.parse(value);
 
 function column(
   id: InvoicesTableColumn,

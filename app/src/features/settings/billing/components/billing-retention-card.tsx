@@ -25,7 +25,7 @@ export function BillingRetentionCard() {
       />
       <CardContent className="space-y-2 text-sm">
         <p data-testid="billing-retention-months">
-          {months === undefined
+          {months === undefined || months === null
             ? t('Pages.Settings.Billing.Retention.unlimited')
             : t('Pages.Settings.Billing.Retention.months', { count: months })}
         </p>

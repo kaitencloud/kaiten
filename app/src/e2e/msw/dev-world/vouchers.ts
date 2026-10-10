@@ -294,6 +294,7 @@ export function createAgreementDiscountLine(
       applicationsMax: 2,
       appliesTo: 'LICENSE_BASE',
       base: String(ACME_AGREEMENT.base),
+      currency: null,
       discountType: 'PERCENTAGE',
       discountValue: '10',
       targetSeqs: [1],

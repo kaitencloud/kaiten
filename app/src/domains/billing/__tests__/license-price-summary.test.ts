@@ -10,6 +10,7 @@ const price = (overrides: Partial<CatalogPrice> = {}): CatalogPrice => ({
   billingPeriod: 'MONTHLY',
   billingTiming: 'ADVANCE',
   currency: 'USD',
+  displayLabel: null,
   displayOrder: 0,
   id: 'price-monthly',
   isDefault: true,
@@ -20,7 +21,7 @@ const price = (overrides: Partial<CatalogPrice> = {}): CatalogPrice => ({
 
 const metered = price({
   billingModel: 'USAGE_BASED',
-  billingPeriod: undefined,
+  billingPeriod: null,
   billingTiming: 'ARREARS',
   id: 'price-requests',
   metered: { entitlementSlug: 'requests', saleUnitFactor: '1000' },

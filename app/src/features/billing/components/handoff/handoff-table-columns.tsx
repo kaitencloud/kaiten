@@ -85,8 +85,8 @@ function IssuedCell({ invoice }: { invoice: QueuedInvoice }) {
   );
 }
 
-const instant = (value: string | undefined) =>
-  value === undefined ? undefined : Date.parse(value);
+const instant = (value: string | null | undefined) =>
+  value === undefined || value === null ? undefined : Date.parse(value);
 
 /**
  * The columns of the handoff queue: who the invoice is for, what it bills and comes

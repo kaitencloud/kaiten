@@ -8,12 +8,14 @@ import type {
   LineReportPage,
   PageInvoiceSummary,
   PageQueuedInvoice,
+  ProviderRecord,
   QueuedInvoice,
   UsageReport,
 } from '@/api-client';
 import { zInvoice, zUsageReport } from '@/api-client/zod.gen';
 import { CURRENCY_EXPONENTS } from '@/lib/currency-exponents';
 import { parseContract } from '../contracts/openapi-contract';
+import { NULL_OBJECT } from '../fixtures/null-object';
 import { BillingProblem } from './billing-problem';
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -498,8 +500,10 @@ export class BillingInvoices {
 
   private matches(invoice: Invoice, query: InvoiceListQuery): boolean {
     const now = this.now();
-    const at = (instant: string | undefined) =>
-      instant === undefined ? Number.NaN : Date.parse(instant);
+    const at = (instant: string | null | undefined) =>
+      instant === undefined || instant === null
+        ? Number.NaN
+        : Date.parse(instant);
 
     if (query.status?.length && !query.status.includes(invoice.status)) {
       return false;
@@ -931,8 +935,8 @@ export class BillingInvoices {
       releasedAt,
       releasedBy: by,
     };
-    invoice.holdReason = undefined;
-    invoice.holdDetail = undefined;
+    invoice.holdReason = null;
+    invoice.holdDetail = NULL_OBJECT;
   }
 
   /** `POST /invoices/{invoiceId}/release-hold`. */
@@ -1003,26 +1007,26 @@ export class BillingInvoices {
     const replacement: Invoice = {
       ...clone(invoice),
       createdAt: at,
-      hold: undefined,
-      holdDetail: undefined,
-      holdReason: undefined,
+      hold: NULL_OBJECT,
+      holdDetail: NULL_OBJECT,
+      holdReason: null,
       id: replacementId,
-      paidAt: undefined,
+      paidAt: null,
       // The replacement is a new invoice of the provider: it waits for its push.
       provider:
         invoice.providerKind === 'NOOP'
-          ? undefined
+          ? NULL_OBJECT
           : {
               nextPushAt: at,
               pushAttempts: 0,
             },
-      replacedByInvoiceId: undefined,
+      replacedByInvoiceId: null,
       replacesInvoiceId: invoice.id,
       status: 'DRAFT',
-      uncollectibleAt: undefined,
+      uncollectibleAt: null,
       updatedAt: at,
-      voidReason: undefined,
-      voidedAt: undefined,
+      voidReason: null,
+      voidedAt: null,
     };
     this.issue(replacement);
     this.invoices.push(replacement);
@@ -1136,7 +1140,7 @@ export class BillingInvoices {
     this.voidInProvider(invoice);
     invoice.status = 'VOID';
     invoice.voidedAt = new Date(this.now()).toISOString();
-    invoice.voidReason = reason;
+    invoice.voidReason = reason ?? null;
     invoice.provider = invoice.provider && {
       ...invoice.provider,
       nextPushAt: undefined,
@@ -1272,7 +1276,8 @@ export class BillingInvoices {
         'a held invoice is released or recomposed before it is pushed',
       );
     }
-    const record = invoice.provider;
+    // The record is null for an invoice nobody pushed, which its generated type cannot say.
+    const record = invoice.provider as ProviderRecord | null;
     const awaitsFinalization =
       invoice.status === 'DRAFT' &&
       record?.externalInvoiceId !== undefined &&

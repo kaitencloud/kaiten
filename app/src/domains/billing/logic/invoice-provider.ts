@@ -18,7 +18,7 @@ export const getProviderKindLabelKey = (kind: InvoiceProviderKind) =>
 
 /** What of an invoice tells how its push to the provider stands. */
 export type InvoicePushInput = Pick<InvoiceSummary, 'status'> & {
-  provider?: Pick<ProviderRecord, 'externalInvoiceId' | 'nextPushAt'>;
+  provider?: Pick<ProviderRecord, 'externalInvoiceId' | 'nextPushAt'> | null;
 };
 
 /**

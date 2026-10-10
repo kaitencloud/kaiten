@@ -167,7 +167,7 @@ describe('the payment method of a customer', () => {
 
   it('says there is none for a customer that has never been to Stripe, and offers no portal', async () => {
     server.use(
-      handleGetCustomerBilling({ body: { providers: [] } }),
+      handleGetCustomerBilling({ body: { billingEmail: null, providers: [] } }),
     );
     renderCard();
 

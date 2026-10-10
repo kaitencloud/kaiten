@@ -86,6 +86,7 @@ const overageLine: InvoiceLine = buildInvoiceLine({
   metering: {
     ledger: {
       firstSeq: 301,
+      instanceId: null,
       lastSeq: 304,
       rows: 4,
       sumDelta: '154500',

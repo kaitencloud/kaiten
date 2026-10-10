@@ -525,6 +525,7 @@ describe('what stands behind a line', () => {
       metering: {
         ledger: {
           firstSeq: 301,
+          instanceId: null,
           lastSeq: 305,
           rows: 5,
           sumDelta: '104200',

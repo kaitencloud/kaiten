@@ -10,6 +10,7 @@ import {
 type Fate = Parameters<typeof getOpenInvoiceFate>[0];
 
 const invoice = (overrides: Partial<Fate>): Fate => ({
+  holdReason: null,
   providerKind: 'NOOP',
   status: 'MANUAL',
   ...overrides,

@@ -83,7 +83,7 @@ export function useSubscribeInstanceForm({
         const price = prices.find(({ id }) => id === value.basePriceId);
         const errors = getSubscribeFormErrors(value, {
           addons,
-          period: price?.billingPeriod,
+          period: price?.billingPeriod ?? undefined,
           trialOffered:
             trials && (!price || canStartWithTrial(price.billingTiming)),
         });

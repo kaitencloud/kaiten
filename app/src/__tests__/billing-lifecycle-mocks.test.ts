@@ -92,7 +92,7 @@ describe('cancelling a subscription, as the mocks serve it', () => {
     ).json()) as CanceledSubscription;
 
     expect(canceled.cancelAtPeriodEnd).toBe(true);
-    expect(canceled.scheduledChange).toBeUndefined();
+    expect(canceled.scheduledChange).toBeNull();
   });
 
   it('issues the final invoice at once when it is immediate: the arrears of the period, nothing refunded', async () => {
@@ -166,7 +166,7 @@ describe('cancelling a subscription, as the mocks serve it', () => {
       })
     ).json()) as CanceledSubscription;
 
-    expect(canceled.pastDueSince).toBeUndefined();
+    expect(canceled.pastDueSince).toBeNull();
     expect(canceled.status).toBe('CANCELED');
   });
 
@@ -274,8 +274,8 @@ describe('reactivating a subscription, as the mocks serve it', () => {
     ).json()) as InstanceBilling;
 
     expect(reactivated.cancelAtPeriodEnd).toBe(false);
-    expect(reactivated.cancelRequestedAt).toBeUndefined();
-    expect(reactivated.cancellationReason).toBeUndefined();
+    expect(reactivated.cancelRequestedAt).toBeNull();
+    expect(reactivated.cancellationReason).toBeNull();
     expect(reactivated.status).toBe('ACTIVE');
   });
 
@@ -356,7 +356,7 @@ describe('scheduling a plan change, as the mocks serve it', () => {
       '/instances/initech-prod/billing/scheduled-change',
     );
 
-    expect(dropped.scheduledChange).toBeUndefined();
+    expect(dropped.scheduledChange).toBeNull();
     expect(none.status).toBe(409);
     expect((await refusal(none)).code).toBe('CancelPlanChange.NoPlanChangeScheduled');
   });
@@ -403,7 +403,7 @@ describe('changing the payment terms, as the mocks serve it', () => {
     ).json()) as InstanceBilling;
 
     expect(reset.daysUntilDue).toBe(30);
-    expect(reset.daysUntilDueOverride).toBeUndefined();
+    expect(reset.daysUntilDueOverride).toBeNull();
     const untouched = (await (
       await send('PATCH', '/instances/initech-prod/billing', {})
     ).json()) as InstanceBilling;
@@ -462,7 +462,7 @@ describe('subscribing with a trial, as the mocks serve it', () => {
 
     expect(carried.status).toBe('TRIAL');
     expect(none.status).toBe('ACTIVE');
-    expect(none.trialEndsAt).toBeUndefined();
+    expect(none.trialEndsAt).toBeNull();
   });
 
   it('composes the activation the end of a trial will issue as the upcoming invoice', async () => {

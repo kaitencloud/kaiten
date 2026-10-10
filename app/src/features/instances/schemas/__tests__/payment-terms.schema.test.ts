@@ -51,7 +51,7 @@ describe('the body of a change of terms', () => {
 describe('the body of a change of provider and terms', () => {
   const subscription = {
     collectionMethod: 'SEND_INVOICE',
-    daysUntilDueOverride: undefined,
+    daysUntilDueOverride: null,
     providerKind: 'NOOP',
   } as const;
   const values = (overrides: Partial<PaymentTermsFormValues> = {}): PaymentTermsFormValues => ({
@@ -87,7 +87,7 @@ describe('the body of a change of provider and terms', () => {
     expect(
       paymentTermsValuesToBody(values(), {
         collectionMethod: 'CHARGE_AUTOMATICALLY',
-        daysUntilDueOverride: undefined,
+        daysUntilDueOverride: null,
         providerKind: 'STRIPE',
       }),
     ).toEqual({ collectionMethod: 'SEND_INVOICE', providerKind: 'NOOP' });

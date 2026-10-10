@@ -100,7 +100,7 @@ describe('what is a copy of a price', () => {
   });
 
   it('reads a label the API stored as empty as no label', () => {
-    expect(isCopyOf({ ...base, displayLabel: '' }, { ...base, displayLabel: undefined })).toBe(true);
+    expect(isCopyOf({ ...base, displayLabel: '' }, { ...base, displayLabel: null })).toBe(true);
   });
 });
 

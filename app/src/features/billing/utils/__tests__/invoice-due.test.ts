@@ -7,14 +7,18 @@ const NOW = Date.parse('2027-03-20T12:00:00.000Z');
 const invoice = (overrides: Partial<InvoiceDueInput> = {}): InvoiceDueInput => ({
   collectionMethod: 'SEND_INVOICE',
   dueAt: '2027-03-31T00:04:00.000Z',
+  holdReason: null,
   issuedAt: '2027-03-17T00:04:00.000Z',
+  paidAt: null,
   status: 'MANUAL',
+  uncollectibleAt: null,
+  voidedAt: null,
   ...overrides,
 });
 
 describe('getInvoiceDue', () => {
   it('says a draft was not issued, held or not, whatever dates it carries', () => {
-    expect(getInvoiceDue(invoice({ issuedAt: undefined, status: 'DRAFT' }), NOW)).toEqual({
+    expect(getInvoiceDue(invoice({ issuedAt: null, status: 'DRAFT' }), NOW)).toEqual({
       kind: 'not-issued',
     });
     expect(
@@ -23,7 +27,7 @@ describe('getInvoiceDue', () => {
   });
 
   it('says an invoice with no issue date was not issued either', () => {
-    expect(getInvoiceDue(invoice({ issuedAt: undefined }), NOW)).toEqual({
+    expect(getInvoiceDue(invoice({ issuedAt: null }), NOW)).toEqual({
       kind: 'not-issued',
     });
   });
@@ -76,7 +80,7 @@ describe('getInvoiceDue', () => {
   });
 
   it('has no due date to read for an issued invoice that has none, or one that is not a date', () => {
-    expect(getInvoiceDue(invoice({ dueAt: undefined }), NOW)).toEqual({
+    expect(getInvoiceDue(invoice({ dueAt: null }), NOW)).toEqual({
       kind: 'no-due-date',
     });
     expect(getInvoiceDue(invoice({ dueAt: 'soon' }), NOW)).toEqual({
@@ -129,7 +133,7 @@ describe('getInvoiceDue', () => {
 
   it('keeps no due day for an invoice that ended and has none, or one that is not a date', () => {
     expect(
-      getInvoiceDue(invoice({ dueAt: undefined, status: 'VOID' }), NOW),
+      getInvoiceDue(invoice({ dueAt: null, status: 'VOID' }), NOW),
     ).toMatchObject({ dueAt: undefined, kind: 'ended' });
     expect(
       getInvoiceDue(invoice({ dueAt: 'soon', status: 'UNCOLLECTIBLE' }), NOW),

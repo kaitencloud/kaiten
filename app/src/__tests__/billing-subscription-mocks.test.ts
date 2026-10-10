@@ -159,7 +159,7 @@ describe('subscribing an instance, as the mocks serve it', () => {
       providerKind: 'NOOP',
       status: 'ACTIVE',
     });
-    expect(started.daysUntilDueOverride).toBeUndefined();
+    expect(started.daysUntilDueOverride).toBeNull();
     expect(started.activationInvoice).toMatchObject({
       kind: 'ACTIVATION',
       status: 'MANUAL',
@@ -208,7 +208,7 @@ describe('subscribing an instance, as the mocks serve it', () => {
 
     expect(started.id).toBe(ended.id);
     expect(started.status).toBe('ACTIVE');
-    expect(started.canceledAt).toBeUndefined();
+    expect(started.canceledAt).toBeNull();
   });
 
   it.each([

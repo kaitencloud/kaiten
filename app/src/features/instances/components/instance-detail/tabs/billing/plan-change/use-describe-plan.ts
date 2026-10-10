@@ -5,6 +5,7 @@ import {
   getPriceAmountParts,
   getPriceLabel,
   joinPriceAmount,
+  type PriceMeterMember,
 } from '@/domains/billing';
 
 /** What describes a plan: the price (`Price` of the contract, or the catalogue's) and, when known, its license version. */
@@ -15,9 +16,9 @@ type DescribedPrice = Pick<
   | 'billingTiming'
   | 'currency'
   | 'displayLabel'
-  | 'metered'
   | 'unitAmountDecimal'
->;
+> &
+  PriceMeterMember;
 
 type PlanDescription = {
   /** What the plan charges, over what period: `$39.00/month`. */

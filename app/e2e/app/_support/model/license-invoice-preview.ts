@@ -24,6 +24,8 @@ import {
   subtract,
   ZERO,
 } from './decimal';
+import { NULL_LINE_MEMBERS } from '../fixtures/build-invoice';
+import { NULL_OBJECT } from '../fixtures/null-object';
 import { LicenseProblem } from './license-problem';
 
 /**
@@ -261,6 +263,7 @@ export function composeLicenseInvoicePreview(
   drafts.push({
     displayOrder: base.displayOrder,
     line: {
+      ...NULL_LINE_MEMBERS,
       amount: Number(roundToInteger(parseDecimal(base.unitAmountDecimal))),
       billingModel: base.billingModel,
       billingTiming: base.billingTiming,
@@ -340,6 +343,7 @@ export function composeLicenseInvoicePreview(
     drafts.push({
       displayOrder: price.displayOrder,
       line: {
+        ...NULL_LINE_MEMBERS,
         amount: Number(roundToInteger(multiply(quantity, unit))),
         billingModel: price.billingModel,
         billingTiming: price.billingTiming,
@@ -349,6 +353,7 @@ export function composeLicenseInvoicePreview(
         label,
         licensePriceId: price.id,
         metering: {
+          ledger: NULL_OBJECT,
           measuredQuantity: formatDecimal(measured),
           negativeSegmentsFloored: 0,
           saleUnitFactor: formatDecimal(factor),
@@ -360,7 +365,7 @@ export function composeLicenseInvoicePreview(
               overageMeasured: formatDecimal(measure.overage),
               usageMeasured: formatDecimal(measure.usage),
             }
-          : undefined,
+          : NULL_OBJECT,
         quantity: formatDecimal(quantity),
         seq: 0,
         serviceFrom: arrears.from.toISOString(),

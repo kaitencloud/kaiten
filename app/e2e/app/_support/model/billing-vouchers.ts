@@ -659,14 +659,17 @@ export class BillingVouchers {
         applicationsCount: 0,
         applicationsMax:
           voucher.voucherType === 'PRICE'
-            ? applicationsMaxOf(voucher)
-            : undefined,
+            ? (applicationsMaxOf(voucher) ?? null)
+            : null,
         codeHint: voucher.codeHint,
-        effectiveExpiresAt: boostEnd(voucher, now, subscription),
+        effectiveExpiresAt: boostEnd(voucher, now, subscription) ?? null,
         effectiveStartsAt: now.toISOString(),
+        expiredAt: null,
         id: `redemption-${this.sequence}`,
         instanceSlug,
         redeemedAt: now.toISOString(),
+        revokedAt: null,
+        revokedReason: null,
         status: 'ACTIVE' as const,
         voucherId: voucher.id,
         voucherName: voucher.name,
@@ -845,7 +848,7 @@ export class BillingVouchers {
       }
       redemption.applicationsCount += 1;
       if (
-        redemption.applicationsMax !== undefined &&
+        redemption.applicationsMax !== null &&
         redemption.applicationsCount >= redemption.applicationsMax
       ) {
         redemption.status = 'EXPIRED';
@@ -869,7 +872,7 @@ export class BillingVouchers {
       .sort((a, b) => Date.parse(a.redeemedAt) - Date.parse(b.redeemedAt))
       .flatMap((redemption) =>
         (this.find(redemption.voucherId)?.grants ?? []).map((grant) => ({
-          effectiveExpiresAt: redemption.effectiveExpiresAt,
+          effectiveExpiresAt: redemption.effectiveExpiresAt ?? undefined,
           effectiveStartsAt: redemption.effectiveStartsAt,
           entitlementSlug: grant.entitlementSlug,
           instanceVoucherId: redemption.id,

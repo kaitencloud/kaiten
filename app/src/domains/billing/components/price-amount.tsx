@@ -1,16 +1,14 @@
 import { useTranslation } from 'react-i18next';
 import type { Entitlement, Price } from '@/api-client';
 import { cn } from '@/lib/utils';
-import { getPriceAmountParts } from '../logic';
+import { getPriceAmountParts, type PriceMeterMember } from '../logic';
 
 type PriceAmountProps = {
   className?: string;
   /** The entitlement a metered price measures, for the name of its unit. */
   entitlement?: Pick<Entitlement, 'name' | 'unitPlural' | 'unitSingular'>;
-  price: Pick<
-    Price,
-    'billingPeriod' | 'currency' | 'metered' | 'unitAmountDecimal'
-  >;
+  price: Pick<Price, 'billingPeriod' | 'currency' | 'unitAmountDecimal'> &
+    PriceMeterMember;
 };
 
 /**

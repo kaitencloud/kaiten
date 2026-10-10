@@ -303,7 +303,7 @@ export const RetentionNotReported: Story = {
     msw: {
       handlers: [
         handleGetBillingCapabilities({
-          body: billingCapabilities({ usageHistoryRetentionMonths: undefined }),
+          body: billingCapabilities({ usageHistoryRetentionMonths: null }),
         }),
       ],
     },

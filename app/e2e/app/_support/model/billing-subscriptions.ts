@@ -24,6 +24,7 @@ import {
 } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 import { buildInvoice, buildInvoiceLine } from '../fixtures/build-invoice';
+import { NULL_OBJECT } from '../fixtures/null-object';
 import { ArmedProblems, type ArmedBillingProblem } from './armed-problems';
 import { AddonCatalogue } from './billing-addon-catalogue';
 import { composeDiscounts } from './billing-discounts';
@@ -737,7 +738,7 @@ export class BillingSubscriptions {
     this.invoices.setDefaultDaysUntilDue(this.settings.defaultDaysUntilDue);
     // The terms a subscription does not name follow the organization's.
     for (const subscription of this.subscriptions) {
-      if (subscription.daysUntilDueOverride === undefined) {
+      if (subscription.daysUntilDueOverride === null) {
         subscription.daysUntilDue = this.settings.defaultDaysUntilDue;
       }
     }
@@ -874,7 +875,11 @@ export class BillingSubscriptions {
       basePrice: price,
       billingPeriod: price.billingPeriod ?? 'MONTHLY',
       cancelAtPeriodEnd: false,
+      cancelRequestedAt: null,
+      canceledAt: null,
+      cancellationReason: null,
       collectionMethod: 'SEND_INVOICE',
+      collectionMethodOverride: null,
       createdAt: existing?.createdAt ?? at,
       currency: price.currency,
       currentPeriodEnd: periodEnd.toISOString(),
@@ -882,14 +887,16 @@ export class BillingSubscriptions {
       customerName: instance.customerName,
       customerSlug: instance.customerSlug,
       daysUntilDue: body.daysUntilDue ?? this.settings.defaultDaysUntilDue,
-      daysUntilDueOverride: body.daysUntilDue,
+      daysUntilDueOverride: body.daysUntilDue ?? null,
       id: existing?.id ?? `sub-${slug}`,
       instanceName: instance.instanceName,
       instanceSlug: instance.instanceSlug,
+      pastDueSince: null,
       providerKind: 'NOOP',
+      scheduledChange: NULL_OBJECT,
       startedAt: at,
       status: trialDays > 0 ? 'TRIAL' : 'ACTIVE',
-      trialEndsAt: trialDays > 0 ? periodEnd.toISOString() : undefined,
+      trialEndsAt: trialDays > 0 ? periodEnd.toISOString() : null,
       updatedAt: at,
     };
     const subscription = parseContract(

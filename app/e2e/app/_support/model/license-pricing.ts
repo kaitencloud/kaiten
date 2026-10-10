@@ -11,6 +11,7 @@ import type {
 import { zLicenseEntitlement, zPrice } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 import { TEST_USER } from '../fixtures/build-customer';
+import { NULL_OBJECT } from '../fixtures/null-object';
 import { formatDecimal, parseDecimal } from './decimal';
 import { composeLicenseInvoicePreview } from './license-invoice-preview';
 import {
@@ -458,13 +459,14 @@ export class LicensePricing {
 
     return {
       billingModel: draft.billingModel,
-      billingPeriod: draft.billingPeriod,
+      billingPeriod: draft.billingPeriod ?? null,
       billingTiming: draft.billingTiming,
       createdAt: timestamps.createdAt,
       currency: draft.currency,
+      deprecatedAt: null,
       // The API stores what it is given: a label cleared by an update comes
-      // back as the empty string, and only an omitted one is absent.
-      displayLabel: draft.displayLabel,
+      // back as the empty string, and only an omitted one is null.
+      displayLabel: draft.displayLabel ?? null,
       displayOrder: draft.displayOrder,
       id,
       isDefault: draft.isDefault,
@@ -476,9 +478,9 @@ export class LicensePricing {
               saleUnitPlural: entitlement.saleUnitPlural,
               saleUnitSingular: entitlement.saleUnitSingular,
             }
-          : undefined,
+          : NULL_OBJECT,
       status: 'ACTIVE',
-      unitAmount: integral ? Number(amount) : undefined,
+      unitAmount: integral ? Number(amount) : null,
       unitAmountDecimal: amount,
       updatedAt: timestamps.updatedAt,
     };
@@ -551,7 +553,7 @@ export class LicensePricing {
       billingPeriod: patch.billingPeriod ?? stored.billingPeriod,
       billingTiming: patch.billingTiming ?? stored.billingTiming,
       currency: stored.currency,
-      displayLabel: patch.displayLabel ?? stored.displayLabel,
+      displayLabel: patch.displayLabel ?? stored.displayLabel ?? undefined,
       displayOrder: patch.displayOrder ?? stored.displayOrder,
       isDefault: patch.isDefault ?? stored.isDefault,
       meteredEntitlementSlug:

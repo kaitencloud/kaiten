@@ -15,6 +15,8 @@ const billing = (
       externalCustomerId: 'cus_1',
       paymentMethod: paymentMethod as never,
       providerKind,
+      syncedAt: null,
+      webUrl: null,
     },
   ],
 });
@@ -26,7 +28,7 @@ describe('the payment method a customer holds in Stripe', () => {
     ).toEqual({ last4: '4242', status: 'ACTIVE' });
   });
 
-  it('is none when the API says null, which its contract declares it never does', () => {
+  it('is none when the API says null, which its contract declares for a customer with no default method', () => {
     expect(getStripePaymentMethod(billing(null))).toBeNull();
   });
 

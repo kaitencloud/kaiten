@@ -45,6 +45,7 @@ const discountLine = (
       applicationsMax: 2,
       appliesTo: 'LICENSE_BASE',
       base: '4800000',
+      currency: null,
       discountType: 'PERCENTAGE',
       discountValue: '10',
       targetSeqs: [1],
@@ -101,7 +102,7 @@ describe('a discount line of an invoice', () => {
   it('says the redemption has no end when it has no maximum', () => {
     renderLines([
       BASE,
-      discountLine({ application: 7, applicationsMax: undefined }),
+      discountLine({ application: 7, applicationsMax: null }),
     ]);
 
     expect(screen.getByTestId('invoice-line-discount')).toHaveTextContent(

@@ -23,6 +23,8 @@ const FUTURE = '2027-04-01T00:00:00Z';
 
 const invoice = (overrides: Partial<InvoiceStatusInput> = {}): InvoiceStatusInput => ({
   collectionMethod: 'SEND_INVOICE',
+  dueAt: null,
+  holdReason: null,
   status: 'MANUAL',
   ...overrides,
 });

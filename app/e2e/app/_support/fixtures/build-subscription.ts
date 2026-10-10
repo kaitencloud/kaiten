@@ -1,5 +1,6 @@
 import type { InstanceBilling, InvoicePreview, Price } from '@/api-client';
 import { buildPrice } from './build-pricing';
+import { NULL_OBJECT } from './null-object';
 
 /** The base price the subscriptions of the fixtures are pinned to: $29.00 a month. */
 export const PRO_MONTHLY_PRICE: Price = buildPrice({
@@ -86,10 +87,11 @@ export function buildSubscription({
     basePrice,
     billingPeriod: period,
     cancelAtPeriodEnd,
-    cancelRequestedAt,
-    canceledAt,
-    cancellationReason,
+    cancelRequestedAt: cancelRequestedAt ?? null,
+    canceledAt: canceledAt ?? null,
+    cancellationReason: cancellationReason ?? null,
     collectionMethod: 'SEND_INVOICE',
+    collectionMethodOverride: null,
     createdAt: startedAt ?? anchorAt,
     currency: basePrice.currency,
     currentPeriodEnd:
@@ -98,16 +100,16 @@ export function buildSubscription({
     customerName,
     customerSlug,
     daysUntilDue: daysUntilDueOverride ?? defaultDaysUntilDue,
-    daysUntilDueOverride,
+    daysUntilDueOverride: daysUntilDueOverride ?? null,
     id: id ?? `sub-${instanceSlug}`,
     instanceName,
     instanceSlug,
-    pastDueSince,
+    pastDueSince: pastDueSince ?? null,
     providerKind: 'NOOP',
-    scheduledChange,
+    scheduledChange: scheduledChange ?? NULL_OBJECT,
     startedAt: startedAt ?? anchorAt,
     status,
-    trialEndsAt,
+    trialEndsAt: trialEndsAt ?? null,
     updatedAt: startedAt ?? anchorAt,
   };
 }

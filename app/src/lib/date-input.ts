@@ -22,7 +22,7 @@ export function dateInputToInstant(value: string): string | undefined {
 }
 
 /** The UTC day an instant falls on, as a date input holds it: `2027-03-01`. */
-export function instantToDateInput(instant: string | undefined): string {
+export function instantToDateInput(instant: string | null | undefined): string {
   const date = instant ? new Date(instant) : null;
 
   return date && !Number.isNaN(date.getTime())

@@ -1,7 +1,10 @@
 import type { TFunction } from 'i18next';
 import type { Entitlement, LicenseEntitlement, Price } from '@/api-client';
 import { type GrantAllowance, getGrantAllowance } from './license-price.utils';
-import { RESET_PERIOD_UNIT_KEYS } from '@/domains/billing';
+import {
+  type PriceMeterMember,
+  RESET_PERIOD_UNIT_KEYS,
+} from '@/domains/billing';
 
 type MeterLabels = Pick<
   Entitlement,
@@ -50,7 +53,7 @@ export function describeUsage(
  * a usage price says what it counts and when the count starts again.
  */
 export function describeMeter(
-  price: Pick<Price, 'billingModel' | 'metered'>,
+  price: Pick<Price, 'billingModel'> & PriceMeterMember,
   entitlement: MeterLabels | undefined,
   grant: LicenseEntitlement | undefined,
   t: TFunction,

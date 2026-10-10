@@ -204,6 +204,7 @@ export {
   type RedemptionStatus,
   PRICE_STATUS_LABEL_KEYS,
   type PriceAmountParts,
+  type PriceMeterMember,
   type ProviderStanding,
   type PaymentMethodStanding,
   type PushVariant,

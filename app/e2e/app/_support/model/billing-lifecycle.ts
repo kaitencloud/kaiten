@@ -11,6 +11,7 @@ import type {
 import { zInstanceBilling } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 import { buildInvoice, buildInvoiceLine } from '../fixtures/build-invoice';
+import { NULL_OBJECT } from '../fixtures/null-object';
 import { type BillingInvoices, toSummary } from './billing-invoices';
 import { BillingProblem } from './billing-problem';
 import type { ProviderRules } from './billing-providers';
@@ -151,9 +152,9 @@ export class SubscriptionLifecycle {
     } else if (!subscription.cancelAtPeriodEnd) {
       next.cancelAtPeriodEnd = true;
       next.cancelRequestedAt = at;
-      next.cancellationReason = reason;
+      next.cancellationReason = reason ?? null;
       // A plan change is dropped by a cancellation.
-      delete next.scheduledChange;
+      next.scheduledChange = NULL_OBJECT;
     }
     next.updatedAt = at;
 
@@ -168,11 +169,11 @@ export class SubscriptionLifecycle {
   ) {
     subscription.status = 'CANCELED';
     subscription.canceledAt = at;
-    subscription.cancellationReason = reason;
+    subscription.cancellationReason = reason ?? null;
     subscription.cancelAtPeriodEnd = false;
-    delete subscription.cancelRequestedAt;
-    delete subscription.pastDueSince;
-    delete subscription.scheduledChange;
+    subscription.cancelRequestedAt = null;
+    subscription.pastDueSince = null;
+    subscription.scheduledChange = NULL_OBJECT;
   }
 
   /**
@@ -265,8 +266,8 @@ export class SubscriptionLifecycle {
 
     const next = clone(subscription);
     next.cancelAtPeriodEnd = false;
-    delete next.cancelRequestedAt;
-    delete next.cancellationReason;
+    next.cancelRequestedAt = null;
+    next.cancellationReason = null;
     next.updatedAt = new Date(this.host.now()).toISOString();
 
     return this.host.write(next);
@@ -410,7 +411,7 @@ export class SubscriptionLifecycle {
     this.checkBoundary(operation, subscription);
 
     const next = clone(subscription);
-    delete next.scheduledChange;
+    next.scheduledChange = NULL_OBJECT;
     next.updatedAt = new Date(this.host.now()).toISOString();
 
     return this.host.write(next);
@@ -519,14 +520,14 @@ export class SubscriptionLifecycle {
 
     const next = clone(subscription);
     if (body.daysUntilDue === null) {
-      delete next.daysUntilDueOverride;
+      next.daysUntilDueOverride = null;
       next.daysUntilDue = this.host.defaultDaysUntilDue();
     } else if (body.daysUntilDue !== undefined) {
       next.daysUntilDueOverride = body.daysUntilDue;
       next.daysUntilDue = body.daysUntilDue;
     }
     if (body.collectionMethod === null) {
-      delete next.collectionMethodOverride;
+      next.collectionMethodOverride = null;
       next.collectionMethod = this.host.defaultCollectionMethod();
     } else if (body.collectionMethod !== undefined) {
       next.collectionMethodOverride = body.collectionMethod;

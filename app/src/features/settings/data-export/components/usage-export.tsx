@@ -83,7 +83,7 @@ export function UsageExport() {
           {t('Pages.Settings.DataExport.Usage.title')}
         </h3>
         <p className="text-sm text-muted-foreground">
-          {months === undefined
+          {months === undefined || months === null
             ? t('Pages.Settings.DataExport.Usage.descriptionUnknown', {
                 count: DEFAULT_CHUNK_MONTHS,
               })

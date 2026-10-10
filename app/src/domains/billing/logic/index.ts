@@ -165,6 +165,7 @@ export {
   getPriceUnitLabel,
   joinPriceAmount,
   type PriceAmountParts,
+  type PriceMeterMember,
 } from './price-display';
 export {
   type CatalogPrice,
