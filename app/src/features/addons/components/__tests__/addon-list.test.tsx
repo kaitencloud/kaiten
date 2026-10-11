@@ -347,6 +347,10 @@ describe('deleting a draft', () => {
     const confirmation = await screen.findByRole('alertdialog');
     expect(order).toEqual([]);
     expect(within(confirmation).getByText('Delete the draft Extra seats v2?')).toBeInTheDocument();
+    // The metered prices are visible prices now: the dialog says they are deprecated first, and why.
+    expect(confirmation).toHaveTextContent(
+      'Its active metered prices are deprecated first, since the API keeps the grants they measure until then.',
+    );
     await userEvent.click(within(confirmation).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(order).toEqual(['deprecate price-metered', 'unassign seats', 'delete extra-seats-v2']));

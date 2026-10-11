@@ -4438,7 +4438,7 @@ export default {
         label: 'Delete',
         title: 'Delete the draft {{name}} v{{version}}?',
         description:
-          'The draft, its prices, the licenses it fits and the entitlements it grants are deleted. It was never on sale, so no customer loses it. A version that was ever attached to an instance is history and cannot be deleted: archive it instead.',
+          'The draft, its prices, the licenses it fits and the entitlements it grants are deleted. Its active metered prices are deprecated first, since the API keeps the grants they measure until then. It was never on sale, so no customer loses it. A version that was ever attached to an instance is history and cannot be deleted: archive it instead.',
         confirm: 'Delete',
         success: 'Draft deleted',
       },

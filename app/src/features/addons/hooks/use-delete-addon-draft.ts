@@ -21,14 +21,14 @@ import {
 import { isActivePrice, isFlatFee } from '../utils/addon-price.utils';
 
 // A price that meters a grant keeps the grant: the API refuses to remove an
-// entitlement an active price of the version measures, and the grants must go
-// before the version does. The console does not list a metered price of an add-on
-// (it is never valued), so a person could not retire it: the ones that are still
-// active are deprecated first, which is what the API asks of them, and a draft is
-// deleted with its prices anyway. This comes before any grant is removed, so that a
-// refusal leaves the grants and the version where they were. The prices are
-// independent of each other: they go together, and every one is settled before the
-// first refusal is raised, so that what is read again after it is what the API holds.
+// entitlement an active price of the version measures
+// (`UnassignAddonEntitlement.MeteredByPrice`), and the grants must go before the
+// version does. A draft is deleted with its prices anyway, so the metered ones that
+// are still active are deprecated first, which is what the API asks of them, and the
+// dialog says so. This comes before any grant is removed, so that a refusal leaves
+// the grants and the version where they were. The prices are independent of each
+// other: they go together, and every one is settled before the first refusal is
+// raised, so that what is read again after it is what the API holds.
 async function deprecateMeteredPrices(
   queryClient: QueryClient,
   addonSlug: string,

@@ -4501,7 +4501,7 @@ export default {
         label: 'Supprimer',
         title: 'Supprimer le brouillon {{name}} v{{version}} ?',
         description:
-          'Le brouillon, ses prix, les licences qu’il complète et les droits qu’il accorde sont supprimés. Il n’a jamais été en vente : aucun client ne le perd. Une version qui a déjà été attachée à une instance fait partie de l’historique et ne peut pas être supprimée : archivez-la.',
+          'Le brouillon, ses prix, les licences qu’il complète et les droits qu’il accorde sont supprimés. Ses prix mesurés encore actifs sont d’abord dépréciés, car l’API garde les octrois qu’ils mesurent jusque-là. Il n’a jamais été en vente : aucun client ne le perd. Une version qui a déjà été attachée à une instance fait partie de l’historique et ne peut pas être supprimée : archivez-la.',
         confirm: 'Supprimer',
         success: 'Brouillon supprimé',
       },
