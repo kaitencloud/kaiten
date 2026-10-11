@@ -1,12 +1,12 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { getEntitlementSlug } from '@/domains/billing';
 import {
   entitlementsQueryOptions,
   licenseEntitlementsQueryOptions,
   licensePricesQueryOptions,
   licenseQueryOptions,
 } from '../queries';
-import { getEntitlementSlug } from '../utils/license-entitlements.utils';
 import {
   getPriceRules,
   getVersionCurrency,

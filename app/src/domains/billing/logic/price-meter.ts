@@ -17,6 +17,19 @@ import type { BillingModel, ResetPeriod } from './price-types';
 export const isMeteredModel = (model: BillingModel) => model !== 'FLAT_FEE';
 
 /**
+ * Whether a version has a flat fee on sale: only then does a subscription of its add-on
+ * ask for the default one of its period (`AttachInstanceAddon.NoPriceForBillingPeriod`).
+ * A version that only meters usage, or whose flat fees are all deprecated, attaches to
+ * any period.
+ */
+export const hasActiveFlatFee = (
+  prices: readonly Pick<Price, 'billingModel' | 'status'>[],
+): boolean =>
+  prices.some(
+    (price) => price.billingModel === 'FLAT_FEE' && price.status === 'ACTIVE',
+  );
+
+/**
  * The slug a price addresses an entitlement by. The API returns one for every
  * entitlement; when a read leaves it out, it is made as the API makes it, from the
  * name.

@@ -1,5 +1,9 @@
 import type { Addon, Price } from '@/api-client';
-import { BILLING_PERIODS, type BillingPeriod } from '@/domains/billing';
+import {
+  BILLING_PERIODS,
+  type BillingPeriod,
+  hasActiveFlatFee,
+} from '@/domains/billing';
 
 export const isActivePrice = (price: Pick<Price, 'status'>): boolean =>
   price.status === 'ACTIVE';
@@ -88,7 +92,7 @@ export function getPeriodSlots(
   const active = getFlatFees(prices).filter(isActivePrice);
   // The API asks for the default of the period only of a version that has an active
   // flat fee to bill.
-  const billsAFlatFee = pricingType === 'PAID' && active.length > 0;
+  const billsAFlatFee = pricingType === 'PAID' && hasActiveFlatFee(prices);
 
   return BILLING_PERIODS.flatMap((period) => {
     const ofPeriod = active.filter((price) => price.billingPeriod === period);

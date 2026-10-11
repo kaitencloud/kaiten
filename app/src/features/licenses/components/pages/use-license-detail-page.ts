@@ -13,7 +13,11 @@ import {
   deleteLicenseEntitlementMutation,
   updateLicenseEntitlementMutation,
 } from '@/api-client/@tanstack/react-query.gen';
-import { getProblem, handleBillingProblem } from '@/domains/billing';
+import {
+  getEntitlementSlug,
+  getProblem,
+  handleBillingProblem,
+} from '@/domains/billing';
 import {
   entitlementsQueryOptions,
   invalidateLicenseQueries,
@@ -23,7 +27,6 @@ import { getVersionFreezeReason } from '../../utils/license-freeze.utils';
 import {
   buildAssociateLicenseEntitlementBody,
   buildUpdateLicenseEntitlementBody,
-  getEntitlementSlug,
   resolveLicenseEntitlements,
   toEditableEntitlementType,
 } from '../../utils';

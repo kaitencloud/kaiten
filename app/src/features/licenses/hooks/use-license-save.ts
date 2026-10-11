@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import type { Entitlement, License, LicenseWritable } from '@/api-client';
+import { getEntitlementSlug } from '@/domains/billing';
 import {
   associateEntitlementWithLicenseMutation,
   createLicenseMutation,
@@ -8,7 +9,6 @@ import {
 } from '@/api-client/@tanstack/react-query.gen';
 import type { EditableLicenseEntitlement } from '../utils/license-entitlements.utils';
 import { buildAssociateLicenseEntitlementBody } from '../utils/license-entitlement-write.utils';
-import { getEntitlementSlug } from '../utils/license-entitlements.utils';
 
 type CreateLicenseWithGrantsOptions = {
   // Runs once the grants are attached and before the version is published, with

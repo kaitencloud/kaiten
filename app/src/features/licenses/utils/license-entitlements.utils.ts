@@ -4,7 +4,6 @@ import {
   isUnlimitedThreshold,
   resolveLimitCapExceededOveragePercent,
 } from '@/domains/entitlement-usage';
-import { generateSlug } from '@/functionals/slug';
 import { formatNumber } from '@/lib/format-date';
 import type { Entitlement, LicenseEntitlement } from '@/api-client';
 
@@ -222,20 +221,4 @@ export const formatEntitlementThreshold = (
   }
 
   return formatNumber(threshold);
-};
-
-export const getEntitlementSlug = (entitlement: Entitlement): string => {
-  const dynamicEntitlement = entitlement as unknown as {
-    slug?: unknown;
-  };
-
-  if (typeof dynamicEntitlement.slug === 'string') {
-    const normalizedSlug = dynamicEntitlement.slug.trim();
-    if (normalizedSlug.length > 0) {
-      return normalizedSlug;
-    }
-  }
-
-  // Same rules as the API's generator, which named the entitlement.
-  return generateSlug(entitlement.name);
 };

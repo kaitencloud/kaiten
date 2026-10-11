@@ -52,21 +52,3 @@ export function getInvoiceLineSource(line: PriceMembers): InvoiceLineSource {
     ? { kind: 'NONE' }
     : { kind: 'LICENSE', priceId: licensePriceId };
 }
-
-/** Whether a line bills an add-on: its fee, or what it rated on usage. */
-export const isAddonInvoiceLine = (line: PriceMembers): boolean =>
-  getInvoiceLineSource(line).kind === 'ADDON';
-
-/**
- * The id of the price a line bills, a licence's or an add-on's, or `null` for a
- * line that bills none (a discount).
- */
-export function getInvoiceLinePriceId(line: PriceMembers): string | null {
-  const source = getInvoiceLineSource(line);
-
-  if (source.kind === 'LICENSE') {
-    return source.priceId;
-  }
-
-  return source.kind === 'ADDON' ? source.addonPriceId : null;
-}

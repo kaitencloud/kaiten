@@ -79,10 +79,8 @@ export {
   isKnownInvoiceLineType,
 } from './invoice-line-type';
 export {
-  getInvoiceLinePriceId,
   getInvoiceLineSource,
   type InvoiceLineSource,
-  isAddonInvoiceLine,
 } from './invoice-line-source';
 export {
   getProviderKindLabelKey,
@@ -168,6 +166,7 @@ export {
   getGrantAllowance,
   getMeterOptions,
   type GrantAllowance,
+  hasActiveFlatFee,
   isMeteredModel,
   type MeterDisabledReason,
   type MeterGrant,

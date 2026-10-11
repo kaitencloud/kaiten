@@ -386,8 +386,7 @@ page holds, or an export the API streams.
   and the overage an add-on rated are `USAGE` and `OVERAGE` lines labelled by the
   entitlement they measure, with an `addonPriceId`, an `addonId` and an `instanceAddonId`
   and no `licensePriceId`. `getInvoiceLineSource` reads whose price a line bills from those
-  members (`getInvoiceLinePriceId` is the id, a licence's or an add-on's, and
-  `isAddonInvoiceLine` the question), never from the type or the label. A line's service
+  members, never from the type or the label. A line's service
   period is its own: an add-on is billed over the window it was held, so a line may start
   after the period of the subscription does or end before it, and none is assumed to span
   `[periodStart, boundary)`. One that was removed before the boundary is still billed

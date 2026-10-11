@@ -9,6 +9,7 @@ import {
   getEntitlementSlug,
   getGrantAllowance,
   getMeterOptions,
+  hasActiveFlatFee,
   sortMeterOptions,
 } from '../logic/price-meter';
 
@@ -241,5 +242,21 @@ describe('the slug of an entitlement', () => {
     expect(getEntitlementSlug({ name: 'API Calls', slug: 'api-calls' } as never)).toBe('api-calls');
     expect(getEntitlementSlug({ name: 'API Calls', slug: '  ' } as never)).toBe('api-calls');
     expect(getEntitlementSlug({ name: 'Seats' } as never)).toBe('seats');
+  });
+});
+
+describe('whether a version has a flat fee on sale', () => {
+  const flat = buildPrice({ id: 'flat', unitAmountDecimal: '100' });
+  const metered = buildPrice({
+    billingModel: 'USAGE_BASED',
+    id: 'metered',
+    unitAmountDecimal: '10',
+  });
+
+  it('is so only for an active flat fee, whatever it meters besides', () => {
+    expect(hasActiveFlatFee([metered, flat])).toBe(true);
+    expect(hasActiveFlatFee([metered])).toBe(false);
+    expect(hasActiveFlatFee([{ ...flat, status: 'DEPRECATED' }, metered])).toBe(false);
+    expect(hasActiveFlatFee([])).toBe(false);
   });
 });

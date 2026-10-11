@@ -2,7 +2,6 @@ export type { EditableLicenseEntitlement } from './license-entitlements.utils';
 export {
   formatEntitlementOveragePercent,
   formatEntitlementThreshold,
-  getEntitlementSlug,
   isNumericEntitlementType,
   parseOveragePercentInput,
   parseThresholdInput,
