@@ -13,6 +13,7 @@ import {
   writeOffInvoiceMutation,
 } from '@/api-client/@tanstack/react-query.gen';
 import {
+  getRetryWait,
   handleBillingProblem,
   invalidateInvoiceQueries,
 } from '@/domains/billing';
@@ -131,13 +132,23 @@ export function useInvoiceMutations(
 
       return;
     }
+    // The wait is said when the API named one (`Retry-After` of a provider that could not be reached).
+    const wait =
+      problem.retryAfterMs === undefined
+        ? undefined
+        : getRetryWait(problem.retryAfterMs);
+    const advice = t(
+      problem.providerUnavailable
+        ? 'Features.Billing.Problems.providerUnreachable'
+        : 'Features.Billing.Problems.transient',
+    );
     toast.error(detail, {
       action: { label: t('Common.retry'), onClick: retry },
-      description: t(
-        problem.providerUnavailable
-          ? 'Features.Billing.Problems.providerUnreachable'
-          : 'Features.Billing.Problems.transient',
-      ),
+      description: wait
+        ? `${advice} ${t('Features.Billing.Problems.retryIn', {
+            wait: t(wait.labelKey, { count: wait.count }),
+          })}`
+        : advice,
       duration: REFUSAL_TOAST_MS,
     });
   };

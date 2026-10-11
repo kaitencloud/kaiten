@@ -311,7 +311,12 @@ page holds, or an export the API streams.
   (nothing was changed, retry), a boundary being closed (`Retry-After`, a minute
   when absent, see below), a limit on the requests (a 429, or a code that ends in
   `.RateLimited`: `rate-limited`, which `ProblemAlert` says is temporary, with a retry, after
-  the API's words) and usage outside the retention. `applyProblemFieldErrors` puts the
+  the API's words) and usage outside the retention. The API sends `Retry-After` on a
+  boundary being closed (a minute), on a limit on the requests and on a 503 for a payment
+  provider that could not be reached (thirty seconds), and the gateway exposes it to the
+  browser, so `ProblemAlert` says how long to wait as the API told it ("Try again in 30
+  seconds"), `retryAfterMs` of the problem carries it, and a minute stands in for a
+  boundary or a limit whose answer has none. A 503 says a wait only when the API named one. `applyProblemFieldErrors` puts the
   field errors of a 422 on the fields of a form, and the problem's `detail` goes
   in a banner when one finds no field.
 - **An invoice preview is shown as it came.** `InvoicePreviewDialog` is the
@@ -447,7 +452,7 @@ page holds, or an export the API streams.
   refused with a 409 `*.BoundaryPending` while the period it ended is being closed:
   nothing was changed, and a minute later the close has run. `useBoundaryRetry()`
   gives a screen `send(request)`: it makes the request, and on that refusal it waits
-  what `Retry-After` says (a minute when the API says nothing, which today it does not),
+  what `Retry-After` says (a minute when the answer has none),
   makes the very same request once more, and says `closing` meanwhile, for the screen to
   show `BoundaryClosingNotice` (a status, not an error) in place of an alert. If the
   second try fails, whatever the reason, the failure is thrown for the screen to show

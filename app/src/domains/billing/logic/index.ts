@@ -20,7 +20,9 @@ export {
   getProblemCode,
   getProblemValueMember,
   getRetryAfterMs,
+  getRetryWait,
   handleBillingProblem,
+  type RetryWait,
 } from './billing-problem';
 export { placeRefusalOnFields, type RefusalFields } from './place-refusal';
 export { REASON_MAX_LENGTH, reasonSchema } from './reason';

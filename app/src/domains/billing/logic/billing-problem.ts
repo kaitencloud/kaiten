@@ -19,11 +19,11 @@ export type BillingProblemKind =
   | 'unavailable'
   /** 403 `Auth.MissingScope`: the token lacks the scope the action needs. */
   | 'missing-scope'
-  /** 503: nothing was changed, and asking again may work. */
+  /** 503: nothing was changed, and asking again may work, after `retryAfterMs` when the API names it. */
   | 'transient'
   /** 409 `*.BoundaryPending`: the period is closing; try again after `retryAfterMs`. */
   | 'boundary-pending'
-  /** 429 `*.RateLimited`: too many requests for now, which a minute settles; nothing was changed. */
+  /** 429 `*.RateLimited`: too many requests for now, which the wait of `retryAfterMs` settles; nothing was changed. */
   | 'rate-limited'
   /** 422 `*.OutsideRetention`: the usage asked for is no longer kept. */
   | 'outside-retention'
@@ -56,7 +56,12 @@ export type BillingProblem = {
   missingScope?: string;
   /** For `transient`: the payment provider is the one that cannot be reached. */
   providerUnavailable?: boolean;
-  /** For `boundary-pending` and `rate-limited`: how long to wait before asking again. */
+  /**
+   * How long to wait before asking again, from the `Retry-After` of the response. A
+   * `boundary-pending` or `rate-limited` refusal always has one, a minute when the
+   * response names none. A `transient` one has it only when the response names it, since
+   * nothing waits on a 503 by itself: its retry is the person's.
+   */
   retryAfterMs?: number;
   /**
    * When the payment provider is what refused: `not-connected` (it is not connected, or
@@ -70,7 +75,13 @@ export type BillingProblem = {
   retentionStart?: string;
 };
 
-/** The wait when a boundary refusal carries no `Retry-After`, which is today's API. */
+/**
+ * The wait when a refusal that is retried carries no `Retry-After`: a minute, which is also
+ * what the API itself names for a period being closed. The API sends the header on a
+ * boundary being closed, on a limit on the requests and on a payment provider that could not
+ * be reached, and the gateway lets a browser read it, so this is the fallback for an answer
+ * that lost it (a proxy, a client that does not expose it) and not the usual case.
+ */
 export const DEFAULT_RETRY_AFTER_MS = 60_000;
 const MAX_RETRY_AFTER_MS = 5 * 60_000;
 
@@ -101,20 +112,52 @@ function parseRetryAfter(header: string | null | undefined, now: number) {
 }
 
 /**
- * How long to wait before retrying, from the `Retry-After` header of the
- * response (seconds, or an HTTP date), and a minute when it has none: the stack
- * does not send it. Capped, so that a wrong header cannot park a screen for an
- * hour.
+ * What the `Retry-After` header of the response says (seconds, or an HTTP date), or nothing
+ * when the response has none or it is not one. Capped, so that a wrong header cannot park a
+ * screen for an hour.
  */
-export function getRetryAfterMs(error: unknown, now = Date.now()): number {
+function readRetryAfterMs(error: unknown, now: number): number | undefined {
   const header = isApiError(error)
     ? error.response?.headers.get('Retry-After')
     : null;
   const milliseconds = parseRetryAfter(header, now);
 
   return milliseconds === undefined
-    ? DEFAULT_RETRY_AFTER_MS
+    ? undefined
     : Math.min(milliseconds, MAX_RETRY_AFTER_MS);
+}
+
+/**
+ * How long to wait before retrying, from the `Retry-After` header of the response, and a
+ * minute when it has none (`DEFAULT_RETRY_AFTER_MS`).
+ */
+export function getRetryAfterMs(error: unknown, now = Date.now()): number {
+  return readRetryAfterMs(error, now) ?? DEFAULT_RETRY_AFTER_MS;
+}
+
+/** A wait as a screen says it: the text to translate, and how many of it. */
+export type RetryWait = {
+  count: number;
+  /** `Features.Billing.Problems.Wait.seconds` or `.minutes`, plural by `count`. */
+  labelKey:
+    | 'Features.Billing.Problems.Wait.minutes'
+    | 'Features.Billing.Problems.Wait.seconds';
+};
+
+/**
+ * A wait in the unit a person reads it in: whole seconds under a minute and whole minutes
+ * from one up, rounded up so that the retry is never announced earlier than it can work.
+ * 30 s is thirty seconds, 60 s a minute, 90 s two.
+ */
+export function getRetryWait(milliseconds: number): RetryWait {
+  const seconds = Math.max(1, Math.ceil(milliseconds / 1000));
+
+  return seconds < 60
+    ? { count: seconds, labelKey: 'Features.Billing.Problems.Wait.seconds' }
+    : {
+        count: Math.ceil(seconds / 60),
+        labelKey: 'Features.Billing.Problems.Wait.minutes',
+      };
 }
 
 const MISSING_SCOPE = /missing required scope:\s*([a-z]+:[a-z0-9_*]+)/i;
@@ -270,6 +313,7 @@ export function handleBillingProblem(error: unknown): BillingProblem {
       return {
         ...read,
         providerUnavailable: code?.endsWith('.ProviderUnavailable') ?? false,
+        retryAfterMs: readRetryAfterMs(error, Date.now()),
       };
     case 'boundary-pending':
     case 'rate-limited':

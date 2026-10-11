@@ -168,6 +168,7 @@ export {
   getRedemptionStatusLabelKey,
   getRetentionStart,
   getRetryAfterMs,
+  getRetryWait,
   getSubscriptionActions,
   getSubscriptionStartBounds,
   getSubscriptionStatusLabelKey,

@@ -10,6 +10,7 @@ import {
   DEFAULT_RETRY_AFTER_MS,
   getProblemCode,
   getRetryAfterMs,
+  getRetryWait,
   handleBillingProblem,
   setProblemFieldError,
 } from '../logic';
@@ -63,7 +64,7 @@ describe('getRetryAfterMs', () => {
     ).toBe(45_000);
   });
 
-  it('waits a minute when the stack sends no header, as it does today', () => {
+  it('waits a minute when the answer has no header', () => {
     expect(getRetryAfterMs(apiError(409, {}))).toBe(DEFAULT_RETRY_AFTER_MS);
     expect(DEFAULT_RETRY_AFTER_MS).toBe(60_000);
     expect(getRetryAfterMs(new Error('network'))).toBe(DEFAULT_RETRY_AFTER_MS);
@@ -76,6 +77,25 @@ describe('getRetryAfterMs', () => {
     expect(getRetryAfterMs(apiError(409, {}, { 'Retry-After': '3600' }))).toBe(
       300_000,
     );
+  });
+});
+
+describe('getRetryWait', () => {
+  it.each([
+    [0, 1, 'seconds'],
+    [1_000, 1, 'seconds'],
+    [12_000, 12, 'seconds'],
+    [30_000, 30, 'seconds'],
+    [59_000, 59, 'seconds'],
+    [60_000, 1, 'minutes'],
+    [60_001, 2, 'minutes'],
+    [90_000, 2, 'minutes'],
+    [300_000, 5, 'minutes'],
+  ] as const)('says %i ms as %i %s', (milliseconds, count, unit) => {
+    expect(getRetryWait(milliseconds)).toEqual({
+      count,
+      labelKey: `Features.Billing.Problems.Wait.${unit}`,
+    });
   });
 });
 
@@ -200,6 +220,33 @@ describe('handleBillingProblem', () => {
     ).toBe(60_000);
   });
 
+  it('gives a 503 the wait the API names, and none when it names none', () => {
+    expect(
+      handleBillingProblem(
+        apiError(
+          503,
+          { code: 'SyncInvoice.ProviderUnavailable', status: 503 },
+          { 'Retry-After': '30' },
+        ),
+      ),
+    ).toMatchObject({
+      kind: 'transient',
+      providerUnavailable: true,
+      retryAfterMs: 30_000,
+    });
+    // Nothing waits on a 503 by itself, so there is no default wait to give it.
+    expect(
+      handleBillingProblem(
+        apiError(503, { code: 'Billing.EntitlementCheckUnavailable', status: 503 }),
+      ).retryAfterMs,
+    ).toBeUndefined();
+    expect(
+      handleBillingProblem(
+        apiError(503, { status: 503 }, { 'Retry-After': 'soon' }),
+      ).retryAfterMs,
+    ).toBeUndefined();
+  });
+
   it('reads a limit on the requests as temporary, with the wait before asking again', () => {
     expect(
       handleBillingProblem(
@@ -219,7 +266,7 @@ describe('handleBillingProblem', () => {
       kind: 'rate-limited',
       retryAfterMs: 20_000,
     });
-    // The browser cannot read the header today (CORS does not expose it): a minute.
+    // An answer that lost its header (a proxy) waits a minute.
     expect(
       handleBillingProblem(
         apiError(429, { code: 'ValidateVoucher.RateLimited', status: 429 }),

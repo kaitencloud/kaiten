@@ -9,8 +9,8 @@ import { handleBillingProblem } from '../logic';
  * the close has run.
  *
  * `send` makes the request. When the API says the boundary is pending it waits
- * for the time the answer names (a minute when it names none: the stack does not
- * send `Retry-After`) and makes the very same request once more, with the same
+ * for the time the answer names in `Retry-After` (a minute when the answer has
+ * none left) and makes the very same request once more, with the same
  * variables since it is the same closure. `closing` is true during the wait, for
  * the screen to say so instead of showing an error. If that second try fails,
  * whatever the reason, the failure is thrown for the screen to show, with a

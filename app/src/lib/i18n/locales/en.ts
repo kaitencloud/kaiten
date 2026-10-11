@@ -5786,9 +5786,16 @@ export default {
         providerUnreachable:
           'The payment provider could not be reached. Nothing was changed.',
         boundaryPending:
-          'The period of this subscription has ended and is being closed. Nothing was changed. Try again in a minute.',
+          'The period of this subscription has ended and is being closed. Nothing was changed. Try again in {{wait}}.',
         rateLimited:
-          'Too many requests were sent in a short time. This is temporary: try again in a minute.',
+          'Too many requests were sent in a short time. This is temporary: try again in {{wait}}.',
+        retryIn: 'Try again in {{wait}}.',
+        Wait: {
+          seconds_one: 'a second',
+          seconds_other: '{{count}} seconds',
+          minutes_one: 'a minute',
+          minutes_other: '{{count}} minutes',
+        },
         BoundaryClosing: {
           title: 'Closing the period…',
           description:

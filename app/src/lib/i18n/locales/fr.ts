@@ -5876,9 +5876,16 @@ export default {
         providerUnreachable:
           'Le fournisseur de paiement est injoignable. Rien n’a été modifié.',
         boundaryPending:
-          'La période de cet abonnement est terminée et en cours de clôture. Rien n’a été modifié. Réessayez dans une minute.',
+          'La période de cet abonnement est terminée et en cours de clôture. Rien n’a été modifié. Réessayez dans {{wait}}.',
         rateLimited:
-          'Trop de requêtes ont été envoyées en peu de temps. C’est temporaire : réessayez dans une minute.',
+          'Trop de requêtes ont été envoyées en peu de temps. C’est temporaire : réessayez dans {{wait}}.',
+        retryIn: 'Réessayez dans {{wait}}.',
+        Wait: {
+          seconds_one: 'une seconde',
+          seconds_other: '{{count}} secondes',
+          minutes_one: 'une minute',
+          minutes_other: '{{count}} minutes',
+        },
         BoundaryClosing: {
           title: 'Clôture de la période…',
           description:

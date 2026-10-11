@@ -33,6 +33,17 @@ const plain = (text: string | null) => (text ?? '').replace(/[  ]/g, ' ');
 
 const apiError = (status: number, data: unknown) => new ApiError({ data, status });
 
+/** A refusal that carries the `Retry-After` the API sent with it. */
+const apiErrorWaiting = (status: number, data: unknown, retryAfter: string) =>
+  new ApiError({
+    data,
+    response: new Response(null, {
+      headers: { 'Retry-After': retryAfter },
+      status,
+    }),
+    status,
+  });
+
 describe('ProblemAlert', () => {
   it('shows the detail of the problem as the API wrote it', () => {
     render(
@@ -143,6 +154,100 @@ describe('ProblemAlert', () => {
     ).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('says how long to wait as the API named it, for a period being closed and for a limit on the requests', () => {
+    const { unmount } = render(
+      <ProblemAlert
+        error={apiErrorWaiting(
+          409,
+          { code: 'CancelSubscription.BoundaryPending', detail: 'closing', status: 409 },
+          '12',
+        )}
+      />,
+    );
+    expect(screen.getByText(/Nothing was changed\. Try again in 12 seconds\./)).toBeInTheDocument();
+    unmount();
+
+    render(
+      <ProblemAlert
+        error={apiErrorWaiting(
+          429,
+          { code: 'ValidateVoucher.RateLimited', detail: 'slow down', status: 429 },
+          '150',
+        )}
+      />,
+    );
+    expect(
+      screen.getByText(
+        'Too many requests were sent in a short time. This is temporary: try again in 3 minutes.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says a minute for the wait of a minute, as the API names it for a period being closed', () => {
+    render(
+      <ProblemAlert
+        error={apiErrorWaiting(
+          409,
+          { code: 'CancelSubscription.BoundaryPending', detail: 'closing', status: 409 },
+          '60',
+        )}
+      />,
+    );
+
+    expect(screen.getByText(/Try again in a minute\./)).toBeInTheDocument();
+  });
+
+  it('says how long to wait after a payment provider that could not be reached, when the API names it', () => {
+    render(
+      <ProblemAlert
+        error={apiErrorWaiting(
+          503,
+          { code: 'SyncInvoice.ProviderUnavailable', status: 503 },
+          '30',
+        )}
+        onRetry={() => {}}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        'The payment provider could not be reached. Nothing was changed. Try again in 30 seconds.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('names no wait for a 503 that names none', () => {
+    render(
+      <ProblemAlert
+        error={apiError(503, { code: 'Billing.EntitlementCheckUnavailable', status: 503 })}
+        onRetry={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('Nothing was changed. You can try again.')).toBeInTheDocument();
+    expect(screen.queryByText(/Try again in/)).toBeNull();
+  });
+
+  it('says the wait in French as well', async () => {
+    await testI18n.changeLanguage('fr');
+    render(
+      <ProblemAlert
+        error={apiErrorWaiting(
+          429,
+          { code: 'ValidateVoucher.RateLimited', status: 429 },
+          '1',
+        )}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        'Trop de requêtes ont été envoyées en peu de temps. C’est temporaire : réessayez dans une seconde.',
+      ),
+    ).toBeInTheDocument();
+    await testI18n.changeLanguage('en');
   });
 
   it('says a limit on the requests is temporary in French too', async () => {

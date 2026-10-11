@@ -137,7 +137,9 @@ export const refusal = (
     errorId?: string;
     errors?: Array<{ location?: string; message?: string; value?: unknown }>;
   },
-) => HttpResponse.json({ ...body, status }, { status });
+  /** What the API sends beside the problem, such as `Retry-After`. */
+  headers?: Record<string, string>,
+) => HttpResponse.json({ ...body, status }, { headers, status });
 
 const FIRST_INVOICE: Omit<InvoiceSummary, 'customerName' | 'id'> = {
   boundaryAt: '2027-03-01T00:00:00.000Z',

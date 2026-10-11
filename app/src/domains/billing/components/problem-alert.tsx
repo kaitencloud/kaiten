@@ -7,6 +7,7 @@ import { useAlertFocus } from '../hooks/use-alert-focus';
 import { useCanPerform } from '../hooks/use-can-perform';
 import {
   formatUtcDate,
+  getRetryWait,
   handleBillingProblem,
   STRIPE_CONNECTOR_ROUTE_ID,
 } from '../logic';
@@ -51,7 +52,9 @@ type ProblemAlertProps = {
  * offers a retry, never an optimistic result, and so does a period that is being
  * closed (409 `*.BoundaryPending`), which a minute settles, and so does a limit on
  * the requests (429 `*.RateLimited`), which says it is temporary: the voucher codes
- * checked in a dialog are limited to sixty a minute.
+ * checked in a dialog are limited to sixty a minute. Each says how long to wait as the
+ * API told it in `Retry-After`, and a minute when it told nothing; a 503 says it only
+ * when the API named a wait.
  */
 export function ProblemAlert({
   autoFocus = false,
@@ -62,6 +65,11 @@ export function ProblemAlert({
   const { i18n, t } = useTranslation();
   const problem = handleBillingProblem(error);
   const alertRef = useAlertFocus(autoFocus, error);
+  const wait =
+    problem.retryAfterMs === undefined
+      ? undefined
+      : getRetryWait(problem.retryAfterMs);
+  const waitText = wait ? t(wait.labelKey, { count: wait.count }) : undefined;
 
   if (problem.kind === 'missing-scope') {
     return (
@@ -103,13 +111,20 @@ export function ProblemAlert({
             {problem.providerUnavailable
               ? t('Features.Billing.Problems.providerUnreachable')
               : t('Features.Billing.Problems.transient')}
+            {waitText
+              ? ` ${t('Features.Billing.Problems.retryIn', { wait: waitText })}`
+              : ''}
           </p>
         ) : null}
         {problem.kind === 'boundary-pending' ? (
-          <p>{t('Features.Billing.Problems.boundaryPending')}</p>
+          <p>
+            {t('Features.Billing.Problems.boundaryPending', { wait: waitText })}
+          </p>
         ) : null}
         {problem.kind === 'rate-limited' ? (
-          <p>{t('Features.Billing.Problems.rateLimited')}</p>
+          <p>
+            {t('Features.Billing.Problems.rateLimited', { wait: waitText })}
+          </p>
         ) : null}
         {problem.provider &&
         (problem.provider.code || problem.provider.param) ? (

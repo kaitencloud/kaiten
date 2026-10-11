@@ -294,6 +294,32 @@ describe('pushing an invoice again', () => {
   });
 });
 
+describe('a Stripe that cannot be reached, and says when to ask again', () => {
+  it('adds the wait the API names to what the refusal says', async () => {
+    server.use(
+      handleRetryInvoicePush(() =>
+        refusal(
+          503,
+          {
+            code: 'RetryInvoicePush.ProviderUnavailable',
+            detail: 'the payment provider could not be reached',
+          },
+          { 'Retry-After': '30' },
+        ),
+      ),
+    );
+    await renderActions(inReview());
+
+    await userEvent.click(await action('Finalize in Stripe'));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    expect(toast.error.mock.calls[0][1]).toMatchObject({
+      description:
+        'The payment provider could not be reached. Nothing was changed. Try again in 30 seconds.',
+    });
+  });
+});
+
 describe('reading an invoice back from Stripe', () => {
   it('asks the API to read it, and says so', async () => {
     const asked: string[] = [];

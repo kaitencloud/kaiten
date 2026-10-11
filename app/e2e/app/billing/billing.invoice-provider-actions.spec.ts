@@ -168,8 +168,9 @@ test.describe('pushing an invoice to Stripe again', () => {
     const refusal = page
       .locator('[data-sonner-toast][data-type="error"]')
       .filter({ hasText: 'the payment provider could not be reached' });
+    // The API says how long to wait after a provider it could not reach: thirty seconds.
     await expect(refusal).toContainText(
-      'The payment provider could not be reached. Nothing was changed.',
+      'The payment provider could not be reached. Nothing was changed. Try again in 30 seconds.',
     );
     await expect(invoice.statusBadge()).toHaveText('Push failed');
     await expect(invoice.pushStatus()).toHaveCount(0);

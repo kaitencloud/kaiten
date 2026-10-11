@@ -177,6 +177,24 @@ test.describe('checking the code of the dialog that subscribes', () => {
       );
     });
 
+    test('says how long to wait when the API names it in Retry-After', async ({
+      page,
+    }) => {
+      const billing = createVouchersBillingModel();
+      billing.vouchers.armProblem('validateVoucher', {
+        ...VALIDATION_RATE_LIMITED,
+        retryAfterSeconds: 20,
+      });
+      const { vouchers } = await openDialog(page, billing);
+      await vouchers.codeField().fill('WELCOME-SPRING-2027');
+
+      await vouchers.checkButton().click();
+
+      await expect(page.getByRole('dialog').getByRole('alert')).toContainText(
+        'This is temporary: try again in 20 seconds.',
+      );
+    });
+
     test('does not keep the subscription from being sent', async ({ page }) => {
       const billing = createVouchersBillingModel();
       billing.vouchers.armProblem('validateVoucher', VALIDATION_RATE_LIMITED);
