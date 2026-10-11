@@ -76,8 +76,14 @@ function serveUpdates(answer?: (body: BillingSettings) => Response) {
     handleUpdateBillingSettings(async ({ request }) => {
       const body = (await request.json()) as BillingSettings;
       bodies.push(body);
+      if (answer) {
+        return answer(body);
+      }
+      // Saved as the API saves it: the page reads the settings again after a save,
+      // and must find what it sent, not the seed, however late that read lands.
+      server.use(handleGetBillingSettings({ body: { ...STORED, ...body } }));
 
-      return answer?.(body) ?? HttpResponse.json(body);
+      return HttpResponse.json(body);
     }),
   );
 
