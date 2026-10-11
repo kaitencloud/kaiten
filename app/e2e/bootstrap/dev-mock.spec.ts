@@ -67,6 +67,11 @@ test('dev:mock answers every request of the billing screens of the instances, th
   await expect(
     page.getByRole('row').filter({ hasText: 'Extra seat, monthly' }),
   ).toBeVisible();
+  // The draft of the seats rates the calls it adds: a metered price beside its flat fee.
+  await page.goto('/catalog/addons/extra-seats-v2/prices');
+  await expect(
+    page.getByRole('row').filter({ hasText: 'API calls, extra pack' }),
+  ).toContainText('Usage-based');
   await page.goto('/catalog/addons/extra-seats/compatibility');
   await expect(
     page.getByRole('list', { name: 'License families' }),
