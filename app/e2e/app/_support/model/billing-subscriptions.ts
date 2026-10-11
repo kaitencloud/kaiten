@@ -26,6 +26,10 @@ import { parseContract } from '../contracts/openapi-contract';
 import { buildInvoice, buildInvoiceLine } from '../fixtures/build-invoice';
 import { ArmedProblems, type ArmedBillingProblem } from './armed-problems';
 import { AddonCatalogue } from './billing-addon-catalogue';
+import {
+  type AddonLineDraft,
+  composeAddonFeeLines,
+} from './billing-addon-lines';
 import { composeDiscounts } from './billing-discounts';
 import {
   type BillingInvoices,
@@ -553,46 +557,66 @@ export class BillingSubscriptions {
 
   /**
    * What the next boundary issues when nothing says otherwise: the arrears of
-   * the period that ends when the base bills in arrears, and the base of the
+   * the period that ends when the base bills in arrears, the base of the
    * period that starts when the plan bills in advance, which is the plan a
-   * scheduled change moves to. A trial has no period to bill: what its end
-   * issues is the activation, with the first period in advance.
+   * scheduled change moves to, and the fees of the add-ons the instance holds or
+   * held in the period that ends (an add-on removed before the boundary is still
+   * billed). A trial has no period to bill: what its end issues is the
+   * activation, with the first period in advance.
    */
   private composeUpcoming(subscription: InstanceBilling): InvoicePreview {
     const trial = subscription.status === 'TRIAL';
     const { basePrice } = subscription;
     const plan = subscription.scheduledChange?.price ?? basePrice;
     const boundary = subscription.currentPeriodEnd;
-    const lines: InvoiceLine[] = [];
+    const next = addMonthsClamped(
+      new Date(boundary),
+      PERIOD_MONTHS[plan.billingPeriod ?? subscription.billingPeriod],
+    ).toISOString();
+    const drafts: AddonLineDraft[] = [];
     const addBase = (price: Price, from: string, to: string) => {
-      lines.push(
-        buildInvoiceLine({
-          amount: Math.round(Number(price.unitAmountDecimal)),
-          description: `1 × ${price.unitAmountDecimal} per ${(price.billingPeriod ?? subscription.billingPeriod).toLowerCase()}`,
-          invoiceId: 'upcoming',
-          label: price.displayLabel ?? 'Base fee',
-          licensePriceId: price.id,
-          seq: lines.length + 1,
-          serviceFrom: from,
-          serviceTo: to,
-          type: 'BASE',
-          unitAmountDecimal: price.unitAmountDecimal,
-        }),
-      );
+      drafts.push({
+        from,
+        line: ({ invoiceId, seq }) =>
+          buildInvoiceLine({
+            amount: Math.round(Number(price.unitAmountDecimal)),
+            description: `1 × ${price.unitAmountDecimal} per ${(price.billingPeriod ?? subscription.billingPeriod).toLowerCase()}`,
+            invoiceId,
+            label: price.displayLabel ?? 'Base fee',
+            licensePriceId: price.id,
+            seq,
+            serviceFrom: from,
+            serviceTo: to,
+            type: 'BASE',
+            unitAmountDecimal: price.unitAmountDecimal,
+          }),
+        rank: 0,
+      });
     };
     if (!trial && basePrice.billingTiming === 'ARREARS') {
       addBase(basePrice, subscription.currentPeriodStart, boundary);
     }
     if (plan.billingTiming === 'ADVANCE') {
-      addBase(
-        plan,
-        boundary,
-        addMonthsClamped(
-          new Date(boundary),
-          PERIOD_MONTHS[plan.billingPeriod ?? subscription.billingPeriod],
-        ).toISOString(),
-      );
+      addBase(plan, boundary, next);
     }
+    drafts.push(
+      ...composeAddonFeeLines({
+        arrears: !trial,
+        attachments: this.instanceAddons.historyOf(subscription.instanceSlug),
+        billingPeriod: subscription.billingPeriod,
+        boundary,
+        next,
+        periodStart: subscription.currentPeriodStart,
+      }),
+    );
+    drafts.sort(
+      (left, right) =>
+        Date.parse(left.from) - Date.parse(right.from) ||
+        left.rank - right.rank,
+    );
+    const lines = drafts.map((draft, index) =>
+      draft.line({ invoiceId: 'upcoming', seq: index + 1 }),
+    );
     let total = 0;
     for (const line of lines) {
       total += line.amount;
@@ -609,8 +633,14 @@ export class BillingSubscriptions {
         kind: trial ? 'ACTIVATION' : 'RENEWAL',
         licenseSlug: instance?.licenseSlug ?? '',
         lines,
-        serviceFrom: lines[0]?.serviceFrom,
-        serviceTo: lines.at(-1)?.serviceTo,
+        serviceFrom: lines
+          .map((line) => line.serviceFrom)
+          .sort()
+          .at(0),
+        serviceTo: lines
+          .map((line) => line.serviceTo)
+          .sort()
+          .at(-1),
         status: 'PREVIEW',
         subtotal: total,
         total,
@@ -1033,11 +1063,14 @@ export class BillingSubscriptions {
       }
       lines.push(
         buildInvoiceLine({
+          addonId: attached.addonId,
           addonPriceId: fee.id,
           amount: Math.round(Number(fee.unitAmountDecimal)) * attached.quantity,
           description: `${attached.quantity} × ${fee.unitAmountDecimal} per ${subscription.billingPeriod.toLowerCase()}`,
+          instanceAddonId: attached.id,
           invoiceId,
           label: fee.displayLabel ?? attached.addonSlug,
+          quantity: String(attached.quantity),
           seq: lines.length + 1,
           serviceFrom: from,
           serviceTo: to,

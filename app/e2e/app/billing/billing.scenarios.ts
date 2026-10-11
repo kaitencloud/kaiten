@@ -17,6 +17,11 @@ import {
   type StripeStanding,
 } from '../_support/model/billing-capabilities';
 import {
+  acmeProductionAttachments,
+  addonLineReports,
+  addonRenewalInvoice,
+} from './addon-lines';
+import {
   ACME_LEGACY_SUBSCRIPTION,
   ACME_PRODUCTION,
   ACME_PRODUCTION_SUBSCRIPTION,
@@ -444,6 +449,23 @@ export function createSubscriptionsModel() {
     invoices: acmeInvoices(),
     subscriptions: [ACME_PRODUCTION_SUBSCRIPTION, ACME_LEGACY_SUBSCRIPTION],
     upcoming: { 'acme-production': acmeProductionUpcoming() },
+  });
+}
+
+/**
+ * Acme Production billed for the add-ons it holds and has held (`addon-lines.ts`): the
+ * invoice of September 15th carries the fee of an add-on removed before the boundary and
+ * the usage of one attached mid-period, and the upcoming invoice, composed from the
+ * attachments, carries the fee of the next period and that of an add-on removed since.
+ */
+export function createAddonLinesModel() {
+  return new BillingAppModel({
+    addons: { 'acme-production': acmeProductionAttachments() },
+    capabilities: billingCapabilitiesProfiles.full(),
+    catalogue: billedCatalogue(),
+    invoices: [addonRenewalInvoice()],
+    lineReports: addonLineReports(),
+    subscriptions: [ACME_PRODUCTION_SUBSCRIPTION],
   });
 }
 

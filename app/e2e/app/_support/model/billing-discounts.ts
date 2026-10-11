@@ -27,14 +27,19 @@ export type ComposedDiscount = {
   redemptionId: string;
 };
 
+// A line from an add-on price: the fee of an add-on, and the usage or the overage an
+// add-on rated, which carries an add-on price and no license price.
+const isAddonLine = (line: InvoiceLine): boolean =>
+  line.type === 'ADDON' || (line.addonPriceId ?? null) !== null;
+
 const isTarget = (voucher: Voucher, line: InvoiceLine): boolean => {
   switch (voucher.priceAppliesTo) {
     case 'LICENSE_BASE':
       return line.type === 'BASE';
     case 'ADDONS':
-      return line.type === 'ADDON';
+      return isAddonLine(line);
     case 'BOTH':
-      return line.type === 'BASE' || line.type === 'ADDON';
+      return line.type === 'BASE' || isAddonLine(line);
     case 'SELECTED_PRICES':
       return (
         (line.licensePriceId !== null &&

@@ -11,6 +11,7 @@ import {
 import { createUsageEventsAuditTrailModel } from '../audit-trail/audit-trail.scenarios';
 import {
   createBillingDisabledModel,
+  createAddonLinesModel,
   createBillingFeatureGatedModel,
   createBillingFullModel,
   createBillingOutageModel,
@@ -140,6 +141,7 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     () => createStripeConnectorModels({ standing: 'notEntitled' }),
   ],
   ['billing/createSubscriptionsModel', createSubscriptionsModel],
+  ['billing/createAddonLinesModel', createAddonLinesModel],
   ['billing/createLifecycleBillingModel', createLifecycleBillingModel],
   ['billing/createLifecycleInstancesModel', createLifecycleInstancesModel],
   ['billing/createLifecycleLicensesModel', createLifecycleLicensesModel],

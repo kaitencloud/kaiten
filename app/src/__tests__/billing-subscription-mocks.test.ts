@@ -14,7 +14,10 @@ import {
   buildInvoiceLine,
 } from '../../e2e/app/_support/fixtures/build-invoice';
 import { ACME_LEGACY, BILLED_NOW } from '../../e2e/app/billing/billed-instances';
-import { createSubscriptionsModel } from '../../e2e/app/billing/billing.scenarios';
+import {
+  createAddonLinesModel,
+  createSubscriptionsModel,
+} from '../../e2e/app/billing/billing.scenarios';
 import { server } from './msw-server';
 
 // What the mocks standing in for the subscriptions of the instances and the billing
@@ -444,5 +447,77 @@ describe('the invoices of a customer, as the mocks serve them', () => {
       'acme-legacy',
     ]);
     expect((page.items[0] as Invoice).id).toBe('inv-acme-renewal');
+  });
+});
+
+describe('the add-ons on the invoices the mocks compose', () => {
+  it('bills the fee of the add-ons an instance holds and of one removed before the boundary, in the order of the API', async () => {
+    install(createAddonLinesModel());
+
+    const preview = (await (
+      await send('GET', '/instances/acme-production/billing/upcoming-invoice')
+    ).json()) as InvoicePreview;
+
+    // By the start of the period each line bills, then by type: the add-on removed on
+    // October 3rd bills the window it was held, the base and the seats the next period.
+    expect(preview.lines.map(({ label }) => label)).toEqual([
+      'Onboarding pack × 1',
+      'Enterprise, monthly',
+      'Extra seats × 3',
+    ]);
+    const [removed, , seats] = preview.lines;
+    expect(removed).toMatchObject({
+      addonId: 'addon-onboarding-pack',
+      addonPriceId: 'addon-price-onboarding',
+      amount: 2000,
+      billingTiming: 'ARREARS',
+      instanceAddonId: 'attachment-onboarding-pack',
+      licensePriceId: null,
+      serviceFrom: '2026-09-20T00:00:00.000Z',
+      serviceTo: '2026-10-03T08:00:00.000Z',
+      type: 'ADDON',
+    });
+    expect(seats).toMatchObject({
+      amount: 3000,
+      billingTiming: 'ADVANCE',
+      instanceAddonId: 'attachment-extra-seats',
+      quantity: '3',
+      serviceFrom: '2026-10-15T00:00:00.000Z',
+      serviceTo: '2026-11-15T00:00:00.000Z',
+    });
+    // The Priority pack was removed before the period began, so this boundary bills
+    // nothing of it, and the tokens have nothing measured in a mock: no empty line.
+    expect(preview.subtotal).toBe(2000 + 49900 + 3000);
+  });
+
+  it('reads the attachments back with the ones that were removed, and the line names the attachment', async () => {
+    install(createAddonLinesModel());
+
+    const held = (await (
+      await send('GET', '/instances/acme-production/addons')
+    ).json()) as Array<{ id: string }>;
+    const everything = (await (
+      await send('GET', '/instances/acme-production/addons?includeRemoved=true')
+    ).json()) as Array<{ id: string; removedAt?: string }>;
+    const invoice = (await (
+      await send('GET', '/invoices/inv-acme-addons')
+    ).json()) as Invoice;
+
+    expect(held.map(({ id }) => id)).toEqual([
+      'attachment-extra-seats',
+      'attachment-extra-tokens',
+    ]);
+    expect(everything.map(({ id }) => id)).toEqual([
+      'attachment-extra-seats',
+      'attachment-priority-pack',
+      'attachment-extra-tokens',
+      'attachment-onboarding-pack',
+    ]);
+    for (const line of invoice.lines.filter(
+      ({ instanceAddonId }) => instanceAddonId !== null,
+    )) {
+      expect(everything.map(({ id }) => id)).toContain(line.instanceAddonId);
+      expect(line.licensePriceId).toBeNull();
+    }
   });
 });

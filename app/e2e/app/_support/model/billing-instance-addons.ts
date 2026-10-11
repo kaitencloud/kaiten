@@ -163,6 +163,14 @@ export class InstanceAddons implements AddonHolders {
     return clone(this.active(instanceSlug));
   }
 
+  /**
+   * Every attachment an instance has had, the ones taken off included, for the model to
+   * compose invoices from: an add-on removed before a boundary is still billed at it.
+   */
+  historyOf(instanceSlug: string): InstanceAddon[] {
+    return clone(this.attachments[instanceSlug] ?? []);
+  }
+
   /** Every attachment, for a spec that asserts what the model holds. */
   snapshot(): Record<string, InstanceAddon[]> {
     return clone(this.attachments);

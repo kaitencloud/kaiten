@@ -86,13 +86,16 @@ export const NULL_LINE_MEMBERS: Pick<
  * test that wants a line that disagrees with its totals can have one.
  */
 export function buildInvoiceLine({
+  addonId,
   addonPriceId,
   amount,
+  billingTiming,
   description,
   discount,
   entitlementId,
   entitlementSlug,
   id,
+  instanceAddonId,
   instanceVoucherId,
   invoiceId,
   label,
@@ -107,15 +110,24 @@ export function buildInvoiceLine({
   unitAmountDecimal,
   voucherId,
 }: {
-  /** The add-on price an ADDON line bills. */
+  /** The add-on version an add-on line bills. */
+  addonId?: string | null;
+  /**
+   * The add-on price a line bills: the fee of an ADDON line, or the usage or the
+   * overage an add-on rated, which then has no license price.
+   */
   addonPriceId?: string | null;
   amount: number;
+  /** When the price bills; a fee of an add-on may bill in arrears, as the usage always does. */
+  billingTiming?: InvoiceLine['billingTiming'];
   description: string;
   /** How a DISCOUNT line was computed: what it discounts, and the application it is. */
   discount?: InvoiceLineDiscount | null;
   entitlementId?: string | null;
   entitlementSlug?: string | null;
   id?: string;
+  /** The attachment of the instance an add-on line bills: held, or removed before the boundary. */
+  instanceAddonId?: string | null;
   /** The redemption a DISCOUNT line applies. */
   instanceVoucherId?: string | null;
   invoiceId: string;
@@ -135,12 +147,18 @@ export function buildInvoiceLine({
 }): InvoiceLine {
   const isDiscount = type === 'DISCOUNT';
   const isMetered = type === 'USAGE' || type === 'OVERAGE';
+  // A base fee is a license's, and a discount has no price: any other line may bill
+  // an add-on, its fee or what it rated on usage.
+  const billsAddon =
+    type === 'ADDON' ||
+    (isMetered && (addonPriceId ?? addonId ?? instanceAddonId) != null);
 
   // The members a line does not have are null, as the contract has them: a discount
-  // has no price of its own, an add-on no license price, a flat fee no metering.
+  // has no price of its own, a line of an add-on no license price, a flat fee no
+  // metering.
   return {
-    addonId: null,
-    addonPriceId: type === 'ADDON' ? (addonPriceId ?? null) : null,
+    addonId: billsAddon ? (addonId ?? null) : null,
+    addonPriceId: billsAddon ? (addonPriceId ?? null) : null,
     amount,
     billingModel: isDiscount
       ? null
@@ -149,17 +167,19 @@ export function buildInvoiceLine({
         : type === 'USAGE'
           ? 'USAGE_BASED'
           : 'FLAT_FEE',
-    billingTiming: isDiscount ? null : isMetered ? 'ARREARS' : 'ADVANCE',
+    billingTiming: isDiscount
+      ? null
+      : (billingTiming ?? (isMetered ? 'ARREARS' : 'ADVANCE')),
     description,
     discount: isDiscount ? (discount ?? null) : null,
     entitlementId: isMetered ? (entitlementId ?? null) : null,
     entitlementSlug: isMetered ? (entitlementSlug ?? null) : null,
     id: id ?? `${invoiceId}-line-${seq}`,
-    instanceAddonId: null,
+    instanceAddonId: billsAddon ? (instanceAddonId ?? null) : null,
     instanceVoucherId: isDiscount ? (instanceVoucherId ?? null) : null,
     label,
     licensePriceId:
-      isDiscount || type === 'ADDON'
+      isDiscount || billsAddon
         ? null
         : (licensePriceId ?? `price-${type.toLowerCase()}`),
     metering: isMetered ? (metering ?? null) : null,

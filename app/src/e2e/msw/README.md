@@ -44,7 +44,12 @@ families and their versions, what a version grants and is sold for, which licens
 families it fits, and the freeze of a version an instance with a live subscription holds,
 which it learns from the instances), and what an instance holds is `InstanceAddons`
 (`billing-instance-addons.ts`: the attachments, their quantities and the refusals of the
-API, `BoundaryPending` included). The vouchers are `BillingVouchers`
+API, `BoundaryPending` included). The upcoming invoice of an
+instance with no preview seeded is composed from the attachments it has had, the removed ones
+included (`billing-addon-lines.ts`): the fee in advance of those it holds, for the period that
+starts, and the fee in arrears, in full, of the one the period saw come and go, each over the
+window it was held. A metered price of an add-on produces a line when a world writes one,
+since a mock has no usage to rate. The vouchers are `BillingVouchers`
 (`billing-vouchers.ts`, with the rules of the API in `billing-voucher-rules.ts`: what a
 draft must satisfy, the checks of a redemption in the order the API makes them and the
 codes it gives, and the quirks the console works around -- no voucher is ever set EXPIRED,
