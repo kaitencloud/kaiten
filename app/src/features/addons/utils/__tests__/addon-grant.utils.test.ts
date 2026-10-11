@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vite-plus/test';
 import type { LicenseEntitlement } from '@/api-client';
 import { buildAddonGrant } from '../../../../../e2e/app/_support/fixtures';
 import {
-  getEntitlementSlug,
   isUnlimitedValue,
   lowersLicenseOverage,
   readGrantOverage,
@@ -114,13 +113,5 @@ describe('an add-on that lowers the overage of a license', () => {
     expect(lowersLicenseOverage(20, undefined)).toBe(false);
     expect(lowersLicenseOverage(20, -1)).toBe(false);
     expect(lowersLicenseOverage(-1, 50)).toBe(false);
-  });
-});
-
-describe('the slug of an entitlement', () => {
-  it('is the one the API gives, else the one it would make from the name', () => {
-    expect(getEntitlementSlug({ name: 'API Calls', slug: 'api-calls' } as never)).toBe('api-calls');
-    expect(getEntitlementSlug({ name: 'API Calls', slug: '  ' } as never)).toBe('api-calls');
-    expect(getEntitlementSlug({ name: 'Seats' } as never)).toBe('seats');
   });
 });

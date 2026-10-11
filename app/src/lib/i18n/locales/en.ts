@@ -4648,13 +4648,9 @@ export default {
       Prices: {
         title: 'Prices',
         tabDescription:
-          'What one unit of this add-on is billed, per billing period. A price is never edited: change it with a new price and the deprecation of the old one.',
+          'What this add-on is billed: a flat fee per unit and billing period, and what its usage is rated at. A price is never edited: change it with a new price and the deprecation of the old one.',
         defaultBadge: 'Default',
         deprecatedOn: 'Deprecated {{date}}',
-        unvalued_one:
-          'This version also has {{count}} metered price, which billing does not value: it is not listed.',
-        unvalued_other:
-          'This version also has {{count}} metered prices, which billing does not value: they are not listed.',
         Notes: {
           DRAFT:
             'The prices of a draft can be added to and deprecated until an instance with a live subscription holds the version.',
@@ -4681,6 +4677,8 @@ export default {
         Table: {
           Columns: {
             price: 'Price',
+            shape: 'Shape',
+            meter: 'Meters',
             amount: 'Amount per unit',
             billed: 'Billed',
             status: 'Status',
@@ -4695,14 +4693,18 @@ export default {
         },
         Form: {
           Labels: {
+            model: 'Shape',
             period: 'Billing period',
             timing: 'Billing timing',
             currency: 'Currency',
             amount: 'Amount per unit',
+            amountPer: 'Amount per {{unit}}',
             label: 'Label on the invoice',
             isDefault: 'Default price of this period',
           },
           Descriptions: {
+            timingLocked:
+              'A metered price is always billed in arrears: usage cannot be billed before it happens.',
             period: 'How often the fee is billed.',
             currency:
               'A version bills in one currency, fixed by its first price.',
@@ -4710,6 +4712,10 @@ export default {
               'This version bills in {{currency}}, fixed by its first price.',
             amount:
               'Billed for each unit held, per period. Type the amount in the currency’s own unit (for example 10.00).',
+            amountUsage:
+              'Applied from the first unit measured while the add-on is held. Type the amount in the currency’s own unit (for example 0.075).',
+            amountOverage:
+              'Applied only to the units above the limit the instance holds, its license and its add-ons together. Type the amount in the currency’s own unit (for example 0.075).',
             label:
               'The name of the invoice line. Left empty, Kaiten derives one.',
             isDefault:
@@ -4722,11 +4728,13 @@ export default {
             label: 'Extra seat, monthly',
           },
           livePreview: 'Reads as {{price}} per unit',
+          livePreviewMetered: 'Reads as {{price}}',
           Errors: {
             label: 'The label is at most 200 characters.',
             currency: 'Pick a currency Kaiten supports.',
             amount:
               'Enter a valid amount: zero or more, with at most 12 decimals past the currency’s own and 12 digits in its smallest unit.',
+            meter: 'Pick the entitlement this price measures.',
           },
         },
         ReplaceDefault: {
@@ -4739,6 +4747,8 @@ export default {
           title: 'Deprecate “{{label}}”?',
           description:
             'Instances already billed from this price keep being billed from it. It is no longer offered. This cannot be undone.',
+          descriptionMetered:
+            'This price produces no line from the next invoice on, and it is no longer offered. What it already billed is unchanged. This cannot be undone.',
           confirm: 'Deprecate',
         },
         Toasts: {
@@ -5875,6 +5885,8 @@ export default {
             'A stock, such as seats or storage, is sold as an add-on with a quantity, not metered.',
           stockHintLink: 'See the add-ons',
           overage: 'Bills above {{limit}} {{unit}}/{{period}}, up to {{cap}}',
+          stockHintAddon:
+            'A stock, such as seats or storage, cannot be metered: bill it as a flat fee with a quantity.',
           overageInstance:
             'Bills the usage above the limit the instance holds: its license and its add-ons together',
           overageUnknown:

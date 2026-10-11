@@ -6,6 +6,7 @@ import {
   buildPrice,
 } from '../../../../e2e/app/_support/fixtures';
 import {
+  getEntitlementSlug,
   getGrantAllowance,
   getMeterOptions,
   sortMeterOptions,
@@ -234,3 +235,11 @@ describe('the allowance an overage bills against', () => {
   });
 });
 
+
+describe('the slug of an entitlement', () => {
+  it('is the one the API gives, else the one it would make from the name', () => {
+    expect(getEntitlementSlug({ name: 'API Calls', slug: 'api-calls' } as never)).toBe('api-calls');
+    expect(getEntitlementSlug({ name: 'API Calls', slug: '  ' } as never)).toBe('api-calls');
+    expect(getEntitlementSlug({ name: 'Seats' } as never)).toBe('seats');
+  });
+});

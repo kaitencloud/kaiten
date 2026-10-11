@@ -70,6 +70,13 @@ export function AddonPricesTab({ addonSlug, priceParam }: AddonPricesTabProps) {
       {toDeprecate ? (
         <DeprecateAddonPriceDialog
           addonSlug={addonSlug}
+          entitlement={
+            toDeprecate.metered
+              ? pricing.entitlementBySlug.get(
+                  toDeprecate.metered.entitlementSlug,
+                )
+              : undefined
+          }
           onClose={() => setToDeprecate(null)}
           price={toDeprecate}
         />

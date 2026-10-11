@@ -1,7 +1,7 @@
 import { Star } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Price } from '@/api-client';
+import type { Entitlement, Price } from '@/api-client';
 import { Badge } from '@/components/ui/badge';
 import {
   BILLING_PERIOD_LABEL_KEYS,
@@ -10,6 +10,8 @@ import {
   getPriceLabel,
   PRICE_STATUS_LABEL_KEYS,
   PriceAmount,
+  PriceMeterCell,
+  PriceShapeCell,
 } from '@/domains/billing';
 import {
   type ColumnDef,
@@ -19,17 +21,35 @@ import {
 import { AddonPriceRowActions } from './addon-price-row-actions';
 
 type AddonPriceTableProps = {
+  /** The catalogue, by slug, for the name and the unit of what a metered price measures. */
+  entitlementBySlug: ReadonlyMap<string, Entitlement>;
   onDeprecate: (price: Price) => void;
-  /** The prices the console lists: the flat fees, in the order the API gives them. */
+  /** The prices of the version, flat fees and metered ones, in the order the API gives them. */
   prices: readonly Price[];
 };
 
-function LabelCell({ price }: { price: Price }) {
+const entitlementOf = (
+  price: Price,
+  entitlementBySlug: ReadonlyMap<string, Entitlement>,
+) =>
+  price.metered
+    ? entitlementBySlug.get(price.metered.entitlementSlug)
+    : undefined;
+
+function LabelCell({
+  entitlement,
+  price,
+}: {
+  entitlement?: Entitlement;
+  price: Price;
+}) {
   const { t } = useTranslation();
 
   return (
     <div className="flex flex-wrap items-center gap-2 whitespace-normal">
-      <span className="font-medium">{getPriceLabel(price, undefined, t)}</span>
+      <span className="font-medium">
+        {getPriceLabel(price, entitlement, t)}
+      </span>
       {price.isDefault ? (
         <Badge className="gap-1" variant="default">
           <Star className="size-3" />
@@ -40,7 +60,8 @@ function LabelCell({ price }: { price: Price }) {
   );
 }
 
-// A flat fee is billed for a period, in advance unless it says otherwise.
+// A flat fee is billed for a period, in advance unless it says otherwise; a metered price
+// is billed on the subscription's own period, in arrears.
 function BilledCell({ price }: { price: Price }) {
   const { t } = useTranslation();
   const timing = t(BILLING_TIMING_LABEL_KEYS[price.billingTiming]);
@@ -75,21 +96,54 @@ function StatusCell({ price }: { price: Price }) {
 
 /**
  * The prices of a version, in the order the API gives them: display order, then id.
- * A deprecated price stays in the list, in muted text, with the day it was retired,
- * since an instance billed from it keeps being billed from it.
+ * A flat fee is read by its period, a metered price by what it measures and what it
+ * charges per sale unit. A deprecated price stays in the list, in muted text, with the
+ * day it was retired, since an instance billed from it keeps being billed from it.
  */
-export function AddonPriceTable({ onDeprecate, prices }: AddonPriceTableProps) {
+export function AddonPriceTable({
+  entitlementBySlug,
+  onDeprecate,
+  prices,
+}: AddonPriceTableProps) {
   const { t } = useTranslation();
   const columns = useMemo<ColumnDef<Price>[]>(
     () => [
       {
-        cell: ({ row }) => <LabelCell price={row.original} />,
+        cell: ({ row }) => (
+          <LabelCell
+            entitlement={entitlementOf(row.original, entitlementBySlug)}
+            price={row.original}
+          />
+        ),
         enableSorting: false,
         header: t('Pages.Addons.Prices.Table.Columns.price'),
         id: 'label',
       },
       {
-        cell: ({ row }) => <PriceAmount price={row.original} />,
+        cell: ({ row }) => <PriceShapeCell price={row.original} />,
+        enableSorting: false,
+        header: t('Pages.Addons.Prices.Table.Columns.shape'),
+        id: 'shape',
+      },
+      {
+        cell: ({ row }) => (
+          <PriceMeterCell
+            entitlement={entitlementOf(row.original, entitlementBySlug)}
+            price={row.original}
+            scope="instance"
+          />
+        ),
+        enableSorting: false,
+        header: t('Pages.Addons.Prices.Table.Columns.meter'),
+        id: 'meter',
+      },
+      {
+        cell: ({ row }) => (
+          <PriceAmount
+            entitlement={entitlementOf(row.original, entitlementBySlug)}
+            price={row.original}
+          />
+        ),
         enableSorting: false,
         header: t('Pages.Addons.Prices.Table.Columns.amount'),
         id: 'amount',
@@ -107,10 +161,14 @@ export function AddonPriceTable({ onDeprecate, prices }: AddonPriceTableProps) {
         id: 'status',
       },
       createActionsColumn<Price>((price) => (
-        <AddonPriceRowActions onDeprecate={onDeprecate} price={price} />
+        <AddonPriceRowActions
+          entitlement={entitlementOf(price, entitlementBySlug)}
+          onDeprecate={onDeprecate}
+          price={price}
+        />
       )),
     ],
-    [onDeprecate, t],
+    [entitlementBySlug, onDeprecate, t],
   );
 
   return (

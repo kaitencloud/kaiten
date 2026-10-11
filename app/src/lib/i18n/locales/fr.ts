@@ -4714,13 +4714,9 @@ export default {
       Prices: {
         title: 'Prix',
         tabDescription:
-          'Ce que coûte une unité de cet add-on, par période de facturation. Un prix ne se modifie jamais : changez-le par un nouveau prix et la dépréciation de l’ancien.',
+          'Ce que facture cet add-on : un forfait par unité et par période de facturation, et le tarif de son utilisation. Un prix ne se modifie jamais : changez-le par un nouveau prix et la dépréciation de l’ancien.',
         defaultBadge: 'Par défaut',
         deprecatedOn: 'Déprécié le {{date}}',
-        unvalued_one:
-          'Cette version a aussi {{count}} prix mesuré, que la facturation ne valorise pas : il n’est pas listé.',
-        unvalued_other:
-          'Cette version a aussi {{count}} prix mesurés, que la facturation ne valorise pas : ils ne sont pas listés.',
         Notes: {
           DRAFT:
             'Les prix d’un brouillon peuvent être ajoutés et dépréciés tant qu’aucune instance avec un abonnement actif ne détient la version.',
@@ -4747,6 +4743,8 @@ export default {
         Table: {
           Columns: {
             price: 'Prix',
+            shape: 'Forme',
+            meter: 'Mesure',
             amount: 'Montant par unité',
             billed: 'Facturé',
             status: 'Statut',
@@ -4761,14 +4759,18 @@ export default {
         },
         Form: {
           Labels: {
+            model: 'Forme',
             period: 'Période de facturation',
             timing: 'Échéance de facturation',
             currency: 'Devise',
             amount: 'Montant par unité',
+            amountPer: 'Montant par {{unit}}',
             label: 'Libellé sur la facture',
             isDefault: 'Prix par défaut de cette période',
           },
           Descriptions: {
+            timingLocked:
+              'Un prix mesuré est toujours facturé à terme échu : l’usage ne peut pas être facturé avant d’avoir eu lieu.',
             period: 'À quelle fréquence le montant est facturé.',
             currency:
               'Une version est facturée dans une seule devise, fixée par son premier prix.',
@@ -4776,6 +4778,10 @@ export default {
               'Cette version est facturée en {{currency}}, devise fixée par son premier prix.',
             amount:
               'Facturé pour chaque unité détenue, par période. Saisissez le montant dans l’unité propre à la devise (par exemple 10,00).',
+            amountUsage:
+              'Appliqué dès la première unité mesurée pendant que l’add-on est détenu. Saisissez le montant dans l’unité propre à la devise (par exemple 0,075).',
+            amountOverage:
+              'Appliqué seulement aux unités au-delà de la limite que détient l’instance, sa licence et ses add-ons réunis. Saisissez le montant dans l’unité propre à la devise (par exemple 0,075).',
             label:
               'Le nom de la ligne de facture. Laissé vide, Kaiten en déduit un.',
             isDefault:
@@ -4788,11 +4794,13 @@ export default {
             label: 'Siège supplémentaire, mensuel',
           },
           livePreview: 'Se lit {{price}} par unité',
+          livePreviewMetered: 'Se lit {{price}}',
           Errors: {
             label: 'Le libellé fait 200 caractères au plus.',
             currency: 'Choisissez une devise que Kaiten prend en charge.',
             amount:
               'Saisissez un montant valide : zéro ou plus, avec au plus 12 décimales au-delà de celles de la devise et 12 chiffres dans sa plus petite unité.',
+            meter: 'Choisissez le droit que ce prix mesure.',
           },
         },
         ReplaceDefault: {
@@ -4805,6 +4813,8 @@ export default {
           title: 'Déprécier « {{label}} » ?',
           description:
             'Les instances déjà facturées d’après ce prix continuent de l’être. Il n’est plus proposé. Cette action est irréversible.',
+          descriptionMetered:
+            'Ce prix ne produit plus de ligne à partir de la prochaine facture, et il n’est plus proposé. Ce qu’il a déjà facturé ne change pas. Cette action est irréversible.',
           confirm: 'Déprécier',
         },
         Toasts: {
@@ -5969,6 +5979,8 @@ export default {
             'Un stock, comme des sièges ou du stockage, se vend comme un add-on avec une quantité, il ne se mesure pas.',
           stockHintLink: 'Voir les add-ons',
           overage:
+          stockHintAddon:
+            'Un stock, comme des sièges ou du stockage, ne se mesure pas : facturez-le en forfait avec une quantité.',
             'Facture au-delà de {{limit}} {{unit}}/{{period}}, jusqu’à {{cap}}',
           overageInstance:
             'Facture l’usage au-delà de la limite que détient l’instance : sa licence et ses add-ons réunis',

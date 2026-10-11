@@ -9,17 +9,27 @@ import {
   handleDeprecateAddonPrice,
   handleGetAddon,
   handleGetBillingCapabilities,
+  handleListAddonEntitlements,
   handleListAddonPrices,
+  handleListEntitlements,
 } from '@/api-client/msw.gen';
 import {
+  pageOf,
   refusal,
   sessionToken,
   useBillingTexts,
 } from '@/test-fixtures/billing-test-support';
-import { buildPrice } from '../../../../../e2e/app/_support/fixtures';
+import { buildAddonGrant, buildPrice } from '../../../../../e2e/app/_support/fixtures';
 import { billingCapabilitiesProfiles } from '../../../../../e2e/app/_support/model/billing-capabilities';
 import { AddonPricesTab } from '../prices';
-import { renderScreen, SEATS_DRAFT, SEATS_V1, STORAGE_ARCHIVED } from './addon-test-support';
+import {
+  ENTITLEMENTS,
+  renderScreen,
+  SEATS_DRAFT,
+  SEATS_V1,
+  seatsGrant,
+  STORAGE_ARCHIVED,
+} from './addon-test-support';
 
 const getAuthToken = vi.hoisted(() => vi.fn());
 const navigate = vi.hoisted(() => vi.fn());
@@ -49,10 +59,18 @@ const MONTHLY_OLD = buildPrice({
 });
 const METERED = buildPrice({
   billingModel: 'USAGE_BASED',
+  displayLabel: 'API calls, metered',
   displayOrder: 3,
   id: 'price-metered',
   metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1' },
   unitAmountDecimal: '0.1',
+});
+// What the version grants: the seats it adds, a stock, and the calls, a flow a price may meter.
+const API_CALLS_GRANT = buildAddonGrant({
+  addonSlug: SEATS_DRAFT.slug,
+  behavior: 'ADD',
+  entitlementSlug: 'api-calls',
+  value: 5000,
 });
 
 beforeEach(() => {
@@ -64,6 +82,8 @@ beforeEach(() => {
     handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stackWithAddons() }),
     handleGetAddon({ body: SEATS_DRAFT }),
     handleListAddonPrices({ body: [MONTHLY] }),
+    handleListAddonEntitlements({ body: [seatsGrant(), API_CALLS_GRANT] }),
+    handleListEntitlements({ body: pageOf(ENTITLEMENTS) }),
   );
 });
 
@@ -130,14 +150,44 @@ describe('the prices of a version', () => {
     expect(screen.getByText(/Deprecated Jun/)).toBeInTheDocument();
   });
 
-  it('leave out the metered prices the API takes and never values, and say how many there are', async () => {
-    server.use(handleListAddonPrices({ body: [MONTHLY, METERED] }));
+  it('list the metered prices beside the flat fees, with what each measures and what it charges per unit', async () => {
+    server.use(
+      handleListAddonPrices({
+        body: [
+          MONTHLY,
+          METERED,
+          { ...METERED, billingModel: 'OVERAGE', displayLabel: 'Seats, overage', id: 'price-overage', metered: { entitlementSlug: 'seats', saleUnitFactor: '1' } },
+        ],
+      }),
+    );
     renderTab();
 
-    await screen.findByText('Extra seat, monthly');
+    const metered = (await screen.findByText('API calls, metered')).closest('tr') as HTMLElement;
+    const overage = screen.getByText('Seats, overage').closest('tr') as HTMLElement;
 
-    expect(screen.queryByText('Usage-based')).toBeNull();
-    expect(screen.getByText(/1 metered price, which billing does not value/)).toBeInTheDocument();
+    expect(screen.getByText('Extra seat, monthly', { selector: 'span' })).toBeInTheDocument();
+    expect(within(metered).getByText('Usage-based')).toBeInTheDocument();
+    // What it measures: the entitlement by its name, and what it counts.
+    expect(within(metered).getByText('API Calls')).toBeInTheDocument();
+    expect(within(metered).getByText('Summed, resets every month')).toBeInTheDocument();
+    expect(within(metered).getByText('$0.001')).toBeInTheDocument();
+    expect(within(metered).getByText('In arrears')).toBeInTheDocument();
+    expect(within(overage).getByText('Overage')).toBeInTheDocument();
+    // An overage bills above what the instance holds: the add-on's grant alone does not say how much.
+    expect(
+      within(overage).getByText(
+        'Bills the usage above the limit the instance holds: its license and its add-ons together',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('expect no price of a period of a version that only meters usage, which attaches to any', async () => {
+    server.use(handleListAddonPrices({ body: [METERED] }));
+    renderTab();
+
+    await screen.findByText('API calls, metered');
+
+    expect(screen.queryByRole('region', { name: 'Default price of each billing period' })).toBeNull();
   });
 
   it('may be added to a version that is not archived, by a session that may write', async () => {
@@ -276,6 +326,164 @@ describe('adding a price', () => {
     expect(await screen.findByText('this add-on version already has prices in another currency')).toBeInTheDocument();
   });
 
+  describe('a metered price', () => {
+    const shape = async (name: RegExp) =>
+      userEvent.click(await screen.findByRole('button', { name }));
+    const entitlement = async (name: RegExp) =>
+      userEvent.click(await screen.findByRole('button', { name }));
+    // The label of the amount names the unit once an entitlement is picked.
+    const fillAmount = async (amount: string) =>
+      userEvent.type(await screen.findByLabelText(/Amount/), amount);
+
+    it('measures an entitlement the version grants, in arrears, and sends no period and no default', async () => {
+      const bodies = serveCreate();
+      renderTab('new');
+
+      await shape(/^Usage-based/);
+      // The seats are a stock: listed, disabled, with the way to sell them; the calls are a flow.
+      expect(await screen.findByRole('button', { name: /^Seats/ })).toHaveAttribute('aria-disabled', 'true');
+      await entitlement(/^API Calls/);
+      await fillAmount('0.075');
+      expect(await screen.findByText('Reads as $0.075 per API Calls')).toBeInTheDocument();
+      await userEvent.click(await create());
+
+      await waitFor(() => expect(bodies).toHaveLength(1));
+      expect(bodies[0]).toEqual({
+        billingModel: 'USAGE_BASED',
+        billingTiming: 'ARREARS',
+        currency: 'USD',
+        displayOrder: 2,
+        meteredEntitlementSlug: 'api-calls',
+        unitAmountDecimal: '7.5',
+      });
+      await waitFor(() => expect(navigate).toHaveBeenCalled());
+    });
+
+    it('says to bill a stock as a flat fee with a quantity, since its own price is where a stock is sold', async () => {
+      renderTab('new');
+
+      await shape(/^Usage-based/);
+
+      expect(
+        await screen.findByText(/cannot be metered: bill it as a flat fee with a quantity/),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'See the add-ons' })).toBeNull();
+    });
+
+    it('does not ask to replace the default of a period for the flag it kept from the flat fee, which it never sends', async () => {
+      const bodies = serveCreate();
+      renderTab('new');
+      await userEvent.click(await screen.findByRole('checkbox', { name: /Default price of this period/ }));
+      await shape(/^Usage-based/);
+      await entitlement(/^API Calls/);
+      await fillAmount('1');
+
+      await userEvent.click(await create());
+
+      await waitFor(() => expect(bodies).toHaveLength(1));
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+      expect(bodies[0]).toMatchObject({ billingModel: 'USAGE_BASED', meteredEntitlementSlug: 'api-calls' });
+      expect(bodies[0]).not.toHaveProperty('isDefault');
+    });
+
+    it('has no period, no timing to choose and no default, and says why the timing is not chosen', async () => {
+      renderTab('new');
+
+      await screen.findByLabelText(/Billing period/);
+      await shape(/^Overage/);
+
+      expect(screen.queryByLabelText(/Billing period/)).toBeNull();
+      expect(screen.queryByLabelText(/Billing timing/)).toBeNull();
+      expect(screen.queryByRole('checkbox', { name: /Default price of this period/ })).toBeNull();
+      expect(
+        screen.getByText('A metered price is always billed in arrears: usage cannot be billed before it happens.'),
+      ).toBeInTheDocument();
+      // An overage on any flow the version grants: the allowance is the instance's.
+      expect(
+        within(await screen.findByRole('button', { name: /^API Calls/ })).getByText(
+          'Bills the usage above the limit the instance holds: its license and its add-ons together',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('asks for the entitlement before it asks the API', async () => {
+      const bodies = serveCreate();
+      renderTab('new');
+      await shape(/^Usage-based/);
+      await fillAmount('1');
+
+      await userEvent.click(await create());
+
+      expect(await screen.findByText('Pick the entitlement this price measures.')).toBeInTheDocument();
+      expect(bodies).toEqual([]);
+    });
+
+    it('does not offer an entitlement an active price of the version already meters', async () => {
+      server.use(handleListAddonPrices({ body: [MONTHLY, METERED] }));
+      renderTab('new');
+
+      await shape(/^Usage-based/);
+
+      // The calls are measured already; the seats, a stock, are listed and cannot be picked.
+      expect(await screen.findByRole('button', { name: /^Seats/ })).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.queryByRole('button', { name: /^API Calls/ })).toBeNull();
+    });
+
+    it('keeps the entitlement picked while it still can be, when the shape changes', async () => {
+      const bodies = serveCreate();
+      renderTab('new');
+      await shape(/^Usage-based/);
+      await entitlement(/^API Calls/);
+      await shape(/^Overage/);
+      await fillAmount('2');
+
+      await userEvent.click(await create());
+
+      await waitFor(() => expect(bodies).toHaveLength(1));
+      expect(bodies[0]).toMatchObject({ billingModel: 'OVERAGE', meteredEntitlementSlug: 'api-calls' });
+    });
+
+    it.each([
+      ['CreateAddonPrice.EntitlementAlreadyMetered', 'another active price of this add-on version already meters this entitlement'],
+      ['CreateAddonPrice.EntitlementIsStock', 'only an entitlement with a reset period can be metered'],
+      ['CreateAddonPrice.EntitlementNotGranted', 'the add-on version does not grant this entitlement'],
+      ['CreateAddonPrice.UnsupportedAggregation', 'only a SUM or COUNT entitlement can be metered'],
+      ['CreateAddonPrice.UnsupportedEntitlementType', 'only a NUMBER or NUMBER_AI_CREDIT entitlement can be metered'],
+    ])('shows %s on the entitlement, in the words of the API', async (code, detail) => {
+      serveCreate(() => refusal(422, { code, detail }));
+      renderTab('new');
+      await shape(/^Usage-based/);
+      await entitlement(/^API Calls/);
+      await fillAmount('1');
+
+      await userEvent.click(await create());
+
+      expect(await screen.findByText(detail)).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('takes the refusal off the entitlement once another is picked', async () => {
+      serveCreate(() =>
+        refusal(422, {
+          code: 'CreateAddonPrice.EntitlementAlreadyMetered',
+          detail: 'another active price of this add-on version already meters this entitlement',
+        }),
+      );
+      renderTab('new');
+      await shape(/^Usage-based/);
+      await entitlement(/^API Calls/);
+      await fillAmount('1');
+      await userEvent.click(await create());
+      await screen.findByText(/already meters this entitlement/);
+
+      await shape(/^Overage/);
+      await entitlement(/^API Calls/);
+
+      expect(screen.getByText(/already meters this entitlement/)).toBeInTheDocument();
+    });
+  });
+
   it('leads to a new version when an instance with a live subscription holds this one', async () => {
     serveCreate(() =>
       refusal(409, {
@@ -337,6 +545,27 @@ describe('deprecating a price', () => {
     await userEvent.click(within(question).getByRole('button', { name: 'Deprecate' }));
 
     await waitFor(() => expect(deprecated).toHaveBeenCalledWith('price-monthly-old'));
+  });
+
+  it('says a metered price produces no line from the next invoice, rather than that the instances billed from it keep being', async () => {
+    const deprecated = vi.fn();
+    server.use(
+      handleListAddonPrices({ body: [MONTHLY, METERED] }),
+      handleDeprecateAddonPrice(({ params }) => {
+        deprecated(params.priceId);
+
+        return HttpResponse.json({ ...METERED, status: 'DEPRECATED' });
+      }),
+    );
+    renderTab();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Deprecate API calls, metered' }));
+    const question = await screen.findByRole('alertdialog');
+
+    expect(question).toHaveTextContent('produces no line from the next invoice on');
+    expect(question).not.toHaveTextContent('keep being billed');
+    await userEvent.click(within(question).getByRole('button', { name: 'Deprecate' }));
+    await waitFor(() => expect(deprecated).toHaveBeenCalledWith('price-metered'));
   });
 
   it('shows a refusal in the dialog, which stays open', async () => {

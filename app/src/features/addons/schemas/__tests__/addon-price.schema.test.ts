@@ -21,14 +21,16 @@ const issues = (input: AddonPriceFormValues) =>
   );
 
 describe('what the form of a price opens with', () => {
-  it('is monthly, in advance, in the currency of the version, with nothing typed', () => {
+  it('is a flat fee, monthly, in advance, in the currency of the version, with nothing typed', () => {
     expect(initialAddonPriceFormValues('EUR', false)).toEqual({
       amount: '',
+      billingModel: 'FLAT_FEE',
       billingPeriod: 'MONTHLY',
       billingTiming: 'ADVANCE',
       currency: 'EUR',
       displayLabel: '',
       isDefault: false,
+      meteredEntitlementSlug: '',
     });
   });
 
@@ -59,6 +61,16 @@ describe('what a price needs', () => {
     });
   });
 
+  it('names the entitlement it measures when it is metered, and none when it is a flat fee', () => {
+    for (const billingModel of ['USAGE_BASED', 'OVERAGE'] as const) {
+      expect(issues(values({ billingModel }))).toEqual({
+        meteredEntitlementSlug: 'Pages.Addons.Prices.Form.Errors.meter',
+      });
+      expect(issues(values({ billingModel, meteredEntitlementSlug: 'tokens' }))).toEqual({});
+    }
+    expect(issues(values({ billingModel: 'FLAT_FEE', meteredEntitlementSlug: '' }))).toEqual({});
+  });
+
   it('has a label of at most 200 characters', () => {
     expect(issues(values({ displayLabel: 'a'.repeat(200) }))).toEqual({});
     expect(issues(values({ displayLabel: 'a'.repeat(201) }))).toEqual({
@@ -79,6 +91,35 @@ describe('the body of a new price', () => {
       isDefault: true,
       unitAmountDecimal: '1000',
     });
+  });
+
+  it('is a metered price in arrears with no period, no default and the entitlement it measures, whatever the form kept of a flat fee', () => {
+    const kept = values({
+      billingModel: 'OVERAGE',
+      billingPeriod: 'ANNUAL',
+      billingTiming: 'ADVANCE',
+      isDefault: true,
+      meteredEntitlementSlug: 'tokens',
+    });
+
+    expect(addonPriceFormValuesToCreateBody(kept, 2)).toEqual({
+      billingModel: 'OVERAGE',
+      billingPeriod: undefined,
+      billingTiming: 'ARREARS',
+      currency: 'USD',
+      displayLabel: undefined,
+      displayOrder: 2,
+      isDefault: undefined,
+      meteredEntitlementSlug: 'tokens',
+      unitAmountDecimal: '1000',
+    });
+  });
+
+  it('names no entitlement on a flat fee, whatever the form kept of a metered price', () => {
+    expect(
+      addonPriceFormValuesToCreateBody(values({ meteredEntitlementSlug: 'tokens' }), 1)
+        .meteredEntitlementSlug,
+    ).toBeUndefined();
   });
 
   it('leaves the label to the API when it is empty, and trims one that was typed', () => {

@@ -3,7 +3,6 @@ import type { Price } from '@/api-client';
 import { buildPrice } from '../../../../../e2e/app/_support/fixtures';
 import {
   canAddPrice,
-  countUnvaluedPrices,
   getDefaultPrice,
   getFlatFees,
   getNextDisplayOrder,
@@ -26,11 +25,10 @@ const monthly = flat({ displayOrder: 1, id: 'monthly', isDefault: true });
 const annual = flat({ billingPeriod: 'ANNUAL', displayOrder: 2, id: 'annual', isDefault: true });
 
 describe('the prices of a version', () => {
-  it('are flat fees to the console, which leaves out the metered ones the API keeps and never values', () => {
+  it('are a flat fee, which bills a period, or a metered price, which bills what was measured; the flat fees alone have a default per period', () => {
     expect(isFlatFee(monthly)).toBe(true);
     expect(isFlatFee(metered)).toBe(false);
     expect(getFlatFees([metered, monthly]).map(({ id }) => id)).toEqual(['monthly']);
-    expect(countUnvaluedPrices([metered, monthly, { ...metered, id: 'overage' }])).toBe(2);
   });
 
   it('are active or deprecated', () => {
@@ -38,8 +36,9 @@ describe('the prices of a version', () => {
     expect(isActivePrice({ ...monthly, status: 'DEPRECATED' })).toBe(false);
   });
 
-  it('have the currency of the first one, whatever becomes of it', () => {
+  it('have the currency of the first one, whatever becomes of it, a metered one included', () => {
     expect(getVersionCurrency([flat({ currency: 'EUR', id: 'a', status: 'DEPRECATED' }), monthly])).toBe('EUR');
+    expect(getVersionCurrency([{ ...metered, currency: 'EUR' }, monthly])).toBe('EUR');
     expect(getVersionCurrency([])).toBeUndefined();
   });
 

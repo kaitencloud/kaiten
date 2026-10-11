@@ -1,8 +1,8 @@
 import { Navigate, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { getEntitlementSlug } from '@/domains/billing';
 import { useAddonGrants } from '../../hooks';
 import { useGrantDialogTarget } from '../../hooks/use-grant-dialog-target';
-import { getEntitlementSlug } from '../../utils/addon-grant.utils';
 import { FrozenVersionDialog } from '../frozen-version-dialog';
 import { AddonGrantDialog } from './addon-grant-dialog';
 import { AddonGrantsCard } from './addon-grants-card';

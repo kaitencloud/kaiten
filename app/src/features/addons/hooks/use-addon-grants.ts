@@ -1,11 +1,11 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { getEntitlementSlug } from '@/domains/billing';
 import {
   addonGrantsQueryOptions,
   addonQueryOptions,
   entitlementsQueryOptions,
 } from '../queries';
-import { getEntitlementSlug } from '../utils/addon-grant.utils';
 
 /**
  * What the grants of a version read: the version, what it grants, and the entitlement

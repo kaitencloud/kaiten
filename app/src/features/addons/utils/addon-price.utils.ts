@@ -5,25 +5,24 @@ export const isActivePrice = (price: Pick<Price, 'status'>): boolean =>
   price.status === 'ACTIVE';
 
 /**
- * Only a flat fee is valued on an add-on. The API takes a metered price
- * (`USAGE_BASED`, `OVERAGE`) on a version and keeps it, but billing never
- * composes a line from one, so the console lists and offers flat fees only.
+ * A flat fee bills a billing period; a metered price (`USAGE_BASED`, `OVERAGE`) bills
+ * what an entitlement measured over the window an attachment was held. Both are
+ * billed, and a version lists both.
  */
 export const isFlatFee = (price: Pick<Price, 'billingModel'>): boolean =>
   price.billingModel === 'FLAT_FEE';
 
-/** The prices the console shows: the flat fees, in the order the API lists them. */
+/**
+ * The flat fees of a version, in the order the API lists them: the ones that have a
+ * billing period, and so a default for it.
+ */
 export const getFlatFees = (prices: readonly Price[]): Price[] =>
   prices.filter(isFlatFee);
 
-/** How many metered prices the version has that the console does not list. */
-export const countUnvaluedPrices = (prices: readonly Price[]): number =>
-  prices.filter((price) => !isFlatFee(price)).length;
-
 /**
  * The currency a version bills in. A version has one, fixed by its first price,
- * which stays the version's whatever becomes of that price: a deprecated price, and
- * a metered one the console does not list, still count.
+ * which stays the version's whatever becomes of that price: a deprecated price
+ * still counts, and a metered one as much as a flat fee.
  */
 export const getVersionCurrency = (
   prices: readonly Price[],

@@ -13,7 +13,9 @@ import { ProblemAlert } from '@/domains/billing';
 import { createFormSubmitHandler } from '@/hooks/form';
 import { useAddonPriceForm } from '../../hooks';
 import type { AddonPricing } from '../../hooks';
-import { AddonPriceFields } from './addon-price-fields';
+import { AddonPriceAmountSection } from './addon-price-amount-section';
+import { AddonPriceDetailsSection } from './addon-price-details-section';
+import { AddonPriceShapeSection } from './addon-price-shape-section';
 import { ReplaceDefaultDialog } from './replace-default-dialog';
 
 type AddonPriceDrawerProps = {
@@ -26,9 +28,10 @@ type AddonPriceDrawerProps = {
 
 /**
  * The drawer a price is added in, which the URL opens (`?price=new`) so that it can be
- * linked to and the back button closes it. It is the form of one price and leaves the
- * tab under it as it was. A price is never edited: there is no update, and a change is
- * a new price and the deprecation of the old one.
+ * linked to and the back button closes it. It is the form of one price -- its shape,
+ * how it is billed, what it charges -- and leaves the tab under it as it was. A price is
+ * never edited: there is no update, and a change is a new price and the deprecation of
+ * the old one.
  */
 export function AddonPriceDrawer({
   onClose,
@@ -38,6 +41,14 @@ export function AddonPriceDrawer({
   const { t } = useTranslation();
   const formId = useId();
   const { addon } = pricing;
+  // What a metered price may measure is what the version grants. The allowance an
+  // overage bills above is the instance's: the grant of an add-on adds to the license's.
+  const source = {
+    entitlements: pricing.entitlements,
+    grants: pricing.grants,
+    overage: 'instance' as const,
+    prices: pricing.prices,
+  };
   const { cancelReplace, confirmReplace, failure, form, replacing } =
     useAddonPriceForm({
       addonSlug: addon.slug,
@@ -65,11 +76,13 @@ export function AddonPriceDrawer({
         >
           <form.AppForm>
             <div className="flex-1 space-y-5 overflow-y-auto p-4">
-              <AddonPriceFields
+              <AddonPriceShapeSection form={form} source={source} />
+              <AddonPriceDetailsSection
                 currencyLocked={pricing.currency !== undefined}
                 flatFees={pricing.flatFees}
                 form={form}
               />
+              <AddonPriceAmountSection form={form} source={source} />
               {failure ? <ProblemAlert error={failure} /> : null}
             </div>
             <SheetFooter className="flex-row justify-end border-t">

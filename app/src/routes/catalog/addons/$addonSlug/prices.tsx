@@ -1,7 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 import { addonPricesQueryOptions } from '@/domains/billing';
-import { AddonPricesTab, addonQueryOptions } from '@/features/addons';
+import {
+  AddonPricesTab,
+  addonGrantsQueryOptions,
+  addonQueryOptions,
+  entitlementsQueryOptions,
+} from '@/features/addons';
 import i18n from '@/lib/i18n/config';
 
 // `?price=new` opens the drawer on a new price. A price is never edited, so it is the
@@ -18,6 +23,10 @@ export const Route = createFileRoute('/catalog/addons/$addonSlug/prices')({
     await Promise.all([
       context.queryClient.ensureQueryData(addonQueryOptions(addonSlug)),
       context.queryClient.ensureQueryData(addonPricesQueryOptions(addonSlug)),
+      // What a metered price is made of: what the version grants, and the catalogue
+      // those grants are named and measured from.
+      context.queryClient.ensureQueryData(addonGrantsQueryOptions(addonSlug)),
+      context.queryClient.ensureQueryData(entitlementsQueryOptions),
     ]);
   },
 });

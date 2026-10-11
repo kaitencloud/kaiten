@@ -1,21 +1,8 @@
-import type {
-  AddonEntitlement,
-  Entitlement,
-  LicenseEntitlement,
-} from '@/api-client';
+import type { AddonEntitlement, LicenseEntitlement } from '@/api-client';
 import {
   getLicenseEntitlementOveragePercent,
   UNLIMITED_THRESHOLD,
 } from '@/domains/entitlement-usage';
-import { generateSlug } from '@/functionals/slug';
-
-/**
- * The slug a grant addresses an entitlement by. The API returns one for every
- * entitlement; when a read leaves it out, it is made as the API makes it, from the
- * name.
- */
-export const getEntitlementSlug = (entitlement: Entitlement): string =>
-  entitlement.slug?.trim() || generateSlug(entitlement.name);
 
 /** How a number grant of an add-on combines with the licence's (`overrideBehavior`). */
 export const OVERRIDE_BEHAVIORS = ['ADD', 'OVERRIDE', 'MAX'] as const;

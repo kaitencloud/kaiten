@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
+import { getEntitlementSlug } from '@/domains/billing';
 import { withForm } from '@/hooks/form';
 import type { LicenseOverage } from '../../hooks';
 import { addonGrantFormOpts } from '../../schemas/addon-grant-form-options';
 import {
-  getEntitlementSlug,
   OVERRIDE_BEHAVIOR_LABEL_KEYS,
   OVERRIDE_BEHAVIORS,
   type OverrideBehavior,

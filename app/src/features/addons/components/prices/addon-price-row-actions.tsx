@@ -1,6 +1,6 @@
 import { Ban } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { Price } from '@/api-client';
+import type { Entitlement, Price } from '@/api-client';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -11,6 +11,8 @@ import { getPriceLabel, useCanPerform } from '@/domains/billing';
 import { getPriceDeprecation } from '../../utils/addon-price.utils';
 
 type AddonPriceRowActionsProps = {
+  /** What a metered price measures, for the name the button is announced by. */
+  entitlement?: Entitlement;
   onDeprecate: (price: Price) => void;
   price: Price;
 };
@@ -24,13 +26,14 @@ type AddonPriceRowActionsProps = {
  * write add-ons.
  */
 export function AddonPriceRowActions({
+  entitlement,
   onDeprecate,
   price,
 }: AddonPriceRowActionsProps) {
   const { t } = useTranslation();
   const mayDeprecate = useCanPerform('addonPrices.deprecate');
   const deprecation = getPriceDeprecation(price);
-  const label = getPriceLabel(price, undefined, t);
+  const label = getPriceLabel(price, entitlement, t);
 
   if (!mayDeprecate || !deprecation) {
     return null;

@@ -44,8 +44,8 @@ import { LicenseAppModel } from '../_support/model/license-app-model';
  *   default of its family, and Initech Production holds two of its five-seat units, so
  *   what it sells is frozen. Its second version is a draft nobody holds, which can still
  *   be given its grants and its prices, and has a monthly price only.
- * - Extra tokens is on sale with a monthly price only, so an instance billed by the year
- *   cannot take it, and a metered price the console leaves out.
+ * - Extra tokens is on sale with a monthly flat fee and a metered price on the tokens it
+ *   adds, so an instance billed by the year cannot take it.
  * - Priority support has its first version withdrawn and a second sold on request.
  *
  * What the licenses grant is what an add-on adds to: Pro grants ten seats and a hundred
@@ -274,7 +274,7 @@ const TOKENS_MONTHLY = buildPrice({
   isDefault: true,
   unitAmountDecimal: '500',
 });
-// A metered price the API takes on a version and never values: the console leaves it out.
+// A metered price on a version that also sells a flat fee: it rates the tokens the add-on adds.
 const TOKENS_METERED = buildPrice({
   billingModel: 'USAGE_BASED',
   displayLabel: 'Tokens, metered',

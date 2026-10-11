@@ -9,6 +9,7 @@ import {
   describeUsage,
   type MeterOption,
   meterOfEntitlement,
+  type OverageScope,
 } from '../logic/price-meter';
 import { getPriceUnitLabel } from '../logic/price-display';
 import { RESET_PERIOD_UNIT_KEYS } from '../logic/price-labels';
@@ -19,6 +20,12 @@ type PriceMeterPickerProps = {
   model: BillingModel;
   onSelect: (entitlementSlug: string) => void;
   options: MeterOption[];
+  /**
+   * Whose price this is. A licence points a stock to the add-ons, where it is sold; the
+   * price of an add-on is that sale already, so its hint says to bill the stock as a
+   * flat fee with a quantity.
+   */
+  scope?: OverageScope;
   /** The slug of the entitlement picked, empty when none is. */
   value: string;
 };
@@ -77,6 +84,7 @@ export function PriceMeterPicker({
   model,
   onSelect,
   options,
+  scope = 'license',
   value,
 }: PriceMeterPickerProps) {
   const { i18n, t } = useTranslation();
@@ -117,7 +125,7 @@ export function PriceMeterPicker({
       ) : (
         <div className="space-y-2">{options.map(renderOption)}</div>
       )}
-      {hasStock ? <PriceStockHint /> : null}
+      {hasStock ? <PriceStockHint scope={scope} /> : null}
     </fieldset>
   );
 }
@@ -129,7 +137,11 @@ type PriceMeterFieldProps = Omit<PriceMeterPickerProps, 'onSelect' | 'value'>;
  * `meteredEntitlementSlug`, and the message of the form, once the field was
  * touched, says when none is picked.
  */
-export function PriceMeterField({ model, options }: PriceMeterFieldProps) {
+export function PriceMeterField({
+  model,
+  options,
+  scope,
+}: PriceMeterFieldProps) {
   return (
     <FormField<string>>
       {(field) => (
@@ -137,6 +149,7 @@ export function PriceMeterField({ model, options }: PriceMeterFieldProps) {
           model={model}
           onSelect={field.handleChange}
           options={options}
+          scope={scope}
           value={field.value}
         />
       )}

@@ -10,7 +10,7 @@ import { installAddonsWorld } from './install-addons-world';
 // default that bills the instances holding the version on a subscription of that period. A
 // price is created and deprecated, never edited. Extra seats has a monthly and an annual
 // default on its first version, which an instance holds, and a monthly one on its draft;
-// Extra tokens has a monthly price and a metered one the console does not list.
+// Extra tokens has a monthly price and a metered one, which rates the tokens it adds.
 
 const PRICE_WRITES = /^\/api\/addons\/[^/]+\/prices(\/[^/]+(\/deprecate)?)?$/;
 
@@ -63,7 +63,7 @@ test.describe('the prices of a version', () => {
     await expect(prices.rows()).toHaveCount(2);
   });
 
-  test('leave out the metered prices the API keeps and never values, and say how many there are', async ({
+  test('list the metered prices beside the flat fees, with what each measures and charges', async ({
     page,
   }) => {
     const prices = new AddonPricesDriver(page);
@@ -71,11 +71,21 @@ test.describe('the prices of a version', () => {
 
     await prices.goto('extra-tokens-v1', 'Extra tokens');
 
-    await expect(prices.rows()).toHaveCount(1);
-    await expect(prices.row('Extra tokens, monthly')).toBeVisible();
-    await expect(page.getByText('Tokens, metered')).toHaveCount(0);
-    await expect(page.getByTestId('unvalued-prices')).toHaveText(
-      'This version also has 1 metered price, which billing does not value: it is not listed.',
+    await expect(prices.rows()).toHaveCount(2);
+    await expect(prices.row('Extra tokens, monthly')).toContainText('Flat fee');
+    const metered = prices.row('Tokens, metered');
+    await expect(metered).toContainText('Usage-based');
+    await expect(metered).toContainText('Tokens');
+    await expect(metered).toContainText('Summed, resets every month');
+    await expect(metered).toContainText('$0.001');
+    await expect(metered).toContainText('per token');
+    // No period: it bills the usage of the subscription's own, in arrears.
+    await expect(metered).toContainText('In arrears');
+    await expect(metered).not.toContainText('Monthly');
+    // Its slots are the flat fees': the usage has no default.
+    await expect(prices.slot('MONTHLY')).toHaveAttribute(
+      'data-status',
+      'default',
     );
   });
 
@@ -342,6 +352,169 @@ test.describe('adding a price', () => {
   });
 });
 
+test.describe('adding a metered price', () => {
+  // The draft of the seats grants no flow of its own: the tokens are given to it here,
+  // and the entitlement catalogue of the organization says they reset every month.
+  const withTokens = () => {
+    const model = createAddonsBillingModel();
+    model.addons.assignGrant('extra-seats-v2', {
+      entitlementSlug: 'tokens',
+      overrideBehavior: 'ADD',
+      value: { type: 'number', value: 2_000 },
+    });
+
+    return model;
+  };
+
+  test('measures an entitlement the version grants, in arrears, and sends no period, no timing and no default', async ({
+    page,
+  }) => {
+    const prices = new AddonPricesDriver(page);
+    const writes = recordWrites(page, PRICE_WRITES);
+    await installAddonsWorld(page, withTokens());
+    await prices.goto('extra-seats-v2', 'Extra seats');
+
+    await prices.addPrice().click();
+    await prices.shapeButton('Usage-based').click();
+    // Billed on the subscription's own period, in arrears: nothing to choose of either.
+    await expect(prices.periodField()).toHaveCount(0);
+    await expect(prices.defaultCheckbox()).toHaveCount(0);
+    await expect(prices.drawer()).toContainText(
+      'A metered price is always billed in arrears',
+    );
+    await prices.meterOption('Tokens').click();
+    await prices.amountField().fill('0.20');
+    await expect(prices.livePreview()).toContainText('$0.20 per token');
+    await prices.labelField().fill('Tokens, extra pack');
+    await prices.createButton().click();
+
+    await expectToast(page, 'Price created');
+    await expect(prices.row('Tokens, extra pack')).toContainText('Usage-based');
+    await expect(prices.row('Tokens, extra pack')).toContainText('In arrears');
+    expect(writes).toEqual([
+      {
+        body: {
+          billingModel: 'USAGE_BASED',
+          billingTiming: 'ARREARS',
+          currency: 'USD',
+          displayLabel: 'Tokens, extra pack',
+          displayOrder: 2,
+          meteredEntitlementSlug: 'tokens',
+          unitAmountDecimal: '20',
+        },
+        method: 'POST',
+        pathname: '/api/addons/extra-seats-v2/prices',
+      },
+    ]);
+  });
+
+  test('offers an overage on a flow the version grants, and says it bills above what the instance holds', async ({
+    page,
+  }) => {
+    const prices = new AddonPricesDriver(page);
+    await installAddonsWorld(page, withTokens());
+    await prices.goto('extra-seats-v2', 'Extra seats');
+
+    await prices.addPrice().click();
+    await prices.shapeButton('Overage').click();
+
+    await expect(prices.meterOption('Tokens')).toContainText(
+      'Bills the usage above the limit the instance holds: its license and its add-ons together',
+    );
+    await expect(prices.meterOption('Tokens')).toBeEnabled();
+  });
+
+  test('lists a stock the version grants disabled, with the way to sell it, and an entitlement it does not grant not at all', async ({
+    page,
+  }) => {
+    const prices = new AddonPricesDriver(page);
+    const model = withTokens();
+    model.addons.assignGrant('extra-seats-v2', {
+      entitlementSlug: 'seats',
+      overrideBehavior: 'ADD',
+      value: { type: 'number', value: 5 },
+    });
+    await installAddonsWorld(page, model);
+    await prices.goto('extra-seats-v2', 'Extra seats');
+
+    await prices.addPrice().click();
+    await prices.shapeButton('Usage-based').click();
+
+    await expect(prices.meterOption('Seats')).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await expect(prices.meterOption('Seats')).toContainText(
+      'A stock: it never resets, so it cannot be metered.',
+    );
+    await expect(prices.drawer()).toContainText(
+      'cannot be metered: bill it as a flat fee with a quantity.',
+    );
+    await expect(prices.meterOption('Storage')).toHaveCount(0);
+  });
+
+  test('does not offer an entitlement an active price of the version already measures', async ({
+    page,
+  }) => {
+    const prices = new AddonPricesDriver(page);
+    await installAddonsWorld(page);
+    await prices.goto('extra-tokens-v1', 'Extra tokens');
+
+    await prices.addPrice().click();
+    await prices.shapeButton('Usage-based').click();
+
+    await expect(prices.meterOption('Tokens')).toHaveCount(0);
+    await expect(prices.drawer()).toContainText(
+      'This version grants no entitlement a price can meter',
+    );
+  });
+
+  test('waits for the entitlement before it can be sent', async ({ page }) => {
+    const prices = new AddonPricesDriver(page);
+    const writes = recordWrites(page, PRICE_WRITES);
+    await installAddonsWorld(page, withTokens());
+    await prices.goto('extra-seats-v2', 'Extra seats');
+
+    await prices.addPrice().click();
+    await prices.shapeButton('Usage-based').click();
+    await prices.amountField().fill('0.20');
+
+    await expect(prices.createButton()).toBeDisabled();
+    await prices.meterOption('Tokens').click();
+    await expect(prices.createButton()).toBeEnabled();
+    expect(writes).toEqual([]);
+  });
+
+  test('shows the refusal of an entitlement on the picker, in the words of the API, and keeps the drawer', async ({
+    page,
+  }) => {
+    const prices = new AddonPricesDriver(page);
+    const model = withTokens();
+    model.addons.armProblem('createAddonPrice', {
+      code: 'CreateAddonPrice.EntitlementAlreadyMetered',
+      detail:
+        'another active price of this add-on version already meters this entitlement',
+      status: 422,
+    });
+    await installAddonsWorld(page, model);
+    await prices.goto('extra-seats-v2', 'Extra seats');
+
+    await prices.addPrice().click();
+    await prices.shapeButton('Usage-based').click();
+    await prices.meterOption('Tokens').click();
+    await prices.amountField().fill('0.20');
+    await prices.createButton().click();
+
+    await expect(prices.drawer()).toContainText(
+      'another active price of this add-on version already meters this entitlement',
+    );
+    await expect(prices.drawer()).toBeVisible();
+    await expect(page).toHaveURL(
+      '/catalog/addons/extra-seats-v2/prices?price=new',
+    );
+  });
+});
+
 test.describe('deprecating a price', () => {
   test('asks first, says what it does and what it does not, and keeps the price listed as deprecated', async ({
     page,
@@ -380,6 +553,26 @@ test.describe('deprecating a price', () => {
         ),
       },
     ]);
+  });
+
+  test('says a metered price produces no line from the next invoice, and keeps it listed as deprecated', async ({
+    page,
+  }) => {
+    const prices = new AddonPricesDriver(page);
+    await installAddonsWorld(page);
+    await prices.goto('extra-tokens-v1', 'Extra tokens');
+
+    await prices.deprecateButton('Tokens, metered').click();
+    await expect(prices.confirmation()).toContainText(
+      'This price produces no line from the next invoice on',
+    );
+    await expect(prices.confirmation()).not.toContainText(
+      'keep being billed from it',
+    );
+    await prices.confirm('Deprecate');
+
+    await expectToast(page, 'Price deprecated');
+    await expect(prices.row('Tokens, metered')).toContainText('Deprecated');
   });
 
   test('withholds the default of a period, and says how to change it instead', async ({

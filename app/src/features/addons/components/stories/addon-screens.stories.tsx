@@ -222,6 +222,73 @@ export const Prices: Story = {
   },
 };
 
+const API_CALLS_GRANT: AddonEntitlement = buildAddonGrant({
+  addonSlug: 'extra-seats-v2',
+  behavior: 'ADD',
+  entitlementSlug: 'api-calls',
+  overagePercent: 5,
+  value: 5000,
+});
+const API_CALLS_RATED: Price = buildPrice({
+  billingModel: 'USAGE_BASED',
+  displayLabel: 'API calls, extra pack',
+  displayOrder: 2,
+  id: 'price-api-calls',
+  metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1' },
+  unitAmountDecimal: '0.15',
+});
+
+// A version is billed for what it measures as well as for a period: a metered price is
+// listed with the entitlement it measures, what it counts and what it charges per unit.
+export const PricesWithUsage: Story = {
+  parameters: {
+    msw: {
+      handlers: handlersFor(
+        handleListAddonEntitlements({ body: [SEATS_GRANT, API_CALLS_GRANT] }),
+        handleListAddonPrices({ body: [MONTHLY, API_CALLS_RATED] }),
+      ),
+    },
+  },
+  render: () => (
+    <Frame>
+      <AddonPricesTab addonSlug="extra-seats-v2" />
+    </Frame>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const row = (await canvas.findByText('API calls, extra pack')).closest('tr') as HTMLElement;
+
+    await expect(within(row).getByText('Usage-based')).toBeVisible();
+    await expect(within(row).getByText('API Calls')).toBeVisible();
+    await expect(within(row).getByText('Summed, resets every month')).toBeVisible();
+    await expect(within(row).getByText('In arrears')).toBeVisible();
+  },
+};
+
+// A new price can measure an entitlement the version grants that is a flow: the calls
+// are offered, the seats are a stock and say how they are sold.
+export const NewMeteredPrice: Story = {
+  parameters: {
+    msw: {
+      handlers: handlersFor(handleListAddonEntitlements({ body: [SEATS_GRANT, API_CALLS_GRANT] })),
+    },
+  },
+  render: () => (
+    <Frame>
+      <AddonPricesTab addonSlug="extra-seats-v2" priceParam="new" />
+    </Frame>
+  ),
+  play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: /^Usage-based/ }));
+
+    await expect(await screen.findByRole('button', { name: /^API Calls/ })).toBeEnabled();
+    await expect(screen.getByRole('button', { name: /^Seats/ })).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(screen.getByRole('button', { name: /^API Calls/ }));
+    await expect(await screen.findByLabelText(/Amount per/)).toBeVisible();
+    await expect(screen.queryByLabelText(/Billing period/)).toBeNull();
+  },
+};
+
 // A version that fits no license family can be attached to nothing, and the tab says so.
 export const CompatibilityOfNothing: Story = {
   parameters: {

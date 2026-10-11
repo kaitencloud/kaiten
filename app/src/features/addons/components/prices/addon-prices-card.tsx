@@ -21,10 +21,9 @@ type AddonPricesCardProps = {
 /**
  * What the Prices tab shows of a version: the slot of each billing period, which says
  * which prices bill what, what the state of the version means for changing them -- with
- * the way to a new version where it has been on sale -- and the table of its flat fees.
- * Adding one is the action of the header, for a session that may write add-ons, while
- * the version takes a price. The metered prices the API takes and never values are not
- * listed, and a line says how many there are.
+ * the way to a new version where it has been on sale -- and the table of its prices,
+ * flat fees and metered ones. Adding one is the action of the header, for a session
+ * that may write add-ons, while the version takes a price.
  */
 export function AddonPricesCard({
   onDeprecate,
@@ -32,7 +31,7 @@ export function AddonPricesCard({
 }: AddonPricesCardProps) {
   const { t } = useTranslation();
   const mayCreate = useCanPerform('addonPrices.create');
-  const { addon, canAdd, flatFees, slots, unvaluedCount } = pricing;
+  const { addon, canAdd, entitlementBySlug, prices, slots } = pricing;
 
   return (
     <TableCard>
@@ -82,16 +81,12 @@ export function AddonPricesCard({
         />
       </TableCard.Toolbar>
       <TableCard.Content>
-        <AddonPriceTable onDeprecate={onDeprecate} prices={flatFees} />
+        <AddonPriceTable
+          entitlementBySlug={entitlementBySlug}
+          onDeprecate={onDeprecate}
+          prices={prices}
+        />
       </TableCard.Content>
-      {unvaluedCount > 0 ? (
-        <p
-          className="px-6 text-sm text-muted-foreground"
-          data-testid="unvalued-prices"
-        >
-          {t('Pages.Addons.Prices.unvalued', { count: unvaluedCount })}
-        </p>
-      ) : null}
     </TableCard>
   );
 }

@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import type { Price } from '@/api-client';
-import { handleBillingProblem, placeRefusalOnFields } from '@/domains/billing';
+import {
+  handleBillingProblem,
+  isMeteredModel,
+  placeRefusalOnFields,
+} from '@/domains/billing';
 import { useAppForm } from '@/hooks/form';
 import {
   addonPriceFormValuesToCreateBody,
@@ -17,17 +21,27 @@ import type { AddonPricing } from './use-addon-pricing';
 
 // Where a refusal of the API lands in the form: by the name the API gives the member
 // (`body.unitAmountDecimal`, since the amount is typed under another name than it is
-// sent under), and by its code for the ones that say the field in prose.
+// sent under), and by its code for the ones that say the field in prose. A metered
+// price is refused on the entitlement it measures: it must be a flow the version
+// grants, that no other active price of the version measures.
 const REFUSAL_FIELDS = {
   byCode: {
     'CreateAddonPrice.CurrencyMismatch': 'currency',
+    'CreateAddonPrice.EntitlementAlreadyMetered': 'meteredEntitlementSlug',
+    'CreateAddonPrice.EntitlementIsStock': 'meteredEntitlementSlug',
+    'CreateAddonPrice.EntitlementNotFound': 'meteredEntitlementSlug',
+    'CreateAddonPrice.EntitlementNotGranted': 'meteredEntitlementSlug',
+    'CreateAddonPrice.UnsupportedAggregation': 'meteredEntitlementSlug',
+    'CreateAddonPrice.UnsupportedEntitlementType': 'meteredEntitlementSlug',
   },
   byLocation: {
+    billingModel: 'billingModel',
     billingPeriod: 'billingPeriod',
     billingTiming: 'billingTiming',
     currency: 'currency',
     displayLabel: 'displayLabel',
     isDefault: 'isDefault',
+    meteredEntitlementSlug: 'meteredEntitlementSlug',
     unitAmountDecimal: 'amount',
   },
 } as const;
@@ -47,8 +61,8 @@ type UseAddonPriceFormOptions = {
 
 /**
  * The form of a new price, and the request it sends. It sends what the API takes -- a
- * flat fee, its amount in minor units, the display order after the version's last
- * price -- and shows what the API refuses with: the field errors it names on their
+ * flat fee or a metered price, its amount in minor units, the display order after the
+ * version's last price -- and shows what the API refuses with: the field errors it names on their
  * fields, a version that can no longer be changed as the way to a new one, anything
  * else above the buttons, with the form left as it was typed.
  *
@@ -76,9 +90,12 @@ export function useAddonPriceForm({
       getDefaultPrice(pricing.flatFees, 'MONTHLY') === undefined,
     ),
     onSubmit: ({ value }) => {
-      const replaced = value.isDefault
-        ? getDefaultPrice(pricing.flatFees, value.billingPeriod)
-        : undefined;
+      // Only a flat fee is a default: the flag a metered price kept from the shape it was
+      // switched from is never sent, so it replaces nothing.
+      const replaced =
+        value.isDefault && !isMeteredModel(value.billingModel)
+          ? getDefaultPrice(pricing.flatFees, value.billingPeriod)
+          : undefined;
       if (replaced) {
         setReplacing(replaced);
 

@@ -2,8 +2,9 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
  * The Prices tab of an add-on version: the slot of each billing period, the table of
- * its flat fees, the drawer a price is made in (`?price=new`) and the dialogs that ask
- * before a default is replaced and before a price is deprecated.
+ * its prices (flat fees and metered ones), the drawer a price is made in (`?price=new`)
+ * and the dialogs that ask before a default is replaced and before a price is
+ * deprecated.
  */
 export class AddonPricesDriver {
   constructor(private readonly page: Page) {}
@@ -56,8 +57,19 @@ export class AddonPricesDriver {
     });
   }
 
+  /** The amount: per unit for a flat fee, per sale unit of the entitlement once a metered price names one. */
   amountField(): Locator {
-    return this.drawer().getByLabel(/^Amount per unit/);
+    return this.drawer().getByLabel(/^Amount per /);
+  }
+
+  /** A shape of price, by its name: Flat fee, Usage-based or Overage. */
+  shapeButton(name: 'Flat fee' | 'Overage' | 'Usage-based'): Locator {
+    return this.drawer().getByRole('button', { name: new RegExp(`^${name}`) });
+  }
+
+  /** An entitlement a metered price may measure, by its name. */
+  meterOption(name: string): Locator {
+    return this.drawer().getByRole('button', { name: new RegExp(`^${name}`) });
   }
 
   labelField(): Locator {
