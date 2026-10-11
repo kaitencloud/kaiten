@@ -118,7 +118,7 @@ test.describe('the Billing tab of an instance', () => {
     await expect(page.getByTestId('usage-history')).toBeVisible();
   });
 
-  test('says in the words of the API that the usage the next invoice would be composed from is no longer kept, with nothing to ask again', async ({
+  test('explains that the usage the next invoice would be composed from is no longer kept, where the kept usage begins and that the invoice is not affected, with nothing to ask again', async ({
     page,
   }) => {
     const billing = new InstanceBillingDriver(page);
@@ -126,23 +126,60 @@ test.describe('the Billing tab of an instance', () => {
     model.subscriptions.armProblem('getUpcomingInvoice', {
       code: 'GetUpcomingInvoice.OutsideRetention',
       detail:
-        'the usage of this period is no longer kept: it begins before 2025-04-07T12:00:00Z',
+        "the period starts before the organization's usage history: its usage reports are gone",
+      errors: [
+        {
+          location: 'retentionStart',
+          message: 'retentionStart',
+          value: '2025-04-07T12:00:00Z',
+        },
+      ],
       status: 422,
     });
     await installBillingAppMocks(page, model);
 
     await billing.goto('acme-production');
 
-    await expect(billing.upcomingError()).toContainText(
-      'the usage of this period is no longer kept: it begins before 2025-04-07T12:00:00Z',
+    const notice = billing.upcomingOutsideRetention();
+    await expect(notice).toContainText(
+      'No preview: the usage history no longer covers this period',
     );
-    // Asking again would change nothing, so it is not offered.
-    await expect(
-      billing.upcomingError().getByRole('button', { name: 'Retry' }),
-    ).toHaveCount(0);
-    // The rest of the tab is where it was.
+    await expect(notice).toContainText(
+      'Usage before Apr 7, 2025 (UTC) is no longer kept.',
+    );
+    await expect(notice).toContainText('The invoice itself is not affected');
+    // It is not the generic problem, and asking again would change nothing.
+    await expect(billing.upcomingError()).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Retry' })).toHaveCount(0);
+    // It stands in the place of the card, and the rest of the tab is where it was.
+    await expect(billing.upcomingCard()).toContainText('Upcoming invoice');
     await expect(billing.subscriptionCard()).toContainText('Active');
     await expect(billing.invoiceRows()).toHaveCount(2);
+  });
+
+  test('keeps the generic problem, with a way to ask again, for any other refusal of the upcoming invoice', async ({
+    page,
+  }) => {
+    const billing = new InstanceBillingDriver(page);
+    const model = createSubscriptionsModel();
+    model.subscriptions.armProblem('getUpcomingInvoice', {
+      code: 'Billing.EntitlementCheckUnavailable',
+      detail: 'The billing entitlement could not be checked',
+      status: 503,
+    });
+    await installBillingAppMocks(page, model);
+
+    await billing.goto('acme-production');
+
+    await expect(billing.upcomingError()).toContainText(
+      'The billing entitlement could not be checked',
+    );
+    await expect(billing.upcomingOutsideRetention()).toHaveCount(0);
+    await billing
+      .upcomingError()
+      .getByRole('button', { name: 'Retry' })
+      .click();
+    await expect(billing.upcomingCard()).toContainText('Upcoming invoice');
   });
 
   test('lists the invoices of the instance, newest first, without saying whose they are on every row', async ({

@@ -784,6 +784,18 @@ export default {
                 unknownEntitlement: 'Un droit',
                 history: 'Voir son historique d’usage',
               },
+              OutsideRetention: {
+                title:
+                  'Pas d’aperçu : l’historique d’usage ne couvre plus cette période',
+                explanation:
+                  'La prochaine facture facture l’usage depuis le début de cette période de facturation, et les rapports de ses premiers jours sont plus anciens que l’usage que votre organisation conserve. Kaiten ne peut pas les valoriser pour afficher la facture ici.',
+                keptFor_one:
+                  'Votre organisation conserve l’usage pendant {{count}} mois.',
+                keptFor_other:
+                  'Votre organisation conserve l’usage pendant {{count}} mois.',
+                invoiceUnaffected:
+                  'La facture elle-même n’est pas touchée : elle est composée à la clôture de la période, d’après l’usage enregistré.',
+              },
             },
             Invoices: {
               description:

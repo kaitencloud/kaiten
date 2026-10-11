@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, within } from 'storybook/test';
+import { handleGetBillingCapabilities } from '@/api-client/msw.gen';
+import type { BillingProblem } from '@/domains/billing';
 import {
+  billingCapabilitiesProfiles,
   buildLicense,
   buildPrice,
   buildSubscription,
@@ -9,6 +12,7 @@ import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { NotSubscribedCard } from '../instance-detail/tabs/billing/not-subscribed-card';
 import { SubscribeAction } from '../instance-detail/tabs/billing/subscribe-action';
 import { SubscriptionCard } from '../instance-detail/tabs/billing/subscription-card';
+import { UpcomingInvoiceOutsideRetention } from '../instance-detail/tabs/billing/upcoming-invoice-outside-retention';
 
 const meta = {
   title: 'Features/Instances/Billing',
@@ -189,5 +193,46 @@ export const NotOnSale: Story = {
       'This instance runs Preview v2027.1 (Draft). Only a published license version can be subscribed to.',
     );
     await expect(canvas.queryByRole('link', { name: 'Subscribe' })).toBeNull();
+  },
+};
+
+const OUTSIDE_RETENTION: BillingProblem = {
+  code: 'GetUpcomingInvoice.OutsideRetention',
+  detail:
+    "the period starts before the organization's usage history: its usage reports are gone",
+  errors: [],
+  kind: 'outside-retention',
+  retentionStart: '2027-01-10T00:00:00Z',
+  status: 422,
+};
+
+// The period of an annual subscription in arrears is longer than the usage the
+// organization keeps: there is no preview, and the invoice is not affected.
+export const UpcomingOutsideRetention: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        handleGetBillingCapabilities({
+          body: billingCapabilitiesProfiles.stack(),
+        }),
+      ],
+    },
+  },
+  render: () => <UpcomingInvoiceOutsideRetention problem={OUTSIDE_RETENTION} />,
+  play: async ({ canvasElement }) => {
+    const notice = within(canvasElement).getByTestId(
+      'upcoming-invoice-outside-retention',
+    );
+
+    await expect(notice).toHaveTextContent(
+      'No preview: the usage history no longer covers this period',
+    );
+    await expect(notice).toHaveTextContent(
+      'Usage before Jan 10, 2027 (UTC) is no longer kept.',
+    );
+    await expect(
+      await within(canvasElement).findByText(/keeps usage for 18 months/),
+    ).toBeVisible();
+    await expect(notice).toHaveTextContent('The invoice itself is not affected');
   },
 };

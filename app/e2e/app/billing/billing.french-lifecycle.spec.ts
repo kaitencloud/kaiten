@@ -296,6 +296,42 @@ test.describe('the public catalogue of the licenses, read in French', () => {
   });
 });
 
+test.describe('an upcoming invoice the usage history no longer covers, read in French', () => {
+  test('is explained in French, with the date as the locale writes it', async ({
+    page,
+  }) => {
+    const model = createLifecycleBillingModel();
+    model.subscriptions.armProblem('getUpcomingInvoice', {
+      code: 'GetUpcomingInvoice.OutsideRetention',
+      detail:
+        "the period starts before the organization's usage history: its usage reports are gone",
+      errors: [
+        {
+          location: 'retentionStart',
+          message: 'retentionStart',
+          value: '2026-01-15T00:00:00Z',
+        },
+      ],
+      status: 422,
+    });
+    await new InstanceBillingDriver(page).freezeTime();
+    await startInLanguage(page, 'fr');
+    await installInstanceAppMocks(page, createLifecycleInstancesModel());
+    await installBillingAppMocks(page, model);
+
+    await page.goto('/customers/instances/initech-prod/billing');
+
+    const notice = page.getByTestId('upcoming-invoice-outside-retention');
+    await expect(notice).toContainText(
+      'Pas d’aperçu : l’historique d’usage ne couvre plus cette période',
+    );
+    await expect(notice).toContainText(/L’usage antérieur au .*2026 \(UTC\)/);
+    await expect(notice).toContainText(
+      'La facture elle-même n’est pas touchée',
+    );
+  });
+});
+
 test.describe('a period being closed, read in French', () => {
   test('is said in place of an error, in French, and the request goes again by itself', async ({
     page,

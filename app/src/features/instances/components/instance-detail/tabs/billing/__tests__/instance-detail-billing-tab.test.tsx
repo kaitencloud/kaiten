@@ -339,19 +339,25 @@ describe('a subscription', () => {
 
   it('shows a refusal of the upcoming invoice on its card with a way to ask again, and keeps the rest', async () => {
     serveSubscription(subscription());
+    let calls = 0;
     server.use(
-      handleGetUpcomingInvoice(() =>
-        refusal(422, {
-          code: 'GetUpcomingInvoice.OutsideRetention',
-          detail: 'Usage before 2025-04-15 is no longer kept',
-        }),
-      ),
+      handleGetUpcomingInvoice(() => {
+        calls += 1;
+
+        return calls === 1
+          ? refusal(503, { detail: 'The usage journal could not be read' })
+          : HttpResponse.json(upcoming());
+      }),
     );
     renderTab();
 
     const problem = await screen.findByTestId('upcoming-invoice-error');
-    expect(problem).toHaveTextContent('Usage before 2025-04-15 is no longer kept');
+    expect(problem).toHaveTextContent('The usage journal could not be read');
     expect(screen.getByText('Subscription')).toBeInTheDocument();
+    await userEvent.click(within(problem).getByRole('button', { name: 'Retry' }));
+
+    expect(await screen.findByText('Upcoming invoice')).toBeInTheDocument();
+    expect(screen.queryByTestId('upcoming-invoice-error')).toBeNull();
   });
 });
 
@@ -430,5 +436,92 @@ describe('reading the billing of the instance', () => {
 
     await screen.findByTestId('instance-billing-error');
     expect(calls).toBe(1);
+  });
+});
+
+describe('an upcoming invoice the usage history no longer covers', () => {
+  const outsideRetention = (errors?: Array<{ location?: string; value?: unknown }>) =>
+    handleGetUpcomingInvoice(() =>
+      refusal(422, {
+        code: 'GetUpcomingInvoice.OutsideRetention',
+        detail:
+          "the period starts before the organization's usage history: its usage reports are gone",
+        errors,
+      }),
+    );
+
+  it('explains that there is no preview and that the invoice is not affected, where the kept usage begins and for how long it is kept', async () => {
+    serveSubscription(subscription());
+    server.use(
+      outsideRetention([
+        { location: 'retentionStart', value: '2026-04-15T00:00:00Z' },
+      ]),
+    );
+    renderTab();
+
+    const notice = await screen.findByTestId('upcoming-invoice-outside-retention');
+    expect(notice).toHaveTextContent(
+      'No preview: the usage history no longer covers this period',
+    );
+    expect(notice).toHaveTextContent(
+      'older than the usage your organization keeps',
+    );
+    expect(notice).toHaveTextContent('Usage before Apr 15, 2026 (UTC) is no longer kept.');
+    expect(await screen.findByText(/keeps usage for 18 months/)).toBeInTheDocument();
+    expect(notice).toHaveTextContent(
+      'The invoice itself is not affected: it is composed when the period closes, from the usage that was recorded.',
+    );
+  });
+
+  it('is not the generic problem, and offers nothing to ask again since the answer would be the same', async () => {
+    serveSubscription(subscription());
+    server.use(
+      outsideRetention([
+        { location: 'retentionStart', value: '2026-04-15T00:00:00Z' },
+      ]),
+    );
+    renderTab();
+
+    const notice = await screen.findByTestId('upcoming-invoice-outside-retention');
+    expect(screen.queryByTestId('upcoming-invoice-error')).toBeNull();
+    expect(within(notice).queryByRole('button')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    // It stays in the place of the card it stands for, and the rest of the tab is there.
+    expect(screen.getByText('Upcoming invoice')).toBeInTheDocument();
+    expect(screen.getByText('Subscription')).toBeInTheDocument();
+  });
+
+  it('says the words of the API when it names no date, and does not make up a retention', async () => {
+    serveSubscription(subscription());
+    server.use(
+      handleGetBillingCapabilities({
+        body: { ...billingCapabilitiesProfiles.stack(), usageHistoryRetentionMonths: null },
+      }),
+      outsideRetention(),
+    );
+    renderTab();
+
+    const notice = await screen.findByTestId('upcoming-invoice-outside-retention');
+    expect(notice).toHaveTextContent(
+      "the period starts before the organization's usage history: its usage reports are gone",
+    );
+    expect(notice).not.toHaveTextContent('keeps usage for');
+  });
+
+  it('leaves the date alone when the retention is not reported', async () => {
+    serveSubscription(subscription());
+    server.use(
+      handleGetBillingCapabilities({
+        body: { ...billingCapabilitiesProfiles.stack(), usageHistoryRetentionMonths: null },
+      }),
+      outsideRetention([
+        { location: 'retentionStart', value: '2026-04-15T00:00:00Z' },
+      ]),
+    );
+    renderTab();
+
+    const notice = await screen.findByTestId('upcoming-invoice-outside-retention');
+    expect(notice).toHaveTextContent('Usage before Apr 15, 2026 (UTC) is no longer kept.');
+    expect(notice).not.toHaveTextContent('keeps usage for');
   });
 });

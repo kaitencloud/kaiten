@@ -62,6 +62,11 @@ export class InstanceBillingDriver {
     return this.page.getByTestId('upcoming-invoice-error');
   }
 
+  /** What the card says when the usage its invoice would be composed from is no longer kept. */
+  upcomingOutsideRetention(): Locator {
+    return this.page.getByTestId('upcoming-invoice-outside-retention');
+  }
+
   // --- The cards -----------------------------------------------------------------
 
   subscriptionCard(): Locator {

@@ -771,6 +771,18 @@ export default {
                 unknownEntitlement: 'An entitlement',
                 history: 'See its usage history',
               },
+              OutsideRetention: {
+                title:
+                  'No preview: the usage history no longer covers this period',
+                explanation:
+                  'The next invoice bills usage from the start of this billing period, and the reports of its first days are older than the usage your organization keeps. Kaiten cannot rate them to show the invoice here.',
+                keptFor_one:
+                  'Your organization keeps usage for {{count}} month.',
+                keptFor_other:
+                  'Your organization keeps usage for {{count}} months.',
+                invoiceUnaffected:
+                  'The invoice itself is not affected: it is composed when the period closes, from the usage that was recorded.',
+              },
             },
             Invoices: {
               description:

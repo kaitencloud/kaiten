@@ -8,6 +8,7 @@ import {
   formatBoundary,
   formatInstant,
   getInvoiceKindLabelKey,
+  handleBillingProblem,
   InvoiceTotalCell,
   InvoicePreviewDialog,
   InvoicePreviewResult,
@@ -17,6 +18,7 @@ import {
 import { DetailCard } from '@/functionals/detail-card';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { upcomingInvoiceQueryOptions } from '../../../../queries';
+import { UpcomingInvoiceOutsideRetention } from './upcoming-invoice-outside-retention';
 import { WouldHoldBanner } from './would-hold-banner';
 
 const InvoiceIcon = dataModelIcons.invoice;
@@ -130,8 +132,9 @@ type UpcomingInvoiceCardProps = {
  * API from the usage so far: when it is issued, what it comes to, and, if the
  * usage journal of a meter fails a check, that it would be held. The lines are
  * one click away in the preview dialog; nothing here is saved or billed. Usage
- * that is no longer kept, or any other refusal, is shown in the API's words with
- * a way to ask again, and the rest of the tab stays.
+ * that is no longer kept is explained, since the invoice is not affected and asking
+ * again changes nothing; any other refusal is shown in the API's words with a way to
+ * ask again, and the rest of the tab stays.
  */
 export function UpcomingInvoiceCard({
   instanceSlug,
@@ -153,6 +156,13 @@ export function UpcomingInvoiceCard({
     );
   }
   if (query.isError) {
+    const problem = handleBillingProblem(query.error);
+
+    // The usage is purged on purpose and asking again changes nothing: it is explained.
+    if (problem.kind === 'outside-retention') {
+      return <UpcomingInvoiceOutsideRetention problem={problem} />;
+    }
+
     return (
       <RetryableProblem
         data-testid="upcoming-invoice-error"
