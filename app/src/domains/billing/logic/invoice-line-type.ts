@@ -41,8 +41,10 @@ export type InvoiceLineKind = {
   isDiscount: boolean;
   /**
    * Whether the line has a price to show (billing model, timing, unit amount):
-   * a DISCOUNT line has none, and an ADDON line has no licence price. The
-   * contract leaves these members optional on every line.
+   * a DISCOUNT line has none. Whose price it is, a licence's or an add-on's, is
+   * not the type's to say (`getInvoiceLineSource`): the usage and the overage of
+   * an add-on are lines of the type of a licence's. The contract leaves these
+   * members optional on every line.
    */
   hasPrice: boolean;
 };

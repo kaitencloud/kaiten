@@ -77,6 +77,12 @@ export {
   isKnownInvoiceLineType,
 } from './invoice-line-type';
 export {
+  getInvoiceLinePriceId,
+  getInvoiceLineSource,
+  type InvoiceLineSource,
+  isAddonInvoiceLine,
+} from './invoice-line-source';
+export {
   getProviderKindLabelKey,
   getPushVariant,
   INVOICE_PROVIDER_KINDS,
