@@ -1,3 +1,4 @@
+import { useStore } from '@tanstack/react-form';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -15,6 +16,7 @@ import {
 import { PreviewFields } from './preview-fields';
 import { useLicensePreviewForm } from './use-license-preview-form';
 import { usePreviewFieldOptions } from './use-preview-field-options';
+import { usePreviewReferences } from './use-preview-references';
 
 const INVALID_SAMPLE_USAGE = 'PreviewLicenseInvoice.InvalidSampleUsage';
 
@@ -26,10 +28,12 @@ type LicenseInvoicePreviewDialogProps = {
 
 /**
  * The invoice a subscription to the version would be billed, composed by the API
- * from a base price and the usage the person gives: a flat fee, and a sample per
- * entitlement a price meters. It works on a draft as on a published version,
+ * from a base price and what the person gives: the usage, a sample per entitlement a
+ * price meters or the usage of an instance; the add-ons to price in, with their units; and
+ * the code of a voucher to apply. It works on a draft as on a published version,
  * which is how a price is checked before it goes on sale, and it writes nothing.
- * The lines, their arithmetic and the totals are the API's, shown as they came.
+ * The lines, their arithmetic and the totals are the API's, shown as they came: the fee
+ * of an add-on and a discount among them, with the components of every invoice.
  */
 export function LicenseInvoicePreviewDialog({
   licenseSlug,
@@ -39,12 +43,17 @@ export function LicenseInvoicePreviewDialog({
   const { t } = useTranslation();
   const { license, prices } = pricing;
   const { baseOptions, meters, sampleFields } = usePreviewFieldOptions(pricing);
-  const { failure, form, preview } = useLicensePreviewForm({
+  const { failure, form, placed, preview } = useLicensePreviewForm({
     defaultBasePriceId: getDefaultBase(prices)?.id,
     initialBasePriceId: getInitialBase(prices)?.id ?? '',
     licenseSlug,
     meters,
   });
+  const addOnRows = useStore(form.store, (state) => state.values.addOns);
+  const references = usePreviewReferences(
+    pricing,
+    addOnRows.map((row) => row.addonSlug),
+  );
 
   // The invoice comes in under a form that may fill the dialog: bring it into
   // view, since the totals at its end are what was asked for.
@@ -77,10 +86,32 @@ export function LicenseInvoicePreviewDialog({
       >
         <form.AppForm>
           <PreviewFields
+            addOns={
+              references.offersAddons
+                ? {
+                    choices: references.addonChoices,
+                    error: references.addons.error,
+                    isError: references.addons.isError,
+                    retry: () => void references.addons.refetch(),
+                  }
+                : undefined
+            }
             bases={baseOptions}
             form={form}
+            instances={
+              references.offersInstances
+                ? {
+                    choices: references.instanceChoices,
+                    error: references.instances.error,
+                    isError: references.instances.isError,
+                    isPending: references.instances.isPending,
+                    retry: () => void references.instances.refetch(),
+                  }
+                : undefined
+            }
             sampleError={sampleError}
-            samples={sampleFields}
+            samples={[...sampleFields, ...references.addonSamples]}
+            vouchers={references.offersVouchers}
           />
           <div className="flex justify-end">
             {/* The dialog stays open once the invoice is composed, so the button
@@ -95,7 +126,9 @@ export function LicenseInvoicePreviewDialog({
           </div>
         </form.AppForm>
       </form>
-      {failure && !sampleError ? <ProblemAlert error={failure} /> : null}
+      {failure && !sampleError && !placed ? (
+        <ProblemAlert error={failure} />
+      ) : null}
       <div aria-live="polite" ref={outcome}>
         {preview ? (
           <InvoicePreviewResult preview={preview} />

@@ -1754,21 +1754,53 @@ export default {
             'What a subscription to {{name}}, version {{version}}, would be billed at its next renewal. Nothing is created.',
           hint: 'Run the preview to see the invoice.',
           run: 'Run preview',
+          addAddOn: 'Add an add-on',
+          removeAddOn: 'Remove add-on {{position}}',
           Labels: {
             base: 'Base price',
             samples: 'Sample usage',
+            usage: 'Usage',
+            instance: 'Instance',
+            addOns: 'Add-ons',
+            addOn: 'Add-on',
+            addOnQuantity: 'Units',
+            voucher: 'Promo code',
+          },
+          Source: {
+            samples: 'Samples',
+            samplesDetail: 'Type what each entitlement used.',
+            instance: 'An instance',
+            instanceDetail:
+              'Its own usage since its current billing period began.',
           },
           Descriptions: {
             base: 'The flat fee the invoice starts from.',
             samples:
               'What each entitlement used over the period that ends, in its own units. Leave a field empty for no usage.',
+            instance:
+              'The usage it made over its current billing period, or over the last one if it has no subscription, is rated.',
+            addOns:
+              'Their fees for the period of the base and their metered prices are priced in, and what they grant raises the limit a sample is rated against.',
+            voucher:
+              'The discount of an active promo code, applied as a redemption would be. Nothing is redeemed.',
           },
           Placeholders: {
             quantity: '0',
+            instance: 'Choose an instance',
+            instanceLoading: 'Loading the instances',
+            instanceSearch: 'Search an instance',
+            addOn: 'Choose an add-on',
+            addOnSearch: 'Search an add-on',
+            voucher: 'LAUNCH-2027',
           },
           Errors: {
             quantity:
               'Enter a quantity: zero or more, with a point for decimals.',
+            instance: 'Choose the instance to rate.',
+            addon: 'Choose an add-on.',
+            addonQuantity: 'Enter a whole number of units, one or more.',
+            outsideRetention:
+              'The usage before {{date}} is no longer kept, and the period of this instance began earlier.',
           },
         },
         Table: {

@@ -4,12 +4,14 @@ import { expectNoAccessibilityViolations } from '../_support/assertions/accessib
 import { expectFocusTrapped } from '../_support/assertions/focus';
 import { LicenseCommercialDriver } from '../_support/drivers/license-commercial.driver';
 import { LicenseDetailDriver } from '../_support/drivers/license-detail.driver';
+import { InstanceBillingDriver } from '../_support/drivers/instance-billing.driver';
 import { LicensePreviewDriver } from '../_support/drivers/license-preview.driver';
 import { LicensePriceDrawerDriver } from '../_support/drivers/license-price-drawer.driver';
 import { LicensePricesDriver } from '../_support/drivers/license-prices.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installLicenseAppMocks } from '../_support/mocks/install-license-app-mocks';
 import { createBillingStackModel } from '../billing/billing.scenarios';
+import { installPreviewWorld } from '../licenses/licenses.preview-world';
 import {
   createDraftPricesModel,
   createPricedCatalogModel,
@@ -183,6 +185,28 @@ test.describe('accessibility of what a license version sells', () => {
     await prices.goto('pro-v2', 'Pro');
     await preview.open();
     await preview.sample('Traces').fill('172345');
+    await preview.run().click();
+    await expect(preview.result()).toBeVisible();
+
+    await expectDialogAccessible(page, preview.dialog());
+  });
+});
+
+// The preview, when it is given an instance, add-ons and a code, on the world that has them.
+test.describe('accessibility of the preview of an invoice with an instance, add-ons and a code', () => {
+  test('has no violation, with the invoice it composed', async ({ page }) => {
+    const prices = new LicensePricesDriver(page);
+    const preview = new LicensePreviewDriver(page);
+    await new InstanceBillingDriver(page).freezeTime();
+    await installPreviewWorld(page);
+
+    await prices.goto('pro', 'Pro');
+    await preview.open();
+    await preview.source('An instance').click();
+    await preview.chooseInstance('Initech Production (initech-prod)');
+    await preview.addAddOn();
+    await preview.chooseAddOn(0, 'Extra tokens · 2026');
+    await preview.voucher().fill('WELCOME-SPRING-2027');
     await preview.run().click();
     await expect(preview.result()).toBeVisible();
 

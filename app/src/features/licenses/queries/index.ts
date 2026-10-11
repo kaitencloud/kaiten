@@ -16,3 +16,4 @@ export {
   planChangeInstancesBaseQueryKey,
   planChangeInstancesQueryOptions,
 } from './plan-change-instances';
+export { previewInstancesQueryOptions } from './preview-query-options';

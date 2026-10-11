@@ -1775,21 +1775,53 @@ export default {
             'Ce que facturerait, à son prochain renouvellement, un abonnement à {{name}}, version {{version}}. Rien n’est créé.',
           hint: 'Lancez l’aperçu pour voir la facture.',
           run: 'Lancer l’aperçu',
+          addAddOn: 'Ajouter un add-on',
+          removeAddOn: 'Retirer l’add-on {{position}}',
           Labels: {
             base: 'Prix de base',
             samples: 'Usage simulé',
+            usage: 'Usage',
+            instance: 'Instance',
+            addOns: 'Add-ons',
+            addOn: 'Add-on',
+            addOnQuantity: 'Unités',
+            voucher: 'Code promo',
+          },
+          Source: {
+            samples: 'Une simulation',
+            samplesDetail: 'Saisissez ce que chaque droit a consommé.',
+            instance: 'Une instance',
+            instanceDetail:
+              'Son propre usage depuis le début de sa période de facturation en cours.',
           },
           Descriptions: {
             base: 'Le forfait dont part la facture.',
             samples:
               'Ce que chaque droit a consommé sur la période qui se termine, dans ses propres unités. Laissez un champ vide pour aucun usage.',
+            instance:
+              'On évalue l’usage qu’elle a fait sur sa période de facturation en cours, ou sur la dernière si elle n’a pas d’abonnement.',
+            addOns:
+              'Leurs frais pour la période du prix de base et leurs prix mesurés sont inclus, et ce qu’ils accordent relève la limite sur laquelle l’usage simulé est évalué.',
+            voucher:
+              'La remise d’un code promo actif, appliquée comme le ferait une utilisation. Rien n’est utilisé.',
           },
           Placeholders: {
             quantity: '0',
+            instance: 'Choisir une instance',
+            instanceLoading: 'Chargement des instances',
+            instanceSearch: 'Rechercher une instance',
+            addOn: 'Choisir un add-on',
+            addOnSearch: 'Rechercher un add-on',
+            voucher: 'LANCEMENT-2027',
           },
           Errors: {
             quantity:
               'Saisissez une quantité : zéro ou plus, avec un point pour les décimales.',
+            instance: 'Choisissez l’instance à évaluer.',
+            addon: 'Choisissez un add-on.',
+            addonQuantity: 'Saisissez un nombre entier d’unités, un ou plus.',
+            outsideRetention:
+              'L’usage avant le {{date}} n’est plus conservé, et la période de cette instance a commencé plus tôt.',
           },
         },
         Table: {

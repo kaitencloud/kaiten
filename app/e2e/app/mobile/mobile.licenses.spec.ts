@@ -7,12 +7,14 @@ import {
 } from '../_support/assertions/layout';
 import { LicenseCommercialDriver } from '../_support/drivers/license-commercial.driver';
 import { LicenseDetailDriver } from '../_support/drivers/license-detail.driver';
+import { InstanceBillingDriver } from '../_support/drivers/instance-billing.driver';
 import { LicensePreviewDriver } from '../_support/drivers/license-preview.driver';
 import { LicensePriceDrawerDriver } from '../_support/drivers/license-price-drawer.driver';
 import { LicensePricesDriver } from '../_support/drivers/license-prices.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installLicenseAppMocks } from '../_support/mocks/install-license-app-mocks';
 import { createBillingStackModel } from '../billing/billing.scenarios';
+import { installPreviewWorld } from '../licenses/licenses.preview-world';
 import { createPricedCatalogModel } from '../licenses/licenses.scenarios';
 
 // The narrowest phone billing is checked at: narrower than the Pixel 5, which
@@ -114,5 +116,29 @@ test.describe('what a license version sells, on the narrowest phone', () => {
     await expectWithinScreen(preview.dialog());
     await expectNoHorizontalScroll(page, WIDTH);
     await expectScrollsInside(preview.result().getByRole('table'));
+  });
+});
+
+test.describe('the preview of an invoice with an instance, add-ons and a code, on the narrowest phone', () => {
+  test('fits the screen', async ({ page }) => {
+    const prices = new LicensePricesDriver(page);
+    const preview = new LicensePreviewDriver(page);
+    await new InstanceBillingDriver(page).freezeTime();
+    await installPreviewWorld(page);
+
+    await prices.goto('pro', 'Pro');
+    await preview.open();
+    await preview.source('An instance').click();
+    await preview.chooseInstance('Initech Production (initech-prod)');
+    await preview.addAddOn();
+    await preview.chooseAddOn(0, 'Extra tokens · 2026', 2);
+    await preview.voucher().fill('WELCOME-SPRING-2027');
+    await preview.run().click();
+    await expect(preview.result()).toBeVisible();
+
+    await expectWithinScreen(preview.dialog());
+    await expectNoHorizontalScroll(page, WIDTH);
+    // The row of an add-on keeps its parts inside the dialog.
+    await expectInside(preview.dialog(), preview.addOnRows().first());
   });
 });

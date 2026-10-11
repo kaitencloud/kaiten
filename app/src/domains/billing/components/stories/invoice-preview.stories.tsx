@@ -105,3 +105,55 @@ export const Dialog: Story = {
     await expect(onOpenChange).toHaveBeenCalledWith(false);
   },
 };
+
+// The preview of a license with add-ons priced in: the fee of an add-on, and the usage another
+// rated, which has no license price and says it comes from an add-on. A preview is for no
+// instance, so no attachment names the add-on.
+export const WithAddons: Story = {
+  render: () => (
+    <div className="max-w-3xl">
+      <InvoiceLinesTable
+        currency="USD"
+        lines={[
+          {
+            ...NULL_LINE_MEMBERS,
+            addonId: 'addon-extra-tokens',
+            addonPriceId: 'price-tokens-metered',
+            amount: 13200,
+            capped: true,
+            description: '132000 × 0.1 USD; sample capped at what the licence accepts',
+            label: 'Tokens, metered',
+            quantity: '132000',
+            seq: 1,
+            serviceFrom: '2027-02-01T00:00:00Z',
+            serviceTo: '2027-03-01T00:00:00Z',
+            type: 'USAGE',
+          },
+          { ...storyInvoicePreview.lines[2] },
+          {
+            ...NULL_LINE_MEMBERS,
+            addonId: 'addon-extra-seats',
+            addonPriceId: 'price-seats-monthly',
+            amount: 2000,
+            description: '2 × 10.00 USD',
+            label: 'Extra seat, monthly',
+            quantity: '2',
+            seq: 3,
+            serviceFrom: '2027-03-01T00:00:00Z',
+            serviceTo: '2027-04-01T00:00:00Z',
+            type: 'ADDON',
+          },
+        ]}
+      />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(await canvas.findByText('Tokens, metered')).toBeVisible();
+    await expect(canvas.getByText('From an add-on')).toBeVisible();
+    await expect(canvas.getByText('Extra seat, monthly')).toBeVisible();
+    await expect(canvas.getByText('$132.00')).toBeVisible();
+    await expect(canvas.getByText('Capped')).toBeVisible();
+  },
+};
