@@ -26,7 +26,7 @@ test('dev:mock boots its own world and reads it after reload without a stack', a
 test('dev:mock answers every request of the billing screens of the instances, the customers, the add-ons and the settings', async ({
   page,
 }) => {
-  // Twelve screens, each compiled by the dev server on its first visit: a cold
+  // Fourteen screens, each compiled by the dev server on its first visit: a cold
   // server on a CI runner takes longer than the default 30 seconds.
   test.setTimeout(180_000);
   const errors: string[] = [];
@@ -94,6 +94,36 @@ test('dev:mock answers every request of the billing screens of the instances, th
     '/customers/instances/globex-production/entitlements?history=api-calls',
   );
   await expect(page.getByTestId('usage-history-reports')).toBeVisible();
+  // An invoice with the lines of add-ons: the usage of the pack attached mid-period and the
+  // fee of the one removed before the boundary, each named from what the instance has held,
+  // and the reports behind the usage.
+  await page.goto('/invoices/inv-globex-production-renewal');
+  await expect(page.getByText('From the add-on Export pack')).toBeVisible();
+  await expect(
+    page.getByText(/^From the add-on Onboarding pack, removed on /),
+  ).toBeVisible();
+  await page.goto(
+    '/invoices/inv-globex-production-renewal/lines/inv-globex-production-renewal-line-3',
+  );
+  await expect(page.getByTestId('line-addon')).toHaveText('Export pack');
+  await expect(page.getByTestId('usage-window-sum').first()).toBeVisible();
+  // The preview of an invoice of a version, priced with an add-on whose meter gets a sample.
+  await page.goto('/catalog/licenses/business/prices');
+  await page
+    .getByRole('button', { name: 'Preview invoice', exact: true })
+    .click();
+  const preview = page.getByRole('dialog');
+  await expect(
+    preview.getByRole('group', { name: 'Usage', exact: true }),
+  ).toBeVisible();
+  await preview.getByRole('button', { name: 'Add an add-on' }).click();
+  await preview.getByRole('button', { name: /Choose an add-on/ }).click();
+  await page.getByRole('option', { name: /Export pack/ }).click();
+  await preview.getByLabel('Report Exports').fill('150');
+  await preview.getByRole('button', { name: 'Run preview' }).click();
+  await expect(
+    preview.getByRole('region', { name: 'Invoice preview' }),
+  ).toBeVisible();
   // A customer with its billing e-mail and its invoices.
   await page.goto('/customers/globex');
   await expect(page.locator('a[href^="/invoices/"]').first()).toBeVisible();

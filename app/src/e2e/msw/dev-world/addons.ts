@@ -17,18 +17,31 @@ export const licenseFamilySlug = (license: License): string =>
   (license.familyId ?? license.id).replace(/^family-/, '');
 
 /**
- * Four families of add-ons, sold on top of the licenses of the world. Extra seats
+ * Six families of add-ons, sold on top of the licenses of the world. Extra seats
  * carries the lifecycle (v1 on sale and the default, v2 being prepared with a
  * monthly price and its API calls rated on top); Extra storage has its first version
  * withdrawn and a second on sale; Priority support is sold on request and has no
- * price; Analytics preview is free. The families fit the licenses they make sense on: Enterprise already
- * includes priority support, and the trial is free to try.
+ * price; Analytics preview is free. The Export pack sells usage only, the exports it
+ * adds rated one by one, and the Onboarding pack a fee billed in arrears. The families
+ * fit the licenses they make sense on: Enterprise already includes priority support,
+ * and the trial is free to try.
  */
 const FAMILIES = {
   analytics: {
     description: 'Try the advanced analytics dashboard before moving up a plan',
     name: 'Analytics preview',
     slug: 'analytics-preview',
+  },
+  exports: {
+    description: 'More report exports on an instance, billed by the export',
+    name: 'Export pack',
+    slug: 'export-pack',
+  },
+  onboarding: {
+    description:
+      'A guided setup of the instance, billed once the month is over',
+    name: 'Onboarding pack',
+    slug: 'onboarding-pack',
   },
   seats: {
     description: 'More named users on an instance, five at a time',
@@ -62,6 +75,26 @@ const createVersions = (): Addon[] => [
     name: FAMILIES.analytics.name,
     pricingType: 'FREE',
     slug: 'analytics-preview',
+    versionName: '2026',
+  }),
+  buildAddon({
+    createdAt: daysAgo(70),
+    description: FAMILIES.exports.description,
+    familySlug: FAMILIES.exports.slug,
+    isDefault: true,
+    maxQuantity: 1,
+    name: FAMILIES.exports.name,
+    slug: 'export-pack',
+    versionName: '2026',
+  }),
+  buildAddon({
+    createdAt: daysAgo(80),
+    description: FAMILIES.onboarding.description,
+    familySlug: FAMILIES.onboarding.slug,
+    isDefault: true,
+    maxQuantity: 1,
+    name: FAMILIES.onboarding.name,
+    slug: 'onboarding-pack',
     versionName: '2026',
   }),
   buildAddon({
@@ -171,6 +204,36 @@ const createPrices = () => {
 
   return {
     prices: {
+      // Usage only: each export is rated at $0.25 over the window the pack is held.
+      'export-pack': [
+        buildPrice({
+          billingModel: 'USAGE_BASED',
+          createdAt: daysAgo(70),
+          displayLabel: 'Report exports',
+          displayOrder: 1,
+          id: 'export-pack-exports',
+          metered: {
+            entitlementSlug: 'report-exports',
+            saleUnitFactor: '1',
+            saleUnitSingular: 'export',
+          },
+          unitAmountDecimal: '25',
+        }),
+      ],
+      // A flat fee billed in arrears: it is billed in full even if the pack is
+      // removed before the boundary.
+      'onboarding-pack': [
+        buildPrice({
+          billingPeriod: 'MONTHLY',
+          billingTiming: 'ARREARS',
+          createdAt: daysAgo(80),
+          displayLabel: 'Onboarding pack, monthly',
+          displayOrder: 1,
+          id: 'onboarding-pack-monthly',
+          isDefault: true,
+          unitAmountDecimal: '15000',
+        }),
+      ],
       'extra-seats': [seatsMonthly, seatsAnnual],
       'extra-seats-v2': [
         price('extra-seats-v2', 'monthly', 'Extra seat, monthly', '1200', 1, 6),
@@ -230,6 +293,22 @@ const createPrices = () => {
  * preview switch a flag on.
  */
 const createGrants = () => ({
+  // The exports the pack adds are the ones it bills.
+  'export-pack': [
+    buildAddonGrant({
+      addonSlug: 'export-pack',
+      behavior: 'ADD',
+      entitlementSlug: 'report-exports',
+      value: 100,
+    }),
+  ],
+  'onboarding-pack': [
+    buildAddonGrant({
+      addonSlug: 'onboarding-pack',
+      entitlementSlug: 'advanced-analytics',
+      value: true,
+    }),
+  ],
   'analytics-preview': [
     buildAddonGrant({
       addonSlug: 'analytics-preview',
@@ -288,7 +367,9 @@ const createGrants = () => ({
 /** The license families each version fits, by the slug of the family. */
 const COMPATIBILITY: Record<string, string[]> = {
   'analytics-preview': ['starter', 'trial'],
+  'export-pack': ['business', 'enterprise', 'starter'],
   'extra-seats': ['business', 'enterprise', 'starter'],
+  'onboarding-pack': ['business', 'starter'],
   'extra-seats-v2': ['business', 'starter'],
   'extra-storage': ['business', 'enterprise', 'starter'],
   'extra-storage-v2': ['business', 'enterprise', 'starter'],
@@ -302,6 +383,9 @@ const COMPATIBILITY: Record<string, string[]> = {
  * storage version that was withdrawn since, which stays on the instance that holds
  * it; Globex Production has the priority support pack, which is sold on request and
  * bills nothing; Acme Legacy had a seat and lost it when its subscription ended.
+ * Globex Production attached the Export pack in the middle of its first period, which
+ * rates the exports it made since, and had the Onboarding pack for most of that
+ * period: removed before the boundary, its fee is still on the invoice of the boundary.
  * Gamma Production is not billed yet and holds nothing.
  */
 export function createAddons({ entitlements, licenses }: AddonsWorld): {
@@ -310,6 +394,8 @@ export function createAddons({ entitlements, licenses }: AddonsWorld): {
 } {
   const versions = createVersions();
   const { prices, seatsAnnual, seatsMonthly, storageMonthly } = createPrices();
+  const [exportsUsage] = prices['export-pack'];
+  const [onboardingFee] = prices['onboarding-pack'];
   const version = (slug: string) => {
     const found = versions.find((candidate) => candidate.slug === slug);
     if (!found) {
@@ -359,6 +445,21 @@ export function createAddons({ entitlements, licenses }: AddonsWorld): {
         }),
       ],
       'globex-production': [
+        // Held from the start of that period, and taken off two weeks ago.
+        buildInstanceAddon({
+          addon: version('onboarding-pack'),
+          attachedAt: dayStart(38),
+          id: 'instance-addon-globex-production-onboarding',
+          prices: [onboardingFee],
+          removedAt: dayStart(14),
+        }),
+        // Attached 25 days ago, in the middle of the period that closed ten days ago.
+        buildInstanceAddon({
+          addon: version('export-pack'),
+          attachedAt: dayStart(25),
+          id: 'instance-addon-globex-production-exports',
+          prices: [exportsUsage],
+        }),
         buildInstanceAddon({
           addon: version('priority-support-pack'),
           attachedAt: dayStart(9),

@@ -319,7 +319,12 @@ describe('dev world', () => {
         );
         for (const price of attached.prices) {
           expect(catalogue.prices[attached.addonSlug]).toContainEqual(price);
-          expect(price.billingPeriod).toBe(subscription?.billingPeriod);
+          // A flat fee is of the period the subscription bills; a metered price has none.
+          expect(price.billingPeriod).toBe(
+            price.billingModel === 'FLAT_FEE'
+              ? subscription?.billingPeriod
+              : null,
+          );
         }
       }
     }
@@ -488,6 +493,72 @@ describe('dev world', () => {
         ({ entitlementSlug }) => entitlementSlug === 'api-calls',
       )?.limit,
     ).toEqual({ type: 'number', value: 150_000 });
+  });
+
+  it('bills the add-ons of an instance on the invoices as the API does: over the window they were held, and the one removed before the boundary too', () => {
+    const billing = slot(config.billing);
+    const { invoices, lineReports } = slot(billing.invoices);
+    const { instanceAddons, upcoming } = slot(billing.subscriptions);
+    const { prices } = slot(billing.addonCatalogue);
+    const addonPriceIds = new Set(
+      Object.values(prices).flatMap((list) => list.map(({ id }) => id)),
+    );
+    const held = (instanceSlug: string) =>
+      slot(instanceAddons).attachments[instanceSlug] ?? [];
+    const addonLines = invoices.flatMap((invoice) =>
+      invoice.lines
+        .filter((line) => line.instanceAddonId !== null)
+        .map((line) => ({ invoice, line })),
+    );
+
+    expect(addonLines.length).toBeGreaterThan(0);
+    for (const { invoice, line } of addonLines) {
+      // The price is an add-on's, and a line of an add-on has no license price.
+      expect(addonPriceIds).toContain(line.addonPriceId);
+      expect(line.licensePriceId).toBeNull();
+      // The attachment is one the instance has held, whether it still holds it or not,
+      // and the line bills the window it was held, inside the period of the invoice.
+      const attachment = held(invoice.instanceSlug).find(
+        ({ id }) => id === line.instanceAddonId,
+      );
+      expect(attachment, `${line.label} names no attachment`).toBeDefined();
+      expect(Date.parse(line.serviceFrom)).toBeGreaterThanOrEqual(
+        Date.parse(attachment?.attachedAt ?? ''),
+      );
+      if (attachment?.removedAt) {
+        expect(Date.parse(line.serviceTo)).toBeLessThanOrEqual(
+          Date.parse(attachment.removedAt),
+        );
+      }
+    }
+    // The usage an add-on rated has reports behind it, as a license's has.
+    const usage = addonLines.find(({ line }) => line.type === 'USAGE');
+    expect(usage?.line.metering?.ledger?.rows).toBeGreaterThan(0);
+    expect(lineReports?.[usage?.line.id ?? '']?.length).toBe(
+      usage?.line.metering?.ledger?.rows,
+    );
+    // An attachment that was taken off before the boundary is on the invoice of that boundary.
+    expect(
+      addonLines.some(({ invoice, line }) => {
+        const removedAt = held(invoice.instanceSlug).find(
+          ({ id }) => id === line.instanceAddonId,
+        )?.removedAt;
+
+        return (
+          removedAt !== undefined &&
+          Date.parse(removedAt) < Date.parse(invoice.boundaryAt)
+        );
+      }),
+    ).toBe(true);
+    // And the upcoming invoice of an instance carries the usage so far of an add-on too.
+    expect(
+      Object.values(upcoming).some(({ lines }) =>
+        lines.some(
+          ({ addonPriceId, licensePriceId, type }) =>
+            type === 'USAGE' && addonPriceId !== null && licensePriceId === null,
+        ),
+      ),
+    ).toBe(true);
   });
 
   it('keeps a subscription that ended and an instance to subscribe, so that every state of the tab can be tried', () => {

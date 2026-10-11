@@ -4,6 +4,7 @@ import type {
   Instance,
   InstanceBilling,
   Invoice,
+  InvoiceLine,
   InvoicePreview,
   License,
   Price,
@@ -255,6 +256,9 @@ export function createBillingSubscriptions(world: SubscriptionsWorld): {
       unit: string;
     } | null,
     wouldHold: InvoicePreview['wouldHold'] = [],
+    // What the add-ons of the instance rated so far, which comes before the usage of the
+    // license that bills over the same window: by type, USAGE then OVERAGE.
+    addonLines: InvoiceLine[] = [],
   ): InvoicePreview => {
     const next = nextPeriod(subscription);
     // The plan a scheduled change moves to bills the period that follows.
@@ -265,25 +269,32 @@ export function createBillingSubscriptions(world: SubscriptionsWorld): {
       next.to,
       plan.displayLabel ?? 'Base fee',
     );
-    const lines = usage
-      ? [
-          buildInvoiceLine({
-            amount: usage.amount,
-            description: usage.description,
-            entitlementId: apiCalls.id,
-            entitlementSlug: 'api-calls',
-            invoiceId: 'upcoming',
-            label: usage.label,
-            quantity: usage.quantity,
-            seq: 1,
-            serviceFrom: subscription.currentPeriodStart,
-            serviceTo: subscription.currentPeriodEnd,
-            type: 'OVERAGE',
-            unitAmountDecimal: usage.unit,
-          }),
-          { ...base, seq: 2, id: 'upcoming-line-2' },
-        ]
-      : [base];
+    const lines = [
+      ...addonLines,
+      ...(usage
+        ? [
+            buildInvoiceLine({
+              amount: usage.amount,
+              description: usage.description,
+              entitlementId: apiCalls.id,
+              entitlementSlug: 'api-calls',
+              invoiceId: 'upcoming',
+              label: usage.label,
+              quantity: usage.quantity,
+              seq: 1,
+              serviceFrom: subscription.currentPeriodStart,
+              serviceTo: subscription.currentPeriodEnd,
+              type: 'OVERAGE',
+              unitAmountDecimal: usage.unit,
+            }),
+          ]
+        : []),
+      base,
+    ].map((line, index) => ({
+      ...line,
+      id: `upcoming-line-${index + 1}`,
+      seq: index + 1,
+    }));
     let subtotal = 0;
     for (const line of lines) {
       subtotal += line.amount;
@@ -317,13 +328,39 @@ export function createBillingSubscriptions(world: SubscriptionsWorld): {
       },
       [{ entitlementId: apiCalls.id, invariant: 'LEDGER_SEQUENCE_GAP' }],
     ),
-    'globex-production': upcomingOf(globexProduction, {
-      amount: 420,
-      description: '4,200 × $0.001 per call',
-      label: 'API calls, overage',
-      quantity: '4200',
-      unit: '0.1',
-    }),
+    // The Export pack was attached before this period began, so it rates the exports
+    // made since the period started; the Onboarding pack was removed before it, and is
+    // not on this invoice.
+    'globex-production': upcomingOf(
+      globexProduction,
+      {
+        amount: 420,
+        description: '4,200 × $0.001 per call',
+        label: 'API calls, overage',
+        quantity: '4200',
+        unit: '0.1',
+      },
+      [],
+      [
+        buildInvoiceLine({
+          addonId: 'addon-export-pack',
+          addonPriceId: 'export-pack-exports',
+          amount: 325,
+          description: '13 × $0.25 per export',
+          entitlementId: bySlug(world.entitlements, 'report-exports').id,
+          entitlementSlug: 'report-exports',
+          instanceAddonId: 'instance-addon-globex-production-exports',
+          invoiceId: 'upcoming',
+          label: 'Report exports',
+          quantity: '13',
+          seq: 1,
+          serviceFrom: globexProduction.currentPeriodStart,
+          serviceTo: globexProduction.currentPeriodEnd,
+          type: 'USAGE',
+          unitAmountDecimal: '25',
+        }),
+      ],
+    ),
     'globex-staging': upcomingOf(globexStaging, {
       amount: 240,
       description: '1,200 × $0.002 per call',

@@ -133,6 +133,19 @@ export const createEntitlements = (): Entitlement[] => [
     slug: 'priority-support',
     type: 'BOOLEAN',
   }),
+  buildEntitlement({
+    aggregationMethod: 'SUM',
+    description:
+      'Reports exported from the product, counted per calendar month',
+    displayOrder: 6,
+    name: 'Report Exports',
+    resetAnchor: 'CALENDAR',
+    resetPeriod: 'MONTH',
+    slug: 'report-exports',
+    type: 'NUMBER',
+    unitPlural: 'exports',
+    unitSingular: 'export',
+  }),
 ];
 
 type CommercialFields = Pick<

@@ -133,6 +133,7 @@ function callsJournal(
   steps: number[],
   limit: number,
   firstSeq: number,
+  entitlementSlug = 'api-calls',
 ): UsageReport[] {
   const span = Date.parse(period.to) - Date.parse(period.from);
   let before = 0;
@@ -141,7 +142,7 @@ function callsJournal(
     const after = before + step;
     const report = buildUsageReport({
       delta: String(step),
-      entitlementId: uuidFor('api-calls'),
+      entitlementId: uuidFor(entitlementSlug),
       instanceId: uuidFor(instanceSlug),
       limitValue: String(limit),
       overageDelta: String(
@@ -229,6 +230,67 @@ export function createBillingInvoices(world: BillingWorld): {
     100_000,
     301,
   );
+
+  // The add-ons of Globex Production in the period that closed ten days ago. The Export
+  // pack, attached in the middle of it, rates the exports made since: its line bills the
+  // window the pack was held and has no license price. The Onboarding pack was taken off
+  // two weeks before the boundary, and its fee, billed in arrears, is still on the invoice.
+  const exportsWindow = { from: daysAgo(25), to: globexRenewalPeriod.from };
+  const globexExportsLine = buildInvoiceLine({
+    addonId: 'addon-export-pack',
+    addonPriceId: 'export-pack-exports',
+    amount: 600,
+    description: '24 × $0.25 per export',
+    entitlementId: uuidFor('report-exports'),
+    entitlementSlug: 'report-exports',
+    instanceAddonId: 'instance-addon-globex-production-exports',
+    invoiceId: 'inv-globex-production-renewal',
+    label: 'Report exports',
+    metering: {
+      ledger: {
+        firstSeq: 71,
+        instanceId: uuidFor('globex-production'),
+        lastSeq: 73,
+        rows: 3,
+        sumDelta: '24',
+        sumOverage: null,
+      },
+      measuredQuantity: '24',
+      negativeSegmentsFloored: 0,
+      saleUnitFactor: '1',
+      windows: 1,
+    },
+    quantity: '24',
+    seq: 3,
+    serviceFrom: exportsWindow.from,
+    serviceTo: exportsWindow.to,
+    type: 'USAGE',
+    unitAmountDecimal: '25',
+  });
+  lineReports[globexExportsLine.id ?? ''] = callsJournal(
+    'globex-production',
+    globexProd.licenseId,
+    exportsWindow,
+    [9, 8, 7],
+    100,
+    71,
+    'report-exports',
+  );
+  const globexOnboardingLine = buildInvoiceLine({
+    addonId: 'addon-onboarding-pack',
+    addonPriceId: 'onboarding-pack-monthly',
+    amount: 15000,
+    billingTiming: 'ARREARS',
+    description: '1 × $150.00 per month, in full: removed before the boundary',
+    instanceAddonId: 'instance-addon-globex-production-onboarding',
+    invoiceId: 'inv-globex-production-renewal',
+    label: 'Onboarding pack, monthly',
+    seq: 2,
+    serviceFrom: daysAgo(38),
+    serviceTo: daysAgo(14),
+    type: 'ADDON',
+    unitAmountDecimal: '15000',
+  });
 
   // --- Globex Staging: $29.00 a month and its calls, at $0.002 each.
   const stagingFirst = monthFrom(38);
@@ -348,9 +410,11 @@ export function createBillingInvoices(world: BillingWorld): {
       issuedAt: globexRenewalPeriod.from,
       lines: [
         globexUsageLine,
+        globexOnboardingLine,
+        globexExportsLine,
         flatFee(
           'inv-globex-production-renewal',
-          2,
+          4,
           globexRenewalPeriod,
           'Business, monthly',
           9900,

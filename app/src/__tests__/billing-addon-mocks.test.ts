@@ -61,8 +61,10 @@ describe('the add-on catalogue, as the mocks serve it', () => {
 
     expect(families.map(({ slug }) => slug).sort()).toEqual([
       'analytics-preview',
+      'export-pack',
       'extra-seats',
       'extra-storage',
+      'onboarding-pack',
       'priority-support-pack',
     ]);
     expect(seats).toMatchObject({
