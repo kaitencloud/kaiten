@@ -34,6 +34,11 @@ type StripeWorld = {
 
 const MONTHLY = 25000;
 
+// The terms the invoices of the world are issued with, and an instant some days after one.
+const TERMS_DAYS = 30;
+const laterThan = (instant: string, days: number) =>
+  new Date(Date.parse(instant) + days * 24 * 60 * 60 * 1000).toISOString();
+
 const renewalLine = (invoiceId: string, period: Period) =>
   buildInvoiceLine({
     amount: MONTHLY,
@@ -130,7 +135,8 @@ export function createStripeInvoices(world: StripeWorld): {
       }),
       status: 'PAID',
     }),
-    // Someone added a coupon of $25.00 to this one in the Stripe dashboard.
+    // Someone added a coupon of $25.00 to this one in the Stripe dashboard, and gave
+    // it two more weeks to be paid.
     buildInvoice({
       ...mismatched.fields,
       provider: buildProviderRecord({
@@ -142,6 +148,10 @@ export function createStripeInvoices(world: StripeWorld): {
         reconciledAt: daysAgo(20),
         reconciliationDetail: {
           discounts: [],
+          dueDate: {
+            kaitenDueAt: laterThan(mismatched.issuedAt, TERMS_DAYS),
+            providerDueAt: laterThan(mismatched.issuedAt, TERMS_DAYS + 14),
+          },
           extraDiscounts: [
             { amount: 2500, discountId: 'di_1Qz', externalLineId: 'il_9' },
           ],

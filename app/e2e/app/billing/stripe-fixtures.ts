@@ -12,7 +12,8 @@ import type { BillingProvidersSeed } from '../_support/model/billing-providers';
  * - `inv-s1`: finalized, open in Stripe, charged to the card on file, amounts the same;
  * - `inv-f1`: its push failed three times (Stripe refuses the customer's tax location);
  * - `inv-rv`: a draft waiting in Stripe for a human to finalize it (review mode);
- * - `inv-mm`: finalized, and Stripe's total is not Kaiten's (an item added there);
+ * - `inv-mm`: finalized, and Stripe's total is not Kaiten's (an item added there) nor its
+ *   due date (moved a week there);
  * - `inv-pp`: open as Kaiten last read it, and paid in Stripe since;
  * - `inv-pf`: its automatic charge asks the customer to confirm the payment;
  * - `inv-q1`: composed a minute ago and waiting for the push job.
@@ -108,6 +109,10 @@ export function stripeInvoices(): Invoice[] {
         pushedAt: ISSUED,
         reconciliationDetail: {
           discounts: [],
+          dueDate: {
+            kaitenDueAt: '2026-05-01T00:06:00.000Z',
+            providerDueAt: '2026-05-08T00:06:00.000Z',
+          },
           extraDiscounts: [],
           extraInProvider: ['ii_9'],
           inclusiveTax: false,

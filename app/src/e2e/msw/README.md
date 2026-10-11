@@ -123,7 +123,7 @@ worker with unmocked flags passed through, and `pnpm run dev:mock`
 records the areas share (`dev-world/`), with a warning for each API request no
 slot answers. Acme US collects through Stripe in that world (`dev-world/stripe.ts`: the history a
 finance person meets, with an invoice paid in Stripe since Kaiten last read it, one whose amounts
-differ, one whose push keeps failing and a held draft, and customers with a card on file), and
+and due date differ, one whose push keeps failing and a held draft, and customers with a card on file), and
 `?stripe=` in the address of a tab starts the connector in another state (`available`,
 `connectedLive`, `notEntitled` or `vaultMissing`, `dev.ts`). `src/__tests__/dev-world.test.ts` builds that world through the
 models, which check it against the contract, and checks that its references

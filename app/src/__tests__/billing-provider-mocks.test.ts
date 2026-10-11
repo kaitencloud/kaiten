@@ -849,6 +849,13 @@ describe('the dev world, with Stripe', () => {
         ({ provider }) => provider?.reconciliationStatus === 'MISMATCH',
       ),
     ).toBe(true);
+    // One of them was given another due date in Stripe, which Kaiten's differs from.
+    const moved = stripeInvoices.find(
+      ({ provider }) => provider?.reconciliationDetail?.dueDate,
+    );
+    expect(moved?.dueAt).toBe(
+      moved?.provider?.reconciliationDetail?.dueDate?.kaitenDueAt,
+    );
     expect(Object.values(billing?.invoices?.providerTruth ?? {})).toContain(
       'paid',
     );
