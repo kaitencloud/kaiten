@@ -4,6 +4,9 @@ import type { Addon, InstanceBilling, Price } from '@/api-client';
 import {
   addonPricesQueryOptions,
   BILLING_PERIOD_LABEL_KEYS,
+  getPriceAmountParts,
+  getPriceLabel,
+  joinPriceAmount,
   PriceAmount,
 } from '@/domains/billing';
 
@@ -13,11 +16,17 @@ const KEYS = {
   free: 'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Price.free',
   loading:
     'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Price.loading',
+  metered:
+    'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Price.metered',
+  meteredOnly:
+    'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Price.meteredOnly',
   none: 'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Price.none',
   perUnit:
     'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Price.perUnit',
   unknown:
     'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Price.unknown',
+  unpriced:
+    'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Price.unpriced',
 } as const;
 
 /**
@@ -38,10 +47,68 @@ export function getPeriodFee(
   );
 }
 
+/** Whether a version has a flat fee on sale: only then does a subscription ask for the default one of its period. */
+export const hasActiveFlatFee = (prices: readonly Price[]): boolean =>
+  prices.some(
+    (price) => price.billingModel === 'FLAT_FEE' && price.status === 'ACTIVE',
+  );
+
+/** What a version bills on usage: its metered prices on sale. */
+export const getMeteredPrices = (prices: readonly Price[]): Price[] =>
+  prices.filter(
+    (price) => price.billingModel !== 'FLAT_FEE' && price.status === 'ACTIVE',
+  );
+
 type AttachAddonDetailsProps = {
   addon: Addon;
   period: InstanceBilling['billingPeriod'];
 };
+
+// "API calls, extra pack: $0.15 per api-calls": each metered price by its name and the
+// way its amount is read everywhere else.
+function useMeteredText(prices: readonly Price[]): string {
+  const { i18n, t } = useTranslation();
+
+  return getMeteredPrices(prices)
+    .map(
+      (price) =>
+        `${getPriceLabel(price, undefined, t)}: ${joinPriceAmount(
+          getPriceAmountParts(price, undefined, t, i18n.language),
+        )}`,
+    )
+    .join('; ');
+}
+
+// What a subscription bills for a version, once its prices are read: the default flat
+// fee of its period, and the usage it rates on top; a version that sells no flat fee has
+// no price of a period to ask for, and bills its usage only.
+function PricedLine({
+  period,
+  prices,
+}: {
+  period: InstanceBilling['billingPeriod'];
+  prices: readonly Price[];
+}) {
+  const { t } = useTranslation();
+  const usage = useMeteredText(prices);
+  const fee = getPeriodFee(prices, period);
+
+  if (fee) {
+    return (
+      <>
+        <PriceAmount price={fee} /> {t(KEYS.perUnit)}
+        {usage ? ` ${t(KEYS.metered, { prices: usage })}` : null}
+      </>
+    );
+  }
+  if (!hasActiveFlatFee(prices)) {
+    return (
+      <>{usage ? t(KEYS.meteredOnly, { prices: usage }) : t(KEYS.unpriced)}</>
+    );
+  }
+
+  return <>{t(KEYS.none, { period: t(BILLING_PERIOD_LABEL_KEYS[period]) })}</>;
+}
 
 function PriceLine({ addon, period }: AttachAddonDetailsProps) {
   const { t } = useTranslation();
@@ -62,22 +129,16 @@ function PriceLine({ addon, period }: AttachAddonDetailsProps) {
   if (prices.isError) {
     return <>{t(KEYS.unknown)}</>;
   }
-  const fee = getPeriodFee(prices.data, period);
 
-  return fee ? (
-    <>
-      <PriceAmount price={fee} /> {t(KEYS.perUnit)}
-    </>
-  ) : (
-    <>{t(KEYS.none, { period: t(BILLING_PERIOD_LABEL_KEYS[period]) })}</>
-  );
+  return <PricedLine period={period} prices={prices.data} />;
 }
 
 /**
  * What the dialog says of the version chosen before it is attached: what it is, and
  * what the subscription will bill for it, from its next renewal, per unit. A version
- * without a price for the period the subscription bills on is said not to have one,
- * and the API refuses it.
+ * that sells a flat fee and has none for the period the subscription bills on is said
+ * not to have one, and the API refuses it; one that sells none bills its usage only,
+ * and attaches to any period.
  */
 export function AttachAddonDetails({ addon, period }: AttachAddonDetailsProps) {
   return (

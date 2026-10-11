@@ -1138,6 +1138,11 @@ export default {
                   custom:
                     'Vendue sur demande : aucun prix n’est fixé, donc rien n’est facturé ici pour elle.',
                   none: 'Cet add-on n’a pas de prix par défaut pour la période de facturation de l’abonnement ({{period}}), et l’API le refusera.',
+                  metered: 'Son utilisation est aussi facturée : {{prices}}.',
+                  meteredOnly:
+                    'Facturé à l’utilisation, à la fin de chaque période : {{prices}}.',
+                  unpriced:
+                    'Cet add-on n’a aucun prix en vente : rien n’est facturé ici pour lui.',
                   loading: 'Lecture de son prix…',
                   unknown: 'Son prix n’a pas pu être lu.',
                 },

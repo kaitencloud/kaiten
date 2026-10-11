@@ -23,7 +23,7 @@ import {
   sessionToken,
   useBillingTexts,
 } from '@/test-fixtures/billing-test-support';
-import { buildAddon } from '../../../../../../../../../e2e/app/_support/fixtures';
+import { buildAddon, buildPrice } from '../../../../../../../../../e2e/app/_support/fixtures';
 import { billingCapabilitiesProfiles } from '../../../../../../../../../e2e/app/_support/model/billing-capabilities';
 import { INSTANCE, subscription } from '../../__tests__/lifecycle-fixtures';
 import { AttachAddonDialog } from '../attach-addon-dialog';
@@ -215,6 +215,72 @@ describe('the dialog that adds an add-on to an instance', () => {
     );
   });
 
+  it('does not say a version that only meters usage will be refused, whatever the period of the subscription: it bills its usage', async () => {
+    server.use(
+      handleListAddonPrices({
+        body: [
+          buildPrice({
+            billingModel: 'USAGE_BASED',
+            displayLabel: 'Storage, metered',
+            id: 'price-storage-metered',
+            metered: { entitlementSlug: 'storage-gb', saleUnitFactor: '1' },
+            unitAmountDecimal: '2.5',
+          }),
+        ],
+      }),
+    );
+    renderDialog();
+
+    await choose('Extra storage · 2026');
+
+    const details = await screen.findByTestId('attach-addon-details');
+    await waitFor(() =>
+      expect(details).toHaveTextContent(
+        'Billed on its usage, at the end of each period: Storage, metered: $0.025 per storage-gb.',
+      ),
+    );
+    expect(details).not.toHaveTextContent('the API will refuse it');
+  });
+
+  it('says the usage a version rates on top of its flat fee', async () => {
+    server.use(
+      handleListAddonPrices({
+        body: [
+          STORAGE_MONTHLY,
+          buildPrice({
+            billingModel: 'OVERAGE',
+            displayLabel: 'Storage, overage',
+            id: 'price-storage-overage',
+            metered: { entitlementSlug: 'storage-gb', saleUnitFactor: '1' },
+            unitAmountDecimal: '10',
+          }),
+        ],
+      }),
+    );
+    renderDialog();
+
+    await choose('Extra storage · 2026');
+
+    await waitFor(() =>
+      expect(screen.getByTestId('attach-addon-details')).toHaveTextContent(
+        '$8.00/month per unit, billed from the next renewal. Its usage is billed too: Storage, overage: $0.10 per storage-gb.',
+      ),
+    );
+  });
+
+  it('says a paid version with nothing on sale has no price to bill, the API attaching it all the same', async () => {
+    server.use(handleListAddonPrices({ body: [] }));
+    renderDialog();
+
+    await choose('Extra storage · 2026');
+
+    const details = await screen.findByTestId('attach-addon-details');
+    await waitFor(() =>
+      expect(details).toHaveTextContent('has no price on sale, so nothing is billed for it here'),
+    );
+    expect(details).not.toHaveTextContent('the API will refuse it');
+  });
+
   it('says a version sold on request has no price to bill', async () => {
     renderDialog();
 
@@ -283,6 +349,30 @@ describe('the dialog that adds an add-on to an instance', () => {
     expect(
       await screen.findByText("the add-on has no default ACTIVE price for the subscription's MONTHLY period"),
     ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('combobox', { name: /Add-on/ })).toHaveTextContent('Extra storage · 2026');
+  });
+
+  it('shows on the add-on the entitlement it would meter twice, in the words of the API', async () => {
+    const bodies = serveAttach(() =>
+      refusal(422, {
+        code: 'AttachInstanceAddon.MeteredEntitlementConflict',
+        detail:
+          'another price of the instance already meters storage-gb: one entitlement is billed by one price',
+      }),
+    );
+    const { onClose } = renderDialog();
+    await choose('Extra storage · 2026');
+
+    await userEvent.click(await submit());
+
+    expect(
+      await screen.findByText(
+        'another price of the instance already meters storage-gb: one entitlement is billed by one price',
+      ),
+    ).toBeInTheDocument();
+    expect(bodies).toHaveLength(1);
     expect(screen.queryByRole('alert')).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole('combobox', { name: /Add-on/ })).toHaveTextContent('Extra storage · 2026');

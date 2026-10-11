@@ -1120,6 +1120,11 @@ export default {
                   custom:
                     'Sold on request: no price is set, so nothing is billed for it here.',
                   none: 'This add-on has no default price for the billing period of the subscription ({{period}}), and the API will refuse it.',
+                  metered: 'Its usage is billed too: {{prices}}.',
+                  meteredOnly:
+                    'Billed on its usage, at the end of each period: {{prices}}.',
+                  unpriced:
+                    'This add-on has no price on sale, so nothing is billed for it here.',
                   loading: 'Reading its price…',
                   unknown: 'Its price could not be read.',
                 },

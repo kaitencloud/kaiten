@@ -224,7 +224,86 @@ test.describe('adding an add-on to an instance', () => {
     await expect(addons.attachDetails()).toContainText(
       '$5.00/month per unit, billed from the next renewal.',
     );
+    // The usage it rates on top is billed as well.
+    await expect(addons.attachDetails()).toContainText(
+      'Its usage is billed too: Tokens, metered: $0.001 per tokens.',
+    );
     await expect(addons.dialog().getByTestId('addons-note')).toHaveText(NOTE);
+  });
+
+  test('takes a version that only meters usage on a subscription billed by the year, with no period price to ask for', async ({
+    page,
+  }) => {
+    const billing = new InstanceBillingDriver(page);
+    const addons = new InstanceAddonsDriver(page);
+    const writes = recordWrites(page, ADDON_WRITES);
+    // Billed on what is measured, it sells no flat fee: no price of a period is asked of it.
+    const model = createAddonsBillingModel();
+    model.addons.createVersion({
+      description: 'Billed on what is used',
+      name: 'Usage pack',
+      pricingType: 'PAID',
+    });
+    model.addons.assignGrant('usage-pack', {
+      entitlementSlug: 'tokens',
+      overrideBehavior: 'ADD',
+      value: { type: 'number', value: 1_000 },
+    });
+    model.addons.createPrice('usage-pack', {
+      billingModel: 'USAGE_BASED',
+      currency: 'USD',
+      meteredEntitlementSlug: 'tokens',
+      unitAmountDecimal: '0.1',
+    });
+    model.addons.setCompatibility('usage-pack', 'pro');
+    await installAddonsWorld(page, model);
+    await billing.goto('initech-annual');
+    await addons.openAttach();
+
+    await addons.chooseAddon('Usage pack · Version - 1');
+
+    await expect(addons.attachDetails()).toContainText(
+      'Billed on its usage, at the end of each period: tokens: $0.001 per tokens.',
+    );
+    await expect(addons.attachDetails()).not.toContainText('refuse');
+    await addons.attachButton().click();
+
+    await expect(addons.dialog()).toHaveCount(0);
+    await expect(addons.row('Usage pack')).toBeVisible();
+    expect(writes).toEqual([
+      {
+        body: { addonSlug: 'usage-pack', quantity: 1 },
+        method: 'POST',
+        pathname: '/api/instances/initech-annual/addons',
+      },
+    ]);
+  });
+
+  test('shows on the add-on field the entitlement it would meter twice, in the words of the API', async ({
+    page,
+  }) => {
+    const billing = new InstanceBillingDriver(page);
+    const addons = new InstanceAddonsDriver(page);
+    const model = createAddonsBillingModel();
+    model.subscriptions.armProblem('attachInstanceAddon', {
+      code: 'AttachInstanceAddon.MeteredEntitlementConflict',
+      detail:
+        'another price of the instance already meters tokens: one entitlement is billed by one price',
+      status: 422,
+    });
+    await installAddonsWorld(page, model);
+    await billing.goto('initech-prod');
+    await addons.openAttach();
+    await addons.chooseAddon(TOKENS);
+
+    await addons.attachButton().click();
+
+    await expect(addons.dialog()).toContainText(
+      'another price of the instance already meters tokens: one entitlement is billed by one price',
+    );
+    await expect(addons.dialog()).toBeVisible();
+    await expect(addons.dialog().getByRole('alert')).toHaveCount(0);
+    await expect(addons.card()).toHaveCount(1);
   });
 
   test('sends the version and the units once, lists it, and says what it did to the entitlements', async ({
