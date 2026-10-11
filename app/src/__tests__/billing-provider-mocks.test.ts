@@ -200,6 +200,8 @@ describe('the Stripe connector, as the mocks serve it', () => {
     expect((await problem(refused)).code).toBe(
       'UpdateConnectorSettings.ProviderUnavailable',
     );
+    // As the API does, it says how long to wait: thirty seconds.
+    expect(refused.headers.get('Retry-After')).toBe('30');
   });
 
   it('cannot be connected without a Vault, or on a plan that leaves it out', async () => {

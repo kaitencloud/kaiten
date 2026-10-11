@@ -569,7 +569,8 @@ export type PlannedSubscription = Pick<
 /**
  * The refusal the API gives a principal that checks more than sixty codes in a minute
  * (`POST /vouchers/validate`, 429), for a spec to arm on the validation: the words and the
- * code are the API's, and it names no `Retry-After` the browser could read.
+ * code are the API's, and it carries a `Retry-After` as the API does: the model sends a
+ * minute unless a spec arms another wait to see it read.
  */
 export const VALIDATION_RATE_LIMITED = {
   code: 'ValidateVoucher.RateLimited',

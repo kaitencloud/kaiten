@@ -219,6 +219,8 @@ describe('cancelling a subscription, as the mocks serve it', () => {
 
     expect(response.status).toBe(409);
     expect((await refusal(response)).code).toBe('CancelSubscription.BoundaryPending');
+    // A boundary being closed always says how long to wait: a minute.
+    expect(response.headers.get('Retry-After')).toBe('60');
     expect((await read('initech-prod')).cancelAtPeriodEnd).toBe(false);
   });
 });
