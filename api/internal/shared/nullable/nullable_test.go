@@ -1,6 +1,7 @@
 package nullable_test
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -69,4 +70,34 @@ func TestPointersOfAnEmbeddingShape(t *testing.T) {
 	require.Contains(t, s.Properties["reason"].Enum, nil, "an embedded member")
 	require.Len(t, s.Properties["in"].OneOf, 2, "an embedded member")
 	require.Len(t, s.Properties["extra"].OneOf, 2, "its own member")
+}
+
+// union is a oneOf with no type of its own, as EntitlementValue is.
+type union struct{}
+
+func (union) Schema(huma.Registry) *huma.Schema {
+	return &huma.Schema{OneOf: []*huma.Schema{{Type: huma.TypeInteger}, {Type: huma.TypeBoolean}}}
+}
+
+type withUnion struct {
+	Value *union `json:"value"`
+}
+
+func (withUnion) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, withUnion{})
+}
+
+// A union takes a null branch: a nullable flag on a schema with no type
+// publishes type ["", "null"], which client generators refuse.
+func TestPointersOfAUnion(t *testing.T) {
+	registry := huma.NewMapRegistry("#/components/schemas/", huma.DefaultSchemaNamer)
+	registry.Schema(reflect.TypeFor[withUnion](), true, "")
+	value := registry.Map()["WithUnion"].Properties["value"]
+	require.False(t, value.Nullable)
+	require.Empty(t, value.Type)
+	require.Len(t, value.OneOf, 3)
+	require.Equal(t, "null", value.OneOf[2].Type)
+	b, err := json.Marshal(value)
+	require.NoError(t, err)
+	require.NotContains(t, string(b), `""`)
 }

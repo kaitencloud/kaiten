@@ -336,6 +336,7 @@ components:
             - $ref: "#/components/schemas/PriceMeter"
             - enum:
                 - null
+              type: "null"
         status:
           description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
           enum:
@@ -814,6 +815,7 @@ components:
             - $ref: "#/components/schemas/ScheduledChange"
             - enum:
                 - null
+              type: "null"
         startedAt:
           description: "When billing started: usage before it is never billed"
           format: date-time
@@ -1001,6 +1003,7 @@ components:
             - $ref: "#/components/schemas/ScheduledChange"
             - enum:
                 - null
+              type: "null"
         startedAt:
           description: "When billing started: usage before it is never billed"
           format: date-time
@@ -1157,6 +1160,7 @@ components:
             - $ref: "#/components/schemas/ScheduledChange"
             - enum:
                 - null
+              type: "null"
         startedAt:
           description: "When billing started: usage before it is never billed"
           format: date-time
@@ -1308,6 +1312,7 @@ components:
             - $ref: "#/components/schemas/ScheduledChange"
             - enum:
                 - null
+              type: "null"
         startedAt:
           description: "When billing started: usage before it is never billed"
           format: date-time
@@ -1941,6 +1946,7 @@ components:
             - $ref: "#/components/schemas/PaymentMethodLabels"
             - enum:
                 - null
+              type: "null"
         providerKind:
           enum:
             - STRIPE
@@ -3551,6 +3557,7 @@ components:
             - $ref: "#/components/schemas/ScheduledChange"
             - enum:
                 - null
+              type: "null"
         startedAt:
           description: "When billing started: usage before it is never billed"
           format: date-time
@@ -4043,12 +4050,14 @@ components:
             - $ref: "#/components/schemas/HoldRecord"
             - enum:
                 - null
+              type: "null"
         holdDetail:
           description: Every meter whose journal failed a check
           oneOf:
             - $ref: "#/components/schemas/HoldDetail"
             - enum:
                 - null
+              type: "null"
         holdReason:
           description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
           enum:
@@ -4097,6 +4106,7 @@ components:
             - $ref: "#/components/schemas/ProviderRecord"
             - enum:
                 - null
+              type: "null"
         providerKind:
           description: "Who collects it. NOOP: the organization itself, through the handoff queue"
           enum:
@@ -4289,6 +4299,7 @@ components:
             - $ref: "#/components/schemas/InvoiceLineDiscount"
             - enum:
                 - null
+              type: "null"
         entitlementId:
           description: The metered entitlement, on USAGE and OVERAGE lines
           type:
@@ -4328,18 +4339,21 @@ components:
             - $ref: "#/components/schemas/InvoiceLineMetering"
             - enum:
                 - null
+              type: "null"
         overage:
           description: The arithmetic of an OVERAGE line
           oneOf:
             - $ref: "#/components/schemas/InvoiceLineOverage"
             - enum:
                 - null
+              type: "null"
         provider:
           description: The line in the payment provider, once pushed
           oneOf:
             - $ref: "#/components/schemas/InvoiceLineProvider"
             - enum:
                 - null
+              type: "null"
         quantity:
           description: "In sale units, a decimal string: 1 on a BASE line, the quantity held on an ADDON line"
           examples:
@@ -4512,6 +4526,7 @@ components:
             - $ref: "#/components/schemas/InvoiceLineLedger"
             - enum:
                 - null
+              type: "null"
         measuredQuantity:
           description: "In measured units: the usage for a USAGE line, the overage for an OVERAGE line"
           examples:
@@ -5417,6 +5432,7 @@ components:
             - $ref: "#/components/schemas/PriceMeter"
             - enum:
                 - null
+              type: "null"
         status:
           description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
           enum:
@@ -5540,6 +5556,7 @@ components:
             - $ref: "#/components/schemas/PriceMeter"
             - enum:
                 - null
+              type: "null"
         status:
           description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
           enum:
@@ -7406,9 +7423,9 @@ components:
             - $ref: "#/components/schemas/NumberEntitlementValue"
             - $ref: "#/components/schemas/BooleanEntitlementValue"
             - $ref: "#/components/schemas/ConfigEntitlementValue"
-          type:
-            - ""
-            - "null"
+            - enum:
+                - null
+              type: "null"
         maximumAllowedUsage:
           description: The most usage accepted, limit × (1 + percent ÷ 100); null when unlimited, and for BOOLEAN and CONFIG
           format: double
@@ -7431,6 +7448,7 @@ components:
             - $ref: "#/components/schemas/Provenance"
             - enum:
                 - null
+              type: "null"
         slug:
           examples:
             - seats
@@ -7780,6 +7798,7 @@ components:
             - $ref: "#/components/schemas/PriceMeter"
             - enum:
                 - null
+              type: "null"
         status:
           description: A DEPRECATED price keeps billing what is already pinned to it but is no longer offered.
           enum:
@@ -7913,12 +7932,14 @@ components:
             - $ref: "#/components/schemas/ProvenanceLicense"
             - enum:
                 - null
+              type: "null"
         number:
           description: How a number was composed; null for BOOLEAN and CONFIG, and when no add-on or boost changes it
           oneOf:
             - $ref: "#/components/schemas/ProvenanceNumber"
             - enum:
                 - null
+              type: "null"
       required:
         - license
         - addons
@@ -10205,6 +10226,7 @@ components:
             - $ref: "#/components/schemas/PortalInstance"
             - enum:
                 - null
+              type: "null"
         instances:
           description: The customer's instances, for a session bound to the customer only; empty otherwise
           items:
@@ -10216,18 +10238,21 @@ components:
             - $ref: "#/components/schemas/PortalPaymentMethod"
             - enum:
                 - null
+              type: "null"
         subscription:
           description: The instance's subscription; null when it has none, or the session is bound to no instance
           oneOf:
             - $ref: "#/components/schemas/SessionSubscription"
             - enum:
                 - null
+              type: "null"
         upcomingInvoice:
           description: What the next boundary will bill, on usage so far; null without a live subscription
           oneOf:
             - $ref: "#/components/schemas/PortalUpcomingInvoice"
             - enum:
                 - null
+              type: "null"
         updatedAt:
           description: When this snapshot was read
           format: date-time
@@ -10306,6 +10331,7 @@ components:
             - $ref: "#/components/schemas/SessionScheduledChange"
             - enum:
                 - null
+              type: "null"
         status:
           enum:
             - TRIAL
@@ -10494,6 +10520,7 @@ components:
             - $ref: "#/components/schemas/ScheduledChange"
             - enum:
                 - null
+              type: "null"
         startedAt:
           description: "When billing started: usage before it is never billed"
           format: date-time
