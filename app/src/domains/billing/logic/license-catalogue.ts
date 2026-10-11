@@ -21,7 +21,7 @@ export type CatalogPriceInput = PriceItem;
 export type CatalogPrice = Omit<
   Price,
   'createdAt' | 'deprecatedAt' | 'metered' | 'unitAmount' | 'updatedAt'
-> & { metered?: PriceMeter };
+> & { metered?: PriceMeter | null };
 
 /** How a license version is sold (`License.pricingType`). */
 export type LicensePricingType = NonNullable<License['pricingType']>;

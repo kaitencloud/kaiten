@@ -11,8 +11,8 @@ import {
 type OutsideRetentionNoticeProps = {
   /** The refusal the reports came back with. */
   error: unknown;
-  /** What the invoice kept of the reports: the line's `metering.ledger`. */
-  ledger?: InvoiceLineLedger;
+  /** What the invoice kept of the reports: the line's `metering.ledger`, null when it has none. */
+  ledger?: InvoiceLineLedger | null;
 };
 
 /**
