@@ -121,6 +121,21 @@ describe('the limit the mocks compose', () => {
     });
   });
 
+  it('leaves the multiplier null, and never one, where no voucher multiplies', () => {
+    const added = effective(100_000, [], [boost('ADD', 50_000)]);
+    const set = effective(10_000, [], [boost('SET', 2_000)]);
+
+    expect(added.limit).toEqual({ type: 'number', value: 150_000 });
+    expect(added.provenance?.number).toMatchObject({
+      boostAdd: 50_000,
+      boostMultiply: null,
+    });
+    expect(set.provenance?.number).toMatchObject({
+      boostMultiply: null,
+      boostSet: 2_000,
+    });
+  });
+
   it('sets the value with the latest SET voucher, in place of the license and the add-ons', () => {
     const composed = effective(
       10_000,
