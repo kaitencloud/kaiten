@@ -441,10 +441,16 @@ export class SubscriptionLifecycle {
         ? body.providerKind
         : undefined;
     const kind = target ?? subscription.providerKind;
-    let method = subscription.collectionMethod;
-    if (body.collectionMethod !== undefined) {
-      method = body.collectionMethod ?? this.host.defaultCollectionMethod(kind);
-    }
+    // The subscription's own method, as the change leaves it. Without one it takes
+    // the default of the organization that the provider it moves to resolves, and
+    // not the method it was collected with on the provider it leaves: a NoOp
+    // subscription sends its invoices, and moved to Stripe it charges when the
+    // organization's default does.
+    const own =
+      body.collectionMethod === undefined
+        ? subscription.collectionMethodOverride
+        : body.collectionMethod;
+    const method = own ?? this.host.defaultCollectionMethod(kind);
     if (method === 'SEND_INVOICE' && !target) {
       return;
     }
@@ -541,6 +547,14 @@ export class SubscriptionLifecycle {
     } else if (body.collectionMethod !== undefined) {
       next.collectionMethodOverride = body.collectionMethod;
       next.collectionMethod = body.collectionMethod;
+    } else if (
+      body.providerKind !== undefined &&
+      next.collectionMethodOverride === null
+    ) {
+      // A subscription with no method of its own follows the provider it moves to.
+      next.collectionMethod = this.host.defaultCollectionMethod(
+        next.providerKind,
+      );
     }
     next.updatedAt = new Date(this.host.now()).toISOString();
 

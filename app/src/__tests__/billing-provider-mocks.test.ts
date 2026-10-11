@@ -490,6 +490,128 @@ describe('the payment method of a customer, as the mocks serve it', () => {
   });
 });
 
+describe('the default collection method of the organization, as the mocks serve it', () => {
+  const ACTIVE_CARD = {
+    brand: 'visa',
+    expMonth: 12,
+    expYear: 2030,
+    last4: '4242',
+    status: 'ACTIVE',
+  } as const;
+
+  // A period that has not ended, whatever the day the test runs: a period that has is
+  // being closed, and a change waits.
+  const OPEN_PERIOD_END = '2099-01-01T00:00:00.000Z';
+
+  /** Two subscriptions on NoOp with no method of their own: one customer holds a card, the other none. */
+  const world = () =>
+    new BillingAppModel({
+      capabilities: billingCapabilitiesProfiles.stackWithStripe(),
+      providers: {
+        customers: {
+          globex: {
+            billingEmail: 'billing@globex.test',
+            externalCustomerId: 'cus_globex',
+            paymentMethod: ACTIVE_CARD,
+          },
+          initech: {
+            billingEmail: 'billing@initech.test',
+            externalCustomerId: 'cus_initech',
+          },
+        },
+      },
+      subscriptions: [
+        buildSubscription({
+          anchorAt: '2026-03-01T00:00:00.000Z',
+          currentPeriodEnd: OPEN_PERIOD_END,
+        }),
+        buildSubscription({
+          anchorAt: '2026-03-01T00:00:00.000Z',
+          currentPeriodEnd: OPEN_PERIOD_END,
+          customerName: 'Globex',
+          customerSlug: 'globex',
+          id: 'sub-globex-prod',
+          instanceName: 'Globex Production',
+          instanceSlug: 'globex-prod',
+        }),
+      ],
+    });
+
+  const chargeByDefault = () =>
+    send('PUT', '/billing/settings', {
+      defaultCollectionMethod: 'CHARGE_AUTOMATICALLY',
+      defaultDaysUntilDue: 30,
+      handoffStripeInvoices: false,
+    });
+
+  const subscription = async (slug: string) =>
+    (await (await send('GET', `/instances/${slug}/billing`)).json()) as {
+      collectionMethod: string;
+      collectionMethodOverride: string | null;
+      providerKind: string;
+    };
+
+  it('does not make a NoOp subscription charge, whatever the default', async () => {
+    installBilling(world());
+
+    expect((await chargeByDefault()).status).toBe(200);
+
+    expect(await subscription('initech-prod')).toMatchObject({
+      collectionMethod: 'SEND_INVOICE',
+      collectionMethodOverride: null,
+      providerKind: 'NOOP',
+    });
+  });
+
+  it('asks a payment method of a NoOp subscription that moves to Stripe and takes the default', async () => {
+    installBilling(world());
+    await chargeByDefault();
+
+    const refused = await send('PATCH', '/instances/initech-prod/billing', {
+      providerKind: 'STRIPE',
+    });
+
+    expect(refused.status).toBe(422);
+    expect((await problem(refused)).code).toBe(
+      'UpdateInstanceBilling.PaymentMethodRequired',
+    );
+    expect((await subscription('initech-prod')).providerKind).toBe('NOOP');
+  });
+
+  it('charges the subscription that moves to Stripe with a card, by the default', async () => {
+    installBilling(world());
+    await chargeByDefault();
+
+    const moved = await send('PATCH', '/instances/globex-prod/billing', {
+      providerKind: 'STRIPE',
+    });
+
+    expect(moved.status).toBe(200);
+    expect(await subscription('globex-prod')).toMatchObject({
+      collectionMethod: 'CHARGE_AUTOMATICALLY',
+      collectionMethodOverride: null,
+      providerKind: 'STRIPE',
+    });
+  });
+
+  it('lets a subscription that names its own method move to Stripe without a card, by sending the invoice', async () => {
+    installBilling(world());
+    await chargeByDefault();
+
+    const moved = await send('PATCH', '/instances/initech-prod/billing', {
+      collectionMethod: 'SEND_INVOICE',
+      providerKind: 'STRIPE',
+    });
+
+    expect(moved.status).toBe(200);
+    expect(await subscription('initech-prod')).toMatchObject({
+      collectionMethod: 'SEND_INVOICE',
+      collectionMethodOverride: 'SEND_INVOICE',
+      providerKind: 'STRIPE',
+    });
+  });
+});
+
 describe('the health of billing and the pass that mirrors Stripe, as the mocks serve them', () => {
   const health = async (): Promise<BillingHealth> =>
     (await send('GET', '/billing/health')).json();
