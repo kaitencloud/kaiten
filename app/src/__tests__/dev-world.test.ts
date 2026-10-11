@@ -270,8 +270,17 @@ describe('dev world', () => {
       ).toBe('PAID');
       expect(new Set(prices.map(({ currency }) => currency)).size).toBe(1);
       for (const price of prices) {
-        expect(price.billingModel).toBe('FLAT_FEE');
         expect(price.status === 'DEPRECATED' && price.isDefault).toBe(false);
+        // A metered price measures an entitlement the version grants, in arrears, and
+        // is never a default.
+        if (price.billingModel === 'FLAT_FEE') {
+          continue;
+        }
+        expect(price.billingTiming).toBe('ARREARS');
+        expect(price.isDefault).toBe(false);
+        expect(
+          catalogue.grants[slug]?.map(({ entitlementSlug }) => entitlementSlug),
+        ).toContain(price.metered?.entitlementSlug);
       }
       const defaults = prices
         .filter((price) => price.isDefault)

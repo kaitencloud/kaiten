@@ -5,7 +5,10 @@ import {
   buildInstanceAddon,
   buildPrice,
 } from '../../../../e2e/app/_support/fixtures';
-import type { AddonCatalogueSeed } from '../../../../e2e/app/_support/model/billing-addon-catalogue';
+import {
+  type AddonCatalogueSeed,
+  entitlementFactsOf,
+} from '../../../../e2e/app/_support/model/billing-addon-catalogue';
 import { dayStart } from './billing';
 import { daysAgo } from './dates';
 
@@ -16,9 +19,9 @@ export const licenseFamilySlug = (license: License): string =>
 /**
  * Four families of add-ons, sold on top of the licenses of the world. Extra seats
  * carries the lifecycle (v1 on sale and the default, v2 being prepared with a
- * monthly price only); Extra storage has its first version withdrawn and a second on
- * sale; Priority support is sold on request and has no price; Analytics preview is
- * free. The families fit the licenses they make sense on: Enterprise already
+ * monthly price and its API calls rated on top); Extra storage has its first version
+ * withdrawn and a second on sale; Priority support is sold on request and has no
+ * price; Analytics preview is free. The families fit the licenses they make sense on: Enterprise already
  * includes priority support, and the trial is free to try.
  */
 const FAMILIES = {
@@ -171,6 +174,16 @@ const createPrices = () => {
       'extra-seats': [seatsMonthly, seatsAnnual],
       'extra-seats-v2': [
         price('extra-seats-v2', 'monthly', 'Extra seat, monthly', '1200', 1, 6),
+        // The calls it adds are rated on top of the seats, once the instance uses them.
+        buildPrice({
+          billingModel: 'USAGE_BASED',
+          createdAt: daysAgo(6),
+          displayLabel: 'API calls, extra pack',
+          displayOrder: 2,
+          id: 'extra-seats-v2-calls',
+          metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1' },
+          unitAmountDecimal: '0.15',
+        }),
       ],
       'extra-storage': [
         buildPrice({
@@ -309,11 +322,7 @@ export function createAddons({ entitlements, licenses }: AddonsWorld): {
   return {
     addonCatalogue: {
       compatibility: COMPATIBILITY,
-      entitlements: Object.fromEntries(
-        entitlements.flatMap(({ slug, type }) =>
-          slug && type ? [[slug, type]] : [],
-        ),
-      ),
+      entitlements: entitlementFactsOf(entitlements),
       grants: createGrants(),
       licenseFamilies: [...new Set(licenses.map(licenseFamilySlug))],
       prices,

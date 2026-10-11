@@ -165,6 +165,15 @@ describe('the add-on catalogue, as the mocks serve it', () => {
     expect(granting.status).toBe(409);
     expect((await refusal(granting)).code).toBe('DeleteAddon.InUseConflict');
 
+    // A grant an active price measures stays until the price is retired: the calls the
+    // draft grants are rated by one.
+    const measured = await send('DELETE', '/addons/extra-seats-v2/entitlements/api-calls');
+    expect(measured.status).toBe(409);
+    expect((await refusal(measured)).code).toBe('UnassignAddonEntitlement.MeteredByPrice');
+    expect(
+      (await send('POST', '/addons/extra-seats-v2/prices/extra-seats-v2-calls/deprecate')).status,
+    ).toBe(200);
+
     for (const grant of await json<AddonEntitlement[]>(
       await send('GET', '/addons/extra-seats-v2/entitlements'),
     )) {
@@ -265,7 +274,7 @@ describe('the add-on catalogue, as the mocks serve it', () => {
 
     expect(euro.status).toBe(422);
     expect((await refusal(euro)).code).toBe('CreateAddonPrice.CurrencyMismatch');
-    expect((await refusal(noPeriod)).code).toBe('CreateAddonPrice.BillingPeriodRequired');
+    expect((await refusal(noPeriod)).code).toBe('CreateAddonPrice.InvalidPeriod');
   });
 
   it('declares the license families a version fits, as often as asked', async () => {
@@ -475,6 +484,86 @@ describe('the add-ons an instance holds, as the mocks serve them', () => {
 
     expect(response.status).toBe(422);
     expect((await refusal(response)).code).toBe('AttachInstanceAddon.NoPriceForBillingPeriod');
+  });
+
+  it('takes a paid version that only meters usage on a billed instance, whatever the period of its subscription', async () => {
+    // Acme Production pays a year at a time, on a license that meters nothing.
+    await send('POST', '/addons', {
+      description: 'Billed on what is used',
+      name: 'Calls pack',
+      pricingType: 'PAID',
+    });
+    await send('POST', '/addons/calls-pack/entitlements', {
+      entitlementSlug: 'api-calls',
+      overrideBehavior: 'ADD',
+      value: { type: 'number', value: 1000 },
+    });
+    const priced = await send('POST', '/addons/calls-pack/prices', {
+      billingModel: 'USAGE_BASED',
+      currency: 'USD',
+      meteredEntitlementSlug: 'api-calls',
+      unitAmountDecimal: '0.1',
+    });
+    await send('PUT', '/addons/calls-pack/compatible-license-families/enterprise');
+    const response = await send('POST', '/instances/acme-production/addons', {
+      addonSlug: 'calls-pack',
+    });
+
+    expect(priced.status).toBe(201);
+    expect(response.status).toBe(201);
+    expect(await json<InstanceAddon>(response)).toMatchObject({
+      addonSlug: 'calls-pack',
+      prices: [{ billingModel: 'USAGE_BASED', metered: { entitlementSlug: 'api-calls' } }],
+    });
+  });
+
+  it('refuses a version that meters what the license of the instance already meters, and names it', async () => {
+    // Globex Production is on Business, which rates the calls above its allowance; the
+    // next Extra seats rates them too.
+    await send('POST', '/addons/extra-seats-v2/publish');
+    const response = await send('POST', '/instances/globex-production/addons', {
+      addonSlug: 'extra-seats-v2',
+    });
+    const problem = await refusal(response);
+
+    expect(response.status).toBe(422);
+    expect(problem.code).toBe('AttachInstanceAddon.MeteredEntitlementConflict');
+    expect(problem.detail).toBe(
+      'another price of the instance already meters api-calls: one entitlement is billed by one price',
+    );
+  });
+
+  it('refuses a version that meters what an add-on the instance holds already meters, until that price is retired', async () => {
+    // Acme US pays by the month on a license that meters nothing: two versions rate its calls.
+    await send('POST', '/addons/extra-seats-v2/publish');
+    await send('PUT', '/addons/extra-seats-v2/compatible-license-families/enterprise');
+    await send('POST', '/addons', {
+      description: 'Billed on what is used',
+      name: 'Calls pack',
+      pricingType: 'PAID',
+    });
+    await send('POST', '/addons/calls-pack/entitlements', {
+      entitlementSlug: 'api-calls',
+      overrideBehavior: 'ADD',
+      value: { type: 'number', value: 1000 },
+    });
+    await send('POST', '/addons/calls-pack/prices', {
+      billingModel: 'OVERAGE',
+      currency: 'USD',
+      meteredEntitlementSlug: 'api-calls',
+      unitAmountDecimal: '0.1',
+    });
+    await send('PUT', '/addons/calls-pack/compatible-license-families/enterprise');
+    const first = await send('POST', '/instances/acme-us/addons', { addonSlug: 'calls-pack' });
+    const conflict = await send('POST', '/instances/acme-us/addons', { addonSlug: 'extra-seats-v2' });
+    // The price of the version retired, it measures nothing: the other may be attached.
+    await send('POST', '/addons/extra-seats-v2/prices/extra-seats-v2-calls/deprecate');
+    const retired = await send('POST', '/instances/acme-us/addons', { addonSlug: 'extra-seats-v2' });
+
+    expect(first.status).toBe(201);
+    expect(conflict.status).toBe(422);
+    expect((await refusal(conflict)).code).toBe('AttachInstanceAddon.MeteredEntitlementConflict');
+    expect(retired.status).toBe(201);
   });
 
   it('takes a paid version that has no flat fee on a billed instance, whatever the period of its subscription', async () => {

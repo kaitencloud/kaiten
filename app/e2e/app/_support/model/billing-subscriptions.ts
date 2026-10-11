@@ -298,6 +298,14 @@ export class BillingSubscriptions {
       catalogue: this.addonCatalogue,
       isKnown: (slug: string) => this.isKnown(slug),
       licenseFamilyOf: (slug: string) => this.instance(slug)?.licenseFamilySlug,
+      licenseMetersOf: (slug: string) =>
+        (
+          this.catalogue.prices[this.instance(slug)?.licenseSlug ?? ''] ?? []
+        ).flatMap((price) =>
+          price.status === 'ACTIVE' && price.metered
+            ? [price.metered.entitlementSlug]
+            : [],
+        ),
       now: () => this.now(),
       subscriptionOf: (slug: string) => this.subscriptionOf(slug),
     };

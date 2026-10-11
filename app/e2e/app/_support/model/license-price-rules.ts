@@ -1,4 +1,9 @@
-import type { Entitlement, LicenseEntitlement, Price } from '@/api-client';
+import type {
+  AddonEntitlement,
+  Entitlement,
+  LicenseEntitlement,
+  Price,
+} from '@/api-client';
 import { CURRENCY_EXPONENTS } from '@/lib/currency-exponents';
 import { LicenseProblem } from './license-problem';
 
@@ -7,8 +12,17 @@ import { LicenseProblem } from './license-problem';
  * that stand in for it (api/internal/modules/licenses/prices/rules.go): the
  * shape of a price, and what a metered price may meter. The refusals carry the
  * API's own codes and words, so that the console is tested against the reasons
- * it will really be given.
+ * it will really be given. The add-ons write their prices by the same rules
+ * (`prices.Draft` is theirs too), so the checks take the way a refusal is raised,
+ * and each model raises its own problem document.
  */
+
+/** How a refusal is raised: the status, the code and the words of the problem document. */
+export type Refuse = (status: number, code: string, detail: string) => never;
+
+const refuseAsLicense: Refuse = (status, code, detail) => {
+  throw new LicenseProblem(status, code, detail);
+};
 
 type BillingModel = Price['billingModel'];
 
@@ -31,19 +45,23 @@ export const isMetered = (model: BillingModel) => model !== 'FLAT_FEE';
 const UNIT_AMOUNT = /^\d{1,12}(?:\.\d{1,12})?$/;
 
 /** Checks what a draft says about itself, before anything else is read. */
-export function checkShape(operation: string, draft: PriceDraft): void {
+export function checkShape(
+  operation: string,
+  draft: PriceDraft,
+  refuse: Refuse = refuseAsLicense,
+): void {
   if (
     !/^[A-Z]{3}$/.test(draft.currency) ||
     !CURRENCY_EXPONENTS.has(draft.currency)
   ) {
-    throw new LicenseProblem(
+    refuse(
       422,
       `${operation}.InvalidCurrency`,
       'currency must be an upper-case ISO 4217 code',
     );
   }
   if (!UNIT_AMOUNT.test(draft.unitAmountDecimal)) {
-    throw new LicenseProblem(
+    refuse(
       422,
       `${operation}.InvalidAmount`,
       'unitAmountDecimal must be a non-negative decimal of at most 12 integer digits and 12 decimal places, in minor units',
@@ -51,35 +69,35 @@ export function checkShape(operation: string, draft: PriceDraft): void {
   }
   const metered = isMetered(draft.billingModel);
   if (metered && draft.billingTiming !== 'ARREARS') {
-    throw new LicenseProblem(
+    refuse(
       422,
       `${operation}.InvalidTiming`,
       'a metered price bills in ARREARS: usage cannot be billed before it happens',
     );
   }
   if (metered !== (draft.billingPeriod === undefined)) {
-    throw new LicenseProblem(
+    refuse(
       422,
       `${operation}.InvalidPeriod`,
       'billingPeriod is required on a FLAT_FEE price and refused on a metered one',
     );
   }
   if (metered && draft.meteredEntitlementSlug === '') {
-    throw new LicenseProblem(
+    refuse(
       422,
       `${operation}.EntitlementNotGranted`,
       'a metered price needs meteredEntitlementSlug',
     );
   }
   if (!metered && draft.meteredEntitlementSlug !== '') {
-    throw new LicenseProblem(
+    refuse(
       422,
       `${operation}.InvalidPeriod`,
       'a FLAT_FEE price meters nothing: omit meteredEntitlementSlug',
     );
   }
   if (draft.isDefault && metered) {
-    throw new LicenseProblem(
+    refuse(
       422,
       `${operation}.InvalidDefault`,
       'only a FLAT_FEE price can be a default',
@@ -98,21 +116,39 @@ export function overageReachable(grant: LicenseEntitlement | undefined) {
   );
 }
 
+/** What differs between the version of a license and the version of an add-on in the rules of a meter. */
+export type MeterRules = {
+  /** The words that say who grants the entitlement. */
+  grantedBy?: 'add-on version' | 'licence version';
+  /**
+   * Whether an OVERAGE price needs a grant whose overage can be reached. A license
+   * version's grant is the whole allowance; an add-on's adds to the license's and
+   * may inherit its percent, so the API asks nothing of it.
+   */
+  overageNeedsReach?: boolean;
+  refuse?: Refuse;
+};
+
 /**
  * Checks the entitlement a metered draft would meter against what the version
  * grants of it: only a flow is metered (a reset period, SUM or COUNT, a NUMBER
- * type), the version must grant it, an OVERAGE price needs a grant whose
- * overage can be reached, and no other ACTIVE price may meter it.
+ * type), the version must grant it, an OVERAGE price on a license version needs a
+ * grant whose overage can be reached, and no other ACTIVE price may meter it.
  */
 export function checkMeters(
   operation: string,
   draft: PriceDraft,
-  entitlement: Entitlement,
-  grant: LicenseEntitlement | undefined,
+  entitlement: Pick<Entitlement, 'aggregationMethod' | 'resetPeriod' | 'type'>,
+  grant: AddonEntitlement | LicenseEntitlement | undefined,
   otherMeters: number,
+  {
+    grantedBy = 'licence version',
+    overageNeedsReach = true,
+    refuse = refuseAsLicense,
+  }: MeterRules = {},
 ): void {
   if (entitlement.resetPeriod === undefined) {
-    throw new LicenseProblem(
+    refuse(
       422,
       `${operation}.EntitlementIsStock`,
       'only an entitlement with a reset period can be metered: a lifetime counter is a stock, sold as an add-on',
@@ -120,7 +156,7 @@ export function checkMeters(
   }
   const aggregation = entitlement.aggregationMethod ?? 'SUM';
   if (aggregation !== 'SUM' && aggregation !== 'COUNT') {
-    throw new LicenseProblem(
+    refuse(
       422,
       `${operation}.UnsupportedAggregation`,
       'only a SUM or COUNT entitlement can be metered',
@@ -130,28 +166,32 @@ export function checkMeters(
     entitlement.type !== 'NUMBER' &&
     entitlement.type !== 'NUMBER_AI_CREDIT'
   ) {
-    throw new LicenseProblem(
+    refuse(
       422,
       `${operation}.UnsupportedEntitlementType`,
       'only a NUMBER or NUMBER_AI_CREDIT entitlement can be metered',
     );
   }
   if (!grant) {
-    throw new LicenseProblem(
+    refuse(
       422,
       `${operation}.EntitlementNotGranted`,
-      'the licence version does not grant this entitlement',
+      `the ${grantedBy} does not grant this entitlement`,
     );
   }
-  if (draft.billingModel === 'OVERAGE' && !overageReachable(grant)) {
-    throw new LicenseProblem(
+  if (
+    overageNeedsReach &&
+    draft.billingModel === 'OVERAGE' &&
+    !overageReachable(grant as LicenseEntitlement)
+  ) {
+    refuse(
       422,
       `${operation}.OverageUnreachable`,
       'the version grants this entitlement without overage (a hard or unlimited limit): an OVERAGE price could never bill',
     );
   }
   if (otherMeters > 0) {
-    throw new LicenseProblem(
+    refuse(
       422,
       `${operation}.EntitlementAlreadyMetered`,
       'another active price of this version already meters this entitlement',

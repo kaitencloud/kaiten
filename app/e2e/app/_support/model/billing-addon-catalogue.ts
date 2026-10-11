@@ -6,6 +6,7 @@ import type {
   AddonFamily,
   AddonGrant,
   AddonFamilyVisibility,
+  Entitlement,
   NewAddon,
   NewAddonGrant,
   NewAddonPrice,
@@ -23,6 +24,13 @@ import { buildPrice } from '../fixtures/build-pricing';
 import { ArmedProblems, type ArmedBillingProblem } from './armed-problems';
 import { type PageRequest, pageOfRows } from './billing-pages';
 import { BillingProblem } from './billing-problem';
+import {
+  checkMeters,
+  checkShape,
+  isMetered,
+  type PriceDraft,
+  type Refuse,
+} from './license-price-rules';
 
 const clone = <T>(value: T): T => structuredClone(value);
 
@@ -53,6 +61,44 @@ export type AddonCatalogueOperation =
 
 type EntitlementType = AddonEntitlement['entitlementType'];
 
+/**
+ * What the catalogue knows of an entitlement of the organization: its type, which a grant
+ * and a voucher boost are checked against, and what decides whether a price may meter it
+ * (a reset period, how it is aggregated) and which sale unit the price captures of it.
+ */
+export type EntitlementFacts = Pick<
+  Entitlement,
+  | 'aggregationMethod'
+  | 'resetPeriod'
+  | 'saleUnitFactor'
+  | 'saleUnitPlural'
+  | 'saleUnitSingular'
+> & { type: EntitlementType };
+
+/** The facts of the entitlements of a catalogue, by slug. */
+export const entitlementFactsOf = (
+  entitlements: readonly Entitlement[],
+): Record<string, EntitlementFacts> =>
+  Object.fromEntries(
+    entitlements.flatMap((entitlement) =>
+      entitlement.slug && entitlement.type
+        ? [
+            [
+              entitlement.slug,
+              {
+                aggregationMethod: entitlement.aggregationMethod,
+                resetPeriod: entitlement.resetPeriod,
+                saleUnitFactor: entitlement.saleUnitFactor,
+                saleUnitPlural: entitlement.saleUnitPlural,
+                saleUnitSingular: entitlement.saleUnitSingular,
+                type: entitlement.type,
+              } satisfies EntitlementFacts,
+            ],
+          ]
+        : [],
+    ),
+  );
+
 /** What the catalogue asks of the instances to answer as the API does. */
 export type AddonHolders = {
   /** Whether an instance with a live subscription holds the version: its grants and prices are frozen. */
@@ -64,8 +110,12 @@ export type AddonHolders = {
 export type AddonCatalogueSeed = {
   /** What each version is declared compatible with, by the slug of the version: license family slugs. */
   compatibility?: Record<string, string[]>;
-  /** The entitlements of the organization and their type: what a grant is checked against. */
-  entitlements?: Record<string, EntitlementType>;
+  /**
+   * The entitlements of the organization: what a grant, a boost and a metered price are
+   * checked against. An entitlement given by its type alone is not a flow, so no price
+   * may meter it; a world stored before the facts existed has them so.
+   */
+  entitlements?: Record<string, EntitlementFacts | EntitlementType>;
   /** What each version grants per unit of quantity, by the slug of the version. */
   grants?: Record<string, AddonEntitlement[]>;
   /** The license families that exist, by slug: compatibility refuses an unknown one. */
@@ -81,7 +131,7 @@ export type AddonCatalogueSeed = {
 export type SerializedAddonCatalogue = {
   armedProblems: Array<[AddonCatalogueOperation, ArmedBillingProblem]>;
   compatibility: Record<string, string[]>;
-  entitlements: Record<string, EntitlementType>;
+  entitlements: Record<string, EntitlementFacts>;
   grants: Record<string, AddonEntitlement[]>;
   lastVersions: Record<string, number>;
   licenseFamilies: string[];
@@ -105,7 +155,7 @@ const NOW = () => new Date().toISOString();
 export class AddonCatalogue {
   private readonly problems = new ArmedProblems<AddonCatalogueOperation>();
   private compatibility: Record<string, string[]>;
-  private entitlements: Record<string, EntitlementType>;
+  private entitlements: Record<string, EntitlementFacts>;
   private grants: Record<string, Editable<AddonEntitlement>[]>;
   private lastVersions: Record<string, number> = {};
   private licenseFamilies: string[];
@@ -133,7 +183,12 @@ export class AddonCatalogue {
       );
     }
     this.compatibility = clone(seed.compatibility ?? {});
-    this.entitlements = clone(seed.entitlements ?? {});
+    this.entitlements = Object.fromEntries(
+      Object.entries(seed.entitlements ?? {}).map(([slug, facts]) => [
+        slug,
+        typeof facts === 'string' ? { type: facts } : clone(facts),
+      ]),
+    );
     this.grants = Object.fromEntries(
       Object.entries(seed.grants ?? {}).map(([slug, grants]) => [
         slug,
@@ -239,7 +294,7 @@ export class AddonCatalogue {
 
   /** The type of an entitlement of the organization, for what is checked against one: a voucher boost. */
   entitlementTypeOf(slug: string): EntitlementType | undefined {
-    return this.entitlements[slug];
+    return this.entitlements[slug]?.type;
   }
 
   /** Whether a version has this identifier: what a voucher names to apply to. */
@@ -694,7 +749,7 @@ export class AddonCatalogue {
     this.problems.consume('assignAddonEntitlement');
     this.requireVersion(addonSlug, 'AssignAddonEntitlement.AddonNotFound');
     this.refuseBilled('AssignAddonEntitlement', addonSlug);
-    const type = this.entitlements[body.entitlementSlug];
+    const type = this.entitlements[body.entitlementSlug]?.type;
     if (!type) {
       this.refuse(
         404,
@@ -820,46 +875,57 @@ export class AddonCatalogue {
     );
   }
 
-  /** `POST /addons/{addonSlug}/prices`: a flat fee, or a metered price the API takes and never values. */
+  /**
+   * `POST /addons/{addonSlug}/prices`: a flat fee, or a metered price, by the rules of a
+   * license version's price (the shape, then what the price meters). A metered price
+   * measures an entitlement the version grants, and the version's other ACTIVE prices
+   * measure something else. Nothing is written until every check has passed.
+   */
   createPrice(addonSlug: string, body: NewAddonPrice): Price {
+    const operation = 'CreateAddonPrice';
     this.problems.consume('createAddonPrice');
+    const refuse: Refuse = (status, code, detail) =>
+      this.refuse(status, code, detail);
+    const draft: PriceDraft = {
+      billingModel: body.billingModel,
+      billingPeriod: body.billingPeriod,
+      billingTiming:
+        body.billingTiming ??
+        (isMetered(body.billingModel) ? 'ARREARS' : 'ADVANCE'),
+      currency: body.currency,
+      displayLabel: body.displayLabel,
+      displayOrder: body.displayOrder ?? 0,
+      isDefault: body.isDefault ?? false,
+      meteredEntitlementSlug: body.meteredEntitlementSlug ?? '',
+      unitAmountDecimal: body.unitAmountDecimal,
+    };
+    checkShape(operation, draft, refuse);
     const version = this.requireVersion(
       addonSlug,
-      'CreateAddonPrice.AddonNotFound',
+      `${operation}.AddonNotFound`,
     );
-    if (body.billingModel === 'FLAT_FEE' && body.billingPeriod === undefined) {
-      this.refuse(
-        422,
-        'CreateAddonPrice.BillingPeriodRequired',
-        'billingPeriod is required on a FLAT_FEE price',
-      );
-    }
-    if (!/^\d+(\.\d{1,12})?$/.test(body.unitAmountDecimal)) {
-      this.refuse(
-        422,
-        'CreateAddonPrice.InvalidAmount',
-        'unitAmountDecimal is a decimal string of minor units, with at most 12 decimals',
-      );
-    }
     if (version.lifecycleState === 'ARCHIVED') {
       this.refuse(
         409,
-        'CreateAddonPrice.VersionArchived',
+        `${operation}.VersionArchived`,
         'an archived add-on version takes no new price',
       );
     }
-    this.refuseBilled('CreateAddonPrice', addonSlug);
+    this.refuseBilled(operation, addonSlug);
     const prices = this.prices[addonSlug] ?? [];
-    if (prices.length > 0 && prices[0].currency !== body.currency) {
+    const meter = isMetered(draft.billingModel)
+      ? this.checkMeter(operation, addonSlug, draft, prices, refuse)
+      : undefined;
+    if (prices.length > 0 && prices[0].currency !== draft.currency) {
       this.refuse(
         422,
-        'CreateAddonPrice.CurrencyMismatch',
+        `${operation}.CurrencyMismatch`,
         'this add-on version already has prices in another currency: one currency per version',
       );
     }
-    if (body.isDefault && body.billingPeriod !== undefined) {
+    if (draft.isDefault) {
       for (const price of prices) {
-        if (price.isDefault && price.billingPeriod === body.billingPeriod) {
+        if (price.isDefault && price.billingPeriod === draft.billingPeriod) {
           price.isDefault = false;
         }
       }
@@ -867,22 +933,65 @@ export class AddonCatalogue {
     const created = parseContract(
       zPrice,
       buildPrice({
-        billingModel: body.billingModel,
-        billingPeriod: body.billingPeriod,
-        billingTiming: body.billingTiming,
+        billingModel: draft.billingModel,
+        billingPeriod: draft.billingPeriod,
+        billingTiming: draft.billingTiming,
         createdAt: NOW(),
-        currency: body.currency,
-        displayLabel: body.displayLabel,
-        displayOrder: body.displayOrder ?? 0,
+        currency: draft.currency,
+        displayLabel: draft.displayLabel,
+        displayOrder: draft.displayOrder,
         id: `price-${addonSlug}-${this.sequence++}`,
-        isDefault: Boolean(body.isDefault),
-        unitAmountDecimal: body.unitAmountDecimal,
+        isDefault: draft.isDefault,
+        metered: meter,
+        unitAmountDecimal: draft.unitAmountDecimal,
       }),
       'AddonCatalogue createPrice',
     );
     this.prices[addonSlug] = [...prices, created];
 
     return clone(created);
+  }
+
+  // What a metered price measures, by the checks of the API, in its order: the entitlement
+  // exists, is a flow the version grants, and no other active price of the version measures
+  // it. The meter is what the price captures of the entitlement: the sale unit it names.
+  private checkMeter(
+    operation: string,
+    addonSlug: string,
+    draft: PriceDraft,
+    prices: readonly Price[],
+    refuse: Refuse,
+  ): Price['metered'] {
+    const slug = draft.meteredEntitlementSlug;
+    const facts = this.entitlements[slug];
+    if (!facts) {
+      this.refuse(
+        404,
+        `${operation}.EntitlementNotFound`,
+        `entitlement "${slug}" not found`,
+      );
+    }
+    const others = prices.filter(
+      (price) =>
+        price.status === 'ACTIVE' && price.metered?.entitlementSlug === slug,
+    ).length;
+    checkMeters(
+      operation,
+      draft,
+      facts,
+      (this.grants[addonSlug] ?? []).find(
+        (grant) => grant.entitlementSlug === slug,
+      ),
+      others,
+      { grantedBy: 'add-on version', overageNeedsReach: false, refuse },
+    );
+
+    return {
+      entitlementSlug: slug,
+      saleUnitFactor: String(facts.saleUnitFactor ?? 1),
+      saleUnitPlural: facts.saleUnitPlural,
+      saleUnitSingular: facts.saleUnitSingular,
+    };
   }
 
   /** `POST /addons/{addonSlug}/prices/{priceId}/deprecate`: never the default price of a period. */

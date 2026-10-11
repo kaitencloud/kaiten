@@ -56,6 +56,8 @@ export type InstanceAddonsDeps = {
   isKnown(instanceSlug: string): boolean;
   /** The slug of the license family the instance is on, which decides which add-ons fit it. */
   licenseFamilyOf(instanceSlug: string): string | undefined;
+  /** The entitlements an ACTIVE metered price of the instance's license version measures. */
+  licenseMetersOf(instanceSlug: string): string[];
   now(): number;
   /** Its subscription, live or ended. */
   subscriptionOf(instanceSlug: string): InstanceBilling | undefined;
@@ -253,6 +255,7 @@ export class InstanceAddons implements AddonHolders {
     quantity: number,
     subscription: InstanceBilling | undefined,
     heldFamilies: ReadonlySet<string>,
+    alsoAttached: readonly string[] = [],
   ): Addon {
     const addon = this.deps.catalogue.find(addonSlug);
     if (!addon) {
@@ -295,7 +298,13 @@ export class InstanceAddons implements AddonHolders {
       );
     }
     if (isLive(subscription)) {
-      this.validateForBilling(prefix, addon, subscription as InstanceBilling);
+      this.validateForBilling(
+        prefix,
+        instanceSlug,
+        addon,
+        subscription as InstanceBilling,
+        alsoAttached,
+      );
     }
     if (heldFamilies.has(addon.familySlug)) {
       this.refuse(
@@ -310,11 +319,13 @@ export class InstanceAddons implements AddonHolders {
   }
 
   // What a live subscription could not bill: a draft, another currency, no flat fee for
-  // its period.
+  // its period, an entitlement another price of the instance already meters.
   private validateForBilling(
     prefix: string,
+    instanceSlug: string,
     addon: Addon,
     subscription: InstanceBilling,
+    alsoAttached: readonly string[],
   ) {
     if (addon.lifecycleState !== 'PUBLISHED') {
       this.refuse(
@@ -353,6 +364,47 @@ export class InstanceAddons implements AddonHolders {
         `the add-on has no default ACTIVE price for the subscription's ${subscription.billingPeriod} period`,
       );
     }
+    const conflicts = this.meterConflicts(instanceSlug, addon, alsoAttached);
+    if (conflicts.length > 0) {
+      this.refuse(
+        prefix,
+        422,
+        'MeteredEntitlementConflict',
+        `another price of the instance already meters ${conflicts.join(', ')}: one entitlement is billed by one price`,
+      );
+    }
+  }
+
+  // The entitlements an ACTIVE metered price of the add-on measures that a price of the
+  // instance's license version, or of another add-on it holds, measures already: one
+  // entitlement is billed by one price. `alsoAttached` is what the same request attaches
+  // before it.
+  private meterConflicts(
+    instanceSlug: string,
+    addon: Addon,
+    alsoAttached: readonly string[],
+  ): string[] {
+    const metersOf = (addonSlug: string) =>
+      this.deps.catalogue
+        .pricesOf(addonSlug)
+        .flatMap((price) =>
+          price.status === 'ACTIVE' && price.metered
+            ? [price.metered.entitlementSlug]
+            : [],
+        );
+    const taken = new Set([
+      ...this.deps.licenseMetersOf(instanceSlug),
+      ...[
+        ...this.active(instanceSlug).map((attached) => attached.addonSlug),
+        ...alsoAttached,
+      ]
+        .filter((addonSlug) => addonSlug !== addon.slug)
+        .flatMap(metersOf),
+    ]);
+
+    return [
+      ...new Set(metersOf(addon.slug).filter((slug) => taken.has(slug))),
+    ].sort();
   }
 
   private insert(
@@ -422,6 +474,7 @@ export class InstanceAddons implements AddonHolders {
     const held = new Set(
       this.active(instanceSlug).map((attached) => attached.familySlug),
     );
+    const alsoAttached: string[] = [];
 
     return entries.map((entry, index) => {
       const quantity = entry.quantity ?? 1;
@@ -433,8 +486,10 @@ export class InstanceAddons implements AddonHolders {
           quantity,
           subscription,
           held,
+          alsoAttached,
         );
         held.add(addon.familySlug);
+        alsoAttached.push(addon.slug);
 
         return { addon, quantity };
       } catch (error) {

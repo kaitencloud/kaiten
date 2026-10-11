@@ -25,6 +25,7 @@ import {
   type BillingAppModelSeed,
 } from '../_support/model/billing-app-model';
 import { billingCapabilitiesProfiles } from '../_support/model/billing-capabilities';
+import { entitlementFactsOf } from '../_support/model/billing-addon-catalogue';
 import type { BillingCatalogue } from '../_support/model/billing-subscriptions';
 import { InstanceAppModel } from '../_support/model/instance-app-model';
 import { LicenseAppModel } from '../_support/model/license-app-model';
@@ -299,12 +300,7 @@ const ADDON_CATALOGUE = {
     'priority-support-v1': ['pro'],
     'priority-support-v2': ['pro'],
   },
-  entitlements: {
-    analytics: 'BOOLEAN',
-    seats: 'NUMBER',
-    'storage-gb': 'NUMBER',
-    tokens: 'NUMBER',
-  } as const,
+  entitlements: entitlementFactsOf(ENTITLEMENTS),
   grants: {
     'extra-seats-v1': [
       buildAddonGrant({
