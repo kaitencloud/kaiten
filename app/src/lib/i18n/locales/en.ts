@@ -5567,7 +5567,7 @@ export default {
           },
           Descriptions: {
             collectionMethod:
-              'How an invoice is collected when its subscription does not say.',
+              'How an invoice is collected when its subscription does not say. A subscription handed off manually sends its invoices whatever this is, since nothing can charge them.',
             daysUntilDue:
               'Days between issuing an invoice and its due date, from 0 to 365.',
             handoffStripeInvoices:
@@ -5577,7 +5577,6 @@ export default {
             SEND_INVOICE: 'Send the invoice',
             CHARGE_AUTOMATICALLY: 'Charge automatically',
             unavailable: '{{method}} (needs a payment provider)',
-            perContract: '{{method}} (set on each contract)',
           },
           Errors: {
             daysUntilDue: 'Enter a whole number of days, from 0 to 365',

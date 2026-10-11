@@ -260,7 +260,7 @@ test.describe('the billing settings', () => {
 });
 
 test.describe('the billing settings of a release that ships a payment provider', () => {
-  test('list Stripe with its state, keep charging automatically for the contracts and offer to hand off its invoices', async ({
+  test('list Stripe with its state, offer charging automatically as the default and offer to hand off its invoices', async ({
     page,
   }) => {
     const settings = new BillingSettingsDriver(page);
@@ -274,10 +274,34 @@ test.describe('the billing settings of a release that ships a payment provider',
     await expect(settings.handoffStripeInvoicesField()).toBeVisible();
     await settings.collectionMethod().click();
     await expect(
-      page.getByRole('option', {
-        name: 'Charge automatically (set on each contract)',
-      }),
-    ).toHaveAttribute('aria-disabled', 'true');
+      page.getByRole('option', { name: 'Charge automatically' }),
+    ).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
+  test('save charging automatically as the default of the organization, and open again on it', async ({
+    page,
+  }) => {
+    const settings = new BillingSettingsDriver(page);
+    const writes = recordWrites(page, SETTINGS_WRITES, ['PUT']);
+    await installBillingAppMocks(page, createBillingFullModel());
+
+    await settings.goto();
+    await settings.collectionMethod().click();
+    await page.getByRole('option', { name: 'Charge automatically' }).click();
+    await settings.saveButton().click();
+
+    await expectToast(page, 'Billing defaults saved');
+    expect(writes).toHaveLength(1);
+    expect(writes[0].body).toMatchObject({
+      defaultCollectionMethod: 'CHARGE_AUTOMATICALLY',
+    });
+    await expect(settings.collectionMethod()).toContainText(
+      'Charge automatically',
+    );
+    await expect(settings.saveButton()).toBeDisabled();
+    await expect(settings.defaults()).toContainText(
+      'A subscription handed off manually sends its invoices whatever this is',
+    );
   });
 });
 

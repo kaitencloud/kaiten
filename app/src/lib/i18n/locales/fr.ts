@@ -5656,7 +5656,7 @@ export default {
           },
           Descriptions: {
             collectionMethod:
-              'La façon d’encaisser une facture quand son abonnement ne le précise pas.',
+              'La façon d’encaisser une facture quand son abonnement ne le précise pas. Un abonnement en transmission manuelle envoie ses factures quel que soit ce choix, puisque rien ne peut les prélever.',
             daysUntilDue:
               'Nombre de jours entre l’émission d’une facture et son échéance, de 0 à 365.',
             handoffStripeInvoices:
@@ -5666,7 +5666,6 @@ export default {
             SEND_INVOICE: 'Envoyer la facture',
             CHARGE_AUTOMATICALLY: 'Prélever automatiquement',
             unavailable: '{{method}} (nécessite un fournisseur de paiement)',
-            perContract: '{{method}} (à régler sur chaque contrat)',
           },
           Errors: {
             daysUntilDue: 'Saisissez un nombre entier de jours, de 0 à 365',

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, within } from 'storybook/test';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
 import type { BillingSettings } from '@/api-client';
 import {
   handleGetBillingCapabilities,
@@ -251,7 +251,8 @@ export const HealthAllClear: Story = {
 
 // The defaults a subscription takes when it names none of its own: how it is
 // collected, how long it is due. Charging automatically is listed and cannot be
-// chosen where no payment provider can do it.
+// chosen where no payment provider can do it, and the help says that a subscription
+// handed off manually sends its invoices whatever the default is.
 export const Defaults: Story = {
   render: () => (
     <StorybookRouter>
@@ -265,12 +266,28 @@ export const Defaults: Story = {
       '30',
     );
     await expect(canvas.getByRole('combobox')).toBeVisible();
+    await expect(
+      canvas.getByText(/A subscription handed off manually sends its invoices/),
+    ).toBeVisible();
     // Handing off the invoices of a provider is a question about nothing until
     // one is shipped.
     await expect(canvas.queryByLabelText('Hand off Stripe invoices')).toBeNull();
+    await userEvent.click(canvas.getByRole('combobox'));
+    await expect(
+      await within(document.body).findByRole('option', {
+        name: 'Charge automatically (needs a payment provider)',
+      }),
+    ).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.keyboard('{Escape}');
+    // The list is gone before the story is checked for accessibility.
+    await waitFor(() =>
+      expect(within(document.body).queryByRole('listbox')).toBeNull(),
+    );
   },
 };
 
+// A connected provider that charges by itself makes charging automatically a default
+// the organization can choose.
 export const DefaultsWithAProvider: Story = {
   parameters: { msw: { handlers: [stripeIs('connected')] } },
   render: () => (
@@ -279,9 +296,21 @@ export const DefaultsWithAProvider: Story = {
     </StorybookRouter>
   ),
   play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
     await expect(
-      await within(canvasElement).findByLabelText('Hand off Stripe invoices'),
+      await canvas.findByLabelText('Hand off Stripe invoices'),
     ).toBeChecked();
+    await userEvent.click(canvas.getByRole('combobox'));
+    await expect(
+      await within(document.body).findByRole('option', {
+        name: 'Charge automatically',
+      }),
+    ).not.toHaveAttribute('aria-disabled', 'true');
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() =>
+      expect(within(document.body).queryByRole('listbox')).toBeNull(),
+    );
   },
 };
 

@@ -169,7 +169,7 @@ test.describe('where Stripe stands, read from the providers and not from the fla
     await expect(stripe.tile()).toContainText('Not included in your plan');
   });
 
-  test('keeps automatic collection off as the default where a connected provider charges, whatever `features.chargeAutomatically` says, and points to the contract', async ({
+  test('offers automatic collection as the default where a connected provider charges, whatever `features.chargeAutomatically` says', async ({
     page,
   }) => {
     const settings = new BillingSettingsDriver(page);
@@ -187,9 +187,7 @@ test.describe('where Stripe stands, read from the providers and not from the fla
     await settings.collectionMethod().click();
 
     await expect(
-      page.getByRole('option', {
-        name: 'Charge automatically (set on each contract)',
-      }),
-    ).toHaveAttribute('aria-disabled', 'true');
+      page.getByRole('option', { name: 'Charge automatically' }),
+    ).not.toHaveAttribute('aria-disabled', 'true');
   });
 });

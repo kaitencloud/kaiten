@@ -274,18 +274,76 @@ describe('the defaults', () => {
     );
   });
 
-  it('keeps charging automatically off as a default once a connected provider charges by itself, and points to the contract', async () => {
+  it('offers charging automatically as the default once a connected provider charges by itself, and saves it', async () => {
     stripeIs('connected');
+    const bodies = serveUpdates();
     renderPage();
     await daysField();
 
     await userEvent.click(screen.getByRole('combobox'));
+    const option = await screen.findByRole('option', {
+      name: 'Charge automatically',
+    });
+    expect(option).not.toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(option);
+    await userEvent.click(screen.getByRole('button', { name: 'Save the defaults' }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({
+      defaultCollectionMethod: 'CHARGE_AUTOMATICALLY',
+      defaultDaysUntilDue: 30,
+      handoffStripeInvoices: false,
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('combobox')).toHaveTextContent('Charge automatically'),
+    );
+  });
+
+  it('says in the help of the field that a subscription handed off manually ignores the default', async () => {
+    renderPage();
+    await daysField();
 
     expect(
-      await screen.findByRole('option', {
-        name: 'Charge automatically (set on each contract)',
+      screen.getByText(/A subscription handed off manually sends its invoices whatever this is/),
+    ).toBeInTheDocument();
+  });
+
+  it('opens on a default that charges automatically, and keeps it when another default is saved', async () => {
+    stripeIs('connected');
+    server.use(
+      handleGetBillingSettings({
+        body: { ...STORED, defaultCollectionMethod: 'CHARGE_AUTOMATICALLY' },
       }),
-    ).toHaveAttribute('aria-disabled', 'true');
+    );
+    const bodies = serveUpdates();
+    renderPage();
+    const days = await daysField();
+
+    expect(screen.getByRole('combobox')).toHaveTextContent('Charge automatically');
+    await userEvent.clear(days);
+    await userEvent.type(days, '14');
+    await userEvent.click(screen.getByRole('button', { name: 'Save the defaults' }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].defaultCollectionMethod).toBe('CHARGE_AUTOMATICALLY');
+  });
+
+  it('shows a default that charges automatically as needing a provider once none can, and lets the person go back to sending', async () => {
+    server.use(
+      handleGetBillingSettings({
+        body: { ...STORED, defaultCollectionMethod: 'CHARGE_AUTOMATICALLY' },
+      }),
+    );
+    renderPage();
+    await daysField();
+
+    expect(screen.getByRole('combobox')).toHaveTextContent(
+      'Charge automatically (needs a payment provider)',
+    );
+    await userEvent.click(screen.getByRole('combobox'));
+    expect(
+      await screen.findByRole('option', { name: 'Send the invoice' }),
+    ).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('keeps charging automatically off while Stripe is only free to be connected', async () => {
