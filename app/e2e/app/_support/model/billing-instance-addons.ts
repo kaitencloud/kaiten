@@ -309,7 +309,7 @@ export class InstanceAddons implements AddonHolders {
     return addon;
   }
 
-  // What a live subscription could not bill: a draft, another currency, no price for
+  // What a live subscription could not bill: a draft, another currency, no flat fee for
   // its period.
   private validateForBilling(
     prefix: string,
@@ -334,13 +334,17 @@ export class InstanceAddons implements AddonHolders {
         `the add-on is priced in ${currencies.join(', ')} and the subscription bills in ${subscription.currency}`,
       );
     }
-    const priced = prices.some(
-      (price) =>
-        price.billingModel === 'FLAT_FEE' &&
-        price.status === 'ACTIVE' &&
-        price.isDefault &&
-        price.billingPeriod === subscription.billingPeriod,
+    // The default flat fee of the period is asked of a version that has a flat fee to
+    // bill: a metered-only version bills its usage and attaches to any period.
+    const flatFees = prices.filter(
+      (price) => price.billingModel === 'FLAT_FEE' && price.status === 'ACTIVE',
     );
+    const priced =
+      flatFees.length === 0 ||
+      flatFees.some(
+        (price) =>
+          price.isDefault && price.billingPeriod === subscription.billingPeriod,
+      );
     if (addon.pricingType === 'PAID' && !priced) {
       this.refuse(
         prefix,

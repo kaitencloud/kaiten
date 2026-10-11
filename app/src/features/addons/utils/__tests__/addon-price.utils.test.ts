@@ -107,11 +107,27 @@ describe('the slots of the billing periods', () => {
   });
 
   it('counts only the active flat fees, a deprecated price being no price at all', () => {
-    const slots = getPeriodSlots([{ ...monthly, status: 'DEPRECATED' }, metered], 'PAID');
+    const slots = getPeriodSlots([{ ...monthly, status: 'DEPRECATED' }, annual], 'PAID');
 
     expect(slots.map(({ count, status }) => [count, status])).toEqual([
       [0, 'missing'],
-      [0, 'missing'],
+      [1, 'default'],
+    ]);
+  });
+
+  it('expects no period price of a paid version that has no active flat fee, the API attaching it to any period', () => {
+    // A metered-only version bills its usage; a version whose flat fees are all retired bills none.
+    expect(getPeriodSlots([metered], 'PAID')).toEqual([]);
+    expect(getPeriodSlots([{ ...monthly, status: 'DEPRECATED' }, metered], 'PAID')).toEqual([]);
+    expect(getPeriodSlots([], 'PAID')).toEqual([]);
+  });
+
+  it('expects the usual periods as soon as a paid version has an active flat fee, whatever metered prices it also has', () => {
+    const slots = getPeriodSlots([monthly, metered], 'PAID');
+
+    expect(slots.map(({ period, status }) => [period, status])).toEqual([
+      ['MONTHLY', 'default'],
+      ['ANNUAL', 'missing'],
     ]);
   });
 });

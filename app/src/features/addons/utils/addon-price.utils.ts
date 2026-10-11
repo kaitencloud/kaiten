@@ -76,19 +76,24 @@ const USUAL_PERIODS: readonly BillingPeriod[] = ['MONTHLY', 'ANNUAL'];
  * One slot per billing period the version is sold for: the usual ones always, and
  * any other the version has a price for. Of a version's flat fees the default active
  * one whose period is the subscription's is the one billed, and a PAID add-on with
- * no default for the period is refused on a subscription of that period
- * (`AttachInstanceAddon.NoPriceForBillingPeriod`). A free add-on, or one sold on
- * request, needs no price: it has slots only for the periods it has a price for.
+ * active flat fees and no default for the period is refused on a subscription of that
+ * period (`AttachInstanceAddon.NoPriceForBillingPeriod`). A free add-on, one sold on
+ * request, and one with no active flat fee (a metered-only add-on bills its usage, and
+ * attaches to any period) need no period price: they have slots only for the periods
+ * they have a price for.
  */
 export function getPeriodSlots(
   prices: readonly Price[],
   pricingType: Addon['pricingType'],
 ): PeriodSlot[] {
   const active = getFlatFees(prices).filter(isActivePrice);
+  // The API asks for the default of the period only of a version that has an active
+  // flat fee to bill.
+  const billsAFlatFee = pricingType === 'PAID' && active.length > 0;
 
   return BILLING_PERIODS.flatMap((period) => {
     const ofPeriod = active.filter((price) => price.billingPeriod === period);
-    const expected = pricingType === 'PAID' && USUAL_PERIODS.includes(period);
+    const expected = billsAFlatFee && USUAL_PERIODS.includes(period);
     if (ofPeriod.length === 0 && !expected) {
       return [];
     }

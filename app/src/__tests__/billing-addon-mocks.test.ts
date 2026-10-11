@@ -476,6 +476,24 @@ describe('the add-ons an instance holds, as the mocks serve them', () => {
     expect(response.status).toBe(422);
     expect((await refusal(response)).code).toBe('AttachInstanceAddon.NoPriceForBillingPeriod');
   });
+
+  it('takes a paid version that has no flat fee on a billed instance, whatever the period of its subscription', async () => {
+    // Asking for the default price of the period is for a version that has a flat fee to
+    // bill: one without bills no period, and attaches to the instance that pays a year at a time.
+    const created = await send('POST', '/addons', {
+      description: 'Billed on what is used',
+      name: 'Usage pack',
+      pricingType: 'PAID',
+    });
+    await send('PUT', '/addons/usage-pack/compatible-license-families/enterprise');
+    const response = await send('POST', '/instances/acme-production/addons', {
+      addonSlug: 'usage-pack',
+    });
+
+    expect(created.status).toBe(201);
+    expect(response.status).toBe(201);
+    expect(await json<InstanceAddon>(response)).toMatchObject({ addonSlug: 'usage-pack', quantity: 1 });
+  });
 });
 
 describe('subscribing with add-ons, as the mocks serve it', () => {
