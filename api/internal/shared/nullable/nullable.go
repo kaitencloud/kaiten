@@ -5,6 +5,7 @@ package nullable
 
 import (
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -53,6 +54,17 @@ func member(p *huma.Schema) *huma.Schema {
 	if p.Ref != "" {
 		return &huma.Schema{OneOf: []*huma.Schema{{Ref: p.Ref}, onlyNull()}, Description: p.Description}
 	}
+	// A union, or anything else without a type, takes the null branch: a
+	// nullable flag on it would publish type ["", "null"].
+	if len(p.OneOf) > 0 {
+		if !slices.ContainsFunc(p.OneOf, func(branch *huma.Schema) bool { return branch.Type == "null" }) {
+			p.OneOf = append(p.OneOf, onlyNull())
+		}
+		return p
+	}
+	if p.Type == "" {
+		return &huma.Schema{OneOf: []*huma.Schema{p, onlyNull()}, Description: p.Description}
+	}
 	p.Nullable = true
 	if len(p.Enum) > 0 {
 		for _, value := range p.Enum {
@@ -65,4 +77,4 @@ func member(p *huma.Schema) *huma.Schema {
 	return p
 }
 
-func onlyNull() *huma.Schema { return &huma.Schema{Enum: []any{nil}} }
+func onlyNull() *huma.Schema { return &huma.Schema{Type: "null", Enum: []any{nil}} }
