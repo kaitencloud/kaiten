@@ -9,6 +9,20 @@ import {
 } from '@/domains/billing';
 import { DetailCard } from '@/functionals/detail-card';
 
+// Written out in full, so that a key that does not exist fails the check of the keys.
+const KEYS = {
+  description: 'Pages.Customers.Instances.Detail.Billing.Upcoming.description',
+  explanation:
+    'Pages.Customers.Instances.Detail.Billing.Upcoming.OutsideRetention.explanation',
+  invoiceUnaffected:
+    'Pages.Customers.Instances.Detail.Billing.Upcoming.OutsideRetention.invoiceUnaffected',
+  keptFor:
+    'Pages.Customers.Instances.Detail.Billing.Upcoming.OutsideRetention.keptFor',
+  title: 'Pages.Customers.Instances.Detail.Billing.Upcoming.title',
+  titleOutside:
+    'Pages.Customers.Instances.Detail.Billing.Upcoming.OutsideRetention.title',
+} as const;
+
 type UpcomingInvoiceOutsideRetentionProps = {
   /** The refusal of the upcoming invoice that says the usage is no longer kept. */
   problem: BillingProblem;
@@ -31,35 +45,32 @@ export function UpcomingInvoiceOutsideRetention({
   const { data } = useQuery(billingCapabilitiesQueryOptions);
   const months = data?.usageHistoryRetentionMonths;
   const { retentionStart } = problem;
-  const base = 'Pages.Customers.Instances.Detail.Billing.Upcoming';
 
   return (
     <DetailCard>
       <DetailCard.Header>
-        <DetailCard.Title>{t(`${base}.title`)}</DetailCard.Title>
-        <DetailCard.Description>
-          {t(`${base}.description`)}
-        </DetailCard.Description>
+        <DetailCard.Title>{t(KEYS.title)}</DetailCard.Title>
+        <DetailCard.Description>{t(KEYS.description)}</DetailCard.Description>
       </DetailCard.Header>
       <DetailCard.Content>
         <Alert data-testid="upcoming-invoice-outside-retention">
           <History />
-          <AlertTitle>{t(`${base}.OutsideRetention.title`)}</AlertTitle>
+          <AlertTitle>{t(KEYS.titleOutside)}</AlertTitle>
           <AlertDescription className="space-y-2">
-            <p>{t(`${base}.OutsideRetention.explanation`)}</p>
+            <p>{t(KEYS.explanation)}</p>
             {retentionStart ? (
-              <p>
-                {t('Features.Billing.Problems.outsideRetention', {
-                  date: formatUtcDate(retentionStart, i18n.language),
-                })}
-                {months
-                  ? ` ${t(`${base}.OutsideRetention.keptFor`, { count: months })}`
-                  : ''}
-              </p>
+              <>
+                <p>
+                  {t('Features.Billing.Problems.outsideRetention', {
+                    date: formatUtcDate(retentionStart, i18n.language),
+                  })}
+                </p>
+                {months ? <p>{t(KEYS.keptFor, { count: months })}</p> : null}
+              </>
             ) : (
               <p>{problem.detail}</p>
             )}
-            <p>{t(`${base}.OutsideRetention.invoiceUnaffected`)}</p>
+            <p>{t(KEYS.invoiceUnaffected)}</p>
           </AlertDescription>
         </Alert>
       </DetailCard.Content>

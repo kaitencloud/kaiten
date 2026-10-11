@@ -6,13 +6,11 @@ import {
   BILLING_PERIOD_LABEL_KEYS,
   getPriceAmountParts,
   getPriceLabel,
+  hasActiveFlatFee,
   joinPriceAmount,
   PriceAmount,
 } from '@/domains/billing';
-import {
-  getMeteredPrices,
-  hasActiveFlatFee,
-} from '../../../../../utils/instance-addons.utils';
+import { getMeteredPrices } from '../../../../../utils/instance-addons.utils';
 
 // Written out in full, so that a key that does not exist fails the check of the keys.
 const KEYS = {
@@ -22,6 +20,8 @@ const KEYS = {
     'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Price.loading',
   metered:
     'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Price.metered',
+  meteredEntry:
+    'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Price.meteredEntry',
   meteredOnly:
     'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Price.meteredOnly',
   none: 'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Price.none',
@@ -61,14 +61,21 @@ type AttachAddonDetailsProps = {
 function useMeteredText(prices: readonly Price[]): string {
   const { i18n, t } = useTranslation();
 
-  return getMeteredPrices(prices)
-    .map(
-      (price) =>
-        `${getPriceLabel(price, undefined, t)}: ${joinPriceAmount(
+  // The entry and the list are the locale's to punctuate: a colon is spaced in French,
+  // and the last of a list is joined by a word.
+  return new Intl.ListFormat(i18n.language, {
+    style: 'long',
+    type: 'conjunction',
+  }).format(
+    getMeteredPrices(prices).map((price) =>
+      t(KEYS.meteredEntry, {
+        amount: joinPriceAmount(
           getPriceAmountParts(price, undefined, t, i18n.language),
-        )}`,
-    )
-    .join('; ');
+        ),
+        label: getPriceLabel(price, undefined, t),
+      }),
+    ),
+  );
 }
 
 // What a subscription bills for a version, once its prices are read: the default flat

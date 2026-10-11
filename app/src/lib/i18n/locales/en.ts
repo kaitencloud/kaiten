@@ -1135,6 +1135,7 @@ export default {
                     'Sold on request: no price is set, so nothing is billed for it here.',
                   none: 'This add-on has no default price for the billing period of the subscription ({{period}}), and the API will refuse it.',
                   metered: 'Its usage is billed too: {{prices}}.',
+                  meteredEntry: '{{label}}: {{amount}}',
                   meteredOnly:
                     'Billed on its usage, at the end of each period: {{prices}}.',
                   unpriced:
@@ -5949,9 +5950,9 @@ export default {
           stockHint:
             'A stock, such as seats or storage, is sold as an add-on with a quantity, not metered.',
           stockHintLink: 'See the add-ons',
-          overage: 'Bills above {{limit}} {{unit}}/{{period}}, up to {{cap}}',
           stockHintAddon:
             'A stock, such as seats or storage, cannot be metered: bill it as a flat fee with a quantity.',
+          overage: 'Bills above {{limit}} {{unit}}/{{period}}, up to {{cap}}',
           overageInstance:
             'Bills the usage above the limit the instance holds: its license and its add-ons together',
           overageUnknown:

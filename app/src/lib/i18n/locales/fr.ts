@@ -1153,6 +1153,7 @@ export default {
                     'Vendue sur demande : aucun prix n’est fixé, donc rien n’est facturé ici pour elle.',
                   none: 'Cet add-on n’a pas de prix par défaut pour la période de facturation de l’abonnement ({{period}}), et l’API le refusera.',
                   metered: 'Son utilisation est aussi facturée : {{prices}}.',
+                  meteredEntry: '{{label}} : {{amount}}',
                   meteredOnly:
                     'Facturé à l’utilisation, à la fin de chaque période : {{prices}}.',
                   unpriced:
@@ -6043,9 +6044,9 @@ export default {
           stockHint:
             'Un stock, comme des sièges ou du stockage, se vend comme un add-on avec une quantité, il ne se mesure pas.',
           stockHintLink: 'Voir les add-ons',
-          overage:
           stockHintAddon:
             'Un stock, comme des sièges ou du stockage, ne se mesure pas : facturez-le en forfait avec une quantité.',
+          overage:
             'Facture au-delà de {{limit}} {{unit}}/{{period}}, jusqu’à {{cap}}',
           overageInstance:
             'Facture l’usage au-delà de la limite que détient l’instance : sa licence et ses add-ons réunis',
