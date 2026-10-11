@@ -58,6 +58,11 @@ export class InvoiceDetailDriver {
     return this.page.getByTestId('reconciliation');
   }
 
+  /** The due date Stripe gave an invoice that is not Kaiten's: absent where the two agree. */
+  reconciliationDueDate(): Locator {
+    return this.page.getByTestId('reconciliation-due-date');
+  }
+
   /** The push the person asked for: queued, or out of time. */
   pushStatus(): Locator {
     return this.page.getByTestId('invoice-push-status');

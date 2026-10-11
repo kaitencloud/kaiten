@@ -4114,7 +4114,7 @@ export default {
             title: 'Reconciliation',
             matched: 'Stripe holds the same amounts as Kaiten.',
             mismatch:
-              'Stripe holds amounts that are not the ones Kaiten composed. The invoice in Stripe is the one the customer pays: settle the difference there.',
+              'Stripe holds something other than what Kaiten composed. The invoice in Stripe is the one the customer pays: settle the difference there.',
             checked: 'Checked {{date}}.',
             kaitenTotal: 'Total composed by Kaiten',
             providerTotal: 'Total in Stripe, excluding tax',
@@ -4138,6 +4138,11 @@ export default {
               'Such as a coupon added in the Stripe dashboard.',
             discount: 'Discount',
             providerLine: 'On the Stripe line',
+            differingDueDate: 'Due date',
+            dueDateHint:
+              'Stripe gives this invoice a due date other than the one Kaiten issued it with. Kaiten counts a late payment from its own date.',
+            kaitenDueAt: 'Due date in Kaiten',
+            providerDueAt: 'Due date in Stripe',
           },
           Chain: {
             replaces: 'Replaces',

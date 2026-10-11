@@ -325,6 +325,15 @@ test.describe('an invoice that Stripe collects, read in French', () => {
     // The amounts as French writes them.
     await expect(invoice.reconciliation()).toContainText(/33,19\s\$US/);
     await expect(invoice.reconciliation()).toContainText(/34,19\s\$US/);
+    await expect(invoice.reconciliationDueDate()).toContainText(
+      'Échéance dans Kaiten',
+    );
+    await expect(invoice.reconciliationDueDate()).toContainText(
+      'Échéance dans Stripe',
+    );
+    await expect(invoice.reconciliationDueDate()).toContainText(
+      'Kaiten compte un retard de paiement à partir de sa propre date.',
+    );
   });
 
   test('a push that failed, a draft awaiting finalization and a charge that needs the customer', async ({

@@ -316,6 +316,83 @@ describe('how the amounts of Kaiten and Stripe compare', () => {
     expect(table).toHaveTextContent('$25.00');
   });
 
+  it('says the due date alone when it is the only difference, with the amounts equal', () => {
+    render(
+      <ReconciliationCard
+        invoice={mismatched({
+          discounts: [],
+          dueDate: {
+            kaitenDueAt: '2027-03-31T00:06:00.000Z',
+            providerDueAt: '2027-04-07T00:06:00.000Z',
+          },
+          extraDiscounts: [],
+          extraInProvider: [],
+          inclusiveTax: false,
+          lines: [],
+          missingInProvider: [],
+          totals: { kaitenTotal: 2900, providerTotalExcludingTax: 2900 },
+        })}
+      />,
+    );
+
+    const card = screen.getByTestId('reconciliation');
+    expect(card).toHaveTextContent('Differ');
+    // The sentence does not claim that amounts differ: they do not.
+    expect(card).not.toHaveTextContent('amounts that are not');
+    const dueDate = within(card).getByTestId('reconciliation-due-date');
+    expect(dueDate).toHaveTextContent('Due date');
+    expect(dueDate).toHaveTextContent('Due date in Kaiten');
+    expect(dueDate).toHaveTextContent('Mar 31, 2027, 12:06 AM (UTC)');
+    expect(dueDate).toHaveTextContent('Due date in Stripe');
+    expect(dueDate).toHaveTextContent('Apr 7, 2027, 12:06 AM (UTC)');
+    expect(dueDate).toHaveTextContent(
+      'Kaiten counts a late payment from its own date.',
+    );
+    expect(within(card).queryByRole('table')).toBeNull();
+  });
+
+  it('shows the due date beside the other differences', () => {
+    render(
+      <ReconciliationCard
+        invoice={mismatched({
+          discounts: [],
+          dueDate: {
+            kaitenDueAt: '2027-03-31T00:06:00.000Z',
+            providerDueAt: '2027-04-07T00:06:00.000Z',
+          },
+          extraDiscounts: [],
+          extraInProvider: ['ii_9'],
+          inclusiveTax: false,
+          lines: [],
+          missingInProvider: [],
+          totals: { kaitenTotal: 2900, providerTotalExcludingTax: 3319 },
+        })}
+      />,
+    );
+
+    const card = screen.getByTestId('reconciliation');
+    expect(within(card).getByText('ii_9')).toBeInTheDocument();
+    expect(within(card).getByTestId('reconciliation-due-date')).toBeInTheDocument();
+  });
+
+  it('shows no due date when the API reports none', () => {
+    render(
+      <ReconciliationCard
+        invoice={mismatched({
+          discounts: [],
+          extraDiscounts: [],
+          extraInProvider: ['ii_9'],
+          inclusiveTax: false,
+          lines: [],
+          missingInProvider: [],
+          totals: { kaitenTotal: 2900, providerTotalExcludingTax: 3319 },
+        })}
+      />,
+    );
+
+    expect(screen.queryByTestId('reconciliation-due-date')).toBeNull();
+  });
+
   it('names the lines either side has alone', () => {
     render(
       <ReconciliationCard

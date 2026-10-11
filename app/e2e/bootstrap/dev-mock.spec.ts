@@ -232,6 +232,9 @@ test('dev:mock answers every request of Stripe: its connector, the health of bil
   await page.goto('/invoices/inv-acme-us-renewal-2');
   await expect(page.getByTestId('invoice-provider-links')).toBeVisible();
   await expect(page.getByTestId('reconciliation')).toContainText('Differ');
+  await expect(page.getByTestId('reconciliation-due-date')).toContainText(
+    'Due date in Stripe',
+  );
   await page.goto('/invoices/inv-acme-us-renewal-4');
   await expect(page.getByTestId('invoice-push-error')).toBeVisible();
   // The provider of a contract that Stripe collects, and the invoices still open.

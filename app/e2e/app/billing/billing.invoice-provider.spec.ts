@@ -191,7 +191,7 @@ test.describe('how the amounts of an invoice compare with those of Stripe', () =
       reconciliation.locator('[data-reconciliation="MISMATCH"]'),
     ).toHaveText('Differ');
     await expect(reconciliation).toContainText(
-      'Stripe holds amounts that are not the ones Kaiten composed.',
+      'Stripe holds something other than what Kaiten composed.',
     );
     await expect(reconciliation).toContainText('Total composed by Kaiten');
     await expect(reconciliation).toContainText('$33.19');
@@ -206,6 +206,71 @@ test.describe('how the amounts of an invoice compare with those of Stripe', () =
     await expect(
       invoice.provider().locator('[data-reconciliation]'),
     ).toHaveText('Differ');
+  });
+
+  test('says the due date Stripe gave when it is not the one Kaiten issued the invoice with', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createStripeBillingModel());
+
+    await invoice.goto('inv-mm');
+
+    const dueDate = invoice.reconciliationDueDate();
+    await expect(dueDate).toContainText('Due date in Kaiten');
+    await expect(dueDate).toContainText('May 1, 2026, 12:06 AM (UTC)');
+    await expect(dueDate).toContainText('Due date in Stripe');
+    await expect(dueDate).toContainText('May 8, 2026, 12:06 AM (UTC)');
+    await expect(dueDate).toContainText(
+      'Kaiten counts a late payment from its own date.',
+    );
+  });
+
+  test('says the due date alone when the amounts agree, and does not claim that they differ', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    const moved = stripeInvoice('inv-dd', {
+      provider: buildProviderRecord({
+        externalInvoiceId: 'in_dd',
+        pushedAt: '2026-04-01T00:06:00.000Z',
+        reconciliationDetail: {
+          discounts: [],
+          dueDate: {
+            kaitenDueAt: '2026-05-01T00:06:00.000Z',
+            providerDueAt: '2026-05-15T00:00:00.000Z',
+          },
+          extraDiscounts: [],
+          extraInProvider: [],
+          inclusiveTax: false,
+          lines: [],
+          missingInProvider: [],
+          totals: { kaitenTotal: 2900, providerTotalExcludingTax: 2900 },
+        },
+        reconciliationStatus: 'MISMATCH',
+        total: 2900,
+      }),
+    });
+    await installBillingAppMocks(
+      page,
+      new BillingAppModel({
+        capabilities: billingCapabilitiesProfiles.stackWithStripe('connected'),
+        invoices: [moved],
+      }),
+    );
+
+    await invoice.goto('inv-dd');
+
+    await expect(
+      invoice.reconciliation().locator('[data-reconciliation="MISMATCH"]'),
+    ).toHaveText('Differ');
+    await expect(invoice.reconciliationDueDate()).toContainText(
+      'May 15, 2026, 12:00 AM (UTC)',
+    );
+    await expect(invoice.reconciliation()).not.toContainText(
+      'amounts that are not',
+    );
+    await expect(invoice.reconciliation().getByRole('table')).toHaveCount(0);
   });
 
   test('says when Stripe applied a discount Kaiten never created, such as a coupon added in its dashboard', async ({

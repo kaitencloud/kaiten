@@ -4174,7 +4174,7 @@ export default {
             title: 'Rapprochement',
             matched: 'Stripe détient les mêmes montants que Kaiten.',
             mismatch:
-              'Stripe détient des montants qui ne sont pas ceux composés par Kaiten. La facture dans Stripe est celle que le client paie : réglez l’écart là-bas.',
+              'Stripe détient autre chose que ce que Kaiten a composé. La facture dans Stripe est celle que le client paie : réglez l’écart là-bas.',
             checked: 'Vérifié le {{date}}.',
             kaitenTotal: 'Total composé par Kaiten',
             providerTotal: 'Total dans Stripe, hors taxes',
@@ -4197,6 +4197,11 @@ export default {
               'Comme un coupon ajouté dans le tableau de bord Stripe.',
             discount: 'Remise',
             providerLine: 'Sur la ligne Stripe',
+            differingDueDate: 'Échéance',
+            dueDateHint:
+              'Stripe donne à cette facture une échéance autre que celle avec laquelle Kaiten l’a émise. Kaiten compte un retard de paiement à partir de sa propre date.',
+            kaitenDueAt: 'Échéance dans Kaiten',
+            providerDueAt: 'Échéance dans Stripe',
           },
           Chain: {
             replaces: 'Remplace',

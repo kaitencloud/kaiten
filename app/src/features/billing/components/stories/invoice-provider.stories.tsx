@@ -201,6 +201,43 @@ export const ReconciliationMismatch: Story = {
   },
 };
 
+// Someone moved the due date in the Stripe dashboard and nothing else: the amounts
+// agree, and the card says only that the dates differ.
+export const ReconciliationDueDate: Story = {
+  render: () =>
+    frame(
+      <ReconciliationCard
+        invoice={stripe({
+          provider: buildProviderRecord({
+            reconciledAt: '2027-03-02T00:00:00.000Z',
+            reconciliationDetail: {
+              discounts: [],
+              dueDate: {
+                kaitenDueAt: '2027-03-31T00:06:00.000Z',
+                providerDueAt: '2027-04-14T00:06:00.000Z',
+              },
+              extraDiscounts: [],
+              extraInProvider: [],
+              inclusiveTax: false,
+              lines: [],
+              missingInProvider: [],
+              totals: { kaitenTotal: 2900, providerTotalExcludingTax: 2900 },
+            },
+            reconciliationStatus: 'MISMATCH',
+          }),
+        })}
+      />,
+    ),
+  play: async ({ canvasElement }) => {
+    const dueDate = within(canvasElement).getByTestId('reconciliation-due-date');
+
+    await expect(dueDate).toHaveTextContent('Due date in Kaiten');
+    await expect(dueDate).toHaveTextContent('Mar 31, 2027, 12:06 AM (UTC)');
+    await expect(dueDate).toHaveTextContent('Due date in Stripe');
+    await expect(dueDate).toHaveTextContent('Apr 14, 2027, 12:06 AM (UTC)');
+  },
+};
+
 export const ReconciliationMatched: Story = {
   render: () => frame(<ReconciliationCard invoice={stripe()} />),
   play: async ({ canvasElement }) => {

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import type { Invoice, Reconciliation } from '@/api-client';
+import type { DueDateDifference, Invoice, Reconciliation } from '@/api-client';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -133,14 +133,94 @@ function Unmatched({ caption, ids }: { caption: string; ids: string[] }) {
 }
 
 /**
+ * The due date Stripe gave an invoice that is sent for payment, when it is not the one
+ * Kaiten issued it with. Kaiten counts a late payment from its own date, so the card
+ * says so rather than leaving the two to be read as one.
+ */
+function DueDate({ difference }: { difference: DueDateDifference }) {
+  const { i18n, t } = useTranslation();
+
+  return (
+    <section className="space-y-2" data-testid="reconciliation-due-date">
+      <h3 className="text-sm font-medium">{t(`${base}.differingDueDate`)}</h3>
+      <p className="text-sm text-muted-foreground">
+        {t(`${base}.dueDateHint`)}
+      </p>
+      <DetailCard.Rows>
+        <DetailCard.Row
+          label={t(`${base}.kaitenDueAt`)}
+          value={formatInstant(difference.kaitenDueAt, i18n.language)}
+        />
+        <DetailCard.Row
+          label={t(`${base}.providerDueAt`)}
+          value={formatInstant(difference.providerDueAt, i18n.language)}
+        />
+      </DetailCard.Rows>
+    </section>
+  );
+}
+
+/** The discounts Stripe applied that Kaiten did not create, by their identifiers and what they took off. */
+function ExtraDiscounts({
+  currency,
+  discounts,
+}: {
+  currency: string;
+  discounts: Reconciliation['extraDiscounts'];
+}) {
+  const { t } = useTranslation();
+
+  if (discounts.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="space-y-2">
+      <h3 className="text-sm font-medium">{t(`${base}.extraDiscounts`)}</h3>
+      <p className="text-sm text-muted-foreground">
+        {t(`${base}.extraDiscountsHint`)}
+      </p>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t(`${base}.discount`)}</TableHead>
+            <TableHead>{t(`${base}.providerLine`)}</TableHead>
+            <TableHead className="text-right">
+              {t(`${base}.provider`)}
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {discounts.map((discount) => (
+            <TableRow key={`${discount.externalLineId}:${discount.discountId}`}>
+              <TableCell className="font-mono break-all">
+                {discount.discountId}
+              </TableCell>
+              <TableCell className="font-mono break-all">
+                {discount.externalLineId}
+              </TableCell>
+              <TableCell className="text-right">
+                <Money amount={discount.amount} currency={currency} />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </section>
+  );
+}
+
+/**
  * How what Kaiten composed compares with what Stripe holds, once the invoice is
  * there. A match says so in a line. A mismatch says what differs, in the API's own
  * terms and none of the console's: the two totals, the lines whose amount differs, the
  * lines either side has alone, the discounts Kaiten composed that Stripe applied with
- * another amount or not at all, and the discounts Stripe applied that Kaiten never
- * created, such as a coupon added in its dashboard. Nothing is added up or subtracted
- * here, and nothing is offered to fix it: the invoice in Stripe is the one customers
- * pay, and the difference is for a person to settle there.
+ * another amount or not at all, the discounts Stripe applied that Kaiten never
+ * created, such as a coupon added in its dashboard, and the due date Stripe gave an
+ * invoice that is sent for payment, when it is not Kaiten's. A due date can be the
+ * only difference, with the amounts equal. Nothing is added up or subtracted here, and
+ * nothing is offered to fix it: the invoice in Stripe is the one customers pay, and the
+ * difference is for a person to settle there.
  */
 export function ReconciliationCard({ invoice }: ReconciliationCardProps) {
   const { i18n, t } = useTranslation();
@@ -210,47 +290,11 @@ export function ReconciliationCard({ invoice }: ReconciliationCardProps) {
               caption={t(`${base}.extraInProvider`)}
               ids={detail.extraInProvider}
             />
-            {detail.extraDiscounts.length > 0 ? (
-              <section className="space-y-2">
-                <h3 className="text-sm font-medium">
-                  {t(`${base}.extraDiscounts`)}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {t(`${base}.extraDiscountsHint`)}
-                </p>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t(`${base}.discount`)}</TableHead>
-                      <TableHead>{t(`${base}.providerLine`)}</TableHead>
-                      <TableHead className="text-right">
-                        {t(`${base}.provider`)}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {detail.extraDiscounts.map((discount) => (
-                      <TableRow
-                        key={`${discount.externalLineId}:${discount.discountId}`}
-                      >
-                        <TableCell className="font-mono break-all">
-                          {discount.discountId}
-                        </TableCell>
-                        <TableCell className="font-mono break-all">
-                          {discount.externalLineId}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Money
-                            amount={discount.amount}
-                            currency={invoice.currency}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </section>
-            ) : null}
+            <ExtraDiscounts
+              currency={invoice.currency}
+              discounts={detail.extraDiscounts}
+            />
+            {detail.dueDate ? <DueDate difference={detail.dueDate} /> : null}
             {detail.inclusiveTax ? (
               <p className="text-sm text-muted-foreground">
                 {t(`${base}.inclusiveTax`)}
