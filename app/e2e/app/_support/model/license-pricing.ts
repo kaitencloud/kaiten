@@ -549,7 +549,8 @@ export class LicensePricing {
     }
     const draft: PriceDraft = {
       billingModel: stored.billingModel,
-      billingPeriod: patch.billingPeriod ?? stored.billingPeriod,
+      // A metered price has no period, which the API gives as null: the draft holds none.
+      billingPeriod: patch.billingPeriod ?? stored.billingPeriod ?? undefined,
       billingTiming: patch.billingTiming ?? stored.billingTiming,
       currency: stored.currency,
       displayLabel: patch.displayLabel ?? stored.displayLabel ?? undefined,
