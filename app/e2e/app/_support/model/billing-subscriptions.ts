@@ -431,6 +431,20 @@ export class BillingSubscriptions {
     return clone(next);
   }
 
+  /** Whether the organization has the instance, as far as billing knows it. */
+  knowsInstance(slug: string): boolean {
+    return this.isKnown(slug);
+  }
+
+  /** The start of the current period of the live subscription of an instance; none without one. */
+  livePeriodStartOf(slug: string): string | undefined {
+    const subscription = this.subscriptionOf(slug);
+
+    return isLiveSubscription(subscription)
+      ? subscription.currentPeriodStart
+      : undefined;
+  }
+
   private isKnown(slug: string): boolean {
     return (
       this.instance(slug) !== undefined ||

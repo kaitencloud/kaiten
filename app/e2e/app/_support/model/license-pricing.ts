@@ -12,7 +12,10 @@ import { zLicenseEntitlement, zPrice } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 import { TEST_USER } from '../fixtures/build-customer';
 import { formatDecimal, parseDecimal } from './decimal';
-import { composeLicenseInvoicePreview } from './license-invoice-preview';
+import {
+  composeLicenseInvoicePreview,
+  type PreviewWorld,
+} from './license-invoice-preview';
 import {
   checkMeters,
   checkShape,
@@ -87,6 +90,8 @@ export class LicensePricing {
   private grants: GrantRecord[];
   private prices: Map<string, PriceRecord[]>;
   private sequence: number;
+  /** The add-ons, instances and vouchers a preview can name, once the slots that hold them are served. */
+  private previewWorld: PreviewWorld | undefined;
 
   constructor(
     private readonly host: PricingHost,
@@ -602,6 +607,11 @@ export class LicensePricing {
     return clone(stored);
   }
 
+  /** Gives the preview the organization it names add-ons, instances and vouchers of. */
+  setPreviewWorld(world: PreviewWorld | undefined) {
+    this.previewWorld = world;
+  }
+
   /** `POST /licenses/{slug}/invoice-preview`. */
   previewInvoice(
     slug: string,
@@ -617,6 +627,7 @@ export class LicensePricing {
       now: this.host.now(),
       prices: this.pricesOf(slug),
       scenario,
+      world: this.previewWorld,
     });
   }
 }

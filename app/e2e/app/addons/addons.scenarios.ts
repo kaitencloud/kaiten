@@ -27,7 +27,10 @@ import {
 import { billingCapabilitiesProfiles } from '../_support/model/billing-capabilities';
 import { entitlementFactsOf } from '../_support/model/billing-addon-catalogue';
 import type { BillingCatalogue } from '../_support/model/billing-subscriptions';
-import { InstanceAppModel } from '../_support/model/instance-app-model';
+import {
+  InstanceAppModel,
+  type InstanceAppModelSeed,
+} from '../_support/model/instance-app-model';
 import { LicenseAppModel } from '../_support/model/license-app-model';
 
 /**
@@ -601,9 +604,13 @@ const usageOf = (
 
 /**
  * The instances and what they are entitled to. Initech Production holds two units of
- * the seats, so it has ten seats from its license and ten from them: twenty.
+ * the seats, so it has ten seats from its license and ten from them: twenty. The journal
+ * of the usage the instances reported, and where the organization keeps it from, are for
+ * a spec that rates them.
  */
-export function createAddonsInstancesModel() {
+export function createAddonsInstancesModel(
+  history: Pick<InstanceAppModelSeed, 'retentionStart' | 'usageReports'> = {},
+) {
   const production = worldOf('initech-prod');
   const ended = worldOf('initech-ended');
   const hooli = worldOf('hooli-starter');
@@ -614,6 +621,7 @@ export function createAddonsInstancesModel() {
   ];
 
   return new InstanceAppModel({
+    ...history,
     billingBlocks: {
       'hooli-starter': { status: 'ACTIVE', unpaidInvoiceIds: [] },
       'initech-annual': { status: 'ACTIVE', unpaidInvoiceIds: [] },

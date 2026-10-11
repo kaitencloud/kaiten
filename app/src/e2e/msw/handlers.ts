@@ -12,6 +12,7 @@ import { LicenseAppModel } from '../../../e2e/app/_support/model/license-app-mod
 import { NotificationAppModel } from '../../../e2e/app/_support/model/notification-app-model';
 import { NO_PLATFORM_FLAGS } from '../../../e2e/app/_support/model/platform-flags';
 import type { LicenseCatalogue } from '../../../e2e/app/_support/model/graphql-operations';
+import { createPreviewWorld } from '../../../e2e/app/_support/model/license-preview-world';
 import { ReleaseManagementAppModel } from '../../../e2e/app/_support/model/release-management-app-model';
 import { auditTrailHandlers } from './audit-trail-handlers';
 import { billingHandlers } from './billing-handlers';
@@ -105,6 +106,16 @@ export function createMockHandlers(
         return undefined;
       }
     });
+  }
+  // The preview of a license invoice names add-ons, instances and vouchers, which are
+  // billing's and the instances': it reads them from the slots this page serves.
+  if (licenses && (billing || instances)) {
+    licenses.setPreviewWorld(
+      createPreviewWorld({
+        billing: billing ?? undefined,
+        instances: instances ?? undefined,
+      }),
+    );
   }
   const flagEvaluations =
     effectiveConfig.flagEvaluations ??

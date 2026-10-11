@@ -820,6 +820,44 @@ export class BillingVouchers {
 
   // --- What the rest of the model reads --------------------------------------------------
 
+  /**
+   * The discount a preview applies for a code, as a redemption would make it and with
+   * nothing consumed or redeemed: a redemption that counts none of its invoices yet, made
+   * now. `unknown` for a code no voucher has, `invalid` for a voucher that is not an
+   * ACTIVE PRICE voucher: a draft, an archived one, one used up, a boost.
+   */
+  previewSource(code: string): DiscountSource | 'invalid' | 'unknown' {
+    const voucher = this.findByCode(code);
+    if (!voucher) {
+      return 'unknown';
+    }
+    if (voucher.status !== 'ACTIVE' || voucher.voucherType !== 'PRICE') {
+      return 'invalid';
+    }
+    const now = this.nowIso();
+
+    return {
+      redemption: {
+        applicationsCount: 0,
+        applicationsMax: applicationsMaxOf(voucher) ?? null,
+        codeHint: voucher.codeHint,
+        effectiveExpiresAt: null,
+        effectiveStartsAt: now,
+        expiredAt: null,
+        id: 'preview',
+        instanceSlug: '',
+        redeemedAt: now,
+        revokedAt: null,
+        revokedReason: null,
+        status: 'ACTIVE',
+        voucherId: voucher.id,
+        voucherName: voucher.name,
+        voucherType: voucher.voucherType,
+      },
+      voucher: clone(voucher),
+    };
+  }
+
   /** The redemptions of an instance that discount its invoices, with their vouchers. */
   discountSourcesOf(instanceSlug: string): DiscountSource[] {
     return this.redemptions

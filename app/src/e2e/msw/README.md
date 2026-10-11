@@ -49,7 +49,18 @@ instance with no preview seeded is composed from the attachments it has had, the
 included (`billing-addon-lines.ts`): the fee in advance of those it holds, for the period that
 starts, and the fee in arrears, in full, of the one the period saw come and go, each over the
 window it was held. A metered price of an add-on produces a line when a world writes one,
-since a mock has no usage to rate. The vouchers are `BillingVouchers`
+since a mock has no usage to rate. The invoice preview of a license
+version names add-ons, instances and vouchers, which are the billing's and the instances':
+`handlers.ts` gives the model of the licenses the world of the slots it serves beside it
+(`license-preview-world.ts`: the add-ons and the vouchers of the billing, the instances
+known to billing and to the instances, and the journal of their usage, `measure`), and dates
+the preview by the clock of the page, which those slots use. A preview made where the
+organization has none of them refuses what names one: `AddonNotFound`, `InstanceNotFound`,
+`VoucherNotFound`, and `VoucherInvalid` for a voucher that is not an active promo code;
+`composeLicenseInvoicePreview` rates an instance over the period of its live subscription
+(`OutsideRetention` when it began before the usage that is kept), prices in the fee and the
+metered prices of the add-ons listed, raises the limit a sample is rated against by what they
+grant, and applies the discount of a voucher as a redemption would, consuming nothing. The vouchers are `BillingVouchers`
 (`billing-vouchers.ts`, with the rules of the API in `billing-voucher-rules.ts`: what a
 draft must satisfy, the checks of a redemption in the order the API makes them and the
 codes it gives, and the quirks the console works around -- no voucher is ever set EXPIRED,

@@ -322,8 +322,10 @@ export function createVouchersLicensesModel() {
  * The instances and what they are entitled to, boosts included: Initech Production's
  * tokens are doubled by the boost it redeemed.
  */
-export function createVouchersInstancesModel() {
-  const instances = createAddonsInstancesModel();
+export function createVouchersInstancesModel(
+  history: Parameters<typeof createAddonsInstancesModel>[0] = {},
+) {
+  const instances = createAddonsInstancesModel(history);
   const billing = createVouchersBillingModel();
   for (const { instanceSlug } of REDEMPTIONS) {
     instances.applyAddonContributions(

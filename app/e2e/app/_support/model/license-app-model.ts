@@ -16,6 +16,7 @@ import { zEntitlement, zLicense } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 import { ErrorInjector } from './error-injector';
 import { listLicenseFamilyViews } from './license-families';
+import type { PreviewWorld } from './license-invoice-preview';
 import {
   type ArmedProblem,
   LicensePricing,
@@ -311,6 +312,11 @@ export class LicenseAppModel {
 
   previewInvoice(slug: string, scenario: InvoicePreviewScenario) {
     return this.pricing.previewInvoice(slug, scenario);
+  }
+
+  /** Tells the preview where the add-ons, the instances and the vouchers it names are, when their slots are served too. */
+  setPreviewWorld(world: PreviewWorld | undefined) {
+    this.pricing.setPreviewWorld(world);
   }
 
   listLicenses(): License[] {

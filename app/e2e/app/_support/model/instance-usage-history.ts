@@ -157,6 +157,49 @@ export class InstanceUsageHistory {
     this.retentionStart = start;
   }
 
+  /** Where the usage the organization keeps begins, as an instant; none when it keeps it all. */
+  retentionStartOf(): string | null {
+    return this.retentionStart;
+  }
+
+  /**
+   * What an instance used of an entitlement in `[from, to)`, and how much of that was over
+   * its limit, as the composer of the invoices rates it: the movement of each
+   * reset window, floored at nothing, added up. `undefined` when the journal holds no
+   * report of the pair in the range.
+   */
+  measure(
+    instanceSlug: string,
+    entitlementSlug: string,
+    from: Date,
+    to: Date,
+  ): { overage: string; usage: string } | undefined {
+    const rows = this.reportsOf(instanceSlug, entitlementSlug).filter(
+      (report) =>
+        Date.parse(report.reportedAt) >= from.getTime() &&
+        Date.parse(report.reportedAt) < to.getTime(),
+    );
+    if (rows.length === 0) {
+      return undefined;
+    }
+    const windows = new Map<string, { overage: number; usage: number }>();
+    for (const report of rows) {
+      const key = report.windowStart ?? '';
+      const window = windows.get(key) ?? { overage: 0, usage: 0 };
+      window.usage += Number(report.delta);
+      window.overage += Number(report.overageDelta);
+      windows.set(key, window);
+    }
+    let usage = 0;
+    let overage = 0;
+    for (const window of windows.values()) {
+      usage += Math.max(0, window.usage);
+      overage += Math.max(0, window.overage);
+    }
+
+    return { overage: String(overage), usage: String(usage) };
+  }
+
   /** Whether the journal holds a pair of this instance and this entitlement, even an empty one. */
   hasPair(instanceSlug: string, entitlementSlug: string): boolean {
     return this.usageReports[instanceSlug]?.[entitlementSlug] !== undefined;
