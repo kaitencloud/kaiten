@@ -5,6 +5,11 @@ import { InvoiceLinesTable } from './invoice-lines-table';
 import { InvoiceTotals } from './invoice-totals';
 
 type InvoicePreviewResultProps = {
+  /**
+   * The instance the preview is for, which names the add-ons its lines bill: the
+   * upcoming invoice of an instance has it, the preview of a licence has none.
+   */
+  instanceSlug?: string;
   preview: InvoicePreview;
 };
 
@@ -14,7 +19,10 @@ type InvoicePreviewResultProps = {
  * totals are the API's, shown as they came: a preview that disagrees with the
  * invoice it predicts is a defect of the API, never something to fix up here.
  */
-export function InvoicePreviewResult({ preview }: InvoicePreviewResultProps) {
+export function InvoicePreviewResult({
+  instanceSlug,
+  preview,
+}: InvoicePreviewResultProps) {
   const { i18n, t } = useTranslation();
 
   return (
@@ -28,7 +36,11 @@ export function InvoicePreviewResult({ preview }: InvoicePreviewResultProps) {
           kind: t(getInvoiceKindLabelKey(preview.kind)),
         })}
       </p>
-      <InvoiceLinesTable currency={preview.currency} lines={preview.lines} />
+      <InvoiceLinesTable
+        currency={preview.currency}
+        instanceSlug={instanceSlug}
+        lines={preview.lines}
+      />
       <InvoiceTotals
         currency={preview.currency}
         discountTotal={preview.discountTotal}

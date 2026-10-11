@@ -114,7 +114,7 @@ function UpcomingInvoiceBody({
             'Pages.Customers.Instances.Detail.Billing.Upcoming.dialogTitle',
           )}
         >
-          <InvoicePreviewResult preview={preview} />
+          <InvoicePreviewResult instanceSlug={instanceSlug} preview={preview} />
         </InvoicePreviewDialog>
       ) : null}
     </>

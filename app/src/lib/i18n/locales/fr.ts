@@ -4341,6 +4341,8 @@ export default {
           Summary: {
             title: 'Cette ligne',
             period: 'Période de service',
+            addon: 'Add-on',
+            addonRemoved: '{{name}}, retiré le {{date}}',
             measured: 'Quantité mesurée',
             billed: 'Quantité facturée',
             saleUnit: 'Unités mesurées par unité de vente',
@@ -5911,6 +5913,11 @@ export default {
           applicationUnbounded:
             'Facture {{application}} pour cette utilisation',
           bearsOn: 'Porte sur {{targets}}',
+        },
+        Addon: {
+          from: 'Provient de l’add-on {{name}}',
+          fromRemoved: 'Provient de l’add-on {{name}}, retiré le {{date}}',
+          fromUnknown: 'Provient d’un add-on',
         },
       },
       InvoiceTotals: {

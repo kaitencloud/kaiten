@@ -74,7 +74,8 @@ app/src/domains/billing/
 │                     # of a voucher and of a redemption (voucher-badges), the redemptions of a
 │                     # voucher or of an instance as a table and as a card (RedemptionsTable,
 │                     # RedemptionsCard), the dialog that revokes one (RevokeRedemptionDialog), the
-│                     # explanation of a DISCOUNT line (InvoiceLineDiscount) and what a table says
+│                     # explanation of a DISCOUNT line (InvoiceLineDiscount), the add-on a line
+│                     # bills (InvoiceLineAddon) and what a table says
 │                     # when it has no row (TableEmptyMessage), and the state of a subscription
 │                     # in a list of instances (InstanceBillingBadge, InstanceBillingCell), and
 │                     # how a license version is sold (LicensePriceSummaryText)
@@ -87,11 +88,13 @@ app/src/domains/billing/
 │                     # out a period being closed; useExportInvoices;
 │                     # useUsageReports, over the pages of a list of usage reports;
 │                     # useInstancesBilling, the subscriptions of the lists of instances;
-│                     # useLicensesWithPrices, the license versions and their prices
+│                     # useLicensesWithPrices, the license versions and their prices;
+│                     # useInvoiceLineAddon, the attachment an invoice line bills
 ├── logic/            # actions and their scopes, availability, problems, the placing of a
 │                     # refusal on the fields of a form (problem-field-errors), the reason an
 │                     # audited action takes (reason), statuses,
-│                     # invoice kinds, line types, invoice actions, the refusals of a
+│                     # invoice kinds, line types, whose price a line bills (invoice-line-source),
+│                     # invoice actions, the refusals of a
 │                     # recompose and of a deletion, handoff, export, retention, usage reports,
 │                     # subscription actions, whether a subscription is live (isSubscriptionLive),
 │                     # billing periods, the trial of a subscription, the state of a voucher and of a
@@ -105,7 +108,8 @@ app/src/domains/billing/
 ├── queries/          # the capabilities, the billing settings, the route guard, invalidation
 │                     # helpers (those of the vouchers and of an instance's redemptions included),
 │                     # the pages of the invoices of a subject, the pages of usage reports, the
-│                     # export of the invoices
+│                     # export of the invoices, and the attachments of an instance with the removed
+│                     # ones (instance-addons-query-options)
 ├── types/
 ├── __tests__/
 └── index.ts
@@ -321,7 +325,7 @@ page holds, or an export the API streams.
   predicts is a defect of the API, never something to fix up here. The caller
   brings the data: the preview of a license version is a mutation
   (`POST /licenses/{slug}/invoice-preview` is the only way to read it), and the
-  upcoming invoice of an instance will be a query. A line's description is a
+  upcoming invoice of an instance is a query. A line's description is a
   sentence and a table cell does not wrap, so the line cell does.
 - **NoOp is absent, not empty.** Blocks that only a Stripe invoice or
   subscription has are not rendered otherwise; a screen decides from the
@@ -372,7 +376,28 @@ page holds, or an export the API streams.
 - **A metered line shows what it was measured from.** `LineFingerprint` writes the
   `metering.ledger` of a line (`Reports 41–45 · 5 rows · Σ 172,345`) and
   `OverageLimits` the arithmetic of an overage line with every limit that applied,
-  as the API sent them. Neither is shown for a base fee, an add-on or a discount.
+  as the API sent them. Neither is shown for a base fee, the fee of an add-on or a discount.
+- **A line is a licence's or an add-on's, and its type does not say which.** The usage
+  and the overage an add-on rated are `USAGE` and `OVERAGE` lines labelled by the
+  entitlement they measure, with an `addonPriceId`, an `addonId` and an `instanceAddonId`
+  and no `licensePriceId`. `getInvoiceLineSource` reads whose price a line bills from those
+  members (`getInvoiceLinePriceId` is the id, a licence's or an add-on's, and
+  `isAddonInvoiceLine` the question), never from the type or the label. A line's service
+  period is its own: an add-on is billed over the window it was held, so a line may start
+  after the period of the subscription does or end before it, and none is assumed to span
+  `[periodStart, boundary)`. One that was removed before the boundary is still billed
+  there and is no longer in the add-ons of its instance, so `InvoiceLineAddon` finds it by
+  `instanceAddonId` among everything the instance has held
+  (`useInvoiceLineAddon`, which reads `GET /instances/{slug}/addons?includeRemoved=true`
+  once for the instance under a key of the add-ons' own, so that their invalidation reaches
+  it). It names the add-on of a usage line, whose label is the entitlement's, and says
+  when an add-on was removed, but only on a line whose window ends no earlier than the
+  removal (`removedAt` of the hook): an invoice composed while the add-on was still held
+  says nothing of it. A fee already carries its add-on in its label. A session that
+  may not list the add-ons of an instance, or an instance that no longer has the
+  attachment, leaves the usage line saying only that it comes from an add-on. `InvoiceLinesTable`
+  and `InvoicePreviewResult` take the slug of the instance for it; the preview of a licence
+  has none.
 - **A table of invoices is one table.** `InvoicesTable` is the table of the
   organization, of an instance and of a customer: a screen leaves out the columns
   it already says (`hiddenColumns`, the same array from one render to the next,
@@ -560,8 +585,10 @@ and `invoice-refusals` for what a recompose was refused for), the rules of the
 invoice actions and the scopes that gate them, the export and the lease of a
 handoff have their own files in `__tests__/`, and the voucher status
 (`voucher-status.test.ts`), the plain-language offer (`voucher-offer.test.ts`), the
-redemptions table and its revoke dialog (`redemptions.test.tsx`) and the discount line
-(`invoice-line-discount.test.tsx`) have theirs, and
+redemptions table and its revoke dialog (`redemptions.test.tsx`), the discount line
+(`invoice-line-discount.test.tsx`), whose price a line bills (`invoice-line-source.test.ts`)
+and the add-on a line bills, found among what the instance has held (`invoice-line-addon.test.tsx`)
+have theirs, and
 `components/stories/invoices-table.stories.tsx` shows the table. The wait for a
 period being closed (`use-boundary-retry.test.tsx`, on fake timers: the minute, the
 `Retry-After`, the single retry, the unmount) and the bounds of a trial

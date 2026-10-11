@@ -15,6 +15,7 @@ export {
   InstanceBillingCell,
   InvoiceKindCell,
   InvoiceTotalCell,
+  InvoiceLineAddon,
   InvoiceLinesTable,
   InvoiceLineTypeBadge,
   InvoicePreviewDialog,
@@ -78,6 +79,7 @@ export {
   useInstancesBilling,
   useLicensesWithPrices,
   useInvoiceActionAccess,
+  useInvoiceLineAddon,
   useUsageReports,
 } from './hooks';
 export {

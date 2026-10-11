@@ -4281,6 +4281,8 @@ export default {
           Summary: {
             title: 'This line',
             period: 'Service period',
+            addon: 'Add-on',
+            addonRemoved: '{{name}}, removed on {{date}}',
             measured: 'Measured quantity',
             billed: 'Billed quantity',
             saleUnit: 'Measured units per sale unit',
@@ -5818,6 +5820,11 @@ export default {
           application: 'Invoice {{application}} of {{max}} for this redemption',
           applicationUnbounded: 'Invoice {{application}} for this redemption',
           bearsOn: 'Bears on {{targets}}',
+        },
+        Addon: {
+          from: 'From the add-on {{name}}',
+          fromRemoved: 'From the add-on {{name}}, removed on {{date}}',
+          fromUnknown: 'From an add-on',
         },
       },
       InvoiceTotals: {

@@ -2,9 +2,10 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Suspense } from 'react';
 import { expect, fn, userEvent, within } from 'storybook/test';
 import type { Invoice } from '@/api-client';
-import { handleGetInvoice } from '@/api-client/msw.gen';
+import { handleGetInvoice, handleListInstanceAddons } from '@/api-client/msw.gen';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import {
+  buildInstanceAddon,
   buildInvoice,
   buildInvoiceLine,
 } from '@/test-fixtures/storybook-billing-fixtures';
@@ -531,5 +532,94 @@ export const PageHeld: Story = {
     await expect(
       card(canvasElement, 'Summary').getBoundingClientRect().top,
     ).toBeCloseTo(card(canvasElement, 'Billed to').getBoundingClientRect().top, 0);
+  },
+};
+
+// The lines an add-on puts on an invoice: the fee of one that was removed before the boundary,
+// billed in full over the window it was held, and the usage of one attached in the middle of the
+// period, which has no license price. The console finds each in what the instance has held, the
+// removed ones included, and says whose it is.
+const removedPack = buildInstanceAddon({
+  addon: {
+    familySlug: 'priority-pack',
+    id: 'addon-priority-pack',
+    name: 'Priority pack',
+    slug: 'priority-pack',
+  },
+  attachedAt: '2027-02-10T00:00:00.000Z',
+  id: 'attachment-priority-pack',
+  removedAt: '2027-02-20T09:30:00.000Z',
+});
+const tokensPack = buildInstanceAddon({
+  addon: {
+    familySlug: 'extra-tokens',
+    id: 'addon-extra-tokens',
+    name: 'Extra tokens',
+    slug: 'extra-tokens',
+  },
+  attachedAt: '2027-02-12T00:00:00.000Z',
+  id: 'attachment-extra-tokens',
+});
+const addonsInvoice = buildInvoice({
+  boundaryAt: BOUNDARY,
+  id: 'inv-page-addons',
+  lines: [
+    buildInvoiceLine({
+      addonId: 'addon-priority-pack',
+      addonPriceId: 'addon-price-priority',
+      amount: 5000,
+      billingTiming: 'ARREARS',
+      description: '1 × $50.00 per month',
+      instanceAddonId: 'attachment-priority-pack',
+      invoiceId: 'inv-page-addons',
+      label: 'Priority pack × 1',
+      seq: 1,
+      serviceFrom: '2027-02-10T00:00:00.000Z',
+      serviceTo: '2027-02-20T09:30:00.000Z',
+      type: 'ADDON',
+    }),
+    buildInvoiceLine({
+      addonId: 'addon-extra-tokens',
+      addonPriceId: 'addon-price-tokens',
+      amount: 840,
+      description: '4.2 × $2.00 (per 1M tokens)',
+      entitlementSlug: 'tokens',
+      instanceAddonId: 'attachment-extra-tokens',
+      invoiceId: 'inv-page-addons',
+      label: 'Tokens',
+      quantity: '4.2',
+      seq: 2,
+      serviceFrom: '2027-02-12T00:00:00.000Z',
+      serviceTo: BOUNDARY,
+      type: 'USAGE',
+    }),
+    baseLine,
+  ],
+});
+
+export const AddonLines: Story = {
+  parameters: {
+    layout: 'fullscreen',
+    msw: {
+      handlers: [
+        handleGetInvoice({ body: addonsInvoice }),
+        handleListInstanceAddons({ body: [removedPack, tokensPack] }),
+      ],
+    },
+  },
+  render: () => renderPage(addonsInvoice),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      await canvas.findByText('From the add-on Extra tokens'),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText(
+        'From the add-on Priority pack, removed on Feb 20, 2027, 9:30 AM (UTC)',
+      ),
+    ).toBeVisible();
+    // Each line bills the window the add-on was held, not the period of the subscription.
+    await expect(canvas.getByText('Feb 12 – Mar 1, 2027 (UTC)')).toBeVisible();
   },
 };

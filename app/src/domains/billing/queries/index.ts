@@ -5,6 +5,7 @@ export {
   addonVersionsQueryOptions,
 } from './addon-query-options';
 export { billingHealthQueryOptions } from './billing-health';
+export { instanceAddonsWithRemovedQueryOptions } from './instance-addons-query-options';
 export { customerBillingQueryOptions } from './customer-billing';
 export { billingSettingsQueryOptions } from './billing-settings';
 export {

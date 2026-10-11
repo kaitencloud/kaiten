@@ -1,18 +1,54 @@
 import { useTranslation } from 'react-i18next';
 import type { Invoice, InvoiceLine } from '@/api-client';
 import {
+  formatBoundary,
   LineFingerprint,
   Money,
   OverageLimits,
   ServicePeriod,
+  useInvoiceLineAddon,
 } from '@/domains/billing';
 import { DetailCard } from '@/functionals/detail-card';
 import { formatDecimalQuantity } from '@/lib/decimal';
 
 type LineSummaryCardProps = {
-  invoice: Pick<Invoice, 'currency'>;
+  invoice: Pick<Invoice, 'currency'> & Partial<Pick<Invoice, 'instanceSlug'>>;
   line: InvoiceLine;
 };
+
+// The add-on a line was rated for, when the instance still tells which it was: the
+// service period above is the window the add-on was held, so the row names whose
+// window it is, and says when the add-on was taken off.
+function AddonRow({
+  instanceSlug,
+  line,
+}: {
+  instanceSlug: string;
+  line: InvoiceLine;
+}) {
+  const { i18n, t } = useTranslation();
+  const { attachment, removedAt } = useInvoiceLineAddon(instanceSlug, line);
+
+  if (!attachment) {
+    return null;
+  }
+
+  return (
+    <DetailCard.Row
+      label={t('Pages.Billing.Invoices.Drilldown.Summary.addon')}
+      value={
+        <span data-testid="line-addon">
+          {removedAt
+            ? t('Pages.Billing.Invoices.Drilldown.Summary.addonRemoved', {
+                date: formatBoundary(removedAt, i18n.language),
+                name: attachment.name,
+              })
+            : attachment.name}
+        </span>
+      }
+    />
+  );
+}
 
 /**
  * What the line came to, before the reports behind it: the period it bills, the
@@ -43,6 +79,9 @@ export function LineSummaryCard({ invoice, line }: LineSummaryCardProps) {
               <ServicePeriod from={line.serviceFrom} to={line.serviceTo} />
             }
           />
+          {line.instanceAddonId && invoice.instanceSlug ? (
+            <AddonRow instanceSlug={invoice.instanceSlug} line={line} />
+          ) : null}
           {metering ? (
             <DetailCard.Row
               label={t('Pages.Billing.Invoices.Drilldown.Summary.measured')}

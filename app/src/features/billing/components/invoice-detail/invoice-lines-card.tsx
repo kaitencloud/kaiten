@@ -35,6 +35,7 @@ export function InvoiceLinesCard({ invoice }: InvoiceLinesCardProps) {
       <DetailCard.Content className="gap-4">
         <InvoiceLinesTable
           currency={invoice.currency}
+          instanceSlug={invoice.instanceSlug}
           lines={invoice.lines}
           renderLineDetail={renderLineDetail}
         />

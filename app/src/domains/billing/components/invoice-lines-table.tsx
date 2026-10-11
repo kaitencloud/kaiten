@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { type ColumnDef, DataTable } from '@/functionals/table';
 import { cn } from '@/lib/utils';
 import { BadgeExplanation } from './badge-explanation';
+import { InvoiceLineAddon } from './invoice-line-addon';
 import { InvoiceLineDiscount } from './invoice-line-discount';
 import { InvoiceLineTypeBadge } from './invoice-line-type-badge';
 import { Money } from './money';
@@ -14,6 +15,12 @@ type InvoiceLinesTableProps = {
   className?: string;
   /** The ISO 4217 code every amount of the lines is in. */
   currency: string;
+  /**
+   * The slug of the instance the lines are billed for, which names the add-on a
+   * line bills: an invoice and the upcoming invoice of an instance have it, the
+   * preview of a licence has none.
+   */
+  instanceSlug?: string;
   /** The lines of an invoice or of a preview, in the order the API sent them. */
   lines: InvoiceLine[];
   /**
@@ -30,11 +37,13 @@ type InvoiceLinesTableProps = {
 // multiplies a quantity by a price. A discount also says how it was composed.
 function LineCell({
   currency,
+  instanceSlug,
   line,
   lines,
   renderLineDetail,
 }: {
   currency: string;
+  instanceSlug?: string;
   line: InvoiceLine;
   lines: InvoiceLine[];
   renderLineDetail?: (line: InvoiceLine) => ReactNode;
@@ -59,6 +68,7 @@ function LineCell({
         ) : null}
       </div>
       <p className="text-xs text-muted-foreground">{line.description}</p>
+      <InvoiceLineAddon instanceSlug={instanceSlug} line={line} />
       {line.type === 'DISCOUNT' ? (
         <InvoiceLineDiscount currency={currency} line={line} lines={lines} />
       ) : null}
@@ -71,11 +81,13 @@ function LineCell({
  * The lines of an invoice, or of the preview of one: one row per line, with its
  * service period and its amount. The schema of a line is open and its price
  * members may be missing (a discount has no unit amount, an add-on no license
- * price), so a row shows only what every line has.
+ * price), so a row shows only what every line has. The service period is the
+ * line's own, not the invoice's: an add-on is billed over the window it was held.
  */
 export function InvoiceLinesTable({
   className,
   currency,
+  instanceSlug,
   lines,
   renderLineDetail,
 }: InvoiceLinesTableProps) {
@@ -90,6 +102,7 @@ export function InvoiceLinesTable({
         cell: ({ row }) => (
           <LineCell
             currency={currency}
+            instanceSlug={instanceSlug}
             line={row.original}
             lines={lines}
             renderLineDetail={renderLineDetail}
@@ -123,7 +136,7 @@ export function InvoiceLinesTable({
         ),
       },
     ],
-    [currency, lines, renderLineDetail, t],
+    [currency, instanceSlug, lines, renderLineDetail, t],
   );
 
   return (
