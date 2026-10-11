@@ -5,7 +5,6 @@ import type {
   Price,
 } from '@/api-client';
 import { TEST_USER } from './build-customer';
-import { NULL_OBJECT } from './null-object';
 
 const CREATED_AT = '2026-03-01T09:00:00.000Z';
 
@@ -141,7 +140,7 @@ export function buildPrice({
     displayOrder,
     id,
     isDefault,
-    metered: metered ?? NULL_OBJECT,
+    metered: metered ?? null,
     status,
     unitAmount: /^\d+$/.test(unitAmountDecimal)
       ? Number(unitAmountDecimal)

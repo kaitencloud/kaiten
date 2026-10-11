@@ -1,6 +1,5 @@
 import type { InstanceBilling, InvoicePreview, Price } from '@/api-client';
 import { buildPrice } from './build-pricing';
-import { NULL_OBJECT } from './null-object';
 
 /** The base price the subscriptions of the fixtures are pinned to: $29.00 a month. */
 export const PRO_MONTHLY_PRICE: Price = buildPrice({
@@ -106,7 +105,7 @@ export function buildSubscription({
     instanceSlug,
     pastDueSince: pastDueSince ?? null,
     providerKind: 'NOOP',
-    scheduledChange: scheduledChange ?? NULL_OBJECT,
+    scheduledChange: scheduledChange ?? null,
     startedAt: startedAt ?? anchorAt,
     status,
     trialEndsAt: trialEndsAt ?? null,

@@ -25,7 +25,6 @@ import {
   ZERO,
 } from './decimal';
 import { NULL_LINE_MEMBERS } from '../fixtures/build-invoice';
-import { NULL_OBJECT } from '../fixtures/null-object';
 import { LicenseProblem } from './license-problem';
 
 /**
@@ -353,7 +352,7 @@ export function composeLicenseInvoicePreview(
         label,
         licensePriceId: price.id,
         metering: {
-          ledger: NULL_OBJECT,
+          ledger: null,
           measuredQuantity: formatDecimal(measured),
           negativeSegmentsFloored: 0,
           saleUnitFactor: formatDecimal(factor),
@@ -365,7 +364,7 @@ export function composeLicenseInvoicePreview(
               overageMeasured: formatDecimal(measure.overage),
               usageMeasured: formatDecimal(measure.usage),
             }
-          : NULL_OBJECT,
+          : null,
         quantity: formatDecimal(quantity),
         seq: 0,
         serviceFrom: arrears.from.toISOString(),

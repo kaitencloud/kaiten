@@ -11,7 +11,6 @@ import type {
 import { zLicenseEntitlement, zPrice } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 import { TEST_USER } from '../fixtures/build-customer';
-import { NULL_OBJECT } from '../fixtures/null-object';
 import { formatDecimal, parseDecimal } from './decimal';
 import { composeLicenseInvoicePreview } from './license-invoice-preview';
 import {
@@ -478,7 +477,7 @@ export class LicensePricing {
               saleUnitPlural: entitlement.saleUnitPlural,
               saleUnitSingular: entitlement.saleUnitSingular,
             }
-          : NULL_OBJECT,
+          : null,
       status: 'ACTIVE',
       unitAmount: integral ? Number(amount) : null,
       unitAmountDecimal: amount,

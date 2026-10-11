@@ -8,7 +8,6 @@ import type {
   ProviderRecord,
   UsageReport,
 } from '@/api-client';
-import { NULL_OBJECT } from './null-object';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -68,15 +67,15 @@ export const NULL_LINE_MEMBERS: Pick<
   addonPriceId: null,
   billingModel: null,
   billingTiming: null,
-  discount: NULL_OBJECT,
+  discount: null,
   entitlementId: null,
   entitlementSlug: null,
   instanceAddonId: null,
   instanceVoucherId: null,
   licensePriceId: null,
-  metering: NULL_OBJECT,
-  overage: NULL_OBJECT,
-  provider: NULL_OBJECT,
+  metering: null,
+  overage: null,
+  provider: null,
   unitAmountDecimal: null,
   voucherId: null,
 };
@@ -152,7 +151,7 @@ export function buildInvoiceLine({
           : 'FLAT_FEE',
     billingTiming: isDiscount ? null : isMetered ? 'ARREARS' : 'ADVANCE',
     description,
-    discount: isDiscount ? (discount ?? NULL_OBJECT) : NULL_OBJECT,
+    discount: isDiscount ? (discount ?? null) : null,
     entitlementId: isMetered ? (entitlementId ?? null) : null,
     entitlementSlug: isMetered ? (entitlementSlug ?? null) : null,
     id: id ?? `${invoiceId}-line-${seq}`,
@@ -163,9 +162,9 @@ export function buildInvoiceLine({
       isDiscount || type === 'ADDON'
         ? null
         : (licensePriceId ?? `price-${type.toLowerCase()}`),
-    metering: isMetered ? (metering ?? NULL_OBJECT) : NULL_OBJECT,
-    overage: type === 'OVERAGE' ? (overage ?? NULL_OBJECT) : NULL_OBJECT,
-    provider: NULL_OBJECT,
+    metering: isMetered ? (metering ?? null) : null,
+    overage: type === 'OVERAGE' ? (overage ?? null) : null,
+    provider: null,
     quantity,
     seq,
     serviceFrom,
@@ -286,8 +285,8 @@ export function buildInvoice({
       ...handoff,
     },
     handoffStatus: handoff?.status ?? 'NOT_REQUIRED',
-    hold: hold ?? NULL_OBJECT,
-    holdDetail: holdDetail ?? NULL_OBJECT,
+    hold: hold ?? null,
+    holdDetail: holdDetail ?? null,
     holdReason: holdReason ?? null,
     id,
     instanceName: identity.instanceName,
@@ -298,7 +297,7 @@ export function buildInvoice({
     licenseSlug: identity.licenseSlug,
     lines,
     paidAt: paidAt ?? null,
-    provider: provider ?? NULL_OBJECT,
+    provider: provider ?? null,
     providerKind,
     replacedByInvoiceId: replacedByInvoiceId ?? null,
     replacesInvoiceId: replacesInvoiceId ?? null,

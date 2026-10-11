@@ -11,7 +11,6 @@ import type {
 import { zInstanceBilling } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 import { buildInvoice, buildInvoiceLine } from '../fixtures/build-invoice';
-import { NULL_OBJECT } from '../fixtures/null-object';
 import { type BillingInvoices, toSummary } from './billing-invoices';
 import { BillingProblem } from './billing-problem';
 import type { ProviderRules } from './billing-providers';
@@ -159,7 +158,7 @@ export class SubscriptionLifecycle {
       next.cancelRequestedAt = at;
       next.cancellationReason = reason ?? null;
       // A plan change is dropped by a cancellation.
-      next.scheduledChange = NULL_OBJECT;
+      next.scheduledChange = null;
     }
     next.updatedAt = at;
 
@@ -178,7 +177,7 @@ export class SubscriptionLifecycle {
     subscription.cancelAtPeriodEnd = false;
     subscription.cancelRequestedAt = null;
     subscription.pastDueSince = null;
-    subscription.scheduledChange = NULL_OBJECT;
+    subscription.scheduledChange = null;
   }
 
   /**
@@ -416,7 +415,7 @@ export class SubscriptionLifecycle {
     this.checkBoundary(operation, subscription);
 
     const next = clone(subscription);
-    next.scheduledChange = NULL_OBJECT;
+    next.scheduledChange = null;
     next.updatedAt = new Date(this.host.now()).toISOString();
 
     return this.host.write(next);

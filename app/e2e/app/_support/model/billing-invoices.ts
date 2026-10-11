@@ -15,7 +15,6 @@ import type {
 import { zInvoice, zUsageReport } from '@/api-client/zod.gen';
 import { CURRENCY_EXPONENTS } from '@/lib/currency-exponents';
 import { parseContract } from '../contracts/openapi-contract';
-import { NULL_OBJECT } from '../fixtures/null-object';
 import { BillingProblem } from './billing-problem';
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -943,7 +942,7 @@ export class BillingInvoices {
       releasedBy: by,
     };
     invoice.holdReason = null;
-    invoice.holdDetail = NULL_OBJECT;
+    invoice.holdDetail = null;
   }
 
   /** `POST /invoices/{invoiceId}/release-hold`. */
@@ -1050,15 +1049,15 @@ export class BillingInvoices {
     const replacement: Invoice = {
       ...clone(invoice),
       createdAt: at,
-      hold: NULL_OBJECT,
-      holdDetail: NULL_OBJECT,
+      hold: null,
+      holdDetail: null,
       holdReason: null,
       id: replacementId,
       paidAt: null,
       // The replacement is a new invoice of the provider: it waits for its push.
       provider:
         invoice.providerKind === 'NOOP'
-          ? NULL_OBJECT
+          ? null
           : {
               nextPushAt: at,
               pushAttempts: 0,

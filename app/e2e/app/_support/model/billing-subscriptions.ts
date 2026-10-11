@@ -24,7 +24,6 @@ import {
 } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 import { buildInvoice, buildInvoiceLine } from '../fixtures/build-invoice';
-import { NULL_OBJECT } from '../fixtures/null-object';
 import { ArmedProblems, type ArmedBillingProblem } from './armed-problems';
 import { AddonCatalogue } from './billing-addon-catalogue';
 import { composeDiscounts } from './billing-discounts';
@@ -907,7 +906,7 @@ export class BillingSubscriptions {
       instanceSlug: instance.instanceSlug,
       pastDueSince: null,
       providerKind: 'NOOP',
-      scheduledChange: NULL_OBJECT,
+      scheduledChange: null,
       startedAt: at,
       status: trialDays > 0 ? 'TRIAL' : 'ACTIVE',
       trialEndsAt: trialDays > 0 ? periodEnd.toISOString() : null,
