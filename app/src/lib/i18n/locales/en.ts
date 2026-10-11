@@ -1654,13 +1654,6 @@ export default {
           archived:
             'This version is withdrawn from sale. Its prices are immutable and it takes no new price; subscriptions that bill it keep being billed.',
         },
-        Meter: {
-          overage: 'Bills above {{limit}} {{unit}}/{{period}}, up to {{cap}}',
-          overageUnknown:
-            'Bills the usage above the allowance the version grants',
-          usageSum: 'Summed, resets every {{period}}',
-          usageCount: 'Counted, resets every {{period}}',
-        },
         Actions: {
           add: 'Add price',
           edit: 'Edit',
@@ -1683,7 +1676,6 @@ export default {
             period: 'Billing period',
             currency: 'Currency',
             label: 'Label on the invoice',
-            meter: 'Metered entitlement',
             amount: 'Amount',
             amountPer: 'Amount per {{unit}}',
             isDefault: 'Default price of this period',
@@ -1714,15 +1706,6 @@ export default {
             currency: 'Select a currency',
             currencySearch: 'Search a currency',
             label: 'Pro, monthly',
-          },
-          Meter: {
-            none: 'This version grants no entitlement a price can meter. Grant a counted or summed number that resets, then come back.',
-            stock: 'A stock: it never resets, so it cannot be metered.',
-            stockHint:
-              'A stock, such as seats or storage, is sold as an add-on with a quantity, not metered.',
-            stockHintLink: 'See the add-ons',
-            overageUnreachable:
-              'Overage cannot occur on this grant: its limit is hard or unlimited.',
           },
           livePreview: 'Reads as {{price}}',
           Errors: {
@@ -5879,6 +5862,23 @@ export default {
       },
       Price: {
         perUnit: 'per {{unit}}',
+        Meter: {
+          label: 'Metered entitlement',
+          none: 'This version grants no entitlement a price can meter. Grant a counted or summed number that resets, then come back.',
+          stock: 'A stock: it never resets, so it cannot be metered.',
+          stockHint:
+            'A stock, such as seats or storage, is sold as an add-on with a quantity, not metered.',
+          stockHintLink: 'See the add-ons',
+          overage: 'Bills above {{limit}} {{unit}}/{{period}}, up to {{cap}}',
+          overageInstance:
+            'Bills the usage above the limit the instance holds: its license and its add-ons together',
+          overageUnknown:
+            'Bills the usage above the allowance the version grants',
+          overageUnreachable:
+            'Overage cannot occur on this grant: its limit is hard or unlimited.',
+          usageSum: 'Summed, resets every {{period}}',
+          usageCount: 'Counted, resets every {{period}}',
+        },
         Models: {
           FLAT_FEE: {
             label: 'Flat fee',

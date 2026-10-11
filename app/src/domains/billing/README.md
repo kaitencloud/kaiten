@@ -62,7 +62,10 @@ app/src/domains/billing/
 │                     # reports (useUsageReportColumns), the menu of the export of the invoices
 │                     # (ExportInvoicesMenu, which says which filters of its screen the file
 │                     # leaves out), the dialog of a refusal to delete
-│                     # (DeletionRefusalDialog), the amount of a price (PriceAmount), and what
+│                     # (DeletionRefusalDialog), the amount of a price (PriceAmount), what a metered price
+│                     # measures and how a form offers to measure it (the picker of the entitlement,
+│                     # PriceMeterField, and the hint on where a stock is sold; the shape and meter
+│                     # cells of a table of prices), and what
 │                     # the versions of a license and those of an add-on share: the confirmed
 │                     # lifecycle action, the deletion of a draft, the badge of the state and
 │                     # the looks of a row's actions (VersionLifecycleAction,
@@ -452,7 +455,15 @@ page holds, or an export the API streams.
   of a license version, which are edited in `features/licenses`, and the subscription
   of an instance, which is pinned to one of them in `features/instances`, are drawn
   from the same code. A decimal string of minor units is written with every decimal it
-  has, a metered price is per sale unit, and none is ever added to another.
+  has, a metered price is per sale unit, and none is ever added to another. What a
+  metered price may measure is the domain's too (`price-meter`): the entitlements a
+  version grants that are a flow, the stocks listed disabled with the way to sell them,
+  an entitlement already metered by an active price left out, and the words of what a
+  price counts and bills above (`Features.Billing.Price.Meter`). A license version
+  and an add-on version sell metered prices by the same rules, so the picker
+  (`PriceMeterField`) and the cells of the table serve both; the allowance of an
+  overage is the grant of a license version (`overage: 'license'`) and the instance's
+  for an add-on (`'instance'`), whose grant adds to the license's.
 - **A version of a license and a version of an add-on live the same life.** A draft goes
   on sale, a published version is withdrawn, an archived one goes back on sale, and a
   family's default cannot be archived (`getVersionTransition`, `isDefaultArchiveBlocked`).

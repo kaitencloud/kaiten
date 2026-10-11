@@ -152,6 +152,25 @@ export {
   PRICE_STATUS_LABEL_KEYS,
   RESET_PERIOD_UNIT_KEYS,
 } from './price-labels';
+export {
+  describeAllowance,
+  describeMeter,
+  describeUsage,
+  getEntitlementSlug,
+  getGrantAllowance,
+  getMeterOptions,
+  type GrantAllowance,
+  isMeteredModel,
+  type MeterDisabledReason,
+  type MeterGrant,
+  type MeterOption,
+  meterOfEntitlement,
+  meterOptionsFor,
+  type OverageScope,
+  pickableOption,
+  type PriceMeterSource,
+  sortMeterOptions,
+} from './price-meter';
 export { isValidDaysUntilDue, MAX_DAYS_UNTIL_DUE } from './payment-terms';
 export {
   canStartWithTrial,

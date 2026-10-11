@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import type { LicensePriceChanges, NewLicensePrice, Price } from '@/api-client';
 import { zNewLicensePrice } from '@/api-client/zod.gen';
+import { isMeteredModel } from '@/domains/billing';
 import { CURRENCY_EXPONENTS } from '@/lib/currency-exponents';
 import {
   isValidMajorAmount,
   majorToMinorDecimal,
   minorToMajorDecimal,
 } from '@/lib/money';
-import { isMeteredModel } from '../utils/license-price.utils';
 
 /**
  * The form of a price. It starts from what the API declares of a new price (its

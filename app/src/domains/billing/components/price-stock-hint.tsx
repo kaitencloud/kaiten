@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import { useBillingCapabilities, useCanPerform } from '@/domains/billing';
+import { useBillingCapabilities } from '../queries/billing-capabilities';
+import { useCanPerform } from '../hooks/use-can-perform';
 
 /**
  * Where a stock is sold, under the entitlements a price cannot meter: as an add-on,
@@ -15,12 +16,12 @@ export function PriceStockHint() {
 
   return (
     <p className="text-xs text-muted-foreground">
-      {t('Pages.Licenses.Prices.Form.Meter.stockHint')}
+      {t('Features.Billing.Price.Meter.stockHint')}
       {has('addons') && mayOpenAddons ? (
         <>
           {' '}
           <Link className="underline underline-offset-4" to="/catalog/addons">
-            {t('Pages.Licenses.Prices.Form.Meter.stockHintLink')}
+            {t('Features.Billing.Price.Meter.stockHintLink')}
           </Link>
         </>
       ) : null}

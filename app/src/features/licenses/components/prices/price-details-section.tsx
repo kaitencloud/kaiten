@@ -2,12 +2,12 @@ import { useStore } from '@tanstack/react-form';
 import { useTranslation } from 'react-i18next';
 import { withForm } from '@/hooks/form';
 import { CURRENCY_EXPONENTS } from '@/lib/currency-exponents';
-import { isMeteredModel } from '../../utils/license-price.utils';
 import { priceFormOpts } from './price-form-options';
 import {
   BILLING_PERIOD_LABEL_KEYS,
   BILLING_PERIODS,
   type BillingPeriod,
+  isMeteredModel,
 } from '@/domains/billing';
 
 type PriceDetailsSectionProps = {

@@ -2,21 +2,17 @@ import { useStore } from '@tanstack/react-form';
 import { useTranslation } from 'react-i18next';
 import { withForm } from '@/hooks/form';
 import { majorToMinorDecimal } from '@/lib/money';
-import {
-  isMeteredModel,
-  meterOfEntitlement,
-} from '../../utils/license-price.utils';
 import { priceFormOpts } from './price-form-options';
 import {
+  getPriceAmountParts,
+  getPriceUnitLabel,
+  isMeteredModel,
+  joinPriceAmount,
+  meterOfEntitlement,
   meterOptionsFor,
+  PriceMeterField,
   type PriceMeterSource,
   pickableOption,
-} from './price-meter-options';
-import { PriceMeterField } from './price-meter-picker';
-import {
-  getPriceAmountParts,
-  joinPriceAmount,
-  getPriceUnitLabel,
 } from '@/domains/billing';
 
 type PriceAmountSectionProps = {

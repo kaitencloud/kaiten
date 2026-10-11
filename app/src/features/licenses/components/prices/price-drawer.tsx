@@ -54,6 +54,8 @@ export function PriceDrawer({
     editingPriceId: price?.id,
     entitlements: pricing.entitlements,
     grants: pricing.grants,
+    // A license version's own grant is the allowance an overage bills above.
+    overage: 'license' as const,
     prices: pricing.prices,
   };
   const { license } = pricing;

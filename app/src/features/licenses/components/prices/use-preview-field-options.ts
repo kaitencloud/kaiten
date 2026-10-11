@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { useLicensePricing } from '../../hooks/use-license-pricing';
-import { describeMeter } from '../../utils/license-price-meter';
 import {
   getPreviewBases,
   getPreviewMeters,
 } from '../../utils/license-price-preview.utils';
 import type { PreviewBaseOption, PreviewSampleField } from './preview-fields';
 import {
+  describeMeter,
   getPriceAmountParts,
   getPriceLabel,
   joinPriceAmount,

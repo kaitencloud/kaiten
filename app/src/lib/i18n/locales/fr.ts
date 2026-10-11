@@ -1675,14 +1675,6 @@ export default {
           archived:
             'Cette version est retirée de la vente. Ses prix sont immuables et elle n’accepte aucun nouveau prix ; les abonnements qui la facturent continuent de l’être.',
         },
-        Meter: {
-          overage:
-            'Facture au-delà de {{limit}} {{unit}}/{{period}}, jusqu’à {{cap}}',
-          overageUnknown:
-            'Facture l’usage au-delà de l’allocation accordée par la version',
-          usageSum: 'Somme, remis à zéro chaque {{period}}',
-          usageCount: 'Décompte, remis à zéro chaque {{period}}',
-        },
         Actions: {
           add: 'Ajouter un prix',
           edit: 'Modifier',
@@ -1705,7 +1697,6 @@ export default {
             period: 'Période de facturation',
             currency: 'Devise',
             label: 'Libellé sur la facture',
-            meter: 'Droit mesuré',
             amount: 'Montant',
             amountPer: 'Montant par {{unit}}',
             isDefault: 'Prix par défaut de cette période',
@@ -1736,16 +1727,6 @@ export default {
             currency: 'Choisir une devise',
             currencySearch: 'Rechercher une devise',
             label: 'Pro, mensuel',
-          },
-          Meter: {
-            none: 'Cette version n’accorde aucun droit qu’un prix puisse mesurer. Accordez un nombre compté ou sommé qui se remet à zéro, puis revenez.',
-            stock:
-              'Un stock : il ne se remet jamais à zéro, il ne peut donc pas être mesuré.',
-            stockHint:
-              'Un stock, comme des sièges ou du stockage, se vend comme un add-on avec une quantité, il ne se mesure pas.',
-            stockHintLink: 'Voir les add-ons',
-            overageUnreachable:
-              'Le dépassement ne peut pas survenir sur cet octroi : sa limite est dure ou illimitée.',
           },
           livePreview: 'Se lit {{price}}',
           Errors: {
@@ -5974,6 +5955,25 @@ export default {
       },
       Price: {
         perUnit: 'par {{unit}}',
+        Meter: {
+          label: 'Droit mesuré',
+          none: 'Cette version n’accorde aucun droit qu’un prix puisse mesurer. Accordez un nombre compté ou sommé qui se remet à zéro, puis revenez.',
+          stock:
+            'Un stock : il ne se remet jamais à zéro, il ne peut donc pas être mesuré.',
+          stockHint:
+            'Un stock, comme des sièges ou du stockage, se vend comme un add-on avec une quantité, il ne se mesure pas.',
+          stockHintLink: 'Voir les add-ons',
+          overage:
+            'Facture au-delà de {{limit}} {{unit}}/{{period}}, jusqu’à {{cap}}',
+          overageInstance:
+            'Facture l’usage au-delà de la limite que détient l’instance : sa licence et ses add-ons réunis',
+          overageUnknown:
+            'Facture l’usage au-delà de l’allocation accordée par la version',
+          overageUnreachable:
+            'Le dépassement ne peut pas survenir sur cet octroi : sa limite est dure ou illimitée.',
+          usageSum: 'Somme, remis à zéro chaque {{period}}',
+          usageCount: 'Décompte, remis à zéro chaque {{period}}',
+        },
         Models: {
           FLAT_FEE: {
             label: 'Forfait',

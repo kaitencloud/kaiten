@@ -13,10 +13,10 @@ import {
   buildEntitlement,
   buildGrant,
   buildLicense,
-} from '../../../../../e2e/app/_support/fixtures';
-import { billingCapabilitiesProfiles } from '../../../../../e2e/app/_support/model/billing-capabilities';
-import { getMeterOptions } from '../../utils/license-price.utils';
-import { PriceMeterPicker } from '../prices/price-meter-picker';
+} from '../../../../e2e/app/_support/fixtures';
+import { billingCapabilitiesProfiles } from '../../../../e2e/app/_support/model/billing-capabilities';
+import { PriceMeterPicker } from '../components/price-meter-picker';
+import { getMeterOptions } from '../logic/price-meter';
 
 const getAuthToken = vi.hoisted(() => vi.fn());
 
@@ -79,12 +79,19 @@ const renderPicker = (
   model: 'USAGE_BASED' | 'OVERAGE',
   onSelect = vi.fn(),
   value = '',
+  overage: 'instance' | 'license' = 'license',
 ) =>
   renderWithClient(
     <PriceMeterPicker
       model={model}
       onSelect={onSelect}
-      options={getMeterOptions({ entitlements, grants, model, prices: [] })}
+      options={getMeterOptions({
+        entitlements,
+        grants,
+        model,
+        overage,
+        prices: [],
+      })}
       value={value}
     />,
   );
@@ -138,6 +145,21 @@ describe('PriceMeterPicker', () => {
         'Overage cannot occur on this grant: its limit is hard or unlimited.',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('offers an overage on any flow of an add-on, whose grant alone cannot say whether the overage is reached', () => {
+    renderPicker('OVERAGE', vi.fn(), '', 'instance');
+
+    // Requests has a hard limit, which a license version could never bill above; an
+    // add-on adds to the license's limit and may inherit its percent.
+    expect(optionOf('Requests')).toBeEnabled();
+    expect(optionOf('Traces')).toBeEnabled();
+    expect(
+      within(optionOf('Traces')).getByText(
+        'Bills the usage above the limit the instance holds: its license and its add-ons together',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Bills above 100,000/)).toBeNull();
   });
 
   it('marks the one picked, and hands the entitlement picked to the form', async () => {

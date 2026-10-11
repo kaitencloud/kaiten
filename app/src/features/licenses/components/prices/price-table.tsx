@@ -11,11 +11,14 @@ import { PriceRowActions } from './price-row-actions';
 import {
   PriceBilledCell,
   PriceLabelCell,
-  PriceMeterCell,
-  PriceShapeCell,
   PriceStatusCell,
 } from './price-table-cells';
-import { getPriceLabel, PriceAmount } from '@/domains/billing';
+import {
+  getPriceLabel,
+  PriceAmount,
+  PriceMeterCell,
+  PriceShapeCell,
+} from '@/domains/billing';
 
 type PriceTableProps = {
   entitlementBySlug: ReadonlyMap<string, Entitlement>;

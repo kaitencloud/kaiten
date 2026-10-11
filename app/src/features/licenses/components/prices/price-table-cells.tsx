@@ -1,17 +1,14 @@
 import { Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { Entitlement, LicenseEntitlement, Price } from '@/api-client';
+import type { Entitlement, Price } from '@/api-client';
 import { Badge } from '@/components/ui/badge';
 import {
   formatUtcDate,
-  BILLING_MODEL_LABEL_KEYS,
   BILLING_PERIOD_LABEL_KEYS,
   BILLING_TIMING_LABEL_KEYS,
   PRICE_STATUS_LABEL_KEYS,
   getPriceLabel,
 } from '@/domains/billing';
-import { describeMeter } from '../../utils/license-price-meter';
-import { isMeteredModel } from '../../utils/license-price.utils';
 
 // A price with no label of its own is shown under what it bills, as the API
 // words the line of an invoice: the meter's name, "Traces, overage" for an
@@ -35,46 +32,6 @@ export function PriceLabelCell({
           {t('Pages.Licenses.Prices.defaultBadge')}
         </Badge>
       ) : null}
-    </div>
-  );
-}
-
-export function PriceShapeCell({ price }: { price: Price }) {
-  const { t } = useTranslation();
-
-  return (
-    <Badge
-      variant={isMeteredModel(price.billingModel) ? 'secondary' : 'default'}
-    >
-      {t(BILLING_MODEL_LABEL_KEYS[price.billingModel])}
-    </Badge>
-  );
-}
-
-export function PriceMeterCell({
-  entitlement,
-  grant,
-  price,
-}: {
-  entitlement?: Entitlement;
-  grant?: LicenseEntitlement;
-  price: Price;
-}) {
-  const { i18n, t } = useTranslation();
-  if (!price.metered) {
-    return <span className="text-muted-foreground">-</span>;
-  }
-
-  return (
-    // A cell of the table does not wrap, and what an overage bills against is a
-    // sentence: left alone it widens the table beyond the page.
-    <div className="max-w-64 min-w-0 whitespace-normal">
-      <p className="truncate">
-        {entitlement?.name ?? price.metered.entitlementSlug}
-      </p>
-      <p className="text-xs text-muted-foreground">
-        {describeMeter(price, entitlement, grant, t, i18n.language)}
-      </p>
     </div>
   );
 }

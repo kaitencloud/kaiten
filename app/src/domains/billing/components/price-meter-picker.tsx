@@ -7,17 +7,13 @@ import RequiredMark from '@/components/form/required-mark';
 import {
   describeAllowance,
   describeUsage,
-} from '../../utils/license-price-meter';
-import {
   type MeterOption,
   meterOfEntitlement,
-} from '../../utils/license-price.utils';
+} from '../logic/price-meter';
+import { getPriceUnitLabel } from '../logic/price-display';
+import { RESET_PERIOD_UNIT_KEYS } from '../logic/price-labels';
+import type { BillingModel } from '../logic/price-types';
 import { PriceStockHint } from './price-stock-hint';
-import {
-  RESET_PERIOD_UNIT_KEYS,
-  type BillingModel,
-  getPriceUnitLabel,
-} from '@/domains/billing';
 
 type PriceMeterPickerProps = {
   model: BillingModel;
@@ -41,10 +37,10 @@ function useOptionDetail() {
 
   return (option: MeterOption, model: BillingModel): string | undefined => {
     if (option.disabledReason === 'stock') {
-      return t('Pages.Licenses.Prices.Form.Meter.stock');
+      return t('Features.Billing.Price.Meter.stock');
     }
     if (option.disabledReason === 'overageUnreachable') {
-      return t('Pages.Licenses.Prices.Form.Meter.overageUnreachable');
+      return t('Features.Billing.Price.Meter.overageUnreachable');
     }
     const period = option.resetPeriod
       ? t(RESET_PERIOD_UNIT_KEYS[option.resetPeriod])
@@ -58,6 +54,12 @@ function useOptionDetail() {
         t,
         i18n.language,
       );
+    }
+
+    // An overage with no allowance to state, and not disabled, is an add-on's: it bills
+    // above what the instance holds.
+    if (model === 'OVERAGE') {
+      return t('Features.Billing.Price.Meter.overageInstance');
     }
 
     return period ? describeUsage(option.entitlement, period, t) : undefined;
@@ -105,12 +107,12 @@ export function PriceMeterPicker({
   return (
     <fieldset className="space-y-2">
       <legend className="text-sm font-medium">
-        {t('Pages.Licenses.Prices.Form.Labels.meter')}
+        {t('Features.Billing.Price.Meter.label')}
         <RequiredMark />
       </legend>
       {options.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {t('Pages.Licenses.Prices.Form.Meter.none')}
+          {t('Features.Billing.Price.Meter.none')}
         </p>
       ) : (
         <div className="space-y-2">{options.map(renderOption)}</div>

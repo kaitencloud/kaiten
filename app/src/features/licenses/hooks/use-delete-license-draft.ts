@@ -13,6 +13,7 @@ import {
 import { getLicenseEntitlementsQueryKey } from '@/api-client/@tanstack/react-query.gen';
 import {
   invalidateLicensePriceQueries,
+  isMeteredModel,
   useBillingCapabilities,
 } from '@/domains/billing';
 import { getApiErrorMessage } from '@/lib/errors';
@@ -21,7 +22,7 @@ import {
   licenseEntitlementsQueryOptions,
   licensePricesQueryOptions,
 } from '../queries';
-import { isActivePrice, isMeteredModel } from '../utils/license-price.utils';
+import { isActivePrice } from '../utils/license-price.utils';
 
 // A price that meters a grant keeps the grant: the API refuses to remove an
 // entitlement an active price of the version measures, on a draft as on a
