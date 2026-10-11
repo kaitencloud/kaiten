@@ -5060,7 +5060,8 @@ export default {
           SELECTED_PRICES: 'Chosen prices',
           Blurb: {
             LICENSE_BASE: 'The fee of the license, before add-ons and usage.',
-            ADDONS: 'What the add-ons an instance holds cost.',
+            ADDONS:
+              'What the add-ons an instance holds cost, their usage included.',
             BOTH: 'The license fee and the add-ons together.',
             SELECTED_PRICES: 'Only the prices you tick below.',
           },

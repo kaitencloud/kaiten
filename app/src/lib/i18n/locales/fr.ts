@@ -5131,7 +5131,8 @@ export default {
           Blurb: {
             LICENSE_BASE:
               'Le prix de la licence, hors add-ons et consommation.',
-            ADDONS: 'Ce que coûtent les add-ons détenus par une instance.',
+            ADDONS:
+              'Ce que coûtent les add-ons détenus par une instance, consommation comprise.',
             BOTH: 'Le prix de la licence et les add-ons ensemble.',
             SELECTED_PRICES: 'Uniquement les prix que vous cochez ci-dessous.',
           },
