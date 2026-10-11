@@ -1099,6 +1099,8 @@ export default {
                   'La période en cours n’est pas remboursée, et l’add-on n’est plus facturé à partir de la prochaine facture.',
                 arrears:
                   'Cet add-on est facturé à terme échu : la période en cours reste facturée en entier, à la dernière quantité détenue, sur la prochaine facture. Rien n’est remboursé.',
+                usage:
+                  'Son utilisation jusqu’à son retrait est facturée sur la prochaine facture.',
                 confirm: 'Retirer',
               },
               Toasts: {

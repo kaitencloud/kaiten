@@ -270,6 +270,9 @@ test.describe('adding an add-on to an instance', () => {
 
     await expect(addons.dialog()).toHaveCount(0);
     await expect(addons.row('Usage pack')).toBeVisible();
+    // It bills its usage: the card says what a unit of it is rated at, not "Not billed".
+    await expect(addons.row('Usage pack')).toContainText('$0.001');
+    await expect(addons.row('Usage pack')).not.toContainText('Not billed');
     expect(writes).toEqual([
       {
         body: { addonSlug: 'usage-pack', quantity: 1 },

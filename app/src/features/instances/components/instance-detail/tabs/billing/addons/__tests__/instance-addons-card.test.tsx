@@ -25,6 +25,7 @@ import { billingCapabilitiesProfiles } from '../../../../../../../../../e2e/app/
 import { instanceUsageQueryOptions } from '../../../../../../hooks/instance-detail/instance-detail-query-options';
 import { INSTANCE, subscription } from '../../__tests__/lifecycle-fixtures';
 import { InstanceAddonsCard } from '../instance-addons-card';
+import { buildPrice } from '../../../../../../../../../e2e/app/_support/fixtures';
 import {
   heldSeats,
   SEATS_V1,
@@ -237,6 +238,35 @@ describe('what the card lists', () => {
     expect(within(card).getByText('$10.00')).toBeInTheDocument();
     expect(within(card).getByText('/month')).toBeInTheDocument();
     expect(within(card).getByTestId('addons-note')).toHaveTextContent(NOTE);
+  });
+
+  it('says what an add-on bills on usage, on top of its flat fee, and alone when it sells nothing else', async () => {
+    const calls = buildPrice({
+      billingModel: 'USAGE_BASED',
+      id: 'price-calls',
+      metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1000', saleUnitSingular: '1k calls' },
+      unitAmountDecimal: '150',
+    });
+    serveHeld([
+      heldSeats({ prices: [heldSeats().prices[0]!, calls] }),
+      heldSeats({
+        addon: STORAGE_V1,
+        id: 'attachment-calls',
+        prices: [calls],
+      }),
+    ]);
+    renderCard();
+
+    const seats = (await screen.findByText('extra-seats-v1')).closest('tr') as HTMLElement;
+    const storage = (await screen.findByText('extra-storage-v1')).closest('tr') as HTMLElement;
+
+    expect(within(seats).getByText('$10.00')).toBeInTheDocument();
+    expect(within(seats).getByText('/month')).toBeInTheDocument();
+    expect(within(seats).getByText('$1.50')).toBeInTheDocument();
+    expect(within(seats).getByText('per 1k calls')).toBeInTheDocument();
+    // An add-on that sells usage alone is billed on it: it is not "Not billed".
+    expect(within(storage).getByText('$1.50')).toBeInTheDocument();
+    expect(within(storage).queryByText('Not billed')).toBeNull();
   });
 
   it('names an add-on by the name its attachment carries, with no read of the catalogue', async () => {
@@ -478,6 +508,40 @@ describe('taking an add-on off', () => {
     expect(await screen.findByTestId('remove-addon-billing')).toHaveTextContent(
       'billed in arrears: the period under way is still billed in full',
     );
+  });
+
+  it('says the usage an add-on rated is billed up to the moment it is removed, and says nothing of a fee it has none of', async () => {
+    const calls = buildPrice({
+      billingModel: 'USAGE_BASED',
+      id: 'price-calls',
+      metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1' },
+      unitAmountDecimal: '15',
+    });
+    serveHeld([heldSeats({ prices: [calls] })]);
+    renderCard();
+
+    await remove();
+
+    const billing = await screen.findByTestId('remove-addon-billing');
+    expect(billing).toHaveTextContent('Its usage until it is removed is billed on the next invoice.');
+    expect(billing).not.toHaveTextContent('no longer billed from the next invoice');
+  });
+
+  it('says the usage as well as the fee that is refunded or not, for an add-on that sells both', async () => {
+    const calls = buildPrice({
+      billingModel: 'OVERAGE',
+      id: 'price-calls',
+      metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1' },
+      unitAmountDecimal: '15',
+    });
+    serveHeld([heldSeats({ prices: [heldSeats().prices[0]!, calls] })]);
+    renderCard();
+
+    await remove();
+
+    const billing = await screen.findByTestId('remove-addon-billing');
+    expect(billing).toHaveTextContent('The current period is not refunded, and the add-on is no longer billed from the next invoice.');
+    expect(billing).toHaveTextContent('Its usage until it is removed is billed on the next invoice.');
   });
 
   it('removes it once confirmed, in one request, and the list no longer holds it', async () => {

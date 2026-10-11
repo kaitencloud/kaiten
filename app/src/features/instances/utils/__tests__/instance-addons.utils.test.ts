@@ -9,9 +9,11 @@ import {
   diffEffectiveValues,
   getAttachableAddons,
   getFlatFee,
+  getMeteredPrices,
   getQuantityBounds,
   getQuantityProblem,
   getQuantitySteps,
+  hasActiveFlatFee,
   isBilledInArrears,
   joinHeldAddons,
 } from '../instance-addons.utils';
@@ -132,6 +134,18 @@ describe('what a held add-on is billed', () => {
     expect(getFlatFee([metered, flat('ADVANCE')])?.id).toBe('price-ADVANCE');
     expect(getFlatFee([metered])).toBeUndefined();
     expect(getFlatFee([])).toBeUndefined();
+  });
+
+  it('bills usage too: the metered prices on sale, whatever the flat fee, and a flat fee only where one is on sale', () => {
+    const retired = { ...metered, id: 'price-retired', status: 'DEPRECATED' as const };
+
+    expect(getMeteredPrices([flat('ADVANCE'), metered, retired]).map(({ id }) => id)).toEqual([
+      'price-metered',
+    ]);
+    expect(getMeteredPrices([flat('ADVANCE')])).toEqual([]);
+    expect(hasActiveFlatFee([metered, flat('ADVANCE')])).toBe(true);
+    expect(hasActiveFlatFee([metered])).toBe(false);
+    expect(hasActiveFlatFee([{ ...flat('ADVANCE'), status: 'DEPRECATED' }, metered])).toBe(false);
   });
 
   it('bills the period under way even once removed only when the fee is in arrears', () => {

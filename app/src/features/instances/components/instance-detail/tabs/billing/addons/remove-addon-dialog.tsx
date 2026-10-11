@@ -10,6 +10,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
+  getFlatFee,
+  getMeteredPrices,
   type HeldAddon,
   isBilledInArrears,
 } from '../../../../../utils/instance-addons.utils';
@@ -26,7 +28,9 @@ type RemoveAddonDialogProps = {
  * the confirmation says what that costs: the period under way is not refunded, and
  * the add-on is no longer billed from the next invoice. An add-on billed in arrears
  * is the exception it says too: its fee covers the period that ends at that invoice,
- * and is charged in full at the last quantity held.
+ * and is charged in full at the last quantity held. The usage an add-on rates is
+ * billed up to the moment it is removed, on that same invoice; an add-on that sells
+ * only usage has no fee to say anything of.
  */
 export function RemoveAddonDialog({
   onClose,
@@ -35,6 +39,8 @@ export function RemoveAddonDialog({
 }: RemoveAddonDialogProps) {
   const { t } = useTranslation();
   const { name } = row.held;
+  const bills = getFlatFee(row.held.prices) !== undefined;
+  const meters = getMeteredPrices(row.held.prices).length > 0;
 
   return (
     <AlertDialog onOpenChange={(open) => !open && onClose()} open>
@@ -51,13 +57,24 @@ export function RemoveAddonDialog({
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <p className="text-sm" data-testid="remove-addon-billing">
-          {t(
-            isBilledInArrears(row.held)
-              ? 'Pages.Customers.Instances.Detail.Billing.Addons.Remove.arrears'
-              : 'Pages.Customers.Instances.Detail.Billing.Addons.Remove.refund',
-          )}
-        </p>
+        <div className="space-y-1 text-sm" data-testid="remove-addon-billing">
+          {bills || !meters ? (
+            <p>
+              {t(
+                isBilledInArrears(row.held)
+                  ? 'Pages.Customers.Instances.Detail.Billing.Addons.Remove.arrears'
+                  : 'Pages.Customers.Instances.Detail.Billing.Addons.Remove.refund',
+              )}
+            </p>
+          ) : null}
+          {meters ? (
+            <p>
+              {t(
+                'Pages.Customers.Instances.Detail.Billing.Addons.Remove.usage',
+              )}
+            </p>
+          ) : null}
+        </div>
         <AlertDialogFooter>
           <AlertDialogCancel variant="outline">
             {t('Common.cancel')}

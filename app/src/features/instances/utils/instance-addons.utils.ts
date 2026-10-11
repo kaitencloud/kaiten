@@ -77,6 +77,25 @@ export function getFlatFee(prices: readonly Price[]): Price | undefined {
 }
 
 /**
+ * What a version bills on usage: its metered prices on sale. They bill what an
+ * entitlement measured over the window the add-on is held, on top of its flat fee or
+ * alone, and in arrears.
+ */
+export const getMeteredPrices = (prices: readonly Price[]): Price[] =>
+  prices.filter(
+    (price) => price.billingModel !== 'FLAT_FEE' && price.status === 'ACTIVE',
+  );
+
+/**
+ * Whether a version has a flat fee on sale: only then does a subscription ask for the
+ * default one of its period (`AttachInstanceAddon.NoPriceForBillingPeriod`).
+ */
+export const hasActiveFlatFee = (prices: readonly Price[]): boolean =>
+  prices.some(
+    (price) => price.billingModel === 'FLAT_FEE' && price.status === 'ACTIVE',
+  );
+
+/**
  * Whether taking the add-on off still bills the period under way. A flat fee billed
  * in arrears covers the period that ends at the next invoice, and it is charged in
  * full, at the last quantity held, even for an add-on removed before that: nothing

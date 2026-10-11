@@ -1081,6 +1081,8 @@ export default {
                   'The current period is not refunded, and the add-on is no longer billed from the next invoice.',
                 arrears:
                   'This add-on is billed in arrears: the period under way is still billed in full, at the last quantity held, on the next invoice. Nothing is refunded.',
+                usage:
+                  'Its usage until it is removed is billed on the next invoice.',
                 confirm: 'Remove',
               },
               Toasts: {

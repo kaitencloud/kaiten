@@ -9,6 +9,10 @@ import {
   joinPriceAmount,
   PriceAmount,
 } from '@/domains/billing';
+import {
+  getMeteredPrices,
+  hasActiveFlatFee,
+} from '../../../../../utils/instance-addons.utils';
 
 // Written out in full, so that a key that does not exist fails the check of the keys.
 const KEYS = {
@@ -46,18 +50,6 @@ export function getPeriodFee(
       price.billingPeriod === period,
   );
 }
-
-/** Whether a version has a flat fee on sale: only then does a subscription ask for the default one of its period. */
-export const hasActiveFlatFee = (prices: readonly Price[]): boolean =>
-  prices.some(
-    (price) => price.billingModel === 'FLAT_FEE' && price.status === 'ACTIVE',
-  );
-
-/** What a version bills on usage: its metered prices on sale. */
-export const getMeteredPrices = (prices: readonly Price[]): Price[] =>
-  prices.filter(
-    (price) => price.billingModel !== 'FLAT_FEE' && price.status === 'ACTIVE',
-  );
 
 type AttachAddonDetailsProps = {
   addon: Addon;

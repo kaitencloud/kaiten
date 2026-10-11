@@ -11,6 +11,7 @@ import {
 } from '@/functionals/table';
 import {
   getFlatFee,
+  getMeteredPrices,
   type HeldAddon,
 } from '../../../../../utils/instance-addons.utils';
 import { formatDate } from '../../../../../utils/instance-detail-overview.utils';
@@ -106,14 +107,25 @@ function QuantityCell({
 }
 
 // What one unit costs: the flat fee of the period of the subscription, as the API
-// gives it for the instance. An instance nobody bills has none, and neither has an
-// add-on that is free or sold on request.
+// gives it for the instance, and the usage it rates on top (an add-on may sell only
+// that). An instance nobody bills has none, and neither has an add-on that is free or
+// sold on request.
 function PriceCell({ row }: { row: HeldAddon }) {
   const { t } = useTranslation();
   const fee = getFlatFee(row.held.prices);
+  const metered = getMeteredPrices(row.held.prices);
 
-  if (fee) {
-    return <PriceAmount price={fee} />;
+  if (fee || metered.length > 0) {
+    return (
+      <div className="space-y-0.5">
+        {fee ? <PriceAmount price={fee} /> : null}
+        {metered.map((price) => (
+          <p key={price.id}>
+            <PriceAmount price={price} />
+          </p>
+        ))}
+      </div>
+    );
   }
   switch (row.addon?.pricingType) {
     case 'FREE':
