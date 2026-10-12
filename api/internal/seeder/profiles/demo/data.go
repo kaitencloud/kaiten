@@ -1,13 +1,16 @@
 package demo
 
 import (
+	"fmt"
 	"maps"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
 
 	deploymentzoneevents "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/events"
 	entitlementevents "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/events"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	featureflagevents "github.com/kaitencloud/kaiten/api/internal/modules/featureflags/events"
@@ -108,6 +111,20 @@ const (
 
 // ── Entitlements ───────────────────────────────────────────────────────────
 
+// entitlementDef is one catalogue entitlement.
+//
+// ResetPeriod and ResetAnchor make a NUMBER entitlement periodic: its usage is
+// counted in a window that restarts on that cadence instead of over the life
+// of the instance. Both nil is a lifetime counter. They go to create-entitlement
+// as written, and seedUsageMetrics reads them to store each usage row in the
+// window its entitlement measures (usagePeriodStart), so which entitlements
+// reset is said once, here. The anchor is spelled out even where it is the
+// default the API would fill in, because the seed computes the window from it.
+//
+// The presentation fields are what customer-facing components render: a
+// pricing table or a usage meter shows the user-facing entitlements, in
+// DisplayOrder, with their icon and unit labels, and hides the rest. Unit
+// labels go on NUMBER entitlements only, both or neither.
 type entitlementDef struct {
 	Name              string
 	Slug              string
@@ -115,6 +132,13 @@ type entitlementDef struct {
 	GroupSlugs        []string
 	Type              entitlementschema.Type
 	AggregationMethod *entitlementschema.AggregationMethod
+	ResetPeriod       *period.ResetPeriod
+	ResetAnchor       *period.ResetAnchor
+	Icon              string
+	UnitSingular      *string
+	UnitPlural        *string
+	UserFacing        bool
+	DisplayOrder      int32
 }
 
 var entitlementGroups = []seedkit.EntitlementGroupDef{
@@ -130,6 +154,11 @@ var entitlements = []entitlementDef{
 		GroupSlugs:        []string{"restaurant-operations"},
 		Type:              entitlementschema.Number,
 		AggregationMethod: ptr.To(entitlementschema.Latest),
+		Icon:              "lucide:utensils",
+		UnitSingular:      ptr.To("menu item"),
+		UnitPlural:        ptr.To("menu items"),
+		UserFacing:        true,
+		DisplayOrder:      1,
 	},
 	{
 		Name:              "Monthly Orders",
@@ -138,6 +167,16 @@ var entitlements = []entitlementDef{
 		GroupSlugs:        []string{"restaurant-operations"},
 		Type:              entitlementschema.Number,
 		AggregationMethod: ptr.To(entitlementschema.Sum),
+		// The one periodic entitlement: orders count per calendar month, as
+		// its name says. Menu items, delivery drivers and locations are
+		// lifetime counters.
+		ResetPeriod:  ptr.To(period.Month),
+		ResetAnchor:  ptr.To(period.Calendar),
+		Icon:         "lucide:shopping-cart",
+		UnitSingular: ptr.To("order"),
+		UnitPlural:   ptr.To("orders"),
+		UserFacing:   true,
+		DisplayOrder: 2,
 	},
 	{
 		Name:              "Delivery Drivers",
@@ -146,6 +185,11 @@ var entitlements = []entitlementDef{
 		GroupSlugs:        []string{"delivery"},
 		Type:              entitlementschema.Number,
 		AggregationMethod: ptr.To(entitlementschema.Latest),
+		Icon:              "lucide:bike",
+		UnitSingular:      ptr.To("driver"),
+		UnitPlural:        ptr.To("drivers"),
+		UserFacing:        true,
+		DisplayOrder:      3,
 	},
 	{
 		Name:              "Locations",
@@ -154,13 +198,21 @@ var entitlements = []entitlementDef{
 		GroupSlugs:        []string{"restaurant-operations"},
 		Type:              entitlementschema.Number,
 		AggregationMethod: ptr.To(entitlementschema.Latest),
+		Icon:              "lucide:map-pin",
+		UnitSingular:      ptr.To("location"),
+		UnitPlural:        ptr.To("locations"),
+		UserFacing:        true,
+		DisplayOrder:      4,
 	},
 	{
-		Name:        "Delivery Tracking",
-		Slug:        "delivery-tracking",
-		Description: "Real-time delivery tracking for end customers.",
-		GroupSlugs:  []string{"delivery"},
-		Type:        entitlementschema.Boolean,
+		Name:         "Delivery Tracking",
+		Slug:         "delivery-tracking",
+		Description:  "Real-time delivery tracking for end customers.",
+		GroupSlugs:   []string{"delivery"},
+		Type:         entitlementschema.Boolean,
+		Icon:         "lucide:navigation",
+		UserFacing:   true,
+		DisplayOrder: 5,
 	},
 	{
 		Name:        "Support Tier",
@@ -169,9 +221,23 @@ var entitlements = []entitlementDef{
 		// The source dataset's entitlement_groups only cover the other five
 		// entitlements. Grouped here anyway so every entitlement belongs to
 		// at least one group, per data_test.go's coverage check.
-		GroupSlugs: []string{"restaurant-operations"},
-		Type:       entitlementschema.Config,
+		GroupSlugs:   []string{"restaurant-operations"},
+		Type:         entitlementschema.Config,
+		Icon:         "lucide:life-buoy",
+		UserFacing:   true,
+		DisplayOrder: 6,
 	},
+}
+
+// entitlementBySlug is the definition of the entitlement slugged slug, the key
+// usage values and grants name it by.
+func entitlementBySlug(slug string) (entitlementDef, bool) {
+	for _, ent := range entitlements {
+		if ent.Slug == slug {
+			return ent, true
+		}
+	}
+	return entitlementDef{}, false
 }
 
 // ── Licenses ───────────────────────────────────────────────────────────────
@@ -521,11 +587,6 @@ var customers = []customerDef{
 // values, avoiding map iteration non-determinism.
 var usageEntitlementOrder = []string{"menu-items", "monthly-orders", "delivery-drivers", "locations"}
 
-// monthlyResetEntitlementSlug is the one entitlement with a MONTH/CALENDAR
-// reset period (menu-items/delivery-drivers/locations are lifetime
-// counters).
-const monthlyResetEntitlementSlug = "monthly-orders"
-
 // ── Deployment Zones ───────────────────────────────────────────────────────
 
 // deploymentZoneDef.Type is the zone's environment class -- production,
@@ -608,16 +669,31 @@ const (
 	opRemove releaseComponentPatchOp = "remove"
 )
 
+// componentPatch changes what a release ships relative to its previous
+// release: an add creates a component and bundles it, a remove takes out one
+// the release inherited.
+//
+// PreviousSlug, on an add, names the component the new one is the next version
+// of. It is created as that component's successor (previous_component_id),
+// which is how the catalogue shows a component's version chain. It does not
+// take the older version out of the release -- a remove patch does -- so a
+// release that upgrades a component carries both patches.
 type componentPatch struct {
-	Op          releaseComponentPatchOp
-	Name        *string
-	Version     *string
-	Slug        *string
-	Description *string
-	RemoveSlug  *string
+	Op           releaseComponentPatchOp
+	Name         *string
+	Version      *string
+	Slug         *string
+	Description  *string
+	PreviousSlug *string
+	RemoveSlug   *string
 }
 
+// releaseDef.Slug is fixed rather than generated, for the reason licenseDef's
+// is: a release created without one gets its version plus six random
+// characters, so every seed would give the same release a new address and
+// nothing could link to one.
 type releaseDef struct {
+	Slug            string
 	Version         string
 	Description     string
 	PreviousVersion string
@@ -634,8 +710,20 @@ func addComp(name, version, slug, description string) componentPatch {
 	}
 }
 
+// nextComp adds the next version of the component slugged previousSlug.
+func nextComp(previousSlug, name, version, slug, description string) componentPatch {
+	patch := addComp(name, version, slug, description)
+	patch.PreviousSlug = ptr.To(previousSlug)
+	return patch
+}
+
+func removeComp(slug string) componentPatch {
+	return componentPatch{Op: opRemove, RemoveSlug: ptr.To(slug)}
+}
+
 var releases = []releaseDef{
 	{
+		Slug:        "r-2026-7-0",
 		Version:     "2026.7.0",
 		Description: "July platform release.",
 		Patches: []componentPatch{
@@ -646,15 +734,62 @@ var releases = []releaseDef{
 		},
 	},
 	{
+		// Upgrades three of July's four components and keeps Kitchen Display.
+		// Each new version replaces the one it follows, so the release ships
+		// four components, one version of each, as July did.
+		Slug:            "r-2026-8-0",
 		Version:         "2026.8.0",
 		PreviousVersion: "2026.7.0",
 		Description:     "Introduces real-time delivery tracking.",
 		Patches: []componentPatch{
-			addComp("API", "2026.8.0", "api-2026-8-0", "Adds delivery tracking endpoints."),
-			addComp("Web App", "2026.8.0", "web-app-2026-8-0", "Delivery tracking UI."),
-			addComp("Delivery Service", "1.0.0", "delivery-service-1-0-0", "GA: real-time position streaming."),
+			removeComp("api-2026-7-0"),
+			nextComp("api-2026-7-0", "API", "2026.8.0", "api-2026-8-0", "Adds delivery tracking endpoints."),
+			removeComp("web-app-2026-7-0"),
+			nextComp("web-app-2026-7-0", "Web App", "2026.8.0", "web-app-2026-8-0", "Delivery tracking UI."),
+			removeComp("delivery-service-0-9-0"),
+			nextComp("delivery-service-0-9-0", "Delivery Service", "1.0.0", "delivery-service-1-0-0", "GA: real-time position streaming."),
 		},
 	},
+}
+
+// releaseBundles is what each release ships, keyed by version, as component
+// slugs: what its previous release shipped, with its own patches applied in
+// order. Releases are listed oldest first, and a release whose previous one
+// comes later is refused here. seedReleases bundles exactly this, and
+// data_test.go reads it, so the two cannot disagree on what a release
+// contains.
+func releaseBundles() (map[string][]string, error) {
+	bundles := make(map[string][]string, len(releases))
+
+	for _, rel := range releases {
+		var slugs []string
+		if rel.PreviousVersion != "" {
+			inherited, ok := bundles[rel.PreviousVersion]
+			if !ok {
+				return nil, fmt.Errorf("release %q references unknown previous version %q", rel.Version, rel.PreviousVersion)
+			}
+			slugs = slices.Clone(inherited)
+		}
+
+		for _, patch := range rel.Patches {
+			switch patch.Op {
+			case opAdd:
+				slugs = append(slugs, *patch.Slug)
+			case opRemove:
+				i := slices.Index(slugs, *patch.RemoveSlug)
+				if i < 0 {
+					return nil, fmt.Errorf("release %q cannot remove component %q, which it does not bundle", rel.Version, *patch.RemoveSlug)
+				}
+				slugs = slices.Delete(slugs, i, i+1)
+			default:
+				return nil, fmt.Errorf("release %q has an unsupported component patch op %q", rel.Version, patch.Op)
+			}
+		}
+
+		bundles[rel.Version] = slugs
+	}
+
+	return bundles, nil
 }
 
 // ── Feature Flags ──────────────────────────────────────────────────────────
