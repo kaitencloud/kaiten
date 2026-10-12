@@ -33,7 +33,7 @@ func RegisterEndpoint(api huma.API, app Lister) {
 		Method:      http.MethodGet,
 		Path:        "/publishable-keys",
 		Summary:     "List publishable keys",
-		Description: "The organization's publishable keys, newest first. The keys themselves are never returned, only their last four characters.",
+		Description: "The organization's publishable keys, newest first. The keys themselves are never returned, only their last four characters. Requires billing to be enabled for the organization.",
 		Tags:        []string{"publishable-keys"},
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {

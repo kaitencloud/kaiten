@@ -30,7 +30,7 @@ func RegisterEndpoint(api huma.API, app Creator) {
 		Method:        http.MethodPost,
 		Path:          "/publishable-keys",
 		Summary:       "Create a publishable key",
-		Description:   "Issues a pk_ key for a web page to read the organization's public catalogue (GET /api/public/catalog) and nothing else. The key is returned once; only its digest is stored.",
+		Description:   "Issues a pk_ key for a web page to read the organization's public catalogue (GET /api/public/catalog) and nothing else. The key is returned once; only its digest is stored. Requires billing to be enabled for the organization.",
 		Tags:          []string{"publishable-keys"},
 		DefaultStatus: http.StatusCreated,
 		Errors:        []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
