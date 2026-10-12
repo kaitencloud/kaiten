@@ -114,7 +114,7 @@ pnpm exec playwright test -c playwright.app.config.ts e2e/app/customers/customer
 
 `test:e2e:ui`, `test:e2e:headed`, `test:e2e:debug`, `test:e2e:report` and `test:e2e:all` use the default config, `playwright.config.ts`, which is the Storybook suite. To debug an application spec, pass `-c playwright.app.config.ts` and `--ui`, `--headed` or `--debug` to `pnpm exec playwright test` as above.
 
-A failed test keeps its trace, screenshot and video, and Playwright writes an HTML report to `playwright-report/`; `pnpm run test:e2e:report` opens the last one. CI runs the suite in three shards, retries a failure once and uploads the report of a failed shard. [CI/CD](../07-deployment/ci-cd.md) describes the workflow.
+A failed test keeps its trace, screenshot and video, and Playwright writes an HTML report to `playwright-report/`; `pnpm run test:e2e:report` opens the last one. CI runs the suite in seven shards, retries a failure once and uploads the report of a failed shard. [CI/CD](../07-deployment/ci-cd.md) describes the workflow.
 
 ## Network mocks (MSW)
 
