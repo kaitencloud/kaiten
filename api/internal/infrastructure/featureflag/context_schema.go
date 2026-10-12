@@ -45,9 +45,14 @@ const (
 // namespace will nest as deeply as the customer nests it.
 type TargetingContextNode struct {
 	// Values is the shape shared by every entry of a map, when there is one.
-	// `__kaiten.entitlements` is keyed by a slug the organization chooses, but
-	// each entry underneath is an EntitlementFact like any other.
+	// `__kaiten.instance.metadata` is free-form, so each entry is dyn.
 	Values *TargetingContextNode `json:"values,omitempty" doc:"Shape shared by every entry, for a map"`
+
+	// Entries are the shapes of a map's known keys, for a map whose entries
+	// differ. `__kaiten.entitlements` is keyed by a slug the organization
+	// chooses, and each entry reads in the shape of that entitlement's type:
+	// an object for a NUMBER, a boolean, or a map for a CONFIG.
+	Entries []TargetingContextNode `json:"entries,omitempty" nullable:"false" doc:"Shape of each known key, for a map whose entries differ. Named after the key"`
 
 	Name        string             `json:"name" doc:"Name as it is written in a rule"`
 	Type        TargetingValueType `json:"type" enum:"string,number,boolean,object,map,dyn" doc:"Shape of this node's value"`
@@ -80,7 +85,7 @@ own attributes in the evaluation context and targets on them, which the linter
 deliberately allows (see LintTargetingRule). An editor must offer these and
 still accept anything else.
 */
-func TargetingContextRoots(knownEntitlements []string) []TargetingContextNode {
+func TargetingContextRoots(knownEntitlements []KnownEntitlement) []TargetingContextNode {
 	return []TargetingContextNode{
 		{
 			Name:        FactsRoot,
@@ -103,18 +108,46 @@ func TargetingContextRoots(knownEntitlements []string) []TargetingContextNode {
 }
 
 // entitlementsNode describes __kaiten.entitlements: a map an organization keys
-// by its own slugs, whose entries all have EntitlementFact's shape. Both ways
-// of reading it — `entitlements['seats']` and `entitlements.seats` — reach the
-// same entry, which is why the linter checks both.
-func entitlementsNode(knownEntitlements []string) TargetingContextNode {
-	values := factNode("", "", reflect.TypeFor[EntitlementFact]())
+// by its own slugs, whose entries each read in the shape of their type. Both
+// ways of reading it — `entitlements['seats']` and `entitlements.seats` — reach
+// the same entry, which is why the linter checks both.
+//
+// There is no shared Values: a slug outside the catalogue has no known shape.
+func entitlementsNode(knownEntitlements []KnownEntitlement) TargetingContextNode {
+	slugs := make([]string, 0, len(knownEntitlements))
+	entries := make([]TargetingContextNode, 0, len(knownEntitlements))
+	for _, known := range knownEntitlements {
+		slugs = append(slugs, known.Slug)
+		entries = append(entries, entitlementNode(known))
+	}
 
 	return TargetingContextNode{
 		Name:        EntitlementsRoot,
 		Type:        TargetingTypeMap,
-		Description: "Entitlement usage, keyed by slug. Readable as entitlements['seats'] or entitlements.seats.",
-		KnownKeys:   knownEntitlements,
-		Values:      &values,
+		Description: "What the license grants, keyed by entitlement slug, in the shape of each entitlement's type. Readable as entitlements['seats'] or entitlements.seats.",
+		KnownKeys:   slugs,
+		Entries:     entries,
+	}
+}
+
+// entitlementNode is one entitlement, in the shape its type reads in.
+func entitlementNode(known KnownEntitlement) TargetingContextNode {
+	switch known.Type {
+	case EntitlementBoolean:
+		return TargetingContextNode{
+			Name:        known.Slug,
+			Type:        TargetingTypeBoolean,
+			Description: "BOOLEAN entitlement: true when the license grants it. Compare it directly: == true",
+		}
+	case EntitlementConfig:
+		return TargetingContextNode{
+			Name:        known.Slug,
+			Type:        TargetingTypeMap,
+			Description: "CONFIG entitlement: the object the license grants. Its keys are whatever the license sets",
+			Values:      &TargetingContextNode{Type: TargetingTypeDyn},
+		}
+	default:
+		return factNode(known.Slug, "NUMBER entitlement: what the license grants, and what is used of it.", reflect.TypeFor[EntitlementFact]())
 	}
 }
 

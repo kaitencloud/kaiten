@@ -85,7 +85,7 @@ func (h *UseCase) Execute(
 
 	rehearsal := &Rehearsal{
 		Facts:  factsOf(evaluationContext),
-		Issues: featureflag.LintTargetingRuleIssues(rule, common.EntitlementSlugs(ctx, h.deps.EntitlementCatalogue, user.OrganizationID)),
+		Issues: featureflag.LintTargetingRuleIssues(rule, common.KnownEntitlements(ctx, h.deps.EntitlementCatalogue, user.OrganizationID)),
 	}
 	rehearsal.Valid = len(rehearsal.Issues) == 0
 

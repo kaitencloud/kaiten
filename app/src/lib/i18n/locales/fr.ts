@@ -90,6 +90,7 @@ export default {
       templates: 'Modèles',
       templateProductionZone: 'Zone de production',
       templateHealthyInstance: 'Instance saine',
+      templateEntitlementGranted: 'Fonctionnalité accordée par la licence',
       templateEntitlementNearLimit: 'Entitlement proche de sa limite',
       templateEntitlementExhausted: 'Entitlement épuisé',
       templateHostAttribute: 'Un de vos propres attributs',

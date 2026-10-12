@@ -219,6 +219,172 @@ func TestEnrichWithServerFacts(t *testing.T) {
 	})
 }
 
+// boolean is a BOOLEAN grant, stored the way the license module writes it.
+func boolean(v string) []byte { return []byte(`{"type":"boolean","value":` + v + `}`) }
+
+// grantsReader is a licence with one grant of every kind a rule can meet: a
+// capability granted, one withheld, a quota, and a CONFIG value.
+func grantsReader() stubReader {
+	return stubReader{rows: []customertargetingfacts.TargetingFact{
+		growthGrant("sso", boolean("true"), nil),
+		growthGrant("audit-log", boolean("false"), nil),
+		growthGrant("customers", threshold("44"), threshold("24")),
+		growthGrant("support", []byte(`{"type":"object","value":{"tier":"priority","hours":24}}`), nil),
+	}}
+}
+
+func growthGrant(entitlement string, limit, usage []byte) customertargetingfacts.TargetingFact {
+	return customertargetingfacts.TargetingFact{
+		LicenseSlug: "growth-v2", LicenseFamilySlug: "growth", LicenseType: "PAID",
+		EntitlementSlug: slug(entitlement),
+		LimitValue:      limit, UsageValue: usage,
+	}
+}
+
+// entitlementEntry reads back what one entitlement reads as, failing when it
+// is absent.
+func entitlementEntry(t *testing.T, ec openfeature.EvaluationContext, entitlement string) any {
+	t.Helper()
+
+	facts, ok := kaitenFacts(ec)[ofrep.EntitlementsInput].(map[string]any)
+	require.True(t, ok, "no entitlement facts at all")
+	entry, ok := facts[entitlement]
+	require.Truef(t, ok, "no facts for entitlement %q", entitlement)
+	return entry
+}
+
+func TestEnrichWithServerFactsReadsEveryKindOfGrant(t *testing.T) {
+	// A capability is not a quantity: it reads as the bool the license grants,
+	// with nothing dressed up as a ceiling around it.
+	t.Run("a granted BOOLEAN entitlement reads as true", func(t *testing.T) {
+		ec := enrichServerFacts(grantsReader(), "growth-customer", map[string]any{})
+
+		assert.Equal(t, true, entitlementEntry(t, ec, "sso"))
+	})
+
+	t.Run("a withheld BOOLEAN entitlement reads as false", func(t *testing.T) {
+		ec := enrichServerFacts(grantsReader(), "growth-customer", map[string]any{})
+
+		assert.Equal(t, false, entitlementEntry(t, ec, "audit-log"))
+	})
+
+	// A configuration reads as the object the license grants, keys and all.
+	t.Run("a CONFIG entitlement reads as its object", func(t *testing.T) {
+		ec := enrichServerFacts(grantsReader(), "growth-customer", map[string]any{})
+
+		assert.Equal(t, map[string]any{"tier": "priority", "hours": 24.0}, entitlementEntry(t, ec, "support"))
+	})
+
+	t.Run("a NUMBER entitlement on the same licence reads as before", func(t *testing.T) {
+		ec := enrichServerFacts(grantsReader(), "growth-customer", map[string]any{})
+
+		customers, ok := entitlementEntry(t, ec, "customers").(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, 44.0, customers["limit"])
+		assert.Equal(t, 24.0, customers["used"])
+		assert.Equal(t, 20.0, customers["remaining"])
+		assert.InDelta(t, 24.0/44.0, customers["percentage"], 0.001)
+		assert.Equal(t, false, customers["unlimited"])
+	})
+
+	// An entitlement's type is immutable and usage is only reported against
+	// the NUMBER family, so a capability never has any. A row that says
+	// otherwise changes nothing.
+	t.Run("usage stored against a BOOLEAN entitlement is ignored", func(t *testing.T) {
+		reader := stubReader{rows: []customertargetingfacts.TargetingFact{
+			growthGrant("sso", boolean("true"), threshold("3")),
+		}}
+		ec := enrichServerFacts(reader, "growth-customer", map[string]any{})
+
+		assert.Equal(t, true, entitlementEntry(t, ec, "sso"))
+	})
+
+	// The safe direction for a gate: what cannot be read as a grant grants
+	// nothing.
+	t.Run("a malformed BOOLEAN value grants nothing", func(t *testing.T) {
+		reader := stubReader{rows: []customertargetingfacts.TargetingFact{
+			growthGrant("sso", []byte(`{"type":"boolean","value":"yes"}`), nil),
+		}}
+		ec := enrichServerFacts(reader, "growth-customer", map[string]any{})
+
+		assert.Equal(t, false, entitlementEntry(t, ec, "sso"))
+	})
+
+	t.Run("a malformed CONFIG value exposes no keys", func(t *testing.T) {
+		reader := stubReader{rows: []customertargetingfacts.TargetingFact{
+			growthGrant("support", []byte(`{"type":"object","value":"priority"}`), nil),
+		}}
+		ec := enrichServerFacts(reader, "growth-customer", map[string]any{})
+
+		assert.Equal(t, map[string]any{}, entitlementEntry(t, ec, "support"))
+	})
+
+	// As for unlimited grants above, the facts exist to be compared, so this
+	// asserts on what rules evaluate to rather than on the map.
+	t.Run("each kind satisfies the rules written for its shape", func(t *testing.T) {
+		ec := enrichServerFacts(grantsReader(), "growth-customer", map[string]any{})
+
+		for rule, want := range map[string]bool{
+			"__kaiten.entitlements['sso'] == true":                true,
+			"__kaiten.entitlements['sso']":                        true,
+			"__kaiten.entitlements['audit-log'] == true":          false,
+			"!__kaiten.entitlements['audit-log']":                 true,
+			"__kaiten.entitlements['support'].tier == 'priority'": true,
+			"__kaiten.entitlements['support'].tier == 'standard'": false,
+			"__kaiten.entitlements['support'].hours >= 24":        true,
+			"__kaiten.entitlements['customers'].remaining > 10":   true,
+		} {
+			t.Run(rule, func(t *testing.T) {
+				engine, err := featureflag.NewEngine(ec)
+				require.NoError(t, err)
+
+				match, err := engine.EvaluateRule(t.Context(), rule)
+				require.NoError(t, err)
+				assert.Equal(t, want, match)
+			})
+		}
+	})
+
+	// The lint refuses these when a rule is written; one that reached
+	// evaluation anyway — saved before the lint knew, or without a catalogue —
+	// must not match, and must not take the evaluation down with it.
+	t.Run("a grant read out of its shape does not match", func(t *testing.T) {
+		ec := enrichServerFacts(grantsReader(), "growth-customer", map[string]any{})
+
+		for _, rule := range []string{
+			"__kaiten.entitlements['sso'].limit >= 1.0",
+			"__kaiten.entitlements['support'].limit >= 1.0",
+		} {
+			t.Run(rule, func(t *testing.T) {
+				engine, err := featureflag.NewEngine(ec)
+				require.NoError(t, err)
+
+				match, _ := engine.EvaluateRule(t.Context(), rule)
+				assert.False(t, match)
+			})
+		}
+	})
+
+	// The Kaiten Sushi Shop demo's own rule, which matched nobody while a
+	// BOOLEAN grant read as 0 whatever it granted.
+	t.Run("the demo's delivery-tracking rule follows the grant", func(t *testing.T) {
+		const rule = "__kaiten.entitlements['delivery-tracking'] == true"
+
+		for value, want := range map[string]bool{"true": true, "false": false} {
+			reader := stubReader{rows: []customertargetingfacts.TargetingFact{{
+				LicenseSlug: "premium-v2", LicenseFamilySlug: "premium", LicenseType: "PAID",
+				EntitlementSlug: slug("delivery-tracking"), LimitValue: boolean(value),
+			}}}
+			engine, err := featureflag.NewEngine(enrichServerFacts(reader, "sakura-tokyo", map[string]any{}))
+			require.NoError(t, err)
+
+			match, err := engine.EvaluateRule(t.Context(), rule)
+			require.NoError(t, err)
+			assert.Equalf(t, want, match, "delivery tracking granted %s", value)
+		}
+	})
+}
+
 // instanceFactsStub backs the instance/customer/deployment-zone targeting
 // ports with in-memory fixtures keyed the same way the real queries are:
 // instance by slug or by id, customer and deployment zone by their own slug

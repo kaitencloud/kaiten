@@ -73,9 +73,12 @@ func TestGetTargetingContext(t *testing.T) {
 		// Declared on every environment, so a rule may target on it.
 		assert.Equal(t, featureflag.TargetingTypeString, nodeNamed(t, actual.Roots, "targetingKey").Type)
 
+		// No entitlement yet, so no shape to offer under the map: each one is
+		// described in the shape of its own type.
 		entitlements := nodeNamed(t, facts.Fields, "entitlements")
+		assert.Equal(t, featureflag.TargetingTypeMap, entitlements.Type)
 		assert.Empty(t, entitlements.KnownKeys)
-		require.NotNil(t, entitlements.Values, "an entitlement's shape is what makes the map completable")
+		assert.Empty(t, entitlements.Entries)
 	})
 
 	// The slugs are the one part of the schema that is not derived from a
@@ -85,15 +88,8 @@ func TestGetTargetingContext(t *testing.T) {
 		// Arrange
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 
-		payload := entitlementschema.Entitlement{
-			Name: "Seats",
-			Type: ptr.To(entitlementschema.Number),
-		}
-		req := commonfixture.NewJSONRequest(t, "POST", "/api/entitlements", payload)
-		resp, err := testServer.App.Test(req, fiber.TestConfig{})
-		require.NoError(t, err)
-		defer commonfixture.MustCloseBody(t, resp.Body)
-		created := commonfixture.AssertJSONResponse[entitlementschema.Entitlement](t, resp, fiber.StatusCreated)
+		seats := createEntitlement(t, "Seats", entitlementschema.Number)
+		sso := createEntitlement(t, "SSO", entitlementschema.Boolean)
 
 		// Act
 		actual := targetingContext(t)
@@ -101,7 +97,44 @@ func TestGetTargetingContext(t *testing.T) {
 		// Assert
 		facts := nodeNamed(t, actual.Roots, "__kaiten")
 		entitlements := nodeNamed(t, facts.Fields, "entitlements")
-		assert.Contains(t, entitlements.KnownKeys, created.Slug)
+		assert.Contains(t, entitlements.KnownKeys, seats.Slug)
+		assert.Contains(t, entitlements.KnownKeys, sso.Slug)
+
+		// Each in the shape it reads in: a quantity's fields, a bool.
+		assert.Equal(t, featureflag.TargetingTypeObject, nodeNamed(t, entitlements.Entries, seats.Slug).Type)
+		assert.Equal(t, featureflag.TargetingTypeBoolean, nodeNamed(t, entitlements.Entries, sso.Slug).Type)
+	})
+}
+
+func createEntitlement(t *testing.T, name string, typ entitlementschema.Type) entitlementschema.Entitlement {
+	t.Helper()
+
+	payload := entitlementschema.Entitlement{Name: name, Type: ptr.To(typ)}
+	req := commonfixture.NewJSONRequest(t, "POST", "/api/entitlements", payload)
+	resp, err := testServer.App.Test(req, fiber.TestConfig{})
+	require.NoError(t, err)
+	defer commonfixture.MustCloseBody(t, resp.Body)
+
+	return commonfixture.AssertJSONResponse[entitlementschema.Entitlement](t, resp, fiber.StatusCreated)
+}
+
+func TestLintTargetingRuleAgainstEntitlementTypes(t *testing.T) {
+	// The write path's lint knows each entitlement's type, so a BOOLEAN read
+	// as a quantity is refused with the way to write it.
+	t.Run("WhenABooleanIsReadAsAQuantity_SaysHowToCompareIt", func(t *testing.T) {
+		// Arrange
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		sso := createEntitlement(t, "SSO", entitlementschema.Boolean)
+
+		// Act
+		refused := lint(t, "__kaiten.entitlements['"+sso.Slug+"'].limit >= 1.0")
+		accepted := lint(t, "__kaiten.entitlements['"+sso.Slug+"'] == true")
+
+		// Assert
+		assert.False(t, refused.Valid)
+		require.NotEmpty(t, refused.Issues)
+		assert.Contains(t, refused.Issues[0].Message, "== true")
+		assert.True(t, accepted.Valid, "issues: %v", accepted.Issues)
 	})
 }
 

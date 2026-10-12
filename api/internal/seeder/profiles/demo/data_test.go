@@ -458,9 +458,16 @@ var (
 // Every rule also lints against this dataset's entitlements, and names only
 // families the catalogue has.
 func TestFlagRulesTargetProductsByFamily(t *testing.T) {
-	entitlementSlugs := make([]string, 0, len(entitlements))
+	known := make([]featureflag.KnownEntitlement, 0, len(entitlements))
 	for _, ent := range entitlements {
-		entitlementSlugs = append(entitlementSlugs, ent.Slug)
+		typ := featureflag.EntitlementConfig
+		switch {
+		case entitlementschema.IsNumberFamily(ent.Type):
+			typ = featureflag.EntitlementNumber
+		case ent.Type == entitlementschema.Boolean:
+			typ = featureflag.EntitlementBoolean
+		}
+		known = append(known, featureflag.KnownEntitlement{Slug: ent.Slug, Type: typ})
 	}
 	families := make(map[string]struct{}, len(licenses))
 	for _, lic := range licenses {
@@ -471,7 +478,7 @@ func TestFlagRulesTargetProductsByFamily(t *testing.T) {
 	for _, flag := range featureFlags {
 		for _, targeting := range flag.Targetings {
 			rule := targeting.GetRule().Value
-			require.NoErrorf(t, featureflag.LintTargetingRule(rule, entitlementSlugs), "flag %q: %s", flag.Slug, rule)
+			require.NoErrorf(t, featureflag.LintTargetingRule(rule, known), "flag %q: %s", flag.Slug, rule)
 			require.NotContainsf(t, rule, "__kaiten.license.slug",
 				"flag %q targets one license version; target the product with __kaiten.license.familySlug", flag.Slug)
 
