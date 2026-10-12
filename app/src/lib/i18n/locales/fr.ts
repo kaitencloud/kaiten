@@ -1248,8 +1248,8 @@ export default {
             },
           },
           tabs: {
-            overview: 'Overview',
-            entitlements: 'Entitlements & Usage',
+            overview: 'Vue d’ensemble',
+            entitlements: 'Droits & utilisation',
             billing: 'Facturation',
             auditTrail: 'Journal d’audit',
           },
