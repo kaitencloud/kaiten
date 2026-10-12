@@ -117,9 +117,7 @@ export function getInvoiceActions(
         ? [{ action: 'sync' }, { action: 'void' }]
         : [];
     case 'VOID':
-      return invoice.replacedByInvoiceId
-        ? []
-        : [recompose(invoice, context)];
+      return invoice.replacedByInvoiceId ? [] : [recompose(invoice, context)];
     default:
       return [];
   }
