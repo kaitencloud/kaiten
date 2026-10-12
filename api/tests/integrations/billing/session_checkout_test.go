@@ -193,6 +193,7 @@ func TestSessionCheckoutQuota(t *testing.T) {
 			sessionCall(t, testServer, "POST", checkoutPath, session.Token, storefront, with(order, "dryRun", dryRun)), fiber.StatusUnprocessableEntity)
 		require.Equal(t, "CreateSessionCheckout.QuotaExceeded", problem.Code, "dry run %v", dryRun)
 		require.Equal(t, map[string]any{"entitlementSlugs": []any{"seats"}}, problem.Errors[0].Value)
+		require.Equal(t, "body.licensePriceId", problem.Errors[0].Location, "the checkout's own member, not the subscription's")
 	}
 	moved := commonfixture.AssertJSONResponse[instanceschema.Instance](t, call(t, "GET", "/api/instances/"+instance.Slug, nil), fiber.StatusOK)
 	require.Equal(t, private.ID, moved.LicenseID, "nothing was changed")
