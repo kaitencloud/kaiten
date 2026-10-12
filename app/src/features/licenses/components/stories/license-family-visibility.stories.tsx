@@ -75,7 +75,7 @@ const list = () => (
   </StorybookRouter>
 );
 
-// Where billing is on, each family says whether it is listed in the public catalogue
+// Where billing is on, each family says whether it is listed in the public catalog
 // and has the switch to list it or take it out. Families are private until listed.
 export const PublicCatalogue: Story = {
   parameters: {
@@ -88,12 +88,12 @@ export const PublicCatalogue: Story = {
   render: list,
   play: async () => {
     const listed = await screen.findByRole('switch', {
-      name: 'List Enterprise in the public catalogue',
+      name: 'List Enterprise in the public catalog',
     });
 
     await expect(listed).toBeChecked();
     await expect(
-      screen.getByRole('switch', { name: 'List Starter in the public catalogue' }),
+      screen.getByRole('switch', { name: 'List Starter in the public catalog' }),
     ).not.toBeChecked();
     // One family is public, and says so.
     await expect(screen.getAllByText('Public')).toHaveLength(1);

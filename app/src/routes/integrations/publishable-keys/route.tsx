@@ -27,7 +27,7 @@ export const Route = createFileRoute('/integrations/publishable-keys')({
   // The guard of every route under it: the keys exist where GET /billing/capabilities
   // says billing is on. It does not ask for `features.publicSurface` or
   // `publicSurface.enabled`: the API answers the first `true` (the release ships the
-  // public catalogue and the keys) and the second as `enabled`
+  // public catalog and the keys) and the second as `enabled`
   // (api/internal/modules/billing/getbillingcapabilities), so neither says more than
   // billing being on. What a session may do with the keys is its scopes
   // (`read:publishable_keys`, then `write:publishable_keys`), which the API checks and

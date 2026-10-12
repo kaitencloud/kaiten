@@ -22,7 +22,7 @@ type AddonListItemProps = {
 
 /**
  * One family of the list: its name, how many versions it has, which one is the
- * default, whether it is listed in the public catalogue, the switch that lists it
+ * default, whether it is listed in the public catalog, the switch that lists it
  * and the way to a new version, over the table of its versions.
  */
 export function AddonListItem({ group }: AddonListItemProps) {

@@ -54,7 +54,7 @@ export const BILLING_ACTIONS = {
   // The customers, and the license versions, a voucher can be reserved for or limited to.
   'customers.list': 'listCustomers',
   'licenses.list': 'getLicenses',
-  // Listing a family of licenses in the public catalogue.
+  // Listing a family of licenses in the public catalog.
   'licenseFamily.setPublic': 'updateLicenseFamily',
   // The families a license is sold in, and what a version of one grants: what the
   // screens of the add-ons read to say which licenses an add-on fits.
@@ -96,7 +96,7 @@ export const BILLING_ACTIONS = {
   'vouchers.validate': 'validateVoucher',
   'instance.vouchers.list': 'listInstanceVouchers',
   'instance.vouchers.redeem': 'redeemVoucher',
-  // The publishable keys a web page reads the public catalogue with: they have scopes of
+  // The publishable keys a web page reads the public catalog with: they have scopes of
   // their own, and the page they are on is gated on billing but not on the public surface
   // the capabilities report (that flag says what the release ships, and equals billing
   // being on).

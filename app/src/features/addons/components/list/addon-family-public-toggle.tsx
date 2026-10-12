@@ -9,7 +9,7 @@ type AddonFamilyPublicToggleProps = {
 };
 
 /**
- * Lists the family in the public catalogue, or takes it out: the switch of the row of
+ * Lists the family in the public catalog, or takes it out: the switch of the row of
  * a family. Families are private until listed, and the catalogue serves the default
  * published version of a listed one, with its active prices. The switch is there for a
  * session that may write add-ons. The page it is on exists only where billing does

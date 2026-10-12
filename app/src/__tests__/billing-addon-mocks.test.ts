@@ -82,7 +82,7 @@ describe('the add-on catalogue, as the mocks serve it', () => {
     ).toBe(false);
   });
 
-  it('lists a family in the public catalogue, and takes it out again', async () => {
+  it('lists a family in the public catalog, and takes it out again', async () => {
     const listed = await json<AddonFamily>(
       await send('PATCH', '/addon-families/extra-storage', { isPublic: true }),
     );

@@ -86,7 +86,7 @@ export type BillingAppModelSeed = BillingInvoicesSeed &
     capabilities?: BillingCapabilities;
     /** The customers as the payment provider holds them, the health of billing and the provider's pass. */
     providers?: BillingProvidersSeed;
-    /** The publishable keys of the organization: the keys a web page reads the public catalogue with. */
+    /** The publishable keys of the organization: the keys a web page reads the public catalog with. */
     publishableKeys?: BillingPublishableKeysSeed;
     /** The vouchers of the organization and what instances redeemed of them. */
     voucherCatalogue?: BillingVouchersSeed;

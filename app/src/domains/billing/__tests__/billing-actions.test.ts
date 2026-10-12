@@ -116,7 +116,7 @@ describe('billing actions', () => {
     expect(canPerformAction(U_READER, 'instance.addons.detach')).toBe(false);
   });
 
-  it('lists a family in the public catalogue with the scope of the licenses', () => {
+  it('lists a family in the public catalog with the scope of the licenses', () => {
     expect(getActionScopes('licenseFamily.setPublic')).toEqual(['write:licenses']);
     expect(canPerformAction(U_READER, 'licenseFamily.setPublic')).toBe(false);
     expect(canPerformAction(U_SALES, 'licenseFamily.setPublic')).toBe(false);

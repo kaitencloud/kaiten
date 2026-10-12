@@ -412,7 +412,7 @@ export function createAddons({ entitlements, licenses }: AddonsWorld): {
       grants: createGrants(),
       licenseFamilies: [...new Set(licenses.map(licenseFamilySlug))],
       prices,
-      // The seats are what a buyer finds in the public catalogue.
+      // The seats are what a buyer finds in the public catalog.
       publicFamilies: [FAMILIES.seats.slug],
       versions,
     },

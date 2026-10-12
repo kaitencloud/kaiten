@@ -1564,11 +1564,11 @@ export default {
       title: 'Licenses',
       subtitle: 'Manage licenses and entitlement limits',
       Public: {
-        label: 'Public catalogue',
-        switchLabel: 'List {{name}} in the public catalogue',
+        label: 'Public catalog',
+        switchLabel: 'List {{name}} in the public catalog',
         badge: 'Public',
-        listed: 'The family is listed in the public catalogue',
-        unlisted: 'The family is no longer listed in the public catalogue',
+        listed: 'The family is listed in the public catalog',
+        unlisted: 'The family is no longer listed in the public catalog',
       },
       Freeze: {
         billed: {
@@ -1720,7 +1720,7 @@ export default {
             amountOverage:
               'Applied only to the units above the limit. Type the amount in the currency’s own unit (for example 0.075).',
             isDefault:
-              'The price the catalogue and the invoice preview use for this billing period. A period has one.',
+              'The price the catalog and the invoice preview use for this billing period. A period has one.',
           },
           Placeholders: {
             amount: '0.00',
@@ -3243,12 +3243,12 @@ export default {
       title: 'Integrations',
       PublishableKeys: {
         title: 'Publishable keys',
-        subtitle: 'The keys a web page reads your public catalogue with',
+        subtitle: 'The keys a web page reads your public catalog with',
         Intro: {
           purpose:
-            'A publishable key lets a web page read your public catalogue: it sends the key in the X-Kaiten-Publishable-Key header to GET /public/catalog. It is not a secret, and it reads nothing else.',
+            'A publishable key lets a web page read your public catalog: it sends the key in the X-Kaiten-Publishable-Key header to GET /public/catalog. It is not a secret, and it reads nothing else.',
           listing:
-            'What the catalogue lists is decided by the Public catalogue switch of each family:',
+            'What the catalog lists is decided by the Public catalog switch of each family:',
           licenses: 'License families',
           addons: 'Add-on families',
         },
@@ -3284,7 +3284,7 @@ export default {
           Empty: {
             title: 'No publishable key yet',
             description:
-              'Issue a key to let a web page read your public catalogue.',
+              'Issue a key to let a web page read your public catalog.',
             filteredTitle: 'No key matches',
             filteredDescription: 'No publishable key matches this search.',
           },
@@ -3348,7 +3348,7 @@ export default {
         Revoke: {
           title: 'Revoke {{label}}?',
           description:
-            'The key ending in {{hint}} stops working on the next request, and every page that sends it stops reading your catalogue. A revoked key cannot be restored: create a new one to replace it.',
+            'The key ending in {{hint}} stops working on the next request, and every page that sends it stops reading your catalog. A revoked key cannot be restored: create a new one to replace it.',
           confirm: 'Revoke key',
           success: '{{label}} revoked',
         },
@@ -3456,7 +3456,7 @@ export default {
             kaiten: 'Kaiten owns',
             stripe: 'Stripe owns',
             Kaiten: {
-              catalogue: 'The catalogue and its prices',
+              catalogue: 'The catalog and its prices',
               entitlements: 'What each instance is entitled to',
               usage: 'The journal of usage',
               subscription: 'The subscription of each instance',
@@ -3768,7 +3768,7 @@ export default {
             addons: {
               label: 'Add-ons',
               description:
-                'Access to the add-on catalogue: versions, prices and the entitlements they grant',
+                'Access to the add-on catalog: versions, prices and the entitlements they grant',
             },
             deploymentZones: {
               label: 'Deployment Zones',
@@ -3810,7 +3810,7 @@ export default {
             publishableKeys: {
               label: 'Publishable keys',
               description:
-                'Access to publishable keys: issue and revoke the pk_ keys a web page reads the public catalogue with',
+                'Access to publishable keys: issue and revoke the pk_ keys a web page reads the public catalog with',
             },
             organizations: {
               label: 'Organizations',
@@ -4415,11 +4415,11 @@ export default {
         ARCHIVED: 'Archived',
       },
       Public: {
-        label: 'Public catalogue',
-        switchLabel: 'List {{name}} in the public catalogue',
+        label: 'Public catalog',
+        switchLabel: 'List {{name}} in the public catalog',
         badge: 'Public',
-        listed: 'The family is listed in the public catalogue',
-        unlisted: 'The family is no longer listed in the public catalogue',
+        listed: 'The family is listed in the public catalog',
+        unlisted: 'The family is no longer listed in the public catalog',
       },
       List: {
         addonName: 'Add-on name',
@@ -5407,12 +5407,12 @@ export default {
           CUSTOMER_UPDATED: 'A customer record was edited.',
           CUSTOMER_DELETED: 'A customer was deleted.',
           CUSTOMER_CREATION_REJECTED: 'Creating a customer was refused.',
-          RELEASE_CREATED: 'A new release became available in the catalogue.',
+          RELEASE_CREATED: 'A new release became available in the catalog.',
           RELEASE_DEPLOYED: 'A release was rolled out to a deployment zone.',
-          RELEASE_DELETED: 'A release was removed from the catalogue.',
+          RELEASE_DELETED: 'A release was removed from the catalog.',
           DEPLOYMENT_ZONE_CREATED: 'A new deployment zone was created.',
           DEPLOYMENT_ZONE_DELETED: 'A deployment zone was deleted.',
-          COMPONENT_CREATED: 'A component was added to the catalogue.',
+          COMPONENT_CREATED: 'A component was added to the catalog.',
           COMPONENT_UPDATED:
             'A component was updated, including auto-versioning on release.',
           INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED:

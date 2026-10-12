@@ -30,10 +30,10 @@ export class LicensesListDriver {
     });
   }
 
-  /** The switch that lists a family in the public catalogue, or takes it out. */
+  /** The switch that lists a family in the public catalog, or takes it out. */
   publicSwitch(name: string): Locator {
     return this.family(name).getByRole('switch', {
-      name: `List ${name} in the public catalogue`,
+      name: `List ${name} in the public catalog`,
     });
   }
 
@@ -42,7 +42,7 @@ export class LicensesListDriver {
     return this.family(name).getByTestId('license-price-summary');
   }
 
-  /** What a family says of itself when it is listed in the public catalogue. */
+  /** What a family says of itself when it is listed in the public catalog. */
   publicBadge(name: string): Locator {
     return this.family(name).getByText('Public', { exact: true });
   }

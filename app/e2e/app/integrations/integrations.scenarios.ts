@@ -21,7 +21,7 @@ export function createSdkServiceAccount(): ServiceAccount {
 }
 
 /**
- * The publishable keys of a vendor whose pricing page reads the public catalogue: the
+ * The publishable keys of a vendor whose pricing page reads the public catalog: the
  * pricing page itself, a storefront that also runs from localhost, a docs site, and a
  * key that was revoked. Only the last four characters of a key are known to the API.
  */

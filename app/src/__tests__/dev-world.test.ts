@@ -181,7 +181,7 @@ describe('dev world', () => {
     }
   });
 
-  it('lists in the public catalogue the family that is sold self-serve, and no other', () => {
+  it('lists in the public catalog the family that is sold self-serve, and no other', () => {
     const { licenses, publicFamilyIds } = slot(config.licenses);
     const families = new Set(licenses.map(({ familyId }) => familyId));
 
@@ -240,7 +240,7 @@ describe('dev world', () => {
     expect(new Set(catalogue.versions.map((version) => version.pricingType))).toEqual(
       new Set(['CUSTOM', 'FREE', 'PAID']),
     );
-    // A family lists in the public catalogue, and another does not.
+    // A family lists in the public catalog, and another does not.
     expect(catalogue.publicFamilies.length).toBeGreaterThan(0);
     expect(
       catalogue.versions.some(

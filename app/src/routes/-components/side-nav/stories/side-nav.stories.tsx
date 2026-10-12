@@ -359,7 +359,7 @@ export const IntegrationsMenu: Story = {
 };
 
 // Billing on, with the capabilities the API serves now (the public surface is reported off):
-// the publishable keys, which a web page reads the public catalogue with, are listed after
+// the publishable keys, which a web page reads the public catalog with, are listed after
 // the connectors. Where billing is off the menu goes without them, as the stories above show.
 export const IntegrationsMenuWithBilling: Story = {
   render: () => (

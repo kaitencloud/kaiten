@@ -9,7 +9,7 @@ import {
 import { getApiErrorMessage } from '@/lib/errors';
 
 /**
- * Lists a family of licenses in the public catalogue, or takes it out. The listing
+ * Lists a family of licenses in the public catalog, or takes it out. The listing
  * is a billing write: it is not optimistic, and the switch shows what the API
  * answered, so a refusal never reads as a change. The families are read again when
  * it is accepted, the one list that carries the flag; a refusal is said in the API's

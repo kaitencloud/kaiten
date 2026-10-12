@@ -1,6 +1,6 @@
 # Publishable keys
 
-A publishable key (`pk_…`) lets a web page read the public catalogue of the organization: it sends the key in the `X-Kaiten-Publishable-Key` header to `GET /public/catalog`, and nothing else accepts it. It is not a secret, since it ships in the page, so it is bounded by the browser origins allowed to send it. This feature is the page where those keys are managed, where billing is on: it lists them by their last four characters, issues one and shows it once, changes the label and the origins of a live one, revokes one after a confirmation, and says in a sentence what a key is for and where to switch on what the catalogue lists.
+A publishable key (`pk_…`) lets a web page read the public catalog of the organization: it sends the key in the `X-Kaiten-Publishable-Key` header to `GET /public/catalog`, and nothing else accepts it. It is not a secret, since it ships in the page, so it is bounded by the browser origins allowed to send it. This feature is the page where those keys are managed, where billing is on: it lists them by their last four characters, issues one and shows it once, changes the label and the origins of a live one, revokes one after a confirmation, and says in a sentence what a key is for and where to switch on what the catalogue lists.
 
 ## Routes
 
@@ -13,7 +13,7 @@ A publishable key (`pk_…`) lets a web page read the public catalogue of the or
 
 The dialogs follow [dialog via route](../../../docs/03-patterns/dialog-via-route.md): the layout route draws the page, the dialog routes draw only the dialog, closing one navigates back to the list with the search it had (`includeRevoked` stays). The confirmation that revokes a key is local state, as it confirms an action on the key of a page and edits nothing.
 
-The keys are billing's, and the page is gated like the rest of it. `routes/integrations/publishable-keys/route.tsx` calls `requireBillingCapability(context.queryClient)` in its `beforeLoad` and has `BillingNotFound` as its `notFoundComponent`: where billing is off, a link to any of the routes explains why in place of the screen, and nothing of the keys is requested but the capabilities. **The guard asks for no `features.publicSurface` and no `publicSurface.enabled`.** The API answers the first `true` (the release ships the public catalogue and the keys) and the second as `enabled` (billing is on for the organization: `api/internal/modules/billing/getbillingcapabilities`), so neither says more than the guard already does. What a session may do is its scopes. The entry of the Integrations section of the side navigation (`integrationsSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`, `needsBilling`) is listed under the same condition, and only to a session whose scopes cover `read:publishable_keys`.
+The keys are billing's, and the page is gated like the rest of it. `routes/integrations/publishable-keys/route.tsx` calls `requireBillingCapability(context.queryClient)` in its `beforeLoad` and has `BillingNotFound` as its `notFoundComponent`: where billing is off, a link to any of the routes explains why in place of the screen, and nothing of the keys is requested but the capabilities. **The guard asks for no `features.publicSurface` and no `publicSurface.enabled`.** The API answers the first `true` (the release ships the public catalog and the keys) and the second as `enabled` (billing is on for the organization: `api/internal/modules/billing/getbillingcapabilities`), so neither says more than the guard already does. What a session may do is its scopes. The entry of the Integrations section of the side navigation (`integrationsSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`, `needsBilling`) is listed under the same condition, and only to a session whose scopes cover `read:publishable_keys`.
 
 ## Structure
 
@@ -21,7 +21,7 @@ The keys are billing's, and the page is gated like the rest of it. `routes/integ
 app/src/features/publishable-keys/
 ├── components/
 │   ├── page/            # publishable-keys-page-content (header, intro, list, the route's dialog) and
-│   │                    # publishable-keys-intro (what a key is for, and the way to the Public catalogue switches)
+│   │                    # publishable-keys-intro (what a key is for, and the way to the Public catalog switches)
 │   ├── list/            # publishable-key-list (search, the include-revoked switch, the New button, empty states),
 │   │                    # publishable-keys-table, origins-cell (folds past three), the status badge, row actions
 │   ├── form/            # publishable-key-form-dialog (issue or change) and publishable-key-fields
@@ -52,7 +52,7 @@ app/src/features/publishable-keys/
 - **A refusal goes where the person is looking.** A 422 about the label or an origin (`*.InvalidLabel`, `*.InvalidOrigin`, `*.TooManyOrigins`) is shown on its field in the API's own words, and the form stays as it was typed; any other is shown above the buttons. A 409 `UpdatePublishableKey.Revoked` says the key can no longer change and to create a new one, and reads the list again, which then shows the key revoked. A missing scope is a banner that names it.
 - **A revoked key is final.** It has no action, `/edit` of it leads back to the list, and its revocation is idempotent on the API: revoking one from another tab is a success here too. With the revoked keys left out, a key leaves the list when it is revoked and a toast says so; with them listed, the row reads Revoked.
 - **Scopes.** A session that cannot write the keys sees the list with none of New, Edit or Revoke, and the dialogs open nothing from their address. A session whose token says nothing about its scopes is offered every action, and the API's 403 is the answer.
-- **What a key is for.** The sentence above the list says that a page reads the public catalogue with the key, and links to the license families and the add-on families (the latter only where the release ships add-ons and the session may read them), whose Public catalogue switches decide what it lists.
+- **What a key is for.** The sentence above the list says that a page reads the public catalog with the key, and links to the license families and the add-on families (the latter only where the release ships add-ons and the session may read them), whose Public catalog switches decide what it lists.
 
 ## Tests
 
