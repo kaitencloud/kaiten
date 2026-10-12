@@ -8,7 +8,7 @@ export { STRIPE_CONNECTOR };
 export const ATTIO_CONNECTOR: ConnectorMeta = {
   id: 'attio',
   name: 'Attio',
-  tagline: 'Modern B2B CRM',
+  tagline: 'Pages.Integrations.Connectors.Taglines.attio',
   group: 'CRM',
   status: 'available',
   tile: 'primary',
@@ -21,7 +21,7 @@ export const CONNECTORS: ConnectorMeta[] = [
   {
     id: 'hubspot',
     name: 'HubSpot',
-    tagline: 'CRM platform',
+    tagline: 'Pages.Integrations.Connectors.Taglines.hubspot',
     group: 'CRM',
     status: 'coming-h1',
     tile: 'warning',
@@ -30,7 +30,7 @@ export const CONNECTORS: ConnectorMeta[] = [
   {
     id: 'salesforce',
     name: 'Salesforce',
-    tagline: 'Enterprise CRM',
+    tagline: 'Pages.Integrations.Connectors.Taglines.salesforce',
     group: 'CRM',
     status: 'coming-h2',
     tile: 'accent',
@@ -40,7 +40,7 @@ export const CONNECTORS: ConnectorMeta[] = [
   {
     id: 'lago',
     name: 'Lago',
-    tagline: 'Usage-based billing',
+    tagline: 'Pages.Integrations.Connectors.Taglines.lago',
     group: 'Billing',
     status: 'coming-h1',
     tile: 'muted',

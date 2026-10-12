@@ -4,7 +4,7 @@ import type { ConnectorMeta } from '../types';
 export const STRIPE_CONNECTOR: ConnectorMeta = {
   id: 'stripe',
   name: 'Stripe',
-  tagline: 'Subscription billing',
+  tagline: 'Pages.Integrations.Connectors.Taglines.stripe',
   group: 'Billing',
   status: 'available',
   tile: 'success',

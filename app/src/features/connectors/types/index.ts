@@ -28,6 +28,7 @@ export type ConnectorLogo = {
 export type ConnectorMeta = {
   id: ConnectorId;
   name: string;
+  /** What the connector does, in a few words, under its name: a translation key. */
   tagline: string;
   group: 'CRM' | 'Billing';
   status: ConnectorStatus;

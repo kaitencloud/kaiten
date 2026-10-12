@@ -185,7 +185,7 @@ function ConnectorCard({
             {connector.name}
           </span>
           <span className="line-clamp-2 min-h-8 text-xs text-muted-foreground">
-            {connector.note ? t(connector.note) : connector.tagline}
+            {t(connector.note ?? connector.tagline)}
           </span>
         </div>
         <StatusBadge status={connector.status} />
