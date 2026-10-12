@@ -497,6 +497,104 @@ func (q *Queries) ListLicensePrices(ctx context.Context, arg ListLicensePricesPa
 	return items, nil
 }
 
+const listLicensePricesByLicenses = `-- name: ListLicensePricesByLicenses :many
+SELECT p.license_id,
+       p.id,
+       p.billing_model,
+       p.billing_timing,
+       p.billing_period,
+       p.unit_amount_decimal::text AS unit_amount_decimal,
+       p.currency::text            AS currency,
+       p.meters_entitlement_id,
+       coalesce(p.sale_unit_factor::text, '')::text AS sale_unit_factor,
+       e.slug                      AS entitlement_slug,
+       e.sale_unit_singular,
+       e.sale_unit_plural,
+       p.display_label,
+       p.display_order,
+       p.is_default,
+       p.status,
+       p.deprecated_at,
+       p.created_at,
+       p.updated_at
+FROM license_price p
+LEFT JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id = p.organization_id
+WHERE p.organization_id = $1
+  AND p.license_id = ANY ($2::uuid[])
+ORDER BY p.display_order, p.id
+`
+
+type ListLicensePricesByLicensesParams struct {
+	OrganizationID uuid.UUID   `json:"organization_id"`
+	LicenseIds     []uuid.UUID `json:"license_ids"`
+}
+
+type ListLicensePricesByLicensesRow struct {
+	LicenseID           uuid.UUID        `json:"license_id"`
+	ID                  uuid.UUID        `json:"id"`
+	BillingModel        BillingModel     `json:"billing_model"`
+	BillingTiming       BillingTiming    `json:"billing_timing"`
+	BillingPeriod       *BillingPeriod   `json:"billing_period"`
+	UnitAmountDecimal   string           `json:"unit_amount_decimal"`
+	Currency            string           `json:"currency"`
+	MetersEntitlementID *uuid.UUID       `json:"meters_entitlement_id"`
+	SaleUnitFactor      string           `json:"sale_unit_factor"`
+	EntitlementSlug     *string          `json:"entitlement_slug"`
+	SaleUnitSingular    *string          `json:"sale_unit_singular"`
+	SaleUnitPlural      *string          `json:"sale_unit_plural"`
+	DisplayLabel        *string          `json:"display_label"`
+	DisplayOrder        int32            `json:"display_order"`
+	IsDefault           bool             `json:"is_default"`
+	Status              PriceStatus      `json:"status"`
+	DeprecatedAt        pgtype.Timestamp `json:"deprecated_at"`
+	CreatedAt           pgtype.Timestamp `json:"created_at"`
+	UpdatedAt           pgtype.Timestamp `json:"updated_at"`
+}
+
+// The prices of several versions in display order, every status: what
+// ListLicensePrices reads for one version, read for a batch of them in one
+// statement, with the version each row belongs to. GraphQL's License.prices
+// loads a whole page of versions through it.
+func (q *Queries) ListLicensePricesByLicenses(ctx context.Context, arg ListLicensePricesByLicensesParams) ([]ListLicensePricesByLicensesRow, error) {
+	rows, err := q.db.Query(ctx, listLicensePricesByLicenses, arg.OrganizationID, arg.LicenseIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLicensePricesByLicensesRow
+	for rows.Next() {
+		var i ListLicensePricesByLicensesRow
+		if err := rows.Scan(
+			&i.LicenseID,
+			&i.ID,
+			&i.BillingModel,
+			&i.BillingTiming,
+			&i.BillingPeriod,
+			&i.UnitAmountDecimal,
+			&i.Currency,
+			&i.MetersEntitlementID,
+			&i.SaleUnitFactor,
+			&i.EntitlementSlug,
+			&i.SaleUnitSingular,
+			&i.SaleUnitPlural,
+			&i.DisplayLabel,
+			&i.DisplayOrder,
+			&i.IsDefault,
+			&i.Status,
+			&i.DeprecatedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMeteredGrants = `-- name: ListMeteredGrants :many
 SELECT e.id,
        e.slug,
