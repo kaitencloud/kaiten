@@ -14,19 +14,34 @@ import (
 // LicensePricesLoaderName loads a licence version's prices, for License.prices.
 const LicensePricesLoaderName = "LicensePricesLoader"
 
-// newLicensePricesBatchFn reads each version's prices, every status, in
-// display order -- what GET /licenses/{slug}/prices answers.
+// newLicensePricesBatchFn reads the prices of every version a batch names in
+// one statement, every status, in display order -- what GET
+// /licenses/{slug}/prices answers for each of them. A page of 200 versions is
+// one query here, not 200.
 func newLicensePricesBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.UUID, []prices.Price] {
 	return func(ctx context.Context, keys []uuid.UUID) []*dataloaderLib.Result[[]prices.Price] {
 		results := make([]*dataloaderLib.Result[[]prices.Price], len(keys))
-		organizationID, err := getOrganizationID(ctx)
-		for i, licenseID := range keys {
-			if err != nil {
+		fail := func(err error) []*dataloaderLib.Result[[]prices.Price] {
+			for i := range results {
 				results[i] = &dataloaderLib.Result[[]prices.Price]{Error: err}
-				continue
 			}
-			list, listErr := prices.List(ctx, queries, organizationID, licenseID, "", "")
-			results[i] = &dataloaderLib.Result[[]prices.Price]{Data: list, Error: listErr}
+			return results
+		}
+
+		organizationID, err := getOrganizationID(ctx)
+		if err != nil {
+			return fail(err)
+		}
+		byLicense, err := prices.ListForLicenses(ctx, queries, organizationID, keys)
+		if err != nil {
+			return fail(err)
+		}
+		for i, licenseID := range keys {
+			list := byLicense[licenseID]
+			if list == nil {
+				list = []prices.Price{}
+			}
+			results[i] = &dataloaderLib.Result[[]prices.Price]{Data: list}
 		}
 		return results
 	}

@@ -73,6 +73,30 @@ func List(ctx context.Context, queries *db.Queries, organizationID, licenseID uu
 	return out, nil
 }
 
+// ListForLicenses reads the prices of several versions at once, every status, in
+// display order, keyed by version: one statement for the whole batch, where List
+// asks for one version. A version with no price has no entry.
+func ListForLicenses(ctx context.Context, queries *db.Queries, organizationID uuid.UUID, licenseIDs []uuid.UUID) (map[uuid.UUID][]Price, error) {
+	rows, err := queries.ListLicensePricesByLicenses(ctx, db.ListLicensePricesByLicensesParams{
+		OrganizationID: organizationID, LicenseIds: licenseIDs,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[uuid.UUID][]Price, len(licenseIDs))
+	for _, row := range rows {
+		out[row.LicenseID] = append(out[row.LicenseID], fromRow(db.ListLicensePricesRow{
+			ID: row.ID, BillingModel: row.BillingModel, BillingTiming: row.BillingTiming, BillingPeriod: row.BillingPeriod,
+			UnitAmountDecimal: row.UnitAmountDecimal, Currency: row.Currency, MetersEntitlementID: row.MetersEntitlementID,
+			SaleUnitFactor: row.SaleUnitFactor, EntitlementSlug: row.EntitlementSlug, SaleUnitSingular: row.SaleUnitSingular,
+			SaleUnitPlural: row.SaleUnitPlural, DisplayLabel: row.DisplayLabel, DisplayOrder: row.DisplayOrder,
+			IsDefault: row.IsDefault, Status: row.Status, DeprecatedAt: row.DeprecatedAt, CreatedAt: row.CreatedAt,
+			UpdatedAt: row.UpdatedAt,
+		}))
+	}
+	return out, nil
+}
+
 // Amount is a price's unit amount as a decimal.
 func (p Price) Amount() decimal.Decimal {
 	amount, _ := decimal.NewFromString(p.UnitAmountDecimal)

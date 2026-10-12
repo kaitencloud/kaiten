@@ -130,6 +130,37 @@ WHERE p.organization_id = sqlc.arg(organization_id)
 ORDER BY p.display_order, p.id;
 
 
+-- name: ListLicensePricesByLicenses :many
+-- The prices of several versions in display order, every status: what
+-- ListLicensePrices reads for one version, read for a batch of them in one
+-- statement, with the version each row belongs to. GraphQL's License.prices
+-- loads a whole page of versions through it.
+SELECT p.license_id,
+       p.id,
+       p.billing_model,
+       p.billing_timing,
+       p.billing_period,
+       p.unit_amount_decimal::text AS unit_amount_decimal,
+       p.currency::text            AS currency,
+       p.meters_entitlement_id,
+       coalesce(p.sale_unit_factor::text, '')::text AS sale_unit_factor,
+       e.slug                      AS entitlement_slug,
+       e.sale_unit_singular,
+       e.sale_unit_plural,
+       p.display_label,
+       p.display_order,
+       p.is_default,
+       p.status,
+       p.deprecated_at,
+       p.created_at,
+       p.updated_at
+FROM license_price p
+LEFT JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id = p.organization_id
+WHERE p.organization_id = sqlc.arg(organization_id)
+  AND p.license_id = ANY (sqlc.arg(license_ids)::uuid[])
+ORDER BY p.display_order, p.id;
+
+
 -- name: GetLicensePrice :one
 SELECT p.id,
        p.billing_model,
