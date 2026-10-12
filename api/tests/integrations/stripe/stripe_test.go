@@ -194,7 +194,7 @@ func TestReviewMode(t *testing.T) {
 	started := subscribe(t, newSold(t, "acme"))
 
 	waiting := waitFor(t, started.ActivationInvoice.ID, func(i invoices.Invoice) bool {
-		return i.Provider != nil && deref(i.Provider.ExternalInvoiceID) != "" && deref(i.Provider.Status) == "draft"
+		return reviewable(i)
 	}, "the draft waits for review")
 	require.Equal(t, "DRAFT", waiting.Status)
 	require.Equal(t, 0, fake.Count(stripefake.OpFinalizeInvoice))
@@ -202,6 +202,38 @@ func TestReviewMode(t *testing.T) {
 	require.Equal(t, fiber.StatusAccepted, call(t, "POST", "/api/invoices/"+started.ActivationInvoice.ID.String()+"/retry-push", nil).StatusCode)
 	waitFor(t, started.ActivationInvoice.ID, func(i invoices.Invoice) bool { return i.Status == "PUSHED" }, "retry-push finalizes it")
 	require.Equal(t, 1, fake.Count(stripefake.OpFinalizeInvoice))
+}
+
+// reviewable: the draft is complete in Stripe and waits for review. Its
+// provider status is "draft" from the push's first step, before the lines are
+// added: only the queue's date, cleared when the push leaves the draft for
+// review, says the push is over.
+func reviewable(i invoices.Invoice) bool {
+	return i.Provider != nil && deref(i.Provider.ExternalInvoiceID) != "" && deref(i.Provider.Status) == "draft" &&
+		i.Provider.NextPushAt == nil
+}
+
+// S09-045, mid-push: a retry-push answered while the push of a review-mode
+// draft is under way is not lost. It used to move the push's lease to now,
+// then the push left the draft for review and cleared the date: the 202
+// finalized nothing.
+func TestReviewModeRetryDuringThePush(t *testing.T) {
+	fresh(t)
+	connect(t, map[string]any{"stripeSecretKey": testKey, "autoFinalize": false})
+	fake.Delay(stripefake.OpCreateItem, 2*time.Second)
+	t.Cleanup(func() { fake.Delay(stripefake.OpCreateItem, 0) })
+	started := subscribe(t, newSold(t, "acme"))
+
+	waitFor(t, started.ActivationInvoice.ID, func(i invoices.Invoice) bool {
+		return i.Provider != nil && deref(i.Provider.ExternalInvoiceID) != "" && i.Provider.NextPushAt != nil
+	}, "the draft is created and its push still holds the lease")
+	_, items, _ := fake.Invoice(stripefake.DefaultAccount, deref(invoice(t, started.ActivationInvoice.ID).Provider.ExternalInvoiceID))
+	require.Equal(t, 0, items, "the line is still on its way: the push is under way")
+
+	require.Equal(t, fiber.StatusAccepted, call(t, "POST", "/api/invoices/"+started.ActivationInvoice.ID.String()+"/retry-push", nil).StatusCode)
+	waitFor(t, started.ActivationInvoice.ID, func(i invoices.Invoice) bool { return i.Status == "PUSHED" }, "the push under way finalizes it")
+	require.Equal(t, 1, fake.Count(stripefake.OpFinalizeInvoice))
+	require.Equal(t, 1, fake.Count(stripefake.OpCreateInvoice), "one push: the lease held")
 }
 
 // §12.4 rule 4: Stripe counts days_until_due from the draft's creation, Kaiten
@@ -230,7 +262,7 @@ func TestDueDate(t *testing.T) {
 		connect(t, map[string]any{"stripeSecretKey": testKey, "autoFinalize": false})
 		started := subscribe(t, newSold(t, "acme"))
 		waiting := waitFor(t, started.ActivationInvoice.ID, func(i invoices.Invoice) bool {
-			return i.Provider != nil && deref(i.Provider.Status) == "draft"
+			return reviewable(i)
 		}, "the draft waits for review")
 
 		fake.Advance(72 * time.Hour)

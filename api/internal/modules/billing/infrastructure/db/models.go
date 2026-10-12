@@ -666,4 +666,5 @@ type InstanceInvoice struct {
 	ExternalReference              *string               `json:"external_reference"`
 	CreatedAt                      pgtype.Timestamp      `json:"created_at"`
 	UpdatedAt                      pgtype.Timestamp      `json:"updated_at"`
+	FinalizeRequested              bool                  `json:"finalize_requested"`
 }

@@ -139,7 +139,7 @@ func (p *Pusher) pushingKinds() []string {
 
 // Push runs the push of one invoice from its first step without a result.
 // finalize forces the finalization of a draft the provider's settings would
-// leave for review (retry-push). A failure is recorded on the invoice and
+// leave for review, as the invoice's finalize_requested does (retry-push). A failure is recorded on the invoice and
 // returned.
 func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) (err error) {
 	ctx, span := otel.Tracer("kaiten.billing").Start(ctx, "billing.push",
@@ -244,10 +244,20 @@ func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) (
 		return nil
 	}
 
-	// Review mode: the draft waits in the provider.
-	if !conn.AutoFinalize && !finalize {
-		_, err := q.AwaitFinalization(ctx, db.AwaitFinalizationParams{Now: invoices.Timestamp(now), ID: row.ID})
-		return err
+	// Review mode: the draft waits in the provider, unless a retry-push asked
+	// for its finalization, before this push or while it ran.
+	if !conn.AutoFinalize && !finalize && !row.FinalizeRequested {
+		affected, err := q.AwaitFinalization(ctx, db.AwaitFinalizationParams{Now: invoices.Timestamp(now), ID: row.ID})
+		if err != nil || affected > 0 {
+			return err
+		}
+		current, err := q.GetInvoiceByID(ctx, row.ID)
+		if err != nil {
+			return err
+		}
+		if !current.FinalizeRequested || !pushable(current) {
+			return nil
+		}
 	}
 
 	// Step 3: finalize.
