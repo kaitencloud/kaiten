@@ -29,6 +29,12 @@ export interface CelContextNode {
   /** The shape shared by every entry, for a `map`. */
   values?: CelContextNode | null;
   /**
+   * The shape of each known key, for a `map` whose entries differ — each
+   * named after its key. `__kaiten.entitlements` reads a NUMBER entitlement as
+   * an object, a BOOLEAN one as a boolean, a CONFIG one as a map.
+   */
+  entries?: CelContextNode[];
+  /**
    * Keys the map currently has. Advisory only — a map stays readable under any
    * key, so this drives suggestions and never rejection.
    */

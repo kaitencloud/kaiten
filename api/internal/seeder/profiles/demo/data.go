@@ -674,7 +674,7 @@ var featureFlags = []schema.FeatureFlag{
 			{Name: "off", Value: false, Description: "Delivery tracking is hidden"},
 		},
 		Targetings: schema.Targetings{
-			schema.NewBasicTargeting("Delivery tracking entitlement granted", "__kaiten.entitlements['delivery-tracking'].limit >= 1.0", "on"),
+			schema.NewBasicTargeting("Delivery tracking entitlement granted", "__kaiten.entitlements['delivery-tracking'] == true", "on"),
 		},
 		DefaultVariant: &schema.DefaultVariant{
 			Type:  schema.BasicType,
@@ -977,7 +977,7 @@ var auditTrail = []auditEvent{
 		OccurredAt: time.Date(2026, 7, 3, 14, 0, 0, 0, time.UTC),
 		Name:       featureflagevents.FeatureFlagUpdated.Name,
 		Type:       featureflagevents.FeatureFlagUpdated.Type,
-		Payload:    map[string]any{"flag": "delivery-tracking-enabled", "change": "targeting_rules", "rule": "__kaiten.entitlements['delivery-tracking'].limit >= 1.0"},
+		Payload:    map[string]any{"flag": "delivery-tracking-enabled", "change": "targeting_rules", "rule": "__kaiten.entitlements['delivery-tracking'] == true"},
 	},
 	{
 		OccurredAt: time.Date(2026, 8, 12, 9, 0, 5, 0, time.UTC),
@@ -993,7 +993,7 @@ var auditTrail = []auditEvent{
 		InstanceSlug: "sakura-tokyo-prod",
 		Name:         featureflagevents.FeatureFlagEvaluated.Name,
 		Type:         featureflagevents.FeatureFlagEvaluated.Type,
-		Payload:      map[string]any{"flag": "delivery-tracking-enabled", "variant": "on", "value": true, "reason": "TARGETING_MATCH", "matched_rule": "__kaiten.entitlements['delivery-tracking'].limit >= 1.0"},
+		Payload:      map[string]any{"flag": "delivery-tracking-enabled", "variant": "on", "value": true, "reason": "TARGETING_MATCH", "matched_rule": "__kaiten.entitlements['delivery-tracking'] == true"},
 	},
 	{
 		OccurredAt:   time.Date(2026, 8, 14, 11, 2, 12, 0, time.UTC),
