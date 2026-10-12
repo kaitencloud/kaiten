@@ -65,7 +65,9 @@ SET status          = 'DRAFT',
     last_push_error = NULL,
     updated_at      = sqlc.arg(now)
 WHERE id = sqlc.arg(id)
-  AND status IN ('DRAFT', 'PUSH_FAILED');
+  AND status IN ('DRAFT', 'PUSH_FAILED')
+  -- A retry-push asked for the finalization meanwhile: the push finalizes.
+  AND NOT finalize_requested;
 
 
 -- name: MarkPushed :one
@@ -108,10 +110,14 @@ RETURNING *;
 
 
 -- name: RequeuePush :one
--- retry-push: the invoice is pushed by the next pass.
+-- retry-push: the invoice is pushed by the next pass, and finalized even in
+-- review mode. A DRAFT whose push is under way keeps that push's lease: the
+-- push reads finalize_requested before it leaves the draft for review.
 UPDATE instance_invoice
-SET next_push_at = sqlc.arg(now),
-    updated_at   = sqlc.arg(now)
+SET finalize_requested = true,
+    next_push_at       = CASE WHEN status = 'DRAFT' AND next_push_at > sqlc.arg(now)
+                              THEN next_push_at ELSE sqlc.arg(now) END,
+    updated_at         = sqlc.arg(now)
 WHERE id = sqlc.arg(id)
   AND provider_kind <> 'NOOP'
   AND status IN ('DRAFT', 'PUSH_FAILED')
