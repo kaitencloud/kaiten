@@ -15,6 +15,8 @@ if (!i18n.isInitialized) {
         translation: {
           Common: {
             actions: 'Actions',
+            decreaseValue: 'Decrease value',
+            increaseValue: 'Increase value',
           },
         },
       },

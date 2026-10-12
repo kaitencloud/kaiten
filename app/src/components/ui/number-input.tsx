@@ -1,6 +1,7 @@
 import { NumberField } from '@base-ui/react/number-field';
 import { Minus, Plus } from 'lucide-react';
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 type NumberInputProps = {
@@ -49,6 +50,7 @@ export function NumberInput({
   'aria-invalid': ariaInvalid,
   'aria-label': ariaLabel,
 }: NumberInputProps) {
+  const { t } = useTranslation();
   const inputId = React.useId();
   return (
     <NumberField.Root
@@ -90,7 +92,7 @@ export function NumberInput({
           <NumberField.Decrement
             type="button"
             className="hover:bg-muted/60 focus-visible:ring-ring inline-flex size-7 items-center justify-center rounded-sm transition-colors outline-none focus-visible:ring-2 disabled:opacity-50"
-            aria-label="Decrease value"
+            aria-label={t('Common.decreaseValue', 'Decrease value')}
           >
             <Minus className="size-4" />
           </NumberField.Decrement>
@@ -98,7 +100,7 @@ export function NumberInput({
           <NumberField.Increment
             type="button"
             className="hover:bg-muted/60 focus-visible:ring-ring inline-flex size-7 items-center justify-center rounded-sm transition-colors outline-none focus-visible:ring-2 disabled:opacity-50"
-            aria-label="Increase value"
+            aria-label={t('Common.increaseValue', 'Increase value')}
           >
             <Plus className="size-4" />
           </NumberField.Increment>
