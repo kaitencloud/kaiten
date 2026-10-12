@@ -10,7 +10,7 @@
  * it carries; a token that says nothing is let through, since the console then gives it
  * the benefit of the doubt too.
  *
- * Only these two documents are here. The others of the console are served to every
+ * Only these three documents are here. The others of the console are served to every
  * session: the sessions the specs sign in as hold the scopes of what they test, which is
  * not always every scope of a page's documents (the layout of an instance loads the
  * customers, whatever the tab), and refusing them would test the persona and not the
@@ -19,6 +19,7 @@
 export const GRAPHQL_DOCUMENT_SCOPES: Readonly<
   Record<string, readonly string[]>
 > = {
+  GetCatalogPrices: ['read:licenses', 'read:addons'],
   GetInstancesBilling: ['read:instances', 'read:billing'],
   GetLicensesWithPrices: ['read:licenses'],
 };

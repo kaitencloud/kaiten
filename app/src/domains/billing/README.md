@@ -104,12 +104,14 @@ app/src/domains/billing/
 │                     # (price-types, price-labels, price-display), the subscription of an
 │                     # instance as a list reads it (instance-billing-summary), the license
 │                     # versions with their prices (license-catalogue) and how one is sold
-│                     # (license-price-summary)
+│                     # (license-price-summary), every license and add-on version with all its
+│                     # prices, deprecated ones included (catalog-prices)
 ├── queries/          # the capabilities, the billing settings, the route guard, invalidation
 │                     # helpers (those of the vouchers and of an instance's redemptions included),
 │                     # the pages of the invoices of a subject, the pages of usage reports, the
-│                     # export of the invoices, and the attachments of an instance with the removed
-│                     # ones (instance-addons-query-options)
+│                     # export of the invoices, the attachments of an instance with the removed
+│                     # ones (instance-addons-query-options), and the prices of every version
+│                     # of the catalog in one document (catalog-prices-query-options)
 ├── types/
 ├── __tests__/
 └── index.ts
@@ -184,6 +186,28 @@ page holds, or an export the API streams.
   `LicensePriceSummaryText` draws it. Amounts are the price's own, written from its decimal
   string by `PriceAmount`; nothing is added up and no monthly equivalent is worked out, and
   a free or custom version states no amount.
+- `catalogPricesQueryOptions` reads every license version and every add-on version with
+  all its prices, ACTIVE or DEPRECATED, in a GraphQL document of its own, `GetCatalogPrices`
+  (`queries/catalog-prices.queries.ts`): `licenses { items { prices } }` and
+  `addons { items { prices } }` together, where the REST API would take a read of each
+  version's prices, one request for every version (15 in the dev world), because it gives a
+  price no owner. It is what the price picker of a voucher is drawn from
+  (`features/vouchers`). The two lists are paged apart, each by a cursor of its own, and
+  `withLicenses` and `withAddons` (an `@include` each) leave out the one already read to its
+  end, so an organization with fewer versions than a page (200) of either reads the catalog
+  in one request, and a longer list adds one request per page of it and never one per
+  version (`startPageWalk` and `takePage`, of `lib/api/pagination.ts`, check each list's
+  envelope as `fetchAllPages` checks a single one). The API checks the scopes of a whole
+  document at once, so it needs read:licenses and read:addons together and refuses the whole
+  of it, naming the first it finds missing, to a session that holds only one: the screen
+  shows that refusal with a way to ask again. It is not retried, and it checks no scope of
+  the session itself. A deprecated price is asked for on purpose: a voucher may still name
+  it and a subscription may still be billed by it. The enums are strings in the document, so
+  `toVersionsWithPrices` checks each against the REST schemas (`zLicense`, `zAddon`, and
+  `toCatalogPrice` for a price) and hands the screens `VersionWithPrices`: a state it does
+  not know is `undefined` and a price it cannot read is dropped. Every mutation of a
+  license version, an add-on version or a price of either invalidates
+  `catalogPricesBaseQueryKey` with the rest.
 - `usageReportPagesQueryOptions({ fetchPage, queryKey })` reads usage reports a page at a
   time by report number (`afterSeq`: the API answers with the number to read after, and
   none on the last page), under the generated key of the operation with an `_infinite`
@@ -596,13 +620,14 @@ have theirs, and
 `components/stories/invoices-table.stories.tsx` shows the table. The wait for a
 period being closed (`use-boundary-retry.test.tsx`, on fake timers: the minute, the
 `Retry-After`, the single retry, the unmount) and the bounds of a trial
-(`trial.test.ts`) are tested there too, and so are the two GraphQL documents the lists
-read: the subscriptions of the instances (`instance-billing-summary.test.ts`, the enums
+(`trial.test.ts`) are tested there too, and so are the three GraphQL documents of billing: the subscriptions of the instances (`instance-billing-summary.test.ts`, the enums
 checked against the contract; `instance-billing-badge.test.tsx`; `instances-billing.test.tsx`,
 the hook: nothing asked for while billing is off or the session lacks the scope, a page at a
 time with the variables of the list, a failure that drops the column) and the license
 versions with their prices (`license-catalogue.test.ts`, `license-price-summary.test.ts`,
-`licenses-with-prices.test.tsx`). The mocks that answer them are tested in
+`licenses-with-prices.test.tsx`) and every version of the catalog with all its prices
+(`catalog-prices.test.ts`, the enums and the prices checked against the contract; the hook that
+reads it is tested with the price picker, in `features/vouchers/hooks/__tests__/`). The mocks that answer them are tested in
 `src/__tests__/billing-graphql-mocks.test.ts`. The screens built on the domain are tested in
 [`features/billing`](../../features/billing/README.md).
 

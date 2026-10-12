@@ -134,7 +134,7 @@ export const storyLicensePricesHandler = (
       licenses: () => [...licenses],
       prices: (slug, filter) =>
         (pricesBySlug[slug] ?? []).filter(
-          (price) => price.status === filter.status,
+          (price) => !filter.status || price.status === filter.status,
         ),
     }),
   );

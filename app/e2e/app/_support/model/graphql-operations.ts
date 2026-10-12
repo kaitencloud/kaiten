@@ -1,5 +1,6 @@
-import type { License, Price } from '@/api-client';
+import type { Addon, License, Price } from '@/api-client';
 import type {
+  GetCatalogPricesQuery,
   GetInstancesBillingQuery,
   GetLicensesWithPricesQuery,
 } from '@/api-client/graphql/graphql';
@@ -56,6 +57,46 @@ export function graphqlPage<T>(
 }
 
 /**
+ * The lists of `GetCatalogPrices` that the request asks for, as the API answers it: a
+ * list the request leaves out (`withLicenses`, `withAddons` false, the `@include` of the
+ * document) is not in the answer at all, and the one it asks for is the page the cursor
+ * names. Each list is paged by its own cursor.
+ */
+function catalogPricesAnswer(
+  variables: GraphQLVariables,
+  rows: {
+    addons: () => GetCatalogPricesAddon[];
+    licenses: () => GetCatalogPricesLicense[];
+  },
+): GetCatalogPricesQuery {
+  return {
+    ...(variables?.withLicenses
+      ? {
+          licenses: graphqlPage(rows.licenses(), {
+            cursor: variables.licensesCursor,
+            limit: variables.limit,
+          }),
+        }
+      : {}),
+    ...(variables?.withAddons
+      ? {
+          addons: graphqlPage(rows.addons(), {
+            cursor: variables.addonsCursor,
+            limit: variables.limit,
+          }),
+        }
+      : {}),
+  };
+}
+
+type GetCatalogPricesLicense = NonNullable<
+  GetCatalogPricesQuery['licenses']
+>['items'][number];
+type GetCatalogPricesAddon = NonNullable<
+  GetCatalogPricesQuery['addons']
+>['items'][number];
+
+/**
  * What the unit tests and the stories answer to the documents of billing by default:
  * a page with nothing in it, which is what an organization with nothing subscribed and
  * nothing priced is served. They are sent only where billing is on, so a test or a story
@@ -63,6 +104,11 @@ export function graphqlPage<T>(
  * instead of a request nobody answered; one that is about them declares its own.
  */
 export const emptyBillingDocuments = {
+  GetCatalogPrices: (variables: GraphQLVariables): GetCatalogPricesQuery =>
+    catalogPricesAnswer(variables, {
+      addons: () => [],
+      licenses: () => [],
+    }),
   GetInstancesBilling: (): GetInstancesBillingQuery => ({
     instances: { hasMore: false, items: [], nextCursor: null },
   }),
@@ -95,7 +141,14 @@ export const instanceBillingOperations = (model: BillingAppModel) => ({
  */
 export type LicenseCatalogue = {
   licenses(): License[];
-  prices(licenseSlug: string, filter: { status: Price['status'] }): Price[];
+  /** A version's prices in display order: the ones in this status, or every one when none is named. */
+  prices(licenseSlug: string, filter: { status?: Price['status'] }): Price[];
+};
+
+/** Where the add-on versions and their prices come from: the add-on catalogue of the billing slot. */
+export type AddonCatalogueSource = {
+  /** Every version with every price it has, newest version first. */
+  listVersionsWithPrices(): { prices: Price[]; version: Addon }[];
 };
 
 /** A license and its active prices, as `GetLicensesWithPrices` selects them. */
@@ -146,4 +199,55 @@ export const licensePriceOperations = (catalogue: LicenseCatalogue) => ({
       variables,
     ),
   }),
+});
+
+/** A price as `GetCatalogPrices` selects it, whatever its status. */
+function toCatalogPriceInput(price: Price) {
+  return {
+    billingModel: price.billingModel,
+    billingPeriod: price.billingPeriod ?? null,
+    billingTiming: price.billingTiming,
+    currency: price.currency,
+    displayLabel: price.displayLabel ?? null,
+    displayOrder: price.displayOrder,
+    id: price.id,
+    isDefault: price.isDefault,
+    meteredEntitlement: price.metered?.entitlementSlug ?? null,
+    saleUnitFactor: price.metered?.saleUnitFactor ?? null,
+    status: price.status,
+    unitAmountDecimal: price.unitAmountDecimal,
+  };
+}
+
+/**
+ * Every license version and every add-on version with all its prices, active or not,
+ * each list a page at a time by its own cursor. The licenses are the slot of the
+ * licenses' (or, where a page has none, the instances' and billing's, see
+ * `LicenseCatalogue`) and the add-ons are billing's own.
+ */
+export const catalogPriceOperations = (
+  licenses: LicenseCatalogue,
+  addons: AddonCatalogueSource,
+) => ({
+  GetCatalogPrices: (variables: GraphQLVariables): GetCatalogPricesQuery =>
+    catalogPricesAnswer(variables, {
+      addons: () =>
+        addons.listVersionsWithPrices().map(({ prices, version }) => ({
+          id: version.id,
+          lifecycleState: version.lifecycleState,
+          name: version.name,
+          prices: prices.map(toCatalogPriceInput),
+          versionName: version.versionName,
+        })),
+      licenses: () =>
+        licenses.licenses().map((license) => ({
+          id: license.id,
+          lifecycleState: license.lifecycleState ?? 'PUBLISHED',
+          name: license.name,
+          prices: licenses
+            .prices(license.slug ?? license.id, {})
+            .map(toCatalogPriceInput),
+          version: license.version,
+        })),
+    }),
 });

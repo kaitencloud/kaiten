@@ -22,6 +22,7 @@ import {
 } from '@/api-client/@tanstack/react-query.gen';
 import { invalidateInstanceQueries } from '@/domains/customer-management';
 import { STRIPE_CONNECTOR_NAME } from '../logic/billing-providers';
+import { catalogPricesBaseQueryKey } from './catalog-prices-query-options';
 import { instancesBillingBaseQueryKey } from './instances-billing-query-options';
 import { licensesWithPricesBaseQueryKey } from './licenses-prices-query-options';
 
@@ -218,7 +219,8 @@ export async function invalidateInvoiceQueries(
  * A price of a license version changed (created, edited, deprecated): that
  * version's prices, and the version, whose detail carries what the page reads, and
  * the license versions with their prices, where the list of licenses and the plans
- * of a subscription read them (one read for every version, so every version's).
+ * of a subscription read them (one read for every version, so every version's), and
+ * the prices of every version, where the price picker of a voucher reads them.
  */
 export async function invalidateLicensePriceQueries(
   queryClient: QueryClient,
@@ -232,6 +234,7 @@ export async function invalidateLicensePriceQueries(
       queryKey: getLicenseQueryKey({ path: { licenseSlug } }),
     }),
     queryClient.invalidateQueries({ queryKey: licensesWithPricesBaseQueryKey }),
+    queryClient.invalidateQueries({ queryKey: catalogPricesBaseQueryKey }),
   ]);
 }
 

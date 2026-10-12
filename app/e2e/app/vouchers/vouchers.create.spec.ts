@@ -1,5 +1,5 @@
 import { expect, expectToast, test } from '../_support/app-test';
-import { recordWrites } from '../_support/assertions/requests';
+import { recordGraphQL, recordWrites } from '../_support/assertions/requests';
 import { VoucherDetailDriver } from '../_support/drivers/voucher-detail.driver';
 import { VoucherWizardDriver } from '../_support/drivers/voucher-wizard.driver';
 import { BILLED_NOW } from '../billing/billed-instances';
@@ -137,6 +137,44 @@ test.describe('the offer of a discount', () => {
     await wizard.priceList().getByRole('checkbox').first().check();
     await wizard.next().click();
     await wizard.expectStep('Who and when');
+  });
+
+  test('reads the prices of every license version and add-on version in one request, not one per version', async ({
+    page,
+  }) => {
+    const documents = recordGraphQL(page);
+    // What the picker asked for before: `/licenses/{slug}/prices` and `/addons/{slug}/prices`,
+    // once for each version of the catalog.
+    const priceReads = recordWrites(
+      page,
+      /\/api\/(licenses|addons)\/[^/]+\/prices$/,
+      ['GET'],
+    );
+    const wizard = new VoucherWizardDriver(page);
+    await wizard.goto();
+    await wizard.startAs('Discount', 'Some prices');
+    await wizard.percentageField().fill('15');
+    await expect(wizard.priceList()).toHaveCount(0);
+
+    await wizard.appliesTo('Chosen prices').click();
+    await expect(wizard.priceList()).toBeVisible();
+    await expect(
+      wizard.priceList().getByText('Pro v1 · Pro, monthly'),
+    ).toBeVisible();
+
+    // Nothing is read until the prices are asked for, and then in one request for the
+    // catalog: a page of each list, read to its end.
+    expect(
+      documents.filter(
+        ({ operationName }) => operationName === 'GetCatalogPrices',
+      ),
+    ).toEqual([
+      {
+        operationName: 'GetCatalogPrices',
+        variables: { limit: 200, withAddons: true, withLicenses: true },
+      },
+    ]);
+    expect(priceReads).toEqual([]);
   });
 
   test('counts the invoices when the offer repeats', async ({ page }) => {
