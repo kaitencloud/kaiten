@@ -40,7 +40,9 @@ function AddOnsGroup({
     <div
       aria-describedby={`${formDescriptionId} ${formMessageId}`}
       aria-labelledby={labelId}
-      className="space-y-3"
+      // A grid item of the form field: without min-w-0 it grows to the longest
+      // add-on name and spills out of the dialog on a narrow phone.
+      className="min-w-0 space-y-3"
       role="group"
     >
       <p className="text-sm font-medium" id={labelId}>
@@ -90,7 +92,7 @@ export const PreviewAddOnsFields = withForm({
               >
                 {rows.map((row, index) => (
                   <div
-                    className="grid items-start gap-3 rounded-md border p-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]"
+                    className="grid grid-cols-1 items-start gap-3 rounded-md border p-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]"
                     data-testid="preview-addon-row"
                     key={row.key}
                   >
