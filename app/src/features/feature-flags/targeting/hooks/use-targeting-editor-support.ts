@@ -112,6 +112,7 @@ function toCelContextNode(node: TargetingContextNode): CelContextNode {
     description: node.description,
     fields: node.fields?.map(toCelContextNode),
     values: node.values ? toCelContextNode(node.values) : undefined,
+    entries: node.entries?.map(toCelContextNode),
     knownKeys: node.knownKeys ?? undefined,
     optional: node.optional,
   };

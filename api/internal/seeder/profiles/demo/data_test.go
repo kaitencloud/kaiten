@@ -10,7 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/featureflag"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
+	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
 )
 
@@ -50,6 +53,79 @@ func TestEntitlementGroupsCoverAllSampleEntitlements(t *testing.T) {
 			)
 		}
 	}
+}
+
+// TestEntitlementsArePresentedToCustomers keeps the demo catalogue renderable by
+// customer-facing components, which show only user-facing entitlements, in
+// display order, with their icon and unit labels: a catalogue without them
+// renders as an empty pricing table. Each field passes the validation
+// create-entitlement applies, and display orders are distinct, so the order is
+// the dataset's rather than the database's.
+func TestEntitlementsArePresentedToCustomers(t *testing.T) {
+	owners := make(map[int32]string, len(entitlements))
+	for _, ent := range entitlements {
+		require.Truef(t, ent.UserFacing, "entitlement %q is hidden from customer-facing components", ent.Slug)
+		require.NoErrorf(t, entitlementschema.ValidateIcon(ent.Icon), "entitlement %q icon", ent.Slug)
+		require.NoErrorf(t, entitlementschema.ValidateUnitsConfiguration(ent.Type, ent.UnitSingular, ent.UnitPlural, nil, nil, nil),
+			"entitlement %q units", ent.Slug)
+		if ent.Type == entitlementschema.Number {
+			require.NotNilf(t, ent.UnitSingular, "NUMBER entitlement %q has no unit labels", ent.Slug)
+		}
+
+		owner, taken := owners[ent.DisplayOrder]
+		require.Falsef(t, taken, "display order %d belongs to both %q and %q", ent.DisplayOrder, owner, ent.Slug)
+		owners[ent.DisplayOrder] = ent.Slug
+	}
+}
+
+// TestUsageRowsFollowTheirEntitlementsResetPeriod guards the window each seeded
+// usage row is dated to. A periodic row of a lifetime entitlement claims a
+// reset the entitlement does not have, and a lifetime row of a periodic one
+// reads as zero. monthly-orders was the first case: its rows were dated to the
+// month, from a slug kept beside the definitions, while the entitlement was
+// created without a reset period. The row's window now comes from the
+// definition (usagePeriodStart), so this checks that derivation on every row
+// the dataset reports, and that each definition is one create-entitlement
+// accepts -- the database refuses the rest, but only once a seed runs.
+func TestUsageRowsFollowTheirEntitlementsResetPeriod(t *testing.T) {
+	for _, ent := range entitlements {
+		// The check create-entitlement runs, on the anchor as written: the
+		// seed computes the window from it, so it does not get the default
+		// the API would fill in.
+		require.NoErrorf(t,
+			entitlementschema.ValidateResetConfiguration(ent.Type, ent.AggregationMethod, ent.ResetPeriod, ent.ResetAnchor),
+			"entitlement %q", ent.Slug)
+	}
+
+	// The seed runs at any time; the dataset's own "today" will do. Instances
+	// start their license when they are seeded, so that is their start too.
+	now := datasetReferenceDate
+	periodic := 0
+	for _, cust := range customers {
+		for _, inst := range cust.Instances {
+			for slug := range inst.UsageValues {
+				require.Containsf(t, usageEntitlementOrder, slug,
+					"instance %q reports usage of %q, which seedUsageMetrics never reads", inst.Slug, slug)
+				ent, ok := entitlementBySlug(slug)
+				require.Truef(t, ok, "instance %q reports usage of unknown entitlement %q", inst.Slug, slug)
+				require.Truef(t, entitlementschema.IsNumberFamily(ent.Type),
+					"instance %q reports usage of %q, a %s entitlement, which takes none", inst.Slug, slug, ent.Type)
+
+				if ent.ResetPeriod == nil {
+					continue
+				}
+				periodic++
+
+				// The seed writes the counter through
+				// reportentitlementusagemetric.WriteSnapshot, which dates it in the
+				// window that is current when it runs, so the read path takes it
+				// for the current window's usage. That window has to resolve.
+				_, err := period.Current(now, *ent.ResetPeriod, *ent.ResetAnchor, now)
+				require.NoErrorf(t, err, "instance %q: no current window for its %q usage", inst.Slug, slug)
+			}
+		}
+	}
+	require.NotZero(t, periodic, "no usage row is periodic any more; this test guards nothing")
 }
 
 // TestSakuraTokyoInstancesResolveDifferentLicenses guards the dataset's
@@ -119,6 +195,62 @@ func TestDeploymentsReferenceKnownZonesAndReleases(t *testing.T) {
 		_, ok = knownReleases[d.ReleaseVersion]
 		require.Truef(t, ok, "deployment references unknown release %q", d.ReleaseVersion)
 	}
+}
+
+// TestReleasesShipOneVersionOfEachComponent guards what each release bundles.
+// A release inherits its previous release's components, so one that brings in
+// a component's next version has to take out the version it inherited, or it
+// ships both: 2026.8.0 once bundled two APIs, two web apps and two delivery
+// services, seven components where it has four. The next version also follows
+// the one it replaces, so the catalogue shows the chain.
+func TestReleasesShipOneVersionOfEachComponent(t *testing.T) {
+	bundles, err := releaseBundles()
+	require.NoError(t, err)
+
+	// Every component, by slug, in the order the patches create them. A new
+	// version may only follow a component created before it, and one of the
+	// same name: the next version of something else is not a version.
+	components := make(map[string]componentPatch)
+	for _, rel := range releases {
+		for _, patch := range rel.Patches {
+			if patch.Op != opAdd {
+				continue
+			}
+			if patch.PreviousSlug != nil {
+				previous, ok := components[*patch.PreviousSlug]
+				require.Truef(t, ok, "component %q follows %q, which no earlier patch creates", *patch.Slug, *patch.PreviousSlug)
+				require.Equalf(t, *previous.Name, *patch.Name, "component %q follows %q, another component", *patch.Slug, *patch.PreviousSlug)
+			}
+			components[*patch.Slug] = patch
+		}
+	}
+	nameOf := func(slug string) string { return *components[slug].Name }
+
+	upgrades := 0
+	for _, rel := range releases {
+		shipped := make(map[string]string, len(bundles[rel.Version])) // component name → slug
+		for _, slug := range bundles[rel.Version] {
+			other, twice := shipped[nameOf(slug)]
+			require.Falsef(t, twice, "release %q ships two versions of %q: %q and %q", rel.Version, nameOf(slug), other, slug)
+			shipped[nameOf(slug)] = slug
+		}
+
+		// A component the release ships in another version than its previous
+		// release did is the successor of the version it replaces.
+		if rel.PreviousVersion == "" {
+			continue
+		}
+		for _, inherited := range bundles[rel.PreviousVersion] {
+			replacement, kept := shipped[nameOf(inherited)]
+			if !kept || replacement == inherited {
+				continue
+			}
+			upgrades++
+			require.Equalf(t, ptr.To(inherited), components[replacement].PreviousSlug,
+				"release %q replaces %q with %q, which does not follow it", rel.Version, inherited, replacement)
+		}
+	}
+	require.NotZero(t, upgrades, "no release upgrades a component any more; this test guards nothing")
 }
 
 // TestDeploymentZoneTypesAreEnvironments keeps a zone's type to the environment
@@ -315,9 +447,16 @@ var (
 // Every rule also lints against this dataset's entitlements, and names only
 // families the catalogue has.
 func TestFlagRulesTargetProductsByFamily(t *testing.T) {
-	entitlementSlugs := make([]string, 0, len(entitlements))
+	known := make([]featureflag.KnownEntitlement, 0, len(entitlements))
 	for _, ent := range entitlements {
-		entitlementSlugs = append(entitlementSlugs, ent.Slug)
+		typ := featureflag.EntitlementConfig
+		switch {
+		case entitlementschema.IsNumberFamily(ent.Type):
+			typ = featureflag.EntitlementNumber
+		case ent.Type == entitlementschema.Boolean:
+			typ = featureflag.EntitlementBoolean
+		}
+		known = append(known, featureflag.KnownEntitlement{Slug: ent.Slug, Type: typ})
 	}
 	families := make(map[string]struct{}, len(licenses))
 	for _, lic := range licenses {
@@ -328,7 +467,7 @@ func TestFlagRulesTargetProductsByFamily(t *testing.T) {
 	for _, flag := range featureFlags {
 		for _, targeting := range flag.Targetings {
 			rule := targeting.GetRule().Value
-			require.NoErrorf(t, featureflag.LintTargetingRule(rule, entitlementSlugs), "flag %q: %s", flag.Slug, rule)
+			require.NoErrorf(t, featureflag.LintTargetingRule(rule, known), "flag %q: %s", flag.Slug, rule)
 			require.NotContainsf(t, rule, "__kaiten.license.slug",
 				"flag %q targets one license version; target the product with __kaiten.license.familySlug", flag.Slug)
 
@@ -370,6 +509,22 @@ func TestLicenseSlugsAreFixedAndDistinct(t *testing.T) {
 			require.Falsef(t, taken, "slug %q belongs to both %q and %q", slug, owner, lic.Name)
 			owners[slug] = lic.Name
 		}
+	}
+}
+
+// TestReleaseSlugsAreFixedAndDistinct pins the releases' addresses, as
+// TestLicenseSlugsAreFixedAndDistinct pins the catalogue's: one valid slug per
+// release, the same on every seed, so a link to a release keeps working after a
+// reseed.
+func TestReleaseSlugsAreFixedAndDistinct(t *testing.T) {
+	owners := make(map[string]string, len(releases))
+	for _, rel := range releases {
+		_, err := slugutil.New(rel.Slug)
+		require.NoErrorf(t, err, "release %q has an invalid slug %q", rel.Version, rel.Slug)
+
+		owner, taken := owners[rel.Slug]
+		require.Falsef(t, taken, "slug %q belongs to both %q and %q", rel.Slug, owner, rel.Version)
+		owners[rel.Slug] = rel.Version
 	}
 }
 

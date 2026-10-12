@@ -288,3 +288,52 @@ describe('resolveNode', () => {
     expect(resolve('__kaiten.license[someVar]')).toBeNull();
   });
 });
+
+// `__kaiten.entitlements` holds a different shape under each key: a NUMBER
+// entitlement is an object, a BOOLEAN one a boolean, a CONFIG one a map.
+describe('resolveNode on a map whose entries differ', () => {
+  const typed: CelContextNode[] = [
+    {
+      name: '__kaiten',
+      type: 'object',
+      fields: [
+        {
+          name: 'entitlements',
+          type: 'map',
+          knownKeys: ['seats', 'sso', 'support'],
+          entries: [
+            {
+              name: 'seats',
+              type: 'object',
+              fields: [{ name: 'remaining', type: 'number' }],
+            },
+            { name: 'sso', type: 'boolean' },
+            {
+              name: 'support',
+              type: 'map',
+              values: { name: '', type: 'dyn' },
+            },
+          ],
+        },
+      ],
+    },
+  ];
+  const resolve = (text: string) => resolveNode(typed, scanChain(text) ?? []);
+
+  it.each([
+    ["__kaiten.entitlements['seats']", 'object'],
+    ['__kaiten.entitlements.seats.remaining', 'number'],
+    ["__kaiten.entitlements['sso']", 'boolean'],
+    ["__kaiten.entitlements['support'].tier", 'dyn'],
+  ])('lands %s on its own shape', (text, type) => {
+    expect(resolve(text)?.type).toBe(type);
+  });
+
+  // There is no shape the entries share, so neither a bool's fields nor an
+  // unknown key's are invented.
+  it('stops where the entry stops', () => {
+    expect(resolve("__kaiten.entitlements['sso'].limit")).toBeNull();
+    expect(resolve("__kaiten.entitlements['sieges'].remaining")).toBeNull();
+    expect(resolve('__kaiten.entitlements[someVar]')).toBeNull();
+  });
+});

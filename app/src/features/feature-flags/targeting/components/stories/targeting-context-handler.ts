@@ -35,29 +35,67 @@ const SERVED_TARGETING_CONTEXT: TargetingContext = {
         {
           name: 'entitlements',
           type: 'map',
-          description: 'Entitlement usage, keyed by slug.',
-          knownKeys: ['seats', 'customers', 'instances'],
-          values: {
-            name: '',
-            type: 'object',
-            fields: [
-              {
-                name: 'remaining',
-                type: 'number',
-                description: 'Ceiling minus usage.',
-              },
-              {
-                name: 'percentage',
-                type: 'number',
-                description: 'Share of the ceiling consumed, between 0 and 1.',
-              },
-              {
-                name: 'unlimited',
-                type: 'boolean',
-                description: 'True when the entitlement has no ceiling.',
-              },
-            ],
-          },
+          description: "What the license grants, keyed by entitlement slug, in the shape of each entitlement's type.",
+          knownKeys: ['seats', 'customers', 'sso', 'support'],
+          entries: [
+            {
+              name: 'seats',
+              type: 'object',
+              description: 'NUMBER entitlement: what the license grants, and what is used of it.',
+              fields: [
+                {
+                  name: 'remaining',
+                  type: 'number',
+                  description: 'Ceiling minus usage.',
+                },
+                {
+                  name: 'percentage',
+                  type: 'number',
+                  description: 'Share of the ceiling consumed, between 0 and 1.',
+                },
+                {
+                  name: 'unlimited',
+                  type: 'boolean',
+                  description: 'True when the entitlement has no ceiling.',
+                },
+              ],
+            },
+            {
+              name: 'customers',
+              type: 'object',
+              description: 'NUMBER entitlement: what the license grants, and what is used of it.',
+              fields: [
+                {
+                  name: 'remaining',
+                  type: 'number',
+                  description: 'Ceiling minus usage.',
+                },
+                {
+                  name: 'percentage',
+                  type: 'number',
+                  description: 'Share of the ceiling consumed, between 0 and 1.',
+                },
+                {
+                  name: 'unlimited',
+                  type: 'boolean',
+                  description: 'True when the entitlement has no ceiling.',
+                },
+              ],
+            },
+            {
+              name: 'sso',
+              type: 'boolean',
+              description:
+                'BOOLEAN entitlement: true when the license grants it. Compare it directly: == true',
+            },
+            {
+              name: 'support',
+              type: 'map',
+              description:
+                'CONFIG entitlement: the object the license grants. Its keys are whatever the license sets',
+              values: { name: '', type: 'dyn' },
+            },
+          ],
         },
         {
           name: 'instance',
