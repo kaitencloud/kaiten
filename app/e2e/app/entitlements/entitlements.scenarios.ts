@@ -155,3 +155,69 @@ export function createPeriodicEntitlementModel() {
     ],
   });
 }
+
+/**
+ * Two entitlements that cannot be deleted because something still references
+ * them: the calls are granted by a license version, counted on instances and
+ * metered by a price, and the seats are counted on instances. The one that
+ * nothing references is the one that can.
+ */
+export function createReferencedEntitlementModel() {
+  return new EntitlementAppModel({
+    entitlements: [
+      buildEntitlement({
+        description: 'Tracks the number of API calls per billing period',
+        id: 'entitlement-api-calls',
+        name: 'API Calls',
+        slug: 'api-calls',
+        type: 'NUMBER',
+      }),
+      buildEntitlement({
+        description: 'Counts the seats of an instance',
+        id: 'entitlement-seats',
+        name: 'Seats',
+        slug: 'seats',
+        type: 'NUMBER',
+      }),
+      buildEntitlement({
+        description: 'Grants access to priority support queues',
+        id: 'entitlement-priority-support',
+        name: 'Priority Support',
+        slug: 'priority-support',
+        type: 'BOOLEAN',
+      }),
+    ],
+    references: {
+      'api-calls': { licenseGrants: 2, licensePrices: 1, usageCounters: 3 },
+      seats: { usageCounters: 1 },
+    },
+  });
+}
+
+/**
+ * The entitlement that is still referenced comes last in the list. A row leaves
+ * the list at once when it is deleted and comes back when the API refuses, and the
+ * last one is the row whose component is gone by then: the refusal has to be shown
+ * by something that is not the row.
+ */
+export function createReferencedLastEntitlementModel() {
+  return new EntitlementAppModel({
+    entitlements: [
+      buildEntitlement({
+        description: 'Grants access to priority support queues',
+        id: 'entitlement-priority-support',
+        name: 'Priority Support',
+        slug: 'priority-support',
+        type: 'BOOLEAN',
+      }),
+      buildEntitlement({
+        description: 'Counts the seats of an instance',
+        id: 'entitlement-seats',
+        name: 'Seats',
+        slug: 'seats',
+        type: 'NUMBER',
+      }),
+    ],
+    references: { seats: { usageCounters: 1 } },
+  });
+}

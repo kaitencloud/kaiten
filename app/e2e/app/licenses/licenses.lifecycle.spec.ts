@@ -2,7 +2,9 @@ import { expect, expectToast, test } from '../_support/app-test';
 import { LicenseDetailDriver } from '../_support/drivers/license-detail.driver';
 import { LicenseLifecycleDialogDriver } from '../_support/drivers/license-lifecycle-dialog.driver';
 import { LicensesListDriver } from '../_support/drivers/licenses-list.driver';
+import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installLicenseAppMocks } from '../_support/mocks/install-license-app-mocks';
+import { createBillingStackModel } from '../billing/billing.scenarios';
 import { createLicenseCatalogModel } from './licenses.scenarios';
 
 test('publishes a draft version from the versions table', async ({ page }) => {
@@ -20,7 +22,7 @@ test('publishes a draft version from the versions table', async ({ page }) => {
   await expectToast(page, 'Version published');
   await list.expectVersionState('Starter', 'Next', 'Published');
   // The action is not a click on the row, which would open the version.
-  await expect(page).toHaveURL('/licenses');
+  await expect(page).toHaveURL('/catalog/licenses');
 });
 
 test('changes nothing when the confirmation is cancelled', async ({ page }) => {
@@ -115,4 +117,64 @@ test('shows the reason the API gives when the version moved in the meantime', as
   await expectToast(page, 'License "starter-v4" is already published');
   // Refetched all the same, so the table catches up with the version.
   await list.expectVersionState('Starter', 'Next', 'Published');
+});
+
+// What publishing changes for what a version sells is said where something is
+// sold, and only when a version is published: it is billing's to say.
+test.describe('the confirmation to publish', () => {
+  test('says what it changes for the prices and the grants where billing is on', async ({
+    page,
+  }) => {
+    const list = new LicensesListDriver(page);
+    const dialog = new LicenseLifecycleDialogDriver(page);
+
+    await installBillingAppMocks(page, createBillingStackModel());
+    await installLicenseAppMocks(page, createLicenseCatalogModel());
+    await list.goto();
+    await list.expandFamily('Starter');
+    await list.lifecycleAction('Starter', 'Next', 'Publish').click();
+
+    await dialog.expectTitle('Publish Starter v4?');
+    const note = dialog.dialog().getByRole('list');
+    await expect(note).toContainText(
+      'Its prices become immutable: from then on they can only be deprecated.',
+    );
+    await expect(note).toContainText(
+      'Its entitlements are frozen as soon as a subscription bills this version.',
+    );
+    await expect(note).toContainText(
+      'Subscriptions on other versions are not affected, and nothing is archived.',
+    );
+  });
+
+  test('says nothing of prices where billing is not there', async ({
+    page,
+  }) => {
+    const list = new LicensesListDriver(page);
+    const dialog = new LicenseLifecycleDialogDriver(page);
+
+    await installLicenseAppMocks(page, createLicenseCatalogModel());
+    await list.goto();
+    await list.expandFamily('Starter');
+    await list.lifecycleAction('Starter', 'Next', 'Publish').click();
+
+    await dialog.expectTitle('Publish Starter v4?');
+    await expect(dialog.dialog().getByRole('list')).toHaveCount(0);
+  });
+
+  test('says nothing of prices when a version is archived, which sells nothing new', async ({
+    page,
+  }) => {
+    const list = new LicensesListDriver(page);
+    const dialog = new LicenseLifecycleDialogDriver(page);
+
+    await installBillingAppMocks(page, createBillingStackModel());
+    await installLicenseAppMocks(page, createLicenseCatalogModel());
+    await list.goto();
+    await list.expandFamily('Starter');
+    await list.lifecycleAction('Starter', 'Spring', 'Archive').click();
+
+    await dialog.expectTitle('Archive Starter v3?');
+    await expect(dialog.dialog().getByRole('list')).toHaveCount(0);
+  });
 });

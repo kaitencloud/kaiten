@@ -4,25 +4,35 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { deleteCustomerMutation } from '@/api-client/@tanstack/react-query.gen';
+import { useDeletionRefusal, useInstancesBilling } from '@/domains/billing';
 import { AttioSyncCard, useAttioSyncCardVisible } from '@/domains/crm-sync';
 import {
   forgetDeletedCustomerQueries,
   useInstancesWithRelations,
 } from '@/domains/customer-management';
 import { Page } from '@/functionals/page';
+import { useCustomerBilling } from '../../hooks/use-customer-billing';
 import { customerQueryOptions } from '../../queries/customer-query-options';
 import { CustomerDetailHeader } from './customer-detail-header';
 import { CustomerDetailsCard } from './customer-details-card';
 import { CustomerInstancesCard } from './customer-instances-card';
+import { CustomerInvoicesCard } from './customer-invoices-card';
+import { PaymentMethodCard } from './payment-method/payment-method-card';
 
 type CustomerDetailPageContentProps = {
   children?: ReactNode;
   customerSlug: string;
+  /** Called once the session the customer came back with from Stripe is dealt with: the route drops it from the address. */
+  onSetupHandled?: () => void;
+  /** The `kaiten_setup_session` of the address, when the customer is back from the page Stripe hosts. */
+  setupSessionId?: string;
 };
 
 export function CustomerDetailPageContent({
   children,
   customerSlug,
+  onSetupHandled = () => {},
+  setupSessionId,
 }: CustomerDetailPageContentProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -38,6 +48,13 @@ export function CustomerDetailPageContent({
     customer.integrations,
   );
   const instancesQuery = useInstancesWithRelations();
+  // The Billing column of the instances: asked for only when billing is on and the
+  // session may read it.
+  const billing = useInstancesBilling();
+  const { mayReadInvoices } = useCustomerBilling();
+  // A customer that bills cannot be deleted: the dialog says what to settle
+  // first. It is on the page of the customer, so it links to nothing of its own.
+  const deletion = useDeletionRefusal();
 
   const activeInstances = (instancesQuery.data?.instances?.items ?? []).filter(
     (instance) => instance.customer.slug === customerSlug,
@@ -54,8 +71,10 @@ export function CustomerDetailPageContent({
       await navigate({ to: '/customers' });
       await forgetDeletedCustomerQueries(queryClient, customerSlug);
     },
-    onError: () => {
-      toast.error(t('Common.deleteError'));
+    onError: (error) => {
+      if (!deletion.showRefusal(error)) {
+        toast.error(t('Common.deleteError'));
+      }
     },
   });
 
@@ -91,12 +110,24 @@ export function CustomerDetailPageContent({
           />
         </div>
 
+        <PaymentMethodCard
+          customerSlug={customerSlug}
+          onSetupHandled={onSetupHandled}
+          setupSessionId={setupSessionId}
+        />
+
         <CustomerInstancesCard
+          billing={billing}
           customerSlug={customerSlug}
           instances={activeInstances}
         />
+
+        {mayReadInvoices ? (
+          <CustomerInvoicesCard customerSlug={customerSlug} />
+        ) : null}
       </Page>
 
+      {deletion.dialog}
       {children}
     </>
   );

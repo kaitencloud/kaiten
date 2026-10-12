@@ -10,6 +10,7 @@ export const TEST_USER = {
  * Only `id`, `name`, and `slug` are required — all other fields have sensible defaults.
  */
 export function buildCustomer({
+  billingEmail,
   createdAt = '2026-03-01T09:00:00.000Z',
   domain,
   externalCustomerId = null,
@@ -18,6 +19,8 @@ export function buildCustomer({
   slug,
   updatedAt = createdAt,
 }: {
+  /** Where the invoices of the customer are sent; absent when there is none. */
+  billingEmail?: string;
   createdAt?: string;
   domain?: string;
   externalCustomerId?: string | null;
@@ -27,6 +30,7 @@ export function buildCustomer({
   updatedAt?: string;
 }): Customer {
   return {
+    billingEmail,
     createdAt,
     createdBy: TEST_USER,
     domain,

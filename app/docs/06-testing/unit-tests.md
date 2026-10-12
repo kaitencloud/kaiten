@@ -46,13 +46,13 @@ The `unit` project runs every test in jsdom, with a timeout of 10 seconds per te
 - registers the `@testing-library/jest-dom` matchers, such as `toBeDisabled` and `toHaveTextContent`;
 - raises Testing Library's `findBy*` and `waitFor` timeout to 5 seconds, because form fields are code-split and the first query of a cold run waits on a dynamic import;
 - initialises i18next with one resource (`src/__tests__/test-i18n.ts`), so `t('Some.key')` returns `Some.key`: assert on the key, or mock `react-i18next` when a test needs real wording;
-- stubs `ResizeObserver`.
+- stubs `ResizeObserver`, and gives jsdom an empty `getAnimations`, which Base UI's `ScrollArea` (the body of a `Page layout="scroll"`) asks its viewport for. Base UI waits for the animations of an overlay to end before it unmounts it, and only where that method exists, so the setup also sets its `BASE_UI_ANIMATIONS_DISABLED` switch: a dialog still unmounts at once in a test.
 
 The `unit` project alone then runs `src/__tests__/msw-setup.ts` (setup files run
 in list order), which:
 
 - points the generated REST client at `env.API_URL`, an absolute URL, which fetch needs outside a page;
-- starts Mock Service Worker's Node server (`src/__tests__/msw-server.ts`) before the tests and closes it after them. It answers nothing by default: a request that no test declared fails with a network error and an `[MSW]` error, and never reaches a real API. The handlers a test declares are dropped after it. See [mock the network](#mock-the-network).
+- starts Mock Service Worker's Node server (`src/__tests__/msw-server.ts`) before the tests and closes it after them. It answers nothing by default but the billing capabilities (billing off, which the app shell reads) and the two GraphQL documents the lists send once billing is on, `GetInstancesBilling` and `GetLicensesWithPrices`, with a page with nothing in it (`emptyBillingDocuments`): a test that turns billing on and draws a list gets a list with no subscription and no price, and one that is about them declares its own; a request that no test declared fails with a network error and an `[MSW]` error, and never reaches a real API. The handlers a test declares are dropped after it. See [mock the network](#mock-the-network).
 
 Import `describe`, `it`, `expect` and `vi` from `vite-plus/test`, as the existing tests do.
 
@@ -136,7 +136,7 @@ server.use(
 ```
 
 - A REST endpoint takes its generated handler from `@/api-client/msw.gen`, one per operation of the OpenAPI contract. `handleGetCustomer({ body: customer })` answers with a body typed by the operation. `handleCreateCustomer(async ({ params, request }) => ...)` reads the path params and `await request.json()` with their types, so the test can record what was sent.
-- GraphQL is outside the contract: `graphqlOperationHandler({ GetCustomersWithInstances: (variables) => data })` from `@/e2e/msw/handler-factory`, the router of the E2E mocks, or `http.post('*/api/graphql', ...)` from `msw/http` for a raw answer, such as a 403.
+- GraphQL is outside the contract: `graphqlOperationHandler({ GetCustomersWithInstances: (variables) => data })` from `@/e2e/msw/handler-factory`, the router of the E2E mocks, or `http.post('*/api/graphql', ...)` from `msw/http` for a raw answer, such as a 403. The router refuses the two documents of billing (`GetInstancesBilling`, `GetLicensesWithPrices`) whole to a request whose token says it lacks a scope they need (`GRAPHQL_DOCUMENT_SCOPES`, `e2e/app/_support/contracts/graphql-scopes.ts`), with the 403 `Auth.MissingScope` the API answers, so a test that gives a token with scopes (`sessionToken(['read:instances'])` of `@/test-fixtures/billing-test-support`) sees the console refused as it would be; a request without a token, or whose token says nothing of its scopes, is served, and so is any other document.
 - Assert on what reached the API, as `src/features/licenses/hooks/__tests__/use-license-save.test.tsx` does, rather than on the arguments of a mocked function. `JSON.stringify` drops `undefined` fields: an expected body leaves them out, as the request does.
 - A failed request throws the parsed error body. `@/lib/api` wraps it in an `ApiError`, as in the app: a test whose subject reads the error's status or detail through `getApiErrorMessage` imports `@/lib/api` for that side effect, as `src/features/licenses/components/__tests__/license-lifecycle-action.test.tsx` does.
 - Under fake timers, a request is answered over a few turns of the event loop and a few fake milliseconds, because jsdom's fetch, undici, waits on timers before it reuses a connection: `src/domains/crm-sync/queries/attio-sync-coordinator.test.ts` advances the clock by a few milliseconds where a mocked function resolved within microtasks.

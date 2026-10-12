@@ -209,4 +209,110 @@ describe('useFilterBuilder', () => {
     expect(result.current.filteredData).toEqual(users);
     expect(result.current.hasActiveFilters).toBe(false);
   });
+
+  describe('opening with values', () => {
+    it('applies the values at once, and shows the filters that hold them', () => {
+      const { result } = renderHook(() =>
+        useFilterBuilder({
+          data: users,
+          fields,
+          initialNormalValues: { status: 'inactive' },
+        }),
+      );
+
+      expect(result.current.normal.activeFilterIds).toEqual(['status']);
+      expect(result.current.normal.values).toEqual({ status: 'inactive' });
+      expect(result.current.filteredData).toEqual([
+        { name: 'Bob', status: 'inactive' },
+      ]);
+      expect(result.current.hasActiveFilters).toBe(true);
+    });
+
+    it('keeps the default filters beside the ones a value opens', () => {
+      const { result } = renderHook(() =>
+        useFilterBuilder({
+          data: users,
+          fields,
+          defaultNormalFilterIds: ['name'],
+          initialNormalValues: { status: 'active' },
+        }),
+      );
+
+      expect(result.current.normal.activeFilterIds).toEqual(['name', 'status']);
+    });
+
+    it('fills a pinned filter without making it an active one', () => {
+      const { result } = renderHook(() =>
+        useFilterBuilder({
+          data: users,
+          fields,
+          initialNormalValues: { name: 'al' },
+          pinnedFilterIds: ['name'],
+        }),
+      );
+
+      expect(result.current.normal.activeFilterIds).toEqual([]);
+      expect(result.current.normal.values).toEqual({ name: 'al' });
+      expect(result.current.filteredData.map((user) => user.name)).toEqual([
+        'Alice',
+        'Allan',
+      ]);
+    });
+
+    it('drops a value that names no filter or says nothing', () => {
+      const { result } = renderHook(() =>
+        useFilterBuilder({
+          data: users,
+          fields,
+          initialNormalValues: { name: '  ', nothing: 'x', status: '' },
+        }),
+      );
+
+      expect(result.current.normal.activeFilterIds).toEqual([]);
+      expect(result.current.normal.values).toEqual({});
+      expect(result.current.filteredData).toEqual(users);
+      expect(result.current.hasActiveFilters).toBe(false);
+    });
+
+    it('is cleared by a reset, which goes back to the defaults and not to the link', () => {
+      const { result } = renderHook(() =>
+        useFilterBuilder({
+          data: users,
+          fields,
+          initialNormalValues: { status: 'inactive' },
+        }),
+      );
+
+      act(() => {
+        result.current.resetAll();
+      });
+
+      expect(result.current.normal.activeFilterIds).toEqual([]);
+      expect(result.current.normal.values).toEqual({});
+      expect(result.current.filteredData).toEqual(users);
+    });
+
+    it('does not touch a filter already set when the values it was given change', () => {
+      const { rerender, result } = renderHook(
+        ({ initial }: { initial: Record<string, string> }) =>
+          useFilterBuilder({
+            data: users,
+            fields,
+            initialNormalValues: initial,
+          }),
+        {
+          initialProps: {
+            initial: { status: 'inactive' } as Record<string, string>,
+          },
+        },
+      );
+
+      act(() => {
+        result.current.normal.setValue('status', 'active');
+      });
+      rerender({ initial: { status: 'inactive', name: 'bo' } });
+
+      expect(result.current.normal.values).toEqual({ status: 'active' });
+    });
+  });
 });

@@ -111,7 +111,9 @@ export const buildLicenseGroups = (
           ? family.currentVersion
           : undefined,
         familyId,
+        familySlug: family?.slug,
         headLicense,
+        isPublic: family?.isPublic ?? false,
         licenseName: normalizeLicenseFamilyName(headLicense?.name ?? ''),
         licenses: sortedLicenses,
       };

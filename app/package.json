@@ -55,7 +55,7 @@
     "check:api-error-i18n": "tsx scripts/check-api-error-i18n.ts",
     "check:file-sizes": "tsx scripts/check-file-sizes.ts",
     "check:ci": "pnpm run check:lint-parity && pnpm run lint && pnpm run typecheck && pnpm run typecheck:e2e && pnpm run check:architecture && pnpm run check:e2e-contracts && pnpm run check:i18n-parity && pnpm run check:i18n-keys && pnpm run check:api-error-i18n && pnpm run check:file-sizes && node ../scripts/check-token-contrast.mjs && pnpm run test && vp build",
-    "generate-api-sdk": "pnpm --fail-if-no-match --filter @kaiten/api-codegen run generate && vp fmt src/lib/api/scopes.gen.ts",
+    "generate-api-sdk": "pnpm --fail-if-no-match --filter @kaiten/api-codegen run generate && vp fmt src/lib/api/scopes.gen.ts src/lib/api/operation-scopes.gen.ts",
     "generate-graphql": "graphql-codegen --config codegen.ts",
     "generate": "vp run generate-api-sdk && vp run generate-graphql",
     "storybook": "storybook dev -p 6006"

@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/card';
 import type { License } from '@/api-client';
 import { Label } from '@/components/ui/label';
+import { useBillingCapabilities } from '@/domains/billing';
 import {
   Select,
   SelectContent,
@@ -49,6 +50,38 @@ function InheritedTypeField({
             )
           : '-'}
       </div>
+    </div>
+  );
+}
+
+// The prices of a version are billing's: where billing is on, a new version
+// starts with those of the version it starts from, as it does with its grants,
+// and the person may decline them. It says what does not move with them.
+function CopyPricesField({
+  form,
+  t,
+}: {
+  form: any;
+  t: (key: string) => string;
+}) {
+  const { isEnabled: hasBilling } = useBillingCapabilities();
+
+  if (!hasBilling) {
+    return null;
+  }
+
+  return (
+    <div className="md:col-span-2">
+      <form.AppField name="copyPrices">
+        {(field: any) => (
+          <field.CheckboxField
+            description={t(
+              'Pages.Licenses.Version.Form.Descriptions.copyPrices',
+            )}
+            label={t('Pages.Licenses.Version.Form.Labels.copyPrices')}
+          />
+        )}
+      </form.AppField>
     </div>
   );
 }
@@ -238,6 +271,7 @@ export function LicenseVersionFieldsCard({
         <div className="md:col-span-2">
           <CreateAsDraftField form={form} t={t} />
         </div>
+        <CopyPricesField form={form} t={t} />
       </CardContent>
     </Card>
   );

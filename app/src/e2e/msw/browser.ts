@@ -34,20 +34,37 @@ export async function startE2EMockServiceWorker(
 ) {
   const page = window as MockWindow;
   const running = page.__KAITEN_MSW_RUNNING__;
-  const effectiveConfig = running
-    ? config
-    : { ...config, ...readStoredConfig() };
-  writeStoredConfig(effectiveConfig);
   const strict = unmockedPlatform === 'off' && !warnUnhandledApiRequests;
-  const handlers = [
-    ...createMockHandlers(
+  let effectiveConfig = running ? config : { ...config, ...readStoredConfig() };
+  let mockHandlers: RequestHandler[];
+  try {
+    mockHandlers = createMockHandlers(
       effectiveConfig,
       unmockedPlatform,
       persistSlot,
       strict,
-    ),
-    ...(strict ? [undeclaredApiRequest] : []),
-  ];
+    );
+  } catch (error) {
+    // A world this tab saved under an older contract no longer parses. In dev:mock
+    // the tab starts over from the seed rather than staying blank; E2E keeps the
+    // error, since a spec that saved it wants to know.
+    if (strict || effectiveConfig === config) {
+      throw error;
+    }
+    console.warn(
+      '[MSW] The world this tab saved no longer matches the API contract; starting over from the seed.',
+      error,
+    );
+    effectiveConfig = config;
+    mockHandlers = createMockHandlers(
+      effectiveConfig,
+      unmockedPlatform,
+      persistSlot,
+      strict,
+    );
+  }
+  writeStoredConfig(effectiveConfig);
+  const handlers = [...mockHandlers, ...(strict ? [undeclaredApiRequest] : [])];
   if (running) {
     running.resetHandlers(...handlers);
     return;

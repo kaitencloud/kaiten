@@ -11,6 +11,8 @@ import type {
 import { zCustomer, zCustomerWritable } from '@/api-client/zod.gen';
 import { ATTIO_CONNECTOR_NAME } from '@/domains/crm-sync/constants';
 import { parseContract } from '../contracts/openapi-contract';
+import { type ArmedBillingProblem, ArmedProblems } from './armed-problems';
+import { BillingProblem } from './billing-problem';
 import { ErrorInjector } from './error-injector';
 
 type CustomerListEntry =
@@ -25,13 +27,26 @@ const DEFAULT_ACTOR: Customer['createdBy'] = {
   name: 'E2E Tester',
 };
 
+/**
+ * What the billing of a customer leaves in the way of deleting it: whether one
+ * of its instances has a live subscription, and the invoices not settled yet.
+ */
+export type CustomerBillingBlock = {
+  live: boolean;
+  unpaidInvoiceIds: string[];
+};
+
 export type CustomerAppModelSeed = {
   attioSyncAfterAttempts?: number;
+  /** The customers the billing refuses to delete, by slug. */
+  billingBlocks?: Record<string, CustomerBillingBlock>;
   customers?: Customer[];
   instances?: InstanceRow[];
 };
 
 export type SerializedCustomerAppModel = CustomerAppModelSeed & {
+  /** The refusals held for the next call of an operation; a state stored before there were none has none. */
+  armedProblems?: Array<[CustomerErrorOp, ArmedBillingProblem]>;
   attioSyncAttempts: Record<string, number>;
   clock: number;
   pendingErrors: Array<[CustomerErrorOp, number]>;
@@ -44,6 +59,23 @@ const integrationNotFound = () =>
     httpStatus: 404,
   });
 
+// What the API accepts as a billing e-mail: an address of at most 254 characters
+// (customers/schema: ValidateBillingEmail).
+const BILLING_EMAIL = /^[^@\s]+@[^@\s]+$/;
+
+function checkBillingEmail(operation: string, email: string | undefined) {
+  if (email === undefined || email === '') {
+    return;
+  }
+  if (email.length > 254 || !BILLING_EMAIL.test(email)) {
+    throw new BillingProblem(
+      422,
+      `${operation}.InvalidBillingEmail`,
+      'billingEmail must be an e-mail address of at most 254 characters',
+    );
+  }
+}
+
 const slugify = (value: string) =>
   value
     .toLowerCase()
@@ -54,14 +86,17 @@ const slugify = (value: string) =>
 export class CustomerAppModel {
   private readonly attioSyncAfterAttempts?: number;
   private attioSyncAttempts: Record<string, number> = {};
+  private billingBlocks: Record<string, CustomerBillingBlock>;
   private clock = Date.parse('2026-03-01T08:00:00.000Z');
   private customers: Customer[];
   private instances: InstanceRow[];
   private sequence: number;
   private readonly errors = new ErrorInjector<CustomerErrorOp>();
+  private readonly problems = new ArmedProblems<CustomerErrorOp>();
 
   constructor(seed: CustomerAppModelSeed = {}) {
     this.attioSyncAfterAttempts = seed.attioSyncAfterAttempts;
+    this.billingBlocks = clone(seed.billingBlocks ?? {});
     this.customers = parseContract(
       z.array(zCustomer),
       seed.customers ?? [],
@@ -85,6 +120,7 @@ export class CustomerAppModel {
   static fromSerialized(state: SerializedCustomerAppModel) {
     const model = new CustomerAppModel({
       attioSyncAfterAttempts: state.attioSyncAfterAttempts,
+      billingBlocks: state.billingBlocks,
       customers: state.customers,
       instances: state.instances,
     });
@@ -93,14 +129,19 @@ export class CustomerAppModel {
     model.clock = state.clock;
     model.sequence = state.sequence;
     model.errors.restore(state.pendingErrors);
+    for (const [operation, problem] of state.armedProblems ?? []) {
+      model.problems.arm(operation, problem);
+    }
 
     return model;
   }
 
   serializeForMsw(): SerializedCustomerAppModel {
     return {
+      armedProblems: this.problems.serialize(),
       attioSyncAfterAttempts: this.attioSyncAfterAttempts,
       attioSyncAttempts: clone(this.attioSyncAttempts),
+      billingBlocks: clone(this.billingBlocks),
       clock: this.clock,
       customers: this.listCustomers(),
       instances: clone(this.instances),
@@ -204,6 +245,14 @@ export class CustomerAppModel {
     this.errors.setNextError(op, status);
   }
 
+  /**
+   * Arms the next call of an operation to fail with a problem document, the code
+   * and the words the screen has to show. One-shot, as `setNextError` is.
+   */
+  armProblem(operation: CustomerErrorOp, problem: ArmedBillingProblem) {
+    this.problems.arm(operation, problem);
+  }
+
   /** @deprecated Use `setNextError('create', status)` instead. */
   setNextCreateError(status: number) {
     this.setNextError('create', status);
@@ -221,8 +270,11 @@ export class CustomerAppModel {
       'CustomerAppModel.createCustomer body',
     );
     this.errors.consume('create');
+    this.problems.consume('create');
+    checkBillingEmail('CreateCustomer', input.billingEmail);
     const timestamp = this.nextTimestamp();
     const customer: Customer = {
+      billingEmail: input.billingEmail || undefined,
       createdAt: timestamp,
       createdBy: DEFAULT_ACTOR,
       domain: input.domain,
@@ -252,6 +304,8 @@ export class CustomerAppModel {
       'CustomerAppModel.updateCustomer body',
     );
     this.errors.consume('update');
+    this.problems.consume('update');
+    checkBillingEmail('UpdateCustomer', input.billingEmail);
     const customerIndex = this.customers.findIndex(
       (customer) => customer.slug === customerSlug,
     );
@@ -267,6 +321,11 @@ export class CustomerAppModel {
         : (currentCustomer.slug ?? customerSlug);
     const updatedCustomer: Customer = {
       ...currentCustomer,
+      // Omitted keeps the stored address, and an empty one removes it.
+      billingEmail:
+        input.billingEmail === undefined
+          ? currentCustomer.billingEmail
+          : input.billingEmail || undefined,
       domain: input.domain,
       externalCustomerId: input.externalCustomerId ?? null,
       name: input.name,
@@ -301,6 +360,31 @@ export class CustomerAppModel {
 
   deleteCustomer(customerSlug: string) {
     this.errors.consume('delete');
+    this.problems.consume('delete');
+
+    // A live subscription of one of its instances, or an invoice not settled,
+    // keeps the customer.
+    const block = this.billingBlocks[customerSlug];
+    if (block && (block.live || block.unpaidInvoiceIds.length > 0)) {
+      throw new BillingProblem(
+        409,
+        'DeleteCustomer.BillingActive',
+        `Customer "${customerSlug}" is billed: cancel its subscriptions and settle its invoices first`,
+        {
+          errors: [
+            {
+              location: 'customer',
+              message:
+                'whether a subscription is live, and the invoices not settled yet',
+              value: {
+                live: block.live,
+                unpaidInvoiceIds: block.unpaidInvoiceIds,
+              },
+            },
+          ],
+        },
+      );
+    }
 
     if (this.hasActiveInstances(customerSlug)) {
       throw Object.assign(

@@ -1,22 +1,28 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Zap } from 'lucide-react';
 import { expect, userEvent, within } from 'storybook/test';
 import type { ReactNode } from 'react';
+import type { BillingCapabilities } from '@/api-client';
 import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
+import { billingCapabilitiesQueryOptions } from '@/domains/billing';
 import { webhooksServedQueryOptions } from '@/domains/webhooks';
+import { billingCapabilitiesProfiles } from '@/test-fixtures/storybook-billing-fixtures';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
+import { isRouteActive } from '../side-nav.constants';
 import { SideNav } from '../side-nav';
-import { SideNavIntegrationsMenu } from '../side-nav-integrations-menu';
+import { SideNavCollapsibleMenu } from '../side-nav-collapsible-menu';
 import {
+  SideNavBillingRoutes,
   SideNavFooterRoutes,
   SideNavPrimaryRoutes,
   useResolvedIntegrationsItems,
 } from '../side-nav-sections';
-import { useSideNavIntegrationsState } from '../use-side-nav-integrations-state';
+import { useSideNavMenuState } from '../use-side-nav-menu-state';
 
 const meta = {
   title: 'Routes/SideNav',
@@ -30,16 +36,19 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof SideNav>;
 
-// What decides the Webhooks entry: Kaiten Cloud, where webhooks are served to the
-// organization, unless a story says otherwise. Seeded, so no story asks an API
-// Storybook does not have.
+// What decides the gated entries: Kaiten Cloud, where webhooks are served to the
+// organization, and a deployment with billing off, unless a story says otherwise.
+// Seeded, so no story asks an API Storybook does not have, and the capabilities
+// the navigation reads are the ones the story names.
 function SideNavStoryRouter({
+  billing = billingCapabilitiesProfiles.disabled(),
   children,
   defaultOpen = true,
   initialEntry,
   routePath,
   webhooksServed = true,
 }: {
+  billing?: BillingCapabilities;
   children: ReactNode;
   defaultOpen?: boolean;
   initialEntry: string;
@@ -50,12 +59,16 @@ function SideNavStoryRouter({
     <StorybookRouter
       initialEntries={[initialEntry]}
       routePath={routePath}
-      seed={(queryClient) =>
+      seed={(queryClient) => {
         queryClient.setQueryData(
           webhooksServedQueryOptions.queryKey,
           webhooksServed,
-        )
-      }
+        );
+        queryClient.setQueryData(
+          billingCapabilitiesQueryOptions.queryKey,
+          billing,
+        );
+      }}
     >
       <SidebarProvider defaultOpen={defaultOpen} className="min-h-[720px]">
         {children}
@@ -65,16 +78,19 @@ function SideNavStoryRouter({
 }
 
 function SideNavWithContent({
+  billing,
   defaultOpen,
   initialEntry,
   routePath,
 }: {
+  billing?: BillingCapabilities;
   defaultOpen?: boolean;
   initialEntry: string;
   routePath: string;
 }) {
   return (
     <SideNavStoryRouter
+      billing={billing}
       defaultOpen={defaultOpen}
       initialEntry={initialEntry}
       routePath={routePath}
@@ -108,6 +124,7 @@ function SideNavSectionsPreview() {
       <div className="w-72 border-r bg-sidebar p-3 text-sidebar-foreground">
         <SidebarMenu className="gap-1.5">
           <SideNavPrimaryRoutes pathname="/releases/components" />
+          <SideNavBillingRoutes pathname="/releases/components" />
           <SideNavFooterRoutes pathname="/settings" />
         </SidebarMenu>
       </div>
@@ -124,13 +141,15 @@ function IntegrationsMenuContent({
   pathname: string;
 }) {
   const items = useResolvedIntegrationsItems();
-  const state = useSideNavIntegrationsState(true);
+  const state = useSideNavMenuState(true);
 
   return (
     <div className="w-72 border-r bg-sidebar p-3 text-sidebar-foreground group-data-[collapsible=icon]:w-14">
       <SidebarMenu className="gap-1.5">
         <SidebarMenuItem>
-          <SideNavIntegrationsMenu
+          <SideNavCollapsibleMenu
+            Icon={Zap}
+            isActive={isRouteActive(pathname, '/integrations')}
             isCollapsed={collapsed}
             items={items}
             pathname={pathname}
@@ -144,16 +163,19 @@ function IntegrationsMenuContent({
 }
 
 function IntegrationsMenuPreview({
+  billing,
   collapsed = false,
   pathname = '/integrations/webhooks',
   webhooksServed,
 }: {
+  billing?: BillingCapabilities;
   collapsed?: boolean;
   pathname?: string;
   webhooksServed?: boolean;
 }) {
   return (
     <SideNavStoryRouter
+      billing={billing}
       defaultOpen={!collapsed}
       initialEntry={pathname}
       routePath={pathname}
@@ -193,6 +215,93 @@ export const Expanded: Story = {
         .getAllByRole('link')
         .map((link) => link.textContent),
     ).toEqual(['Audit trail', 'Settings']);
+
+    // The catalog is drawn on every deployment, for the licenses and the
+    // entitlements; billing is off by default, so the invoices are not an entry.
+    await expect(canvas.getByRole('button', { name: 'Catalog' })).toBeVisible();
+    await expect(canvas.queryByRole('link', { name: 'Invoices' })).toBeNull();
+  },
+};
+
+// Billing on, as the API of the stack serves it: the invoices are an entry of the
+// navigation. The release ships neither add-ons nor vouchers, so the catalog goes
+// without them.
+export const BillingOn: Story = {
+  render: () => (
+    <SideNavWithContent
+      billing={billingCapabilitiesProfiles.stack()}
+      initialEntry="/customers"
+      routePath="/customers"
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    const invoices = await canvas.findByRole('link', { name: 'Invoices' });
+    await expect(invoices).toBeVisible();
+    // The invoices sit between the Catalog and the Integrations.
+    const catalog = canvas.getByRole('button', { name: 'Catalog' });
+    const integrations = canvas.getByRole('button', { name: 'Integrations' });
+    await expect(
+      catalog.compareDocumentPosition(invoices) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await expect(
+      invoices.compareDocumentPosition(integrations) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await userEvent.click(catalog);
+    for (const name of ['Licenses', 'Entitlements']) {
+      await expect(canvas.getByRole('link', { name })).toBeVisible();
+    }
+    await expect(canvas.queryByRole('link', { name: 'Add-ons' })).toBeNull();
+    await expect(canvas.queryByRole('link', { name: 'Vouchers' })).toBeNull();
+  },
+};
+
+// A page of the catalog, billing off: the section is open on its own with the
+// licenses and the entitlements, which exist on every deployment.
+export const CatalogActive: Story = {
+  render: () => (
+    <SideNavWithContent
+      initialEntry="/catalog/licenses"
+      routePath="/catalog/licenses"
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      await canvas.findByRole('link', { name: 'Licenses' }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole('link', { name: 'Entitlements' }),
+    ).toBeVisible();
+    await expect(canvas.queryByRole('link', { name: 'Add-ons' })).toBeNull();
+    await expect(canvas.queryByRole('link', { name: 'Vouchers' })).toBeNull();
+  },
+};
+
+// Every part shipped, on a page of the catalog: the invoices stay an entry of the
+// navigation, and the catalog is open on its own with the add-ons and the vouchers
+// after the licenses and the entitlements.
+export const BillingEveryPart: Story = {
+  render: () => (
+    <SideNavWithContent
+      billing={billingCapabilitiesProfiles.full()}
+      initialEntry="/catalog/addons"
+      routePath="/catalog/addons"
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      await canvas.findByRole('link', { name: 'Invoices' }),
+    ).toBeVisible();
+    for (const name of ['Licenses', 'Entitlements', 'Add-ons', 'Vouchers']) {
+      await expect(canvas.getByRole('link', { name })).toBeVisible();
+    }
   },
 };
 
@@ -246,6 +355,28 @@ export const IntegrationsMenu: Story = {
       await canvas.findByRole('button', { name: /integrations/i }),
     ).toBeVisible();
     await expect(canvas.getByRole('link', { name: 'Webhooks' })).toBeVisible();
+  },
+};
+
+// Billing on, with the capabilities the API serves now (the public surface is reported off):
+// the publishable keys, which a web page reads the public catalogue with, are listed after
+// the connectors. Where billing is off the menu goes without them, as the stories above show.
+export const IntegrationsMenuWithBilling: Story = {
+  render: () => (
+    <IntegrationsMenuPreview
+      billing={billingCapabilitiesProfiles.stack()}
+      pathname="/integrations/publishable-keys"
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      await canvas.findByRole('link', { name: 'Publishable keys' }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole('link', { name: 'Connectors' }),
+    ).toBeVisible();
   },
 };
 

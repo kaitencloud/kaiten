@@ -4,7 +4,7 @@ export class EntitlementsListDriver {
   constructor(private readonly page: Page) {}
 
   async goto() {
-    await this.page.goto('/entitlements');
+    await this.page.goto('/catalog/entitlements');
     await this.expectLoaded();
   }
 

@@ -1,14 +1,6 @@
-import { Suspense, useMemo } from 'react';
+import { Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Customer, DeploymentZone, License } from '@/api-client';
-import {
-  buildFormFieldsFromSchema,
-  DynamicForm,
-  type DynamicFormValue,
-  type MetadataFieldDescriptor,
-  partitionMetadata,
-  validateDynamicForm,
-} from '@/functionals/metadata-fields';
+import type { Customer, License } from '@/api-client';
 import { generateSlug } from '@/functionals/slug';
 import {
   getLifecycleStageLabel,
@@ -18,6 +10,7 @@ import {
   formatLicenseOptionLabel,
   getAssignableLicenses,
 } from '../../utils/instance-license-options.utils';
+import { FrozenFieldNotice } from './instance-form-frozen-notice';
 
 type InstanceInformationFieldsProps = {
   // The lifecycle stage can only be taken back to none before the instance
@@ -29,6 +22,9 @@ type InstanceInformationFieldsProps = {
   customerFieldDisabled?: boolean;
   form: any;
   customers: Array<Pick<Customer, 'id' | 'name'>>;
+  // The instance being edited: its customer may be frozen by its subscription, in
+  // which case a refusal leads to it.
+  instanceSlug?: string;
   // The slug is only editable on the creation form — the update body does not
   // accept it. Hidden by default so the shared detail card stays unchanged.
   showSlug?: boolean;
@@ -39,6 +35,7 @@ export const InstanceInformationFields = ({
   customerFieldDisabled = false,
   form,
   customers,
+  instanceSlug,
   showSlug = false,
 }: InstanceInformationFieldsProps) => {
   const { t } = useTranslation();
@@ -116,6 +113,13 @@ export const InstanceInformationFields = ({
           />
         )}
       </form.AppField>
+      {instanceSlug ? (
+        <FrozenFieldNotice
+          field="customerId"
+          form={form}
+          instanceSlug={instanceSlug}
+        />
+      ) : null}
       <form.AppField name="lifecycleStage">
         {(field: any) => (
           <field.ComboboxField
@@ -150,12 +154,16 @@ type InstanceLicenseFieldsProps = {
   // instance stays on its version after the version is withdrawn from sale.
   currentLicenseSlug?: string;
   form: any;
+  // The instance being edited: its license may be frozen by its subscription, in
+  // which case a refusal leads to it.
+  instanceSlug?: string;
   licenses: License[];
 };
 
 export const InstanceLicenseFields = ({
   currentLicenseSlug,
   form,
+  instanceSlug,
   licenses,
 }: InstanceLicenseFieldsProps) => {
   const { t } = useTranslation();
@@ -187,6 +195,13 @@ export const InstanceLicenseFields = ({
           />
         )}
       </form.AppField>
+      {instanceSlug ? (
+        <FrozenFieldNotice
+          field="licenseSlug"
+          form={form}
+          instanceSlug={instanceSlug}
+        />
+      ) : null}
       <form.AppField name="licenseDate">
         {(field: any) => (
           <field.DateRangePickerField
@@ -199,107 +214,6 @@ export const InstanceLicenseFields = ({
             )}
           />
         )}
-      </form.AppField>
-    </Suspense>
-  );
-};
-
-type InstanceDeploymentFieldsProps = {
-  // A zone can only be taken back to none while the instance has none. The PUT
-  // reads an omitted deploymentZoneId as "keep the current one", so on a
-  // deployed instance the entry would offer a detach the API cannot perform
-  // — detaching is not a thing, migrating to another zone is.
-  canClearDeploymentZone?: boolean;
-  deploymentZones: DeploymentZone[];
-  form: any;
-};
-
-export const InstanceDeploymentFields = ({
-  canClearDeploymentZone = false,
-  deploymentZones,
-  form,
-}: InstanceDeploymentFieldsProps) => {
-  const { t } = useTranslation();
-
-  return (
-    <Suspense fallback={null}>
-      <form.AppField name="deploymentZoneId">
-        {(field: any) => (
-          <field.ComboboxField
-            // The zone is optional: an instance can be created orphan and
-            // deployed later, so picking one must stay undoable.
-            clearable={canClearDeploymentZone}
-            clearLabel={t(
-              'Pages.Customers.Instances.Mutation.Form.Placeholders.noDeploymentZone',
-            )}
-            label={t(
-              'Pages.Customers.Instances.Mutation.Form.Labels.deploymentZoneId',
-            )}
-            placeholder={t(
-              'Pages.Customers.Instances.Mutation.Form.Placeholders.deploymentZoneId',
-            )}
-            description={t(
-              'Pages.Customers.Instances.Mutation.Form.Descriptions.deploymentZoneId',
-            )}
-            searchPlaceholder={t(
-              'Pages.Customers.Instances.Mutation.Form.Placeholders.deploymentZoneIdSearch',
-            )}
-            getOptionLabel={(zone: DeploymentZone) =>
-              zone.type ? `${zone.name} — ${zone.type}` : zone.name
-            }
-            getOptionValue={(zone: DeploymentZone) => zone.id}
-            options={deploymentZones}
-          />
-        )}
-      </form.AppField>
-    </Suspense>
-  );
-};
-
-type InstanceMetadataFieldsProps = {
-  form: any;
-  metadataFields: MetadataFieldDescriptor[];
-};
-
-/**
- * One input per active MetadataField, typed from its JSON Schema.
- *
- * Instance metadata is tolerant: the SaaS auto-reports keys no field declares,
- * and archived fields leave values behind. Neither is editable here, but both
- * are folded back into the form value on every change -- the PUT full-replaces
- * metadata, so a key this form dropped would be a key the instance loses.
- */
-export const InstanceMetadataFields = ({
-  form,
-  metadataFields,
-}: InstanceMetadataFieldsProps) => {
-  const formFields = useMemo(
-    () => buildFormFieldsFromSchema(metadataFields),
-    [metadataFields],
-  );
-
-  return (
-    <Suspense fallback={null}>
-      <form.AppField name="metadata">
-        {(field: any) => {
-          const value = (field.state.value ?? {}) as DynamicFormValue;
-          const { knownActive, archivedLeftovers, unknown } = partitionMetadata(
-            value,
-            metadataFields,
-          );
-          const preserved = { ...archivedLeftovers, ...unknown };
-
-          return (
-            <DynamicForm
-              fields={formFields}
-              value={knownActive}
-              onChange={(next) => field.handleChange({ ...preserved, ...next })}
-              // Tolerant, like the resource: unknown keys are legitimate here,
-              // so only the declared fields' own schemas are enforced.
-              errors={validateDynamicForm(formFields, knownActive, 'tolerant')}
-            />
-          );
-        }}
       </form.AppField>
     </Suspense>
   );

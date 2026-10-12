@@ -72,7 +72,7 @@ export const LicenseForm = ({
     onSubmitted?.();
 
     if (navigateOnSuccess) {
-      router.navigate({ to: '/licenses' });
+      router.navigate({ to: '/catalog/licenses' });
     }
   };
 
@@ -126,7 +126,7 @@ export const LicenseForm = ({
           onSubmitted?.();
           if (createdLicense.slug) {
             router.navigate({
-              to: '/licenses/$licenseSlug',
+              to: '/catalog/licenses/$licenseSlug',
               params: { licenseSlug: createdLicense.slug },
             });
           }
@@ -142,7 +142,7 @@ export const LicenseForm = ({
   });
 
   const handleCancel = () => {
-    router.navigate({ to: '/licenses' });
+    router.navigate({ to: '/catalog/licenses' });
   };
 
   function handleAddDraftEntitlement(payload: AddEntitlementPayload) {

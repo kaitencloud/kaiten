@@ -139,7 +139,7 @@ describe('EntitlementDetailLicensesCard', () => {
 
     expect(screen.getByRole('link', { name: 'Beta Tester' })).toHaveAttribute(
       'href',
-      '/licenses/beta-tester',
+      '/catalog/licenses/beta-tester',
     );
     expect(screen.getByText('Paid · v1 · 3 instances')).toBeInTheDocument();
     expect(screen.getByText('1,000')).toBeInTheDocument();
@@ -163,7 +163,7 @@ describe('EntitlementDetailLicensesCard', () => {
 
     const links = screen
       .getAllByRole('link')
-      .filter((link) => link.getAttribute('href')?.startsWith('/licenses/'));
+      .filter((link) => link.getAttribute('href')?.startsWith('/catalog/licenses/'));
 
     expect(links.map((link) => link.textContent)).toEqual([
       'g',
@@ -182,7 +182,7 @@ describe('EntitlementDetailLicensesCard', () => {
     expect(
       screen
         .getAllByRole('link')
-        .filter((link) => link.getAttribute('href')?.startsWith('/licenses/')),
+        .filter((link) => link.getAttribute('href')?.startsWith('/catalog/licenses/')),
     ).toHaveLength(7);
     expect(
       screen.queryByRole('button', { name: /more licenses/ }),

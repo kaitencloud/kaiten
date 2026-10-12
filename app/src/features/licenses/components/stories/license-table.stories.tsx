@@ -124,6 +124,7 @@ const familyView = (
     createdAt: storyLastWeek,
     currentVersion: versions.find((license) => license.id === currentVersionId),
     id,
+    isPublic: false,
     slug,
     updatedAt: storyYesterday,
     versionCount: versions.length,
@@ -156,7 +157,7 @@ function LicenseListWrapper({
   });
 
   const [history] = useState(() =>
-    createMemoryHistory({ initialEntries: ['/licenses'] }),
+    createMemoryHistory({ initialEntries: ['/catalog/licenses'] }),
   );
 
   const [router] = useState(() =>
