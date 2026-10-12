@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, within } from 'storybook/test';
 import type { Notification } from '../../types';
+import { NotificationDayGroup } from '../notification-day-group';
 import { NotificationItem } from '../notification-item';
 import { NotificationRow } from '../notification-row';
 
@@ -125,5 +126,41 @@ export const BellPanelItems: Story = {
     for (const { title } of NOTIFICATIONS) {
       await expect(canvas.getByText(title)).toBeVisible();
     }
+  },
+};
+
+// The days of the feed: a heading and, beside it, how many events the day holds. The count
+// is small text on the page background, so the accessibility check of the story reads its
+// contrast in both themes of the toolbar.
+export const DayGroups: Story = {
+  render: () => (
+    <div className="flex flex-col gap-5">
+      <NotificationDayGroup
+        group={{
+          entries: NOTIFICATIONS.slice(0, 4),
+          heading: 'Today',
+          key: 'today',
+        }}
+        onSelect={() => {}}
+      />
+      <NotificationDayGroup
+        group={{
+          entries: NOTIFICATIONS.slice(4, 5),
+          heading: 'Yesterday',
+          key: 'yesterday',
+        }}
+        onSelect={() => {}}
+      />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText('4 notifications')).toBeVisible();
+    await expect(canvas.getByText('1 notification')).toBeVisible();
+    // The count wears the theme's muted foreground, at full strength.
+    await expect(canvas.getByText('4 notifications')).toHaveClass(
+      'text-muted-foreground',
+    );
   },
 };
