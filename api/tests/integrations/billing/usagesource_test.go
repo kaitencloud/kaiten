@@ -190,6 +190,8 @@ func TestUsageSourceInvariants(t *testing.T) {
 		failures := check(t, ref, nil)
 		require.Equal(t, []ports.Invariant{ports.InvariantSequenceGap}, invariants(failures))
 		require.EqualValues(t, 45, *failures[0].CounterReportSeq)
+		// What a console shows a person beside the failed check: a whole sentence.
+		require.Regexp(t, `^reports \d+ to 45 should all be there; \d+ of them are present$`, failures[0].Detail)
 	})
 
 	t.Run("APeriodNotStartingAfterThePreviousInvoice_IsASequenceGap", func(t *testing.T) {

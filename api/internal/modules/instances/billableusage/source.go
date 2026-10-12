@@ -208,7 +208,7 @@ func Evaluate(row db.CheckUsageLedgerInvariantsRow, prev *ports.Fingerprint) []p
 				fmt.Sprintf("the counter should be at report %d or later; it is at report %d", row.LastSeq, row.CounterSeq))
 		case row.SeqsPresent != row.CounterSeq-row.FirstSeq+1:
 			fail(ports.InvariantSequenceGap, seq(row.CounterSeq-row.FirstSeq+1), seq(row.SeqsPresent), nil,
-				fmt.Sprintf("reports %d to %d should all be there; %d of them are", row.FirstSeq, row.CounterSeq, row.SeqsPresent))
+				fmt.Sprintf("reports %d to %d should all be there; %d of them are present", row.FirstSeq, row.CounterSeq, row.SeqsPresent))
 		}
 
 		switch {
