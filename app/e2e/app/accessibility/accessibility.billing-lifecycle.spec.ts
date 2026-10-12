@@ -170,6 +170,42 @@ test.describe('accessibility of the dialogs of the life of a subscription', () =
     await expectNoAccessibilityViolations(page);
   });
 
+  test('a refusal that lands on a field takes the focus to that field, not to the page', async ({
+    page,
+  }) => {
+    const billing = new InstanceBillingDriver(page);
+    const lifecycle = new InstanceLifecycleDriver(page);
+    const model = createLifecycleBillingModel();
+    model.subscriptions.armProblem('cancelSubscription', {
+      code: 'CancelSubscription.InvalidReason',
+      detail: 'reason is at most 500 characters',
+      status: 422,
+    });
+    await installBillingAppMocks(page, model);
+    await billing.goto('initech-prod');
+    await lifecycle.openCancel('Initech Production');
+
+    // The button that sent the form disables itself on a form that is invalid again, and
+    // a disabled button cannot keep the focus: it goes to the field the refusal is about.
+    await lifecycle.cancelConfirmButton().focus();
+    await page.keyboard.press('Enter');
+
+    await expect(lifecycle.dialog()).toContainText(
+      'reason is at most 500 characters',
+    );
+    await expect(lifecycle.cancelConfirmButton()).toBeDisabled();
+    await expect(lifecycle.reasonField()).toBeFocused();
+    await expect(lifecycle.reasonField()).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+
+    // Fixing the field brings the button back, and Tab goes on from the field.
+    await lifecycle.reasonField().fill('Budget');
+    await expect(lifecycle.cancelConfirmButton()).toBeEnabled();
+    await expect(lifecycle.reasonField()).toBeFocused();
+  });
+
   test('what the dialog says once it has cancelled takes the focus the button had, and is accessible', async ({
     page,
   }) => {
