@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { PriceAmount } from '@/domains/billing';
+import { formatUtcDate, PriceAmount } from '@/domains/billing';
 import {
   type ColumnDef,
   createActionsColumn,
@@ -14,7 +14,6 @@ import {
   getMeteredPrices,
   type HeldAddon,
 } from '../../../../../utils/instance-addons.utils';
-import { formatDate } from '../../../../../utils/instance-detail-overview.utils';
 import { useInstanceAddonActionsContext } from './instance-addon-actions-context';
 import { QuantityStepper } from './quantity-stepper';
 import { RemoveAddonDialog } from './remove-addon-dialog';
@@ -207,8 +206,10 @@ export function InstanceAddonsTable({
         id: 'price',
       },
       {
+        // The UTC day, marked, like every date of this tab: the day of the
+        // subscription it was attached to, whatever the zone of the browser.
         cell: ({ row }) =>
-          formatDate(row.original.held.attachedAt, i18n.language),
+          formatUtcDate(row.original.held.attachedAt, i18n.language),
         enableSorting: false,
         header: t(KEYS.since),
         id: 'since',

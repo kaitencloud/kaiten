@@ -240,6 +240,30 @@ describe('what the card lists', () => {
     expect(within(card).getByTestId('addons-note')).toHaveTextContent(NOTE);
   });
 
+  it('dates the attachment by the UTC day, marked, whatever the zone of the browser: the tab dates everything else that way', async () => {
+    // Late on the 8th in UTC is already the 9th at Kiritimati, 14 hours ahead.
+    const originalZone = process.env.TZ;
+    process.env.TZ = 'Pacific/Kiritimati';
+    try {
+      serveHeld([heldSeats({ attachedAt: '2026-09-08T23:30:00.000Z' })]);
+      renderCard();
+
+      const card = await screen.findByTestId('instance-addons');
+      const row = (await within(card).findByText('extra-seats-v1')).closest(
+        'tr',
+      ) as HTMLElement;
+
+      expect(row).toHaveTextContent('Sep 8, 2026 (UTC)');
+      expect(row).not.toHaveTextContent('Sep 9, 2026');
+    } finally {
+      if (originalZone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = originalZone;
+      }
+    }
+  });
+
   it('says what an add-on bills on usage, on top of its flat fee, and alone when it sells nothing else', async () => {
     const calls = buildPrice({
       billingModel: 'USAGE_BASED',
