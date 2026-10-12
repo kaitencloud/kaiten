@@ -1,5 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import {
   entitlementsQueryOptions,
@@ -53,6 +54,7 @@ export const Route = createFileRoute(
 });
 
 function NewLicenseVersionForLicenseRoute() {
+  const { t } = useTranslation();
   const { licenseSlug } = Route.useParams();
   const { draft } = Route.useSearch();
   const { data: licenses } = useSuspenseQuery(licensesQueryOptions);
@@ -60,7 +62,7 @@ function NewLicenseVersionForLicenseRoute() {
   const { data: license } = useSuspenseQuery(licenseQueryOptions(licenseSlug));
 
   if (!license) {
-    return <div>License not found</div>;
+    return <div>{t('Pages.Licenses.Mutation.licenseNotFound')}</div>;
   }
 
   return (

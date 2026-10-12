@@ -1846,6 +1846,7 @@ export default {
       Mutation: {
         titleNew: 'New License',
         titleUpdate: 'Edit License',
+        licenseNotFound: 'License not found',
         Form: {
           mainTitle: 'Main Information',
           mainDescription:
