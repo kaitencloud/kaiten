@@ -3,6 +3,7 @@ package catalogue
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
@@ -10,7 +11,39 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/money"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
+	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
+
+// List reads one page of the organization's versions, newest first, optionally
+// of one lifecycle state or one family. It is what GET /addons and GraphQL's
+// Query.addons both answer with, so the two cannot list differently.
+func List(ctx context.Context, q *db.Queries, organizationID uuid.UUID, lifecycleState, familySlug string, page pagination.Keyset) (pagination.Page[Addon], error) {
+	params := db.ListAddonsParams{
+		OrganizationID: organizationID, LifecycleState: nil, FamilySlug: nil,
+		CursorAt: page.CursorAt, CursorID: page.CursorID, RowLimit: page.RowLimit,
+	}
+	if lifecycleState != "" {
+		state := db.LicenseLifecycleState(lifecycleState)
+		params.LifecycleState = &state
+	}
+	if familySlug != "" {
+		params.FamilySlug = &familySlug
+	}
+	rows, err := q.ListAddons(ctx, params)
+	if err != nil {
+		return pagination.Page[Addon]{}, err
+	}
+	addons := make([]Addon, len(rows))
+	for i, r := range rows {
+		addons[i] = ToAddon(db.Addon{
+			ID: r.ID, OrganizationID: r.OrganizationID, FamilyID: r.FamilyID, Name: r.Name, Slug: r.Slug,
+			Description: r.Description, Version: r.Version, VersionName: r.VersionName, IsDefault: r.IsDefault,
+			LifecycleState: r.LifecycleState, PricingType: r.PricingType, MaxQuantity: r.MaxQuantity,
+			CreatedAt: r.CreatedAt, CreatedByID: r.CreatedByID, UpdatedAt: r.UpdatedAt, UpdatedByID: r.UpdatedByID,
+		}, r.FamilySlug)
+	}
+	return pagination.KeysetPage(addons, page, func(a Addon) (time.Time, uuid.UUID) { return a.CreatedAt, a.ID })
+}
 
 // Families reads families with their versions, newest version first. The
 // current version is the default, else the highest PUBLISHED one.

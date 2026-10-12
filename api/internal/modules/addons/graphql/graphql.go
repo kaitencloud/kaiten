@@ -1,5 +1,6 @@
 // Package graphql is the add-ons module's part of the GraphQL schema (§13.14):
-// the add-ons an instance holds.
+// the add-ons an instance holds, and the catalogue of add-on versions with
+// their prices.
 package graphql
 
 import (
@@ -17,9 +18,11 @@ import (
 // InstanceAddonsLoaderName loads Instance.addons.
 const InstanceAddonsLoaderName = "InstanceAddonsLoader"
 
-// RegisterDataloaders registers the add-ons module's loaders.
+// RegisterDataloaders registers the add-ons module's loaders. Neither is
+// metered: REST does not bill a read of the add-on catalogue either.
 func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries) {
 	loaders.Register(InstanceAddonsLoaderName, dataloaderLib.NewBatchedLoader(newInstanceAddonsBatchFn(queries)))
+	loaders.Register(AddonPricesLoaderName, dataloaderLib.NewBatchedLoader(newAddonPricesBatchFn(queries)))
 }
 
 func newInstanceAddonsBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.UUID, []catalogue.InstanceAddon] {
