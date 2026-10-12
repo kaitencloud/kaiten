@@ -90,7 +90,10 @@ function watchRestPriceReads() {
   return reads;
 }
 
-function render(enabled = true) {
+function render(
+  enabled = true,
+  entitlements: Parameters<typeof useVoucherPrices>[0]['entitlements'] = undefined,
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -98,7 +101,9 @@ function render(enabled = true) {
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
 
-  return renderHook(() => useVoucherPrices({ enabled }), { wrapper });
+  return renderHook(() => useVoucherPrices({ enabled, entitlements }), {
+    wrapper,
+  });
 }
 
 beforeEach(() => {
@@ -237,6 +242,49 @@ describe('useVoucherPrices', () => {
       amount: '$0.15 per 1,000 tokens',
       id: 'price-tokens',
       label: 'tokens',
+    });
+  });
+
+  it('names the entitlement a metered price measures when the console knows it, instead of its slug', async () => {
+    answerCatalog(() => ({
+      addons: list([]),
+      licenses: list([
+        license('license-pro-1', '1', [
+          price('price-tokens', {
+            billingModel: 'USAGE_BASED',
+            billingPeriod: null,
+            billingTiming: 'ARREARS',
+            meteredEntitlement: 'tokens',
+            saleUnitFactor: '1000',
+            unitAmountDecimal: '15',
+          }),
+          price('price-orders', {
+            billingModel: 'USAGE_BASED',
+            billingPeriod: null,
+            billingTiming: 'ARREARS',
+            meteredEntitlement: 'monthly-orders',
+            saleUnitFactor: '1',
+            unitAmountDecimal: '5',
+          }),
+        ]),
+      ]),
+    }));
+
+    const { result } = render(true, [
+      { name: 'API tokens', slug: 'tokens', unitPlural: 'tokens' },
+      { name: 'Monthly Orders', slug: 'monthly-orders' },
+    ]);
+
+    await waitFor(() => expect(result.current.options).toHaveLength(2));
+    expect(
+      result.current.options.map((option) => [option.id, option.label, option.amount]),
+    ).toEqual([
+      ['price-tokens', 'API tokens', '$0.15 per 1,000 tokens'],
+      ['price-orders', 'Monthly Orders', '$0.05 per Monthly Orders'],
+    ]);
+    expect(result.current.names).toEqual({
+      'price-tokens': 'Pro v1 · API tokens',
+      'price-orders': 'Pro v1 · Monthly Orders',
     });
   });
 

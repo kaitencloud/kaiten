@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { Entitlement } from '@/api-client';
 import {
   catalogPricesQueryOptions,
   getPriceAmountParts,
@@ -19,13 +20,37 @@ import { getAddonLabel, getLicenseLabel } from '../utils/voucher-references';
  * base price or the add-ons as a whole needs none. A price a version no longer offers is
  * listed and says so, since a subscription may still be billed by it.
  *
+ * A metered price is written with the entitlement it measures, by its name and its unit,
+ * when the console has read the entitlements (`entitlements`): the document carries
+ * only its slug, and a session that may not read them sees the slug rather than a
+ * guess.
+ *
  * The document needs read:licenses and read:addons together, as the API checks the
  * scopes of a whole document at once: a session that holds only one gets the refusal,
  * which the picker shows with a way to ask again.
  */
-export function useVoucherPrices({ enabled }: { enabled: boolean }) {
+export function useVoucherPrices({
+  enabled,
+  entitlements,
+}: {
+  enabled: boolean;
+  entitlements?: readonly Pick<
+    Entitlement,
+    'name' | 'slug' | 'unitPlural' | 'unitSingular'
+  >[];
+}) {
   const { i18n, t } = useTranslation();
   const catalog = useQuery({ ...catalogPricesQueryOptions, enabled });
+  const entitlementsBySlug = useMemo(
+    () =>
+      new Map(
+        (entitlements ?? []).map((entitlement) => [
+          entitlement.slug,
+          entitlement,
+        ]),
+      ),
+    [entitlements],
+  );
 
   const options = useMemo<PriceOption[]>(
     () =>
@@ -35,18 +60,24 @@ export function useVoucherPrices({ enabled }: { enabled: boolean }) {
             ? getLicenseLabel(version, t)
             : getAddonLabel(version, t);
 
-        return version.prices.map((price) => ({
-          amount: joinPriceAmount(
-            getPriceAmountParts(price, undefined, t, i18n.language),
-          ),
-          deprecated: price.status === 'DEPRECATED',
-          id: price.id,
-          label: getPriceLabel(price, undefined, t),
-          owner,
-          ownerKind: version.kind,
-        }));
+        return version.prices.map((price) => {
+          const entitlement = price.metered
+            ? entitlementsBySlug.get(price.metered.entitlementSlug)
+            : undefined;
+
+          return {
+            amount: joinPriceAmount(
+              getPriceAmountParts(price, entitlement, t, i18n.language),
+            ),
+            deprecated: price.status === 'DEPRECATED',
+            id: price.id,
+            label: getPriceLabel(price, entitlement, t),
+            owner,
+            ownerKind: version.kind,
+          };
+        });
       }),
-    [catalog.data, i18n.language, t],
+    [catalog.data, entitlementsBySlug, i18n.language, t],
   );
   const names = useMemo(
     () =>
