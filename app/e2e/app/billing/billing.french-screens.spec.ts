@@ -36,6 +36,13 @@ test.describe('the billing of an instance, read in French', () => {
     await expect(
       page.getByRole('tab', { exact: true, name: 'Facturation' }),
     ).toHaveAttribute('aria-selected', 'true');
+    // The tabs beside it are French too, with the words the entitlements pages use.
+    await expect(
+      page.getByRole('tab', { exact: true, name: 'Vue d’ensemble' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('tab', { exact: true, name: 'Droits & utilisation' }),
+    ).toBeVisible();
     const billing = new InstanceBillingDriver(page);
     const card = billing.card('Abonnement');
     await expect(card).toBeVisible();
