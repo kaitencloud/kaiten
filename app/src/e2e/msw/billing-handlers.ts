@@ -4,6 +4,7 @@ import { handleGetBillingCapabilities } from '@/api-client/msw.gen';
 import type { BillingAppModel } from '../../../e2e/app/_support/model/billing-app-model';
 import {
   instanceBillingOperations,
+  catalogPriceOperations,
   type LicenseCatalogue,
   licensePriceOperations,
 } from '../../../e2e/app/_support/model/graphql-operations';
@@ -32,12 +33,13 @@ import { noop, type PersistMswState } from './persistence';
  * `billing-provider-handlers`, and the publishable keys a web page reads the public
  * catalogue with by `billing-publishable-key-handlers`.
  *
- * The lists read two documents of billing over GraphQL, each apart from the
- * documents they already had: the subscription of each instance
- * (`GetInstancesBilling`), which is the billing slot's own, and the licenses with
- * their active prices (`GetLicensesWithPrices`), which also needs to know where the
- * licenses are (`licenses`). A page that has no slot of licenses leaves that
- * document unanswered, as it does `GET /licenses`.
+ * The console reads three documents of billing over GraphQL, each apart from the
+ * documents it already had: the subscription of each instance
+ * (`GetInstancesBilling`), which is the billing slot's own, the licenses with
+ * their active prices (`GetLicensesWithPrices`), and every license version and add-on
+ * version with all its prices (`GetCatalogPrices`), which also need to know where the
+ * licenses are (`licenses`). A page that has no slot of licenses leaves those
+ * documents unanswered, as it does `GET /licenses`.
  */
 export const billingHandlers = (
   model: BillingAppModel,
@@ -55,7 +57,12 @@ export const billingHandlers = (
   ),
   graphqlOperationHandler({
     ...instanceBillingOperations(model),
-    ...(licenses ? licensePriceOperations(licenses) : {}),
+    ...(licenses
+      ? {
+          ...licensePriceOperations(licenses),
+          ...catalogPriceOperations(licenses, model.addons),
+        }
+      : {}),
   }),
   ...billingInvoiceHandlers(model, persist),
   ...billingProviderHandlers(model, persist),

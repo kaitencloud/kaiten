@@ -217,6 +217,21 @@ func TestComplexityLimitAdmitsEveryLegitimateQuery(t *testing.T) {
 		}
 	})
 
+	// The console's one document for the prices of the catalog reads two lists at the
+	// largest page, each version with all its prices, and is still under the ceiling: it
+	// is what lets the price picker of a voucher read every version in one request. The
+	// number moves with the document or with the cost of a version's prices, and this is
+	// where that is noticed before the limit refuses it.
+	t.Run("the console's prices of the catalog", func(t *testing.T) {
+		t.Parallel()
+
+		cost := queryComplexityAsSent(t, "console/GetCatalogPrices")
+
+		require.Equal(t, 242_800, cost)
+		require.Less(t, cost, queryComplexityAsSent(t, heaviestClientQuery),
+			"a document dearer than the ceiling is the ceiling: read complexityLimit against it")
+	})
+
 	// The SDK's documents do not leave their page to the caller: they name one,
 	// sized to keep the dearer of the two under the ceiling. complexityLimit
 	// says why a license is too dear a row for them to do otherwise.
@@ -596,6 +611,7 @@ var legitimateVariables = map[string]map[string]any{
 	"console/GetCustomersWithInstances": {"limit": consolePage},
 	"console/GetInstancesBilling":       {"limit": consolePage},
 	"console/GetLicensesWithPrices":     {"limit": consolePage},
+	"console/GetCatalogPrices":          {"limit": consolePage, "withLicenses": true, "withAddons": true},
 	heaviestClientQuery:                 {"limit": consolePage},
 	"console/MetadataFields":            {"limit": consolePage},
 	// The most the audit trail asks for, once "load more" has been pressed.
@@ -644,6 +660,28 @@ var legitimateQueries = map[string]string{
 			items {
 				id slug name version versionName lifecycleState pricingType
 				prices(status: "ACTIVE") {
+					id billingModel billingTiming billingPeriod currency unitAmountDecimal
+					meteredEntitlement saleUnitFactor displayLabel displayOrder isDefault status
+				}
+			}
+		}
+	}`,
+	"console/GetCatalogPrices": `query GetCatalogPrices($limit: Int, $licensesCursor: String, $addonsCursor: String, $withLicenses: Boolean!, $withAddons: Boolean!) {
+		licenses(limit: $limit, cursor: $licensesCursor) @include(if: $withLicenses) {
+			nextCursor hasMore
+			items {
+				id name version lifecycleState
+				prices {
+					id billingModel billingTiming billingPeriod currency unitAmountDecimal
+					meteredEntitlement saleUnitFactor displayLabel displayOrder isDefault status
+				}
+			}
+		}
+		addons(limit: $limit, cursor: $addonsCursor) @include(if: $withAddons) {
+			nextCursor hasMore
+			items {
+				id name versionName lifecycleState
+				prices {
 					id billingModel billingTiming billingPeriod currency unitAmountDecimal
 					meteredEntitlement saleUnitFactor displayLabel displayOrder isDefault status
 				}

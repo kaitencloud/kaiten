@@ -110,7 +110,7 @@ in browser-free support modules used by MSW handlers. `graphqlOperationHandler`
 (`handler-factory.ts`) routes a GraphQL request by the name of its document and,
 like the API, refuses the whole document with a 403 `Auth.MissingScope` when the
 token of the request lists scopes and lacks one the document needs
-(`graphql-scope-gate.ts` over `GRAPHQL_DOCUMENT_SCOPES`, which holds the two documents of
+(`graphql-scope-gate.ts` over `GRAPHQL_DOCUMENT_SCOPES`, which holds the three documents of
 billing); a request with no token, or a token that says nothing of its scopes, is served.
 
 MSW is the application suite's only mock implementation. Notifications require

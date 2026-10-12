@@ -29,7 +29,8 @@ export function getLicenseLabel(
 
 /** An add-on version, with the state it is in when it is not on sale. */
 export function getAddonLabel(
-  addon: Pick<Addon, 'lifecycleState' | 'name' | 'versionName'>,
+  addon: Pick<Addon, 'name' | 'versionName'> &
+    Partial<Pick<Addon, 'lifecycleState'>>,
   t: TFunction,
 ): string {
   const label = getAddonTitle(addon);

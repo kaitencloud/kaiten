@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Addon, License } from '@/api-client';
 import { addonVersionsQueryOptions, useCanPerform } from '@/domains/billing';
 import {
   voucherCustomersQueryOptions,
@@ -10,9 +9,6 @@ import {
 } from '../queries';
 import { buildVoucherNames } from '../utils/voucher-references';
 import { useVoucherPrices } from './use-voucher-prices';
-
-const NO_ADDONS: readonly Addon[] = [];
-const NO_LICENSES: readonly License[] = [];
 
 /**
  * What a voucher refers to, read for the screens that name it or let it be chosen: the
@@ -25,9 +21,10 @@ const NO_LICENSES: readonly License[] = [];
  * as it is rather than asked once more behind it. A screen whose loader started
  * nothing, such as the voucher page, asks again when it mounts on a failed read.
  *
- * The prices come with the versions they belong to, one read for each, so they are only
- * read when the screen needs them (`withPrices`): to choose among them, or to name those
- * a voucher is limited to. `names` writes out the ids and the slugs a voucher holds.
+ * The prices come with the versions they belong to, in one document for every version,
+ * so they are only read when the screen needs them (`withPrices`): to choose among them,
+ * or to name those a voucher is limited to. `names` writes out the ids and the slugs a
+ * voucher holds.
  */
 export function useVoucherReferences({
   startedByLoader = false,
@@ -59,11 +56,7 @@ export function useVoucherReferences({
     enabled: mayListEntitlements,
     retryOnMount,
   });
-  const prices = useVoucherPrices({
-    addons: addons.data?.items ?? NO_ADDONS,
-    enabled: withPrices,
-    licenses: licenses.data?.items ?? NO_LICENSES,
-  });
+  const prices = useVoucherPrices({ enabled: withPrices });
   const names = useMemo(
     () =>
       buildVoucherNames({

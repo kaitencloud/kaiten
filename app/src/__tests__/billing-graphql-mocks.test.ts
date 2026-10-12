@@ -305,3 +305,111 @@ describe('GetLicensesWithPrices', () => {
     ).not.toBe(first.items[0].slug);
   });
 });
+
+type CatalogRow = {
+  id: string;
+  lifecycleState: string;
+  name: string;
+  prices: Array<{ id: string; status: string }>;
+};
+
+const catalogOf = async (
+  variables: Record<string, unknown>,
+  scopes?: string[],
+) => (await graphql('GetCatalogPrices', variables, scopes)).body.data as {
+  addons?: { hasMore: boolean; items: CatalogRow[]; nextCursor: string | null };
+  licenses?: {
+    hasMore: boolean;
+    items: CatalogRow[];
+    nextCursor: string | null;
+  };
+};
+
+describe('GetCatalogPrices', () => {
+  const both = { limit: 200, withAddons: true, withLicenses: true };
+
+  it('answers every license version and every add-on version of the dev world, with all their prices', async () => {
+    const config = useDevWorld();
+
+    const { addons, licenses } = await catalogOf(both);
+
+    expect(licenses?.items.map((version) => version.id)).toEqual(
+      config.licenses?.licenses.map((license) => license.id),
+    );
+    expect(addons?.items).toHaveLength(
+      config.billing?.addonCatalogue?.versions?.length ?? -1,
+    );
+    expect(licenses?.hasMore).toBe(false);
+    expect(addons?.hasMore).toBe(false);
+    // Not only the prices on sale: a price a version retired is still billed by a subscription.
+    const statuses = new Set(
+      [...(licenses?.items ?? []), ...(addons?.items ?? [])].flatMap(
+        (version) => version.prices.map((price) => price.status),
+      ),
+    );
+    expect(statuses).toEqual(new Set(['ACTIVE', 'DEPRECATED']));
+  });
+
+  it('leaves out the list the request leaves out, as the @include of the document does', async () => {
+    useDevWorld();
+
+    const licensesOnly = await catalogOf({ ...both, withAddons: false });
+    const addonsOnly = await catalogOf({ ...both, withLicenses: false });
+
+    expect(Object.keys(licensesOnly)).toEqual(['licenses']);
+    expect(Object.keys(addonsOnly)).toEqual(['addons']);
+  });
+
+  it('pages each list by a cursor of its own', async () => {
+    useDevWorld();
+
+    const first = await catalogOf({ ...both, limit: 2 });
+    // Each list goes on from the cursor of its own page.
+    const second = await catalogOf({
+      ...both,
+      addonsCursor: first.addons?.nextCursor,
+      limit: 2,
+      licensesCursor: first.licenses?.nextCursor,
+    });
+
+    expect(first.licenses?.items).toHaveLength(2);
+    expect(first.addons?.items).toHaveLength(2);
+    expect(first.addons?.hasMore).toBe(true);
+    expect(second.licenses?.items[0]?.id).not.toBe(first.licenses?.items[0]?.id);
+    expect(second.addons?.items[0]?.id).not.toBe(first.addons?.items[0]?.id);
+  });
+
+  it('is refused whole to a session that reads the licenses and not the add-ons, naming the scope it lacks', async () => {
+    useDevWorld();
+
+    const { body, status } = await graphql('GetCatalogPrices', both, [
+      'read:licenses',
+    ]);
+
+    expect(status).toBe(403);
+    expect(body).toMatchObject({
+      code: 'Auth.MissingScope',
+      detail: 'missing required scope: read:addons',
+    });
+    expect(body.data).toBeUndefined();
+    expect(
+      (await graphql('GetCatalogPrices', both, ['read:licenses', 'read:addons']))
+        .status,
+    ).toBe(200);
+  });
+
+  it('is unanswered where nothing has the licenses, as the licenses are', async () => {
+    server.use(
+      ...createMockHandlers(
+        { billing: createLifecycleBillingModel().serializeForMsw() },
+        'off',
+        undefined,
+        true,
+      ),
+      undeclaredApiRequest,
+    );
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(graphql('GetCatalogPrices', both)).rejects.toThrow();
+  });
+});

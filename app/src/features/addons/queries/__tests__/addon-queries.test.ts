@@ -11,6 +11,7 @@ import {
   listAddonsQueryKey,
 } from '@/api-client/@tanstack/react-query.gen';
 import { handleListAddonFamilies } from '@/api-client/msw.gen';
+import { catalogPricesBaseQueryKey } from '@/domains/billing';
 // For its side effect: the REST client then throws an `ApiError`.
 import '@/lib/api/bootstrap';
 import { buildAddon } from '../../../../../e2e/app/_support/fixtures';
@@ -60,6 +61,7 @@ describe('what a change to the catalogue refreshes', () => {
   function seeded() {
     const queryClient = new QueryClient();
     const keys = {
+      catalogPrices: catalogPricesBaseQueryKey,
       compatibility: listAddonCompatibilityQueryKey({ path: { addonSlug: 'extra-seats' } }),
       detail: getAddonQueryKey({ path: { addonSlug: 'extra-seats' } }),
       detailOfAnother: getAddonQueryKey({ path: { addonSlug: 'extra-storage' } }),
@@ -84,6 +86,8 @@ describe('what a change to the catalogue refreshes', () => {
 
     expect(stale(keys.families)).toBe(true);
     expect(stale(keys.versions)).toBe(true);
+    // The price picker of a voucher names the versions, with the state each is in.
+    expect(stale(keys.catalogPrices)).toBe(true);
     expect(stale(keys.detail)).toBe(true);
     expect(stale(keys.detailOfAnother)).toBe(false);
     expect(stale(keys.grants)).toBe(false);
@@ -118,12 +122,14 @@ describe('what a change to the catalogue refreshes', () => {
     expect(stale(keys.families)).toBe(false);
   });
 
-  it('is, for a price, the prices of that version', async () => {
+  it('is, for a price, the prices of that version and the prices of every version', async () => {
     const { keys, queryClient, stale } = seeded();
 
     await invalidateAddonPriceQueries(queryClient, 'extra-seats');
 
     expect(stale(keys.prices)).toBe(true);
+    // One document holds the prices of every version, for the price picker of a voucher.
+    expect(stale(keys.catalogPrices)).toBe(true);
     expect(stale(keys.grants)).toBe(false);
   });
 
@@ -134,5 +140,6 @@ describe('what a change to the catalogue refreshes', () => {
 
     expect(stale(keys.compatibility)).toBe(true);
     expect(stale(keys.grants)).toBe(false);
+    expect(stale(keys.catalogPrices)).toBe(false);
   });
 });

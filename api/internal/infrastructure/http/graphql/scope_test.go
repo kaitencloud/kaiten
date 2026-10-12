@@ -31,6 +31,7 @@ import (
 )
 
 var (
+	readAddons          = scope.Read(scope.Addons)
 	readBilling         = scope.Read(scope.Billing)
 	readComponents      = scope.Read(scope.Components)
 	readCustomers       = scope.Read(scope.Customers)
@@ -369,6 +370,7 @@ func TestClientDocumentsRequireTheseScopes(t *testing.T) {
 		"console/GetInstances":              {readInstances, readLicenses},
 		"console/GetLicenses":               {readLicenses},
 		"console/GetLicensesWithPrices":     {readLicenses},
+		"console/GetCatalogPrices":          {readLicenses, readAddons},
 		"console/GetGlobalAuditTrail":       {readOrganizations},
 		heaviestClientQuery: {
 			readReleases, readComponents, readDeploymentZones, readInstances, readCustomers,

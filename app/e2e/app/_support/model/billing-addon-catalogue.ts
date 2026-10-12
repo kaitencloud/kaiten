@@ -413,6 +413,28 @@ export class AddonCatalogue {
 
   // --- Versions -----------------------------------------------------------------
 
+  /**
+   * Every version with every price it has: the versions newest first, as `GET /addons`
+   * lists them, and each one's prices in the display order of
+   * `GET /addons/{addonSlug}/prices`. It is what the GraphQL document of the catalog's
+   * prices serves of the add-ons, and it is none of the REST operations, so it consumes
+   * none of the problems armed for them.
+   */
+  listVersionsWithPrices(): { prices: Price[]; version: Addon }[] {
+    return [...this.versions]
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .map((version) => ({
+        prices: clone(
+          [...(this.prices[version.slug] ?? [])].sort(
+            (left, right) =>
+              left.displayOrder - right.displayOrder ||
+              left.id.localeCompare(right.id),
+          ),
+        ),
+        version: clone(version),
+      }));
+  }
+
   /** `GET /addons`: the versions, newest first, a cursor per page. */
   listVersions(
     filter: {

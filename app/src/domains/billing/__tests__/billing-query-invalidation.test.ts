@@ -24,6 +24,7 @@ import {
   allInstanceInvoicesOptions,
 } from '@/lib/api/all-pages-query-options';
 import {
+  catalogPricesBaseQueryKey,
   invalidateBillingProviderQueries,
   invalidateBillingSettingsQueries,
   invalidateCustomerBillingQueries,
@@ -187,7 +188,13 @@ describe('invalidateLicensePriceQueries', () => {
     const prices = listLicensePricesQueryKey({ path: { licenseSlug: 'pro-v2' } });
     const version = getLicenseQueryKey({ path: { licenseSlug: 'pro-v2' } });
     const other = listLicensePricesQueryKey({ path: { licenseSlug: 'pro-v3' } });
-    seed(client, [prices, version, other, licensesWithPricesBaseQueryKey]);
+    seed(client, [
+      prices,
+      version,
+      other,
+      licensesWithPricesBaseQueryKey,
+      catalogPricesBaseQueryKey,
+    ]);
 
     await invalidateLicensePriceQueries(client, 'pro-v2');
 
@@ -195,6 +202,8 @@ describe('invalidateLicensePriceQueries', () => {
     expect(invalidated(client, version)).toBe(true);
     // One read holds the prices of every version: any change to one refreshes it.
     expect(invalidated(client, licensesWithPricesBaseQueryKey)).toBe(true);
+    // So does the one the price picker of a voucher reads, deprecated prices included.
+    expect(invalidated(client, catalogPricesBaseQueryKey)).toBe(true);
     expect(invalidated(client, other)).toBe(false);
   });
 });

@@ -109,6 +109,13 @@ transport. GraphQL's `request(query, variables, signal)` forwards it to fetch;
 cancellation stops the walk and TanStack Query handles it as cancellation,
 rather than a normal business error.
 
+One GraphQL document can carry the page of several lists, each with a cursor of its own.
+`GetCatalogPrices` does (`catalogPricesQueryOptions`, in the billing domain): the license
+versions and the add-on versions with their prices. `fetchAllPages` walks one list, so that
+query drives one walk for each list (`startPageWalk`, and `takePage` for each page, which
+checks the envelope as `fetchAllPages` does) and asks again only for the lists that have
+more, through the `@include` variables of the document, until every one is read to its end.
+
 ## Queries without a generated key
 
 GraphQL queries, and queries that combine several requests, have no generated key.

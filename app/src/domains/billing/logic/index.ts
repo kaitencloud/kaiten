@@ -204,6 +204,14 @@ export {
   toLicensesWithPrices,
 } from './license-catalogue';
 export {
+  type CatalogAddonInput,
+  type CatalogLicenseInput,
+  toAddonVersionWithPrices,
+  toLicenseVersionWithPrices,
+  toVersionsWithPrices,
+  type VersionWithPrices,
+} from './catalog-prices';
+export {
   getLicensePriceSummary,
   type LicensePriceSummary,
 } from './license-price-summary';

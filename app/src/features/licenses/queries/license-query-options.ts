@@ -15,7 +15,10 @@ import {
   allLicenseFamiliesOptions,
   allLicensesOptions,
 } from '@/lib/api/all-pages-query-options';
-import { licensesWithPricesBaseQueryKey } from '@/domains/billing';
+import {
+  catalogPricesBaseQueryKey,
+  licensesWithPricesBaseQueryKey,
+} from '@/domains/billing';
 import { fetchAllPages, MAX_PAGE_SIZE } from '@/lib/api/pagination';
 import { buildLicensesWithInstancesRows } from '../utils/license-list.utils';
 
@@ -73,7 +76,7 @@ export const licensesWithInstancesQueryOptions = queryOptions({
 // stale for its next read. The family list is one of them: a version's state,
 // default flag or name can change what its family resolves to. So are the
 // versions read with their prices, which say how each family is sold and which
-// versions are on sale.
+// versions are on sale, and the versions the price picker of a voucher names.
 export async function invalidateLicenseLists(queryClient: QueryClient) {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: getLicensesQueryKey() }),
@@ -81,6 +84,7 @@ export async function invalidateLicenseLists(queryClient: QueryClient) {
       queryKey: licensesWithInstancesBaseQueryKey,
     }),
     queryClient.invalidateQueries({ queryKey: licensesWithPricesBaseQueryKey }),
+    queryClient.invalidateQueries({ queryKey: catalogPricesBaseQueryKey }),
     queryClient.invalidateQueries({
       queryKey: listLicenseFamiliesQueryKey(),
     }),
@@ -105,6 +109,7 @@ export async function invalidateLicenseQueries(
       queryKey: licensesWithInstancesBaseQueryKey,
     }),
     queryClient.invalidateQueries({ queryKey: licensesWithPricesBaseQueryKey }),
+    queryClient.invalidateQueries({ queryKey: catalogPricesBaseQueryKey }),
     queryClient.invalidateQueries({
       queryKey: listLicenseFamiliesQueryKey(),
     }),
