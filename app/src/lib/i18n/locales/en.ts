@@ -3370,6 +3370,13 @@ export default {
           billing: 'Billing',
           noConnectors: 'No active connectors.',
         },
+        Taglines: {
+          attio: 'Modern B2B CRM',
+          hubspot: 'CRM platform',
+          salesforce: 'Enterprise CRM',
+          stripe: 'Subscription billing',
+          lago: 'Usage-based billing',
+        },
         Card: {
           connect: 'Connect',
           manage: 'Manage',

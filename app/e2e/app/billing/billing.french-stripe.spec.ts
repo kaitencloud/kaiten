@@ -69,6 +69,25 @@ test.describe('the Stripe connector, read in French', () => {
     );
   });
 
+  test('the tiles of the catalog say what each connector does in French', async ({
+    page,
+  }) => {
+    await install(page, createStripeConnectorModels({ standing: 'available' }));
+
+    await page.goto('/integrations/connectors');
+
+    const cards = page.locator('[data-slot="card"]');
+    await expect(
+      cards
+        .filter({ hasText: 'Stripe' })
+        .getByText('Facturation d’abonnements'),
+    ).toBeVisible();
+    await expect(
+      cards.filter({ hasText: 'Attio' }).getByText('CRM B2B moderne'),
+    ).toBeVisible();
+    await expect(page.getByText('Subscription billing')).toHaveCount(0);
+  });
+
   test('a secret key is refused in French, and what Stripe rejected is the words of the API', async ({
     page,
   }) => {

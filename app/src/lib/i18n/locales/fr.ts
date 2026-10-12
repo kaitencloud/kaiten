@@ -3417,6 +3417,13 @@ export default {
           billing: 'Facturation',
           noConnectors: 'Aucun connecteur actif.',
         },
+        Taglines: {
+          attio: 'CRM B2B moderne',
+          hubspot: 'Plateforme CRM',
+          salesforce: 'CRM pour grandes entreprises',
+          stripe: 'Facturation d’abonnements',
+          lago: 'Facturation à l’usage',
+        },
         Card: {
           connect: 'Connecter',
           manage: 'Gérer',
