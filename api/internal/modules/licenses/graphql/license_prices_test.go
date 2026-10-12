@@ -19,6 +19,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
+	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 // fakeDBTX is a minimal db.DBTX fake: the prices are only ever read with Query. It
@@ -188,6 +189,22 @@ func TestLicensePricesAreNarrowedToAStatusAfterTheyAreRead(t *testing.T) {
 	require.Len(t, list, 1)
 	assert.Equal(t, active, list[0].ID)
 	assert.Len(t, fake.queries(), 1, "the version's prices of every status are read once")
+}
+
+// GET .../prices answers 422 for a status that is not one; an empty list would read as
+// "this version has no such price".
+func TestLicensePricesRefuseAStatusThatIsNotOne(t *testing.T) {
+	fake := &fakeDBTX{}
+	ctx := contextWithLoaders(t, fake, uuid.New(), 1)
+	bogus := "BOGUS"
+
+	_, err := LoadLicensePrices(ctx, uuid.New(), &bogus)
+
+	var refusal *apierrors.Error
+	require.ErrorAs(t, err, &refusal)
+	assert.Equal(t, "Prices.InvalidStatus", refusal.ErrorCode())
+	assert.Equal(t, 422, refusal.HTTPStatus())
+	assert.Empty(t, fake.queries(), "a refused request reads nothing")
 }
 
 func TestLicensePricesNeedAnIdentity(t *testing.T) {

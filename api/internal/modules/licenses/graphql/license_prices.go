@@ -47,8 +47,12 @@ func newLicensePricesBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.U
 	}
 }
 
-// LoadLicensePrices is a version's prices, narrowed to status when it is set.
+// LoadLicensePrices is a version's prices, narrowed to status when it is set. A status
+// that is neither ACTIVE nor DEPRECATED is refused, as GET .../prices refuses it.
 func LoadLicensePrices(ctx context.Context, licenseID uuid.UUID, status *string) ([]prices.Price, error) {
+	if err := prices.CheckStatusFilter(status); err != nil {
+		return nil, err
+	}
 	loader, err := dataloader.GetLoader[uuid.UUID, []prices.Price](dataloader.LoadersFromContext(ctx), LicensePricesLoaderName)
 	if err != nil {
 		return nil, err
