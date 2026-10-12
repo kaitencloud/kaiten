@@ -25,7 +25,8 @@ app/src/features/notifications/
 │   ├── notification-panel.tsx                   # the popover: the latest notifications
 │   ├── notification-item.tsx                    # one entry of the panel
 │   ├── notifications-page-content.tsx           # /notifications: header, status and object filters
-│   ├── notifications-feed-list.tsx              # paged rows, grouped by day
+│   ├── notifications-feed-list.tsx              # paged days, and the button for more
+│   ├── notification-day-group.tsx               # one day: heading, count, rows
 │   ├── notification-row.tsx                     # one row of the feed
 │   ├── notification-status-segments.tsx         # All / Unread
 │   ├── notification-event-meta.ts               # icon and tone per event
