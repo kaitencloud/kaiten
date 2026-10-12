@@ -56,7 +56,10 @@ export function useVoucherReferences({
     enabled: mayListEntitlements,
     retryOnMount,
   });
-  const prices = useVoucherPrices({ enabled: withPrices });
+  const prices = useVoucherPrices({
+    enabled: withPrices,
+    entitlements: entitlements.data?.items,
+  });
   const names = useMemo(
     () =>
       buildVoucherNames({
