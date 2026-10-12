@@ -279,6 +279,34 @@ describe('buildLicenseGroups', () => {
     expect(groups[0]?.licenseName).toBe('Community Next');
   });
 
+  // The listing in the public catalogue is the family's: the flag and the slug
+  // it is written with come from the family list, not from any version.
+  it('takes the slug and the public listing from the family the API describes', () => {
+    const groups = buildLicenseGroups(
+      [communityV2],
+      [{ ...makeFamily('family-community', communityV2), isPublic: true }],
+    );
+
+    expect(groups[0]?.familySlug).toBe('community');
+    expect(groups[0]?.isPublic).toBe(true);
+  });
+
+  it('keeps a family private until the API lists it', () => {
+    const groups = buildLicenseGroups(
+      [communityV2],
+      [{ ...makeFamily('family-community', communityV2), isPublic: false }],
+    );
+
+    expect(groups[0]?.isPublic).toBe(false);
+  });
+
+  it('has no slug to address, and is private, for a family the API did not list', () => {
+    const groups = buildLicenseGroups([communityV2], []);
+
+    expect(groups[0]?.familySlug).toBeUndefined();
+    expect(groups[0]?.isPublic).toBe(false);
+  });
+
   // familyId is always on a read, but the type leaves it optional (the same
   // schema is the create body). A row without one is its own group rather
   // than merged with strangers.

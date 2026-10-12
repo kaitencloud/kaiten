@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next';
 import type { GetInstancesWithRelationsQuery } from '@/api-client/graphql/graphql';
+import { InstanceBillingCell, type InstancesBilling } from '@/domains/billing';
 import { IntegrationSyncBadge } from '@/domains/crm-sync';
 import {
   buildColumnsFromSchema,
@@ -39,6 +40,23 @@ export const extraMetadataKeys = (
   );
   return [...Object.keys(archivedLeftovers), ...Object.keys(unknown)];
 };
+
+// The state of the subscription of each instance, where billing is on and the
+// session may read it. It is read apart from the rows (a document of its own), so
+// the cell asks for it by slug; the rows and the filters stay what they were.
+const buildBillingColumn = (
+  t: TFunction,
+  billing: InstancesBilling,
+): ColumnDef<InstanceRow> => ({
+  accessorFn: (row) => billing.summaryOf(row.slug)?.rawStatus ?? '',
+  header: dataTableSortableHeader(
+    t('Pages.Customers.Instances.Table.Columns.billing', 'Billing'),
+  ),
+  id: 'billing',
+  cell: ({ row }) => (
+    <InstanceBillingCell billing={billing} instanceSlug={row.original.slug} />
+  ),
+});
 
 const buildExtraMetadataColumn = (
   t: TFunction,
@@ -96,6 +114,8 @@ export const createColumns = (
   // Whether any row carries orphan metadata. When false the "Extra metadata"
   // column is omitted entirely — a well-configured table shouldn't surface it.
   showExtraMetadata: boolean,
+  // The Billing column is there only when the subscriptions can be read.
+  billing?: InstancesBilling,
 ): ColumnDef<InstanceRow>[] => {
   const baseColumns: ColumnDef<InstanceRow>[] = [
     {
@@ -153,6 +173,10 @@ export const createColumns = (
       ),
     },
   ];
+
+  if (billing?.available) {
+    baseColumns.push(buildBillingColumn(t, billing));
+  }
 
   if (metadataFields.length === 0) {
     // Backward-compat: no schema declared → keep the raw-JSON dialog as

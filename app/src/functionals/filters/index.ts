@@ -8,6 +8,7 @@ export type {
 } from './components';
 export {
   FILTER_MULTI_SELECT_SEPARATOR,
+  FilterChip,
   FilterMultiSelect,
   FilterSearchInput,
   FilterToolbar,

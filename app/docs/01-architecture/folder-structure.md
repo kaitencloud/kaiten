@@ -48,7 +48,7 @@ app/src/
 └── styles.css, tokens.css   # Tailwind entry point, the app's own design tokens
 ```
 
-`src/e2e/` is test infrastructure, not a layer: `main.tsx` loads it dynamically, only when a `VITE_E2E_MSW`, `VITE_MOCK_API` or `VITE_MOCK_NOTIFICATIONS` variable asks for it, and the production build leaves it out. Its handlers build their seeds from the Playwright models in `app/e2e/app/_support/model/`, and the dev world (`src/e2e/msw/dev-world/`) its records with the fixture builders of `app/e2e/app/_support/fixtures/`, a dependency that `check:architecture` cannot judge, because its target lies outside `src/` and no rule covers it.
+`src/e2e/` is test infrastructure, not a layer: `main.tsx` loads it dynamically, only when a `VITE_E2E_MSW`, `VITE_MOCK_API` or `VITE_MOCK_NOTIFICATIONS` variable asks for it, and the production build leaves it out. Its handlers build their seeds from the Playwright models in `app/e2e/app/_support/model/`, and the dev world (`src/e2e/msw/dev-world/`) its records with the fixture builders of `app/e2e/app/_support/fixtures/`. The unit-test server (`src/__tests__/msw-server.ts`), the Storybook configuration (`.storybook/msw.ts`), `src/test-fixtures/` and a few unit tests read the billing capability profiles of `app/e2e/app/_support/model/billing-capabilities.ts` the same way. These dependencies are ones that `check:architecture` cannot judge, because their target lies outside `src/` and no rule covers it.
 
 ## Dependency matrix
 
@@ -138,6 +138,7 @@ A domain typically has `queries/` (query keys, options, invalidation helpers), `
 - `domains/release-management/` holds the release overview query, the release statuses and the shared component-catalog form, used by `releases`, `components`, `deployment-zones` and `instances`.
 - `domains/crm-sync/` holds the per-entity CRM sync read model and its display components.
 - `domains/webhooks/` holds whether outbound webhooks are served to the organization, which the side navigation, the webhooks route guard and the token scope picker read.
+- `domains/billing/` holds what the billing screens share: the capabilities every billing screen gates on, the scope each action needs, money, period and status components, the invoice preview, and how a refusal of the API is shown.
 
 Put in a domain:
 
@@ -167,7 +168,7 @@ Where things go:
 | Destructive button with confirmation | `components/destructive-action-button.tsx` |
 | Shared page layout | `functionals/page/` |
 | Data table, table card, actions column, delete and linked-items dialogs | `functionals/table/` |
-| Route tabs, active tab by path prefix | `functionals/route-tabs/` |
+| Route tabs, active tab by path prefix and by search | `functionals/route-tabs/` |
 | Shared business shell of `/releases/**` | `domains/release-management/components/` |
 | Large form dialog with a discard confirmation | `functionals/stacked-form-dialog/` |
 | CEL editor with Monaco completion | `functionals/cel-editor/` |
@@ -179,7 +180,7 @@ Where things go:
 
 ## `hooks/`: shared hooks
 
-[`src/hooks/`](../../src/hooks/) holds React hooks with no business logic that several features share. `form.ts` is the most important one: it exports `useAppForm`, `withForm`, `withFieldGroup` and `createFormSubmitHandler`, and wires the lazy-loaded field components of `components/form/` into TanStack Form. Hooks import only `components/`, `hooks/` and `lib/`.
+[`src/hooks/`](../../src/hooks/) holds React hooks with no business logic that several features share. `form.ts` is the most important one: it exports `useAppForm`, `withForm`, `withFieldGroup` and `createFormSubmitHandler`, and wires the field components of `components/form/` into TanStack Form. Hooks import only `components/`, `hooks/` and `lib/`.
 
 A hook used by one feature stays in `features/<name>/hooks/` and moves here when a second feature needs it: see "Extract late" in [Principles](../AI_CONTEXT.md#principles).
 
@@ -189,8 +190,8 @@ A hook used by one feature stays in `features/<name>/hooks/` and moves here when
 
 | Path | What it holds |
 | --- | --- |
-| `api/` | Wiring of the generated REST client: base URL, auth interceptor, `ApiError` wrapping; pagination helpers; query options that fetch every page of a list (`all-pages-query-options.ts`, built on the generated client); the generated `scopes.gen.ts` |
-| `auth-token.ts`, `local-auth.ts` | Resolution of the bearer token, and the local dev-token mode |
+| `api/` | Wiring of the generated REST client: base URL, auth interceptor, `ApiError` wrapping; pagination helpers; query options that fetch every page of a list (`all-pages-query-options.ts`, built on the generated client); the generated `scopes.gen.ts` and `operation-scopes.gen.ts` |
+| `auth-token.ts`, `local-auth.ts`, `granted-scopes.ts` | Resolution of the bearer token, the local dev-token mode, and the scopes the token carries (decoded for display only, never verified) |
 | `graphql-client.ts` | The small `fetch` client for GraphQL |
 | `errors/` | `ApiError`, `handleApiError`, `getApiErrorMessage`, error codes |
 | `i18n/` | i18next configuration and the `en` and `fr` locales |
@@ -199,7 +200,7 @@ A hook used by one feature stays in `features/<name>/hooks/` and moves here when
 | `feature-flags.ts` | Evaluation of the flags the app gates its own features on, through OpenFeature and its OFREP web provider |
 | `external-id.ts` | Browser-side derivation of an organization id, which has to match the server's (`api/pkg/externalid`) |
 | `optimistic-mutations.ts`, `monaco-workers.ts` | Callbacks for optimistic deletes and invalidation on success; Monaco worker configuration |
-| `logger.ts`, `utils.ts`, `debounce.ts`, `format-date.ts`, ... | Cross-cutting utilities; `cn` is in `utils.ts` |
+| `logger.ts`, `utils.ts`, `debounce.ts`, `app-locale.ts`, `format-date.ts`, `money.ts`, `decimal.ts`, `download-blob.ts`, ... | Cross-cutting utilities; `cn` is in `utils.ts`; `app-locale.ts` names the language that numbers, money and dates are written in; `money.ts` formats and converts amounts without a float (BigInt and decimal strings), with the minor-unit exponents of the API in `currency-exponents.ts`; `decimal.ts` writes and adds the decimal strings the API carries quantities in, digit for digit; `download-blob.ts` saves a file the page holds or an export the API streams; `file-stamp.ts` writes the UTC moment of a download into the name of its file |
 
 `lib/` is infrastructure plus a few bridges to the product. `data-model-icons.ts` maps each entity to an icon and `navigation/segment-labels.ts` maps URL segments to labels, because the whole app shares that vocabulary. `feature-flags.ts` names a product flag (`DEMO_SANDBOX_FLAG`) and `external-id.ts` repeats a server-side derivation. Feature screens and mutations stay out of `lib/`.
 
@@ -222,11 +223,18 @@ routes/
 │   ├── route.tsx              # layout route: Suspense around the Outlet
 │   ├── index.tsx
 │   └── $customerSlug/
+├── catalog/                   # a section: the routes of four features under one segment
+│   ├── index.tsx              # redirect to /catalog/licenses
+│   ├── licenses/              # renders features/licenses
+│   ├── entitlements/          # renders features/entitlements
+│   ├── addons/                # renders features/addons
+│   └── vouchers/              # renders features/vouchers
 └── -components/               # app shell: side navigation, breadcrumbs
 ```
 
 - Dynamic segments are usually named after the slug they carry: `$customerSlug`, `$featureFlagSlug`, `$zoneSlug`. `integrations/connectors/$connectorId.tsx` carries a connector id.
 - A `route.tsx` is a layout route. Detail pages use one, with tab routes beside it.
+- A folder of `routes/` is a URL segment, not a feature. `catalog/` groups the routes of the licenses, the entitlements, the add-ons and the vouchers under one segment, the way the Catalog entry of the side navigation groups them; each of its folders renders its own feature, which keeps its folder in `features/`, and `catalog/index.tsx` only redirects to the first. Moving a route under another segment moves no feature.
 - The router ignores names that start with `-`. `routes/-components/` is the app shell, not a route.
 
 In a route: the `loader`, `beforeLoad` (for example the page title of the breadcrumb), `validateSearch`, `Route.useParams()`, `useSuspenseQuery` on the main query, and the render of the feature's root component.

@@ -57,6 +57,7 @@ export const storyEntitlementUsages = [
     entitlementSlug: storyEntitlements[0].slug,
     licenseId: storyLicenses[0].id,
     licenseSlug: storyLicenses[0].slug,
+    source: 'license',
     // storyEntitlements[0] resets monthly on the calendar, and the API always
     // reports the window alongside the value it was counted in.
     currentPeriodStart: '2026-03-01T00:00:00.000Z',
@@ -72,6 +73,7 @@ export const storyEntitlementUsages = [
     entitlementSlug: storyEntitlements[1].slug,
     licenseId: storyLicenses[0].id,
     licenseSlug: storyLicenses[0].slug,
+    source: 'license',
     value: {
       type: 'boolean',
       value: true,

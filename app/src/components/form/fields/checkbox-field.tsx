@@ -29,7 +29,7 @@ const CheckboxField = ({
       required={required}
     >
       {(field) => (
-        <FormControl>
+        <FormControl announceRequired={false}>
           <div className="flex items-center space-x-2">
             <Checkbox
               id={checkboxId}
@@ -40,6 +40,7 @@ const CheckboxField = ({
               onBlur={field.handleBlur}
               disabled={disabled}
               aria-invalid={field.hasError}
+              aria-required={required || undefined}
             />
             <Label
               htmlFor={checkboxId}

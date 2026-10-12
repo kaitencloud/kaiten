@@ -110,6 +110,19 @@ export function getBreadcrumbItems(
   }));
 }
 
+// A route that explains its own not-found throws `notFound({ data })` and shows
+// the data in its `notFoundComponent`, as billing does where billing is not
+// there: its page exists, and says why there is nothing to show, so it is not a
+// missing page and the tab keeps the title of the trail.
+function explainsItself(match: BreadcrumbMatch): boolean {
+  const error = match.error as
+    | { data?: unknown; isNotFound?: boolean }
+    | null
+    | undefined;
+
+  return error?.isNotFound === true && error.data !== undefined;
+}
+
 /**
  * A URL no route answers leaves the deepest match short of it (`/` alone for
  * `/nope`); a route whose entity the API does not know fails with a 404.
@@ -137,7 +150,7 @@ export function isNotFoundPage(
     isUnmatched ||
     matches.some(
       (match) =>
-        match.status === 'notFound' ||
+        (match.status === 'notFound' && !explainsItself(match)) ||
         (match.status === 'error' && isNotFoundError(match.error)),
     )
   );

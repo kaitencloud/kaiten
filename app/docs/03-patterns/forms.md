@@ -12,7 +12,9 @@ Forms use [TanStack Form](https://tanstack.com/form) for state and [Zod](https:/
 | `form.AppForm`, `form.AppField`, `field.<Name>`: the provider, one field, and the field components | `useAppForm`, with the components in `app/src/components/form/fields/` |
 | `form.SubmitButton` | `app/src/components/form/submit-button.tsx` |
 
-The field components and `SubmitButton` are loaded with `React.lazy`, so they suspend on their first render. Keep a `Suspense` boundary above them. A dialog form adds its own, as the example below and `features/customers/components/customer-form-fields.tsx` do. In the example the field boundary shows a `DialogFormSkeleton` and the button boundary shows nothing.
+The field components and `SubmitButton` are imported statically, so a form draws them on its first render and never suspends for them. They were `React.lazy` once, and a lazy component that suspends on its first render holds its fallback on screen for about 300 ms whatever the load time, because React delays revealing content after a fallback has been shown. Every form opened behind a spinner for that long, even with its chunks cached, and the fields weigh a few kilobytes: the heavy things they wrap are in chunks the app loads anyway. Do not wrap fields in a `Suspense` boundary, and do not make a field `lazy` to save a few kilobytes.
+
+`JsonField` is the one exception, because CodeMirror weighs more than all the other fields together. `hooks/form.ts` registers `components/form/fields/lazy-json-field.tsx`, which loads the editor when a form first draws it and carries a boundary of its own around the editor, so the form around it stays on screen and a field-shaped placeholder takes the editor's place.
 
 ## A form end to end
 
@@ -20,9 +22,7 @@ The field components and `SubmitButton` are loaded with `React.lazy`, so they su
 // app/src/features/service-accounts/components/create-dialog.tsx
 // (abridged: the dialog markup, the type cast on `defaultValues` and the
 // field's `description` are left out)
-import { Suspense } from 'react';
 import { zServiceAccountWritable } from '@/api-client/zod.gen';
-import { DialogFormSkeleton } from '@/components/dialog/dialog-form-skeleton';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
 
 const createServiceAccountSchema = zServiceAccountWritable
@@ -48,20 +48,16 @@ const form = useAppForm({
 return (
   <form onSubmit={createFormSubmitHandler(form.handleSubmit)}>
     <form.AppForm>
-      <Suspense fallback={<DialogFormSkeleton fields={1} />}>
-        <form.AppField name="name">
-          {(field) => (
-            <field.TextField
-              label={t('Pages.Integrations.ServiceAccounts.Dialog.nameLabel')}
-              required
-              placeholder={t('Pages.Integrations.ServiceAccounts.Dialog.namePlaceholder')}
-            />
-          )}
-        </form.AppField>
-      </Suspense>
-      <Suspense fallback={null}>
-        <form.SubmitButton label={t('Pages.Integrations.ServiceAccounts.Dialog.createButton')} />
-      </Suspense>
+      <form.AppField name="name">
+        {(field) => (
+          <field.TextField
+            label={t('Pages.Integrations.ServiceAccounts.Dialog.nameLabel')}
+            required
+            placeholder={t('Pages.Integrations.ServiceAccounts.Dialog.namePlaceholder')}
+          />
+        )}
+      </form.AppField>
+      <form.SubmitButton label={t('Pages.Integrations.ServiceAccounts.Dialog.createButton')} />
     </form.AppForm>
   </form>
 );
@@ -96,21 +92,23 @@ Every field takes `label` and, optionally, `description`, `required` and `classN
 
 | `field.` | File in `components/form/fields/` | Value | Other props |
 | --- | --- | --- | --- |
-| `TextField` | `text-field.tsx` | `string` | `placeholder`, `disabled`, `onChange(value)`. A single-line input. |
+| `TextField` | `text-field.tsx` | `string` | `placeholder`, `disabled`, `onChange(value)`, `inputMode`, `autoComplete` (`off` for a field that holds a code the person types once, such as a voucher code, so that the browser neither remembers nor offers it again), `type` (`password` for a secret that is typed and never read back, such as the restricted key of a payment provider: the characters are hidden and the browser is told not to offer it again). A single-line input. |
 | `TextAreaField` | `textarea-field.tsx` | `string` | `placeholder`, `disabled`. The component is named `TextareaField` in its file and registered as `TextAreaField`. |
-| `NumberField` | `number-field.tsx` | `number`, `NaN` while the input is empty | `min`, `max`, `step`, `placeholder`, `disabled`, `onChange(value)` |
-| `SelectField` | `select-field.tsx` | `string` | `options`, `getOptionLabel`, `getOptionValue` (defaults to the option itself), `placeholder`, `disabled` |
+| `NumberField` | `number-field.tsx` | `number`, `NaN` while the input is empty | `min`, `max`, `step`, `placeholder`, `disabled`, `onChange(value)`, `allowOutOfRange` (a number typed past `min` or `max` is kept for the schema to refuse in its own words, instead of being brought back to the bound; the steppers still stop there) |
+| `MoneyField` | `money-field.tsx` | `string`, the amount as typed in major units (`0.075`) | `currency` (required, shown beside the input), `placeholder`, `disabled`, `onChange(value)`. A float loses the decimals of a price per sale unit, so the string goes to the schema and, at submit time, through `majorToMinorDecimal` of `@/lib/money`. |
+| `DateTimeField` | `date-time-field.tsx` | `string`, the text the control holds (`2027-03-03T10:00`, no zone, `''` when empty) | `disabled`. The field does not say which zone it is read in: the label or the description does, and the form converts the text at submit time (`dateTimeInputToInstant` of `lib/date-time-input.ts` reads it as UTC). |
+| `SelectField` | `select-field.tsx` | `string` | `options`, `getOptionLabel`, `getOptionValue` (defaults to the option itself), `isOptionDisabled(option)` (an option that is listed and cannot be chosen: its label says why), `placeholder`, `disabled` |
 | `ComboboxField` | `combobox-field.tsx` | `string` | `options`, `getOptionLabel`, `getOptionValue`, `searchPlaceholder`, `placeholder`, `allowCustomValue`, `clearable`, `clearLabel`, `disabled` |
 | `CheckboxField` | `checkbox-field.tsx` | `boolean` | `disabled`. The label sits beside the box. |
 | `DatePickerField` | `date-picker-field.tsx` | `Date \| undefined`, or an ISO string with `useISOString` | `placeholder`, `disabled` |
 | `DateRangePickerField` | `date-range-picker-field.tsx` | `DateRange \| undefined` (from `react-day-picker`) | the props of `DateRangePicker` in `components/date-range-picker.tsx` |
 | `JsonField` | `json-field.tsx` | `string`, the JSON text | `placeholder` and the props of the CodeMirror editor. Lints the JSON; an empty value is not flagged. |
 
-To add a field, build it on `FormField` and `useField` (`fields/form-field.tsx`, `fields/use-field.ts`) and add it to `fieldComponents` in `hooks/form.ts`.
+To add a field, build it on `FormField` and `useField` (`fields/form-field.tsx`, `fields/use-field.ts`) and import it in `hooks/form.ts`, then add it to `fieldComponents`. A field that drags in something heavy, as `JsonField` does with CodeMirror, goes behind a wrapper like `lazy-json-field.tsx` that owns its `Suspense`.
 
 ### Required fields
 
-- Pass `required` to the field. `RequiredMark` draws an asterisk beside the label, outside the `<label>`, and `FormControl` sets `aria-required` on the control. Never write the asterisk in the label text: it would change the name that tests and screen readers use for the field.
+- Pass `required` to the field. `RequiredMark` draws an asterisk beside the label, outside the `<label>`, and `FormControl` sets `aria-required` on the control. A control that is a button or a bare container cannot carry it (axe reports `aria-allowed-attr`): wrap it in `<FormControl announceRequired={false}>`, and put the attribute on the element that has a role allowing it, as `CheckboxField` does on its checkbox. Never write the asterisk in the label text: it would change the name that tests and screen readers use for the field.
 - Mark what the schema requires, nothing more. A field with a default value is not required from the user's point of view.
 
 ## Validation schemas
@@ -210,6 +208,7 @@ The form values and the request body are different shapes: the values keep an em
 ### After a submission
 
 - **Errors.** `mutateAsync` throws, so `onSubmit` wraps it in `try/catch` and shows `toast.error(getApiErrorMessage(error))`. See [error handling](../02-conventions/error-handling.md).
+- **A refusal about one field.** When the API refuses a value and says which field, show its words on that field and not in a toast: a field component shows the first error of the field, and an error from the server is an object with a `message` (`errorMap.onServer`). `setProblemFieldError(form, field, message)` from `@/domains/billing` sets it and takes it back as soon as the field holds another value, since a refusal is about what was typed and a form that stayed invalid after the person fixed it would not let them send it again; `clearProblemFieldError(form, field)` takes it back before any change, for a refusal about what several fields say together; `placeRefusalOnFields` places a problem on the fields its code or its locations name and says whether it found one, and the form shows the rest above the buttons. See [`domains/billing`](../../src/domains/billing/README.md).
 - **Success.** `toast.success(t('<key>'))`, from the mutation's `onSuccess` or from `onSubmit`.
 - **Cache.** After a successful mutation, invalidate the affected queries with the generated query key functions. See [query key invalidation](../02-conventions/query-key-invalidation.md).
 - **Navigation.** A page form navigates with `useRouter` (`features/licenses/components/forms/license-form.tsx`) or `useNavigate` (`features/customers/components/customer-form.tsx`). A form shown in a dialog takes one of two shapes. Either it takes `onSuccess` and `onCancel` callbacks and a wrapper closes the dialog: `CustomerForm` inside `CustomerFormDialog` (`features/customers/components/customer-form-dialog.tsx`); `CustomerForm` navigates to the list when a callback is absent. Or it receives `onOpenChange` and calls it with `false` after a successful submit, as the example above does. See [dialog via route](./dialog-via-route.md).

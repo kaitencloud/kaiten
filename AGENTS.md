@@ -59,7 +59,8 @@ Regenerate them instead; the hooks in `.claude/settings.json` and
 - `app/src/api-client/**`: `pnpm run generate` in `app/` (not tracked).
 - `app/src/routeTree.gen.ts`: written by the TanStack Router plugin when the
   dev server or a build runs.
-- `app/src/lib/api/scopes.gen.ts`: written by `pnpm run generate`.
+- `app/src/lib/api/scopes.gen.ts` and `app/src/lib/api/operation-scopes.gen.ts`:
+  written by `pnpm run generate`.
 - `app/openapi.yaml`, `app/platform-openapi.yaml`: `task generate:oas`, from the
   Go source.
 - Go files headed `Code generated ... DO NOT EDIT` (sqlc output under

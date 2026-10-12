@@ -31,6 +31,7 @@ import (
 )
 
 var (
+	readBilling         = scope.Read(scope.Billing)
 	readComponents      = scope.Read(scope.Components)
 	readCustomers       = scope.Read(scope.Customers)
 	readDeploymentZones = scope.Read(scope.DeploymentZones)
@@ -362,10 +363,12 @@ func TestClientDocumentsRequireTheseScopes(t *testing.T) {
 	want := map[string][]string{
 		"console/GetInstancesWithRelations": {readInstances, readCustomers, readLicenses},
 		"console/GetCustomersWithInstances": {readCustomers, readInstances, readLicenses},
+		"console/GetInstancesBilling":       {readInstances, readBilling},
 		"console/GetDashboardData":          {readCustomers, readInstances, readLicenses},
 		"console/GetCustomers":              {readCustomers},
 		"console/GetInstances":              {readInstances, readLicenses},
 		"console/GetLicenses":               {readLicenses},
+		"console/GetLicensesWithPrices":     {readLicenses},
 		"console/GetGlobalAuditTrail":       {readOrganizations},
 		heaviestClientQuery: {
 			readReleases, readComponents, readDeploymentZones, readInstances, readCustomers,

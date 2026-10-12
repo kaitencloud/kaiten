@@ -10,6 +10,7 @@ The console shows lists of rows with `DataTable` from `@/functionals/table`, bui
 | A table inside a card of a detail page | `TableCard` with `TableCard.Table` | `app/src/features/feature-flags/components/feature-flag-detail/variants-tab.tsx` |
 | Related items listed from a cell or a counter | `TableLinkedItemsDialog` | `app/src/features/customers/components/customer-instances-display.tsx` |
 | A JSON value shown from a cell | `TableJsonDialog` | `app/src/features/feature-flags/components/feature-flag-table.tsx` |
+| A feed the server pages: reports, events | `DataTable` with `pagination={false}` and a "Load more" button under it, with no count: the rows read so far are not the size of the feed | `app/src/features/instances/components/instance-detail/tabs/entitlements/usage-history/usage-history-reports.tsx` |
 
 ## A list page
 
@@ -56,9 +57,9 @@ return (
 - `useFilterBuilder` holds the filter state and returns `filteredData`. The field definitions (`FilterFieldDefinition`) and the toolbar are described in the [README of the `filters` functional](../../src/functionals/filters/README.md).
 - `FilterTableLayout` takes the controller. `.Search` is the pinned search input for `filterId` plus the "Filter" button, `.Actions` holds the page actions on the right, `.Filters` shows the active filter chips, and `.Content` holds the table.
 - `bodyScrollable` with `className="h-full"` makes the body scroll under a sticky header and the table fill its parent. The page around it fixes its height: see [page scrolling](./page-scrolling.md).
-- Filtering, sorting and paging run in the browser, on rows already loaded, so the whole list is loaded before it reaches the table. Two mechanisms do it, and both walk a cursor-paginated endpoint to its end with `fetchAllPages` (`app/src/lib/api/pagination.ts`). The REST lists, such as the entitlements, go through the helpers of `app/src/lib/api/all-pages-query-options.ts`. The customer, instance and release lists are GraphQL queries that call `fetchAllPages` themselves (`app/src/domains/customer-management/queries/use-customers-with-instances.ts`, `use-instances-with-relations.ts`, and `app/src/domains/release-management/queries/release-management-query-options.ts` for the releases).
+- Filtering, sorting and paging run in the browser, on rows already loaded, so the whole list is loaded before it reaches the table. Two mechanisms do it, and both walk a cursor-paginated endpoint to its end with `fetchAllPages` (`app/src/lib/api/pagination.ts`). The REST lists, such as the entitlements, the invoices and the handoff queue, go through the helpers of `app/src/lib/api/all-pages-query-options.ts`. The customer, instance and release lists are GraphQL queries that call `fetchAllPages` themselves (`app/src/domains/customer-management/queries/use-customers-with-instances.ts`, `use-instances-with-relations.ts`, and `app/src/domains/release-management/queries/release-management-query-options.ts` for the releases).
 
-Other list pages follow the same shape: `app/src/features/releases/components/release-overview/tables/release-table.tsx`, `app/src/features/entitlements/components/entitlement-table.tsx`, `app/src/features/instances/components/instance-table.tsx`. The `CustomerTable` story (`app/src/features/customers/components/stories/customer-table.stories.tsx`) renders one in Storybook.
+Other list pages follow the same shape: `app/src/features/releases/components/release-overview/tables/release-table.tsx`, `app/src/features/entitlements/components/entitlement-table.tsx`, `app/src/features/instances/components/instance-table.tsx`, and the invoices of the organization (`app/src/features/billing/components/invoices/invoices-list.tsx`), whose URL holds the customer or the instance it is scoped to, which the API applies, and the view it is on. A scope like that is a chip beside the search (a `FilterChip` of `@/functionals/filters`, so that it reads like the chips of the filters), and what the API filters is never also filtered in the browser. The view is one of five status views, All, Overdue, Held, Handoff and Acknowledged, a row of `RouteTabs` above the toolbar told apart by the `?view=` of the URL, each with a count (`count` of the tab). The first three narrow the list of invoices in the browser. The last two show the handoff queue (`app/src/features/billing/components/handoff/handoff-list.tsx`), a list of its own with a search and filters of its own for each part. The queue is another operation, so its views do not wait for the invoices: those are only asked for, to count the tabs, and the tabs have no counts while they are pending or refused. Its row action is an icon button with a tooltip (`TableActionButton`), like the delete of the other lists. The `CustomerTable` story (`app/src/features/customers/components/stories/customer-table.stories.tsx`) renders one in Storybook.
 
 ## Columns
 
@@ -223,6 +224,34 @@ TanStack's own `grouping` is not registered: its group rows are synthetic (their
 - `TableCard.Toolbar` sits between the header and the table and takes any controls. It does not use the `filters` functional: a list that needs filter chips and advanced rules is a `FilterTableLayout`. The audit trail tab of an instance shows a toolbar with its own filters: `app/src/features/instances/components/instance-detail/tabs/audit-trail/instance-detail-audit-trail-tab.tsx`.
 - `TableCard.Table` forwards a subset of the `DataTable` props: `columns`, `data`, `variant`, `emptyMessage`, `pagination`, `getPath`, `linkColumnId`, `onClickRow`, `isRowClickable`, `getRowClassName`, `tableClassName`, plus `contentClassName`. When a table in a card needs more (`getSubRows`, `getRowId`, `bodyScrollable`), put a `DataTable` in `TableCard.Content` instead.
 - The composition follows the convention of [composition](./composition.md): a root and named parts, not a long list of props.
+
+## A feed the server pages
+
+The lists above, and the invoices of an organization, of a customer or of an instance, are read whole: the console walks the cursor of the API until it says there is no more, then filters, sorts and pages the rows itself. A feed of events does not fit that. The usage reports behind an invoice line and the usage history of an entitlement grow with every report an instance sends, and a screen wants the latest ones, not all of them. The API pages these, the screen reads a page at a time, and a button reads the next:
+
+```tsx
+// app/src/features/instances/components/instance-detail/tabs/entitlements/usage-history/usage-history-reports.tsx (abridged)
+<DataTable
+  columns={columns}
+  data={reports}
+  pagination={false}
+  variant="simple"
+/>
+<LoadMoreFooter
+  loadMoreLabel={t(
+    'Pages.Customers.Instances.Detail.entitlements.history.loadMore',
+  )}
+  query={query}
+/>
+```
+
+- **The query is infinite**, under the key the generated options give the operation (marked as a paged read), so that the invalidation helpers reach it. It is never retried: a refusal of the first page is the answer the screen shows, once.
+- **`pagination={false}` and no sort.** The pager of `DataTable` pages the rows already loaded, and a column that sorts them would put the rest of the feed in the wrong place. The order is the API's.
+- **"Load more", and what it does not count.** The button reads the next page and the rows already read stay where they are. It is centred under the rows, as the notifications feed draws it, and never says how many rows were read: the API does not say how many there are, and the count of a page reads as the count of the feed.
+- **The states are the screen's.** A skeleton while the first page is on the way, the error with the API's own words and a Retry (a refusal of the next page is shown under the rows that were read), and an empty state. `PagedListSkeleton`, `ListEmptyState` and `LoadMoreFooter` (`app/src/domains/billing/components/paged-list/`) draw them for the feeds of the billing feature and of the instances, instead of copies. They started in the billing feature and moved up to its domain when a second feature paged a feed: see [extract late](../AI_CONTEXT.md#principles).
+- **The period a feed covers is the API's.** The usage history of an entitlement of an instance, a drawer and not a page, keeps its period in the URL (`?from=` and `?to=` beside `?history=`, written with `replace` so that typing a day adds no history entry).
+
+The usage reports behind an invoice line are the same shape inside cards (`app/src/features/billing/components/line-drilldown/`): the rows read are grouped by the window they counted in, one `TableCard` per window.
 
 ## Pagination and empty states
 

@@ -80,6 +80,8 @@ The browser's own reconnection is not used: on an error the source is closed and
 
 **Event names.** `types/event-names.ts` defines `KaitenEventName` from the generated `Webhooks` type, the events the OpenAPI document declares. `notification-event-meta.ts` (icon and tone) and `notification-preference-groups.ts` (descriptions) are maps typed with it, so an event name that leaves the contract fails the type check. At runtime the lookups stay open: an event this build does not know still renders, with a bell icon and no description. The server catalogue is in `api/internal/modules/notifications/catalogue`.
 
+**Icons and tones of the billing group.** The catalogue registers 36 billing events, and `notification-event-meta.ts` gives every one of them an icon and a tone. A subscription is the billing of an instance and its events take the instance's icon; an invoice, a customer's payment method, an add-on, a voucher and a publishable key take the icon of their entity from `dataModelIcons`, and a payment provider, which has no entity of its own, the icon of billing. What needs someone to look keeps a state icon, as the other groups do: `destructive` with the cross for what failed (`INSTANCE_INVOICE_PAYMENT_FAILED`, `INSTANCE_INVOICE_PUSH_FAILED`, `BILLING_PROVIDER_DISCONNECTED`) and `warning` with the triangle for what may be wrong (a held invoice, a reconciliation mismatch, an invoice written off, a payment method about to expire, a provider whose sync fails). The other billing events are routine and keep the default tone.
+
 Scopes: the API requires `read:notifications` to list the feed, read the preferences and open the stream, and `write:notifications` to mark notifications read and save the preferences. The screens do not check scopes themselves.
 
 ## Behaviour
@@ -98,7 +100,8 @@ Scopes: the API requires `read:notifications` to list the feed, read the prefere
 
 ## Tests
 
-- Unit and component tests: none in the feature. No story either.
+- Unit tests: `components/__tests__/notification-event-meta.test.tsx` holds the 36 events of the billing group and checks that each has an icon of its own and the tone it should, that a billing event the contract declares is not left out (an event the catalogue does not notify is listed there as such), that the bell stays for an event this build does not know, and that a row draws a failed payment on a destructive circle. The rest of the feature has none.
+- Story: `components/stories/notification-billing-events.stories.tsx` (`Features/Notifications/BillingEvents`) draws a feed row and a panel entry of each tone and of the entities billing draws with their own icon.
 - E2E: `app/e2e/app/notifications/notifications.read.spec.ts`, with its scenarios in `notifications.scenarios.ts`, the `NotificationsDriver` (`app/e2e/app/_support/drivers/notifications.driver.ts`) and the mocks of `installNotificationAppMocks`. It covers the bell and the panel, opening a notification (it is marked read and its action URL opens), the object filter, "Mark all as read", saving a preference across a reload and folding a preference group. The mocks use MSW's service worker for the stream; the fetch/XHR-only in-page fallback does not serve EventSource. Run it with `pnpm run test:e2e:app` from `app/`.
 - UI work without the API: `VITE_MOCK_NOTIFICATIONS=true` serves only the notifications endpoints, and a mock stream that emits a demo notification every 45 seconds, from Mock Service Worker (`app/src/e2e/msw/notifications-dev-seed.ts`); every other request reaches the real API. See [environments](../../../docs/07-deployment/environments.md).
 

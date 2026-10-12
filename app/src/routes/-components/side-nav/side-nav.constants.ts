@@ -1,4 +1,5 @@
 import { Gauge, type LucideIcon, ScrollText, Settings } from 'lucide-react';
+import type { BillingAction, BillingFeatureKey } from '@/domains/billing';
 import { dataModelIcons } from '@/lib/data-model-icons';
 
 export type SideNavRouteDefinition = {
@@ -17,7 +18,41 @@ export type SideNavSubRouteDefinition = {
    * missing link.
    */
   needsWebhooks?: boolean;
+  /**
+   * What this entry needs of billing and of the session, when it is a page of
+   * billing: see {@link SideNavBillingGate}. Absent for a page that exists
+   * whatever the deployment ships, such as the licenses. The entry's route guards
+   * itself as well.
+   */
+  needsBilling?: SideNavBillingGate;
 };
+
+/**
+ * What an entry of billing needs of the deployment and of the session, to be
+ * listed at all.
+ */
+export type SideNavBillingGate = {
+  /**
+   * What the entry needs of the session besides: the action its screen is for,
+   * listed only to a session whose scopes cover it. An entry of a catalogue the
+   * session may not read leads nowhere it can use. Hidden while the scopes of the
+   * token are read, as an entry that appears a moment later is better than one that
+   * vanishes. Optional: the capabilities already ask for the scope of billing.
+   */
+  action?: BillingAction;
+  /**
+   * What the entry needs of billing (`GET /billing/capabilities`): billing on
+   * and, when a `feature` is named, a release that ships it. It is hidden while
+   * the capabilities load and whenever they cannot be read. Required, so that an
+   * entry cannot be added that would show where billing is off. The entry's
+   * route guards itself as well.
+   */
+  capability: { feature?: BillingFeatureKey };
+};
+
+/** A first-level entry that exists only where billing is on. */
+export type SideNavBillingRouteDefinition = SideNavBillingGate &
+  SideNavRouteDefinition;
 
 export type SideNavResolvedSubRoute = {
   label: string;
@@ -41,19 +76,20 @@ export const topLevelRoutes: SideNavRouteDefinition[] = [
     titleKey: 'Pages.FeatureFlags.title',
   },
   {
-    Icon: dataModelIcons.entitlement,
-    path: '/entitlements',
-    titleKey: 'Pages.Entitlements.title',
-  },
-  {
-    Icon: dataModelIcons.license,
-    path: '/licenses',
-    titleKey: 'Pages.Licenses.title',
-  },
-  {
     Icon: dataModelIcons.release,
     path: '/releases',
     titleKey: 'Pages.Releases.title',
+  },
+];
+
+// The first-level entries of billing, listed between the Catalog and the
+// Integrations, and only where billing is on.
+export const billingRoutes: SideNavBillingRouteDefinition[] = [
+  {
+    capability: {},
+    Icon: dataModelIcons.invoice,
+    path: '/invoices',
+    titleKey: 'Pages.Billing.Invoices.title',
   },
 ];
 
@@ -84,6 +120,39 @@ export const integrationsSubRoutes: SideNavSubRouteDefinition[] = [
   {
     labelKey: 'Pages.Integrations.Connectors.title',
     path: '/integrations/connectors',
+  },
+  {
+    labelKey: 'Pages.Integrations.PublishableKeys.title',
+    needsBilling: { action: 'publishableKeys.list', capability: {} },
+    path: '/integrations/publishable-keys',
+  },
+];
+
+// The Catalog section: what the organization sells. The licenses and the
+// entitlements exist on every deployment, so the section is always drawn. The
+// add-ons and the vouchers are billing's: each is listed entry by entry, by what the
+// release ships and by what the session may read.
+export const catalogSubRoutes: SideNavSubRouteDefinition[] = [
+  {
+    labelKey: 'Pages.Licenses.title',
+    path: '/catalog/licenses',
+  },
+  {
+    labelKey: 'Pages.Entitlements.title',
+    path: '/catalog/entitlements',
+  },
+  {
+    labelKey: 'Pages.Addons.title',
+    needsBilling: { action: 'addons.list', capability: { feature: 'addons' } },
+    path: '/catalog/addons',
+  },
+  {
+    labelKey: 'Pages.Vouchers.title',
+    needsBilling: {
+      action: 'vouchers.list',
+      capability: { feature: 'vouchers' },
+    },
+    path: '/catalog/vouchers',
   },
 ];
 

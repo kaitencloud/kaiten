@@ -406,8 +406,8 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 	}
 
 	assert.Equal(t, map[string]string{
-		"Delivery Tracking was assigned to Premium":             "/licenses/" + licenseSlug("premium"),
-		"Delivery Tracking was assigned to Starter":             "/licenses/" + licenseSlug("starter"),
+		"Delivery Tracking was assigned to Premium":             "/catalog/licenses/" + licenseSlug("premium"),
+		"Delivery Tracking was assigned to Starter":             "/catalog/licenses/" + licenseSlug("starter"),
 		"Sakura Tokyo Production was created":                   "/customers/instances/sakura-tokyo-prod",
 		"Ninja Osaka Production was created":                    "/customers/instances/ninja-osaka-prod",
 		"Sakura Tokyo Demo was created":                         "/customers/instances/sakura-tokyo-demo",

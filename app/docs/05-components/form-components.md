@@ -11,9 +11,11 @@ Each field is a file of `app/src/components/form/fields/`, registered in `fieldC
 | `field.TextField` | `text-field.tsx` | `Input` |
 | `field.TextAreaField` | `textarea-field.tsx` | `Textarea`. The component is named `TextareaField` in its file and registered as `TextAreaField`. |
 | `field.NumberField` | `number-field.tsx` | `NumberInput` |
+| `field.MoneyField` | `money-field.tsx` | `Input`, with the currency beside it; the value is the string typed in major units |
 | `field.SelectField` | `select-field.tsx` | `Select` |
 | `field.ComboboxField` | `combobox-field.tsx` | `Combobox` |
 | `field.CheckboxField` | `checkbox-field.tsx` | `Checkbox` |
+| `field.DateTimeField` | `date-time-field.tsx` | `Input type="datetime-local"`; the value is the text the control holds (`2027-03-03T10:00`, no zone, empty when nothing is chosen), so a form says which zone it is read in and converts it itself |
 | `field.DatePickerField` | `date-picker-field.tsx` | `DatePicker` |
 | `field.DateRangePickerField` | `date-range-picker-field.tsx` | `DateRangePicker` |
 | `field.JsonField` | `json-field.tsx` | A CodeMirror editor that lints JSON |
@@ -30,7 +32,7 @@ The fields are composed from a few blocks, which a screen can also use to build 
 | --- | --- | --- |
 | `FormField` | `fields/form-field.tsx` | The frame of a field: label, `RequiredMark`, description, error message. It takes a render function that receives the `field` from `useField`. |
 | `useField` | `fields/use-field.ts` | Reads the TanStack Form field context: `value`, `errors`, `handleChange`, `handleBlur`, `hasError` (the field is touched and has an error) and `errorMessage`, already passed through `t`. |
-| `FormItem`, `FormLabel`, `FormControl`, `FormDescription`, `FormMessage` | `form-item.tsx`, `form-label.tsx`, `form-control.tsx`, `form-description.tsx`, `form-message.tsx` | The parts `FormField` renders. They share ids through a context, so the label, the description and the message are linked to the control by `aria-describedby`, `aria-invalid` and `aria-required`. |
+| `FormItem`, `FormLabel`, `FormControl`, `FormDescription`, `FormMessage` | `form-item.tsx`, `form-label.tsx`, `form-control.tsx`, `form-description.tsx`, `form-message.tsx` | The parts `FormField` renders. They share ids through a context, so the label, the description and the message are linked to the control by `aria-describedby`, `aria-invalid` and `aria-required`. `FormControl` takes `announceRequired={false}` for a control that renders a button or a bare container, which ARIA does not let carry `aria-required` (the date pickers, the CEL rule preview, the JSON editor, the checkbox row). |
 | `RequiredMark` | `required-mark.tsx` | The asterisk drawn beside a required label, outside the `<label>` so the label text stays the field's name. |
 | `SubmitButton` | `submit-button.tsx` | Registered as `form.SubmitButton`. It takes `label` and `allowPristine`; see [forms](../03-patterns/forms.md). |
 | `FormStateBridge` | `form-state-bridge.tsx` | Reports `canSubmit`, `isSubmitting`, `isPristine` and `isValidating` to a parent callback. It sits inside a `form.Subscribe`, as in `app/src/features/feature-flags/targeting/components/basic-targeting-form.tsx`. |
@@ -50,4 +52,4 @@ Three inputs sit at the top of `app/src/components/`, outside `ui/`: they compos
 
 ## Adding a field
 
-Build it on `FormField` and `useField`, then register it in `fieldComponents` of `app/src/hooks/form.ts`, next to the others (they are loaded with `React.lazy`). Reuse the existing fields before you add one.
+Build it on `FormField` and `useField`, then register it in `fieldComponents` of `app/src/hooks/form.ts`, next to the others, which are imported statically (`JsonField` alone is loaded on demand: see [forms](../03-patterns/forms.md#building-blocks)). Reuse the existing fields before you add one.

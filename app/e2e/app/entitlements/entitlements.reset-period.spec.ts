@@ -24,10 +24,10 @@ test('creates an entitlement whose usage resets every month', async ({
   await form.selectResetPeriod('Every month');
   await form.selectResetAnchor('License start date');
   await form.submitButton().click();
-  await expect(page).toHaveURL('/entitlements/api-calls');
+  await expect(page).toHaveURL('/catalog/entitlements/api-calls');
 
   // Round-trip: the stored cadence comes back, and the one-way door has shut.
-  await page.goto('/entitlements/api-calls?mode=configure');
+  await page.goto('/catalog/entitlements/api-calls?mode=configure');
   await form.clickNext();
   await expect(form.resetPeriodTrigger()).toContainText('Every month');
   await expect(form.resetAnchorTrigger()).toContainText('License start date');
@@ -46,14 +46,14 @@ test('keeps the stored window when editing a periodic entitlement', async ({
   const form = new EntitlementFormDriver(page);
 
   await installEntitlementAppMocks(page, model);
-  await page.goto('/entitlements/api-calls?mode=configure');
+  await page.goto('/catalog/entitlements/api-calls?mode=configure');
 
   await form.fill({ name: 'API Calls Renamed' });
   await form.clickNext();
   await form.updateButton().click();
-  await expect(page).toHaveURL('/entitlements/api-calls');
+  await expect(page).toHaveURL('/catalog/entitlements/api-calls');
 
-  await page.goto('/entitlements/api-calls?mode=configure');
+  await page.goto('/catalog/entitlements/api-calls?mode=configure');
   await form.clickNext();
   await expect(form.resetPeriodTrigger()).toContainText('Every month');
   await expect(form.resetAnchorTrigger()).toContainText('Calendar');

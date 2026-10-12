@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vite-plus/test';
+import { renderWithClient } from '@/test-fixtures/billing-test-support';
 import { SettingsPageContent } from '../settings-page-content';
 
 vi.mock('@tanstack/react-router', () => ({
@@ -43,7 +44,9 @@ vi.mock('react-i18next', () => ({
 
 describe('SettingsPageContent', () => {
   it('renders settings sections', () => {
-    render(<SettingsPageContent />);
+    // The billing entries read the capabilities, which the default network of the
+    // unit tests answers as billing off: neither of them shows here.
+    renderWithClient(<SettingsPageContent />);
 
     expect(screen.getByText('Settings')).toBeInTheDocument();
     expect(screen.getByText('Metadata fields')).toBeInTheDocument();

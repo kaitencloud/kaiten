@@ -159,7 +159,7 @@ Details and the decision tree are in [state-management.md](../03-patterns/state-
 
 ## Forms
 
-Forms use TanStack Form with Zod validation and lazy-loaded field components, through `useAppForm` from `src/hooks/form.ts`. The rendered `<form>` uses `createFormSubmitHandler` from the same module, so `preventDefault()` and `stopPropagation()` always run.
+Forms use TanStack Form with Zod validation and the field components of `components/form/`, through `useAppForm` from `src/hooks/form.ts`. The rendered `<form>` uses `createFormSubmitHandler` from the same module, so `preventDefault()` and `stopPropagation()` always run.
 
 ```tsx
 // app/src/features/customers/components/customer-form.tsx (abridged)

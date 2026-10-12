@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import type { Customer } from '@/api-client';
 import { DetailCard } from '@/functionals/detail-card';
 import { formatDetailDateTime, getAuditDisplayName } from '@/lib/detail';
+import { useCustomerBilling } from '../../hooks/use-customer-billing';
 
 type CustomerDetailsCardProps = {
   customer: Customer;
@@ -39,6 +40,7 @@ export const CustomerDetailsCard = ({ customer }: CustomerDetailsCardProps) => {
   const { i18n, t } = useTranslation();
   const locale = i18n.resolvedLanguage ?? 'en-US';
   const byLabel = t('Pages.Customers.Detail.customerDetails.by');
+  const { isBillingEnabled } = useCustomerBilling();
 
   return (
     <DetailCard>
@@ -72,6 +74,20 @@ export const CustomerDetailsCard = ({ customer }: CustomerDetailsCardProps) => {
               customer.domain ? undefined : EMPTY_VALUE_CLASS_NAME
             }
           />
+          {isBillingEnabled ? (
+            <DetailCard.Row
+              label={t(
+                'Pages.Customers.Detail.customerDetails.fields.billingEmail',
+              )}
+              value={
+                customer.billingEmail ??
+                t('Pages.Customers.Detail.customerDetails.billingEmailNone')
+              }
+              valueClassName={
+                customer.billingEmail ? undefined : EMPTY_VALUE_CLASS_NAME
+              }
+            />
+          ) : null}
         </DetailCard.Rows>
 
         <DetailCard.Divider />

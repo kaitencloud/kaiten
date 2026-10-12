@@ -81,6 +81,7 @@ const staticFmtIgnorePatterns = [
 // imports them — keeping the browser suite lean and avoiding overlap with
 // E2E. They remain available in Storybook (visual/docs) as usual.
 const storybookTestExclude = [
+  'src/features/addons/components/stories/addon-catalogue.stories.tsx',
   'src/features/connectors/components/stories/connectors.stories.tsx',
   'src/features/customers/components/stories/customer-detail.stories.tsx',
   'src/features/customers/components/stories/customer-form-dialog.stories.tsx',
@@ -93,8 +94,11 @@ const storybookTestExclude = [
   'src/features/feature-flags/components/feature-flag-form/stories/feature-flag-form.stories.tsx',
   'src/features/feature-flags/targeting/components/stories/targeting-form-dialog.stories.tsx',
   'src/features/feature-flags/variants/components/stories/variant-list.stories.tsx',
+  'src/features/instances/components/stories/instance-billing-dialogs.stories.tsx',
   'src/features/instances/components/stories/instance-form-dialog.stories.tsx',
   'src/features/instances/components/stories/instance-overview-and-audit.stories.tsx',
+  'src/features/licenses/components/stories/deprecate-price-dialog.stories.tsx',
+  'src/features/licenses/components/stories/license-family-visibility.stories.tsx',
   'src/features/licenses/components/stories/license-table.stories.tsx',
   'src/features/releases/components/stories/release-form.stories.tsx',
   'src/features/releases/components/stories/release-table.stories.tsx',
@@ -381,6 +385,7 @@ export default defineConfig({
     // CI runners and times out the e2e app suite.
     include: [
       '@base-ui/react/input',
+      '@base-ui/react/menu',
       '@base-ui/react/merge-props',
       '@monaco-editor/react',
       'monaco-editor/esm/vs/editor/editor.api',
