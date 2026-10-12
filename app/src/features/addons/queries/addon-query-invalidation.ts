@@ -10,7 +10,7 @@ import {
 
 /**
  * A version was created, changed, moved along its lifecycle, made the default or
- * deleted, or its family was listed in the public catalogue or taken out: the
+ * deleted, or its family was listed in the public catalog or taken out: the
  * families and the versions they hold, which the screens of the catalogue and the
  * selector of an instance read, and the version's own detail when it is named.
  */

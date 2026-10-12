@@ -57,7 +57,7 @@ const family = (slug: string, versions: Addon[], isPublic = false): AddonFamily 
 });
 
 // The catalogue: every family with its versions, the one a family resolves to, the
-// lifecycle of each version, and whether the family is listed in the public catalogue.
+// lifecycle of each version, and whether the family is listed in the public catalog.
 export const Catalogue: Story = {
   parameters: {
     msw: {

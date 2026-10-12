@@ -13,7 +13,7 @@ type AddonsPageContentProps = {
 
 /**
  * The page of the add-ons: every family with its versions, to search, to publish,
- * archive and make the default, and to list in the public catalogue. A dialog route
+ * archive and make the default, and to list in the public catalog. A dialog route
  * draws it again with its dialog as `children`, so that the list stays under it.
  */
 export function AddonsPageContent({ children }: AddonsPageContentProps) {

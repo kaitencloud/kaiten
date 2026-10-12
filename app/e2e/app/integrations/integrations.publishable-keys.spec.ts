@@ -14,7 +14,7 @@ import {
   PUBLISHABLE_KEYS,
 } from './integrations.scenarios';
 
-// The publishable keys a web page reads the public catalogue with: listed by their last four
+// The publishable keys a web page reads the public catalog with: listed by their last four
 // characters, issued once, edited and revoked. The console shows them on billing alone, with
 // the capabilities the API serves now (`publicSurface` shipped and enabled), and never has a key but the
 // one it is shown at the moment it is issued.

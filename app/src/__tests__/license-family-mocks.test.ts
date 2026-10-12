@@ -7,7 +7,7 @@ import { createLifecycleLicensesModel } from '../../e2e/app/billing/lifecycle-wo
 import { server } from './msw-server';
 
 // What the mocks standing in for the license module answer about the families:
-// each is private until it is listed in the public catalogue, as the API says, and
+// each is private until it is listed in the public catalog, as the API says, and
 // the listing is written with PATCH /license-families/{familySlug}. These read the
 // answers off the wire, as the console does.
 
@@ -31,7 +31,7 @@ const families = async () =>
   ).items;
 
 describe('the families of licenses, as the mocks serve them', () => {
-  it('lists each family as private until it is listed in the public catalogue', async () => {
+  it('lists each family as private until it is listed in the public catalog', async () => {
     install(createLifecycleLicensesModel());
 
     expect((await families()).map(({ isPublic, slug }) => [slug, isPublic])).toEqual([

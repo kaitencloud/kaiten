@@ -279,7 +279,7 @@ describe('buildLicenseGroups', () => {
     expect(groups[0]?.licenseName).toBe('Community Next');
   });
 
-  // The listing in the public catalogue is the family's: the flag and the slug
+  // The listing in the public catalog is the family's: the flag and the slug
   // it is written with come from the family list, not from any version.
   it('takes the slug and the public listing from the family the API describes', () => {
     const groups = buildLicenseGroups(

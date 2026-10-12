@@ -298,7 +298,7 @@ export function createDevMockConfig({
       grants: world.licenseEntitlements,
       licenses: world.licenses,
       prices: world.licensePrices,
-      // The family sold self-serve is the one a buyer finds in the public catalogue.
+      // The family sold self-serve is the one a buyer finds in the public catalog.
       publicFamilyIds: ['family-starter'],
     }).serializeForMsw(),
     notifications: new NotificationAppModel({

@@ -402,7 +402,7 @@ export function createLifecycleInstancesModel(
 
 /**
  * The catalogue of licenses of the lifecycle world, as the license slot serves it,
- * with one family listed in the public catalogue and one that is private: what the
+ * with one family listed in the public catalog and one that is private: what the
  * switch of the family is exercised on.
  */
 export function createLifecycleLicensesModel() {

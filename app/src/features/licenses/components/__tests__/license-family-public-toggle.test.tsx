@@ -52,7 +52,7 @@ beforeEach(() => {
   server.use(handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }));
 });
 
-const toggle = () => screen.findByRole('switch', { name: 'List Pro in the public catalogue' });
+const toggle = () => screen.findByRole('switch', { name: 'List Pro in the public catalog' });
 
 /** Records the visibility each change of the listing asks for. */
 function serveVisibility(answer?: (body: LicenseFamilyVisibility) => Response) {
@@ -77,7 +77,7 @@ describe('the public listing switch of a family', () => {
 
     renderWithClient(<LicenseFamilyPublicToggle group={group({ isPublic: true })} />);
     expect(await toggle()).toBeChecked();
-    expect(screen.getByText('Public catalogue')).toBeInTheDocument();
+    expect(screen.getByText('Public catalog')).toBeInTheDocument();
   });
 
   it('lists the family by its slug, with only the flag, and says so', async () => {
@@ -86,7 +86,7 @@ describe('the public listing switch of a family', () => {
 
     await userEvent.click(await toggle());
 
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('The family is listed in the public catalogue'));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('The family is listed in the public catalog'));
     expect(calls).toEqual([{ body: { isPublic: true }, familySlug: 'pro' }]);
   });
 
@@ -97,7 +97,7 @@ describe('the public listing switch of a family', () => {
     await userEvent.click(await toggle());
 
     await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith('The family is no longer listed in the public catalogue'),
+      expect(toast.success).toHaveBeenCalledWith('The family is no longer listed in the public catalog'),
     );
     expect(calls).toEqual([{ body: { isPublic: false }, familySlug: 'pro' }]);
   });

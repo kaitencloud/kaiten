@@ -89,7 +89,7 @@ export type LicenseAppModelSeed = PricingSeed & {
   /** The entitlement catalogue the detail page and the version form read. */
   entitlements?: Entitlement[];
   licenses?: License[];
-  /** The families listed in the public catalogue, by id; the others are private. */
+  /** The families listed in the public catalog, by id; the others are private. */
   publicFamilyIds?: string[];
 };
 
@@ -100,7 +100,7 @@ export type SerializedLicenseAppModel = {
   licenses: License[];
   pendingErrors: Array<[LicenseErrorOp, number]>;
   pricing: SerializedPricing;
-  /** The families listed in the public catalogue; a state stored before they could be has none. */
+  /** The families listed in the public catalog; a state stored before they could be has none. */
   publicFamilyIds?: string[];
   sequence: number;
 };
@@ -332,7 +332,7 @@ export class LicenseAppModel {
     return listLicenseFamilyViews(this.licenses, this.publicFamilyIds);
   }
 
-  /** PATCH /license-families/{familySlug}: lists the family in the public catalogue, or takes it out. */
+  /** PATCH /license-families/{familySlug}: lists the family in the public catalog, or takes it out. */
   updateLicenseFamily(
     familySlug: string,
     body: LicenseFamilyVisibility,

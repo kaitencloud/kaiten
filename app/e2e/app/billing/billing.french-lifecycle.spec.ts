@@ -269,7 +269,7 @@ test.describe('the life of a subscription, read in French', () => {
   });
 });
 
-test.describe('the public catalogue of the licenses, read in French', () => {
+test.describe('the public catalog of the licenses, read in French', () => {
   test('the switch of a family, its badge and what it says once changed', async ({
     page,
   }) => {

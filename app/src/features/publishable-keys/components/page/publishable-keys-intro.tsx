@@ -7,8 +7,8 @@ const linkClassName = 'font-medium underline underline-offset-4';
 
 /**
  * Says in a few words what a publishable key is for, and where the catalogue it reads is
- * made: the key lets a web page read the public catalogue, and what the catalogue lists
- * is decided by the "Public catalogue" switch of each family of licenses and of add-ons.
+ * made: the key lets a web page read the public catalog, and what the catalogue lists
+ * is decided by the "Public catalog" switch of each family of licenses and of add-ons.
  * The links lead to the pages those switches are on, for a session that may open them.
  */
 export function PublishableKeysIntro() {

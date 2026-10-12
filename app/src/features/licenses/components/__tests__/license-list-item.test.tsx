@@ -76,13 +76,13 @@ describe('a family in the list of licenses', () => {
     renderItem(group({ isPublic: true }));
 
     expect(await screen.findByText('Public')).toBeInTheDocument();
-    expect(await screen.findByRole('switch', { name: 'List Pro in the public catalogue' })).toBeChecked();
+    expect(await screen.findByRole('switch', { name: 'List Pro in the public catalog' })).toBeChecked();
   });
 
   it('says nothing of the catalogue for a family that is private, and offers the switch to list it', async () => {
     renderItem(group());
 
-    expect(await screen.findByRole('switch', { name: 'List Pro in the public catalogue' })).not.toBeChecked();
+    expect(await screen.findByRole('switch', { name: 'List Pro in the public catalog' })).not.toBeChecked();
     expect(screen.queryByText('Public')).toBeNull();
   });
 

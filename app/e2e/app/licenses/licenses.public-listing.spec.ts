@@ -17,14 +17,14 @@ import {
   createLifecycleLicensesModel,
 } from '../billing/lifecycle-world';
 
-// A family of licenses is private until it is listed in the public catalogue, which
+// A family of licenses is private until it is listed in the public catalog, which
 // serves its default published version. The listing is a billing matter: the API does
 // not gate it, so the console does, and the switch is there only where billing is on
 // and for a session that may write licenses.
 
 const FAMILY_WRITES = /^\/api\/license-families\/[^/]+$/;
 
-test.describe('listing a family of licenses in the public catalogue', () => {
+test.describe('listing a family of licenses in the public catalog', () => {
   test.beforeEach(async ({ page }) => {
     await installInstanceAppMocks(page, createLifecycleInstancesModel());
   });
@@ -56,7 +56,7 @@ test.describe('listing a family of licenses in the public catalogue', () => {
 
     await licenses.publicSwitch('Pro').click();
 
-    await expectToast(page, 'The family is listed in the public catalogue');
+    await expectToast(page, 'The family is listed in the public catalog');
     await expect(licenses.publicSwitch('Pro')).toBeChecked();
     await expect(licenses.publicBadge('Pro')).toBeVisible();
     expect(writes).toEqual([
@@ -79,7 +79,7 @@ test.describe('listing a family of licenses in the public catalogue', () => {
 
     await expectToast(
       page,
-      'The family is no longer listed in the public catalogue',
+      'The family is no longer listed in the public catalog',
     );
     await expect(licenses.publicSwitch('Enterprise')).not.toBeChecked();
     await expect(licenses.publicBadge('Enterprise')).toHaveCount(0);

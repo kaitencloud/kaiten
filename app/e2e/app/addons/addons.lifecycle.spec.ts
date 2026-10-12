@@ -546,7 +546,7 @@ test.describe('deleting a draft', () => {
   });
 });
 
-test.describe('listing a family in the public catalogue', () => {
+test.describe('listing a family in the public catalog', () => {
   test('lists a family and takes it out, and says which are listed', async ({
     page,
   }) => {
@@ -562,12 +562,12 @@ test.describe('listing a family in the public catalogue', () => {
     await expect(list.publicSwitch('Extra tokens')).not.toBeChecked();
 
     await list.publicSwitch('Extra tokens').click();
-    await expectToast(page, 'The family is listed in the public catalogue');
+    await expectToast(page, 'The family is listed in the public catalog');
     await expect(list.publicBadge('Extra tokens')).toBeVisible();
     await list.publicSwitch('Extra seats').click();
     await expectToast(
       page,
-      'The family is no longer listed in the public catalogue',
+      'The family is no longer listed in the public catalog',
     );
     await expect(list.publicBadge('Extra seats')).toHaveCount(0);
 

@@ -5,7 +5,7 @@ const escapeRegExp = (value: string) =>
 
 /**
  * The catalogue of add-ons: every family with its versions, to search, to list in the
- * public catalogue, and to move along their lifecycle from the table. A new family or
+ * public catalog, and to move along their lifecycle from the table. A new family or
  * version is made in a dialog the URL opens (`AddonFormDriver`), and a version is read on
  * its own page (`AddonDetailDriver`).
  */
@@ -60,14 +60,14 @@ export class AddonsListDriver {
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
   }
 
-  /** The switch that lists a family in the public catalogue, or takes it out. */
+  /** The switch that lists a family in the public catalog, or takes it out. */
   publicSwitch(name: string): Locator {
     return this.family(name).getByRole('switch', {
-      name: `List ${name} in the public catalogue`,
+      name: `List ${name} in the public catalog`,
     });
   }
 
-  /** What a family says of itself when it is listed in the public catalogue. */
+  /** What a family says of itself when it is listed in the public catalog. */
   publicBadge(name: string): Locator {
     return this.family(name).getByText('Public', { exact: true });
   }

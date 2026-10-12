@@ -9,7 +9,7 @@ type LicenseFamilyPublicToggleProps = {
 };
 
 /**
- * Lists the family in the public catalogue, or takes it out: the switch of the row
+ * Lists the family in the public catalog, or takes it out: the switch of the row
  * of a family. Families are private until listed, and the catalogue serves the
  * default published version of a listed one. The API does not gate the listing on
  * billing, so the console does: the switch is there only where billing is on, and

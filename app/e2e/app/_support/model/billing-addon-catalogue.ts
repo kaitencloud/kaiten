@@ -122,7 +122,7 @@ export type AddonCatalogueSeed = {
   licenseFamilies?: string[];
   /** The prices of each version, by its slug, in display order. */
   prices?: Record<string, Price[]>;
-  /** The families listed in the public catalogue, by slug. */
+  /** The families listed in the public catalog, by slug. */
   publicFamilies?: string[];
   /** Every version of every family, in any order. */
   versions?: Addon[];
@@ -391,7 +391,7 @@ export class AddonCatalogue {
     return family;
   }
 
-  /** `PATCH /addon-families/{familySlug}`: lists the family in the public catalogue, or takes it out. */
+  /** `PATCH /addon-families/{familySlug}`: lists the family in the public catalog, or takes it out. */
   updateFamily(slug: string, body: AddonFamilyVisibility): AddonFamily {
     this.problems.consume('updateAddonFamily');
     if (!this.familyOf(slug)) {
