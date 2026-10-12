@@ -103,10 +103,13 @@ test.describe('the list of publishable keys', () => {
     await expect(keys.row('Legacy checkout')).toContainText('…z9Y8');
     await expect(keys.editLink('Legacy checkout')).toHaveCount(0);
     await expect(keys.revokeButton('Legacy checkout')).toHaveCount(0);
-    expect(reads.map(({ search }) => search)).toEqual([
-      undefined,
-      '?includeRevoked=true',
-    ]);
+    // One read per state of the switch; each read walks the list's pages, so it also
+    // carries the page size, which this test does not pin.
+    expect(
+      reads.map(({ search }) =>
+        new URLSearchParams(search).get('includeRevoked'),
+      ),
+    ).toEqual([null, 'true']);
 
     await keys.includeRevoked().click();
 
