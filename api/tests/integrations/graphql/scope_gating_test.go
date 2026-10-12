@@ -299,11 +299,17 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 	newDeployment(t, zone, release)
 	newMetadataField(t, "region")
 
+	// The add-on catalog is billing's, as it is over REST: it is read from a server that
+	// has billing on, and has an add-on with a price to read.
+	billing := newBillingServer(t, nil)
+	addon := newSoldAddon(t, billing, "Read Everything Add-on")
+	priceOf(t, billing, "addons", addon.Slug, flatFee("900", "MONTHLY"))
+
 	var readScopes []string
 	for _, module := range scope.OrganizationModules() {
 		readScopes = append(readScopes, scope.Read(module))
 	}
-	server := scopedServer(t, readScopes...)
+	server := newBillingServer(t, nil, readScopes...)
 
 	variables := map[string]any{
 		"customer":  customer.Slug,
@@ -360,6 +366,11 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 			license(slug: $license) { slug }
 			licenseFamily(slug: $license) { slug currentVersion { slug } versions { slug } }
 			entitlements(limit: 5) { items { slug entitlementGroups { slug } } }
+		}`,
+		"addons": `{
+			addons(limit: 5) {
+				items { slug familySlug prices { id billingModel meteredEntitlement saleUnitFactor } }
+			}
 		}`,
 		"releases": `query ($release: String!, $component: String!, $zone: String!) {
 			releases(limit: 5) {

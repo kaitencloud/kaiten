@@ -17,6 +17,7 @@ import (
 	"github.com/ravilushqa/otelgqlgen"
 	"github.com/vektah/gqlparser/v2/ast"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/resolver"
@@ -110,6 +111,9 @@ type Config struct {
 	EnablePlayground    bool
 	EnableIntrospection bool
 	UsageReporter       services.UsageReporter
+	// BillingGate is the switch the add-on catalogue sits behind, the one the
+	// REST operations that list it sit behind. The zero Gate is a closed one.
+	BillingGate gate.Gate
 }
 
 // Handler creates a new GraphQL handler for Fiber.
@@ -186,7 +190,7 @@ func newServer(pool *pgxpool.Pool, config Config) *handler.Server {
 // ever be charged.
 func newExecutableSchema(pool *pgxpool.Pool, config Config) graphql.ExecutableSchema {
 	return generated.NewExecutableSchema(generated.Config{
-		Resolvers:  resolver.NewResolver(pool, config.UsageReporter),
+		Resolvers:  resolver.NewResolver(pool, config.UsageReporter, config.BillingGate),
 		Complexity: newComplexityRoot(),
 	})
 }

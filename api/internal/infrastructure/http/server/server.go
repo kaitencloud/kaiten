@@ -23,6 +23,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/builtinconnectors"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 	billingstripe "github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database"
@@ -827,6 +828,12 @@ func (s *Server) registerGraphQL(router fiber.Router) {
 		EnablePlayground:    s.cfg.GraphQL.PlaygroundEnabled,
 		EnableIntrospection: s.cfg.GraphQL.IntrospectionEnabled,
 		UsageReporter:       s.deps.UsageReporter,
+		// The same switch the modules that serve the add-ons over REST build.
+		BillingGate: gate.NewCached(
+			s.cfg.Billing.Enabled,
+			s.deps.ConnectorEntitlements,
+			s.cfg.Billing.EntitlementCacheTTL,
+		),
 	})
 	gqlHandler.RegisterRoutes(router)
 }

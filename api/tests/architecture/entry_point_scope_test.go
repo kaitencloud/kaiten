@@ -965,6 +965,11 @@ func TestEveryFiberRouteIsAuthorizedOrDeclaredPublic(t *testing.T) {
 // schema that has one. And tenant isolation on these paths comes from the
 // repository queries underneath, not from this layer.
 var pinnedGraphQLResolvers = map[string]string{
+	// The add-on version's prices, as GET /addons/{slug}/prices returns them.
+	"Addon.Prices": "read:addons",
+	// The price row's own meter, as GET /addons/{slug}/prices returns it.
+	"AddonPrice.MeteredEntitlement": "",
+	"AddonPrice.SaleUnitFactor":     "",
 	// The entry's own payload column, decoded.
 	"AuditTrail.Payload": "",
 	"Customer.Instances": "read:instances",
@@ -1003,6 +1008,7 @@ var pinnedGraphQLResolvers = map[string]string{
 	"LicenseEntitlement.Value":     "",
 	"LicenseFamilyView.Versions":   "read:licenses",
 	"Query.AuditTrails":            "read:instances",
+	"Query.Addons":                 "read:addons",
 	"Query.Component":              "read:components",
 	"Query.Components":             "read:components",
 	"Query.Customer":               "read:customers",

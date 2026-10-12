@@ -89,6 +89,24 @@ models:
   InstanceAddon:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue.InstanceAddon
+  Addon:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue.Addon
+    fields:
+      prices:
+        resolver: true
+  AddonPrice:
+    # An add-on price has the shape of a licence price, and is its Go type.
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices.Price
+    fields:
+      meteredEntitlement:
+        resolver: true
+      saleUnitFactor:
+        resolver: true
+  AddonPage:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/addons/graphql.AddonPage
   InstancePage:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.InstancePage

@@ -12,6 +12,8 @@ import (
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons/listaddonprices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons/listaddons"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/listinstanceaddons"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/getcomponent"
@@ -67,6 +69,9 @@ import (
 // GET /releases returns a release's components under read:releases alone, and
 // Release.components requires read:components as well.
 var typeScopes = map[string]string{
+	"Addon":          listaddons.RequiredScope,
+	"AddonPage":      listaddons.RequiredScope,
+	"AddonPrice":     listaddonprices.RequiredScope,
 	"AuditTrail":     getaudittrails.RequiredScope,
 	"AuditTrailPage": getaudittrails.RequiredScope,
 	"Component":      getcomponent.RequiredScope,
