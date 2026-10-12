@@ -15049,7 +15049,7 @@ paths:
         - connectors
   /customer-sessions:
     post:
-      description: "Mints a kst_ session for one of the organization's customers, optionally bound to one of its instances, for that customer's browser to call the /api/public/session routes: checkout, invoices. Call it from your backend, where the customer is signed in, and hand the token to the page; mint a new one before it expires. What the session writes is attributed to the caller. Limited to 50 sessions a second per organization."
+      description: "Mints a kst_ session for one of the organization's customers, optionally bound to one of its instances, for that customer's browser to call the /api/public/session routes: checkout, invoices. Call it from your backend, where the customer is signed in, and hand the token to the page; mint a new one before it expires. What the session writes is attributed to the caller. Limited to 50 sessions a second per organization. Requires billing to be enabled for the organization."
       operationId: createCustomerSession
       requestBody:
         content:
@@ -15132,7 +15132,7 @@ paths:
         - customer-sessions
   /customer-sessions/{sessionId}/revoke:
     post:
-      description: "The session stops authenticating on the next request: on sign-out, or when the customer's access changes. Idempotent."
+      description: "The session stops authenticating on the next request: on sign-out, or when the customer's access changes. Idempotent. Requires billing to be enabled for the organization."
       operationId: revokeCustomerSession
       parameters:
         - description: Customer session id
@@ -24965,7 +24965,7 @@ paths:
         - public
   /public/session/checkout:
     post:
-      description: "Subscribes the session's instance to a price of the public catalogue, with add-ons and a voucher, in one call. With dryRun, answers 200 status=preview and what would be billed today, changing nothing. When a payment method has to be saved first, answers 200 status=requires_payment_method with a setup page: send the customer there, then call again with its setupSessionId. Otherwise answers 201 status=subscribed: the invoice of the first period has been pushed and charged, and payment.status says how that went -- poll GET /public/session/invoices on processing or requires_action. Needs a session bound to an instance."
+      description: "Subscribes the session's instance to a price of the public catalogue, with add-ons and a voucher, in one call. With dryRun, answers 200 status=preview and what would be billed today, changing nothing. When a payment method has to be saved first, answers 200 status=requires_payment_method with a setup page: send the customer there, then call again with its setupSessionId. Otherwise answers 201 status=subscribed: the invoice of the first period has been pushed and charged, and payment.status says how that went -- poll GET /public/session/invoices on processing or requires_action. Needs a session bound to an instance. 409 .AlreadySubscribed, .SetupSessionIncomplete (no payment method was saved on the setup page); 422 .InstanceRequired, .NotSelfServe, .PriceNotPublic, .PriceNotFlatFee, .BillingEmailRequired, .InvalidReturnUrl, .ProviderCannotCapturePayment, .VoucherInvalid, .AddonInvalid, .AddonNotPublic, .QuantityExceedsMax, .CurrencyMismatch, .QuotaExceeded (the instance uses more than the plan allows: errors[0].value.entitlementSlugs, location body.licensePriceId); 503 .ProviderUnavailable (Retry-After)."
       operationId: createSessionCheckout
       requestBody:
         content:
@@ -25263,7 +25263,7 @@ paths:
         - public
   /publishable-keys:
     get:
-      description: The organization's publishable keys, newest first. The keys themselves are never returned, only their last four characters.
+      description: The organization's publishable keys, newest first. The keys themselves are never returned, only their last four characters. Requires billing to be enabled for the organization.
       operationId: listPublishableKeys
       parameters:
         - description: Also list revoked keys
@@ -25346,7 +25346,7 @@ paths:
       tags:
         - publishable-keys
     post:
-      description: Issues a pk_ key for a web page to read the organization's public catalogue (GET /api/public/catalog) and nothing else. The key is returned once; only its digest is stored.
+      description: Issues a pk_ key for a web page to read the organization's public catalogue (GET /api/public/catalog) and nothing else. The key is returned once; only its digest is stored. Requires billing to be enabled for the organization.
       operationId: createPublishableKey
       requestBody:
         content:
@@ -25411,7 +25411,7 @@ paths:
         - publishable-keys
   /publishable-keys/{keyId}:
     patch:
-      description: Changes a live key's label or allowed origins. A revoked key answers 409.
+      description: Changes a live key's label or allowed origins. A revoked key answers 409 UpdatePublishableKey.Revoked. Requires billing to be enabled for the organization.
       operationId: updatePublishableKey
       parameters:
         - description: Publishable key id
@@ -25496,7 +25496,7 @@ paths:
         - publishable-keys
   /publishable-keys/{keyId}/revoke:
     post:
-      description: The key stops authenticating on the next request. Idempotent; revocation is final.
+      description: The key stops authenticating on the next request. Idempotent; revocation is final. Requires billing to be enabled for the organization.
       operationId: revokePublishableKey
       parameters:
         - description: Publishable key id

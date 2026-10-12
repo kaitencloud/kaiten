@@ -26,7 +26,7 @@ func RegisterEndpoint(api huma.API, app Revoker) {
 		Method:        http.MethodPost,
 		Path:          "/customer-sessions/{sessionId}/revoke",
 		Summary:       "Revoke a customer session",
-		Description:   "The session stops authenticating on the next request: on sign-out, or when the customer's access changes. Idempotent.",
+		Description:   "The session stops authenticating on the next request: on sign-out, or when the customer's access changes. Idempotent. Requires billing to be enabled for the organization.",
 		Tags:          []string{"customer-sessions"},
 		DefaultStatus: http.StatusNoContent,
 		Errors:        []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusInternalServerError, http.StatusServiceUnavailable},

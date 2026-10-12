@@ -31,7 +31,7 @@ func RegisterEndpoint(api huma.API, app Revoker) {
 		Method:      http.MethodPost,
 		Path:        "/publishable-keys/{keyId}/revoke",
 		Summary:     "Revoke a publishable key",
-		Description: "The key stops authenticating on the next request. Idempotent; revocation is final.",
+		Description: "The key stops authenticating on the next request. Idempotent; revocation is final. Requires billing to be enabled for the organization.",
 		Tags:        []string{"publishable-keys"},
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {

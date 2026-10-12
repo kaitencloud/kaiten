@@ -31,7 +31,7 @@ func RegisterEndpoint(api huma.API, app Creator) {
 		Summary:     "Create a customer session",
 		Description: "Mints a kst_ session for one of the organization's customers, optionally bound to one of its instances, for that customer's browser to call the /api/public/session routes: checkout, invoices. " +
 			"Call it from your backend, where the customer is signed in, and hand the token to the page; mint a new one before it expires. " +
-			"What the session writes is attributed to the caller. Limited to 50 sessions a second per organization.",
+			"What the session writes is attributed to the caller. Limited to 50 sessions a second per organization. Requires billing to be enabled for the organization.",
 		Tags:          []string{"customer-sessions"},
 		DefaultStatus: http.StatusCreated,
 		Errors:        []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusUnprocessableEntity, http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusServiceUnavailable},
