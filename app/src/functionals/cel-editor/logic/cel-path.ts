@@ -256,7 +256,12 @@ function childNode(
   segment: CelPathSegment,
 ): CelContextNode | null {
   if (node.type === 'map') {
-    return node.values ?? null;
+    // A known key may have a shape of its own; any other key has the one
+    // every entry shares, if there is one.
+    const entry = segment.dynamic
+      ? undefined
+      : node.entries?.find((candidate) => candidate.name === segment.name);
+    return entry ?? node.values ?? null;
   }
 
   if (node.type === 'object' && !segment.dynamic) {

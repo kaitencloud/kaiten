@@ -39,7 +39,7 @@ func (h *UseCase) Execute(ctx context.Context) ([]featureflag.TargetingContextNo
 		return nil, err
 	}
 
-	slugs := common.EntitlementSlugs(ctx, h.deps.EntitlementCatalogue, user.OrganizationID)
+	known := common.KnownEntitlements(ctx, h.deps.EntitlementCatalogue, user.OrganizationID)
 
-	return featureflag.TargetingContextRoots(slugs), nil
+	return featureflag.TargetingContextRoots(known), nil
 }

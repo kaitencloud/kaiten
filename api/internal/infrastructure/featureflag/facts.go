@@ -72,22 +72,18 @@ type (
 		Type       string `json:"type" doc:"Whether the license is paid or not, e.g. 'PAID'"`
 	}
 
-	// EntitlementFact is the value type of the map written under
+	// EntitlementFact is what a NUMBER entitlement reads as under
 	// __kaiten.entitlements — keyed by entitlement slug, itself dynamic (an
-	// org can define any slug), so the outer map stays map[string]any, but
-	// each entry's shape is fixed: `__kaiten.entitlements['seats'].percentage`.
+	// org can define any slug), so the outer map stays map[string]any:
+	// `__kaiten.entitlements['seats'].percentage`. A BOOLEAN entitlement reads
+	// as its bool and a CONFIG one as its object (see EntitlementType); only a
+	// quantity has these fields.
 	// No omitempty anywhere here — a rule reading an absent field does not get
 	// false, it gets a CEL error — so every field is always present: an
 	// entitlement with no ceiling reports UnlimitedQuantity rather than
 	// omitting the number (see ofrep's entitlementFacts).
-	//
-	// Every grant has the same shape, whatever its entitlement's type. A
-	// NUMBER grant reports its cap and the usage measured against it. A
-	// BOOLEAN grant reports a ceiling of 1 when the license grants it and 0
-	// when it does not, with nothing used — `limit >= 1.0` reads "granted".
-	// A CONFIG grant has no quantity, and reports zeros.
 	EntitlementFact struct {
-		Limit      float64 `json:"limit" doc:"Ceiling granted for this entitlement. An entitlement with no ceiling reports a very large number rather than zero, so '< 5' means what it reads. A BOOLEAN entitlement reports 1 when the license grants it and 0 when it does not"`
+		Limit      float64 `json:"limit" doc:"Ceiling granted for this entitlement. An entitlement with no ceiling reports a very large number rather than zero, so '< 5' means what it reads"`
 		Used       float64 `json:"used" doc:"How much of the entitlement is currently consumed"`
 		Remaining  float64 `json:"remaining" doc:"Ceiling minus usage. Unlimited entitlements report a very large number"`
 		Percentage float64 `json:"percentage" doc:"Share of the ceiling consumed, between 0 and 1"`
@@ -153,6 +149,33 @@ way it reads — `< 5` false, `> 1000` true, `percentage >= 0.9` false — and
 `unlimited` remains for an author who prefers to say it outright.
 */
 const UnlimitedQuantity = math.MaxFloat64
+
+// EntitlementType is the shape an entitlement reads as under
+// __kaiten.entitlements, which follows the type it is declared with. The
+// NUMBER family (NUMBER_AI_CREDIT included) is one shape, so it is one value
+// here.
+type EntitlementType string
+
+const (
+	// EntitlementNumber reads as an EntitlementFact:
+	// `__kaiten.entitlements['seats'].percentage > 0.8`.
+	EntitlementNumber EntitlementType = "NUMBER"
+	// EntitlementBoolean reads as the bool the license grants:
+	// `__kaiten.entitlements['sso'] == true`.
+	EntitlementBoolean EntitlementType = "BOOLEAN"
+	// EntitlementConfig reads as the object the license grants:
+	// `__kaiten.entitlements['support'].tier == 'priority'`. Its keys are
+	// whatever the license sets, so nothing below it is checked.
+	EntitlementConfig EntitlementType = "CONFIG"
+)
+
+// KnownEntitlement is one entry of an organization's catalogue: a slug a rule
+// may read, and the shape it reads in. An entitlement's type is immutable, so
+// a rule linted against it stays valid.
+type KnownEntitlement struct {
+	Slug string
+	Type EntitlementType
+}
 
 // The names a rule may read under each sub-root, derived from the structs
 // above instead of retyped. Only the top level of each fact is listed:

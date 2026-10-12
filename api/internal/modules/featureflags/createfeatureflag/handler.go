@@ -69,7 +69,7 @@ func (h *UseCase) Execute(ctx context.Context, flag *schema.FeatureFlag) (*schem
 	// entitlements -- never flag.Slug -- so it only needs to run once,
 	// regardless of how many slug attempts the retry loop below takes.
 	flagValidator := validator.NewValidator()
-	if err := flagValidator.ValidateFlagInOrganization(flag, common.EntitlementSlugs(ctx, h.deps.EntitlementCatalogue, u.OrganizationID)); err != nil {
+	if err := flagValidator.ValidateFlagInOrganization(flag, common.KnownEntitlements(ctx, h.deps.EntitlementCatalogue, u.OrganizationID)); err != nil {
 		return nil, kaitenerrors.FromValidationError(err)
 	}
 

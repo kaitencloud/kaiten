@@ -33,16 +33,19 @@ Four passes, because they catch different things:
 
   - A walk over the AST for the parts CEL cannot know: a map index is a runtime
     lookup, so `entitlements['sieges']` type-checks perfectly. The slugs are
-    matched against the organization's actual catalogue, and the field names
-    against the shape the enrichment produces.
+    matched against the organization's actual catalogue, and what the rule
+    does with each entitlement against the shape its type reads in: a field
+    of a NUMBER, a bool for a BOOLEAN, an object for a CONFIG (see
+    entitlementUse).
 
   - An estimate of the work the rule's own text commits it to, which
     evaluation would stop anyway — see costResult.
 
-`knownEntitlements` may be nil, which skips only the slug check — a caller
-without a catalogue to hand still gets everything else.
+`knownEntitlements` may be nil, which skips the slug check and the
+entitlement shape check that needs the slug's type — a caller without a
+catalogue to hand still gets everything else.
 */
-func LintTargetingRule(rule string, knownEntitlements []string) error {
+func LintTargetingRule(rule string, knownEntitlements []KnownEntitlement) error {
 	return lintRule(rule, knownEntitlements).err
 }
 
@@ -57,7 +60,7 @@ needs the organization's entitlements, which nothing running in a browser can
 know — and it has to be the same pass, or the editor would say one thing and the
 save another.
 */
-func LintTargetingRuleIssues(rule string, knownEntitlements []string) []TargetingRuleIssue {
+func LintTargetingRuleIssues(rule string, knownEntitlements []KnownEntitlement) []TargetingRuleIssue {
 	issues := lintRule(rule, knownEntitlements).issues
 	if issues == nil {
 		// A clean rule answers with an empty list, not with JSON null — the
@@ -103,7 +106,7 @@ type lintResult struct {
 	issues []TargetingRuleIssue
 }
 
-func lintRule(rule string, knownEntitlements []string) lintResult {
+func lintRule(rule string, knownEntitlements []KnownEntitlement) lintResult {
 	if strings.TrimSpace(rule) == "" {
 		return unpositioned(ErrEmptyRule)
 	}
@@ -180,7 +183,7 @@ func unpositioned(err error) lintResult {
 // namespaceResult runs the walk over the server namespace and positions what it
 // finds from the AST's own source info, so `__kaiten.license.slgu` underlines
 // the misspelt field rather than the whole rule.
-func namespaceResult(rule string, parsed *ast.AST, knownEntitlements []string) lintResult {
+func namespaceResult(rule string, parsed *ast.AST, knownEntitlements []KnownEntitlement) lintResult {
 	where, problem := lintServerNamespace(rule, parsed, knownEntitlements)
 	if problem == nil {
 		return lintResult{}
@@ -345,12 +348,13 @@ func fieldRoot(expr ast.Expr) (string, bool) {
 
 // lintServerNamespace reports the first problem it finds under FactsRoot, and
 // where in the rule it is written so the caller can underline it.
-func lintServerNamespace(rule string, parsed *ast.AST, knownEntitlements []string) (sourceSpan, error) {
+func lintServerNamespace(rule string, parsed *ast.AST, knownEntitlements []KnownEntitlement) (sourceSpan, error) {
 	var problem error
 	var where sourceSpan
 
 	info := parsed.SourceInfo()
 	runes := []rune(rule)
+	parents := parentsOf(parsed.Expr())
 	knownFields := map[string][]string{
 		LicenseRoot:        licenseFields,
 		InstanceRoot:       instanceFields,
@@ -359,7 +363,7 @@ func lintServerNamespace(rule string, parsed *ast.AST, knownEntitlements []strin
 	}
 
 	walk(parsed.Expr(), func(e ast.Expr) {
-		if problem != nil || e.Kind() != ast.SelectKind {
+		if problem != nil {
 			return
 		}
 
@@ -372,6 +376,25 @@ func lintServerNamespace(rule string, parsed *ast.AST, knownEntitlements []strin
 			}
 			problem, where = err, at
 		}
+
+		// One entitlement, `__kaiten.entitlements['x']` or
+		// `__kaiten.entitlements.x`: its slug is checked against the
+		// catalogue, and what the rule does with it against the shape its
+		// type reads in.
+		if slug, at, ok := entitlementAccess(runes, info, e); ok {
+			if err := unknownEntitlement(rule, slug, knownEntitlements); err != nil {
+				fail(err, at)
+				return
+			}
+			span, err := entitlementUse(rule, runes, info, e, parents[e.ID()], slug, at, knownEntitlements)
+			fail(err, span)
+			return
+		}
+
+		if e.Kind() != ast.SelectKind {
+			return
+		}
+
 		// failField is fail for a problem about the name this select reads.
 		failField := func(err error, name string) {
 			fail(err, fieldSpan(runes, info, e.ID(), name))
@@ -398,15 +421,8 @@ func lintServerNamespace(rule string, parsed *ast.AST, knownEntitlements []strin
 		// `__kaiten.<subroot>.<field>` — only the top level under each
 		// subroot is checked; metadata is a dynamic map, so
 		// `__kaiten.instance.metadata.demo` is left alone below "metadata".
+		// Entitlements were answered above.
 		if subroot, ok := fieldRoot(sel.Operand()); ok {
-			// `__kaiten.entitlements.<slug>`: the field name here is a slug,
-			// not one of a fixed set, so it is checked against the catalogue
-			// like the indexed form's key is.
-			if subroot == EntitlementsRoot {
-				failField(unknownEntitlement(rule, sel.FieldName(), knownEntitlements), sel.FieldName())
-				return
-			}
-
 			fields, known := knownFields[subroot]
 			if !known {
 				return // not one of our subroots — e.g. a computed/unknown key, leave it alone
@@ -417,24 +433,7 @@ func lintServerNamespace(rule string, parsed *ast.AST, knownEntitlements []strin
 					rule, FactsRoot, subroot, sel.FieldName(), strings.Join(fields, ", "),
 				), sel.FieldName())
 			}
-			return
 		}
-
-		// `__kaiten.entitlements['slug'].<field>` or `__kaiten.entitlements.slug.<field>`
-		slug, at, indexed := entitlementAccess(runes, info, sel.Operand())
-		if !indexed {
-			return
-		}
-
-		if !slices.Contains(entitlementFields, sel.FieldName()) {
-			failField(fmt.Errorf(
-				"rule %q reads .%s on an entitlement, which does not exist — available: %s",
-				rule, sel.FieldName(), strings.Join(entitlementFields, ", "),
-			), sel.FieldName())
-			return
-		}
-
-		fail(unknownEntitlement(rule, slug, knownEntitlements), at)
 	})
 
 	return where, problem
@@ -442,8 +441,11 @@ func lintServerNamespace(rule string, parsed *ast.AST, knownEntitlements []strin
 
 // unknownEntitlement reports a slug the organization does not have. A nil
 // catalogue means the caller has none to check against, which skips only this.
-func unknownEntitlement(rule, slug string, knownEntitlements []string) error {
-	if knownEntitlements == nil || slices.Contains(knownEntitlements, slug) {
+func unknownEntitlement(rule, slug string, knownEntitlements []KnownEntitlement) error {
+	if knownEntitlements == nil {
+		return nil
+	}
+	if _, ok := entitlementTypeOf(slug, knownEntitlements); ok {
 		return nil
 	}
 
@@ -451,6 +453,182 @@ func unknownEntitlement(rule, slug string, knownEntitlements []string) error {
 		"rule %q targets the entitlement %q, which this organization does not have",
 		rule, slug,
 	)
+}
+
+func entitlementTypeOf(slug string, knownEntitlements []KnownEntitlement) (EntitlementType, bool) {
+	for _, known := range knownEntitlements {
+		if known.Slug == slug {
+			return known.Type, true
+		}
+	}
+	return "", false
+}
+
+/*
+entitlementUse judges what a rule does with one entitlement, against the shape
+its type reads in (see EntitlementType): a NUMBER is an object whose fields are
+EntitlementFact's, a BOOLEAN is a bool, a CONFIG is an object the license
+fills.
+
+CEL cannot do this itself: the entitlements map holds a different shape under
+each key, so to its checker every entry is dyn, and `__kaiten.entitlements['sso']
+.limit` type-checks as cleanly as it fails at evaluation — by not matching,
+which ships as a feature that is silently never on.
+
+Only what is certain to fail is refused. A presence test (`has(...)`) is fine
+on any shape, and a slug the catalogue does not type — no catalogue at all —
+is left alone, since nothing says which shape it reads in.
+*/
+func entitlementUse(
+	rule string, runes []rune, info *ast.SourceInfo,
+	entry, parent ast.Expr, slug string, at sourceSpan,
+	knownEntitlements []KnownEntitlement,
+) (sourceSpan, error) {
+	typ, typed := entitlementTypeOf(slug, knownEntitlements)
+	if !typed || isPresenceTest(entry) {
+		return sourceSpan{}, nil
+	}
+
+	field, fieldAt, isField := fieldRead(runes, info, entry, parent)
+	operator, other := operatorOver(entry, parent)
+
+	switch typ {
+	case EntitlementNumber:
+		if isField {
+			if field == "" || slices.Contains(entitlementFields, field) {
+				return sourceSpan{}, nil
+			}
+			return fieldAt, fmt.Errorf(
+				"rule %q reads .%s on the NUMBER entitlement %q, which does not exist — available: %s",
+				rule, field, slug, strings.Join(entitlementFields, ", "),
+			)
+		}
+		if operator == celoperators.In {
+			return sourceSpan{}, nil
+		}
+		return at, fmt.Errorf(
+			"rule %q reads the NUMBER entitlement %q as a value — read one of its fields: %s",
+			rule, slug, strings.Join(entitlementFields, ", "),
+		)
+
+	case EntitlementBoolean:
+		if isField || operator == celoperators.In {
+			if fieldAt == (sourceSpan{}) {
+				fieldAt = at
+			}
+			return fieldAt, fmt.Errorf(
+				"rule %q reads a field of the BOOLEAN entitlement %q, which is the bool the license grants and has none — compare it directly: %s['%s'] == true",
+				rule, slug, FactsRoot+"."+EntitlementsRoot, slug,
+			)
+		}
+		if slices.Contains(arithmeticOperators, operator) {
+			return at, fmt.Errorf(
+				"rule %q uses the BOOLEAN entitlement %q as a number — it is true or false: %s['%s'] == true",
+				rule, slug, FactsRoot+"."+EntitlementsRoot, slug,
+			)
+		}
+		if literal, ok := literalValue(other); ok && slices.Contains(equalityOperators, operator) {
+			if _, isBool := literal.(bool); !isBool {
+				return at, fmt.Errorf(
+					"rule %q compares the BOOLEAN entitlement %q with %v — compare it with true or false",
+					rule, slug, literal,
+				)
+			}
+		}
+
+	case EntitlementConfig:
+		if slices.Contains(arithmeticOperators, operator) {
+			return at, fmt.Errorf(
+				"rule %q uses the CONFIG entitlement %q as a number — it is an object: read one of its keys, e.g. %s['%s'].<key>",
+				rule, slug, FactsRoot+"."+EntitlementsRoot, slug,
+			)
+		}
+		if literal, ok := literalValue(other); ok && slices.Contains(equalityOperators, operator) {
+			return at, fmt.Errorf(
+				"rule %q compares the CONFIG entitlement %q with %v — it is an object: compare one of its keys, e.g. %s['%s'].<key>",
+				rule, slug, literal, FactsRoot+"."+EntitlementsRoot, slug,
+			)
+		}
+	}
+
+	return sourceSpan{}, nil
+}
+
+// The operators that only make sense on a number, and the ones that compare
+// two values, as CEL names them in the AST.
+var (
+	arithmeticOperators = []string{
+		celoperators.Less, celoperators.LessEquals,
+		celoperators.Greater, celoperators.GreaterEquals,
+		celoperators.Add, celoperators.Subtract, celoperators.Multiply,
+		celoperators.Divide, celoperators.Modulo, celoperators.Negate,
+	}
+	equalityOperators = []string{celoperators.Equals, celoperators.NotEquals}
+)
+
+// isPresenceTest reports `has(__kaiten.entitlements.x)`, which asks whether the
+// entry exists and is fine whatever its shape.
+func isPresenceTest(entry ast.Expr) bool {
+	return entry.Kind() == ast.SelectKind && entry.AsSelect().IsTestOnly()
+}
+
+// fieldRead reports the field a rule reads on entry, in either form CEL
+// accepts: `entry.field` and `entry['field']`. A computed key reads as a field
+// with no name — something is read, nobody can say what.
+func fieldRead(runes []rune, info *ast.SourceInfo, entry, parent ast.Expr) (string, sourceSpan, bool) {
+	if parent == nil {
+		return "", sourceSpan{}, false
+	}
+
+	switch parent.Kind() {
+	case ast.SelectKind:
+		sel := parent.AsSelect()
+		if sel.Operand().ID() != entry.ID() {
+			return "", sourceSpan{}, false
+		}
+		return sel.FieldName(), fieldSpan(runes, info, parent.ID(), sel.FieldName()), true
+	case ast.CallKind:
+		call := parent.AsCall()
+		if call.FunctionName() != celoperators.Index || len(call.Args()) != 2 || call.Args()[0].ID() != entry.ID() {
+			return "", sourceSpan{}, false
+		}
+		key := call.Args()[1]
+		if name, ok := literalValue(key); ok {
+			if name, ok := name.(string); ok {
+				return name, nodeSpan(info, key.ID()), true
+			}
+		}
+		return "", sourceSpan{}, true
+	}
+
+	return "", sourceSpan{}, false
+}
+
+// operatorOver reports the call entry is an operand of, and the operand on the
+// other side when it has exactly two. An entry that is not an operand of any
+// call reports no operator.
+func operatorOver(entry, parent ast.Expr) (string, ast.Expr) {
+	if parent == nil || parent.Kind() != ast.CallKind {
+		return "", nil
+	}
+
+	call := parent.AsCall()
+	args := call.Args()
+	if len(args) == 2 {
+		if args[0].ID() == entry.ID() {
+			return call.FunctionName(), args[1]
+		}
+		return call.FunctionName(), args[0]
+	}
+	return call.FunctionName(), nil
+}
+
+// literalValue is the Go value of a literal, and nothing for anything else.
+func literalValue(expr ast.Expr) (any, bool) {
+	if expr == nil || expr.Kind() != ast.LiteralKind {
+		return nil, false
+	}
+	return expr.AsLiteral().Value(), true
 }
 
 // entitlementAccess reports the slug an entitlement is read under, and where
@@ -516,31 +694,50 @@ func walk(expr ast.Expr, visit func(ast.Expr)) {
 
 	visit(expr)
 
+	for _, child := range children(expr) {
+		walk(child, visit)
+	}
+}
+
+// parentsOf maps every node of a rule to the node it is an operand of, which
+// is what tells an entitlement read as a value from one read for a field.
+func parentsOf(root ast.Expr) map[int64]ast.Expr {
+	parents := map[int64]ast.Expr{}
+
+	walk(root, func(e ast.Expr) {
+		for _, child := range children(e) {
+			if child != nil {
+				parents[child.ID()] = e
+			}
+		}
+	})
+
+	return parents
+}
+
+func children(expr ast.Expr) []ast.Expr {
 	switch expr.Kind() {
 	case ast.CallKind:
 		call := expr.AsCall()
+		var nodes []ast.Expr
 		if call.IsMemberFunction() {
-			walk(call.Target(), visit)
+			nodes = append(nodes, call.Target())
 		}
-		for _, arg := range call.Args() {
-			walk(arg, visit)
-		}
+		return append(nodes, call.Args()...)
 	case ast.SelectKind:
-		walk(expr.AsSelect().Operand(), visit)
+		return []ast.Expr{expr.AsSelect().Operand()}
 	case ast.ListKind:
-		for _, element := range expr.AsList().Elements() {
-			walk(element, visit)
-		}
+		return expr.AsList().Elements()
 	case ast.MapKind:
+		var nodes []ast.Expr
 		for _, entry := range expr.AsMap().Entries() {
-			walk(entry.AsMapEntry().Key(), visit)
-			walk(entry.AsMapEntry().Value(), visit)
+			nodes = append(nodes, entry.AsMapEntry().Key(), entry.AsMapEntry().Value())
 		}
+		return nodes
 	case ast.ComprehensionKind:
 		comp := expr.AsComprehension()
-		walk(comp.IterRange(), visit)
-		walk(comp.LoopCondition(), visit)
-		walk(comp.LoopStep(), visit)
-		walk(comp.Result(), visit)
+		return []ast.Expr{comp.IterRange(), comp.LoopCondition(), comp.LoopStep(), comp.Result()}
 	}
+
+	return nil
 }
