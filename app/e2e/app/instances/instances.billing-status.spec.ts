@@ -250,6 +250,8 @@ test.describe('a list longer than a page', () => {
     const list = new InstancesListDriver(page);
 
     await list.goto();
+    // The table clears its search when its rows change: search once the 450 are in.
+    await expect(page.getByText('of 450 records')).toBeVisible();
     await list.search('Instance 449');
 
     // From the third page of the subscriptions.
