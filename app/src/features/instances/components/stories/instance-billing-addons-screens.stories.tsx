@@ -313,7 +313,8 @@ export const AddingAnAddon: Story = {
     const options = await screen.findAllByRole('option');
     await expect(options.map((option) => option.textContent)).toEqual(['Extra storage · 2026']);
     await userEvent.click(options[0]!);
-    // An open list is not checked for accessibility: it is waited out.
+    // The list is waited out so that the check reads the dialog at rest and not a list
+    // part-way through its exit animation. The open list has its own story, `SelectFieldOpen`.
     await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
 
     await waitFor(() =>
