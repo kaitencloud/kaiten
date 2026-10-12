@@ -1,12 +1,28 @@
 import { ChevronDownIcon } from 'lucide-react';
 import { Accordion as AccordionPrimitive } from '@base-ui/react/accordion';
+import { useState } from 'react';
 import type * as React from 'react';
 
 import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem } from './accordion';
 import { useTranslation } from 'react-i18next';
 
-const ActionAccordion = Accordion;
+/**
+ * An accordion that takes its open groups once, when it first draws. A list passes the
+ * first of its groups, which moves when the data it follows is read again or filtered:
+ * Base UI keeps the groups it opened first and says in the console, at the level of an
+ * error, that the default it was given has changed. Holding the first value says the same
+ * thing without the noise.
+ */
+function ActionAccordion({
+  defaultValue,
+  ...props
+}: React.ComponentProps<typeof Accordion>) {
+  const [initialValue] = useState(defaultValue);
+
+  return <Accordion defaultValue={initialValue} {...props} />;
+}
+
 const ActionAccordionItem = AccordionItem;
 const ActionAccordionContent = AccordionContent;
 

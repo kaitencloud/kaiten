@@ -57,7 +57,7 @@ For a form in a dialog and for confirmations, see the dialog shells of [`compone
 | `Card` | `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardAction`, `CardContent`, `CardFooter`. | none |
 | `Tabs` | `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`. Pages with a route per tab use `RouteTabs` (a functional), which also takes tabs that are one route told apart by its search (`?view=held`), can show a count next to each label, and sits under a page title. | [tabs](../../src/components/ui/stories/tabs.stories.tsx) |
 | `Accordion` | `Accordion`, `AccordionItem`, `AccordionTrigger`, `AccordionContent`. | [accordion](../../src/components/ui/stories/accordion.stories.tsx) |
-| `ActionAccordion` | An accordion whose header has room for actions next to the trigger. | [action-accordion](../../src/components/stories/action-accordion.stories.tsx) |
+| `ActionAccordion` | An accordion whose header has room for actions next to the trigger. It takes its `defaultValue` once, when it first draws: a list that passes the first of its groups does not make Base UI warn when a refetch moves it. | [action-accordion](../../src/components/stories/action-accordion.stories.tsx) |
 | `Breadcrumb` | The breadcrumb parts. | [breadcrumb](../../src/components/ui/stories/breadcrumb.stories.tsx) |
 | `Sidebar` | The side navigation shell and its parts, used by `app/src/routes/-components/side-nav/`. | [sidebar](../../src/components/ui/stories/sidebar.stories.tsx) |
 | `ScrollArea` | A scroll container with the app's thin scrollbar. | none |
