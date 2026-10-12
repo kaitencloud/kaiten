@@ -89,6 +89,7 @@ export default {
       templates: 'Templates',
       templateProductionZone: 'Production zone',
       templateHealthyInstance: 'Healthy instance',
+      templateEntitlementGranted: 'Feature granted by the license',
       templateEntitlementNearLimit: 'Entitlement near its limit',
       templateEntitlementExhausted: 'Entitlement exhausted',
       templateHostAttribute: 'One of your own attributes',

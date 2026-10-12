@@ -49,7 +49,7 @@ func (h *UseCase) Execute(ctx context.Context, slug string, flag *schema.Feature
 
 	flagValidator := validator.NewValidator()
 
-	err = flagValidator.ValidateFlagInOrganization(flag, common.EntitlementSlugs(ctx, h.deps.EntitlementCatalogue, u.OrganizationID))
+	err = flagValidator.ValidateFlagInOrganization(flag, common.KnownEntitlements(ctx, h.deps.EntitlementCatalogue, u.OrganizationID))
 	if err != nil {
 		return kaitenerrors.FromValidationError(err)
 	}

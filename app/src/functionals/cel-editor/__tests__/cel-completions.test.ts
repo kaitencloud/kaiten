@@ -247,3 +247,54 @@ describe('hoverFor', () => {
     expect(hover('__kaiten.license.nope')).toBeNull();
   });
 });
+
+describe('proposalsFor on a map whose entries differ', () => {
+  const typed: CelContextNode[] = [
+    {
+      name: '__kaiten',
+      type: 'object',
+      fields: [
+        {
+          name: 'entitlements',
+          type: 'map',
+          knownKeys: ['seats', 'sso'],
+          entries: [
+            {
+              name: 'seats',
+              type: 'object',
+              fields: [{ name: 'remaining', type: 'number' }],
+            },
+            { name: 'sso', type: 'boolean', description: 'Granted or not.' },
+          ],
+        },
+      ],
+    },
+  ];
+  const proposal = (text: string, label: string) =>
+    proposalsFor(completionTargetAt(text), typed).find(
+      (p) => p.label === label,
+    );
+
+  it('details each key with its own shape', () => {
+    expect(proposal("__kaiten.entitlements['", 'seats')?.detail).toBe('object');
+    expect(proposal("__kaiten.entitlements['", 'sso')?.detail).toBe('boolean');
+    expect(proposal('__kaiten.entitlements.', 'sso')?.documentation).toBe(
+      'Granted or not.',
+    );
+  });
+
+  it("offers a quantity's fields, and none on a capability", () => {
+    expect(
+      proposalsFor(
+        completionTargetAt("__kaiten.entitlements['seats']."),
+        typed,
+      ).map((p) => p.label),
+    ).toContain('remaining');
+    expect(
+      proposalsFor(
+        completionTargetAt("__kaiten.entitlements['sso']."),
+        typed,
+      ).map((p) => p.label),
+    ).not.toContain('remaining');
+  });
+});

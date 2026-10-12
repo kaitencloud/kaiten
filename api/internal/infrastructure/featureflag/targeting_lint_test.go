@@ -11,7 +11,14 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/openfeature"
 )
 
-var catalogue = []string{"customers", "instances", "seats"}
+var catalogue = []featureflag.KnownEntitlement{
+	{Slug: "customers", Type: featureflag.EntitlementNumber},
+	{Slug: "instances", Type: featureflag.EntitlementNumber},
+	{Slug: "seats", Type: featureflag.EntitlementNumber},
+	{Slug: "sso", Type: featureflag.EntitlementBoolean},
+	{Slug: "delivery-tracking", Type: featureflag.EntitlementBoolean},
+	{Slug: "support", Type: featureflag.EntitlementConfig},
+}
 
 func TestLintAcceptsWhatWorks(t *testing.T) {
 	for _, rule := range []string{
@@ -87,12 +94,77 @@ func TestLintSaysWhatIsWrong(t *testing.T) {
 	assert.ErrorContains(t, err, "slug, familySlug, type")
 }
 
-// Without a catalogue the slug cannot be judged, but everything else still is.
+// Without a catalogue neither the slug nor its type can be judged — `.nope`
+// may well be a key of a CONFIG — but everything else still is.
 func TestLintWithoutACatalogue(t *testing.T) {
-	assert.NoError(t, featureflag.LintTargetingRule("__kaiten.entitlements['anything'].used > 0", nil))
-	assert.Error(t, featureflag.LintTargetingRule("__kaiten.entitlements['anything'].nope > 0", nil))
-	assert.NoError(t, featureflag.LintTargetingRule("__kaiten.entitlements.anything.used > 0", nil))
-	assert.Error(t, featureflag.LintTargetingRule("__kaiten.entitlements.anything.nope > 0", nil))
+	for _, rule := range []string{
+		"__kaiten.entitlements['anything'].used > 0",
+		"__kaiten.entitlements['anything'].nope > 0",
+		"__kaiten.entitlements.anything.used > 0",
+		"__kaiten.entitlements['anything'] == true",
+	} {
+		assert.NoError(t, featureflag.LintTargetingRule(rule, nil), "rule: %s", rule)
+	}
+	assert.Error(t, featureflag.LintTargetingRule("__kaiten.license.tier == 'x'", nil))
+}
+
+// Each entitlement reads in the shape of its type, and is used the way that
+// shape allows: a bool compared directly, an object by its keys, a quantity by
+// its fields.
+func TestLintAcceptsEachEntitlementInItsShape(t *testing.T) {
+	for _, rule := range []string{
+		"__kaiten.entitlements['sso'] == true",
+		"__kaiten.entitlements['sso']",
+		"!__kaiten.entitlements['sso']",
+		"__kaiten.entitlements['delivery-tracking'] != false",
+		"__kaiten.entitlements.sso && __kaiten.license.type == 'PAID'",
+		"has(__kaiten.entitlements.sso)",
+		"__kaiten.entitlements['support'].tier == 'priority'",
+		"__kaiten.entitlements['support']['tier'] == 'priority'",
+		"has(__kaiten.entitlements['support'].tier)",
+		"'tier' in __kaiten.entitlements['support']",
+		"__kaiten.entitlements['support'].hours > 8",
+		"__kaiten.entitlements['seats'].percentage > 0.8",
+		"__kaiten.entitlements['seats']['remaining'] < 5",
+		"has(__kaiten.entitlements.seats)",
+	} {
+		assert.NoError(t, featureflag.LintTargetingRule(rule, catalogue), "rule: %s", rule)
+	}
+}
+
+func TestLintRefusesAnEntitlementReadOutOfItsShape(t *testing.T) {
+	cases := map[string]struct {
+		rule string
+		says string
+	}{
+		"a field of a BOOLEAN":             {"__kaiten.entitlements['sso'].limit >= 1.0", "== true"},
+		"a field of a BOOLEAN, dot access": {"__kaiten.entitlements.sso.limit >= 1.0", "== true"},
+		"an index of a BOOLEAN":            {"__kaiten.entitlements['sso']['limit'] >= 1.0", "== true"},
+		"a BOOLEAN as a number":            {"__kaiten.entitlements['sso'] > 0", "true or false"},
+		"a BOOLEAN against a number":       {"__kaiten.entitlements['sso'] == 1", "true or false"},
+		"a BOOLEAN against a string":       {"__kaiten.entitlements['sso'] == 'true'", "true or false"},
+		"a CONFIG against a string":        {"__kaiten.entitlements['support'] == 'priority'", "<key>"},
+		"a CONFIG as a number":             {"__kaiten.entitlements['support'] >= 1", "<key>"},
+		"a NUMBER as a value":              {"__kaiten.entitlements['seats'] > 5", "percentage"},
+		"a NUMBER as a bool":               {"__kaiten.entitlements['seats'] == true", "percentage"},
+		"a NUMBER field that is not one":   {"__kaiten.entitlements['seats'].tier == 'x'", "percentage"},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			err := featureflag.LintTargetingRule(c.rule, catalogue)
+			require.Error(t, err)
+			assert.ErrorContains(t, err, c.says)
+		})
+	}
+}
+
+// The demo's rule as it used to be written, a BOOLEAN read as a ceiling: it
+// matched nobody, and is now refused with the way to write it instead.
+func TestLintPointsABooleanCeilingRuleAtItsReplacement(t *testing.T) {
+	issues := featureflag.LintTargetingRuleIssues("__kaiten.entitlements['delivery-tracking'].limit >= 1.0", catalogue)
+	require.Len(t, issues, 1)
+	assert.Contains(t, issues[0].Message, "__kaiten.entitlements['delivery-tracking'] == true")
 }
 
 // CEL rejects "" as a syntax error at evaluation, so a blank rule accepted on

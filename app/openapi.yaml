@@ -10756,6 +10756,11 @@ components:
         description:
           description: What this value means, shown by the editor
           type: string
+        entries:
+          description: Shape of each known key, for a map whose entries differ. Named after the key
+          items:
+            $ref: "#/components/schemas/TargetingContextNode"
+          type: array
         fields:
           description: Named children, for an object
           items:
