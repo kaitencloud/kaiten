@@ -442,11 +442,25 @@ func translate(err error) error {
 			"no payment method was saved on that setup page: send the customer back to it, or open a new one")
 	case "SubscribeInstance.QuotaExceeded":
 		return kaitenerrors.UnprocessableEntityWithErrors(operation+".QuotaExceeded",
-			"the instance already uses more than this plan allows: choose a larger plan, or add-ons", refusal.Errors...)
+			"the instance already uses more than this plan allows: choose a larger plan, or add-ons", relocated(refusal.Errors)...)
 	case "UpdateInstance.LicenseArchived":
 		return kaitenerrors.UnprocessableEntity(operation+".PriceNotPublic", "this plan's version is no longer on sale")
 	}
 	return err
+}
+
+// relocated points a subscription's refusal details at the checkout's own body:
+// the price is licensePriceId there, basePriceId in the subscription.
+func relocated(details []*kaitenerrors.ErrorDetail) []*kaitenerrors.ErrorDetail {
+	out := make([]*kaitenerrors.ErrorDetail, 0, len(details))
+	for _, detail := range details {
+		moved := *detail
+		if moved.Location == "body.basePriceId" {
+			moved.Location = "body.licensePriceId"
+		}
+		out = append(out, &moved)
+	}
+	return out
 }
 
 func cannotCapture() error {
