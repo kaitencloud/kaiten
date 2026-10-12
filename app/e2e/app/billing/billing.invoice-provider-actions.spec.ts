@@ -97,7 +97,17 @@ test.describe('pushing an invoice to Stripe again', () => {
     page,
   }) => {
     const invoice = new InvoiceDetailDriver(page);
-    const reads = recordWrites(page, /\/api\/invoices\/inv-q1$/, ['GET']);
+    const READ = /\/api\/invoices\/inv-q1$/;
+    const reads = recordWrites(page, READ, ['GET']);
+    let answered = 0;
+    page.on('requestfinished', (request) => {
+      if (
+        request.method() === 'GET' &&
+        READ.test(new URL(request.url()).pathname)
+      ) {
+        answered += 1;
+      }
+    });
     await installBillingAppMocks(
       page,
       createStripeBillingModel({ stalledPushes: ['inv-q1'] }),
@@ -107,14 +117,23 @@ test.describe('pushing an invoice to Stripe again', () => {
     await invoice.expectActions(['Push now', 'Void']);
     await invoice.action('Push now').click();
     await expect(invoice.pushStatus()).toHaveAttribute('data-phase', 'waiting');
+    // The read the push provoked is answered before the clock moves.
+    await expect.poll(() => answered).toBe(reads.length);
 
-    await page.clock.runFor(119_000);
+    // Every five seconds the invoice is read again. The clock moves one interval at a
+    // time and waits for the read: a clock that jumps 119 s in a few hundred
+    // milliseconds outruns the answers on a slow runner, and the page misses intervals.
+    const readsBefore = reads.length;
+    for (let interval = 1; interval <= 23; interval += 1) {
+      await page.clock.runFor(5_000);
+      await expect
+        .poll(() => answered, { intervals: [10, 20, 50] })
+        .toBe(readsBefore + interval);
+    }
     await expect(invoice.pushStatus()).toHaveAttribute('data-phase', 'waiting');
-    // Every five seconds in the 119 that passed, besides the page's own reads.
-    const readsSoFar = reads.length;
-    expect(readsSoFar).toBeGreaterThanOrEqual(23);
+    expect(reads.length).toBe(readsBefore + 23);
 
-    await page.clock.runFor(1_000);
+    await page.clock.runFor(5_000);
 
     await expect(invoice.pushStatus()).toHaveAttribute('data-phase', 'expired');
     await expect(invoice.pushStatus()).toContainText('Still queued');
