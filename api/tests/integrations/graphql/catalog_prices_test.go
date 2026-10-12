@@ -413,6 +413,33 @@ func TestGraphQL_CatalogPrices(t *testing.T) {
 		assert.Equal(t, []string{theirAddonPrice.ID.String()}, pricesIDs(seen.Addons.Items[0].Prices))
 	})
 
+	// REST declares the status of a price list as an enum and answers 422 for another
+	// value. GraphQL takes a free string, and gives the same refusal rather than an empty
+	// list, which would read as "this version has no such price".
+	t.Run("RefusesAStatusThatIsNotOne", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		billing := newBillingServer(t, nil)
+		pro := newSoldLicense(t, billing, "Pro")
+		priceOf(t, billing, "licenses", pro.Slug, flatFee("2900", "MONTHLY"))
+		seats := newSoldAddon(t, billing, "Extra seats")
+		priceOf(t, billing, "addons", seats.Slug, flatFee("900", "MONTHLY"))
+
+		for name, document := range map[string]string{
+			"license": `{ licenses { items { prices(status: "BOGUS") { id } } } }`,
+			"add-on":  `{ addons { items { prices(status: "BOGUS") { id } } } }`,
+		} {
+			t.Run(name, func(t *testing.T) {
+				answer := sendGraphQL(t, billing, document, nil)
+
+				var envelope graphQLResponse
+				require.NoError(t, json.Unmarshal(answer.body, &envelope))
+				require.NotEmpty(t, envelope.Errors, string(answer.body))
+				assert.Equal(t, "Prices.InvalidStatus", envelope.Errors[0].Extensions["code"])
+				assert.EqualValues(t, http.StatusUnprocessableEntity, envelope.Errors[0].Extensions["status"])
+			})
+		}
+	})
+
 	// The add-ons are billing's, as GET /addons is: where the organization may not reach
 	// billing, nothing of the catalog is read, and the refusal is the one REST gives.
 	t.Run("IsRefusedWhereBillingIsOff", func(t *testing.T) {

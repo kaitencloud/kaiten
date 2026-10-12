@@ -26,6 +26,19 @@ type Draft struct {
 	IsDefault              bool
 }
 
+// CheckStatusFilter refuses a status that is not one a price can have. A nil or
+// empty filter keeps every price. GET .../prices declares the two values as an
+// enum and answers 422 for another; the GraphQL `prices(status:)` argument is
+// a free string, so it makes the same refusal here rather than an empty list
+// that reads as "no such price".
+func CheckStatusFilter(status *string) error {
+	if status == nil || *status == "" || *status == StatusActive || *status == StatusDeprecated {
+		return nil
+	}
+	return kaitenerrors.UnprocessableEntity("Prices.InvalidStatus",
+		"status must be "+StatusActive+" or "+StatusDeprecated)
+}
+
 // Metered reports whether the draft meters an entitlement.
 func (d Draft) Metered() bool {
 	return d.BillingModel == ModelUsageBased || d.BillingModel == ModelOverage

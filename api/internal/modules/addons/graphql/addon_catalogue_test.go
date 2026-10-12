@@ -332,6 +332,22 @@ func TestGetAddonsRefusesACursorThatIsNotOne(t *testing.T) {
 	assert.Empty(t, fake.queries())
 }
 
+// GET .../prices answers 422 for a status that is not one; an empty list would read as
+// "this version has no such price".
+func TestAddonPricesRefuseAStatusThatIsNotOne(t *testing.T) {
+	seats := uuid.New()
+	fake := pricesFake()
+	bogus := "BOGUS"
+
+	_, errs := loadPrices(contextWithLoaders(t, uuid.New(), fake, 1), &bogus, seats)
+
+	var refusal *apierrors.Error
+	require.ErrorAs(t, errs[0], &refusal)
+	assert.Equal(t, "Prices.InvalidStatus", refusal.ErrorCode())
+	assert.Equal(t, 422, refusal.HTTPStatus())
+	assert.Empty(t, fake.queries(), "a refused request reads nothing")
+}
+
 func TestGetAddonsNeedsAnIdentity(t *testing.T) {
 	fake := addonsFake(2)
 
