@@ -388,11 +388,16 @@ export const SelectFieldOpen: Story = {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('combobox', { name: 'Role' }));
     const listbox = await screen.findByRole('listbox', { name: 'Role' });
-    // The list fades in; the check below reads it once it is on screen.
+    // The list fades in and zooms in: the accessibility check reads it once it has come to
+    // rest, with its final opacity, and not part-way.
     await waitFor(() =>
       expect(
         within(listbox).getByRole('option', { name: 'Guest' }),
       ).toBeVisible(),
+    );
+    const popup = listbox.closest('[data-slot="select-content"]');
+    await Promise.all(
+      (popup?.getAnimations() ?? []).map((animation) => animation.finished),
     );
   },
 };

@@ -279,7 +279,8 @@ export const Defaults: Story = {
       }),
     ).toHaveAttribute('aria-disabled', 'true');
     await userEvent.keyboard('{Escape}');
-    // The list is gone before the story is checked for accessibility.
+    // The list is waited out so that the check reads the card at rest and not a list
+    // part-way through its exit animation. The open list has its own story, `SelectFieldOpen`.
     await waitFor(() =>
       expect(within(document.body).queryByRole('listbox')).toBeNull(),
     );
