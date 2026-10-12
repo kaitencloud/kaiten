@@ -97,9 +97,13 @@ function ContextNode({ node, depth }: { node: CelContextNode; depth: number }) {
       {children.map((child) => (
         <ContextNode key={child.name} node={child} depth={depth + 1} />
       ))}
-      {/* A map's entries all share one shape; show it once, below the keys. */}
+      {/* A map whose entries share one shape shows it once, below the keys. */}
       {node.values?.fields?.map((child) => (
         <ContextNode key={child.name} node={child} depth={depth + 1} />
+      ))}
+      {/* One whose entries differ shows each in its own shape. */}
+      {node.entries?.map((entry) => (
+        <ContextNode key={entry.name} node={entry} depth={depth + 1} />
       ))}
     </div>
   );

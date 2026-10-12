@@ -98,8 +98,8 @@ function keyProposals(node: CelContextNode | null): CelProposal[] {
     label: key,
     insertText: key,
     kind: 'key' as const,
-    detail: node.values?.type,
-    documentation: node.description,
+    detail: keyType(node, key),
+    documentation: entryNamed(node, key)?.description ?? node.description,
     sortText: FROM_CONTEXT + key,
   }));
 }
@@ -144,13 +144,27 @@ function namedChildren(
       label: key,
       insertText: key,
       kind: 'key' as const,
-      detail: node.values?.type,
-      documentation: `A key of ${path.map((segment) => segment.name).join('.')}`,
+      detail: keyType(node, key),
+      documentation:
+        entryNamed(node, key)?.description ??
+        `A key of ${path.map((segment) => segment.name).join('.')}`,
       sortText: FROM_CONTEXT + key,
     }));
   }
 
   return [];
+}
+
+function entryNamed(
+  node: CelContextNode,
+  key: string,
+): CelContextNode | undefined {
+  return node.entries?.find((entry) => entry.name === key);
+}
+
+/** A key's own shape when it has one, else the one every entry shares. */
+function keyType(node: CelContextNode, key: string) {
+  return entryNamed(node, key)?.type ?? node.values?.type;
 }
 
 const contextProposal =

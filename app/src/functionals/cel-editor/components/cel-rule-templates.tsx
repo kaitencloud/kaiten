@@ -18,15 +18,18 @@ interface RuleTemplate {
  * The templates are derived from the served schema, not written here — the
  * hand-written example list this feature used to carry is how the console
  * ended up teaching a namespace that never existed. An entitlement template
- * only appears when the organization actually has an entitlement, and it
- * names a real slug.
+ * only appears when the organization actually has an entitlement of the shape
+ * it is written for, and it names a real slug: a quantity's limit for a NUMBER
+ * entitlement, the grant itself for a BOOLEAN one.
  */
 function templatesFor(roots: CelContextNode[]): RuleTemplate[] {
   const facts = roots.find((root) => root.name === '__kaiten');
   const entitlements = facts?.fields?.find(
     (field) => field.name === 'entitlements',
   );
-  const slug = entitlements?.knownKeys?.[0];
+  const entries = entitlements?.entries ?? [];
+  const quantity = entries.find((entry) => entry.type === 'object')?.name;
+  const capability = entries.find((entry) => entry.type === 'boolean')?.name;
 
   const templates: RuleTemplate[] = [];
 
@@ -42,15 +45,21 @@ function templatesFor(roots: CelContextNode[]): RuleTemplate[] {
       rule: "__kaiten.instance.status == 'HEALTHY'",
     });
   }
-  if (slug) {
+  if (capability) {
+    templates.push({
+      labelKey: 'templateEntitlementGranted',
+      rule: `__kaiten.entitlements['${capability}'] == true`,
+    });
+  }
+  if (quantity) {
     templates.push(
       {
         labelKey: 'templateEntitlementNearLimit',
-        rule: `__kaiten.entitlements['${slug}'].percentage >= 0.9`,
+        rule: `__kaiten.entitlements['${quantity}'].percentage >= 0.9`,
       },
       {
         labelKey: 'templateEntitlementExhausted',
-        rule: `__kaiten.entitlements['${slug}'].remaining < 1`,
+        rule: `__kaiten.entitlements['${quantity}'].remaining < 1`,
       },
     );
   }

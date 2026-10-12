@@ -35,7 +35,7 @@ and a validator that silently skipped the slug check when it was absent would be
 the same silence this is meant to end. Callers with a catalogue pass it; the ones
 without say so by calling ValidateFlag.
 */
-func (v *Validator) ValidateFlagInOrganization(flag *schema.FeatureFlag, knownEntitlements []string) error {
+func (v *Validator) ValidateFlagInOrganization(flag *schema.FeatureFlag, knownEntitlements []featureflag.KnownEntitlement) error {
 	return v.validateFlag(flag, knownEntitlements)
 }
 
@@ -44,7 +44,7 @@ func (v *Validator) ValidateFlagInOrganization(flag *schema.FeatureFlag, knownEn
 // catalogue — parsed and type-checked every targeting rule through CEL twice on
 // each create and update, building an environment each time, to reach the same
 // verdict.
-func (v *Validator) validateFlag(flag *schema.FeatureFlag, knownEntitlements []string) error {
+func (v *Validator) validateFlag(flag *schema.FeatureFlag, knownEntitlements []featureflag.KnownEntitlement) error {
 	if flag == nil {
 		return fmt.Errorf("flag cannot be nil")
 	}
@@ -73,7 +73,7 @@ func (v *Validator) validateFlag(flag *schema.FeatureFlag, knownEntitlements []s
 // validateTargetingRules refuses a rule that cannot work. At evaluation time
 // such a rule does not raise — it simply never matches, and the flag stays on
 // its default — so this is the only point where the mistake is visible.
-func (v *Validator) validateTargetingRules(flag *schema.FeatureFlag, knownEntitlements []string) error {
+func (v *Validator) validateTargetingRules(flag *schema.FeatureFlag, knownEntitlements []featureflag.KnownEntitlement) error {
 	for _, targeting := range flag.Targetings {
 		if err := featureflag.LintTargetingRule(targeting.GetRule().Value, knownEntitlements); err != nil {
 			return fmt.Errorf("invalid targeting for flag %q: %w", flag.Name, err)

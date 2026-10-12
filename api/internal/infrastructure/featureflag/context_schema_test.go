@@ -72,13 +72,35 @@ func TestSchemaOffersOnlyEntitlementFieldsTheLintAccepts(t *testing.T) {
 	entitlements := rootNamed(t, facts.Fields, "entitlements")
 
 	require.Equal(t, featureflag.TargetingTypeMap, entitlements.Type)
-	require.NotNil(t, entitlements.Values, "an entitlement's shape is what makes the map completable")
+	seats := rootNamed(t, entitlements.Entries, "seats")
+	require.NotEmpty(t, seats.Fields, "a NUMBER entitlement's fields are what make it completable")
 
-	for _, field := range entitlements.Values.Fields {
+	for _, field := range seats.Fields {
 		rule := fmt.Sprintf("has(__kaiten.entitlements['seats'].%s)", field.Name)
 		assert.NoError(t, featureflag.LintTargetingRule(rule, catalogue),
-			"the schema offers entitlements[].%s but the lint refuses it", field.Name)
+			"the schema offers entitlements['seats'].%s but the lint refuses it", field.Name)
 	}
+}
+
+// Each entitlement is described in the shape it reads in, which is the shape
+// the lint holds a rule to: the editor never offers what the save refuses.
+func TestSchemaDescribesEachEntitlementInItsShape(t *testing.T) {
+	facts := rootNamed(t, featureflag.TargetingContextRoots(catalogue), "__kaiten")
+	entitlements := rootNamed(t, facts.Fields, "entitlements")
+
+	assert.Nil(t, entitlements.Values, "entries differ, so there is no shape they share")
+
+	sso := rootNamed(t, entitlements.Entries, "sso")
+	assert.Equal(t, featureflag.TargetingTypeBoolean, sso.Type)
+	assert.Empty(t, sso.Fields)
+	assert.NoError(t, featureflag.LintTargetingRule("__kaiten.entitlements['sso'] == true", catalogue))
+
+	support := rootNamed(t, entitlements.Entries, "support")
+	assert.Equal(t, featureflag.TargetingTypeMap, support.Type)
+	require.NotNil(t, support.Values)
+	assert.Equal(t, featureflag.TargetingTypeDyn, support.Values.Type)
+
+	assert.Equal(t, featureflag.TargetingTypeObject, rootNamed(t, entitlements.Entries, "seats").Type)
 }
 
 // The slugs are the one part of the schema that is not derived from a struct:
@@ -88,24 +110,36 @@ func TestSchemaCarriesTheOrganizationsEntitlementSlugs(t *testing.T) {
 	facts := rootNamed(t, featureflag.TargetingContextRoots(catalogue), "__kaiten")
 	entitlements := rootNamed(t, facts.Fields, "entitlements")
 
-	assert.Equal(t, catalogue, entitlements.KnownKeys)
+	slugs := make([]string, 0, len(catalogue))
+	for _, known := range catalogue {
+		slugs = append(slugs, known.Slug)
+	}
+	assert.Equal(t, slugs, entitlements.KnownKeys)
 
-	for _, slug := range entitlements.KnownKeys {
-		rule := fmt.Sprintf("__kaiten.entitlements['%s'].used > 0", slug)
+	for _, entry := range entitlements.Entries {
+		slug := entry.Name
+		rule := map[featureflag.TargetingValueType]string{
+			featureflag.TargetingTypeObject:  fmt.Sprintf("__kaiten.entitlements['%s'].used > 0", slug),
+			featureflag.TargetingTypeBoolean: fmt.Sprintf("__kaiten.entitlements['%s'] == true", slug),
+			featureflag.TargetingTypeMap:     fmt.Sprintf("__kaiten.entitlements['%s'].tier == 'x'", slug),
+		}[entry.Type]
+		require.NotEmptyf(t, rule, "no rule for an entry of type %q", entry.Type)
 		assert.NoError(t, featureflag.LintTargetingRule(rule, catalogue),
 			"the schema offers the slug %q but the lint refuses it", slug)
 	}
 }
 
-// A caller without a catalogue still gets the whole shape — only the slug
-// suggestions are missing, which is the same trade the lint makes.
+// A caller without a catalogue still gets the whole shape — only the
+// entitlements are missing, slugs and shapes alike, since a slug's shape comes
+// from its type. The lint makes the same trade.
 func TestSchemaWithoutACatalogue(t *testing.T) {
 	facts := rootNamed(t, featureflag.TargetingContextRoots(nil), "__kaiten")
 	entitlements := rootNamed(t, facts.Fields, "entitlements")
 
+	assert.Equal(t, featureflag.TargetingTypeMap, entitlements.Type)
 	assert.Empty(t, entitlements.KnownKeys)
-	require.NotNil(t, entitlements.Values)
-	assert.NotEmpty(t, entitlements.Values.Fields)
+	assert.Empty(t, entitlements.Entries)
+	assert.NotEmpty(t, rootNamed(t, facts.Fields, "license").Fields)
 }
 
 // Free-form JSONB has no shape to declare, and the lint stops at the same
@@ -136,10 +170,9 @@ func TestOptionalFieldsAreMarked(t *testing.T) {
 func TestTypesAreTheOnesARuleAuthorThinksIn(t *testing.T) {
 	facts := rootNamed(t, featureflag.TargetingContextRoots(catalogue), "__kaiten")
 
-	entitlements := rootNamed(t, facts.Fields, "entitlements")
-	require.NotNil(t, entitlements.Values)
-	assert.Equal(t, featureflag.TargetingTypeNumber, rootNamed(t, entitlements.Values.Fields, "remaining").Type)
-	assert.Equal(t, featureflag.TargetingTypeBoolean, rootNamed(t, entitlements.Values.Fields, "unlimited").Type)
+	seats := rootNamed(t, rootNamed(t, facts.Fields, "entitlements").Entries, "seats")
+	assert.Equal(t, featureflag.TargetingTypeNumber, rootNamed(t, seats.Fields, "remaining").Type)
+	assert.Equal(t, featureflag.TargetingTypeBoolean, rootNamed(t, seats.Fields, "unlimited").Type)
 
 	license := rootNamed(t, facts.Fields, "license")
 	assert.Equal(t, featureflag.TargetingTypeString, rootNamed(t, license.Fields, "slug").Type)
@@ -154,8 +187,9 @@ func TestEveryLeafSaysWhatItMeans(t *testing.T) {
 
 	for _, subroot := range facts.Fields {
 		fields := subroot.Fields
-		if subroot.Values != nil {
-			fields = subroot.Values.Fields
+		for _, entry := range subroot.Entries {
+			fields = append(fields, entry)
+			fields = append(fields, entry.Fields...)
 		}
 
 		for _, field := range fields {

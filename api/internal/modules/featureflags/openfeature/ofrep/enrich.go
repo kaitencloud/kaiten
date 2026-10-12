@@ -39,12 +39,12 @@ const (
 	// `__kaiten.license.familySlug == 'scale'` for a product, and
 	// `__kaiten.license.slug == 'scale-v2'` for one of its versions.
 	LicenseInput = featureflag.LicenseRoot
-	// EntitlementsInput maps each entitlement slug to a
-	// featureflag.EntitlementFact:
-	// `__kaiten.entitlements['seats'].percentage > 0.8` for a quantity, and
-	// `__kaiten.entitlements['sso'].limit >= 1.0` for a BOOLEAN capability
-	// the license grants. Slugs contain hyphens, so index notation is
-	// required for most of them.
+	// EntitlementsInput maps each entitlement slug to its grant, in the
+	// shape of the entitlement's type: a featureflag.EntitlementFact for a
+	// NUMBER (`__kaiten.entitlements['seats'].percentage > 0.8`), the bool
+	// for a BOOLEAN (`__kaiten.entitlements['sso'] == true`), the object for
+	// a CONFIG (`__kaiten.entitlements['support'].tier == 'priority'`).
+	// Slugs contain hyphens, so index notation is required for most of them.
 	EntitlementsInput = featureflag.EntitlementsRoot
 	// InstanceInput carries the calling instance's own registry facts, a
 	// featureflag.InstanceFact:
@@ -139,13 +139,21 @@ func EnrichWithServerFacts(
 	facts[EntitlementsInput] = entitlementFacts(rows)
 }
 
-// entitlementFacts shapes one entitlement per key, with the numbers a rule wants
-// to compare: what was granted, what has been consumed, and how full that is.
+// entitlementFacts shapes one entitlement per key, each in the shape of its
+// entitlement's type, so a rule reads a grant for what it is:
 //
-// `percentage` is the reason this exists. A rule can already be written against
-// a limit, but "who is about to run out" is the question a plan-aware feature
-// gate is actually asked, and computing it in CEL from two other fields would
-// put a division — and the unlimited sentinel — in every rule.
+//   - NUMBER: a featureflag.EntitlementFact, the numbers a rule wants to
+//     compare — `__kaiten.entitlements['seats'].percentage > 0.8`.
+//   - BOOLEAN: the bool the license grants —
+//     `__kaiten.entitlements['sso'] == true`.
+//   - CONFIG: the object the license grants —
+//     `__kaiten.entitlements['support'].tier == 'priority'`.
+//
+// `percentage` is the reason the NUMBER shape exists. A rule can already be
+// written against a limit, but "who is about to run out" is the question a
+// plan-aware feature gate is actually asked, and computing it in CEL from two
+// other fields would put a division — and the unlimited sentinel — in every
+// rule.
 func entitlementFacts(rows []customertargetingfacts.TargetingFact) map[string]any {
 	facts := make(map[string]any, len(rows))
 
@@ -154,38 +162,48 @@ func entitlementFacts(rows []customertargetingfacts.TargetingFact) map[string]an
 			continue
 		}
 
-		facts[*row.EntitlementSlug] = toFactMap(entitlementFact(row))
+		facts[*row.EntitlementSlug] = entitlementEntry(row)
 	}
 
 	return facts
 }
 
-// entitlementFact is what one grant reads as in a rule, whatever the type of
-// its entitlement: a NUMBER grant is its cap and the usage measured against
-// it, a BOOLEAN grant a cap of one or zero, a CONFIG grant nothing.
-func entitlementFact(row customertargetingfacts.TargetingFact) featureflag.EntitlementFact {
-	if granted, ok := booleanGrant(row.LimitValue); ok {
-		// A capability, not a quantity, so it is given the one quantity that
-		// says on or off: a ceiling of 1 when the license grants it, 0 when it
-		// does not, and `limit >= 1.0` reads "granted". Before this a BOOLEAN
-		// grant reported 0 either way, so that rule matched nobody.
-		//
-		// The rest is what a NUMBER grant of 1 or 0 with nothing consumed
-		// reports, so a rule reads the same whichever kind it meets. Usage is
-		// only ever reported against the NUMBER family, so used is 0, and with
-		// it percentage: a capability cannot run out, so `percentage >= 0.9`
-		// never matches it. remaining is the ceiling itself, 1 or 0, which
-		// keeps `remaining > 0` meaning "has some" — a 0 there for a granted
-		// capability would make `remaining < 1` match exactly the customers
-		// who hold it. It has a ceiling, so it is never unlimited: `unlimited`
-		// stays the NUMBER sentinel, and a rule rewarding an uncapped plan
-		// does not match every customer granted some feature.
-		if granted {
-			return featureflag.EntitlementFact{Limit: 1, Remaining: 1}
+// entitlementEntry is what one grant reads as in a rule. The shape follows the
+// type the license value is stored with, which the license module validates
+// against the entitlement's own type, so a slug always reads in one shape.
+//
+// A capability or a configuration is not a quantity, and is not dressed up as
+// one: a BOOLEAN grant read as a ceiling of 1 or 0 would make `limit >= 1.0`
+// the way to say "granted", and leave every other numeric field to be given a
+// meaning it does not have. Using one the wrong way — `.limit` on a bool,
+// `> 3` on an object — is refused by the lint when the rule is written (see
+// featureflag.LintTargetingRule), and fails to match at evaluation.
+func entitlementEntry(row customertargetingfacts.TargetingFact) any {
+	if value, err := entitlementvalue.ParseLicenseValue(row.LimitValue); err == nil {
+		switch value.Type {
+		case entitlementvalue.TypeBoolean:
+			// A value that is not a bool grants nothing, the safe direction
+			// for a gate. Usage is only reported against the NUMBER family,
+			// so there is none to carry.
+			granted, _ := value.Value.(bool)
+			return granted
+		case entitlementvalue.TypeObject:
+			// Decoded from JSON, so a map CEL indexes natively. One that is
+			// not an object exposes no keys rather than a value of some other
+			// shape.
+			config, ok := value.Value.(map[string]any)
+			if !ok {
+				return map[string]any{}
+			}
+			return config
 		}
-		return featureflag.EntitlementFact{}
 	}
 
+	return toFactMap(quantityFact(row))
+}
+
+// quantityFact is a NUMBER grant: its cap and the usage measured against it.
+func quantityFact(row customertargetingfacts.TargetingFact) featureflag.EntitlementFact {
 	limit, hasLimit := numberOf(row.LimitValue)
 	used, _ := numberOf(row.UsageValue)
 	unlimited := hasLimit && entitlementvalue.IsUnlimitedThreshold(limit)
@@ -201,12 +219,10 @@ func entitlementFact(row customertargetingfacts.TargetingFact) featureflag.Entit
 		// featureflag.UnlimitedQuantity for why a number and not an omission.
 		fact.Limit, fact.Remaining = featureflag.UnlimitedQuantity, featureflag.UnlimitedQuantity
 	case !hasLimit:
-		// Neither a number nor a boolean — booleans were answered above and
-		// both parsers here require a "number" value — so this is an object
-		// grant, a CONFIG value with no quantity and no on or off to it, or a
-		// value nothing can read. The three stay 0: an entitlement with no
-		// number is not an entitlement with no ceiling, and giving it the
-		// unlimited sentinel would say the latter.
+		// A value nothing can read: booleans and objects were answered by
+		// entitlementEntry. The three stay 0: an entitlement with no number is
+		// not an entitlement with no ceiling, and giving it the unlimited
+		// sentinel would say the latter.
 	default:
 		fact.Limit = limit
 		fact.Remaining = max(limit-used, 0)
@@ -216,25 +232,6 @@ func entitlementFact(row customertargetingfacts.TargetingFact) featureflag.Entit
 	}
 
 	return fact
-}
-
-// booleanGrant reads a stored license value as a BOOLEAN grant: whether the
-// license grants the capability, and whether the value is a boolean grant at
-// all. A value of another type, or a malformed one, is not, and falls through
-// to the numeric reading — which gives it nothing, the safe direction for a
-// gate.
-func booleanGrant(raw []byte) (granted, ok bool) {
-	if len(raw) == 0 {
-		return false, false
-	}
-
-	value, err := entitlementvalue.ParseLicenseValue(raw)
-	if err != nil || value.Type != entitlementvalue.TypeBoolean {
-		return false, false
-	}
-
-	granted, ok = value.Value.(bool)
-	return granted, ok
 }
 
 // numberOf reads a stored entitlement value, whichever of the two shapes it is:
