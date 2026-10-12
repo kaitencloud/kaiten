@@ -14,6 +14,8 @@ export default {
     continue: 'Continuer',
     search: 'Rechercher',
     close: 'Fermer',
+    increaseValue: 'Augmenter la valeur',
+    decreaseValue: 'Diminuer la valeur',
     toggleSection: 'Afficher ou masquer la section',
     save: 'Enregistrer',
     apply: 'Appliquer',
