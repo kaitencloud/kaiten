@@ -3,9 +3,7 @@ package updatecustomer
 import (
 	"context"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/schema"
@@ -15,9 +13,8 @@ import (
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
-	UserProvider  currentuser.Provider
-	Uof           *uow.UnitOfWork
-	UsageReporter services.UsageReporter
+	UserProvider currentuser.Provider
+	Uof          *uow.UnitOfWork
 }
 
 type UseCase struct {
@@ -62,8 +59,6 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) (*
 	if err != nil {
 		return nil, err
 	}
-
-	h.deps.UsageReporter.TrackAsync(u.OrganizationID, dogfooding.CustomerUpdatedEntitlementSlug)
 
 	return customer, nil
 }

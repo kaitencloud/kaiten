@@ -99,7 +99,7 @@ func TestGraphQLHandlerPersistsQueriesAcrossRequests(t *testing.T) {
 func TestParserTokenLimitAdmitsEveryLegitimateQuery(t *testing.T) {
 	t.Parallel()
 
-	schema := newExecutableSchema(nil, Config{}).Schema()
+	schema := newExecutableSchema(nil).Schema()
 	for _, queries := range []map[string]string{legitimateQueries, parserSDKQueries} {
 		for name, query := range queries {
 			t.Run(name, func(t *testing.T) {
@@ -459,7 +459,7 @@ func newTestAppWithPrincipal(t *testing.T, config Config, i *principal.Principal
 func queryComplexityAsSent(t *testing.T, name string) int {
 	t.Helper()
 
-	es := newExecutableSchema(nil, Config{})
+	es := newExecutableSchema(nil)
 
 	doc, errs := gqlparser.LoadQueryWithRules(es.Schema(), legitimateQueries[name], nil)
 	require.Empty(t, errs, "the query must still be valid against the schema")
@@ -479,7 +479,7 @@ func queryComplexity(t *testing.T, query string) int {
 	// The server's own schema, cost model included -- see newExecutableSchema.
 	// Building a bare generated.Config here would measure gqlgen's structural
 	// default instead, and every number in this file would be a fiction.
-	es := newExecutableSchema(nil, Config{})
+	es := newExecutableSchema(nil)
 
 	// Nil rules means the default set -- the same one gqlgen's executor
 	// validates an incoming operation with.

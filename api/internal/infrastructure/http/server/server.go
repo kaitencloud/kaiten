@@ -765,7 +765,6 @@ func (s *Server) registerGraphQL(router fiber.Router) {
 	gqlHandler := graphqlHandler.NewHandler(s.deps.DB, graphqlHandler.Config{
 		EnablePlayground:    s.cfg.GraphQL.PlaygroundEnabled,
 		EnableIntrospection: s.cfg.GraphQL.IntrospectionEnabled,
-		UsageReporter:       s.deps.UsageReporter,
 	})
 	gqlHandler.RegisterRoutes(router)
 }

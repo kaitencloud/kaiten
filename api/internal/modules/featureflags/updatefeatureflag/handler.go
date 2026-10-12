@@ -3,9 +3,7 @@ package updatefeatureflag
 import (
 	"context"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/common"
@@ -23,7 +21,6 @@ import (
 type Deps struct {
 	UserProvider         currentuser.Provider
 	Uof                  *uow.UnitOfWork
-	UsageReporter        services.UsageReporter
 	EntitlementCatalogue catalogue.Port
 }
 
@@ -73,8 +70,6 @@ func (h *UseCase) Execute(ctx context.Context, slug string, flag *schema.Feature
 	if err != nil {
 		return err
 	}
-
-	h.deps.UsageReporter.TrackAsync(u.OrganizationID, dogfooding.FeatureFlagUpdatedEntitlementSlug)
 
 	return nil
 }

@@ -3,8 +3,6 @@ package getentitlementgroups
 import (
 	"context"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
@@ -15,9 +13,8 @@ import (
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
-	UserProvider  currentuser.Provider
-	Queries       *db.Queries
-	UsageReporter services.UsageReporter
+	UserProvider currentuser.Provider
+	Queries      *db.Queries
 }
 
 // UseCase handles listing entitlement groups.
@@ -63,8 +60,6 @@ func (h *UseCase) Execute(ctx context.Context, limit int32, cursor *string) (pag
 	if err != nil {
 		return pagination.Page[*schema.EntitlementGroup]{}, err
 	}
-
-	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.EntitlementGroupReadEntitlementSlug)
 
 	return page, nil
 }

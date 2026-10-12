@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/attio"
-	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 // A connector compiled into this binary registers itself at startup, through the
@@ -25,8 +24,7 @@ func TestTheConnectorsThisBinaryShipsAreRegisteredAtStartup(t *testing.T) {
 	row := readConnectorRow(t, attio.Name)
 
 	assert.Equal(t, attio.Version, row.version)
-	require.NotNil(t, row.entitlementSlug, "the connector is an enterprise feature and must name its licence")
-	assert.Equal(t, dogfooding.ConnectorAttioEntitlementSlug, *row.entitlementSlug)
+	assert.Nil(t, row.entitlementSlug, "the connector is included in every licence and must not be gated")
 
 	// The row and the manifest, not the row and a copy of it: what the console renders
 	// its settings form from is this schema, and the connector reads the payload that

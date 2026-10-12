@@ -9,7 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
+
 	deploymentZonesGraphql "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/graphql"
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/schema"
 )
@@ -22,7 +22,6 @@ func (r *queryResolver) DeploymentZones(ctx context.Context, limit *int, cursor 
 		return nil, err
 	}
 
-	r.reportIfNeeded(ctx, dogfooding.DeploymentZoneReadEntitlementSlug)
 	return zones, nil
 }
 
@@ -33,6 +32,5 @@ func (r *queryResolver) DeploymentZone(ctx context.Context, id *uuid.UUID, slug 
 		return nil, err
 	}
 
-	r.reportIfNeeded(ctx, dogfooding.DeploymentZoneReadEntitlementSlug)
 	return zone, nil
 }

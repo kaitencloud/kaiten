@@ -9,7 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
+
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
 	instancesGraphql "github.com/kaitencloud/kaiten/api/internal/modules/instances/graphql"
 	instanceSchema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
@@ -40,7 +40,6 @@ func (r *queryResolver) Licenses(ctx context.Context, limit *int, cursor *string
 		return nil, err
 	}
 
-	r.reportIfNeeded(ctx, dogfooding.LicenseReadEntitlementSlug)
 	return licenses, nil
 }
 
@@ -51,7 +50,6 @@ func (r *queryResolver) License(ctx context.Context, id *uuid.UUID, slug *string
 		return nil, err
 	}
 
-	r.reportIfNeeded(ctx, dogfooding.LicenseReadEntitlementSlug)
 	return license, nil
 }
 
@@ -62,7 +60,6 @@ func (r *queryResolver) LicenseFamily(ctx context.Context, slug string) (*schema
 		return nil, err
 	}
 
-	r.reportIfNeeded(ctx, dogfooding.LicenseReadEntitlementSlug)
 	return family, nil
 }
 

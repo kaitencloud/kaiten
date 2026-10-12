@@ -9,7 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
+
 	componentsGraphql "github.com/kaitencloud/kaiten/api/internal/modules/components/graphql"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/schema"
 )
@@ -22,7 +22,6 @@ func (r *queryResolver) Components(ctx context.Context, limit *int, cursor *stri
 		return nil, err
 	}
 
-	r.reportIfNeeded(ctx, dogfooding.ComponentReadEntitlementSlug)
 	return components, nil
 }
 
@@ -33,6 +32,5 @@ func (r *queryResolver) Component(ctx context.Context, id *uuid.UUID, slug *stri
 		return nil, err
 	}
 
-	r.reportIfNeeded(ctx, dogfooding.ComponentReadEntitlementSlug)
 	return component, nil
 }

@@ -1,177 +1,134 @@
 // Package dogfooding holds the entitlement and entitlement-group slugs of
 // kaiten's own metering catalogue -- the vocabulary, and nothing else.
+//
+// The catalogue has twenty entitlements in four groups. Kaiten reports against
+// some of them, the installation that holds the licences gates on others, and
+// some are declarative terms nobody reports against at all. Every slug lives
+// here, so that whoever creates the catalogue and whoever reports against it
+// name the same strings.
+//
+// What the catalogue no longer has is a counter per read and per update of
+// every resource. Those were granted unlimited on every licence and gated
+// nothing; what they measured -- whether an organization uses the platform --
+// is what the platform-usage group measures directly.
 package dogfooding
 
-// Entitlement slugs. Each product resource has up to three: <resource> is
-// the headline write quota, <resource>-read and <resource>-updated are the
-// Observability counters.
+// Quotas: the commercial axes that differ between licences. Visible to the
+// customer, and live stock counters -- incremented on creation, decremented on
+// deletion.
 const (
-	CustomerEntitlementSlug              = "customers"
-	CustomerReadEntitlementSlug          = "customers-read"
-	CustomerUpdatedEntitlementSlug       = "customers-updated"
-	ComponentEntitlementSlug             = "components"
-	ComponentReadEntitlementSlug         = "components-read"
-	ComponentUpdatedEntitlementSlug      = "components-updated"
-	EntitlementEntitlementSlug           = "entitlements"
-	EntitlementReadEntitlementSlug       = "entitlements-read"
-	EntitlementUpdatedEntitlementSlug    = "entitlements-updated"
-	FeatureFlagEntitlementSlug           = "feature-flags"
-	FeatureFlagReadEntitlementSlug       = "feature-flags-read"
-	FeatureFlagEvaluatedEntitlementSlug  = "feature-flags-evaluated"
-	FeatureFlagUpdatedEntitlementSlug    = "feature-flags-updated"
-	LicenseEntitlementSlug               = "licenses"
-	LicenseReadEntitlementSlug           = "licenses-read"
-	LicenseUpdatedEntitlementSlug        = "licenses-updated"
-	InstanceEntitlementSlug              = "instances"
-	InstanceReadEntitlementSlug          = "instances-read"
-	InstanceUpdatedEntitlementSlug       = "instances-updated"
-	ReleaseEntitlementSlug               = "releases"
-	ReleaseReadEntitlementSlug           = "releases-read"
-	DeploymentZoneEntitlementSlug        = "deployment-zones"
-	DeploymentZoneReadEntitlementSlug    = "deployment-zones-read"
-	DeploymentZoneUpdatedEntitlementSlug = "deployment-zones-updated"
+	CustomerEntitlementSlug = "customers"
+	InstanceEntitlementSlug = "instances"
+	LicenseEntitlementSlug  = "licenses"
 
+	// WebhookEntitlementSlug counts outbound webhook endpoints. Kaiten does not
+	// serve them itself: the installation that does gates on this slug.
+	WebhookEntitlementSlug = "webhook"
+
+	// SeatEntitlementSlug is the human members of an organization. Granted and
+	// shown, but never metered: agents, service accounts and MCP access never
+	// consume a seat, so nothing here reports against it.
+	SeatEntitlementSlug = "seats"
+)
+
+// Catalog objects: stock counters on the objects an organization declares,
+// unlimited on every licence and hidden from the customer. Kept for
+// enforcement consistency and monitoring.
+const (
+	EntitlementEntitlementSlug        = "entitlements"
+	LicenseEntitlementEntitlementSlug = "license-entitlements"
+	EntitlementGroupEntitlementSlug   = "entitlement-groups"
+	FeatureFlagEntitlementSlug        = "feature-flags"
+	ComponentEntitlementSlug          = "components"
+	ReleaseEntitlementSlug            = "releases"
+	DeploymentZoneEntitlementSlug     = "deployment-zones"
+)
+
+// Contract: the declarative terms of a licence, each a CONFIG value. Nothing
+// reports against them and nothing gates on them -- they are read, not metered.
+const (
+	AuditRetentionEntitlementSlug = "audit-retention"
+	SupportTierEntitlementSlug    = "support-tier"
+	SLAUptimeEntitlementSlug      = "sla-uptime"
+)
+
+// Platform usage: whether an organization actually uses Kaiten. Unlimited on
+// every licence, hidden, never billed, and -- apart from the lifetime
+// activity-total -- reset every calendar month.
+const (
+	FeatureFlagEvaluatedEntitlementSlug      = "feature-flags-evaluated"
 	EntitlementValuesCheckedEntitlementSlug  = "entitlement-values-checked"
 	EntitlementValuesReportedEntitlementSlug = "entitlement-values-reported"
+	ConsoleSessionEntitlementSlug            = "console-sessions"
+	ActivityTotalEntitlementSlug             = "activity-total"
 )
 
-// Quota-defining resources. Entitlement groups, license-entitlement
-// grants, metadata fields, service accounts and their tokens are all
-// resources the product provisions and the customer can exhaust, but none of
-// them had a catalogue slug -- so the handlers that define what a customer
-// may do reported nothing at all, while every ordinary resource handler
-// reported.
+// Entitlement group slugs, one per group above. Groups give the SDK its
+// presentation axis; the hidden groups are the long tail the storefront
+// collapses.
 const (
-	LicenseEntitlementEntitlementSlug        = "license-entitlements"
-	LicenseEntitlementReadEntitlementSlug    = "license-entitlements-read"
-	LicenseEntitlementUpdatedEntitlementSlug = "license-entitlements-updated"
-	EntitlementGroupEntitlementSlug          = "entitlement-groups"
-	EntitlementGroupReadEntitlementSlug      = "entitlement-groups-read"
-	EntitlementGroupUpdatedEntitlementSlug   = "entitlement-groups-updated"
-	MetadataFieldEntitlementSlug             = "metadata-fields"
-	MetadataFieldReadEntitlementSlug         = "metadata-fields-read"
-	MetadataFieldUpdatedEntitlementSlug      = "metadata-fields-updated"
-	ServiceAccountEntitlementSlug            = "service-accounts"
-	ServiceAccountReadEntitlementSlug        = "service-accounts-read"
-	ServiceAccountUpdatedEntitlementSlug     = "service-accounts-updated"
-	ServiceAccountTokenEntitlementSlug       = "service-account-tokens"
-	ServiceAccountTokenReadEntitlementSlug   = "service-account-tokens-read"
+	GroupQuotasSlug         = "quotas"
+	GroupCatalogObjectsSlug = "catalog-objects"
+	GroupContractSlug       = "contract"
+	GroupPlatformUsageSlug  = "platform-usage"
 )
 
-// Connector entitlement slugs (BOOLEAN). Connectors are an enterprise feature
-// carried by a licence, and licensed one at a time: an organization may have
-// Attio and not the next one, so each gets a slug rather than there being a
-// single "connectors" quota.
-//
-// BOOLEAN rather than NUMBER because the question is "is this sold to this
-// organization", not "how many have they used". A BOOLEAN entitlement carries the
-// licence grant in its value, which is what makes it readable without reporting
-// usage -- an activation page renders what is available and must not spend quota
-// to find out.
-//
-// Which slug gates which connector is declared BY the connector when it registers
-// (see connector.entitlement_slug), not mapped in kaiten. These constants exist so
-// the connectors kaiten itself ships name the same strings the bootstrap creates,
-// for the reason this whole package exists.
-const (
-	ConnectorAttioEntitlementSlug = "connector-attio"
-)
-
-// Entitlement group slugs. Groups give the SDK its presentation/category axis
-// so the storefront renders meaningful sections instead of a flat list. The
-// headline resource quotas land in customer-facing groups; the raw
-// read/updated/evaluated counters land in "Observability" (the long tail the
-// SDK collapses).
-const (
-	GroupPlatformSlug      = "platform"
-	GroupLicensingSlug     = "licensing-access"
-	GroupObservabilitySlug = "observability"
-)
-
-// EntitlementSlugs is every slug in the catalogue, headline quotas and
-// Observability counters alike.
+// EntitlementSlugs is every slug in the catalogue, in display order within
+// each group.
 var EntitlementSlugs = []string{
 	CustomerEntitlementSlug,
-	CustomerReadEntitlementSlug,
-	CustomerUpdatedEntitlementSlug,
-	ComponentEntitlementSlug,
-	ComponentReadEntitlementSlug,
-	ComponentUpdatedEntitlementSlug,
-	EntitlementEntitlementSlug,
-	EntitlementReadEntitlementSlug,
-	EntitlementUpdatedEntitlementSlug,
-	FeatureFlagEntitlementSlug,
-	FeatureFlagReadEntitlementSlug,
-	FeatureFlagEvaluatedEntitlementSlug,
-	FeatureFlagUpdatedEntitlementSlug,
-	LicenseEntitlementSlug,
-	LicenseReadEntitlementSlug,
-	LicenseUpdatedEntitlementSlug,
 	InstanceEntitlementSlug,
-	InstanceReadEntitlementSlug,
-	InstanceUpdatedEntitlementSlug,
-	ReleaseEntitlementSlug,
-	ReleaseReadEntitlementSlug,
-	DeploymentZoneEntitlementSlug,
-	DeploymentZoneReadEntitlementSlug,
-	DeploymentZoneUpdatedEntitlementSlug,
+	LicenseEntitlementSlug,
+	WebhookEntitlementSlug,
+	SeatEntitlementSlug,
 
+	EntitlementEntitlementSlug,
+	LicenseEntitlementEntitlementSlug,
+	EntitlementGroupEntitlementSlug,
+	FeatureFlagEntitlementSlug,
+	ComponentEntitlementSlug,
+	ReleaseEntitlementSlug,
+	DeploymentZoneEntitlementSlug,
+
+	AuditRetentionEntitlementSlug,
+	SupportTierEntitlementSlug,
+	SLAUptimeEntitlementSlug,
+
+	FeatureFlagEvaluatedEntitlementSlug,
 	EntitlementValuesCheckedEntitlementSlug,
 	EntitlementValuesReportedEntitlementSlug,
-
-	LicenseEntitlementEntitlementSlug,
-	LicenseEntitlementReadEntitlementSlug,
-	LicenseEntitlementUpdatedEntitlementSlug,
-	EntitlementGroupEntitlementSlug,
-	EntitlementGroupReadEntitlementSlug,
-	EntitlementGroupUpdatedEntitlementSlug,
-	MetadataFieldEntitlementSlug,
-	MetadataFieldReadEntitlementSlug,
-	MetadataFieldUpdatedEntitlementSlug,
-	ServiceAccountEntitlementSlug,
-	ServiceAccountReadEntitlementSlug,
-	ServiceAccountUpdatedEntitlementSlug,
-	ServiceAccountTokenEntitlementSlug,
-	ServiceAccountTokenReadEntitlementSlug,
-
-	ConnectorAttioEntitlementSlug,
+	ConsoleSessionEntitlementSlug,
+	ActivityTotalEntitlementSlug,
 }
 
-// BooleanEntitlementSlugs are the catalogue entries that must be created as BOOLEAN
-// entitlements rather than NUMBER ones.
+// GatedEntitlementSlugs are the counters a create is refused on: the quotas
+// whose creation is limited, and every catalog object.
 //
-// The type is not decoration: a NUMBER entitlement carries a threshold and reports
-// usage against it, a BOOLEAN one carries the grant itself. Whoever creates the
-// catalogue reads this list to decide, so a slug added to EntitlementSlugs and
-// forgotten here is created as a quota nobody reports against -- and the connector it
-// gates reads as unentitled for every organization, because the read would find a
-// number where it expects a yes.
-//
-// A subset of EntitlementSlugs, and disjoint from MeteredEntitlementSlugs.
-var BooleanEntitlementSlugs = []string{
-	ConnectorAttioEntitlementSlug,
-}
-
-// MeteredEntitlementSlugs are the headline write quotas -- the ones the SDK's
-// UsageMeters render and the app gates its create actions on. The rest of the
-// catalogue is read/update counters, granted unlimited and deliberately
-// hidden.
-//
-// A subset of EntitlementSlugs, and the part a customer sees: these are the
-// ones a finite threshold is worth setting on, so an entry here that the
-// catalogue never created is a create path refusing writes.
-var MeteredEntitlementSlugs = []string{
+// A subset of EntitlementSlugs, and the part every licence must grant -- with
+// a value or unlimited. A create whose entitlement the licence does not grant
+// cannot have its limit verified, so it fails closed with a 503 rather than
+// going through unmetered.
+var GatedEntitlementSlugs = []string{
 	CustomerEntitlementSlug,
 	InstanceEntitlementSlug,
-	ComponentEntitlementSlug,
-	FeatureFlagEntitlementSlug,
 	LicenseEntitlementSlug,
-	ReleaseEntitlementSlug,
-	DeploymentZoneEntitlementSlug,
+	WebhookEntitlementSlug,
+
 	EntitlementEntitlementSlug,
 	LicenseEntitlementEntitlementSlug,
 	EntitlementGroupEntitlementSlug,
-	MetadataFieldEntitlementSlug,
-	ServiceAccountEntitlementSlug,
-	ServiceAccountTokenEntitlementSlug,
+	FeatureFlagEntitlementSlug,
+	ComponentEntitlementSlug,
+	ReleaseEntitlementSlug,
+	DeploymentZoneEntitlementSlug,
+}
+
+// ConfigEntitlementSlugs are the catalogue entries created as CONFIG
+// entitlements; every other entry is a NUMBER. A subset of EntitlementSlugs,
+// and disjoint from GatedEntitlementSlugs -- a term of the contract has no
+// count to refuse a create on.
+var ConfigEntitlementSlugs = []string{
+	AuditRetentionEntitlementSlug,
+	SupportTierEntitlementSlug,
+	SLAUptimeEntitlementSlug,
 }

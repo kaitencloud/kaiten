@@ -3,8 +3,6 @@ package removeentitlementfromgroup
 import (
 	"context"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 )
@@ -12,9 +10,8 @@ import (
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
-	UserProvider  currentuser.Provider
-	Queries       *db.Queries
-	UsageReporter services.UsageReporter
+	UserProvider currentuser.Provider
+	Queries      *db.Queries
 }
 
 // UseCase handles removing an entitlement from a group.
@@ -45,7 +42,6 @@ func (h *UseCase) Execute(ctx context.Context, groupSlug string, entitlementSlug
 	// Changing a group's membership changes the group, not the entitlement,
 	// so it counts as an entitlement-group update -- the group itself is
 	// still there, hence no decrement.
-	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.EntitlementGroupUpdatedEntitlementSlug)
 
 	return nil
 }

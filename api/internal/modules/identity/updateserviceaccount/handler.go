@@ -3,8 +3,6 @@ package updateserviceaccount
 import (
 	"context"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 )
@@ -12,9 +10,8 @@ import (
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
-	UserProvider  currentuser.Provider
-	Queries       *db.Queries
-	UsageReporter services.UsageReporter
+	UserProvider currentuser.Provider
+	Queries      *db.Queries
 }
 
 type UseCase struct {
@@ -39,8 +36,6 @@ func (h *UseCase) Execute(ctx context.Context, saSlug string, name string) error
 	if err != nil {
 		return err
 	}
-
-	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.ServiceAccountUpdatedEntitlementSlug)
 
 	return nil
 }

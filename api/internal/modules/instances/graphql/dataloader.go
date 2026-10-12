@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 	dataloaderLib "github.com/graph-gophers/dataloader/v7"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementsusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
@@ -24,28 +23,23 @@ const (
 )
 
 // RegisterDataloaders registers instance dataloaders to the shared loaders
-// container, each with the entitlement its reads are billed on -- the
-// GraphQL counterpart of the single TrackAsync the equivalent REST handler
-// fires (see dataloader.Metered).
+// container.
 func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries) {
-	// Customer.instances / License.instances -- the traversals REST bills as
-	// a GET /instances list.
+	// Customer.instances / License.instances.
 	loaders.Register(InstancesByCustomerLoaderName, dataloaderLib.NewBatchedLoader(
-		dataloader.Metered(loaders, dogfooding.InstanceReadEntitlementSlug, newInstancesByCustomerBatchFn(queries)),
+		newInstancesByCustomerBatchFn(queries),
 	))
 	loaders.Register(InstancesByLicenseLoaderName, dataloaderLib.NewBatchedLoader(
-		dataloader.Metered(loaders, dogfooding.InstanceReadEntitlementSlug, newInstancesByLicenseBatchFn(queries)),
+		newInstancesByLicenseBatchFn(queries),
 	))
-	// Instance.integrations is a projection of the instance row whose read
-	// was already billed: GET /instances returns integrations inline in the
-	// same response, for the same one instances-read. Unmetered on purpose.
+	// Instance.integrations, a projection of the instance row.
 	loaders.Register(InstanceIntegrationsLoaderName, dataloaderLib.NewBatchedLoader(
 		newInstanceIntegrationsBatchFn(queries),
 	))
 	// Instance.entitlementUsage -- what GET /instances/{slug}/entitlements
-	// bills as entitlement-values-checked.
+	// returns.
 	loaders.Register(EntitlementUsageLoaderName, dataloaderLib.NewBatchedLoader(
-		dataloader.Metered(loaders, dogfooding.EntitlementValuesCheckedEntitlementSlug, newEntitlementUsageBatchFn(queries)),
+		newEntitlementUsageBatchFn(queries),
 	))
 }
 

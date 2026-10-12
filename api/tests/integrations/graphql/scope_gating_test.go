@@ -257,28 +257,28 @@ func TestGraphQL_ServiceTokenIsHeldToItsScopes(t *testing.T) {
 }
 
 // TestGraphQL_RefusedDocumentReadsNothing: a refusal comes before any resolver,
-// so nothing is read and nothing is metered -- not even the part of the document
-// the credential could have read on its own.
+// so nothing is read -- not even the part of the document the credential could
+// have read on its own. The answer is a problem document, and the license the
+// readable half names is nowhere in it.
 func TestGraphQL_RefusedDocumentReadsNothing(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 
-	newLicense(t, "Unread License")
+	license := newLicense(t, "Unread License")
 
-	reporter := &recordingUsageReporter{}
 	server := tests.NewTestServer(testDb, tests.TestServerOptions{
-		Scopes:        []string{readLicenses},
-		UsageReporter: reporter,
+		Scopes: []string{readLicenses},
 	})
 	t.Cleanup(func() { require.NoError(t, server.Close()) })
 
 	answer := sendGraphQL(t, server, `{ licenses { items { slug } } customers { items { slug } } }`, nil)
 	answer.requireMissingScope(t, readCustomers)
-	require.Empty(t, reporter.drain(), "a refused document must not have read the licenses it names")
+	require.NotContains(t, string(answer.body), license.Slug, "a refused document must not have read the licenses it names")
 
-	// The control: the same reporter does record the read once it happens.
+	// The control: the same credential does read the license once the document
+	// asks for nothing else.
 	answer = sendGraphQL(t, server, `{ licenses { items { slug } } }`, nil)
 	answer.decodeData(t, &struct{}{})
-	require.Equal(t, []string{"licenses-read"}, reporter.drain())
+	require.Contains(t, string(answer.body), license.Slug)
 }
 
 // TestGraphQL_EveryReadScopeReadsEverything is the other end of the gate: a

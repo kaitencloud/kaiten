@@ -9,7 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
+
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
 	customersGraphql "github.com/kaitencloud/kaiten/api/internal/modules/customers/graphql"
 	customerschema "github.com/kaitencloud/kaiten/api/internal/modules/customers/schema"
@@ -62,7 +62,6 @@ func (r *queryResolver) Instances(ctx context.Context, hasIntegration *string, l
 		return nil, err
 	}
 
-	r.reportIfNeeded(ctx, dogfooding.InstanceReadEntitlementSlug)
 	return instances, nil
 }
 
@@ -73,7 +72,6 @@ func (r *queryResolver) Instance(ctx context.Context, id *uuid.UUID, slug *strin
 		return nil, err
 	}
 
-	r.reportIfNeeded(ctx, dogfooding.InstanceReadEntitlementSlug)
 	return instance, nil
 }
 

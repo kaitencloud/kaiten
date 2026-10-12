@@ -3,8 +3,6 @@ package addentitlementtogroup
 import (
 	"context"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 )
@@ -12,9 +10,8 @@ import (
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
-	UserProvider  currentuser.Provider
-	UsageReporter services.UsageReporter
-	Uof           *uow.UnitOfWork
+	UserProvider currentuser.Provider
+	Uof          *uow.UnitOfWork
 }
 
 // UseCase handles adding an entitlement to a group.
@@ -48,7 +45,6 @@ func (h *UseCase) Execute(ctx context.Context, groupSlug string, command *Comman
 
 	// Changing a group's membership changes the group, not the entitlement,
 	// so it counts as an entitlement-group update.
-	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.EntitlementGroupUpdatedEntitlementSlug)
 
 	return nil
 }

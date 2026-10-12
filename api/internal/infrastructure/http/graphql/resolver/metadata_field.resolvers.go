@@ -8,7 +8,6 @@ package resolver
 import (
 	"context"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	metadataFieldsGraphql "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/graphql"
 	metadatafieldsdb "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/schema"
@@ -26,6 +25,5 @@ func (r *queryResolver) MetadataFields(ctx context.Context, resourceType metadat
 		return nil, err
 	}
 
-	r.reportIfNeeded(ctx, dogfooding.MetadataFieldReadEntitlementSlug)
 	return page, nil
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/resolver"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/releaselink"
 	customersGraphql "github.com/kaitencloud/kaiten/api/internal/modules/customers/graphql"
 	customersdb "github.com/kaitencloud/kaiten/api/internal/modules/customers/infrastructure/db"
@@ -105,7 +104,6 @@ const (
 type Config struct {
 	EnablePlayground    bool
 	EnableIntrospection bool
-	UsageReporter       services.UsageReporter
 }
 
 // Handler creates a new GraphQL handler for Fiber.
@@ -132,7 +130,7 @@ func NewHandler(pool *pgxpool.Pool, config Config) *Handler {
 // principal, dataloaders and the like travel through the context -- so a single
 // server instance serves every request.
 func newServer(pool *pgxpool.Pool, config Config) *handler.Server {
-	srv := handler.New(newExecutableSchema(pool, config))
+	srv := handler.New(newExecutableSchema(pool))
 	srv.SetParserTokenLimit(parserTokenLimit)
 
 	// Add transports for HTTP requests. Each of these writes its whole answer
@@ -180,9 +178,9 @@ func newServer(pool *pgxpool.Pool, config Config) *handler.Server {
 // that builds its own generated.Config gets gqlgen's structural default --
 // every list field priced at one point -- and pins numbers no request will
 // ever be charged.
-func newExecutableSchema(pool *pgxpool.Pool, config Config) graphql.ExecutableSchema {
+func newExecutableSchema(pool *pgxpool.Pool) graphql.ExecutableSchema {
 	return generated.NewExecutableSchema(generated.Config{
-		Resolvers:  resolver.NewResolver(pool, config.UsageReporter),
+		Resolvers:  resolver.NewResolver(pool),
 		Complexity: newComplexityRoot(),
 	})
 }
@@ -286,7 +284,7 @@ func withOperationDeadline(next http.Handler) http.Handler {
 // newLoaders builds the request-scoped dataloaders.
 // Each module registers its own dataloaders.
 func (h *Handler) newLoaders() *dataloader.Loaders {
-	loaders := dataloader.NewLoaders(h.config.UsageReporter)
+	loaders := dataloader.NewLoaders()
 	customersGraphql.RegisterDataloaders(loaders, customersdb.New(h.pool))
 	deploymentzonesGraphql.RegisterDataloaders(loaders, deploymentzonesdb.New(h.pool))
 	entitlementsGraphql.RegisterDataloaders(loaders, entitlementsdb.New(h.pool))
