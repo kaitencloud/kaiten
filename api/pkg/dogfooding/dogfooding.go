@@ -1,7 +1,7 @@
 // Package dogfooding holds the entitlement and entitlement-group slugs of
 // kaiten's own metering catalogue -- the vocabulary, and nothing else.
 //
-// The catalogue has twenty entitlements in four groups. Kaiten reports against
+// The catalogue has eighteen entitlements in four groups. Kaiten reports against
 // some of them, the installation that holds the licences gates on others, and
 // some are declarative terms nobody reports against at all. Every slug lives
 // here, so that whoever creates the catalogue and whoever reports against it
@@ -29,9 +29,11 @@ const (
 	// updating it, because Core cannot change an entitlement's type in place.
 	WebhookEntitlementSlug = "webhooks"
 
-	// SeatEntitlementSlug is the human members of an organization. Granted and
-	// shown, but never metered: agents, service accounts and MCP access never
-	// consume a seat, so nothing here reports against it.
+	// SeatEntitlementSlug is the human members of an organization: counted
+	// when sign-in provisions a member into an organization, released when the
+	// user is deleted. Agents, service accounts and MCP access never consume a
+	// seat -- they join through a different door -- and it gates nothing:
+	// sign-in is never refused for a quota.
 	SeatEntitlementSlug = "seats"
 )
 
@@ -57,14 +59,11 @@ const (
 )
 
 // Platform usage: whether an organization actually uses Kaiten. Unlimited on
-// every licence, hidden, never billed, and -- apart from the lifetime
-// activity-total -- reset every calendar month.
+// every licence, hidden, never billed, and reset every calendar month.
 const (
 	FeatureFlagEvaluatedEntitlementSlug      = "feature-flags-evaluated"
 	EntitlementValuesCheckedEntitlementSlug  = "entitlement-values-checked"
 	EntitlementValuesReportedEntitlementSlug = "entitlement-values-reported"
-	ConsoleSessionEntitlementSlug            = "console-sessions"
-	ActivityTotalEntitlementSlug             = "activity-total"
 )
 
 // Entitlement group slugs, one per group above. Groups give the SDK its
@@ -101,8 +100,6 @@ var EntitlementSlugs = []string{
 	FeatureFlagEvaluatedEntitlementSlug,
 	EntitlementValuesCheckedEntitlementSlug,
 	EntitlementValuesReportedEntitlementSlug,
-	ConsoleSessionEntitlementSlug,
-	ActivityTotalEntitlementSlug,
 }
 
 // GatedEntitlementSlugs are the counters a create is refused on: the quotas
