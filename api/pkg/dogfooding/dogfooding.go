@@ -23,7 +23,11 @@ const (
 
 	// WebhookEntitlementSlug counts outbound webhook endpoints. Kaiten does not
 	// serve them itself: the installation that does gates on this slug.
-	WebhookEntitlementSlug = "webhook"
+	//
+	// The same slug the BOOLEAN "is webhooks included" entitlement had. It is a
+	// NUMBER now, and the catalogue's bootstrap recreates it rather than
+	// updating it, because Core cannot change an entitlement's type in place.
+	WebhookEntitlementSlug = "webhooks"
 
 	// SeatEntitlementSlug is the human members of an organization. Granted and
 	// shown, but never metered: agents, service accounts and MCP access never
