@@ -51,12 +51,17 @@ INSERT INTO user_on_organization (user_id, organization_id)
 VALUES ($1, $2)
 ON CONFLICT (organization_id, user_id) DO UPDATE
 SET deleted_at = user_on_organization.deleted_at
-RETURNING deleted_at
+RETURNING deleted_at, (xmax = 0)::boolean AS inserted
 `
 
 type EnsureUserOnOrganizationParams struct {
 	UserID         uuid.UUID `json:"user_id"`
 	OrganizationID uuid.UUID `json:"organization_id"`
+}
+
+type EnsureUserOnOrganizationRow struct {
+	DeletedAt pgtype.Timestamp `json:"deleted_at"`
+	Inserted  bool             `json:"inserted"`
 }
 
 // The membership half of JIT provisioning, and deliberately not
@@ -70,9 +75,43 @@ type EnsureUserOnOrganizationParams struct {
 // behaviour the authentication path must not have. And it reads deleted_at back, so
 // the caller can refuse the login rather than silently treating a removed member as
 // present.
-func (q *Queries) EnsureUserOnOrganization(ctx context.Context, arg EnsureUserOnOrganizationParams) (pgtype.Timestamp, error) {
+// inserted says whether this call created the membership: xmax is 0 on a row
+// this statement inserted, and the transaction's id on one the conflict branch
+// updated. It is what lets the caller count a seat once per membership rather
+// than once per login.
+func (q *Queries) EnsureUserOnOrganization(ctx context.Context, arg EnsureUserOnOrganizationParams) (EnsureUserOnOrganizationRow, error) {
 	row := q.db.QueryRow(ctx, ensureUserOnOrganization, arg.UserID, arg.OrganizationID)
-	var deleted_at pgtype.Timestamp
-	err := row.Scan(&deleted_at)
-	return deleted_at, err
+	var i EnsureUserOnOrganizationRow
+	err := row.Scan(&i.DeletedAt, &i.Inserted)
+	return i, err
+}
+
+const listActiveOrganizationIDsForUser = `-- name: ListActiveOrganizationIDsForUser :many
+SELECT organization_id
+FROM user_on_organization
+WHERE user_id = $1
+  AND deleted_at IS NULL
+ORDER BY organization_id
+`
+
+// The organizations a user is a live member of: what a deleted user stops
+// occupying a seat in.
+func (q *Queries) ListActiveOrganizationIDsForUser(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listActiveOrganizationIDsForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var organization_id uuid.UUID
+		if err := rows.Scan(&organization_id); err != nil {
+			return nil, err
+		}
+		items = append(items, organization_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

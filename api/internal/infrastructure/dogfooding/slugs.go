@@ -17,6 +17,7 @@ const (
 	CustomerEntitlementSlug = slugs.CustomerEntitlementSlug
 	InstanceEntitlementSlug = slugs.InstanceEntitlementSlug
 	LicenseEntitlementSlug  = slugs.LicenseEntitlementSlug
+	SeatEntitlementSlug     = slugs.SeatEntitlementSlug
 
 	EntitlementEntitlementSlug        = slugs.EntitlementEntitlementSlug
 	LicenseEntitlementEntitlementSlug = slugs.LicenseEntitlementEntitlementSlug

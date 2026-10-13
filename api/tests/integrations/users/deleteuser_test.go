@@ -2,12 +2,16 @@ package users_test
 
 import (
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/platform/platformidentity"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 	"github.com/kaitencloud/kaiten/api/pkg/scope"
 	"github.com/kaitencloud/kaiten/api/tests"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
@@ -127,4 +131,53 @@ func TestDeleteUser(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, deletedAt, "the platform identity was soft-deleted")
 	})
+}
+
+// seatReleases records the seats a deletion gives back, per organization.
+type seatReleases struct {
+	services.NoopUsageReporter
+
+	mu       sync.Mutex
+	released map[uuid.UUID]int
+}
+
+func (r *seatReleases) DecrementAsync(organizationID uuid.UUID, entitlementSlug string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if entitlementSlug == dogfooding.SeatEntitlementSlug {
+		r.released[organizationID]++
+	}
+}
+
+// A deleted user gives back one seat in each organization they were a live member
+// of, and none in one they had already been removed from.
+func TestDeleteUserReleasesItsSeats(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+
+	reporter := &seatReleases{released: map[uuid.UUID]int{}}
+	server := tests.NewTestServer(testDb, tests.TestServerOptions{PlatformCredential: true, UsageReporter: reporter})
+
+	userID := createUser(t)
+	member, removed := uuid.New(), uuid.New()
+	for _, organizationID := range []uuid.UUID{member, removed} {
+		_, err := testDb.DbPool.Exec(t.Context(),
+			`INSERT INTO organization (id, external_id, name) VALUES ($1, $2, 'Seat org')`, organizationID, "ext-"+organizationID.String())
+		require.NoError(t, err)
+		_, err = testDb.DbPool.Exec(t.Context(),
+			`INSERT INTO user_on_organization (user_id, organization_id) VALUES ($1, $2)`, userID, organizationID)
+		require.NoError(t, err)
+	}
+	_, err := testDb.DbPool.Exec(t.Context(),
+		`UPDATE user_on_organization SET deleted_at = now() WHERE user_id = $1 AND organization_id = $2`, userID, removed)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest("DELETE", "/api/platform/users/"+userID.String(), nil)
+	resp, err := server.PlatformApp.Test(req, fiber.TestConfig{})
+	require.NoError(t, err)
+	defer commonfixture.MustCloseBody(t, resp.Body)
+	require.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+
+	reporter.mu.Lock()
+	defer reporter.mu.Unlock()
+	require.Equal(t, map[uuid.UUID]int{member: 1}, reporter.released)
 }

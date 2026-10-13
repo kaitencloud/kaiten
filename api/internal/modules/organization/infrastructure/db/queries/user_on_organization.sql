@@ -21,7 +21,11 @@ INSERT INTO user_on_organization (user_id, organization_id)
 VALUES (sqlc.arg(user_id), sqlc.arg(organization_id))
 ON CONFLICT (organization_id, user_id) DO UPDATE
 SET deleted_at = user_on_organization.deleted_at
-RETURNING deleted_at;
+-- inserted says whether this call created the membership: xmax is 0 on a row
+-- this statement inserted, and the transaction's id on one the conflict branch
+-- updated. It is what lets the caller count a seat once per membership rather
+-- than once per login.
+RETURNING deleted_at, (xmax = 0)::boolean AS inserted;
 
 
 -- name: DeleteUserOnOrganization :execresult
@@ -30,3 +34,13 @@ SET deleted_at = now()
 WHERE uoo.user_id = sqlc.arg(user_id)
   AND uoo.organization_id = sqlc.arg(organization_id)
   AND uoo.deleted_at IS NULL;
+
+
+-- name: ListActiveOrganizationIDsForUser :many
+-- The organizations a user is a live member of: what a deleted user stops
+-- occupying a seat in.
+SELECT organization_id
+FROM user_on_organization
+WHERE user_id = sqlc.arg(user_id)
+  AND deleted_at IS NULL
+ORDER BY organization_id;
