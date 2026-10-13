@@ -9,7 +9,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
 	componentschema "github.com/kaitencloud/kaiten/api/internal/modules/components/schema"
 	deploymentzoneschema "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/schema"

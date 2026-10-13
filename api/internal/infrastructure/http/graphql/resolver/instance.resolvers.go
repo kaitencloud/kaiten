@@ -9,7 +9,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
 	customersGraphql "github.com/kaitencloud/kaiten/api/internal/modules/customers/graphql"
 	customerschema "github.com/kaitencloud/kaiten/api/internal/modules/customers/schema"
