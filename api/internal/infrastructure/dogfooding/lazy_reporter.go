@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/pkg/secretfile"
 )
 
@@ -380,4 +381,32 @@ func (r *Reporter) shouldSkip(orgID uuid.UUID, entitlementSlug string) bool {
 		return true
 	}
 	return r.kaitenOrgID != uuid.Nil && orgID == r.kaitenOrgID
+}
+
+// NewReporterFor builds the reporter a process meters through from its metered
+// settings, the same way for every binary that reports: the API server, and the
+// admin tools that run the same use cases out of band.
+//
+// The platform organization is derived from its external id (see
+// config.Metered.ResolvePlatformOrgID), and is what the reporter skips: usage is
+// never metered against the vendor's own tenant.
+func NewReporterFor(ctx context.Context, metered config.Metered) (*Reporter, error) {
+	organizationID, err := metered.ResolvePlatformOrgID()
+	if err != nil {
+		return nil, fmt.Errorf("resolve dogfooding organization: %w", err)
+	}
+
+	var selfOrgID string
+	if organizationID == uuid.Nil {
+		slog.InfoContext(ctx, "no platform organization configured, dogfooding meters every organization it sees")
+	} else {
+		selfOrgID = organizationID.String()
+	}
+
+	reporter, err := NewReporter(ctx, Config{APIURL: metered.APIURL, OrgID: selfOrgID}, metered.TokenFile)
+	if err != nil {
+		return nil, fmt.Errorf("initialize dogfooding reporter: %w", err)
+	}
+
+	return reporter, nil
 }

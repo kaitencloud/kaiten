@@ -4,10 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
 	"github.com/kaitencloud/kaiten/api/pkg/scope"
@@ -62,19 +68,78 @@ func openApplication(ctx context.Context) (*kaiten.Kaiten, func(), error) {
 		return nil, nil, err
 	}
 
+	reporter, err := usageReporterFromEnv(ctx)
+	if err != nil {
+		pool.Close()
+		return nil, nil, err
+	}
+
+	// An interface that is nil, not one holding a nil *Reporter: the application
+	// turns only the former into its no-op reporter, and the latter would be
+	// called -- and panic -- on the first seat a deleted user gives back.
+	var usage services.UsageReporter
+	if reporter != nil {
+		usage = reporter
+	}
+
 	app, err := kaiten.New(kaiten.Options{
 		DB:                pool,
 		BackgroundWorkers: false,
+		UsageReporter:     usage,
 	})
 	if err != nil {
+		closeReporter(reporter)
 		pool.Close()
 		return nil, nil, fmt.Errorf("error constructing the application: %w", err)
 	}
 
 	return app, func() {
 		app.Close()
+		// After the application and before the pool: Close drains every report
+		// the commands queued, and a command's process ends as soon as it
+		// returns -- a seat released asynchronously would otherwise be dropped
+		// with it.
+		closeReporter(reporter)
 		pool.Close()
 	}, nil
+}
+
+// usageReporterFromEnv builds the reporter the commands meter through, from the
+// same KAITEN_METERED_* variables the API server reads. These commands run the
+// use cases the Platform API runs -- deleting a user gives back that user's
+// seats -- so a deployment that meters its API meters them too, given the same
+// environment. With metering off it is nil, which the application turns into a
+// reporter that reports nothing.
+func usageReporterFromEnv(ctx context.Context) (*dogfooding.Reporter, error) {
+	if !meteringEnabled() {
+		return nil, nil
+	}
+
+	reporter, err := dogfooding.NewReporterFor(ctx, config.Metered{
+		Enabled:                true,
+		OrganizationExternalID: os.Getenv("KAITEN_METERED_ORGANIZATION_EXTERNAL_ID"),
+		OrganizationID:         os.Getenv("KAITEN_METERED_ORGANIZATION_ID"),
+		APIURL:                 os.Getenv("KAITEN_METERED_API_URL"),
+		TokenFile:              os.Getenv("KAITEN_METERED_TOKEN_FILE"),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error constructing the usage reporter: %w", err)
+	}
+
+	return reporter, nil
+}
+
+// meteringEnabled reads KAITEN_METERED_ENABLED the way the API's configuration
+// does: true turns it on, and anything else, unset included, leaves it off.
+func meteringEnabled() bool {
+	enabled, err := strconv.ParseBool(strings.TrimSpace(os.Getenv("KAITEN_METERED_ENABLED")))
+	return err == nil && enabled
+}
+
+func closeReporter(reporter *dogfooding.Reporter) {
+	if reporter != nil {
+		reporter.Close()
+	}
 }
 
 // localPlatform is the caller this binary presents to the four operations the
