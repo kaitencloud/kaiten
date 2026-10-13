@@ -121,6 +121,7 @@ func usageReporterFromEnv(ctx context.Context) (*dogfooding.Reporter, error) {
 		OrganizationID:         os.Getenv("KAITEN_METERED_ORGANIZATION_ID"),
 		APIURL:                 os.Getenv("KAITEN_METERED_API_URL"),
 		TokenFile:              os.Getenv("KAITEN_METERED_TOKEN_FILE"),
+		SelfReport:             envTrue("KAITEN_METERED_SELF_REPORT"),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error constructing the usage reporter: %w", err)
@@ -132,8 +133,12 @@ func usageReporterFromEnv(ctx context.Context) (*dogfooding.Reporter, error) {
 // meteringEnabled reads KAITEN_METERED_ENABLED the way the API's configuration
 // does: true turns it on, and anything else, unset included, leaves it off.
 func meteringEnabled() bool {
-	enabled, err := strconv.ParseBool(strings.TrimSpace(os.Getenv("KAITEN_METERED_ENABLED")))
-	return err == nil && enabled
+	return envTrue("KAITEN_METERED_ENABLED")
+}
+
+func envTrue(variable string) bool {
+	value, err := strconv.ParseBool(strings.TrimSpace(os.Getenv(variable)))
+	return err == nil && value
 }
 
 func closeReporter(reporter *dogfooding.Reporter) {

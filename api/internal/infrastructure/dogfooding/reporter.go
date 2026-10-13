@@ -37,6 +37,11 @@ type Config struct {
 	// against the vendor's own tenant. Empty means "skip nothing", which is the
 	// correct answer for every deployment except the one metering itself.
 	OrgID string
+
+	// SelfReport reports OrgID's usage instead of skipping it, for the deployment
+	// whose own organization is a customer of itself (see config.Metered). Those
+	// reports are never enforced: see Reporter.reportSelf.
+	SelfReport bool
 }
 
 // parseOrgID resolves Config.OrgID, treating empty as uuid.Nil.
@@ -66,6 +71,7 @@ type client struct {
 	sdkClient   *sdk.Client
 	ofClient    *ofsdk.Client
 	kaitenOrgID uuid.UUID
+	selfReport  bool
 }
 
 func validateConfig(cfg Config) error {
@@ -129,6 +135,7 @@ func newClient(cfg Config, serviceToken string) (*client, error) {
 		sdkClient:   sdkClient,
 		ofClient:    ofsdk.NewClient(openFeatureDomain),
 		kaitenOrgID: kaitenOrgID,
+		selfReport:  cfg.SelfReport,
 	}, nil
 }
 
@@ -139,7 +146,7 @@ func (r *client) Decrement(ctx context.Context, orgID uuid.UUID, entitlementSlug
 		return nil
 	}
 
-	if r.isSelf(orgID) {
+	if r.isSelf(orgID) && !r.selfReport {
 		return nil
 	}
 
@@ -158,6 +165,19 @@ func (r *client) Decrement(ctx context.Context, orgID uuid.UUID, entitlementSlug
 // Returns a non-nil, non-ErrThresholdExceeded error for transient failures.
 func (r *client) ReportAndEnforce(ctx context.Context, orgID uuid.UUID, entitlementSlug string) error {
 	if strings.TrimSpace(entitlementSlug) == "" {
+		return nil
+	}
+
+	// The platform organization reporting to itself is no tenant of anybody's, so
+	// the is-kaiten flag that exempts it is not asked: it is reported, and only
+	// the caller decides what a failure means (Reporter.reportSelf).
+	if r.selfReport && r.isSelf(orgID) {
+		reportCtx, cancel := context.WithTimeout(ctx, usageReportTimeout)
+		defer cancel()
+
+		if err := r.sdkClient.Instances.ReportUsage(reportCtx, orgID.String(), entitlementSlug, 1); err != nil {
+			return fmt.Errorf("report %q usage: %w", entitlementSlug, err)
+		}
 		return nil
 	}
 
