@@ -111,7 +111,7 @@ func pricesFake(rows ...priceRow) *fakeDBTX {
 func contextWithLoaders(t *testing.T, organizationID uuid.UUID, fake *fakeDBTX, batch int) context.Context {
 	t.Helper()
 
-	loaders := dataloader.NewLoaders(nil)
+	loaders := dataloader.NewLoaders()
 	loaders.Register(AddonPricesLoaderName, dataloaderLib.NewBatchedLoader(
 		newAddonPricesBatchFn(db.New(fake)),
 		dataloaderLib.WithBatchCapacity[uuid.UUID, []prices.Price](batch),
@@ -205,7 +205,7 @@ func TestAddonPricesAreNarrowedToAStatusAfterTheyAreRead(t *testing.T) {
 
 func TestAddonPricesNeedAnIdentity(t *testing.T) {
 	fake := pricesFake()
-	loaders := dataloader.NewLoaders(nil)
+	loaders := dataloader.NewLoaders()
 	loaders.Register(AddonPricesLoaderName, dataloaderLib.NewBatchedLoader(
 		newAddonPricesBatchFn(db.New(fake)),
 		dataloaderLib.WithBatchCapacity[uuid.UUID, []prices.Price](1),
