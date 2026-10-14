@@ -15,7 +15,6 @@ import (
 const countEntitlementReferences = `-- name: CountEntitlementReferences :one
 SELECT
   (SELECT count(*) FROM license_entitlement le WHERE le.entitlement_id = e.id)::int AS license_grants,
-  (SELECT count(*) FROM entitlement_usage eu WHERE eu.entitlement_id = e.id)::int AS usage_counters,
   (SELECT count(*) FROM license_price p WHERE p.meters_entitlement_id = e.id)::int AS license_prices
 FROM entitlement e
 WHERE e.organization_id = $1
@@ -29,15 +28,16 @@ type CountEntitlementReferencesParams struct {
 
 type CountEntitlementReferencesRow struct {
 	LicenseGrants int32 `json:"license_grants"`
-	UsageCounters int32 `json:"usage_counters"`
 	LicensePrices int32 `json:"license_prices"`
 }
 
-// What still references an entitlement a delete was refused for.
+// What still holds an entitlement a delete was refused for. Its usage is not
+// among them: entitlement_usage follows the entitlement out
+// (20261012000000_entitlement_usage_follows_its_entitlement.sql).
 func (q *Queries) CountEntitlementReferences(ctx context.Context, arg CountEntitlementReferencesParams) (CountEntitlementReferencesRow, error) {
 	row := q.db.QueryRow(ctx, countEntitlementReferences, arg.OrganizationID, arg.Slug)
 	var i CountEntitlementReferencesRow
-	err := row.Scan(&i.LicenseGrants, &i.UsageCounters, &i.LicensePrices)
+	err := row.Scan(&i.LicenseGrants, &i.LicensePrices)
 	return i, err
 }
 

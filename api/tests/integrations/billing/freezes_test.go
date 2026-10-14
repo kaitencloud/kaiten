@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getbillingcapabilities"
+	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
@@ -75,15 +76,38 @@ func TestABilledInstanceOrCustomerIsNotDeleted(t *testing.T) {
 }
 
 func TestAnEntitlementInUseSaysWhatHoldsIt(t *testing.T) {
-	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
-	newEntitlement(t, "tokens", 0)
-	version := newVersion(t, "Pro", "DRAFT")
-	grant(t, version.Slug, "tokens", 1000, 50)
-	createPrice(t, version.Slug, metered("OVERAGE", "tokens", "1"))
+	t.Run("AGrantAndAPrice", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		newEntitlement(t, "tokens", 0)
+		version := newVersion(t, "Pro", "DRAFT")
+		grant(t, version.Slug, "tokens", 1000, 50)
+		createPrice(t, version.Slug, metered("OVERAGE", "tokens", "1"))
 
-	problem := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, call(t, "DELETE", "/api/entitlements/tokens", nil), fiber.StatusConflict)
-	require.Equal(t, "DeleteEntitlement.InUseConflict", problem.Code)
-	require.Equal(t, map[string]any{"licenseGrants": float64(1), "usageCounters": float64(0), "licensePrices": float64(1)}, problem.Errors[0].Value)
+		problem := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, call(t, "DELETE", "/api/entitlements/tokens", nil), fiber.StatusConflict)
+		require.Equal(t, "DeleteEntitlement.InUseConflict", problem.Code)
+		require.Equal(t, map[string]any{"licenseGrants": float64(1), "licensePrices": float64(1)}, problem.Errors[0].Value)
+	})
+
+	// Usage follows its entitlement out, so it is neither what refuses the delete
+	// nor something the refusal lists: the instance below has reported against
+	// the entitlement, and the refusal still names the grant and the price only.
+	t.Run("ItsUsageIsNotWhatHoldsIt", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		newEntitlement(t, "tokens", 0)
+		version := newVersion(t, "Pro", licenseschema.Published)
+		grant(t, version.Slug, "tokens", 1000, 50)
+		createPrice(t, version.Slug, metered("OVERAGE", "tokens", "1"))
+		instance := newInstance(t, "Acme prod", newCustomer(t, "acme").ID, version.ID)
+		reportTokens(t, instance.Slug, 10)
+		var counters int
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+			`SELECT count(*) FROM entitlement_usage WHERE instance_id = $1`, instance.ID).Scan(&counters))
+		require.Equal(t, 1, counters)
+
+		problem := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, call(t, "DELETE", "/api/entitlements/tokens", nil), fiber.StatusConflict)
+		require.Equal(t, "DeleteEntitlement.InUseConflict", problem.Code)
+		require.Equal(t, map[string]any{"licenseGrants": float64(1), "licensePrices": float64(1)}, problem.Errors[0].Value)
+	})
 }
 
 func TestBillingCapabilities(t *testing.T) {
