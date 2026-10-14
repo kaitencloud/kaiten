@@ -117,11 +117,12 @@ metered:
   # KAITEN_METERED_TOKEN_FILE — path to the service token. Watched and
   # hot-reloaded; put the path here, never the token. Required when enabled.
   token_file: ""
-  # KAITEN_METERED_SELF_REPORT — report the platform organization's own usage
-  # too, instead of skipping it. Only for the deployment that holds the licences
-  # and reports to itself, where that organization is a customer of its own
-  # catalogue. Its reports are never enforced and never fail a request.
-  self_report: false
+  # KAITEN_METERED_CHECK_SELF_ENTITLEMENTS — read the platform organization's
+  # entitlements from its licence instead of treating it as entitled to
+  # everything. Only for the deployment that holds the licences and reports to
+  # itself, where that organization is an instance of its own catalogue. Its
+  # usage is never reported, with this on or off.
+  check_self_entitlements: false
 
 connectors:
   # VAULT_CONNECTORS_BASE_PATH — where connector settings live in Vault.

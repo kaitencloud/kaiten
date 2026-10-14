@@ -355,13 +355,11 @@ func (r *Reporter) Decrement(ctx context.Context, orgID uuid.UUID, entitlementSl
 	if r.shouldSkip(orgID, entitlementSlug) {
 		return nil
 	}
-	return r.reportSelf(ctx, orgID, entitlementSlug, func() error {
-		client, err := r.awaitClient(ctx)
-		if err != nil {
-			return err
-		}
-		return client.Decrement(ctx, orgID, entitlementSlug)
-	})
+	client, err := r.awaitClient(ctx)
+	if err != nil {
+		return err
+	}
+	return client.Decrement(ctx, orgID, entitlementSlug)
 }
 
 // ReportAndEnforce synchronously reports usage using the latest valid token.
@@ -369,44 +367,28 @@ func (r *Reporter) ReportAndEnforce(ctx context.Context, orgID uuid.UUID, entitl
 	if r.shouldSkip(orgID, entitlementSlug) {
 		return nil
 	}
-	return r.reportSelf(ctx, orgID, entitlementSlug, func() error {
-		client, err := r.awaitClient(ctx)
-		if err != nil {
-			return err
-		}
-		return client.ReportAndEnforce(ctx, orgID, entitlementSlug)
-	})
-}
-
-// reportSelf runs report, and for the platform organization reporting to itself
-// turns any failure into a log line instead of an error.
-//
-// That organization is a customer of its own deployment, and the one that creates
-// what its reports are counted against: the catalogue, the licence, and the
-// instance that fronts it. Its first creates happen before any of those exist and
-// before its reporting credential has been written, so a report it fails cannot
-// mean "refuse" -- enforced, it would refuse the very bootstrap that makes it
-// countable, forever. Its licence is unlimited, so enforcement would never refuse
-// it anything once it could answer anyway. What is lost is a count, never a create.
-func (r *Reporter) reportSelf(ctx context.Context, orgID uuid.UUID, entitlementSlug string, report func() error) error {
-	err := report()
-	if err == nil || !r.cfg.SelfReport || orgID != r.kaitenOrgID {
+	client, err := r.awaitClient(ctx)
+	if err != nil {
 		return err
 	}
-
-	slog.WarnContext(ctx, "dogfooding: the platform organization's own usage was not counted",
-		"organization_id", orgID, "entitlement_slug", entitlementSlug, "error", err)
-
-	return nil
+	return client.ReportAndEnforce(ctx, orgID, entitlementSlug)
 }
 
 // shouldSkip reports whether this call has nothing to meter: no entitlement
 // named, or the caller is the reporting deployment's own organization.
+//
+// The platform organization is skipped everywhere, the deployment that holds the
+// licences included. It is the organization that creates the catalogue, the
+// licences and the instance its usage would be counted against, and the credential
+// it would report with is minted after those creates -- so a report made for it
+// waits on a token its own bootstrap has not reached yet. Its usage is not wanted
+// anyway: what Kaiten itself consumes is nobody's bill. Reading its entitlements is
+// a different matter; see Reporter.Entitled.
 func (r *Reporter) shouldSkip(orgID uuid.UUID, entitlementSlug string) bool {
 	if strings.TrimSpace(entitlementSlug) == "" {
 		return true
 	}
-	return r.kaitenOrgID != uuid.Nil && orgID == r.kaitenOrgID && !r.cfg.SelfReport
+	return r.kaitenOrgID != uuid.Nil && orgID == r.kaitenOrgID
 }
 
 // NewReporterFor builds the reporter a process meters through from its metered
@@ -430,9 +412,9 @@ func NewReporterFor(ctx context.Context, metered config.Metered) (*Reporter, err
 	}
 
 	reporter, err := NewReporter(ctx, Config{
-		APIURL:     metered.APIURL,
-		OrgID:      selfOrgID,
-		SelfReport: metered.SelfReport,
+		APIURL:                metered.APIURL,
+		OrgID:                 selfOrgID,
+		CheckSelfEntitlements: metered.CheckSelfEntitlements,
 	}, metered.TokenFile)
 	if err != nil {
 		return nil, fmt.Errorf("initialize dogfooding reporter: %w", err)
