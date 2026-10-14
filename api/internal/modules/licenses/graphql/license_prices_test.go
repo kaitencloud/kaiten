@@ -108,7 +108,7 @@ func (r *fakeRows) Scan(dest ...any) error {
 func contextWithLoaders(t *testing.T, fake *fakeDBTX, organizationID uuid.UUID, batch int) context.Context {
 	t.Helper()
 
-	loaders := dataloader.NewLoaders(nil)
+	loaders := dataloader.NewLoaders()
 	loaders.Register(LicensePricesLoaderName, dataloaderLib.NewBatchedLoader(
 		newLicensePricesBatchFn(db.New(fake)),
 		dataloaderLib.WithBatchCapacity[uuid.UUID, []prices.Price](batch),
@@ -209,7 +209,7 @@ func TestLicensePricesRefuseAStatusThatIsNotOne(t *testing.T) {
 
 func TestLicensePricesNeedAnIdentity(t *testing.T) {
 	fake := &fakeDBTX{}
-	loaders := dataloader.NewLoaders(nil)
+	loaders := dataloader.NewLoaders()
 	loaders.Register(LicensePricesLoaderName, dataloaderLib.NewBatchedLoader(
 		newLicensePricesBatchFn(db.New(fake)),
 		dataloaderLib.WithBatchCapacity[uuid.UUID, []prices.Price](1),
