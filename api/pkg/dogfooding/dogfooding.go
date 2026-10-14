@@ -23,8 +23,10 @@ const (
 
 	// WebhookEntitlementSlug counts the outbound webhook events an
 	// organization publishes, per calendar month. Kaiten does not deliver them
-	// itself: the installation that does counts each event before sending it,
-	// and drops the ones the licence refuses. Endpoints are not counted.
+	// itself: the installation that does counts each event before sending it.
+	// Usage over the allowance is recorded, never enforced -- the event is sent
+	// and the refused report kept in the audit trail -- and only a licence that
+	// grants 0 stops events. Endpoints are not counted.
 	//
 	// The same slug the BOOLEAN "is webhooks included" entitlement had. It is a
 	// NUMBER now, and the catalogue's bootstrap recreates it rather than
@@ -105,8 +107,8 @@ var EntitlementSlugs = []string{
 }
 
 // GatedEntitlementSlugs are the counters something is refused on: the quotas
-// whose creation is limited, the webhook events whose delivery is, and every
-// catalog object.
+// whose creation is limited, the webhook events a licence granting 0 stops, and
+// every catalog object.
 //
 // A subset of EntitlementSlugs, and the part every licence must grant -- with
 // a value or unlimited. A create whose entitlement the licence does not grant
