@@ -21,8 +21,10 @@ const (
 	InstanceEntitlementSlug = "instances"
 	LicenseEntitlementSlug  = "licenses"
 
-	// WebhookEntitlementSlug counts outbound webhook endpoints. Kaiten does not
-	// serve them itself: the installation that does gates on this slug.
+	// WebhookEntitlementSlug counts the outbound webhook events an
+	// organization publishes, per calendar month. Kaiten does not deliver them
+	// itself: the installation that does counts each event before sending it,
+	// and drops the ones the licence refuses. Endpoints are not counted.
 	//
 	// The same slug the BOOLEAN "is webhooks included" entitlement had. It is a
 	// NUMBER now, and the catalogue's bootstrap recreates it rather than
@@ -102,8 +104,9 @@ var EntitlementSlugs = []string{
 	EntitlementValuesReportedEntitlementSlug,
 }
 
-// GatedEntitlementSlugs are the counters a create is refused on: the quotas
-// whose creation is limited, and every catalog object.
+// GatedEntitlementSlugs are the counters something is refused on: the quotas
+// whose creation is limited, the webhook events whose delivery is, and every
+// catalog object.
 //
 // A subset of EntitlementSlugs, and the part every licence must grant -- with
 // a value or unlimited. A create whose entitlement the licence does not grant
