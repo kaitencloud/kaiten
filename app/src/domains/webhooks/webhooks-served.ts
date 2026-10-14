@@ -10,10 +10,12 @@ import { isForbiddenError, isNotFoundError } from '@/lib/errors';
  *   entry and the `webhooks` token scope.
  * - 404: nothing serves them here. A self-hosted deployment has no saas-api, so
  *   the path does not exist.
- * - 403: they are served, but not to this caller: a caller without
- *   `read:webhooks`. The licence does not decide this -- it limits how many
- *   events are published each month (the `webhooks` quota), which saas-api
- *   enforces on delivery and nowhere else.
+ * - 403: they are served, but not to this caller. saas-api refuses an
+ *   organization whose Kaiten licence grants it 0 events of the `webhooks`
+ *   quota (`Webhooks.NotEntitled`) -- with nothing to publish, there is
+ *   nothing to configure -- and a caller without `read:webhooks`. Any other
+ *   grant serves them; how many events are then published each month is
+ *   counted by saas-api on delivery.
  *
  * Anything else -- the licence could not be read (503), the network failed --
  * is not an answer, and the query fails instead of caching "not served": a
