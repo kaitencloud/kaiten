@@ -19,7 +19,8 @@ const slugify = (value: string) =>
 
 /**
  * What still references an entitlement, which keeps it from being deleted: the
- * grants of the licenses, the usage counters, and the prices that meter it. The
+ * grants of the licenses and of the add-ons, the voucher boosts, and the prices
+ * that meter it. The
  * API counts what the release has; a count it does not carry is left out.
  */
 export type EntitlementReferences = Partial<
@@ -28,8 +29,7 @@ export type EntitlementReferences = Partial<
     | 'addonPrices'
     | 'boostGrants'
     | 'licenseGrants'
-    | 'licensePrices'
-    | 'usageCounters',
+    | 'licensePrices',
     number
   >
 >;
@@ -248,7 +248,7 @@ export class EntitlementAppModel {
       throw new BillingProblem(
         409,
         'DeleteEntitlement.InUseConflict',
-        `Entitlement "${slug}" is still granted, counted or priced and cannot be deleted`,
+        `Entitlement "${slug}" is still in use and cannot be deleted`,
         {
           errors: [
             {

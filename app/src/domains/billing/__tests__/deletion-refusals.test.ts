@@ -53,7 +53,6 @@ describe('readDeletionRefusal', () => {
         boostGrants: 1,
         licenseGrants: 2,
         licensePrices: 1,
-        usageCounters: 0,
       }),
     );
 
@@ -94,10 +93,10 @@ describe('readDeletionRefusal', () => {
         refusal('DeleteEntitlement.InUseConflict', {
           licenseGrants: -1,
           licensePrices: 'two',
-          usageCounters: 2.9,
+          addonGrants: 2.9,
         }),
       ),
-    ).toMatchObject({ references: [{ count: 2, key: 'usageCounters' }] });
+    ).toMatchObject({ references: [{ count: 2, key: 'addonGrants' }] });
   });
 
   it('leaves every other failure to the toast it had', () => {
@@ -126,10 +125,10 @@ describe('hasPermanentReference', () => {
     ['an add-on price that meters it', 'addonPrices'],
     ['a voucher boost that grants it', 'boostGrants'],
   ] as const)('is true for %s, which is never deleted through the API', (_name, key) => {
-    expect(hasPermanentReference([{ key: 'usageCounters' }, { key }])).toBe(true);
+    expect(hasPermanentReference([{ key: 'addonGrants' }, { key }])).toBe(true);
   });
 
-  it.each(['licenseGrants', 'usageCounters', 'addonGrants'] as const)(
+  it.each(['licenseGrants', 'addonGrants'] as const)(
     'is false when only %s holds it, which can be taken away',
     (key) => {
       expect(hasPermanentReference([{ key }])).toBe(false);

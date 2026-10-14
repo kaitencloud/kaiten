@@ -4,7 +4,8 @@ import { getProblem } from './billing-problem';
  * The deletions the API refuses because the record is billed or still in use,
  * read from the problem it answers with: an instance whose subscription lives
  * or whose invoices are not settled, a customer in the same case, an
- * entitlement that a license grants, an instance counts or a price meters. The
+ * entitlement that a license or an add-on grants, a voucher boost grants or a
+ * price meters. The
  * body lists what stands in the way (`errors[0].value`), which a dialog shows
  * with links, so that the person knows what to settle first.
  */
@@ -16,7 +17,6 @@ const ENTITLEMENT_CODE = 'DeleteEntitlement.InUseConflict';
 /** What can still reference an entitlement, in the order a dialog lists it. */
 export const ENTITLEMENT_REFERENCE_KEYS = [
   'licenseGrants',
-  'usageCounters',
   'licensePrices',
   'addonPrices',
   'addonGrants',
@@ -75,7 +75,6 @@ const ENTITLEMENT_REFERENCE_LABEL_KEYS = {
   boostGrants: 'Features.Billing.DeletionRefusal.references.boostGrants',
   licenseGrants: 'Features.Billing.DeletionRefusal.references.licenseGrants',
   licensePrices: 'Features.Billing.DeletionRefusal.references.licensePrices',
-  usageCounters: 'Features.Billing.DeletionRefusal.references.usageCounters',
 } as const satisfies Record<EntitlementReferenceKey, string>;
 
 /** The translation key of a kind of reference, which takes a `count`. */

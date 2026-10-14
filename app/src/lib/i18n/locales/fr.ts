@@ -6178,7 +6178,7 @@ export default {
           customer:
             'La facturation dépend encore de ce client : il a été conservé. Rien n’a été supprimé.',
           entitlement:
-            'Quelque chose accorde, compte ou facture encore ce droit : il a été conservé. Rien n’a été supprimé.',
+            'Quelque chose accorde ou facture encore ce droit : il a été conservé. Rien n’a été supprimé.',
         },
         subscriptionTitle: 'Abonnement',
         subscriptionLive: 'L’abonnement est toujours en cours.',
@@ -6198,8 +6198,6 @@ export default {
         references: {
           licenseGrants_one: 'Accordé par {{count}} version de licence',
           licenseGrants_other: 'Accordé par {{count}} versions de licence',
-          usageCounters_one: 'Usage enregistré sur {{count}} instance',
-          usageCounters_other: 'Usage enregistré sur {{count}} instances',
           licensePrices_one: 'Mesuré par {{count}} prix de licence',
           licensePrices_other: 'Mesuré par {{count}} prix de licence',
           addonPrices_one: 'Mesuré par {{count}} prix d’option',

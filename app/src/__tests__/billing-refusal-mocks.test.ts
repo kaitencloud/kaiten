@@ -221,9 +221,9 @@ describe('deleting an entitlement that is in use, as the mocks serve it', () => 
     expect(used.status).toBe(409);
     expect(body.code).toBe('DeleteEntitlement.InUseConflict');
     expect(body.errors?.[0].value).toEqual({
+      addonGrants: 3,
       licenseGrants: 2,
       licensePrices: 1,
-      usageCounters: 3,
     });
     expect(free.status).toBeLessThan(300);
   });

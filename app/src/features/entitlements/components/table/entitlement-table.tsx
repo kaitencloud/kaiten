@@ -17,7 +17,7 @@ export function EntitlementsTable({
   const { t } = useTranslation();
   const router = useRouter();
 
-  // An entitlement that is still granted, counted or priced is kept, and the
+  // An entitlement that is still granted or priced is kept, and the
   // dialog that says so is held here, above the rows: a row leaves the list while
   // the API answers and, when it is the last, unmounts, with whatever it holds.
   const deletion = useDeletionRefusal();
