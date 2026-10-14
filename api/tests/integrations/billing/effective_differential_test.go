@@ -38,6 +38,7 @@ import (
 // KAITEN_EFFECTIVE_SEEDS sets how many seeds run (20 by default, about 2,000
 // comparisons); KAITEN_EFFECTIVE_SEED replays one. A mismatch names its seed.
 func TestEffectiveViewEqualsTheOracle(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	seeds := 20
 	if n, err := strconv.Atoi(os.Getenv("KAITEN_EFFECTIVE_SEEDS")); err == nil && n > 0 {
 		seeds = n
