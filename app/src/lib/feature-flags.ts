@@ -32,7 +32,8 @@ import { getStoredDevToken } from './local-auth';
  *   for organizations whose tracked instance is a demo.
  *
  * Outbound webhooks are not one of them: an organization has them when its
- * Kaiten licence carries them, which saas-api checks on every webhooks route,
+ * Kaiten licence grants it webhook events (any number but 0), which saas-api
+ * checks on every webhooks route,
  * and the console reads the answer off those routes (`domains/webhooks`).
  *
  * Why not a React-bound client: it lives in React context, so it cannot be read
