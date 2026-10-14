@@ -85,7 +85,32 @@ func TestAnEntitlementInUseSaysWhatHoldsIt(t *testing.T) {
 
 		problem := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, call(t, "DELETE", "/api/entitlements/tokens", nil), fiber.StatusConflict)
 		require.Equal(t, "DeleteEntitlement.InUseConflict", problem.Code)
-		require.Equal(t, map[string]any{"licenseGrants": float64(1), "licensePrices": float64(1)}, problem.Errors[0].Value)
+		require.Equal(t, map[string]any{
+			"licenseGrants": float64(1), "licensePrices": float64(1),
+			"addonPrices": float64(0), "addonGrants": float64(0), "boostGrants": float64(0),
+		}, problem.Errors[0].Value)
+	})
+
+	// An add-on's grant, an add-on's metered price and a voucher boost hold the
+	// entitlement through restricting foreign keys too, and the refusal counts
+	// them under the keys the console lists.
+	t.Run("AnAddonAndAVoucherBoost", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		newEntitlement(t, "tokens", 0)
+		addon := newAddon(t, map[string]any{"name": "Extra tokens"})
+		addonGrant(t, addon.Slug, "tokens", 100, "ADD")
+		addonPrice(t, addon.Slug, metered("USAGE_BASED", "tokens", "50"))
+		newVoucher(t, map[string]any{
+			"voucherType": "ENTITLEMENT_BOOST", "duration": "ONE_TIME",
+			"grants": []map[string]any{{"entitlementSlug": "tokens", "modifierType": "ADD", "modifierValue": "5"}},
+		})
+
+		problem := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, call(t, "DELETE", "/api/entitlements/tokens", nil), fiber.StatusConflict)
+		require.Equal(t, "DeleteEntitlement.InUseConflict", problem.Code)
+		require.Equal(t, map[string]any{
+			"licenseGrants": float64(0), "licensePrices": float64(0),
+			"addonPrices": float64(1), "addonGrants": float64(1), "boostGrants": float64(1),
+		}, problem.Errors[0].Value)
 	})
 
 	// Usage follows its entitlement out, so it is neither what refuses the delete
@@ -106,7 +131,10 @@ func TestAnEntitlementInUseSaysWhatHoldsIt(t *testing.T) {
 
 		problem := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, call(t, "DELETE", "/api/entitlements/tokens", nil), fiber.StatusConflict)
 		require.Equal(t, "DeleteEntitlement.InUseConflict", problem.Code)
-		require.Equal(t, map[string]any{"licenseGrants": float64(1), "licensePrices": float64(1)}, problem.Errors[0].Value)
+		require.Equal(t, map[string]any{
+			"licenseGrants": float64(1), "licensePrices": float64(1),
+			"addonPrices": float64(0), "addonGrants": float64(0), "boostGrants": float64(0),
+		}, problem.Errors[0].Value)
 	})
 }
 

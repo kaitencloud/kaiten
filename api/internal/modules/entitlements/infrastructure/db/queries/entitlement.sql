@@ -163,12 +163,16 @@ WHERE e.organization_id = sqlc.arg(organization_id)
 
 
 -- name: CountEntitlementReferences :one
--- What still holds an entitlement a delete was refused for. Its usage is not
--- among them: entitlement_usage follows the entitlement out
+-- What still holds an entitlement a delete was refused for: every foreign key
+-- onto entitlement that restricts the delete. Its usage is not among them:
+-- entitlement_usage follows the entitlement out
 -- (20261012000000_entitlement_usage_follows_its_entitlement.sql).
 SELECT
   (SELECT count(*) FROM license_entitlement le WHERE le.entitlement_id = e.id)::int AS license_grants,
-  (SELECT count(*) FROM license_price p WHERE p.meters_entitlement_id = e.id)::int AS license_prices
+  (SELECT count(*) FROM license_price p WHERE p.meters_entitlement_id = e.id)::int AS license_prices,
+  (SELECT count(*) FROM addon_price ap WHERE ap.meters_entitlement_id = e.id)::int AS addon_prices,
+  (SELECT count(*) FROM addon_entitlement ae WHERE ae.entitlement_id = e.id)::int AS addon_grants,
+  (SELECT count(*) FROM voucher_entitlement_grant vg WHERE vg.entitlement_id = e.id)::int AS boost_grants
 FROM entitlement e
 WHERE e.organization_id = sqlc.arg(organization_id)
   AND e.slug = sqlc.arg(slug);

@@ -24,7 +24,7 @@ var effectiveEntitlementModules = []string{"instances", "entitlements", "custome
 // here is a claim that the query is not about an instance.
 var licenceCatalogueQueries = map[string]string{
 	"GetEntitlementGroupsForLicense": "the groups of a licence's grants, for the licence catalogue",
-	"CountEntitlementReferences":     "how many licences grant an entitlement whose delete was refused",
+	"CountEntitlementReferences":     "what holds an entitlement whose delete was refused, licences among it",
 }
 
 // licenseEntitlementTable matches the table name alone: not
