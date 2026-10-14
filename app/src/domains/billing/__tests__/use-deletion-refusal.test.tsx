@@ -58,7 +58,7 @@ describe('useDeletionRefusal', () => {
 
     act(() => {
       shown = result.current.showRefusal(
-        refusal('DeleteEntitlement.InUseConflict', { usageCounters: 3 }),
+        refusal('DeleteEntitlement.InUseConflict', { addonGrants: 3 }),
         'api-calls',
       );
     });

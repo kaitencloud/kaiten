@@ -104,7 +104,7 @@ export const CustomerWithNoSubscriptionLeft: Story = {
   },
 };
 
-// What still grants, counts or prices the entitlement: only the kinds there is at
+// What still grants or prices the entitlement: only the kinds there is at
 // least one of, counted, and singular where there is one.
 export const EntitlementInUse: Story = {
   render: () => (
@@ -115,8 +115,8 @@ export const EntitlementInUse: Story = {
           kind: 'entitlement',
           references: [
             { count: 2, key: 'licenseGrants' },
-            { count: 1, key: 'usageCounters' },
             { count: 3, key: 'licensePrices' },
+            { count: 1, key: 'addonGrants' },
           ],
         }}
         slug="api-calls"
@@ -130,8 +130,8 @@ export const EntitlementInUse: Story = {
     await expect(dialog.getByText('This entitlement cannot be deleted')).toBeInTheDocument();
     await expect(references.getAllByRole('listitem').map((item) => item.textContent)).toEqual([
       'Granted by 2 license versions',
-      'Usage recorded on 1 instance',
       'Metered by 3 license prices',
+      'Granted by 1 add-on',
     ]);
     await expect(dialog.getByRole('link', { name: 'Open the entitlement' })).toBeInTheDocument();
     // A price keeps it for good: the dialog offers to hide it instead of asking for

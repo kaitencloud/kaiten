@@ -188,8 +188,8 @@ export function createReferencedEntitlementModel() {
       }),
     ],
     references: {
-      'api-calls': { licenseGrants: 2, licensePrices: 1, usageCounters: 3 },
-      seats: { usageCounters: 1 },
+      'api-calls': { addonGrants: 3, licenseGrants: 2, licensePrices: 1 },
+      seats: { addonGrants: 1 },
     },
   });
 }
@@ -218,6 +218,6 @@ export function createReferencedLastEntitlementModel() {
         type: 'NUMBER',
       }),
     ],
-    references: { seats: { usageCounters: 1 } },
+    references: { seats: { addonGrants: 1 } },
   });
 }

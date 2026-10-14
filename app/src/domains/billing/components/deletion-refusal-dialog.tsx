@@ -196,7 +196,7 @@ function EntitlementBody({
 /**
  * What stands in the way of a deletion that the API refused because the record
  * is billed or in use: the subscription that lives, the invoices not settled yet,
- * what still grants, counts or prices an entitlement, each with a link to what
+ * what still grants or prices an entitlement, each with a link to what
  * the person does about it. It is a dialog and not a toast, since a bare error
  * would leave them guessing what to settle first. Nothing was deleted: the
  * record stays where it was.

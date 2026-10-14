@@ -133,7 +133,7 @@ describe('the dialog of a refused deletion', () => {
         onClose={vi.fn()}
         refusal={{
           kind: 'entitlement',
-          references: [{ count: 2, key: 'usageCounters' }],
+          references: [{ count: 2, key: 'addonGrants' }],
         }}
         slug="seats"
       />,
@@ -152,7 +152,7 @@ describe('the dialog of a refused deletion', () => {
         refusal={{
           kind: 'entitlement',
           references: [
-            { count: 2, key: 'usageCounters' },
+            { count: 2, key: 'addonGrants' },
             { count: 1, key: 'boostGrants' },
           ],
         }}

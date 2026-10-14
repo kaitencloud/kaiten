@@ -7,12 +7,12 @@ import {
   createReferencedLastEntitlementModel,
 } from './entitlements.scenarios';
 
-// An entitlement that something still grants, counts or prices is kept. The API
+// An entitlement that something still grants or prices is kept. The API
 // counts what references it, and the dialog lists it so that the person knows what
 // to remove first. One that nothing references is deleted as before.
 
 test.describe('deleting an entitlement that is still in use', () => {
-  test('is refused, with what still grants, counts or prices it, and leads to it', async ({
+  test('is refused, with what still grants or prices it, and leads to it', async ({
     page,
   }) => {
     const list = new EntitlementsListDriver(page);
@@ -27,13 +27,13 @@ test.describe('deleting an entitlement that is still in use', () => {
     });
     await expect(refusal).toBeVisible();
     await expect(refusal).toContainText(
-      'Entitlement "api-calls" is still granted, counted or priced and cannot be deleted',
+      'Entitlement "api-calls" is still in use and cannot be deleted',
     );
     const references = refusal.getByTestId('deletion-refusal-references');
     await expect(references.getByRole('listitem')).toHaveText([
       'Granted by 2 license versions',
-      'Usage recorded on 3 instances',
       'Metered by 1 license price',
+      'Granted by 3 add-ons',
     ]);
     // A price meters it, and a price is never removed: it is offered to be hidden.
     await expect(refusal).toContainText(
@@ -64,7 +64,7 @@ test.describe('deleting an entitlement that is still in use', () => {
       .getByRole('dialog', { name: 'This entitlement cannot be deleted' })
       .getByTestId('deletion-refusal-references');
     await expect(references.getByRole('listitem')).toHaveText([
-      'Usage recorded on 1 instance',
+      'Granted by 1 add-on',
     ]);
     // Nothing that stays for good holds it: the references can be taken away.
     await expect(
@@ -101,7 +101,7 @@ test.describe('deleting an entitlement that is still in use', () => {
     await expect(refusal).toBeVisible();
     await expect(
       refusal.getByTestId('deletion-refusal-references').getByRole('listitem'),
-    ).toHaveText(['Usage recorded on 1 instance']);
+    ).toHaveText(['Granted by 1 add-on']);
     // Nothing was deleted: the row is back, and no toast says otherwise.
     await list.expectEntitlementVisible('Seats');
     await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);

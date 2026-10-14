@@ -6082,7 +6082,7 @@ export default {
           customer:
             'Billing still depends on this customer, so it was kept. Nothing was deleted.',
           entitlement:
-            'Something still grants, counts or prices this entitlement, so it was kept. Nothing was deleted.',
+            'Something still grants or prices this entitlement, so it was kept. Nothing was deleted.',
         },
         subscriptionTitle: 'Subscription',
         subscriptionLive: 'The subscription is still running.',
@@ -6102,8 +6102,6 @@ export default {
         references: {
           licenseGrants_one: 'Granted by {{count}} license version',
           licenseGrants_other: 'Granted by {{count}} license versions',
-          usageCounters_one: 'Usage recorded on {{count}} instance',
-          usageCounters_other: 'Usage recorded on {{count}} instances',
           licensePrices_one: 'Metered by {{count}} license price',
           licensePrices_other: 'Metered by {{count}} license prices',
           addonPrices_one: 'Metered by {{count}} add-on price',
