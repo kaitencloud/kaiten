@@ -298,6 +298,13 @@ type Metered struct {
 	// nothing, so it is an ordinary setting and belongs in the config file with
 	// the rest of them.
 	TokenFile string `mapstructure:"token_file" validate:"required_if=Enabled true"`
+	// SelfReport reports the platform organization's own usage too, where it is
+	// otherwise skipped -- for the one deployment whose platform organization is a
+	// customer of itself: the installation that holds the licences, reporting to
+	// itself. Its reports are never enforced and never fail a request, because
+	// that organization creates the very catalogue and instance its reports are
+	// counted against, and a gate on them could never open. Off everywhere else.
+	SelfReport bool `mapstructure:"self_report"`
 }
 
 // Usage tunes the usage report path.
@@ -393,6 +400,7 @@ var settings = []struct {
 	{"metered.organization_id", "KAITEN_METERED_ORGANIZATION_ID", nil, false},
 	{"metered.api_url", "KAITEN_METERED_API_URL", nil, false},
 	{"metered.token_file", "KAITEN_METERED_TOKEN_FILE", nil, false},
+	{"metered.self_report", "KAITEN_METERED_SELF_REPORT", false, false},
 	{"connectors.vault_base_path", "VAULT_CONNECTORS_BASE_PATH", "kaiten/connectors", false},
 	{"usage.rollover_max_closures", "KAITEN_USAGE_ROLLOVER_MAX_CLOSURES", 100000, false},
 	{"usage.idempotency_window", "KAITEN_USAGE_IDEMPOTENCY_WINDOW", "840h", false},

@@ -90,18 +90,16 @@ func NewUseCases(svc services.Container) *UseCases {
 			UsageReporter: svc.UsageReporter,
 		}),
 		GetInstance: getinstance.NewUseCase(getinstance.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		GetIntegration: getintegrations.NewUseCase(getintegrations.Deps{
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
 		}),
 		GetInstances: getinstances.NewUseCase(getinstances.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		PatchInstance: patchinstance.NewUseCase(patchinstance.Deps{
 			UserProvider: svc.UserProvider,
@@ -110,7 +108,6 @@ func NewUseCases(svc services.Container) *UseCases {
 		UpdateInstance: updateinstance.NewUseCase(updateinstance.Deps{
 			UserProvider:         svc.UserProvider,
 			Uof:                  svc.Uof,
-			UsageReporter:        svc.UsageReporter,
 			MetadataFieldsLister: validator.NewLister(svc.Pool),
 		}),
 		UpdateIntegration: updateintegrations.NewUseCase(updateintegrations.Deps{

@@ -39,19 +39,16 @@ func NewUseCases(svc services.Container) *UseCases {
 			UsageReporter: svc.UsageReporter,
 		}),
 		GetDeploymentZone: getdeploymentzone.NewUseCase(getdeploymentzone.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		GetDeploymentZones: getdeploymentzones.NewUseCase(getdeploymentzones.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		UpdateDeploymentZone: updatedeploymentzone.NewUseCase(updatedeploymentzone.Deps{
 			UserProvider:         svc.UserProvider,
 			Uof:                  svc.Uof,
-			UsageReporter:        svc.UsageReporter,
 			MetadataFieldsLister: validator.NewLister(svc.Pool),
 		}),
 	}

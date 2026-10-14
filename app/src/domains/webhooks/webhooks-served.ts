@@ -11,8 +11,11 @@ import { isForbiddenError, isNotFoundError } from '@/lib/errors';
  * - 404: nothing serves them here. A self-hosted deployment has no saas-api, so
  *   the path does not exist.
  * - 403: they are served, but not to this caller. saas-api refuses an
- *   organization whose Kaiten licence does not carry the `webhooks`
- *   entitlement (`Webhooks.NotEntitled`), and a caller without `read:webhooks`.
+ *   organization whose Kaiten licence grants it 0 events of the `webhooks`
+ *   quota (`Webhooks.NotEntitled`) -- with nothing to publish, there is
+ *   nothing to configure -- and a caller without `read:webhooks`. Any other
+ *   grant serves them; how many events are then published each month is
+ *   counted by saas-api on delivery.
  *
  * Anything else -- the licence could not be read (503), the network failed --
  * is not an answer, and the query fails instead of caching "not served": a

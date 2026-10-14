@@ -3,8 +3,6 @@ package getintegration
 import (
 	"context"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	customerintegrationsync "github.com/kaitencloud/kaiten/api/internal/modules/customers/integrationsync"
 	instanceintegrationsync "github.com/kaitencloud/kaiten/api/internal/modules/instances/integrationsync"
 	"github.com/kaitencloud/kaiten/api/internal/modules/integrations/adapter"
@@ -17,10 +15,9 @@ import (
 // ports (see integrationsync) -- this module never imports their generated
 // db packages directly.
 type Deps struct {
-	UserProvider  currentuser.Provider
-	UsageReporter services.UsageReporter
-	Customers     customerintegrationsync.Port
-	Instances     instanceintegrationsync.Port
+	UserProvider currentuser.Provider
+	Customers    customerintegrationsync.Port
+	Instances    instanceintegrationsync.Port
 }
 
 type UseCase struct {
@@ -47,8 +44,6 @@ func (h *UseCase) HandleCustomer(ctx context.Context, adapterName, externalID st
 		return nil, err
 	}
 
-	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.CustomerReadEntitlementSlug)
-
 	return &integrationschema.CustomerIntegrationResource{
 		Domain:   customer.Domain,
 		Error:    customer.Integration.LastError,
@@ -73,8 +68,6 @@ func (h *UseCase) HandleInstance(ctx context.Context, adapterName, externalID st
 	if err != nil {
 		return nil, err
 	}
-
-	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.InstanceReadEntitlementSlug)
 
 	return &integrationschema.InstanceIntegrationResource{
 		CustomerExternalID: instance.CustomerExternalID,

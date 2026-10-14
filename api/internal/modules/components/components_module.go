@@ -32,19 +32,16 @@ func NewUseCases(svc services.Container) *UseCases {
 			UsageReporter: svc.UsageReporter,
 		}),
 		GetComponent: getcomponent.NewUseCase(getcomponent.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		GetComponents: getcomponents.NewUseCase(getcomponents.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		UpdateComponent: updatecomponent.NewUseCase(updatecomponent.Deps{
-			UserProvider:  svc.UserProvider,
-			Uof:           svc.Uof,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Uof:          svc.Uof,
 		}),
 	}
 }

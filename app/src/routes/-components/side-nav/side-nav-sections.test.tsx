@@ -62,7 +62,7 @@ describe('useResolvedIntegrationsItems', () => {
   });
 
   it.each<[string, boolean | undefined]>([
-    ['a self-hosted deployment, or a licence without webhooks', false],
+    ['a self-hosted deployment, or a licence granting 0 webhook events', false],
     ['an answer still being read', undefined],
   ])('keeps only the other entries for %s', (_, served) => {
     expect(integrationsPathsWith(served)).toEqual([

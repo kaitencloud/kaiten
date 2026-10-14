@@ -6,60 +6,28 @@ package dogfooding
 import slugs "github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 
 // The slugs this package's reporter and enforcement gate against, re-exported
-// so the ~90 call sites keep reading `dogfooding.CustomerEntitlementSlug`.
+// so the call sites keep reading `dogfooding.CustomerEntitlementSlug`.
 //
 // Aliases, not copies: pkg/dogfooding holds the single declaration and the
-// compiler keeps every consumer in agreement. Adding a slug means adding it
-// there.
+// compiler keeps every consumer in agreement. Only the slugs Core itself
+// reports against are re-exported -- the rest of the catalogue is gated,
+// granted or read by the installation that holds the licences, and a constant
+// here nobody reports against would read as if Core metered it.
 const (
-	CustomerEntitlementSlug              = slugs.CustomerEntitlementSlug
-	CustomerReadEntitlementSlug          = slugs.CustomerReadEntitlementSlug
-	CustomerUpdatedEntitlementSlug       = slugs.CustomerUpdatedEntitlementSlug
-	ComponentEntitlementSlug             = slugs.ComponentEntitlementSlug
-	ComponentReadEntitlementSlug         = slugs.ComponentReadEntitlementSlug
-	ComponentUpdatedEntitlementSlug      = slugs.ComponentUpdatedEntitlementSlug
-	EntitlementEntitlementSlug           = slugs.EntitlementEntitlementSlug
-	EntitlementReadEntitlementSlug       = slugs.EntitlementReadEntitlementSlug
-	EntitlementUpdatedEntitlementSlug    = slugs.EntitlementUpdatedEntitlementSlug
-	FeatureFlagEntitlementSlug           = slugs.FeatureFlagEntitlementSlug
-	FeatureFlagReadEntitlementSlug       = slugs.FeatureFlagReadEntitlementSlug
-	FeatureFlagEvaluatedEntitlementSlug  = slugs.FeatureFlagEvaluatedEntitlementSlug
-	FeatureFlagUpdatedEntitlementSlug    = slugs.FeatureFlagUpdatedEntitlementSlug
-	LicenseEntitlementSlug               = slugs.LicenseEntitlementSlug
-	LicenseReadEntitlementSlug           = slugs.LicenseReadEntitlementSlug
-	LicenseUpdatedEntitlementSlug        = slugs.LicenseUpdatedEntitlementSlug
-	InstanceEntitlementSlug              = slugs.InstanceEntitlementSlug
-	InstanceReadEntitlementSlug          = slugs.InstanceReadEntitlementSlug
-	InstanceUpdatedEntitlementSlug       = slugs.InstanceUpdatedEntitlementSlug
-	ReleaseEntitlementSlug               = slugs.ReleaseEntitlementSlug
-	ReleaseReadEntitlementSlug           = slugs.ReleaseReadEntitlementSlug
-	DeploymentZoneEntitlementSlug        = slugs.DeploymentZoneEntitlementSlug
-	DeploymentZoneReadEntitlementSlug    = slugs.DeploymentZoneReadEntitlementSlug
-	DeploymentZoneUpdatedEntitlementSlug = slugs.DeploymentZoneUpdatedEntitlementSlug
+	CustomerEntitlementSlug = slugs.CustomerEntitlementSlug
+	InstanceEntitlementSlug = slugs.InstanceEntitlementSlug
+	LicenseEntitlementSlug  = slugs.LicenseEntitlementSlug
+	SeatEntitlementSlug     = slugs.SeatEntitlementSlug
 
+	EntitlementEntitlementSlug        = slugs.EntitlementEntitlementSlug
+	LicenseEntitlementEntitlementSlug = slugs.LicenseEntitlementEntitlementSlug
+	EntitlementGroupEntitlementSlug   = slugs.EntitlementGroupEntitlementSlug
+	FeatureFlagEntitlementSlug        = slugs.FeatureFlagEntitlementSlug
+	ComponentEntitlementSlug          = slugs.ComponentEntitlementSlug
+	ReleaseEntitlementSlug            = slugs.ReleaseEntitlementSlug
+	DeploymentZoneEntitlementSlug     = slugs.DeploymentZoneEntitlementSlug
+
+	FeatureFlagEvaluatedEntitlementSlug      = slugs.FeatureFlagEvaluatedEntitlementSlug
 	EntitlementValuesCheckedEntitlementSlug  = slugs.EntitlementValuesCheckedEntitlementSlug
 	EntitlementValuesReportedEntitlementSlug = slugs.EntitlementValuesReportedEntitlementSlug
-
-	LicenseEntitlementEntitlementSlug        = slugs.LicenseEntitlementEntitlementSlug
-	LicenseEntitlementReadEntitlementSlug    = slugs.LicenseEntitlementReadEntitlementSlug
-	LicenseEntitlementUpdatedEntitlementSlug = slugs.LicenseEntitlementUpdatedEntitlementSlug
-	EntitlementGroupEntitlementSlug          = slugs.EntitlementGroupEntitlementSlug
-	EntitlementGroupReadEntitlementSlug      = slugs.EntitlementGroupReadEntitlementSlug
-	EntitlementGroupUpdatedEntitlementSlug   = slugs.EntitlementGroupUpdatedEntitlementSlug
-	MetadataFieldEntitlementSlug             = slugs.MetadataFieldEntitlementSlug
-	MetadataFieldReadEntitlementSlug         = slugs.MetadataFieldReadEntitlementSlug
-	MetadataFieldUpdatedEntitlementSlug      = slugs.MetadataFieldUpdatedEntitlementSlug
-	ServiceAccountEntitlementSlug            = slugs.ServiceAccountEntitlementSlug
-	ServiceAccountReadEntitlementSlug        = slugs.ServiceAccountReadEntitlementSlug
-	ServiceAccountUpdatedEntitlementSlug     = slugs.ServiceAccountUpdatedEntitlementSlug
-	ServiceAccountTokenEntitlementSlug       = slugs.ServiceAccountTokenEntitlementSlug
-	ServiceAccountTokenReadEntitlementSlug   = slugs.ServiceAccountTokenReadEntitlementSlug
-
-	// Connector entitlements are BOOLEAN and read rather than reported: see
-	// entitlements.go, and pkg/dogfooding for why each connector has its own slug.
-	ConnectorAttioEntitlementSlug = slugs.ConnectorAttioEntitlementSlug
-	BillingEntitlementSlug        = slugs.BillingEntitlementSlug
-
-	// CONFIG entitlements are read through ConfigValue, never reported.
-	UsageHistoryRetentionEntitlementSlug = slugs.UsageHistoryRetentionEntitlementSlug
 )

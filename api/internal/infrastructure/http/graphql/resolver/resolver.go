@@ -3,12 +3,9 @@ package resolver
 //go:generate go tool gqlgen generate
 
 import (
-	"context"
-
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	addonsdb "github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
 	auditdb "github.com/kaitencloud/kaiten/api/internal/modules/audittrail/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/listforinstance"
@@ -21,14 +18,12 @@ import (
 	licensesdb "github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	metadatafieldsdb "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
 	releasesdb "github.com/kaitencloud/kaiten/api/internal/modules/releases/infrastructure/db"
-	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
 )
 
 // Resolver is the root resolver for GraphQL queries. It holds dependencies
 // needed by all resolvers -- each module's own typed db.Queries or public
 // port, never a shared/global sqlc client.
 type Resolver struct {
-	UsageReporter services.UsageReporter
 	// BillingGate keeps the add-on catalogue behind the billing switch, as REST
 	// keeps it. The zero Gate refuses every organization.
 	BillingGate gate.Gate
@@ -46,11 +41,9 @@ type Resolver struct {
 	DeploymentZonesQueries    *deploymentzonesdb.Queries
 }
 
-// NewResolver creates a new Resolver with the given dependencies. A nil
-// usageReporter becomes a no-op one, so root resolvers report unconditionally.
-func NewResolver(pool *pgxpool.Pool, usageReporter services.UsageReporter, billingGate gate.Gate) *Resolver {
+// NewResolver creates a new Resolver with the given dependencies.
+func NewResolver(pool *pgxpool.Pool, billingGate gate.Gate) *Resolver {
 	return &Resolver{
-		UsageReporter:             services.UsageReporterOrNoop(usageReporter),
 		BillingGate:               billingGate,
 		AddonsQueries:             addonsdb.New(pool),
 		InstancesQueries:          instancesdb.New(pool),
@@ -64,19 +57,4 @@ func NewResolver(pool *pgxpool.Pool, usageReporter services.UsageReporter, billi
 		ComponentsQueries:         componentsdb.New(pool),
 		DeploymentZonesQueries:    deploymentzonesdb.New(pool),
 	}
-}
-
-// reportIfNeeded bills a root resolver's own read, the way the REST handler
-// behind the same data does. Nested traversals are not billed here: they are
-// billed by the dataloader they go through (see dataloader.Metered), which is
-// the one place every one of them passes. A root resolver must therefore
-// never report a slug one of its nested fields' loaders also reports, or the
-// same read is counted twice.
-func (r *Resolver) reportIfNeeded(ctx context.Context, entitlementSlug string) {
-	currentUser, ok := principal.FromContext(ctx)
-	if !ok {
-		return
-	}
-
-	r.UsageReporter.TrackAsync(currentUser.OrganizationID, entitlementSlug)
 }

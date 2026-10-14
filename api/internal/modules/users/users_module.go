@@ -22,6 +22,7 @@ package users
 import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization/ensuremembership"
+	"github.com/kaitencloud/kaiten/api/internal/modules/organization/listusermemberships"
 	"github.com/kaitencloud/kaiten/api/internal/modules/users/deleteuser"
 	"github.com/kaitencloud/kaiten/api/internal/modules/users/ensureuser"
 	"github.com/kaitencloud/kaiten/api/internal/modules/users/infrastructure/db"
@@ -46,9 +47,14 @@ func NewUseCases(svc services.Container) *UseCases {
 	queries := db.New(svc.Pool)
 
 	return &UseCases{
-		DeleteUser: deleteuser.NewUseCase(queries),
+		DeleteUser: deleteuser.NewUseCase(deleteuser.Deps{
+			Queries:       queries,
+			Memberships:   listusermemberships.NewUseCase(svc.Pool),
+			UsageReporter: svc.UsageReporter,
+		}),
 		EnsureUser: ensureuser.NewUseCase(ensureuser.Deps{
-			Uof: svc.Uof,
+			Uof:           svc.Uof,
+			UsageReporter: svc.UsageReporter,
 			// The organization module's own use case, constructed here rather than read
 			// off organization.UseCases — the same way identity/createserviceaccount
 			// composes addmembership. It joins the transaction EnsureUser opens, so a

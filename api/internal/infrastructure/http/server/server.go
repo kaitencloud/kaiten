@@ -17,7 +17,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/healthcheck"
 	fiberrecover "github.com/gofiber/fiber/v3/middleware/recover"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	slogfiber "github.com/samber/slog-fiber"
 
@@ -461,25 +460,9 @@ func (s *Server) setupUsageReporter(ctx context.Context) error {
 		s.deps.ConnectorEntitlements = services.ConnectorEntitlementsOrAlways(s.deps.ConnectorEntitlements)
 		return nil
 	}
-	// Derived from the external id rather than read as a raw UUID — see
-	// Config.Metered.ResolvePlatformOrgID. The reporter uses it for one thing: not
-	// metering the platform organization against itself.
-	organizationID, err := s.cfg.Metered.ResolvePlatformOrgID()
+	reporter, err := dogfooding.NewReporterFor(ctx, s.cfg.Metered)
 	if err != nil {
-		return fmt.Errorf("resolve dogfooding organization: %w", err)
-	}
-	var selfOrgID string
-	if organizationID == uuid.Nil {
-		slog.InfoContext(ctx, "no platform organization configured, dogfooding meters every organization it sees")
-	} else {
-		selfOrgID = organizationID.String()
-	}
-	reporter, err := dogfooding.NewReporter(ctx, dogfooding.Config{
-		APIURL: s.cfg.Metered.APIURL,
-		OrgID:  selfOrgID,
-	}, s.cfg.Metered.TokenFile)
-	if err != nil {
-		return fmt.Errorf("initialize dogfooding reporter: %w", err)
+		return err
 	}
 	s.deps.UsageReporter = reporter
 	// The same client answers both questions, because both are questions for the
@@ -827,7 +810,6 @@ func (s *Server) registerGraphQL(router fiber.Router) {
 	gqlHandler := graphqlHandler.NewHandler(s.deps.DB, graphqlHandler.Config{
 		EnablePlayground:    s.cfg.GraphQL.PlaygroundEnabled,
 		EnableIntrospection: s.cfg.GraphQL.IntrospectionEnabled,
-		UsageReporter:       s.deps.UsageReporter,
 		// The same switch the modules that serve the add-ons over REST build.
 		BillingGate: gate.NewCached(
 			s.cfg.Billing.Enabled,

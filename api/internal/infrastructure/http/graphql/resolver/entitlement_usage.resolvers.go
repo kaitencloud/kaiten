@@ -45,7 +45,6 @@ func (r *entitlementUsageResolver) Provenance(ctx context.Context, obj *schema.E
 }
 
 // EntitlementUsage is the resolver for the entitlementUsage field.
-// Usage is billed by the loader (entitlement-values-checked), not here.
 func (r *instanceResolver) EntitlementUsage(ctx context.Context, obj *schema.Instance) ([]schema.EntitlementUsage, error) {
 	return instancesGraphql.LoadEntitlementUsage(ctx, obj.ID)
 }

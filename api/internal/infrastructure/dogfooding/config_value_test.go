@@ -14,6 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
+	// Aliased for the reason slugs.go aliases it: this package is itself named
+	// dogfooding.
+	slugs "github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 // configServer answers every entitlement read with status and body, both
@@ -30,7 +33,7 @@ func newConfigServer(t *testing.T) *configServer {
 	s := &configServer{}
 	s.answer(http.StatusOK, `{"value":{"type":"object","value":{"months":6}}}`)
 	s.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasSuffix(r.URL.Path, "/entitlements/"+UsageHistoryRetentionEntitlementSlug+"/usage") {
+		if !strings.HasSuffix(r.URL.Path, "/entitlements/"+slugs.UsageHistoryRetentionEntitlementSlug+"/usage") {
 			http.NotFound(w, r)
 			return
 		}
@@ -74,7 +77,7 @@ func TestConfigValueIsCachedForADay(t *testing.T) {
 	org := uuid.New()
 
 	for range 3 {
-		value, err := reporter.ConfigValue(t.Context(), org, UsageHistoryRetentionEntitlementSlug)
+		value, err := reporter.ConfigValue(t.Context(), org, slugs.UsageHistoryRetentionEntitlementSlug)
 		require.NoError(t, err)
 		require.JSONEq(t, `{"months":6}`, string(value))
 	}
@@ -82,7 +85,7 @@ func TestConfigValueIsCachedForADay(t *testing.T) {
 
 	server.answer(http.StatusOK, `{"value":{"type":"object","value":{"months":12}}}`)
 	reporter.configs.age()
-	value, err := reporter.ConfigValue(t.Context(), org, UsageHistoryRetentionEntitlementSlug)
+	value, err := reporter.ConfigValue(t.Context(), org, slugs.UsageHistoryRetentionEntitlementSlug)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"months":12}`, string(value))
 	require.EqualValues(t, 2, server.reads.Load())
@@ -93,17 +96,17 @@ func TestConfigValueAnswersTheLastKnownValueWhenTheAuthorityFails(t *testing.T) 
 	reporter := newConfigReporter(t, server.URL, uuid.New())
 	known, neverRead := uuid.New(), uuid.New()
 
-	_, err := reporter.ConfigValue(t.Context(), known, UsageHistoryRetentionEntitlementSlug)
+	_, err := reporter.ConfigValue(t.Context(), known, slugs.UsageHistoryRetentionEntitlementSlug)
 	require.NoError(t, err)
 
 	server.answer(http.StatusServiceUnavailable, `{"title":"unavailable"}`)
 	reporter.configs.age()
 
-	value, err := reporter.ConfigValue(t.Context(), known, UsageHistoryRetentionEntitlementSlug)
+	value, err := reporter.ConfigValue(t.Context(), known, slugs.UsageHistoryRetentionEntitlementSlug)
 	require.NoError(t, err, "a stale value beats no value")
 	require.JSONEq(t, `{"months":6}`, string(value))
 
-	_, err = reporter.ConfigValue(t.Context(), neverRead, UsageHistoryRetentionEntitlementSlug)
+	_, err = reporter.ConfigValue(t.Context(), neverRead, slugs.UsageHistoryRetentionEntitlementSlug)
 	require.Error(t, err, "an organization never read has no value to fall back on")
 	require.NotErrorIs(t, err, services.ErrNoLicensingAuthority)
 }
@@ -113,7 +116,7 @@ func TestConfigValueIsNilWhenTheLicenceDoesNotGrantIt(t *testing.T) {
 	server.answer(http.StatusNotFound, `{"title":"not found"}`)
 	reporter := newConfigReporter(t, server.URL, uuid.New())
 
-	value, err := reporter.ConfigValue(t.Context(), uuid.New(), UsageHistoryRetentionEntitlementSlug)
+	value, err := reporter.ConfigValue(t.Context(), uuid.New(), slugs.UsageHistoryRetentionEntitlementSlug)
 	require.NoError(t, err)
 	require.Nil(t, value)
 }
@@ -123,7 +126,7 @@ func TestConfigValueRefusesANonConfigEntitlement(t *testing.T) {
 	server.answer(http.StatusOK, `{"value":{"type":"number","value":6}}`)
 	reporter := newConfigReporter(t, server.URL, uuid.New())
 
-	_, err := reporter.ConfigValue(t.Context(), uuid.New(), UsageHistoryRetentionEntitlementSlug)
+	_, err := reporter.ConfigValue(t.Context(), uuid.New(), slugs.UsageHistoryRetentionEntitlementSlug)
 	require.Error(t, err)
 }
 
@@ -132,7 +135,7 @@ func TestConfigValueHasNoAuthorityForItsOwnOrganization(t *testing.T) {
 	own := uuid.New()
 	reporter := newConfigReporter(t, server.URL, own)
 
-	_, err := reporter.ConfigValue(t.Context(), own, UsageHistoryRetentionEntitlementSlug)
+	_, err := reporter.ConfigValue(t.Context(), own, slugs.UsageHistoryRetentionEntitlementSlug)
 	require.ErrorIs(t, err, services.ErrNoLicensingAuthority)
 	require.Zero(t, server.reads.Load())
 }

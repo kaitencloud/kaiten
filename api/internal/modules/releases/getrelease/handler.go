@@ -3,8 +3,6 @@ package getrelease
 import (
 	"context"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/releaselink"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/schema"
@@ -19,7 +17,6 @@ type Deps struct {
 	UserProvider  currentuser.Provider
 	Queries       *db.Queries
 	ComponentLink releaselink.Port
-	UsageReporter services.UsageReporter
 }
 
 type UseCase struct {
@@ -44,8 +41,6 @@ func (h *UseCase) Execute(ctx context.Context, slug string) (*schema.Release, er
 	if err != nil {
 		return nil, err
 	}
-
-	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.ReleaseReadEntitlementSlug)
 
 	return release, nil
 }

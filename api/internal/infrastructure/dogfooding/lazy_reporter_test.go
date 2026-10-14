@@ -3,7 +3,9 @@ package dogfooding
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -496,4 +498,101 @@ func TestReporter_ShouldSkipItsOwnOrganization(t *testing.T) {
 	if reporter.shouldSkip(uuid.New(), "customers") {
 		t.Fatalf("shouldSkip(another org) = true, want false")
 	}
+}
+
+// selfReportSink records every usage report's path and delta, and answers each one
+// with status.
+func selfReportSink(t *testing.T, status int) (string, *[]string, *sync.Mutex) {
+	t.Helper()
+
+	var mu sync.Mutex
+	reports := []string{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Value struct {
+				Value float64 `json:"value"`
+			} `json:"value"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		mu.Lock()
+		reports = append(reports, fmt.Sprintf("%s %s %v", r.Method, r.URL.Path, body.Value.Value))
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(`{"entitlementSlug":"customers","value":{"type":"number","value":1}}`))
+	}))
+	t.Cleanup(server.Close)
+
+	return server.URL, &reports, &mu
+}
+
+// With SelfReport, the deployment's own organization is reported like a customer,
+// not skipped -- and without asking the is-kaiten flag that exempts it, which is why
+// the sink sees usage reports and nothing else.
+func TestReporterSelfReportsThePlatformOrganization(t *testing.T) {
+	url, reports, mu := selfReportSink(t, http.StatusOK)
+
+	kaiten := uuid.New()
+	tokenFile := filepath.Join(t.TempDir(), "service-token")
+	require.NoError(t, os.WriteFile(tokenFile, []byte("token"), 0o600))
+	reporter, err := NewReporter(t.Context(), Config{APIURL: url, OrgID: kaiten.String(), SelfReport: true}, tokenFile)
+	require.NoError(t, err)
+	t.Cleanup(reporter.Close)
+
+	require.NoError(t, reporter.ReportAndEnforce(t.Context(), kaiten, "customers"))
+	require.NoError(t, reporter.Decrement(t.Context(), kaiten, "customers"))
+
+	mu.Lock()
+	defer mu.Unlock()
+	usage := "/api/instances/" + kaiten.String() + "/entitlements/customers/usage"
+	require.Equal(t, []string{"POST " + usage + " 1", "POST " + usage + " -1"}, *reports)
+}
+
+// Its reports never refuse anything: the organization reporting to itself is the
+// one that creates the catalogue and the instance it is counted against, so a
+// failure -- no instance yet, no credential yet, a limit -- is logged, not returned.
+func TestReporterNeverRefusesThePlatformOrganizationReportingToItself(t *testing.T) {
+	kaiten := uuid.New()
+
+	for name, status := range map[string]int{
+		"its instance does not exist yet": http.StatusNotFound,
+		"a limit is reached":              http.StatusConflict,
+		"the deployment fails":            http.StatusInternalServerError,
+	} {
+		t.Run(name, func(t *testing.T) {
+			url, _, _ := selfReportSink(t, status)
+			tokenFile := filepath.Join(t.TempDir(), "service-token")
+			require.NoError(t, os.WriteFile(tokenFile, []byte("token"), 0o600))
+			reporter, err := NewReporter(t.Context(), Config{APIURL: url, OrgID: kaiten.String(), SelfReport: true}, tokenFile)
+			require.NoError(t, err)
+			t.Cleanup(reporter.Close)
+
+			require.NoError(t, reporter.ReportAndEnforce(t.Context(), kaiten, "customers"))
+			require.NoError(t, reporter.Decrement(t.Context(), kaiten, "customers"))
+		})
+	}
+
+	t.Run("its credential is not written yet", func(t *testing.T) {
+		reporter, err := NewReporter(t.Context(), Config{APIURL: "http://example.com", OrgID: kaiten.String(), SelfReport: true},
+			filepath.Join(t.TempDir(), "missing-token"))
+		require.NoError(t, err)
+		t.Cleanup(reporter.Close)
+
+		ctx, cancel := context.WithTimeout(t.Context(), 200*time.Millisecond)
+		defer cancel()
+		require.NoError(t, reporter.ReportAndEnforce(ctx, kaiten, "customers"))
+	})
+
+	// Only the platform organization is exempt from refusal: a customer on the same
+	// deployment is still refused at its limit.
+	t.Run("a customer is still refused", func(t *testing.T) {
+		url, _, _ := selfReportSink(t, http.StatusConflict)
+		tokenFile := filepath.Join(t.TempDir(), "service-token")
+		require.NoError(t, os.WriteFile(tokenFile, []byte("token"), 0o600))
+		reporter, err := NewReporter(t.Context(), Config{APIURL: url, OrgID: kaiten.String(), SelfReport: true}, tokenFile)
+		require.NoError(t, err)
+		t.Cleanup(reporter.Close)
+
+		require.Error(t, reporter.Decrement(t.Context(), uuid.New(), "customers"))
+	})
 }

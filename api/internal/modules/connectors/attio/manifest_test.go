@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/common"
-	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 func TestManifestNamesTheConnectorTheWayEveryStoredRowDoes(t *testing.T) {
@@ -30,14 +29,12 @@ func TestManifestNamesTheConnectorTheWayEveryStoredRowDoes(t *testing.T) {
 	}
 }
 
-func TestManifestGatesActivationOnTheConnectorsOwnEntitlement(t *testing.T) {
-	slug := Manifest().EntitlementSlug
-	if slug == nil {
-		t.Fatal("Attio is an enterprise connector: its manifest must name the entitlement a license has to grant")
-	}
-	if *slug != dogfooding.ConnectorAttioEntitlementSlug {
-		t.Fatalf("the manifest gates on %q, but the entitlement catalogue declares %q",
-			*slug, dogfooding.ConnectorAttioEntitlementSlug)
+// Attio is included in every licence, so the entitlement catalogue declares no slug for
+// it. A manifest that still named one would gate activation on an entitlement nobody
+// creates, and every organization would be refused a connector it is sold.
+func TestManifestDoesNotGateActivation(t *testing.T) {
+	if slug := Manifest().EntitlementSlug; slug != nil {
+		t.Fatalf("the manifest gates on %q, which the entitlement catalogue does not declare", *slug)
 	}
 }
 

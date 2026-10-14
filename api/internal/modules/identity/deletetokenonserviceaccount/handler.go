@@ -7,9 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/pgnotify"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/tokencache"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
@@ -27,10 +25,9 @@ const TokenCacheInvalidationChannel = "identity_token_cache_invalidate"
 // which is intentionally pool-backed rather than transaction-scoped (it
 // runs after RevokeToken's own write already committed).
 type Deps struct {
-	UserProvider  currentuser.Provider
-	Queries       *db.Queries
-	Pool          *pgxpool.Pool
-	UsageReporter services.UsageReporter
+	UserProvider currentuser.Provider
+	Queries      *db.Queries
+	Pool         *pgxpool.Pool
 }
 
 type UseCase struct {
@@ -69,8 +66,6 @@ func (h *UseCase) Execute(ctx context.Context, serviceAccountSlug, tokenSlug str
 	if err := pgnotify.Publish(ctx, h.deps.Pool, TokenCacheInvalidationChannel, lookupHash); err != nil {
 		slog.WarnContext(ctx, "failed to publish token cache invalidation", "error", err)
 	}
-
-	h.deps.UsageReporter.DecrementAsync(user.OrganizationID, dogfooding.ServiceAccountTokenEntitlementSlug)
 
 	return nil
 }

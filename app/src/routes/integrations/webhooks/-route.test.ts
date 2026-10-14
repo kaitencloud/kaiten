@@ -40,7 +40,7 @@ describe('/integrations/webhooks guard', () => {
   });
 
   // A self-hosted deployment (no saas-api: 404), or an organization whose
-  // licence does not carry webhooks (saas-api refuses it: 403).
+  // licence grants 0 webhook events (saas-api refuses it: 403).
   it('is not found where they are not', async () => {
     expect(isNotFound(await outcomeOf(guardWith(false)))).toBe(true);
   });

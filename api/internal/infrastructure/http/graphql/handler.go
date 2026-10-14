@@ -21,7 +21,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/resolver"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	addonsGraphql "github.com/kaitencloud/kaiten/api/internal/modules/addons/graphql"
 	addonsdb "github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
 	billingGraphql "github.com/kaitencloud/kaiten/api/internal/modules/billing/graphql"
@@ -110,7 +109,6 @@ const (
 type Config struct {
 	EnablePlayground    bool
 	EnableIntrospection bool
-	UsageReporter       services.UsageReporter
 	// BillingGate is the switch the add-on catalogue sits behind, the one the
 	// REST operations that list it sit behind. The zero Gate is a closed one.
 	BillingGate gate.Gate
@@ -190,7 +188,7 @@ func newServer(pool *pgxpool.Pool, config Config) *handler.Server {
 // ever be charged.
 func newExecutableSchema(pool *pgxpool.Pool, config Config) graphql.ExecutableSchema {
 	return generated.NewExecutableSchema(generated.Config{
-		Resolvers:  resolver.NewResolver(pool, config.UsageReporter, config.BillingGate),
+		Resolvers:  resolver.NewResolver(pool, config.BillingGate),
 		Complexity: newComplexityRoot(),
 	})
 }
@@ -294,7 +292,7 @@ func withOperationDeadline(next http.Handler) http.Handler {
 // newLoaders builds the request-scoped dataloaders.
 // Each module registers its own dataloaders.
 func (h *Handler) newLoaders() *dataloader.Loaders {
-	loaders := dataloader.NewLoaders(h.config.UsageReporter)
+	loaders := dataloader.NewLoaders()
 	addonsGraphql.RegisterDataloaders(loaders, addonsdb.New(h.pool))
 	billingGraphql.RegisterDataloaders(loaders, billingdb.New(h.pool))
 	customersGraphql.RegisterDataloaders(loaders, customersdb.New(h.pool))

@@ -22,13 +22,10 @@ import (
 	"github.com/kaitencloud/kaiten/api/config"
 	dogfoodinginfra "github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
-	"github.com/kaitencloud/kaiten/api/internal/modules/components/createcomponent"
 	componentschema "github.com/kaitencloud/kaiten/api/internal/modules/components/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/createcustomer"
 	customerevents "github.com/kaitencloud/kaiten/api/internal/modules/customers/events"
 	customerschema "github.com/kaitencloud/kaiten/api/internal/modules/customers/schema"
-	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/createdeploymentzone"
-	deploymentzonesdb "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlement"
 	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
@@ -44,7 +41,6 @@ import (
 	licensesdb "github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	organizationdb "github.com/kaitencloud/kaiten/api/internal/modules/organization/infrastructure/db"
-	"github.com/kaitencloud/kaiten/api/internal/modules/releases/createrelease"
 	"github.com/kaitencloud/kaiten/api/internal/seeder"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
@@ -175,76 +171,6 @@ func TestDogfooding(t *testing.T) {
 		}
 	})
 
-	t.Run("WhenNonKaitenOrgGetsCustomerViaREST_ReportsReadUsageToKaitenOrg", func(t *testing.T) {
-		t.Cleanup(func() {
-			openfeature.Shutdown()
-			require.NoError(t, testDb.Reset())
-		})
-
-		_, sinkHTTP := newSinkServer(t)
-		setup := seedDogfoodingTarget(t, testDb.DefaultData.OrganizationID)
-		usageReporter := newSynchronousUsageReporter(t, sinkHTTP.URL, setup)
-		sourceServer := newDogfoodingSourceServer(t, testDb.DefaultData.OrganizationID, sinkHTTP.URL, setup, usageReporter)
-
-		customer := createSourceCustomer(t, sourceServer, testDb.DefaultData.OrganizationID, testDb.DefaultData.UserID, "Dogfooding REST Read")
-		req := commonfixture.NewJSONRequest(t, http.MethodGet, "/api/customers/"+customer.Slug, nil)
-		resp, err := sourceServer.App.Test(req, fiber.TestConfig{})
-		require.NoError(t, err)
-		defer commonfixture.MustCloseBody(t, resp.Body)
-		commonfixture.AssertJSONResponse[customerschema.Customer](t, resp, fiber.StatusOK)
-		require.NoError(t, waitForUsageReport(usageReporter))
-
-		waitForReportedUsage(t, setup.KaitenOrgID, testDb.DefaultData.OrganizationID, "customers-read", 1, 1)
-	})
-
-	t.Run("WhenNonKaitenOrgQueriesCustomersViaGraphQL_ReportsReadUsageToKaitenOrg", func(t *testing.T) {
-		t.Cleanup(func() {
-			openfeature.Shutdown()
-			require.NoError(t, testDb.Reset())
-		})
-
-		_, sinkHTTP := newSinkServer(t)
-		setup := seedDogfoodingTarget(t, testDb.DefaultData.OrganizationID)
-		usageReporter := newSynchronousUsageReporter(t, sinkHTTP.URL, setup)
-		sourceServer := newDogfoodingSourceServer(t, testDb.DefaultData.OrganizationID, sinkHTTP.URL, setup, usageReporter)
-
-		_ = createSourceCustomer(t, sourceServer, testDb.DefaultData.OrganizationID, testDb.DefaultData.UserID, "Dogfooding GraphQL Read")
-		executeGraphQL(t, sourceServer, `{
-			customers {
-				items {
-					id
-					name
-				}
-			}
-		}`)
-		require.NoError(t, waitForUsageReport(usageReporter))
-
-		waitForReportedUsage(t, setup.KaitenOrgID, testDb.DefaultData.OrganizationID, "customers-read", 1, 1)
-	})
-
-	t.Run("WhenNonKaitenOrgUpdatesCustomer_ReportsUsageToKaitenOrg", func(t *testing.T) {
-		t.Cleanup(func() {
-			openfeature.Shutdown()
-			require.NoError(t, testDb.Reset())
-		})
-
-		_, sinkHTTP := newSinkServer(t)
-		setup := seedDogfoodingTarget(t, testDb.DefaultData.OrganizationID)
-		usageReporter := newSynchronousUsageReporter(t, sinkHTTP.URL, setup)
-		sourceServer := newDogfoodingSourceServer(t, testDb.DefaultData.OrganizationID, sinkHTTP.URL, setup, usageReporter)
-
-		customer := createSourceCustomer(t, sourceServer, testDb.DefaultData.OrganizationID, testDb.DefaultData.UserID, "Dogfooding Update")
-		payload := customerschema.Customer{Name: "Dogfooding Update Renamed"}
-		req := commonfixture.NewJSONRequest(t, http.MethodPut, "/api/customers/"+customer.Slug, payload)
-		resp, err := sourceServer.App.Test(req, fiber.TestConfig{})
-		require.NoError(t, err)
-		defer commonfixture.MustCloseBody(t, resp.Body)
-		require.Equal(t, fiber.StatusNoContent, resp.StatusCode)
-		require.NoError(t, waitForUsageReport(usageReporter))
-
-		waitForReportedUsage(t, setup.KaitenOrgID, testDb.DefaultData.OrganizationID, "customers-updated", 1, 1)
-	})
-
 	t.Run("WhenNonKaitenOrgDeletesCustomer_ReportsUsageToKaitenOrg", func(t *testing.T) {
 		t.Cleanup(func() {
 			openfeature.Shutdown()
@@ -289,49 +215,6 @@ func TestDogfooding(t *testing.T) {
 		require.NoError(t, waitForUsageReport(usageReporter))
 
 		waitForReportedUsage(t, setup.KaitenOrgID, testDb.DefaultData.OrganizationID, "components", 1, 1)
-	})
-
-	t.Run("WhenNonKaitenOrgQueriesReleasesWithRelationsViaGraphQL_ReportsUsageToKaitenOrg", func(t *testing.T) {
-		t.Cleanup(func() {
-			openfeature.Shutdown()
-			require.NoError(t, testDb.Reset())
-		})
-
-		_, sinkHTTP := newSinkServer(t)
-		setup := seedDogfoodingTarget(t, testDb.DefaultData.OrganizationID)
-		usageReporter := newSynchronousUsageReporter(t, sinkHTTP.URL, setup)
-		sourceServer := newDogfoodingSourceServer(t, testDb.DefaultData.OrganizationID, sinkHTTP.URL, setup, usageReporter)
-
-		createSourceReleaseRelationsFixture(
-			t,
-			sourceServer,
-			testDb.DefaultData.OrganizationID,
-			testDb.DefaultData.UserID,
-			"Dogfooding Release GraphQL",
-		)
-
-		executeGraphQL(t, sourceServer, `{
-			releases {
-				items {
-					id
-					components {
-						id
-					}
-					deploymentZones {
-						id
-					}
-					instances {
-						id
-					}
-				}
-			}
-		}`)
-		require.NoError(t, waitForUsageReports(usageReporter, 4))
-
-		waitForReportedUsage(t, setup.KaitenOrgID, testDb.DefaultData.OrganizationID, "releases-read", 1, 1)
-		waitForReportedUsage(t, setup.KaitenOrgID, testDb.DefaultData.OrganizationID, "components-read", 1, 1)
-		waitForReportedUsage(t, setup.KaitenOrgID, testDb.DefaultData.OrganizationID, "deployment-zones-read", 1, 1)
-		waitForReportedUsage(t, setup.KaitenOrgID, testDb.DefaultData.OrganizationID, "instances-read", 1, 1)
 	})
 
 	t.Run("WhenNonKaitenOrgChecksEntitlementValue_ReportsUsageToKaitenOrg", func(t *testing.T) {
@@ -712,7 +595,7 @@ func TestDogfooding(t *testing.T) {
 		// stay at zero for a full settle window rather than merely starting there.
 		deadline := time.Now().Add(1 * time.Second)
 		for time.Now().Before(deadline) {
-			for _, entitlementSlug := range []string{"customers", "customers-read", "customers-updated"} {
+			for _, entitlementSlug := range []string{"customers"} {
 				usage, status, err := getUsageMetric(sinkHTTP.URL, setup.PlainToken, organizationID, entitlementSlug)
 				require.NoError(t, err)
 				require.Equal(t, fiber.StatusOK, status)
@@ -1015,15 +898,6 @@ func waitForUsageReport(reporter *synchronousUsageReporter) error {
 	}
 }
 
-func waitForUsageReports(reporter *synchronousUsageReporter, count int) error {
-	for range count {
-		if err := waitForUsageReport(reporter); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func ensureNoUsageReport(reporter *synchronousUsageReporter, duration time.Duration) error {
 	select {
 	case err := <-reporter.results:
@@ -1049,27 +923,6 @@ func createSourceCustomer(t *testing.T, sourceServer *tests.TestServer, organiza
 	require.NoError(t, err)
 
 	return customer
-}
-
-func createSourceComponent(t *testing.T, sourceServer *tests.TestServer, organizationID, userID uuid.UUID, name string) *componentschema.Component {
-	t.Helper()
-
-	repo := createcomponent.NewCommandRepository(uow.NewUnitOfWork(sourceServer.Dependencies.DB))
-	componentSlug := slugutil.Generate(name)
-	description := "Dogfooding component fixture"
-	component, err := repo.CreateComponent(
-		t.Context(),
-		name,
-		"v1.0.0",
-		componentSlug,
-		&description,
-		nil,
-		organizationID,
-		userID,
-	)
-	require.NoError(t, err)
-
-	return component
 }
 
 // postSourceCustomer, getSourceOK, updateSourceCustomer and
@@ -1235,76 +1088,6 @@ func createSourceUsageFixture(t *testing.T, sourceServer *tests.TestServer, orga
 	require.NoError(t, err)
 
 	return instance, entitlement
-}
-
-func createSourceReleaseRelationsFixture(t *testing.T, sourceServer *tests.TestServer, organizationID, userID uuid.UUID, name string) {
-	t.Helper()
-
-	component := createSourceComponent(t, sourceServer, organizationID, userID, name+" Component")
-
-	releaseRepo := createrelease.NewCommandRepository(uow.NewUnitOfWork(sourceServer.Dependencies.DB))
-	releaseSlug := slugutil.Generate(name + " Release")
-	release, err := releaseRepo.CreateRelease(
-		t.Context(),
-		"v1.0.0",
-		releaseSlug,
-		ptr.To("Dogfooding release fixture"),
-		organizationID,
-		userID,
-	)
-	require.NoError(t, err)
-	require.NoError(t, releaseRepo.AddComponentToRelease(t.Context(), component.ID, release.ID, organizationID))
-
-	deploymentZoneRepo := createdeploymentzone.NewCommandRepository(uow.NewUnitOfWork(sourceServer.Dependencies.DB))
-	deploymentZoneSlug := slugutil.Generate(name + " Zone")
-	deploymentZone, err := deploymentZoneRepo.CreateDeploymentZone(
-		t.Context(),
-		name+" Zone",
-		deploymentZoneSlug,
-		"production",
-		map[string]any{"provider": "dogfooding"},
-		"Dogfooding deployment zone fixture",
-		nil,
-		organizationID,
-		userID,
-	)
-	require.NoError(t, err)
-
-	_, err = deploymentzonesdb.New(sourceServer.Dependencies.DB).CreateDeployment(t.Context(), deploymentzonesdb.CreateDeploymentParams{
-		DeploymentZoneID: deploymentZone.ID,
-		ReleaseID:        release.ID,
-		OrganizationID:   organizationID,
-		UserID:           userID,
-	})
-	require.NoError(t, err)
-
-	customer := createSourceCustomer(t, sourceServer, organizationID, userID, name+" Customer")
-
-	licenseRepo := createlicense.NewCommandRepository(uow.NewUnitOfWork(sourceServer.Dependencies.DB))
-	licenseSlug := slugutil.Generate(name + " License")
-	versionName := "v1"
-	license, err := licenseRepo.CreateLicense(t.Context(), &createlicense.Command{
-		Name:        name + " License",
-		Slug:        &licenseSlug,
-		Description: "Dogfooding release relations fixture",
-		Type:        licenseschema.Development,
-		VersionName: &versionName,
-	}, organizationID)
-	require.NoError(t, err)
-
-	instanceRepo := createinstance.NewCommandRepository(uow.NewUnitOfWork(sourceServer.Dependencies.DB))
-	instanceSlug := slugutil.Generate(name + " Instance")
-	_, err = instanceRepo.CreateInstance(t.Context(), &createinstance.Command{
-		Name:             name + " Instance",
-		Slug:             &instanceSlug,
-		Description:      "Dogfooding release relations instance",
-		StartLicenseDate: time.Now().UTC(),
-		EndLicenseDate:   time.Now().UTC().AddDate(1, 0, 0),
-		LicenseID:        license.ID,
-		CustomerID:       customer.ID,
-		DeploymentZoneID: &deploymentZone.ID,
-	}, userID, organizationID)
-	require.NoError(t, err)
 }
 
 func seedSourceFeatureFlag(t *testing.T, sourceServer *tests.TestServer) {

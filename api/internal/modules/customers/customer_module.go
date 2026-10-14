@@ -55,23 +55,20 @@ func NewUseCases(svc services.Container) *UseCases {
 			Queries:      queries,
 		}),
 		GetCustomer: getcustomer.NewUseCase(getcustomer.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		GetCustomers: getcustomers.NewUseCase(getcustomers.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		UpdateIntegration: updateintegrations.NewUseCase(updateintegrations.Deps{
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
 		}),
 		UpdateCustomer: updatecustomer.NewUseCase(updatecustomer.Deps{
-			UserProvider:  svc.UserProvider,
-			Uof:           svc.Uof,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Uof:          svc.Uof,
 		}),
 	}
 }

@@ -10,15 +10,15 @@ import {
 import { createSdkServiceAccount } from './integrations.scenarios';
 
 // Outbound webhooks are served by Kaiten Cloud's saas-api alone, and only to an
-// organization whose Kaiten licence carries them. The console shows them where
-// GET /api/webhooks answers, and nowhere else.
+// organization whose Kaiten licence grants it webhook events (any number but
+// 0). The console shows them where GET /api/webhooks answers, and nowhere else.
 
 const hidden: [string, (page: Page) => Promise<void>][] = [
   // No stub: the routes answer 404, as they do where no saas-api runs.
   ['on a self-hosted console', async () => {}],
   // saas-api answers 403 Webhooks.NotEntitled on every webhooks route.
   [
-    'for an organization whose licence lacks them',
+    'for an organization whose licence grants no webhook events',
     installWebhooksNotEntitledStub,
   ],
 ];

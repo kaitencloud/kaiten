@@ -5,7 +5,6 @@ import (
 
 	dataloaderLib "github.com/graph-gophers/dataloader/v7"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
@@ -18,14 +17,11 @@ const (
 )
 
 // RegisterDataloaders registers entitlement dataloaders to the shared loaders
-// container, each with the entitlement its reads are billed on -- the
-// GraphQL counterpart of the single TrackAsync the equivalent REST handler
-// fires (see dataloader.Metered).
+// container.
 func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries) {
-	// LicenseEntitlement.entitlement -- the traversal REST bills as
 	// GET /entitlements/{slug}.
 	loaders.Register(EntitlementBySlugLoaderName, dataloaderLib.NewBatchedLoader(
-		dataloader.Metered(loaders, dogfooding.EntitlementReadEntitlementSlug, newEntitlementBySlugBatchFn(queries)),
+		newEntitlementBySlugBatchFn(queries),
 	))
 }
 

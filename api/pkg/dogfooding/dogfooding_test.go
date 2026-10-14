@@ -53,21 +53,41 @@ func TestEntitlementSlugsHasNoDuplicates(t *testing.T) {
 	}
 }
 
-// Metered slugs are the ones a finite threshold is set on, so one that is not
-// in the catalogue at all would gate a create path against an entitlement
-// nobody created.
-func TestMeteredSlugsAreCatalogueSlugs(t *testing.T) {
-	for _, slug := range dogfooding.MeteredEntitlementSlugs {
+// Gated slugs are the ones a create is refused on, so one that is not in the
+// catalogue at all would gate a create path against an entitlement nobody
+// created -- and every create on it would fail closed.
+func TestGatedSlugsAreCatalogueSlugs(t *testing.T) {
+	for _, slug := range dogfooding.GatedEntitlementSlugs {
 		if !slices.Contains(dogfooding.EntitlementSlugs, slug) {
-			t.Errorf("metered slug %q is not in EntitlementSlugs", slug)
+			t.Errorf("gated slug %q is not in EntitlementSlugs", slug)
 		}
 	}
 }
 
-// A boolean slug the catalogue never creates is a connector that reads as unlicensed
-// for everybody; one created as a NUMBER instead is a connector that reads as
-// unlicensed because the value has the wrong shape. Both are silent, so both are
-// pinned here.
+// A config slug the catalogue never creates is a contract term no licence can
+// carry, and one created as a NUMBER instead is a term whose value is refused
+// for having the wrong shape. Both are silent until somebody writes a licence.
+func TestConfigSlugsAreCatalogueSlugs(t *testing.T) {
+	for _, slug := range dogfooding.ConfigEntitlementSlugs {
+		if !slices.Contains(dogfooding.EntitlementSlugs, slug) {
+			t.Errorf("config slug %q is not in EntitlementSlugs", slug)
+		}
+	}
+}
+
+// A contract term has no count, so a create gated on one could never be
+// allowed: the gate would read a JSON object where it expects a threshold.
+func TestConfigAndGatedSlugsAreDisjoint(t *testing.T) {
+	for _, slug := range dogfooding.ConfigEntitlementSlugs {
+		if slices.Contains(dogfooding.GatedEntitlementSlugs, slug) {
+			t.Errorf("%q is listed as both a config and a gated slug", slug)
+		}
+	}
+}
+
+// A boolean slug the catalogue never creates is a feature that reads as unlicensed
+// for everybody; one created as a NUMBER instead reads as unlicensed because the
+// value has the wrong shape. Both are silent, so both are pinned here.
 func TestBooleanSlugsAreCatalogueSlugs(t *testing.T) {
 	for _, slug := range dogfooding.BooleanEntitlementSlugs {
 		if !slices.Contains(dogfooding.EntitlementSlugs, slug) {
@@ -76,25 +96,16 @@ func TestBooleanSlugsAreCatalogueSlugs(t *testing.T) {
 	}
 }
 
-// The two lists say what TYPE an entitlement is created as, so a slug in both would
-// be a contradiction the catalogue could only resolve by picking one.
-func TestBooleanAndMeteredSlugsAreDisjoint(t *testing.T) {
+// The lists say what TYPE an entitlement is created as, so a slug in two of them
+// would be a contradiction the catalogue could only resolve by picking one. A
+// gated slug carries a threshold, which neither a grant nor a setting has.
+func TestBooleanSlugsAreDisjointFromTheOtherTypes(t *testing.T) {
 	for _, slug := range dogfooding.BooleanEntitlementSlugs {
-		if slices.Contains(dogfooding.MeteredEntitlementSlugs, slug) {
-			t.Errorf("%q is listed as both a boolean and a metered slug", slug)
+		if slices.Contains(dogfooding.ConfigEntitlementSlugs, slug) {
+			t.Errorf("%q is listed as both a boolean and a config slug", slug)
 		}
-	}
-}
-
-// A config slug the catalogue never creates, or creates with another type, is a
-// setting every organization reads as unknown.
-func TestConfigSlugsAreCatalogueSlugsOfTheirOwnType(t *testing.T) {
-	for _, slug := range dogfooding.ConfigEntitlementSlugs {
-		if !slices.Contains(dogfooding.EntitlementSlugs, slug) {
-			t.Errorf("config slug %q is not in EntitlementSlugs", slug)
-		}
-		if slices.Contains(dogfooding.BooleanEntitlementSlugs, slug) || slices.Contains(dogfooding.MeteredEntitlementSlugs, slug) {
-			t.Errorf("config slug %q is also listed as a boolean or metered slug", slug)
+		if slices.Contains(dogfooding.GatedEntitlementSlugs, slug) {
+			t.Errorf("%q is listed as both a boolean and a gated slug", slug)
 		}
 	}
 }
