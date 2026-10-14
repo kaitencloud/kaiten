@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -39,6 +40,12 @@ pointing at it stays valid and the audit trail keeps naming a real user. Its
 memberships are NOT removed: a user with no live memberships reaches nothing, and
 ` + "`membership delete`" + ` is the command for detaching one tenant at a time.
 
+Like the endpoint, it gives back the user's seats, one per organization they were a
+member of, when this process meters usage: set the same KAITEN_METERED_* variables
+the API reads (KAITEN_METERED_ENABLED, _API_URL, _TOKEN_FILE and the organization).
+Without them the user is deleted and their seats stay counted, and the command
+says so.
+
 system:kaiten cannot be deleted. A BEFORE UPDATE trigger refuses it, and the use
 case reports that refusal rather than pre-checking for it -- the invariant belongs
 to the database, and a check-then-delete would be a race.
@@ -70,6 +77,12 @@ Destructive, so it is guarded the same way ` + "`migrate down-to`" + ` is: pass 
 
 			if err := app.Platform().DeleteUser(cmd.Context(), localPlatform(), userID); err != nil {
 				return remapUserDelete(err, externalID)
+			}
+			// Said rather than skipped: on a deployment that meters, the user's
+			// seats stay counted unless this process meters too.
+			if !meteringEnabled() {
+				slog.WarnContext(cmd.Context(), "KAITEN_METERED_ENABLED is not set, so the user's seats were not released: "+
+					"run this with the API's KAITEN_METERED_* settings on a deployment that meters")
 			}
 
 			_, err = fmt.Fprintf(cmd.OutOrStdout(), "deleted user %s\t%s\n", userID, externalID)

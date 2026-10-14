@@ -7,9 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/schema"
@@ -20,9 +18,8 @@ import (
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
-	UserProvider  currentuser.Provider
-	UsageReporter services.UsageReporter
-	Uof           *uow.UnitOfWork
+	UserProvider currentuser.Provider
+	Uof          *uow.UnitOfWork
 }
 
 type UseCase struct {
@@ -58,13 +55,7 @@ func (h *UseCase) Execute(ctx context.Context, command *CreateMetadataFieldInput
 		return nil, err
 	}
 
-	// A metadata field is a resource the organization provisions, so its
-	// creation is enforced and billed like every other create* handler's.
-	return dogfooding.EnforceAndPersist(ctx, h.deps.UsageReporter, u.OrganizationID, dogfooding.MetadataFieldEntitlementSlug,
-		"CreateMetadataField.MetadataFieldLimitReached", "Metadata field creation limit reached for this organization", nil,
-		func(ctx context.Context) (*schema.MetadataField, error) {
-			return h.persist(ctx, command, schemaBytes, u.OrganizationID, u.ID)
-		})
+	return h.persist(ctx, command, schemaBytes, u.OrganizationID, u.ID)
 }
 
 func (h *UseCase) persist(

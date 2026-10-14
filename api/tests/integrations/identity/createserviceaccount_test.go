@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/createserviceaccount"
 	identitydb "github.com/kaitencloud/kaiten/api/internal/modules/identity/infrastructure/db"
@@ -117,7 +116,6 @@ func TestCreateServiceAccount(t *testing.T) {
 				UserID:         creatorID,
 				OrganizationID: testDb.DefaultData.OrganizationID,
 			},
-			UsageReporter: services.NoopUsageReporter{},
 		})
 
 		_, err := handler.Execute(t.Context(), "CI/CD", nil)

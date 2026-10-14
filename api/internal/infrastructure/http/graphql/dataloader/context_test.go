@@ -22,7 +22,7 @@ func stubLoader[K comparable, V any]() *dataloaderLib.Loader[K, V] {
 // registration mistake and says so, naming the loader, rather than a nil the
 // call site turns into an authentication failure the client never caused.
 func TestGetLoaderReportsAnAbsentLoaderAsAWiringBug(t *testing.T) {
-	registered := NewLoaders(nil)
+	registered := NewLoaders()
 	registered.Register("PresentLoader", stubLoader[string, int]())
 
 	tests := []struct {
@@ -50,7 +50,7 @@ func TestGetLoaderReportsAnAbsentLoaderAsAWiringBug(t *testing.T) {
 // return a silent nil: the name is registered, but under different key or
 // value types than the caller asks for.
 func TestGetLoaderRejectsATypeMismatch(t *testing.T) {
-	loaders := NewLoaders(nil)
+	loaders := NewLoaders()
 	loaders.Register("PresentLoader", stubLoader[string, int]())
 
 	loader, err := GetLoader[string, bool](loaders, "PresentLoader")
@@ -63,7 +63,7 @@ func TestGetLoaderRejectsATypeMismatch(t *testing.T) {
 // TestGetLoaderReturnsTheRegisteredLoader is the happy path: the container
 // hands back the very loader that was registered, not a copy.
 func TestGetLoaderReturnsTheRegisteredLoader(t *testing.T) {
-	loaders := NewLoaders(nil)
+	loaders := NewLoaders()
 	registered := stubLoader[string, int]()
 	loaders.Register("PresentLoader", registered)
 

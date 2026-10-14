@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 	dataloaderLib "github.com/graph-gophers/dataloader/v7"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
@@ -18,17 +17,11 @@ const (
 )
 
 // RegisterDataloaders registers customer dataloaders to the shared loaders
-// container, each with the entitlement its reads are billed on -- the
-// GraphQL counterpart of the single TrackAsync the equivalent REST handler
-// fires (see dataloader.Metered).
+// container.
 func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries) {
-	// Instance.customer -- the traversal REST bills as GET /customers/{id}.
 	loaders.Register(CustomerLoaderName, dataloaderLib.NewBatchedLoader(
-		dataloader.Metered(loaders, dogfooding.CustomerReadEntitlementSlug, newCustomerBatchFn(queries)),
+		newCustomerBatchFn(queries),
 	))
-	// Customer.integrations is a projection of the customer row whose read
-	// was already billed: GET /customers returns integrations inline in the
-	// same response, for the same one customers-read. Unmetered on purpose.
 	loaders.Register(CustomerIntegrationsLoaderName, dataloaderLib.NewBatchedLoader(
 		newCustomerIntegrationsBatchFn(queries),
 	))

@@ -8,7 +8,6 @@ package resolver
 import (
 	"context"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	entitlementsGraphql "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/graphql"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 )
@@ -21,6 +20,5 @@ func (r *queryResolver) Entitlements(ctx context.Context, limit *int, cursor *st
 		return nil, err
 	}
 
-	r.reportIfNeeded(ctx, dogfooding.EntitlementReadEntitlementSlug)
 	return page, nil
 }

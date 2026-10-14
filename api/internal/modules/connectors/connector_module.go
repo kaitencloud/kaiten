@@ -132,19 +132,16 @@ func newAttioConsumer(svc services.Container, queries *db.Queries) *attio.Consum
 		Activations:  activation.NewChecker(activation.NewQueryRepository(queries)),
 		Store: attio.NewStore(attio.StoreDeps{
 			Customer: getcustomer.NewUseCase(getcustomer.Deps{
-				UserProvider:  svc.UserProvider,
-				Queries:       customerQueries,
-				UsageReporter: svc.UsageReporter,
+				UserProvider: svc.UserProvider,
+				Queries:      customerQueries,
 			}),
 			License: getlicense.NewUseCase(getlicense.Deps{
-				UserProvider:  svc.UserProvider,
-				Queries:       licensedb.New(svc.Uof.Ambient()),
-				UsageReporter: svc.UsageReporter,
+				UserProvider: svc.UserProvider,
+				Queries:      licensedb.New(svc.Uof.Ambient()),
 			}),
 			DeploymentZone: getdeploymentzone.NewUseCase(getdeploymentzone.Deps{
-				UserProvider:  svc.UserProvider,
-				Queries:       zonedb.New(svc.Uof.Ambient()),
-				UsageReporter: svc.UsageReporter,
+				UserProvider: svc.UserProvider,
+				Queries:      zonedb.New(svc.Uof.Ambient()),
 			}),
 			CustomerLink: customergetintegrations.NewUseCase(customergetintegrations.Deps{
 				UserProvider: svc.UserProvider,

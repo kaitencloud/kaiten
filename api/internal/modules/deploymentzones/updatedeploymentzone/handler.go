@@ -9,9 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/createdeployment"
 	deploymentZoneEvents "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/events"
@@ -29,7 +27,6 @@ import (
 type Deps struct {
 	UserProvider         currentuser.Provider
 	Uof                  *uow.UnitOfWork
-	UsageReporter        services.UsageReporter
 	MetadataFieldsLister validator.MetadataFieldsLister
 }
 
@@ -129,8 +126,6 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 	if err != nil {
 		return err
 	}
-
-	h.deps.UsageReporter.TrackAsync(u.OrganizationID, dogfooding.DeploymentZoneUpdatedEntitlementSlug)
 
 	return nil
 }

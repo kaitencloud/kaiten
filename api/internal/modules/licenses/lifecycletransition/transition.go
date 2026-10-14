@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/events"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
@@ -105,7 +104,6 @@ func (h *UseCase) Execute(ctx context.Context, slug string) (*schema.License, er
 	}
 
 	// A lifecycle move is an update of the license, and billed as one.
-	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.LicenseUpdatedEntitlementSlug)
 
 	return moved, nil
 }

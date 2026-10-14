@@ -50,19 +50,16 @@ func NewUseCases(svc services.Container) *UseCases {
 			UsageReporter: svc.UsageReporter,
 		}),
 		GetEntitlement: getentitlement.NewUseCase(getentitlement.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		GetEntitlements: getentitlements.NewUseCase(getentitlements.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		UpdateEntitlement: updateentitlement.NewUseCase(updateentitlement.Deps{
-			UserProvider:  svc.UserProvider,
-			Uof:           svc.Uof,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Uof:          svc.Uof,
 		}),
 		CreateEntitlementGroup: createentitlementgroup.NewUseCase(createentitlementgroup.Deps{
 			UserProvider:  svc.UserProvider,
@@ -70,19 +67,16 @@ func NewUseCases(svc services.Container) *UseCases {
 			Uof:           svc.Uof,
 		}),
 		GetEntitlementGroup: getentitlementgroup.NewUseCase(getentitlementgroup.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		GetEntitlementGroups: getentitlementgroups.NewUseCase(getentitlementgroups.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		UpdateEntitlementGroup: updateentitlementgroup.NewUseCase(updateentitlementgroup.Deps{
-			UserProvider:  svc.UserProvider,
-			UsageReporter: svc.UsageReporter,
-			Uof:           svc.Uof,
+			UserProvider: svc.UserProvider,
+			Uof:          svc.Uof,
 		}),
 		DeleteEntitlementGroup: deleteentitlementgroup.NewUseCase(deleteentitlementgroup.Deps{
 			UserProvider:  svc.UserProvider,
@@ -90,19 +84,16 @@ func NewUseCases(svc services.Container) *UseCases {
 			Uof:           svc.Uof,
 		}),
 		AddEntitlementToGroup: addentitlementtogroup.NewUseCase(addentitlementtogroup.Deps{
-			UserProvider:  svc.UserProvider,
-			UsageReporter: svc.UsageReporter,
-			Uof:           svc.Uof,
+			UserProvider: svc.UserProvider,
+			Uof:          svc.Uof,
 		}),
 		RemoveEntitlementFromGroup: removeentitlementfromgroup.NewUseCase(removeentitlementfromgroup.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		GetEntitlementGroupUsage: getentitlementgroupusage.NewUseCase(getentitlementgroupusage.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 	}
 }

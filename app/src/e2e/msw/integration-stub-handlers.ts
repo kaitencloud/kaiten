@@ -38,8 +38,8 @@ export function integrationStubHandlers(
           ),
         ]
       : []),
-    // Kaiten Cloud refusing an organization whose licence does not carry the
-    // webhooks entitlement: every webhooks route, as saas-api does.
+    // Kaiten Cloud refusing an organization whose licence grants it 0 webhook
+    // events: every webhooks route, as saas-api does.
     ...(stubs.webhooksNotEntitled
       ? [
           http.all(WEBHOOKS_ROUTES, () =>
@@ -49,7 +49,7 @@ export function integrationStubHandlers(
                 title: 'Forbidden',
                 code: 'Webhooks.NotEntitled',
                 detail:
-                  "This organization's licence does not include outbound webhooks",
+                  "This organization's licence allows no webhook events",
               },
               { status: 403 },
             ),

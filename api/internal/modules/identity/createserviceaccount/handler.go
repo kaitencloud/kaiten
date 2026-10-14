@@ -6,8 +6,6 @@ import (
 	"fmt"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/schema"
@@ -26,10 +24,9 @@ const IDSize = 32
 // port (see addmembership) -- this module never imports organization's
 // generated db package directly.
 type Deps struct {
-	UserProvider  currentuser.Provider
-	UsageReporter services.UsageReporter
-	Uof           *uow.UnitOfWork
-	Membership    *addmembership.UseCase
+	UserProvider currentuser.Provider
+	Uof          *uow.UnitOfWork
+	Membership   *addmembership.UseCase
 }
 
 type UseCase struct {
@@ -99,27 +96,23 @@ func (h *UseCase) Execute(ctx context.Context, name string, slug *string) (*sche
 		}, nil
 	}
 
-	return dogfooding.EnforceAndPersist(ctx, h.deps.UsageReporter, user.OrganizationID, dogfooding.ServiceAccountEntitlementSlug,
-		"CreateServiceAccount.ServiceAccountLimitReached", "Service account creation limit reached for this organization", nil,
-		func(_ context.Context) (*schema.ServiceAccount, error) {
-			if slug != nil {
-				resolvedSlug, err := slugutil.New(*slug)
-				if err != nil {
-					return nil, kaitenerrors.Validation("CreateServiceAccount.InvalidSlug", slugutil.InvalidReason(*slug))
-				}
-				return attempt(resolvedSlug.String())
-			}
+	if slug != nil {
+		resolvedSlug, err := slugutil.New(*slug)
+		if err != nil {
+			return nil, kaitenerrors.Validation("CreateServiceAccount.InvalidSlug", slugutil.InvalidReason(*slug))
+		}
+		return attempt(resolvedSlug.String())
+	}
 
-			// No caller-supplied slug: derive one from the name. GenerateUnique's
-			// random suffix makes a database-level collision astronomically
-			// unlikely but, per its own doc comment, not impossible -- so a rare
-			// conflict is retried with a freshly generated slug rather than
-			// surfaced as a hard failure for something outside the caller's
-			// control.
-			return slugutil.Retry(
-				slugutil.DefaultMaxAttempts,
-				func() (string, error) { return slugutil.GenerateUnique(name) },
-				attempt,
-			)
-		})
+	// No caller-supplied slug: derive one from the name. GenerateUnique's
+	// random suffix makes a database-level collision astronomically
+	// unlikely but, per its own doc comment, not impossible -- so a rare
+	// conflict is retried with a freshly generated slug rather than
+	// surfaced as a hard failure for something outside the caller's
+	// control.
+	return slugutil.Retry(
+		slugutil.DefaultMaxAttempts,
+		func() (string, error) { return slugutil.GenerateUnique(name) },
+		attempt,
+	)
 }

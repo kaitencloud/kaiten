@@ -3,9 +3,7 @@ package updateinstance
 import (
 	"context"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
@@ -24,7 +22,6 @@ import (
 type Deps struct {
 	UserProvider         currentuser.Provider
 	Uof                  *uow.UnitOfWork
-	UsageReporter        services.UsageReporter
 	MetadataFieldsLister validator.MetadataFieldsLister
 }
 
@@ -155,8 +152,6 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) (*
 	if err != nil {
 		return nil, err
 	}
-
-	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.InstanceUpdatedEntitlementSlug)
 
 	return instance, nil
 }

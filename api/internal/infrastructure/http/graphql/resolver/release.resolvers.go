@@ -9,7 +9,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
 	componentschema "github.com/kaitencloud/kaiten/api/internal/modules/components/schema"
 	deploymentzoneschema "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/schema"
@@ -26,7 +25,6 @@ func (r *queryResolver) Releases(ctx context.Context, limit *int, cursor *string
 		return nil, err
 	}
 
-	r.reportIfNeeded(ctx, dogfooding.ReleaseReadEntitlementSlug)
 	return releases, nil
 }
 
@@ -37,7 +35,6 @@ func (r *queryResolver) Release(ctx context.Context, id *uuid.UUID, slug *string
 		return nil, err
 	}
 
-	r.reportIfNeeded(ctx, dogfooding.ReleaseReadEntitlementSlug)
 	return release, nil
 }
 

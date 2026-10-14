@@ -100,13 +100,13 @@ func postGraphQL(t *testing.T, server *tests.TestServer, query string) {
 	require.Empty(t, payload.Errors)
 }
 
-// TestUsageMetering_GraphQLTraversalMatchesREST is the regression test for
-// nested GraphQL resolvers used to meter nothing, so the same data
-// cost less through GraphQL than through REST. It pins the fix in both
-// directions -- an under-billing traversal and a double-billed one both fail
-// the multiset comparison, not just a count.
-func TestUsageMetering_GraphQLTraversalMatchesREST(t *testing.T) {
-	t.Run("WhenTraversingCustomerInstancesLicense_ReportsSameUsageAsRESTEquivalent", func(t *testing.T) {
+// TestUsageMetering_ReadsReportNothing pins that a read is not metered, through
+// either door. The catalogue used to carry a counter per resource read and the
+// two doors had to agree on it; it no longer does, so the agreement left to
+// pin is that neither reports anything -- a traversal that started billing
+// again would be metering against an entitlement nobody creates.
+func TestUsageMetering_ReadsReportNothing(t *testing.T) {
+	t.Run("WhenTraversingCustomerInstancesLicense_ReportsNothing", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 
 		server, reporter := meteredServer(t)
@@ -137,11 +137,11 @@ func TestUsageMetering_GraphQLTraversalMatchesREST(t *testing.T) {
 		}`)
 		graphqlUsage := reporter.drain()
 
-		require.Equal(t, []string{"customers-read", "instances-read", "licenses-read"}, restUsage)
-		require.Equal(t, restUsage, graphqlUsage)
+		require.Empty(t, restUsage)
+		require.Empty(t, graphqlUsage)
 	})
 
-	t.Run("WhenTraversingLicenseEntitlements_ReportsSameUsageAsRESTEquivalent", func(t *testing.T) {
+	t.Run("WhenTraversingLicenseEntitlements_ReportsNothing", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 
 		server, reporter := meteredServer(t)
@@ -168,14 +168,11 @@ func TestUsageMetering_GraphQLTraversalMatchesREST(t *testing.T) {
 		}`)
 		graphqlUsage := reporter.drain()
 
-		require.Equal(t, []string{"entitlements-read", "license-entitlements-read", "licenses-read"}, restUsage)
-		require.Equal(t, restUsage, graphqlUsage)
+		require.Empty(t, restUsage)
+		require.Empty(t, graphqlUsage)
 	})
 
-	// License.family is part of the license it hangs off, as familyId is part
-	// of the REST representation: selecting it must not bill a second
-	// license read on top of the one the root resolver already reports.
-	t.Run("WhenSelectingALicensesFamily_ReportsNoReadOfItsOwn", func(t *testing.T) {
+	t.Run("WhenSelectingALicensesFamily_ReportsNothing", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 
 		server, reporter := meteredServer(t)
@@ -184,7 +181,7 @@ func TestUsageMetering_GraphQLTraversalMatchesREST(t *testing.T) {
 
 		getREST(t, server, "/api/license-families/"+license.Slug)
 		restUsage := reporter.drain()
-		require.Equal(t, []string{"licenses-read"}, restUsage)
+		require.Empty(t, restUsage)
 
 		queries := []string{
 			`{ licenseFamily(slug: "` + license.Slug + `") { currentVersion { family { slug } } } }`,
@@ -193,7 +190,7 @@ func TestUsageMetering_GraphQLTraversalMatchesREST(t *testing.T) {
 		}
 		for _, query := range queries {
 			postGraphQL(t, server, query)
-			require.Equal(t, restUsage, reporter.drain(), "usage of %s", query)
+			require.Empty(t, reporter.drain(), "usage of %s", query)
 		}
 	})
 }

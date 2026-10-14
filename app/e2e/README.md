@@ -171,7 +171,7 @@ Integration read-only stubs use the `integrationStubs` slot in strict MSW.
 Without a webhooks stub the webhooks routes answer 404, as on a self-hosted
 deployment, so the console hides them; `installEmptyWebhooksStub` serves them
 empty, as Kaiten Cloud does, and `installWebhooksNotEntitledStub` refuses them,
-as Kaiten Cloud does for an organization whose licence lacks them.
+as Kaiten Cloud does for an organization whose licence grants 0 webhook events.
 The dashboard error case is carried by the
 dashboard model. A new scenario factory exported from any `*.scenarios.ts`
 must appear in the registry: `check:e2e-contracts` discovers omitted factories

@@ -41,6 +41,16 @@ func (r *CommandRepository) DeleteEntitlement(ctx context.Context, organizationI
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, kaitenerrors.NotFound("DeleteEntitlement.NotFound", fmt.Sprintf("Entitlement with slug %q not found", slug))
 		}
+		// license_entitlement references entitlement with ON DELETE RESTRICT,
+		// so an entitlement a licence still grants fails here. Its usage does
+		// not: that follows the entitlement out (see
+		// 20261012000000_entitlement_usage_follows_its_entitlement.sql).
+		if kaitenerrors.IsForeignKeyViolation(err) {
+			return nil, kaitenerrors.Conflict(
+				"DeleteEntitlement.InUseConflict",
+				fmt.Sprintf("Entitlement with slug %q is still granted by a license and cannot be deleted", slug),
+			)
+		}
 		return nil, err
 	}
 

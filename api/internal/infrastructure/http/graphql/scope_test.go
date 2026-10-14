@@ -48,7 +48,7 @@ var (
 func TestScopeTablesCoverTheServedSchema(t *testing.T) {
 	t.Parallel()
 
-	require.NoError(t, scopeGate{}.Validate(newExecutableSchema(nil, Config{})))
+	require.NoError(t, scopeGate{}.Validate(newExecutableSchema(nil)))
 }
 
 // TestScopeTablesRefuseASchemaTheyDoNotCover is what stops a type, or a root
@@ -194,7 +194,7 @@ func TestGraphQLAnswersAMissingScopeWithTheProblemRESTReturns(t *testing.T) {
 func TestEveryScopedFieldIsRefusedWithoutItsScope(t *testing.T) {
 	t.Parallel()
 
-	schema := newExecutableSchema(nil, Config{}).Schema()
+	schema := newExecutableSchema(nil).Schema()
 	paths := pathsFromQuery(schema)
 
 	checked := 0
@@ -701,7 +701,7 @@ func do(t *testing.T, app *fiber.App, req *http.Request) (int, http.Header, []by
 func operationOf(t *testing.T, document, name string) *ast.OperationDefinition {
 	t.Helper()
 
-	doc, errs := gqlparser.LoadQueryWithRules(newExecutableSchema(nil, Config{}).Schema(), document, nil)
+	doc, errs := gqlparser.LoadQueryWithRules(newExecutableSchema(nil).Schema(), document, nil)
 	require.Empty(t, errs, "the document must be valid against the schema")
 
 	operation := doc.Operations.ForName(name)
@@ -723,7 +723,7 @@ func requiredScopesOf(t *testing.T, document, name string) []string {
 // reads, so a test can doctor it without touching the one every other test --
 // and the server -- shares.
 func copyOfServedSchema() *ast.Schema {
-	served := newExecutableSchema(nil, Config{}).Schema()
+	served := newExecutableSchema(nil).Schema()
 
 	query := *served.Query
 	query.Fields = slices.Clone(served.Query.Fields)

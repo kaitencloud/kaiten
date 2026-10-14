@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 	dataloaderLib "github.com/graph-gophers/dataloader/v7"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
@@ -17,14 +16,10 @@ const (
 )
 
 // RegisterDataloaders registers deployment zone dataloaders to the shared
-// loaders container, each with the entitlement its reads are billed on -- the
-// GraphQL counterpart of the single TrackAsync the equivalent REST handler
-// fires (see dataloader.Metered).
+// loaders container.
 func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries) {
-	// Instance.deploymentZone -- the traversal REST bills as
-	// GET /deployment-zones/{id}.
 	loaders.Register(DeploymentZoneLoaderName, dataloaderLib.NewBatchedLoader(
-		dataloader.Metered(loaders, dogfooding.DeploymentZoneReadEntitlementSlug, newDeploymentZoneBatchFn(queries)),
+		newDeploymentZoneBatchFn(queries),
 	))
 }
 

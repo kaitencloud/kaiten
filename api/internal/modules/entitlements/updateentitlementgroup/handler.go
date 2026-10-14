@@ -3,9 +3,7 @@ package updateentitlementgroup
 import (
 	"context"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	entitlementEvents "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/events"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
@@ -14,9 +12,8 @@ import (
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
-	UserProvider  currentuser.Provider
-	UsageReporter services.UsageReporter
-	Uof           *uow.UnitOfWork
+	UserProvider currentuser.Provider
+	Uof          *uow.UnitOfWork
 }
 
 // UseCase handles the update of an entitlement group.
@@ -64,8 +61,6 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 	if err != nil {
 		return err
 	}
-
-	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.EntitlementGroupUpdatedEntitlementSlug)
 
 	return nil
 }

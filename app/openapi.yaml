@@ -5619,7 +5619,7 @@ paths:
         - entitlements
   /entitlements/{entitlementSlug}:
     delete:
-      description: Delete an entitlement by its slug
+      description: "Delete an entitlement by its slug. Its usage is deleted with it. An entitlement a license still grants is refused with a 409: remove the grants first."
       operationId: delete-entitlement
       parameters:
         - in: path
@@ -5654,6 +5654,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
         "422":
           content:
             application/problem+json:

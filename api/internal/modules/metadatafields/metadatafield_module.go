@@ -55,34 +55,28 @@ func NewUseCases(svc services.Container) *UseCases {
 	queries := db.New(svc.Pool)
 	return &UseCases{
 		CreateMetadataField: createmetadatafield.NewUseCase(createmetadatafield.Deps{
-			UserProvider:  svc.UserProvider,
-			UsageReporter: svc.UsageReporter,
-			Uof:           svc.Uof,
+			UserProvider: svc.UserProvider,
+			Uof:          svc.Uof,
 		}),
 		UpdateMetadataField: updatemetadatafield.NewUseCase(updatemetadatafield.Deps{
-			UserProvider:  svc.UserProvider,
-			UsageReporter: svc.UsageReporter,
-			Uof:           svc.Uof,
+			UserProvider: svc.UserProvider,
+			Uof:          svc.Uof,
 		}),
 		ArchiveMetadataField: archivemetadatafield.NewUseCase(archivemetadatafield.Deps{
-			UserProvider:  svc.UserProvider,
-			UsageReporter: svc.UsageReporter,
-			Uof:           svc.Uof,
+			UserProvider: svc.UserProvider,
+			Uof:          svc.Uof,
 		}),
 		UnarchiveMetadataField: unarchivemetadatafield.NewUseCase(unarchivemetadatafield.Deps{
-			UserProvider:  svc.UserProvider,
-			UsageReporter: svc.UsageReporter,
-			Uof:           svc.Uof,
+			UserProvider: svc.UserProvider,
+			Uof:          svc.Uof,
 		}),
 		GetMetadataFields: getmetadatafields.NewUseCase(getmetadatafields.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		ReorderMetadataFields: reordermetadatafields.NewUseCase(reordermetadatafields.Deps{
-			UserProvider:  svc.UserProvider,
-			UsageReporter: svc.UsageReporter,
-			Uof:           svc.Uof,
+			UserProvider: svc.UserProvider,
+			Uof:          svc.Uof,
 		}),
 		DryRunMetadataField: dryrunmetadatafield.NewUseCase(dryrunmetadatafield.Deps{
 			UserProvider:         svc.UserProvider,

@@ -29,14 +29,14 @@ func NewCommandRepository(repository *db.Queries) *CommandRepository {
 // driver.
 func (r *CommandRepository) EnsureUserOnOrganization(
 	ctx context.Context, userID, organizationID uuid.UUID,
-) (*time.Time, error) {
-	deletedAt, err := r.repository.EnsureUserOnOrganization(ctx, db.EnsureUserOnOrganizationParams{
+) (deletedAt *time.Time, inserted bool, err error) {
+	row, err := r.repository.EnsureUserOnOrganization(ctx, db.EnsureUserOnOrganizationParams{
 		UserID:         userID,
 		OrganizationID: organizationID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("ensure user_on_organization: %w", err)
+		return nil, false, fmt.Errorf("ensure user_on_organization: %w", err)
 	}
 
-	return pgtime.PgTimeStampToTimePtr(deletedAt), nil
+	return pgtime.PgTimeStampToTimePtr(row.DeletedAt), row.Inserted, nil
 }

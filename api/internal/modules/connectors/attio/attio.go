@@ -6,7 +6,6 @@ package attio
 import (
 	"github.com/kaitencloud/kaiten/api/internal/builtinconnectors"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/attio/attioclient"
-	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 // Name is the connector's stable identifier, and the adapter name under which its
@@ -37,16 +36,15 @@ const Version = "2.0.0"
 // to load, because a connector compiled into this binary ships its manifest in it --
 // there is no file to go missing and no path to configure.
 //
-// EntitlementSlug is what a licence is checked against before an organization may
-// activate this. It is set here, by the connector, rather than mapped anywhere central
-// -- see the column comment in 20260821010000_connector_activation.sql.
+// No EntitlementSlug: Attio is included in every licence, so a gate on it would refuse
+// nobody. Registration upserts the column, so a deployment that used to gate it stops
+// on its next start. A connector that is sold separately sets the slug here, by the
+// connector, rather than mapped anywhere central -- see the column comment in
+// 20260821010000_connector_activation.sql.
 func Manifest() builtinconnectors.Manifest {
-	slug := dogfooding.ConnectorAttioEntitlementSlug
-
 	return builtinconnectors.Manifest{
-		Name:            Name,
-		Version:         Version,
-		EntitlementSlug: &slug,
+		Name:    Name,
+		Version: Version,
 		SettingsSchema: map[string]any{
 			"$schema":              "https://json-schema.org/draft/2020-12/schema",
 			"type":                 "object",
