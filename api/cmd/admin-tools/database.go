@@ -121,7 +121,7 @@ func usageReporterFromEnv(ctx context.Context) (*dogfooding.Reporter, error) {
 		OrganizationID:         os.Getenv("KAITEN_METERED_ORGANIZATION_ID"),
 		APIURL:                 os.Getenv("KAITEN_METERED_API_URL"),
 		TokenFile:              os.Getenv("KAITEN_METERED_TOKEN_FILE"),
-		SelfReport:             envTrue("KAITEN_METERED_SELF_REPORT"),
+		CheckSelfEntitlements:  envTrue("KAITEN_METERED_CHECK_SELF_ENTITLEMENTS"),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error constructing the usage reporter: %w", err)

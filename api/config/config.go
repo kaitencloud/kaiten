@@ -206,13 +206,15 @@ type Metered struct {
 	// nothing, so it is an ordinary setting and belongs in the config file with
 	// the rest of them.
 	TokenFile string `mapstructure:"token_file" validate:"required_if=Enabled true"`
-	// SelfReport reports the platform organization's own usage too, where it is
-	// otherwise skipped -- for the one deployment whose platform organization is a
-	// customer of itself: the installation that holds the licences, reporting to
-	// itself. Its reports are never enforced and never fail a request, because
-	// that organization creates the very catalogue and instance its reports are
-	// counted against, and a gate on them could never open. Off everywhere else.
-	SelfReport bool `mapstructure:"self_report"`
+	// CheckSelfEntitlements reads the platform organization's entitlements from
+	// its licence, where it is otherwise entitled to everything -- for the one
+	// deployment whose platform organization is an instance of itself: the
+	// installation that holds the licences, reporting to itself. Only reads: that
+	// organization's usage is never reported, here or anywhere, because it is the
+	// one creating the catalogue and instance it would be counted against, before
+	// its reporting credential exists. Off everywhere else, where the platform
+	// organization has no instance to read.
+	CheckSelfEntitlements bool `mapstructure:"check_self_entitlements"`
 }
 
 // Connectors settings storage.
@@ -264,7 +266,7 @@ var settings = []struct {
 	{"metered.organization_id", "KAITEN_METERED_ORGANIZATION_ID", nil, false},
 	{"metered.api_url", "KAITEN_METERED_API_URL", nil, false},
 	{"metered.token_file", "KAITEN_METERED_TOKEN_FILE", nil, false},
-	{"metered.self_report", "KAITEN_METERED_SELF_REPORT", false, false},
+	{"metered.check_self_entitlements", "KAITEN_METERED_CHECK_SELF_ENTITLEMENTS", false, false},
 	{"connectors.vault_base_path", "VAULT_CONNECTORS_BASE_PATH", "kaiten/connectors", false},
 }
 
