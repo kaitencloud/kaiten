@@ -17174,7 +17174,7 @@ paths:
         - entitlements
   /entitlements/{entitlementSlug}:
     delete:
-      description: "Delete an entitlement by its slug. Its usage is deleted with it. An entitlement a license still grants or a license price still meters is refused with a 409 that counts each: remove the grants first. A price is never deleted, so the entitlement it meters stays."
+      description: "Delete an entitlement by its slug. Its usage is deleted with it. An entitlement that a license or an add-on still grants, a license or an add-on price still meters, or a voucher boost still grants is refused with a 409 that counts each: remove the grants first. A price and a voucher boost are never deleted, so the entitlement they hold stays."
       operationId: delete-entitlement
       parameters:
         - in: path

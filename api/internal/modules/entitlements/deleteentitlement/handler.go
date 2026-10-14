@@ -75,7 +75,8 @@ func (h *UseCase) Execute(ctx context.Context, slug string) error {
 
 // inUse is the refusal of a delete the entitlement's references blocked,
 // with how many of each hold it, read after the failed transaction. Its usage
-// is not one of them: that is deleted with the entitlement.
+// is not one of them: that is deleted with the entitlement. The keys are the
+// ones the console lists (see ENTITLEMENT_REFERENCE_KEYS).
 func (h *UseCase) inUse(ctx context.Context, organizationID uuid.UUID, slug string) error {
 	counts, err := db.New(h.deps.Uof.DBTX(ctx)).CountEntitlementReferences(ctx, db.CountEntitlementReferencesParams{
 		OrganizationID: organizationID, Slug: slug,
@@ -84,12 +85,14 @@ func (h *UseCase) inUse(ctx context.Context, organizationID uuid.UUID, slug stri
 		return err
 	}
 	return kaitenerrors.ConflictWithErrors("DeleteEntitlement.InUseConflict",
-		fmt.Sprintf("Entitlement %q is still granted or priced and cannot be deleted", slug),
+		fmt.Sprintf("Entitlement %q is still in use and cannot be deleted", slug),
 		&kaitenerrors.ErrorDetail{
 			Message:  "what still references the entitlement",
 			Location: "entitlement",
 			Value: map[string]any{
 				"licenseGrants": counts.LicenseGrants, "licensePrices": counts.LicensePrices,
+				"addonPrices": counts.AddonPrices, "addonGrants": counts.AddonGrants,
+				"boostGrants": counts.BoostGrants,
 			},
 		})
 }

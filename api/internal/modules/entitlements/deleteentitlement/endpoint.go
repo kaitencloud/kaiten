@@ -29,7 +29,7 @@ func RegisterEndpoint(api huma.API, app Deleter) {
 		Method:      http.MethodDelete,
 		Path:        "/entitlements/{entitlementSlug}",
 		Summary:     "Delete an entitlement",
-		Description: "Delete an entitlement by its slug. Its usage is deleted with it. An entitlement a license still grants or a license price still meters is refused with a 409 that counts each: remove the grants first. A price is never deleted, so the entitlement it meters stays.",
+		Description: "Delete an entitlement by its slug. Its usage is deleted with it. An entitlement that a license or an add-on still grants, a license or an add-on price still meters, or a voucher boost still grants is refused with a 409 that counts each: remove the grants first. A price and a voucher boost are never deleted, so the entitlement they hold stays.",
 		Tags:        []string{"entitlements"},
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*struct{}, error) {

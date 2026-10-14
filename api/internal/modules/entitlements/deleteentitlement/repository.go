@@ -44,9 +44,9 @@ func (r *CommandRepository) DeleteEntitlement(ctx context.Context, organizationI
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, kaitenerrors.NotFound("DeleteEntitlement.NotFound", fmt.Sprintf("Entitlement with slug %q not found", slug))
 		}
-		// A licence grant or a licence price -- deprecated or not: a price that
-		// may have billed is never deleted, so neither is what it measured --
-		// still holds it. Its usage does not: that follows the entitlement out
+		// A licence or add-on grant, a licence or add-on price -- deprecated or
+		// not: a price that may have billed is never deleted, so neither is what
+		// it measured -- or a voucher boost still holds it. Its usage does not: that follows the entitlement out
 		// (see 20261012000000_entitlement_usage_follows_its_entitlement.sql).
 		// The handler counts what holds it once the transaction is gone.
 		if kaitenerrors.IsForeignKeyViolation(err) {
