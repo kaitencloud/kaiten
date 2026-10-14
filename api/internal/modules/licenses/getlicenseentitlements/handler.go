@@ -3,8 +3,6 @@ package getlicenseentitlements
 import (
 	"context"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/licenseview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
@@ -21,7 +19,6 @@ type Deps struct {
 	UserProvider      currentuser.Provider
 	Queries           *db.Queries
 	EntitlementReader licenseview.Port
-	UsageReporter     services.UsageReporter
 }
 
 type UseCase struct {
@@ -57,8 +54,6 @@ func (h *UseCase) Execute(ctx context.Context, licenseSlug string, limit int32, 
 	if err != nil {
 		return pagination.Page[schema.LicenseEntitlement]{}, err
 	}
-
-	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.LicenseEntitlementReadEntitlementSlug)
 
 	return page, nil
 }

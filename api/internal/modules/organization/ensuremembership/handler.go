@@ -49,11 +49,15 @@ func NewUseCase(uof *uow.UnitOfWork) *UseCase {
 // else the caller is persisting -- and the Forbidden below rolls that work back
 // with it, which is what makes a refused login leave no trace of the user it
 // refused.
-func (h *UseCase) Execute(ctx context.Context, userID, organizationID uuid.UUID) error {
-	return h.uof.Transact(ctx, func(ctx context.Context) error {
+//
+// created reports whether this call made the membership, rather than finding it:
+// it is true once per membership, on the login that provisioned it, and false on
+// every login after.
+func (h *UseCase) Execute(ctx context.Context, userID, organizationID uuid.UUID) (created bool, err error) {
+	err = h.uof.Transact(ctx, func(ctx context.Context) error {
 		repo := NewCommandRepository(db.New(h.uof.DBTX(ctx)))
 
-		deletedAt, err := repo.EnsureUserOnOrganization(ctx, userID, organizationID)
+		deletedAt, inserted, err := repo.EnsureUserOnOrganization(ctx, userID, organizationID)
 		if err != nil {
 			return err
 		}
@@ -67,6 +71,9 @@ func (h *UseCase) Execute(ctx context.Context, userID, organizationID uuid.UUID)
 			)
 		}
 
+		created = inserted
 		return nil
 	})
+
+	return created, err
 }

@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	componentevents "github.com/kaitencloud/kaiten/api/internal/modules/components/events"
 	componentschema "github.com/kaitencloud/kaiten/api/internal/modules/components/schema"
@@ -20,9 +18,8 @@ const slugValidationRequirements = "must match ^[a-z0-9][a-z0-9-]*[a-z0-9]$ and 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
-	UserProvider  currentuser.Provider
-	Uof           *uow.UnitOfWork
-	UsageReporter services.UsageReporter
+	UserProvider currentuser.Provider
+	Uof          *uow.UnitOfWork
 }
 
 type UseCase struct {
@@ -141,8 +138,6 @@ func (h *UseCase) Execute(ctx context.Context, slug string, command *Command) (*
 	if err != nil {
 		return nil, err
 	}
-
-	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.ComponentUpdatedEntitlementSlug)
 
 	return component, nil
 }

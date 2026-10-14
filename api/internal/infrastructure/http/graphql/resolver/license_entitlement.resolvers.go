@@ -32,7 +32,6 @@ func (r *licenseEntitlementResolver) Unlimited(ctx context.Context, obj *schema.
 }
 
 // Entitlement is the resolver for the entitlement field.
-// Usage is billed by the loader (entitlements-read), not here.
 func (r *licenseEntitlementResolver) Entitlement(ctx context.Context, obj *schema.LicenseEntitlement) (*schema1.Entitlement, error) {
 	return entitlementsGraphql.LoadEntitlementBySlug(ctx, obj.EntitlementSlug)
 }

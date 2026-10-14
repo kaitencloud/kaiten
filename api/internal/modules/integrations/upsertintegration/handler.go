@@ -9,8 +9,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	createcustomer "github.com/kaitencloud/kaiten/api/internal/modules/customers/createcustomer"
 	customerintegrationsync "github.com/kaitencloud/kaiten/api/internal/modules/customers/integrationsync"
@@ -37,7 +35,6 @@ import (
 // paths use.
 type Deps struct {
 	UserProvider    currentuser.Provider
-	UsageReporter   services.UsageReporter
 	Uow             *uow.UnitOfWork
 	CustomerCreator CustomerCreator
 	CustomerUpdater CustomerUpdater
@@ -238,10 +235,6 @@ func (h *UseCase) UpsertCustomer(ctx context.Context, adapterName, externalID st
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	if resourceChanged {
-		h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.CustomerUpdatedEntitlementSlug)
 	}
 
 	return response, nil
@@ -503,10 +496,6 @@ func (h *UseCase) UpsertInstance(ctx context.Context, adapterName, externalID st
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	if resourceChanged {
-		h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.InstanceUpdatedEntitlementSlug)
 	}
 
 	return response, nil

@@ -25,6 +25,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization/ensuremembership"
 	"github.com/kaitencloud/kaiten/api/internal/modules/users/infrastructure/db"
@@ -47,9 +49,13 @@ const provisionedEmailDomain = "@jit.internal"
 //
 // Uof rather than a pool-bound *db.Queries: the user and the membership are one
 // unit, so the queries are resolved per call from whichever DBTX is active.
+//
+// UsageReporter counts the seat a provisioned membership occupies: once, on the
+// login that created it.
 type Deps struct {
-	Uof        *uow.UnitOfWork
-	Membership *ensuremembership.UseCase
+	Uof           *uow.UnitOfWork
+	Membership    *ensuremembership.UseCase
+	UsageReporter services.UsageReporter
 }
 
 type UseCase struct {
@@ -57,6 +63,8 @@ type UseCase struct {
 }
 
 func NewUseCase(deps Deps) *UseCase {
+	deps.UsageReporter = services.UsageReporterOrNoop(deps.UsageReporter)
+
 	return &UseCase{deps: deps}
 }
 
@@ -71,6 +79,7 @@ func (h *UseCase) Execute(ctx context.Context, cmd *Command) (uuid.UUID, error) 
 	identity := newClaims(cmd)
 
 	var userID uuid.UUID
+	var joined bool
 	err := h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		repo := NewCommandRepository(db.New(h.deps.Uof.DBTX(ctx)))
 
@@ -89,15 +98,22 @@ func (h *UseCase) Execute(ctx context.Context, cmd *Command) (uuid.UUID, error) 
 		// composing another module's public Execute. The refusal it can return for a
 		// removed membership therefore rolls back the user row this just wrote, which
 		// is what keeps a refused login from provisioning anything.
-		if err := h.deps.Membership.Execute(ctx, id, cmd.OrganizationID); err != nil {
+		created, err := h.deps.Membership.Execute(ctx, id, cmd.OrganizationID)
+		if err != nil {
 			return err
 		}
 
-		userID = id
+		userID, joined = id, created
 		return nil
 	})
 	if err != nil {
 		return uuid.Nil, err
+	}
+
+	// After the commit, not inside it: a seat is a member who exists. Asynchronous
+	// and never enforced, because a quota must not be what refuses a sign-in.
+	if joined {
+		h.deps.UsageReporter.TrackAsync(cmd.OrganizationID, dogfooding.SeatEntitlementSlug)
 	}
 
 	return userID, nil

@@ -21,10 +21,9 @@ type UseCases struct {
 func NewUseCases(svc services.Container) *UseCases {
 	return &UseCases{
 		GetIntegration: getintegration.NewUseCase(getintegration.Deps{
-			UserProvider:  svc.UserProvider,
-			UsageReporter: svc.UsageReporter,
-			Customers:     customerintegrationsync.New(svc.Pool),
-			Instances:     instanceintegrationsync.New(svc.Pool),
+			UserProvider: svc.UserProvider,
+			Customers:    customerintegrationsync.New(svc.Pool),
+			Instances:    instanceintegrationsync.New(svc.Pool),
 		}),
 		// upsertintegration composes these modules' own public use cases --
 		// the same ones customers_module.go/instances_module.go wire up for
@@ -35,18 +34,16 @@ func NewUseCases(svc services.Container) *UseCases {
 		// createdeploymentzone constructing createdeployment.NewService
 		// inline): no module threads its UseCases into another's wiring.
 		UpsertIntegration: upsertintegration.NewUseCase(upsertintegration.Deps{
-			UserProvider:  svc.UserProvider,
-			UsageReporter: svc.UsageReporter,
-			Uow:           svc.Uof,
+			UserProvider: svc.UserProvider,
+			Uow:          svc.Uof,
 			CustomerCreator: createcustomer.NewUseCase(createcustomer.Deps{
 				UserProvider:  svc.UserProvider,
 				UsageReporter: svc.UsageReporter,
 				Uof:           svc.Uof,
 			}),
 			CustomerUpdater: updatecustomer.NewUseCase(updatecustomer.Deps{
-				UserProvider:  svc.UserProvider,
-				Uof:           svc.Uof,
-				UsageReporter: svc.UsageReporter,
+				UserProvider: svc.UserProvider,
+				Uof:          svc.Uof,
 			}),
 			InstanceCreator: createinstance.NewUseCase(createinstance.Deps{
 				UserProvider:         svc.UserProvider,
@@ -57,7 +54,6 @@ func NewUseCases(svc services.Container) *UseCases {
 			InstanceUpdater: updateinstance.NewUseCase(updateinstance.Deps{
 				UserProvider:         svc.UserProvider,
 				Uof:                  svc.Uof,
-				UsageReporter:        svc.UsageReporter,
 				MetadataFieldsLister: validator.NewLister(svc.Pool),
 			}),
 		}),

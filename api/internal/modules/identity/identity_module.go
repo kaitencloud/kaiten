@@ -145,41 +145,34 @@ func NewUseCases(svc services.Container) *UseCases {
 
 	return &UseCases{
 		CreateServiceAccount: createserviceaccount.NewUseCase(createserviceaccount.Deps{
-			UserProvider:  svc.UserProvider,
-			UsageReporter: svc.UsageReporter,
-			Uof:           svc.Uof,
-			Membership:    addmembership.NewUseCase(svc.Uof),
+			UserProvider: svc.UserProvider,
+			Uof:          svc.Uof,
+			Membership:   addmembership.NewUseCase(svc.Uof),
 		}),
 		GetServiceAccount: getserviceaccount.NewUseCase(getserviceaccount.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		GetServiceAccounts: getserviceaccounts.NewUseCase(getserviceaccounts.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		UpdateServiceAccount: updateserviceaccount.NewUseCase(updateserviceaccount.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		CreateTokenOnServiceAccount: createtokenonserviceaccount.NewUseCase(createtokenonserviceaccount.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		DeleteTokenOnServiceAccount: deletetokenonserviceaccount.NewUseCase(deletetokenonserviceaccount.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			Pool:          svc.Pool,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
+			Pool:         svc.Pool,
 		}, cache),
 		GetServiceAccountTokens: getserviceaccounttokens.NewUseCase(getserviceaccounttokens.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		ValidateToken: validatetoken.NewUseCase(queries, cache),
 		// The same cache instance, and that is the whole reason this is wired here

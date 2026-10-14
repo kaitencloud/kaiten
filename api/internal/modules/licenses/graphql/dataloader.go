@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 	dataloaderLib "github.com/graph-gophers/dataloader/v7"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
@@ -19,27 +18,22 @@ const (
 )
 
 // RegisterDataloaders registers license dataloaders to the shared loaders
-// container, each with the entitlement its reads are billed on -- the
-// GraphQL counterpart of the single TrackAsync the equivalent REST handler
-// fires (see dataloader.Metered).
+// container.
 func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries) {
-	// Instance.license -- the traversal REST bills as GET /licenses/{id}.
 	loaders.Register(LicenseLoaderName, dataloaderLib.NewBatchedLoader(
-		dataloader.Metered(loaders, dogfooding.LicenseReadEntitlementSlug, newLicenseBatchFn(queries)),
+		newLicenseBatchFn(queries),
 	))
-	// License.family -- not metered: the family is part of what a license is,
-	// not a separate resource, and the read of the license it hangs off is
-	// already billed, by the root resolver or by LicenseLoader. Metering it on
-	// the license-read slug as well would bill one read twice.
+	// License.family -- the family is part of what a license is, not a
+	// separate resource.
 	loaders.Register(LicenseFamilyLoaderName, dataloaderLib.NewBatchedLoader(
 		newLicenseFamilyBatchFn(queries),
 	))
-	// License.entitlements -- what GET /licenses/{slug}/entitlements bills.
 	// License.prices -- part of the licence read, as GET /licenses/{slug}/prices
 	// is of the licence it lists.
 	loaders.Register(LicensePricesLoaderName, dataloaderLib.NewBatchedLoader(newLicensePricesBatchFn(queries)))
+	// License.entitlements -- what GET /licenses/{slug}/entitlements returns.
 	loaders.Register(LicenseEntitlementsLoaderName, dataloaderLib.NewBatchedLoader(
-		dataloader.Metered(loaders, dogfooding.LicenseEntitlementReadEntitlementSlug, newLicenseEntitlementsBatchFn(queries)),
+		newLicenseEntitlementsBatchFn(queries),
 	))
 }
 

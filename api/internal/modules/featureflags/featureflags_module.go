@@ -93,19 +93,16 @@ func NewUseCases(svc services.Container) *UseCases {
 			UsageReporter: svc.UsageReporter,
 		}),
 		GetFeatureFlag: getfeatureflag.NewUseCase(getfeatureflag.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		GetFeatureFlags: getfeatureflags.NewUseCase(getfeatureflags.Deps{
-			UserProvider:  svc.UserProvider,
-			Queries:       queries,
-			UsageReporter: svc.UsageReporter,
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
 		}),
 		UpdateFeatureFlag: updatefeatureflag.NewUseCase(updatefeatureflag.Deps{
 			UserProvider:         svc.UserProvider,
 			Uof:                  svc.Uof,
-			UsageReporter:        svc.UsageReporter,
 			EntitlementCatalogue: entitlementCatalogue,
 		}),
 		EvaluateFlag: evaluateflag.NewUseCase(evaluateflag.Deps{

@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 	dataloaderLib "github.com/graph-gophers/dataloader/v7"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/releaselink"
 	componentschema "github.com/kaitencloud/kaiten/api/internal/modules/components/schema"
@@ -35,35 +34,16 @@ func RegisterDataloaders(
 	instanceLink instancereleaselink.Port,
 ) {
 	loaders.Register(ComponentsByReleaseLoaderName, dataloaderLib.NewBatchedLoader(
-		dataloader.Metered(
-			loaders,
-			dogfooding.ComponentReadEntitlementSlug,
-			newComponentsByReleaseBatchFn(componentLink),
-		),
+		newComponentsByReleaseBatchFn(componentLink),
 	))
 	loaders.Register(DeploymentZonesByReleaseLoaderName, dataloaderLib.NewBatchedLoader(
-		dataloader.Metered(
-			loaders,
-			dogfooding.DeploymentZoneReadEntitlementSlug,
-			newDeploymentZonesByReleaseBatchFn(deploymentZoneLink),
-		),
+		newDeploymentZonesByReleaseBatchFn(deploymentZoneLink),
 	))
 	loaders.Register(InstancesByReleaseLoaderName, dataloaderLib.NewBatchedLoader(
-		dataloader.Metered(
-			loaders,
-			dogfooding.InstanceReadEntitlementSlug,
-			newInstancesByReleaseBatchFn(instanceLink),
-		),
+		newInstancesByReleaseBatchFn(instanceLink),
 	))
-	// Release.deployments has no REST equivalent to compare against, but it
-	// is a second, distinct read of the deployment-zones domain, so it bills
-	// like one.
 	loaders.Register(DeploymentsByReleaseLoaderName, dataloaderLib.NewBatchedLoader(
-		dataloader.Metered(
-			loaders,
-			dogfooding.DeploymentZoneReadEntitlementSlug,
-			newDeploymentsByReleaseBatchFn(deploymentZoneLink),
-		),
+		newDeploymentsByReleaseBatchFn(deploymentZoneLink),
 	))
 }
 

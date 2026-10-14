@@ -8,9 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/schema"
@@ -22,9 +20,8 @@ import (
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
-	UserProvider  currentuser.Provider
-	UsageReporter services.UsageReporter
-	Uof           *uow.UnitOfWork
+	UserProvider currentuser.Provider
+	Uof          *uow.UnitOfWork
 }
 
 type UseCase struct {
@@ -140,8 +137,6 @@ func (h *UseCase) Execute(ctx context.Context, command *UpdateMetadataFieldInput
 	// Cache eviction (local + cross-replica NOTIFY) after a successful
 	// commit — see validator/cache.go.
 	validator.InvalidateAndPublish(ctx, h.deps.Uof.DBTX(ctx), u.OrganizationID, updated.ResourceType)
-
-	h.deps.UsageReporter.TrackAsync(u.OrganizationID, dogfooding.MetadataFieldUpdatedEntitlementSlug)
 
 	return updated, nil
 }
