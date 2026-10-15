@@ -171,5 +171,6 @@ func (h *UseCase) Execute(ctx context.Context, connectorName string, body schema
 	return &schema.ConnectorSettings{
 		ConnectorName: normalizedName,
 		Settings:      common.RedactSecrets(updatedSettings, secretFields),
+		Configured:    true,
 	}, nil
 }

@@ -3,7 +3,6 @@ package getsettings
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/common"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/infrastructure/db"
@@ -55,20 +54,10 @@ func (h *UseCase) Execute(ctx context.Context, connectorName string) (*schema.Co
 		return nil, err
 	}
 
-	data, err := h.store.Get(ctx, user.OrganizationID, normalizedName)
-	if err != nil {
-		if errors.Is(err, connectorsettings.ErrNotFound) {
-			return nil, kaitenerrors.NotFound(
-				"GetConnectorSettings.NotFound",
-				fmt.Sprintf("Settings for connector %q were not found", normalizedName),
-			)
-		}
-		return nil, err
-	}
-
 	// The registered schema flags the write-only fields. Settings cannot
 	// legitimately exist without a registration, so fail closed rather than
-	// returning settings we cannot redact.
+	// returning settings we cannot redact. Read first: an unknown connector is
+	// a 404 whether or not anything was stored under its name.
 	connector, err := h.registry.Get(ctx, normalizedName)
 	if err != nil {
 		if errors.Is(err, registry.ErrNotFound) {
@@ -80,8 +69,23 @@ func (h *UseCase) Execute(ctx context.Context, connectorName string) (*schema.Co
 		return nil, err
 	}
 
+	data, err := h.store.Get(ctx, user.OrganizationID, normalizedName)
+	if err != nil {
+		// Never configured is a state of a registered connector, not a missing
+		// resource (V31-33): 200, so a console reading it logs no 404.
+		if errors.Is(err, connectorsettings.ErrNotFound) {
+			return &schema.ConnectorSettings{
+				ConnectorName: normalizedName,
+				Settings:      map[string]any{},
+				Configured:    false,
+			}, nil
+		}
+		return nil, err
+	}
+
 	return &schema.ConnectorSettings{
 		ConnectorName: normalizedName,
 		Settings:      common.RedactSecrets(data, common.SecretFields(connector.SettingsSchema)),
+		Configured:    true,
 	}, nil
 }
