@@ -73,6 +73,9 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, priceID uuid.
 		if err != nil {
 			return err
 		}
+		if err := prices.RefuseAboveZeroOnFree(operation, version.PricingType, amount); err != nil {
+			return err
+		}
 		params := db.UpdateLicensePriceParams{
 			BillingTiming:       db.BillingTiming(draft.BillingTiming),
 			BillingPeriod:       nil,

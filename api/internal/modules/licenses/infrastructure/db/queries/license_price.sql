@@ -1,8 +1,8 @@
 -- name: GetLicenseForPricing :one
 -- The version a price request names, with its family's slug for the events.
--- FOR NO KEY UPDATE: a price write is decided on the version's lifecycle state,
--- and the single-currency trigger takes the same lock.
-SELECT l.id, l.lifecycle_state, l.name, lf.slug AS family_slug
+-- FOR NO KEY UPDATE: a price write is decided on the version's lifecycle state
+-- and pricing type, and the single-currency trigger takes the same lock.
+SELECT l.id, l.lifecycle_state, l.name, l.pricing_type, lf.slug AS family_slug
 FROM license l
 JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
 WHERE l.organization_id = sqlc.arg(organization_id)
@@ -273,3 +273,14 @@ SELECT EXISTS (
     AND l.slug = sqlc.arg(license_slug)
     AND ib.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
 )::boolean AS target;
+
+
+-- name: CountLicensePricesAboveZero :one
+-- The prices of a version that bill something, whatever their status: a
+-- deprecated price still bills the subscriptions pinned to it, so a FREE
+-- version may hold none of them (V31-71).
+SELECT count(*)::INT AS prices
+FROM license_price
+WHERE organization_id = sqlc.arg(organization_id)
+  AND license_id = sqlc.arg(license_id)
+  AND unit_amount_decimal > 0;

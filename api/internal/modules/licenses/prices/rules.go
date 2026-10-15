@@ -138,3 +138,14 @@ func overageReachable(entitlement db.GetPricingEntitlementRow) bool {
 // NoPrice is the price id CountOtherActiveMeteredPrices excludes when a new
 // price is being created.
 var NoPrice = uuid.Nil
+
+// RefuseAboveZeroOnFree refuses a price above 0 on a FREE version, with
+// <operation>.FreePriceNotZero: a FREE family never bills, which the fallback
+// licence and the checkout from a free plan rely on (V31-71).
+func RefuseAboveZeroOnFree(operation string, pricingType db.PricingType, amount decimal.Decimal) error {
+	if pricingType == db.PricingTypeFREE && amount.IsPositive() {
+		return kaitenerrors.UnprocessableEntity(operation+".FreePriceNotZero",
+			"every price of a FREE licence version is 0")
+	}
+	return nil
+}
