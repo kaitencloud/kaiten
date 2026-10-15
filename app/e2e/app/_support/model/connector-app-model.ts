@@ -157,9 +157,7 @@ export class ConnectorAppModel {
   getStripeSettings(): ConnectorSettings {
     this.problems.consume('getConnectorSettings');
 
-    return clone(
-      this.stripe.settings ?? notConfigured(STRIPE_CONNECTOR_NAME),
-    );
+    return clone(this.stripe.settings ?? notConfigured(STRIPE_CONNECTOR_NAME));
   }
 
   /**
