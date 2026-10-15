@@ -9,7 +9,7 @@ import {
 } from '@/api-client/@tanstack/react-query.gen';
 import { handleBillingProblem, setProblemFieldError } from '@/domains/billing';
 import { useAppForm } from '@/hooks/form';
-import { addonHoldersQueryOptions, invalidateAddonQueries } from '../queries';
+import { invalidateAddonQueries } from '../queries';
 import {
   addonFormValuesToCreateBody,
   addonFormValuesToUpdateBody,
@@ -17,7 +17,6 @@ import {
   initialAddonFormValues,
 } from '../schemas';
 import { addonFormOpts } from '../schemas/addon-form-options';
-import { findBlockingHolder } from '../utils/addon-quantity.utils';
 
 // The refusals of the API that are about one field of the form, by their code: the
 // API names the field in prose, in `detail`, and does not locate it. Each is shown
@@ -46,10 +45,9 @@ type UseAddonFormOptions = {
  * and a refusal leaves the form as it was typed, on its field when it is about one
  * and above the buttons otherwise.
  *
- * Lowering the most an instance can hold is the one rule the API does not check: it
- * takes any `maxQuantity` and leaves an instance holding more than the version allows.
- * So the console reads who holds the version first, and stops the change on the field
- * when an instance holds more. Raising the maximum, or removing it, needs no look.
+ * The most an instance can hold may be lowered under what an instance holds already:
+ * the API lets it be and the instances keep the quantities they hold, so the form
+ * sends the change as it is and asks nobody.
  */
 export function useAddonForm({
   addon,
@@ -84,23 +82,6 @@ export function useAddonForm({
       setFailure(null);
       try {
         if (addon) {
-          const holder = await findBlockingHolder(
-            addon,
-            value.maxQuantity,
-            () => queryClient.fetchQuery(addonHoldersQueryOptions(addon.slug)),
-          );
-          if (holder) {
-            setProblemFieldError(
-              formApi,
-              'maxQuantity',
-              t('Pages.Addons.Form.Errors.maxQuantityHeld', {
-                instance: holder.instanceName,
-                quantity: holder.quantity,
-              }),
-            );
-
-            return;
-          }
           onSaved(
             await update.mutateAsync({
               body: addonFormValuesToUpdateBody(value, addon),
