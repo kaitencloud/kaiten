@@ -40,9 +40,10 @@ export function identityProvenance(grant: LicenseEntitlement): Provenance {
  * the one worth the most `value × quantity` counts, whatever the order they were attached
  * in), a MAX keeps the larger, an ADD adds `value × quantity`; then the boosts, where the
  * latest SET takes the place of all of that, the ADD boosts add to it and the MULTIPLY
- * boosts multiply the sum. An unlimited boost makes it unlimited. An add-on whose value is
- * 0 is ignored, its percent included. A boost never changes the percent; the latest
- * attached add-on that sets its own wins, else the license's, else the limit is hard.
+ * boosts multiply the sum. An unlimited add-on grant (-1), or an unlimited boost, makes
+ * it unlimited whatever the others are. An add-on whose value is 0 is ignored, its percent
+ * included. A boost never changes the percent; the latest attached add-on that sets its
+ * own wins, else the license's, else the limit is hard.
  *
  * The OpenAPI document declares the `license` and the `number` of a provenance as never
  * null, while the API sends null for a number nothing but the license grants (the
@@ -57,6 +58,7 @@ export function composeEffectiveNumber(
   'limit' | 'limitCapExceededOveragePercent' | 'provenance' | 'source'
 > {
   const counting = contributions.filter(({ value }) => value !== 0);
+  const unlimitedByAddon = counting.some(({ value }) => value === -1);
   const overrides = counting
     .filter(({ behavior }) => behavior === 'OVERRIDE')
     .map(({ quantity, value }) => value * quantity);
@@ -84,7 +86,7 @@ export function composeEffectiveNumber(
   const boostMultiply = multiplies.length
     ? multiplies.reduce((product, { value }) => product * (value ?? 1), 1)
     : null;
-  const unlimited = modifiers('UNLIMITED').length > 0;
+  const unlimited = unlimitedByAddon || modifiers('UNLIMITED').length > 0;
   const effective = unlimited
     ? -1
     : ((boostSet ?? afterAddons) + (boostAdd ?? 0)) * (boostMultiply ?? 1);

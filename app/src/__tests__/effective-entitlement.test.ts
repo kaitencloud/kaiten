@@ -105,6 +105,19 @@ describe('the limit the mocks compose', () => {
     });
   });
 
+  it('is unlimited where an OVERRIDE is unlimited, next to a finite one, in either order', () => {
+    for (const contributions of [
+      [addon('OVERRIDE', 1, -1), addon('OVERRIDE', 1, 100)],
+      [addon('OVERRIDE', 1, 100), addon('OVERRIDE', 1, -1)],
+    ]) {
+      const composed = effective(1_000, contributions);
+
+      expect(composed.limit).toEqual({ type: 'number', value: -1 });
+      expect(composed.limitCapExceededOveragePercent).toBe(-1);
+      expect(composed.provenance?.number).toMatchObject({ effective: -1, unlimited: true });
+    }
+  });
+
   it('takes the largest OVERRIDE whatever the order they were attached in', () => {
     const earlier = effective(1_000, [
       addon('OVERRIDE', 2, 5_000),
