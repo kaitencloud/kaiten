@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -157,7 +158,17 @@ func (j *Job) Start(ctx context.Context) {
 	})
 }
 
+// run is one scheduled pass. A panic in it is logged and the pass counted as
+// failed: the job is the only thing that ever runs its sweep, so a goroutine
+// that died with one unit's panic would stop the sweep for good, on every
+// replica it had won the election on (V31-35). The deferred unlock and close
+// in Sweep run before the recover, so the lock is released either way.
 func (j *Job) run(ctx context.Context) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			slog.ErrorContext(ctx, "sweep panicked", "sweep", j.name, "panic", recovered, "stack", string(debug.Stack()))
+		}
+	}()
 	if err := j.Sweep(ctx); err != nil {
 		slog.ErrorContext(ctx, "sweep failed", "sweep", j.name, "error", err)
 	}
