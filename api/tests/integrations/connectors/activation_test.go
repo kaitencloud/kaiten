@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
+	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/schema"
 	"github.com/kaitencloud/kaiten/api/tests"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
@@ -253,7 +254,7 @@ func TestSettingsWriteIsRefusedForAnUnlicensedOrganization(t *testing.T) {
 	registerConnector(t, connectorName, entitlementSlug)
 
 	assert.Equal(t, http.StatusForbidden, putSettings(t, server, connectorName))
-	assert.Equal(t, http.StatusNotFound, getSettingsStatus(t, server, connectorName),
+	assert.False(t, getSettings(t, server, connectorName).Configured,
 		"the refusal must happen before the secret is stored")
 }
 
@@ -410,9 +411,12 @@ func deleteSettings(t *testing.T, server *tests.TestServer, name string) int {
 	return status(t, server, http.MethodDelete, "/api/connectors/"+name+"/settings", nil)
 }
 
-func getSettingsStatus(t *testing.T, server *tests.TestServer, name string) int {
+// getSettings reads a connector's settings; one never configured reads
+// configured: false with a 200, not a 404 (V31-33).
+func getSettings(t *testing.T, server *tests.TestServer, name string) schema.ConnectorSettings {
 	t.Helper()
-	return status(t, server, http.MethodGet, "/api/connectors/"+name+"/settings", nil)
+	return commonfixture.AssertJSONResponse[schema.ConnectorSettings](t,
+		do(t, server.App, http.MethodGet, "/api/connectors/"+name+"/settings", nil), http.StatusOK)
 }
 
 func status(t *testing.T, server *tests.TestServer, method, path string, body map[string]any) int {
