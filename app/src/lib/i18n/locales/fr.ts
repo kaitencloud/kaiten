@@ -4125,6 +4125,7 @@ export default {
             recompose: 'Recomposer',
             releaseHold: 'Débloquer la facture',
             void: 'Annuler la facture',
+            voidThenRecompose: 'Annuler et recomposer',
             writeOff: 'Passer en perte',
             retryPush: 'Relancer l’envoi',
             push: 'Envoyer maintenant',
@@ -4204,7 +4205,14 @@ export default {
             title: 'Rapprochement',
             matched: 'Stripe détient les mêmes montants que Kaiten.',
             mismatch:
-              'Stripe détient autre chose que ce que Kaiten a composé. La facture dans Stripe est celle que le client paie : réglez l’écart là-bas.',
+              'Stripe détient autre chose que ce que Kaiten a composé. Kaiten fait foi : l’écart ne se règle pas dans Stripe, la facture est annulée puis composée de nouveau.',
+            chargeWaits:
+              'Rien n’est encaissé tant que Stripe ne correspond pas à Kaiten.',
+            mismatchPaid:
+              'Stripe détient autre chose que ce que Kaiten a composé, et la facture est déjà payée : elle ne peut pas y être annulée. Kaiten la garde comme payée avec cet écart : réglez-le dans Stripe à la main, avec un avoir et un remboursement.',
+            mismatchVoid:
+              'Stripe détenait autre chose que ce que Kaiten a composé lors de la vérification de cette facture. Elle a été annulée depuis.',
+            openInStripe: 'Ouvrir la facture dans Stripe',
             checked: 'Vérifié le {{date}}.',
             kaitenTotal: 'Total composé par Kaiten',
             providerTotal: 'Total dans Stripe, hors taxes',
@@ -4384,6 +4392,8 @@ export default {
             title: 'Annuler et recomposer',
             description:
               'Cette facture n’est pas un brouillon bloqué : elle ne peut pas être modifiée. Elle est annulée, puis une remplaçante est composée à partir du journal d’usage tel qu’il est maintenant. Un seul motif couvre les deux.',
+            descriptionMismatch:
+              'Stripe détient autre chose que ce que Kaiten a composé. Kaiten fait foi : la facture est annulée dans Stripe et dans Kaiten, puis une remplaçante est composée à partir du journal d’usage tel qu’il est maintenant, envoyée à Stripe, vérifiée de nouveau et encaissée à son tour. Un seul motif couvre les deux.',
             confirm: 'Annuler et recomposer',
           },
           WriteOff: {

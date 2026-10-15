@@ -14,7 +14,10 @@ type VoidThenRecomposeDialogProps = {
 /**
  * What a recompose of an invoice that cannot be recomposed leads to: an invoice
  * that is not a held draft is never edited, it is voided and a replacement is
- * composed. The two calls are one confirmation with one reason. When the void
+ * composed. It is also the remedy of a reconciliation mismatch, which the invoice
+ * offers at once: Kaiten is authoritative, so what Stripe holds is replaced rather
+ * than corrected there, and the dialog says so. The two calls are one confirmation
+ * with one reason. When the void
  * went through and the replacement did not, the invoice is void and the person is
  * told, with the page showing it, so that the recompose can be asked again from
  * there.
@@ -44,7 +47,9 @@ export function VoidThenRecomposeDialog({
         'Pages.Billing.Invoices.Detail.VoidThenRecompose.confirm',
       )}
       description={t(
-        'Pages.Billing.Invoices.Detail.VoidThenRecompose.description',
+        invoice.provider?.reconciliationStatus === 'MISMATCH'
+          ? 'Pages.Billing.Invoices.Detail.VoidThenRecompose.descriptionMismatch'
+          : 'Pages.Billing.Invoices.Detail.VoidThenRecompose.description',
       )}
       destructive
       fieldLabel={t('Pages.Billing.Invoices.Detail.Void.reason')}

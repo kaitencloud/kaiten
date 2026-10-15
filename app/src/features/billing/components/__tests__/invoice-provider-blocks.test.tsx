@@ -1,7 +1,13 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import type { Invoice, Reconciliation } from '@/api-client';
-import { useBillingTexts } from '@/test-fixtures/billing-test-support';
+import { server } from '@/__tests__/msw-server';
+import { handleGetBillingCapabilities } from '@/api-client/msw.gen';
+import {
+  renderWithClient,
+  useBillingTexts,
+} from '@/test-fixtures/billing-test-support';
+import { billingCapabilitiesProfiles } from '../../../../../e2e/app/_support/model/billing-capabilities';
 import {
   buildInvoice,
   buildInvoiceLine,
@@ -176,6 +182,16 @@ describe('where an invoice stands in Stripe', () => {
   });
 });
 
+const EMPTY_DETAIL: Reconciliation = {
+  discounts: [],
+  extraDiscounts: [],
+  extraInProvider: [],
+  inclusiveTax: false,
+  lines: [],
+  missingInProvider: [],
+  totals: { kaitenTotal: 2900, providerTotalExcludingTax: 3319 },
+};
+
 describe('how the amounts of Kaiten and Stripe compare', () => {
   const mismatched = (detail: Reconciliation) =>
     stripeInvoice({
@@ -185,6 +201,65 @@ describe('how the amounts of Kaiten and Stripe compare', () => {
         reconciliationStatus: 'MISMATCH',
       }),
     });
+
+  it('says Kaiten is authoritative, and does not send a person to settle the difference in Stripe', () => {
+    render(
+      <ReconciliationCard
+        invoice={mismatched({
+          discounts: [],
+          extraDiscounts: [],
+          extraInProvider: ['ii_9'],
+          inclusiveTax: false,
+          lines: [],
+          missingInProvider: [],
+          totals: { kaitenTotal: 2900, providerTotalExcludingTax: 3319 },
+        })}
+      />,
+    );
+
+    const card = screen.getByTestId('reconciliation');
+    expect(card).toHaveTextContent('Kaiten is authoritative');
+    expect(card).toHaveTextContent('the invoice is voided and composed again');
+    expect(card).not.toHaveTextContent('settle the difference there');
+    // Sent to the customer, it is not charged by Kaiten: nothing is said about a charge.
+    expect(card).not.toHaveTextContent('Nothing is charged');
+    expect(within(card).queryByRole('link')).toBeNull();
+  });
+
+  it('says the charge waits for a match when Stripe is to charge the invoice itself', () => {
+    render(
+      <ReconciliationCard
+        invoice={{
+          ...mismatched({
+            discounts: [],
+            extraDiscounts: [],
+            extraInProvider: [],
+            inclusiveTax: false,
+            lines: [],
+            missingInProvider: [],
+            totals: { kaitenTotal: 2900, providerTotalExcludingTax: 3319 },
+          }),
+          collectionMethod: 'CHARGE_AUTOMATICALLY',
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId('reconciliation')).toHaveTextContent(
+      'Nothing is charged until Stripe matches Kaiten.',
+    );
+  });
+
+  it('says a void invoice was voided since, with nothing left to do', () => {
+    render(
+      <ReconciliationCard
+        invoice={{ ...mismatched({ ...EMPTY_DETAIL }), status: 'VOID' }}
+      />,
+    );
+
+    const card = screen.getByTestId('reconciliation');
+    expect(card).toHaveTextContent('It has been voided since.');
+    expect(card).not.toHaveTextContent('composed again');
+  });
 
   it('says they match in a line, with nothing to compare', () => {
     render(<ReconciliationCard invoice={stripeInvoice()} />);
@@ -508,6 +583,71 @@ describe('how the amounts of Kaiten and Stripe compare', () => {
     );
     expect(keyWarnings).toHaveLength(0);
     error.mockRestore();
+  });
+});
+
+describe('a mismatch on an invoice Stripe already holds as paid', () => {
+  const paid = (provider: Parameters<typeof buildProviderRecord>[0] = {}): Invoice =>
+    stripeInvoice({
+      provider: buildProviderRecord({
+        externalInvoiceId: 'in_1Abc',
+        reconciliationDetail: EMPTY_DETAIL,
+        reconciliationStatus: 'MISMATCH',
+        ...provider,
+      }),
+      status: 'PAID',
+    });
+  const serveStanding = (standing: 'connected' | 'connectedLive' | 'available') =>
+    server.use(
+      handleGetBillingCapabilities({
+        body: billingCapabilitiesProfiles.stackWithStripe(standing),
+      }),
+    );
+
+  it('explains that it is settled in Stripe by hand, and links to the invoice in the test dashboard', async () => {
+    serveStanding('connected');
+    renderWithClient(<ReconciliationCard invoice={paid()} />);
+
+    const card = screen.getByTestId('reconciliation');
+    expect(card).toHaveTextContent('already paid, so it cannot be voided there');
+    expect(card).toHaveTextContent('with a credit note and a refund');
+    const link = await within(card).findByRole('link', { name: 'Open the invoice in Stripe' });
+    expect(link).toHaveAttribute('href', 'https://dashboard.stripe.com/test/invoices/in_1Abc');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(link).toHaveAttribute('target', '_blank');
+  });
+
+  it('links to the live dashboard when the connection reaches a live account', async () => {
+    serveStanding('connectedLive');
+    renderWithClient(<ReconciliationCard invoice={paid()} />);
+
+    expect(await screen.findByRole('link', { name: 'Open the invoice in Stripe' })).toHaveAttribute(
+      'href',
+      'https://dashboard.stripe.com/invoices/in_1Abc',
+    );
+  });
+
+  it('falls back to the page Stripe hosts when the mode of the connection is not known, and only over https', async () => {
+    serveStanding('available');
+    renderWithClient(
+      <ReconciliationCard invoice={paid({ hostedInvoiceUrl: 'https://invoice.stripe.com/i/acct_1/in_1Abc' })} />,
+    );
+
+    expect(await screen.findByRole('link', { name: 'Open the invoice in Stripe' })).toHaveAttribute(
+      'href',
+      'https://invoice.stripe.com/i/acct_1/in_1Abc',
+    );
+  });
+
+  it('shows no link when there is nowhere safe to send the person, and still explains', async () => {
+    serveStanding('available');
+    renderWithClient(
+      <ReconciliationCard invoice={paid({ hostedInvoiceUrl: 'http://pay.stripe.com/in_1Abc' })} />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('reconciliation')).toHaveTextContent('credit note'));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(screen.queryByRole('link')).toBeNull();
   });
 });
 

@@ -148,6 +148,7 @@ describe('useInvoiceActionAccess', () => {
     retryPush: false,
     sync: false,
     void: false,
+    voidThenRecompose: false,
     writeOff: false,
   };
   const ALL = {
@@ -157,6 +158,7 @@ describe('useInvoiceActionAccess', () => {
     retryPush: true,
     sync: true,
     void: true,
+    voidThenRecompose: true,
     writeOff: true,
   };
 
@@ -166,7 +168,7 @@ describe('useInvoiceActionAccess', () => {
     expect(renderAccess().result.current).toEqual(NONE);
   });
 
-  it('allows the seven actions to a token that holds the write scope', async () => {
+  it('allows the eight actions to a token that holds the write scope', async () => {
     getAuthToken.mockResolvedValue(jwt({ scopes: ['write:billing'] }));
 
     const { result } = renderAccess();

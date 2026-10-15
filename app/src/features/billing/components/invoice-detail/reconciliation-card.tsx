@@ -1,212 +1,81 @@
+import { ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { DueDateDifference, Invoice, Reconciliation } from '@/api-client';
+import type { Invoice } from '@/api-client';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { formatInstant, Money } from '@/domains/billing';
+  formatInstant,
+  getSafeProviderUrl,
+  getStripeInvoiceDashboardUrl,
+  useBillingProvider,
+} from '@/domains/billing';
 import { DetailCard } from '@/functionals/detail-card';
+import { Differences } from './reconciliation-differences';
 
 type ReconciliationCardProps = {
   invoice: Invoice;
 };
 
-type DifferencesProps = {
-  currency: string;
-  detail: Reconciliation;
-};
-
 const base = 'Pages.Billing.Invoices.Detail.Reconciliation';
 
 /**
- * The totals Kaiten and Stripe disagree on, as each states them. Where tax is included
- * in the amounts, Stripe's total excluding tax is not what was compared: its subtotal
- * less its discounts was, so those two figures are the ones shown.
+ * What a mismatch on this invoice calls for, in words. Kaiten is authoritative, so an
+ * invoice Stripe still holds open is not settled in Stripe: it is voided and composed
+ * again, and the actions say how. One Stripe already holds as paid cannot be voided
+ * there, so its difference is settled by hand in Stripe, and a void one has nothing left
+ * to do.
  */
-function Totals({ currency, detail }: DifferencesProps) {
-  const { t } = useTranslation();
-  const { providerSubtotal, providerTotalDiscount, providerTotalExcludingTax } =
-    detail.totals;
-  const comparedOnSubtotal = detail.inclusiveTax && providerSubtotal != null;
-
-  return (
-    <DetailCard.Rows>
-      <DetailCard.Row
-        label={t(`${base}.kaitenTotal`)}
-        value={<Money amount={detail.totals.kaitenTotal} currency={currency} />}
-      />
-      {comparedOnSubtotal ? (
-        <>
-          <DetailCard.Row
-            label={t(`${base}.providerSubtotal`)}
-            value={<Money amount={providerSubtotal} currency={currency} />}
-          />
-          <DetailCard.Row
-            label={t(`${base}.providerDiscounts`)}
-            value={
-              <Money amount={providerTotalDiscount ?? 0} currency={currency} />
-            }
-          />
-        </>
-      ) : (
-        <DetailCard.Row
-          label={t(`${base}.providerTotal`)}
-          value={
-            <Money amount={providerTotalExcludingTax} currency={currency} />
-          }
-        />
-      )}
-    </DetailCard.Rows>
-  );
-}
-
-/** A table of what differs line by line: the amount Kaiten composed against the one Stripe holds. */
-function AmountTable({
-  caption,
-  currency,
-  rows,
-}: {
-  caption: string;
-  currency: string;
-  rows: Array<{ id: string; kaiten: number; label: string; provider: number }>;
-}) {
-  const { t } = useTranslation();
-
-  if (rows.length === 0) {
-    return null;
+function getMismatchKey(invoice: Invoice) {
+  if (invoice.status === 'PAID') {
+    return `${base}.mismatchPaid`;
   }
 
-  return (
-    <section className="space-y-2">
-      <h3 className="text-sm font-medium">{caption}</h3>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t(`${base}.line`)}</TableHead>
-            <TableHead className="text-right">{t(`${base}.kaiten`)}</TableHead>
-            <TableHead className="text-right">
-              {t(`${base}.provider`)}
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => (
-            <TableRow key={row.id}>
-              <TableCell>{row.label}</TableCell>
-              <TableCell className="text-right">
-                <Money amount={row.kaiten} currency={currency} />
-              </TableCell>
-              <TableCell className="text-right">
-                <Money amount={row.provider} currency={currency} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </section>
-  );
-}
-
-/** A list of lines one side has and the other does not, by their identifiers. */
-function Unmatched({ caption, ids }: { caption: string; ids: string[] }) {
-  if (ids.length === 0) {
-    return null;
-  }
-
-  return (
-    <section className="space-y-1">
-      <h3 className="text-sm font-medium">{caption}</h3>
-      <ul className="list-disc space-y-0.5 pl-5 text-sm">
-        {ids.map((id) => (
-          <li className="font-mono break-all" key={id}>
-            {id}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
+  return invoice.status === 'VOID'
+    ? `${base}.mismatchVoid`
+    : `${base}.mismatch`;
 }
 
 /**
- * The due date Stripe gave an invoice that is sent for payment, when it is not the one
- * Kaiten issued it with. Kaiten counts a late payment from its own date, so the card
- * says so rather than leaving the two to be read as one.
+ * The link to a paid invoice in Stripe, where its credit note and its refund are made by
+ * hand. It goes to the dashboard, in the mode the connection reaches; when that mode is
+ * not known (a link to the wrong one finds nothing), to the page Stripe hosts for the
+ * invoice, only when the address is https; and to nothing when there is neither.
  */
-function DueDate({ difference }: { difference: DueDateDifference }) {
-  const { i18n, t } = useTranslation();
-
-  return (
-    <section className="space-y-2" data-testid="reconciliation-due-date">
-      <h3 className="text-sm font-medium">{t(`${base}.differingDueDate`)}</h3>
-      <p className="text-sm text-muted-foreground">
-        {t(`${base}.dueDateHint`)}
-      </p>
-      <DetailCard.Rows>
-        <DetailCard.Row
-          label={t(`${base}.kaitenDueAt`)}
-          value={formatInstant(difference.kaitenDueAt, i18n.language)}
-        />
-        <DetailCard.Row
-          label={t(`${base}.providerDueAt`)}
-          value={formatInstant(difference.providerDueAt, i18n.language)}
-        />
-      </DetailCard.Rows>
-    </section>
-  );
-}
-
-/** The discounts Stripe applied that Kaiten did not create, by their identifiers and what they took off. */
-function ExtraDiscounts({
-  currency,
-  discounts,
-}: {
-  currency: string;
-  discounts: Reconciliation['extraDiscounts'];
-}) {
+function StripeInvoiceLink({ invoice }: { invoice: Invoice }) {
   const { t } = useTranslation();
+  const { isPending, standing } = useBillingProvider('STRIPE');
+  const href =
+    (standing.state === 'connected'
+      ? getStripeInvoiceDashboardUrl(
+          standing.livemode,
+          invoice.provider?.externalInvoiceId,
+        )
+      : undefined) ?? getSafeProviderUrl(invoice.provider?.hostedInvoiceUrl);
 
-  if (discounts.length === 0) {
+  // Not while the mode is being read: the link would change under the person's cursor.
+  if (isPending || !href) {
     return null;
   }
 
   return (
-    <section className="space-y-2">
-      <h3 className="text-sm font-medium">{t(`${base}.extraDiscounts`)}</h3>
-      <p className="text-sm text-muted-foreground">
-        {t(`${base}.extraDiscountsHint`)}
-      </p>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t(`${base}.discount`)}</TableHead>
-            <TableHead>{t(`${base}.providerLine`)}</TableHead>
-            <TableHead className="text-right">
-              {t(`${base}.provider`)}
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {discounts.map((discount) => (
-            <TableRow key={`${discount.externalLineId}:${discount.discountId}`}>
-              <TableCell className="font-mono break-all">
-                {discount.discountId}
-              </TableCell>
-              <TableCell className="font-mono break-all">
-                {discount.externalLineId}
-              </TableCell>
-              <TableCell className="text-right">
-                <Money amount={discount.amount} currency={currency} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </section>
+    <Button
+      className="self-start"
+      nativeButton={false}
+      render={
+        <a
+          data-link="stripe-invoice"
+          href={href}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          <ExternalLink />
+          {t(`${base}.openInStripe`)}
+        </a>
+      }
+      role="link"
+      size="sm"
+      variant="outline"
+    />
   );
 }
 
@@ -218,9 +87,11 @@ function ExtraDiscounts({
  * another amount or not at all, the discounts Stripe applied that Kaiten never
  * created, such as a coupon added in its dashboard, and the due date Stripe gave an
  * invoice that is sent for payment, when it is not Kaiten's. A due date can be the
- * only difference, with the amounts equal. Nothing is added up or subtracted here, and
- * nothing is offered to fix it: the invoice in Stripe is the one customers pay, and the
- * difference is for a person to settle there.
+ * only difference, with the amounts equal. Nothing is added up or subtracted here. Kaiten
+ * is authoritative, so the card does not send a person to settle the difference in Stripe:
+ * the actions of the invoice void it and compose it again, and the card says that the
+ * charge waits for a match. A mismatch on an invoice Stripe already holds as paid is the
+ * one it cannot void: the card says it is settled in Stripe by hand, and links there.
  */
 export function ReconciliationCard({ invoice }: ReconciliationCardProps) {
   const { i18n, t } = useTranslation();
@@ -231,6 +102,11 @@ export function ReconciliationCard({ invoice }: ReconciliationCardProps) {
     return null;
   }
   const mismatched = record.reconciliationStatus === 'MISMATCH';
+  // An uncharged invoice that Stripe holds open waits for the match to be charged.
+  const chargeWaits =
+    invoice.status === 'PUSHED' &&
+    invoice.collectionMethod === 'CHARGE_AUTOMATICALLY';
+  const settledByHand = mismatched && invoice.status === 'PAID';
 
   return (
     <section data-testid="reconciliation">
@@ -248,7 +124,8 @@ export function ReconciliationCard({ invoice }: ReconciliationCardProps) {
             </Badge>
           </DetailCard.Title>
           <DetailCard.Description>
-            {mismatched ? t(`${base}.mismatch`) : t(`${base}.matched`)}
+            {mismatched ? t(getMismatchKey(invoice)) : t(`${base}.matched`)}
+            {mismatched && chargeWaits ? ` ${t(`${base}.chargeWaits`)}` : ''}
             {record.reconciledAt
               ? ` ${t(`${base}.checked`, {
                   date: formatInstant(record.reconciledAt, i18n.language),
@@ -256,49 +133,11 @@ export function ReconciliationCard({ invoice }: ReconciliationCardProps) {
               : ''}
           </DetailCard.Description>
         </DetailCard.Header>
-        {mismatched && detail ? (
+        {settledByHand || (mismatched && detail) ? (
           <DetailCard.Content className="gap-5">
-            <Totals currency={invoice.currency} detail={detail} />
-            <AmountTable
-              caption={t(`${base}.differingLines`)}
-              currency={invoice.currency}
-              rows={detail.lines.map((line) => ({
-                id: line.lineId,
-                kaiten: line.kaitenAmount,
-                label: t(`${base}.lineNumber`, { seq: line.seq }),
-                provider: line.providerAmount,
-              }))}
-            />
-            <AmountTable
-              caption={t(`${base}.differingDiscounts`)}
-              currency={invoice.currency}
-              rows={detail.discounts.map((discount) => ({
-                id: `${discount.lineId}:${discount.targetSeq}:${discount.couponId}`,
-                kaiten: discount.kaitenAmount,
-                label: t(`${base}.discountOnLine`, {
-                  seq: discount.seq,
-                  target: discount.targetSeq,
-                }),
-                provider: discount.providerAmount,
-              }))}
-            />
-            <Unmatched
-              caption={t(`${base}.missingInProvider`)}
-              ids={detail.missingInProvider}
-            />
-            <Unmatched
-              caption={t(`${base}.extraInProvider`)}
-              ids={detail.extraInProvider}
-            />
-            <ExtraDiscounts
-              currency={invoice.currency}
-              discounts={detail.extraDiscounts}
-            />
-            {detail.dueDate ? <DueDate difference={detail.dueDate} /> : null}
-            {detail.inclusiveTax ? (
-              <p className="text-sm text-muted-foreground">
-                {t(`${base}.inclusiveTax`)}
-              </p>
+            {settledByHand ? <StripeInvoiceLink invoice={invoice} /> : null}
+            {mismatched && detail ? (
+              <Differences currency={invoice.currency} detail={detail} />
             ) : null}
           </DetailCard.Content>
         ) : null}

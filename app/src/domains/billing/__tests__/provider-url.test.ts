@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { getSafeProviderUrl } from '../logic';
+import { getSafeProviderUrl, getStripeInvoiceDashboardUrl } from '../logic';
 
 describe('the address of a page the payment provider hosts', () => {
   it('is kept when it is an https address', () => {
@@ -30,5 +30,29 @@ describe('the address of a page the payment provider hosts', () => {
   it('is no link when there is none', () => {
     expect(getSafeProviderUrl(undefined)).toBeUndefined();
     expect(getSafeProviderUrl(null)).toBeUndefined();
+  });
+});
+
+describe('the page of an invoice in the dashboard of Stripe', () => {
+  it('is in the mode the connection reaches, since the dashboard keeps them apart', () => {
+    expect(getStripeInvoiceDashboardUrl(true, 'in_1Abc')).toBe(
+      'https://dashboard.stripe.com/invoices/in_1Abc',
+    );
+    expect(getStripeInvoiceDashboardUrl(false, 'in_1Abc')).toBe(
+      'https://dashboard.stripe.com/test/invoices/in_1Abc',
+    );
+  });
+
+  it('is none when the mode is not known: a link to the wrong one finds nothing', () => {
+    expect(getStripeInvoiceDashboardUrl(undefined, 'in_1Abc')).toBeUndefined();
+    expect(getStripeInvoiceDashboardUrl(null, 'in_1Abc')).toBeUndefined();
+  });
+
+  it('is none for an identifier that is not an invoice’s, which is not put in an address', () => {
+    expect(getStripeInvoiceDashboardUrl(true, undefined)).toBeUndefined();
+    expect(getStripeInvoiceDashboardUrl(true, '')).toBeUndefined();
+    expect(getStripeInvoiceDashboardUrl(true, 'cus_1')).toBeUndefined();
+    expect(getStripeInvoiceDashboardUrl(true, 'in_1/../../x')).toBeUndefined();
+    expect(getStripeInvoiceDashboardUrl(true, 'in_1?x=y')).toBeUndefined();
   });
 });

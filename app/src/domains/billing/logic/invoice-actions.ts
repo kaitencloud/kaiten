@@ -9,12 +9,15 @@ export type InvoiceAction =
   | 'markPaid'
   | 'writeOff'
   | 'void'
+  | 'voidThenRecompose'
   | 'retryPush'
   | 'sync';
 
 /**
  * The billing action each invoice action is, which is where its scope comes
- * from: the scope the contract gives the operation the action calls.
+ * from: the scope the contract gives the operation the action calls. An action that
+ * calls two (voiding and recomposing in one confirmation) names both, and needs the
+ * scopes of each.
  */
 export const INVOICE_ACTION_SCOPES = {
   markPaid: 'invoice.markPaid',
@@ -23,8 +26,17 @@ export const INVOICE_ACTION_SCOPES = {
   retryPush: 'invoice.retryPush',
   sync: 'invoice.sync',
   void: 'invoice.void',
+  voidThenRecompose: ['invoice.void', 'invoice.recompose'],
   writeOff: 'invoice.writeOff',
-} as const satisfies Record<InvoiceAction, BillingAction>;
+} as const satisfies Record<
+  InvoiceAction,
+  BillingAction | readonly BillingAction[]
+>;
+
+/** The billing actions an invoice action calls: one for most, two for a void and recompose. */
+export const getInvoiceActionBillingActions = (
+  action: InvoiceAction,
+): readonly BillingAction[] => [INVOICE_ACTION_SCOPES[action]].flat();
 
 /** Why an action that the status allows cannot be run now. */
 export type InvoiceActionUnavailable =
@@ -53,7 +65,10 @@ export type InvoiceActionsInput = Pick<
    * Where the invoice stands in its payment provider, once it is there: its id
    * there is what lets it be read back. Absent for an invoice nobody pushed.
    */
-  provider?: Pick<ProviderRecord, 'externalInvoiceId' | 'nextPushAt'> | null;
+  provider?: Pick<
+    ProviderRecord,
+    'externalInvoiceId' | 'nextPushAt' | 'reconciliationStatus'
+  > | null;
   /** Who collects the invoice; none reads as the organization itself. */
   providerKind?: InvoiceSummary['providerKind'];
   /** The invoice recomposed from this VOID one, once there is one; null while there is none. */
@@ -78,7 +93,11 @@ export type InvoiceActionsContext = {
  *   voided; one that Stripe collects is pushed again first (`retryPush`), which also
  *   finalizes a draft waiting for it in Stripe, and read back once it is there (`sync`);
  * - an invoice Stripe has accepted (PUSHED, PAYMENT_FAILED) is read back (`sync`) or
- *   voided, in Stripe first;
+ *   voided, in Stripe first. When what Stripe holds is not what Kaiten composed (a
+ *   reconciliation MISMATCH) the remedy comes first: Kaiten is authoritative, so the
+ *   invoice is voided in both systems and composed again, in one confirmation
+ *   (`voidThenRecompose`). A MISMATCH on a PAID invoice offers nothing: Stripe cannot void
+ *   it, and the difference is settled there by hand;
  * - a VOID invoice is recomposed into its replacement, once, unless the usage it
  *   would read is gone;
  * - a PAID, written-off or replaced invoice is final.
@@ -113,9 +132,17 @@ export function getInvoiceActions(
       return [...pushActions(invoice), { action: 'void' }];
     case 'PUSHED':
     case 'PAYMENT_FAILED':
-      return invoice.providerKind === 'STRIPE'
-        ? [{ action: 'sync' }, { action: 'void' }]
-        : [];
+      if (invoice.providerKind !== 'STRIPE') {
+        return [];
+      }
+
+      return invoice.provider?.reconciliationStatus === 'MISMATCH'
+        ? [
+            recompose(invoice, context, 'voidThenRecompose'),
+            { action: 'sync' },
+            { action: 'void' },
+          ]
+        : [{ action: 'sync' }, { action: 'void' }];
     case 'VOID':
       return invoice.replacedByInvoiceId ? [] : [recompose(invoice, context)];
     default:
@@ -147,9 +174,10 @@ function pushActions(invoice: InvoiceActionsInput): InvoiceActionState[] {
 function recompose(
   invoice: InvoiceActionsInput,
   { instanceDeleted, retentionStart }: InvoiceActionsContext,
+  action: 'recompose' | 'voidThenRecompose' = 'recompose',
 ): InvoiceActionState {
   if (instanceDeleted) {
-    return { action: 'recompose', unavailable: { reason: 'instance-deleted' } };
+    return { action, unavailable: { reason: 'instance-deleted' } };
   }
   // A recompose reads the usage journal again, and the API refuses it for a period
   // that starts before the usage history it keeps, a held DRAFT's as well as a VOID
@@ -158,11 +186,8 @@ function recompose(
     retentionStart &&
     Date.parse(invoice.serviceFrom) < retentionStart.getTime()
   ) {
-    return {
-      action: 'recompose',
-      unavailable: { reason: 'purged-usage', retentionStart },
-    };
+    return { action, unavailable: { reason: 'purged-usage', retentionStart } };
   }
 
-  return { action: 'recompose' };
+  return { action };
 }
