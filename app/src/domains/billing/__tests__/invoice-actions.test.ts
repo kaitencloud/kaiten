@@ -3,6 +3,7 @@ import { OPERATION_SCOPES } from '@/lib/api/operation-scopes.gen';
 import {
   BILLING_ACTIONS,
   getActionScopes,
+  getInvoiceActionBillingActions,
   getInvoiceActions,
   INVOICE_ACTION_SCOPES,
   INVOICE_STATUSES,
@@ -138,6 +139,67 @@ describe('the actions of an invoice Stripe collects', () => {
     },
   );
 
+  describe('where what Stripe holds is not what Kaiten composed', () => {
+    const mismatch = { reconciliationStatus: 'MISMATCH' } as const;
+
+    it.each<InvoiceStatus>(['PUSHED', 'PAYMENT_FAILED'])(
+      'offers a %s invoice the remedy first, since Kaiten is authoritative: void and recompose in one confirmation',
+      (status) => {
+        expect(actionsOf(stripe(status, { provider: mismatch }))).toEqual([
+          'voidThenRecompose',
+          'sync',
+          'void',
+        ]);
+      },
+    );
+
+    it('keeps the plain actions for an invoice that matches, or has not been compared', () => {
+      expect(
+        actionsOf(
+          stripe('PUSHED', { provider: { reconciliationStatus: 'MATCHED' } }),
+        ),
+      ).toEqual(['sync', 'void']);
+      expect(actionsOf(stripe('PUSHED', { provider: {} }))).toEqual([
+        'sync',
+        'void',
+      ]);
+    });
+
+    it('offers nothing for a paid invoice: Stripe cannot void it, and the difference is settled there by hand', () => {
+      expect(actionsOf(stripe('PAID', { provider: mismatch }))).toEqual([]);
+    });
+
+    it('offers nothing for an invoice nobody collects through Stripe', () => {
+      expect(actionsOf(invoice('PUSHED', { provider: mismatch }))).toEqual([]);
+    });
+
+    it('is offered disabled when the recompose would be refused, since voiding first would leave the customer with no invoice', () => {
+      expect(
+        getInvoiceActions(stripe('PUSHED', { provider: mismatch }), {
+          instanceDeleted: true,
+        })[0],
+      ).toEqual({
+        action: 'voidThenRecompose',
+        unavailable: { reason: 'instance-deleted' },
+      });
+      expect(
+        getInvoiceActions(
+          stripe('PUSHED', {
+            provider: mismatch,
+            serviceFrom: '2026-11-01T00:00:00.000Z',
+          }),
+          { retentionStart: new Date('2027-01-01T00:00:00.000Z') },
+        )[0],
+      ).toEqual({
+        action: 'voidThenRecompose',
+        unavailable: {
+          reason: 'purged-usage',
+          retentionStart: new Date('2027-01-01T00:00:00.000Z'),
+        },
+      });
+    });
+  });
+
   it('offers neither mark paid nor write off for an invoice Stripe has accepted', () => {
     for (const status of ['PUSHED', 'PAYMENT_FAILED'] as const) {
       const actions = actionsOf(stripe(status));
@@ -240,17 +302,26 @@ describe('the scopes of the invoice actions', () => {
         'retryPush',
         'sync',
         'void',
+        'voidThenRecompose',
         'writeOff',
       ].sort(),
     );
     for (const action of actions) {
-      const billingAction = INVOICE_ACTION_SCOPES[action];
-
-      expect(getActionScopes(billingAction)).toEqual(
-        OPERATION_SCOPES[BILLING_ACTIONS[billingAction]],
-      );
-      expect(getActionScopes(billingAction)).toContain('write:billing');
+      for (const billingAction of getInvoiceActionBillingActions(action)) {
+        expect(getActionScopes(billingAction)).toEqual(
+          OPERATION_SCOPES[BILLING_ACTIONS[billingAction]],
+        );
+        expect(getActionScopes(billingAction)).toContain('write:billing');
+      }
     }
+  });
+
+  it('are those of the void and of the recompose, both, for a void and recompose in one confirmation', () => {
+    expect(getInvoiceActionBillingActions('voidThenRecompose')).toEqual([
+      'invoice.void',
+      'invoice.recompose',
+    ]);
+    expect(getInvoiceActionBillingActions('void')).toEqual(['invoice.void']);
   });
 
   it('asks only for a read scope to read an invoice, its reports and the list', () => {

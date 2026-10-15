@@ -38,6 +38,7 @@ export {
   isHandoffLeased,
 } from './invoice-handoff';
 export {
+  getInvoiceActionBillingActions,
   getInvoiceActions,
   INVOICE_ACTION_SCOPES,
   type InvoiceAction,
@@ -65,7 +66,10 @@ export {
   hasUsablePaymentMethod,
   type PaymentMethodStanding,
 } from './payment-method';
-export { getSafeProviderUrl } from './provider-url';
+export {
+  getSafeProviderUrl,
+  getStripeInvoiceDashboardUrl,
+} from './provider-url';
 export {
   isPaidAtProviderRefusal,
   readRecomposeRefusal,

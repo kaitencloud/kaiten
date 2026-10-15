@@ -1,5 +1,7 @@
+import type { Page } from '@playwright/test';
+import type { Reconciliation } from '@/api-client';
 import { buildProviderRecord } from '../_support/fixtures/build-invoice';
-import { expect, test } from '../_support/app-test';
+import { expect, recordWrites, test } from '../_support/app-test';
 import { readConsoleStorage } from '../_support/assertions/storage';
 import { InvoiceDetailDriver } from '../_support/drivers/invoice-detail.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
@@ -18,6 +20,19 @@ import { stripeInvoice } from './stripe-fixtures';
 // do with it (a push that failed, a draft to finalize, a charge that needs the customer).
 // Every field is the provider's record as the API mirrors it, and an invoice nobody
 // collects through a provider has no such block: it is absent, not empty.
+
+const INVOICE_WRITES = /\/api\/invoices\/[^/]+\/(recompose|void)$/;
+
+// What Stripe holds of an invoice that is not what Kaiten composed: a line it has alone.
+const MISMATCH_DETAIL: Reconciliation = {
+  discounts: [],
+  extraDiscounts: [],
+  extraInProvider: ['ii_9'],
+  inclusiveTax: false,
+  lines: [],
+  missingInProvider: [],
+  totals: { kaitenTotal: 2900, providerTotalExcludingTax: 3000 },
+};
 
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(new Date(BILLED_NOW));
@@ -206,6 +221,147 @@ test.describe('how the amounts of an invoice compare with those of Stripe', () =
     await expect(
       invoice.provider().locator('[data-reconciliation]'),
     ).toHaveText('Differ');
+  });
+
+  test('does not send a person to settle the difference in Stripe: Kaiten is authoritative, and the invoice is voided and composed again', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createStripeBillingModel());
+
+    await invoice.goto('inv-mm');
+
+    await expect(invoice.reconciliation()).toContainText(
+      'Kaiten is authoritative: the difference is not settled in Stripe, the invoice is voided and composed again.',
+    );
+    await expect(invoice.reconciliation()).not.toContainText(
+      'settle the difference there',
+    );
+    await expect(invoice.reconciliationStripeLink()).toHaveCount(0);
+  });
+
+  test('offers to void and recompose at once, in one confirmation with one reason, and lands on the replacement', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    const writes = recordWrites(page, INVOICE_WRITES);
+    await installBillingAppMocks(page, createStripeBillingModel());
+
+    await invoice.goto('inv-mm');
+
+    // The remedy comes first, with no refused recompose to lead to it.
+    await invoice.expectActions([
+      'Void and recompose',
+      'Read from Stripe',
+      'Void',
+    ]);
+    await invoice.action('Void and recompose').click();
+    await expect(invoice.dialog()).toContainText('Kaiten is authoritative');
+    await expect(invoice.confirm('Void and recompose')).toBeDisabled();
+    expect(writes).toEqual([]);
+    await invoice.reason().fill('Kaiten is authoritative');
+    await invoice.confirm('Void and recompose').click();
+
+    await expect(page).toHaveURL(/\/invoices\/inv-mm-replacement-\d+$/);
+    expect(
+      writes.map(({ method, pathname }) => `${method} ${pathname}`),
+    ).toEqual([
+      'POST /api/invoices/inv-mm/void',
+      'POST /api/invoices/inv-mm/recompose',
+    ]);
+    expect(writes[0].body).toEqual({ reason: 'Kaiten is authoritative' });
+  });
+
+  test('says an uncharged invoice waits for the match, and offers the remedy all the same', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    const parked = stripeInvoice('inv-cm', {
+      collectionMethod: 'CHARGE_AUTOMATICALLY',
+      provider: buildProviderRecord({
+        externalInvoiceId: 'in_cm',
+        pushedAt: '2026-04-01T00:06:00.000Z',
+        reconciliationDetail: MISMATCH_DETAIL,
+        reconciliationStatus: 'MISMATCH',
+        total: 2900,
+      }),
+    });
+    await installBillingAppMocks(
+      page,
+      new BillingAppModel({
+        capabilities: billingCapabilitiesProfiles.stackWithStripe('connected'),
+        invoices: [parked],
+      }),
+    );
+
+    await invoice.goto('inv-cm');
+
+    await expect(invoice.reconciliation()).toContainText(
+      'Nothing is charged until Stripe matches Kaiten.',
+    );
+    await invoice.expectActions([
+      'Void and recompose',
+      'Read from Stripe',
+      'Void',
+    ]);
+  });
+
+  test.describe('on an invoice Stripe already holds as paid', () => {
+    const paidMismatch = () =>
+      stripeInvoice('inv-pm', {
+        provider: buildProviderRecord({
+          externalInvoiceId: 'in_pm',
+          pushedAt: '2026-04-01T00:06:00.000Z',
+          reconciliationDetail: MISMATCH_DETAIL,
+          reconciliationStatus: 'MISMATCH',
+          status: 'paid',
+          total: 2900,
+        }),
+        status: 'PAID',
+      });
+    const install = (page: Page, standing: 'connected' | 'connectedLive') =>
+      installBillingAppMocks(
+        page,
+        new BillingAppModel({
+          capabilities: billingCapabilitiesProfiles.stackWithStripe(standing),
+          invoices: [paidMismatch()],
+        }),
+      );
+
+    test('cannot be voided there: it says the difference is settled by hand, with a credit note and a refund, and links to the invoice in Stripe', async ({
+      page,
+    }) => {
+      const invoice = new InvoiceDetailDriver(page);
+      await install(page, 'connected');
+
+      await invoice.goto('inv-pm');
+
+      await expect(invoice.reconciliation()).toContainText(
+        'already paid, so it cannot be voided there',
+      );
+      await expect(invoice.reconciliation()).toContainText(
+        'with a credit note and a refund',
+      );
+      await expect(invoice.reconciliationStripeLink()).toHaveAttribute(
+        'href',
+        'https://dashboard.stripe.com/test/invoices/in_pm',
+      );
+      await invoice.expectActions([]);
+    });
+
+    test('links to the live dashboard when the connection reaches a live account', async ({
+      page,
+    }) => {
+      const invoice = new InvoiceDetailDriver(page);
+      await install(page, 'connectedLive');
+
+      await invoice.goto('inv-pm');
+
+      await expect(invoice.reconciliationStripeLink()).toHaveAttribute(
+        'href',
+        'https://dashboard.stripe.com/invoices/in_pm',
+      );
+    });
   });
 
   test('says the due date Stripe gave when it is not the one Kaiten issued the invoice with', async ({

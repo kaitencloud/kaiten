@@ -27,7 +27,7 @@ type InvoiceActionsProps = {
 /** The actions that ask for something first: the ones that run at once have no dialog. */
 type DialogAction = Exclude<InvoiceAction, 'retryPush' | 'sync'>;
 
-type OpenDialog = DialogAction | 'voidThenRecompose' | null;
+type OpenDialog = DialogAction | null;
 
 /**
  * What a session may do to the invoice it is looking at: the actions its status

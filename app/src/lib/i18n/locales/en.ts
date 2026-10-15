@@ -4065,6 +4065,7 @@ export default {
             recompose: 'Recompose',
             releaseHold: 'Release the hold',
             void: 'Void',
+            voidThenRecompose: 'Void and recompose',
             writeOff: 'Write off',
             retryPush: 'Retry push',
             push: 'Push now',
@@ -4144,7 +4145,13 @@ export default {
             title: 'Reconciliation',
             matched: 'Stripe holds the same amounts as Kaiten.',
             mismatch:
-              'Stripe holds something other than what Kaiten composed. The invoice in Stripe is the one the customer pays: settle the difference there.',
+              'Stripe holds something other than what Kaiten composed. Kaiten is authoritative: the difference is not settled in Stripe, the invoice is voided and composed again.',
+            chargeWaits: 'Nothing is charged until Stripe matches Kaiten.',
+            mismatchPaid:
+              'Stripe holds something other than what Kaiten composed, and the invoice is already paid, so it cannot be voided there. Kaiten keeps it as paid with this difference: settle it in Stripe by hand, with a credit note and a refund.',
+            mismatchVoid:
+              'Stripe held something other than what Kaiten composed when this invoice was checked. It has been voided since.',
+            openInStripe: 'Open the invoice in Stripe',
             checked: 'Checked {{date}}.',
             kaitenTotal: 'Total composed by Kaiten',
             providerTotal: 'Total in Stripe, excluding tax',
@@ -4324,6 +4331,8 @@ export default {
             title: 'Void and recompose',
             description:
               'This invoice is not a held draft, so it cannot be edited: it is voided, and a replacement is composed from the usage journal as it is now. One reason covers both.',
+            descriptionMismatch:
+              'Stripe holds something other than what Kaiten composed. Kaiten is authoritative: the invoice is voided in Stripe and in Kaiten, and a replacement is composed from the usage journal as it is now, pushed to Stripe, checked again and collected in turn. One reason covers both.',
             confirm: 'Void and recompose',
           },
           WriteOff: {

@@ -10,6 +10,7 @@ export type InvoiceActionName =
   | 'Release the hold'
   | 'Retry push'
   | 'Void'
+  | 'Void and recompose'
   | 'Write off';
 
 /**
@@ -56,6 +57,13 @@ export class InvoiceDetailDriver {
   /** How Kaiten's amounts compare with Stripe's, with what differs when they do. */
   reconciliation(): Locator {
     return this.page.getByTestId('reconciliation');
+  }
+
+  /** The link to a paid invoice in Stripe, where its difference is settled by hand. */
+  reconciliationStripeLink(): Locator {
+    return this.reconciliation().getByRole('link', {
+      name: /Open the invoice in Stripe|Ouvrir la facture dans Stripe/,
+    });
   }
 
   /** The due date Stripe gave an invoice that is not Kaiten's: absent where the two agree. */
@@ -202,6 +210,7 @@ export class InvoiceDetailDriver {
       | 'retryPush'
       | 'sync'
       | 'void'
+      | 'voidThenRecompose'
       | 'writeOff',
   ): Locator {
     return this.actions().locator(`button[data-action="${action}"]`);

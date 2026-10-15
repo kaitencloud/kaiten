@@ -20,3 +20,24 @@ export function getSafeProviderUrl(
     return undefined;
   }
 }
+
+/**
+ * The page of an invoice in Stripe's dashboard, where a credit note is made, in the mode
+ * the connection reaches (`livemode`). The dashboard keeps the test and the live data
+ * apart, and a link to the wrong one finds nothing, so a mode that is not known gives no
+ * link; neither does an identifier that is not an invoice's, which is not put in an
+ * address.
+ */
+export function getStripeInvoiceDashboardUrl(
+  livemode: boolean | null | undefined,
+  externalInvoiceId: string | null | undefined,
+): string | undefined {
+  if (typeof livemode !== 'boolean' || !externalInvoiceId) {
+    return undefined;
+  }
+  if (!/^in_\w+$/.test(externalInvoiceId)) {
+    return undefined;
+  }
+
+  return `https://dashboard.stripe.com${livemode ? '' : '/test'}/invoices/${externalInvoiceId}`;
+}
