@@ -531,14 +531,14 @@ page holds, or an export the API streams.
   archived and never put back on sale, so `VersionLifecycleAction` and
   `VersionLifecycleKeys` are generic over the transitions they say, and the block that
   stops the archiving of a default is optional.
-- **A voucher is read from its window, not from the status the API stores.** The API never
-  sets a voucher EXPIRED, and an ACTIVE voucher stays ACTIVE past its end until the
-  redemption that reaches its maximum flips it to EXHAUSTED, so `getVoucherStatus` reads an
-  ACTIVE voucher as exhausted when its count reached its maximum (the API tests it first),
-  expired when its `expiresAt` is not after now, and active otherwise; `isVoucherScheduled`
-  says that one that starts later cannot be redeemed yet. A redemption of a boost stays
-  ACTIVE past its end for the same reason, and `getRedemptionStatus` reads it as expired.
-  `VoucherStatusBadge` and `RedemptionStatusBadge` draw that status, never the stored one.
+- **A voucher shows the status the API stores.** The API sets EXPIRED once an ACTIVE
+  voucher's end has passed (the billing-lifecycle job) and EXHAUSTED with the redemption
+  that reaches its maximum, so `VoucherStatusBadge`, the filter and the column of the list
+  read `Voucher.status` as it is. `isVoucherScheduled` says that an ACTIVE voucher that
+  starts later cannot be redeemed yet. A redemption of a boost stays ACTIVE past its end
+  until the same job passes, and `getRedemptionStatus` reads it as expired from its window;
+  `RedemptionStatusBadge` draws that status.
+
 - **A voucher is described by what it does, counted in the unit it lasts in.**
   `describeVoucherOffer` writes the discount and what it applies to, or what the boost
   changes, and for how long: a discount counts invoices and a boost billing periods, which

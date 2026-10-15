@@ -137,7 +137,7 @@ test.describe('a voucher', () => {
     );
   });
 
-  test('is read as expired when its window closed, though the API keeps it active', async ({
+  test('shows a voucher the API marked expired as expired', async ({
     page,
   }) => {
     const detail = new VoucherDetailDriver(page);

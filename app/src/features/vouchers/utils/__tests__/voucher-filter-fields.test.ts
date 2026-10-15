@@ -53,13 +53,14 @@ describe('the fields of the list', () => {
     expect(field(VOUCHER_FILTER_IDS.search)?.type).toBe('text');
   });
 
-  it('filters by the state a person reads, which the console derives, not by the one the API stored', () => {
+  it('filters by the state the API stored, whatever the window and the count say', () => {
     const status = field(VOUCHER_FILTER_IDS.status);
     const lapsed = buildVoucher({
       code: 'SPRING-2026-PROMO',
       expiresAt: '2020-01-01T00:00:00.000Z',
       id: 'v-lapsed',
       name: 'Lapsed',
+      status: 'EXPIRED',
     });
     const full = buildVoucher({
       code: 'FULL-AGREEMENT-1',
@@ -67,11 +68,20 @@ describe('the fields of the list', () => {
       maxRedemptions: 1,
       name: 'Full',
       redemptionsCount: 1,
+      status: 'EXHAUSTED',
+    });
+    // Not yet marked by the API: the console does not mark it for it.
+    const pending = buildVoucher({
+      code: 'PENDING-SWEEP-1',
+      expiresAt: '2020-01-01T00:00:00.000Z',
+      id: 'v-pending',
+      name: 'Pending',
     });
 
     expect(status?.accessor(WELCOME)).toBe('ACTIVE');
     expect(status?.accessor(lapsed)).toBe('EXPIRED');
     expect(status?.accessor(full)).toBe('EXHAUSTED');
+    expect(status?.accessor(pending)).toBe('ACTIVE');
     expect(status?.options?.map(({ value }) => value)).toEqual([
       'DRAFT',
       'ACTIVE',

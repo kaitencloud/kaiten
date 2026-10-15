@@ -243,7 +243,6 @@ export { getAddonTitle } from './addon-title';
 export {
   getRedemptionStatus,
   getRedemptionStatusLabelKey,
-  getVoucherStatus,
   getVoucherStatusLabelKey,
   getVoucherTypeLabelKey,
   isVoucherScheduled,
@@ -251,7 +250,6 @@ export {
   VOUCHER_STATUSES,
   VOUCHER_TYPES,
   type VoucherStatus,
-  type VoucherStatusInput,
   type VoucherType,
 } from './voucher-status';
 export {
