@@ -12,6 +12,48 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AddonIncreaseBilling string
+
+const (
+	AddonIncreaseBillingTRUEUP       AddonIncreaseBilling = "TRUE_UP"
+	AddonIncreaseBillingNEXTBOUNDARY AddonIncreaseBilling = "NEXT_BOUNDARY"
+)
+
+func (e *AddonIncreaseBilling) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AddonIncreaseBilling(s)
+	case string:
+		*e = AddonIncreaseBilling(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AddonIncreaseBilling: %T", src)
+	}
+	return nil
+}
+
+type NullAddonIncreaseBilling struct {
+	AddonIncreaseBilling AddonIncreaseBilling `json:"addon_increase_billing"`
+	Valid                bool                 `json:"valid"` // Valid is true if AddonIncreaseBilling is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAddonIncreaseBilling) Scan(value interface{}) error {
+	if value == nil {
+		ns.AddonIncreaseBilling, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AddonIncreaseBilling.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAddonIncreaseBilling) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AddonIncreaseBilling), nil
+}
+
 type AddonOverrideBehavior string
 
 const (
@@ -512,11 +554,12 @@ type Addon struct {
 }
 
 type AddonFamily struct {
-	ID             uuid.UUID        `json:"id"`
-	OrganizationID uuid.UUID        `json:"organization_id"`
-	Slug           string           `json:"slug"`
-	LastVersion    int32            `json:"last_version"`
-	IsPublic       bool             `json:"is_public"`
-	CreatedAt      pgtype.Timestamp `json:"created_at"`
-	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
+	ID              uuid.UUID            `json:"id"`
+	OrganizationID  uuid.UUID            `json:"organization_id"`
+	Slug            string               `json:"slug"`
+	LastVersion     int32                `json:"last_version"`
+	IsPublic        bool                 `json:"is_public"`
+	CreatedAt       pgtype.Timestamp     `json:"created_at"`
+	UpdatedAt       pgtype.Timestamp     `json:"updated_at"`
+	IncreaseBilling AddonIncreaseBilling `json:"increase_billing"`
 }

@@ -89,10 +89,12 @@ ORDER BY e.slug;
 
 
 -- name: InsertInstanceAddon :one
-INSERT INTO instance_addon (organization_id, instance_id, addon_id, addon_family_id, quantity, created_by_id,
-                            updated_by_id)
+-- period_max_quantity starts at the quantity attached: the highest held so far
+-- (V31-70, instance_addon_period_max_quantity_check).
+INSERT INTO instance_addon (organization_id, instance_id, addon_id, addon_family_id, quantity, period_max_quantity,
+                            created_by_id, updated_by_id)
 VALUES (sqlc.arg(organization_id), sqlc.arg(instance_id), sqlc.arg(addon_id), sqlc.arg(addon_family_id),
-        sqlc.arg(quantity), sqlc.arg(user_id), sqlc.arg(user_id))
+        sqlc.arg(quantity), sqlc.arg(quantity), sqlc.arg(user_id), sqlc.arg(user_id))
 RETURNING id;
 
 
@@ -121,8 +123,12 @@ FOR UPDATE OF ia;
 
 
 -- name: SetInstanceAddonQuantity :exec
+-- An increase raises period_max_quantity in the same statement, as the CHECK
+-- requires; a decrease leaves it, so the true-up still sees the high point
+-- (V31-70).
 UPDATE instance_addon
-SET quantity      = sqlc.arg(quantity),
+SET quantity            = sqlc.arg(quantity),
+    period_max_quantity = GREATEST(period_max_quantity, sqlc.arg(quantity)),
     updated_at    = CURRENT_TIMESTAMP,
     updated_by_id = sqlc.arg(user_id)
 WHERE organization_id = sqlc.arg(organization_id)
