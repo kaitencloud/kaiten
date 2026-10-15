@@ -38,11 +38,14 @@ func reportWithKey(t *testing.T, app *fiber.App, instanceSlug, entitlementSlug, 
 	if app == nil {
 		app = testServer.App
 	}
-	body := fmt.Sprintf(`{"value":{"type":"number","value":%s},"behavior":%q,"transactionId":%q}`, rawValue, behavior, transactionID)
+	body := fmt.Sprintf(`{"value":{"type":"number","value":%s},"behavior":%q}`, rawValue, behavior)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost,
 		"/api/instances/"+instanceSlug+"/entitlements/"+entitlementSlug+"/usage", strings.NewReader(body))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
+	if transactionID != "" {
+		req.Header.Set("Idempotency-Key", transactionID)
+	}
 	resp, err := app.Test(req, fiber.TestConfig{})
 	require.NoError(t, err)
 	defer commonfixture.MustCloseBody(t, resp.Body)
@@ -122,12 +125,48 @@ func TestReportEntitlementUsageMetric_TransactionID(t *testing.T) {
 		requireStatus(t, fiber.StatusOK, instances[0].Slug, entitlement.Slug, 1, "append")
 		before := snapshotPair(t, instances[0].ID, entitlement.ID)
 
-		for _, key := range []string{"", strings.Repeat("a", 129), "with space", "é", "a/b", "a\nb", "a*b"} {
+		// No newline: a header value cannot carry one. An empty header reads
+		// as no header once parsed, so it is no key rather than a malformed one.
+		for _, key := range []string{strings.Repeat("a", 129), "with space", "é", "a/b", "a*b"} {
 			problem := reportWithKey(t, nil, instances[0].Slug, entitlement.Slug, "1", "append", key).problem(t, fiber.StatusUnprocessableEntity)
 			require.Equal(t, "ReportEntitlementUsageMetric.InvalidTransactionId", problem.Code, "key %q", key)
+			require.Len(t, problem.Errors, 1)
+			require.Equal(t, "header.Idempotency-Key", problem.Errors[0].Location, "key %q", key)
 		}
 
 		require.Equal(t, before, snapshotPair(t, instances[0].ID, entitlement.ID))
+	})
+
+	t.Run("TheResponseEchoesTheKey_AndNullWithoutOne", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		instances := newInstances(t, 1)
+		entitlement := newEntitlement(t)
+		assignEntitlementToLicense(t, instances[0].LicenseSlug, entitlement.Slug, 1000)
+
+		echoed := func(r keyedReport) any {
+			t.Helper()
+			require.Equal(t, fiber.StatusOK, r.status, "body: %s", r.body)
+			var body map[string]any
+			require.NoError(t, json.Unmarshal(r.body, &body))
+			value, present := body["transactionId"]
+			require.True(t, present, "transactionId is required, null when there is no key")
+			return value
+		}
+		require.Equal(t, "evt-echo", echoed(reportWithKey(t, nil, instances[0].Slug, entitlement.Slug, "1", "append", "evt-echo")))
+		require.Equal(t, "evt-echo", echoed(reportWithKey(t, nil, instances[0].Slug, entitlement.Slug, "1", "append", "evt-echo")), "on a replay too")
+		require.Nil(t, echoed(reportWithKey(t, nil, instances[0].Slug, entitlement.Slug, "1", "append", "")))
+	})
+
+	t.Run("AKeyInTheBody_IsRefused_ForTheBodyIsClosed", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		instances := newInstances(t, 1)
+		entitlement := newEntitlement(t)
+		assignEntitlementToLicense(t, instances[0].LicenseSlug, entitlement.Slug, 1000)
+
+		resp, body := rawReport(t, instances[0].Slug, entitlement.Slug,
+			`{"value":{"type":"number","value":1},"behavior":"append","transactionId":"evt-in-body"}`)
+		require.Equal(t, fiber.StatusUnprocessableEntity, resp.StatusCode, "body: %s", body)
+		require.Equal(t, 0, snapshotPair(t, instances[0].ID, entitlement.ID).rows, "a body key is never read as a key")
 	})
 
 	t.Run("WhenTheSameReportIsSentAgain_ReplaysTheOriginalResponseAndWritesNothing", func(t *testing.T) {
@@ -158,7 +197,7 @@ func TestReportEntitlementUsageMetric_TransactionID(t *testing.T) {
 		problem := reportWithKey(t, nil, instances[0].Slug, entitlement.Slug, "6", "append", "evt-1").problem(t, fiber.StatusConflict)
 		require.Equal(t, "ReportEntitlementUsageMetric.TransactionIdReused", problem.Code)
 		require.Len(t, problem.Errors, 1)
-		require.Equal(t, "body.transactionId", problem.Errors[0].Location)
+		require.Equal(t, "header.Idempotency-Key", problem.Errors[0].Location)
 		original, ok := problem.Errors[0].Value.(map[string]any)
 		require.True(t, ok, "errors[0].value = %#v", problem.Errors[0].Value)
 		require.EqualValues(t, 1, original["reportSeq"])
