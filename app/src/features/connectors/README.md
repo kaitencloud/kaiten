@@ -58,7 +58,7 @@ The connector name is `kaiten.integration.crm.attio` (`ATTIO_CONNECTOR_NAME`). T
 
 | Operation | Used by |
 | --- | --- |
-| `getConnectorSettings` (`GET /connectors/{connectorName}/settings`) | `getAttioSettings` in `app/src/domains/crm-sync/queries/attio-settings-query-options.ts`. A 404 means "not connected" and resolves to `null`; any other error is thrown. The query key is `getConnectorSettingsQueryKey`. |
+| `getConnectorSettings` (`GET /connectors/{connectorName}/settings`) | `getAttioSettings` in `app/src/domains/crm-sync/queries/attio-settings-query-options.ts`. A response with `configured: false` (a connector never configured) or a 404 (a connector the deployment has not registered) means "not connected" and resolves to `null`; any other error is thrown. The query key is `getConnectorSettingsQueryKey`. |
 | `updateConnectorSettings` (`PUT` on the same path) | `upsertAttioSettings` in `attio/attio.api.ts`: the wizard's Finish button and the mapping editor's Save button. |
 | `deleteConnectorSettings` (`DELETE` on the same path) | `deleteAttioSettings`: the Disconnect button. |
 | `getCustomerIntegration` (`GET /customers/{customerSlug}/integrations/{integrationName}`) | `readAttioIntegration` in `app/src/domains/crm-sync/queries/attio-sync-coordinator.ts`: the sync watcher, for a customer. |

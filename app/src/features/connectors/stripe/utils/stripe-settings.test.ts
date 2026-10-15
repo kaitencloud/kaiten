@@ -3,6 +3,7 @@ import type { ConnectorSettings } from '@/api-client';
 import { getKeyMode, readStripeSettings } from './stripe-settings';
 
 const stored = (settings: Record<string, unknown>): ConnectorSettings => ({
+  configured: true,
   connector_name: 'kaiten.integration.billing.stripe',
   settings,
 });

@@ -85,6 +85,7 @@ export function createStripeConnectorModels(
           activated: true,
           livemode: standing === 'connectedLive',
           settings: {
+            configured: true,
             connector_name: STRIPE_CONNECTOR_NAME,
             settings: { ...settings, stripeSecretKey: '***' },
           },

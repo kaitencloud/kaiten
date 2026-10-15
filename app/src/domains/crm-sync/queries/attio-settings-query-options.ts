@@ -7,6 +7,11 @@ import { getHttpErrorStatus } from './http-error-status';
 
 const attioPath = { connectorName: ATTIO_CONNECTOR_NAME } as const;
 
+/**
+ * The settings of the Attio connector, or `null` when none are stored: a
+ * connector never configured reads `configured: false` with empty settings, and
+ * one the deployment has not registered answers 404.
+ */
 export async function getAttioSettings(): Promise<ConnectorSettings | null> {
   try {
     const response = await getConnectorSettings({
@@ -14,7 +19,7 @@ export async function getAttioSettings(): Promise<ConnectorSettings | null> {
       throwOnError: true,
     });
 
-    return response.data ?? null;
+    return response.data?.configured ? response.data : null;
   } catch (error) {
     if (getHttpErrorStatus(error) === 404) {
       return null;

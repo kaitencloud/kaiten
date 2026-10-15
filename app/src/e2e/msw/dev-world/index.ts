@@ -267,6 +267,7 @@ export function createDevMockConfig({
               activated: true,
               livemode: stripe === 'connectedLive',
               settings: {
+                configured: true,
                 connector_name: STRIPE_CONNECTOR_NAME,
                 settings: {
                   autoFinalize: true,
