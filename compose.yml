@@ -464,8 +464,13 @@ services:
       OTEL_TRACES_EXPORTER: otlp
       OTEL_METRICS_EXPORTER: none
       OTEL_LOGS_EXPORTER: none
+    # No named volume for /debezium/data: offsets.dat is a position in the
+    # database's WAL, so it must not outlive the database. db keeps its data
+    # in the image's anonymous volume, which `down` discards; a named volume
+    # here survived it, and the next stack resumed from an LSN its fresh WAL
+    # had not reached -- skipping every outbox event, silently, until the WAL
+    # caught up. The image's own anonymous volume shares db's lifetime.
     volumes:
-      - debezium-data:/debezium/data
       - ./docker/rabbitmq/rabbitmq-debezium-application.properties:/debezium/config/application.properties:ro
     depends_on:
       db:
@@ -507,4 +512,3 @@ services:
 
 volumes:
   rabbitmq_data:
-  debezium-data:
