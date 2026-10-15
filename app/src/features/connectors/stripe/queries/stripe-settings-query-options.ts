@@ -8,8 +8,10 @@ const path = { connectorName: STRIPE_CONNECTOR_NAME } as const;
 
 /**
  * The settings of the Stripe connector, key redacted, or `null` when nothing is
- * stored: the API answers 404 for an organization that never saved any, which is the
- * state of a connector not yet connected and not a failure. Any other refusal is thrown.
+ * stored: an organization that never saved any reads `configured: false` with
+ * empty settings, which is the state of a connector not yet connected and not a
+ * failure. A connector the deployment has not registered answers 404, which reads
+ * the same way. Any other refusal is thrown.
  * It keeps the generated key, so that connecting and disconnecting refresh it.
  */
 export const stripeSettingsQueryOptions = queryOptions({
@@ -22,7 +24,7 @@ export const stripeSettingsQueryOptions = queryOptions({
         throwOnError: true,
       });
 
-      return data ?? null;
+      return data?.configured ? data : null;
     } catch (error) {
       if (isNotFoundError(error)) {
         return null;

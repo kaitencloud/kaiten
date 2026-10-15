@@ -14,6 +14,7 @@ import { StripeConnectorDetail } from '../stripe-connector-detail';
 
 /** What the API holds of a connected Stripe: the key is never returned, only `***`. */
 const stored = (settings: Record<string, unknown> = {}): ConnectorSettings => ({
+  configured: true,
   connector_name: STRIPE_CONNECTOR_NAME,
   settings: {
     autoFinalize: true,

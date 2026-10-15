@@ -32,9 +32,13 @@ export function shellHandlers() {
     handleGetLicenses({ body: empty }),
     handleGetLicenseEntitlements({ body: empty }),
     handleGetEntitlementsUsageMetrics({ body: [] }),
-    // No connector configured is a real 404, not an undeclared request.
-    handleGetConnectorSettings(() =>
-      HttpResponse.json({ message: 'not found' }, { status: 404 }),
+    // No connector configured reads as such, not as an undeclared request.
+    handleGetConnectorSettings(({ params }) =>
+      HttpResponse.json({
+        configured: false,
+        connector_name: params.connectorName,
+        settings: {},
+      }),
     ),
     handleListNotifications({
       body: new NotificationAppModel().listNotifications(),

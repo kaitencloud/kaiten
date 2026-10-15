@@ -9,6 +9,7 @@ import { ConnectorsPageContent } from '../connectors-page-content';
 import { ConnectorsPageShell } from '../connectors-page-shell';
 
 const connectedSettings: ConnectorSettings = {
+  configured: true,
   connector_name: ATTIO_CONNECTOR_NAME,
   settings: {
     attioApiKey: '***',

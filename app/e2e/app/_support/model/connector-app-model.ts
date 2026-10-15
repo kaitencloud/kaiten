@@ -62,7 +62,7 @@ export type StripeConnectorState = {
   activated: boolean;
   /** Whether the stored key reaches the live account. */
   livemode: boolean;
-  /** The settings with the key redacted, as the API returns them; none when nothing is stored. */
+  /** The settings with the key redacted, as the API returns them once stored; none when nothing is. */
   settings: ConnectorSettings | null;
 };
 
@@ -83,6 +83,13 @@ const notFound = () =>
   Object.assign(new Error('Attio connector settings not found'), {
     httpStatus: 404,
   });
+
+/** What the API reads for a registered connector nothing was stored for. */
+const notConfigured = (connectorName: string): ConnectorSettings => ({
+  configured: false,
+  connector_name: connectorName,
+  settings: {},
+});
 
 export class ConnectorAppModel {
   private readonly problems = new ArmedProblems<StripeConnectorOperation>();
@@ -143,18 +150,16 @@ export class ConnectorAppModel {
 
   // --- The Stripe connector ------------------------------------------------------
 
-  /** `GET /connectors/kaiten.integration.billing.stripe/settings`: the key is never returned. */
+  /**
+   * `GET /connectors/kaiten.integration.billing.stripe/settings`: the key is never
+   * returned, and a connector nothing was stored for reads `configured: false`.
+   */
   getStripeSettings(): ConnectorSettings {
     this.problems.consume('getConnectorSettings');
-    if (!this.stripe.settings) {
-      throw new BillingProblem(
-        404,
-        'GetConnectorSettings.NotFound',
-        'no settings are stored for this connector',
-      );
-    }
 
-    return clone(this.stripe.settings);
+    return clone(
+      this.stripe.settings ?? notConfigured(STRIPE_CONNECTOR_NAME),
+    );
   }
 
   /**
@@ -247,6 +252,7 @@ export class ConnectorAppModel {
         zConnectorSettings,
         {
           connector_name: STRIPE_CONNECTOR_NAME,
+          configured: true,
           settings: {
             autoFinalize: given.autoFinalize ?? stored?.autoFinalize ?? true,
             automaticTax: given.automaticTax ?? stored?.automaticTax ?? false,
@@ -359,10 +365,7 @@ export class ConnectorAppModel {
   }
 
   getSettings(): ConnectorSettings {
-    if (!this.settings) {
-      throw notFound();
-    }
-    return clone(this.settings);
+    return clone(this.settings ?? notConfigured(ATTIO_CONNECTOR_NAME));
   }
 
   updateSettings(body: ConnectorSettingsWritable): ConnectorSettings {
@@ -381,6 +384,7 @@ export class ConnectorAppModel {
       zConnectorSettings,
       {
         connector_name: ATTIO_CONNECTOR_NAME,
+        configured: true,
         settings,
       },
       'ConnectorAppModel.updateSettings result',
