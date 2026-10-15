@@ -63,9 +63,15 @@ func TestResolveNumbers(t *testing.T) {
 			Type: effective.TypeNumber, Licence: licence("10000", 50),
 			Addons: []effective.AddonGrant{addon(1, 3, effective.BehaviorAdd, "1000", nil)}, At: at,
 		}, "13000", 50, 1, 0},
-		{"the latest OVERRIDE wins", effective.Input{Type: effective.TypeNumber, Licence: licence("10000", 50), Addons: []effective.AddonGrant{
-			addon(1, 1, effective.BehaviorOverride, "20000", nil), addon(2, 1, effective.BehaviorOverride, "25000", nil),
+		{"the highest OVERRIDE wins, whatever the attach order (V31-17)", effective.Input{Type: effective.TypeNumber, Licence: licence("10000", 50), Addons: []effective.AddonGrant{
+			addon(1, 1, effective.BehaviorOverride, "25000", nil), addon(2, 1, effective.BehaviorOverride, "20000", nil),
 		}, At: at}, "25000", 50, 2, 0},
+		{"an OVERRIDE below the licence still replaces it", effective.Input{Type: effective.TypeNumber, Licence: licence("10000", 50), Addons: []effective.AddonGrant{
+			addon(1, 1, effective.BehaviorOverride, "4000", nil),
+		}, At: at}, "4000", 50, 1, 0},
+		{"a grant of 0 is ignored, its percent included (V31-17)", effective.Input{Type: effective.TypeNumber, Licence: licence("10000", 50), Addons: []effective.AddonGrant{
+			addon(1, 1, effective.BehaviorOverride, "0", pct(5)), addon(2, 1, effective.BehaviorAdd, "100", nil),
+		}, At: at}, "10100", 50, 1, 0},
 		{"MAX raises, never lowers", effective.Input{Type: effective.TypeNumber, Licence: licence("10000", 50), Addons: []effective.AddonGrant{
 			addon(1, 1, effective.BehaviorMax, "15000", nil), addon(2, 1, effective.BehaviorMax, "5000", nil),
 		}, At: at}, "15000", 50, 2, 0},
@@ -112,6 +118,28 @@ func TestResolveNumbers(t *testing.T) {
 			require.NotNil(t, r.Number)
 		})
 	}
+}
+
+// V31-17: grants of 0 alone are no contribution. On a licensed entitlement the
+// licence grant comes back verbatim; on an add-on-only one the row reads 0 @ 0.
+func TestResolveZeroGrantsAlone(t *testing.T) {
+	at := t0.Add(24 * time.Hour)
+	zero := []effective.AddonGrant{addon(1, 3, effective.BehaviorOverride, "0", pct(30)), addon(2, 1, effective.BehaviorAdd, "0", nil)}
+
+	r, ok := effective.Resolve(effective.Input{Type: effective.TypeNumber, Licence: &effective.LicenceGrant{Value: json.RawMessage(`{"type":"number","value":1000.5}`), Pct: pct(10)}, Addons: zero, At: at})
+	require.True(t, ok)
+	require.JSONEq(t, `{"type":"number","value":1000.5}`, string(r.Value))
+	require.Equal(t, `{"type":"number","value":1000.5}`, string(r.Value), "identity is verbatim")
+	require.Equal(t, int16(10), *r.Pct)
+	require.Zero(t, r.AddonGrantCount)
+	require.Nil(t, r.Number)
+
+	r, ok = effective.Resolve(effective.Input{Type: effective.TypeNumber, Licence: nil, Addons: zero, At: at})
+	require.True(t, ok, "the attachment still makes the row")
+	require.True(t, valueOf(t, r).IsZero())
+	require.Equal(t, int16(0), *r.Pct)
+	require.Zero(t, r.AddonGrantCount)
+	require.Nil(t, r.Number)
 }
 
 func TestResolveIdentityAndWindows(t *testing.T) {

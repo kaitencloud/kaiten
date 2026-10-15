@@ -188,10 +188,20 @@ func Resolve(in Input) (Result, bool) {
 			}
 		}
 	}
-	out := Result{Value: nil, Pct: nil, AddonGrantCount: len(in.Addons), BoostGrantCount: len(boosts), Number: nil}
+	// A grant of value 0 is ignored (§7.2 step 0, V31-17): it composes nothing
+	// and sets no percent. It still makes the row exist, which then reads
+	// 0 @ 0 when nothing else grants the entitlement.
+	contributing := make([]AddonGrant, 0, len(in.Addons))
+	for _, g := range in.Addons {
+		if v, ok := number(g.Value); ok && v.IsZero() {
+			continue
+		}
+		contributing = append(contributing, g)
+	}
+	out := Result{Value: nil, Pct: nil, AddonGrantCount: len(contributing), BoostGrantCount: len(boosts), Number: nil}
 
 	// Identity (INV-22): nothing contributes, the licence's grant verbatim.
-	if len(in.Addons) == 0 && len(boosts) == 0 {
+	if len(contributing) == 0 && len(boosts) == 0 && in.Licence != nil {
 		out.Value, out.Pct = in.Licence.Value, in.Licence.Pct
 		return out, true
 	}
@@ -201,12 +211,16 @@ func Resolve(in Input) (Result, bool) {
 	if in.Licence != nil {
 		licence, licencePct = in.Licence.Value, in.Licence.Pct
 	}
-	latest := latestFirst(in.Addons)
+	latest := latestFirst(contributing)
 
 	switch {
 	case isNumber:
 		n := numberOf(licence, latest, boosts)
-		out.Number = &n
+		// The composition is reported only when something composed it, as the
+		// view's provenance.number is: an add-on-only row of zero grants has none.
+		if len(contributing) > 0 || len(boosts) > 0 {
+			out.Number = &n
+		}
 		out.Value = mustJSON(map[string]any{"type": "number", "value": json.RawMessage(n.Effective.String())})
 		pct := int16(0)
 		switch {
@@ -227,7 +241,7 @@ func Resolve(in Input) (Result, bool) {
 		out.Pct = &pct
 	case in.Type == TypeBoolean:
 		value, _ := boolean(licence)
-		for _, g := range in.Addons {
+		for _, g := range contributing {
 			if v, ok := boolean(g.Value); ok && v {
 				value = true
 			}
@@ -246,8 +260,9 @@ func Resolve(in Input) (Result, bool) {
 }
 
 // numberOf composes a number (§7.2): unlimited anywhere; else OVERRIDE (the
-// latest), MAX, ADD, all times the quantity; then the latest SET boost, the
-// ADD boosts and the product of the MULTIPLY boosts, exactly.
+// maximum, so attach order never matters, V31-17), MAX, ADD, all times the
+// quantity; then the latest SET boost, the ADD boosts and the product of the
+// MULTIPLY boosts, exactly. latest holds no grant of value 0.
 func numberOf(licence json.RawMessage, latest []AddonGrant, boosts []Boost) Number {
 	var n Number
 	lic, hasLicence := number(licence)
@@ -271,7 +286,7 @@ func numberOf(licence json.RawMessage, latest []AddonGrant, boosts []Boost) Numb
 		contribution := v.Mul(decimal.NewFromInt32(g.Quantity))
 		switch g.Behavior {
 		case BehaviorOverride:
-			if override == nil {
+			if override == nil || contribution.GreaterThan(*override) {
 				c := contribution
 				override = &c
 			}
