@@ -21,6 +21,7 @@ import {
   checkShape,
   isMetered,
   type PriceDraft,
+  refuseAboveZeroOnFree,
 } from './license-price-rules';
 import { LicenseProblem } from './license-problem';
 
@@ -490,6 +491,16 @@ export class LicensePricing {
     };
   }
 
+  /**
+   * How many prices of a version bill something, whatever their status: a
+   * deprecated price still bills the subscriptions pinned to it.
+   */
+  countPricesAboveZero(slug: string): number {
+    return this.pricesOf(slug).filter(
+      (price) => Number(price.unitAmountDecimal) > 0,
+    ).length;
+  }
+
   /** `POST /licenses/{slug}/prices`. */
   createPrice(slug: string, body: NewLicensePrice): Price {
     const operation = 'CreateLicensePrice';
@@ -516,6 +527,11 @@ export class LicensePricing {
         'an archived licence version takes no new price',
       );
     }
+    refuseAboveZeroOnFree(
+      operation,
+      license.pricingType,
+      draft.unitAmountDecimal,
+    );
     this.refuseBilled(operation, slug);
     const { entitlement, factor } = this.checkWrite(
       operation,
@@ -566,6 +582,11 @@ export class LicensePricing {
       unitAmountDecimal: patch.unitAmountDecimal ?? stored.unitAmountDecimal,
     };
     checkShape(operation, draft);
+    refuseAboveZeroOnFree(
+      operation,
+      license.pricingType,
+      draft.unitAmountDecimal,
+    );
     const { entitlement, factor } = this.checkWrite(operation, slug, draft, id);
     // The factor is captured once: re-pointing the price at another
     // entitlement captures that one's, keeping it otherwise.

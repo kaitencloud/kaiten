@@ -105,6 +105,26 @@ export function checkShape(
   }
 }
 
+/**
+ * A FREE licence version never bills (the fallback licence and the checkout from a
+ * free plan rely on it), so every price it holds is 0 -- refused with
+ * `<operation>.FreePriceNotZero` when one is written above 0.
+ */
+export function refuseAboveZeroOnFree(
+  operation: string,
+  pricingType: string | undefined,
+  unitAmountDecimal: string,
+  refuse: Refuse = refuseAsLicense,
+): void {
+  if (pricingType === 'FREE' && Number(unitAmountDecimal) > 0) {
+    refuse(
+      422,
+      `${operation}.FreePriceNotZero`,
+      'every price of a FREE licence version is 0',
+    );
+  }
+}
+
 /** Whether a grant allows usage above its limit: a finite limit with a positive percent. */
 export function overageReachable(grant: LicenseEntitlement | undefined) {
   if (!grant || grant.value.type !== 'number') {

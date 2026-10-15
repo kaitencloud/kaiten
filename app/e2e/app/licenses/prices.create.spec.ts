@@ -8,6 +8,7 @@ import { createAddonsBillingModel } from '../addons/addons.scenarios';
 import { createBillingStackModel } from '../billing/billing.scenarios';
 import {
   createDraftPricesModel,
+  createFreeDraftModel,
   createPricedCatalogModel,
 } from './licenses.scenarios';
 
@@ -357,6 +358,34 @@ test.describe('adding a price', () => {
     await expectToast(page, 'Price created');
     // The refused call created nothing: one price was added to the two.
     await prices.expectLabels(['Pro, monthly', 'Requests', 'Flat fee']);
+    expect(writes).toHaveLength(2);
+  });
+
+  test('refuses a price above 0 on a free version, under the form, and takes one of 0', async ({
+    page,
+  }) => {
+    const prices = new LicensePricesDriver(page);
+    const drawer = new LicensePriceDrawerDriver(page);
+    await installLicenseAppMocks(page, createFreeDraftModel());
+    const writes = recordWrites(page, PRICE_WRITES);
+
+    await prices.goto('pro-v4', 'Pro');
+    await prices.addPrice().click();
+    await drawer.choosePeriod('Annual');
+    await drawer.amount().fill('49');
+    await drawer.submit('Create price').click();
+
+    await expect(drawer.problem()).toContainText(
+      'every price of a FREE licence version is 0',
+    );
+    // Nothing was lost: the drawer is open, as it was typed.
+    await drawer.expectOpen('New price');
+    await expect(drawer.amount()).toHaveValue('49');
+
+    await drawer.amount().fill('0');
+    await drawer.submit('Create price').click();
+    await expectToast(page, 'Price created');
+    await prices.expectLabels(['Pro, free', 'Flat fee']);
     expect(writes).toHaveLength(2);
   });
 
