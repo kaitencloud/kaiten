@@ -473,6 +473,42 @@ describe('the vouchers, as the mocks serve them', () => {
     });
   });
 
+  it('takes a minimum above 0 and refuses 0 as the API does, on a create and on an update', async () => {
+    const minimum = (unitAmountDecimal: string) =>
+      percentOff({
+        redemptionRules: {
+          minimumSubscriptionAmount: { currency: 'USD', unitAmountDecimal },
+        },
+      });
+    const created = await send('POST', '/vouchers', minimum('2900'));
+    const draft = await json<Voucher>(await send('POST', '/vouchers', percentOff()));
+
+    expect(created.status).toBe(201);
+    // "No minimum" is written by omitting the member; a rules object with no minimum is no rule.
+    expect(
+      (await send('POST', '/vouchers', percentOff({ redemptionRules: { annualOnly: true } })))
+        .status,
+    ).toBe(201);
+    for (const zero of ['0', '0.00']) {
+      const refused = await send('POST', '/vouchers', minimum(zero));
+      const problem = await refusal(refused);
+
+      expect(refused.status).toBe(422);
+      expect(problem.code).toBe('CreateVoucher.InvalidRedemptionRules');
+      expect(problem.detail).toContain('positive decimal');
+    }
+    const updated = await send('PUT', `/vouchers/${draft.id}`, {
+      ...minimum('0'),
+      code: draft.code,
+    });
+
+    expect(updated.status).toBe(422);
+    expect((await refusal(updated)).code).toBe('UpdateVoucher.InvalidRedemptionRules');
+    expect(
+      (await send('PUT', `/vouchers/${draft.id}`, { ...minimum('1'), code: draft.code })).status,
+    ).toBe(200);
+  });
+
   it('refuses to change a voucher that is neither a draft nor active', async () => {
     const archived = await send('PUT', '/vouchers/voucher-black-friday', {
       ...percentOff({ code: 'BLACKFRIDAY2025', maxRedemptions: 50 }),
