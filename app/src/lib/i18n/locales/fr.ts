@@ -4700,7 +4700,7 @@ export default {
           OVERRIDE: {
             label: 'Remplacer',
             blurb:
-              'Remplace la valeur de la licence par valeur × quantité. L’add-on attaché en dernier l’emporte.',
+              'Remplace la valeur de la licence par valeur × quantité. Entre plusieurs remplacements, le plus grand l’emporte, quel que soit l’ordre d’attache.',
           },
           MAX: {
             label: 'Maximum',
@@ -4744,7 +4744,7 @@ export default {
           Descriptions: {
             entitlement: 'Une version accorde un droit une seule fois.',
             number:
-              'Ce qu’une unité de quantité accorde. Trois unités d’une valeur de 5 en accordent 15.',
+              'Ce qu’une unité de quantité accorde. Trois unités d’une valeur de 5 en accordent 15. Une valeur de 0 est ignorée : elle ne change rien.',
             behavior:
               'Comment la valeur multipliée par la quantité se combine avec ce que la licence accorde pour le même droit : ajoutée, en remplacement, ou la plus grande des deux.',
             overage:

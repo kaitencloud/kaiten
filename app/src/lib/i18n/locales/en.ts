@@ -4637,7 +4637,7 @@ export default {
           OVERRIDE: {
             label: 'Override',
             blurb:
-              'Replaces the license’s value with value × quantity. The add-on attached last wins.',
+              'Replaces the license’s value with value × quantity. Among several overrides the largest wins, whatever the order they were attached in.',
           },
           MAX: {
             label: 'Maximum',
@@ -4681,7 +4681,7 @@ export default {
           Descriptions: {
             entitlement: 'A version grants an entitlement once.',
             number:
-              'What one unit of quantity grants. Three units of a value of 5 grant 15.',
+              'What one unit of quantity grants. Three units of a value of 5 grant 15. A value of 0 is ignored: it changes nothing.',
             behavior:
               'How the value times the quantity combines with the license’s grant of the same entitlement: added to it, replacing it, or the larger of the two.',
             overage:

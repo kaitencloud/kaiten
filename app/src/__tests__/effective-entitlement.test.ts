@@ -90,7 +90,7 @@ describe('the limit the mocks compose', () => {
     });
   });
 
-  it('replaces the license with the latest attached OVERRIDE, keeps the larger with a MAX, then adds', () => {
+  it('replaces the license with the largest OVERRIDE, keeps the larger with a MAX, then adds', () => {
     const composed = effective(1_000, [
       addon('OVERRIDE', 1, 3_000),
       addon('OVERRIDE', 2, 5_000),
@@ -103,6 +103,38 @@ describe('the limit the mocks compose', () => {
       afterAddons: 12_500,
       license: 1_000,
     });
+  });
+
+  it('takes the largest OVERRIDE whatever the order they were attached in', () => {
+    const earlier = effective(1_000, [
+      addon('OVERRIDE', 2, 5_000),
+      addon('OVERRIDE', 1, 3_000),
+    ]);
+    const later = effective(1_000, [
+      addon('OVERRIDE', 1, 3_000),
+      addon('OVERRIDE', 2, 5_000),
+    ]);
+
+    expect(earlier.limit).toEqual({ type: 'number', value: 10_000 });
+    expect(later.limit).toEqual(earlier.limit);
+  });
+
+  it('may lower the license with an OVERRIDE below it', () => {
+    expect(effective(10_000, [addon('OVERRIDE', 1, 2_000)]).limit).toEqual({
+      type: 'number',
+      value: 2_000,
+    });
+  });
+
+  it('ignores an add-on of 0, whatever it does, and counts it as no add-on at all', () => {
+    const composed = effective(1_000, [
+      addon('OVERRIDE', 1, 0),
+      addon('MAX', 1, 0),
+      addon('ADD', 5, 0),
+    ]);
+
+    expect(composed.limit).toEqual({ type: 'number', value: 1_000 });
+    expect(composed.provenance?.number).toBeNull();
   });
 
   it('adds the vouchers before it multiplies, whatever the order they were redeemed in', () => {
@@ -212,6 +244,16 @@ describe('the limit the mocks compose', () => {
       );
 
       expect(composed.limitCapExceededOveragePercent).toBe(0);
+    });
+
+    it('is never set by an add-on of 0', () => {
+      const composed = composeEffectiveNumber(
+        grant(100, 20),
+        [addon('ADD', 1, 10, 5), addon('ADD', 1, 0, 0)],
+        [],
+      );
+
+      expect(composed.limitCapExceededOveragePercent).toBe(5);
     });
   });
 });

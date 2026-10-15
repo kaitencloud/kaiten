@@ -65,10 +65,10 @@ const isNumberValue = (value: unknown): value is { value: number } =>
 const BEHAVIORS = new Set<string>(['ADD', 'MAX', 'OVERRIDE']);
 const MODIFIERS = new Set<string>(['ADD', 'MULTIPLY', 'SET', 'UNLIMITED']);
 
+type ReadGrant = { amount: number; quantity: number };
+
 /** What an attachment grants, or nothing when what it says cannot be read. */
-function readAddon(
-  addon: ProvenanceAddon,
-): { amount: number; quantity: number } | null {
+function readAddon(addon: ProvenanceAddon): ReadGrant | null {
   if (
     !BEHAVIORS.has(addon.overrideBehavior) ||
     !isNumberValue(addon.value) ||
@@ -115,9 +115,10 @@ function getGrantedBy(
 /**
  * How the effective limit of a number is composed, from what the API says each layer
  * contributes (`Provenance`), in the order the API composes it: an OVERRIDE add-on
- * replaces the license's value (the latest attached wins), a MAX keeps the larger, an
- * ADD adds `quantity × value`; then the boosts, where a SET takes the place of all of
- * that, and the ADD and MULTIPLY boosts apply to it, the additions first.
+ * replaces the license's value (among several, the one worth the most wins), a MAX
+ * keeps the larger, an ADD adds `quantity × value`; then the boosts, where a SET takes
+ * the place of all of that, and the ADD and MULTIPLY boosts apply to it. An add-on
+ * whose value is 0 takes part in none of it.
  *
  * It is nothing, and the limit has no explanation to give, when:
  * - the API says nothing of how a number was composed (`number` is null: BOOLEAN and
@@ -162,10 +163,19 @@ export function explainLimit(
     }
     const grants = (behavior: ProvenanceAddon['overrideBehavior']) =>
       attached.flatMap(({ addon, read }) =>
-        addon.overrideBehavior === behavior && read ? [read] : [],
+        addon.overrideBehavior === behavior && read && read.amount !== 0
+          ? [read]
+          : [],
       );
-    // The latest attached OVERRIDE is the one that counts.
-    const override = grants('OVERRIDE').at(-1);
+    // The OVERRIDE worth the most counts, whatever the order they were attached in.
+    const override = grants('OVERRIDE').reduce<ReadGrant | undefined>(
+      (largest, grant) =>
+        !largest ||
+        grant.amount * grant.quantity >= largest.amount * largest.quantity
+          ? grant
+          : largest,
+      undefined,
+    );
     const hasLicense = typeof number.license === 'number';
     const base: LimitTerm[] = [];
     if (override) {
