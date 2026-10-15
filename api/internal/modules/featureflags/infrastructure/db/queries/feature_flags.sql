@@ -82,7 +82,9 @@ SET type            = sqlc.arg(type),
     targeting_rules = sqlc.arg(targeting_rules)::jsonb,
     name            = sqlc.arg(name),
     description     = sqlc.arg(description),
-    slug            = sqlc.arg(slug),
+    -- A body without a slug keeps the flag's own: writing it verbatim stored
+    -- an empty slug, and a flag nothing could address again.
+    slug            = COALESCE(sqlc.narg(new_slug), ff.slug),
     metadata        = sqlc.arg(metadata)::jsonb,
     enabled         = sqlc.arg(enabled),
     event_name      = sqlc.arg(event_name),
