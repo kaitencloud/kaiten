@@ -18,7 +18,7 @@ import { commercialFormOpts } from './license-commercial-form-options';
 // shown on its field, which is where the person is looking.
 const FIELD_BY_CODE: Record<string, 'selfServeCtaUrl' | 'trialPeriodDays'> = {
   'UpdateLicense.InvalidSelfServeCtaUrl': 'selfServeCtaUrl',
-  'UpdateLicense.InvalidTrialPeriodDays': 'trialPeriodDays',
+  'UpdateLicense.InvalidTrialDays': 'trialPeriodDays',
 };
 
 type UseLicenseCommercialFormOptions = {

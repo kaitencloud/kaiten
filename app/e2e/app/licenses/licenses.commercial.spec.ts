@@ -243,6 +243,32 @@ test.describe('the commercial terms of a version', () => {
     await expect(commercial.problem()).toHaveCount(0);
   });
 
+  test('show the refusal of a trial on the trial field', async ({ page }) => {
+    const detail = new LicenseDetailDriver(page);
+    const commercial = new LicenseCommercialDriver(page);
+    const model = createPricedCatalogModel();
+    model.setNextProblem('updateLicense', {
+      code: 'UpdateLicense.InvalidTrialDays',
+      detail: 'trialPeriodDays must be from 1 to 365 days',
+      status: 422,
+    });
+    await installLicenseAppMocks(page, model);
+
+    await detail.goto('pro-v4', 'Pro');
+    await commercial.open();
+    await commercial.trial().fill('30');
+    await commercial.save().click();
+
+    await expect(
+      commercial
+        .dialog()
+        .getByText('trialPeriodDays must be from 1 to 365 days'),
+    ).toBeVisible();
+    await expect(commercial.dialog()).toBeVisible();
+    await expect(commercial.trial()).toHaveValue('30');
+    await expect(commercial.problem()).toHaveCount(0);
+  });
+
   test('show any other refusal above the buttons', async ({ page }) => {
     const detail = new LicenseDetailDriver(page);
     const commercial = new LicenseCommercialDriver(page);

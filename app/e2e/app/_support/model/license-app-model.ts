@@ -113,11 +113,14 @@ const withCommercialDefaults = (license: License): License => ({
   requiresPaymentMethod: license.requiresPaymentMethod ?? false,
 });
 
+/** The longest trial the API takes: the API's own bound, not the console's. */
+const MAX_TRIAL_PERIOD_DAYS = 365;
 const SELF_SERVE_CTA_URL = /^https?:\/\/\S+$/;
 const MAX_SELF_SERVE_CTA_URL = 2048;
 
-// The commercial fields are validated as the API does: a trial is at
-// least one day, the CTA an http(s) URL of at most 2048 characters.
+// The commercial fields are validated as the API does: a trial is from one to
+// 365 days (zero clears it on an update), the CTA an http(s) URL of at most
+// 2048 characters.
 function checkCommercialFields(
   operation: 'CreateLicense' | 'UpdateLicense',
   body: Pick<LicenseWritable, 'selfServeCtaUrl' | 'trialPeriodDays'>,
@@ -125,12 +128,14 @@ function checkCommercialFields(
   const trial = body.trialPeriodDays;
   if (
     trial !== undefined &&
-    (trial < 0 || (operation === 'CreateLicense' && trial < 1))
+    (trial < 0 ||
+      trial > MAX_TRIAL_PERIOD_DAYS ||
+      (operation === 'CreateLicense' && trial < 1))
   ) {
     throw new LicenseProblem(
       422,
-      `${operation}.InvalidTrialPeriodDays`,
-      'trialPeriodDays must be at least 1',
+      `${operation}.InvalidTrialDays`,
+      `trialPeriodDays must be from 1 to ${MAX_TRIAL_PERIOD_DAYS} days`,
     );
   }
   const url = body.selfServeCtaUrl;

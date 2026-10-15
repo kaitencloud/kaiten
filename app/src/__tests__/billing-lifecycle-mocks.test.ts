@@ -492,6 +492,18 @@ describe('subscribing with a trial, as the mocks serve it', () => {
     expect(response.status).toBe(422);
     expect((await refusal(response)).code).toBe('SubscribeInstance.InvalidTrialDays');
   });
+
+  it('refuses a trial of more than a year', async () => {
+    install();
+
+    const response = await send('POST', '/instances/initech-fresh/billing', {
+      basePriceId: PRO_V2_MONTHLY.id,
+      trialDays: 366,
+    });
+
+    expect(response.status).toBe(422);
+    expect((await refusal(response)).code).toBe('SubscribeInstance.InvalidTrialDays');
+  });
 });
 
 describe('the add-ons of an instance, as the mocks serve them', () => {

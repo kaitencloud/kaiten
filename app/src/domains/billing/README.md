@@ -527,10 +527,10 @@ page holds, or an export the API streams.
   503) that starts a new `send` with a retry of its own. Leaving the screen during the
   wait drops the retry: nobody is looking at the outcome any more, and a request
   nobody asked for again is not sent.
-- **A trial has the bounds the console puts on it.** The API takes a trial in days
-  with no upper bound, and a number of days that overflows its duration is refused as
-  an error of the server, so the console bounds the field itself (`MAX_TRIAL_DAYS`,
-  365: the same bound as the payment terms; `isValidTrialDays`). Only a price billed in
+- **A trial has the bounds the API puts on it.** A trial is 0 (none) or 1 to 365
+  days, and the API refuses any other number with `InvalidTrialDays`, so the console
+  bounds the field the same way and before it asks (`MAX_TRIAL_DAYS`, 365: the same
+  bound as the payment terms; `isValidTrialDays`). Only a price billed in
   advance has a trial (`canStartWithTrial`): the trial of a price billed in arrears
   cannot be closed yet, so the console does not offer one. `getTrialEnd` says when a
   trial of so many days ends, counted in whole days from the start as the API counts
