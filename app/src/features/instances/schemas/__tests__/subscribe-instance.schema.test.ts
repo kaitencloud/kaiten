@@ -68,7 +68,7 @@ describe('the trial', () => {
   });
 
   it.each([-1, MAX_TRIAL_DAYS + 1, 2.5, 2_147_483_647])(
-    'refuses %s days, in the words of the form: the API sets no upper bound and the console sets one',
+    'refuses %s days, in the words of the form, before the API refuses them',
     (days) => {
       expect(
         getSubscribeFormErrors({ ...values, trialDays: days }, { now: NOW }),

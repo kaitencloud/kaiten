@@ -49,6 +49,9 @@ import { BillingVouchers, type VoucherWorld } from './billing-vouchers';
 import type { RedeemingInstance } from './billing-voucher-rules';
 import { addMonthsClamped } from './license-invoice-preview';
 
+/** The longest trial the API takes: the API's own bound, not the console's. */
+const MAX_TRIAL_DAYS = 365;
+
 const clone = <T>(value: T): T => structuredClone(value);
 
 const PERIOD_MONTHS = {
@@ -889,8 +892,12 @@ export class BillingSubscriptions {
     }
     // A trial named by the request, else the one the version carries, else none.
     const trialDays = body.trialDays ?? instance.trialPeriodDays ?? 0;
-    if (trialDays < 0) {
-      this.refuse(422, 'InvalidTrialDays', 'trialDays is 0 (no trial) or more');
+    if (trialDays < 0 || trialDays > MAX_TRIAL_DAYS) {
+      this.refuse(
+        422,
+        'InvalidTrialDays',
+        `trialDays is 0 (no trial) or from 1 to ${MAX_TRIAL_DAYS}`,
+      );
     }
     if (
       body.daysUntilDue !== undefined &&

@@ -52,7 +52,7 @@ export const subscribeFormSchema = zNewSubscription
         (Number.isNaN(days) || isValidDaysUntilDue(days)),
       { error: DAYS_UNTIL_DUE_ERROR_KEY },
     ),
-    // The days of trial; empty is none. The API sets no upper bound, the console does.
+    // The days of trial; empty is none. The API refuses more than 365 days; the console bounds the field the same.
     trialDays: z.custom<number>(
       (days) =>
         typeof days === 'number' &&
