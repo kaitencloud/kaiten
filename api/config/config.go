@@ -411,7 +411,7 @@ var settings = []struct {
 	{"billing.enabled", "KAITEN_BILLING_ENABLED", false, false},
 	{"billing.initial_delay", "KAITEN_BILLING_INITIAL_DELAY", "1m", false},
 	{"billing.close_grace", "KAITEN_BILLING_CLOSE_GRACE", "0s", false},
-	{"billing.period_close.interval", "KAITEN_BILLING_PERIOD_CLOSE_INTERVAL", "5m", false},
+	{"billing.period_close.interval", "KAITEN_BILLING_PERIOD_CLOSE_INTERVAL", "1m", false},
 	{"billing.period_close.batch_size", "KAITEN_BILLING_CLOSE_BATCH_SIZE", 100, false},
 	{"billing.lifecycle.interval", "KAITEN_BILLING_LIFECYCLE_INTERVAL", "15m", false},
 	{"billing.invoice_push.interval", "KAITEN_BILLING_INVOICE_PUSH_INTERVAL", "1m", false},
