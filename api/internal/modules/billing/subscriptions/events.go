@@ -93,8 +93,8 @@ func RegisterWebhooks(api huma.API) {
 			Summary: "Instance Billing Plan Change Scheduled Webhook", Description: "Triggered when a plan change is scheduled for the next boundary, or replaced.",
 		},
 		{
-			Event: events.InstanceBillingPlanChangeCancelled, Data: (*PlanChangeSchedule)(nil), OperationID: "onInstanceBillingPlanChangeCancelled",
-			Summary: "Instance Billing Plan Change Cancelled Webhook", Description: "Triggered when a scheduled plan change is dropped: by request, or by a cancellation.",
+			Event: events.InstanceBillingPlanChangeCanceled, Data: (*PlanChangeSchedule)(nil), OperationID: "onInstanceBillingPlanChangeCanceled",
+			Summary: "Instance Billing Plan Change Canceled Webhook", Description: "Triggered when a scheduled plan change is dropped: by request, or by a cancellation.",
 		},
 		{
 			Event: events.InstanceBillingPlanChanged, Data: (*PlanChange)(nil), OperationID: "onInstanceBillingPlanChanged",

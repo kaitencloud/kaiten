@@ -280,7 +280,7 @@ func TestPlanChanges(t *testing.T) {
 		billingCall(t, "PUT", s.instance.Slug, "/scheduled-change", map[string]any{"licensePriceId": target.ID})
 		cancel(t, s.instance.Slug, map[string]any{})
 		require.Nil(t, readBilling(t, s.instance.Slug).ScheduledChange, "a cancellation drops the change")
-		require.Len(t, outboxPayloads(t, "INSTANCE_BILLING_PLAN_CHANGE_CANCELLED"), 1)
+		require.Len(t, outboxPayloads(t, "INSTANCE_BILLING_PLAN_CHANGE_CANCELED"), 1)
 	})
 
 	t.Run("ATrial_CannotChangePlan", func(t *testing.T) {

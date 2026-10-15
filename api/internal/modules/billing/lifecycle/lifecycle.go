@@ -126,7 +126,7 @@ func AnnouncePlanChangeDropped(ctx context.Context, repo *outbox.ScopedRepositor
 		return nil
 	}
 	return repo.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
-		before.OrganizationID, events.InstanceBillingPlanChangeCancelled.Name, events.InstanceBillingPlanChangeCancelled.Type,
+		before.OrganizationID, events.InstanceBillingPlanChangeCanceled.Name, events.InstanceBillingPlanChangeCanceled.Type,
 		subscriptions.PlanChangeSchedule{
 			InstanceSlug: before.InstanceSlug, FromPriceID: before.BaseLicensePriceID,
 			ToPriceID: *before.ScheduledLicensePriceID, EffectiveAt: before.CurrentPeriodEnd.Time.UTC(),
