@@ -103,3 +103,28 @@ func TestPoolPass_ReleasesTheLockAfterThePass(t *testing.T) {
 	assert.True(t, first)
 	assert.True(t, second)
 }
+
+// A pass that panics fails that pass only: the scheduler keeps running, and the
+// next pass, which must win the lock again, runs.
+func TestJob_KeepsSweepingAfterAPassPanics(t *testing.T) {
+	passes := make(chan struct{}, 8)
+	calls := 0
+	job := sweep.NewPoolPass("panicking", testDb.DbPool, 4242, sweep.Config{
+		InitialDelay: time.Millisecond, Interval: 20 * time.Millisecond,
+	}, func(context.Context) error {
+		calls++
+		if calls == 1 {
+			panic("one unit's bug")
+		}
+		passes <- struct{}{}
+		return nil
+	})
+	job.Start(t.Context())
+	t.Cleanup(job.Stop)
+
+	select {
+	case <-passes:
+	case <-time.After(5 * time.Second):
+		t.Fatal("no pass ran after the first one panicked")
+	}
+}
