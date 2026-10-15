@@ -269,20 +269,15 @@ test.describe('the commercial terms of a version', () => {
     await expect(commercial.problem()).toHaveCount(0);
   });
 
-  test('show the refusal of a free version that holds a price on the pricing type', async ({
+  test('show the refusal of a free version that holds a price on the pricing type, a deprecated one included', async ({
     page,
   }) => {
     const detail = new LicenseDetailDriver(page);
     const commercial = new LicenseCommercialDriver(page);
-    const model = createPricedCatalogModel();
-    model.setNextProblem('updateLicense', {
-      code: 'UpdateLicense.FreePriceNotZero',
-      detail: 'every price of a FREE licence version is 0',
-      status: 422,
-    });
-    await installLicenseAppMocks(page, model);
+    // pro-v2 holds a monthly base, an overage and a deprecated annual price, all above 0.
+    await installLicenseAppMocks(page, createPricedCatalogModel());
 
-    await detail.goto('pro-v4', 'Pro');
+    await detail.goto('pro-v2', 'Pro');
     await commercial.open();
     await commercial.choosePricingType('Free');
     await commercial.save().click();
@@ -290,11 +285,27 @@ test.describe('the commercial terms of a version', () => {
     await expect(
       commercial
         .dialog()
-        .getByText('every price of a FREE licence version is 0'),
+        .getByText(
+          'License "pro-v2" holds 3 price(s) above 0, so it cannot be FREE: deprecate them on a new version, or keep it PAID',
+        ),
     ).toBeVisible();
     await expect(commercial.dialog()).toBeVisible();
     await expect(commercial.pricingType()).toContainText('Free');
     await expect(commercial.problem()).toHaveCount(0);
+  });
+
+  test('make a version with no price free', async ({ page }) => {
+    const detail = new LicenseDetailDriver(page);
+    const commercial = new LicenseCommercialDriver(page);
+    await installLicenseAppMocks(page, createPricedCatalogModel());
+
+    await detail.goto('pro-v4', 'Pro');
+    await commercial.open();
+    await commercial.choosePricingType('Free');
+    await commercial.save().click();
+
+    await expectToast(page, 'Commercial terms updated');
+    await expect(commercial.field('Pricing type')).toContainText('Free');
   });
 
   test('show any other refusal above the buttons', async ({ page }) => {

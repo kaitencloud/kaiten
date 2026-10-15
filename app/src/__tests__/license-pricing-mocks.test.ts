@@ -426,6 +426,81 @@ describe('the commercial terms of a license version, as the mocks refuse them', 
   });
 });
 
+describe('a FREE license version, as the mocks hold it to a price of 0', () => {
+  const version = (pricingType: string) => ({
+    description: 'Pro',
+    isDefault: false,
+    name: 'Pro',
+    pricingType,
+    type: 'PAID',
+  });
+  const problem = async (response: Response) =>
+    (await response.json()) as { code?: string; detail?: string };
+
+  it('refuses a price above 0 on a create and on an update, and takes a price of 0', async () => {
+    install(createPricedCatalogModel());
+    await send('POST', '/licenses/pro-v4/prices', { ...FLAT, unitAmountDecimal: '0' });
+    const [free] = (await (await send('GET', '/licenses/pro-v4/prices')).json()) as Price[];
+    await send('PUT', '/licenses/pro-v4', version('FREE'));
+
+    const created = await send('POST', '/licenses/pro-v4/prices', {
+      ...FLAT,
+      billingPeriod: 'ANNUAL',
+      unitAmountDecimal: '4900',
+    });
+    const raised = await send('PATCH', `/licenses/pro-v4/prices/${free.id}`, {
+      unitAmountDecimal: '1',
+    });
+    const zero = await send('POST', '/licenses/pro-v4/prices', {
+      ...FLAT,
+      billingPeriod: 'ANNUAL',
+      unitAmountDecimal: '0',
+    });
+
+    expect(created.status).toBe(422);
+    expect(await problem(created)).toMatchObject({
+      code: 'CreateLicensePrice.FreePriceNotZero',
+      detail: 'every price of a FREE licence version is 0',
+    });
+    expect(raised.status).toBe(422);
+    expect((await problem(raised)).code).toBe('UpdateLicensePrice.FreePriceNotZero');
+    expect(zero.status).toBe(201);
+  });
+
+  it('prices a version that is not FREE above 0', async () => {
+    install(createPricedCatalogModel());
+
+    await send('PUT', '/licenses/pro-v4', version('CUSTOM'));
+
+    expect((await send('POST', '/licenses/pro-v4/prices', FLAT)).status).toBe(201);
+  });
+
+  it('refuses to make a version FREE while it holds a price above 0, a deprecated one included', async () => {
+    install(createPricedCatalogModel());
+
+    const refused = await send('PUT', '/licenses/pro-v2', version('FREE'));
+    // Deprecating the base and the overage leaves the deprecated annual price, which still bills.
+    await send('POST', '/licenses/pro-v2/prices/price-1-base/deprecate');
+    await send('POST', '/licenses/pro-v2/prices/price-2-over/deprecate');
+    const deprecated = await send('PUT', '/licenses/pro-v2', version('FREE'));
+
+    expect(refused.status).toBe(422);
+    expect(await problem(refused)).toMatchObject({
+      code: 'UpdateLicense.FreePriceNotZero',
+      detail:
+        'License "pro-v2" holds 3 price(s) above 0, so it cannot be FREE: deprecate them on a new version, or keep it PAID',
+    });
+    expect(deprecated.status).toBe(422);
+    expect((await problem(deprecated)).detail).toContain('holds 3 price(s)');
+  });
+
+  it('makes a version with no price, or with prices of 0 only, FREE', async () => {
+    install(createPricedCatalogModel());
+
+    expect((await send('PUT', '/licenses/pro-v4', version('FREE'))).status).toBe(204);
+  });
+});
+
 describe('the invoice preview of a license version, as the mocks compose it', () => {
   const preview = async (body: unknown, slug = 'pro-v2') => {
     const response = await send('POST', `/licenses/${slug}/invoice-preview`, body);

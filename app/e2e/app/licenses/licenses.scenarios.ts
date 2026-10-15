@@ -309,6 +309,32 @@ export function createDraftPricesModel() {
 }
 
 /**
+ * A FREE draft with one flat fee of 0, which is all a free version prices: what
+ * the API refuses a price above 0 on, on a create and on an edit.
+ */
+export function createFreeDraftModel() {
+  const free: License = { ...PRO_V4, pricingType: 'FREE' };
+
+  return new LicenseAppModel({
+    entitlements: PRICING_CATALOGUE,
+    grants: PRO_V4_GRANTS,
+    licenses: [free],
+    prices: {
+      'pro-v4': [
+        buildPrice({
+          billingPeriod: 'MONTHLY',
+          displayLabel: 'Pro, free',
+          displayOrder: 1,
+          id: 'price-1-free',
+          isDefault: true,
+          unitAmountDecimal: '0',
+        }),
+      ],
+    },
+  });
+}
+
+/**
  * A draft with two flat fees an invoice can start from, the monthly one the
  * default, and an overage on traces beside them: what a preview asks which base
  * to start from, and what usage to give.
