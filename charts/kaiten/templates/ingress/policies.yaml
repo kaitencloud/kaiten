@@ -81,8 +81,10 @@ spec:
     allowOrigins:
       {{- toYaml $mw.cors.allowOrigins | nindent 6 }}
     allowMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-    allowHeaders: [Content-Type, Authorization]
-    exposeHeaders: [Content-Type, Authorization, Retry-After, Content-Disposition]
+    # Idempotency-Key carries a usage report's key; Idempotent-Replayed and
+    # Kaiten-Metadata-Dropped answer one (§6.3, §6.4).
+    allowHeaders: [Content-Type, Authorization, Idempotency-Key]
+    exposeHeaders: [Content-Type, Authorization, Retry-After, Content-Disposition, Idempotent-Replayed, Kaiten-Metadata-Dropped]
     allowCredentials: true
     maxAge: 100s
   {{- end }}
@@ -184,8 +186,10 @@ spec:
     allowOrigins:
       {{- toYaml $mw.cors.allowOrigins | nindent 6 }}
     allowMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-    allowHeaders: [Content-Type, Authorization]
-    exposeHeaders: [Content-Type, Authorization, Retry-After, Content-Disposition]
+    # Idempotency-Key carries a usage report's key; Idempotent-Replayed and
+    # Kaiten-Metadata-Dropped answer one (§6.3, §6.4).
+    allowHeaders: [Content-Type, Authorization, Idempotency-Key]
+    exposeHeaders: [Content-Type, Authorization, Retry-After, Content-Disposition, Idempotent-Replayed, Kaiten-Metadata-Dropped]
     allowCredentials: true
     maxAge: 100s
   {{- end }}
