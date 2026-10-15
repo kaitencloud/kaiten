@@ -890,15 +890,20 @@ export class BillingSubscriptions {
         'a deprecated price is no longer offered',
       );
     }
-    // A trial named by the request, else the one the version carries, else none.
-    const trialDays = body.trialDays ?? instance.trialPeriodDays ?? 0;
-    if (trialDays < 0 || trialDays > MAX_TRIAL_DAYS) {
+    // A trial named by the request, else the one the version carries (which the
+    // API checked when it stored it), else none. Only a trial the request names is
+    // checked here, as the API does.
+    if (
+      body.trialDays !== undefined &&
+      (body.trialDays < 0 || body.trialDays > MAX_TRIAL_DAYS)
+    ) {
       this.refuse(
         422,
         'InvalidTrialDays',
-        `trialDays is 0 (no trial) or from 1 to ${MAX_TRIAL_DAYS}`,
+        `trialDays is 0 (no trial) or between 1 and ${MAX_TRIAL_DAYS}`,
       );
     }
+    const trialDays = body.trialDays ?? instance.trialPeriodDays ?? 0;
     if (
       body.daysUntilDue !== undefined &&
       (body.daysUntilDue < 0 || body.daysUntilDue > 365)
