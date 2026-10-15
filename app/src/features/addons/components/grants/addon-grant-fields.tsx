@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
-import { getEntitlementSlug } from '@/domains/billing';
+import {
+  getEntitlementSlug,
+  type LicenseGrantReading,
+} from '@/domains/billing';
 import { withForm } from '@/hooks/form';
-import type { LicenseOverage } from '../../hooks';
 import { addonGrantFormOpts } from '../../schemas/addon-grant-form-options';
 import {
   OVERRIDE_BEHAVIOR_LABEL_KEYS,
@@ -11,12 +13,13 @@ import {
   toGrantType,
 } from '../../utils/addon-grant.utils';
 import { LicenseOverageWarning } from './license-overage-warning';
+import { LicenseValueWarning } from './license-value-warning';
 
 type AddonGrantFieldsProps = {
   /** An existing grant keeps its entitlement: it is the grant's identity. */
   isEditing: boolean;
-  /** What the allowance of each compatible license is, for the warning. */
-  licenseOverage: ReadonlyMap<string, LicenseOverage[]>;
+  /** What each compatible license grants, for the warnings. */
+  licenseGrants: ReadonlyMap<string, LicenseGrantReading[]>;
   /** The entitlements the grant can be for: the ones the version does not grant yet. */
   options: readonly Entitlement[];
 };
@@ -34,7 +37,7 @@ export const AddonGrantFields = withForm({
   render: function AddonGrantFieldsRender({
     form,
     isEditing,
-    licenseOverage,
+    licenseGrants,
     options,
   }) {
     const { t } = useTranslation();
@@ -106,7 +109,7 @@ export const AddonGrantFields = withForm({
             }
 
             return (
-              <NumberGrantFields form={form} licenseOverage={licenseOverage} />
+              <NumberGrantFields form={form} licenseGrants={licenseGrants} />
             );
           }}
         </form.Subscribe>
@@ -118,8 +121,8 @@ export const AddonGrantFields = withForm({
 /** The fields of a number grant. */
 const NumberGrantFields = withForm({
   ...addonGrantFormOpts,
-  props: {} as Pick<AddonGrantFieldsProps, 'licenseOverage'>,
-  render: function NumberGrantFieldsRender({ form, licenseOverage }) {
+  props: {} as Pick<AddonGrantFieldsProps, 'licenseGrants'>,
+  render: function NumberGrantFieldsRender({ form, licenseGrants }) {
     const { t } = useTranslation();
 
     return (
@@ -194,17 +197,39 @@ const NumberGrantFields = withForm({
           selector={(state) =>
             [
               state.values.entitlementSlug,
+              state.values.numberValue,
               state.values.overagePercent,
+              state.values.overrideBehavior,
               state.values.unlimited,
             ] as const
           }
         >
-          {([entitlementSlug, overagePercent, unlimited]) => (
-            <LicenseOverageWarning
-              addonPercent={unlimited ? Number.NaN : overagePercent}
-              licenses={licenseOverage.get(entitlementSlug) ?? []}
-            />
-          )}
+          {([
+            entitlementSlug,
+            numberValue,
+            overagePercent,
+            overrideBehavior,
+            unlimited,
+          ]) => {
+            const licenses = licenseGrants.get(entitlementSlug) ?? [];
+
+            return (
+              <>
+                <LicenseValueWarning
+                  behavior={overrideBehavior}
+                  licenses={licenses}
+                  value={unlimited ? -1 : numberValue}
+                />
+                <LicenseOverageWarning
+                  // A grant of 0 is ignored, its allowance included.
+                  addonPercent={
+                    unlimited || numberValue === 0 ? Number.NaN : overagePercent
+                  }
+                  licenses={licenses}
+                />
+              </>
+            );
+          }}
         </form.Subscribe>
       </>
     );

@@ -89,6 +89,11 @@ export class AddonGrantsDriver {
     return this.dialog().getByTestId('license-overage-warning');
   }
 
+  /** What is said when the grant would replace a license's value with a lower one. */
+  valueWarning(): Locator {
+    return this.dialog().getByTestId('license-value-warning');
+  }
+
   /** The button that gives the grant, or the one that saves an edit. */
   submitButton(): Locator {
     return this.dialog().getByRole('button', {

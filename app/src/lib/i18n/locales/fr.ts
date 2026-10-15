@@ -1166,6 +1166,12 @@ export default {
                   loading: 'Lecture de son prix…',
                   unknown: 'Son prix n’a pas pu être lu.',
                 },
+                BelowLicense: {
+                  message:
+                    '{{addon}} remplace {{entitlement}} par {{value}}, alors que la licence de cette instance, {{name}}, en accorde {{license}}.',
+                  consequence:
+                    'L’attacher fait passer la limite de cette instance sous ce que sa licence accorde. L’API l’accepte ; vérifiez que c’est voulu.',
+                },
                 Errors: {
                   addon: 'Choisissez un add-on',
                   quantity: 'Saisissez un nombre entier d’unités, au moins 1',
@@ -4720,6 +4726,12 @@ export default {
           consequence:
             'Sur chaque instance qui attache l’add-on, son pourcentage remplace celui de la licence : l’usage est refusé plus tôt que la licence ne le dit.',
         },
+        ValueWarning: {
+          message:
+            'En remplacement, cet add-on fixe {{value}} par unité là où {{name}} en accorde {{license}} : une valeur plus basse.',
+          consequence:
+            'Sur chaque instance de cette licence qui attache l’add-on, la limite passe sous ce que la licence accorde. L’API l’accepte ; vérifiez que c’est voulu.',
+        },
         Remove: {
           title: 'Retirer {{name}} de cet add-on ?',
           description:
@@ -5246,6 +5258,12 @@ export default {
           title: 'Un code court peut être deviné',
           description:
             'Ajoutez un nombre maximal d’utilisations ou une date de fin, ou laissez le code vide pour qu’un code long soit généré.',
+        },
+        BelowLicense: {
+          message:
+            'Ce bonus fixe {{entitlement}} à {{value}}, alors que {{name}} en accorde {{license}}.',
+          consequence:
+            'Sur une instance de cette licence, utiliser ce code fait passer la limite en dessous tant que le bonus s’applique. L’API l’accepte ; vérifiez que c’est voulu.',
         },
         Checklist: {
           loading: 'Chargement',

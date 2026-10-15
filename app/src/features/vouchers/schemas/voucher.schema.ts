@@ -111,6 +111,9 @@ const asNumber = (text: string): number =>
     ? Number(text.trim().replace(',', '.'))
     : Number.NaN;
 
+/** The number a modifier's text reads as, or `NaN` when it is not one. */
+export const readModifierValue = (text: string): number => asNumber(text);
+
 /** A percentage in (0, 100] as typed (`12,5` is read as `12.5`), or null when it is not one. */
 export function readPercentage(text: string): string | null {
   const value = asNumber(text);

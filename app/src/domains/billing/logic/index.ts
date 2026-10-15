@@ -258,3 +258,10 @@ export {
   describeVoucherOffer,
   type VoucherOfferInput,
 } from './voucher-offer';
+export {
+  getOverrideReplacement,
+  type LicenseGrantReading,
+  lowersLicenseOverage,
+  lowersLicenseValue,
+  readLicenseGrant,
+} from './license-grants';

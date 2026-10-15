@@ -27,6 +27,7 @@ export { PriceMeterField, PriceMeterPicker } from './price-meter-picker';
 export { PriceStockHint } from './price-stock-hint';
 export { InvoiceTotals } from './invoice-totals';
 export { InvoicesTable, type InvoicesTableColumn } from './invoices-table';
+export { LicenseGrantWarning } from './license-grant-warning';
 export { LicensePriceSummaryText } from './license-price-summary-text';
 export { LineFingerprint } from './line-fingerprint';
 export { MissingScopeBanner } from './missing-scope-banner';

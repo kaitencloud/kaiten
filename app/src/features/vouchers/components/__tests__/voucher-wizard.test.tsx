@@ -3,19 +3,23 @@ import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
-import type { Voucher, VoucherDraft } from '@/api-client';
+import type { LicenseFamilyView, Voucher, VoucherDraft } from '@/api-client';
 import {
   handleCreateVoucher,
+  handleGetLicenseEntitlements,
+  handleListLicenseFamilies,
   handlePublishVoucher,
   handleUpdateVoucher,
 } from '@/api-client/msw.gen';
-import { refusal, useBillingTexts } from '@/test-fixtures/billing-test-support';
+import { pageOf, refusal, useBillingTexts } from '@/test-fixtures/billing-test-support';
 import { buildVoucher } from '../../../../../e2e/app/_support/fixtures';
+import { buildGrant } from '../../../../../e2e/app/_support/fixtures/build-pricing';
 import { VoucherWizardPage } from '../index';
 import {
   renderScreen,
   serveReferences,
   sessionWith,
+  TOKENS,
 } from './voucher-test-support';
 
 const getAuthToken = vi.hoisted(() => vi.fn());
@@ -278,6 +282,88 @@ describe('the offer of a boost', () => {
     const rows = screen.getAllByTestId('voucher-grant-row');
     expect(rows).toHaveLength(1);
     expect(within(rows[0]).getByLabelText(/^Value/)).toHaveValue('222');
+  });
+});
+
+describe("a boost that sets a value, against the license's", () => {
+  // The default version of the only license family grants 100,000 tokens.
+  beforeEach(() => {
+    const pro = { id: 'license-pro', name: 'Pro', slug: 'pro-v2' };
+    server.use(
+      handleListLicenseFamilies({
+        body: pageOf([
+          {
+            createdAt: '2026-01-01T00:00:00.000Z',
+            currentVersion: pro as LicenseFamilyView['currentVersion'],
+            id: 'family-pro',
+            isPublic: false,
+            slug: 'pro',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            versionCount: 1,
+          },
+        ]),
+      }),
+      handleGetLicenseEntitlements({
+        body: pageOf([buildGrant({ entitlement: TOKENS, license: pro, value: 100_000 })]),
+      }),
+    );
+  });
+
+  async function toTokens(modifier: 'Add' | 'Set to') {
+    renderScreen(<VoucherWizardPage />);
+    await userEvent.click(await screen.findByRole('button', { name: /^Boost/ }));
+    await userEvent.type(await nameField(), 'Tokens');
+    await next();
+    await stepTitle('Offer');
+    await userEvent.click(await screen.findByRole('button', { name: /Add a change/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /Choose an entitlement/ }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Tokens' }));
+    await userEvent.click(screen.getByRole('combobox', { name: /^Change/ }));
+    await userEvent.click(await screen.findByRole('option', { name: modifier }));
+
+    return screen.findByLabelText(/^Value/);
+  }
+
+  it('is warned about on its line when a SET is lower, and about nothing else', async () => {
+    const value = await toTokens('Set to');
+
+    await userEvent.type(value, '20000');
+    const warning = await screen.findByTestId('boost-license-warning');
+    expect(warning).toHaveTextContent('sets Tokens to 20,000');
+    expect(warning).toHaveTextContent('Pro grants 100,000');
+    expect(within(screen.getByTestId('voucher-grant-row')).getByTestId('boost-license-warning')).toBe(
+      warning,
+    );
+
+    await userEvent.clear(value);
+    await userEvent.type(value, '150000');
+    await waitFor(() => expect(screen.queryByTestId('boost-license-warning')).toBeNull());
+
+    // A SET to 0 is a value like another: it is lower.
+    await userEvent.clear(value);
+    await userEvent.type(value, '0');
+    expect(await screen.findByTestId('boost-license-warning')).toHaveTextContent('to 0');
+  });
+
+  it('is not warned about for an addition, which never lowers a value', async () => {
+    const value = await toTokens('Add');
+
+    await userEvent.type(value, '5');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(screen.queryByTestId('boost-license-warning')).toBeNull();
+  });
+
+  it('is not warned about by a session that may not read licenses', async () => {
+    getAuthToken.mockResolvedValue(
+      sessionWith(['read:billing', 'read:vouchers', 'write:vouchers', 'read:entitlements']),
+    );
+    const value = await toTokens('Set to');
+
+    await userEvent.type(value, '20000');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(screen.queryByTestId('boost-license-warning')).toBeNull();
   });
 });
 

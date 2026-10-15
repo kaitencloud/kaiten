@@ -4,6 +4,7 @@ import { getAddonTitle } from '@/domains/billing';
 import { withForm } from '@/hooks/form';
 import { attachAddonFormOpts } from '../../../../../schemas/attach-addon-form-options';
 import { AttachAddonDetails } from './attach-addon-details';
+import { AttachAddonLicenseWarning } from './attach-addon-license-warning';
 
 type AttachAddonFieldsProps = {
   /** The versions that can be chosen: on sale, fitting the instance, of a family it holds none of. */
@@ -29,7 +30,7 @@ const KEYS = {
  * What the dialog that attaches an add-on asks: which version, among the ones the
  * instance can take, and how many units, from one to the most the version allows.
  * Once a version is chosen it is described, with what the subscription bills for a
- * unit.
+ * unit, and it is said when it would lower a value of the license of the instance.
  */
 export const AttachAddonFields = withForm({
   ...attachAddonFormOpts,
@@ -81,6 +82,16 @@ export const AttachAddonFields = withForm({
                     />
                   )}
                 </form.AppField>
+                {selected ? (
+                  <form.Subscribe selector={(state) => state.values.quantity}>
+                    {(quantity) => (
+                      <AttachAddonLicenseWarning
+                        addon={selected}
+                        quantity={quantity}
+                      />
+                    )}
+                  </form.Subscribe>
+                ) : null}
               </>
             );
           }}

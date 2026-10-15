@@ -231,6 +231,54 @@ test.describe('adding an add-on to an instance', () => {
     await expect(addons.dialog().getByTestId('addons-note')).toHaveText(NOTE);
   });
 
+  test('warns, before a version that overrides a value is attached, that it is lower than the license of the instance, and attaches it all the same', async ({
+    page,
+  }) => {
+    const billing = new InstanceBillingDriver(page);
+    const addons = new InstanceAddonsDriver(page);
+    const writes = recordWrites(page, ADDON_WRITES);
+    // Pro grants a hundred thousand tokens; the version puts thirty thousand a unit in their place.
+    const model = createAddonsBillingModel();
+    model.addons.createVersion({
+      description: 'Caps the tokens',
+      name: 'Token cap',
+      pricingType: 'FREE',
+    });
+    model.addons.assignGrant('token-cap', {
+      entitlementSlug: 'tokens',
+      overrideBehavior: 'OVERRIDE',
+      value: { type: 'number', value: 30_000 },
+    });
+    model.addons.setCompatibility('token-cap', 'pro');
+    await installAddonsWorld(page, model);
+    await billing.goto('initech-prod');
+    await addons.openAttach();
+
+    await addons.chooseAddon('Token cap · Version - 1');
+
+    const warning = addons.dialog().getByTestId('attach-addon-license-warning');
+    await expect(warning).toContainText(
+      'Token cap overrides Tokens with 30,000, and the license of this instance, Pro, grants 100,000.',
+    );
+    // Four units are worth more than the license grants: nothing is lowered.
+    await addons.attachQuantityField().fill('4');
+    await expect(warning).toHaveCount(0);
+    await addons.attachQuantityField().fill('2');
+    await expect(warning).toContainText('Tokens with 60,000');
+    expect(writes).toEqual([]);
+
+    await addons.attachButton().click();
+    await expect(addons.dialog()).toHaveCount(0);
+    await expect(addons.row('Token cap')).toBeVisible();
+    expect(writes).toEqual([
+      {
+        body: { addonSlug: 'token-cap', quantity: 2 },
+        method: 'POST',
+        pathname: '/api/instances/initech-prod/addons',
+      },
+    ]);
+  });
+
   test('takes a version that only meters usage on a subscription billed by the year, with no period price to ask for', async ({
     page,
   }) => {
