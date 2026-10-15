@@ -181,6 +181,23 @@ describe('dev world', () => {
     }
   });
 
+  it('holds the rules of the API on the commercial terms it seeds: a free version prices 0, a trial lasts 1 to 365 days', () => {
+    const { licenses, pricing } = slot(config.licenses);
+
+    for (const license of licenses) {
+      if (license.trialPeriodDays !== undefined && license.trialPeriodDays !== null) {
+        expect(license.trialPeriodDays).toBeGreaterThanOrEqual(1);
+        expect(license.trialPeriodDays).toBeLessThanOrEqual(365);
+      }
+      if (license.pricingType === 'FREE') {
+        // Deprecated prices count: they still bill the subscriptions pinned to them.
+        for (const price of pricing.prices[license.slug ?? license.id] ?? []) {
+          expect(Number(price.unitAmountDecimal), `${license.slug} is FREE`).toBe(0);
+        }
+      }
+    }
+  });
+
   it('lists in the public catalog the family that is sold self-serve, and no other', () => {
     const { licenses, publicFamilyIds } = slot(config.licenses);
     const families = new Set(licenses.map(({ familyId }) => familyId));
