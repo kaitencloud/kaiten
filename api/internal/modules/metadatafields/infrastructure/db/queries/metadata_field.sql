@@ -35,12 +35,13 @@ RETURNING *;
 -- limit + 1 so the caller can detect whether a further page exists
 -- without a separate COUNT query. On the first page, pass NULL for
 -- cursor_display_order (and, by convention, the other two cursor
--- columns).
+-- columns). include_archived lets archived rows through, as it does in
+-- ListMetadataFieldsForGraphQL below.
 SELECT *
 FROM metadata_field
 WHERE organization_id = sqlc.arg(organization_id)
   AND resource_type = sqlc.arg(resource_type)
-  AND archived_at IS NULL
+  AND (sqlc.arg(include_archived)::boolean OR archived_at IS NULL)
   AND (
     sqlc.narg(cursor_display_order)::int IS NULL
     OR (display_order, created_at, id) > (

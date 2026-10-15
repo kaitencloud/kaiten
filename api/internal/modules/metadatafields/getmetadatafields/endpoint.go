@@ -23,9 +23,10 @@ type Lister interface {
 }
 
 type Request struct {
-	ResourceType db.MetadataFieldResourceType `query:"resourceType" required:"true" enum:"DEPLOYMENT_ZONE,INSTANCE"`
-	Cursor       string                       `query:"cursor" doc:"Opaque pagination cursor from a previous response's nextCursor"`
-	Limit        int32                        `query:"limit" doc:"Maximum number of entries to return (default 50, max 200)" minimum:"1" maximum:"200"`
+	ResourceType    db.MetadataFieldResourceType `query:"resourceType" required:"true" enum:"DEPLOYMENT_ZONE,INSTANCE"`
+	IncludeArchived bool                         `query:"includeArchived" doc:"Include archived fields too, each with its archivedAt"`
+	Cursor          string                       `query:"cursor" doc:"Opaque pagination cursor from a previous response's nextCursor"`
+	Limit           int32                        `query:"limit" doc:"Maximum number of entries to return (default 50, max 200)" minimum:"1" maximum:"200"`
 }
 
 type Response struct {
@@ -37,8 +38,8 @@ func RegisterEndpoint(api huma.API, app Lister) {
 		OperationID: "list-metadata-fields",
 		Method:      http.MethodGet,
 		Path:        "/metadata-fields",
-		Summary:     "List active metadata fields for a resource type",
-		Description: "Returns a cursor-paginated page of the active (non-archived) metadata fields declared for the org and the given resource type, ordered by displayOrder then createdAt.",
+		Summary:     "List metadata fields for a resource type",
+		Description: "Returns a cursor-paginated page of the metadata fields declared for the org and the given resource type, ordered by displayOrder then createdAt. Only active fields are listed, unless includeArchived is set: an archived field's id is what unarchive-metadata-field takes.",
 		Tags:        []string{"metadataFields"},
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
@@ -52,7 +53,7 @@ func RegisterEndpoint(api huma.API, app Lister) {
 			cursor = &request.Cursor
 		}
 		page, err := app.List(
-			ctx, cl, &Command{ResourceType: request.ResourceType}, request.Limit, cursor)
+			ctx, cl, &Command{ResourceType: request.ResourceType, IncludeArchived: request.IncludeArchived}, request.Limit, cursor)
 		if err != nil {
 			return nil, err
 		}
