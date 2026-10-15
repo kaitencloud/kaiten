@@ -5,10 +5,7 @@ import {
   listAddonEntitlementsOptions,
   listAddonFamiliesQueryKey,
 } from '@/api-client/@tanstack/react-query.gen';
-import {
-  allEntitlementsOptions,
-  allLicenseEntitlementsOptions,
-} from '@/lib/api/all-pages-query-options';
+import { allEntitlementsOptions } from '@/lib/api/all-pages-query-options';
 import { toListPage } from '@/lib/api/pagination';
 
 /**
@@ -27,13 +24,14 @@ export const addonFamiliesQueryOptions = queryOptions({
 export const addonQueryOptions = (addonSlug: string) =>
   getAddonOptions({ path: { addonSlug } });
 
-/** What one version grants per unit of quantity. */
+/**
+ * What one version grants per unit of quantity, for the screens and loaders of the
+ * add-on itself, which keep the default retries. The billing domain reads the same
+ * operation, under the same key, for the screens that must not wait on a refusal
+ * (`addonVersionGrantsQueryOptions`).
+ */
 export const addonGrantsQueryOptions = (addonSlug: string) =>
   listAddonEntitlementsOptions({ path: { addonSlug } });
 
 /** The entitlement catalogue a grant is picked from, and named after. */
 export const entitlementsQueryOptions = allEntitlementsOptions();
-
-/** What a license version grants: the allowance an add-on's own would replace. */
-export const licenseGrantsQueryOptions = (licenseSlug: string) =>
-  allLicenseEntitlementsOptions(licenseSlug);

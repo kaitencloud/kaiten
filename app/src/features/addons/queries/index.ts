@@ -3,7 +3,6 @@ export {
   addonGrantsQueryOptions,
   addonQueryOptions,
   entitlementsQueryOptions,
-  licenseGrantsQueryOptions,
 } from './addon-query-options';
 export {
   invalidateAddonCompatibilityQueries,
