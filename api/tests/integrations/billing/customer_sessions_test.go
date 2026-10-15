@@ -9,6 +9,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcustomersession"
@@ -137,6 +138,25 @@ func TestCustomerSessions(t *testing.T) {
 			sessionProblem(t, sessionCall(t, testServer, "GET", invoicesPath, created.Token, "", nil), fiber.StatusUnauthorized))
 		require.Equal(t, "RevokeCustomerSession.NotFound", problemCode(t, fiber.StatusNotFound, "POST",
 			"/api/customer-sessions/"+uuid.NewString()+"/revoke", nil))
+	})
+
+	t.Run("a session cannot name another organization's customer or instance", func(t *testing.T) {
+		var foreignOrg uuid.UUID
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+			`INSERT INTO organization (external_id, name) VALUES ('org_foreign_session', 'Foreign') RETURNING id`).Scan(&foreignOrg))
+
+		insert := func(customerID uuid.UUID, instanceID *uuid.UUID) error {
+			_, err := testDb.DbPool.Exec(t.Context(), `
+				INSERT INTO customer_session (organization_id, customer_id, instance_id, lookup_hash, created_by_id, expires_at)
+				VALUES ($1, $2, $3, repeat('a', 64), $4, now() + interval '30 minutes')`,
+				foreignOrg, customerID, instanceID, testDb.DefaultData.UserID)
+			return err
+		}
+
+		var pgErr *pgconn.PgError
+		require.ErrorAs(t, insert(acme.ID, nil), &pgErr, "the customer belongs to another organization")
+		require.Equal(t, "23503", pgErr.Code)
+		require.Equal(t, "customer_session_customer_id_fkey", pgErr.ConstraintName)
 	})
 
 	t.Run("an unknown session and a missing one get one answer", func(t *testing.T) {

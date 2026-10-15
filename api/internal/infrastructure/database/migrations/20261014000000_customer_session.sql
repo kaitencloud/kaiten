@@ -30,10 +30,12 @@ CREATE TABLE "customer_session"
   CONSTRAINT "customer_session_pkey" PRIMARY KEY ("id"),
   CONSTRAINT "customer_session_organization_id_fkey" FOREIGN KEY ("organization_id")
     REFERENCES "organization" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT "customer_session_customer_id_fkey" FOREIGN KEY ("customer_id")
-    REFERENCES "customer" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT "customer_session_instance_id_fkey" FOREIGN KEY ("instance_id")
-    REFERENCES "instance" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  -- Composite, so a session can never name another organization's customer or
+  -- instance (INV-27): the tenant is part of the key, not a column beside it.
+  CONSTRAINT "customer_session_customer_id_fkey" FOREIGN KEY ("customer_id", "organization_id")
+    REFERENCES "customer" ("id", "organization_id") ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT "customer_session_instance_id_fkey" FOREIGN KEY ("instance_id", "organization_id")
+    REFERENCES "instance" ("id", "organization_id") ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT "customer_session_created_by_id_fkey" FOREIGN KEY ("created_by_id")
     REFERENCES "user" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT "customer_session_revoked_by_id_fkey" FOREIGN KEY ("revoked_by_id")
@@ -51,6 +53,10 @@ CREATE UNIQUE INDEX "idx_customer_session_lookup_hash_active"
   ON "customer_session" ("lookup_hash")
   INCLUDE ("organization_id", "customer_id", "instance_id", "expires_at")
   WHERE "revoked_at" IS NULL;
+
+-- The CASCADE from a deleted customer, which would otherwise scan the table.
+CREATE INDEX "idx_customer_session_customer"
+  ON "customer_session" ("customer_id");
 
 -- The purge of expired sessions, per organization.
 CREATE INDEX "idx_customer_session_organization_expires_at"
