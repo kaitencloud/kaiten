@@ -51,8 +51,11 @@ describe('the form of the commercial fields', () => {
     // The contract now states the bound of the call-to-action URL in its words
     // only (CreateLicense.InvalidSelfServeCtaUrl), so the form holds it alone.
     expect(MAX_SELF_SERVE_CTA_URL_LENGTH).toBe(2048);
-    expect(MAX_TRIAL_PERIOD_DAYS).toBe(
-      contract.trialPeriodDays.unwrap().maxValue,
+    // The trial is a year at most. The form holds the bound before the contract
+    // declares it, so the contract may allow more but never less.
+    expect(MAX_TRIAL_PERIOD_DAYS).toBe(365);
+    expect(MAX_TRIAL_PERIOD_DAYS).toBeLessThanOrEqual(
+      contract.trialPeriodDays.unwrap().maxValue ?? Number.POSITIVE_INFINITY,
     );
   });
 
@@ -101,12 +104,21 @@ describe('the form of the commercial fields', () => {
   });
 
   it('asks a trial to be a whole number of days', () => {
-    for (const trialPeriodDays of ['1.5', '-3', 'abc', '2147483648']) {
-      expect(issuesOf(values({ trialPeriodDays }))[0]).toEqual([
-        'trialPeriodDays',
-        'Pages.Licenses.Commercial.Form.Errors.trialWhole',
+    for (const trialPeriodDays of ['1.5', '-3', 'abc']) {
+      expect(issuesOf(values({ trialPeriodDays }))).toEqual([
+        ['trialPeriodDays', 'Pages.Licenses.Commercial.Form.Errors.trialWhole'],
       ]);
     }
+  });
+
+  it('asks a trial to be a year at most, as the API does, on the trial', () => {
+    for (const trialPeriodDays of ['366', '2147483647', '2147483648']) {
+      expect(issuesOf(values({ trialPeriodDays }))).toEqual([
+        ['trialPeriodDays', 'Pages.Licenses.Commercial.Form.Errors.trialMax'],
+      ]);
+    }
+    expect(issuesOf(values({ trialPeriodDays: '365' }))).toEqual([]);
+    expect(issuesOf(values({ trialPeriodDays: '1' }))).toEqual([]);
   });
 
   it('asks a call-to-action URL to be http or https', () => {
