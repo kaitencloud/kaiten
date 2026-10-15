@@ -176,10 +176,10 @@ test('reads the usage history of an entitlement from the real journal, tells wha
         {
           data: {
             behavior: 'append',
-            transactionId: `${suffix}-${index}`,
             value: { type: 'number', value },
           },
-          headers,
+          // The key of a report travels in a header; the body is closed.
+          headers: { ...headers, 'Idempotency-Key': `${suffix}-${index}` },
         },
       ),
       200,
