@@ -9,7 +9,7 @@ var (
 	InstanceBillingCancellationReverted  = events.New("INSTANCE_BILLING_CANCELLATION_REVERTED", "com.kaiten.instance.billing.v1.cancellation_reverted")
 	InstanceBillingCanceled              = events.New("INSTANCE_BILLING_CANCELED", "com.kaiten.instance.billing.v1.canceled")
 	InstanceBillingPlanChangeScheduled   = events.New("INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED", "com.kaiten.instance.billing.v1.plan_change_scheduled")
-	InstanceBillingPlanChangeCancelled   = events.New("INSTANCE_BILLING_PLAN_CHANGE_CANCELLED", "com.kaiten.instance.billing.v1.plan_change_cancelled")
+	InstanceBillingPlanChangeCanceled    = events.New("INSTANCE_BILLING_PLAN_CHANGE_CANCELED", "com.kaiten.instance.billing.v1.plan_change_canceled")
 	InstanceBillingPlanChanged           = events.New("INSTANCE_BILLING_PLAN_CHANGED", "com.kaiten.instance.billing.v1.plan_changed")
 	InstanceBillingProviderChanged       = events.New("INSTANCE_BILLING_PROVIDER_CHANGED", "com.kaiten.instance.billing.v1.provider_changed")
 

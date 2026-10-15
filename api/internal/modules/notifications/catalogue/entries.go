@@ -192,7 +192,7 @@ func init() {
 		{billingevents.InstanceBillingCancellationScheduled, ObjectInstance, "Cancellation scheduled", renderSubscription("%s's subscription will end at its period's end")},
 		{billingevents.InstanceBillingCancellationReverted, ObjectInstance, "Cancellation reverted", renderSubscription("%s's subscription will renew again")},
 		{billingevents.InstanceBillingPlanChangeScheduled, ObjectInstance, "Plan change scheduled", renderSubscription("%s's plan changes at its next renewal")},
-		{billingevents.InstanceBillingPlanChangeCancelled, ObjectInstance, "Plan change cancelled", renderSubscription("%s's scheduled plan change was cancelled")},
+		{billingevents.InstanceBillingPlanChangeCanceled, ObjectInstance, "Plan change canceled", renderSubscription("%s's scheduled plan change was cancelled")},
 		{billingevents.InstanceBillingPlanChanged, ObjectInstance, "Plan changed", renderSubscription("%s moved to its new plan")},
 		{billingevents.InstanceBillingProviderChanged, ObjectInstance, "Payment provider changed", renderSubscription("%s's invoices go to another payment provider")},
 		{billingevents.InstanceInvoiceIssued, ObjectInstance, "Invoice issued", renderInvoice("An invoice of %s was issued")},
