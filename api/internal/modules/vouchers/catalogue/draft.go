@@ -86,8 +86,11 @@ func (d VoucherDraft) Resolve(ctx context.Context, q *db.Queries, operation stri
 		if _, err := money.ParseCurrency(m.Currency); err != nil {
 			return Resolved{}, invalid("InvalidRedemptionRules", "minimumSubscriptionAmount.currency is an upper-case ISO 4217 code")
 		}
-		if _, err := money.ParseUnitAmount(m.UnitAmountDecimal); err != nil {
-			return Resolved{}, invalid("InvalidRedemptionRules", "minimumSubscriptionAmount.unitAmountDecimal is a non-negative decimal in minor units")
+		// Strictly positive (V31-02): a minimum of 0 is no rule, and "no rule"
+		// is written by omitting the member, so 0 would be a second spelling of it.
+		amount, err := money.ParseUnitAmount(m.UnitAmountDecimal)
+		if err != nil || !amount.IsPositive() {
+			return Resolved{}, invalid("InvalidRedemptionRules", "minimumSubscriptionAmount.unitAmountDecimal is a positive decimal in minor units; omit the member for no minimum")
 		}
 	}
 
