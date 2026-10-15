@@ -194,6 +194,16 @@ describe('how the last pass of a provider went', () => {
     });
   });
 
+  it('has no last pass to tell when the instant and the seconds since are both null', () => {
+    expect(
+      getProviderSyncStanding(
+        sync({ lagSeconds: null, lastSyncStatus: 'SUCCESS', lastSyncedAt: null } as never),
+        'STRIPE',
+        Date.parse('2027-03-01T12:00:00Z'),
+      ),
+    ).toEqual({ kind: 'never' });
+  });
+
   it('prefers the instant to the seconds since', () => {
     expect(
       getProviderSyncStanding(

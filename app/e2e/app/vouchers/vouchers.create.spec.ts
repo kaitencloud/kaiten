@@ -265,6 +265,45 @@ test.describe('the offer of a boost', () => {
     await wizard.expectStep('Who and when');
   });
 
+  test('warns, on its line, that a SET is lower than a license grants, and still goes on', async ({
+    page,
+  }) => {
+    const wizard = new VoucherWizardDriver(page);
+    await wizard.goto();
+    await wizard.startAs('Boost', 'Lower tokens');
+    await wizard.addChange().click();
+    await wizard.chooseEntitlement(0, 'Tokens');
+    await wizard.chooseModifier(0, 'Set to');
+
+    // Pro grants 100,000 tokens, Starter 10,000 and Enterprise has no limit: a SET of
+    // 20,000 is lower than Pro's only, and the unlimited license is never lowered.
+    await wizard.valueField(0).fill('20000');
+    await expect(wizard.licenseWarning(0)).toContainText(
+      'This boost sets Tokens to 20,000, and Pro grants 100,000.',
+    );
+    await expect(wizard.licenseWarning(0)).not.toContainText('Starter');
+    await expect(wizard.licenseWarning(0)).not.toContainText('Enterprise');
+
+    await wizard.valueField(0).fill('150000');
+    await expect(wizard.licenseWarning(0)).toHaveCount(0);
+
+    await wizard.valueField(0).fill('5000');
+    await expect(wizard.licenseWarning(0)).toContainText('Pro grants 100,000');
+    await expect(wizard.licenseWarning(0)).toContainText(
+      'Starter grants 10,000',
+    );
+
+    // An addition or a multiple never lowers a value.
+    await wizard.chooseModifier(0, 'Add');
+    await expect(wizard.licenseWarning(0)).toHaveCount(0);
+    await wizard.chooseModifier(0, 'Set to');
+    await expect(wizard.licenseWarning(0)).toHaveCount(1);
+
+    // The voucher is not held back: the step goes on.
+    await wizard.next().click();
+    await wizard.expectStep('Who and when');
+  });
+
   test('refuses the same entitlement twice, on the line that repeats it', async ({
     page,
   }) => {

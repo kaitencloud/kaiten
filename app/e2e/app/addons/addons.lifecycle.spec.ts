@@ -231,7 +231,7 @@ test.describe('editing a version', () => {
     ]);
   });
 
-  test('stops lowering the maximum under what an instance holds, on the field, before the API is asked', async ({
+  test('lowers the maximum under what an instance holds, which the API allows', async ({
     page,
   }) => {
     const detail = new AddonDetailDriver(page);
@@ -246,22 +246,21 @@ test.describe('editing a version', () => {
     await form.maxQuantityField().fill('1');
     await form.submit();
 
-    await expect(
-      form
-        .dialog()
-        .getByText(
-          'Initech Production holds 2 units: lower its quantity there before lowering the maximum.',
-        ),
-    ).toBeVisible();
-    expect(writes).toEqual([]);
-
-    // Down to what it holds is allowed, and so is more.
-    await form.maxQuantityField().fill('2');
-    await form.submit();
-
     await expectToast(page, 'Add-on updated');
-    await expect(detail.field('Max quantity')).toContainText('2');
-    expect(writes).toHaveLength(1);
+    await expect(detail.field('Max quantity')).toContainText('1');
+    expect(writes).toEqual([
+      {
+        body: {
+          description: 'Five more named users a unit',
+          isDefault: true,
+          maxQuantity: 1,
+          name: 'Extra seats',
+          versionName: '2026',
+        },
+        method: 'PUT',
+        pathname: '/api/addons/extra-seats-v1',
+      },
+    ]);
   });
 
   test('takes the maximum off, which asks nobody', async ({ page }) => {

@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import type { Voucher } from '@/api-client';
 import {
   formatUtcDate,
-  getVoucherStatus,
   isVoucherScheduled,
   VoucherStatusBadge,
   VoucherTypeBadge,
@@ -28,7 +27,7 @@ function RedeemedCell({ voucher }: { voucher: Voucher }) {
 
   return (
     <span className="text-sm tabular-nums">
-      {voucher.maxRedemptions === undefined
+      {voucher.maxRedemptions == null
         ? t('Pages.Vouchers.List.redeemedUnbounded', {
             count: voucher.redemptionsCount,
           })
@@ -43,8 +42,7 @@ function RedeemedCell({ voucher }: { voucher: Voucher }) {
 /** The state of a voucher, and when an active one cannot be redeemed yet. */
 function StatusCell({ voucher }: { voucher: Voucher }) {
   const { i18n, t } = useTranslation();
-  const scheduled =
-    getVoucherStatus(voucher) === 'ACTIVE' && isVoucherScheduled(voucher);
+  const scheduled = voucher.status === 'ACTIVE' && isVoucherScheduled(voucher);
 
   return (
     <div className="min-w-0 space-y-1">
@@ -106,7 +104,7 @@ export function VouchersTable({
         id: 'type',
       },
       {
-        accessorFn: (voucher) => getVoucherStatus(voucher),
+        accessorFn: (voucher) => voucher.status,
         cell: ({ row }) => <StatusCell voucher={row.original} />,
         header: dataTableSortableHeader(
           t('Pages.Vouchers.List.Columns.status'),

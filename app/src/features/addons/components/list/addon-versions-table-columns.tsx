@@ -37,10 +37,14 @@ function DefaultCell({ isDefault }: { isDefault: boolean }) {
   );
 }
 
-function MaxQuantityCell({ maxQuantity }: { maxQuantity: number | undefined }) {
+function MaxQuantityCell({
+  maxQuantity,
+}: {
+  maxQuantity: number | null | undefined;
+}) {
   const { t } = useTranslation();
 
-  return maxQuantity === undefined ? (
+  return maxQuantity == null ? (
     <span className="text-muted-foreground">
       {t('Pages.Addons.VersionsTable.unbounded')}
     </span>

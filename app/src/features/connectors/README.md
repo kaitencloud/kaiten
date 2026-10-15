@@ -1,6 +1,6 @@
 # Connectors
 
-Connectors sync Kaiten data with the tools an organization already uses. From Integrations > Connectors, a user connects Attio with an API token, chooses how Kaiten fields map to Attio attributes, and then sees which customers and instances are synced and whether a sync failed. Attio and Stripe are the two working connectors. Stripe is the payment provider that collects the invoices of the subscriptions that use it: its page is where the restricted key of the Stripe account is typed, the options of the invoices are chosen and the connection is ended. HubSpot, Salesforce and Lago appear in the catalog as disabled tiles labelled "Coming H1" or "Coming H2".
+Connectors sync Kaiten data with the tools an organization already uses. From Integrations > Connectors, a user connects Attio with an API token, chooses how Kaiten fields map to Attio attributes, and then sees which customers and instances are synced and whether a sync failed. Attio and Stripe are the two working connectors. Stripe is the payment provider that collects the invoices of the subscriptions that use it: its page is where the restricted key of the Stripe account is typed, the options of the invoices are chosen and the connection is ended. HubSpot is announced: it appears in the catalog as a disabled tile labelled "Coming soon".
 
 ## Routes
 

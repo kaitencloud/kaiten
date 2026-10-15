@@ -122,11 +122,11 @@ const denied = (code: string, detail: string, status = 404) =>
  * The vouchers of the organization and what instances redeemed of them, as the Core
  * API serves them (api/internal/modules/vouchers): the same checks in the same order
  * with the same codes, so that the console is exercised against the reasons it will
- * really be given, and the same quirks it must work around -- the API never sets a
- * voucher EXPIRED itself, an update of an ACTIVE voucher writes the rules and the
- * description it is given and ignores a changed grant. A redemption changes what the
- * rest of the model answers: its voucher's count, the effective values of the
- * instance for a boost and the next invoice for a discount.
+ * really be given, and the same quirks it must work around -- an update of an
+ * ACTIVE voucher writes the rules and the description it is given and ignores a changed
+ * grant. The expiry job is not run: a voucher is EXPIRED where a world seeds it so. A
+ * redemption changes what the rest of the model answers: its voucher's count, the
+ * effective values of the instance for a boost and the next invoice for a discount.
  */
 export class BillingVouchers {
   private readonly problems = new ArmedProblems<VoucherOperation>();
@@ -647,7 +647,7 @@ export class BillingVouchers {
     const now = new Date(this.world.now());
     voucher.redemptionsCount += 1;
     if (
-      voucher.maxRedemptions !== undefined &&
+      voucher.maxRedemptions != null &&
       voucher.redemptionsCount >= voucher.maxRedemptions
     ) {
       voucher.status = 'EXHAUSTED';

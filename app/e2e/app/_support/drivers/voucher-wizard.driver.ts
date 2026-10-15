@@ -162,6 +162,11 @@ export class VoucherWizardDriver {
     return this.change(index).getByLabel(/^Value/);
   }
 
+  /** What a change says when it sets a value lower than a license grants. */
+  licenseWarning(index: number): Locator {
+    return this.change(index).getByTestId('boost-license-warning');
+  }
+
   // --- Who and when -----------------------------------------------------------------
 
   codeField(): Locator {

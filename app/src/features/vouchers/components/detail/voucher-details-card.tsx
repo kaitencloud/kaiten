@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next';
 import type { Voucher } from '@/api-client';
 import {
   formatUtcDate,
-  getVoucherStatus,
   isVoucherScheduled,
   VoucherStatusBadge,
   VoucherTypeBadge,
@@ -19,8 +18,7 @@ type VoucherDetailsCardProps = {
  */
 export function VoucherDetailsCard({ voucher }: VoucherDetailsCardProps) {
   const { i18n, t } = useTranslation();
-  const scheduled =
-    getVoucherStatus(voucher) === 'ACTIVE' && isVoucherScheduled(voucher);
+  const scheduled = voucher.status === 'ACTIVE' && isVoucherScheduled(voucher);
 
   return (
     <DetailCard>
@@ -63,7 +61,7 @@ export function VoucherDetailsCard({ voucher }: VoucherDetailsCardProps) {
           <DetailCard.Row
             label={t('Pages.Vouchers.Detail.Fields.redeemed')}
             value={
-              voucher.maxRedemptions === undefined
+              voucher.maxRedemptions == null
                 ? t('Pages.Vouchers.List.redeemedUnbounded', {
                     count: voucher.redemptionsCount,
                   })

@@ -1,10 +1,8 @@
-export { addonHoldersQueryOptions } from './addon-holders';
 export {
   addonFamiliesQueryOptions,
   addonGrantsQueryOptions,
   addonQueryOptions,
   entitlementsQueryOptions,
-  licenseGrantsQueryOptions,
 } from './addon-query-options';
 export {
   invalidateAddonCompatibilityQueries,

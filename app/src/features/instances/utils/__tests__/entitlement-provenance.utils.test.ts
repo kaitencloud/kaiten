@@ -174,7 +174,7 @@ describe('explaining how a limit is composed', () => {
   });
 
   describe('where an add-on replaces the license', () => {
-    it('says that it takes its place, and the latest attached is the one that counts', () => {
+    it('says that it takes its place, and the one that grants the most is the one that counts', () => {
       expect(
         read({
           addons: [addon('OVERRIDE', 1, 3000), addon('OVERRIDE', 2, 5000)],
@@ -182,6 +182,43 @@ describe('explaining how a limit is composed', () => {
           number: number({ effective: 10000, license: 1000 }),
         }),
       ).toBe('2 × 5,000 add-on (replaces the license) = 10,000');
+    });
+
+    it('does not let the latest attached beat a larger one', () => {
+      expect(
+        read({
+          addons: [addon('OVERRIDE', 2, 5000), addon('OVERRIDE', 1, 3000)],
+          license: license(1000),
+          number: number({ effective: 10000, license: 1000 }),
+        }),
+      ).toBe('2 × 5,000 add-on (replaces the license) = 10,000');
+    });
+
+    it('compares what each grants, the quantity included, not the value alone', () => {
+      expect(
+        read({
+          addons: [addon('OVERRIDE', 1, 6000), addon('OVERRIDE', 3, 4000)],
+          license: license(1000),
+          number: number({ effective: 12000, license: 1000 }),
+        }),
+      ).toBe('3 × 4,000 add-on (replaces the license) = 12,000');
+    });
+
+    it('ignores an override of 0, which does not replace the license', () => {
+      expect(
+        read({
+          addons: [addon('OVERRIDE', 1, 0), addon('ADD', 1, 500)],
+          license: license(1000),
+          number: number({ effective: 1500, license: 1000 }),
+        }),
+      ).toBe('1,000 license + 500 add-on = 1,500');
+      expect(
+        read({
+          addons: [addon('OVERRIDE', 1, 5000), addon('OVERRIDE', 1, 0)],
+          license: license(1000),
+          number: number({ effective: 5000, license: 1000 }),
+        }),
+      ).toBe('5,000 add-on (replaces the license) = 5,000');
     });
 
     it('lets the other add-ons and the vouchers go on from the replacement', () => {
@@ -216,6 +253,16 @@ describe('explaining how a limit is composed', () => {
         number: number({ effective: 12500, license: 10000 }),
       }),
     ).toBe('max(10,000 license, 12,000 add-on) + 500 add-on = 12,500');
+  });
+
+  it('ignores a MAX or an ADD add-on of 0 as it ignores an override of 0', () => {
+    expect(
+      read({
+        addons: [addon('MAX', 1, 0), addon('ADD', 4, 0), addon('ADD', 1, 500)],
+        license: license(10000),
+        number: number({ effective: 10500, license: 10000 }),
+      }),
+    ).toBe('10,000 license + 500 add-on = 10,500');
   });
 
   it('reads a MAX add-on that is alone as the base', () => {

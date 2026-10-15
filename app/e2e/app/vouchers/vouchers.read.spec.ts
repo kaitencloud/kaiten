@@ -10,8 +10,8 @@ import { installVouchersWorld } from './install-vouchers-world';
 // The catalogue of vouchers: every voucher of the organization with its code, its kind, its
 // state, how often it was redeemed, until when and for whom, to search and filter in the
 // browser; the search matches the code as well as the name. The page is frozen at BILLED_NOW
-// (2026-10-07), because the state of a voucher is read from its window: the API never sets
-// one EXPIRED, and an ACTIVE voucher stays ACTIVE past its end.
+// (2026-10-07), because the window of a voucher that starts later, and of a boost, is judged
+// from there; the state of a voucher is the one the API stored.
 
 test.describe('the list of vouchers', () => {
   test.beforeEach(async ({ page }) => {
@@ -77,15 +77,12 @@ test.describe('the list of vouchers', () => {
     expect(gap).toBeLessThanOrEqual(40);
   });
 
-  test('says the state a person reads, which the console derives from the window and the count', async ({
-    page,
-  }) => {
+  test('says the state the API stored', async ({ page }) => {
     const list = new VoucherListDriver(page);
     await installVouchersWorld(page);
 
     await list.goto();
 
-    // The API stores the first ACTIVE, and its window closed in June.
     const states: Array<[string, string]> = [
       ['Spring 2026 promotion', 'Expired'],
       ['Hooli agreement', 'Fully redeemed'],

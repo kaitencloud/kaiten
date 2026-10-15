@@ -31,8 +31,8 @@ import { BILLED_NOW } from '../billing/billed-instances';
  * Initech Fresh instance was never subscribed and redeems whatever a spec has it redeem.
  */
 
-// The statuses the API stores. It never sets a voucher EXPIRED itself: the one whose
-// window closed is still ACTIVE, and the console says what the window says.
+// The statuses the API stores: it sets a voucher EXPIRED once its window has closed and
+// EXHAUSTED with the redemption that reaches its maximum, and the console shows them as they are.
 const WELCOME = buildVoucher({
   code: 'WELCOME-SPRING-2027',
   createdAt: '2026-02-20T09:00:00.000Z',
@@ -171,6 +171,7 @@ const LAPSED = buildVoucher({
   name: 'Spring 2026 promotion',
   priceAppliesTo: 'ADDONS',
   priceDiscountValue: '10',
+  status: 'EXPIRED',
 });
 
 const VOUCHERS: Voucher[] = [

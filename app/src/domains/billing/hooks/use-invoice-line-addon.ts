@@ -44,8 +44,8 @@ export function useInvoiceLineAddon(
     attachment,
     isPending: enabled && query.isPending,
     removedAt:
-      removedAt !== undefined &&
-      line.serviceTo !== undefined &&
+      removedAt != null &&
+      line.serviceTo != null &&
       Date.parse(removedAt) <= Date.parse(line.serviceTo)
         ? removedAt
         : undefined,

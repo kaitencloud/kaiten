@@ -287,6 +287,8 @@ function lifecycleCatalogue(): BillingCatalogue {
 export function createLifecycleBillingModel(
   capabilities: BillingCapabilities = billingCapabilitiesProfiles.stack(),
   extras: {
+    /** Why Hooli Production's subscription ended: a sentence, or a code Kaiten wrote itself. */
+    endedReason?: string;
     /** Invoices the world also holds, besides the one that makes Initech Late past due. */
     invoices?: Invoice[];
     /** The customers as the payment provider holds them. */
@@ -330,7 +332,7 @@ export function createLifecycleBillingModel(
       subscriptionOf('initech-seats'),
       subscriptionOf('hooli-prod', {
         canceledAt: '2026-09-20T00:00:00.000Z',
-        cancellationReason: 'Budget',
+        cancellationReason: extras.endedReason ?? 'Budget',
         currentPeriodEnd: '2026-09-15T00:00:00.000Z',
         currentPeriodStart: '2026-08-15T00:00:00.000Z',
         status: 'CANCELED',

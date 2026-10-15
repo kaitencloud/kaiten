@@ -11,6 +11,7 @@ import {
   handleGetEntitlementsUsageMetrics,
   handleGetInstanceBilling,
   handleListAddonCompatibility,
+  handleListAddonEntitlements,
   handleListAddonPrices,
   handleListAddons,
   handleListInstanceAddons,
@@ -97,6 +98,14 @@ beforeEach(() => {
     entitlements: [{ name: 'Storage', slug: 'storage-gb' }],
     instance: INSTANCE,
     license: { familyId: 'family-business', lifecycleState: 'PUBLISHED', name: 'Business' },
+    // The license of the instance grants 100 GB of storage.
+    licenseEntitlements: [
+      {
+        entitlementSlug: 'storage-gb',
+        entitlementType: 'NUMBER',
+        value: { type: 'number', value: 100 },
+      },
+    ],
   };
   server.use(
     handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stackWithAddons() }),
@@ -111,6 +120,7 @@ beforeEach(() => {
       HttpResponse.json(params.addonSlug === 'extra-storage-v1' ? [STORAGE_MONTHLY] : []),
     ),
     handleGetEntitlementsUsageMetrics({ body: [usageOf('storage-gb', 50)] }),
+    handleListAddonEntitlements({ body: [] }),
   );
 });
 
@@ -289,6 +299,63 @@ describe('the dialog that adds an add-on to an instance', () => {
     expect(await screen.findByTestId('attach-addon-details')).toHaveTextContent(
       'Sold on request: no price is set',
     );
+  });
+
+  describe('where the version overrides a value of the license of the instance', () => {
+    const grantOf = (overrideBehavior: 'ADD' | 'MAX' | 'OVERRIDE', value: number) => ({
+      entitlementSlug: 'storage-gb',
+      entitlementType: 'NUMBER' as const,
+      id: 'grant-storage',
+      overrideBehavior,
+      value: { type: 'number', value },
+    });
+
+    it('warns, before it is attached, that its value times the quantity is lower, and attaches all the same', async () => {
+      server.use(handleListAddonEntitlements({ body: [grantOf('OVERRIDE', 30)] }));
+      const bodies = serveAttach();
+      renderDialog();
+
+      await choose('Extra storage · 2026');
+
+      const warning = await screen.findByTestId('attach-addon-license-warning');
+      expect(warning).toHaveTextContent('Extra storage overrides Storage with 30');
+      expect(warning).toHaveTextContent('Business, grants 100');
+
+      // Four units are worth 120: more than the license grants, so nothing is lowered.
+      const quantity = screen.getByLabelText(/Quantity/);
+      await userEvent.clear(quantity);
+      await userEvent.type(quantity, '4');
+      await waitFor(() => expect(screen.queryByTestId('attach-addon-license-warning')).toBeNull());
+
+      await userEvent.clear(quantity);
+      await userEvent.type(quantity, '2');
+      expect(await screen.findByTestId('attach-addon-license-warning')).toHaveTextContent('with 60');
+
+      await userEvent.click(await submit());
+      await waitFor(() => expect(bodies).toEqual([{ addonSlug: 'extra-storage-v1', quantity: 2 }]));
+    });
+
+    it.each(['ADD', 'MAX'] as const)('says nothing for a %s grant, which never lowers a value', async (behavior) => {
+      server.use(handleListAddonEntitlements({ body: [grantOf(behavior, 30)] }));
+      renderDialog();
+
+      await choose('Extra storage · 2026');
+      await screen.findByTestId('attach-addon-details');
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(screen.queryByTestId('attach-addon-license-warning')).toBeNull();
+    });
+
+    it('says nothing for a grant of 0, which the API ignores, or when the license grants no such number', async () => {
+      server.use(handleListAddonEntitlements({ body: [grantOf('OVERRIDE', 0), { ...grantOf('OVERRIDE', 1), entitlementSlug: 'other' }] }));
+      renderDialog();
+
+      await choose('Extra storage · 2026');
+      await screen.findByTestId('attach-addon-details');
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(screen.queryByTestId('attach-addon-license-warning')).toBeNull();
+    });
   });
 
   it('sends the version and the quantity once, closes, and says what it did to the entitlements', async () => {

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Voucher, VoucherDraft } from '@/api-client';
+import type { Grant, Voucher, VoucherDraft } from '@/api-client';
 import { zVoucherDraft } from '@/api-client/zod.gen';
 import {
   dateTimeInputToInstant,
@@ -82,6 +82,10 @@ export function getVoucherEditErrors(
   return Object.keys(errors).length > 0 ? errors : undefined;
 }
 
+/** A grant as stored, with the value an unlimited one has not left out rather than null. */
+const grantToStoredBody = ({ modifierValue, ...grant }: Grant): Grant =>
+  modifierValue == null ? grant : { ...grant, modifierValue };
+
 /**
  * The replacement of an ACTIVE voucher: the four members the person changed, and every
  * other one restated as the API stores it. The API takes the whole body and compares the
@@ -101,23 +105,23 @@ export function voucherToEditBody(
     applicableLicenseIds: voucher.applicableLicenseIds,
     applicableLicensePriceIds: voucher.applicableLicensePriceIds,
     code: voucher.code,
-    currency: voucher.currency,
+    currency: voucher.currency ?? undefined,
     description:
       values.description.trim() === '' ? undefined : values.description.trim(),
     duration: voucher.duration,
-    durationInPeriods: voucher.durationInPeriods,
+    durationInPeriods: voucher.durationInPeriods ?? undefined,
     expiresAt: dateTimeInputToInstant(values.expiresAt) ?? undefined,
-    grants: voucher.grants,
+    grants: voucher.grants.map(grantToStoredBody),
     maxRedemptions: Number.isNaN(values.maxRedemptions)
       ? undefined
       : values.maxRedemptions,
     name: values.name.trim(),
-    priceAppliesTo: voucher.priceAppliesTo,
-    priceDiscountType: voucher.priceDiscountType,
-    priceDiscountValue: voucher.priceDiscountValue,
+    priceAppliesTo: voucher.priceAppliesTo ?? undefined,
+    priceDiscountType: voucher.priceDiscountType ?? undefined,
+    priceDiscountValue: voucher.priceDiscountValue ?? undefined,
     redemptionRules: voucher.redemptionRules,
-    restrictedCustomerSlug: voucher.restrictedCustomerSlug,
-    startsAt: voucher.startsAt,
+    restrictedCustomerSlug: voucher.restrictedCustomerSlug ?? undefined,
+    startsAt: voucher.startsAt ?? undefined,
     voucherType: voucher.voucherType,
   };
 }

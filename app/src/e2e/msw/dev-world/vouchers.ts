@@ -172,7 +172,7 @@ export function createVouchers({ customers, licenses }: VouchersWorld): {
       status: 'ARCHIVED',
       updatedAt: daysAgo(300),
     }),
-    // The API sets no voucher EXPIRED itself: this one is ACTIVE past its window.
+    // Past its window: the API marked it EXPIRED.
     buildVoucher({
       code: 'SPRING-2026-PROMO',
       createdAt: daysAgo(240),
@@ -183,6 +183,7 @@ export function createVouchers({ customers, licenses }: VouchersWorld): {
       priceAppliesTo: 'ADDONS',
       priceDiscountType: 'PERCENTAGE',
       priceDiscountValue: '10',
+      status: 'EXPIRED',
     }),
   ];
   const voucher = (id: string) => {

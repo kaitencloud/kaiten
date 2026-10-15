@@ -715,6 +715,8 @@ export default {
                   'La facturation ne peut pas démarrer dans le futur',
                 startAtTooEarly:
                   'La facturation ne peut pas démarrer plus d’une période de facturation en arrière',
+                startAtBeforeCancellation:
+                  'La facturation ne peut pas démarrer avant l’annulation de l’abonnement précédent',
               },
               Voucher: {
                 label: 'Code promo',
@@ -1163,6 +1165,12 @@ export default {
                     'Cet add-on n’a aucun prix en vente : rien n’est facturé ici pour lui.',
                   loading: 'Lecture de son prix…',
                   unknown: 'Son prix n’a pas pu être lu.',
+                },
+                BelowLicense: {
+                  message:
+                    '{{addon}} remplace {{entitlement}} par {{value}}, alors que la licence de cette instance, {{name}}, en accorde {{license}}.',
+                  consequence:
+                    'L’attacher fait passer la limite de cette instance sous ce que sa licence accorde. L’API l’accepte ; vérifiez que c’est voulu.',
                 },
                 Errors: {
                   addon: 'Choisissez un add-on',
@@ -1670,6 +1678,7 @@ export default {
           },
           Errors: {
             trialMin: 'Doit être d’au moins 1',
+            trialMax: 'Doit être de 365 au plus',
             trialWhole: 'Saisissez un nombre entier de jours',
             urlScheme: 'Saisissez une URL http ou https',
             urlLength: '2 048 caractères au plus',
@@ -3411,8 +3420,7 @@ export default {
           connected: 'Connecté',
           available: 'Disponible',
           unavailable: 'Indisponible',
-          comingH1: 'Prévu S1',
-          comingH2: 'Prévu S2',
+          comingSoon: 'Bientôt disponible',
         },
         Sections: {
           connected: 'Connectés ({{count}})',
@@ -3423,9 +3431,7 @@ export default {
         Taglines: {
           attio: 'CRM B2B moderne',
           hubspot: 'Plateforme CRM',
-          salesforce: 'CRM pour grandes entreprises',
           stripe: 'Facturation d’abonnements',
-          lago: 'Facturation à l’usage',
         },
         Card: {
           connect: 'Connecter',
@@ -4119,6 +4125,7 @@ export default {
             recompose: 'Recomposer',
             releaseHold: 'Débloquer la facture',
             void: 'Annuler la facture',
+            voidThenRecompose: 'Annuler et recomposer',
             writeOff: 'Passer en perte',
             retryPush: 'Relancer l’envoi',
             push: 'Envoyer maintenant',
@@ -4198,7 +4205,14 @@ export default {
             title: 'Rapprochement',
             matched: 'Stripe détient les mêmes montants que Kaiten.',
             mismatch:
-              'Stripe détient autre chose que ce que Kaiten a composé. La facture dans Stripe est celle que le client paie : réglez l’écart là-bas.',
+              'Stripe détient autre chose que ce que Kaiten a composé. Kaiten fait foi : l’écart ne se règle pas dans Stripe, la facture est annulée puis composée de nouveau.',
+            chargeWaits:
+              'Rien n’est encaissé tant que Stripe ne correspond pas à Kaiten.',
+            mismatchPaid:
+              'Stripe détient autre chose que ce que Kaiten a composé, et la facture est déjà payée : elle ne peut pas y être annulée. Kaiten la garde comme payée avec cet écart : réglez-le dans Stripe à la main, avec un avoir et un remboursement.',
+            mismatchVoid:
+              'Stripe détenait autre chose que ce que Kaiten a composé lors de la vérification de cette facture. Elle a été annulée depuis.',
+            openInStripe: 'Ouvrir la facture dans Stripe',
             checked: 'Vérifié le {{date}}.',
             kaitenTotal: 'Total composé par Kaiten',
             providerTotal: 'Total dans Stripe, hors taxes',
@@ -4378,6 +4392,8 @@ export default {
             title: 'Annuler et recomposer',
             description:
               'Cette facture n’est pas un brouillon bloqué : elle ne peut pas être modifiée. Elle est annulée, puis une remplaçante est composée à partir du journal d’usage tel qu’il est maintenant. Un seul motif couvre les deux.',
+            descriptionMismatch:
+              'Stripe détient autre chose que ce que Kaiten a composé. Kaiten fait foi : la facture est annulée dans Stripe et dans Kaiten, puis une remplaçante est composée à partir du journal d’usage tel qu’il est maintenant, envoyée à Stripe, vérifiée de nouveau et encaissée à son tour. Un seul motif couvre les deux.',
             confirm: 'Annuler et recomposer',
           },
           WriteOff: {
@@ -4614,8 +4630,6 @@ export default {
           name: 'Le nom est requis',
           maxQuantity:
             'Saisissez un nombre entier d’unités, 1 ou plus, ou laissez vide pour aucun maximum.',
-          maxQuantityHeld:
-            '{{instance}} détient {{quantity}} unités : baissez-y d’abord la quantité avant de baisser le maximum.',
         },
         Toasts: {
           created: 'Add-on créé',
@@ -4702,7 +4716,7 @@ export default {
           OVERRIDE: {
             label: 'Remplacer',
             blurb:
-              'Remplace la valeur de la licence par valeur × quantité. L’add-on attaché en dernier l’emporte.',
+              'Remplace la valeur de la licence par valeur × quantité. Entre plusieurs remplacements, le plus grand l’emporte, quel que soit l’ordre d’attache.',
           },
           MAX: {
             label: 'Maximum',
@@ -4721,6 +4735,12 @@ export default {
             'Cet add-on tolère un dépassement de {{addon}} %, et {{name}} en tolère {{license}} %.',
           consequence:
             'Sur chaque instance qui attache l’add-on, son pourcentage remplace celui de la licence : l’usage est refusé plus tôt que la licence ne le dit.',
+        },
+        ValueWarning: {
+          message:
+            'En remplacement, cet add-on fixe {{value}} par unité là où {{name}} en accorde {{license}} : une valeur plus basse.',
+          consequence:
+            'Sur chaque instance de cette licence qui attache l’add-on, la limite passe sous ce que la licence accorde. L’API l’accepte ; vérifiez que c’est voulu.',
         },
         Remove: {
           title: 'Retirer {{name}} de cet add-on ?',
@@ -4746,7 +4766,7 @@ export default {
           Descriptions: {
             entitlement: 'Une version accorde un droit une seule fois.',
             number:
-              'Ce qu’une unité de quantité accorde. Trois unités d’une valeur de 5 en accordent 15.',
+              'Ce qu’une unité de quantité accorde. Trois unités d’une valeur de 5 en accordent 15. Une valeur de 0 est ignorée : elle ne change rien.',
             behavior:
               'Comment la valeur multipliée par la quantité se combine avec ce que la licence accorde pour le même droit : ajoutée, en remplacement, ou la plus grande des deux.',
             overage:
@@ -5249,6 +5269,12 @@ export default {
           description:
             'Ajoutez un nombre maximal d’utilisations ou une date de fin, ou laissez le code vide pour qu’un code long soit généré.',
         },
+        BelowLicense: {
+          message:
+            'Ce bonus fixe {{entitlement}} à {{value}}, alors que {{name}} en accorde {{license}}.',
+          consequence:
+            'Sur une instance de cette licence, utiliser ce code fait passer la limite en dessous tant que le bonus s’applique. L’API l’accepte ; vérifiez que c’est voulu.',
+        },
         Checklist: {
           loading: 'Chargement',
           notAllowed:
@@ -5272,6 +5298,8 @@ export default {
           code: 'Utilisez de 8 à 64 lettres, chiffres, tirets ou tirets bas, ou laissez vide',
           minimumAmount:
             'Saisissez un montant, sans plus de décimales que la devise n’en a',
+          minimumAmountPositive:
+            'Saisissez un montant supérieur à 0, ou laissez vide pour aucun minimum',
           date: 'Saisissez une date et une heure valides',
           window: 'La fin doit être postérieure au début',
           maxRedemptions:
@@ -5943,6 +5971,12 @@ export default {
         CANCELED: 'Annulé',
         cancellationScheduled: 'Annulation en fin de période',
         none: 'Pas d’abonnement',
+      },
+      CancellationReasons: {
+        INCOMPLETE_EXPIRED:
+          'Le premier paiement n’est pas arrivé à temps : l’abonnement n’a jamais démarré et l’instance a gardé sa licence.',
+        TRIAL_ENDED_WITHOUT_PAYMENT_METHOD:
+          'L’essai s’est terminé sans moyen de paiement enregistré : il n’est pas devenu un abonnement payant.',
       },
       LicensePriceSummary: {
         free: 'Gratuit',

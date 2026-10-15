@@ -13,4 +13,4 @@ export { useAddonPriceForm } from './use-addon-price-form';
 export { useAddonPriceMutations } from './use-addon-price-mutations';
 export { type AddonPricing, useAddonPricing } from './use-addon-pricing';
 export { useDeleteAddonDraft } from './use-delete-addon-draft';
-export { type LicenseOverage, useLicenseOverage } from './use-license-overage';
+export { useCompatibleLicenseGrants } from './use-compatible-license-grants';

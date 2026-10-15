@@ -319,6 +319,20 @@ describe('a cancellation scheduled for the end of the period', () => {
     expect(notice).toHaveTextContent('Reason: Moving to another vendor');
   });
 
+  it('says a reason Kaiten wrote itself in words, and a reason a person wrote as it was written', async () => {
+    serve({
+      ...SCHEDULED_TO_CANCEL(),
+      cancellationReason: 'TRIAL_ENDED_WITHOUT_PAYMENT_METHOD',
+    });
+    renderTab();
+
+    const notice = await screen.findByTestId('cancellation-notice');
+    expect(notice).toHaveTextContent(
+      'Reason: The trial ended with no payment method on file, so it did not become a paid subscription.',
+    );
+    expect(notice).not.toHaveTextContent('TRIAL_ENDED_WITHOUT_PAYMENT_METHOD');
+  });
+
   it('turns the next boundary into the end of the subscription on the card', async () => {
     serve(SCHEDULED_TO_CANCEL());
     renderTab();

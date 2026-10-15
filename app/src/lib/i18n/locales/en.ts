@@ -702,6 +702,8 @@ export default {
                 startAtFuture: 'Billing cannot start in the future',
                 startAtTooEarly:
                   'Billing cannot start more than one billing period ago',
+                startAtBeforeCancellation:
+                  'Billing cannot start before the previous subscription was canceled',
               },
               Voucher: {
                 label: 'Voucher code',
@@ -1145,6 +1147,12 @@ export default {
                     'This add-on has no price on sale, so nothing is billed for it here.',
                   loading: 'Reading its price…',
                   unknown: 'Its price could not be read.',
+                },
+                BelowLicense: {
+                  message:
+                    '{{addon}} overrides {{entitlement}} with {{value}}, and the license of this instance, {{name}}, grants {{license}}.',
+                  consequence:
+                    'Attaching it lowers the limit of this instance below what its license grants. The API accepts it; check that it is what you mean.',
                 },
                 Errors: {
                   addon: 'Choose an add-on',
@@ -1649,6 +1657,7 @@ export default {
           },
           Errors: {
             trialMin: 'Must be at least 1',
+            trialMax: 'Must be 365 or less',
             trialWhole: 'Enter a whole number of days',
             urlScheme: 'Enter an http or https URL',
             urlLength: 'At most 2,048 characters',
@@ -3364,8 +3373,7 @@ export default {
           connected: 'Connected',
           available: 'Available',
           unavailable: 'Unavailable',
-          comingH1: 'Coming H1',
-          comingH2: 'Coming H2',
+          comingSoon: 'Coming soon',
         },
         Sections: {
           connected: 'Connected ({{count}})',
@@ -3376,9 +3384,7 @@ export default {
         Taglines: {
           attio: 'Modern B2B CRM',
           hubspot: 'CRM platform',
-          salesforce: 'Enterprise CRM',
           stripe: 'Subscription billing',
-          lago: 'Usage-based billing',
         },
         Card: {
           connect: 'Connect',
@@ -4059,6 +4065,7 @@ export default {
             recompose: 'Recompose',
             releaseHold: 'Release the hold',
             void: 'Void',
+            voidThenRecompose: 'Void and recompose',
             writeOff: 'Write off',
             retryPush: 'Retry push',
             push: 'Push now',
@@ -4138,7 +4145,13 @@ export default {
             title: 'Reconciliation',
             matched: 'Stripe holds the same amounts as Kaiten.',
             mismatch:
-              'Stripe holds something other than what Kaiten composed. The invoice in Stripe is the one the customer pays: settle the difference there.',
+              'Stripe holds something other than what Kaiten composed. Kaiten is authoritative: the difference is not settled in Stripe, the invoice is voided and composed again.',
+            chargeWaits: 'Nothing is charged until Stripe matches Kaiten.',
+            mismatchPaid:
+              'Stripe holds something other than what Kaiten composed, and the invoice is already paid, so it cannot be voided there. Kaiten keeps it as paid with this difference: settle it in Stripe by hand, with a credit note and a refund.',
+            mismatchVoid:
+              'Stripe held something other than what Kaiten composed when this invoice was checked. It has been voided since.',
+            openInStripe: 'Open the invoice in Stripe',
             checked: 'Checked {{date}}.',
             kaitenTotal: 'Total composed by Kaiten',
             providerTotal: 'Total in Stripe, excluding tax',
@@ -4318,6 +4331,8 @@ export default {
             title: 'Void and recompose',
             description:
               'This invoice is not a held draft, so it cannot be edited: it is voided, and a replacement is composed from the usage journal as it is now. One reason covers both.',
+            descriptionMismatch:
+              'Stripe holds something other than what Kaiten composed. Kaiten is authoritative: the invoice is voided in Stripe and in Kaiten, and a replacement is composed from the usage journal as it is now, pushed to Stripe, checked again and collected in turn. One reason covers both.',
             confirm: 'Void and recompose',
           },
           WriteOff: {
@@ -4551,8 +4566,6 @@ export default {
           name: 'Name is required',
           maxQuantity:
             'Enter a whole number of units, 1 or more, or leave it empty for no maximum.',
-          maxQuantityHeld:
-            '{{instance}} holds {{quantity}} units: lower its quantity there before lowering the maximum.',
         },
         Toasts: {
           created: 'Add-on created',
@@ -4639,7 +4652,7 @@ export default {
           OVERRIDE: {
             label: 'Override',
             blurb:
-              'Replaces the license’s value with value × quantity. The add-on attached last wins.',
+              'Replaces the license’s value with value × quantity. Among several overrides the largest wins, whatever the order they were attached in.',
           },
           MAX: {
             label: 'Maximum',
@@ -4658,6 +4671,12 @@ export default {
             'This add-on allows an overage of {{addon}}%, and {{name}} allows {{license}}%.',
           consequence:
             'On every instance that attaches the add-on, its percentage replaces the license’s: usage is refused sooner than the license says.',
+        },
+        ValueWarning: {
+          message:
+            'As an override, {{value}} per unit replaces the {{license}} that {{name}} grants with a lower value.',
+          consequence:
+            'On every instance of that license that attaches the add-on, the limit falls below what the license grants. The API accepts it; check that it is what you mean.',
         },
         Remove: {
           title: 'Remove {{name}} from this add-on?',
@@ -4683,7 +4702,7 @@ export default {
           Descriptions: {
             entitlement: 'A version grants an entitlement once.',
             number:
-              'What one unit of quantity grants. Three units of a value of 5 grant 15.',
+              'What one unit of quantity grants. Three units of a value of 5 grant 15. A value of 0 is ignored: it changes nothing.',
             behavior:
               'How the value times the quantity combines with the license’s grant of the same entitlement: added to it, replacing it, or the larger of the two.',
             overage:
@@ -5178,6 +5197,12 @@ export default {
           description:
             'Add a maximum number of redemptions or an end date, or leave the code empty to have a long one generated.',
         },
+        BelowLicense: {
+          message:
+            'This boost sets {{entitlement}} to {{value}}, and {{name}} grants {{license}}.',
+          consequence:
+            'On an instance on that license, redeeming it lowers the limit for as long as the boost applies. The API accepts it; check that it is what you mean.',
+        },
         Checklist: {
           loading: 'Loading',
           notAllowed:
@@ -5201,6 +5226,8 @@ export default {
           code: 'Use 8 to 64 letters, digits, dashes or underscores, or leave it empty',
           minimumAmount:
             'Enter an amount, with no more decimals than the currency has',
+          minimumAmountPositive:
+            'Enter an amount above 0, or leave it empty for no minimum',
           date: 'Enter a valid date and time',
           window: 'The end must be after the start',
           maxRedemptions:
@@ -5852,6 +5879,12 @@ export default {
         CANCELED: 'Canceled',
         cancellationScheduled: 'Cancels at period end',
         none: 'Not subscribed',
+      },
+      CancellationReasons: {
+        INCOMPLETE_EXPIRED:
+          'The first payment was not made in time: the subscription never started and the instance kept its license.',
+        TRIAL_ENDED_WITHOUT_PAYMENT_METHOD:
+          'The trial ended with no payment method on file, so it did not become a paid subscription.',
       },
       LicensePriceSummary: {
         free: 'Free',

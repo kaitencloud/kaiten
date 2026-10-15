@@ -6,11 +6,10 @@ import type { BillingCapabilities, BillingProvider } from '@/api-client';
  *
  * The console decides what a provider can do from that list (`available`,
  * `connected`, `unavailableReason`, `livemode`, `capabilities.automaticCollection`)
- * and never from `features.stripe`, `features.chargeAutomatically` or
- * `features.publicSurface`. Those three say what this release ships, and the API
- * answers all of them `true`: `stripe: true` holds whether or not Stripe can be
- * connected here, and `chargeAutomatically: true` whether or not a provider that
- * charges is connected. What this organization can connect and use is in `providers`
+ * and never from `features.stripe` or `features.chargeAutomatically`. Those say what
+ * this release ships, and the API answers both `true`: `stripe: true` holds whether or
+ * not Stripe can be connected here, and `chargeAutomatically: true` whether or not a
+ * provider that charges is connected. What this organization can connect and use is in `providers`
  * (its plan, a Vault), so a gate on a flag would offer automatic collection, or a
  * Stripe tile, to an organization that has nothing to charge with.
  */
@@ -68,7 +67,7 @@ export function getProviderStanding(
     return { state: 'unlisted' };
   }
   if (provider.connected) {
-    return { livemode: provider.livemode, state: 'connected' };
+    return { livemode: provider.livemode ?? undefined, state: 'connected' };
   }
   if (provider.available) {
     return { state: 'available' };

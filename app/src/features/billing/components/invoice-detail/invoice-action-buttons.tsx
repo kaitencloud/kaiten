@@ -7,6 +7,7 @@ import {
   LoaderCircle,
   LockOpen,
   RefreshCw,
+  Replace,
   Send,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
@@ -39,6 +40,7 @@ const ACTION_ICONS = {
   retryPush: Send,
   sync: CloudDownload,
   void: Ban,
+  voidThenRecompose: Replace,
   writeOff: FileX,
 } as const satisfies Record<InvoiceAction, ComponentType>;
 
@@ -49,6 +51,7 @@ const ACTION_LABEL_KEYS = {
   retryPush: 'Pages.Billing.Invoices.Detail.Actions.retryPush',
   sync: 'Pages.Billing.Invoices.Detail.Actions.sync',
   void: 'Pages.Billing.Invoices.Detail.Actions.void',
+  voidThenRecompose: 'Pages.Billing.Invoices.Detail.Actions.voidThenRecompose',
   writeOff: 'Pages.Billing.Invoices.Detail.Actions.writeOff',
 } as const satisfies Record<InvoiceAction, string>;
 

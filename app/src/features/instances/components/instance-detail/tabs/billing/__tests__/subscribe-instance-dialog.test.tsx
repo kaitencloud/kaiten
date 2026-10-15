@@ -8,6 +8,7 @@ import type { NewSubscription, StartedSubscription } from '@/api-client';
 import {
   handleGetBillingCapabilities,
   handleGetBillingSettings,
+  handleGetInstanceBilling,
   handleListLicensePrices,
   handleSubscribeInstance,
   handleUpdateCustomer,
@@ -112,6 +113,13 @@ beforeEach(() => {
   server.use(
     handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }),
     handleListLicensePrices({ body: [USAGE, ANNUAL, RETIRED, MONTHLY] }),
+    // The instance was never subscribed, unless a test says it was.
+    handleGetInstanceBilling(() =>
+      refusal(404, {
+        code: 'GetInstanceBilling.NotFound',
+        detail: 'The instance has no subscription',
+      }),
+    ),
     handleGetBillingSettings({
       body: {
         defaultCollectionMethod: 'SEND_INVOICE',
@@ -398,6 +406,60 @@ describe('a refusal of the subscription', () => {
     ).toBeInTheDocument();
     await userEvent.click(await subscribe());
     expect(bodies).toHaveLength(0);
+  });
+});
+
+describe('subscribing again after a cancellation', () => {
+  const canceled = (daysAgo: number) =>
+    handleGetInstanceBilling({
+      body: buildSubscription({
+        anchorAt: new Date(Date.now() - 400 * 86_400_000).toISOString(),
+        basePrice: MONTHLY,
+        canceledAt: new Date(Date.now() - daysAgo * 86_400_000).toISOString(),
+        instanceSlug: 'globex-production',
+        status: 'CANCELED',
+      }),
+    });
+
+  it('is told before it is asked when the start is before the cancellation of the subscription it replaces', async () => {
+    server.use(canceled(10));
+    const bodies = serveSubscribe();
+    renderDialog();
+    await screen.findByLabelText('Billing starts (UTC)');
+
+    // Within the period of the price, but before the instance was canceled.
+    setStart(daysFromNow(-20));
+    expect(
+      await screen.findByText(
+        'Billing cannot start before the previous subscription was canceled',
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(await subscribe());
+    expect(bodies).toHaveLength(0);
+
+    // After it, the start goes through.
+    setStart(daysFromNow(-5));
+    await waitFor(() =>
+      expect(
+        screen.queryByText(
+          'Billing cannot start before the previous subscription was canceled',
+        ),
+      ).toBeNull(),
+    );
+    await userEvent.click(await subscribe());
+    await waitFor(() => expect(bodies).toHaveLength(1));
+  });
+
+  it('says a start more than a period back is too early, whatever the cancellation says', async () => {
+    server.use(canceled(100));
+    renderDialog();
+    await screen.findByLabelText('Billing starts (UTC)');
+
+    setStart(daysFromNow(-70));
+
+    expect(
+      await screen.findByText('Billing cannot start more than one billing period ago'),
+    ).toBeInTheDocument();
   });
 });
 

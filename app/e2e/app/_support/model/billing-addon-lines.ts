@@ -61,7 +61,7 @@ function arrearsAttachments(input: BoundaryAddons): InstanceAddon[] {
   const inPeriod = input.attachments.filter(
     (attached) =>
       time(attached.attachedAt) < time(input.boundary) &&
-      (attached.removedAt === undefined ||
+      (attached.removedAt == null ||
         time(attached.removedAt) > time(input.periodStart)),
   );
   const chosen = new Map<string, InstanceAddon>();
@@ -69,8 +69,8 @@ function arrearsAttachments(input: BoundaryAddons): InstanceAddon[] {
     const current = chosen.get(attached.familySlug);
     const beats =
       current === undefined ||
-      (current.removedAt !== undefined &&
-        (attached.removedAt === undefined ||
+      (current.removedAt != null &&
+        (attached.removedAt == null ||
           time(attached.removedAt) > time(current.removedAt)));
     if (beats) {
       chosen.set(attached.familySlug, attached);
@@ -87,7 +87,7 @@ export function composeAddonFeeLines(input: BoundaryAddons): AddonLineDraft[] {
 
   for (const attached of input.attachments) {
     const fee = flatFee(attached, 'ADVANCE');
-    if (!fee || attached.removedAt !== undefined) {
+    if (!fee || attached.removedAt != null) {
       continue;
     }
     drafts.push({

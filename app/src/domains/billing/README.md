@@ -78,10 +78,12 @@ app/src/domains/billing/
 │                     # bills (InvoiceLineAddon) and what a table says
 │                     # when it has no row (TableEmptyMessage), and the state of a subscription
 │                     # in a list of instances (InstanceBillingBadge, InstanceBillingCell), and
-│                     # how a license version is sold (LicensePriceSummaryText)
+│                     # how a license version is sold (LicensePriceSummaryText), and the frame of
+│                     # the warning that a grant of an add-on or a voucher would lower what a
+│                     # license grants (LicenseGrantWarning)
 ├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session
 │                     # (useGrantedScopes reads them, for a screen that filters on several);
-│                     # useInvoiceActionAccess, the same for the five actions on an invoice;
+│                     # useInvoiceActionAccess, the same for the eight actions on an invoice;
 │                     # useAlertFocus, which puts the focus on a refusal or a confirmation; useDeletionRefusal,
 │                     # which explains a deletion billing refused; useBillingActionForm, the form of an
 │                     # audited action; useBoundaryRetry, which waits
@@ -89,7 +91,9 @@ app/src/domains/billing/
 │                     # useUsageReports, over the pages of a list of usage reports;
 │                     # useInstancesBilling, the subscriptions of the lists of instances;
 │                     # useLicensesWithPrices, the license versions and their prices;
-│                     # useInvoiceLineAddon, the attachment an invoice line bills
+│                     # useInvoiceLineAddon, the attachment an invoice line bills;
+│                     # useLicenseFamilyHeads and useLicenseGrants, what the license versions
+│                     # of some families grant, over REST
 ├── logic/            # actions and their scopes, availability, problems, the placing of a
 │                     # refusal on the fields of a form (problem-field-errors), the reason an
 │                     # audited action takes (reason), statuses,
@@ -105,13 +109,17 @@ app/src/domains/billing/
 │                     # instance as a list reads it (instance-billing-summary), the license
 │                     # versions with their prices (license-catalogue) and how one is sold
 │                     # (license-price-summary), every license and add-on version with all its
-│                     # prices, deprecated ones included (catalog-prices)
+│                     # prices, deprecated ones included (catalog-prices), what a license grants
+│                     # of a number and whether a grant of an add-on or a voucher would lower it
+│                     # (license-grants), and the words of a cancellation Kaiten made itself
+│                     # (cancellation-reason)
 ├── queries/          # the capabilities, the billing settings, the route guard, invalidation
 │                     # helpers (those of the vouchers and of an instance's redemptions included),
 │                     # the pages of the invoices of a subject, the pages of usage reports, the
 │                     # export of the invoices, the attachments of an instance with the removed
 │                     # ones (instance-addons-query-options), and the prices of every version
-│                     # of the catalog in one document (catalog-prices-query-options)
+│                     # of the catalog in one document (catalog-prices-query-options), and what
+│                     # a license version and an add-on version grant (addon-query-options)
 ├── types/
 ├── __tests__/
 └── index.ts
@@ -232,7 +240,11 @@ page holds, or an export the API streams.
   method the way the API sends it, `null` for a customer with none though the contract
   declares it always there. `getSafeProviderUrl` keeps an address of a page the provider
   hosts (the invoice, its PDF, the customer in its dashboard) only when it is https, so
-  that a link to it cannot be anything else.
+  that a link to it cannot be anything else. `getStripeInvoiceDashboardUrl(livemode,
+  invoiceId)` is the page of an invoice in the dashboard of Stripe, where a credit note is
+  made: in the mode the connection reaches, since a link to the wrong one finds nothing, so
+  it is none while that mode is not known, and none for an identifier that is not an
+  invoice's.
 - `invalidateInstanceBillingQueries`, `invalidateInstanceAddonQueries`,
   `invalidateInvoiceQueries`, `invalidateLicensePriceQueries`,
   `invalidateBillingSettingsQueries`, `invalidateBillingProviderQueries` (a provider was
@@ -269,6 +281,12 @@ page holds, or an export the API streams.
   is the explanation a link to a billing screen shows (`BillingUnavailable`).
   `features.*` hides what the running release does not ship (add-ons, vouchers), and
   the console has the screens of the add-ons, behind `features.addons`.
+- **A member with no value is absent or null, and the console reads both the same.**
+  The API leaves an optional member out of an answer or, on the members it lists in its
+  contract as required and nullable, says `null`. Whether a member is there is therefore
+  asked with `== null` (and `!= null`), never `=== undefined`, and a stored member that is
+  restated in a request body goes as `?? undefined`, since a body leaves a member out and
+  does not null it.
 - **One guard per billing route**, in `beforeLoad`. Where billing is there, it
   lets the route load. Where it is not, it throws `notFound({ data })` with the
   closed gate, and the route's `notFoundComponent`, `BillingNotFound`, shows the
@@ -369,28 +387,36 @@ page holds, or an export the API streams.
   helpers of `logic/billing-providers.ts` (`findBillingProvider`, `getProviderStanding`,
   `isProviderOffered`, `canChargeAutomatically`) answer from the `providers` of the
   capabilities, with `connected`, `available`, `unavailableReason`, `livemode` and
-  `capabilities.automaticCollection`, and never from `features.stripe`,
-  `features.chargeAutomatically` or `features.publicSurface`: those three say what the
-  release ships and the API answers them `true` whatever a provider can do here, where
-  `providers` says what this organization can connect (its plan, a Vault), so a gate on
-  them would offer what the organization cannot use. The page of the publishable keys is
-  gated on billing being on and on the scopes of the session, and asks for neither
-  `features.publicSurface` nor `publicSurface.enabled`: the first is `true` with the release
-  and the second equals `enabled`, so they would add nothing to the gate on `enabled`.
+  `capabilities.automaticCollection`, and never from `features.stripe` or
+  `features.chargeAutomatically`: those say what the release ships and the API answers
+  them `true` whatever a provider can do here, where `providers` says what this
+  organization can connect (its plan, a Vault), so a gate on them would offer what the
+  organization cannot use. The page of the publishable keys, which has no provider
+  behind it, is gated on `features.publicSurface` and on the scopes of the session
+  (`requireBillingCapability(…, 'publicSurface')`, and the same feature in the entry of
+  the side navigation). The API answers that member `true` wherever billing exists, so
+  the gate closes on `enabled`, and on the scope; `publicSurface.enabled` is the same
+  flag as `enabled` and is not read.
   Nothing is offered where billing is off, but `listedStanding` reads the entry
   whether it is on or not: the tile of the connectors says that the plan leaves Stripe
   out, or that it needs a Vault, where billing is off for that very reason.
   `STRIPE_CONNECTOR_NAME` is the connector Stripe is configured through.
 - **What an invoice allows is decided here.** `getInvoiceActions(invoice, context)`
   answers, from the status, the hold, the provider and the replacement of an invoice,
-  which of release, recompose, mark paid, write off, void, retry push and sync it
-  offers, in order (a push is retried, and an invoice read back, only where Stripe
-  collects it; `isAwaitingFinalization` and `getPushVariant` say whether pushing again
-  finalizes a draft Stripe holds, retries a failed push or pushes a queued draft), and
-  `INVOICE_ACTION_SCOPES` names the billing action, hence the scope, of each, and
+  which of release, recompose, mark paid, write off, void, void and recompose, retry push
+  and sync it offers, in order (a push is retried, and an invoice read back, only where
+  Stripe collects it; `isAwaitingFinalization` and `getPushVariant` say whether pushing
+  again finalizes a draft Stripe holds, retries a failed push or pushes a queued draft).
+  An invoice Stripe holds open whose reconciliation is a MISMATCH offers **void and
+  recompose** first, in one confirmation: Kaiten is authoritative, so the remedy is to void
+  it in both systems and compose it again, not to settle the difference in Stripe, and one
+  Stripe already holds as paid offers nothing, since Stripe cannot void it.
+  `INVOICE_ACTION_SCOPES` names the billing action, hence the scope, of each (both the void
+  and the recompose for that one, `getInvoiceActionBillingActions`), and
   `useInvoiceActionAccess` reads them once for a screen. An
   action the status allows and the screen knows the API would refuse is returned
-  disabled, with why: a recompose of an invoice, held draft or void, whose usage is no
+  disabled, with why: a recompose of an invoice, held draft or void, and a void and recompose
+  of one in MISMATCH (voiding first would leave the customer with no invoice), whose usage is no
   longer kept (`getRetentionStart(months)` from `usageHistoryRetentionMonths`) and one
   for an instance that was deleted. The API has the last
   word. `isHandoffLeased` says whether a consumer holds an invoice of the handoff
@@ -402,6 +428,24 @@ page holds, or an export the API streams.
   replacement already exists and is named, its instance was deleted): the codes
   and the replacement the problem carries are read here, once, and the dialog
   switches on the result.
+- **A grant that would lower what a license grants is warned about.** The API accepts an
+  OVERRIDE add-on grant, or a SET boost of a voucher, whose value is below the license's,
+  and an overage allowance below it, because that is the vendor's intent; the screens say
+  so before they send it. The reading is shared by three features, so it is here:
+  `useLicenseFamilyHeads` resolves the version each license family stands for (one request
+  for the families), `useLicenseGrants` reads what each version grants (one request per
+  version, over REST), both only for a session that may read licenses and families,
+  and `readLicenseGrant` turns a grant into its value and allowance (none for an unlimited
+  license, which nothing replaces with less). `lowersLicenseValue`, `lowersLicenseOverage`
+  and `getOverrideReplacement` (value times quantity, for an OVERRIDE of a number that is not
+  0 or unlimited: the API ignores a grant of 0, its allowance included) decide, and
+  `LicenseGrantWarning` is the frame, a note and never a blocker; the words are each
+  screen's.
+- **A cancellation Kaiten made itself is said in words.** `getCancellationReasonLabelKey`
+  gives the key of the two reserved reasons (`INCOMPLETE_EXPIRED`,
+  `TRIAL_ENDED_WITHOUT_PAYMENT_METHOD`), and nothing for any other: the sentence a person
+  wrote, or a code a later release adds, is shown as it came.
+
 - **A metered line shows what it was measured from.** `LineFingerprint` writes the
   `metering.ledger` of a line (`Reports 41–45 · 5 rows · Σ 172,345`) and
   `OverageLimits` the arithmetic of an overage line with every limit that applied,
@@ -495,7 +539,8 @@ page holds, or an export the API streams.
   date by whole months in UTC with the day clamped to the last of the month (Jan 31
   plus a month is Feb 28), so that a boundary the console shows is the instant the API
   composes the invoice at. `getSubscriptionStartBounds` gives the instants a
-  subscription may start at (from one period ago to now) and `getFirstInvoiceTiming`
+  subscription may start at (from one period ago to now, and for an instance whose
+  subscription was canceled, not before that cancellation: `notBefore`) and `getFirstInvoiceTiming`
   says when the first invoice is issued: at once for a price billed in advance, at the
   end of the first period for one billed in arrears. They say when and never how much:
   only the API composes an invoice.
@@ -531,14 +576,14 @@ page holds, or an export the API streams.
   archived and never put back on sale, so `VersionLifecycleAction` and
   `VersionLifecycleKeys` are generic over the transitions they say, and the block that
   stops the archiving of a default is optional.
-- **A voucher is read from its window, not from the status the API stores.** The API never
-  sets a voucher EXPIRED, and an ACTIVE voucher stays ACTIVE past its end until the
-  redemption that reaches its maximum flips it to EXHAUSTED, so `getVoucherStatus` reads an
-  ACTIVE voucher as exhausted when its count reached its maximum (the API tests it first),
-  expired when its `expiresAt` is not after now, and active otherwise; `isVoucherScheduled`
-  says that one that starts later cannot be redeemed yet. A redemption of a boost stays
-  ACTIVE past its end for the same reason, and `getRedemptionStatus` reads it as expired.
-  `VoucherStatusBadge` and `RedemptionStatusBadge` draw that status, never the stored one.
+- **A voucher shows the status the API stores.** The API sets EXPIRED once an ACTIVE
+  voucher's end has passed (the billing-lifecycle job) and EXHAUSTED with the redemption
+  that reaches its maximum, so `VoucherStatusBadge`, the filter and the column of the list
+  read `Voucher.status` as it is. `isVoucherScheduled` says that an ACTIVE voucher that
+  starts later cannot be redeemed yet. A redemption of a boost stays ACTIVE past its end
+  until the same job passes, and `getRedemptionStatus` reads it as expired from its window;
+  `RedemptionStatusBadge` draws that status.
+
 - **A voucher is described by what it does, counted in the unit it lasts in.**
   `describeVoucherOffer` writes the discount and what it applies to, or what the boost
   changes, and for how long: a discount counts invoices and a boost billing periods, which

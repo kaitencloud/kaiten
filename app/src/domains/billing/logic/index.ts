@@ -38,6 +38,7 @@ export {
   isHandoffLeased,
 } from './invoice-handoff';
 export {
+  getInvoiceActionBillingActions,
   getInvoiceActions,
   INVOICE_ACTION_SCOPES,
   type InvoiceAction,
@@ -65,7 +66,10 @@ export {
   hasUsablePaymentMethod,
   type PaymentMethodStanding,
 } from './payment-method';
-export { getSafeProviderUrl } from './provider-url';
+export {
+  getSafeProviderUrl,
+  getStripeInvoiceDashboardUrl,
+} from './provider-url';
 export {
   isPaidAtProviderRefusal,
   readRecomposeRefusal,
@@ -222,6 +226,7 @@ export {
   toInstanceBillingEntries,
   toInstanceBillingSummary,
 } from './instance-billing-summary';
+export { getCancellationReasonLabelKey } from './cancellation-reason';
 export {
   getSubscriptionActions,
   getSubscriptionStatusLabelKey,
@@ -243,7 +248,6 @@ export { getAddonTitle } from './addon-title';
 export {
   getRedemptionStatus,
   getRedemptionStatusLabelKey,
-  getVoucherStatus,
   getVoucherStatusLabelKey,
   getVoucherTypeLabelKey,
   isVoucherScheduled,
@@ -251,7 +255,6 @@ export {
   VOUCHER_STATUSES,
   VOUCHER_TYPES,
   type VoucherStatus,
-  type VoucherStatusInput,
   type VoucherType,
 } from './voucher-status';
 export {
@@ -260,3 +263,10 @@ export {
   describeVoucherOffer,
   type VoucherOfferInput,
 } from './voucher-offer';
+export {
+  getOverrideReplacement,
+  type LicenseGrantReading,
+  lowersLicenseOverage,
+  lowersLicenseValue,
+  readLicenseGrant,
+} from './license-grants';

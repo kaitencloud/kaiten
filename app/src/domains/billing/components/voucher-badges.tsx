@@ -1,15 +1,14 @@
 import { useTranslation } from 'react-i18next';
+import type { Voucher } from '@/api-client';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
   getRedemptionStatus,
   getRedemptionStatusLabelKey,
-  getVoucherStatus,
   getVoucherStatusLabelKey,
   getVoucherTypeLabelKey,
   type RedemptionStatus,
   type VoucherStatus,
-  type VoucherStatusInput,
   type VoucherType,
 } from '../logic';
 
@@ -36,23 +35,20 @@ const REDEMPTION_TONES: Record<RedemptionStatus, Tone> = {
 
 type VoucherStatusBadgeProps = {
   className?: string;
-  /** The instant the window is judged at; now when left out. */
-  now?: number;
-  voucher: VoucherStatusInput;
+  voucher: Pick<Voucher, 'status'>;
 };
 
 /**
- * The state of a voucher. The API never sets one EXPIRED and leaves an ACTIVE one ACTIVE
- * past its window, so the badge reads the status from the window and from the count of
- * redemptions (`getVoucherStatus`), and not from what the API stored.
+ * The state of a voucher, as the API stores it: it sets a voucher EXPIRED once its end
+ * has passed and EXHAUSTED with the redemption that reaches its maximum, so the badge
+ * draws the stored status and derives nothing from the window or the count.
  */
 export function VoucherStatusBadge({
   className,
-  now,
   voucher,
 }: VoucherStatusBadgeProps) {
   const { t } = useTranslation();
-  const status = getVoucherStatus(voucher, now);
+  const { status } = voucher;
   const tone = VOUCHER_TONES[status];
 
   return (

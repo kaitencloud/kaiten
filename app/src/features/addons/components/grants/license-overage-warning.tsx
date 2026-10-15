@@ -1,14 +1,15 @@
-import { TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import type { LicenseOverage } from '../../hooks';
-import { lowersLicenseOverage } from '../../utils/addon-grant.utils';
+import {
+  LicenseGrantWarning,
+  type LicenseGrantReading,
+  lowersLicenseOverage,
+} from '@/domains/billing';
 
 type LicenseOverageWarningProps = {
   /** The percentage the grant sets; `NaN` when it inherits the license's. */
   addonPercent: number;
-  /** What each compatible license allows of the entitlement. */
-  licenses: readonly LicenseOverage[];
+  /** What each compatible license grants of the entitlement. */
+  licenses: readonly LicenseGrantReading[];
 };
 
 /**
@@ -23,8 +24,11 @@ export function LicenseOverageWarning({
   licenses,
 }: LicenseOverageWarningProps) {
   const { t } = useTranslation();
-  const lowered = licenses.filter((license) =>
-    lowersLicenseOverage(addonPercent, license.percent),
+  const lowered = licenses.flatMap((license) =>
+    license.percent !== null &&
+    lowersLicenseOverage(addonPercent, license.percent)
+      ? [{ name: license.licenseName, percent: license.percent }]
+      : [],
   );
 
   if (lowered.length === 0) {
@@ -32,20 +36,17 @@ export function LicenseOverageWarning({
   }
 
   return (
-    <Alert data-testid="license-overage-warning" role="status">
-      <TriangleAlert className="text-warning-subtle-foreground" />
-      <AlertDescription>
-        {lowered.map((license) => (
-          <p key={license.licenseName}>
-            {t('Pages.Addons.Grants.OverageWarning.message', {
-              addon: addonPercent,
-              license: license.percent,
-              name: license.licenseName,
-            })}
-          </p>
-        ))}
-        <p>{t('Pages.Addons.Grants.OverageWarning.consequence')}</p>
-      </AlertDescription>
-    </Alert>
+    <LicenseGrantWarning testId="license-overage-warning">
+      {lowered.map((license) => (
+        <p key={license.name}>
+          {t('Pages.Addons.Grants.OverageWarning.message', {
+            addon: addonPercent,
+            license: license.percent,
+            name: license.name,
+          })}
+        </p>
+      ))}
+      <p>{t('Pages.Addons.Grants.OverageWarning.consequence')}</p>
+    </LicenseGrantWarning>
   );
 }

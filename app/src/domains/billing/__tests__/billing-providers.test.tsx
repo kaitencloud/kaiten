@@ -20,9 +20,9 @@ import {
 } from '../logic';
 
 // Where a payment provider stands is read from the `providers` of the
-// capabilities. `features.stripe`, `chargeAutomatically` and `publicSurface` say what the
-// release ships, and the API answers them true on every organization whatever a provider
-// can do here, so none of these reads them.
+// capabilities. `features.stripe` and `chargeAutomatically` say what the release ships,
+// and the API answers them true on every organization whatever a provider can do here,
+// so none of these reads them.
 
 const withStripe = (standing: Parameters<typeof stripeProvider>[0]) =>
   billingCapabilitiesProfiles.stackWithStripe(standing);

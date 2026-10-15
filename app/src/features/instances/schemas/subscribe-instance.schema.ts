@@ -91,18 +91,22 @@ export type SubscribeFormErrors = Partial<
  * start is bounded by the billing period of the price chosen: from one period ago,
  * for a contract that began before it was entered, to now. The API checks it to the
  * second and says so in its own words; this tells the person before they ask, and
- * is the form's own rule, so that it follows the price. The units of an add-on are
+ * is the form's own rule, so that it follows the price. A subscription that comes after
+ * a canceled one does not start before it ended (`canceledAt`). The units of an add-on are
  * bounded by the most its version allows, which only the offer knows.
  */
 export function getSubscribeFormErrors(
   values: SubscribeFormValues,
   {
     addons = [],
+    canceledAt,
     now = new Date(),
     period,
     trialOffered = true,
   }: {
     addons?: readonly Pick<Addon, 'maxQuantity' | 'slug'>[];
+    /** When the subscription this one replaces was canceled; none for an instance never subscribed. */
+    canceledAt?: string | null;
     now?: Date;
     period?: BillingPeriod;
     trialOffered?: boolean;
@@ -139,11 +143,18 @@ export function getSubscribeFormErrors(
 
   const start = dateTimeInputToInstant(values.startAt);
   if (!errors.startAt && start !== null && period) {
-    const { earliest, latest } = getSubscriptionStartBounds(period, now);
+    const { earliest, latest, notBefore } = getSubscriptionStartBounds(
+      period,
+      now,
+      canceledAt,
+    );
     const at = Date.parse(start);
     if (at > latest.getTime()) {
       errors.startAt =
         'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.startAtFuture';
+    } else if (notBefore && at < notBefore.getTime()) {
+      errors.startAt =
+        'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.startAtBeforeCancellation';
     } else if (at < earliest.getTime()) {
       errors.startAt =
         'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.startAtTooEarly';

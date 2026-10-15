@@ -1,8 +1,5 @@
-import type { AddonEntitlement, LicenseEntitlement } from '@/api-client';
-import {
-  getLicenseEntitlementOveragePercent,
-  UNLIMITED_THRESHOLD,
-} from '@/domains/entitlement-usage';
+import type { AddonEntitlement } from '@/api-client';
+import { UNLIMITED_THRESHOLD } from '@/domains/entitlement-usage';
 
 /** How a number grant of an add-on combines with the licence's (`overrideBehavior`). */
 export const OVERRIDE_BEHAVIORS = ['ADD', 'OVERRIDE', 'MAX'] as const;
@@ -93,7 +90,7 @@ export function readGrantOverage(
     return { kind: 'none' };
   }
   const percent = grant.limitCapExceededOveragePercent;
-  if (percent === undefined) {
+  if (percent == null) {
     return { kind: 'inherit' };
   }
   if (percent < 0) {
@@ -101,37 +98,4 @@ export function readGrantOverage(
   }
 
   return percent === 0 ? { kind: 'hard' } : { kind: 'soft', percent };
-}
-
-/**
- * The overage allowance a license grant carries, when it grants a number: the
- * percentage the add-on's own would replace. Null for a boolean or a configuration,
- * which have none, and for a license that caps nothing.
- */
-export function readLicenseOveragePercent(
-  grant: LicenseEntitlement,
-): number | null {
-  const percent = getLicenseEntitlementOveragePercent(grant);
-
-  return percent === null || percent < 0 ? null : percent;
-}
-
-/**
- * Whether the add-on's own allowance is lower than the license's, which hardens the
- * quota of every instance that attaches it: its percentage replaces the license's
- * (an add-on grant that sets one wins over the license's), down to a hard limit at
- * 0. An add-on that inherits, or an unlimited one, changes nothing, and so does one
- * that allows as much.
- */
-export function lowersLicenseOverage(
-  addonPercent: number | null | undefined,
-  licensePercent: number | null | undefined,
-): boolean {
-  return (
-    typeof addonPercent === 'number' &&
-    addonPercent >= 0 &&
-    typeof licensePercent === 'number' &&
-    licensePercent >= 0 &&
-    addonPercent < licensePercent
-  );
 }

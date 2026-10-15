@@ -36,12 +36,14 @@ export function identityProvenance(grant: LicenseEntitlement): Provenance {
  * the effective value and overage percent, and the provenance that says how (the
  * Go oracle of `api/internal/modules/entitlements/effective`, for the mocks).
  *
- * The order is the API's: an OVERRIDE add-on replaces the license's value (the latest
- * attached counts), a MAX keeps the larger, an ADD adds `value × quantity`; then the
- * boosts, where the latest SET takes the place of all of that, the ADD boosts add to it
- * and the MULTIPLY boosts multiply the sum. An unlimited boost makes it unlimited. A boost
- * never changes the percent; the latest attached add-on that sets its own wins, else the
- * license's, else the limit is hard.
+ * The order is the API's: an OVERRIDE add-on replaces the license's value (among several
+ * the one worth the most `value × quantity` counts, whatever the order they were attached
+ * in), a MAX keeps the larger, an ADD adds `value × quantity`; then the boosts, where the
+ * latest SET takes the place of all of that, the ADD boosts add to it and the MULTIPLY
+ * boosts multiply the sum. An unlimited add-on grant (-1), or an unlimited boost, makes
+ * it unlimited whatever the others are. An add-on whose value is 0 is ignored, its percent
+ * included. A boost never changes the percent; the latest attached add-on that sets its
+ * own wins, else the license's, else the limit is hard.
  *
  * The OpenAPI document declares the `license` and the `number` of a provenance as never
  * null, while the API sends null for a number nothing but the license grants (the
@@ -55,18 +57,19 @@ export function composeEffectiveNumber(
   EntitlementUsage,
   'limit' | 'limitCapExceededOveragePercent' | 'provenance' | 'source'
 > {
-  const override = contributions
+  const counting = contributions.filter(({ value }) => value !== 0);
+  const unlimitedByAddon = counting.some(({ value }) => value === -1);
+  const overrides = counting
     .filter(({ behavior }) => behavior === 'OVERRIDE')
-    .at(-1);
-  let afterAddons = override
-    ? override.value * override.quantity
-    : grant.value.value;
-  for (const { behavior, quantity, value } of contributions) {
+    .map(({ quantity, value }) => value * quantity);
+  let afterAddons =
+    overrides.length > 0 ? Math.max(...overrides) : grant.value.value;
+  for (const { behavior, quantity, value } of counting) {
     if (behavior === 'MAX') {
       afterAddons = Math.max(afterAddons, value * quantity);
     }
   }
-  for (const { behavior, quantity, value } of contributions) {
+  for (const { behavior, quantity, value } of counting) {
     if (behavior === 'ADD') {
       afterAddons += value * quantity;
     }
@@ -83,12 +86,12 @@ export function composeEffectiveNumber(
   const boostMultiply = multiplies.length
     ? multiplies.reduce((product, { value }) => product * (value ?? 1), 1)
     : null;
-  const unlimited = modifiers('UNLIMITED').length > 0;
+  const unlimited = unlimitedByAddon || modifiers('UNLIMITED').length > 0;
   const effective = unlimited
     ? -1
     : ((boostSet ?? afterAddons) + (boostAdd ?? 0)) * (boostMultiply ?? 1);
 
-  const ownPercent = contributions
+  const ownPercent = counting
     .filter(({ overagePercent }) => overagePercent !== undefined)
     .at(-1)?.overagePercent;
   const licensePercent = grant.limitCapExceededOveragePercent ?? 0;
@@ -122,7 +125,7 @@ export function composeEffectiveNumber(
       value: { type: 'number', value: grant.value.value },
     },
     number:
-      contributions.length + boosts.length === 0
+      counting.length + boosts.length === 0
         ? null
         : {
             afterAddons,

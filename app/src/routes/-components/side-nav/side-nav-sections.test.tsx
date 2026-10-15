@@ -82,14 +82,23 @@ describe('useResolvedIntegrationsItems', () => {
       expect(integrationsPathsWith(false, capabilities)).toContain(keys);
     });
 
-    it('are listed where billing is on, whatever the capabilities say of the public surface', () => {
+    it('are not listed where the release does not ship the public surface', () => {
       const capabilities = {
         ...billingCapabilitiesProfiles.stack(),
         features: NO_BILLING_FEATURES,
-        publicSurface: { enabled: false },
       };
 
       expect(capabilities.features.publicSurface).toBe(false);
+      expect(integrationsPathsWith(false, capabilities)).not.toContain(keys);
+    });
+
+    it('are listed whatever `publicSurface.enabled` says, which is not read', () => {
+      const capabilities = {
+        ...billingCapabilitiesProfiles.stack(),
+        publicSurface: { enabled: false },
+      };
+
+      expect(capabilities.features.publicSurface).toBe(true);
       expect(integrationsPathsWith(false, capabilities)).toContain(keys);
     });
 

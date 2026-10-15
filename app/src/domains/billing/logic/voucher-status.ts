@@ -22,52 +22,15 @@ const VOUCHER_STATUS_LABEL_KEYS = {
 export const getVoucherStatusLabelKey = (status: VoucherStatus): string =>
   VOUCHER_STATUS_LABEL_KEYS[status];
 
-/** What the status of a voucher is judged from. */
-export type VoucherStatusInput = Pick<
-  Voucher,
-  'expiresAt' | 'maxRedemptions' | 'redemptionsCount' | 'status'
->;
-
 const toTime = (now: Date | number) =>
   typeof now === 'number' ? now : now.getTime();
-
-/**
- * The status to show for a voucher. The API never sets a voucher EXPIRED, and an
- * ACTIVE voucher stays ACTIVE past its window until the redemption that reaches its
- * maximum flips it to EXHAUSTED, so the status it stores is not what a person is
- * after. A voucher that is ACTIVE reads from its window and its count: fully redeemed
- * when its count reached its maximum (the API tests it first, as the redemption
- * does), expired when `expiresAt` is not after now. A draft and an archived voucher
- * keep theirs, and so does one the API itself marked as expired or exhausted.
- */
-export function getVoucherStatus(
-  voucher: VoucherStatusInput,
-  now: Date | number = Date.now(),
-): VoucherStatus {
-  if (voucher.status !== 'ACTIVE') {
-    return voucher.status;
-  }
-  if (
-    voucher.maxRedemptions !== undefined &&
-    voucher.redemptionsCount >= voucher.maxRedemptions
-  ) {
-    return 'EXHAUSTED';
-  }
-  if (voucher.expiresAt && Date.parse(voucher.expiresAt) <= toTime(now)) {
-    return 'EXPIRED';
-  }
-
-  return 'ACTIVE';
-}
 
 /** Whether a voucher whose window starts after now is still to start: it is ACTIVE and cannot be redeemed yet. */
 export function isVoucherScheduled(
   voucher: Pick<Voucher, 'startsAt'>,
   now: Date | number = Date.now(),
 ): boolean {
-  return (
-    voucher.startsAt !== undefined && Date.parse(voucher.startsAt) > toTime(now)
-  );
+  return voucher.startsAt != null && Date.parse(voucher.startsAt) > toTime(now);
 }
 
 /** The state of a redemption (`Redemption.status`). */

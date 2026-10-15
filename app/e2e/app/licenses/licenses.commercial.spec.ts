@@ -99,7 +99,7 @@ test.describe('the commercial terms of a version', () => {
     ]);
   });
 
-  test('refuse a trial of less than a day and a URL that is not one, on the field, before anything is sent', async ({
+  test('refuse a trial of less than a day or of more than a year and a URL that is not one, on the field, before anything is sent', async ({
     page,
   }) => {
     const detail = new LicenseDetailDriver(page);
@@ -114,6 +114,13 @@ test.describe('the commercial terms of a version', () => {
     await commercial.trial().blur();
     await expect(
       commercial.dialog().getByText('Must be at least 1'),
+    ).toBeVisible();
+    await expect(commercial.save()).toBeDisabled();
+
+    await commercial.trial().fill('366');
+    await commercial.trial().blur();
+    await expect(
+      commercial.dialog().getByText('Must be 365 or less'),
     ).toBeVisible();
     await expect(commercial.save()).toBeDisabled();
 

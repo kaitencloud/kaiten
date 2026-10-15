@@ -17,6 +17,7 @@ import { grantedScopesQueryKey } from '@/lib/granted-scopes';
 import {
   buildInvoice,
   buildInvoiceLine,
+  buildProviderRecord,
 } from '../../../../../e2e/app/_support/fixtures/build-invoice';
 import { billingCapabilities } from '../../../../../e2e/app/_support/model/billing-capabilities';
 import { invoiceQueryOptions } from '../../queries';
@@ -270,6 +271,79 @@ describe('recomposing an invoice', () => {
         to: '/invoices/$invoiceId',
       }),
     );
+  });
+
+  describe('where Stripe holds something other than what Kaiten composed', () => {
+    const mismatched = (overrides: Partial<Parameters<typeof buildInvoice>[0]> = {}) =>
+      invoiceWith({
+        collectionMethod: 'CHARGE_AUTOMATICALLY',
+        provider: buildProviderRecord({
+          externalInvoiceId: 'in_mm',
+          reconciliationStatus: 'MISMATCH',
+        }),
+        providerKind: 'STRIPE',
+        status: 'PUSHED',
+        ...overrides,
+      });
+
+    it('offers to void and recompose first, without a refused recompose to lead to it', async () => {
+      await renderActions(mismatched());
+
+      expect(await screen.findByTestId('invoice-actions')).toBeInTheDocument();
+      expect(buttonNames()).toEqual([
+        'Void and recompose',
+        'Read from Stripe',
+        'Void',
+      ]);
+    });
+
+    it('voids and recomposes in the one confirmation, with the one reason, and lands on the replacement', async () => {
+      const order: string[] = [];
+      server.use(
+        handleVoidInvoice(async ({ request }) => {
+          order.push(`void ${JSON.stringify(await request.json())}`);
+
+          return HttpResponse.json(voided());
+        }),
+        handleRecomposeInvoice(() => {
+          order.push('recompose');
+
+          return HttpResponse.json(invoiceWith({ id: 'inv-2' }), { status: 201 });
+        }),
+      );
+      await renderActions(mismatched());
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Void and recompose' }));
+      const dialog = await screen.findByRole('dialog');
+      // Kaiten is authoritative: the dialog says what Stripe holds is replaced.
+      expect(dialog).toHaveTextContent('Kaiten is authoritative');
+      expect(order).toEqual([]);
+      await userEvent.type(within(dialog).getByLabelText(/Reason/), 'Kaiten is authoritative');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Void and recompose' }));
+
+      await waitFor(() =>
+        expect(order).toEqual(['void {"reason":"Kaiten is authoritative"}', 'recompose']),
+      );
+      await waitFor(() =>
+        expect(navigate).toHaveBeenCalledWith({
+          params: { invoiceId: 'inv-2' },
+          to: '/invoices/$invoiceId',
+        }),
+      );
+    });
+
+    it('offers it to a session that may void and recompose, and nothing of it to one that may not', async () => {
+      getAuthToken.mockResolvedValue(sessionToken(['read:billing']));
+      await renderActions(mismatched());
+
+      expect(screen.queryByTestId('invoice-actions')).toBeNull();
+    });
+
+    it('offers nothing for a paid invoice: Stripe cannot void it', async () => {
+      await renderActions(mismatched({ status: 'PAID' }));
+
+      expect(screen.queryByTestId('invoice-actions')).toBeNull();
+    });
   });
 
   it('opens the replacement a void invoice already has, instead of failing', async () => {

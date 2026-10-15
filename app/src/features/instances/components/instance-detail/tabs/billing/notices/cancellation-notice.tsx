@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import {
   BoundaryClosingNotice,
   formatBoundary,
+  getCancellationReasonLabelKey,
   ProblemAlert,
   useBillingCapabilities,
   useCanPerform,
@@ -23,7 +24,8 @@ type CancellationNoticeProps = {
  * stands. The status of the subscription has not changed and nothing is lost until
  * the boundary, so the notice says what is still true: access is as it was, and the
  * final invoice bills what is owed in arrears, which may be nothing. A period that
- * is being closed is waited out, and any other refusal is shown beside the button.
+ * is being closed is waited out, and any other refusal is shown beside the button. The
+ * reason is said in words when Kaiten wrote it, and as it was written when a person did.
  */
 export function CancellationNotice({
   instanceSlug,
@@ -33,6 +35,9 @@ export function CancellationNotice({
   const { has } = useBillingCapabilities();
   const mayReactivate = useCanPerform('subscription.reactivate');
   const reactivate = useReactivateAction(instanceSlug);
+  const reasonKey = subscription.cancellationReason
+    ? getCancellationReasonLabelKey(subscription.cancellationReason)
+    : undefined;
 
   return (
     <Alert data-testid="cancellation-notice" role="status">
@@ -55,7 +60,11 @@ export function CancellationNotice({
           <p>
             {t(
               'Pages.Customers.Instances.Detail.Billing.Notices.Cancellation.reason',
-              { reason: subscription.cancellationReason },
+              {
+                reason: reasonKey
+                  ? t(reasonKey)
+                  : subscription.cancellationReason,
+              },
             )}
           </p>
         ) : null}

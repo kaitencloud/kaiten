@@ -336,6 +336,80 @@ describe("the overage a grant allows, against the license's", () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     expect(screen.queryByTestId('license-overage-warning')).toBeNull();
+    expect(screen.queryByTestId('license-value-warning')).toBeNull();
+  });
+
+  it('is not warned about for a grant of 0, which the API ignores with its allowance', async () => {
+    serveLicense(50);
+    renderTab('new');
+    await choose('API Calls');
+    await userEvent.type(await screen.findByLabelText(/Value per unit/), '1000');
+    await userEvent.type(screen.getByLabelText(/Overage allowance/), '20');
+    expect(await screen.findByTestId('license-overage-warning')).toBeInTheDocument();
+
+    await userEvent.clear(screen.getByLabelText(/Value per unit/));
+    await userEvent.type(screen.getByLabelText(/Value per unit/), '0');
+
+    await waitFor(() => expect(screen.queryByTestId('license-overage-warning')).toBeNull());
+  });
+});
+
+describe("the value a grant sets, against the license's", () => {
+  // The default version of the compatible family grants 100,000 calls.
+  beforeEach(() => {
+    const pro = buildLicense({ description: 'Pro', id: 'license-pro-v2', name: 'Pro', slug: 'pro-v2', type: 'PAID' });
+    server.use(
+      handleListAddonCompatibility({ body: { familySlugs: ['pro'] } }),
+      handleListLicenseFamilies({ body: pageOf([licenseFamily('pro', pro)]) }),
+      handleGetLicenseEntitlements({
+        body: pageOf([buildGrant({ entitlement: API_CALLS, license: pro, overagePercent: 50, value: 100_000 })]),
+      }),
+    );
+  });
+
+  const chooseBehavior = async (name: string) => {
+    await userEvent.click(screen.getByRole('combobox', { name: /Combines with the license/ }));
+    await userEvent.click(await screen.findByRole('option', { name }));
+  };
+
+  it('is warned about when an override is lower, and about nothing else', async () => {
+    renderTab('new');
+    await choose('API Calls');
+    const value = await screen.findByLabelText(/Value per unit/);
+    await userEvent.type(value, '2000');
+
+    // Combined by MAX, as it starts: the larger of the two stays.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(screen.queryByTestId('license-value-warning')).toBeNull();
+
+    await chooseBehavior('Override');
+    const warning = await screen.findByTestId('license-value-warning');
+    expect(warning).toHaveTextContent('2,000');
+    expect(warning).toHaveTextContent('100,000');
+    expect(warning).toHaveTextContent('Pro');
+
+    await userEvent.clear(value);
+    await userEvent.type(value, '150000');
+    await waitFor(() => expect(screen.queryByTestId('license-value-warning')).toBeNull());
+
+    await userEvent.clear(value);
+    await userEvent.type(value, '500');
+    expect(await screen.findByTestId('license-value-warning')).toBeInTheDocument();
+    await chooseBehavior('Add');
+    await waitFor(() => expect(screen.queryByTestId('license-value-warning')).toBeNull());
+  });
+
+  it('is not warned about for an unlimited override or one of 0', async () => {
+    renderTab('new');
+    await choose('API Calls');
+    await chooseBehavior('Override');
+    await userEvent.type(await screen.findByLabelText(/Value per unit/), '0');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(screen.queryByTestId('license-value-warning')).toBeNull();
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Unlimited' }));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(screen.queryByTestId('license-value-warning')).toBeNull();
   });
 });
 

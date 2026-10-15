@@ -27,7 +27,11 @@ export const OfferStep = withForm({
     return (
       <div className="space-y-6">
         {voucherType === 'ENTITLEMENT_BOOST' ? (
-          <BoostPanel entitlements={references.entitlements} form={form} />
+          <BoostPanel
+            entitlements={references.entitlements}
+            form={form}
+            licenses={references.licenses}
+          />
         ) : (
           <DiscountPanel form={form} prices={references.prices} />
         )}

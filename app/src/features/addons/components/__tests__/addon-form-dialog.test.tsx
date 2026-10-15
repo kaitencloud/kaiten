@@ -3,12 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
-import type { Addon, AddonChanges, InstanceAddon, NewAddon } from '@/api-client';
+import type { Addon, AddonChanges, NewAddon } from '@/api-client';
 import {
   handleCreateAddon,
   handleGetBillingCapabilities,
   handleGetInstances,
-  handleListInstanceAddons,
   handleUpdateAddon,
 } from '@/api-client/msw.gen';
 import {
@@ -17,7 +16,6 @@ import {
   sessionToken,
   useBillingTexts,
 } from '@/test-fixtures/billing-test-support';
-import { buildInstanceAddon } from '../../../../../e2e/app/_support/fixtures';
 import { billingCapabilitiesProfiles } from '../../../../../e2e/app/_support/model/billing-capabilities';
 import { AddonFormDialog } from '../form';
 import { renderScreen, SEATS_V1 } from './addon-test-support';
@@ -190,32 +188,10 @@ describe('creating the next version of a family', () => {
 });
 
 describe('editing a version', () => {
-  const held = (instanceSlug: string, quantity: number): InstanceAddon =>
-    buildInstanceAddon({ addon: SEATS_V1, id: `attachment-${instanceSlug}`, quantity });
-
-  /** Two instances hold the version: Acme with eight units, Globex with three. */
-  const serveHolders = () =>
-    server.use(
-      handleGetInstances({
-        body: pageOf([
-          { id: 'ins-acme', name: 'Acme Production', slug: 'acme-production' },
-          { id: 'ins-globex', name: 'Globex Production', slug: 'globex-production' },
-        ] as never),
-      }),
-      handleListInstanceAddons(({ params }) =>
-        HttpResponse.json(
-          params.instanceSlug === 'acme-production'
-            ? [held('acme-production', 8)]
-            : [held('globex-production', 3)],
-        ),
-      ),
-    );
-
   const edit = () => screen.findByRole('button', { name: 'Save' });
 
   it('keeps how it is sold, and replaces what the API replaces: the name, the description, the version and the most', async () => {
     const bodies: AddonChanges[] = [];
-    serveHolders();
     server.use(
       handleUpdateAddon(async ({ request }) => {
         bodies.push((await request.json()) as AddonChanges);
@@ -241,48 +217,8 @@ describe('editing a version', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
-  it('stops a lower maximum on its field, naming the instance that holds more than it allows, since the API checks nothing', async () => {
-    const updated = vi.fn();
-    serveHolders();
-    server.use(handleUpdateAddon(() => {
-      updated();
-
-      return HttpResponse.json(SEATS_V1);
-    }));
-    const { onSaved } = renderDialog({ addon: SEATS_V1 });
-    const max = await screen.findByLabelText(/Maximum quantity/);
-
-    await userEvent.clear(max);
-    await userEvent.type(max, '5');
-    await userEvent.click(await edit());
-
-    expect(await screen.findByText(/Acme Production holds 8 units/)).toBeInTheDocument();
-    expect(updated).not.toHaveBeenCalled();
-    expect(onSaved).not.toHaveBeenCalled();
-  });
-
-  it('lets a lower maximum through when no instance holds more than it allows', async () => {
+  it('sends a lower maximum as it is and asks no instance what it holds, the API keeping the quantities held', async () => {
     const bodies: AddonChanges[] = [];
-    serveHolders();
-    server.use(
-      handleUpdateAddon(async ({ request }) => {
-        bodies.push((await request.json()) as AddonChanges);
-
-        return HttpResponse.json(SEATS_V1);
-      }),
-    );
-    renderDialog({ addon: SEATS_V1 });
-    const max = await screen.findByLabelText(/Maximum quantity/);
-
-    await userEvent.clear(max);
-    await userEvent.type(max, '8');
-    await userEvent.click(await edit());
-
-    await waitFor(() => expect(bodies).toHaveLength(1));
-    expect(bodies[0]?.maxQuantity).toBe(8);
-  });
-
-  it('does not look at who holds the version to raise the maximum, or to remove it', async () => {
     const asked = vi.fn();
     server.use(
       handleGetInstances(() => {
@@ -290,7 +226,33 @@ describe('editing a version', () => {
 
         return HttpResponse.json(pageOf([]));
       }),
-      handleUpdateAddon(() => HttpResponse.json(SEATS_V1)),
+      handleUpdateAddon(async ({ request }) => {
+        bodies.push((await request.json()) as AddonChanges);
+
+        return HttpResponse.json(SEATS_V1);
+      }),
+    );
+    const { onSaved } = renderDialog({ addon: SEATS_V1 });
+    const max = await screen.findByLabelText(/Maximum quantity/);
+
+    await userEvent.clear(max);
+    await userEvent.type(max, '5');
+    await userEvent.click(await edit());
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]?.maxQuantity).toBe(5);
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(asked).not.toHaveBeenCalled();
+  });
+
+  it('sends a higher maximum, or none, as it is', async () => {
+    const bodies: AddonChanges[] = [];
+    server.use(
+      handleUpdateAddon(async ({ request }) => {
+        bodies.push((await request.json()) as AddonChanges);
+
+        return HttpResponse.json(SEATS_V1);
+      }),
     );
     const { onSaved } = renderDialog({ addon: SEATS_V1 });
     const max = await screen.findByLabelText(/Maximum quantity/);
@@ -298,30 +260,13 @@ describe('editing a version', () => {
     await userEvent.clear(max);
     await userEvent.type(max, '20');
     await userEvent.click(await edit());
-    await waitFor(() => expect(onSaved).toHaveBeenCalled());
-
-    expect(asked).not.toHaveBeenCalled();
-  });
-
-  it('does not change the version when the holders cannot be read: it is not checked, so it is not made', async () => {
-    const updated = vi.fn();
-    server.use(
-      handleGetInstances(() => refusal(503, { detail: 'the instances are unavailable' })),
-      handleUpdateAddon(() => {
-        updated();
-
-        return HttpResponse.json(SEATS_V1);
-      }),
-    );
-    renderDialog({ addon: SEATS_V1 });
-    const max = await screen.findByLabelText(/Maximum quantity/);
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
 
     await userEvent.clear(max);
-    await userEvent.type(max, '5');
     await userEvent.click(await edit());
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(2));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('the instances are unavailable');
-    expect(updated).not.toHaveBeenCalled();
+    expect(bodies.map((body) => body.maxQuantity)).toEqual([20, undefined]);
   });
 
   it('is not opened for a session that may not write add-ons', async () => {
