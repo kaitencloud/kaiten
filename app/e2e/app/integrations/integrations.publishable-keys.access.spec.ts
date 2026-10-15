@@ -16,7 +16,8 @@ import { createBillingDisabledModel } from '../billing/billing.scenarios';
 import { createPublishableKeysBillingModel } from './integrations.scenarios';
 
 // Where the publishable keys are, and who may do what to them. They exist where billing is
-// on, whatever the capabilities say of the public surface (`publicSurface` is not a gate);
+// on and the release ships the public surface (`features.publicSurface`, which the API
+// answers true wherever billing is on, so the gate closes on `enabled` and on the scope);
 // the Integrations section lists them to a session that may read them; and a session that
 // may only read sees the keys with none of the controls that change them.
 
@@ -73,7 +74,7 @@ test.describe('the entry of the navigation', () => {
     await expect(nav.entry('Publishable keys')).toBeVisible();
   });
 
-  test('is listed whatever the capabilities say of the public surface', async ({
+  test('is left out where the release does not ship the public surface', async ({
     page,
   }) => {
     const nav = new IntegrationsNavDriver(page);
@@ -81,17 +82,16 @@ test.describe('the entry of the navigation', () => {
       capabilities: {
         ...billingCapabilitiesProfiles.stackWithStripe('connected'),
         features: NO_BILLING_FEATURES,
-        publicSurface: { enabled: false },
       },
     });
     await installBillingAppMocks(page, model);
 
     expect(model.getCapabilities().features.publicSurface).toBe(false);
-    expect(model.getCapabilities().publicSurface.enabled).toBe(false);
     await new BillingNavDriver(page).gotoShell();
     await nav.open();
 
-    await expect(nav.entry('Publishable keys')).toBeVisible();
+    await nav.expectEntries(['Service Accounts', 'Connectors']);
+    await expect(nav.entry('Publishable keys')).toHaveCount(0);
   });
 
   test('is left out where billing is off, whatever the reason', async ({
@@ -152,6 +152,16 @@ test.describe('where billing is not there', () => {
       () => createBillingDisabledModel('DEPLOYMENT_DISABLED'),
     ],
     ['NOT_ENTITLED', () => createBillingDisabledModel('NOT_ENTITLED')],
+    [
+      'FEATURE_UNAVAILABLE',
+      () =>
+        new BillingAppModel({
+          capabilities: {
+            ...billingCapabilitiesProfiles.stack(),
+            features: NO_BILLING_FEATURES,
+          },
+        }),
+    ],
   ] as const;
 
   for (const [reason, createModel] of REASONS) {
@@ -176,6 +186,27 @@ test.describe('where billing is not there', () => {
       });
     }
   }
+
+  test('asks the API for no key where the release does not ship the public surface', async ({
+    page,
+  }) => {
+    const nav = new BillingNavDriver(page);
+    const requests = recordWrites(page, KEY_REQUESTS, ['GET', 'POST', 'PATCH']);
+    await installBillingAppMocks(
+      page,
+      new BillingAppModel({
+        capabilities: {
+          ...billingCapabilitiesProfiles.stack(),
+          features: NO_BILLING_FEATURES,
+        },
+      }),
+    );
+
+    await page.goto('/integrations/publishable-keys');
+    await nav.expectUnavailable('FEATURE_UNAVAILABLE');
+
+    expect(requests).toEqual([]);
+  });
 
   test('asks the API for no key', async ({ page }) => {
     const nav = new BillingNavDriver(page);

@@ -123,7 +123,10 @@ export const integrationsSubRoutes: SideNavSubRouteDefinition[] = [
   },
   {
     labelKey: 'Pages.Integrations.PublishableKeys.title',
-    needsBilling: { action: 'publishableKeys.list', capability: {} },
+    needsBilling: {
+      action: 'publishableKeys.list',
+      capability: { feature: 'publicSurface' },
+    },
     path: '/integrations/publishable-keys',
   },
 ];
