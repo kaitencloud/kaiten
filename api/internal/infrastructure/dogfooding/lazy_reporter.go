@@ -316,10 +316,21 @@ func (r *Reporter) awaitClient(ctx context.Context) (*client, error) {
 	return client, nil
 }
 
-// TrackAsync fires a +1 usage report in the background.
+// clientNow returns the current client, or errNotReady while there is none. It is
+// how a synchronous call gets one: see ReportAndEnforce.
+func (r *Reporter) clientNow(context.Context) (*client, error) {
+	if client := r.currentClient(); client != nil {
+		return client, nil
+	}
+	return nil, errNotReady
+}
+
+// TrackAsync fires a +1 usage report in the background. Unlike ReportAndEnforce it
+// waits for the service token: a queued job holds no request, and asyncJobTimeout
+// bounds the wait.
 func (r *Reporter) TrackAsync(orgID uuid.UUID, entitlementSlug string) {
 	r.runAsync(orgID, entitlementSlug, func(ctx context.Context) error {
-		return r.ReportAndEnforce(ctx, orgID, entitlementSlug)
+		return r.reportAndEnforce(ctx, orgID, entitlementSlug, r.awaitClient)
 	})
 }
 
@@ -343,19 +354,25 @@ func (r *Reporter) runAsync(orgID uuid.UUID, entitlementSlug string, report func
 	}
 }
 
-// DecrementAsync fires a -1 usage report in the background.
+// DecrementAsync fires a -1 usage report in the background, waiting for the service
+// token as TrackAsync does.
 func (r *Reporter) DecrementAsync(orgID uuid.UUID, entitlementSlug string) {
 	r.runAsync(orgID, entitlementSlug, func(ctx context.Context) error {
-		return r.Decrement(ctx, orgID, entitlementSlug)
+		return r.decrement(ctx, orgID, entitlementSlug, r.awaitClient)
 	})
 }
 
-// Decrement synchronously reports a -1 usage delta using the latest valid token.
+// Decrement synchronously reports a -1 usage delta using the latest valid token. It
+// fails at once with errNotReady before the token is loaded, as ReportAndEnforce does.
 func (r *Reporter) Decrement(ctx context.Context, orgID uuid.UUID, entitlementSlug string) error {
+	return r.decrement(ctx, orgID, entitlementSlug, r.clientNow)
+}
+
+func (r *Reporter) decrement(ctx context.Context, orgID uuid.UUID, entitlementSlug string, getClient func(context.Context) (*client, error)) error {
 	if r.shouldSkip(orgID, entitlementSlug) {
 		return nil
 	}
-	client, err := r.awaitClient(ctx)
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -363,11 +380,21 @@ func (r *Reporter) Decrement(ctx context.Context, orgID uuid.UUID, entitlementSl
 }
 
 // ReportAndEnforce synchronously reports usage using the latest valid token.
+//
+// Before the token is loaded it fails at once with errNotReady, for the reason
+// Entitled does: it is called on a request's path, and the caller's answer to "not
+// ready" -- EnforceCreationLimit refuses the create with a 503 -- is the same now as
+// after holding the request until the gateway gives up. A context with no deadline,
+// as a seed run's, would otherwise wait for a token that may never come.
 func (r *Reporter) ReportAndEnforce(ctx context.Context, orgID uuid.UUID, entitlementSlug string) error {
+	return r.reportAndEnforce(ctx, orgID, entitlementSlug, r.clientNow)
+}
+
+func (r *Reporter) reportAndEnforce(ctx context.Context, orgID uuid.UUID, entitlementSlug string, getClient func(context.Context) (*client, error)) error {
 	if r.shouldSkip(orgID, entitlementSlug) {
 		return nil
 	}
-	client, err := r.awaitClient(ctx)
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
