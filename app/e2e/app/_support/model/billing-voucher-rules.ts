@@ -307,11 +307,16 @@ export function checkDraft(
         'minimumSubscriptionAmount.currency is an upper-case ISO 4217 code',
       );
     }
-    if (!DECIMAL.test(minimum.unitAmountDecimal)) {
+    // Strictly positive: a minimum of 0 is no rule, and "no rule" is written by
+    // omitting the member, so 0 would be a second spelling of it.
+    if (
+      !DECIMAL.test(minimum.unitAmountDecimal) ||
+      !(Number(minimum.unitAmountDecimal) > 0)
+    ) {
       throw unprocessable(
         operation,
         'InvalidRedemptionRules',
-        'minimumSubscriptionAmount.unitAmountDecimal is a non-negative decimal in minor units',
+        'minimumSubscriptionAmount.unitAmountDecimal is a positive decimal in minor units; omit the member for no minimum',
       );
     }
   }
