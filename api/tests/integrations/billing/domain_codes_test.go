@@ -33,7 +33,7 @@ func TestRefusalsAnswerTheirDomainCodes(t *testing.T) {
 		body               any
 	}{
 		{"UpdateLicensePrice.PriceDeprecated", "PATCH", "/api/licenses/" + draft.Slug + "/prices/" + price.ID.String(), fiber.StatusConflict, map[string]any{"isDefault": true}},
-		{"UpdateLicense.InvalidTrialPeriodDays", "PUT", "/api/licenses/" + s.version.Slug, fiber.StatusUnprocessableEntity, license(map[string]any{"trialPeriodDays": -1})},
+		{"UpdateLicense.InvalidTrialDays", "PUT", "/api/licenses/" + s.version.Slug, fiber.StatusUnprocessableEntity, license(map[string]any{"trialPeriodDays": -1})},
 		{
 			"UpdateLicense.InvalidSelfServeCtaUrl", "PUT", "/api/licenses/" + s.version.Slug, fiber.StatusUnprocessableEntity,
 			license(map[string]any{"selfServeCtaUrl": "https://a.test/" + strings.Repeat("x", 2040)}),
@@ -42,7 +42,7 @@ func TestRefusalsAnswerTheirDomainCodes(t *testing.T) {
 		{"VoidInvoice.ReasonRequired", "POST", "/api/invoices/" + unknown + "/void", fiber.StatusUnprocessableEntity, map[string]any{}},
 		{"VoidInvoice.ReasonRequired", "POST", "/api/invoices/" + unknown + "/void", fiber.StatusUnprocessableEntity, map[string]any{"reason": ""}},
 		{"VoidInvoice.ReasonRequired", "POST", "/api/invoices/" + unknown + "/void", fiber.StatusUnprocessableEntity, map[string]any{"reason": strings.Repeat("x", 501)}},
-		{"CreateLicense.InvalidTrialPeriodDays", "POST", "/api/licenses", fiber.StatusUnprocessableEntity, license(map[string]any{"trialPeriodDays": -1})},
+		{"CreateLicense.InvalidTrialDays", "POST", "/api/licenses", fiber.StatusUnprocessableEntity, license(map[string]any{"trialPeriodDays": -1})},
 		{
 			"CreateLicense.InvalidSelfServeCtaUrl", "POST", "/api/licenses", fiber.StatusUnprocessableEntity,
 			license(map[string]any{"selfServeCtaUrl": "https://a.test/" + strings.Repeat("x", 2040)}),

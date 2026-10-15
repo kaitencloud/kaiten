@@ -12,11 +12,15 @@ var selfServeCtaURLPattern = regexp.MustCompile(`^https?://\S+$`)
 
 const maxSelfServeCtaURLLength = 2048
 
-// ValidateTrialPeriodDays refuses a trial that is not at least one day, with
-// <operation>.InvalidTrialPeriodDays.
+// MaxTrialDays is the longest trial a licence or a subscription may carry
+// (V31-08). It also keeps trialDays × 24 h well inside a time.Duration.
+const MaxTrialDays = 365
+
+// ValidateTrialPeriodDays refuses a trial outside 1 to MaxTrialDays days, with
+// <operation>.InvalidTrialDays.
 func ValidateTrialPeriodDays(operation string, days int32) error {
-	if days < 1 {
-		return kaitenerrors.UnprocessableEntity(operation+".InvalidTrialPeriodDays", "trialPeriodDays must be at least 1")
+	if days < 1 || days > MaxTrialDays {
+		return kaitenerrors.UnprocessableEntity(operation+".InvalidTrialDays", "trialPeriodDays is between 1 and 365")
 	}
 	return nil
 }

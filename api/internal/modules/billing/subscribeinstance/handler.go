@@ -24,6 +24,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
+	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -191,8 +192,8 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			trialDays = *license.TrialPeriodDays
 		}
 		if cmd.TrialDays != nil {
-			if *cmd.TrialDays < 0 {
-				return kaitenerrors.UnprocessableEntity(operation+".InvalidTrialDays", "trialDays is 0 (no trial) or more")
+			if *cmd.TrialDays < 0 || *cmd.TrialDays > licenseschema.MaxTrialDays {
+				return kaitenerrors.UnprocessableEntity(operation+".InvalidTrialDays", "trialDays is 0 (no trial) or between 1 and 365")
 			}
 			trialDays = *cmd.TrialDays
 		}
