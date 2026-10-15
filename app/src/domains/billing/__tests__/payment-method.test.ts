@@ -102,4 +102,13 @@ describe('where a payment method stands', () => {
       kind: 'active',
     });
   });
+
+  it('reads an expiry the API gives as null as it reads one it leaves out', () => {
+    expect(
+      getPaymentMethodStanding(
+        { expMonth: null, expYear: null, status: 'ACTIVE' } as never,
+        NOW,
+      ),
+    ).toEqual({ expiresSoon: false, kind: 'active' });
+  });
 });

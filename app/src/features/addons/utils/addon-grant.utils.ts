@@ -93,7 +93,7 @@ export function readGrantOverage(
     return { kind: 'none' };
   }
   const percent = grant.limitCapExceededOveragePercent;
-  if (percent === undefined) {
+  if (percent == null) {
     return { kind: 'inherit' };
   }
   if (percent < 0) {

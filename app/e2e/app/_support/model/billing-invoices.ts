@@ -1464,7 +1464,7 @@ export class BillingInvoices {
     }
     if (
       body.leaseId !== undefined &&
-      (invoice.handoff.leaseId === undefined ||
+      (invoice.handoff.leaseId == null ||
         invoice.handoff.leaseId !== body.leaseId)
     ) {
       throw new BillingProblem(

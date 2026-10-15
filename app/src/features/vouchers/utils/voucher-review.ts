@@ -139,7 +139,7 @@ export function describeVoucherReview(
       language: options.language,
       t,
     }),
-    voucher.maxRedemptions === undefined
+    voucher.maxRedemptions == null
       ? t('Pages.Vouchers.Review.unlimited')
       : t('Pages.Vouchers.Review.limited', { count: voucher.maxRedemptions }),
     customer

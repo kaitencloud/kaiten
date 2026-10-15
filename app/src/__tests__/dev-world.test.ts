@@ -545,7 +545,7 @@ describe('dev world', () => {
         )?.removedAt;
 
         return (
-          removedAt !== undefined &&
+          removedAt != null &&
           Date.parse(removedAt) < Date.parse(invoice.boundaryAt)
         );
       }),

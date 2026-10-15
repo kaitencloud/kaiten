@@ -119,7 +119,7 @@ export function addonToChangesBody(
   return {
     description: addon.description,
     isDefault,
-    maxQuantity: addon.maxQuantity,
+    maxQuantity: addon.maxQuantity ?? undefined,
     name: addon.name,
     versionName: addon.versionName,
   };

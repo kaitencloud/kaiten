@@ -647,7 +647,7 @@ export class BillingVouchers {
     const now = new Date(this.world.now());
     voucher.redemptionsCount += 1;
     if (
-      voucher.maxRedemptions !== undefined &&
+      voucher.maxRedemptions != null &&
       voucher.redemptionsCount >= voucher.maxRedemptions
     ) {
       voucher.status = 'EXHAUSTED';

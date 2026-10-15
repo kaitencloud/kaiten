@@ -269,6 +269,12 @@ page holds, or an export the API streams.
   is the explanation a link to a billing screen shows (`BillingUnavailable`).
   `features.*` hides what the running release does not ship (add-ons, vouchers), and
   the console has the screens of the add-ons, behind `features.addons`.
+- **A member with no value is absent or null, and the console reads both the same.**
+  The API leaves an optional member out of an answer or, on the members it lists in its
+  contract as required and nullable, says `null`. Whether a member is there is therefore
+  asked with `== null` (and `!= null`), never `=== undefined`, and a stored member that is
+  restated in a request body goes as `?? undefined`, since a body leaves a member out and
+  does not null it.
 - **One guard per billing route**, in `beforeLoad`. Where billing is there, it
   lets the route load. Where it is not, it throws `notFound({ data })` with the
   closed gate, and the route's `notFoundComponent`, `BillingNotFound`, shows the

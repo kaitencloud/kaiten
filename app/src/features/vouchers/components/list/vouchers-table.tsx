@@ -27,7 +27,7 @@ function RedeemedCell({ voucher }: { voucher: Voucher }) {
 
   return (
     <span className="text-sm tabular-nums">
-      {voucher.maxRedemptions === undefined
+      {voucher.maxRedemptions == null
         ? t('Pages.Vouchers.List.redeemedUnbounded', {
             count: voucher.redemptionsCount,
           })

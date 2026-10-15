@@ -439,21 +439,21 @@ export function windowRefusal(
 ): Refusal | undefined {
   if (
     voucher.status === 'EXHAUSTED' ||
-    (voucher.maxRedemptions !== undefined &&
+    (voucher.maxRedemptions != null &&
       voucher.redemptionsCount >= voucher.maxRedemptions)
   ) {
     return { reason: 'EXHAUSTED' };
   }
   if (
     voucher.status === 'EXPIRED' ||
-    (voucher.expiresAt !== undefined && Date.parse(voucher.expiresAt) <= now)
+    (voucher.expiresAt != null && Date.parse(voucher.expiresAt) <= now)
   ) {
     return { reason: 'EXPIRED' };
   }
   if (voucher.status !== 'ACTIVE') {
     return { reason: 'NOT_ACTIVE' };
   }
-  if (voucher.startsAt !== undefined && Date.parse(voucher.startsAt) > now) {
+  if (voucher.startsAt != null && Date.parse(voucher.startsAt) > now) {
     return { reason: 'NOT_YET_VALID' };
   }
 
@@ -491,7 +491,7 @@ export function instanceRefusal(
   const { subscription } = instance;
 
   if (
-    voucher.restrictedCustomerSlug !== undefined &&
+    voucher.restrictedCustomerSlug != null &&
     voucher.restrictedCustomerSlug !== instance.customerSlug
   ) {
     return notEligible('RESTRICTED_CUSTOMER');

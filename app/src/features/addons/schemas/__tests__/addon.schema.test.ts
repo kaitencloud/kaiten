@@ -161,5 +161,6 @@ describe('the body of an update', () => {
       versionName: '2026',
     });
     expect(addonToChangesBody({ ...version, maxQuantity: undefined }, false).maxQuantity).toBeUndefined();
+    expect(addonToChangesBody({ ...version, maxQuantity: null } as never, false).maxQuantity).toBeUndefined();
   });
 });

@@ -30,6 +30,7 @@ describe('the state of a voucher', () => {
     expect(isVoucherScheduled({ startsAt: FUTURE }, NOW)).toBe(true);
     expect(isVoucherScheduled({ startsAt: PAST }, NOW)).toBe(false);
     expect(isVoucherScheduled({ startsAt: undefined }, NOW)).toBe(false);
+    expect(isVoucherScheduled({ startsAt: null } as never, NOW)).toBe(false);
   });
 });
 

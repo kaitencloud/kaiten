@@ -115,7 +115,7 @@ export function getProviderSyncStanding(
   // When the last pass ran: the instant the API gives, else the seconds since it.
   const at =
     sync?.lastSyncedAt ??
-    (sync?.lagSeconds === undefined
+    (sync?.lagSeconds == null
       ? undefined
       : new Date(now - sync.lagSeconds * 1000).toISOString());
   if (!sync || at === undefined) {

@@ -103,6 +103,41 @@ describe('what a published voucher lets change', () => {
     });
   });
 
+  it('reads a voucher whose absent members are null as it reads one that leaves them out', () => {
+    const bare = buildVoucher({
+      code: 'ABCDEFGH',
+      grants: [{ entitlementSlug: 'tokens', modifierType: 'UNLIMITED' }],
+      id: 'v',
+      name: 'N',
+      voucherType: 'ENTITLEMENT_BOOST',
+    });
+    const nulls = {
+      ...bare,
+      currency: null,
+      description: null,
+      durationInPeriods: null,
+      expiresAt: null,
+      grants: [
+        { entitlementSlug: 'tokens', modifierType: 'UNLIMITED', modifierValue: null },
+      ],
+      maxRedemptions: null,
+      priceAppliesTo: null,
+      priceDiscountType: null,
+      priceDiscountValue: null,
+      restrictedCustomerSlug: null,
+      startsAt: null,
+    } as never;
+    const typed = {
+      description: '',
+      expiresAt: '',
+      maxRedemptions: Number.NaN,
+      name: 'N',
+    };
+
+    expect(voucherToEditValues(nulls)).toEqual(voucherToEditValues(bare));
+    expect(voucherToEditBody(nulls, typed)).toEqual(voucherToEditBody(bare, typed));
+  });
+
   it('leaves out an empty description, an empty end and an empty maximum, which the API takes as none', () => {
     const body = voucherToEditBody(STORED, {
       description: '   ',
