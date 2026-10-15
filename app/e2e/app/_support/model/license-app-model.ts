@@ -483,6 +483,18 @@ export class LicenseAppModel {
       );
     }
     checkCommercialFields('UpdateLicense', body);
+    // A FREE version bills nothing: asking for it while a price above 0 is held,
+    // deprecated or not, is refused. Only a request that names FREE is checked.
+    if (body.pricingType === 'FREE') {
+      const billing = this.pricing.countPricesAboveZero(slug);
+      if (billing > 0) {
+        throw new LicenseProblem(
+          422,
+          'UpdateLicense.FreePriceNotZero',
+          `License "${slug}" holds ${billing} price(s) above 0, so it cannot be FREE: deprecate them on a new version, or keep it PAID`,
+        );
+      }
+    }
     if (body.isDefault) {
       this.clearDefault(license.familyId, slug);
     }

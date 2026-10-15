@@ -6,6 +6,7 @@ import { installLicenseAppMocks } from '../_support/mocks/install-license-app-mo
 import { createBillingStackModel } from '../billing/billing.scenarios';
 import {
   createDraftPricesModel,
+  createFreeDraftModel,
   createPricedCatalogModel,
 } from './licenses.scenarios';
 
@@ -67,6 +68,40 @@ test.describe('editing a price', () => {
         },
         method: 'PATCH',
         pathname: '/api/licenses/pro-v4/prices/price-1-base',
+      },
+    ]);
+  });
+
+  test('refuses to raise a price of a free version above 0, under the form, which keeps what was typed', async ({
+    page,
+  }) => {
+    const prices = new LicensePricesDriver(page);
+    const drawer = new LicensePriceDrawerDriver(page);
+    await installLicenseAppMocks(page, createFreeDraftModel());
+    const writes = recordWrites(page, PRICE_WRITES);
+
+    await prices.goto('pro-v4', 'Pro');
+    await prices.edit('Pro, free').click();
+    await drawer.expectOpen('Edit price');
+    await drawer.amount().fill('19');
+    await drawer.submit('Save price').click();
+
+    await expect(drawer.problem()).toContainText(
+      'every price of a FREE licence version is 0',
+    );
+    await drawer.expectOpen('Edit price');
+    await expect(drawer.amount()).toHaveValue('19');
+    expect(writes).toEqual([
+      {
+        body: {
+          billingPeriod: 'MONTHLY',
+          billingTiming: 'ADVANCE',
+          displayLabel: 'Pro, free',
+          isDefault: true,
+          unitAmountDecimal: '1900',
+        },
+        method: 'PATCH',
+        pathname: '/api/licenses/pro-v4/prices/price-1-free',
       },
     ]);
   });
