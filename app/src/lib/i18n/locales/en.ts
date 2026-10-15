@@ -5196,6 +5196,8 @@ export default {
           code: 'Use 8 to 64 letters, digits, dashes or underscores, or leave it empty',
           minimumAmount:
             'Enter an amount, with no more decimals than the currency has',
+          minimumAmountPositive:
+            'Enter an amount above 0, or leave it empty for no minimum',
           date: 'Enter a valid date and time',
           window: 'The end must be after the start',
           maxRedemptions:

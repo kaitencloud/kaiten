@@ -1,5 +1,5 @@
 import { dateTimeInputToInstant } from '@/lib/date-time-input';
-import { majorToMinorDecimal } from '@/lib/money';
+import { isPositiveDecimal, majorToMinorDecimal } from '@/lib/money';
 import {
   CODE_PATTERN,
   isModifierValue,
@@ -83,8 +83,15 @@ function checkEligibility(values: Partial<VoucherFormValues>, issue: Issue) {
   if (minimum !== '') {
     if (!values.minimumCurrency) {
       issue(['minimumCurrency'], `${ERRORS}.currency`);
-    } else if (majorToMinorDecimal(minimum, values.minimumCurrency) === null) {
-      issue(['minimumAmount'], `${ERRORS}.minimumAmount`);
+    } else {
+      const minor = majorToMinorDecimal(minimum, values.minimumCurrency);
+
+      if (minor === null) {
+        issue(['minimumAmount'], `${ERRORS}.minimumAmount`);
+      } else if (!isPositiveDecimal(minor)) {
+        // A minimum of nothing is no rule: the field is left empty for that.
+        issue(['minimumAmount'], `${ERRORS}.minimumAmountPositive`);
+      }
     }
   }
   const starts = values.startsAt ?? '';
