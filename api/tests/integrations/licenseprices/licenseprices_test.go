@@ -2,6 +2,7 @@ package licenseprices_test
 
 import (
 	"encoding/json"
+	"net/http"
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
@@ -380,4 +381,44 @@ func TestDeprecateLicensePrice(t *testing.T) {
 		}
 	}
 	require.Len(t, names, 1)
+}
+
+// A FREE version bills nothing: every price it holds is 0 (V31-71).
+func TestFreeVersionHoldsNoPriceAboveZero(t *testing.T) {
+	setFree := func(t *testing.T, slug string) *http.Response {
+		t.Helper()
+		return call(t, "PUT", "/api/licenses/"+slug, map[string]any{
+			"name": "Starter", "description": "d", "type": "PAID", "isDefault": false, "pricingType": "FREE",
+		})
+	}
+	free := func(t *testing.T) string {
+		t.Helper()
+		slug := newVersion(t, "Starter", schema.Draft)
+		require.Equal(t, fiber.StatusNoContent, setFree(t, slug).StatusCode)
+		return slug
+	}
+
+	t.Run("APriceAboveZero_IsRefusedOnCreate_AndZeroIsAccepted", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		slug := free(t)
+		require.Equal(t, "CreateLicensePrice.FreePriceNotZero", problemCode(t, fiber.StatusUnprocessableEntity,
+			"POST", "/api/licenses/"+slug+"/prices", flatFee("2900", "MONTHLY")))
+		createPrice(t, slug, flatFee("0", "MONTHLY"))
+	})
+
+	t.Run("ADraftPrice_CannotBeRaisedAboveZero", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		slug := free(t)
+		price := createPrice(t, slug, flatFee("0", "MONTHLY"))
+		require.Equal(t, "UpdateLicensePrice.FreePriceNotZero", problemCode(t, fiber.StatusUnprocessableEntity,
+			"PATCH", "/api/licenses/"+slug+"/prices/"+price.ID.String(), map[string]any{"unitAmountDecimal": "100"}))
+	})
+
+	t.Run("AVersionHoldingAPriceAboveZero_CannotBecomeFree", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		slug := newVersion(t, "Pro", schema.Draft)
+		createPrice(t, slug, flatFee("2900", "MONTHLY"))
+		require.Equal(t, "UpdateLicense.FreePriceNotZero",
+			commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, setFree(t, slug), fiber.StatusUnprocessableEntity).Code)
+	})
 }

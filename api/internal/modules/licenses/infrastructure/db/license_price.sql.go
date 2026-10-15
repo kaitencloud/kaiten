@@ -52,6 +52,29 @@ func (q *Queries) CountActivePricesMeteringGrant(ctx context.Context, arg CountA
 	return count, err
 }
 
+const countLicensePricesAboveZero = `-- name: CountLicensePricesAboveZero :one
+SELECT count(*)::INT AS prices
+FROM license_price
+WHERE organization_id = $1
+  AND license_id = $2
+  AND unit_amount_decimal > 0
+`
+
+type CountLicensePricesAboveZeroParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	LicenseID      uuid.UUID `json:"license_id"`
+}
+
+// The prices of a version that bill something, whatever their status: a
+// deprecated price still bills the subscriptions pinned to it, so a FREE
+// version may hold none of them (V31-71).
+func (q *Queries) CountLicensePricesAboveZero(ctx context.Context, arg CountLicensePricesAboveZeroParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countLicensePricesAboveZero, arg.OrganizationID, arg.LicenseID)
+	var prices int32
+	err := row.Scan(&prices)
+	return prices, err
+}
+
 const countOtherActiveMeteredPrices = `-- name: CountOtherActiveMeteredPrices :one
 SELECT count(*)::int AS count
 FROM license_price p
@@ -112,7 +135,7 @@ func (q *Queries) DeprecateLicensePrice(ctx context.Context, arg DeprecateLicens
 }
 
 const getLicenseForPricing = `-- name: GetLicenseForPricing :one
-SELECT l.id, l.lifecycle_state, l.name, lf.slug AS family_slug
+SELECT l.id, l.lifecycle_state, l.name, l.pricing_type, lf.slug AS family_slug
 FROM license l
 JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
 WHERE l.organization_id = $1
@@ -129,12 +152,13 @@ type GetLicenseForPricingRow struct {
 	ID             uuid.UUID             `json:"id"`
 	LifecycleState LicenseLifecycleState `json:"lifecycle_state"`
 	Name           string                `json:"name"`
+	PricingType    PricingType           `json:"pricing_type"`
 	FamilySlug     string                `json:"family_slug"`
 }
 
 // The version a price request names, with its family's slug for the events.
-// FOR NO KEY UPDATE: a price write is decided on the version's lifecycle state,
-// and the single-currency trigger takes the same lock.
+// FOR NO KEY UPDATE: a price write is decided on the version's lifecycle state
+// and pricing type, and the single-currency trigger takes the same lock.
 func (q *Queries) GetLicenseForPricing(ctx context.Context, arg GetLicenseForPricingParams) (GetLicenseForPricingRow, error) {
 	row := q.db.QueryRow(ctx, getLicenseForPricing, arg.OrganizationID, arg.Slug)
 	var i GetLicenseForPricingRow
@@ -142,6 +166,7 @@ func (q *Queries) GetLicenseForPricing(ctx context.Context, arg GetLicenseForPri
 		&i.ID,
 		&i.LifecycleState,
 		&i.Name,
+		&i.PricingType,
 		&i.FamilySlug,
 	)
 	return i, err
