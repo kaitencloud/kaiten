@@ -63,6 +63,16 @@ jobs:
       - name: Generate API SDK & GraphQL Client
         run: vp run generate
 
+      # The scope tables are generated from app/openapi.yaml but committed. A change of
+      # the contract that was not followed by `vp run generate` leaves them behind, and
+      # nothing else would say so.
+      - name: Check the committed scope tables are up to date
+        run: |
+          if ! git diff --exit-code -- src/lib/api/scopes.gen.ts src/lib/api/operation-scopes.gen.ts; then
+            echo "::error::src/lib/api/scopes.gen.ts or operation-scopes.gen.ts is out of date: run 'pnpm run generate' in app/ and commit the result."
+            exit 1
+          fi
+
       - name: Test scope generator
         run: pnpm --filter @kaiten/api-codegen run test
 
@@ -292,6 +302,14 @@ jobs:
         run: vp run generate
       - name: Build app
         run: vp build
+
+      # The router writes the route tree while it builds, and the tree is committed.
+      - name: Check the committed route tree is up to date
+        run: |
+          if ! git diff --exit-code -- src/routeTree.gen.ts; then
+            echo "::error::src/routeTree.gen.ts is out of date: run the app once (pnpm run dev) or 'vp build' in app/ and commit the result."
+            exit 1
+          fi
 
   cel_wasm:
     name: CEL / Wasm runtime
