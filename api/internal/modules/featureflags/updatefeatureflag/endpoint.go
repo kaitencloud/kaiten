@@ -25,7 +25,7 @@ type Updater interface {
 // Request's Body is schema.FeatureFlag, the same type create-feature-flag
 // and get-feature-flag use. Slug stays writable even though the path
 // already carries one -- the update writes it, so this is how a flag is
-// renamed.
+// renamed -- and an omitted one keeps the flag's own.
 type Request struct {
 	FeatureFlagSlug string             `path:"featureFlagSlug"`
 	Body            schema.FeatureFlag `doc:"Feature flag details"`
@@ -37,7 +37,7 @@ func RegisterEndpoint(api huma.API, app Updater) {
 		Method:      http.MethodPut,
 		Path:        "/feature-flags/{featureFlagSlug}",
 		Summary:     "Update a featureflag",
-		Description: "Update a featureflag with the provided details",
+		Description: "Update a featureflag with the provided details. Sending a slug renames the flag; omitting it keeps the current one.",
 		Tags:        []string{"featureflags"},
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*struct{}, error) {

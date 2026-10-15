@@ -6193,7 +6193,7 @@ paths:
       tags:
         - featureflags
     put:
-      description: Update a featureflag with the provided details
+      description: Update a featureflag with the provided details. Sending a slug renames the flag; omitting it keeps the current one.
       operationId: update-feature-flag
       parameters:
         - in: path
