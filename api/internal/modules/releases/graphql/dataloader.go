@@ -57,19 +57,9 @@ func newComponentsByReleaseBatchFn(componentLink releaselink.Port) dataloaderLib
 		}
 
 		// Initialize result map with empty slices for each release ID
-		componentsByRelease := make(map[uuid.UUID][]componentschema.Component, len(releaseIDs))
-		for _, id := range releaseIDs {
-			componentsByRelease[id] = []componentschema.Component{}
-		}
-
-		// Fetch components for each release ID
-		// Note: Could be optimized with a batch query if needed
-		for _, releaseID := range releaseIDs {
-			components, err := componentLink.GetComponentsByReleaseID(ctx, releaseID, organizationID)
-			if err != nil {
-				return fillComponentsErrors(results, err)
-			}
-			componentsByRelease[releaseID] = components
+		componentsByRelease, err := componentLink.GetComponentsByReleaseIDs(ctx, releaseIDs, organizationID)
+		if err != nil {
+			return fillComponentsErrors(results, err)
 		}
 
 		// Map results in order of keys

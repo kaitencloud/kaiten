@@ -78,6 +78,19 @@ WHERE cr.release_id = sqlc.arg(release_id)
   AND cr.organization_id = sqlc.arg(organization_id);
 
 
+-- name: GetComponentsByReleaseIDs :many
+-- GetComponentsByReleaseID for a page of releases at once, each row naming
+-- the release it belongs to.
+SELECT cr.release_id,
+       c.*,
+       creator.name AS created_by_name
+FROM component c
+  INNER JOIN component_release cr ON cr.component_id = c.id
+  INNER JOIN "user" creator ON c.created_by_id = creator.id
+WHERE cr.release_id = ANY(sqlc.arg(release_ids)::uuid[])
+  AND cr.organization_id = sqlc.arg(organization_id);
+
+
 -- name: CountReleaseLinksByComponentID :one
 SELECT COUNT(*)::bigint
 FROM component_release cr
