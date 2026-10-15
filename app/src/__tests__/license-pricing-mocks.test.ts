@@ -356,6 +356,76 @@ describe('the prices of a license version, as the mocks serve them', () => {
   });
 });
 
+describe('the commercial terms of a license version, as the mocks refuse them', () => {
+  const version = (overrides: Record<string, unknown> = {}) => ({
+    description: 'Pro',
+    isDefault: false,
+    name: 'Pro',
+    type: 'PAID',
+    ...overrides,
+  });
+  const problem = async (response: Response) =>
+    (await response.json()) as {
+      code?: string;
+      detail?: string;
+      errors?: Array<{ location?: string; message?: string; value?: unknown }>;
+    };
+
+  it.each([
+    [-1, 'expected number >= 0'],
+    [366, 'expected number <= 365'],
+  ])(
+    'refuses a trial of %i days on a create and on an update, as the schema of the request does',
+    async (trialPeriodDays, message) => {
+      install(createPricedCatalogModel());
+
+      const created = await send('POST', '/licenses', version({ trialPeriodDays }));
+      const updated = await send('PUT', '/licenses/pro-v4', version({ trialPeriodDays }));
+
+      expect(created.status).toBe(422);
+      expect(await problem(created)).toMatchObject({
+        code: 'CreateLicense.InvalidTrialDays',
+        errors: [{ location: 'body.trialPeriodDays', message, value: trialPeriodDays }],
+      });
+      expect(updated.status).toBe(422);
+      expect(await problem(updated)).toMatchObject({
+        code: 'UpdateLicense.InvalidTrialDays',
+        errors: [{ location: 'body.trialPeriodDays', message, value: trialPeriodDays }],
+      });
+    },
+  );
+
+  it('refuses a trial of 0 on a create, which has none to clear, and clears one on an update', async () => {
+    install(createPricedCatalogModel());
+
+    const created = await send('POST', '/licenses', version({ trialPeriodDays: 0 }));
+    const cleared = await send('PUT', '/licenses/pro-v4', version({ trialPeriodDays: 0 }));
+    const read = (await (await send('GET', '/licenses/pro-v4')).json()) as {
+      trialPeriodDays?: number;
+    };
+
+    expect(created.status).toBe(422);
+    const refusal = await problem(created);
+    expect(refusal).toMatchObject({
+      code: 'CreateLicense.InvalidTrialDays',
+      detail: 'trialPeriodDays is between 1 and 365',
+    });
+    expect(refusal.errors).toBeUndefined();
+    expect(cleared.status).toBe(204);
+    expect(read.trialPeriodDays).toBeUndefined();
+  });
+
+  it.each([1, 365])('takes a trial of %i days, the bounds included', async (trialPeriodDays) => {
+    install(createPricedCatalogModel());
+
+    const created = await send('POST', '/licenses', version({ trialPeriodDays }));
+    const updated = await send('PUT', '/licenses/pro-v4', version({ trialPeriodDays }));
+
+    expect(created.status).toBe(201);
+    expect(updated.status).toBe(204);
+  });
+});
+
 describe('the invoice preview of a license version, as the mocks compose it', () => {
   const preview = async (body: unknown, slug = 'pro-v2') => {
     const response = await send('POST', `/licenses/${slug}/invoice-preview`, body);

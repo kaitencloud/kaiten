@@ -481,28 +481,31 @@ describe('subscribing with a trial, as the mocks serve it', () => {
     });
   });
 
-  it('refuses a negative trial', async () => {
+  it.each([-1, 366, 1000])('refuses a trial of %i days, as the API words it', async (trialDays) => {
     install();
 
     const response = await send('POST', '/instances/initech-fresh/billing', {
       basePriceId: PRO_V2_MONTHLY.id,
-      trialDays: -1,
+      trialDays,
     });
 
     expect(response.status).toBe(422);
-    expect((await refusal(response)).code).toBe('SubscribeInstance.InvalidTrialDays');
+    expect(await refusal(response)).toMatchObject({
+      code: 'SubscribeInstance.InvalidTrialDays',
+      detail: 'trialDays is 0 (no trial) or between 1 and 365',
+    });
   });
 
-  it('refuses a trial of more than a year', async () => {
+  it.each([1, 365])('takes a trial of %i days, the bounds included', async (trialDays) => {
     install();
 
     const response = await send('POST', '/instances/initech-fresh/billing', {
       basePriceId: PRO_V2_MONTHLY.id,
-      trialDays: 366,
+      trialDays,
     });
 
-    expect(response.status).toBe(422);
-    expect((await refusal(response)).code).toBe('SubscribeInstance.InvalidTrialDays');
+    expect(response.status).toBe(201);
+    expect(((await response.json()) as StartedSubscription).status).toBe('TRIAL');
   });
 });
 
