@@ -395,6 +395,35 @@ describe('the commercial terms of a license version, as the mocks refuse them', 
     },
   );
 
+  it('refuses a trial outside the bounds before the rules of the use case, which the schema precedes', async () => {
+    install(createPricedCatalogModel());
+
+    // Each of these also breaks a rule of the use case: an archived create, a
+    // lifecycle change on an update, and a version that does not exist.
+    const created = await send(
+      'POST',
+      '/licenses',
+      version({ lifecycleState: 'ARCHIVED', trialPeriodDays: 400 }),
+    );
+    const updated = await send(
+      'PUT',
+      '/licenses/pro-v4',
+      version({ lifecycleState: 'ARCHIVED', trialPeriodDays: 400 }),
+    );
+    const missing = await send(
+      'PUT',
+      '/licenses/no-such-version',
+      version({ trialPeriodDays: 400 }),
+    );
+
+    expect(created.status).toBe(422);
+    expect((await problem(created)).code).toBe('CreateLicense.InvalidTrialDays');
+    expect(updated.status).toBe(422);
+    expect((await problem(updated)).code).toBe('UpdateLicense.InvalidTrialDays');
+    expect(missing.status).toBe(422);
+    expect((await problem(missing)).code).toBe('UpdateLicense.InvalidTrialDays');
+  });
+
   it('refuses a trial of 0 on a create, which has none to clear, and clears one on an update', async () => {
     install(createPricedCatalogModel());
 

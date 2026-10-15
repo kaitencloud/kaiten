@@ -118,14 +118,14 @@ const MAX_TRIAL_PERIOD_DAYS = 365;
 const SELF_SERVE_CTA_URL = /^https?:\/\/\S+$/;
 const MAX_SELF_SERVE_CTA_URL = 2048;
 
-// The commercial fields are validated as the API does: a trial is from one to
-// 365 days (zero clears it on an update), the CTA an http(s) URL of at most
-// 2048 characters. A trial outside 0..365 is refused by the schema of the
-// request, which names it in `errors` under the code of the operation; a create
-// that sends 0 passes the schema and is refused by the use case, with no `errors`.
-function checkCommercialFields(
+// A trial outside 0..365 is refused by the schema of the request, which names
+// it in `errors` under the code of the operation. The API validates that schema
+// before it runs anything else, a lookup included, so this check comes first in
+// both writes: a request that also breaks a rule of the use case is refused for
+// the trial.
+function checkTrialBounds(
   operation: 'CreateLicense' | 'UpdateLicense',
-  body: Pick<LicenseWritable, 'selfServeCtaUrl' | 'trialPeriodDays'>,
+  body: Pick<LicenseWritable, 'trialPeriodDays'>,
 ) {
   const trial = body.trialPeriodDays;
   if (trial !== undefined && (trial < 0 || trial > MAX_TRIAL_PERIOD_DAYS)) {
@@ -145,6 +145,17 @@ function checkCommercialFields(
       ],
     );
   }
+}
+
+// The rest of the commercial fields are validated by the use case, as the API
+// does: a trial is from one to 365 days (zero clears it on an update, so a
+// create that sends 0 passes the schema and is refused here, with no `errors`),
+// the CTA an http(s) URL of at most 2048 characters.
+function checkCommercialFields(
+  operation: 'CreateLicense' | 'UpdateLicense',
+  body: Pick<LicenseWritable, 'selfServeCtaUrl' | 'trialPeriodDays'>,
+) {
+  const trial = body.trialPeriodDays;
   if (operation === 'CreateLicense' && trial !== undefined && trial < 1) {
     throw new LicenseProblem(
       422,
@@ -387,6 +398,7 @@ export class LicenseAppModel {
   createLicense(body: LicenseWritable): License {
     this.errors.consume('create');
 
+    checkTrialBounds('CreateLicense', body);
     const lifecycleState = body.lifecycleState ?? 'PUBLISHED';
     // Checked ahead of the other rules, as in the API's use case: a version is
     // only archived by withdrawing it from sale.
@@ -463,6 +475,7 @@ export class LicenseAppModel {
   updateLicense(slug: string, body: LicenseWritable): License {
     this.errors.consume('update');
     this.consumeProblem('updateLicense');
+    checkTrialBounds('UpdateLicense', body);
     const license = this.find(slug);
 
     if (

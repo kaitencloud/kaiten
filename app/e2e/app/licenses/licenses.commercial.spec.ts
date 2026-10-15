@@ -247,6 +247,10 @@ test.describe('the commercial terms of a version', () => {
     const detail = new LicenseDetailDriver(page);
     const commercial = new LicenseCommercialDriver(page);
     const model = createPricedCatalogModel();
+    // The form checks the bounds itself, so a trial it would send is never
+    // refused by the model; the refusal is armed to show what the console does
+    // with the code the API answers: the message lands on the trial field. The
+    // text is the armed one, not the API's wording, which the mock tests hold.
     model.setNextProblem('updateLicense', {
       code: 'UpdateLicense.InvalidTrialDays',
       detail: 'trialPeriodDays must be from 1 to 365 days',
