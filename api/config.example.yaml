@@ -167,9 +167,11 @@ billing:
   # reports, so 0 is safe.
   close_grace: 0s                 # KAITEN_BILLING_CLOSE_GRACE
   period_close:
-    # How often due subscriptions are closed into their invoices. Below 0
-    # disables the pass; periods then close only through close-periods.
-    interval: 5m                  # KAITEN_BILLING_PERIOD_CLOSE_INTERVAL
+    # How often due subscriptions are closed into their invoices. A write
+    # refused as BoundaryPending says Retry-After: 60, which holds only while
+    # this is 1m or less. Below 0 disables the pass; periods then close only
+    # through close-periods.
+    interval: 1m                  # KAITEN_BILLING_PERIOD_CLOSE_INTERVAL
     # Subscriptions closed per pass, or per close-periods call.
     batch_size: 100               # KAITEN_BILLING_CLOSE_BATCH_SIZE
   lifecycle:
