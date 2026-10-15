@@ -5267,6 +5267,8 @@ export default {
           code: 'Utilisez de 8 à 64 lettres, chiffres, tirets ou tirets bas, ou laissez vide',
           minimumAmount:
             'Saisissez un montant, sans plus de décimales que la devise n’en a',
+          minimumAmountPositive:
+            'Saisissez un montant supérieur à 0, ou laissez vide pour aucun minimum',
           date: 'Saisissez une date et une heure valides',
           window: 'La fin doit être postérieure au début',
           maxRedemptions:

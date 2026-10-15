@@ -277,6 +277,21 @@ describe('the third step: the code, the conditions and the limits', () => {
     expect(getStepErrors('eligibility', values({ minimumCurrency: 'USD' }))).toEqual({});
   });
 
+  it('refuses a minimum of nothing, which is no rule, and leaves the field empty for no minimum', () => {
+    for (const minimumAmount of ['0', '0.00', '0,0', '.0', '0.']) {
+      expect(
+        getStepErrors('eligibility', values({ minimumAmount, minimumCurrency: 'USD' })),
+      ).toEqual({ minimumAmount: 'Pages.Vouchers.Wizard.Errors.minimumAmountPositive' });
+    }
+    // The smallest amount a price may have is still above nothing.
+    expect(
+      getStepErrors('eligibility', values({ minimumAmount: '0.000000000001', minimumCurrency: 'JPY' })),
+    ).toEqual({});
+    expect(
+      getStepErrors('eligibility', values({ minimumAmount: '', minimumCurrency: 'USD' })),
+    ).toEqual({});
+  });
+
   it('needs dates that are dates, and an end that is after the start', () => {
     expect(
       getStepErrors('eligibility', values({ expiresAt: 'tomorrow' })),

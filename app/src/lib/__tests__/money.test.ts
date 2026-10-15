@@ -4,6 +4,7 @@ import {
   formatMoney,
   formatUnitAmountDecimal,
   getCurrencyExponent,
+  isPositiveDecimal,
   isValidMajorAmount,
   majorToMinorDecimal,
   minorToMajorDecimal,
@@ -162,6 +163,12 @@ describe('majorToMinorDecimal', () => {
     expect(majorToMinorDecimal(major, currency)).toBe(minor);
   });
 
+  it('still accepts nothing, which a price may be and a minimum may not', () => {
+    expect(majorToMinorDecimal('0', 'USD')).toBe('0');
+    expect(majorToMinorDecimal('0.00', 'USD')).toBe('0');
+    expect(majorToMinorDecimal('', 'USD')).toBeNull();
+  });
+
   it('accepts as many decimals as a price may have, and no more', () => {
     // USD: 2 decimals of the unit, then at most 12 below the minor unit.
     expect(majorToMinorDecimal('0.00000000000001', 'USD')).toBe(
@@ -201,5 +208,23 @@ describe('majorToMinorDecimal', () => {
       expect(major).not.toBeNull();
       expect(majorToMinorDecimal(major as string, 'USD')).toBe(minor);
     }
+  });
+});
+
+describe('isPositiveDecimal', () => {
+  it.each(['1', '150', '7.5', '0.0002', '0.000000000001', '10'])(
+    'finds %s above nothing',
+    (decimal) => {
+      expect(isPositiveDecimal(decimal)).toBe(true);
+    },
+  );
+
+  it.each(['0', '0.0', '00'])('finds %s to be nothing', (decimal) => {
+    expect(isPositiveDecimal(decimal)).toBe(false);
+  });
+
+  it('judges what majorToMinorDecimal writes of a typed amount', () => {
+    expect(isPositiveDecimal(majorToMinorDecimal('0.00', 'USD') ?? '')).toBe(false);
+    expect(isPositiveDecimal(majorToMinorDecimal('0.01', 'USD') ?? '')).toBe(true);
   });
 });

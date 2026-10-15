@@ -255,6 +255,14 @@ export function majorToMinorDecimal(
   return trimTrailingZeros(integer || '0', padded.slice(exponent), 0);
 }
 
+/**
+ * Whether a decimal string, as `majorToMinorDecimal` writes it, is above zero:
+ * `majorToMinorDecimal` accepts `0`, which a price may be and a minimum may not.
+ */
+export function isPositiveDecimal(decimal: string): boolean {
+  return /[1-9]/.test(decimal);
+}
+
 /** Whether `majorAmount` is something `majorToMinorDecimal` accepts. */
 export function isValidMajorAmount(
   majorAmount: string,
