@@ -55,15 +55,6 @@ describe('audit event labels', () => {
     ).toBe('Usage reported');
   });
 
-  it('reads a row recorded under a renamed event with the new label', () => {
-    expect(
-      resolveEventLabel(
-        'INSTANCE_BILLING_PLAN_CHANGE_CANCELLED',
-        translatorFor(en),
-      ),
-    ).toBe('Plan change canceled');
-  });
-
   // The API can ship an event before the console knows its label: it reads as
   // a sentence rather than as the shouting constant it is sent as.
   it('reads an event this build does not know as a sentence', () => {

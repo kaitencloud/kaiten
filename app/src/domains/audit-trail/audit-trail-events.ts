@@ -167,14 +167,6 @@ export const AUDIT_EVENT_LABEL_KEYS = {
 const isAuditEventName = (eventName: string): eventName is AuditEventName =>
   Object.hasOwn(AUDIT_EVENT_LABEL_KEYS, eventName);
 
-// Events the API renamed after a build that recorded them. The audit trail
-// keeps the name it was written with, so a row from before the rename still
-// reads with the label of the event it became.
-const RENAMED_AUDIT_EVENTS: Readonly<Record<string, AuditEventName>> = {
-  INSTANCE_BILLING_PLAN_CHANGE_CANCELLED:
-    'INSTANCE_BILLING_PLAN_CHANGE_CANCELED',
-};
-
 // `FEATURE_FLAG_UPDATED` -> `Feature flag updated`. Only for an event newer
 // than this build: the API can emit it before the console has its label.
 export const humanizeEventName = (eventName: string): string => {
@@ -187,11 +179,7 @@ export const humanizeEventName = (eventName: string): string => {
 
 // The label every view shows for an event: the global feed, its filters and
 // CSV export, and an instance's own audit tab.
-export const resolveEventLabel = (eventName: string, t: TFunction): string => {
-  const current = Object.hasOwn(RENAMED_AUDIT_EVENTS, eventName)
-    ? RENAMED_AUDIT_EVENTS[eventName]
-    : eventName;
-  return isAuditEventName(current)
-    ? t(AUDIT_EVENT_LABEL_KEYS[current])
-    : humanizeEventName(current);
-};
+export const resolveEventLabel = (eventName: string, t: TFunction): string =>
+  isAuditEventName(eventName)
+    ? t(AUDIT_EVENT_LABEL_KEYS[eventName])
+    : humanizeEventName(eventName);
