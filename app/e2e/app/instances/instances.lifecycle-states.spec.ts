@@ -463,6 +463,31 @@ test.describe('the Billing tab of a subscription going through something', () =>
       await expect(billing.subscribeLink()).toBeVisible();
     });
 
+    for (const [code, words] of [
+      [
+        'INCOMPLETE_EXPIRED',
+        'The first payment was not made in time: the subscription never started and the instance kept its license.',
+      ],
+      [
+        'TRIAL_ENDED_WITHOUT_PAYMENT_METHOD',
+        'The trial ended with no payment method on file, so it did not become a paid subscription.',
+      ],
+    ] as const) {
+      test(`says in words why Kaiten ended it: ${code}`, async ({ page }) => {
+        const billing = new InstanceBillingDriver(page);
+        await installBillingAppMocks(
+          page,
+          createLifecycleBillingModel(undefined, { endedReason: code }),
+        );
+
+        await billing.goto('hooli-prod');
+
+        const card = billing.subscriptionCard();
+        await expect(billing.row(card, 'Reason')).toContainText(words);
+        await expect(card).not.toContainText(code);
+      });
+    }
+
     test('is subscribed again from the day it ended, and not before', async ({
       page,
     }) => {

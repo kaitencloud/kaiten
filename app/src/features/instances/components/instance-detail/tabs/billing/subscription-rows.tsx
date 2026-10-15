@@ -4,6 +4,7 @@ import {
   BILLING_TIMING_LABEL_KEYS,
   formatBoundary,
   formatUtcDate,
+  getCancellationReasonLabelKey,
   getPriceAmountParts,
   getPriceLabel,
   joinPriceAmount,
@@ -126,6 +127,11 @@ export function SubscriptionTermsRows({
 /** The rows of a subscription that ended: when, and why. */
 function EndedRows({ subscription }: { subscription: InstanceBilling }) {
   const { i18n, t } = useTranslation();
+  // A cancellation Kaiten made itself carries a reserved code, said in words; the text a
+  // person gave when they canceled is shown as it was written.
+  const reasonKey = subscription.cancellationReason
+    ? getCancellationReasonLabelKey(subscription.cancellationReason)
+    : undefined;
 
   return (
     <>
@@ -141,7 +147,7 @@ function EndedRows({ subscription }: { subscription: InstanceBilling }) {
           label={t(
             'Pages.Customers.Instances.Detail.Billing.Subscription.fields.cancellationReason',
           )}
-          value={subscription.cancellationReason}
+          value={reasonKey ? t(reasonKey) : subscription.cancellationReason}
         />
       ) : null}
     </>

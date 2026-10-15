@@ -89,6 +89,7 @@ export {
 export {
   addMonthsClamped,
   applyProblemFieldErrors,
+  getCancellationReasonLabelKey,
   getOverrideReplacement,
   type LicenseGrantReading,
   lowersLicenseOverage,

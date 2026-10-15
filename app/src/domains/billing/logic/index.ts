@@ -226,6 +226,7 @@ export {
   toInstanceBillingEntries,
   toInstanceBillingSummary,
 } from './instance-billing-summary';
+export { getCancellationReasonLabelKey } from './cancellation-reason';
 export {
   getSubscriptionActions,
   getSubscriptionStatusLabelKey,

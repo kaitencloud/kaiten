@@ -5880,6 +5880,12 @@ export default {
         cancellationScheduled: 'Cancels at period end',
         none: 'Not subscribed',
       },
+      CancellationReasons: {
+        INCOMPLETE_EXPIRED:
+          'The first payment was not made in time: the subscription never started and the instance kept its license.',
+        TRIAL_ENDED_WITHOUT_PAYMENT_METHOD:
+          'The trial ended with no payment method on file, so it did not become a paid subscription.',
+      },
       LicensePriceSummary: {
         free: 'Free',
         custom: 'Custom pricing',
