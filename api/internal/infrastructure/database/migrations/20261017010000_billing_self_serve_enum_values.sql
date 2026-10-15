@@ -106,4 +106,3 @@ ALTER TABLE "instance_invoice"
   ALTER COLUMN "hold_reason" TYPE "invoice_hold_reason" USING "hold_reason"::text::"invoice_hold_reason";
 DROP TYPE "invoice_hold_reason_old";
 -- +goose StatementEnd
-
