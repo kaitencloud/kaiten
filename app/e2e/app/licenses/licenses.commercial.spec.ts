@@ -269,6 +269,34 @@ test.describe('the commercial terms of a version', () => {
     await expect(commercial.problem()).toHaveCount(0);
   });
 
+  test('show the refusal of a free version that holds a price on the pricing type', async ({
+    page,
+  }) => {
+    const detail = new LicenseDetailDriver(page);
+    const commercial = new LicenseCommercialDriver(page);
+    const model = createPricedCatalogModel();
+    model.setNextProblem('updateLicense', {
+      code: 'UpdateLicense.FreePriceNotZero',
+      detail: 'every price of a FREE licence version is 0',
+      status: 422,
+    });
+    await installLicenseAppMocks(page, model);
+
+    await detail.goto('pro-v4', 'Pro');
+    await commercial.open();
+    await commercial.choosePricingType('Free');
+    await commercial.save().click();
+
+    await expect(
+      commercial
+        .dialog()
+        .getByText('every price of a FREE licence version is 0'),
+    ).toBeVisible();
+    await expect(commercial.dialog()).toBeVisible();
+    await expect(commercial.pricingType()).toContainText('Free');
+    await expect(commercial.problem()).toHaveCount(0);
+  });
+
   test('show any other refusal above the buttons', async ({ page }) => {
     const detail = new LicenseDetailDriver(page);
     const commercial = new LicenseCommercialDriver(page);

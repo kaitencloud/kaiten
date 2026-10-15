@@ -16,7 +16,11 @@ import { commercialFormOpts } from './license-commercial-form-options';
 // The refusals of the API that are about one field of the form, by their code:
 // the API names the field in prose, in `detail`, and does not locate it. Each is
 // shown on its field, which is where the person is looking.
-const FIELD_BY_CODE: Record<string, 'selfServeCtaUrl' | 'trialPeriodDays'> = {
+const FIELD_BY_CODE: Record<
+  string,
+  'pricingType' | 'selfServeCtaUrl' | 'trialPeriodDays'
+> = {
+  'UpdateLicense.FreePriceNotZero': 'pricingType',
   'UpdateLicense.InvalidSelfServeCtaUrl': 'selfServeCtaUrl',
   'UpdateLicense.InvalidTrialDays': 'trialPeriodDays',
 };
