@@ -1637,6 +1637,10 @@ components:
     ConnectorSettings:
       additionalProperties: false
       properties:
+        configured:
+          description: Whether settings were ever stored for this connector. A connector never configured reads false, with empty settings, rather than 404.
+          readOnly: true
+          type: boolean
         connector_name:
           description: Stable connector identifier
           examples:
@@ -1650,6 +1654,7 @@ components:
       required:
         - connector_name
         - settings
+        - configured
       type: object
     ConnectorSettingsSchema:
       additionalProperties: false
@@ -5140,10 +5145,11 @@ components:
           pattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
           type: string
         trialPeriodDays:
-          description: Trial length, in days, a subscription to this version starts with by default. Absent when there is none. Must be at least 1 on create (CreateLicense.InvalidTrialPeriodDays). On update, omit it to keep the stored value, or send 0 to remove the trial.
+          description: Trial length, in days, a subscription to this version starts with by default. Absent when there is none. From 1 to 365 (CreateLicense.InvalidTrialDays, UpdateLicense.InvalidTrialDays). On update, omit it to keep the stored value, or send 0 to remove the trial.
           examples:
             - 14
           format: int32
+          maximum: 365
           minimum: 0
           type: integer
         type:
@@ -5829,7 +5835,7 @@ components:
             - EUR
           type: string
         unitAmountDecimal:
-          description: In minor units
+          description: In minor units, above 0
           examples:
             - "2900"
           type: string
@@ -6288,7 +6294,7 @@ components:
           format: date-time
           type: string
         trialDays:
-          description: "Days of trial from the anchor: nothing is billed, and no usage counts, until it ends; the period close then issues the first invoice. 0 is no trial. Omitted: the licence's trialPeriodDays, else no trial."
+          description: "Days of trial from the anchor, 1 to 365: nothing is billed, and no usage counts, until it ends; the period close then issues the first invoice. 0 is no trial; any other value is refused (SubscribeInstance.InvalidTrialDays). Omitted: the licence's trialPeriodDays, else no trial."
           format: int32
           type: integer
         voucherCode:
@@ -9409,7 +9415,7 @@ components:
           type: boolean
         minimumSubscriptionAmount:
           $ref: "#/components/schemas/MinimumAmount"
-          description: Only for a live subscription whose base price is at least this
+          description: Only for a live subscription whose base price is at least this. Strictly positive; omit it for no minimum (0 is refused with .InvalidRedemptionRules).
       type: object
     Release:
       additionalProperties: false
@@ -10016,7 +10022,7 @@ components:
             - array
             - "null"
         billingEmail:
-          description: Where invoices go. Required when the customer has none; stored on the customer when given.
+          description: Where invoices go. Required when the customer has none, except on a dryRun; stored on the customer when given.
           maxLength: 254
           type: string
         dryRun:
@@ -29311,10 +29317,10 @@ webhooks:
       tags:
         - webhooks
         - billing
-  com.kaiten.instance.billing.v1.plan_change_cancelled:
+  com.kaiten.instance.billing.v1.plan_change_canceled:
     post:
       description: "Triggered when a scheduled plan change is dropped: by request, or by a cancellation."
-      operationId: onInstanceBillingPlanChangeCancelled
+      operationId: onInstanceBillingPlanChangeCanceled
       requestBody:
         content:
           application/json:
@@ -29328,16 +29334,16 @@ webhooks:
                 name:
                   description: Event name
                   enum:
-                    - INSTANCE_BILLING_PLAN_CHANGE_CANCELLED
+                    - INSTANCE_BILLING_PLAN_CHANGE_CANCELED
                   examples:
-                    - INSTANCE_BILLING_PLAN_CHANGE_CANCELLED
+                    - INSTANCE_BILLING_PLAN_CHANGE_CANCELED
                   type: string
                 type:
                   description: Event type
                   enum:
-                    - com.kaiten.instance.billing.v1.plan_change_cancelled
+                    - com.kaiten.instance.billing.v1.plan_change_canceled
                   examples:
-                    - com.kaiten.instance.billing.v1.plan_change_cancelled
+                    - com.kaiten.instance.billing.v1.plan_change_canceled
                   type: string
               required:
                 - name
@@ -29348,7 +29354,7 @@ webhooks:
       responses:
         "200":
           description: Webhook processed successfully
-      summary: Instance Billing Plan Change Cancelled Webhook
+      summary: Instance Billing Plan Change Canceled Webhook
       tags:
         - webhooks
         - billing
