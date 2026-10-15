@@ -214,10 +214,10 @@ func (q *Queries) GetLiveSubscription(ctx context.Context, arg GetLiveSubscripti
 }
 
 const insertInstanceAddon = `-- name: InsertInstanceAddon :one
-INSERT INTO instance_addon (organization_id, instance_id, addon_id, addon_family_id, quantity, created_by_id,
-                            updated_by_id)
+INSERT INTO instance_addon (organization_id, instance_id, addon_id, addon_family_id, quantity, period_max_quantity,
+                            created_by_id, updated_by_id)
 VALUES ($1, $2, $3, $4,
-        $5, $6, $6)
+        $5, $5, $6, $6)
 RETURNING id
 `
 
@@ -230,6 +230,8 @@ type InsertInstanceAddonParams struct {
 	UserID         uuid.UUID `json:"user_id"`
 }
 
+// period_max_quantity starts at the quantity attached: the highest held so far
+// (V31-70, instance_addon_period_max_quantity_check).
 func (q *Queries) InsertInstanceAddon(ctx context.Context, arg InsertInstanceAddonParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, insertInstanceAddon,
 		arg.OrganizationID,
@@ -649,7 +651,8 @@ func (q *Queries) RemoveInstanceAddon(ctx context.Context, arg RemoveInstanceAdd
 
 const setInstanceAddonQuantity = `-- name: SetInstanceAddonQuantity :exec
 UPDATE instance_addon
-SET quantity      = $1,
+SET quantity            = $1,
+    period_max_quantity = GREATEST(period_max_quantity, $1),
     updated_at    = CURRENT_TIMESTAMP,
     updated_by_id = $2
 WHERE organization_id = $3
@@ -663,6 +666,9 @@ type SetInstanceAddonQuantityParams struct {
 	ID             uuid.UUID `json:"id"`
 }
 
+// An increase raises period_max_quantity in the same statement, as the CHECK
+// requires; a decrease leaves it, so the true-up still sees the high point
+// (V31-70).
 func (q *Queries) SetInstanceAddonQuantity(ctx context.Context, arg SetInstanceAddonQuantityParams) error {
 	_, err := q.db.Exec(ctx, setInstanceAddonQuantity,
 		arg.Quantity,

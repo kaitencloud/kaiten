@@ -232,12 +232,12 @@ func differentialSeed(t *testing.T, seed uint64) int {
 				at = shared // a tie, broken by id
 			}
 			if g.rng.IntN(4) == 0 { // a removed attachment before the active one
-				exec(t, `INSERT INTO instance_addon (organization_id, instance_id, addon_id, addon_family_id, quantity, created_at, removed_at, removed_by_id, created_by_id, updated_by_id)
-				         SELECT organization_id, $1, id, family_id, $2, $3, $4, $5, $5, $5 FROM addon WHERE id = $6`,
+				exec(t, `INSERT INTO instance_addon (organization_id, instance_id, addon_id, addon_family_id, quantity, period_max_quantity, created_at, removed_at, removed_by_id, created_by_id, updated_by_id)
+				         SELECT organization_id, $1, id, family_id, $2, $2, $3, $4, $5, $5, $5 FROM addon WHERE id = $6`,
 					instance.ID, 1+g.rng.IntN(100), at.Add(-48*time.Hour), at.Add(-24*time.Hour), user, addon)
 			}
-			exec(t, `INSERT INTO instance_addon (organization_id, instance_id, addon_id, addon_family_id, quantity, created_at, created_by_id, updated_by_id)
-			         SELECT organization_id, $1, id, family_id, $2, $3, $4, $4 FROM addon WHERE id = $5`,
+			exec(t, `INSERT INTO instance_addon (organization_id, instance_id, addon_id, addon_family_id, quantity, period_max_quantity, created_at, created_by_id, updated_by_id)
+			         SELECT organization_id, $1, id, family_id, $2, $2, $3, $4, $4 FROM addon WHERE id = $5`,
 				instance.ID, 1+g.rng.IntN(100), at, user, addon)
 		}
 		for _, voucher := range vouchers {

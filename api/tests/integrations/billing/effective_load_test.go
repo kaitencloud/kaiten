@@ -90,8 +90,8 @@ func TestEffectiveViewLoad(t *testing.T) {
 	           FROM instance i, generate_series(1, $2::int - 1) g WHERE i.id = $1`, instance.ID, instances)
 	var user uuid.UUID
 	require.NoError(t, testDb.DbPool.QueryRow(t.Context(), `SELECT created_by_id FROM addon WHERE id = $1`, addon.ID).Scan(&user))
-	exec(t, `INSERT INTO instance_addon (organization_id, instance_id, addon_id, addon_family_id, quantity, created_by_id, updated_by_id)
-	         SELECT i.organization_id, i.id, a.id, a.family_id, 1 + (abs(hashtext(i.id::text || a.id::text)) % 5), $2, $2
+	exec(t, `INSERT INTO instance_addon (organization_id, instance_id, addon_id, addon_family_id, quantity, period_max_quantity, created_by_id, updated_by_id)
+	         SELECT i.organization_id, i.id, a.id, a.family_id, 1 + (abs(hashtext(i.id::text || a.id::text)) % 5), 1 + (abs(hashtext(i.id::text || a.id::text)) % 5), $2, $2
 	           FROM instance i
 	           CROSS JOIN LATERAL (SELECT id, family_id FROM addon WHERE organization_id = i.organization_id
 	                                ORDER BY md5(i.id::text || id::text) LIMIT $1) a

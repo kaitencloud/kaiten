@@ -600,6 +600,10 @@ type InstanceBilling struct {
 	UpdatedAt               pgtype.Timestamp      `json:"updated_at"`
 	UpdatedByID             uuid.UUID             `json:"updated_by_id"`
 	TrialEndsAt             pgtype.Timestamp      `json:"trial_ends_at"`
+	PendingLicenseID        *uuid.UUID            `json:"pending_license_id"`
+	PendingSelection        []byte                `json:"pending_selection"`
+	IncompleteExpiresAt     pgtype.Timestamp      `json:"incomplete_expires_at"`
+	TrialWillEndNotifiedAt  pgtype.Timestamp      `json:"trial_will_end_notified_at"`
 }
 
 type InstanceInvoice struct {
