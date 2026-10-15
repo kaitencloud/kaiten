@@ -103,7 +103,7 @@ const eventMeta: EventNameMap<NotificationEventMeta> = {
     Icon: dataModelIcons.instance,
     tone: 'default',
   },
-  INSTANCE_BILLING_PLAN_CHANGE_CANCELLED: {
+  INSTANCE_BILLING_PLAN_CHANGE_CANCELED: {
     Icon: dataModelIcons.instance,
     tone: 'default',
   },

@@ -6375,7 +6375,7 @@ export default {
         INSTANCE_BILLING_CANCELLATION_SCHEDULED:
           "Résiliation de l'abonnement programmée",
         INSTANCE_BILLING_PLAN_CHANGED: "Plan de l'abonnement modifié",
-        INSTANCE_BILLING_PLAN_CHANGE_CANCELLED: 'Changement de plan annulé',
+        INSTANCE_BILLING_PLAN_CHANGE_CANCELED: 'Changement de plan annulé',
         INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED: 'Changement de plan programmé',
         INSTANCE_BILLING_PROVIDER_CHANGED:
           "Fournisseur de paiement de l'abonnement modifié",

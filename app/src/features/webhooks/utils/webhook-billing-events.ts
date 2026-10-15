@@ -102,8 +102,8 @@ export const BILLING_WEBHOOK_EVENTS = {
     type: 'com.kaiten.instance.billing.v1.plan_changed',
     group: 'subscription',
   },
-  INSTANCE_BILLING_PLAN_CHANGE_CANCELLED: {
-    type: 'com.kaiten.instance.billing.v1.plan_change_cancelled',
+  INSTANCE_BILLING_PLAN_CHANGE_CANCELED: {
+    type: 'com.kaiten.instance.billing.v1.plan_change_canceled',
     group: 'subscription',
   },
   INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED: {
