@@ -86,6 +86,12 @@ func TestVoucherCatalogue(t *testing.T) {
 				"name": "x", "duration": "FOREVER",
 				"redemptionRules": map[string]any{"minimumSubscriptionAmount": map[string]any{"currency": "eur", "unitAmountDecimal": "100"}},
 			})))
+		// V31-02: a minimum is strictly positive; no minimum is the member omitted.
+		require.Equal(t, "CreateVoucher.InvalidRedemptionRules", problemCode(t, fiber.StatusUnprocessableEntity, "POST", "/api/vouchers",
+			percentOff("10", map[string]any{
+				"name": "x", "duration": "FOREVER",
+				"redemptionRules": map[string]any{"minimumSubscriptionAmount": map[string]any{"currency": "EUR", "unitAmountDecimal": "0"}},
+			})))
 		// C-10: the floor counts the normalized code, 11 characters here.
 		require.Equal(t, "CreateVoucher.WeakCodeUnbounded", problemCode(t, fiber.StatusUnprocessableEntity, "POST", "/api/vouchers",
 			percentOff("10", map[string]any{"name": "x", "duration": "FOREVER", "code": "SUM-MER-2027"})))

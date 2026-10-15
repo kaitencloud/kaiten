@@ -126,13 +126,13 @@ type Grant struct {
 type RedemptionRules struct {
 	FirstTimeOnly             bool           `json:"firstTimeOnly,omitempty" doc:"Only for a customer none of whose instances has paid an invoice"`
 	AnnualOnly                bool           `json:"annualOnly,omitempty" doc:"Only for an instance with a live ANNUAL subscription"`
-	MinimumSubscriptionAmount *MinimumAmount `json:"minimumSubscriptionAmount,omitempty" doc:"Only for a live subscription whose base price is at least this"`
+	MinimumSubscriptionAmount *MinimumAmount `json:"minimumSubscriptionAmount,omitempty" doc:"Only for a live subscription whose base price is at least this. Strictly positive; omit it for no minimum (0 is refused with .InvalidRedemptionRules)."`
 }
 
 // MinimumAmount is a base price floor.
 type MinimumAmount struct {
 	Currency          string `json:"currency" example:"EUR"`
-	UnitAmountDecimal string `json:"unitAmountDecimal" doc:"In minor units" example:"2900"`
+	UnitAmountDecimal string `json:"unitAmountDecimal" doc:"In minor units, above 0" example:"2900"`
 }
 
 // Hint is the last four characters of a normalized code.
