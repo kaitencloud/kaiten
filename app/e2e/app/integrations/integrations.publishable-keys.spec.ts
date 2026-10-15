@@ -4,10 +4,7 @@ import { readConsoleStorage } from '../_support/assertions/storage';
 import { PublishableKeysDriver } from '../_support/drivers/publishable-keys.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { BillingAppModel } from '../_support/model/billing-app-model';
-import {
-  billingCapabilitiesProfiles,
-  NO_BILLING_FEATURES,
-} from '../_support/model/billing-capabilities';
+import { billingCapabilitiesProfiles } from '../_support/model/billing-capabilities';
 import {
   createEmptyPublishableKeysBillingModel,
   createPublishableKeysBillingModel,
@@ -61,24 +58,23 @@ test.describe('the list of publishable keys', () => {
     ).toHaveCount(0);
   });
 
-  test('stands whatever the capabilities say of the public surface', async ({
+  test('stands whatever `publicSurface.enabled` says, which is the flag of billing and is not read', async ({
     page,
   }) => {
     const keys = new PublishableKeysDriver(page);
     const model = new BillingAppModel({
       capabilities: {
         ...billingCapabilitiesProfiles.stack(),
-        features: NO_BILLING_FEATURES,
         publicSurface: { enabled: false },
       },
       publishableKeys: { keys: PUBLISHABLE_KEYS },
     });
     await installBillingAppMocks(page, model);
 
-    // The page asks billing to be on and the session for its scopes: neither flag
-    // of the public surface is part of that, so a release that says both are off
-    // still shows the keys.
-    expect(model.getCapabilities().features.publicSurface).toBe(false);
+    // The page asks billing to be on, the release to ship the public surface
+    // (`features.publicSurface`) and the session for its scopes: `publicSurface.enabled`
+    // is none of that, so a model that says it is off still shows the keys.
+    expect(model.getCapabilities().features.publicSurface).toBe(true);
     expect(model.getCapabilities().publicSurface.enabled).toBe(false);
     await keys.goto();
 

@@ -375,14 +375,16 @@ page holds, or an export the API streams.
   helpers of `logic/billing-providers.ts` (`findBillingProvider`, `getProviderStanding`,
   `isProviderOffered`, `canChargeAutomatically`) answer from the `providers` of the
   capabilities, with `connected`, `available`, `unavailableReason`, `livemode` and
-  `capabilities.automaticCollection`, and never from `features.stripe`,
-  `features.chargeAutomatically` or `features.publicSurface`: those three say what the
-  release ships and the API answers them `true` whatever a provider can do here, where
-  `providers` says what this organization can connect (its plan, a Vault), so a gate on
-  them would offer what the organization cannot use. The page of the publishable keys is
-  gated on billing being on and on the scopes of the session, and asks for neither
-  `features.publicSurface` nor `publicSurface.enabled`: the first is `true` with the release
-  and the second equals `enabled`, so they would add nothing to the gate on `enabled`.
+  `capabilities.automaticCollection`, and never from `features.stripe` or
+  `features.chargeAutomatically`: those say what the release ships and the API answers
+  them `true` whatever a provider can do here, where `providers` says what this
+  organization can connect (its plan, a Vault), so a gate on them would offer what the
+  organization cannot use. The page of the publishable keys, which has no provider
+  behind it, is gated on `features.publicSurface` and on the scopes of the session
+  (`requireBillingCapability(…, 'publicSurface')`, and the same feature in the entry of
+  the side navigation). The API answers that member `true` wherever billing exists, so
+  the gate closes on `enabled`, and on the scope; `publicSurface.enabled` is the same
+  flag as `enabled` and is not read.
   Nothing is offered where billing is off, but `listedStanding` reads the entry
   whether it is on or not: the tile of the connectors says that the plan leaves Stripe
   out, or that it needs a Vault, where billing is off for that very reason.

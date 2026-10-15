@@ -25,15 +25,14 @@ export const Route = createFileRoute('/integrations/publishable-keys')({
   notFoundComponent: BillingNotFound,
   validateSearch: (search) => readPublishableKeysSearch(search),
   // The guard of every route under it: the keys exist where GET /billing/capabilities
-  // says billing is on. It does not ask for `features.publicSurface` or
-  // `publicSurface.enabled`: the API answers the first `true` (the release ships the
-  // public catalog and the keys) and the second as `enabled`
-  // (api/internal/modules/billing/getbillingcapabilities), so neither says more than
-  // billing being on. What a session may do with the keys is its scopes
-  // (`read:publishable_keys`, then `write:publishable_keys`), which the API checks and
-  // the screens follow.
+  // says billing is on and this release ships the public surface
+  // (`features.publicSurface`). The API answers that member `true` in every release
+  // that has billing, so the gate closes on billing being on, which is `enabled`
+  // (`publicSurface.enabled` is the same flag, and is not read). What a session may do
+  // with the keys is its scopes (`read:publishable_keys`, then
+  // `write:publishable_keys`), which the API checks and the screens follow.
   beforeLoad: async ({ context }) => {
-    await requireBillingCapability(context.queryClient);
+    await requireBillingCapability(context.queryClient, 'publicSurface');
 
     return {
       getTitle: () => i18n.t('Pages.Integrations.PublishableKeys.title'),

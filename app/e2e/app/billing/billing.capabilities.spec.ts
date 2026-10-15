@@ -15,9 +15,10 @@ import { ConnectorAppModel } from '../_support/model/connector-app-model';
 // What the console shows of billing follows the capabilities the API answers with, and
 // nothing else: the navigation is there where billing is `enabled`, and the tile of
 // Stripe says where Stripe stands from the `providers` it lists (connected, free to be,
-// not in the plan, or in need of a Vault). Three flags of `features` (`stripe`,
-// `chargeAutomatically`, `publicSurface`) say what the release ships and are true on every
-// organization, so they are no part of that decision, and neither are the platform flags.
+// not in the plan, or in need of a Vault). Two flags of `features` (`stripe`,
+// `chargeAutomatically`) say what the release ships and are true on every organization,
+// so they are no part of that decision, and neither are the platform flags. The third,
+// `publicSurface`, gates the publishable keys alone, and is true wherever billing is on.
 // The answers below are the ones of the organizations of the API's
 // own tests: a Cloud organization on a beta plan, one on a starter plan, one on a pro plan
 // with Stripe connected, and a self-hosted deployment with no Vault.

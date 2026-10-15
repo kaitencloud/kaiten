@@ -166,7 +166,8 @@ export function billingCapabilities(
  *   API answers them (`stripe`, `chargeAutomatically` and `publicSurface` true,
  *   whether or not the provider can be connected here). It is the profile of
  *   `dev:mock`. A spec that makes a flag lie says so (`NO_BILLING_FEATURES`): the
- *   gates read `providers` and the scopes, not the flags;
+ *   gates of the providers read `providers` and the scopes, not `stripe` or
+ *   `chargeAutomatically`; the publishable keys read `publicSurface`;
  * - `disabled`: billing off, for the reason the API gives. A disabled
  *   deployment still lists NoOp, the idempotency window and the features its
  *   release ships: only `enabled`, `disabledReason` and `publicSurface.enabled`
