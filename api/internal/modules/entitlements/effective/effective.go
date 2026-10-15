@@ -216,9 +216,10 @@ func Resolve(in Input) (Result, bool) {
 	switch {
 	case isNumber:
 		n := numberOf(licence, latest, boosts)
-		// The composition is reported only when something composed it, as the
-		// view's provenance.number is: an add-on-only row of zero grants has none.
-		if len(contributing) > 0 || len(boosts) > 0 {
+		// The composition is reported whenever the value is computed rather than
+		// the licence's, as the view's provenance.number is: an add-on-only row
+		// of grants of 0 has one, licensed rows of them have none (identity).
+		if len(contributing) > 0 || len(boosts) > 0 || in.Licence == nil {
 			out.Number = &n
 		}
 		out.Value = mustJSON(map[string]any{"type": "number", "value": json.RawMessage(n.Effective.String())})
