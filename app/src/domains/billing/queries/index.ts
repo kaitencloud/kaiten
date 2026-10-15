@@ -2,7 +2,9 @@ export {
   addonCompatibilityQueryOptions,
   addonLicenseFamiliesQueryOptions,
   addonPricesQueryOptions,
+  addonVersionGrantsQueryOptions,
   addonVersionsQueryOptions,
+  licenseVersionGrantsQueryOptions,
 } from './addon-query-options';
 export { billingHealthQueryOptions } from './billing-health';
 export { instanceAddonsWithRemovedQueryOptions } from './instance-addons-query-options';

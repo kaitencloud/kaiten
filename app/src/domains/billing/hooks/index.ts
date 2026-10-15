@@ -18,3 +18,8 @@ export { useInvoiceActionAccess } from './use-invoice-action-access';
 export { useInvoiceLineAddon } from './use-invoice-line-addon';
 export { useLicensesWithPrices } from './use-licenses-with-prices';
 export { useUsageReports } from './use-usage-reports';
+export {
+  type LicenseVersionRef,
+  useLicenseFamilyHeads,
+  useLicenseGrants,
+} from './use-license-grants';

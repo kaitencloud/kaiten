@@ -1,9 +1,13 @@
 import {
   listAddonCompatibilityOptions,
+  listAddonEntitlementsOptions,
   listAddonPricesOptions,
 } from '@/api-client/@tanstack/react-query.gen';
 import { allAddonsOptions } from '@/lib/api/all-billing-pages-query-options';
-import { allLicenseFamiliesOptions } from '@/lib/api/all-pages-query-options';
+import {
+  allLicenseEntitlementsOptions,
+  allLicenseFamiliesOptions,
+} from '@/lib/api/all-pages-query-options';
 
 // What the screens of the add-ons, the Billing tab of an instance and the vouchers all
 // read about a version, so that they ask the same way and under the same keys. None is
@@ -46,6 +50,24 @@ export const addonLicenseFamiliesQueryOptions = () => ({
  */
 export const addonVersionsQueryOptions = () => ({
   ...allAddonsOptions(),
+  retry: false,
+  retryOnMount: false,
+});
+
+/**
+ * What a license version grants, every page of it: the value and the overage allowance
+ * that a grant of an add-on or of a voucher would replace. It keeps the generated key
+ * of the operation, so the invalidation of the license reaches it.
+ */
+export const licenseVersionGrantsQueryOptions = (licenseSlug: string) => ({
+  ...allLicenseEntitlementsOptions(licenseSlug),
+  retry: false,
+  retryOnMount: false,
+});
+
+/** What one add-on version grants per unit of quantity. */
+export const addonVersionGrantsQueryOptions = (addonSlug: string) => ({
+  ...listAddonEntitlementsOptions({ path: { addonSlug } }),
   retry: false,
   retryOnMount: false,
 });

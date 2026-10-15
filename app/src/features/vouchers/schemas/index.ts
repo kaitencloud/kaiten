@@ -38,6 +38,7 @@ export {
   NAME_MAX_LENGTH,
   newGrant,
   readFixedAmount,
+  readModifierValue,
   readPercentage,
   type VoucherFormValues,
   voucherFormSchema,

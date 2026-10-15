@@ -9,7 +9,7 @@ import {
   StackedFormDialogPanel,
 } from '@/functionals/stacked-form-dialog';
 import { createFormSubmitHandler } from '@/hooks/form';
-import { useAddonGrantForm, useLicenseOverage } from '../../hooks';
+import { useAddonGrantForm, useCompatibleLicenseGrants } from '../../hooks';
 import { AddonGrantFields } from './addon-grant-fields';
 
 type AddonGrantDialogProps = {
@@ -34,7 +34,7 @@ function GrantForm({
 }: Omit<AddonGrantDialogProps, 'addonName'>) {
   const { t } = useTranslation();
   const formId = useId();
-  const licenseOverage = useLicenseOverage(addonSlug);
+  const licenseGrants = useCompatibleLicenseGrants(addonSlug);
   const { failure, form, isEditing } = useAddonGrantForm({
     addonSlug,
     grant,
@@ -63,7 +63,7 @@ function GrantForm({
             <AddonGrantFields
               form={form}
               isEditing={isEditing}
-              licenseOverage={licenseOverage}
+              licenseGrants={licenseGrants}
               options={options}
             />
             {failure ? <ProblemAlert autoFocus error={failure} /> : null}

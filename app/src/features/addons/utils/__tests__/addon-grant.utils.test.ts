@@ -1,12 +1,9 @@
 import { describe, expect, it } from 'vite-plus/test';
-import type { LicenseEntitlement } from '@/api-client';
 import { buildAddonGrant } from '../../../../../e2e/app/_support/fixtures';
 import {
   isUnlimitedValue,
-  lowersLicenseOverage,
   readGrantOverage,
   readGrantValue,
-  readLicenseOveragePercent,
   toGrantType,
 } from '../addon-grant.utils';
 
@@ -75,49 +72,5 @@ describe('the overage a grant allows', () => {
     expect(readGrantOverage(buildAddonGrant({ addonSlug: 'a', entitlementSlug: 'f', value: true }))).toEqual({
       kind: 'none',
     });
-  });
-});
-
-describe('the overage a license allows', () => {
-  const licenseGrant = (value: LicenseEntitlement['value'], percent?: number) =>
-    ({
-      entitlementSlug: 'api-calls',
-      limitCapExceededOveragePercent: percent,
-      value,
-    }) as LicenseEntitlement;
-
-  it('is the percentage its number grant carries', () => {
-    expect(readLicenseOveragePercent(licenseGrant({ type: 'number', value: 100 }, 10))).toBe(10);
-    expect(readLicenseOveragePercent(licenseGrant({ type: 'number', value: 100 }, 0))).toBe(0);
-  });
-
-  it('is none for a license that caps nothing, or grants no number', () => {
-    expect(readLicenseOveragePercent(licenseGrant({ type: 'number', value: -1 }, -1))).toBeNull();
-    expect(readLicenseOveragePercent(licenseGrant({ type: 'boolean', value: true }))).toBeNull();
-  });
-});
-
-describe('an add-on that lowers the overage of a license', () => {
-  it('is one whose own percentage is below the one of the license, which hardens the quota of every instance that attaches it', () => {
-    expect(lowersLicenseOverage(20, 50)).toBe(true);
-    expect(lowersLicenseOverage(0, 10)).toBe(true);
-  });
-
-  it('is not one that allows as much, or more', () => {
-    expect(lowersLicenseOverage(50, 50)).toBe(false);
-    expect(lowersLicenseOverage(80, 50)).toBe(false);
-  });
-
-  it('is not one that inherits, whose percentage is empty', () => {
-    expect(lowersLicenseOverage(Number.NaN, 50)).toBe(false);
-    expect(lowersLicenseOverage(undefined, 50)).toBe(false);
-    expect(lowersLicenseOverage(null, 50)).toBe(false);
-  });
-
-  it('is not one whose license caps nothing, or is unlimited', () => {
-    expect(lowersLicenseOverage(20, null)).toBe(false);
-    expect(lowersLicenseOverage(20, undefined)).toBe(false);
-    expect(lowersLicenseOverage(20, -1)).toBe(false);
-    expect(lowersLicenseOverage(-1, 50)).toBe(false);
   });
 });

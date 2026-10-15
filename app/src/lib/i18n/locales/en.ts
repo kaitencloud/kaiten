@@ -1148,6 +1148,12 @@ export default {
                   loading: 'Reading its price…',
                   unknown: 'Its price could not be read.',
                 },
+                BelowLicense: {
+                  message:
+                    '{{addon}} overrides {{entitlement}} with {{value}}, and the license of this instance, {{name}}, grants {{license}}.',
+                  consequence:
+                    'Attaching it lowers the limit of this instance below what its license grants. The API accepts it; check that it is what you mean.',
+                },
                 Errors: {
                   addon: 'Choose an add-on',
                   quantity: 'Enter a whole number of units, at least 1',
@@ -4657,6 +4663,12 @@ export default {
           consequence:
             'On every instance that attaches the add-on, its percentage replaces the license’s: usage is refused sooner than the license says.',
         },
+        ValueWarning: {
+          message:
+            'As an override, {{value}} per unit replaces the {{license}} that {{name}} grants with a lower value.',
+          consequence:
+            'On every instance of that license that attaches the add-on, the limit falls below what the license grants. The API accepts it; check that it is what you mean.',
+        },
         Remove: {
           title: 'Remove {{name}} from this add-on?',
           description:
@@ -5175,6 +5187,12 @@ export default {
           title: 'A short code can be guessed',
           description:
             'Add a maximum number of redemptions or an end date, or leave the code empty to have a long one generated.',
+        },
+        BelowLicense: {
+          message:
+            'This boost sets {{entitlement}} to {{value}}, and {{name}} grants {{license}}.',
+          consequence:
+            'On an instance on that license, redeeming it lowers the limit for as long as the boost applies. The API accepts it; check that it is what you mean.',
         },
         Checklist: {
           loading: 'Loading',
