@@ -17,12 +17,15 @@ import (
 )
 
 // rawReport sends body, verbatim, as a usage report and reads the response.
-func rawReport(t *testing.T, instanceSlug, entitlementSlug, body string) (*http.Response, []byte) {
+func rawReport(t *testing.T, instanceSlug, entitlementSlug, body string, idempotencyKey ...string) (*http.Response, []byte) {
 	t.Helper()
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost,
 		"/api/instances/"+instanceSlug+"/entitlements/"+entitlementSlug+"/usage", strings.NewReader(body))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
+	for _, key := range idempotencyKey {
+		req.Header.Set("Idempotency-Key", key)
+	}
 	resp, err := testServer.App.Test(req, fiber.TestConfig{})
 	require.NoError(t, err)
 	defer commonfixture.MustCloseBody(t, resp.Body)
@@ -31,13 +34,9 @@ func rawReport(t *testing.T, instanceSlug, entitlementSlug, body string) (*http.
 	return resp, payload
 }
 
-// metadataReport is a report of 1 carrying metadata, and optionally a key.
-func metadataReport(metadata, transactionID string) string {
-	body := `{"value":{"type":"number","value":1},"behavior":"append","metadata":` + metadata
-	if transactionID != "" {
-		body += `,"transactionId":"` + transactionID + `"`
-	}
-	return body + `}`
+// metadataReport is a report of 1 carrying metadata.
+func metadataReport(metadata string) string {
+	return `{"value":{"type":"number","value":1},"behavior":"append","metadata":` + metadata + `}`
 }
 
 // storedProperties returns the properties of the pair's last journal row as
@@ -76,12 +75,12 @@ func TestReportEntitlementUsageMetric_Metadata(t *testing.T) {
 
 		// {"k":"aaa…"} encodes to exactly 4096 bytes.
 		exactly := `{"k":"` + strings.Repeat("a", 4096-8) + `"}`
-		resp, body := rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(exactly, ""))
+		resp, body := rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(exactly))
 		require.Equal(t, fiber.StatusOK, resp.StatusCode, "body: %s", body)
 		require.Empty(t, resp.Header.Get("Kaiten-Metadata-Dropped"))
 		require.True(t, propertiesEqual(t, instances[0].ID, entitlement.ID, exactly))
 
-		resp, body = rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{"model":"gpt-x","tokens":{"in":12,"out":30}}`, ""))
+		resp, body = rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{"model":"gpt-x","tokens":{"in":12,"out":30}}`))
 		require.Equal(t, fiber.StatusOK, resp.StatusCode, "body: %s", body)
 		require.True(t, propertiesEqual(t, instances[0].ID, entitlement.ID, `{"model":"gpt-x","tokens":{"in":12,"out":30}}`))
 	})
@@ -93,7 +92,7 @@ func TestReportEntitlementUsageMetric_Metadata(t *testing.T) {
 		assignEntitlementToLicense(t, instances[0].LicenseSlug, entitlement.Slug, 1000)
 
 		tooLarge := `{"k":"` + strings.Repeat("a", 4096-7) + `"}`
-		resp, body := rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(tooLarge, ""))
+		resp, body := rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(tooLarge))
 		require.Equal(t, fiber.StatusOK, resp.StatusCode, "body: %s", body)
 		require.Equal(t, "too_large", resp.Header.Get("Kaiten-Metadata-Dropped"))
 
@@ -111,11 +110,11 @@ func TestReportEntitlementUsageMetric_Metadata(t *testing.T) {
 		require.Equal(t, fiber.StatusOK, resp.StatusCode)
 		require.Empty(t, storedProperties(t, instances[0].ID, entitlement.ID))
 
-		resp, _ = rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{}`, ""))
+		resp, _ = rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{}`))
 		require.Equal(t, fiber.StatusOK, resp.StatusCode)
 		require.Empty(t, storedProperties(t, instances[0].ID, entitlement.ID), "an empty object is stored as NULL")
 
-		resp, _ = rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`"not an object"`, ""))
+		resp, _ = rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`"not an object"`))
 		require.Equal(t, fiber.StatusUnprocessableEntity, resp.StatusCode, "metadata must be an object")
 		require.Len(t, ledgerRows(t, instances[0].ID, entitlement.ID), 2)
 	})
@@ -129,7 +128,7 @@ func TestReportEntitlementUsageMetric_Metadata(t *testing.T) {
 		// 1e300 is 6 bytes as sent and 301 digits as jsonb renders it. Many of
 		// them in a small object must neither pass the 4 KiB rule by their
 		// short spelling and then trip the column's CHECK (a 500), nor be lost.
-		resp, body := rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{"a":1e300,"b":1e-300}`, ""))
+		resp, body := rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{"a":1e300,"b":1e-300}`))
 		require.Equal(t, fiber.StatusOK, resp.StatusCode, "body: %s", body)
 		require.True(t, propertiesEqual(t, instances[0].ID, entitlement.ID, `{"a":1e300,"b":1e-300}`))
 
@@ -137,7 +136,7 @@ func TestReportEntitlementUsageMetric_Metadata(t *testing.T) {
 		for i := range 20 {
 			many = append(many, `"n`+strings.Repeat("x", i)+`":1e300`)
 		}
-		resp, body = rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{`+strings.Join(many, ",")+`}`, ""))
+		resp, body = rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{`+strings.Join(many, ",")+`}`))
 		require.Equal(t, fiber.StatusOK, resp.StatusCode, "body: %s", body)
 		require.Equal(t, "too_large", resp.Header.Get("Kaiten-Metadata-Dropped"), "20 numbers of 301 digits are above 4 KiB")
 	})
@@ -148,7 +147,7 @@ func TestReportEntitlementUsageMetric_Metadata(t *testing.T) {
 		entitlement := newEntitlement(t)
 		assignEntitlementToLicense(t, instances[0].LicenseSlug, entitlement.Slug, 1000)
 
-		resp, body := rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{"secret-ish":"canary-7f3a"}`, ""))
+		resp, body := rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{"secret-ish":"canary-7f3a"}`))
 		require.Equal(t, fiber.StatusOK, resp.StatusCode)
 		require.NotContains(t, string(body), "canary-7f3a")
 
@@ -169,7 +168,7 @@ func TestReportEntitlementUsageMetric_Metadata(t *testing.T) {
 		entitlement := newEntitlement(t)
 		assignEntitlementToLicense(t, instances[0].LicenseSlug, entitlement.Slug, 0)
 
-		resp, _ := rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{"why":"canary-rejected"}`, ""))
+		resp, _ := rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{"why":"canary-rejected"}`))
 		require.Equal(t, fiber.StatusConflict, resp.StatusCode)
 		require.Empty(t, ledgerRows(t, instances[0].ID, entitlement.ID))
 		for _, event := range commonfixture.ListOutboxEvents(t, testServer.Dependencies.DB, testDb.DefaultData.OrganizationID) {
@@ -183,18 +182,18 @@ func TestReportEntitlementUsageMetric_Metadata(t *testing.T) {
 		entitlement := newEntitlement(t)
 		assignEntitlementToLicense(t, instances[0].LicenseSlug, entitlement.Slug, 1000)
 
-		resp, _ := rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{"attempt":1}`, "evt-meta"))
+		resp, _ := rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{"attempt":1}`), "evt-meta")
 		require.Equal(t, fiber.StatusOK, resp.StatusCode)
 
-		resp, _ = rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{"attempt":2}`, "evt-meta"))
+		resp, _ = rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(`{"attempt":2}`), "evt-meta")
 		require.Equal(t, "true", resp.Header.Get("Idempotent-Replayed"), "metadata is not part of the comparison")
 		require.True(t, propertiesEqual(t, instances[0].ID, entitlement.ID, `{"attempt":1}`))
 
 		// A report whose metadata was dropped replays without the header.
 		tooLarge := `{"k":"` + strings.Repeat("a", 4096) + `"}`
-		resp, _ = rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(tooLarge, "evt-big"))
+		resp, _ = rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(tooLarge), "evt-big")
 		require.Equal(t, "too_large", resp.Header.Get("Kaiten-Metadata-Dropped"))
-		resp, _ = rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(tooLarge, "evt-big"))
+		resp, _ = rawReport(t, instances[0].Slug, entitlement.Slug, metadataReport(tooLarge), "evt-big")
 		require.Equal(t, "true", resp.Header.Get("Idempotent-Replayed"))
 		require.Empty(t, resp.Header.Get("Kaiten-Metadata-Dropped"), "a replay never carries the header")
 	})

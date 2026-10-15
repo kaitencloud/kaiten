@@ -275,7 +275,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 						fmt.Sprintf("transactionId %q was already used for another report of %s; send a correction under a new key", *command.TransactionID, entitlementSlug),
 						&kaitenerrors.ErrorDetail{
 							Message:  "the report this transactionId was first accepted with",
-							Location: "body.transactionId",
+							Location: idempotencyKeyLocation,
 							Value: map[string]any{
 								"reportSeq":  original.ReportSeq,
 								"reportedAt": original.ReportedAt,
