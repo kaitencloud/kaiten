@@ -136,7 +136,7 @@ export class InstanceAddons implements AddonHolders {
 
   private active(instanceSlug: string): InstanceAddon[] {
     return (this.attachments[instanceSlug] ?? []).filter(
-      (attached) => attached.removedAt === undefined,
+      (attached) => attached.removedAt == null,
     );
   }
 
@@ -146,8 +146,7 @@ export class InstanceAddons implements AddonHolders {
         isLive(this.deps.subscriptionOf(instanceSlug)) &&
         attached.some(
           (candidate) =>
-            candidate.addonSlug === addonSlug &&
-            candidate.removedAt === undefined,
+            candidate.addonSlug === addonSlug && candidate.removedAt == null,
         ),
     );
   }
@@ -191,7 +190,7 @@ export class InstanceAddons implements AddonHolders {
 
     return clone(
       (this.attachments[instanceSlug] ?? []).filter(
-        (attached) => includeRemoved || attached.removedAt === undefined,
+        (attached) => includeRemoved || attached.removedAt == null,
       ),
     );
   }
@@ -285,7 +284,7 @@ export class InstanceAddons implements AddonHolders {
     if (quantity < 1) {
       this.refuse(prefix, 422, 'InvalidQuantity', 'quantity is at least 1');
     }
-    if (addon.maxQuantity !== undefined && quantity > addon.maxQuantity) {
+    if (addon.maxQuantity != null && quantity > addon.maxQuantity) {
       this.refuse(
         prefix,
         422,
@@ -542,7 +541,7 @@ export class InstanceAddons implements AddonHolders {
   ): InstanceAddon {
     const found = (this.attachments[instanceSlug] ?? []).find(
       (attached) =>
-        attached.addonSlug === addonSlug && attached.removedAt === undefined,
+        attached.addonSlug === addonSlug && attached.removedAt == null,
     );
     if (!found) {
       throw new BillingProblem(
@@ -575,10 +574,7 @@ export class InstanceAddons implements AddonHolders {
         'quantity is at least 1',
       );
     }
-    if (
-      attached.maxQuantity !== undefined &&
-      body.quantity > attached.maxQuantity
-    ) {
+    if (attached.maxQuantity != null && body.quantity > attached.maxQuantity) {
       this.refuse(
         'SetInstanceAddonQuantity',
         422,

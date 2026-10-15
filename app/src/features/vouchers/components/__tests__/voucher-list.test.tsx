@@ -111,6 +111,18 @@ describe('the list of vouchers', () => {
     expect(row('New year')).toHaveTextContent('Starts Jan 1, 2999 (UTC)');
   });
 
+  it('reads the members the API gives as null as it reads those it leaves out: no maximum, no start, no end', async () => {
+    serveList([
+      { ...BOOST, expiresAt: null, maxRedemptions: null, startsAt: null } as never,
+    ]);
+    renderScreen(<VouchersPageContent />);
+
+    await screen.findByText('Tokens times two');
+    expect(row('Tokens times two')).toHaveTextContent('0 (no limit)');
+    expect(row('Tokens times two')).toHaveTextContent('No end date');
+    expect(row('Tokens times two')).not.toHaveTextContent('Starts');
+  });
+
   it('names the customer a voucher is reserved for, when the session may list customers', async () => {
     renderScreen(<VouchersPageContent />);
 

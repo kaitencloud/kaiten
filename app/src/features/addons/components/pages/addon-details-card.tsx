@@ -115,7 +115,7 @@ export function AddonDetailsCard({
           <DetailCard.Row
             label={t('Pages.Addons.Detail.Fields.maxQuantity')}
             value={
-              addon.maxQuantity === undefined
+              addon.maxQuantity == null
                 ? t('Pages.Addons.Detail.unbounded')
                 : addon.maxQuantity
             }

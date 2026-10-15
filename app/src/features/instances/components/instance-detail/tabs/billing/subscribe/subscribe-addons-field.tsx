@@ -50,7 +50,7 @@ function AddonChoice({ addon, onChange, units }: ChoiceProps) {
           <Label className="whitespace-normal" htmlFor={checkboxId}>
             {label}
           </Label>
-          {addon.maxQuantity === undefined ? null : (
+          {addon.maxQuantity == null ? null : (
             <p className="text-xs text-muted-foreground">
               {t(KEYS.maxQuantity, { count: addon.maxQuantity })}
             </p>

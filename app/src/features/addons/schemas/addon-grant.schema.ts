@@ -113,7 +113,7 @@ export function grantToFormValues(
     values.unlimited = held.value === UNLIMITED_THRESHOLD;
     values.numberValue = values.unlimited ? Number.NaN : held.value;
     values.overagePercent =
-      grant.limitCapExceededOveragePercent === undefined ||
+      grant.limitCapExceededOveragePercent == null ||
       grant.limitCapExceededOveragePercent < 0
         ? Number.NaN
         : grant.limitCapExceededOveragePercent;

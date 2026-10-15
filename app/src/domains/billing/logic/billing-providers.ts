@@ -68,7 +68,7 @@ export function getProviderStanding(
     return { state: 'unlisted' };
   }
   if (provider.connected) {
-    return { livemode: provider.livemode, state: 'connected' };
+    return { livemode: provider.livemode ?? undefined, state: 'connected' };
   }
   if (provider.available) {
     return { state: 'available' };

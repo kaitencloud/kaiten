@@ -61,7 +61,7 @@ export function VoucherDetailsCard({ voucher }: VoucherDetailsCardProps) {
           <DetailCard.Row
             label={t('Pages.Vouchers.Detail.Fields.redeemed')}
             value={
-              voucher.maxRedemptions === undefined
+              voucher.maxRedemptions == null
                 ? t('Pages.Vouchers.List.redeemedUnbounded', {
                     count: voucher.redemptionsCount,
                   })

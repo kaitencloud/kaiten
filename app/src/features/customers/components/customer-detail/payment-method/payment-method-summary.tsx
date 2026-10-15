@@ -66,7 +66,7 @@ export function PaymentMethodSummary({ method }: PaymentMethodSummaryProps) {
           <Badge variant="outline">{t(`${base}.Status.expiresSoon`)}</Badge>
         ) : null}
       </div>
-      {method.expMonth !== undefined && method.expYear !== undefined ? (
+      {method.expMonth != null && method.expYear != null ? (
         <p className="text-sm text-muted-foreground">
           {t(`${base}.Card.expires`, {
             month: String(method.expMonth).padStart(2, '0'),

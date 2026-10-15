@@ -30,9 +30,7 @@ export function isVoucherScheduled(
   voucher: Pick<Voucher, 'startsAt'>,
   now: Date | number = Date.now(),
 ): boolean {
-  return (
-    voucher.startsAt !== undefined && Date.parse(voucher.startsAt) > toTime(now)
-  );
+  return voucher.startsAt != null && Date.parse(voucher.startsAt) > toTime(now);
 }
 
 /** The state of a redemption (`Redemption.status`). */

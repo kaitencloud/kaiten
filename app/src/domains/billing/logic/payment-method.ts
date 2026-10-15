@@ -59,7 +59,7 @@ export function getPaymentMethodStanding(
   }
   // The card works through the last instant of its expiry month, in UTC.
   const lastInstant =
-    method.expYear !== undefined && method.expMonth !== undefined
+    method.expYear != null && method.expMonth != null
       ? Date.UTC(method.expYear, method.expMonth, 1) - 1
       : undefined;
 

@@ -41,6 +41,12 @@ describe('a voucher in plain language', () => {
     ]);
   });
 
+  it('says a voucher whose maximum is null can be redeemed without limit, as one that has none', () => {
+    expect(review({ ...DISCOUNT, maxRedemptions: null } as never)).toEqual(
+      review({ ...DISCOUNT, maxRedemptions: undefined }),
+    );
+  });
+
   it('counts a discount in invoices and a boost in billing periods', () => {
     expect(
       review({

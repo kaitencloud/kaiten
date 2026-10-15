@@ -57,6 +57,12 @@ describe('the overage a grant allows', () => {
 
   it('inherits the license when the grant sets none', () => {
     expect(readGrantOverage(number())).toEqual({ kind: 'inherit' });
+    expect(
+      readGrantOverage({
+        ...number(),
+        limitCapExceededOveragePercent: null,
+      } as never),
+    ).toEqual({ kind: 'inherit' });
   });
 
   it('is a hard limit at 0, a soft one above, and none to speak of when unlimited', () => {
