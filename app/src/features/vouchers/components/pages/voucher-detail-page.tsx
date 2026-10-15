@@ -18,8 +18,8 @@ type VoucherDetailPageProps = {
  * One voucher: its code in the header, what it does in plain language and its details side
  * by side, of one height, and what was redeemed of it, with the actions its state offers.
  * The page reads the voucher as the API stores it and reads it again after every action;
- * the state it shows is the stored one, and nothing is added up. The code is shown in the header, to the sessions that may read
- * vouchers, and nowhere in the address.
+ * the state it shows is the stored one, and nothing is added up. The code is shown in the
+ * header, to the sessions that may read vouchers, and nowhere in the address.
  */
 export function VoucherDetailPage({
   children,

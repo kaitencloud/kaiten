@@ -120,6 +120,7 @@ beforeEach(() => {
       HttpResponse.json(params.addonSlug === 'extra-storage-v1' ? [STORAGE_MONTHLY] : []),
     ),
     handleGetEntitlementsUsageMetrics({ body: [usageOf('storage-gb', 50)] }),
+    handleListAddonEntitlements({ body: [] }),
   );
 });
 
