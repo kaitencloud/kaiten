@@ -37,7 +37,7 @@ func RegisterEndpoint(api huma.API, app Writer) {
 		Path:        "/v1/notification-preferences",
 		Summary:     "Set the caller's notification preferences",
 		Description: "Stores the signed-in user's choices and answers with the whole matrix. A value that " +
-			"equals the catalogue default is stored as no row at all, so a later change to that default still " +
+			"equals the catalog default is stored as no row at all, so a later change to that default still " +
 			"reaches this user.",
 		Tags:   []string{"notifications"},
 		Errors: []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusInternalServerError},

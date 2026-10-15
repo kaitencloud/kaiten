@@ -296,7 +296,7 @@ components:
           format: date-time
           type: string
         available:
-          description: Whether this deployment has the connector registered
+          description: Whether this installation has the connector registered
           type: boolean
         connectorName:
           description: Stable connector identifier
@@ -304,7 +304,7 @@ components:
             - kaiten.integration.crm.attio
           type: string
         entitled:
-          description: Whether this organization's licence includes the connector. True for an ungated connector.
+          description: Whether this organization's license includes the connector. True for an ungated connector.
           type: boolean
         version:
           description: Registered connector version. Absent when the connector is not available.
@@ -2541,7 +2541,7 @@ components:
             - com.kaiten.instance.v1.deployed
           type: string
         group:
-          description: Catalogue group the client renders this under
+          description: Catalog group the client renders this under
           examples:
             - deployments
           type: string
@@ -2559,7 +2559,7 @@ components:
       additionalProperties: false
       properties:
         channels:
-          description: Channels this deployment serves, in display order
+          description: Channels this installation serves, in display order
           items:
             type: string
           type: array
@@ -3729,7 +3729,7 @@ paths:
       tags:
         - connectors
     put:
-      description: "Activates a registered connector for the authenticated organization. Idempotent: activating an already-active connector succeeds without changing when it was first activated. Refused when the organization's licence does not include the connector."
+      description: "Activates a registered connector for the authenticated organization. Idempotent: activating an already-active connector succeeds without changing when it was first activated. Refused when the organization's license does not include the connector."
       operationId: activate-connector
       parameters:
         - description: Stable connector name
@@ -4045,7 +4045,7 @@ paths:
         - connectors
   /connectors/{connectorName}/state:
     get:
-      description: "Returns whether the connector is registered in this deployment, whether the authenticated organization's licence includes it, and whether the organization has activated it. Answers 200 with `available: false` for a connector this deployment does not have."
+      description: "Returns whether the connector is registered on this installation, whether the authenticated organization's license includes it, and whether the organization has activated it. Answers 200 with `available: false` for a connector this installation does not have."
       operationId: get-connector-state
       parameters:
         - description: Stable connector name
@@ -7797,7 +7797,7 @@ paths:
       description: |-
         Create a new license with the provided details. Without familySlug or familyId this creates a new license family and the license becomes its version 1. With one of them it adds the next version to that family (familySlug names it by slug, familyId by identifier; sent together they must agree), and the version number is assigned by the server as the next one in the family's sequence. The version starts PUBLISHED, or DRAFT when lifecycleState says so; ARCHIVED is refused (422 CreateLicense.LifecycleStateNotSettable), because a version is archived with archive-license once it has been on sale.
 
-        Where the deployment limits how many licenses an organization may have, only a new family counts against that limit (409 CreateLicense.EntitlementLimitReached once it is reached): a new version of an existing family never does.
+        Where the installation limits how many licenses an organization may have, only a new family counts against that limit (409 CreateLicense.EntitlementLimitReached once it is reached): a new version of an existing family never does.
       operationId: create-license
       requestBody:
         content:
@@ -9969,7 +9969,7 @@ paths:
         - service-accounts
   /v1/notification-preferences:
     get:
-      description: "Every notifiable event, with this user's effective value per channel: their own choice where they made one, the catalogue default otherwise. Events absent from the catalogue of a deployment never appear, which is what keeps high-volume system events out of the feed."
+      description: "Every notifiable event, with this user's effective value per channel: their own choice where they made one, the catalog default otherwise. Events absent from the catalog of an installation never appear, which is what keeps high-volume system events out of the feed."
       operationId: getNotificationPreferences
       responses:
         "200":
@@ -10003,7 +10003,7 @@ paths:
       tags:
         - notifications
     put:
-      description: Stores the signed-in user's choices and answers with the whole matrix. A value that equals the catalogue default is stored as no row at all, so a later change to that default still reaches this user.
+      description: Stores the signed-in user's choices and answers with the whole matrix. A value that equals the catalog default is stored as no row at all, so a later change to that default still reaches this user.
       operationId: putNotificationPreferences
       requestBody:
         content:
@@ -11069,7 +11069,7 @@ webhooks:
         - featureflags
   com.kaiten.identity.v1.system_token_issued:
     post:
-      description: "Triggered when a platform credential mints an organization-scoped credential for the `system:kaiten` platform identity inside this organization. Carries the platform credential that performed the mint and the scopes granted, never the credential value. Expect this at the rate an integration refreshes: roughly 120 per day per process at a 15-minute lifetime."
+      description: "Triggered when a platform credential mints an organization-scoped credential for the `system:kaiten` platform identity inside this organization. Carries the platform credential that performed the mint and the scopes granted, never the credential value. Expect this at the rate an integration refreshes: 96 a day per process at a 15-minute lifetime, more if it refreshes before expiry."
       operationId: onSystemOrganizationTokenIssued
       requestBody:
         content:

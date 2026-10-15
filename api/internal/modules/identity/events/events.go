@@ -14,10 +14,11 @@ import "github.com/kaitencloud/kaiten/api/internal/infrastructure/events"
 // organization-scoped credential for system:kaiten inside one tenant, carrying
 // organization_id = that tenant.
 //
-// Expect volume. With the SDK's auto-refreshing token source at a 15-minute TTL
-// this is roughly 120 events per day per process per organization (see plan §I's
-// row arithmetic); at a one-hour TTL, 24. A burst of these is the normal shape of
-// a long-lived integration refreshing its credential, not an incident.
+// Expect volume: one event per credential minted. An integration that re-mints as
+// each credential expires produces 96 a day per process per organization at a
+// 15-minute TTL and 24 at a one-hour TTL, more if it refreshes before expiry. A
+// burst of these is the normal shape of a long-lived integration refreshing its
+// credential, not an incident.
 var SystemOrganizationTokenIssued = events.New(
 	"SYSTEM_ORGANIZATION_TOKEN_ISSUED",
 	"com.kaiten.identity.v1.system_token_issued",
