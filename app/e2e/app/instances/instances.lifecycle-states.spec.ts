@@ -462,6 +462,30 @@ test.describe('the Billing tab of a subscription going through something', () =>
       await expect(lifecycle.reactivateButton()).toHaveCount(0);
       await expect(billing.subscribeLink()).toBeVisible();
     });
+
+    test('is subscribed again from the day it ended, and not before', async ({
+      page,
+    }) => {
+      const billing = new InstanceBillingDriver(page);
+      const writes = recordWrites(page, BILLING_WRITES);
+      await installBillingAppMocks(page, createLifecycleBillingModel());
+      await billing.goto('hooli-prod');
+      await billing.openSubscribe();
+
+      // Within the period of the price, but before the subscription was canceled.
+      await billing.setStartAt('2026-09-10T12:00');
+      await expect(billing.dialog()).toContainText(
+        'Billing cannot start before the previous subscription was canceled',
+      );
+      await expect(billing.confirmButton()).toBeDisabled();
+
+      await billing.setStartAt('2026-09-25T12:00');
+      await expect(billing.dialog()).not.toContainText(
+        'Billing cannot start before the previous subscription was canceled',
+      );
+      await expect(billing.confirmButton()).toBeEnabled();
+      expect(writes).toHaveLength(0);
+    });
   });
 
   test.describe('who may do what', () => {

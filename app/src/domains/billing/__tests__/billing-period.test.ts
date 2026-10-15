@@ -80,6 +80,31 @@ describe('getSubscriptionStartBounds', () => {
       utc('2026-12-31T12:00:00Z'),
     );
   });
+
+  it('adds the cancellation of the subscription it replaces when that is the later bound', () => {
+    expect(
+      getSubscriptionStartBounds('MONTHLY', now, '2027-03-10T08:00:00Z'),
+    ).toEqual({
+      earliest: utc('2027-02-28T12:00:00Z'),
+      latest: now,
+      notBefore: utc('2027-03-10T08:00:00Z'),
+    });
+  });
+
+  it('leaves out a cancellation that is not later than the period back, none, null and one that is no date', () => {
+    for (const canceledAt of [
+      '2027-01-01T00:00:00Z',
+      '2027-02-28T12:00:00Z',
+      undefined,
+      null,
+      'not a date',
+    ]) {
+      expect(getSubscriptionStartBounds('MONTHLY', now, canceledAt)).toEqual({
+        earliest: utc('2027-02-28T12:00:00Z'),
+        latest: now,
+      });
+    }
+  });
 });
 
 describe('getFirstInvoiceTiming', () => {

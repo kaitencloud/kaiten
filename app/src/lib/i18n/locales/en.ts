@@ -702,6 +702,8 @@ export default {
                 startAtFuture: 'Billing cannot start in the future',
                 startAtTooEarly:
                   'Billing cannot start more than one billing period ago',
+                startAtBeforeCancellation:
+                  'Billing cannot start before the previous subscription was canceled',
               },
               Voucher: {
                 label: 'Voucher code',

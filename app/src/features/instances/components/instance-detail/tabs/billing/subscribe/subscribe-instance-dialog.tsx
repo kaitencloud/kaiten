@@ -3,7 +3,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { StartedSubscription } from '@/api-client';
 import { StackedFormDialog } from '@/functionals/stacked-form-dialog';
-import { subscribablePricesQueryOptions } from '../../../../../queries';
+import {
+  instanceBillingQueryOptions,
+  subscribablePricesQueryOptions,
+} from '../../../../../queries';
 import {
   getBasePriceOptions,
   getSubscribeBlock,
@@ -34,6 +37,10 @@ function SubscribeContent({
     ...subscribablePricesQueryOptions(instance.licenseSlug),
     enabled: !getSubscribeBlock(license),
   });
+  // The subscription this one replaces, when the instance had one: the tab behind the
+  // dialog has read it. A read that fails leaves the form without that bound, and the
+  // API, which has the last word, refuses a start before the cancellation.
+  const billing = useQuery(instanceBillingQueryOptions(instanceSlug));
 
   if (getSubscribeBlock(license)) {
     return (
@@ -45,7 +52,7 @@ function SubscribeContent({
       </DialogNotice>
     );
   }
-  if (prices.isPending) {
+  if (prices.isPending || billing.isPending) {
     return <DialogLoading />;
   }
   if (prices.isError) {
@@ -71,6 +78,9 @@ function SubscribeContent({
 
   return (
     <SubscribeInstanceForm
+      canceledAt={
+        billing.data?.status === 'CANCELED' ? billing.data.canceledAt : null
+      }
       customer={customer}
       defaultTrialDays={license?.trialPeriodDays ?? 0}
       familyId={license?.familyId}

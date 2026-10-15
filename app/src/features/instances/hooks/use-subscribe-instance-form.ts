@@ -14,6 +14,8 @@ import { useSubscribeInstance } from './use-subscribe-instance';
 type UseSubscribeInstanceFormOptions = {
   /** The add-ons the form offers: it checks the units of each against the most its version allows. */
   addons?: readonly Pick<Addon, 'maxQuantity' | 'slug'>[];
+  /** When the subscription this one replaces was canceled: billing cannot start before it. */
+  canceledAt?: string | null;
   /** The trial the license of the instance carries, in days: where the field starts. */
   defaultTrialDays?: number;
   instanceSlug: string;
@@ -35,6 +37,7 @@ type UseSubscribeInstanceFormOptions = {
  */
 export function useSubscribeInstanceForm({
   addons = [],
+  canceledAt,
   defaultTrialDays = 0,
   instanceSlug,
   onSubscribed,
@@ -83,6 +86,7 @@ export function useSubscribeInstanceForm({
         const price = prices.find(({ id }) => id === value.basePriceId);
         const errors = getSubscribeFormErrors(value, {
           addons,
+          canceledAt,
           period: price?.billingPeriod ?? undefined,
           trialOffered:
             trials && (!price || canStartWithTrial(price.billingTiming)),

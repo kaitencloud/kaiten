@@ -715,6 +715,8 @@ export default {
                   'La facturation ne peut pas démarrer dans le futur',
                 startAtTooEarly:
                   'La facturation ne peut pas démarrer plus d’une période de facturation en arrière',
+                startAtBeforeCancellation:
+                  'La facturation ne peut pas démarrer avant l’annulation de l’abonnement précédent',
               },
               Voucher: {
                 label: 'Code promo',
