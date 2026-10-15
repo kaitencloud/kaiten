@@ -50,19 +50,19 @@ test.describe('the Stripe tile of the connectors', () => {
     await expect(stripe.keyField()).toBeVisible();
   });
 
-  test('keeps Lago a tile that is coming and cannot be opened, and sends it and any other unknown connector back to the list', async ({
+  test('keeps HubSpot a tile that is coming and cannot be opened, and sends it and any other unknown connector back to the list', async ({
     page,
   }) => {
     const stripe = new StripeConnectorDriver(page);
     await install(page, createStripeConnectorModels({ standing: 'available' }));
 
     await stripe.gotoIndex();
-    await expect(stripe.tile('Lago')).toContainText('Coming H1');
+    await expect(stripe.tile('HubSpot')).toContainText('Coming soon');
     await expect(
-      stripe.tile('Lago').getByRole('button', { name: 'Connect' }),
+      stripe.tile('HubSpot').getByRole('button', { name: 'Connect' }),
     ).toBeDisabled();
 
-    for (const connector of ['lago', 'unknown']) {
+    for (const connector of ['hubspot', 'lago', 'unknown']) {
       await page.goto(`/integrations/connectors/${connector}`);
 
       await expect(page).toHaveURL(/\/integrations\/connectors\/?$/);
