@@ -89,7 +89,8 @@ func TestRefusedSettings(t *testing.T) {
 
 	require.False(t, capabilities(t).Connected, "no activation was written")
 	require.Equal(t, 0, outboxCount(t, "BILLING_PROVIDER_CONNECTED"))
-	require.Equal(t, fiber.StatusNotFound, call(t, "GET", "/api/connectors/"+connector+"/settings", nil).StatusCode, "nothing stored")
+	stored := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "GET", "/api/connectors/"+connector+"/settings", nil), fiber.StatusOK)
+	require.Equal(t, false, stored["configured"], "nothing stored")
 
 	fake.Partition(true)
 	unreachable := call(t, "PUT", "/api/connectors/"+connector+"/settings", map[string]any{"settings": map[string]any{"stripeSecretKey": testKey}})
