@@ -130,6 +130,44 @@ describe('when billing starts', () => {
     expect(getSubscribeFormErrors({ ...values, startAt }, { now: NOW, period: 'QUARTERLY' })).toBeUndefined();
   });
 
+  it('may not come before the cancellation of the subscription it replaces', () => {
+    const canceledAt = '2027-03-01T10:00:00Z';
+
+    expect(
+      getSubscribeFormErrors({ ...values, startAt: '2027-02-20T12:00' }, { canceledAt, now: NOW, period: 'MONTHLY' }),
+    ).toEqual({
+      startAt: 'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.startAtBeforeCancellation',
+    });
+    // On the instant itself, and after it, a start is allowed.
+    expect(
+      getSubscribeFormErrors({ ...values, startAt: '2027-03-01T10:00' }, { canceledAt, now: NOW, period: 'MONTHLY' }),
+    ).toBeUndefined();
+    expect(
+      getSubscribeFormErrors({ ...values, startAt: '2027-03-10T12:00' }, { canceledAt, now: NOW, period: 'MONTHLY' }),
+    ).toBeUndefined();
+    // Now, which is an empty field, is after any cancellation.
+    expect(
+      getSubscribeFormErrors({ ...values, startAt: '' }, { canceledAt, now: NOW, period: 'MONTHLY' }),
+    ).toBeUndefined();
+  });
+
+  it('is too early, and not before the cancellation, when it is further back than the period and the cancellation is older', () => {
+    expect(
+      getSubscribeFormErrors(
+        { ...values, startAt: '2027-01-15T12:00' },
+        { canceledAt: '2026-12-01T00:00:00Z', now: NOW, period: 'MONTHLY' },
+      ),
+    ).toEqual({
+      startAt: 'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.startAtTooEarly',
+    });
+  });
+
+  it('asks nothing of the cancellation of an instance that was never subscribed', () => {
+    expect(
+      getSubscribeFormErrors({ ...values, startAt: '2027-02-20T12:00' }, { canceledAt: null, now: NOW, period: 'MONTHLY' }),
+    ).toBeUndefined();
+  });
+
   it('may not be in the future', () => {
     expect(
       getSubscribeFormErrors({ ...values, startAt: '2027-03-15T12:01' }, { now: NOW, period: 'MONTHLY' }),

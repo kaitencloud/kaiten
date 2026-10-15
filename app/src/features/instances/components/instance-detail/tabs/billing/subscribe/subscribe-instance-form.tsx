@@ -24,6 +24,8 @@ import { SubscribeFields } from './subscribe-fields';
 import { SubscribeSummary } from './subscribe-summary';
 
 type SubscribeInstanceFormProps = {
+  /** When the subscription this one replaces was canceled; none for an instance never subscribed. */
+  canceledAt?: string | null;
   customer: Customer;
   /** The family the license of the instance belongs to: the add-ons offered fit it. */
   familyId?: string;
@@ -47,6 +49,7 @@ type SubscribeInstanceFormProps = {
  * on its field when it is about one, above the buttons otherwise.
  */
 export function SubscribeInstanceForm({
+  canceledAt,
   customer,
   defaultTrialDays,
   familyId,
@@ -71,6 +74,7 @@ export function SubscribeInstanceForm({
   const voucherChecker = useSubscribeVoucherCheck(instanceSlug);
   const { failure, form } = useSubscribeInstanceForm({
     addons,
+    canceledAt,
     defaultTrialDays,
     instanceSlug,
     onSubscribed,

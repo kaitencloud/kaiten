@@ -501,7 +501,8 @@ page holds, or an export the API streams.
   date by whole months in UTC with the day clamped to the last of the month (Jan 31
   plus a month is Feb 28), so that a boundary the console shows is the instant the API
   composes the invoice at. `getSubscriptionStartBounds` gives the instants a
-  subscription may start at (from one period ago to now) and `getFirstInvoiceTiming`
+  subscription may start at (from one period ago to now, and for an instance whose
+  subscription was canceled, not before that cancellation: `notBefore`) and `getFirstInvoiceTiming`
   says when the first invoice is issued: at once for a price billed in advance, at the
   end of the first period for one billed in arrears. They say when and never how much:
   only the API composes an invoice.

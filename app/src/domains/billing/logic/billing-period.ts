@@ -39,15 +39,27 @@ export function addMonthsClamped(date: Date, months: number): Date {
  * contract that began before it was entered, to now. Starting later than now is
  * refused, as is starting earlier than a period back; the API has the last word,
  * to the second, and says so in its refusal.
+ *
+ * An instance whose subscription was canceled can be subscribed again, and the two
+ * subscriptions never overlap: the new one cannot start before the cancellation of
+ * the old one (`canceledAt`). That bound is `notBefore`, given only when it is the
+ * later of the two, and so the one that binds.
  */
 export function getSubscriptionStartBounds(
   period: BillingPeriod,
   now: Date = new Date(),
-): { earliest: Date; latest: Date } {
-  return {
-    earliest: addMonthsClamped(now, -BILLING_PERIOD_MONTHS[period]),
-    latest: now,
-  };
+  canceledAt?: string | null,
+): { earliest: Date; latest: Date; notBefore?: Date } {
+  const earliest = addMonthsClamped(now, -BILLING_PERIOD_MONTHS[period]);
+  const canceled = canceledAt ? new Date(canceledAt) : undefined;
+  const notBefore =
+    canceled &&
+    !Number.isNaN(canceled.getTime()) &&
+    canceled.getTime() > earliest.getTime()
+      ? canceled
+      : undefined;
+
+  return { earliest, latest: now, ...(notBefore ? { notBefore } : {}) };
 }
 
 /**
