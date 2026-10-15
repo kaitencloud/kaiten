@@ -93,6 +93,12 @@ func TestTrials(t *testing.T) {
 		exec(t, `UPDATE license SET trial_period_days = 7 WHERE id = $1`, s.version.ID)
 		require.Equal(t, "SubscribeInstance.InvalidTrialDays", problemCode(t, fiber.StatusUnprocessableEntity, "POST",
 			"/api/instances/"+s.instance.Slug+"/billing", map[string]any{"basePriceId": s.monthly.ID, "trialDays": -1}))
+		// Above a year is refused too, and never reaches the anchor arithmetic,
+		// where a large value used to overflow time.Duration into a 500.
+		for _, days := range []int64{366, 2147483647} {
+			require.Equal(t, "SubscribeInstance.InvalidTrialDays", problemCode(t, fiber.StatusUnprocessableEntity, "POST",
+				"/api/instances/"+s.instance.Slug+"/billing", map[string]any{"basePriceId": s.monthly.ID, "trialDays": days}))
+		}
 		started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
 		require.Equal(t, subscriptions.StatusTrial, started.Status)
 

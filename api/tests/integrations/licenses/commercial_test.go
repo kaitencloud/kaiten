@@ -106,7 +106,10 @@ func TestLicenseCommercialFields(t *testing.T) {
 
 		bad := basePayload("Bad")
 		bad["trialPeriodDays"] = 0
-		problem(licenseCall(t, "POST", "/api/licenses", bad), "CreateLicense.InvalidTrialPeriodDays")
+		problem(licenseCall(t, "POST", "/api/licenses", bad), "CreateLicense.InvalidTrialDays")
+		bad = basePayload("Bad")
+		bad["trialPeriodDays"] = 366
+		problem(licenseCall(t, "POST", "/api/licenses", bad), "CreateLicense.InvalidTrialDays")
 		bad = basePayload("Bad")
 		bad["selfServeCtaUrl"] = "ftp://example.com"
 		problem(licenseCall(t, "POST", "/api/licenses", bad), "CreateLicense.InvalidSelfServeCtaUrl")
