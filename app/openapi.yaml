@@ -8604,7 +8604,7 @@ paths:
         - licenses
   /metadata-fields:
     get:
-      description: Returns a cursor-paginated page of the active (non-archived) metadata fields declared for the org and the given resource type, ordered by displayOrder then createdAt.
+      description: "Returns a cursor-paginated page of the metadata fields declared for the org and the given resource type, ordered by displayOrder then createdAt. Only active fields are listed, unless includeArchived is set: an archived field's id is what unarchive-metadata-field takes."
       operationId: list-metadata-fields
       parameters:
         - explode: false
@@ -8616,6 +8616,13 @@ paths:
               - DEPLOYMENT_ZONE
               - INSTANCE
             type: string
+        - description: Include archived fields too, each with its archivedAt
+          explode: false
+          in: query
+          name: includeArchived
+          schema:
+            description: Include archived fields too, each with its archivedAt
+            type: boolean
         - description: Opaque pagination cursor from a previous response's nextCursor
           explode: false
           in: query
@@ -8673,7 +8680,7 @@ paths:
       security:
         - bearerAuth:
             - read:metadata_fields
-      summary: List active metadata fields for a resource type
+      summary: List metadata fields for a resource type
       tags:
         - metadataFields
     post:
