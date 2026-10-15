@@ -79,7 +79,7 @@ type SessionCheckoutOrder struct {
 	LicensePriceID uuid.UUID                             `json:"licensePriceId" doc:"An ACTIVE flat-fee price of a plan in the public catalogue. The instance is moved to that price's version when it is on another one."`
 	AddOns         []subscribeinstance.SubscriptionAddon `json:"addOns,omitempty" maxItems:"50" doc:"Public add-ons that fit the plan"`
 	VoucherCode    *string                               `json:"voucherCode,omitempty" minLength:"1" maxLength:"64" doc:"Validated and redeemed in the checkout; any refusal answers .VoucherInvalid"`
-	BillingEmail   *string                               `json:"billingEmail,omitempty" maxLength:"254" doc:"Where invoices go. Required when the customer has none; stored on the customer when given."`
+	BillingEmail   *string                               `json:"billingEmail,omitempty" maxLength:"254" doc:"Where invoices go. Required when the customer has none, except on a dryRun; stored on the customer when given."`
 	Trial          *bool                                 `json:"trial,omitempty" doc:"false skips the plan's trial. Omitted: the plan's trial, if it has one."`
 	SetupSessionID *string                               `json:"setupSessionId,omitempty" doc:"The setupSessionId a requires_payment_method answer gave, once the customer is back from the setup page: the payment method saved there is checked with the provider and used."`
 	ReturnURL      *string                               `json:"returnUrl,omitempty" format:"uri" doc:"Where the setup page sends the customer back, with kaiten_setup_session appended. Required when a payment method has to be captured. Its origin must be one the organization's publishable keys allow."`
@@ -216,10 +216,6 @@ func (u *UseCase) Execute(ctx context.Context, session Session, request SessionC
 		}
 		email = *request.BillingEmail
 	}
-	if email == "" {
-		return nil, kaitenerrors.UnprocessableEntity(operation+".BillingEmailRequired",
-			"the customer has no billing e-mail: send billingEmail")
-	}
 
 	licenseID, err := uuid.Parse(plan.LicenseID)
 	if err != nil {
@@ -247,6 +243,13 @@ func (u *UseCase) Execute(ctx context.Context, session Session, request SessionC
 	due := dueToday(preview, price.Currency)
 	if request.DryRun {
 		return &SessionCheckout{Status: StatusPreview, DueToday: &due, TrialEndsAt: preview.TrialEndsAt}, nil
+	}
+
+	// Rule 6, after the preview: a dry run only computes amounts, so a
+	// pricing page can show them before it asks for an e-mail (V31-12).
+	if email == "" {
+		return nil, kaitenerrors.UnprocessableEntity(operation+".BillingEmailRequired",
+			"the customer has no billing e-mail: send billingEmail")
 	}
 
 	// Rule 3: a payment method first, when one is needed and missing.

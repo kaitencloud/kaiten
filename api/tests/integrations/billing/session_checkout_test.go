@@ -99,6 +99,10 @@ func TestSessionCheckoutRefusals(t *testing.T) {
 	walkInInstance := newInstance(t, "Walk-in prod", parseID(t, walkIn["id"]), community.ID)
 	walkInSession := mintSession(t, testServer, walkIn["slug"].(string), walkInInstance.Slug)
 	require.Equal(t, "CreateSessionCheckout.BillingEmailRequired", checkout(walkInSession.Token, map[string]any{"licensePriceId": free.ID}).Code)
+	// ...but not to see the amounts: a dry run computes them without one (V31-12).
+	preview := commonfixture.AssertJSONResponse[createsessioncheckout.SessionCheckout](t, sessionCall(t, testServer, "POST", checkoutPath,
+		walkInSession.Token, storefront, map[string]any{"licensePriceId": free.ID, "dryRun": true}), fiber.StatusOK)
+	require.Equal(t, createsessioncheckout.StatusPreview, preview.Status)
 	done := commonfixture.AssertJSONResponse[createsessioncheckout.SessionCheckout](t, sessionCall(t, testServer, "POST", checkoutPath,
 		walkInSession.Token, storefront, map[string]any{"licensePriceId": free.ID, "billingEmail": "ap@walk-in.test"}), fiber.StatusCreated)
 	require.Equal(t, createsessioncheckout.StatusSubscribed, done.Status)
