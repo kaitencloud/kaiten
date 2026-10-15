@@ -29,6 +29,10 @@ type Port interface {
 	GetComponentByID(ctx context.Context, componentID, organizationID uuid.UUID) (*componentschema.Component, error)
 	AddComponentToRelease(ctx context.Context, componentID, releaseID, organizationID uuid.UUID) error
 	GetComponentsByReleaseID(ctx context.Context, releaseID, organizationID uuid.UUID) ([]componentschema.Component, error)
+	// GetComponentsByReleaseIDs is GetComponentsByReleaseID for many releases
+	// in one query; every requested release has an entry, empty when it has
+	// no component.
+	GetComponentsByReleaseIDs(ctx context.Context, releaseIDs []uuid.UUID, organizationID uuid.UUID) (map[uuid.UUID][]componentschema.Component, error)
 	RemoveAllComponentsFromRelease(ctx context.Context, releaseID, organizationID uuid.UUID) error
 }
 
@@ -105,4 +109,36 @@ func (p *port) RemoveAllComponentsFromRelease(ctx context.Context, releaseID, or
 		ReleaseID:      releaseID,
 		OrganizationID: organizationID,
 	})
+}
+
+func (p *port) GetComponentsByReleaseIDs(ctx context.Context, releaseIDs []uuid.UUID, organizationID uuid.UUID) (map[uuid.UUID][]componentschema.Component, error) {
+	grouped := make(map[uuid.UUID][]componentschema.Component, len(releaseIDs))
+	for _, id := range releaseIDs {
+		grouped[id] = []componentschema.Component{}
+	}
+	if len(releaseIDs) == 0 {
+		return grouped, nil
+	}
+
+	rows, err := p.queries.GetComponentsByReleaseIDs(ctx, db.GetComponentsByReleaseIDsParams{
+		ReleaseIds:     releaseIDs,
+		OrganizationID: organizationID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, row := range rows {
+		grouped[row.ReleaseID] = append(grouped[row.ReleaseID], componentschema.Component{
+			ID:                  row.ID,
+			PreviousComponentID: row.PreviousComponentID,
+			Name:                row.Name,
+			Version:             row.Version,
+			Slug:                row.Slug,
+			Description:         row.Description,
+			CreatedBy:           shared.User{ID: row.CreatedByID, Name: row.CreatedByName},
+			CreatedAt:           row.CreatedAt.Time,
+		})
+	}
+	return grouped, nil
 }

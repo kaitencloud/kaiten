@@ -3,6 +3,7 @@ package getreleases
 import (
 	"context"
 
+	"github.com/kaitencloud/kaiten/api/internal/modules/components/releaselink"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
@@ -12,9 +13,12 @@ import (
 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
+// ComponentLink is the components module's own public port, as in
+// get-release.
 type Deps struct {
-	UserProvider currentuser.Provider
-	Queries      *db.Queries
+	UserProvider  currentuser.Provider
+	Queries       *db.Queries
+	ComponentLink releaselink.Port
 }
 
 type UseCase struct {
@@ -25,7 +29,7 @@ type UseCase struct {
 func NewUseCase(deps Deps) *UseCase {
 	return &UseCase{
 		deps:       deps,
-		repository: NewQueryRepository(deps.Queries),
+		repository: NewQueryRepository(deps.Queries, deps.ComponentLink),
 	}
 }
 

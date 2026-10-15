@@ -424,6 +424,70 @@ func (q *Queries) GetComponentsByReleaseID(ctx context.Context, arg GetComponent
 	return items, nil
 }
 
+const getComponentsByReleaseIDs = `-- name: GetComponentsByReleaseIDs :many
+SELECT cr.release_id,
+       c.id, c.previous_component_id, c.name, c.version, c.slug, c.description, c.created_at, c.created_by_id, c.organization_id,
+       creator.name AS created_by_name
+FROM component c
+  INNER JOIN component_release cr ON cr.component_id = c.id
+  INNER JOIN "user" creator ON c.created_by_id = creator.id
+WHERE cr.release_id = ANY($1::uuid[])
+  AND cr.organization_id = $2
+`
+
+type GetComponentsByReleaseIDsParams struct {
+	ReleaseIds     []uuid.UUID `json:"release_ids"`
+	OrganizationID uuid.UUID   `json:"organization_id"`
+}
+
+type GetComponentsByReleaseIDsRow struct {
+	ReleaseID           uuid.UUID        `json:"release_id"`
+	ID                  uuid.UUID        `json:"id"`
+	PreviousComponentID *uuid.UUID       `json:"previous_component_id"`
+	Name                string           `json:"name"`
+	Version             string           `json:"version"`
+	Slug                string           `json:"slug"`
+	Description         *string          `json:"description"`
+	CreatedAt           pgtype.Timestamp `json:"created_at"`
+	CreatedByID         uuid.UUID        `json:"created_by_id"`
+	OrganizationID      uuid.UUID        `json:"organization_id"`
+	CreatedByName       string           `json:"created_by_name"`
+}
+
+// GetComponentsByReleaseID for a page of releases at once, each row naming
+// the release it belongs to.
+func (q *Queries) GetComponentsByReleaseIDs(ctx context.Context, arg GetComponentsByReleaseIDsParams) ([]GetComponentsByReleaseIDsRow, error) {
+	rows, err := q.db.Query(ctx, getComponentsByReleaseIDs, arg.ReleaseIds, arg.OrganizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetComponentsByReleaseIDsRow
+	for rows.Next() {
+		var i GetComponentsByReleaseIDsRow
+		if err := rows.Scan(
+			&i.ReleaseID,
+			&i.ID,
+			&i.PreviousComponentID,
+			&i.Name,
+			&i.Version,
+			&i.Slug,
+			&i.Description,
+			&i.CreatedAt,
+			&i.CreatedByID,
+			&i.OrganizationID,
+			&i.CreatedByName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getOrphanComponentIDs = `-- name: GetOrphanComponentIDs :many
 SELECT c.id
 FROM component c
