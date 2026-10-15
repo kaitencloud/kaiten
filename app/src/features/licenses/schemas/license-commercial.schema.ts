@@ -9,16 +9,16 @@ import {
 
 const WHOLE_NUMBER = /^\d+$/;
 // The bounds of the contract, which the form says in its own messages: a unit
-// test holds them to what the generated schema declares.
+// test holds them within what the generated schema declares.
 export const MAX_SELF_SERVE_CTA_URL_LENGTH = 2048;
-export const MAX_TRIAL_PERIOD_DAYS = 2_147_483_647;
+export const MAX_TRIAL_PERIOD_DAYS = 365;
 
 /**
  * The form of the commercial fields of a version. It starts from what the API
  * declares of them (the pricing type, the payment method, the URL), and adds what
  * the form needs: the trial and the URL kept as typed, where empty stands for
  * none. The rules the API states in prose are checked here, each message a
- * translation key placed on its field: a trial is at least 1 day, a URL is
+ * translation key placed on its field: a trial is from 1 to 365 days, a URL is
  * http(s) and at most 2048 characters.
  */
 export const licenseCommercialFormSchema = zLicenseWritable
@@ -39,10 +39,7 @@ export const licenseCommercialFormSchema = zLicenseWritable
     trialPeriodDays: z
       .string()
       .refine(
-        (days) =>
-          days.trim() === '' ||
-          (WHOLE_NUMBER.test(days.trim()) &&
-            Number(days) <= MAX_TRIAL_PERIOD_DAYS),
+        (days) => days.trim() === '' || WHOLE_NUMBER.test(days.trim()),
         'Pages.Licenses.Commercial.Form.Errors.trialWhole',
       )
       .refine(
@@ -51,6 +48,13 @@ export const licenseCommercialFormSchema = zLicenseWritable
           !WHOLE_NUMBER.test(days.trim()) ||
           Number(days) >= 1,
         'Pages.Licenses.Commercial.Form.Errors.trialMin',
+      )
+      .refine(
+        (days) =>
+          days.trim() === '' ||
+          !WHOLE_NUMBER.test(days.trim()) ||
+          Number(days) <= MAX_TRIAL_PERIOD_DAYS,
+        'Pages.Licenses.Commercial.Form.Errors.trialMax',
       ),
   });
 

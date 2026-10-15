@@ -1670,6 +1670,7 @@ export default {
           },
           Errors: {
             trialMin: 'Doit être d’au moins 1',
+            trialMax: 'Doit être de 365 au plus',
             trialWhole: 'Saisissez un nombre entier de jours',
             urlScheme: 'Saisissez une URL http ou https',
             urlLength: '2 048 caractères au plus',
