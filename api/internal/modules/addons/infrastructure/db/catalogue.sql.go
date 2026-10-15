@@ -138,7 +138,7 @@ func (q *Queries) CountOtherActiveMeteredAddonPrices(ctx context.Context, arg Co
 const createAddonFamily = `-- name: CreateAddonFamily :one
 INSERT INTO addon_family (organization_id, slug)
 VALUES ($1, $2)
-RETURNING id, organization_id, slug, last_version, is_public, created_at, updated_at
+RETURNING id, organization_id, slug, last_version, is_public, created_at, updated_at, increase_billing
 `
 
 type CreateAddonFamilyParams struct {
@@ -159,6 +159,7 @@ func (q *Queries) CreateAddonFamily(ctx context.Context, arg CreateAddonFamilyPa
 		&i.IsPublic,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IncreaseBilling,
 	)
 	return i, err
 }
@@ -335,7 +336,7 @@ func (q *Queries) GetAddonBySlug(ctx context.Context, arg GetAddonBySlugParams) 
 }
 
 const getAddonFamilyBySlug = `-- name: GetAddonFamilyBySlug :one
-SELECT id, organization_id, slug, last_version, is_public, created_at, updated_at
+SELECT id, organization_id, slug, last_version, is_public, created_at, updated_at, increase_billing
 FROM addon_family
 WHERE organization_id = $1
   AND slug = $2
@@ -357,6 +358,7 @@ func (q *Queries) GetAddonFamilyBySlug(ctx context.Context, arg GetAddonFamilyBy
 		&i.IsPublic,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IncreaseBilling,
 	)
 	return i, err
 }
@@ -697,7 +699,7 @@ func (q *Queries) ListAddonEntitlements(ctx context.Context, arg ListAddonEntitl
 }
 
 const listAddonFamilies = `-- name: ListAddonFamilies :many
-SELECT id, organization_id, slug, last_version, is_public, created_at, updated_at
+SELECT id, organization_id, slug, last_version, is_public, created_at, updated_at, increase_billing
 FROM addon_family
 WHERE organization_id = $1
 ORDER BY created_at DESC, id DESC
@@ -720,6 +722,7 @@ func (q *Queries) ListAddonFamilies(ctx context.Context, organizationID uuid.UUI
 			&i.IsPublic,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IncreaseBilling,
 		); err != nil {
 			return nil, err
 		}
@@ -1044,7 +1047,7 @@ func (q *Queries) LockAddonBySlug(ctx context.Context, arg LockAddonBySlugParams
 }
 
 const lockAddonFamilyByID = `-- name: LockAddonFamilyByID :one
-SELECT id, organization_id, slug, last_version, is_public, created_at, updated_at
+SELECT id, organization_id, slug, last_version, is_public, created_at, updated_at, increase_billing
 FROM addon_family
 WHERE organization_id = $1
   AND id = $2
@@ -1067,12 +1070,13 @@ func (q *Queries) LockAddonFamilyByID(ctx context.Context, arg LockAddonFamilyBy
 		&i.IsPublic,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IncreaseBilling,
 	)
 	return i, err
 }
 
 const lockAddonFamilyBySlug = `-- name: LockAddonFamilyBySlug :one
-SELECT id, organization_id, slug, last_version, is_public, created_at, updated_at
+SELECT id, organization_id, slug, last_version, is_public, created_at, updated_at, increase_billing
 FROM addon_family
 WHERE organization_id = $1
   AND slug = $2
@@ -1097,6 +1101,7 @@ func (q *Queries) LockAddonFamilyBySlug(ctx context.Context, arg LockAddonFamily
 		&i.IsPublic,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IncreaseBilling,
 	)
 	return i, err
 }
@@ -1134,7 +1139,7 @@ UPDATE addon_family
 SET is_public = $1
 WHERE organization_id = $2
   AND slug = $3
-RETURNING id, organization_id, slug, last_version, is_public, created_at, updated_at
+RETURNING id, organization_id, slug, last_version, is_public, created_at, updated_at, increase_billing
 `
 
 type SetAddonFamilyPublicParams struct {
@@ -1154,6 +1159,7 @@ func (q *Queries) SetAddonFamilyPublic(ctx context.Context, arg SetAddonFamilyPu
 		&i.IsPublic,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IncreaseBilling,
 	)
 	return i, err
 }
