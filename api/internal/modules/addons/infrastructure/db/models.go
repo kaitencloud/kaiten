@@ -322,10 +322,11 @@ func (ns NullEntitlementType) Value() (driver.Value, error) {
 type InstanceBillingStatus string
 
 const (
-	InstanceBillingStatusTRIAL    InstanceBillingStatus = "TRIAL"
-	InstanceBillingStatusACTIVE   InstanceBillingStatus = "ACTIVE"
-	InstanceBillingStatusPASTDUE  InstanceBillingStatus = "PAST_DUE"
-	InstanceBillingStatusCANCELED InstanceBillingStatus = "CANCELED"
+	InstanceBillingStatusINCOMPLETE InstanceBillingStatus = "INCOMPLETE"
+	InstanceBillingStatusTRIAL      InstanceBillingStatus = "TRIAL"
+	InstanceBillingStatusACTIVE     InstanceBillingStatus = "ACTIVE"
+	InstanceBillingStatusPASTDUE    InstanceBillingStatus = "PAST_DUE"
+	InstanceBillingStatusCANCELED   InstanceBillingStatus = "CANCELED"
 )
 
 func (e *InstanceBillingStatus) Scan(src interface{}) error {

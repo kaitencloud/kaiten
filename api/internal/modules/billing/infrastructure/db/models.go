@@ -229,10 +229,11 @@ func (ns NullHandoffStatus) Value() (driver.Value, error) {
 type InstanceBillingStatus string
 
 const (
-	InstanceBillingStatusTRIAL    InstanceBillingStatus = "TRIAL"
-	InstanceBillingStatusACTIVE   InstanceBillingStatus = "ACTIVE"
-	InstanceBillingStatusPASTDUE  InstanceBillingStatus = "PAST_DUE"
-	InstanceBillingStatusCANCELED InstanceBillingStatus = "CANCELED"
+	InstanceBillingStatusINCOMPLETE InstanceBillingStatus = "INCOMPLETE"
+	InstanceBillingStatusTRIAL      InstanceBillingStatus = "TRIAL"
+	InstanceBillingStatusACTIVE     InstanceBillingStatus = "ACTIVE"
+	InstanceBillingStatusPASTDUE    InstanceBillingStatus = "PAST_DUE"
+	InstanceBillingStatusCANCELED   InstanceBillingStatus = "CANCELED"
 )
 
 func (e *InstanceBillingStatus) Scan(src interface{}) error {
@@ -276,6 +277,7 @@ const (
 	InvoiceHoldReasonLEDGERSEQUENCEGAP     InvoiceHoldReason = "LEDGER_SEQUENCE_GAP"
 	InvoiceHoldReasonLEDGERCHAINBREAK      InvoiceHoldReason = "LEDGER_CHAIN_BREAK"
 	InvoiceHoldReasonLEDGERCOUNTERMISMATCH InvoiceHoldReason = "LEDGER_COUNTER_MISMATCH"
+	InvoiceHoldReasonPROVIDERITEMLIMIT     InvoiceHoldReason = "PROVIDER_ITEM_LIMIT"
 )
 
 func (e *InvoiceHoldReason) Scan(src interface{}) error {
