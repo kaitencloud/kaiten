@@ -57,13 +57,14 @@ func (r *client) Entitled(ctx context.Context, orgID uuid.UUID, entitlementSlug 
 // gives on it is "retry", and a request parked until the gateway gives up says the
 // same thing a minute later.
 func (r *Reporter) Entitled(ctx context.Context, orgID uuid.UUID, entitlementSlug string) (bool, error) {
-	client := r.currentClient()
-	if client == nil {
-		return false, errNotReady
+	client, err := r.clientNow(ctx)
+	if err != nil {
+		return false, err
 	}
 
 	return client.Entitled(ctx, orgID, entitlementSlug)
 }
 
-// errNotReady is Entitled's answer before the service token has been loaded.
+// errNotReady is what a synchronous call -- Entitled, ReportAndEnforce, Decrement --
+// answers before the service token has been loaded.
 var errNotReady = errors.New("dogfooding service token not loaded yet")

@@ -149,7 +149,30 @@ func TestReporterQueuesReportsUntilInitialTokenIsAvailable(t *testing.T) {
 	}
 }
 
-func TestReporterWaitForTokenHonorsContext(t *testing.T) {
+// A synchronous report is made on a request's path: without a token it fails at
+// once rather than holding the request -- or, under a context with no deadline as a
+// seed run's, waiting forever.
+func TestReporterSynchronousCallsFailFastUntilTheCredentialArrives(t *testing.T) {
+	url, _, _ := kbkSink(t, http.StatusOK, `{}`)
+	tokenFile := filepath.Join(t.TempDir(), "service-token")
+	reporter, err := NewReporter(t.Context(), Config{APIURL: url, OrgID: uuid.NewString()}, tokenFile)
+	require.NoError(t, err)
+	t.Cleanup(reporter.Close)
+
+	returnsPromptly(t, func() {
+		require.ErrorIs(t, reporter.ReportAndEnforce(context.Background(), uuid.New(), "entitlement"), errNotReady)
+		require.ErrorIs(t, reporter.Decrement(context.Background(), uuid.New(), "entitlement"), errNotReady)
+	})
+
+	require.NoError(t, os.WriteFile(tokenFile, []byte("token"), 0o600))
+	reporter.reload()
+
+	require.NoError(t, reporter.Decrement(t.Context(), uuid.New(), "entitlement"))
+}
+
+// An asynchronous report holds no request, so it still waits for the token, and
+// its job's own timeout bounds the wait.
+func TestReporterAsyncWaitForTokenHonorsContext(t *testing.T) {
 	reporter, err := NewReporter(t.Context(), Config{
 		APIURL: "http://example.com",
 		OrgID:  uuid.NewString(),
@@ -160,7 +183,7 @@ func TestReporterWaitForTokenHonorsContext(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
 	defer cancel()
 
-	err = reporter.ReportAndEnforce(ctx, uuid.New(), "entitlement")
+	err = reporter.reportAndEnforce(ctx, uuid.New(), "entitlement", reporter.awaitClient)
 
 	require.Error(t, err)
 	require.True(t, errors.Is(err, context.DeadlineExceeded))
