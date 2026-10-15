@@ -91,7 +91,12 @@ describe('the Stripe connector, as the mocks serve it', () => {
 
     const response = await send('GET', `/connectors/${STRIPE}/settings`);
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      configured: false,
+      connector_name: STRIPE,
+      settings: {},
+    });
     expect(await stripe()).toMatchObject({ available: true, connected: false });
   });
 
@@ -262,9 +267,9 @@ describe('the Stripe connector, as the mocks serve it', () => {
     ).toBe(204);
 
     expect((await stripe()).connected).toBe(false);
-    expect((await send('GET', `/connectors/${STRIPE}/settings`)).status).toBe(
-      404,
-    );
+    const read = await send('GET', `/connectors/${STRIPE}/settings`);
+    expect(read.status).toBe(200);
+    expect(((await read.json()) as ConnectorSettings).configured).toBe(false);
   });
 });
 

@@ -34,12 +34,13 @@ vi.mock('@/domains/customer-management/queries', () => ({
 }));
 
 const connectorSettings: ConnectorSettings = {
+  configured: true,
   connector_name: ATTIO_CONNECTOR_NAME,
   settings: {},
 };
 
-// What the API answers for a connector nobody configured, or an entity Attio
-// has not linked yet.
+// What the API answers for an entity Attio has not linked yet, or for a
+// connector the deployment has not registered.
 const notFound = () =>
   HttpResponse.json(
     { title: 'Not Found', status: 404, detail: 'not found' },
@@ -137,7 +138,9 @@ describe('Attio sync coordinator', () => {
   });
 
   it('does not start when Attio is not configured', async () => {
-    const unconfiguredReads = serveConnectorSettings(notFound);
+    const unconfiguredReads = serveConnectorSettings(() =>
+      HttpResponse.json({ ...connectorSettings, configured: false }),
+    );
     const polls = serveIntegrationPolls(notFound);
 
     const watcher = startAttioSyncWatcher({
@@ -159,6 +162,23 @@ describe('Attio sync coordinator', () => {
         }),
       ),
     ).toBeUndefined();
+  });
+
+  it('does not start when the deployment has not registered Attio', async () => {
+    const unregisteredReads = serveConnectorSettings(notFound);
+    const polls = serveIntegrationPolls(notFound);
+
+    const watcher = startAttioSyncWatcher({
+      queryClient,
+      entityKind: 'customer',
+      entitySlug: 'acme',
+      integrations: {},
+    });
+    await answerRequestsInFlight();
+    await watcher;
+
+    expect(unregisteredReads).toEqual([ATTIO_CONNECTOR_NAME]);
+    expect(polls).toEqual([]);
   });
 
   it('polls a missing integration then refreshes the customer caches', async () => {

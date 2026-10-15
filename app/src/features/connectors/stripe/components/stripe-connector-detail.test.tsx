@@ -37,6 +37,7 @@ useBillingTexts();
 const stored = (
   settings: Record<string, unknown> = {},
 ): ConnectorSettings => ({
+  configured: true,
   connector_name: STRIPE_CONNECTOR_NAME,
   settings: {
     autoFinalize: true,
@@ -80,6 +81,7 @@ function serveSaves(refuse?: (calls: number) => Response | undefined) {
       }
 
       return HttpResponse.json({
+        configured: true,
         connector_name: params.connectorName,
         settings: { ...body.settings, stripeSecretKey: '***' },
       });
