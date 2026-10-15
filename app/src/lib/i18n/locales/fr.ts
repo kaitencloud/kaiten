@@ -5972,6 +5972,12 @@ export default {
         cancellationScheduled: 'Annulation en fin de période',
         none: 'Pas d’abonnement',
       },
+      CancellationReasons: {
+        INCOMPLETE_EXPIRED:
+          'Le premier paiement n’est pas arrivé à temps : l’abonnement n’a jamais démarré et l’instance a gardé sa licence.',
+        TRIAL_ENDED_WITHOUT_PAYMENT_METHOD:
+          'L’essai s’est terminé sans moyen de paiement enregistré : il n’est pas devenu un abonnement payant.',
+      },
       LicensePriceSummary: {
         free: 'Gratuit',
         custom: 'Tarif sur mesure',

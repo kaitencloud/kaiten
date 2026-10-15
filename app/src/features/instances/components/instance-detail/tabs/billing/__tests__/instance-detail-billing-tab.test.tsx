@@ -385,6 +385,46 @@ describe('a subscription that ended', () => {
   });
 });
 
+describe('why a subscription ended', () => {
+  const endedFor = (cancellationReason: string) =>
+    subscription({
+      canceledAt: '2026-06-01T00:00:00.000Z',
+      cancellationReason,
+      status: 'CANCELED',
+    });
+
+  it.each([
+    [
+      'INCOMPLETE_EXPIRED',
+      'The first payment was not made in time: the subscription never started and the instance kept its license.',
+    ],
+    [
+      'TRIAL_ENDED_WITHOUT_PAYMENT_METHOD',
+      'The trial ended with no payment method on file, so it did not become a paid subscription.',
+    ],
+  ])('says in words the reason Kaiten wrote itself: %s', async (code, words) => {
+    serveSubscription(endedFor(code));
+    renderTab();
+
+    expect(await screen.findByText(words)).toBeInTheDocument();
+    expect(screen.queryByText(code)).toBeNull();
+  });
+
+  it('shows a reason a person wrote as it was written, and a code it does not know the same way', async () => {
+    serveSubscription(endedFor('A_CODE_OF_A_LATER_RELEASE'));
+    renderTab();
+
+    expect(await screen.findByText('A_CODE_OF_A_LATER_RELEASE')).toBeInTheDocument();
+  });
+
+  it('does not take a person’s sentence for a code', async () => {
+    serveSubscription(endedFor('toString'));
+    renderTab();
+
+    expect(await screen.findByText('toString')).toBeInTheDocument();
+  });
+});
+
 describe('reading the billing of the instance', () => {
   it('is busy while the subscription is on the way', async () => {
     server.use(
