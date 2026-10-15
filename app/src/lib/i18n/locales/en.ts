@@ -6277,7 +6277,7 @@ export default {
         INSTANCE_BILLING_CANCELLATION_SCHEDULED:
           'Subscription cancellation scheduled',
         INSTANCE_BILLING_PLAN_CHANGED: 'Subscription plan changed',
-        INSTANCE_BILLING_PLAN_CHANGE_CANCELLED: 'Plan change canceled',
+        INSTANCE_BILLING_PLAN_CHANGE_CANCELED: 'Plan change canceled',
         INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED: 'Plan change scheduled',
         INSTANCE_BILLING_PROVIDER_CHANGED:
           'Subscription payment provider changed',
