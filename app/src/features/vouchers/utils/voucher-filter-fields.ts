@@ -1,7 +1,6 @@
 import type { TFunction } from 'i18next';
 import type { Voucher } from '@/api-client';
 import {
-  getVoucherStatus,
   getVoucherStatusLabelKey,
   getVoucherTypeLabelKey,
   VOUCHER_STATUSES,
@@ -38,9 +37,8 @@ export function getVoucherSearchTokens(
 }
 
 /**
- * The fields of the list: the search, then the status, which is the one a person reads
- * (fully redeemed and expired are derived, since the API stores neither as such for a
- * voucher that is still ACTIVE), and the kind of voucher.
+ * The fields of the list: the search, then the status the API stores (it sets EXPIRED
+ * and EXHAUSTED itself), and the kind of voucher.
  */
 export function createVoucherFilterFields({
   customerNames,
@@ -58,7 +56,7 @@ export function createVoucherFilterFields({
       type: 'text',
     },
     {
-      accessor: (voucher) => getVoucherStatus(voucher),
+      accessor: (voucher) => voucher.status,
       id: VOUCHER_FILTER_IDS.status,
       label: t('Pages.Vouchers.List.Filters.status'),
       options: VOUCHER_STATUSES.map((status) => ({

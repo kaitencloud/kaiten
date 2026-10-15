@@ -417,13 +417,13 @@ describe('dev world', () => {
       new Set(['ENTITLEMENT_BOOST', 'PRICE']),
     );
     expect(new Set(vouchers.map(({ status }) => status))).toEqual(
-      new Set(['ACTIVE', 'ARCHIVED', 'DRAFT', 'EXHAUSTED']),
+      new Set(['ACTIVE', 'ARCHIVED', 'DRAFT', 'EXHAUSTED', 'EXPIRED']),
     );
-    // One whose window closed, which the API never says: it is still ACTIVE.
+    // One whose window closed, which the API marked EXPIRED.
     expect(
       vouchers.some(
         ({ expiresAt, status }) =>
-          status === 'ACTIVE' && expiresAt && Date.parse(expiresAt) < Date.now(),
+          status === 'EXPIRED' && expiresAt && Date.parse(expiresAt) < Date.now(),
       ),
     ).toBe(true);
     for (const voucher of vouchers) {

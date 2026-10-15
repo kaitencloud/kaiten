@@ -167,7 +167,6 @@ export {
   getSubscriptionStatusLabelKey,
   getTrialEnd,
   getVersionTransition,
-  getVoucherStatus,
   getVoucherStatusLabelKey,
   getVoucherTypeLabelKey,
   HANDOFF_STATUSES,
@@ -252,7 +251,6 @@ export {
   VOUCHER_TYPES,
   type VoucherOfferInput,
   type VoucherStatus,
-  type VoucherStatusInput,
   type VoucherType,
 } from './logic';
 export {

@@ -37,12 +37,14 @@ const HOOLI = buildVoucher({
   name: 'Hooli agreement',
   redemptionsCount: 1,
   restrictedCustomerSlug: 'hooli',
+  status: 'EXHAUSTED',
 });
 const LAPSED = buildVoucher({
   code: 'SPRING-2026-PROMO',
   createdAt: '2026-03-01T09:00:00.000Z',
   expiresAt: '2020-06-30T23:59:59.000Z',
   id: 'voucher-lapsed',
+  status: 'EXPIRED',
   name: 'Spring promotion',
 });
 const DRAFT = buildVoucher({
@@ -99,7 +101,7 @@ describe('the list of vouchers', () => {
     expect(row('Tokens times two')).toHaveTextContent('No end date');
   });
 
-  it('shows the state a person reads, which the console derives from the window and the count', async () => {
+  it('shows the state the API stored, and says when an active voucher starts', async () => {
     renderScreen(<VouchersPageContent />);
 
     await screen.findByText('Welcome spring');
