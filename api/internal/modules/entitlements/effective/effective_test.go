@@ -139,7 +139,8 @@ func TestResolveZeroGrantsAlone(t *testing.T) {
 	require.True(t, valueOf(t, r).IsZero())
 	require.Equal(t, int16(0), *r.Pct)
 	require.Zero(t, r.AddonGrantCount)
-	require.Nil(t, r.Number)
+	require.NotNil(t, r.Number, "computed, not the licence's: it has a composition")
+	require.True(t, r.Number.Effective.IsZero())
 }
 
 func TestResolveIdentityAndWindows(t *testing.T) {

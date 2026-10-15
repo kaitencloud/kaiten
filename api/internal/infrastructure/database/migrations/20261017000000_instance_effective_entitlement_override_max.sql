@@ -10,7 +10,8 @@
 --   rule (INV-22) returns the licence grant verbatim when only such grants are
 --   attached. addon_grant_count counts contributing grants only, and the
 --   provenance lists them only. The attachment still makes the row exist: an
---   entitlement granted only by grants of 0 reads 0 @ 0 (§7.1, §7.3).
+--   entitlement granted only by grants of 0 reads 0 @ 0 (§7.1, §7.3), and,
+--   being computed rather than the licence's, carries its number provenance.
 CREATE OR REPLACE VIEW "instance_effective_entitlement" AS
 SELECT
   i."organization_id",
@@ -168,7 +169,7 @@ CROSS JOIN LATERAL (
       'addons', COALESCE(a."detail", '[]'::jsonb),
       'boosts', COALESCE(b."detail", '[]'::jsonb),
       'number', CASE WHEN e."type" IN ('NUMBER', 'NUMBER_AI_CREDIT')
-                      AND (a."grant_count" > 0 OR b."grant_count" > 0) THEN jsonb_build_object(
+                      AND (a."grant_count" > 0 OR b."grant_count" > 0 OR le."id" IS NULL) THEN jsonb_build_object(
         'license', l."license_number",
         'after_addons', n1."after_addons",
         'boost_set', b."set_value",
