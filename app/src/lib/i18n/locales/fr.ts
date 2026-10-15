@@ -4611,8 +4611,6 @@ export default {
           name: 'Le nom est requis',
           maxQuantity:
             'Saisissez un nombre entier d’unités, 1 ou plus, ou laissez vide pour aucun maximum.',
-          maxQuantityHeld:
-            '{{instance}} détient {{quantity}} unités : baissez-y d’abord la quantité avant de baisser le maximum.',
         },
         Toasts: {
           created: 'Add-on créé',

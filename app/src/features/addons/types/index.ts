@@ -23,10 +23,3 @@ export type AddonLifecycleState = Addon['lifecycleState'];
 
 /** What a version is sold as, as the API spells it. */
 export type AddonPricingType = Addon['pricingType'];
-
-/** An instance that holds a version of an add-on, and how many units of it. */
-export type AddonHolder = {
-  instanceName: string;
-  instanceSlug: string;
-  quantity: number;
-};

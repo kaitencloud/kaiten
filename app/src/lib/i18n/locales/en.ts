@@ -4548,8 +4548,6 @@ export default {
           name: 'Name is required',
           maxQuantity:
             'Enter a whole number of units, 1 or more, or leave it empty for no maximum.',
-          maxQuantityHeld:
-            '{{instance}} holds {{quantity}} units: lower its quantity there before lowering the maximum.',
         },
         Toasts: {
           created: 'Add-on created',

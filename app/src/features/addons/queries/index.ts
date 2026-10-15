@@ -1,4 +1,3 @@
-export { addonHoldersQueryOptions } from './addon-holders';
 export {
   addonFamiliesQueryOptions,
   addonGrantsQueryOptions,
