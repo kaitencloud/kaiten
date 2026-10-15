@@ -126,7 +126,7 @@ func TestListUsageReports(t *testing.T) {
 		assignEntitlementToLicenseWithOverage(t, instance.LicenseSlug, entitlement.Slug, 1000, 50)
 
 		resp, body := rawReport(t, instance.Slug, entitlement.Slug,
-			`{"value":{"type":"number","value":600},"behavior":"append","transactionId":"evt-1","metadata":{"model":"m"}}`)
+			`{"value":{"type":"number","value":600},"behavior":"append","metadata":{"model":"m"}}`, "evt-1")
 		require.Equal(t, fiber.StatusOK, resp.StatusCode, "body: %s", body)
 		requireStatus(t, fiber.StatusOK, instance.Slug, entitlement.Slug, 500, "append")
 		requireStatus(t, fiber.StatusOK, instance.Slug, entitlement.Slug, 450, "set")
@@ -347,7 +347,7 @@ func TestExportUsageReports(t *testing.T) {
 		entitlement := newEntitlement(t)
 		assignEntitlementToLicense(t, instance.LicenseSlug, entitlement.Slug, 1000)
 		resp, body := rawReport(t, instance.Slug, entitlement.Slug,
-			`{"value":{"type":"number","value":5},"behavior":"append","transactionId":"-cmd","metadata":{"note":"a,b\"c"}}`)
+			`{"value":{"type":"number","value":5},"behavior":"append","metadata":{"note":"a,b\"c"}}`, "-cmd")
 		require.Equal(t, fiber.StatusOK, resp.StatusCode, "body: %s", body)
 		requireStatus(t, fiber.StatusOK, instance.Slug, entitlement.Slug, 2.5, "append")
 
