@@ -120,22 +120,36 @@ const MAX_SELF_SERVE_CTA_URL = 2048;
 
 // The commercial fields are validated as the API does: a trial is from one to
 // 365 days (zero clears it on an update), the CTA an http(s) URL of at most
-// 2048 characters.
+// 2048 characters. A trial outside 0..365 is refused by the schema of the
+// request, which names it in `errors` under the code of the operation; a create
+// that sends 0 passes the schema and is refused by the use case, with no `errors`.
 function checkCommercialFields(
   operation: 'CreateLicense' | 'UpdateLicense',
   body: Pick<LicenseWritable, 'selfServeCtaUrl' | 'trialPeriodDays'>,
 ) {
   const trial = body.trialPeriodDays;
-  if (
-    trial !== undefined &&
-    (trial < 0 ||
-      trial > MAX_TRIAL_PERIOD_DAYS ||
-      (operation === 'CreateLicense' && trial < 1))
-  ) {
+  if (trial !== undefined && (trial < 0 || trial > MAX_TRIAL_PERIOD_DAYS)) {
     throw new LicenseProblem(
       422,
       `${operation}.InvalidTrialDays`,
-      `trialPeriodDays must be from 1 to ${MAX_TRIAL_PERIOD_DAYS} days`,
+      'validation failed',
+      [
+        {
+          location: 'body.trialPeriodDays',
+          message:
+            trial < 0
+              ? 'expected number >= 0'
+              : `expected number <= ${MAX_TRIAL_PERIOD_DAYS}`,
+          value: trial,
+        },
+      ],
+    );
+  }
+  if (operation === 'CreateLicense' && trial !== undefined && trial < 1) {
+    throw new LicenseProblem(
+      422,
+      `${operation}.InvalidTrialDays`,
+      `trialPeriodDays is between 1 and ${MAX_TRIAL_PERIOD_DAYS}`,
     );
   }
   const url = body.selfServeCtaUrl;
