@@ -96,6 +96,7 @@ import {
 import {
   createBilledCatalogModel,
   createDraftPricesModel,
+  createFreeDraftModel,
   createLicenseCatalogModel,
   createNumberedLicenseFamilyModel,
   createPricedCatalogModel,
@@ -186,6 +187,7 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   ['licenses/createPricedCatalogModel', createPricedCatalogModel],
   ['licenses/createBilledCatalogModel', createBilledCatalogModel],
   ['licenses/createDraftPricesModel', createDraftPricesModel],
+  ['licenses/createFreeDraftModel', createFreeDraftModel],
   ['licenses/createPricedFamiliesModel', createPricedFamiliesModel],
   ['licenses/createTwoFlatFeesModel', createTwoFlatFeesModel],
   [
