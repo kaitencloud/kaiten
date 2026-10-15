@@ -3411,8 +3411,7 @@ export default {
           connected: 'Connecté',
           available: 'Disponible',
           unavailable: 'Indisponible',
-          comingH1: 'Prévu S1',
-          comingH2: 'Prévu S2',
+          comingSoon: 'Bientôt disponible',
         },
         Sections: {
           connected: 'Connectés ({{count}})',
@@ -3423,9 +3422,7 @@ export default {
         Taglines: {
           attio: 'CRM B2B moderne',
           hubspot: 'Plateforme CRM',
-          salesforce: 'CRM pour grandes entreprises',
           stripe: 'Facturation d’abonnements',
-          lago: 'Facturation à l’usage',
         },
         Card: {
           connect: 'Connecter',

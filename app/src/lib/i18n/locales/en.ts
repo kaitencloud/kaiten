@@ -3364,8 +3364,7 @@ export default {
           connected: 'Connected',
           available: 'Available',
           unavailable: 'Unavailable',
-          comingH1: 'Coming H1',
-          comingH2: 'Coming H2',
+          comingSoon: 'Coming soon',
         },
         Sections: {
           connected: 'Connected ({{count}})',
@@ -3376,9 +3375,7 @@ export default {
         Taglines: {
           attio: 'Modern B2B CRM',
           hubspot: 'CRM platform',
-          salesforce: 'Enterprise CRM',
           stripe: 'Subscription billing',
-          lago: 'Usage-based billing',
         },
         Card: {
           connect: 'Connect',

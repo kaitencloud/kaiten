@@ -1,17 +1,12 @@
-export type ConnectorId =
-  | 'attio'
-  | 'hubspot'
-  | 'salesforce'
-  | 'stripe'
-  | 'lago';
+export type ConnectorId = 'attio' | 'hubspot' | 'stripe';
 
 export type ConnectorStatus =
   | 'connected'
   | 'available'
   /** Shipped, and not usable here: the organization cannot connect it. */
   | 'unavailable'
-  | 'coming-h1'
-  | 'coming-h2';
+  /** Announced, not shipped yet: drawn in the catalog and never opened. */
+  | 'coming-soon';
 
 export type ConnectorTileTone =
   | 'primary'
