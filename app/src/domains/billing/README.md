@@ -78,10 +78,12 @@ app/src/domains/billing/
 │                     # bills (InvoiceLineAddon) and what a table says
 │                     # when it has no row (TableEmptyMessage), and the state of a subscription
 │                     # in a list of instances (InstanceBillingBadge, InstanceBillingCell), and
-│                     # how a license version is sold (LicensePriceSummaryText)
+│                     # how a license version is sold (LicensePriceSummaryText), and the frame of
+│                     # the warning that a grant of an add-on or a voucher would lower what a
+│                     # license grants (LicenseGrantWarning)
 ├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session
 │                     # (useGrantedScopes reads them, for a screen that filters on several);
-│                     # useInvoiceActionAccess, the same for the five actions on an invoice;
+│                     # useInvoiceActionAccess, the same for the eight actions on an invoice;
 │                     # useAlertFocus, which puts the focus on a refusal or a confirmation; useDeletionRefusal,
 │                     # which explains a deletion billing refused; useBillingActionForm, the form of an
 │                     # audited action; useBoundaryRetry, which waits
@@ -89,7 +91,9 @@ app/src/domains/billing/
 │                     # useUsageReports, over the pages of a list of usage reports;
 │                     # useInstancesBilling, the subscriptions of the lists of instances;
 │                     # useLicensesWithPrices, the license versions and their prices;
-│                     # useInvoiceLineAddon, the attachment an invoice line bills
+│                     # useInvoiceLineAddon, the attachment an invoice line bills;
+│                     # useLicenseFamilyHeads and useLicenseGrants, what the license versions
+│                     # of some families grant, over REST
 ├── logic/            # actions and their scopes, availability, problems, the placing of a
 │                     # refusal on the fields of a form (problem-field-errors), the reason an
 │                     # audited action takes (reason), statuses,
@@ -105,13 +109,17 @@ app/src/domains/billing/
 │                     # instance as a list reads it (instance-billing-summary), the license
 │                     # versions with their prices (license-catalogue) and how one is sold
 │                     # (license-price-summary), every license and add-on version with all its
-│                     # prices, deprecated ones included (catalog-prices)
+│                     # prices, deprecated ones included (catalog-prices), what a license grants
+│                     # of a number and whether a grant of an add-on or a voucher would lower it
+│                     # (license-grants), and the words of a cancellation Kaiten made itself
+│                     # (cancellation-reason)
 ├── queries/          # the capabilities, the billing settings, the route guard, invalidation
 │                     # helpers (those of the vouchers and of an instance's redemptions included),
 │                     # the pages of the invoices of a subject, the pages of usage reports, the
 │                     # export of the invoices, the attachments of an instance with the removed
 │                     # ones (instance-addons-query-options), and the prices of every version
-│                     # of the catalog in one document (catalog-prices-query-options)
+│                     # of the catalog in one document (catalog-prices-query-options), and what
+│                     # a license version and an add-on version grant (addon-query-options)
 ├── types/
 ├── __tests__/
 └── index.ts
@@ -232,7 +240,11 @@ page holds, or an export the API streams.
   method the way the API sends it, `null` for a customer with none though the contract
   declares it always there. `getSafeProviderUrl` keeps an address of a page the provider
   hosts (the invoice, its PDF, the customer in its dashboard) only when it is https, so
-  that a link to it cannot be anything else.
+  that a link to it cannot be anything else. `getStripeInvoiceDashboardUrl(livemode,
+  invoiceId)` is the page of an invoice in the dashboard of Stripe, where a credit note is
+  made: in the mode the connection reaches, since a link to the wrong one finds nothing, so
+  it is none while that mode is not known, and none for an identifier that is not an
+  invoice's.
 - `invalidateInstanceBillingQueries`, `invalidateInstanceAddonQueries`,
   `invalidateInvoiceQueries`, `invalidateLicensePriceQueries`,
   `invalidateBillingSettingsQueries`, `invalidateBillingProviderQueries` (a provider was
@@ -391,14 +403,20 @@ page holds, or an export the API streams.
   `STRIPE_CONNECTOR_NAME` is the connector Stripe is configured through.
 - **What an invoice allows is decided here.** `getInvoiceActions(invoice, context)`
   answers, from the status, the hold, the provider and the replacement of an invoice,
-  which of release, recompose, mark paid, write off, void, retry push and sync it
-  offers, in order (a push is retried, and an invoice read back, only where Stripe
-  collects it; `isAwaitingFinalization` and `getPushVariant` say whether pushing again
-  finalizes a draft Stripe holds, retries a failed push or pushes a queued draft), and
-  `INVOICE_ACTION_SCOPES` names the billing action, hence the scope, of each, and
+  which of release, recompose, mark paid, write off, void, void and recompose, retry push
+  and sync it offers, in order (a push is retried, and an invoice read back, only where
+  Stripe collects it; `isAwaitingFinalization` and `getPushVariant` say whether pushing
+  again finalizes a draft Stripe holds, retries a failed push or pushes a queued draft).
+  An invoice Stripe holds open whose reconciliation is a MISMATCH offers **void and
+  recompose** first, in one confirmation: Kaiten is authoritative, so the remedy is to void
+  it in both systems and compose it again, not to settle the difference in Stripe, and one
+  Stripe already holds as paid offers nothing, since Stripe cannot void it.
+  `INVOICE_ACTION_SCOPES` names the billing action, hence the scope, of each (both the void
+  and the recompose for that one, `getInvoiceActionBillingActions`), and
   `useInvoiceActionAccess` reads them once for a screen. An
   action the status allows and the screen knows the API would refuse is returned
-  disabled, with why: a recompose of an invoice, held draft or void, whose usage is no
+  disabled, with why: a recompose of an invoice, held draft or void, and a void and recompose
+  of one in MISMATCH (voiding first would leave the customer with no invoice), whose usage is no
   longer kept (`getRetentionStart(months)` from `usageHistoryRetentionMonths`) and one
   for an instance that was deleted. The API has the last
   word. `isHandoffLeased` says whether a consumer holds an invoice of the handoff
@@ -410,6 +428,24 @@ page holds, or an export the API streams.
   replacement already exists and is named, its instance was deleted): the codes
   and the replacement the problem carries are read here, once, and the dialog
   switches on the result.
+- **A grant that would lower what a license grants is warned about.** The API accepts an
+  OVERRIDE add-on grant, or a SET boost of a voucher, whose value is below the license's,
+  and an overage allowance below it, because that is the vendor's intent; the screens say
+  so before they send it. The reading is shared by three features, so it is here:
+  `useLicenseFamilyHeads` resolves the version each license family stands for (one request
+  for the families), `useLicenseGrants` reads what each version grants (one request per
+  version, over REST), both only for a session that may read licenses and families,
+  and `readLicenseGrant` turns a grant into its value and allowance (none for an unlimited
+  license, which nothing replaces with less). `lowersLicenseValue`, `lowersLicenseOverage`
+  and `getOverrideReplacement` (value times quantity, for an OVERRIDE of a number that is not
+  0 or unlimited: the API ignores a grant of 0, its allowance included) decide, and
+  `LicenseGrantWarning` is the frame, a note and never a blocker; the words are each
+  screen's.
+- **A cancellation Kaiten made itself is said in words.** `getCancellationReasonLabelKey`
+  gives the key of the two reserved reasons (`INCOMPLETE_EXPIRED`,
+  `TRIAL_ENDED_WITHOUT_PAYMENT_METHOD`), and nothing for any other: the sentence a person
+  wrote, or a code a later release adds, is shown as it came.
+
 - **A metered line shows what it was measured from.** `LineFingerprint` writes the
   `metering.ledger` of a line (`Reports 41–45 · 5 rows · Σ 172,345`) and
   `OverageLimits` the arithmetic of an overage line with every limit that applied,
