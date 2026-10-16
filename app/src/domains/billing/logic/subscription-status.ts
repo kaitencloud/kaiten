@@ -4,6 +4,7 @@ import type { InstanceBilling } from '@/api-client';
 export type SubscriptionStatus = InstanceBilling['status'];
 
 export const SUBSCRIPTION_STATUSES = [
+  'INCOMPLETE',
   'TRIAL',
   'ACTIVE',
   'PAST_DUE',
@@ -11,6 +12,7 @@ export const SUBSCRIPTION_STATUSES = [
 ] as const satisfies readonly SubscriptionStatus[];
 
 const STATUS_LABEL_KEYS = {
+  INCOMPLETE: 'Features.Billing.SubscriptionStatus.INCOMPLETE',
   TRIAL: 'Features.Billing.SubscriptionStatus.TRIAL',
   ACTIVE: 'Features.Billing.SubscriptionStatus.ACTIVE',
   PAST_DUE: 'Features.Billing.SubscriptionStatus.PAST_DUE',

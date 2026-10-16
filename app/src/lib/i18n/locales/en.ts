@@ -5863,6 +5863,7 @@ export default {
         LEDGER_SEQUENCE_GAP: 'Usage reports are missing from the journal',
         LEDGER_CHAIN_BREAK: 'The usage journal chain is broken',
         LEDGER_COUNTER_MISMATCH: 'The usage counter does not match the journal',
+        PROVIDER_ITEM_LIMIT: 'More lines than the payment provider accepts',
       },
       InvoiceLineType: {
         BASE: 'Base',
@@ -5873,6 +5874,7 @@ export default {
         unknown: 'Other',
       },
       SubscriptionStatus: {
+        INCOMPLETE: 'Awaiting payment',
         TRIAL: 'Trial',
         ACTIVE: 'Active',
         PAST_DUE: 'Past due',
@@ -6282,6 +6284,7 @@ export default {
         INSTANCE_BILLING_PROVIDER_CHANGED:
           'Subscription payment provider changed',
         INSTANCE_BILLING_STARTED: 'Subscription started',
+        INSTANCE_BILLING_TRIAL_WILL_END: 'Trial ending soon',
         INSTANCE_BILLING_STATUS_CHANGED: 'Subscription status changed',
         INSTANCE_CREATED: 'Instance created',
         INSTANCE_DELETED: 'Instance deleted',
