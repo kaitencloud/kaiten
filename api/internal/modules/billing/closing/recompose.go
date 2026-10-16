@@ -307,6 +307,13 @@ func (c *Closer) recheckOne(ctx context.Context, invoiceID uuid.UUID) (released 
 		if row.HoldReason == nil || sub.InstanceID == nil {
 			return nil
 		}
+		// Released with today's names, as a close would issue it (PR18-02).
+		if sub, err = q.RefreshSubscriptionSnapshot(ctx, sub.ID); err != nil {
+			return err
+		}
+		if row, err = q.RefreshInvoiceIdentity(ctx, row.ID); err != nil {
+			return err
+		}
 		recomposed, err := c.Recompose(ctx, q, sub, row, true, "")
 		if err != nil || recomposed.Hold != nil {
 			return err
