@@ -60,11 +60,11 @@ describe('the list of publishable keys', () => {
     expect(intro).toHaveTextContent(/X-Kaiten-Publishable-Key/);
     expect(intro).toHaveTextContent(/GET \/public\/catalog/);
     expect(
-      await within(intro).findByRole('link', { name: 'License families' }),
+      await within(intro).findByRole('link', { name: 'Licenses' }),
     ).toHaveAttribute('href', '/catalog/licenses');
     // The add-ons are not shipped by this release.
     expect(
-      within(intro).queryByRole('link', { name: 'Add-on families' }),
+      within(intro).queryByRole('link', { name: 'Add-ons' }),
     ).not.toBeInTheDocument();
   });
 

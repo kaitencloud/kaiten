@@ -3323,9 +3323,9 @@ export default {
           purpose:
             'Une clé publiable permet à une page web de lire votre catalogue public : elle envoie la clé dans l’en-tête X-Kaiten-Publishable-Key vers GET /public/catalog. Ce n’est pas un secret, et elle ne lit rien d’autre.',
           listing:
-            'Ce que le catalogue liste est décidé par l’interrupteur « Catalogue public » de chaque famille :',
-          licenses: 'Familles de licences',
-          addons: 'Familles d’add-ons',
+            'Ce que le catalogue liste est décidé par l’interrupteur « Catalogue public » de chaque licence et de chaque add-on :',
+          licenses: 'Licences',
+          addons: 'Add-ons',
         },
         List: {
           new: 'Nouvelle clé publiable',

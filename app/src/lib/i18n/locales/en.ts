@@ -3277,9 +3277,9 @@ export default {
           purpose:
             'A publishable key lets a web page read your public catalog: it sends the key in the X-Kaiten-Publishable-Key header to GET /public/catalog. It is not a secret, and it reads nothing else.',
           listing:
-            'What the catalog lists is decided by the Public catalog switch of each family:',
-          licenses: 'License families',
-          addons: 'Add-on families',
+            'What the catalog lists is decided by the Public catalog switch of each license and add-on:',
+          licenses: 'Licenses',
+          addons: 'Add-ons',
         },
         List: {
           new: 'New publishable key',
