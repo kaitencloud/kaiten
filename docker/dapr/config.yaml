@@ -3,6 +3,23 @@ kind: Configuration
 metadata:
   name: config
 spec:
+  # Hot reload is off. daprd turns it on by default since 1.18, and applies a
+  # change to a Configuration, Resiliency or HTTPEndpoint by restarting its
+  # runtime in-process -- after which it exports no span at all, while
+  # delivery goes on. This file sits in the resources path the sidecar
+  # watches, so every file event in docker/dapr/ reads as this Configuration
+  # being created, and Docker Desktop on macOS fires one in each bind mount
+  # whenever any container starts or stops: a fresh `task quickstart`
+  # restarted the runtime eight times in its first 35 seconds, and none of the
+  # sidecar's spans reached Jaeger. With it off, a change to anything in
+  # docker/dapr/ applies when the sidecar is recreated, which `task restart`
+  # does.
+  #
+  # TODO: turn hot reload back on once daprd ships the fix for
+  # https://github.com/dapr/dapr/issues/10831
+  features:
+    - name: HotReload
+      enabled: false
   tracing:
     samplingRate: "1"
     otel:
