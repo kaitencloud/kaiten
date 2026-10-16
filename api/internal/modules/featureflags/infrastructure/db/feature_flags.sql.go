@@ -334,7 +334,9 @@ SET type            = $1,
     targeting_rules = $3::jsonb,
     name            = $4,
     description     = $5,
-    slug            = $6,
+    -- A body without a slug keeps the flag's own: writing it verbatim stored
+    -- an empty slug, and a flag nothing could address again.
+    slug            = COALESCE($6, ff.slug),
     metadata        = $7::jsonb,
     enabled         = $8,
     event_name      = $9,
@@ -354,7 +356,7 @@ type UpdateFeatureFlagParams struct {
 	TargetingRules  []byte    `json:"targeting_rules"`
 	Name            string    `json:"name"`
 	Description     *string   `json:"description"`
-	Slug            string    `json:"slug"`
+	NewSlug         *string   `json:"new_slug"`
 	Metadata        []byte    `json:"metadata"`
 	Enabled         bool      `json:"enabled"`
 	EventName       string    `json:"event_name"`
@@ -371,7 +373,7 @@ func (q *Queries) UpdateFeatureFlag(ctx context.Context, arg UpdateFeatureFlagPa
 		arg.TargetingRules,
 		arg.Name,
 		arg.Description,
-		arg.Slug,
+		arg.NewSlug,
 		arg.Metadata,
 		arg.Enabled,
 		arg.EventName,

@@ -197,22 +197,23 @@ SELECT id, organization_id, resource_type, key, label, json_schema, display_orde
 FROM metadata_field
 WHERE organization_id = $1
   AND resource_type = $2
-  AND archived_at IS NULL
+  AND ($3::boolean OR archived_at IS NULL)
   AND (
-    $3::int IS NULL
+    $4::int IS NULL
     OR (display_order, created_at, id) > (
-      $3::int,
-      $4::timestamp,
-      $5::uuid
+      $4::int,
+      $5::timestamp,
+      $6::uuid
     )
   )
 ORDER BY display_order ASC, created_at ASC, id ASC
-LIMIT $6
+LIMIT $7
 `
 
 type ListMetadataFieldsByResourceTypeParams struct {
 	OrganizationID     uuid.UUID                 `json:"organization_id"`
 	ResourceType       MetadataFieldResourceType `json:"resource_type"`
+	IncludeArchived    bool                      `json:"include_archived"`
 	CursorDisplayOrder *int32                    `json:"cursor_display_order"`
 	CursorCreatedAt    pgtype.Timestamp          `json:"cursor_created_at"`
 	CursorID           *uuid.UUID                `json:"cursor_id"`
@@ -228,11 +229,13 @@ type ListMetadataFieldsByResourceTypeParams struct {
 // limit + 1 so the caller can detect whether a further page exists
 // without a separate COUNT query. On the first page, pass NULL for
 // cursor_display_order (and, by convention, the other two cursor
-// columns).
+// columns). include_archived lets archived rows through, as it does in
+// ListMetadataFieldsForGraphQL below.
 func (q *Queries) ListMetadataFieldsByResourceType(ctx context.Context, arg ListMetadataFieldsByResourceTypeParams) ([]MetadataField, error) {
 	rows, err := q.db.Query(ctx, listMetadataFieldsByResourceType,
 		arg.OrganizationID,
 		arg.ResourceType,
+		arg.IncludeArchived,
 		arg.CursorDisplayOrder,
 		arg.CursorCreatedAt,
 		arg.CursorID,

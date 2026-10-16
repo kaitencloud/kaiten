@@ -38,6 +38,7 @@ func TestReorderMetadataFields(t *testing.T) {
 		rows, err := metadatafieldsdb.New(testServer.Dependencies.DB).ListMetadataFieldsByResourceType(context.Background(), metadatafieldsdb.ListMetadataFieldsByResourceTypeParams{
 			OrganizationID:     testDb.DefaultData.OrganizationID,
 			ResourceType:       metadatafieldsdb.MetadataFieldResourceTypeDEPLOYMENTZONE,
+			IncludeArchived:    false,
 			CursorDisplayOrder: nil,
 			CursorCreatedAt:    pgtype.Timestamp{},
 			CursorID:           nil,
@@ -116,6 +117,7 @@ func TestReorderMetadataFields(t *testing.T) {
 		rows, err := metadatafieldsdb.New(testServer.Dependencies.DB).ListMetadataFieldsByResourceType(context.Background(), metadatafieldsdb.ListMetadataFieldsByResourceTypeParams{
 			OrganizationID:     testDb.DefaultData.OrganizationID,
 			ResourceType:       metadatafieldsdb.MetadataFieldResourceTypeDEPLOYMENTZONE,
+			IncludeArchived:    false,
 			CursorDisplayOrder: nil,
 			CursorCreatedAt:    pgtype.Timestamp{},
 			CursorID:           nil,

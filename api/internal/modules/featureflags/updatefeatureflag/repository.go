@@ -52,6 +52,12 @@ func (r *CommandRepository) UpdateFeatureFlag(ctx context.Context, flag *schema.
 		return nil, err
 	}
 
+	// An omitted slug means "keep it", not "set it to empty".
+	var newSlug *string
+	if flag.Slug != "" {
+		newSlug = &flag.Slug
+	}
+
 	params := db.UpdateFeatureFlagParams{
 		FeatureFlagSlug: slug,
 		UserID:          userID,
@@ -60,7 +66,7 @@ func (r *CommandRepository) UpdateFeatureFlag(ctx context.Context, flag *schema.
 		TargetingRules:  targetingRulesBytes,
 		Name:            flag.Name,
 		Description:     flag.Description,
-		Slug:            flag.Slug,
+		NewSlug:         newSlug,
 		Metadata:        metadataBytes,
 		Enabled:         flag.Enabled,
 		EventName:       flag.EventName,

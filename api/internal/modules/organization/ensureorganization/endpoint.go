@@ -63,7 +63,7 @@ func RegisterEndpoint(api huma.API, app Ensurer) {
 		Description: "Converges on the organization an external identity provider describes, " +
 			"creating it if it is not already there and returning it either way. The " +
 			"internal id is derived from the external id, so the operation is idempotent: " +
-			"a re-run returns the same organization instead of creating a second tenant, " +
+			"a re-run returns the same organization instead of creating a second one, " +
 			"and an organization that already exists -- including one provisioned on a " +
 			"first login -- is returned unchanged apart from acquiring a name if it had " +
 			"none. Platform API: requires a Kaiten platform token (`ksm_...`) with " +

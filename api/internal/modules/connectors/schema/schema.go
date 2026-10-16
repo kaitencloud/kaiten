@@ -30,8 +30,8 @@ type ConnectorActivation struct {
 // "not configured" and "not allowed" at once.
 type ConnectorState struct {
 	ConnectorName string     `json:"connectorName" doc:"Stable connector identifier" example:"kaiten.integration.crm.attio"`
-	Available     bool       `json:"available" doc:"Whether this deployment has the connector registered"`
-	Entitled      bool       `json:"entitled" doc:"Whether this organization's licence includes the connector. True for an ungated connector."`
+	Available     bool       `json:"available" doc:"Whether this installation has the connector registered"`
+	Entitled      bool       `json:"entitled" doc:"Whether this organization's license includes the connector. True for an ungated connector."`
 	Activated     bool       `json:"activated" doc:"Whether this organization has turned the connector on"`
 	Version       *string    `json:"version,omitempty" doc:"Registered connector version. Absent when the connector is not available." example:"1.0.0"`
 	ActivatedAt   *time.Time `json:"activatedAt,omitempty" doc:"When this organization activated the connector. Absent when it has not."`

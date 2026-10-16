@@ -40,7 +40,7 @@ func RegisterEndpoint(api huma.API, app StateReader) {
 		Method:      http.MethodGet,
 		Path:        "/connectors/{connectorName}/state",
 		Summary:     "Get connector state for this organization",
-		Description: "Returns whether the connector is registered in this deployment, whether the authenticated organization's licence includes it, and whether the organization has activated it. Answers 200 with `available: false` for a connector this deployment does not have.",
+		Description: "Returns whether the connector is registered on this installation, whether the authenticated organization's license includes it, and whether the organization has activated it. Answers 200 with `available: false` for a connector this installation does not have.",
 		Tags:        []string{"connectors"},
 		Errors: []int{
 			http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden,

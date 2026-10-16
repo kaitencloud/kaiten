@@ -109,6 +109,56 @@ func TestUpdateFeatureFlag(t *testing.T) {
 		assert.False(t, eventData.Enabled)
 	})
 
+	t.Run("WhenBodyOmitsSlug_KeepsTheFlagsSlug", func(t *testing.T) {
+		// Arrange
+		t.Cleanup(resetDB)
+
+		createPayload := schema.FeatureFlag{
+			Name: "Checkout",
+			Type: "boolean",
+			Variants: []schema.Variant{
+				{Name: "on", Value: true, Description: "on"},
+				{Name: "off", Value: false, Description: "off"},
+			},
+			Metadata:       map[string]any{},
+			Enabled:        true,
+			EventName:      "checkout.evaluated",
+			Slug:           "checkout",
+			DefaultVariant: &schema.DefaultVariant{Type: schema.BasicType, Value: schema.BasicVariant("off")},
+		}
+		createReq := commonfixture.NewJSONRequest(t, "POST", "/api/feature-flags", createPayload)
+		createResp, err := testServer.App.Test(createReq, fiber.TestConfig{})
+		require.NoError(t, err)
+		defer commonfixture.MustCloseBody(t, createResp.Body)
+		commonfixture.AssertJSONResponse[schema.FeatureFlag](t, createResp, fiber.StatusCreated)
+
+		// A client that sends the definition without the slug -- the path
+		// already names the flag -- must not blank it: an empty slug leaves a
+		// flag no route can reach, and the next such update collides on it.
+		updatePayload := createPayload
+		updatePayload.Slug = ""
+		updatePayload.Enabled = false
+
+		for range 2 {
+			updateReq := commonfixture.NewJSONRequest(t, "PUT", "/api/feature-flags/checkout", updatePayload)
+
+			// Act
+			updateResp, err := testServer.App.Test(updateReq, fiber.TestConfig{})
+			require.NoError(t, err)
+			defer commonfixture.MustCloseBody(t, updateResp.Body)
+
+			// Assert
+			require.Equal(t, http.StatusNoContent, updateResp.StatusCode)
+		}
+		getReq := commonfixture.NewJSONRequest(t, "GET", "/api/feature-flags/checkout", nil)
+		getResp, err := testServer.App.Test(getReq, fiber.TestConfig{})
+		require.NoError(t, err)
+		defer commonfixture.MustCloseBody(t, getResp.Body)
+		got := commonfixture.AssertJSONResponse[schema.FeatureFlag](t, getResp, fiber.StatusOK)
+		assert.Equal(t, "checkout", got.Slug)
+		assert.False(t, got.Enabled)
+	})
+
 	t.Run("WhenMembershipIsSoftDeleted_Returns404AndLeavesTheFlagByteIdentical", func(t *testing.T) {
 		// Arrange
 		t.Cleanup(resetDB)

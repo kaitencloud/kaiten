@@ -317,10 +317,21 @@ func (r *Reporter) awaitClient(ctx context.Context) (*client, error) {
 	return client, nil
 }
 
-// TrackAsync fires a +1 usage report in the background.
+// clientNow returns the current client, or errNotReady while there is none. It is
+// how a synchronous call gets one: see ReportAndEnforce.
+func (r *Reporter) clientNow(context.Context) (*client, error) {
+	if client := r.currentClient(); client != nil {
+		return client, nil
+	}
+	return nil, errNotReady
+}
+
+// TrackAsync fires a +1 usage report in the background. Unlike ReportAndEnforce it
+// waits for the service token: a queued job holds no request, and asyncJobTimeout
+// bounds the wait.
 func (r *Reporter) TrackAsync(orgID uuid.UUID, entitlementSlug string) {
 	r.runAsync(orgID, entitlementSlug, func(ctx context.Context) error {
-		return r.ReportAndEnforce(ctx, orgID, entitlementSlug)
+		return r.reportAndEnforce(ctx, orgID, entitlementSlug, r.awaitClient)
 	})
 }
 
@@ -344,70 +355,68 @@ func (r *Reporter) runAsync(orgID uuid.UUID, entitlementSlug string, report func
 	}
 }
 
-// DecrementAsync fires a -1 usage report in the background.
+// DecrementAsync fires a -1 usage report in the background, waiting for the service
+// token as TrackAsync does.
 func (r *Reporter) DecrementAsync(orgID uuid.UUID, entitlementSlug string) {
 	r.runAsync(orgID, entitlementSlug, func(ctx context.Context) error {
-		return r.Decrement(ctx, orgID, entitlementSlug)
+		return r.decrement(ctx, orgID, entitlementSlug, r.awaitClient)
 	})
 }
 
-// Decrement synchronously reports a -1 usage delta using the latest valid token.
+// Decrement synchronously reports a -1 usage delta using the latest valid token. It
+// fails at once with errNotReady before the token is loaded, as ReportAndEnforce does.
 func (r *Reporter) Decrement(ctx context.Context, orgID uuid.UUID, entitlementSlug string) error {
+	return r.decrement(ctx, orgID, entitlementSlug, r.clientNow)
+}
+
+func (r *Reporter) decrement(ctx context.Context, orgID uuid.UUID, entitlementSlug string, getClient func(context.Context) (*client, error)) error {
 	if r.shouldSkip(orgID, entitlementSlug) {
 		return nil
 	}
-	return r.reportSelf(ctx, orgID, entitlementSlug, func() error {
-		client, err := r.awaitClient(ctx)
-		if err != nil {
-			return err
-		}
-		return client.Decrement(ctx, orgID, entitlementSlug)
-	})
+	client, err := getClient(ctx)
+	if err != nil {
+		return err
+	}
+	return client.Decrement(ctx, orgID, entitlementSlug)
 }
 
 // ReportAndEnforce synchronously reports usage using the latest valid token.
+//
+// Before the token is loaded it fails at once with errNotReady, for the reason
+// Entitled does: it is called on a request's path, and the caller's answer to "not
+// ready" -- EnforceCreationLimit refuses the create with a 503 -- is the same now as
+// after holding the request until the gateway gives up. A context with no deadline,
+// as a seed run's, would otherwise wait for a token that may never come.
 func (r *Reporter) ReportAndEnforce(ctx context.Context, orgID uuid.UUID, entitlementSlug string) error {
+	return r.reportAndEnforce(ctx, orgID, entitlementSlug, r.clientNow)
+}
+
+func (r *Reporter) reportAndEnforce(ctx context.Context, orgID uuid.UUID, entitlementSlug string, getClient func(context.Context) (*client, error)) error {
 	if r.shouldSkip(orgID, entitlementSlug) {
 		return nil
 	}
-	return r.reportSelf(ctx, orgID, entitlementSlug, func() error {
-		client, err := r.awaitClient(ctx)
-		if err != nil {
-			return err
-		}
-		return client.ReportAndEnforce(ctx, orgID, entitlementSlug)
-	})
-}
-
-// reportSelf runs report, and for the platform organization reporting to itself
-// turns any failure into a log line instead of an error.
-//
-// That organization is a customer of its own deployment, and the one that creates
-// what its reports are counted against: the catalogue, the licence, and the
-// instance that fronts it. Its first creates happen before any of those exist and
-// before its reporting credential has been written, so a report it fails cannot
-// mean "refuse" -- enforced, it would refuse the very bootstrap that makes it
-// countable, forever. Its licence is unlimited, so enforcement would never refuse
-// it anything once it could answer anyway. What is lost is a count, never a create.
-func (r *Reporter) reportSelf(ctx context.Context, orgID uuid.UUID, entitlementSlug string, report func() error) error {
-	err := report()
-	if err == nil || !r.cfg.SelfReport || orgID != r.kaitenOrgID {
+	client, err := getClient(ctx)
+	if err != nil {
 		return err
 	}
-
-	slog.WarnContext(ctx, "dogfooding: the platform organization's own usage was not counted",
-		"organization_id", orgID, "entitlement_slug", entitlementSlug, "error", err)
-
-	return nil
+	return client.ReportAndEnforce(ctx, orgID, entitlementSlug)
 }
 
 // shouldSkip reports whether this call has nothing to meter: no entitlement
 // named, or the caller is the reporting deployment's own organization.
+//
+// The platform organization is skipped everywhere, the deployment that holds the
+// licences included. It is the organization that creates the catalogue, the
+// licences and the instance its usage would be counted against, and the credential
+// it would report with is minted after those creates -- so a report made for it
+// waits on a token its own bootstrap has not reached yet. Its usage is not wanted
+// anyway: what Kaiten itself consumes is nobody's bill. Reading its entitlements is
+// a different matter; see Reporter.Entitled.
 func (r *Reporter) shouldSkip(orgID uuid.UUID, entitlementSlug string) bool {
 	if strings.TrimSpace(entitlementSlug) == "" {
 		return true
 	}
-	return r.kaitenOrgID != uuid.Nil && orgID == r.kaitenOrgID && !r.cfg.SelfReport
+	return r.kaitenOrgID != uuid.Nil && orgID == r.kaitenOrgID
 }
 
 // NewReporterFor builds the reporter a process meters through from its metered
@@ -431,9 +440,9 @@ func NewReporterFor(ctx context.Context, metered config.Metered) (*Reporter, err
 	}
 
 	reporter, err := NewReporter(ctx, Config{
-		APIURL:     metered.APIURL,
-		OrgID:      selfOrgID,
-		SelfReport: metered.SelfReport,
+		APIURL:                metered.APIURL,
+		OrgID:                 selfOrgID,
+		CheckSelfEntitlements: metered.CheckSelfEntitlements,
 	}, metered.TokenFile)
 	if err != nil {
 		return nil, fmt.Errorf("initialize dogfooding reporter: %w", err)

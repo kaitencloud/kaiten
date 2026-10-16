@@ -47,7 +47,7 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, limit int32, cu
 
 	limit = pagination.ClampLimit(limit)
 
-	fields, err := h.repository.ListMetadataFields(ctx, command.ResourceType, u.OrganizationID, limit+1, cursorKey)
+	fields, err := h.repository.ListMetadataFields(ctx, command.ResourceType, command.IncludeArchived, u.OrganizationID, limit+1, cursorKey)
 	if err != nil {
 		return pagination.Page[*schema.MetadataField]{}, err
 	}

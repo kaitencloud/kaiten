@@ -68,11 +68,48 @@ spec:
       # there reads this file to hold the two together.
       null.value: '{"specversion":"1.0","type":"cloud.kaiten.cdc.heartbeat","source":"/debezium/heartbeat","id":"heartbeat","datacontenttype":"application/json","data":{}}'
 
+  # Each outbox row becomes one CloudEvent of its own: id is the event's id,
+  # type its event_type, and traceparent the attribute of the CloudEvents
+  # Distributed Tracing extension. The Dapr sidecar starts its delivery span
+  # only from that attribute (dapr/dapr#9990), and the converter takes it from
+  # a record header only -- which the Outbox EventRouter is what fills, from the
+  # traceparent column. The router replaces Debezium's change-event envelope
+  # with the row, the data column under "payload"; debezium.Parse in
+  # api/pkg/debezium reads both shapes. HeaderFrom keeps source and op, which
+  # the converter then reads from headers too. The predicate holds both to the
+  # outbox topic: a heartbeat has no source to copy.
+  # docker/rabbitmq/rabbitmq-debezium-application.properties is the same chain.
+  predicates:
+    outbox:
+      type: org.apache.kafka.connect.transforms.predicates.TopicNameMatches
+      config:
+        pattern: {{ printf "%s.%s" .Values.debeziumServer.replication.topicPrefix .Values.debeziumServer.replication.tableInclude | regexQuoteMeta | quote }}
+  transforms:
+    - type: org.apache.kafka.connect.transforms.HeaderFrom$Value
+      predicate: outbox
+      config:
+        fields: source,op
+        headers: source,op
+        operation: copy
+    - type: io.debezium.transforms.outbox.EventRouter
+      predicate: outbox
+      config:
+        table.field.event.id: id
+        table.field.event.key: organization_id
+        table.field.event.payload: data
+        route.by.field: event_type
+        route.topic.replacement: {{ .Values.debeziumServer.sink.exchange | quote }}
+        table.fields.additional.placement: "event_type:header:type,traceparent:header,id:envelope,organization_id:envelope,event_name:envelope,event_type:envelope,occurred_at:envelope,headers:envelope"
+        table.field.additional.missing: ignore
+
   format:
     key:
       type: json
     value:
       type: cloudevents
+      config:
+        metadata.source: header
+        opentelemetry.tracing.attributes.enable: "true"
 
   runtime:
     serviceAccount: {{ include "kaiten-infra.debeziumServiceAccountName" . | quote }}

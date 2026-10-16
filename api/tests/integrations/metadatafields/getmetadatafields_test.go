@@ -41,6 +41,39 @@ func TestGetMetadataFields(t *testing.T) {
 		assert.False(t, page.HasMore)
 	})
 
+	t.Run("WhenIncludeArchived_ListsArchivedFieldsWithTheirArchivedAt", func(t *testing.T) {
+		t.Cleanup(resetDB)
+		insertField(t, metadatafieldsdb.MetadataFieldResourceTypeINSTANCE, "region", "Region", map[string]any{"type": "string"}, 0)
+		legacyID := insertField(t, metadatafieldsdb.MetadataFieldResourceTypeINSTANCE, "legacy", "Legacy", map[string]any{"type": "string"}, 1)
+		archiveReq := commonfixture.NewJSONRequest(t, "POST", "/api/metadata-fields/"+legacyID.String()+"/archive", nil)
+		archiveResp, err := testServer.App.Test(archiveReq, fiber.TestConfig{})
+		require.NoError(t, err)
+		defer commonfixture.MustCloseBody(t, archiveResp.Body)
+		require.Equal(t, fiber.StatusOK, archiveResp.StatusCode)
+
+		list := func(query string) []*schema.MetadataField {
+			req := commonfixture.NewJSONRequest(t, "GET", "/api/metadata-fields?resourceType=INSTANCE"+query, nil)
+			resp, err := testServer.App.Test(req, fiber.TestConfig{})
+			require.NoError(t, err)
+			defer commonfixture.MustCloseBody(t, resp.Body)
+			return commonfixture.AssertJSONResponse[pagination.Page[*schema.MetadataField]](t, resp, fiber.StatusOK).Items
+		}
+
+		// The default stays the active fields only.
+		active := list("")
+		require.Len(t, active, 1)
+		assert.Equal(t, "region", active[0].Key)
+
+		// Asked for, the archived field is listed too -- the only way REST
+		// has to learn the id unarchive-metadata-field takes.
+		all := list("&includeArchived=true")
+		require.Len(t, all, 2)
+		assert.Equal(t, "legacy", all[1].Key)
+		assert.Equal(t, legacyID, all[1].ID)
+		assert.NotNil(t, all[1].ArchivedAt)
+		assert.Nil(t, all[0].ArchivedAt)
+	})
+
 	// Mirrors the GraphQL cross-org isolation
 	// test on the REST surface. Seeds a MetadataField in a second
 	// organization and asserts the default org's GET never returns it.

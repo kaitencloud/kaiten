@@ -38,10 +38,11 @@ type Config struct {
 	// correct answer for every deployment except the one metering itself.
 	OrgID string
 
-	// SelfReport reports OrgID's usage instead of skipping it, for the deployment
-	// whose own organization is a customer of itself (see config.Metered). Those
-	// reports are never enforced: see Reporter.reportSelf.
-	SelfReport bool
+	// CheckSelfEntitlements reads OrgID's entitlements from the Kaiten reported
+	// to instead of treating it as entitled to everything, for the deployment
+	// whose own organization is an instance of itself (see config.Metered). Its
+	// usage is skipped either way: see Reporter.shouldSkip.
+	CheckSelfEntitlements bool
 }
 
 // parseOrgID resolves Config.OrgID, treating empty as uuid.Nil.
@@ -68,10 +69,10 @@ func parseOrgID(raw string) (uuid.UUID, error) {
 }
 
 type client struct {
-	sdkClient   *sdk.Client
-	ofClient    *ofsdk.Client
-	kaitenOrgID uuid.UUID
-	selfReport  bool
+	sdkClient             *sdk.Client
+	ofClient              *ofsdk.Client
+	kaitenOrgID           uuid.UUID
+	checkSelfEntitlements bool
 }
 
 func validateConfig(cfg Config) error {
@@ -132,10 +133,10 @@ func newClient(cfg Config, serviceToken string) (*client, error) {
 	}
 
 	return &client{
-		sdkClient:   sdkClient,
-		ofClient:    ofsdk.NewClient(openFeatureDomain),
-		kaitenOrgID: kaitenOrgID,
-		selfReport:  cfg.SelfReport,
+		sdkClient:             sdkClient,
+		ofClient:              ofsdk.NewClient(openFeatureDomain),
+		kaitenOrgID:           kaitenOrgID,
+		checkSelfEntitlements: cfg.CheckSelfEntitlements,
 	}, nil
 }
 
@@ -146,7 +147,7 @@ func (r *client) Decrement(ctx context.Context, orgID uuid.UUID, entitlementSlug
 		return nil
 	}
 
-	if r.isSelf(orgID) && !r.selfReport {
+	if r.isSelf(orgID) {
 		return nil
 	}
 
@@ -168,16 +169,7 @@ func (r *client) ReportAndEnforce(ctx context.Context, orgID uuid.UUID, entitlem
 		return nil
 	}
 
-	// The platform organization reporting to itself is no tenant of anybody's, so
-	// the is-kaiten flag that exempts it is not asked: it is reported, and only
-	// the caller decides what a failure means (Reporter.reportSelf).
-	if r.selfReport && r.isSelf(orgID) {
-		reportCtx, cancel := context.WithTimeout(ctx, usageReportTimeout)
-		defer cancel()
-
-		if err := r.sdkClient.Instances.ReportUsage(reportCtx, orgID.String(), entitlementSlug, 1); err != nil {
-			return fmt.Errorf("report %q usage: %w", entitlementSlug, err)
-		}
+	if r.isSelf(orgID) {
 		return nil
 	}
 
@@ -186,10 +178,6 @@ func (r *client) ReportAndEnforce(ctx context.Context, orgID uuid.UUID, entitlem
 
 	isKaiten, err := r.ofClient.BooleanValue(evalCtx, IsKaitenFlagKey, false, newInternalEvaluationContext(orgID))
 	if err != nil {
-		if r.isSelf(orgID) {
-			return nil
-		}
-
 		slog.Warn(
 			"dogfooding flag evaluation failed, using org fallback",
 			"organization_id", orgID,

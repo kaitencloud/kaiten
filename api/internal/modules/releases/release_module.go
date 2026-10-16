@@ -39,8 +39,9 @@ func NewUseCases(svc services.Container) *UseCases {
 			ComponentLink: releaselink.New(svc.Pool),
 		}),
 		GetReleases: getreleases.NewUseCase(getreleases.Deps{
-			UserProvider: svc.UserProvider,
-			Queries:      queries,
+			UserProvider:  svc.UserProvider,
+			Queries:       queries,
+			ComponentLink: releaselink.New(svc.Pool),
 		}),
 	}
 }

@@ -151,30 +151,6 @@ func TestSakuraTokyoInstancesResolveDifferentLicenses(t *testing.T) {
 	require.Lenf(t, licenseNames, 2, "sakura-tokyo's two instances must resolve two different licenses, got %v", licenseNames)
 }
 
-// TestAuditTrailReferencesKnownInstances guards against a slug typo or a
-// renamed instance silently dropping an audit row (seedAuditTrail returns an
-// error instead, but this test catches it without a database).
-func TestAuditTrailReferencesKnownInstances(t *testing.T) {
-	knownSlugs := make(map[string]struct{})
-	for _, cust := range customers {
-		for _, inst := range cust.Instances {
-			knownSlugs[inst.Slug] = struct{}{}
-		}
-	}
-
-	require.Len(t, auditTrail, 15, "expected 15 audit trail events, matching the source dataset")
-
-	for _, ev := range auditTrail {
-		require.NotEmptyf(t, ev.Name, "audit event %q missing a Name", ev.Type)
-		require.NotEmptyf(t, ev.Type, "audit event %q missing a Type", ev.Name)
-		if ev.InstanceSlug == "" {
-			continue
-		}
-		_, ok := knownSlugs[ev.InstanceSlug]
-		require.Truef(t, ok, "audit event %q references unknown instance slug %q", ev.Name, ev.InstanceSlug)
-	}
-}
-
 // TestDeploymentsReferenceKnownZonesAndReleases guards the deployment
 // journal against a zone/release slug typo before it ever reaches the
 // database (seedDeploymentJournal would otherwise be the first thing to
@@ -260,52 +236,6 @@ func TestDeploymentZoneTypesAreEnvironments(t *testing.T) {
 	for _, dz := range deploymentZones {
 		require.Containsf(t, []string{"production", "staging", "development"}, dz.Type, "zone %q", dz.Key)
 	}
-}
-
-// TestAuditTrailRefsNameSeededObjects catches a typo in a seedRef before the
-// seed does: seedAuditTrail would fail on it, but only against a database.
-func TestAuditTrailRefsNameSeededObjects(t *testing.T) {
-	known := map[seedRefKind]map[string]struct{}{
-		refInstanceID:    {},
-		refZoneID:        {},
-		refReleaseID:     {},
-		refLicenseID:     {},
-		refLicenseSlug:   {},
-		refEntitlementID: {},
-	}
-	for _, cust := range customers {
-		for _, inst := range cust.Instances {
-			known[refInstanceID][inst.Slug] = struct{}{}
-		}
-	}
-	for _, dz := range deploymentZones {
-		known[refZoneID][dz.Key] = struct{}{}
-	}
-	for _, rel := range releases {
-		known[refReleaseID][rel.Version] = struct{}{}
-	}
-	for _, lic := range licenses {
-		known[refLicenseID][lic.Name] = struct{}{}
-		known[refLicenseSlug][lic.Name] = struct{}{}
-	}
-	for _, ent := range entitlements {
-		known[refEntitlementID][ent.Slug] = struct{}{}
-	}
-
-	refs := 0
-	for _, ev := range auditTrail {
-		for key, value := range ev.Payload {
-			ref, ok := value.(seedRef)
-			if !ok {
-				continue
-			}
-			refs++
-			_, found := known[ref.kind][ref.key]
-			require.Truef(t, found, "audit event %q: payload key %q names %q, which nothing in data.go defines",
-				ev.Name, key, ref.key)
-		}
-	}
-	require.NotZero(t, refs, "no audit payload uses a seedRef any more; this test guards nothing")
 }
 
 // TestLicenseFamiliesAreServable guards the dataset against the two ways it

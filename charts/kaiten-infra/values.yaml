@@ -98,8 +98,10 @@ debeziumServer:
     topicPrefix: "kaiten"
     tombstonesOnDelete: false
     # Retention deletes are storage maintenance, not domain events. Keep both
-    # delete and truncate operations out of the outbox CDC stream.
-    skippedOperations: "d,t"
+    # delete and truncate operations out of the outbox CDC stream. The outbox
+    # is append-only, so updates stay out too: a data migration that rewrites
+    # rows (the traceparent backfill) must not re-publish them.
+    skippedOperations: "u,d,t"
   sink:
     exchange: "kaiten.events"
   # WITHOUT A HEARTBEAT, AN IDLE DATABASE RETAINS WAL WITHOUT BOUND.

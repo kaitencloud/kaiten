@@ -17,7 +17,8 @@ import (
 
 // tracerName is the instrumentation scope for the publish spans below. They
 // are the producer half of the causal chain the audit trail consumer joins:
-// the traceparent written into the headers column points at them.
+// the traceparent written into the headers and traceparent columns points at
+// them.
 const tracerName = "kaiten.outbox"
 
 type Outbox struct {
@@ -101,12 +102,15 @@ func (r *outboxRepository) CreateOutboxEvent(ctx context.Context, event Outbox) 
 		return err
 	}
 
+	traceparent, tracestate := traceContext(ctx)
 	if err := r.queries.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
 		OrganizationID: event.OrganizationID,
 		EventName:      event.EventName,
 		EventType:      event.EventType,
 		Data:           data,
 		Headers:        headersJSON,
+		Traceparent:    traceparent,
+		Tracestate:     tracestate,
 		OccurredAt:     occurredAt(event),
 	}); err != nil {
 		span.RecordError(err)
@@ -132,6 +136,9 @@ func (r *outboxRepository) CreateOutboxEvents(ctx context.Context, events []Outb
 	)
 	defer span.End()
 
+	// One span names every event of the batch, so they share its context.
+	traceparent, tracestate := traceContext(ctx)
+
 	// Events dated by the transaction and events carrying their own instant
 	// go through two COPY statements: COPY has no per-row column default.
 	var dated []db.CreateOutboxEventsAtParams
@@ -156,6 +163,8 @@ func (r *outboxRepository) CreateOutboxEvents(ctx context.Context, events []Outb
 				EventType:      event.EventType,
 				Data:           data,
 				Headers:        headersJSON,
+				Traceparent:    traceparent,
+				Tracestate:     tracestate,
 				OccurredAt:     occurredAt(event),
 			})
 			continue
@@ -166,6 +175,8 @@ func (r *outboxRepository) CreateOutboxEvents(ctx context.Context, events []Outb
 			EventType:      event.EventType,
 			Data:           data,
 			Headers:        headersJSON,
+			Traceparent:    traceparent,
+			Tracestate:     tracestate,
 		})
 	}
 

@@ -3,7 +3,6 @@ package dogfooding
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -150,7 +149,30 @@ func TestReporterQueuesReportsUntilInitialTokenIsAvailable(t *testing.T) {
 	}
 }
 
-func TestReporterWaitForTokenHonorsContext(t *testing.T) {
+// A synchronous report is made on a request's path: without a token it fails at
+// once rather than holding the request -- or, under a context with no deadline as a
+// seed run's, waiting forever.
+func TestReporterSynchronousCallsFailFastUntilTheCredentialArrives(t *testing.T) {
+	url, _, _ := kbkSink(t, http.StatusOK, `{}`)
+	tokenFile := filepath.Join(t.TempDir(), "service-token")
+	reporter, err := NewReporter(t.Context(), Config{APIURL: url, OrgID: uuid.NewString()}, tokenFile)
+	require.NoError(t, err)
+	t.Cleanup(reporter.Close)
+
+	returnsPromptly(t, func() {
+		require.ErrorIs(t, reporter.ReportAndEnforce(context.Background(), uuid.New(), "entitlement"), errNotReady)
+		require.ErrorIs(t, reporter.Decrement(context.Background(), uuid.New(), "entitlement"), errNotReady)
+	})
+
+	require.NoError(t, os.WriteFile(tokenFile, []byte("token"), 0o600))
+	reporter.reload()
+
+	require.NoError(t, reporter.Decrement(t.Context(), uuid.New(), "entitlement"))
+}
+
+// An asynchronous report holds no request, so it still waits for the token, and
+// its job's own timeout bounds the wait.
+func TestReporterAsyncWaitForTokenHonorsContext(t *testing.T) {
 	reporter, err := NewReporter(t.Context(), Config{
 		APIURL: "http://example.com",
 		OrgID:  uuid.NewString(),
@@ -161,7 +183,7 @@ func TestReporterWaitForTokenHonorsContext(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
 	defer cancel()
 
-	err = reporter.ReportAndEnforce(ctx, uuid.New(), "entitlement")
+	err = reporter.reportAndEnforce(ctx, uuid.New(), "entitlement", reporter.awaitClient)
 
 	require.Error(t, err)
 	require.True(t, errors.Is(err, context.DeadlineExceeded))
@@ -500,99 +522,138 @@ func TestReporter_ShouldSkipItsOwnOrganization(t *testing.T) {
 	}
 }
 
-// selfReportSink records every usage report's path and delta, and answers each one
-// with status.
-func selfReportSink(t *testing.T, status int) (string, *[]string, *sync.Mutex) {
+// kbkSink records every request's method and path, and answers each one with
+// status and body.
+func kbkSink(t *testing.T, status int, body string) (string, *[]string, *sync.Mutex) {
 	t.Helper()
 
 	var mu sync.Mutex
-	reports := []string{}
+	requests := []string{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			Value struct {
-				Value float64 `json:"value"`
-			} `json:"value"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
 		mu.Lock()
-		reports = append(reports, fmt.Sprintf("%s %s %v", r.Method, r.URL.Path, body.Value.Value))
+		requests = append(requests, r.Method+" "+r.URL.Path)
 		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(status)
-		_, _ = w.Write([]byte(`{"entitlementSlug":"customers","value":{"type":"number","value":1}}`))
+		_, _ = w.Write([]byte(body))
 	}))
 	t.Cleanup(server.Close)
 
-	return server.URL, &reports, &mu
+	return server.URL, &requests, &mu
 }
 
-// With SelfReport, the deployment's own organization is reported like a customer,
-// not skipped -- and without asking the is-kaiten flag that exempts it, which is why
-// the sink sees usage reports and nothing else.
-func TestReporterSelfReportsThePlatformOrganization(t *testing.T) {
-	url, reports, mu := selfReportSink(t, http.StatusOK)
+// returnsPromptly fails the test unless call returns within a second. The calls it
+// wraps get t.Context(), which carries no deadline, so one that waits for a token
+// would wait for good -- which is the failure being guarded against.
+func returnsPromptly(t *testing.T, call func()) {
+	t.Helper()
 
-	kaiten := uuid.New()
-	tokenFile := filepath.Join(t.TempDir(), "service-token")
-	require.NoError(t, os.WriteFile(tokenFile, []byte("token"), 0o600))
-	reporter, err := NewReporter(t.Context(), Config{APIURL: url, OrgID: kaiten.String(), SelfReport: true}, tokenFile)
-	require.NoError(t, err)
-	t.Cleanup(reporter.Close)
-
-	require.NoError(t, reporter.ReportAndEnforce(t.Context(), kaiten, "customers"))
-	require.NoError(t, reporter.Decrement(t.Context(), kaiten, "customers"))
-
-	mu.Lock()
-	defer mu.Unlock()
-	usage := "/api/instances/" + kaiten.String() + "/entitlements/customers/usage"
-	require.Equal(t, []string{"POST " + usage + " 1", "POST " + usage + " -1"}, *reports)
-}
-
-// Its reports never refuse anything: the organization reporting to itself is the
-// one that creates the catalogue and the instance it is counted against, so a
-// failure -- no instance yet, no credential yet, a limit -- is logged, not returned.
-func TestReporterNeverRefusesThePlatformOrganizationReportingToItself(t *testing.T) {
-	kaiten := uuid.New()
-
-	for name, status := range map[string]int{
-		"its instance does not exist yet": http.StatusNotFound,
-		"a limit is reached":              http.StatusConflict,
-		"the deployment fails":            http.StatusInternalServerError,
-	} {
-		t.Run(name, func(t *testing.T) {
-			url, _, _ := selfReportSink(t, status)
-			tokenFile := filepath.Join(t.TempDir(), "service-token")
-			require.NoError(t, os.WriteFile(tokenFile, []byte("token"), 0o600))
-			reporter, err := NewReporter(t.Context(), Config{APIURL: url, OrgID: kaiten.String(), SelfReport: true}, tokenFile)
-			require.NoError(t, err)
-			t.Cleanup(reporter.Close)
-
-			require.NoError(t, reporter.ReportAndEnforce(t.Context(), kaiten, "customers"))
-			require.NoError(t, reporter.Decrement(t.Context(), kaiten, "customers"))
-		})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		call()
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("call blocked instead of returning")
 	}
+}
 
-	t.Run("its credential is not written yet", func(t *testing.T) {
-		reporter, err := NewReporter(t.Context(), Config{APIURL: "http://example.com", OrgID: kaiten.String(), SelfReport: true},
+// The platform organization's usage is never reported, the deployment that checks
+// its entitlements included: it is the one creating the catalogue and the instance
+// it would be counted against, before its reporting credential is minted, so a
+// report for it waiting on that credential would hold its own bootstrap forever.
+func TestReporterNeverReportsThePlatformOrganization(t *testing.T) {
+	kaiten := uuid.New()
+
+	t.Run("with a credential", func(t *testing.T) {
+		url, requests, mu := kbkSink(t, http.StatusOK, `{}`)
+		tokenFile := filepath.Join(t.TempDir(), "service-token")
+		require.NoError(t, os.WriteFile(tokenFile, []byte("token"), 0o600))
+		reporter, err := NewReporter(t.Context(), Config{APIURL: url, OrgID: kaiten.String(), CheckSelfEntitlements: true}, tokenFile)
+		require.NoError(t, err)
+
+		require.NoError(t, reporter.ReportAndEnforce(t.Context(), kaiten, "customers"))
+		require.NoError(t, reporter.Decrement(t.Context(), kaiten, "customers"))
+		reporter.TrackAsync(kaiten, "customers")
+		reporter.DecrementAsync(kaiten, "customers")
+		reporter.Close()
+
+		mu.Lock()
+		defer mu.Unlock()
+		require.Empty(t, *requests)
+	})
+
+	t.Run("before its credential is written", func(t *testing.T) {
+		reporter, err := NewReporter(t.Context(), Config{APIURL: "http://example.com", OrgID: kaiten.String(), CheckSelfEntitlements: true},
 			filepath.Join(t.TempDir(), "missing-token"))
 		require.NoError(t, err)
 		t.Cleanup(reporter.Close)
 
-		ctx, cancel := context.WithTimeout(t.Context(), 200*time.Millisecond)
-		defer cancel()
-		require.NoError(t, reporter.ReportAndEnforce(ctx, kaiten, "customers"))
+		returnsPromptly(t, func() {
+			require.NoError(t, reporter.ReportAndEnforce(t.Context(), kaiten, "customers"))
+			require.NoError(t, reporter.Decrement(t.Context(), kaiten, "customers"))
+		})
+	})
+}
+
+// With CheckSelfEntitlements, the platform organization's entitlements are read from
+// its licence like a customer's. Without it, it is entitled to everything and nothing
+// is asked: elsewhere it has no instance to read.
+func TestReporterEntitledReadsThePlatformOrganizationsLicence(t *testing.T) {
+	kaiten := uuid.New()
+	path := "GET /api/instances/" + kaiten.String() + "/entitlements/connector-attio/usage"
+
+	for name, tc := range map[string]struct {
+		check    bool
+		granted  bool
+		want     bool
+		requests []string
+	}{
+		"checked and granted":     {check: true, granted: true, want: true, requests: []string{path}},
+		"checked and not granted": {check: true, granted: false, want: false, requests: []string{path}},
+		"not checked":             {check: false, granted: false, want: true, requests: []string{}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			url, requests, mu := kbkSink(t, http.StatusOK,
+				fmt.Sprintf(`{"entitlementSlug":"connector-attio","value":{"type":"boolean","value":%t}}`, tc.granted))
+			tokenFile := filepath.Join(t.TempDir(), "service-token")
+			require.NoError(t, os.WriteFile(tokenFile, []byte("token"), 0o600))
+			reporter, err := NewReporter(t.Context(), Config{APIURL: url, OrgID: kaiten.String(), CheckSelfEntitlements: tc.check}, tokenFile)
+			require.NoError(t, err)
+			t.Cleanup(reporter.Close)
+
+			entitled, err := reporter.Entitled(t.Context(), kaiten, "connector-attio")
+			require.NoError(t, err)
+			require.Equal(t, tc.want, entitled)
+
+			mu.Lock()
+			defer mu.Unlock()
+			require.Equal(t, tc.requests, *requests)
+		})
+	}
+}
+
+// Before the credential is written, Entitled says it cannot answer -- at once, not
+// once the request has given up -- and answers as soon as the file appears.
+func TestReporterEntitledFailsFastUntilTheCredentialArrives(t *testing.T) {
+	kaiten := uuid.New()
+	url, _, _ := kbkSink(t, http.StatusOK, `{"entitlementSlug":"connector-attio","value":{"type":"boolean","value":true}}`)
+	tokenFile := filepath.Join(t.TempDir(), "service-token")
+	reporter, err := NewReporter(t.Context(), Config{APIURL: url, OrgID: kaiten.String(), CheckSelfEntitlements: true}, tokenFile)
+	require.NoError(t, err)
+	t.Cleanup(reporter.Close)
+
+	returnsPromptly(t, func() {
+		_, err := reporter.Entitled(t.Context(), kaiten, "connector-attio")
+		require.ErrorIs(t, err, errNotReady)
 	})
 
-	// Only the platform organization is exempt from refusal: a customer on the same
-	// deployment is still refused at its limit.
-	t.Run("a customer is still refused", func(t *testing.T) {
-		url, _, _ := selfReportSink(t, http.StatusConflict)
-		tokenFile := filepath.Join(t.TempDir(), "service-token")
-		require.NoError(t, os.WriteFile(tokenFile, []byte("token"), 0o600))
-		reporter, err := NewReporter(t.Context(), Config{APIURL: url, OrgID: kaiten.String(), SelfReport: true}, tokenFile)
-		require.NoError(t, err)
-		t.Cleanup(reporter.Close)
+	require.NoError(t, os.WriteFile(tokenFile, []byte("token"), 0o600))
+	reporter.reload()
 
-		require.Error(t, reporter.Decrement(t.Context(), uuid.New(), "customers"))
-	})
+	entitled, err := reporter.Entitled(t.Context(), kaiten, "connector-attio")
+	require.NoError(t, err)
+	require.True(t, entitled)
 }

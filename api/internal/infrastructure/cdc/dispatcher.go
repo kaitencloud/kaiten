@@ -148,14 +148,23 @@ func (d *Dispatcher) Handle(ctx context.Context, organizationID uuid.UUID, event
 func (d *Dispatcher) consume(
 	ctx context.Context, organizationID uuid.UUID, consumer Consumer, event debezium.Event,
 ) (err error) {
+	// The messaging attributes name the broker hop the trace crossed, which no
+	// span in it otherwise records; the link reaches the span that published to
+	// it, when the delivery says which (see ContextWithPublisher).
 	ctx, span := otel.Tracer(tracerName).Start(
 		ctx, "cdc.consume",
 		trace.WithSpanKind(trace.SpanKindConsumer),
+		trace.WithLinks(publisherLinks(ctx)...),
 		trace.WithAttributes(
 			attribute.String("cdc.consumer", consumer.Name()),
 			attribute.String("event.id", event.ID),
 			attribute.String("event.type", event.EventType),
 			attribute.String("organization.id", organizationID.String()),
+			attribute.String("messaging.system", messagingSystem),
+			attribute.String("messaging.operation.type", "process"),
+			attribute.String("messaging.destination.name", Topic),
+			attribute.String("messaging.message.id", event.ID),
+			attribute.String("messaging.consumer.group.name", consumer.Name()),
 		),
 	)
 	defer span.End()

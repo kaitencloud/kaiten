@@ -24,3 +24,9 @@ spec:
       value: 100
     - name: exchangeKind
       value: "fanout"
+    # Hands the app the AMQP headers, as metadata.<key> request headers. One of
+    # them is the traceparent of the span that published the message to
+    # RabbitMQ -- Debezium's OpenTelemetry agent writes it -- and cdc.consume
+    # links that span (cdc.ContextWithPublisher). Off by default.
+    - name: publishMessagePropertiesToMetadata
+      value: "true"
