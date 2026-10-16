@@ -67,7 +67,9 @@ func (q *Queries) GetDatabaseNow(ctx context.Context) (pgtype.Timestamp, error) 
 
 const getEffectiveEntitlementLimit = `-- name: GetEffectiveEntitlementLimit :one
 SELECT iee.value,
-       iee.limit_cap_exceeded_overage_percent
+       iee.limit_cap_exceeded_overage_percent,
+       iee.license_entitlement_id,
+       iee.provenance
 FROM instance_effective_entitlement iee
 WHERE iee.instance_id = $1
   AND iee.entitlement_id = $2
@@ -81,17 +83,26 @@ type GetEffectiveEntitlementLimitParams struct {
 }
 
 type GetEffectiveEntitlementLimitRow struct {
-	Value                          []byte `json:"value"`
-	LimitCapExceededOveragePercent *int16 `json:"limit_cap_exceeded_overage_percent"`
+	Value                          []byte     `json:"value"`
+	LimitCapExceededOveragePercent *int16     `json:"limit_cap_exceeded_overage_percent"`
+	LicenseEntitlementID           *uuid.UUID `json:"license_entitlement_id"`
+	Provenance                     []byte     `json:"provenance"`
 }
 
 // The limit and overage policy a report is gated on: the instance's effective
 // entitlement, read after StampReportInstant. No row means the instance is no
 // longer granted the entitlement.
+// license_entitlement_id and provenance answer the report's source and
+// provenance from the very row the gate read (V31-55).
 func (q *Queries) GetEffectiveEntitlementLimit(ctx context.Context, arg GetEffectiveEntitlementLimitParams) (GetEffectiveEntitlementLimitRow, error) {
 	row := q.db.QueryRow(ctx, getEffectiveEntitlementLimit, arg.InstanceID, arg.EntitlementID, arg.OrganizationID)
 	var i GetEffectiveEntitlementLimitRow
-	err := row.Scan(&i.Value, &i.LimitCapExceededOveragePercent)
+	err := row.Scan(
+		&i.Value,
+		&i.LimitCapExceededOveragePercent,
+		&i.LicenseEntitlementID,
+		&i.Provenance,
+	)
 	return i, err
 }
 

@@ -42,9 +42,14 @@ type UsageContext struct {
 	// positive percentage for a soft limit. Guaranteed non-nil by the schema
 	// for any NUMBER-family entitlement, the only type this package handles.
 	LimitCapExceededOveragePercent int32
-	LicenseSlug                    *string
-	UsageValue                     []byte     // nil when no usage row exists yet
-	PeriodStart                    *time.Time // nil for a lifetime bucket, or when no usage row exists yet
+	// LicenseEntitlementID and Provenance are the same row's: whether the
+	// licence grants the entitlement, and what each layer contributes. The
+	// report answers them as source and provenance (V31-55).
+	LicenseEntitlementID *uuid.UUID
+	Provenance           []byte
+	LicenseSlug          *string
+	UsageValue           []byte     // nil when no usage row exists yet
+	PeriodStart          *time.Time // nil for a lifetime bucket, or when no usage row exists yet
 }
 
 type QueryRepository struct {
@@ -158,6 +163,8 @@ func (r *QueryRepository) GetEntitlementUsageContext(ctx context.Context, instan
 		ReportedAt:                     stamp.Now.Time.UTC(),
 		EffectiveValue:                 limit.Value,
 		LimitCapExceededOveragePercent: limitCapExceededOveragePercent,
+		LicenseEntitlementID:           limit.LicenseEntitlementID,
+		Provenance:                     limit.Provenance,
 		LicenseSlug:                    ctx1.LicenseSlug,
 	}
 

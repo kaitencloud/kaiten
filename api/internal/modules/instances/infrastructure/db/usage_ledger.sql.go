@@ -240,6 +240,7 @@ SELECT ul.report_seq,
        ul.event_count_after,
        -- -1 for an unlimited grant (NULL limit), as the response says it.
        coalesce(ul.limit_value::float8, -1)::float8              AS limit_value,
+       ul.overage_percent,
        ul.license_id,
        l.slug                                                    AS license_slug
 FROM usage_ledger ul
@@ -277,6 +278,7 @@ type FindUsageReportByTransactionIDRow struct {
 	ValueAfter      float64             `json:"value_after"`
 	EventCountAfter int32               `json:"event_count_after"`
 	LimitValue      float64             `json:"limit_value"`
+	OveragePercent  int16               `json:"overage_percent"`
 	LicenseID       uuid.UUID           `json:"license_id"`
 	LicenseSlug     *string             `json:"license_slug"`
 }
@@ -308,6 +310,7 @@ func (q *Queries) FindUsageReportByTransactionID(ctx context.Context, arg FindUs
 		&i.ValueAfter,
 		&i.EventCountAfter,
 		&i.LimitValue,
+		&i.OveragePercent,
 		&i.LicenseID,
 		&i.LicenseSlug,
 	)

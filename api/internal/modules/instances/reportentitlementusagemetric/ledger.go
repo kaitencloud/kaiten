@@ -121,10 +121,12 @@ type AcceptedReport struct {
 	SameValue       bool
 	ValueAfter      float64
 	EventCountAfter int32
-	// Limit is the grant the report was gated with, -1 when unlimited.
-	Limit       float64
-	LicenseID   uuid.UUID
-	LicenseSlug string
+	// Limit is the grant the report was gated with, -1 when unlimited, and
+	// OveragePercent the policy it was gated on, -1 when unlimited.
+	Limit          float64
+	OveragePercent int16
+	LicenseID      uuid.UUID
+	LicenseSlug    string
 }
 
 // FindReportByTransactionID returns the report the pair accepted under
@@ -161,6 +163,7 @@ func (r *QueryRepository) FindReportByTransactionID(
 		ValueAfter:      row.ValueAfter,
 		EventCountAfter: row.EventCountAfter,
 		Limit:           row.LimitValue,
+		OveragePercent:  row.OveragePercent,
 		LicenseID:       row.LicenseID,
 	}
 	if row.LicenseSlug != nil {
@@ -170,8 +173,10 @@ func (r *QueryRepository) FindReportByTransactionID(
 }
 
 // response rebuilds, from the journal row alone, the response the report
-// got when it was accepted: the counter and window as they were then, not
-// as they are now.
+// got when it was accepted: the counter, window, limit and percent as they
+// were then, not as they are now. The journal stores neither source nor
+// provenance, so a replay answers both null (V31-55): Source stays empty, and
+// the endpoint publishes it as null.
 func (a *AcceptedReport) response(entitlementID uuid.UUID, entitlementSlug string) *entitlementUsageSchema.EntitlementUsage {
 	return &entitlementUsageSchema.EntitlementUsage{
 		EntitlementID:   entitlementID,
@@ -191,8 +196,11 @@ func (a *AcceptedReport) response(entitlementID uuid.UUID, entitlementSlug strin
 				Value: a.Limit,
 			},
 		},
-		CurrentPeriodStart: a.WindowStart,
-		CurrentPeriodEnd:   a.WindowEnd,
+		CurrentPeriodStart:             a.WindowStart,
+		CurrentPeriodEnd:               a.WindowEnd,
+		LimitCapExceededOveragePercent: &a.OveragePercent,
+		Source:                         "",
+		Provenance:                     nil,
 	}
 }
 

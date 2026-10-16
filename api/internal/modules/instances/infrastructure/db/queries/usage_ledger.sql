@@ -34,6 +34,7 @@ SELECT ul.report_seq,
        ul.event_count_after,
        -- -1 for an unlimited grant (NULL limit), as the response says it.
        coalesce(ul.limit_value::float8, -1)::float8              AS limit_value,
+       ul.overage_percent,
        ul.license_id,
        l.slug                                                    AS license_slug
 FROM usage_ledger ul
