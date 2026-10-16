@@ -19,6 +19,16 @@ import { BillingProblem } from './billing-problem';
 
 const clone = <T>(value: T): T => structuredClone(value);
 
+/**
+ * An invoice as the model holds it. Whether it is overdue depends on the day it is
+ * read, so the model never keeps it: the list and the read judge it, and every other
+ * answer carries false, as the API does.
+ */
+const unjudged = (invoice: Invoice): Invoice => ({
+  ...clone(invoice),
+  overdue: false,
+});
+
 /** The characters of a text as the API counts them: runes, not UTF-16 units. */
 const runeCount = (text: string) => Array.from(text).length;
 
@@ -29,6 +39,12 @@ const MAX_REPORTS_PAGE_SIZE = 500;
 const MAX_REASON = 500;
 const MAX_EXTERNAL_REFERENCE = 255;
 const DAY_MS = 24 * 60 * 60 * 1000;
+/**
+ * How long an invoice collected automatically may stay unpaid after it was issued
+ * before it counts as overdue: `KAITEN_BILLING_AUTO_COLLECTION_GRACE`, 2 hours by
+ * default.
+ */
+const AUTO_COLLECTION_GRACE_MS = 2 * 60 * 60 * 1000;
 /** How many reads of an invoice pass before the job of the push queue has run for it. */
 const PUSH_JOB_AFTER_READS = 2;
 /** Who acts in the mocks: the signed-in user of every spec. */
@@ -176,7 +192,37 @@ const byOldestIssue = (left: Invoice, right: Invoice) =>
     Date.parse(right.issuedAt ?? right.createdAt) ||
   left.id.localeCompare(right.id);
 
-/** What `GET /invoices` lists of an invoice: everything but its lines. */
+/**
+ * Whether an invoice is overdue at `now`, as the API judges it: the predicate of
+ * `?overdue=true` and of `InvoiceSummary.overdue`
+ * (`invoices.IsOverdue` in `api/internal/modules/billing/invoices/store.go`).
+ * Unpaid and issued, past its due date; for an invoice the provider charges, once
+ * a charge was refused for another reason than a pending authentication, or once
+ * the grace after its issue has gone by.
+ */
+export function isOverdueAt(invoice: Invoice, now: number): boolean {
+  if (!['MANUAL', 'PUSHED', 'PAYMENT_FAILED'].includes(invoice.status)) {
+    return false;
+  }
+  if (invoice.collectionMethod === 'CHARGE_AUTOMATICALLY') {
+    const refused =
+      invoice.status === 'PAYMENT_FAILED' &&
+      invoice.provider?.lastPaymentError !== 'authentication_required';
+    const issued = invoice.issuedAt ? Date.parse(invoice.issuedAt) : Number.NaN;
+
+    return refused || issued < now - AUTO_COLLECTION_GRACE_MS;
+  }
+  const due = invoice.dueAt ? Date.parse(invoice.dueAt) : Number.NaN;
+
+  return due < now;
+}
+
+/**
+ * What `GET /invoices` lists of an invoice: everything but its lines. It carries
+ * `overdue: false`, as every answer of the API does that does not judge it: the
+ * answers of writes and the handoff queue. The list and the read of an invoice
+ * judge it (`BillingInvoices.listInvoices`, `getInvoice`).
+ */
 export function toSummary(invoice: Invoice): InvoiceSummary {
   return {
     boundaryAt: invoice.boundaryAt,
@@ -196,7 +242,7 @@ export function toSummary(invoice: Invoice): InvoiceSummary {
     issuedAt: invoice.issuedAt,
     kind: invoice.kind,
     licenseSlug: invoice.licenseSlug,
-    overdue: invoice.overdue,
+    overdue: false,
     paidAt: invoice.paidAt,
     providerKind: invoice.providerKind,
     serviceFrom: invoice.serviceFrom,
@@ -309,7 +355,7 @@ export class BillingInvoices {
       z.array(zInvoice),
       seed.invoices ?? [],
       'BillingInvoices seed.invoices',
-    ).map(clone);
+    ).map(unjudged);
     this.reports = new Map(
       Object.entries(seed.lineReports ?? {}).map(([lineId, rows]) => [
         lineId,
@@ -399,9 +445,9 @@ export class BillingInvoices {
       [invoice],
       'BillingInvoices.addInvoice',
     );
-    this.invoices.push(clone(checked));
+    this.invoices.push(unjudged(checked));
 
-    return clone(checked);
+    return unjudged(checked);
   }
 
   /** Whether an invoice of this kind already bills the period that starts at `boundaryAt`. */
@@ -523,13 +569,7 @@ export class BillingInvoices {
     if (query.handoffStatus && invoice.handoffStatus !== query.handoffStatus) {
       return false;
     }
-    if (
-      query.overdue &&
-      !(
-        ['MANUAL', 'PUSHED', 'PAYMENT_FAILED'].includes(invoice.status) &&
-        at(invoice.dueAt) < now
-      )
-    ) {
+    if (query.overdue && !isOverdueAt(invoice, now)) {
       return false;
     }
     if (query.held && !(invoice.status === 'DRAFT' && invoice.holdReason)) {
@@ -610,7 +650,10 @@ export class BillingInvoices {
 
     return {
       hasMore,
-      items: page.map(toSummary),
+      items: page.map((invoice) => ({
+        ...toSummary(invoice),
+        overdue: isOverdueAt(invoice, this.now()),
+      })),
       nextCursor: hasMore
         ? encodeCursor({ at: last.createdAt, id: last.id })
         : undefined,
@@ -623,7 +666,7 @@ export class BillingInvoices {
     const invoice = this.find(id, 'GetInvoice.NotFound');
     this.runQueuedPush(invoice);
 
-    return clone(invoice);
+    return { ...clone(invoice), overdue: isOverdueAt(invoice, this.now()) };
   }
 
   /** `GET /billing/handoff`: oldest issue first, one status at a time. */

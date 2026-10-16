@@ -218,7 +218,6 @@ export function buildInvoice({
   issuedAt,
   kind = 'RENEWAL',
   lines,
-  overdue,
   paidAt,
   provider,
   providerKind = provider ? 'STRIPE' : 'NOOP',
@@ -251,8 +250,6 @@ export function buildInvoice({
   issuedAt?: string | null;
   kind?: Invoice['kind'];
   lines: InvoiceLine[];
-  /** Whether the server reads it as overdue; false unless a scenario says so. */
-  overdue?: boolean;
   paidAt?: string | null;
   /** The invoice in its payment provider; given, the invoice is Stripe's unless it says otherwise. */
   provider?: Invoice['provider'];
@@ -319,7 +316,9 @@ export function buildInvoice({
     licenseId: identity.licenseId,
     licenseSlug: identity.licenseSlug,
     lines,
-    overdue: overdue ?? false,
+    // The mocks of the invoices judge it when an invoice is read (`isInvoiceOverdue`
+    // in `billing-invoices.ts`), as the API does: what is built carries none.
+    overdue: false,
     paidAt: paidAt ?? null,
     provider: provider ?? null,
     providerKind,
