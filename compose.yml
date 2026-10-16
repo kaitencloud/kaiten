@@ -452,13 +452,25 @@ services:
       retries: 5
 
   debezium:
-    image: debezium/server:3.0.0.Final
+    # Docker Hub's debezium/server stops at 3.0; later releases are published on
+    # quay.io only. 3.0 carried no OpenTelemetry agent, so the OTEL_* variables
+    # below configured nothing and Debezium never reached Jaeger. Since 3.5 the
+    # image bundles the Java agent and loads it (OTEL_ENABLED=true), but ships
+    # with the SDK switched off (OTEL_SDK_DISABLED=true) -- turned on below.
+    #
+    # Not 3.7: its server runs on the Quarkus engine and no longer bundles
+    # io.debezium.converters.CloudEventsConverter, which debezium.format.value=
+    # cloudevents needs. The engine thread dies on the missing class while the
+    # container stays up, and nothing is published -- moving past 3.6 is a
+    # migration of the properties, not an image bump.
+    image: quay.io/debezium/server:3.6.3.Final
     container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-debezium
     restart: unless-stopped
     environment:
       KAITEN_DATABASE_USER: ${KAITEN_DATABASE_USER}
       KAITEN_DATABASE_PASSWORD: ${KAITEN_DATABASE_PASSWORD}
       KAITEN_DATABASE: ${KAITEN_DATABASE}
+      OTEL_SDK_DISABLED: "false"
       OTEL_SERVICE_NAME: kaiten-debezium
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OTEL_TRACES_EXPORTER: otlp
