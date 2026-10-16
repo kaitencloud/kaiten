@@ -68,6 +68,7 @@ type Maintenance struct {
 
 	partitionsAhead   metric.Int64Gauge
 	partitionsDropped metric.Int64Counter
+	dropBlocked       metric.Int64Counter
 	rowsDeleted       metric.Int64Counter
 	retentionUnknown  metric.Int64Counter
 }
@@ -108,6 +109,11 @@ func (m *Maintenance) initMetrics() {
 		metric.WithDescription("usage_ledger partitions dropped whole, past the retention ceiling"),
 		metric.WithUnit("{partition}")); err != nil {
 		slog.Warn("failed to register usage ledger metric", "metric", "partitions_dropped", "error", err)
+	}
+	if m.dropBlocked, err = meter.Int64Counter("kaiten.usage.ledger.partition_drop_blocked",
+		metric.WithDescription("Partitions past the retention ceiling kept because they hold protected rows, once per pass each; alert when one stays blocked more than 7 days"),
+		metric.WithUnit("{partition}")); err != nil {
+		slog.Warn("failed to register usage ledger metric", "metric", "partition_drop_blocked", "error", err)
 	}
 	if m.rowsDeleted, err = meter.Int64Counter("kaiten.usage.ledger.rows_deleted",
 		metric.WithDescription("usage_ledger rows deleted for organizations that keep less history than the ceiling"),
@@ -225,8 +231,21 @@ func (m *Maintenance) dropExpired(ctx context.Context, conn *pgxpool.Conn, now t
 			continue
 		}
 		if protected {
-			slog.WarnContext(ctx, "usage_ledger: partition past the retention ceiling holds rows that are not invoiced yet, keeping it",
+			// V31-15: kept, and its unprotected rows deleted instead; the drop
+			// is retried next pass, and succeeds once the close has billed the
+			// protected rows.
+			m.dropBlocked.Add(ctx, 1, metric.WithAttributes(attribute.String("partition", partitionName(month))))
+			slog.WarnContext(ctx, "usage_ledger: partition past the retention ceiling holds rows that are not invoiced yet, keeping it and deleting the rest",
 				"partition", partitionName(month), "ceiling_months", ceiling)
+			deleted, err := m.purgeBlocked(ctx, conn, month)
+			if deleted > 0 {
+				m.rowsDeleted.Add(ctx, deleted, metric.WithAttributes(attribute.String("source", "BLOCKED_PARTITION")))
+				slog.InfoContext(ctx, "usage_ledger: deleted the unprotected rows of a blocked partition",
+					"partition", partitionName(month), "rows", deleted)
+			}
+			if err != nil {
+				errs = append(errs, fmt.Errorf("purge blocked %s: %w", partitionName(month), err))
+			}
 			continue
 		}
 		if err := dropPartition(ctx, conn, month, ddlLockID); err != nil {
@@ -332,6 +351,49 @@ func purgeBatch(ctx context.Context, conn *pgxpool.Conn, organizationID uuid.UUI
 		return 0, err
 	}
 	return deleted, tx.Commit(ctx)
+}
+
+// purgeBlocked deletes the unprotected rows of a partition kept past the
+// ceiling, in the short batches of purgeOrganization: each its own
+// transaction under purgeLockTimeout, stopping at a short batch, a lock
+// timeout (retried next pass) or maxPurgeBatches.
+func (m *Maintenance) purgeBlocked(ctx context.Context, conn *pgxpool.Conn, month time.Time) (int64, error) {
+	var total int64
+	for range maxPurgeBatches {
+		if ctx.Err() != nil {
+			return total, nil
+		}
+		deleted, err := func() (int64, error) {
+			tx, err := conn.Begin(ctx)
+			if err != nil {
+				return 0, err
+			}
+			defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+			if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '`+purgeLockTimeout+`'`); err != nil {
+				return 0, err
+			}
+			deleted, err := db.New(tx).PurgeBlockedUsageLedgerPartition(ctx, db.PurgeBlockedUsageLedgerPartitionParams{
+				RangeStart: pgtype.Timestamp{Time: month, Valid: true},
+				RangeEnd:   pgtype.Timestamp{Time: period.AddMonths(month, 1), Valid: true},
+				BatchSize:  m.cfg.PurgeBatchSize,
+			})
+			if err != nil {
+				return 0, err
+			}
+			return deleted, tx.Commit(ctx)
+		}()
+		total += deleted
+		if err != nil {
+			if isLockTimeout(err) {
+				return total, nil
+			}
+			return total, err
+		}
+		if deleted < int64(m.cfg.PurgeBatchSize) {
+			break
+		}
+	}
+	return total, nil
 }
 
 // databaseNow is the usage clock, so partition months and retention cutoffs
