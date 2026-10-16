@@ -14,6 +14,7 @@ import {
   Repeat,
   Rocket,
   Server,
+  SquareLibrary,
   Tag,
   Ticket,
   UserKey,
@@ -23,8 +24,10 @@ import {
 // `billing` is not an entity but the area of billing as a whole (its settings, its
 // Stripe connector, the page that says it is off): it keeps the receipt with a
 // dollar sign, so that these do not read as one invoice. An invoice itself is the
-// receipt with its lines of text.
+// receipt with its lines of text. `catalog` is an area too: the section that holds
+// licenses, add-ons, entitlements and vouchers, drawn as the shelf they stand on.
 export const dataModelIcons = {
+  catalog: SquareLibrary,
   customer: Users,
   instance: Server,
   entitlement: Boxes,

@@ -50,7 +50,7 @@ export function SideNav() {
               <SideNavPrimaryRoutes pathname={pathname} />
               <SidebarMenuItem>
                 <SideNavCollapsibleMenu
-                  Icon={dataModelIcons.license}
+                  Icon={dataModelIcons.catalog}
                   isActive={isCatalogActive}
                   isCollapsed={isCollapsed}
                   items={catalogItems}
