@@ -73,11 +73,10 @@ function knownAll<T extends string>(
  * equivalent. A day maps to the period that starts at its first instant and ends
  * where the next day starts, which holds exactly the invoices of that UTC day.
  *
- * `overdue` is not sent, although the API has a filter of that name: it counts an
- * invoice overdue past its due date whatever collects it and whether its payment
- * failed, and the screen only one that `SEND_INVOICE` collects (`isInvoiceOverdue`).
- * The file would hold invoices the screen does not show, so the filter is named as
- * one the file leaves out.
+ * `overdue` is not sent, although the API has a filter of that name: the export
+ * has not been taught to, and an invoice the screen tells overdue from its due date
+ * alone (the handoff queue, which the API does not judge) is one the filter would
+ * miss (`isInvoiceOverdue`). The filter is named as one the file leaves out.
  */
 function put(
   filters: InvoiceExportFilters,

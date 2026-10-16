@@ -170,7 +170,7 @@ describe('InvoiceStatusBadge', () => {
   it('reads a manual invoice as ready to bill', () => {
     render(
       <InvoiceStatusBadge
-        invoice={{ collectionMethod: 'SEND_INVOICE', dueAt: null, holdReason: null, status: 'MANUAL' }}
+        invoice={{ collectionMethod: 'SEND_INVOICE', dueAt: null, holdReason: null, overdue: false, status: 'MANUAL' }}
       />,
     );
 
@@ -185,6 +185,7 @@ describe('InvoiceStatusBadge', () => {
           collectionMethod: 'SEND_INVOICE',
           dueAt: null,
           holdReason: 'LEDGER_SEQUENCE_GAP',
+          overdue: false,
           status: 'DRAFT',
         }}
       />,
@@ -204,7 +205,7 @@ describe('InvoiceStatusBadge', () => {
     const user = userEvent.setup();
     render(
       <InvoiceStatusBadge
-        invoice={{ collectionMethod: 'SEND_INVOICE', dueAt: null, holdReason: null, status: 'PAID' }}
+        invoice={{ collectionMethod: 'SEND_INVOICE', dueAt: null, holdReason: null, overdue: false, status: 'PAID' }}
       />,
     );
 
@@ -221,9 +222,27 @@ describe('InvoiceStatusBadge', () => {
           collectionMethod: 'SEND_INVOICE',
           dueAt: '2027-03-01T00:00:00Z',
           holdReason: null,
+          overdue: false,
           status: 'MANUAL',
         }}
         now={Date.parse('2027-03-15T00:00:00Z')}
+      />,
+    );
+
+    expect(screen.getByText('Overdue')).toBeInTheDocument();
+  });
+
+  it('says an invoice the API judged overdue is, whoever collects it', () => {
+    render(
+      <InvoiceStatusBadge
+        invoice={{
+          collectionMethod: 'CHARGE_AUTOMATICALLY',
+          dueAt: '2027-03-01T00:00:00Z',
+          holdReason: null,
+          overdue: true,
+          status: 'PAYMENT_FAILED',
+        }}
+        now={Date.parse('2027-03-01T00:30:00Z')}
       />,
     );
 
@@ -238,7 +257,7 @@ describe('InvoiceStatusBadge', () => {
       <>
         {statuses.map((status) => (
           <InvoiceStatusBadge
-            invoice={{ collectionMethod: 'SEND_INVOICE', dueAt: null, holdReason: null, status }}
+            invoice={{ collectionMethod: 'SEND_INVOICE', dueAt: null, holdReason: null, overdue: false, status }}
             key={status}
           />
         ))}

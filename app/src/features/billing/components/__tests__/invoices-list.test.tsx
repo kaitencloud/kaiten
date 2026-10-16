@@ -465,7 +465,7 @@ describe('the export of the list', () => {
     expect(asked[0].toString()).not.toContain('globex');
   });
 
-  it('says overdue is not applied to the file, since the API counts it more widely than the screen', async () => {
+  it('says overdue is not applied to the file, which the export is not asked for', async () => {
     const asked = serveExport();
     renderList();
     await openFilterMenu();

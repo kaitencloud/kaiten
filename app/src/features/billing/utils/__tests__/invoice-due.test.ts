@@ -9,6 +9,7 @@ const invoice = (overrides: Partial<InvoiceDueInput> = {}): InvoiceDueInput => (
   dueAt: '2027-03-31T00:04:00.000Z',
   holdReason: null,
   issuedAt: '2027-03-17T00:04:00.000Z',
+  overdue: false,
   paidAt: null,
   status: 'MANUAL',
   uncollectibleAt: null,
@@ -61,7 +62,7 @@ describe('getInvoiceDue', () => {
     });
   });
 
-  it('says an invoice is overdue only when its status does: a card that is charged on its own never is', () => {
+  it('says an invoice is overdue only when its status does: a card that is charged on its own is when the API says so', () => {
     expect(
       getInvoiceDue(
         invoice({
@@ -77,6 +78,16 @@ describe('getInvoiceDue', () => {
         NOW,
       ),
     ).toMatchObject({ overdue: false });
+    expect(
+      getInvoiceDue(
+        invoice({
+          collectionMethod: 'CHARGE_AUTOMATICALLY',
+          dueAt: '2027-03-10T00:04:00.000Z',
+          overdue: true,
+        }),
+        NOW,
+      ),
+    ).toMatchObject({ days: -10, overdue: true });
   });
 
   it('has no due date to read for an issued invoice that has none, or one that is not a date', () => {

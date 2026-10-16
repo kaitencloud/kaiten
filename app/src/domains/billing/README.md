@@ -378,8 +378,11 @@ page holds, or an export the API streams.
   subscription has are not rendered otherwise; a screen decides from the
   `providerKind` the API names on the invoice or the subscription.
 - **Statuses read in words.** A held DRAFT says it is held and, on hover and on
-  focus, why; an unpaid `SEND_INVOICE` invoice past its due date says it is
-  overdue (derived: the API does not say), and `MANUAL` reads "Ready to bill",
+  focus, why; an invoice the API judged overdue says it is (its `overdue` member,
+  which the list and the read of an invoice carry, the grace of automatic
+  collection included; the handoff queue and the answers of writes carry false,
+  so an unpaid `SEND_INVOICE` invoice there is still told from its due date),
+  and `MANUAL` reads "Ready to bill",
   never as a failure. Every label map is typed `satisfies Record<Enum, string>`: a
   status the contract adds fails the type check until it has a label. A line type
   the console does not know renders as it was sent.

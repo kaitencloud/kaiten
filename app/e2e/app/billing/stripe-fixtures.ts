@@ -18,7 +18,10 @@ import type { BillingProvidersSeed } from '../_support/model/billing-providers';
  * - `inv-pf`: its automatic charge asks the customer to confirm the payment;
  * - `inv-q1`: composed a minute ago and waiting for the push job.
  * Every date is a fixed day of 2026, so that what a spec reads does not depend on
- * the day it runs.
+ * the day it runs, except the issue of the two invoices the card is charged for
+ * (`inv-s1`, `inv-pf`): the API calls such an invoice overdue once it has been unpaid
+ * for two hours, so they are issued half an hour ago to be awaiting payment whenever a
+ * spec runs.
  */
 
 const APRIL = {
@@ -26,6 +29,9 @@ const APRIL = {
   to: '2026-05-01T00:00:00.000Z',
 };
 const ISSUED = '2026-04-01T00:06:00.000Z';
+/** Within the two hours an invoice charged to a card may stay unpaid before it is overdue. */
+const issuedHalfAnHourAgo = () =>
+  new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
 const baseLine = (invoiceId: string, seq = 1): InvoiceLine =>
   buildInvoiceLine({
@@ -60,6 +66,7 @@ export function stripeInvoices(): Invoice[] {
   return [
     stripeInvoice('inv-s1', {
       collectionMethod: 'CHARGE_AUTOMATICALLY',
+      issuedAt: issuedHalfAnHourAgo(),
       provider: buildProviderRecord({
         externalInvoiceId: 'in_s1',
         pushedAt: ISSUED,
@@ -138,6 +145,7 @@ export function stripeInvoices(): Invoice[] {
     stripeInvoice('inv-pf', {
       collectionMethod: 'CHARGE_AUTOMATICALLY',
       createdAt: '2026-04-01T00:11:00.000Z',
+      issuedAt: issuedHalfAnHourAgo(),
       provider: buildProviderRecord({
         externalInvoiceId: 'in_pf',
         lastPaymentError: 'authentication_required',

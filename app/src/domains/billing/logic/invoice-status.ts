@@ -77,22 +77,27 @@ export const isKnownHoldReason = (reason: string): reason is HoldReason =>
 /** The fields of an invoice that decide how its status reads. */
 export type InvoiceStatusInput = Pick<
   InvoiceSummary,
-  'collectionMethod' | 'dueAt' | 'holdReason' | 'status'
+  'collectionMethod' | 'dueAt' | 'holdReason' | 'overdue' | 'status'
 >;
 
 // Unpaid and issued: the statuses a due date can pass on.
 const OVERDUE_STATUSES: readonly InvoiceStatus[] = ['MANUAL', 'PUSHED'];
 
 /**
- * Whether an invoice is past its due date and still unpaid. The API does not
- * say, so the console derives it, and only for SEND_INVOICE: what
- * CHARGE_AUTOMATICALLY allows after the due date is the provider's, and the
- * console does not know it.
+ * Whether an invoice is overdue. The API judges it when it lists or reads an
+ * invoice (`overdue`), with the grace period of automatic collection and a
+ * refused charge in it, which the console cannot know. The handoff queue and the
+ * answers of a write carry it without judging, as false, so an invoice the API
+ * did not call overdue is still told from its due date, for `SEND_INVOICE` only,
+ * which is the API's own test there.
  */
 export function isInvoiceOverdue(
   invoice: InvoiceStatusInput,
   now: number = Date.now(),
 ): boolean {
+  if (invoice.overdue) {
+    return true;
+  }
   if (
     invoice.collectionMethod !== 'SEND_INVOICE' ||
     !OVERDUE_STATUSES.includes(invoice.status) ||

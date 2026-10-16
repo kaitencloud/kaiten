@@ -752,15 +752,14 @@ test.describe('the export of the list', () => {
     expect(query.has('search')).toBe(false);
   });
 
-  test('leaves overdue out of the file and says so, since the API counts more invoices overdue than the screen', async ({
+  test('leaves overdue out of the file and says so, since the export is not asked for it', async ({
     page,
   }) => {
     const list = new BillingInvoicesDriver(page);
     const exports = recordWrites(page, /\/api\/invoices\/export$/, ['GET']);
-    // `inv-s1`, which Stripe charges by card, is past its due date: the API counts
-    // it overdue, as it does any issued invoice that is unpaid past its due date,
-    // and the screen does not, since it says it only of an invoice sent to the
-    // customer. The file would hold what the screen does not show.
+    // The screen also tells an invoice of the handoff queue overdue from its due
+    // date, which the API does not judge there, so the filter of the file would
+    // miss it: the export does not carry it.
     await installBillingAppMocks(page, createInvoicesModel({ stripe: true }));
 
     await list.gotoShowingEverything();

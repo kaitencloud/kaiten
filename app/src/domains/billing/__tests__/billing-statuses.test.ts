@@ -25,6 +25,7 @@ const invoice = (overrides: Partial<InvoiceStatusInput> = {}): InvoiceStatusInpu
   collectionMethod: 'SEND_INVOICE',
   dueAt: null,
   holdReason: null,
+  overdue: false,
   status: 'MANUAL',
   ...overrides,
 });
@@ -66,12 +67,24 @@ describe('invoice status', () => {
     });
   });
 
-  it('derives overdue for an unpaid SEND_INVOICE invoice past its due date', () => {
+  it('tells an unpaid SEND_INVOICE invoice past its due date overdue where the API carried no verdict', () => {
     expect(isInvoiceOverdue(invoice({ dueAt: PAST }), NOW)).toBe(true);
     expect(isInvoiceOverdue(invoice({ dueAt: PAST, status: 'PUSHED' }), NOW)).toBe(true);
     expect(getInvoiceStatusPresentation(invoice({ dueAt: PAST }), NOW).kind).toBe(
       'overdue',
     );
+  });
+
+  it('reads what the API judged: a charge it refused, or one left unpaid past the grace', () => {
+    const refused = invoice({
+      collectionMethod: 'CHARGE_AUTOMATICALLY',
+      dueAt: PAST,
+      overdue: true,
+      status: 'PAYMENT_FAILED',
+    });
+
+    expect(isInvoiceOverdue(refused, NOW)).toBe(true);
+    expect(getInvoiceStatusPresentation(refused, NOW).kind).toBe('overdue');
   });
 
   it.each<[string, InvoiceStatusInput]>([
@@ -80,8 +93,9 @@ describe('invoice status', () => {
     ['paid', invoice({ dueAt: PAST, status: 'PAID' })],
     ['void', invoice({ dueAt: PAST, status: 'VOID' })],
     ['written off', invoice({ dueAt: PAST, status: 'UNCOLLECTIBLE' })],
-    // What CHARGE_AUTOMATICALLY allows after the due date is the provider's.
-    ['charged automatically', invoice({ collectionMethod: 'CHARGE_AUTOMATICALLY', dueAt: PAST })],
+    // What CHARGE_AUTOMATICALLY allows after the due date is the provider's, and the API's
+    // verdict (`overdue`) is the only thing that tells.
+    ['charged automatically and not judged overdue', invoice({ collectionMethod: 'CHARGE_AUTOMATICALLY', dueAt: PAST })],
   ])('is not overdue when %s', (_, input) => {
     expect(isInvoiceOverdue(input, NOW)).toBe(false);
   });

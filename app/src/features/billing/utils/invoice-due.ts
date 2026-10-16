@@ -10,6 +10,7 @@ export type InvoiceDueInput = Pick<
   | 'dueAt'
   | 'holdReason'
   | 'issuedAt'
+  | 'overdue'
   | 'paidAt'
   | 'status'
   | 'uncollectibleAt'
@@ -34,7 +35,7 @@ export type InvoiceDue =
       /** Whole UTC days from today to the due day, negative once it has passed. */
       days: number;
       dueAt: string;
-      /** Past its due date and unpaid, as the status badge derives it. */
+      /** Overdue, as the status badge says it. */
       overdue: boolean;
       kind: 'due';
     }

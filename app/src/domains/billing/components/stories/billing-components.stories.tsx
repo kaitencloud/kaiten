@@ -148,6 +148,7 @@ export const Statuses: Story = {
               collectionMethod: 'SEND_INVOICE',
               dueAt: null,
               holdReason: null,
+              overdue: false,
               status,
             }}
             key={status}
@@ -158,6 +159,7 @@ export const Statuses: Story = {
             collectionMethod: 'SEND_INVOICE',
             dueAt: null,
             holdReason: 'LEDGER_SEQUENCE_GAP',
+            overdue: false,
             status: 'DRAFT',
           }}
         />
@@ -166,6 +168,7 @@ export const Statuses: Story = {
             collectionMethod: 'SEND_INVOICE',
             dueAt: '2027-03-01T00:00:00Z',
             holdReason: null,
+            overdue: false,
             status: 'MANUAL',
           }}
           now={Date.parse('2027-03-15T00:00:00Z')}

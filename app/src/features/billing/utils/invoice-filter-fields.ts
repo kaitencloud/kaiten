@@ -105,8 +105,9 @@ const providerField = (t: TFunction): InvoiceFilterField => ({
   type: 'enum',
 });
 
-// The same words the status badge of the table says: an unpaid invoice past its
-// due date, which the API does not say and the console derives.
+// The same words the status badge of the table says: an invoice the API judged
+// overdue, or an unpaid `SEND_INVOICE` one past its due date where it did not judge
+// (the handoff queue).
 const overdueField = (t: TFunction): InvoiceFilterField => ({
   accessor: (invoice) => isInvoiceOverdue(invoice),
   id: INVOICE_FILTER_IDS.overdue,

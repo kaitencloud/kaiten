@@ -40,10 +40,10 @@ describe('what an export is asked for', () => {
     });
   });
 
-  it('leaves overdue out, since the API counts it more widely than the screen does', () => {
-    // The API counts an invoice overdue past its due date whatever collects it and
-    // whether its payment failed; the screen only one that SEND_INVOICE collects. The
-    // file would hold invoices the screen does not show, so it is named instead.
+  it('leaves overdue out: the export is not asked for it, and says so', () => {
+    // The screen also tells an invoice of the handoff queue overdue from its due date,
+    // which the API does not judge there, so the filter would miss it. The filter is
+    // named instead.
     expect(
       toInvoiceExportSelection({ customerSlug: 'acme' }, [
         { id: 'overdue', value: 'true' },
