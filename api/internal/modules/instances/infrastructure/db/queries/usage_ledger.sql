@@ -100,7 +100,8 @@ USING (
       -- OVERAGE price of this subscription meters, on its licence version or
       -- on an add-on attached when the row was reported. (meters_entitlement_id
       -- is set exactly on those two models.) Kept identical in
-      -- PurgeOrganizationUsageLedger and HasProtectedUsageLedgerRows.
+      -- PurgeOrganizationUsageLedger, PurgeBlockedUsageLedgerPartition and
+      -- HasProtectedUsageLedgerRows.
       AND (EXISTS (SELECT 1
                    FROM license_price base
                    JOIN license_price lp
@@ -148,7 +149,108 @@ USING (
       -- OVERAGE price of this subscription meters, on its licence version or
       -- on an add-on attached when the row was reported. (meters_entitlement_id
       -- is set exactly on those two models.) Kept identical in
-      -- PurgeOrganizationUsageLedger and HasProtectedUsageLedgerRows.
+      -- PurgeOrganizationUsageLedger, PurgeBlockedUsageLedgerPartition and
+      -- HasProtectedUsageLedgerRows.
+      AND (EXISTS (SELECT 1
+                   FROM license_price base
+                   JOIN license_price lp
+                     ON lp.license_id = base.license_id
+                    AND lp.organization_id = base.organization_id
+                   WHERE base.id = ib.base_license_price_id
+                     AND lp.meters_entitlement_id = old.entitlement_id
+                     AND lp.status = 'ACTIVE')
+        OR EXISTS (SELECT 1
+                   FROM instance_addon ia
+                   JOIN addon_price ap
+                     ON ap.addon_id = ia.addon_id
+                    AND ap.organization_id = ia.organization_id
+                   WHERE ia.instance_id = old.instance_id
+                     AND ia.organization_id = old.organization_id
+                     AND ia.created_at <= old.reported_at
+                     AND (ia.removed_at IS NULL OR ia.removed_at > old.reported_at)
+                     AND ap.meters_entitlement_id = old.entitlement_id
+                     AND ap.status = 'ACTIVE'))
+  )
+  LIMIT sqlc.arg(batch_size)
+) doomed
+WHERE ul.instance_id = doomed.instance_id
+  AND ul.entitlement_id = doomed.entitlement_id
+  AND ul.report_seq = doomed.report_seq
+  AND ul.reported_at = doomed.reported_at;
+
+
+-- name: PurgeBlockedUsageLedgerPartition :execrows
+-- One batch of the unprotected rows dated in [range_start, range_end): a
+-- partition past the drop ceiling that holds protected rows is kept, and the
+-- rest of it deleted instead, whatever the organizations' windows (V31-15,
+-- rule 5(a)). The protection is PurgeOrganizationUsageLedger's, verbatim. The
+-- caller repeats it until a batch comes back short.
+DELETE FROM usage_ledger ul
+USING (
+  SELECT old.instance_id, old.entitlement_id, old.report_seq, old.reported_at
+  FROM usage_ledger old
+  WHERE old.reported_at >= sqlc.arg(range_start)
+    AND old.reported_at < sqlc.arg(range_end)
+  AND NOT EXISTS (
+    SELECT 1
+    FROM instance_billing ib
+    WHERE ib.instance_id = old.instance_id
+      AND ib.status <> 'CANCELED'
+      -- V31-14: only a metered pair is protected, one an ACTIVE USAGE_BASED or
+      -- OVERAGE price of this subscription meters, on its licence version or
+      -- on an add-on attached when the row was reported. (meters_entitlement_id
+      -- is set exactly on those two models.) Kept identical in
+      -- PurgeOrganizationUsageLedger, PurgeBlockedUsageLedgerPartition and
+      -- HasProtectedUsageLedgerRows.
+      AND (EXISTS (SELECT 1
+                   FROM license_price base
+                   JOIN license_price lp
+                     ON lp.license_id = base.license_id
+                    AND lp.organization_id = base.organization_id
+                   WHERE base.id = ib.base_license_price_id
+                     AND lp.meters_entitlement_id = old.entitlement_id
+                     AND lp.status = 'ACTIVE')
+        OR EXISTS (SELECT 1
+                   FROM instance_addon ia
+                   JOIN addon_price ap
+                     ON ap.addon_id = ia.addon_id
+                    AND ap.organization_id = ia.organization_id
+                   WHERE ia.instance_id = old.instance_id
+                     AND ia.organization_id = old.organization_id
+                     AND ia.created_at <= old.reported_at
+                     AND (ia.removed_at IS NULL OR ia.removed_at > old.reported_at)
+                     AND ap.meters_entitlement_id = old.entitlement_id
+                     AND ap.status = 'ACTIVE'))
+      AND (
+        -- (a) not invoiced yet: since the current period started.
+        old.reported_at >= ib.current_period_start
+        -- the last row of the pair before it, so that the "first_seq - 1"
+        -- probe of invariant 1 stays answerable.
+        OR (old.reported_at < ib.current_period_start
+            AND NOT EXISTS (
+              SELECT 1 FROM usage_ledger nxt
+              WHERE nxt.instance_id = old.instance_id
+                AND nxt.entitlement_id = old.entitlement_id
+                AND nxt.reported_at > old.reported_at
+                AND nxt.reported_at < ib.current_period_start))
+      )
+  )
+  AND NOT EXISTS (
+    -- (b) in the service period of a DRAFT invoice: held, awaiting release,
+    -- recompose or handoff.
+    SELECT 1
+    FROM instance_billing ib
+    JOIN instance_invoice inv ON inv.instance_billing_id = ib.id
+    WHERE ib.instance_id = old.instance_id
+      AND inv.status = 'DRAFT'
+      AND old.reported_at >= inv.service_from
+      AND old.reported_at < inv.service_to
+      -- V31-14: only a metered pair is protected, one an ACTIVE USAGE_BASED or
+      -- OVERAGE price of this subscription meters, on its licence version or
+      -- on an add-on attached when the row was reported. (meters_entitlement_id
+      -- is set exactly on those two models.) Kept identical in
+      -- PurgeOrganizationUsageLedger, PurgeBlockedUsageLedgerPartition and
+      -- HasProtectedUsageLedgerRows.
       AND (EXISTS (SELECT 1
                    FROM license_price base
                    JOIN license_price lp
@@ -194,7 +296,8 @@ SELECT EXISTS (
       -- OVERAGE price of this subscription meters, on its licence version or
       -- on an add-on attached when the row was reported. (meters_entitlement_id
       -- is set exactly on those two models.) Kept identical in
-      -- PurgeOrganizationUsageLedger and HasProtectedUsageLedgerRows.
+      -- PurgeOrganizationUsageLedger, PurgeBlockedUsageLedgerPartition and
+      -- HasProtectedUsageLedgerRows.
       AND (EXISTS (SELECT 1
                    FROM license_price base
                    JOIN license_price lp
@@ -242,7 +345,8 @@ SELECT EXISTS (
       -- OVERAGE price of this subscription meters, on its licence version or
       -- on an add-on attached when the row was reported. (meters_entitlement_id
       -- is set exactly on those two models.) Kept identical in
-      -- PurgeOrganizationUsageLedger and HasProtectedUsageLedgerRows.
+      -- PurgeOrganizationUsageLedger, PurgeBlockedUsageLedgerPartition and
+      -- HasProtectedUsageLedgerRows.
       AND (EXISTS (SELECT 1
                    FROM license_price base
                    JOIN license_price lp

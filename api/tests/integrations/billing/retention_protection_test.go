@@ -83,6 +83,14 @@ func TestUsageLedgerMaintenanceSparesUninvoicedUsage(t *testing.T) {
 	// With the ceiling at 18 months the 20-month-old partition is dropped, but
 	// one that still holds the predecessor row is not.
 	exec(t, `UPDATE usage_ledger SET reported_at = $1::timestamp WHERE reported_at < $2::timestamp`, ago(20), ago(10))
+	// Beside it, a row no price meters: a blocked partition loses its
+	// unprotected rows at once, whatever the windows (V31-15).
+	exec(t, `INSERT INTO usage_ledger (organization_id, instance_id, entitlement_id, license_id, report_seq, reported_at,
+	                                   behavior, aggregation_method, reported_value, value_before, value_after,
+	                                   event_count_after, overage_percent, limit_value, window_start, window_end)
+	         SELECT organization_id, instance_id, $2, license_id, 99, $1::timestamp,
+	                behavior, aggregation_method, reported_value, value_before, value_after, event_count_after, overage_percent, limit_value, window_start, window_end
+	           FROM usage_ledger ORDER BY report_seq LIMIT 1`, ago(20), seats)
 	maintenance = usageledger.New(testDb.DbPool, nil, usageledger.Config{
 		Interval: time.Hour, PurgeBatchSize: 100,
 		Settings: usageledger.Settings{RetentionMonths: 18, MaxRetentionMonths: 18, IdempotencyWindow: 840 * time.Hour},
@@ -90,5 +98,7 @@ func TestUsageLedgerMaintenanceSparesUninvoicedUsage(t *testing.T) {
 	require.NoError(t, maintenance.Sweep(t.Context()))
 	var kept int
 	require.NoError(t, testDb.DbPool.QueryRow(t.Context(), `SELECT count(*) FROM usage_ledger WHERE reported_at < $1::timestamp`, ago(18)).Scan(&kept))
-	require.Equal(t, 1, kept, "the predecessor row, past the ceiling, keeps its partition")
+	require.Equal(t, 1, kept, "the predecessor row, past the ceiling, keeps its partition; the unmetered row beside it is deleted")
+	require.NoError(t, testDb.DbPool.QueryRow(t.Context(), `SELECT count(*) FROM usage_ledger WHERE entitlement_id = $1`, seats).Scan(&unmetered))
+	require.Zero(t, unmetered)
 }
