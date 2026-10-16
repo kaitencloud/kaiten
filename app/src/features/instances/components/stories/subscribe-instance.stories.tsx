@@ -204,6 +204,7 @@ export const Started: Story = {
             issuedAt: null,
             kind: 'ACTIVATION',
             licenseSlug: 'enterprise',
+            overdue: false,
             paidAt: null,
             providerKind: 'NOOP',
             serviceFrom: '2027-03-01T00:00:00.000Z',

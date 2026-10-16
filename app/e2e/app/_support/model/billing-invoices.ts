@@ -196,6 +196,7 @@ export function toSummary(invoice: Invoice): InvoiceSummary {
     issuedAt: invoice.issuedAt,
     kind: invoice.kind,
     licenseSlug: invoice.licenseSlug,
+    overdue: invoice.overdue,
     paidAt: invoice.paidAt,
     providerKind: invoice.providerKind,
     serviceFrom: invoice.serviceFrom,

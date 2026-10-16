@@ -157,6 +157,7 @@ const FIRST_INVOICE: Omit<InvoiceSummary, 'customerName' | 'id'> = {
   issuedAt: null,
   kind: 'RENEWAL',
   licenseSlug: 'pro',
+  overdue: false,
   paidAt: null,
   providerKind: 'NOOP',
   serviceFrom: '2027-02-01T00:00:00.000Z',

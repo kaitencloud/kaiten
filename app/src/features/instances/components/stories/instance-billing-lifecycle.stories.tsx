@@ -170,6 +170,7 @@ const overdue: InvoiceSummary = {
   issuedAt: '2027-02-05T00:00:00.000Z',
   kind: 'RENEWAL',
   licenseSlug: 'enterprise',
+  overdue: false,
   paidAt: null,
   providerKind: 'NOOP',
   serviceFrom: '2027-01-05T00:00:00.000Z',
