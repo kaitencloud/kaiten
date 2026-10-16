@@ -166,8 +166,12 @@ FROM (SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::t
 -- The limit and overage policy a report is gated on: the instance's effective
 -- entitlement, read after StampReportInstant. No row means the instance is no
 -- longer granted the entitlement.
+-- license_entitlement_id and provenance answer the report's source and
+-- provenance from the very row the gate read (V31-55).
 SELECT iee.value,
-       iee.limit_cap_exceeded_overage_percent
+       iee.limit_cap_exceeded_overage_percent,
+       iee.license_entitlement_id,
+       iee.provenance
 FROM instance_effective_entitlement iee
 WHERE iee.instance_id = sqlc.arg(instance_id)
   AND iee.entitlement_id = sqlc.arg(entitlement_id)

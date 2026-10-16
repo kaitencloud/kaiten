@@ -546,6 +546,11 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 		if err != nil {
 			return err
 		}
+		provenance, err := entitlementUsageSchema.ParseProvenance(entitlementUsageCtx.Provenance)
+		if err != nil {
+			return err
+		}
+		overagePercent := int16(entitlementUsageCtx.LimitCapExceededOveragePercent)
 		result = &entitlementUsageSchema.EntitlementUsage{
 			EntitlementID:   entitlementUsageCtx.EntitlementID,
 			EntitlementSlug: entitlementUsageCtx.EntitlementSlug,
@@ -558,9 +563,12 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 					EventCount: updatedUsage.EventCount,
 				},
 			},
-			Limit:              limit,
-			CurrentPeriodStart: resolvedPeriodStart,
-			CurrentPeriodEnd:   resolvedPeriodEnd,
+			Limit:                          limit,
+			CurrentPeriodStart:             resolvedPeriodStart,
+			CurrentPeriodEnd:               resolvedPeriodEnd,
+			LimitCapExceededOveragePercent: &overagePercent,
+			Source:                         entitlementUsageSchema.SourceOf(entitlementUsageCtx.LicenseEntitlementID),
+			Provenance:                     provenance,
 		}
 
 		if reachedCapExactly {
