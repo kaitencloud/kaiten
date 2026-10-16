@@ -332,6 +332,8 @@ SELECT
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = sqlc.arg(organization_id) AND i.hold_reason = 'LEDGER_COUNTER_MISMATCH')::bigint AS held_counter_mismatch,
   (SELECT count(*) FROM instance_invoice i
+    WHERE i.organization_id = sqlc.arg(organization_id) AND i.hold_reason = 'PROVIDER_ITEM_LIMIT')::bigint AS held_provider_item_limit,
+  (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = sqlc.arg(organization_id) AND i.status = 'PUSH_FAILED'
       AND i.push_attempts >= sqlc.arg(alert_after_attempts)::integer)::bigint AS push_failures,
   (SELECT min(i.updated_at) FROM instance_invoice i

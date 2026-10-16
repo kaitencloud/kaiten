@@ -822,6 +822,7 @@ components:
           type: string
         status:
           enum:
+            - INCOMPLETE
             - TRIAL
             - ACTIVE
             - PAST_DUE
@@ -1010,6 +1011,7 @@ components:
           type: string
         status:
           enum:
+            - INCOMPLETE
             - TRIAL
             - ACTIVE
             - PAST_DUE
@@ -1167,6 +1169,7 @@ components:
           type: string
         status:
           enum:
+            - INCOMPLETE
             - TRIAL
             - ACTIVE
             - PAST_DUE
@@ -1319,6 +1322,7 @@ components:
           type: string
         status:
           enum:
+            - INCOMPLETE
             - TRIAL
             - ACTIVE
             - PAST_DUE
@@ -3004,11 +3008,12 @@ components:
         holdDetail:
           $ref: "#/components/schemas/HoldDetail"
         holdReason:
-          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check (LEDGER_*), or its provider cannot take that many lines (PROVIDER_ITEM_LIMIT)"
           enum:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
+            - PROVIDER_ITEM_LIMIT
             - null
           type:
             - string
@@ -3590,6 +3595,7 @@ components:
           type: string
         status:
           enum:
+            - INCOMPLETE
             - TRIAL
             - ACTIVE
             - PAST_DUE
@@ -4085,11 +4091,12 @@ components:
                 - null
               type: "null"
         holdReason:
-          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check (LEDGER_*), or its provider cannot take that many lines (PROVIDER_ITEM_LIMIT)"
           enum:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
+            - PROVIDER_ITEM_LIMIT
             - null
           type:
             - string
@@ -4789,11 +4796,12 @@ components:
             - ACKNOWLEDGED
           type: string
         holdReason:
-          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check (LEDGER_*), or its provider cannot take that many lines (PROVIDER_ITEM_LIMIT)"
           enum:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
+            - PROVIDER_ITEM_LIMIT
             - null
           type:
             - string
@@ -4961,11 +4969,12 @@ components:
             - ACKNOWLEDGED
           type: string
         holdReason:
-          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check (LEDGER_*), or its provider cannot take that many lines (PROVIDER_ITEM_LIMIT)"
           enum:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
+            - PROVIDER_ITEM_LIMIT
             - null
           type:
             - string
@@ -5906,11 +5915,12 @@ components:
             - ACKNOWLEDGED
           type: string
         holdReason:
-          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check (LEDGER_*), or its provider cannot take that many lines (PROVIDER_ITEM_LIMIT)"
           enum:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
+            - PROVIDER_ITEM_LIMIT
             - null
           type:
             - string
@@ -6880,11 +6890,12 @@ components:
             - ACKNOWLEDGED
           type: string
         holdReason:
-          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check (LEDGER_*), or its provider cannot take that many lines (PROVIDER_ITEM_LIMIT)"
           enum:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
+            - PROVIDER_ITEM_LIMIT
             - null
           type:
             - string
@@ -7081,11 +7092,12 @@ components:
             - ACKNOWLEDGED
           type: string
         holdReason:
-          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check (LEDGER_*), or its provider cannot take that many lines (PROVIDER_ITEM_LIMIT)"
           enum:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
+            - PROVIDER_ITEM_LIMIT
             - null
           type:
             - string
@@ -7565,6 +7577,7 @@ components:
         billingStatus:
           description: Its subscription's status; null when it was never subscribed
           enum:
+            - INCOMPLETE
             - TRIAL
             - ACTIVE
             - PAST_DUE
@@ -8864,11 +8877,12 @@ components:
             - ACKNOWLEDGED
           type: string
         holdReason:
-          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check (LEDGER_*), or its provider cannot take that many lines (PROVIDER_ITEM_LIMIT)"
           enum:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
+            - PROVIDER_ITEM_LIMIT
             - null
           type:
             - string
@@ -9036,11 +9050,12 @@ components:
             - ACKNOWLEDGED
           type: string
         holdReason:
-          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check (LEDGER_*), or its provider cannot take that many lines (PROVIDER_ITEM_LIMIT)"
           enum:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
+            - PROVIDER_ITEM_LIMIT
             - null
           type:
             - string
@@ -9191,11 +9206,12 @@ components:
             - ACKNOWLEDGED
           type: string
         holdReason:
-          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check (LEDGER_*), or its provider cannot take that many lines (PROVIDER_ITEM_LIMIT)"
           enum:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
+            - PROVIDER_ITEM_LIMIT
             - null
           type:
             - string
@@ -9572,11 +9588,12 @@ components:
           $ref: "#/components/schemas/HoldDetail"
           description: The hold it left, which the invoice no longer shows
         holdReason:
-          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check (LEDGER_*), or its provider cannot take that many lines (PROVIDER_ITEM_LIMIT)"
           enum:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
+            - PROVIDER_ITEM_LIMIT
             - null
           type:
             - string
@@ -10490,6 +10507,7 @@ components:
               type: "null"
         status:
           enum:
+            - INCOMPLETE
             - TRIAL
             - ACTIVE
             - PAST_DUE
@@ -10683,6 +10701,7 @@ components:
           type: string
         status:
           enum:
+            - INCOMPLETE
             - TRIAL
             - ACTIVE
             - PAST_DUE
@@ -10731,6 +10750,7 @@ components:
       properties:
         from:
           enum:
+            - INCOMPLETE
             - TRIAL
             - ACTIVE
             - PAST_DUE
@@ -10749,6 +10769,7 @@ components:
           type: string
         to:
           enum:
+            - INCOMPLETE
             - TRIAL
             - ACTIVE
             - PAST_DUE
@@ -11173,11 +11194,12 @@ components:
             - ACKNOWLEDGED
           type: string
         holdReason:
-          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check (LEDGER_*), or its provider cannot take that many lines (PROVIDER_ITEM_LIMIT)"
           enum:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
+            - PROVIDER_ITEM_LIMIT
             - null
           type:
             - string
@@ -11518,11 +11540,12 @@ components:
             - ACKNOWLEDGED
           type: string
         holdReason:
-          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check"
+          description: "Why a DRAFT is held: the usage journal it was measured from failed a consistency check (LEDGER_*), or its provider cannot take that many lines (PROVIDER_ITEM_LIMIT)"
           enum:
             - LEDGER_SEQUENCE_GAP
             - LEDGER_CHAIN_BREAK
             - LEDGER_COUNTER_MISMATCH
+            - PROVIDER_ITEM_LIMIT
             - null
           type:
             - string
@@ -29709,6 +29732,47 @@ webhooks:
         "200":
           description: Webhook processed successfully
       summary: Instance Billing Status Changed Webhook
+      tags:
+        - webhooks
+        - billing
+  com.kaiten.instance.billing.v1.trial_will_end:
+    post:
+      description: Triggered once per subscription, 3 days before its trial ends (trialEndsAt), or at once when the trial is shorter.
+      operationId: onInstanceBillingTrialWillEnd
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/InstanceBilling"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_BILLING_TRIAL_WILL_END
+                  examples:
+                    - INSTANCE_BILLING_TRIAL_WILL_END
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.billing.v1.trial_will_end
+                  examples:
+                    - com.kaiten.instance.billing.v1.trial_will_end
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Billing Trial Will End Webhook
       tags:
         - webhooks
         - billing

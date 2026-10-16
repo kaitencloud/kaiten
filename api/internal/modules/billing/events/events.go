@@ -12,6 +12,10 @@ var (
 	InstanceBillingPlanChangeCanceled    = events.New("INSTANCE_BILLING_PLAN_CHANGE_CANCELED", "com.kaiten.instance.billing.v1.plan_change_canceled")
 	InstanceBillingPlanChanged           = events.New("INSTANCE_BILLING_PLAN_CHANGED", "com.kaiten.instance.billing.v1.plan_changed")
 	InstanceBillingProviderChanged       = events.New("INSTANCE_BILLING_PROVIDER_CHANGED", "com.kaiten.instance.billing.v1.provider_changed")
+	// InstanceBillingTrialWillEnd fires once per subscription, 3 days before
+	// trial_ends_at (V31-69). Declared ahead of its emitter, so the published
+	// contract carries it from the start.
+	InstanceBillingTrialWillEnd = events.New("INSTANCE_BILLING_TRIAL_WILL_END", "com.kaiten.instance.billing.v1.trial_will_end")
 
 	InstanceInvoiceIssued = events.New("INSTANCE_INVOICE_ISSUED", "com.kaiten.instance.invoice.v1.issued")
 	InstanceInvoicePaid   = events.New("INSTANCE_INVOICE_PAID", "com.kaiten.instance.invoice.v1.paid")

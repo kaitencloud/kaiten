@@ -97,6 +97,7 @@ func (u *UseCase) Execute(ctx context.Context) (*BillingHealth, error) {
 		CloseBacklog: CloseBacklog{Count: row.CloseBacklog, OldestDueAt: invoices.TimePtr(row.OldestDueAt)},
 		HeldInvoices: HeldInvoices{Count: row.Held, ByReason: map[string]int64{
 			"LEDGER_SEQUENCE_GAP": row.HeldSequenceGap, "LEDGER_CHAIN_BREAK": row.HeldChainBreak, "LEDGER_COUNTER_MISMATCH": row.HeldCounterMismatch,
+			"PROVIDER_ITEM_LIMIT": row.HeldProviderItemLimit,
 		}},
 		PushFailures:                PushFailures{Count: row.PushFailures, OldestFailedAt: invoices.TimePtr(row.OldestPushFailureAt)},
 		ReconciliationMismatches30d: row.ReconciliationMismatches,

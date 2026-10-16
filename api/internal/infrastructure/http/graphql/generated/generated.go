@@ -2543,7 +2543,7 @@ What the console's instance lists show of an instance's subscription. The
 whole subscription is GET /instances/{instanceSlug}/billing.
 """
 type InstanceBillingSummary {
-  """TRIAL, ACTIVE, PAST_DUE or CANCELED."""
+  """INCOMPLETE, TRIAL, ACTIVE, PAST_DUE or CANCELED. INCOMPLETE: a public checkout waiting for its first payment."""
   status: String!
   """NOOP or STRIPE."""
   providerKind: String!

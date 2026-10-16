@@ -37,7 +37,7 @@ type InvoiceSummary struct {
 	ServiceFrom      time.Time  `json:"serviceFrom" doc:"Earliest start of its lines' service periods"`
 	ServiceTo        time.Time  `json:"serviceTo" doc:"Latest end of its lines' service periods"`
 	Status           string     `json:"status" enum:"DRAFT,PUSHED,PUSH_FAILED,MANUAL,PAID,PAYMENT_FAILED,UNCOLLECTIBLE,VOID" doc:"MANUAL: issued, for the organization to collect. PAID, UNCOLLECTIBLE and VOID are final. DRAFT: held, waiting for a release or a recompose"`
-	HoldReason       *string    `json:"holdReason" enum:"LEDGER_SEQUENCE_GAP,LEDGER_CHAIN_BREAK,LEDGER_COUNTER_MISMATCH" doc:"Why a DRAFT is held: the usage journal it was measured from failed a consistency check"`
+	HoldReason       *string    `json:"holdReason" enum:"LEDGER_SEQUENCE_GAP,LEDGER_CHAIN_BREAK,LEDGER_COUNTER_MISMATCH,PROVIDER_ITEM_LIMIT" doc:"Why a DRAFT is held: the usage journal it was measured from failed a consistency check (LEDGER_*), or its provider cannot take that many lines (PROVIDER_ITEM_LIMIT)"`
 	ProviderKind     string     `json:"providerKind" enum:"NOOP,STRIPE" doc:"Who collects it. NOOP: the organization itself, through the handoff queue"`
 	CollectionMethod string     `json:"collectionMethod" enum:"SEND_INVOICE,CHARGE_AUTOMATICALLY"`
 	Currency         string     `json:"currency" example:"EUR"`

@@ -65,7 +65,7 @@ type PortalInstanceSummary struct {
 	Slug          string  `json:"slug" example:"acme-prod"`
 	Name          string  `json:"name" example:"Acme prod"`
 	LicenseSlug   string  `json:"licenseSlug" example:"pro-v2"`
-	BillingStatus *string `json:"billingStatus" enum:"TRIAL,ACTIVE,PAST_DUE,CANCELED" doc:"Its subscription's status; null when it was never subscribed"`
+	BillingStatus *string `json:"billingStatus" enum:"INCOMPLETE,TRIAL,ACTIVE,PAST_DUE,CANCELED" doc:"Its subscription's status; null when it was never subscribed"`
 }
 
 // PortalEntitlement is one of the instance's effective entitlements.

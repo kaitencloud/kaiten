@@ -449,6 +449,8 @@ SELECT
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = $1 AND i.hold_reason = 'LEDGER_COUNTER_MISMATCH')::bigint AS held_counter_mismatch,
   (SELECT count(*) FROM instance_invoice i
+    WHERE i.organization_id = $1 AND i.hold_reason = 'PROVIDER_ITEM_LIMIT')::bigint AS held_provider_item_limit,
+  (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = $1 AND i.status = 'PUSH_FAILED'
       AND i.push_attempts >= $3::integer)::bigint AS push_failures,
   (SELECT min(i.updated_at) FROM instance_invoice i
@@ -485,6 +487,7 @@ type BillingHealthRow struct {
 	HeldSequenceGap          int64            `json:"held_sequence_gap"`
 	HeldChainBreak           int64            `json:"held_chain_break"`
 	HeldCounterMismatch      int64            `json:"held_counter_mismatch"`
+	HeldProviderItemLimit    int64            `json:"held_provider_item_limit"`
 	PushFailures             int64            `json:"push_failures"`
 	OldestPushFailureAt      pgtype.Timestamp `json:"oldest_push_failure_at"`
 	ReconciliationMismatches int64            `json:"reconciliation_mismatches"`
@@ -510,6 +513,7 @@ func (q *Queries) BillingHealth(ctx context.Context, arg BillingHealthParams) (B
 		&i.HeldSequenceGap,
 		&i.HeldChainBreak,
 		&i.HeldCounterMismatch,
+		&i.HeldProviderItemLimit,
 		&i.PushFailures,
 		&i.OldestPushFailureAt,
 		&i.ReconciliationMismatches,

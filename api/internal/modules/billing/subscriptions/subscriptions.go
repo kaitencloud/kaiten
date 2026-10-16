@@ -40,7 +40,7 @@ type InstanceBilling struct {
 	InstanceName             string           `json:"instanceName"`
 	CustomerSlug             string           `json:"customerSlug"`
 	CustomerName             string           `json:"customerName"`
-	Status                   string           `json:"status" enum:"TRIAL,ACTIVE,PAST_DUE,CANCELED"`
+	Status                   string           `json:"status" enum:"INCOMPLETE,TRIAL,ACTIVE,PAST_DUE,CANCELED"`
 	ProviderKind             string           `json:"providerKind" enum:"NOOP,STRIPE" doc:"Who collects its invoices. NOOP: the organization itself, through the handoff queue"`
 	CollectionMethod         string           `json:"collectionMethod" enum:"SEND_INVOICE,CHARGE_AUTOMATICALLY" doc:"Effective: the subscription's own, else the organization's default"`
 	CollectionMethodOverride *string          `json:"collectionMethodOverride" doc:"The subscription's own collection method; null when it takes the organization's"`
