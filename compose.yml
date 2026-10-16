@@ -445,8 +445,14 @@ services:
       # left behind by a workload removed long ago, and it had quietly accumulated
       # 1244 messages that nothing would ever consume.
       - ./docker/rabbitmq/rabbitmq-defs.json:/etc/rabbitmq/rabbitmq-defs.json:ro
+    # `ping` answers as soon as the Erlang node is up, before the AMQP listener
+    # accepts a connection. api-dapr-sidecar starts on this check, and released by
+    # `ping` it dialled 5672 too early, failed to initialize its pub/sub component
+    # and exited -- leaving kaiten.events with no queue bound, so the fanout dropped
+    # every event published until someone restarted it. check_port_connectivity
+    # answers only once every listener accepts connections.
     healthcheck:
-      test: rabbitmq-diagnostics -q ping
+      test: rabbitmq-diagnostics -q check_port_connectivity
       interval: 5s
       timeout: 10s
       retries: 5
@@ -483,6 +489,11 @@ services:
   api-dapr-sidecar:
     image: "daprio/daprd:1.16.9"
     container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-api-dapr-sidecar
+    # daprd exits when a component fails to initialize, and nothing restarted it:
+    # one bad start left the sidecar down, and with it the only queue on
+    # kaiten.events. The healthcheck above removes the race it lost; this is what
+    # brings it back from any other transient failure.
+    restart: on-failure
     command:
       - "/daprd"
       - "--app-id"
