@@ -110,6 +110,10 @@ export const BILLING_WEBHOOK_EVENTS = {
     type: 'com.kaiten.instance.billing.v1.plan_change_scheduled',
     group: 'subscription',
   },
+  INSTANCE_BILLING_TRIAL_WILL_END: {
+    type: 'com.kaiten.instance.billing.v1.trial_will_end',
+    group: 'subscription',
+  },
   INSTANCE_BILLING_PROVIDER_CHANGED: {
     type: 'com.kaiten.instance.billing.v1.provider_changed',
     group: 'subscription',

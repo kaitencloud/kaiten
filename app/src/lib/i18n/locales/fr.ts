@@ -5955,6 +5955,8 @@ export default {
         LEDGER_CHAIN_BREAK: 'La chaîne du journal d’usage est rompue',
         LEDGER_COUNTER_MISMATCH:
           'Le compteur d’usage ne correspond pas au journal',
+        PROVIDER_ITEM_LIMIT:
+          'Plus de lignes que le prestataire de paiement n’en accepte',
       },
       InvoiceLineType: {
         BASE: 'Forfait',
@@ -5965,6 +5967,7 @@ export default {
         unknown: 'Autre',
       },
       SubscriptionStatus: {
+        INCOMPLETE: 'En attente de paiement',
         TRIAL: 'Essai',
         ACTIVE: 'Actif',
         PAST_DUE: 'En retard de paiement',
@@ -6380,6 +6383,7 @@ export default {
         INSTANCE_BILLING_PROVIDER_CHANGED:
           "Fournisseur de paiement de l'abonnement modifié",
         INSTANCE_BILLING_STARTED: 'Abonnement démarré',
+        INSTANCE_BILLING_TRIAL_WILL_END: 'Fin d’essai proche',
         INSTANCE_BILLING_STATUS_CHANGED: "Statut de l'abonnement modifié",
         INSTANCE_CREATED: 'Instance créée',
         INSTANCE_DELETED: 'Instance supprimée',

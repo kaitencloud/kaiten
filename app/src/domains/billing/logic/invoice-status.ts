@@ -61,6 +61,7 @@ const HOLD_REASON_LABEL_KEYS = {
   LEDGER_CHAIN_BREAK: 'Features.Billing.HoldReason.LEDGER_CHAIN_BREAK',
   LEDGER_COUNTER_MISMATCH:
     'Features.Billing.HoldReason.LEDGER_COUNTER_MISMATCH',
+  PROVIDER_ITEM_LIMIT: 'Features.Billing.HoldReason.PROVIDER_ITEM_LIMIT',
 } as const satisfies Record<HoldReason, string>;
 
 export const getHoldReasonLabelKey = (reason: HoldReason) =>

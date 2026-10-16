@@ -50,12 +50,14 @@ export type CancelFormValues = z.infer<typeof cancelFormSchema>;
  */
 export function cancelValuesToBody(
   values: CancelFormValues,
-  status: 'ACTIVE' | 'CANCELED' | 'PAST_DUE' | 'TRIAL',
+  status: 'ACTIVE' | 'CANCELED' | 'INCOMPLETE' | 'PAST_DUE' | 'TRIAL',
 ): SubscriptionCancellation {
   const reason = values.reason.trim();
 
   return {
-    mode: status === 'TRIAL' ? 'IMMEDIATE' : values.mode,
+    // A trial, or a checkout still waiting for its payment, ends at once.
+    mode:
+      status === 'TRIAL' || status === 'INCOMPLETE' ? 'IMMEDIATE' : values.mode,
     reason: reason === '' ? undefined : reason,
   };
 }

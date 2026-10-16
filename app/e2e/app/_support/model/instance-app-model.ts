@@ -58,7 +58,7 @@ const DEFAULT_ACTOR = {
  * that are not settled yet.
  */
 export type InstanceBillingBlock = {
-  status: 'ACTIVE' | 'CANCELED' | 'PAST_DUE' | 'TRIAL';
+  status: 'ACTIVE' | 'CANCELED' | 'INCOMPLETE' | 'PAST_DUE' | 'TRIAL';
   unpaidInvoiceIds: string[];
 };
 
