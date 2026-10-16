@@ -76,6 +76,18 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID uuid.UUID) (*Result, er
 			}
 		}
 
+		// The identity is the live one, as at a close (§5.7, PR18-02): the
+		// replacement takes it from the subscription, and a draft recomposed
+		// in place is rewritten with it.
+		if sub, err = q.RefreshSubscriptionSnapshot(ctx, sub.ID); err != nil {
+			return err
+		}
+		if held {
+			if row, err = q.RefreshInvoiceIdentity(ctx, row.ID); err != nil {
+				return err
+			}
+		}
+
 		// Its usage is read again from the journal: never from before the
 		// usage history (§8.8, §6.5 rule 3); a held one can then only be
 		// released (§8.7).
