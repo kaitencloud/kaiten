@@ -29,6 +29,21 @@ func New(uof *uow.UnitOfWork) *Source { return &Source{uof: uof} }
 var _ ports.AddonSource = (*Source)(nil)
 
 // BillableAddons implements ports.AddonSource.
+// InvalidHeldAddons implements ports.AddonSource.
+func (s *Source) InvalidHeldAddons(ctx context.Context, organizationID, instanceID uuid.UUID, billingPeriod, currency string) ([]ports.InvalidHeldAddon, error) {
+	rows, err := db.New(s.uof.DBTX(ctx)).ListHeldAddonsInvalidForSubscription(ctx, db.ListHeldAddonsInvalidForSubscriptionParams{
+		BillingPeriod: db.BillingPeriod(billingPeriod), OrganizationID: organizationID, InstanceID: instanceID, Currency: currency,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ports.InvalidHeldAddon, len(rows))
+	for i, row := range rows {
+		out[i] = ports.InvalidHeldAddon{Slug: row.Slug, Reason: row.Reason}
+	}
+	return out, nil
+}
+
 func (s *Source) BillableAddons(ctx context.Context, organizationID, instanceID uuid.UUID, billingPeriod string) ([]ports.BillableAddon, error) {
 	rows, err := db.New(s.uof.DBTX(ctx)).ListBillableAddons(ctx, db.ListBillableAddonsParams{
 		BillingPeriod: db.BillingPeriod(billingPeriod), OrganizationID: organizationID, InstanceID: instanceID,
