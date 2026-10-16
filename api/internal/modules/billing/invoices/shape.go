@@ -54,6 +54,7 @@ type InvoiceSummary struct {
 	InstanceName     string     `json:"instanceName"`
 	LicenseSlug      string     `json:"licenseSlug"`
 	HandoffStatus    string     `json:"handoffStatus" enum:"NOT_REQUIRED,PENDING,ACKNOWLEDGED" doc:"PENDING: waiting in the handoff queue for the organization's accounting system"`
+	Overdue          bool       `json:"overdue" doc:"Whether the invoice is overdue when read, the grace period of automatic collection included: the predicate of ?overdue=true. Computed by the invoice list and the invoice read; false in the answers of writes and in event payloads."`
 	CreatedAt        time.Time  `json:"createdAt"`
 	UpdatedAt        time.Time  `json:"updatedAt"`
 }

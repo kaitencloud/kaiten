@@ -331,6 +331,25 @@ func Summary(row db.InstanceInvoice) InvoiceSummary {
 	}
 }
 
+// IsOverdue reports whether an invoice is overdue at now: issued and unpaid,
+// past its due date under SEND_INVOICE; under CHARGE_AUTOMATICALLY, refused for
+// another reason than a pending authentication, or still unpaid
+// autoCollectionBefore. It is the ?overdue=true predicate of ListInvoices
+// (queries/invoices.sql) and of §9.6 rule 1; the two must stay identical.
+func IsOverdue(row db.InstanceInvoice, now, autoCollectionBefore time.Time) bool {
+	switch row.Status {
+	case db.InvoiceStatusPUSHED, db.InvoiceStatusMANUAL, db.InvoiceStatusPAYMENTFAILED:
+	default:
+		return false
+	}
+	if row.CollectionMethod == db.CollectionMethodCHARGEAUTOMATICALLY {
+		refused := row.Status == db.InvoiceStatusPAYMENTFAILED &&
+			(row.LastPaymentError == nil || *row.LastPaymentError != "authentication_required")
+		return refused || (row.IssuedAt.Valid && row.IssuedAt.Time.Before(autoCollectionBefore))
+	}
+	return row.DueAt.Valid && row.DueAt.Time.Before(now)
+}
+
 // Timestamp is a time as the billing tables store it.
 func Timestamp(t time.Time) pgtype.Timestamp {
 	return pgtype.Timestamp{Time: t.UTC(), InfinityModifier: pgtype.Finite, Valid: true}

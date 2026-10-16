@@ -66,6 +66,11 @@ func TestInvoiceReads(t *testing.T) {
 
 		exec(t, `UPDATE instance_invoice SET due_at = issued_at, days_until_due = 0 WHERE customer_slug = $1`, globexCustomer.Slug)
 		require.Equal(t, 1, count("overdue=true"))
+		// The flag the filter selects on is on the invoice itself (V31-11).
+		for _, item := range listInvoices(t, "/api/invoices").Items {
+			require.Equal(t, item.CustomerSlug == globexCustomer.Slug, item.Overdue, "invoice %s", item.ID)
+			require.Equal(t, item.Overdue, getInvoice(t, item.ID).Overdue, "the read agrees with the list")
+		}
 
 		require.Equal(t, "ListInvoices.InvalidFilter", problemCode(t, fiber.StatusUnprocessableEntity, "GET",
 			"/api/invoices?issuedFrom=2027-01-02T00:00:00Z&issuedTo=2027-01-01T00:00:00Z", nil))
