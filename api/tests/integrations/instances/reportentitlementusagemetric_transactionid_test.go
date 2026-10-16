@@ -66,6 +66,13 @@ func (r keyedReport) usage(t *testing.T) schema.EntitlementUsage {
 	return usage
 }
 
+// asReplayed is a first answer as its replay gives it back: the journal
+// stores neither source nor provenance, so both are null (V31-55).
+func asReplayed(first schema.EntitlementUsage) schema.EntitlementUsage {
+	first.Source, first.Provenance = "", nil
+	return first
+}
+
 func (r keyedReport) problem(t *testing.T, status int) kaitenerrors.Problem {
 	t.Helper()
 	require.Equal(t, status, r.status, "body: %s", r.body)
@@ -125,8 +132,7 @@ func TestReportEntitlementUsageMetric_TransactionID(t *testing.T) {
 		requireStatus(t, fiber.StatusOK, instances[0].Slug, entitlement.Slug, 1, "append")
 		before := snapshotPair(t, instances[0].ID, entitlement.ID)
 
-		// No newline: a header value cannot carry one. An empty header reads
-		// as no header once parsed, so it is no key rather than a malformed one.
+		// No newline: a header value cannot carry one.
 		for _, key := range []string{strings.Repeat("a", 129), "with space", "é", "a/b", "a*b"} {
 			problem := reportWithKey(t, nil, instances[0].Slug, entitlement.Slug, "1", "append", key).problem(t, fiber.StatusUnprocessableEntity)
 			require.Equal(t, "ReportEntitlementUsageMetric.InvalidTransactionId", problem.Code, "key %q", key)
@@ -134,7 +140,41 @@ func TestReportEntitlementUsageMetric_TransactionID(t *testing.T) {
 			require.Equal(t, "header.Idempotency-Key", problem.Errors[0].Location, "key %q", key)
 		}
 
+		// A header sent empty is a malformed key, not an absent one (S01-084).
+		resp, body := rawReport(t, instances[0].Slug, entitlement.Slug, `{"value":{"type":"number","value":1},"behavior":"append"}`, "")
+		require.Equal(t, fiber.StatusUnprocessableEntity, resp.StatusCode, "body: %s", body)
+		require.Contains(t, string(body), "ReportEntitlementUsageMetric.InvalidTransactionId")
+
 		require.Equal(t, before, snapshotPair(t, instances[0].ID, entitlement.ID))
+	})
+
+	t.Run("TheFirstAnswerCarriesSourceAndProvenance_AReplayNullsThem", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		instances := newInstances(t, 1)
+		entitlement := newEntitlement(t)
+		assignEntitlementToLicense(t, instances[0].LicenseSlug, entitlement.Slug, 1000)
+
+		decode := func(r keyedReport) map[string]any {
+			t.Helper()
+			require.Equal(t, fiber.StatusOK, r.status, "body: %s", r.body)
+			var body map[string]any
+			require.NoError(t, json.Unmarshal(r.body, &body))
+			return body
+		}
+		first := decode(reportWithKey(t, nil, instances[0].Slug, entitlement.Slug, "3", "append", "evt-src"))
+		require.Equal(t, "license", first["source"])
+		require.NotNil(t, first["provenance"])
+		require.Contains(t, first, "limitCapExceededOveragePercent")
+		require.NotNil(t, first["limitCapExceededOveragePercent"])
+
+		replay := decode(reportWithKey(t, nil, instances[0].Slug, entitlement.Slug, "3", "append", "evt-src"))
+		for _, member := range []string{"source", "provenance"} {
+			value, present := replay[member]
+			require.True(t, present, "%s is required", member)
+			require.Nil(t, value, "%s is null on a replay: the journal does not store it", member)
+		}
+		require.Equal(t, first["limitCapExceededOveragePercent"], replay["limitCapExceededOveragePercent"], "the percent comes back from the journal")
+		require.Equal(t, first["limit"], replay["limit"])
 	})
 
 	t.Run("TheResponseEchoesTheKey_AndNullWithoutOne", func(t *testing.T) {
@@ -181,7 +221,7 @@ func TestReportEntitlementUsageMetric_TransactionID(t *testing.T) {
 		// The JSON spelling differs (250.0); the value does not.
 		retry := reportWithKey(t, nil, instances[0].Slug, entitlement.Slug, "250.0", "append", "evt-0001")
 		require.Equal(t, "true", retry.replayed)
-		require.Equal(t, first, retry.usage(t), "a replay answers the original response")
+		require.Equal(t, asReplayed(first), retry.usage(t), "a replay answers the original response, from the journal")
 		require.Equal(t, after, snapshotPair(t, instances[0].ID, entitlement.ID), "a replay writes nothing")
 	})
 
@@ -382,7 +422,7 @@ func TestReportEntitlementUsageMetric_TransactionID(t *testing.T) {
 		retry := reportWithKey(t, nil, instances[0].Slug, entitlement.Slug, "12", "append", "evt-u")
 		require.Equal(t, "true", retry.replayed)
 		replayed := retry.usage(t)
-		require.Equal(t, first, replayed)
+		require.Equal(t, asReplayed(first), replayed)
 		require.Nil(t, replayed.CurrentPeriodStart)
 		require.InDelta(t, -1, replayed.Limit.Number.Value, 0)
 	})

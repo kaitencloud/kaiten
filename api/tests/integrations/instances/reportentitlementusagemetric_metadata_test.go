@@ -24,7 +24,7 @@ func rawReport(t *testing.T, instanceSlug, entitlementSlug, body string, idempot
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
 	for _, key := range idempotencyKey {
-		req.Header.Set("Idempotency-Key", key)
+		req.Header["Idempotency-Key"] = []string{key} // set even when empty
 	}
 	resp, err := testServer.App.Test(req, fiber.TestConfig{})
 	require.NoError(t, err)

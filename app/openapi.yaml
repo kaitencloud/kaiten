@@ -9731,14 +9731,21 @@ components:
           format: int32
           type: integer
         provenance:
-          $ref: "#/components/schemas/Provenance"
-          description: What the licence, the add-ons and the boosts each contribute
+          description: "What the licence, the add-ons and the boosts each contribute. Null on a replay (Idempotent-Replayed): the journal does not store it."
+          oneOf:
+            - $ref: "#/components/schemas/Provenance"
+            - enum:
+                - null
+              type: "null"
         source:
-          description: "license: the licence grants it (add-ons and boosts may change it); addon: only add-ons do"
+          description: "license: the licence grants it (add-ons and boosts may change it); addon: only add-ons do. Null on a replay (Idempotent-Replayed): the journal does not store it."
           enum:
             - license
             - addon
-          type: string
+            - null
+          type:
+            - string
+            - "null"
         transactionId:
           description: The Idempotency-Key this report was accepted under, echoed on the first answer and on every replay; null when the request carried none. A client can tell from it that the server honours the key.
           type:
@@ -9757,13 +9764,14 @@ components:
             - $ref: "#/components/schemas/BooleanEntitlementValue"
             - $ref: "#/components/schemas/ConfigEntitlementValue"
       required:
+        - source
+        - provenance
         - transactionId
         - entitlementId
         - entitlementSlug
         - licenseId
         - licenseSlug
         - value
-        - source
       type: object
     RevocationReason:
       additionalProperties: false

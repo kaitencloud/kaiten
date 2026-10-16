@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -37,8 +39,21 @@ type Request struct {
 	EntitlementSlug string `path:"entitlementSlug" doc:"Entitlement slug" example:"entitlement-slug"`
 	// IdempotencyKey is the report's key (V31-07). It travels as a header, not in
 	// the body, and is stored and read back as transactionId everywhere else.
-	IdempotencyKey string `header:"Idempotency-Key" doc:"Optional idempotency key: the id of the business event this report counts, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively. A report sent again with the same key and the same behavior and value within KAITEN_USAGE_IDEMPOTENCY_WINDOW (35 days by default) is applied once: the retry answers 200 with the original response and the Idempotent-Replayed header, and changes nothing. The same key with another behavior or value answers 409 ReportEntitlementUsageMetric.TransactionIdReused. A rejected report does not consume its key. Scoped to the instance and entitlement: one business event may feed two meters under one key. Stored and read back as transactionId." example:"llm-call-9f2c:tokens"`
-	Body           ReportEntitlementUsageBody
+	// idempotencyKeySent is whether the header was sent at all, which
+	// IdempotencyKey alone cannot say: Huma binds absent and empty alike.
+	idempotencyKeySent bool
+	IdempotencyKey     string `header:"Idempotency-Key" doc:"Optional idempotency key: the id of the business event this report counts, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively. A report sent again with the same key and the same behavior and value within KAITEN_USAGE_IDEMPOTENCY_WINDOW (35 days by default) is applied once: the retry answers 200 with the original response and the Idempotent-Replayed header, and changes nothing. The same key with another behavior or value answers 409 ReportEntitlementUsageMetric.TransactionIdReused. A rejected report does not consume its key. Scoped to the instance and entitlement: one business event may feed two meters under one key. Stored and read back as transactionId." example:"llm-call-9f2c:tokens"`
+	Body               ReportEntitlementUsageBody
+}
+
+// Resolve records whether Idempotency-Key was sent, empty or not.
+func (r *Request) Resolve(ctx huma.Context) []error {
+	ctx.EachHeader(func(name, _ string) {
+		if strings.EqualFold(name, "Idempotency-Key") {
+			r.idempotencyKeySent = true
+		}
+	})
+	return nil
 }
 
 // ReportEntitlementUsageBody is what a client sends, as opposed to the
@@ -55,10 +70,31 @@ type ReportEntitlementUsageBody struct {
 }
 
 // ReportedEntitlementUsage is the report's answer: the counter as the gauge
-// reads show it, plus the key the report was accepted under.
+// reads show it, plus the key the report was accepted under. Source and
+// Provenance shadow the embedded members to make them nullable here only: a
+// replay answers from the journal, which stores neither (V31-55), while the
+// gauge reads always have both.
 type ReportedEntitlementUsage struct {
 	schema.EntitlementUsage
-	TransactionID *string `json:"transactionId" nullable:"true" doc:"The Idempotency-Key this report was accepted under, echoed on the first answer and on every replay; null when the request carried none. A client can tell from it that the server honours the key."`
+	Source        *string            `json:"source" enum:"license,addon" nullable:"true" doc:"license: the licence grants it (add-ons and boosts may change it); addon: only add-ons do. Null on a replay (Idempotent-Replayed): the journal does not store it."`
+	Provenance    *schema.Provenance `json:"provenance" doc:"What the licence, the add-ons and the boosts each contribute. Null on a replay (Idempotent-Replayed): the journal does not store it."`
+	TransactionID *string            `json:"transactionId" nullable:"true" doc:"The Idempotency-Key this report was accepted under, echoed on the first answer and on every replay; null when the request carried none. A client can tell from it that the server honours the key."`
+}
+
+// TransformSchema publishes the null members as null, a $ref included.
+func (ReportedEntitlementUsage) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, ReportedEntitlementUsage{})
+}
+
+// reported wraps a usage in the report's answer.
+func reported(usage *schema.EntitlementUsage, replayed bool, transactionID *string) *ReportedEntitlementUsage {
+	out := &ReportedEntitlementUsage{EntitlementUsage: *usage, Source: nil, Provenance: nil, TransactionID: transactionID}
+	if !replayed && usage.Source != "" {
+		source := usage.Source
+		out.Source = &source
+		out.Provenance = usage.Provenance
+	}
+	return out
 }
 
 type Response struct {
@@ -106,10 +142,11 @@ func RegisterEndpoint(api huma.API, app Reporter) {
 			)
 		}
 
-		// An absent header is no key. A header that is present but empty is
-		// indistinguishable from absent once parsed, so it reads as no key too.
+		// An absent header is no key. A header sent empty is a malformed key,
+		// not an absent one (S01-084): Huma binds both to "", so the raw
+		// request tells them apart.
 		var transactionID *string
-		if key := request.IdempotencyKey; key != "" {
+		if key := request.IdempotencyKey; request.idempotencyKeySent {
 			if !transactionIDPattern.MatchString(key) {
 				return nil, apierrors.UnprocessableEntityWithErrors(
 					"ReportEntitlementUsageMetric.InvalidTransactionId",
@@ -134,7 +171,7 @@ func RegisterEndpoint(api huma.API, app Reporter) {
 		}
 
 		response := &Response{
-			Body:            &ReportedEntitlementUsage{EntitlementUsage: *result.Usage, TransactionID: transactionID},
+			Body:            reported(result.Usage, result.Replayed, transactionID),
 			MetadataDropped: result.MetadataDropped,
 		}
 		if result.Replayed {

@@ -357,13 +357,21 @@ func TestEffectiveEntitlementReadersAreUnchanged(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, want[0], got, "%s / %s", instanceSlug, entitlementSlug)
 
-				wantLimit := legacyRows[db.GetEffectiveEntitlementLimitRow](t, legacyGateLimit, got.InstanceID, got.EntitlementID, org)
+				// The legacy gate read the value and the percent; the view's row
+				// also carries source and provenance now (V31-55), compared
+				// elsewhere. The two the gate decides on must be unchanged.
+				type gateLimit struct {
+					Value                          []byte
+					LimitCapExceededOveragePercent *int16
+				}
+				wantLimit := legacyRows[gateLimit](t, legacyGateLimit, got.InstanceID, got.EntitlementID, org)
 				gotLimit, err := instancesDB.GetEffectiveEntitlementLimit(ctx, db.GetEffectiveEntitlementLimitParams{
 					OrganizationID: org, InstanceID: got.InstanceID, EntitlementID: got.EntitlementID,
 				})
 				require.NoError(t, err)
 				require.Len(t, wantLimit, 1)
-				require.Equal(t, wantLimit[0], gotLimit, "%s / %s", instanceSlug, entitlementSlug)
+				require.Equal(t, wantLimit[0], gateLimit{Value: gotLimit.Value, LimitCapExceededOveragePercent: gotLimit.LimitCapExceededOveragePercent},
+					"%s / %s", instanceSlug, entitlementSlug)
 			}
 		}
 	})
