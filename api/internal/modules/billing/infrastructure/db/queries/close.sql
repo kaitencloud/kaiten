@@ -76,3 +76,20 @@ JOIN user_on_organization m
  AND m.organization_id = sqlc.arg(organization_id)
  AND m.deleted_at IS NULL
 WHERE u.external_id = sqlc.arg(external_id);
+
+
+-- name: RefreshInvoiceIdentity :one
+-- Copies a subscription's identity snapshot onto a held draft recomposed in
+-- place, so it carries today's names like a replacement would (§5.7,
+-- PR18-02). Only a DRAFT is rewritten: an issued invoice keeps the names it
+-- was issued with.
+UPDATE instance_invoice inv
+SET instance_slug = ib.instance_slug,
+    instance_name = ib.instance_name,
+    customer_slug = ib.customer_slug,
+    customer_name = ib.customer_name
+FROM instance_billing ib
+WHERE inv.id = sqlc.arg(invoice_id)
+  AND inv.status = 'DRAFT'
+  AND ib.id = inv.instance_billing_id
+RETURNING inv.*;

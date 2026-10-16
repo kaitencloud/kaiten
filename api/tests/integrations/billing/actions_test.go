@@ -176,7 +176,10 @@ func TestReleaseAndRecompose(t *testing.T) {
 		require.NotNil(t, still.HoldReason, "the journal is still broken")
 
 		mendJournal(t, s)
+		// PR18-02: recomposed in place, it carries today's names.
+		exec(t, `UPDATE customer SET name = 'Renamed Customer' WHERE organization_id = $1`, testDb.DefaultData.OrganizationID)
 		recomposed := act(t, id, "recompose", nil, fiber.StatusOK)
+		require.Equal(t, "Renamed Customer", recomposed.CustomerName)
 		require.Equal(t, id, recomposed.ID)
 		require.Equal(t, invoices.StatusManual, recomposed.Status)
 		require.Equal(t, "recomposed", *recomposed.Hold.ReleaseReason)
@@ -192,7 +195,11 @@ func TestReleaseAndRecompose(t *testing.T) {
 			"/api/invoices/"+id.String()+"/recompose", nil))
 		act(t, id, "void", map[string]any{"reason": "terms changed"}, fiber.StatusOK)
 
+		// PR18-02: the replacement carries today's names, not the last close's.
+		exec(t, `UPDATE customer SET name = 'Renamed Customer' WHERE organization_id = $1`, testDb.DefaultData.OrganizationID)
 		replacement := act(t, id, "recompose", nil, fiber.StatusCreated)
+		require.Equal(t, "Renamed Customer", replacement.CustomerName)
+		require.NotEqual(t, "Renamed Customer", getInvoice(t, id).CustomerName, "the voided original keeps the name it was issued with")
 		require.NotEqual(t, id, replacement.ID)
 		require.Equal(t, id, *replacement.ReplacesInvoiceID)
 		require.Equal(t, invoices.StatusManual, replacement.Status)
