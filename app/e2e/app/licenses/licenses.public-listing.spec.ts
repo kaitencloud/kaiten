@@ -56,7 +56,7 @@ test.describe('listing a family of licenses in the public catalog', () => {
 
     await licenses.publicSwitch('Pro').click();
 
-    await expectToast(page, 'The family is listed in the public catalog');
+    await expectToast(page, 'The license is listed in the public catalog');
     await expect(licenses.publicSwitch('Pro')).toBeChecked();
     await expect(licenses.publicBadge('Pro')).toBeVisible();
     expect(writes).toEqual([
@@ -79,7 +79,7 @@ test.describe('listing a family of licenses in the public catalog', () => {
 
     await expectToast(
       page,
-      'The family is no longer listed in the public catalog',
+      'The license is no longer listed in the public catalog',
     );
     await expect(licenses.publicSwitch('Enterprise')).not.toBeChecked();
     await expect(licenses.publicBadge('Enterprise')).toHaveCount(0);

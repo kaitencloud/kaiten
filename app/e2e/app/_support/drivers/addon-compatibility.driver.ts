@@ -13,7 +13,7 @@ export class AddonCompatibilityDriver {
   }
 
   families(): Locator {
-    return this.page.getByRole('list', { name: 'License families' });
+    return this.page.getByRole('list', { name: 'Compatible licenses' });
   }
 
   /** The box of a family, by the name it is shown under. */

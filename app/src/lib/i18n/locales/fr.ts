@@ -1616,8 +1616,8 @@ export default {
         label: 'Catalogue public',
         switchLabel: 'Lister {{name}} dans le catalogue public',
         badge: 'Public',
-        listed: 'La famille est listée dans le catalogue public',
-        unlisted: 'La famille n’est plus listée dans le catalogue public',
+        listed: 'La licence est listée dans le catalogue public',
+        unlisted: 'La licence n’est plus listée dans le catalogue public',
       },
       Freeze: {
         billed: {
@@ -3957,7 +3957,7 @@ export default {
           customer: 'Clients',
           instance: 'Instances',
           license: 'Licences',
-          licenseFamily: 'Familles de licences',
+          licenseFamily: 'Licences dans leur ensemble',
           addon: 'Add-ons',
           entitlement: 'Droits',
           entitlementGroup: 'Groupes de droits',
@@ -4524,8 +4524,8 @@ export default {
         label: 'Catalogue public',
         switchLabel: 'Lister {{name}} dans le catalogue public',
         badge: 'Public',
-        listed: 'La famille est listée dans le catalogue public',
-        unlisted: 'La famille n’est plus listée dans le catalogue public',
+        listed: 'L’add-on est listé dans le catalogue public',
+        unlisted: 'L’add-on n’est plus listé dans le catalogue public',
       },
       List: {
         addonName: 'Nom de l’add-on',
@@ -4557,7 +4557,7 @@ export default {
           label: 'Publier',
           title: 'Publier {{name}} v{{version}} ?',
           description:
-            'La version est mise en vente : une instance dont la licence lui convient peut l’attacher, et elle peut devenir la version par défaut de sa famille.',
+            'La version est mise en vente : une instance dont la licence lui convient peut l’attacher, et elle peut devenir la version par défaut de l’add-on.',
           confirm: 'Publier',
           success: 'Version publiée',
           Notes: {
@@ -4566,7 +4566,7 @@ export default {
             grants:
               'Ses droits sont gelés dès qu’une instance avec un abonnement actif détient la version.',
             compatibility:
-              'Elle ne peut être attachée qu’aux familles de licences qu’elle complète : une version qui n’en complète aucune ne peut être attachée à rien.',
+              'Elle ne peut être attachée qu’aux licences qu’elle complète : une version qui n’en complète aucune ne peut être attachée à rien.',
           },
         },
         archive: {
@@ -4581,7 +4581,7 @@ export default {
           label: 'Désarchiver',
           title: 'Désarchiver {{name}} v{{version}} ?',
           description:
-            'La version est remise en vente : les instances peuvent de nouveau l’attacher, et elle peut redevenir la version par défaut de sa famille.',
+            'La version est remise en vente : les instances peuvent de nouveau l’attacher, et elle peut redevenir la version par défaut de l’add-on.',
           confirm: 'Désarchiver',
           success: 'Version désarchivée',
         },
@@ -4609,7 +4609,7 @@ export default {
         titleNewVersion: 'Nouvelle version de {{name}}',
         titleUpdate: 'Modifier l’add-on',
         descriptionNew:
-          'Un nouvel add-on ouvre une famille. Sa première version est créée en brouillon.',
+          'Un nouvel add-on commence par sa première version, créée en brouillon.',
         descriptionNewVersion:
           'Une nouvelle version part de zéro : rien n’est copié de la précédente. Donnez-lui ses droits, ses prix et les licences qu’elle complète, puis publiez-la.',
         descriptionEdit:
@@ -4633,7 +4633,7 @@ export default {
           maxQuantity: 'Illimitée',
         },
         Descriptions: {
-          name: 'Le nom de l’add-on. Toutes les versions d’une famille le partagent.',
+          name: 'Le nom de l’add-on. Toutes les versions de l’add-on le partagent.',
           slug: 'Généré automatiquement — modifiez-le pour en choisir un autre.',
           description: 'Ce qu’une unité apporte à une instance, en une phrase.',
           pricingType:
@@ -4928,13 +4928,13 @@ export default {
       Compatibility: {
         title: 'Licences compatibles',
         description:
-          'Une instance ne peut attacher cette version que si sa licence appartient à l’une de ces familles. Toutes les versions d’une famille comptent : une nouvelle version de licence ne laisse donc jamais l’add-on orphelin.',
-        listLabel: 'Familles de licences',
-        noFamilies: 'Il n’y a encore aucune famille de licences.',
+          'Une instance ne peut attacher cette version que si sa licence est l’une de celles-ci. Toutes les versions d’une licence comptent : une nouvelle version de licence ne laisse donc jamais l’add-on orphelin.',
+        listLabel: 'Licences compatibles',
+        noFamilies: 'Il n’y a encore aucune licence.',
         Empty: {
           title: 'Attachable à rien',
           description:
-            'Aucune famille de licences n’est compatible : aucune instance ne peut attacher cette version. Vous pouvez tout de même la publier : choisissez les familles qu’elle complète.',
+            'Aucune licence n’est compatible : aucune instance ne peut attacher cette version. Vous pouvez tout de même la publier : choisissez les licences qu’elle complète.',
         },
       },
     },
@@ -6439,9 +6439,9 @@ export default {
         LICENSE_ENTITLEMENT_ASSIGNED: 'Droit attribué à une licence',
         LICENSE_ENTITLEMENT_UNASSIGNED: "Droit retiré d'une licence",
         LICENSE_ENTITLEMENT_UPDATED: 'Droit modifié sur une licence',
-        LICENSE_FAMILY_CREATED: 'Famille de licences créée',
-        LICENSE_FAMILY_DELETED: 'Famille de licences supprimée',
-        LICENSE_FAMILY_UPDATED: 'Famille de licences mise à jour',
+        LICENSE_FAMILY_CREATED: 'Licence créée avec sa première version',
+        LICENSE_FAMILY_DELETED: 'Licence supprimée avec sa dernière version',
+        LICENSE_FAMILY_UPDATED: 'Version servie par une licence modifiée',
         LICENSE_PRICE_CREATED: 'Prix de licence ajouté',
         LICENSE_PRICE_DEPRECATED: 'Prix de licence déprécié',
         LICENSE_PRICE_UPDATED: 'Prix de licence mis à jour',

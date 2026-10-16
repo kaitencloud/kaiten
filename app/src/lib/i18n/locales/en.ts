@@ -1594,8 +1594,8 @@ export default {
         label: 'Public catalog',
         switchLabel: 'List {{name}} in the public catalog',
         badge: 'Public',
-        listed: 'The family is listed in the public catalog',
-        unlisted: 'The family is no longer listed in the public catalog',
+        listed: 'The license is listed in the public catalog',
+        unlisted: 'The license is no longer listed in the public catalog',
       },
       Freeze: {
         billed: {
@@ -3899,7 +3899,7 @@ export default {
           customer: 'Customers',
           instance: 'Instances',
           license: 'Licenses',
-          licenseFamily: 'License families',
+          licenseFamily: 'Licenses as a whole',
           addon: 'Add-ons',
           entitlement: 'Entitlements',
           entitlementGroup: 'Entitlement groups',
@@ -4460,8 +4460,8 @@ export default {
         label: 'Public catalog',
         switchLabel: 'List {{name}} in the public catalog',
         badge: 'Public',
-        listed: 'The family is listed in the public catalog',
-        unlisted: 'The family is no longer listed in the public catalog',
+        listed: 'The add-on is listed in the public catalog',
+        unlisted: 'The add-on is no longer listed in the public catalog',
       },
       List: {
         addonName: 'Add-on name',
@@ -4493,7 +4493,7 @@ export default {
           label: 'Publish',
           title: 'Publish {{name}} v{{version}}?',
           description:
-            'The version goes on sale: an instance on a license it fits can attach it, and it can be set as the default of its family.',
+            'The version goes on sale: an instance on a license it fits can attach it, and it can be set as the default version of the add-on.',
           confirm: 'Publish',
           success: 'Version published',
           Notes: {
@@ -4502,7 +4502,7 @@ export default {
             grants:
               'Its entitlements freeze as soon as an instance with a live subscription holds the version.',
             compatibility:
-              'It is attachable only to the license families it fits: a version that fits none is attachable to nothing.',
+              'It is attachable only to the licenses it fits: a version that fits none is attachable to nothing.',
           },
         },
         archive: {
@@ -4517,7 +4517,7 @@ export default {
           label: 'Unarchive',
           title: 'Unarchive {{name}} v{{version}}?',
           description:
-            'The version goes back on sale: instances can attach it again, and it can be set as the default of its family again.',
+            'The version goes back on sale: instances can attach it again, and it can be set as the default version of the add-on again.',
           confirm: 'Unarchive',
           success: 'Version unarchived',
         },
@@ -4544,7 +4544,7 @@ export default {
         titleNewVersion: 'New version of {{name}}',
         titleUpdate: 'Edit add-on',
         descriptionNew:
-          'A new add-on opens a family. Its first version is created as a draft.',
+          'A new add-on starts with its first version, created as a draft.',
         descriptionNewVersion:
           'A new version starts empty: nothing is copied from the previous one. Give it its entitlements, its prices and the licenses it fits, then publish it.',
         descriptionEdit:
@@ -4568,7 +4568,7 @@ export default {
           maxQuantity: 'Unbounded',
         },
         Descriptions: {
-          name: 'What the add-on is called. Every version of a family shares it.',
+          name: 'What the add-on is called. Every version of the add-on shares it.',
           slug: 'Auto-generated — edit to set a custom one.',
           description: 'What one unit gives an instance, in a sentence.',
           pricingType:
@@ -4860,13 +4860,13 @@ export default {
       Compatibility: {
         title: 'Compatible licenses',
         description:
-          'An instance can attach this version only when its license is of one of these families. Every version of a family counts, so a new license version never leaves the add-on orphaned.',
-        listLabel: 'License families',
-        noFamilies: 'There is no license family yet.',
+          'An instance can attach this version only when its license is one of these. Every version of a license counts, so a new license version never leaves the add-on orphaned.',
+        listLabel: 'Compatible licenses',
+        noFamilies: 'There is no license yet.',
         Empty: {
           title: 'Attachable to nothing',
           description:
-            'No license family is compatible, so no instance can attach this version. Publishing it is allowed: pick the families it fits.',
+            'No license is compatible, so no instance can attach this version. Publishing it is allowed: pick the licenses it fits.',
         },
       },
     },
@@ -6338,9 +6338,9 @@ export default {
         LICENSE_ENTITLEMENT_ASSIGNED: 'Entitlement assigned to a license',
         LICENSE_ENTITLEMENT_UNASSIGNED: 'Entitlement unassigned from a license',
         LICENSE_ENTITLEMENT_UPDATED: 'Entitlement updated on a license',
-        LICENSE_FAMILY_CREATED: 'License family created',
-        LICENSE_FAMILY_DELETED: 'License family deleted',
-        LICENSE_FAMILY_UPDATED: 'License family updated',
+        LICENSE_FAMILY_CREATED: 'License created with its first version',
+        LICENSE_FAMILY_DELETED: 'License deleted with its last version',
+        LICENSE_FAMILY_UPDATED: 'Served version of a license changed',
         LICENSE_PRICE_CREATED: 'License price added',
         LICENSE_PRICE_DEPRECATED: 'License price deprecated',
         LICENSE_PRICE_UPDATED: 'License price updated',

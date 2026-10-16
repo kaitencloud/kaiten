@@ -313,7 +313,7 @@ test.describe('moving a version along its life', () => {
     await expect(note).toContainText('Its prices cannot be edited');
     await expect(note).toContainText('Its entitlements freeze');
     await expect(note).toContainText(
-      'attachable only to the license families it fits',
+      'attachable only to the licenses it fits',
     );
     await detail.confirm('Publish');
 
@@ -561,12 +561,12 @@ test.describe('listing a family in the public catalog', () => {
     await expect(list.publicSwitch('Extra tokens')).not.toBeChecked();
 
     await list.publicSwitch('Extra tokens').click();
-    await expectToast(page, 'The family is listed in the public catalog');
+    await expectToast(page, 'The add-on is listed in the public catalog');
     await expect(list.publicBadge('Extra tokens')).toBeVisible();
     await list.publicSwitch('Extra seats').click();
     await expectToast(
       page,
-      'The family is no longer listed in the public catalog',
+      'The add-on is no longer listed in the public catalog',
     );
     await expect(list.publicBadge('Extra seats')).toHaveCount(0);
 

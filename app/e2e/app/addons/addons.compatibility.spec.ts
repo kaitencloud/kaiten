@@ -30,7 +30,7 @@ test.describe('the licenses a version fits', () => {
     await expect(compatibility.emptyWarning()).toHaveCount(0);
     await expect(
       page.getByText(
-        'Every version of a family counts, so a new license version never leaves the add-on orphaned.',
+        'Every version of a license counts, so a new license version never leaves the add-on orphaned.',
       ),
     ).toBeVisible();
   });
@@ -92,7 +92,7 @@ test.describe('the licenses a version fits', () => {
       'Attachable to nothing',
     );
     await expect(compatibility.emptyWarning()).toContainText(
-      'No license family is compatible, so no instance can attach this version.',
+      'No license is compatible, so no instance can attach this version.',
     );
     await compatibility.box(/^Enterprise/).click();
     await expect(compatibility.emptyWarning()).toHaveCount(0);

@@ -292,7 +292,7 @@ test.describe('the public catalog of the licenses, read in French', () => {
       .getByRole('switch', { name: 'Lister Pro dans le catalogue public' })
       .click();
 
-    await expectToast(page, 'La famille est listée dans le catalogue public');
+    await expectToast(page, 'La licence est listée dans le catalogue public');
   });
 });
 

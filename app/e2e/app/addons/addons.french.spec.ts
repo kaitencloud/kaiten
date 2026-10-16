@@ -78,7 +78,7 @@ test.describe('the catalogue of add-ons, read in French', () => {
     );
     await expect(dialog).toContainText('Ses droits sont gelés');
     await expect(dialog).toContainText(
-      'Elle ne peut être attachée qu’aux familles de licences',
+      'Elle ne peut être attachée qu’aux licences qu’elle complète',
     );
     await dialog.getByRole('button', { exact: true, name: 'Publier' }).click();
     await expect(
@@ -230,10 +230,10 @@ test.describe('a version of an add-on, read in French', () => {
 
     await page.goto('/catalog/addons/extra-seats-v2/compatibility');
     await expect(
-      page.getByRole('list', { name: 'Familles de licences' }),
+      page.getByRole('list', { name: 'Licences compatibles' }),
     ).toBeVisible();
     await page
-      .getByRole('list', { name: 'Familles de licences' })
+      .getByRole('list', { name: 'Licences compatibles' })
       .getByRole('checkbox', { name: /^Pro/ })
       .click();
 

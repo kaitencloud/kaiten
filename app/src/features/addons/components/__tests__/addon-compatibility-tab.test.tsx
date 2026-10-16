@@ -93,11 +93,11 @@ describe('the license families a version fits', () => {
     expect(await screen.findByTestId('compatibility-empty')).toHaveTextContent('Attachable to nothing');
   });
 
-  it('say so when there is no license family yet', async () => {
+  it('say so when there is no license yet', async () => {
     server.use(handleListLicenseFamilies({ body: pageOf([]) }));
     renderTab();
 
-    expect(await screen.findByText('There is no license family yet.')).toBeInTheDocument();
+    expect(await screen.findByText('There is no license yet.')).toBeInTheDocument();
   });
 
   it('show the words of a refusal in a toast, and the box shows what the API holds, not what was clicked', async () => {
@@ -121,6 +121,6 @@ describe('the license families a version fits', () => {
     const starter = await box(/starter/);
     await waitFor(() => expect(starter).toBeDisabled());
 
-    expect(within(screen.getByRole('list', { name: 'License families' })).getAllByRole('checkbox')).toHaveLength(3);
+    expect(within(screen.getByRole('list', { name: 'Compatible licenses' })).getAllByRole('checkbox')).toHaveLength(3);
   });
 });

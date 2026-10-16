@@ -175,7 +175,7 @@ describe('listing a family in the public catalog', () => {
     await userEvent.click(await screen.findByRole('switch', { name: 'List Extra storage in the public catalog' }));
 
     await waitFor(() => expect(bodies).toEqual([{ isPublic: true }]));
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('The family is listed in the public catalog'));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('The add-on is listed in the public catalog'));
   });
 
   it('shows the words of a refusal in a toast, and leaves the switch as the API holds it', async () => {

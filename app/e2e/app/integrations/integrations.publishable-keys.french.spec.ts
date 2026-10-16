@@ -43,7 +43,7 @@ test.describe('the publishable keys, read in French', () => {
     await expect(keys.intro()).toContainText('Une clé publiable permet');
     await expect(keys.intro()).toContainText('Catalogue public');
     await expect(
-      keys.intro().getByRole('link', { name: 'Familles de licences' }),
+      keys.intro().getByRole('link', { name: 'Licences', exact: true }),
     ).toBeVisible();
     await expect(keys.searchField()).toHaveCount(0);
     await expect(

@@ -78,11 +78,11 @@ describe('webhook events', () => {
       group: 'licenseFamily',
     });
     expect(getWebhookEventLabel('com.kaiten.license_family.v1.deleted', t)).toBe(
-      'License family deleted',
+      'License deleted with its last version',
     );
     expect(
       getWebhookEventOptionLabel('com.kaiten.license_family.v1.deleted', t),
-    ).toBe('License families – License family deleted');
+    ).toBe('Licenses as a whole – License deleted with its last version');
     expect(
       getWebhookEventLabel('com.kaiten.feature_flag.v1.updated', translatorFor(fr)),
     ).toBe('Feature flag mis à jour');

@@ -86,7 +86,7 @@ describe('the public listing switch of a family', () => {
 
     await userEvent.click(await toggle());
 
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('The family is listed in the public catalog'));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('The license is listed in the public catalog'));
     expect(calls).toEqual([{ body: { isPublic: true }, familySlug: 'pro' }]);
   });
 
@@ -97,7 +97,7 @@ describe('the public listing switch of a family', () => {
     await userEvent.click(await toggle());
 
     await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith('The family is no longer listed in the public catalog'),
+      expect(toast.success).toHaveBeenCalledWith('The license is no longer listed in the public catalog'),
     );
     expect(calls).toEqual([{ body: { isPublic: false }, familySlug: 'pro' }]);
   });

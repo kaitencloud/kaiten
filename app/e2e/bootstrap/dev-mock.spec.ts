@@ -74,7 +74,7 @@ test('dev:mock answers every request of the billing screens of the instances, th
   ).toContainText('Usage-based');
   await page.goto('/catalog/addons/extra-seats/compatibility');
   await expect(
-    page.getByRole('list', { name: 'License families' }),
+    page.getByRole('list', { name: 'Compatible licenses' }),
   ).toBeVisible();
   // The seats of an instance that holds add-ons and redeemed a boost say how their limit is
   // composed, and a limit only the license grants is a figure.

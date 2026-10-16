@@ -21,7 +21,7 @@ vi.mock('react-i18next', () => ({
         'Common.cancel': 'Cancel',
         'Features.AuditTrail.events.CUSTOMER_CREATED': 'Customer created',
         'Features.AuditTrail.events.LICENSE_FAMILY_CREATED':
-          'License family created',
+          'License created with its first version',
         'Pages.Integrations.Webhooks.Dialog.createButton': 'Create Webhook',
         'Pages.Integrations.Webhooks.Dialog.description':
           'Configure webhook deliveries.',
@@ -43,7 +43,7 @@ vi.mock('react-i18next', () => ({
           'Webhook URL is required.',
         'Pages.Integrations.Webhooks.EventGroups.customer': 'Customers',
         'Pages.Integrations.Webhooks.EventGroups.licenseFamily':
-          'License families',
+          'Licenses as a whole',
       };
 
       return translations[key] ?? key;
@@ -84,9 +84,9 @@ describe('CreateWebhookDialog', () => {
     renderDialog();
 
     expect(await screen.findByText('Customers')).toBeInTheDocument();
-    expect(screen.getByText('License families')).toBeInTheDocument();
+    expect(screen.getByText('Licenses as a whole')).toBeInTheDocument();
     expect(
-      screen.getByRole('checkbox', { name: 'License family created' }),
+      screen.getByRole('checkbox', { name: 'License created with its first version' }),
     ).toBeInTheDocument();
     expect(screen.getByText('LICENSE_FAMILY_CREATED')).toBeInTheDocument();
     expect(screen.queryByText('FEATURE_FLAG_EVALUATED')).not.toBeInTheDocument();
