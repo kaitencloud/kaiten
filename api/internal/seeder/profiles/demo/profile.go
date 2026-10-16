@@ -6,7 +6,6 @@ package demo
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -50,7 +49,7 @@ func NewProfile() *Profile { return &Profile{} }
 func (p *Profile) Name() string { return "demo" }
 
 func (p *Profile) Description() string {
-	return "[DEMO] Seeds one org with a realistic B2B SaaS dataset (Kaiten Sushi Shop): entitlements, licenses, customers, instances, deployment zones/releases, usage metrics, feature flags, and audit trail. The default local development and demo dataset."
+	return "[DEMO] Seeds one org with a realistic B2B SaaS dataset (Kaiten Sushi Shop): entitlements, licenses, customers, instances, deployment zones/releases, usage metrics, and feature flags. The default local development and demo dataset."
 }
 
 // ── Seed entry point ───────────────────────────────────────────────────────
@@ -182,24 +181,6 @@ func (p *Profile) seedOrganization(ctx context.Context, sc *seeder.SeederContext
 		return err
 	}
 
-	// Step 11: audit trail. Last, since it references entitlements,
-	// licenses, instances, flags and deployments created above.
-	instanceIDBySlug := make(map[string]uuid.UUID, len(instancesSeeded))
-	for _, inst := range instancesSeeded {
-		instanceIDBySlug[inst.Slug] = inst.ID
-	}
-	refs := auditRefs{
-		instances:    instanceIDBySlug,
-		zones:        zoneIDsByKey,
-		releases:     releaseIDsByVersion,
-		licenses:     catalogue.current,
-		licenseSlugs: catalogue.currentSlug,
-		entitlements: entitlementIDs,
-	}
-	if err := p.seedAuditTrail(ctx, orgCtx, organization.ID, now, refs); err != nil {
-		return err
-	}
-
 	slog.Info("✅ Kaiten Sushi Shop demo profile seed completed successfully!", "organization_id", organization.ID, "organization_name", organization.Name)
 	return nil
 }
@@ -303,8 +284,8 @@ func (p *Profile) seedEntitlementGroups(ctx context.Context, sc *seeder.SeederCo
 // license name.
 type seededCatalogue struct {
 	// current is the version each family resolves to: what an instance is
-	// pinned to unless it names a version, and what an audit entry about the
-	// product opens. currentSlug is that same version's slug.
+	// pinned to unless it names a version. currentSlug is that same version's
+	// slug.
 	current     map[string]uuid.UUID
 	currentSlug map[string]string
 	// versions and slugs describe every version, oldest first.
@@ -860,117 +841,6 @@ func usagePeriodStart(ent entitlementDef, now, licenseStart time.Time) (pgtype.T
 		return pgtype.Timestamp{}, fmt.Errorf("entitlement %q: %w", ent.Slug, err)
 	}
 	return pgtype.Timestamp{Time: window.Start, Valid: true}, nil
-}
-
-// ── Audit Trail ────────────────────────────────────────────────────────────
-
-// seedAuditTrail reproduces the source dataset's audit_trail entries via a
-// direct INSERT, the same mechanism this profile already used for its usage
-// audit rows: the seeder CLI runs as a one-shot process and never runs the
-// outbox/CDC consumer, so nothing processes the outbox events these
-// use-cases already publish into audit_trail rows during a seed run. This is
-// the "declarative fallback" the source dataset's own notes describe.
-// auditRefs is everything a seeded audit payload can name through a seedRef:
-// the rows the steps before the audit trail created, keyed the way data.go
-// writes them.
-type auditRefs struct {
-	instances    map[string]uuid.UUID // by slug
-	zones        map[string]uuid.UUID // by key
-	releases     map[string]uuid.UUID // by version
-	licenses     map[string]uuid.UUID // by name: the version its family serves
-	licenseSlugs map[string]string    // by name: that same version's slug
-	entitlements map[string]uuid.UUID // by slug
-}
-
-// payload swaps each seedRef in a payload for the value it stands for. A key it
-// cannot resolve is a typo in data.go, and fails the seed rather than writing a
-// payload that names nothing.
-func (r auditRefs) payload(raw map[string]any) (map[string]any, error) {
-	resolved := make(map[string]any, len(raw))
-	for key, value := range raw {
-		ref, ok := value.(seedRef)
-		if !ok {
-			resolved[key] = value
-			continue
-		}
-
-		seeded, err := r.resolve(ref)
-		if err != nil {
-			return nil, fmt.Errorf("payload key %q: %w", key, err)
-		}
-		resolved[key] = seeded
-	}
-
-	return resolved, nil
-}
-
-func (r auditRefs) resolve(ref seedRef) (any, error) {
-	var (
-		value any
-		found bool
-	)
-
-	switch ref.kind {
-	case refInstanceID:
-		value, found = r.instances[ref.key]
-	case refZoneID:
-		value, found = r.zones[ref.key]
-	case refReleaseID:
-		value, found = r.releases[ref.key]
-	case refLicenseID:
-		value, found = r.licenses[ref.key]
-	case refLicenseSlug:
-		value, found = r.licenseSlugs[ref.key]
-	case refEntitlementID:
-		value, found = r.entitlements[ref.key]
-	}
-
-	if !found {
-		return nil, fmt.Errorf("nothing seeded answers to %q", ref.key)
-	}
-
-	return value, nil
-}
-
-func (p *Profile) seedAuditTrail(
-	ctx context.Context,
-	orgCtx *seeder.SeederContext,
-	orgID uuid.UUID,
-	now time.Time,
-	refs auditRefs,
-) error {
-	slog.Info("📜 Creating audit trail...")
-
-	for _, ev := range auditTrail {
-		var instanceID *uuid.UUID
-		if ev.InstanceSlug != "" {
-			id, ok := refs.instances[ev.InstanceSlug]
-			if !ok {
-				return fmt.Errorf("audit event references unknown instance %q", ev.InstanceSlug)
-			}
-			instanceID = &id
-		}
-
-		payload, err := refs.payload(ev.Payload)
-		if err != nil {
-			return fmt.Errorf("audit event %q: %w", ev.Name, err)
-		}
-
-		payloadJSON, err := json.Marshal(payload)
-		if err != nil {
-			return fmt.Errorf("marshal audit payload for %q: %w", ev.Name, err)
-		}
-
-		if err := orgCtx.Exec(ctx, `
-			INSERT INTO audit_trail (organization_id, instance_id, event_name, event_type, occurred_at, payload)
-			VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-		`, orgID, instanceID, ev.Name, ev.Type, relativeToNow(ev.OccurredAt, now), string(payloadJSON)); err != nil {
-			return fmt.Errorf("audit trail event %q: %w", ev.Name, err)
-		}
-	}
-
-	slog.Info("   ✓ Created audit trail", "events", len(auditTrail))
-	return nil
 }
 
 // ── Feature Flags ──────────────────────────────────────────────────────────

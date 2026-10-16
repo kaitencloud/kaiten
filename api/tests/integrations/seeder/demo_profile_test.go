@@ -2,6 +2,7 @@ package seeder_test
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -10,6 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	outboxdb "github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox/db"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/subscriber"
 	customertargetingfacts "github.com/kaitencloud/kaiten/api/internal/modules/customers/targetingfacts"
 	deploymentzoneevents "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/events"
 	instanceevents "github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
@@ -17,9 +21,11 @@ import (
 	licensesdb "github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/notifications/feed"
 	notificationsdb "github.com/kaitencloud/kaiten/api/internal/modules/notifications/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/platform/platformidentity"
 	"github.com/kaitencloud/kaiten/api/internal/seeder"
 	demoprofile "github.com/kaitencloud/kaiten/api/internal/seeder/profiles/demo"
+	"github.com/kaitencloud/kaiten/api/pkg/debezium"
 	"github.com/kaitencloud/kaiten/api/tests"
 )
 
@@ -27,7 +33,7 @@ import (
 // against a real Postgres and checks the invariants the source dataset
 // (kaiten-sushi-shop.seed.json) exists to guarantee: the full entity count,
 // the "license attaches to the instance, not the customer" story, the
-// periodic usage window, and a full audit trail replay.
+// periodic usage window, and the events the audit trail is recorded from.
 func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 	ctx := context.Background()
 	testDB, err := tests.NewTestDatabase()
@@ -56,7 +62,11 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 	require.Equal(t, 7, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM component WHERE organization_id = $1`, orgID))
 	require.Equal(t, 7, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM feature_flags WHERE organization_id = $1`, orgID))
 	require.Equal(t, 5, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM deployment d JOIN deployment_zone z ON z.id = d.deployment_zone_id WHERE z.organization_id = $1`, orgID))
-	require.Equal(t, 15, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM audit_trail WHERE organization_id = $1`, orgID))
+	// The seed writes no audit entries of its own: the trail is what the use
+	// cases publish, recorded by the event pipeline, which this test does not
+	// run. Ninety-seven events is the trail a running stack ends up with.
+	require.Zero(t, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM audit_trail WHERE organization_id = $1`, orgID))
+	require.Equal(t, 97, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM outbox_events WHERE organization_id = $1`, orgID))
 
 	// Members are the shared TMNT identities, not a bespoke set -- this is
 	// what makes the org reachable through the local dev token switcher.
@@ -410,10 +420,11 @@ func requireSeededByOpsTeam(t *testing.T, ctx context.Context, testDB *tests.Tes
 }
 
 // TestDemoNotificationsOpenWhatTheyAreAbout reads the seeded audit trail through
-// the notification feed, the way the bell does. The notifiable events carry
-// their real producers' payloads, so each one reads as a sentence and opens the
-// object it is about -- the regression being demo rows that read "An instance
-// was created" and opened a list.
+// the notification feed, the way the bell does. The trail is what the seed's use
+// cases published, recorded by the audit trail's own CDC consumer, so each
+// notifiable event reads as a sentence and opens the object it is about -- the
+// regression being demo rows that read "An instance was created" and opened a
+// list.
 func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 	ctx := context.Background()
 	testDB, err := tests.NewTestDatabase()
@@ -432,12 +443,7 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 		WHERE o.external_id = 'seed-kaiten-sushi-shop' AND u.external_id = 'user_splinter'
 	`).Scan(&orgID, &userID))
 
-	// since the license-family split a product has several versions, all sharing its name, so a
-	// lookup by name has no single answer. An audit entry about a product opens
-	// the version its family serves, which is what the seed records.
-	licenseSlug := func(familySlug string) string {
-		return resolveFamily(t, ctx, testDB, orgID, familySlug).Slug
-	}
+	recordAuditTrail(t, ctx, testDB, orgID)
 
 	list, err := feed.List(ctx, notificationsdb.New(testDB.DbPool), feed.Query{
 		UserID:         userID,
@@ -460,15 +466,70 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 		opens[notification.Title] = *notification.ActionURL
 	}
 
+	// Each assignment opens the license version it was made on: the event is
+	// published when the seed assigns the entitlement, before any later version
+	// of the family exists.
 	assert.Equal(t, map[string]string{
-		"Delivery Tracking was assigned to Premium":             "/licenses/" + licenseSlug("premium"),
-		"Delivery Tracking was assigned to Starter":             "/licenses/" + licenseSlug("starter"),
-		"Sakura Tokyo Production was created":                   "/customers/instances/sakura-tokyo-prod",
-		"Ninja Osaka Production was created":                    "/customers/instances/ninja-osaka-prod",
-		"Sakura Tokyo Demo was created":                         "/customers/instances/sakura-tokyo-demo",
-		"Release 2026.8.0 was deployed to Shared EU":            "/releases/deployment-zones/shared-eu",
-		"Ninja Osaka Production has used all of its menu-items": "/customers/instances/ninja-osaka-prod/entitlements",
+		"Sakura Tokyo Production was created":               "/customers/instances/sakura-tokyo-prod",
+		"Sakura Tokyo Demo was created":                     "/customers/instances/sakura-tokyo-demo",
+		"Ninja Osaka Production was created":                "/customers/instances/ninja-osaka-prod",
+		"Ninja Osaka Delivery Pilot was created":            "/customers/instances/ninja-osaka-delivery",
+		"Kappa Kyoto Production was created":                "/customers/instances/kappa-kyoto-prod",
+		"Demo Restaurant Production was created":            "/customers/instances/demo-restaurant-prod",
+		"Release 2026.7.0 was deployed to Sakura Dedicated": "/releases/deployment-zones/sakura-dedicated",
+		"Release 2026.7.0 was deployed to Shared APAC":      "/releases/deployment-zones/shared-apac",
+		"Release 2026.7.0 was deployed to Shared EU":        "/releases/deployment-zones/shared-eu",
+		"Release 2026.8.0 was deployed to Shared APAC":      "/releases/deployment-zones/shared-apac",
+		"Release 2026.8.0 was deployed to Shared EU":        "/releases/deployment-zones/shared-eu",
+		"Delivery Drivers was assigned to Premium":          "/licenses/premium",
+		"Delivery Drivers was assigned to Standard":         "/licenses/standard",
+		"Delivery Drivers was assigned to Starter":          "/licenses/starter",
+		"Delivery Tracking was assigned to Premium":         "/licenses/premium",
+		"Delivery Tracking was assigned to Standard":        "/licenses/standard",
+		"Delivery Tracking was assigned to Starter":         "/licenses/starter",
+		"Locations was assigned to Premium":                 "/licenses/premium",
+		"Locations was assigned to Standard":                "/licenses/standard",
+		"Locations was assigned to Starter":                 "/licenses/starter",
+		"Menu Items was assigned to Premium":                "/licenses/premium",
+		"Menu Items was assigned to Standard":               "/licenses/standard",
+		"Menu Items was assigned to Starter":                "/licenses/starter",
+		"Monthly Orders was assigned to Premium":            "/licenses/premium",
+		"Monthly Orders was assigned to Standard":           "/licenses/standard",
+		"Monthly Orders was assigned to Starter":            "/licenses/starter",
+		"Support Tier was assigned to Premium":              "/licenses/premium",
+		"Support Tier was assigned to Standard":             "/licenses/standard",
+		"Support Tier was assigned to Starter":              "/licenses/starter",
 	}, opens)
+}
+
+// recordAuditTrail does what the event pipeline does on a running stack, which
+// this test has no Debezium or sidecar to do: it hands every event the seed
+// published for orgID to the audit trail's CDC consumer, in the order they were
+// written. The rows are the consumer's own, not a copy of its logic.
+func recordAuditTrail(t *testing.T, ctx context.Context, testDB *tests.TestDatabase, orgID uuid.UUID) {
+	t.Helper()
+
+	events, err := outboxdb.New(testDB.DbPool).ListOutboxEvents(ctx, orgID)
+	require.NoError(t, err)
+	require.NotEmpty(t, events, "the seed published nothing to record")
+
+	consumer := subscriber.New(
+		uow.NewUnitOfWork(testDB.DbPool),
+		&currentuser.StaticUserProvider{OrganizationID: orgID},
+		nil,
+	)
+	// ListOutboxEvents is newest first; the pipeline delivers oldest first.
+	for _, event := range slices.Backward(events) {
+		require.NoError(t, consumer.Consume(ctx, debezium.Event{
+			ID:             event.ID.String(),
+			OrganizationID: event.OrganizationID.String(),
+			EventName:      event.EventName,
+			EventType:      event.EventType,
+			Data:           string(event.Data),
+			Headers:        event.Headers,
+			OccurredAt:     event.OccurredAt.Time,
+		}), "recording %s", event.EventName)
+	}
 }
 
 // resolveFamily returns the version the family slugged familySlug resolves to,
