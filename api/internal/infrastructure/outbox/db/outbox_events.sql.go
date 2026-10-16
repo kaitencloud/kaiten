@@ -16,12 +16,16 @@ INSERT INTO outbox_events (organization_id,
                            event_name,
                            event_type,
                            data,
-                           headers)
+                           headers,
+                           traceparent,
+                           tracestate)
 VALUES ($1,
     $2,
     $3,
     $4,
-    $5)
+    $5,
+    $6,
+    $7)
 `
 
 type CreateOutboxEventParams struct {
@@ -30,6 +34,8 @@ type CreateOutboxEventParams struct {
 	EventType      string    `json:"event_type"`
 	Data           []byte    `json:"data"`
 	Headers        []byte    `json:"headers"`
+	Traceparent    string    `json:"traceparent"`
+	Tracestate     *string   `json:"tracestate"`
 }
 
 func (q *Queries) CreateOutboxEvent(ctx context.Context, arg CreateOutboxEventParams) error {
@@ -39,6 +45,8 @@ func (q *Queries) CreateOutboxEvent(ctx context.Context, arg CreateOutboxEventPa
 		arg.EventType,
 		arg.Data,
 		arg.Headers,
+		arg.Traceparent,
+		arg.Tracestate,
 	)
 	return err
 }
@@ -49,6 +57,8 @@ type CreateOutboxEventsParams struct {
 	EventType      string    `json:"event_type"`
 	Data           []byte    `json:"data"`
 	Headers        []byte    `json:"headers"`
+	Traceparent    string    `json:"traceparent"`
+	Tracestate     *string   `json:"tracestate"`
 }
 
 const deleteOutboxEvent = `-- name: DeleteOutboxEvent :exec
@@ -68,7 +78,9 @@ SELECT
     oe.event_type,
     oe.occurred_at,
     oe.data,
-    oe.headers
+    oe.headers,
+    oe.traceparent,
+    oe.tracestate
 FROM outbox_events oe
 JOIN organization o ON oe.organization_id = o.id
 ORDER BY oe.occurred_at ASC
@@ -92,6 +104,8 @@ func (q *Queries) GetPendingOutboxEventsWithOrg(ctx context.Context, batchSize i
 			&i.OccurredAt,
 			&i.Data,
 			&i.Headers,
+			&i.Traceparent,
+			&i.Tracestate,
 		); err != nil {
 			return nil, err
 		}
@@ -110,7 +124,9 @@ SELECT id,
        event_type,
        occurred_at,
        data,
-       headers
+       headers,
+       traceparent,
+       tracestate
 FROM outbox_events
 WHERE organization_id = $1
 ORDER BY occurred_at DESC
@@ -133,6 +149,8 @@ func (q *Queries) ListOutboxEvents(ctx context.Context, organizationID uuid.UUID
 			&i.OccurredAt,
 			&i.Data,
 			&i.Headers,
+			&i.Traceparent,
+			&i.Tracestate,
 		); err != nil {
 			return nil, err
 		}

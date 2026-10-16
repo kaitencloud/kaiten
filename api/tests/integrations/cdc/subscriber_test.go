@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
@@ -125,6 +126,68 @@ func TestAuditTrailSubscriberJoinsProducerTrace(t *testing.T) {
 	assert.True(t, consumer.Parent().IsRemote(), "the parent arrived over the wire, not from this process")
 }
 
+// TestConsumerLinksTheBrokerPublish follows a delivery in the routed shape
+// through the HTTP route, carrying the AMQP traceparent Debezium's OpenTelemetry
+// agent writes and the sidecar forwards as metadata.traceparent. The consumer
+// span stays in the producer's trace, names the broker hop it crossed, and
+// links the publish span, which lives in a trace of its own.
+func TestConsumerLinksTheBrokerPublish(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+
+	spans := tracetest.NewSpanRecorder()
+	previousProvider, previousPropagator := otel.GetTracerProvider(), otel.GetTextMapPropagator()
+	otel.SetTracerProvider(sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spans)))
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+	t.Cleanup(func() {
+		otel.SetTracerProvider(previousProvider)
+		otel.SetTextMapPropagator(previousPropagator)
+	})
+
+	organizationID := testDb.DefaultData.OrganizationID
+	eventName := "INSTANCE_CREATION"
+
+	ctx, requestSpan := otel.Tracer("test.producer").Start(t.Context(), "http.request")
+	err := outbox.NewOutboxRepository(outboxdb.New(testDb.DbPool)).CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
+		organizationID, eventName, "1.0",
+		map[string]string{"slug": "test-instance"},
+		outbox.AuditHeaders{},
+	))
+	require.NoError(t, err)
+	requestSpan.End()
+
+	rows := commonfixture.ListOutboxEvents(t, testDb.DbPool, organizationID)
+	require.Len(t, rows, 1)
+	row := rows[0]
+	publish := findSpan(t, spans, "outbox.publish")
+	assert.Equal(t,
+		"00-"+publish.SpanContext().TraceID().String()+"-"+publish.SpanContext().SpanID().String()+"-01",
+		row.Traceparent, "the traceparent column must name the publish span, as headers does")
+
+	const brokerPublish = "00-fb272e8a50f21fb0933833c0a8369841-4e9fb7b3c86c5724-03"
+	require.Equal(t, "SUCCESS", deliverWithHeaders(t, routedDelivery(t, row),
+		map[string]string{"metadata.traceparent": brokerPublish}))
+	require.Equal(t, 1, countAuditRows(t, organizationID, eventName))
+
+	consumer := findSpan(t, spans, "cdc.consume")
+	assert.Equal(t, requestSpan.SpanContext().TraceID(), consumer.SpanContext().TraceID(),
+		"the consumer span must stay in the trace of the request that produced the event")
+	assert.Equal(t, publish.SpanContext().SpanID(), consumer.Parent().SpanID())
+
+	attributes := map[attribute.Key]string{}
+	for _, kv := range consumer.Attributes() {
+		attributes[kv.Key] = kv.Value.String()
+	}
+	assert.Equal(t, "rabbitmq", attributes["messaging.system"])
+	assert.Equal(t, "kaiten.events", attributes["messaging.destination.name"])
+	assert.Equal(t, "process", attributes["messaging.operation.type"])
+	assert.Equal(t, row.ID.String(), attributes["messaging.message.id"])
+
+	require.Len(t, consumer.Links(), 1, "the consumer span must link the broker publish")
+	link := consumer.Links()[0].SpanContext
+	assert.Equal(t, "fb272e8a50f21fb0933833c0a8369841", link.TraceID().String())
+	assert.Equal(t, "4e9fb7b3c86c5724", link.SpanID().String())
+}
+
 // findSpan returns the single ended span with the given name.
 func findSpan(t *testing.T, spans *tracetest.SpanRecorder, name string) sdktrace.ReadOnlySpan {
 	t.Helper()
@@ -168,12 +231,47 @@ func cdcDelivery(t *testing.T, eventID, organizationID uuid.UUID, eventName stri
 	}
 }
 
+// routedDelivery is cdcDelivery in the shape Debezium's Outbox EventRouter
+// publishes, the one the charts and the local stack configure: the row itself,
+// its data column under "payload", and the producer's traceparent in the
+// CloudEvent envelope.
+func routedDelivery(t *testing.T, row outboxdb.OutboxEvent) map[string]any {
+	t.Helper()
+
+	return map[string]any{
+		"id":          row.ID.String(),
+		"type":        row.EventType,
+		"traceparent": row.Traceparent,
+		"data": map[string]any{
+			"payload": map[string]any{
+				"payload":         string(row.Data),
+				"id":              row.ID.String(),
+				"organization_id": row.OrganizationID.String(),
+				"event_name":      row.EventName,
+				"event_type":      row.EventType,
+				"occurred_at":     time.Now().UTC().Format(time.RFC3339Nano),
+				"headers":         string(row.Headers),
+			},
+		},
+	}
+}
+
 // deliver posts one CDC delivery to the subscriber route and returns the
 // Dapr status the handler answered with (SUCCESS, RETRY or DROP).
 func deliver(t *testing.T, body map[string]any) string {
 	t.Helper()
+	return deliverWithHeaders(t, body, nil)
+}
+
+// deliverWithHeaders is deliver with request headers, the way the sidecar
+// forwards the broker's own message headers.
+func deliverWithHeaders(t *testing.T, body map[string]any, headers map[string]string) string {
+	t.Helper()
 
 	req := commonfixture.NewJSONRequest(t, "POST", daprRoute, body)
+	for name, value := range headers {
+		req.Header.Set(name, value)
+	}
 	resp, err := testServer.App.Test(req, fiber.TestConfig{})
 	require.NoError(t, err)
 	defer commonfixture.MustCloseBody(t, resp.Body)

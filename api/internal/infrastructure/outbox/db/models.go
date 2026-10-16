@@ -17,4 +17,6 @@ type OutboxEvent struct {
 	OccurredAt     pgtype.Timestamptz `json:"occurred_at"`
 	Data           []byte             `json:"data"`
 	Headers        []byte             `json:"headers"`
+	Traceparent    string             `json:"traceparent"`
+	Tracestate     *string            `json:"tracestate"`
 }
