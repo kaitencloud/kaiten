@@ -103,7 +103,7 @@ func AddonFrom(addon addoncatalogue.InstanceAddon) SessionAddon {
 
 // SessionSubscription is a subscription as a vendor's customer sees it.
 type SessionSubscription struct {
-	Status             string                       `json:"status" enum:"TRIAL,ACTIVE,PAST_DUE,CANCELED"`
+	Status             string                       `json:"status" enum:"INCOMPLETE,TRIAL,ACTIVE,PAST_DUE,CANCELED"`
 	ProviderKind       string                       `json:"providerKind" enum:"NOOP,STRIPE"`
 	CollectionMethod   string                       `json:"collectionMethod" enum:"SEND_INVOICE,CHARGE_AUTOMATICALLY"`
 	Currency           string                       `json:"currency" example:"EUR"`

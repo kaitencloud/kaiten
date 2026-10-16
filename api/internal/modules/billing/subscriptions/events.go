@@ -15,8 +15,8 @@ import (
 type StatusChange struct {
 	InstanceBillingID uuid.UUID `json:"instanceBillingId"`
 	InstanceSlug      string    `json:"instanceSlug"`
-	From              string    `json:"from" enum:"TRIAL,ACTIVE,PAST_DUE,CANCELED"`
-	To                string    `json:"to" enum:"TRIAL,ACTIVE,PAST_DUE,CANCELED"`
+	From              string    `json:"from" enum:"INCOMPLETE,TRIAL,ACTIVE,PAST_DUE,CANCELED"`
+	To                string    `json:"to" enum:"INCOMPLETE,TRIAL,ACTIVE,PAST_DUE,CANCELED"`
 	Reason            string    `json:"reason" enum:"TRIAL_ENDED,INVOICE_OVERDUE,PAYMENT_FAILED,SETTLED"`
 }
 
@@ -68,6 +68,10 @@ type ProviderChange struct {
 
 func RegisterWebhooks(api huma.API) {
 	for _, d := range []webhook.Declaration{
+		{
+			Event: events.InstanceBillingTrialWillEnd, Data: (*InstanceBilling)(nil), OperationID: "onInstanceBillingTrialWillEnd",
+			Summary: "Instance Billing Trial Will End Webhook", Description: "Triggered once per subscription, 3 days before its trial ends (trialEndsAt), or at once when the trial is shorter.",
+		},
 		{
 			Event: events.InstanceBillingProviderChanged, Data: (*ProviderChange)(nil), OperationID: "onInstanceBillingProviderChanged",
 			Summary: "Instance Billing Provider Changed Webhook", Description: "Triggered when a subscription moves to another payment provider, from its next invoice on.",
