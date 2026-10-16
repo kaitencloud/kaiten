@@ -47,9 +47,12 @@ type UsageContext struct {
 	// report answers them as source and provenance (V31-55).
 	LicenseEntitlementID *uuid.UUID
 	Provenance           []byte
-	LicenseSlug          *string
-	UsageValue           []byte     // nil when no usage row exists yet
-	PeriodStart          *time.Time // nil for a lifetime bucket, or when no usage row exists yet
+	// OveragePercent is LimitCapExceededOveragePercent as the view's SMALLINT
+	// holds it, for the answer.
+	OveragePercent int16
+	LicenseSlug    *string
+	UsageValue     []byte     // nil when no usage row exists yet
+	PeriodStart    *time.Time // nil for a lifetime bucket, or when no usage row exists yet
 }
 
 type QueryRepository struct {
@@ -145,8 +148,10 @@ func (r *QueryRepository) GetEntitlementUsageContext(ctx context.Context, instan
 		return nil, err
 	}
 	var limitCapExceededOveragePercent int32
+	var overagePercent int16
 	if limit.LimitCapExceededOveragePercent != nil {
-		limitCapExceededOveragePercent = int32(*limit.LimitCapExceededOveragePercent)
+		overagePercent = *limit.LimitCapExceededOveragePercent
+		limitCapExceededOveragePercent = int32(overagePercent)
 	}
 
 	result := &UsageContext{
@@ -165,6 +170,7 @@ func (r *QueryRepository) GetEntitlementUsageContext(ctx context.Context, instan
 		LimitCapExceededOveragePercent: limitCapExceededOveragePercent,
 		LicenseEntitlementID:           limit.LicenseEntitlementID,
 		Provenance:                     limit.Provenance,
+		OveragePercent:                 overagePercent,
 		LicenseSlug:                    ctx1.LicenseSlug,
 	}
 
