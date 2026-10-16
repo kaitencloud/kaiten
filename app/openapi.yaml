@@ -3034,6 +3034,9 @@ components:
           type: string
         licenseSlug:
           type: string
+        overdue:
+          description: "Whether the invoice is overdue when read, the grace period of automatic collection included: the predicate of ?overdue=true. Computed by the invoice list and the invoice read; false in the answers of writes and in event payloads."
+          type: boolean
         paidAt:
           format: date-time
           type:
@@ -3101,6 +3104,7 @@ components:
         - instanceName
         - licenseSlug
         - handoffStatus
+        - overdue
         - createdAt
         - updatedAt
       type: object
@@ -4117,6 +4121,9 @@ components:
           items:
             $ref: "#/components/schemas/InvoiceLine"
           type: array
+        overdue:
+          description: "Whether the invoice is overdue when read, the grace period of automatic collection included: the predicate of ?overdue=true. Computed by the invoice list and the invoice read; false in the answers of writes and in event payloads."
+          type: boolean
         paidAt:
           format: date-time
           type:
@@ -4226,6 +4233,7 @@ components:
         - instanceName
         - licenseSlug
         - handoffStatus
+        - overdue
         - createdAt
         - updatedAt
       type: object
@@ -4811,6 +4819,9 @@ components:
           type: string
         licenseSlug:
           type: string
+        overdue:
+          description: "Whether the invoice is overdue when read, the grace period of automatic collection included: the predicate of ?overdue=true. Computed by the invoice list and the invoice read; false in the answers of writes and in event payloads."
+          type: boolean
         paidAt:
           format: date-time
           type:
@@ -4877,6 +4888,7 @@ components:
         - instanceName
         - licenseSlug
         - handoffStatus
+        - overdue
         - createdAt
         - updatedAt
       type: object
@@ -4988,6 +5000,9 @@ components:
         linesTruncated:
           description: "Set when the lines did not fit the event: read the invoice for all of them"
           type: boolean
+        overdue:
+          description: "Whether the invoice is overdue when read, the grace period of automatic collection included: the predicate of ?overdue=true. Computed by the invoice list and the invoice read; false in the answers of writes and in event payloads."
+          type: boolean
         paidAt:
           format: date-time
           type:
@@ -5056,6 +5071,7 @@ components:
         - instanceName
         - licenseSlug
         - handoffStatus
+        - overdue
         - createdAt
         - updatedAt
       type: object
@@ -5920,6 +5936,9 @@ components:
           type: string
         licenseSlug:
           type: string
+        overdue:
+          description: "Whether the invoice is overdue when read, the grace period of automatic collection included: the predicate of ?overdue=true. Computed by the invoice list and the invoice read; false in the answers of writes and in event payloads."
+          type: boolean
         paidAt:
           format: date-time
           type:
@@ -5989,6 +6008,7 @@ components:
         - instanceName
         - licenseSlug
         - handoffStatus
+        - overdue
         - createdAt
         - updatedAt
       type: object
@@ -6893,6 +6913,9 @@ components:
         note:
           description: The note given when it was marked paid, kept only here
           type: string
+        overdue:
+          description: "Whether the invoice is overdue when read, the grace period of automatic collection included: the predicate of ?overdue=true. Computed by the invoice list and the invoice read; false in the answers of writes and in event payloads."
+          type: boolean
         paidAt:
           format: date-time
           type:
@@ -6967,6 +6990,7 @@ components:
         - instanceName
         - licenseSlug
         - handoffStatus
+        - overdue
         - createdAt
         - updatedAt
       type: object
@@ -7087,6 +7111,9 @@ components:
           type: string
         licenseSlug:
           type: string
+        overdue:
+          description: "Whether the invoice is overdue when read, the grace period of automatic collection included: the predicate of ?overdue=true. Computed by the invoice list and the invoice read; false in the answers of writes and in event payloads."
+          type: boolean
         paidAt:
           format: date-time
           type:
@@ -7158,6 +7185,7 @@ components:
         - instanceName
         - licenseSlug
         - handoffStatus
+        - overdue
         - createdAt
         - updatedAt
       type: object
@@ -8869,6 +8897,9 @@ components:
           type: string
         licenseSlug:
           type: string
+        overdue:
+          description: "Whether the invoice is overdue when read, the grace period of automatic collection included: the predicate of ?overdue=true. Computed by the invoice list and the invoice read; false in the answers of writes and in event payloads."
+          type: boolean
         paidAt:
           format: date-time
           type:
@@ -8940,6 +8971,7 @@ components:
         - instanceName
         - licenseSlug
         - handoffStatus
+        - overdue
         - createdAt
         - updatedAt
       type: object
@@ -9034,6 +9066,9 @@ components:
           type: string
         licenseSlug:
           type: string
+        overdue:
+          description: "Whether the invoice is overdue when read, the grace period of automatic collection included: the predicate of ?overdue=true. Computed by the invoice list and the invoice read; false in the answers of writes and in event payloads."
+          type: boolean
         paidAt:
           format: date-time
           type:
@@ -9103,6 +9138,7 @@ components:
         - instanceName
         - licenseSlug
         - handoffStatus
+        - overdue
         - createdAt
         - updatedAt
       type: object
@@ -9185,6 +9221,9 @@ components:
           type: string
         licenseSlug:
           type: string
+        overdue:
+          description: "Whether the invoice is overdue when read, the grace period of automatic collection included: the predicate of ?overdue=true. Computed by the invoice list and the invoice read; false in the answers of writes and in event payloads."
+          type: boolean
         paidAt:
           format: date-time
           type:
@@ -9252,6 +9291,7 @@ components:
         - instanceName
         - licenseSlug
         - handoffStatus
+        - overdue
         - createdAt
         - updatedAt
       type: object
@@ -9562,6 +9602,9 @@ components:
           type: string
         licenseSlug:
           type: string
+        overdue:
+          description: "Whether the invoice is overdue when read, the grace period of automatic collection included: the predicate of ?overdue=true. Computed by the invoice list and the invoice read; false in the answers of writes and in event payloads."
+          type: boolean
         paidAt:
           format: date-time
           type:
@@ -9636,6 +9679,7 @@ components:
         - instanceName
         - licenseSlug
         - handoffStatus
+        - overdue
         - createdAt
         - updatedAt
       type: object
@@ -11159,6 +11203,9 @@ components:
           type: string
         licenseSlug:
           type: string
+        overdue:
+          description: "Whether the invoice is overdue when read, the grace period of automatic collection included: the predicate of ?overdue=true. Computed by the invoice list and the invoice read; false in the answers of writes and in event payloads."
+          type: boolean
         paidAt:
           format: date-time
           type:
@@ -11228,6 +11275,7 @@ components:
         - instanceName
         - licenseSlug
         - handoffStatus
+        - overdue
         - createdAt
         - updatedAt
       type: object
@@ -11500,6 +11548,9 @@ components:
           type: string
         licenseSlug:
           type: string
+        overdue:
+          description: "Whether the invoice is overdue when read, the grace period of automatic collection included: the predicate of ?overdue=true. Computed by the invoice list and the invoice read; false in the answers of writes and in event payloads."
+          type: boolean
         paidAt:
           format: date-time
           type:
@@ -11569,6 +11620,7 @@ components:
         - instanceName
         - licenseSlug
         - handoffStatus
+        - overdue
         - createdAt
         - updatedAt
       type: object
