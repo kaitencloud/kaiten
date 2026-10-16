@@ -39,6 +39,7 @@ const invoice = (overrides: Partial<InvoiceSummary>): InvoiceSummary => ({
   issuedAt: '2027-03-01T00:00:00.000Z',
   kind: 'RENEWAL',
   licenseSlug: 'pro-v2',
+  overdue: false,
   paidAt: null,
   providerKind: 'NOOP',
   serviceFrom: '2027-02-01T00:00:00.000Z',
