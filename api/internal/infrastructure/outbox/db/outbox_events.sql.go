@@ -18,13 +18,17 @@ INSERT INTO outbox_events (organization_id,
                            event_type,
                            data,
                            headers,
+                           traceparent,
+                           tracestate,
                            occurred_at)
 VALUES ($1,
     $2,
     $3,
     $4,
     $5,
-    COALESCE($6::timestamptz, now()))
+    $6,
+    $7,
+    COALESCE($8::timestamptz, now()))
 `
 
 type CreateOutboxEventParams struct {
@@ -33,6 +37,8 @@ type CreateOutboxEventParams struct {
 	EventType      string             `json:"event_type"`
 	Data           []byte             `json:"data"`
 	Headers        []byte             `json:"headers"`
+	Traceparent    string             `json:"traceparent"`
+	Tracestate     *string            `json:"tracestate"`
 	OccurredAt     pgtype.Timestamptz `json:"occurred_at"`
 }
 
@@ -44,6 +50,8 @@ func (q *Queries) CreateOutboxEvent(ctx context.Context, arg CreateOutboxEventPa
 		arg.EventType,
 		arg.Data,
 		arg.Headers,
+		arg.Traceparent,
+		arg.Tracestate,
 		arg.OccurredAt,
 	)
 	return err
@@ -55,6 +63,8 @@ type CreateOutboxEventsParams struct {
 	EventType      string    `json:"event_type"`
 	Data           []byte    `json:"data"`
 	Headers        []byte    `json:"headers"`
+	Traceparent    string    `json:"traceparent"`
+	Tracestate     *string   `json:"tracestate"`
 }
 
 type CreateOutboxEventsAtParams struct {
@@ -63,6 +73,8 @@ type CreateOutboxEventsAtParams struct {
 	EventType      string             `json:"event_type"`
 	Data           []byte             `json:"data"`
 	Headers        []byte             `json:"headers"`
+	Traceparent    string             `json:"traceparent"`
+	Tracestate     *string            `json:"tracestate"`
 	OccurredAt     pgtype.Timestamptz `json:"occurred_at"`
 }
 
@@ -83,7 +95,9 @@ SELECT
     oe.event_type,
     oe.occurred_at,
     oe.data,
-    oe.headers
+    oe.headers,
+    oe.traceparent,
+    oe.tracestate
 FROM outbox_events oe
 JOIN organization o ON oe.organization_id = o.id
 ORDER BY oe.occurred_at ASC
@@ -107,6 +121,8 @@ func (q *Queries) GetPendingOutboxEventsWithOrg(ctx context.Context, batchSize i
 			&i.OccurredAt,
 			&i.Data,
 			&i.Headers,
+			&i.Traceparent,
+			&i.Tracestate,
 		); err != nil {
 			return nil, err
 		}
@@ -125,7 +141,9 @@ SELECT id,
        event_type,
        occurred_at,
        data,
-       headers
+       headers,
+       traceparent,
+       tracestate
 FROM outbox_events
 WHERE organization_id = $1
 ORDER BY occurred_at DESC
@@ -148,6 +166,8 @@ func (q *Queries) ListOutboxEvents(ctx context.Context, organizationID uuid.UUID
 			&i.OccurredAt,
 			&i.Data,
 			&i.Headers,
+			&i.Traceparent,
+			&i.Tracestate,
 		); err != nil {
 			return nil, err
 		}

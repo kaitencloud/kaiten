@@ -445,27 +445,50 @@ services:
       # left behind by a workload removed long ago, and it had quietly accumulated
       # 1244 messages that nothing would ever consume.
       - ./docker/rabbitmq/rabbitmq-defs.json:/etc/rabbitmq/rabbitmq-defs.json:ro
+    # `ping` answers as soon as the Erlang node is up, before the AMQP listener
+    # accepts a connection. api-dapr-sidecar starts on this check, and released by
+    # `ping` it dialled 5672 too early, failed to initialize its pub/sub component
+    # and exited -- leaving kaiten.events with no queue bound, so the fanout dropped
+    # every event published until someone restarted it. check_port_connectivity
+    # answers only once every listener accepts connections.
     healthcheck:
-      test: rabbitmq-diagnostics -q ping
+      test: rabbitmq-diagnostics -q check_port_connectivity
       interval: 5s
       timeout: 10s
       retries: 5
 
   debezium:
-    image: debezium/server:3.0.0.Final
+    # Docker Hub's debezium/server stops at 3.0; later releases are published on
+    # quay.io only. 3.0 carried no OpenTelemetry agent, so the OTEL_* variables
+    # below configured nothing and Debezium never reached Jaeger. Since 3.5 the
+    # image bundles the Java agent and loads it (OTEL_ENABLED=true), but ships
+    # with the SDK switched off (OTEL_SDK_DISABLED=true) -- turned on below.
+    #
+    # Not 3.7: its server runs on the Quarkus engine and no longer bundles
+    # io.debezium.converters.CloudEventsConverter, which debezium.format.value=
+    # cloudevents needs. The engine thread dies on the missing class while the
+    # container stays up, and nothing is published -- moving past 3.6 is a
+    # migration of the properties, not an image bump.
+    image: quay.io/debezium/server:3.6.3.Final
     container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-debezium
     restart: unless-stopped
     environment:
       KAITEN_DATABASE_USER: ${KAITEN_DATABASE_USER}
       KAITEN_DATABASE_PASSWORD: ${KAITEN_DATABASE_PASSWORD}
       KAITEN_DATABASE: ${KAITEN_DATABASE}
+      OTEL_SDK_DISABLED: "false"
       OTEL_SERVICE_NAME: kaiten-debezium
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
       OTEL_TRACES_EXPORTER: otlp
       OTEL_METRICS_EXPORTER: none
       OTEL_LOGS_EXPORTER: none
+    # No named volume for /debezium/data: offsets.dat is a position in the
+    # database's WAL, so it must not outlive the database. db keeps its data
+    # in the image's anonymous volume, which `down` discards; a named volume
+    # here survived it, and the next stack resumed from an LSN its fresh WAL
+    # had not reached -- skipping every outbox event, silently, until the WAL
+    # caught up. The image's own anonymous volume shares db's lifetime.
     volumes:
-      - debezium-data:/debezium/data
       - ./docker/rabbitmq/rabbitmq-debezium-application.properties:/debezium/config/application.properties:ro
     depends_on:
       db:
@@ -476,8 +499,13 @@ services:
         condition: service_started
 
   api-dapr-sidecar:
-    image: "daprio/daprd:1.16.9"
+    image: "daprio/daprd:1.18.4"
     container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-api-dapr-sidecar
+    # daprd exits when a component fails to initialize, and nothing restarted it:
+    # one bad start left the sidecar down, and with it the only queue on
+    # kaiten.events. The healthcheck above removes the race it lost; this is what
+    # brings it back from any other transient failure.
+    restart: on-failure
     command:
       - "/daprd"
       - "--app-id"
@@ -507,4 +535,3 @@ services:
 
 volumes:
   rabbitmq_data:
-  debezium-data:

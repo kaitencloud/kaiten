@@ -5,12 +5,16 @@ INSERT INTO outbox_events (organization_id,
                            event_type,
                            data,
                            headers,
+                           traceparent,
+                           tracestate,
                            occurred_at)
 VALUES (sqlc.arg(organization_id),
     sqlc.arg(event_name),
     sqlc.arg(event_type),
     sqlc.arg(data),
     sqlc.narg(headers),
+    sqlc.arg(traceparent),
+    sqlc.narg(tracestate),
     COALESCE(sqlc.narg(occurred_at)::timestamptz, now()));
 
 
@@ -23,12 +27,16 @@ INSERT INTO outbox_events (organization_id,
                            event_name,
                            event_type,
                            data,
-                           headers)
+                           headers,
+                           traceparent,
+                           tracestate)
 VALUES (sqlc.arg(organization_id),
     sqlc.arg(event_name),
     sqlc.arg(event_type),
     sqlc.arg(data),
-    sqlc.arg(headers));
+    sqlc.arg(headers),
+    sqlc.arg(traceparent),
+    sqlc.arg(tracestate));
 
 
 -- name: CreateOutboxEventsAt :copyfrom
@@ -40,12 +48,16 @@ INSERT INTO outbox_events (organization_id,
                            event_type,
                            data,
                            headers,
+                           traceparent,
+                           tracestate,
                            occurred_at)
 VALUES (sqlc.arg(organization_id),
     sqlc.arg(event_name),
     sqlc.arg(event_type),
     sqlc.arg(data),
     sqlc.arg(headers),
+    sqlc.arg(traceparent),
+    sqlc.arg(tracestate),
     sqlc.arg(occurred_at));
 
 
@@ -56,7 +68,9 @@ SELECT id,
        event_type,
        occurred_at,
        data,
-       headers
+       headers,
+       traceparent,
+       tracestate
 FROM outbox_events
 WHERE organization_id = sqlc.arg(organization_id)
 ORDER BY occurred_at DESC;
@@ -70,7 +84,9 @@ SELECT
     oe.event_type,
     oe.occurred_at,
     oe.data,
-    oe.headers
+    oe.headers,
+    oe.traceparent,
+    oe.tracestate
 FROM outbox_events oe
 JOIN organization o ON oe.organization_id = o.id
 ORDER BY oe.occurred_at ASC

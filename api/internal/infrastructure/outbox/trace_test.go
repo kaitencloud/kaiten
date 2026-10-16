@@ -127,3 +127,38 @@ func TestContextWithTraceWithoutTraceContext(t *testing.T) {
 		})
 	}
 }
+
+// TestTraceContextIsTheW3CPair pins what the traceparent and tracestate
+// columns hold: the same W3C values marshalHeaders merges into headers.
+func TestTraceContextIsTheW3CPair(t *testing.T) {
+	ctx, sc := contextWithSpan(t)
+	state, err := trace.ParseTraceState("vendor=value")
+	require.NoError(t, err)
+	ctx = trace.ContextWithSpanContext(ctx, sc.WithTraceState(state))
+
+	traceparent, tracestate := traceContext(ctx)
+
+	assert.Equal(t, "00-"+sc.TraceID().String()+"-"+sc.SpanID().String()+"-01", traceparent)
+	require.NotNil(t, tracestate)
+	assert.Equal(t, "vendor=value", *tracestate)
+}
+
+// TestTraceContextWithoutTraceContext pins the fallback: outside a span the
+// column still holds a valid traceparent, a fresh unsampled root, because
+// Debezium stops on an event without one. tracestate stays NULL.
+func TestTraceContextWithoutTraceContext(t *testing.T) {
+	first, tracestate := traceContext(context.Background())
+	second, _ := traceContext(context.Background())
+
+	assert.Nil(t, tracestate)
+	assert.NotEqual(t, first, second, "each untraced event is its own root")
+
+	extracted := trace.SpanContextFromContext(
+		propagation.TraceContext{}.Extract(context.Background(), propagation.MapCarrier{"traceparent": first}))
+	assert.True(t, extracted.IsValid(), "traceparent %q must parse", first)
+	assert.False(t, extracted.IsSampled())
+
+	ctx, _ := contextWithSpan(t)
+	_, tracestate = traceContext(ctx)
+	assert.Nil(t, tracestate, "a span with no trace state writes none")
+}

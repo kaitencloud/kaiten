@@ -24,6 +24,7 @@ func NewQueryRepository(queries *db.Queries) *QueryRepository {
 func (r *QueryRepository) ListMetadataFields(
 	ctx context.Context,
 	resourceType db.MetadataFieldResourceType,
+	includeArchived bool,
 	orgID uuid.UUID,
 	limitPlusOne int32,
 	cursor *listcursor.Key,
@@ -40,6 +41,7 @@ func (r *QueryRepository) ListMetadataFields(
 	rows, err := r.queries.ListMetadataFieldsByResourceType(ctx, db.ListMetadataFieldsByResourceTypeParams{
 		OrganizationID:     orgID,
 		ResourceType:       resourceType,
+		IncludeArchived:    includeArchived,
 		CursorDisplayOrder: cursorDisplayOrder,
 		CursorCreatedAt:    pgtime.TimePtrToPgTimestamp(cursorCreatedAt),
 		CursorID:           cursorID,

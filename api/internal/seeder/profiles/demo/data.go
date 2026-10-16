@@ -8,16 +8,11 @@ import (
 
 	"github.com/google/uuid"
 
-	deploymentzoneevents "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/events"
-	entitlementevents "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
-	featureflagevents "github.com/kaitencloud/kaiten/api/internal/modules/featureflags/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/schema"
-	instanceevents "github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
-	licenseevents "github.com/kaitencloud/kaiten/api/internal/modules/licenses/events"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	metadatafieldsdb "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/seeder/seedkit"
@@ -26,7 +21,7 @@ import (
 
 // datasetReferenceDate is "today" from the Kaiten Sushi Shop dataset's own
 // point of view (its _meta.date). Every backdated timestamp below (instance
-// creation, the deployment journal, the audit trail) is expressed as an
+// creation, the deployment journal) is expressed as an
 // absolute time under this reference and re-anchored onto the seeder's
 // actual run time by relativeToNow, so the dataset's internal chronology
 // (ordering, day-scale gaps) survives no matter when `demo` is seeded.
@@ -546,8 +541,8 @@ var customers = []customerDef{
 				Description: "Sandbox environment used for demos and testing.",
 				LicenseName: "Standard", Environment: "demo", ZoneKey: zoneKeySharedEU,
 				Status: instanceschema.InstanceStatusHealthy,
-				// The dataset gives no instance.created audit event for this
-				// one, so it isn't backdated (CreatedAt left zero).
+				// The dataset gives this one no creation date, so it isn't
+				// backdated (CreatedAt left zero).
 				UsageValues: map[string]usageEntry{
 					"menu-items":       {Value: 6, EventCount: 3},
 					"monthly-orders":   {Value: 41, EventCount: 41},
@@ -965,218 +960,6 @@ var featureFlags = []schema.FeatureFlag{
 		DefaultVariant: &schema.DefaultVariant{
 			Type:  schema.BasicType,
 			Value: schema.BasicVariant("none"),
-		},
-	},
-}
-
-// ── Audit Trail ────────────────────────────────────────────────────────────
-//
-// The source dataset ships its own audit_trail array with event_name/type
-// guesses the dataset itself flags as unverified. Checked against
-// the real events.Catalogue() (each module's events package): several were
-// wrong (e.g. it uses "com.kaiten.license.v1.entitlement_updated" for a
-// first-time association; the real event is LicenseEntitlementAssigned /
-// "com.kaiten.license.entitlement.v1.assigned"). The Name/Type pairs below
-// are the corrected real values. The dataset's own event_type field
-// ("change"/"evaluation"/"usage") also isn't a real column value -- the real
-// audit_trail.event_type column holds the CloudEvents dotted type string
-// (see internal/modules/audittrail/subscriber and internal/infrastructure/outbox).
-//
-// The events that reach the notification bell carry the payload their real
-// producer writes, because the bell renders from it: the instance payload, the
-// deployment record, the license entitlement, the entitlement usage. The others
-// keep the dataset's annotated shapes -- their "note"s are what the audit trail
-// page is there to show.
-type auditEvent struct {
-	OccurredAt   time.Time
-	InstanceSlug string // "" means an org-level event, no instance
-	Name         string
-	Type         string
-	Payload      map[string]any
-}
-
-// seedRef stands in a payload for a value that only exists once the steps
-// before the audit trail have run -- an id, or a slug the API generated.
-// seedAuditTrail swaps each one for the real value, so a payload can name
-// objects the way its producer does: RELEASE_DEPLOYED, for one, carries
-// nothing but ids.
-type seedRef struct {
-	kind seedRefKind
-	key  string
-}
-
-type seedRefKind int
-
-const (
-	refInstanceID seedRefKind = iota
-	refZoneID
-	refReleaseID
-	refLicenseID
-	refLicenseSlug
-	refEntitlementID
-)
-
-// The key each ref takes is the one the data above is written in: an instance
-// slug, a zone key, a release version, a license name, an entitlement slug.
-func instanceID(slug string) seedRef   { return seedRef{kind: refInstanceID, key: slug} }
-func zoneID(key string) seedRef        { return seedRef{kind: refZoneID, key: key} }
-func releaseID(version string) seedRef { return seedRef{kind: refReleaseID, key: version} }
-func licenseID(name string) seedRef    { return seedRef{kind: refLicenseID, key: name} }
-func licenseSlug(name string) seedRef  { return seedRef{kind: refLicenseSlug, key: name} }
-func entitlementID(slug string) seedRef {
-	return seedRef{kind: refEntitlementID, key: slug}
-}
-
-var auditTrail = []auditEvent{
-	{
-		OccurredAt: time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC),
-		Name:       entitlementevents.EntitlementCreated.Name,
-		Type:       entitlementevents.EntitlementCreated.Type,
-		Payload:    map[string]any{"entitlement": "delivery-tracking", "type": "BOOLEAN"},
-	},
-	{
-		OccurredAt: time.Date(2026, 7, 1, 10, 5, 0, 0, time.UTC),
-		Name:       licenseevents.LicenseEntitlementAssigned.Name,
-		Type:       licenseevents.LicenseEntitlementAssigned.Type,
-		Payload: map[string]any{
-			"licenseId":       licenseID("Premium"),
-			"licenseSlug":     licenseSlug("Premium"),
-			"entitlementName": "Delivery Tracking",
-			"entitlementSlug": "delivery-tracking",
-			"entitlementType": "BOOLEAN",
-			"value":           map[string]any{"type": "boolean", "value": true},
-		},
-	},
-	{
-		OccurredAt: time.Date(2026, 7, 1, 10, 6, 0, 0, time.UTC),
-		Name:       licenseevents.LicenseEntitlementAssigned.Name,
-		Type:       licenseevents.LicenseEntitlementAssigned.Type,
-		Payload: map[string]any{
-			"licenseId":       licenseID("Starter"),
-			"licenseSlug":     licenseSlug("Starter"),
-			"entitlementName": "Delivery Tracking",
-			"entitlementSlug": "delivery-tracking",
-			"entitlementType": "BOOLEAN",
-			"value":           map[string]any{"type": "boolean", "value": false},
-		},
-	},
-	{
-		OccurredAt:   time.Date(2026, 7, 2, 9, 0, 0, 0, time.UTC),
-		InstanceSlug: "sakura-tokyo-prod",
-		Name:         instanceevents.InstanceCreated.Name,
-		Type:         instanceevents.InstanceCreated.Type,
-		Payload: map[string]any{
-			"id":                 instanceID("sakura-tokyo-prod"),
-			"slug":               "sakura-tokyo-prod",
-			"name":               "Sakura Tokyo Production",
-			"customerSlug":       "sakura-tokyo",
-			"deploymentZoneId":   zoneID(zoneKeySakuraDedicated),
-			"deploymentZoneSlug": zoneKeySakuraDedicated,
-			"licenseId":          licenseID("Premium"),
-			"licenseSlug":        licenseSlug("Premium"),
-		},
-	},
-	{
-		OccurredAt:   time.Date(2026, 7, 2, 9, 10, 0, 0, time.UTC),
-		InstanceSlug: "ninja-osaka-prod",
-		Name:         instanceevents.InstanceCreated.Name,
-		Type:         instanceevents.InstanceCreated.Type,
-		Payload: map[string]any{
-			"id":                 instanceID("ninja-osaka-prod"),
-			"slug":               "ninja-osaka-prod",
-			"name":               "Ninja Osaka Production",
-			"customerSlug":       "ninja-osaka",
-			"deploymentZoneId":   zoneID(zoneKeySharedAPAC),
-			"deploymentZoneSlug": zoneKeySharedAPAC,
-			"licenseId":          licenseID("Starter"),
-			"licenseSlug":        licenseSlug("Starter"),
-		},
-	},
-	{
-		OccurredAt:   time.Date(2026, 7, 2, 9, 20, 0, 0, time.UTC),
-		InstanceSlug: "sakura-tokyo-demo",
-		Name:         instanceevents.InstanceCreated.Name,
-		Type:         instanceevents.InstanceCreated.Type,
-		Payload: map[string]any{
-			"id":                 instanceID("sakura-tokyo-demo"),
-			"slug":               "sakura-tokyo-demo",
-			"name":               "Sakura Tokyo Demo",
-			"customerSlug":       "sakura-tokyo",
-			"deploymentZoneId":   zoneID(zoneKeySharedAPAC),
-			"deploymentZoneSlug": zoneKeySharedAPAC,
-			"licenseId":          licenseID("Starter"),
-			"licenseSlug":        licenseSlug("Starter"),
-		},
-	},
-	{
-		OccurredAt: time.Date(2026, 7, 3, 14, 0, 0, 0, time.UTC),
-		Name:       featureflagevents.FeatureFlagUpdated.Name,
-		Type:       featureflagevents.FeatureFlagUpdated.Type,
-		Payload:    map[string]any{"flag": "delivery-tracking-enabled", "change": "targeting_rules", "rule": "__kaiten.entitlements['delivery-tracking'] == true"},
-	},
-	{
-		OccurredAt: time.Date(2026, 8, 12, 9, 0, 5, 0, time.UTC),
-		Name:       deploymentzoneevents.ReleaseDeployed.Name,
-		Type:       deploymentzoneevents.ReleaseDeployed.Type,
-		Payload: map[string]any{
-			"deploymentZoneId": zoneID(zoneKeySharedEU),
-			"releaseId":        releaseID("2026.8.0"),
-		},
-	},
-	{
-		OccurredAt:   time.Date(2026, 8, 14, 11, 2, 11, 0, time.UTC),
-		InstanceSlug: "sakura-tokyo-prod",
-		Name:         featureflagevents.FeatureFlagEvaluated.Name,
-		Type:         featureflagevents.FeatureFlagEvaluated.Type,
-		Payload:      map[string]any{"flag": "delivery-tracking-enabled", "variant": "on", "value": true, "reason": "TARGETING_MATCH", "matched_rule": "__kaiten.entitlements['delivery-tracking'] == true"},
-	},
-	{
-		OccurredAt:   time.Date(2026, 8, 14, 11, 2, 12, 0, time.UTC),
-		InstanceSlug: "ninja-osaka-prod",
-		Name:         featureflagevents.FeatureFlagEvaluated.Name,
-		Type:         featureflagevents.FeatureFlagEvaluated.Type,
-		Payload:      map[string]any{"flag": "delivery-tracking-enabled", "variant": "off", "value": false, "reason": "DEFAULT"},
-	},
-	{
-		OccurredAt:   time.Date(2026, 8, 14, 11, 2, 13, 0, time.UTC),
-		InstanceSlug: "sakura-tokyo-demo",
-		Name:         featureflagevents.FeatureFlagEvaluated.Name,
-		Type:         featureflagevents.FeatureFlagEvaluated.Type,
-		Payload:      map[string]any{"flag": "delivery-tracking-enabled", "variant": "off", "value": false, "reason": "DEFAULT", "note": "same customer as sakura-tokyo-prod, different license — the entitlement rule does not match"},
-	},
-	{
-		OccurredAt:   time.Date(2026, 8, 14, 11, 5, 40, 0, time.UTC),
-		InstanceSlug: "sakura-tokyo-prod",
-		Name:         featureflagevents.FeatureFlagEvaluated.Name,
-		Type:         featureflagevents.FeatureFlagEvaluated.Type,
-		Payload:      map[string]any{"flag": "analytics-dashboard-enabled", "variant": "on", "value": true, "reason": "TARGETING_MATCH", "context": map[string]any{"orderCount": 14}},
-	},
-	{
-		OccurredAt:   time.Date(2026, 8, 14, 11, 5, 41, 0, time.UTC),
-		InstanceSlug: "sakura-tokyo-demo",
-		Name:         featureflagevents.FeatureFlagEvaluated.Name,
-		Type:         featureflagevents.FeatureFlagEvaluated.Type,
-		Payload:      map[string]any{"flag": "analytics-dashboard-enabled", "variant": "on", "value": true, "reason": "TARGETING_MATCH", "context": map[string]any{"orderCount": 11}, "note": "customer-anchored rule — matches both Sakura instances"},
-	},
-	{
-		OccurredAt:   time.Date(2026, 8, 15, 16, 20, 0, 0, time.UTC),
-		InstanceSlug: "ninja-osaka-prod",
-		Name:         instanceevents.EntitlementUsageReportAccepted.Name,
-		Type:         instanceevents.EntitlementUsageReportAccepted.Type,
-		Payload:      map[string]any{"entitlement": "menu-items", "value": 5, "limit": 5, "note": "at limit"},
-	},
-	{
-		OccurredAt:   time.Date(2026, 8, 15, 16, 20, 1, 0, time.UTC),
-		InstanceSlug: "ninja-osaka-prod",
-		Name:         instanceevents.InstanceEntitlementUsageReached.Name,
-		Type:         instanceevents.InstanceEntitlementUsageReached.Type,
-		Payload: map[string]any{
-			"entitlementId":   entitlementID("menu-items"),
-			"entitlementSlug": "menu-items",
-			"licenseId":       licenseID("Starter"),
-			"licenseSlug":     licenseSlug("Starter"),
-			"value":           map[string]any{"type": "number", "value": 5},
-			"limit":           map[string]any{"type": "number", "value": 5},
 		},
 	},
 }

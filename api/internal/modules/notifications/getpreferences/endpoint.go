@@ -28,8 +28,8 @@ func RegisterEndpoint(api huma.API, app PreferenceReader) {
 		Path:        "/v1/notification-preferences",
 		Summary:     "Read the caller's notification preferences",
 		Description: "Every notifiable event, with this user's effective value per channel: their own choice " +
-			"where they made one, the catalogue default otherwise. Events absent from the catalogue of a " +
-			"deployment never appear, which is what keeps high-volume system events out of the feed.",
+			"where they made one, the catalog default otherwise. Events absent from the catalog of an " +
+			"installation never appear, which is what keeps high-volume system events out of the feed.",
 		Tags:   []string{"notifications"},
 		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, _ *Request) (*Response, error) {

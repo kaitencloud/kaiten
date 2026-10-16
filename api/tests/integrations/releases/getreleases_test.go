@@ -1,11 +1,13 @@
 package releases_test
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/schema"
@@ -69,6 +71,43 @@ func TestGetReleases(t *testing.T) {
 		actual := commonfixture.AssertJSONResponse[pagination.Page[schema.Release]](t, resp, fiber.StatusOK)
 		require.ElementsMatch(t, expected, actual.Items)
 		require.False(t, actual.HasMore)
+	})
+
+	t.Run("WhenReleasesHaveComponents_EmbedsEachReleasesOwn", func(t *testing.T) {
+		// Arrange
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		api := newComponent(t, "api", "1.0.0", nil)
+		web := newComponent(t, "web", "1.0.0", nil)
+		shipped := map[string][]uuid.UUID{
+			"1.0.0": {api.ID, web.ID},
+			"1.1.0": {api.ID},
+			"1.2.0": nil,
+		}
+		for version, ids := range shipped {
+			req := commonfixture.NewJSONRequest(t, http.MethodPost, "/api/releases", schema.Release{Version: version, ComponentIDs: ids})
+			resp, err := testServer.App.Test(req, fiber.TestConfig{})
+			require.NoError(t, err)
+			defer commonfixture.MustCloseBody(t, resp.Body)
+			commonfixture.AssertJSONResponse[schema.Release](t, resp, fiber.StatusCreated)
+		}
+
+		// Act
+		req := httptest.NewRequest(http.MethodGet, "/api/releases", nil)
+		resp, err := testServer.App.Test(req, fiber.TestConfig{})
+		require.NoError(t, err)
+		defer commonfixture.MustCloseBody(t, resp.Body)
+
+		// Assert -- the list carries the same read view get-release does,
+		// rather than leaving a client to read every release on its own.
+		actual := commonfixture.AssertJSONResponse[pagination.Page[schema.Release]](t, resp, fiber.StatusOK)
+		require.Len(t, actual.Items, len(shipped))
+		for _, release := range actual.Items {
+			got := make([]uuid.UUID, 0, len(release.Components))
+			for _, c := range release.Components {
+				got = append(got, c.ID)
+			}
+			require.ElementsMatch(t, shipped[release.Version], got, "release %s", release.Version)
+		}
 	})
 
 	t.Run("PaginationLimit_LimitsResultsAndReportsHasMore", func(t *testing.T) {

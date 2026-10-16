@@ -58,14 +58,14 @@ type PreferenceEvent struct {
 	EventName string          `json:"eventName" example:"INSTANCE_DEPLOYED"`
 	EventType string          `json:"eventType" doc:"CloudEvents type of the same event; see Notification.eventType" example:"com.kaiten.instance.v1.deployed"`
 	Label     string          `json:"label" doc:"Human-readable event name"`
-	Group     string          `json:"group" doc:"Catalogue group the client renders this under" example:"deployments"`
+	Group     string          `json:"group" doc:"Catalog group the client renders this under" example:"deployments"`
 	Channels  map[string]bool `json:"channels" doc:"Effective value per channel"`
 }
 
 // PreferenceMatrix is the whole settings page. Both slices are built non-nil
 // (getpreferences.Matrix), hence nullable:"false", as on List.Data.
 type PreferenceMatrix struct {
-	Channels []string          `json:"channels" nullable:"false" doc:"Channels this deployment serves, in display order"`
+	Channels []string          `json:"channels" nullable:"false" doc:"Channels this installation serves, in display order"`
 	Events   []PreferenceEvent `json:"events" nullable:"false" doc:"Every notifiable event"`
 }
 

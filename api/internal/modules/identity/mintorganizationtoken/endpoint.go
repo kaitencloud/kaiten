@@ -143,7 +143,7 @@ func RegisterWebhook(api huma.API) {
 			"credential for the `system:kaiten` platform identity inside this organization. " +
 			"Carries the platform credential that performed the mint and the scopes granted, " +
 			"never the credential value. Expect this at the rate an integration refreshes: " +
-			"roughly 120 per day per process at a 15-minute lifetime.",
+			"96 a day per process at a 15-minute lifetime, more if it refreshes before expiry.",
 		Tags: []string{"webhooks", "identity"},
 	})
 }

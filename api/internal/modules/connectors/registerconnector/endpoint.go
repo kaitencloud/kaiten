@@ -51,7 +51,7 @@ func RegisterEndpoint(api huma.API, app Registrar) {
 		Method:      http.MethodPost,
 		Path:        "/platform/connectors",
 		Summary:     "Register connector manifest",
-		Description: "Registers or updates connector metadata and settings schema for this Kaiten deployment",
+		Description: "Registers or updates connector metadata and settings schema for this Kaiten installation",
 		Tags:        []string{"connectors"},
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {

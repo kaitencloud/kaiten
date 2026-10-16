@@ -6,6 +6,8 @@ spec:
   tracing:
     samplingRate: "1"
     otel:
-      endpointAddress: "http://jaeger:4318"
+      # host:port, without a scheme, as Dapr documents it:
+      # https://docs.dapr.io/operations/observability/tracing/setup-tracing/
+      endpointAddress: "jaeger:4318"
       isSecure: false
       protocol: http
