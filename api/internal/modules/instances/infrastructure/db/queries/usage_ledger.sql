@@ -82,7 +82,9 @@ SELECT orgs.organization_id::uuid AS organization_id FROM orgs WHERE orgs.organi
 -- idx_usage_ledger_org_reported_at. The caller repeats it until a batch comes
 -- back short. Rows that are not invoiced yet are never deleted (D-33): those
 -- of a live subscription since its current period started, the last row before
--- that of each pair, and those in the service period of a DRAFT invoice.
+-- that of each pair, and those in the service period of a DRAFT invoice -- of
+-- metered pairs only (V31-14): a pair no ACTIVE metered price bills follows
+-- the retention window alone.
 DELETE FROM usage_ledger ul
 USING (
   SELECT old.instance_id, old.entitlement_id, old.report_seq, old.reported_at
@@ -94,6 +96,30 @@ USING (
     FROM instance_billing ib
     WHERE ib.instance_id = old.instance_id
       AND ib.status <> 'CANCELED'
+      -- V31-14: only a metered pair is protected, one an ACTIVE USAGE_BASED or
+      -- OVERAGE price of this subscription meters, on its licence version or
+      -- on an add-on attached when the row was reported. (meters_entitlement_id
+      -- is set exactly on those two models.) Kept identical in
+      -- PurgeOrganizationUsageLedger and HasProtectedUsageLedgerRows.
+      AND (EXISTS (SELECT 1
+                   FROM license_price base
+                   JOIN license_price lp
+                     ON lp.license_id = base.license_id
+                    AND lp.organization_id = base.organization_id
+                   WHERE base.id = ib.base_license_price_id
+                     AND lp.meters_entitlement_id = old.entitlement_id
+                     AND lp.status = 'ACTIVE')
+        OR EXISTS (SELECT 1
+                   FROM instance_addon ia
+                   JOIN addon_price ap
+                     ON ap.addon_id = ia.addon_id
+                    AND ap.organization_id = ia.organization_id
+                   WHERE ia.instance_id = old.instance_id
+                     AND ia.organization_id = old.organization_id
+                     AND ia.created_at <= old.reported_at
+                     AND (ia.removed_at IS NULL OR ia.removed_at > old.reported_at)
+                     AND ap.meters_entitlement_id = old.entitlement_id
+                     AND ap.status = 'ACTIVE'))
       AND (
         -- (a) not invoiced yet: since the current period started.
         old.reported_at >= ib.current_period_start
@@ -118,6 +144,30 @@ USING (
       AND inv.status = 'DRAFT'
       AND old.reported_at >= inv.service_from
       AND old.reported_at < inv.service_to
+      -- V31-14: only a metered pair is protected, one an ACTIVE USAGE_BASED or
+      -- OVERAGE price of this subscription meters, on its licence version or
+      -- on an add-on attached when the row was reported. (meters_entitlement_id
+      -- is set exactly on those two models.) Kept identical in
+      -- PurgeOrganizationUsageLedger and HasProtectedUsageLedgerRows.
+      AND (EXISTS (SELECT 1
+                   FROM license_price base
+                   JOIN license_price lp
+                     ON lp.license_id = base.license_id
+                    AND lp.organization_id = base.organization_id
+                   WHERE base.id = ib.base_license_price_id
+                     AND lp.meters_entitlement_id = old.entitlement_id
+                     AND lp.status = 'ACTIVE')
+        OR EXISTS (SELECT 1
+                   FROM instance_addon ia
+                   JOIN addon_price ap
+                     ON ap.addon_id = ia.addon_id
+                    AND ap.organization_id = ia.organization_id
+                   WHERE ia.instance_id = old.instance_id
+                     AND ia.organization_id = old.organization_id
+                     AND ia.created_at <= old.reported_at
+                     AND (ia.removed_at IS NULL OR ia.removed_at > old.reported_at)
+                     AND ap.meters_entitlement_id = old.entitlement_id
+                     AND ap.status = 'ACTIVE'))
   )
   LIMIT sqlc.arg(batch_size)
 ) doomed
@@ -140,6 +190,30 @@ SELECT EXISTS (
     FROM instance_billing ib
     WHERE ib.instance_id = old.instance_id
       AND ib.status <> 'CANCELED'
+      -- V31-14: only a metered pair is protected, one an ACTIVE USAGE_BASED or
+      -- OVERAGE price of this subscription meters, on its licence version or
+      -- on an add-on attached when the row was reported. (meters_entitlement_id
+      -- is set exactly on those two models.) Kept identical in
+      -- PurgeOrganizationUsageLedger and HasProtectedUsageLedgerRows.
+      AND (EXISTS (SELECT 1
+                   FROM license_price base
+                   JOIN license_price lp
+                     ON lp.license_id = base.license_id
+                    AND lp.organization_id = base.organization_id
+                   WHERE base.id = ib.base_license_price_id
+                     AND lp.meters_entitlement_id = old.entitlement_id
+                     AND lp.status = 'ACTIVE')
+        OR EXISTS (SELECT 1
+                   FROM instance_addon ia
+                   JOIN addon_price ap
+                     ON ap.addon_id = ia.addon_id
+                    AND ap.organization_id = ia.organization_id
+                   WHERE ia.instance_id = old.instance_id
+                     AND ia.organization_id = old.organization_id
+                     AND ia.created_at <= old.reported_at
+                     AND (ia.removed_at IS NULL OR ia.removed_at > old.reported_at)
+                     AND ap.meters_entitlement_id = old.entitlement_id
+                     AND ap.status = 'ACTIVE'))
       AND (
         -- (a) not invoiced yet: since the current period started.
         old.reported_at >= ib.current_period_start
@@ -164,6 +238,30 @@ SELECT EXISTS (
       AND inv.status = 'DRAFT'
       AND old.reported_at >= inv.service_from
       AND old.reported_at < inv.service_to
+      -- V31-14: only a metered pair is protected, one an ACTIVE USAGE_BASED or
+      -- OVERAGE price of this subscription meters, on its licence version or
+      -- on an add-on attached when the row was reported. (meters_entitlement_id
+      -- is set exactly on those two models.) Kept identical in
+      -- PurgeOrganizationUsageLedger and HasProtectedUsageLedgerRows.
+      AND (EXISTS (SELECT 1
+                   FROM license_price base
+                   JOIN license_price lp
+                     ON lp.license_id = base.license_id
+                    AND lp.organization_id = base.organization_id
+                   WHERE base.id = ib.base_license_price_id
+                     AND lp.meters_entitlement_id = old.entitlement_id
+                     AND lp.status = 'ACTIVE')
+        OR EXISTS (SELECT 1
+                   FROM instance_addon ia
+                   JOIN addon_price ap
+                     ON ap.addon_id = ia.addon_id
+                    AND ap.organization_id = ia.organization_id
+                   WHERE ia.instance_id = old.instance_id
+                     AND ia.organization_id = old.organization_id
+                     AND ia.created_at <= old.reported_at
+                     AND (ia.removed_at IS NULL OR ia.removed_at > old.reported_at)
+                     AND ap.meters_entitlement_id = old.entitlement_id
+                     AND ap.status = 'ACTIVE'))
   ))
 )::bool AS protected;
 

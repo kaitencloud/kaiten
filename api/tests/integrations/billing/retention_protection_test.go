@@ -12,10 +12,13 @@ import (
 )
 
 // D-33: the retention purge and the partition drop never delete usage that is
-// not invoiced yet.
+// not invoiced yet -- of a metered pair (V31-14). A pair no ACTIVE metered
+// price bills follows the retention window alone.
 func TestUsageLedgerMaintenanceSparesUninvoicedUsage(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	s := meteredSold(t)
+	seats := newEntitlement(t, "seats", 0)
+	grant(t, s.version.Slug, "seats", 50, 0) // granted, metered by no price
 	started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
 	reportTokens(t, s.instance.Slug, 1000)
 	// The subscription has run for five months without a close.
@@ -38,6 +41,13 @@ func TestUsageLedgerMaintenanceSparesUninvoicedUsage(t *testing.T) {
 		         SELECT organization_id, instance_id, entitlement_id, license_id, report_seq + $2, $1::timestamp,
 		                behavior, aggregation_method, reported_value, value_before, value_after, event_count_after, overage_percent, limit_value, window_start, window_end
 		           FROM usage_ledger ORDER BY report_seq LIMIT 1`, ago(months), i+10)
+		// The same row on the unmetered pair.
+		exec(t, `INSERT INTO usage_ledger (organization_id, instance_id, entitlement_id, license_id, report_seq, reported_at,
+		                                   behavior, aggregation_method, reported_value, value_before, value_after,
+		                                   event_count_after, overage_percent, limit_value, window_start, window_end)
+		         SELECT organization_id, instance_id, $3, license_id, $2, $1::timestamp,
+		                behavior, aggregation_method, reported_value, value_before, value_after, event_count_after, overage_percent, limit_value, window_start, window_end
+		           FROM usage_ledger ORDER BY report_seq LIMIT 1`, ago(months), i+10, seats)
 	}
 
 	maintenance := usageledger.New(testDb.DbPool, nil, usageledger.Config{
@@ -48,6 +58,10 @@ func TestUsageLedgerMaintenanceSparesUninvoicedUsage(t *testing.T) {
 		Settings: usageledger.Settings{RetentionMonths: 3, MaxRetentionMonths: 36, IdempotencyWindow: 840 * time.Hour},
 	})
 	require.NoError(t, maintenance.Sweep(t.Context()))
+
+	var unmetered int
+	require.NoError(t, testDb.DbPool.QueryRow(t.Context(), `SELECT count(*) FROM usage_ledger WHERE entitlement_id = $1`, seats).Scan(&unmetered))
+	require.Zero(t, unmetered, "no price meters seats: its rows past 3 months go, the period's and the predecessor included (V31-14)")
 
 	var months []int
 	rows, err := testDb.DbPool.Query(t.Context(), `
