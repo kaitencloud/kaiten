@@ -550,7 +550,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 		if err != nil {
 			return err
 		}
-		overagePercent := int16(entitlementUsageCtx.LimitCapExceededOveragePercent)
+		overagePercent := entitlementUsageCtx.OveragePercent
 		result = &entitlementUsageSchema.EntitlementUsage{
 			EntitlementID:   entitlementUsageCtx.EntitlementID,
 			EntitlementSlug: entitlementUsageCtx.EntitlementSlug,
