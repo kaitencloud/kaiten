@@ -493,7 +493,7 @@ services:
         condition: service_started
 
   api-dapr-sidecar:
-    image: "daprio/daprd:1.16.9"
+    image: "daprio/daprd:1.18.4"
     container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-api-dapr-sidecar
     command:
       - "/daprd"

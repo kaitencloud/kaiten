@@ -1,7 +1,11 @@
 // Package debezium provides types and helpers for consuming Debezium CDC events
 // from the outbox_events table as delivered via the Dapr pub/sub pipeline.
 //
-// Debezium serialises the PostgreSQL row as the "after" field of a change event.
+// Debezium delivers the PostgreSQL row in one of two shapes. Its Outbox
+// EventRouter, which the charts and the local stack configure, emits the row
+// with the data column renamed "payload" and the other columns beside it. A
+// Debezium without it emits a raw change event, the row in its "after" field.
+// Parse reads both, so a consumer outlives the switch from one to the other.
 // UUIDs and timestamptz columns arrive as strings; JSONB columns arrive as
 // double-encoded JSON strings (a JSON string whose value is itself a JSON document).
 package debezium
@@ -12,7 +16,7 @@ import (
 	"time"
 )
 
-// Event is the outbox_events row as it arrives in the Debezium "after" field.
+// Event is the outbox_events row as it arrives from Debezium.
 type Event struct {
 	ID             string `json:"id"`
 	OrganizationID string `json:"organization_id"`
@@ -33,11 +37,23 @@ func (e Event) ParseData(dst any) error {
 	return json.Unmarshal([]byte(e.Data), dst)
 }
 
-// cdcEnvelope is the internal Debezium change event structure.
+// cdcEnvelope is the JSON converter's schema-and-payload wrapper around the
+// row, whichever shape the row is in.
 type cdcEnvelope struct {
-	Payload struct {
-		After Event `json:"after"`
-	} `json:"payload"`
+	Payload json.RawMessage `json:"payload"`
+}
+
+// changeEvent is the row as a raw Debezium change event carries it.
+type changeEvent struct {
+	After *Event `json:"after"`
+}
+
+// routedEvent is the row as the Outbox EventRouter emits it: the data column
+// is the event's payload, under that name.
+type routedEvent struct {
+	Event
+
+	Payload string `json:"payload"`
 }
 
 // cloudEvent is the minimal CloudEvents envelope the Dapr sidecar wraps around
@@ -68,8 +84,8 @@ func IsHeartbeat(body []byte) bool {
 }
 
 // Parse extracts the outbox Event from a full Dapr pub/sub HTTP delivery.
-// The body is a CloudEvents JSON document; its data field is the Debezium CDC
-// change event containing the outbox row in payload.after.
+// The body is a CloudEvents JSON document; its data field holds the outbox
+// row, in either of the shapes the package comment describes.
 //
 // Use this in HTTP handlers that receive events directly from the Dapr sidecar
 // without the Dapr Go SDK (i.e. the sidecar calls POST /<route> on the app).
@@ -86,12 +102,32 @@ func Parse(body []byte) (Event, error) {
 //
 // Use this when the Dapr Go SDK has already extracted the data field for you
 // (e.g. marshal e.Data to []byte from a *common.TopicEvent, then call this).
+//
+// An envelope with no row -- CDC emits one on a table CREATE -- yields the zero
+// Event, whose empty ID the caller drops.
 func ParseEnvelope(data []byte) (Event, error) {
 	var env cdcEnvelope
 	if err := json.Unmarshal(data, &env); err != nil {
 		return Event{}, fmt.Errorf("debezium: unmarshal CDC envelope: %w", err)
 	}
-	return env.Payload.After, nil
+	if len(env.Payload) == 0 || string(env.Payload) == "null" {
+		return Event{}, nil
+	}
+
+	var change changeEvent
+	if err := json.Unmarshal(env.Payload, &change); err != nil {
+		return Event{}, fmt.Errorf("debezium: unmarshal CDC payload: %w", err)
+	}
+	if change.After != nil {
+		return *change.After, nil
+	}
+
+	var routed routedEvent
+	if err := json.Unmarshal(env.Payload, &routed); err != nil {
+		return Event{}, fmt.Errorf("debezium: unmarshal routed outbox event: %w", err)
+	}
+	routed.Data = routed.Payload
+	return routed.Event, nil
 }
 
 // UnmarshalHeaders decodes the JSONB headers field from a Debezium CDC payload

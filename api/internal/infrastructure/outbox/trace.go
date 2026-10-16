@@ -2,10 +2,12 @@ package outbox
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/kaitencloud/kaiten/api/pkg/debezium"
 )
@@ -59,6 +61,45 @@ func marshalHeaders(ctx context.Context, headers any) ([]byte, error) {
 	}
 
 	return json.Marshal(merged)
+}
+
+// traceContext returns the W3C trace context of ctx for the traceparent and
+// tracestate columns, the two attributes of the CloudEvents Distributed
+// Tracing extension. Debezium places traceparent in the CloudEvent envelope,
+// which is where the Dapr sidecar reads it to start its delivery span.
+//
+// traceparent is never empty: Debezium's converter requires the attribute, and
+// stops on the first event without one. Outside a valid span -- telemetry off
+// installs a no-op provider, so that is every event then -- it is a fresh
+// context flagged not sampled, a root no tracer records. tracestate is nil
+// when there is none.
+//
+// The TraceContext propagator rather than the global one: the columns are W3C
+// trace context by definition, whatever else the process propagates.
+func traceContext(ctx context.Context) (traceparent string, tracestate *string) {
+	if !trace.SpanContextFromContext(ctx).IsValid() {
+		ctx = trace.ContextWithSpanContext(ctx, unsampledSpanContext())
+	}
+
+	carrier := propagation.MapCarrier{}
+	propagation.TraceContext{}.Inject(ctx, carrier)
+
+	if state := carrier.Get("tracestate"); state != "" {
+		tracestate = &state
+	}
+	return carrier.Get("traceparent"), tracestate
+}
+
+// unsampledSpanContext is a new root span context with random ids and the
+// sampled flag clear.
+func unsampledSpanContext() trace.SpanContext {
+	var traceID trace.TraceID
+	var spanID trace.SpanID
+	// crypto/rand.Read never returns an error and always fills the buffer.
+	_, _ = rand.Read(traceID[:])
+	_, _ = rand.Read(spanID[:])
+
+	return trace.NewSpanContext(trace.SpanContextConfig{TraceID: traceID, SpanID: spanID})
 }
 
 // ContextWithTrace returns ctx continued from the trace context that

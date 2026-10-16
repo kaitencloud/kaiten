@@ -15,7 +15,8 @@ import (
 
 // tracerName is the instrumentation scope for the publish spans below. They
 // are the producer half of the causal chain the audit trail consumer joins:
-// the traceparent written into the headers column points at them.
+// the traceparent written into the headers and traceparent columns points at
+// them.
 const tracerName = "kaiten.outbox"
 
 type Outbox struct {
@@ -87,12 +88,15 @@ func (r *outboxRepository) CreateOutboxEvent(ctx context.Context, event Outbox) 
 		return err
 	}
 
+	traceparent, tracestate := traceContext(ctx)
 	if err := r.queries.CreateOutboxEvent(ctx, db.CreateOutboxEventParams{
 		OrganizationID: event.OrganizationID,
 		EventName:      event.EventName,
 		EventType:      event.EventType,
 		Data:           data,
 		Headers:        headersJSON,
+		Traceparent:    traceparent,
+		Tracestate:     tracestate,
 	}); err != nil {
 		span.RecordError(err)
 		return err
@@ -117,6 +121,8 @@ func (r *outboxRepository) CreateOutboxEvents(ctx context.Context, events []Outb
 	)
 	defer span.End()
 
+	// One span names every event of the batch, so they share its context.
+	traceparent, tracestate := traceContext(ctx)
 	params := make([]db.CreateOutboxEventsParams, len(events))
 	for i, event := range events {
 		data, err := json.Marshal(event.Data)
@@ -137,6 +143,8 @@ func (r *outboxRepository) CreateOutboxEvents(ctx context.Context, events []Outb
 			EventType:      event.EventType,
 			Data:           data,
 			Headers:        headersJSON,
+			Traceparent:    traceparent,
+			Tracestate:     tracestate,
 		}
 	}
 
