@@ -10,6 +10,8 @@ import {
 type Tone = { className?: string; variant: BadgeProps['variant'] };
 
 const STATUS_TONES: Record<SubscriptionStatus, Tone> = {
+  // A public checkout waiting for its first payment: nothing it bought applies yet.
+  INCOMPLETE: { variant: 'outline' },
   TRIAL: {
     className:
       'border-info-subtle-foreground/30 bg-info-subtle text-info-subtle-foreground',

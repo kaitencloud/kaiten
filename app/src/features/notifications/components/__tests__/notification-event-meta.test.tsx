@@ -66,6 +66,9 @@ const WARNING: readonly KaitenEventName[] = [
 // Events of the contract that look like billing's and that the catalogue does not
 // notify: the changes to a voucher that its own authors make.
 const NOT_NOTIFIED: readonly string[] = [
+  // Declared in the contract ahead of its emitter; its notification (off by
+  // default) comes with it.
+  'INSTANCE_BILLING_TRIAL_WILL_END',
   'VOUCHER_ARCHIVED',
   'VOUCHER_CREATED',
   'VOUCHER_PUBLISHED',
