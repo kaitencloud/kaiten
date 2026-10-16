@@ -61,6 +61,13 @@ type PreviewAddon struct {
 	Metered []CataloguePrice
 }
 
+// InvalidHeldAddon is a held add-on a subscription could not bill, and why:
+// DRAFT, NO_PRICE_FOR_PERIOD or CURRENCY_MISMATCH.
+type InvalidHeldAddon struct {
+	Slug   string
+	Reason string
+}
+
 // AddonSource is the add-ons an instance holds, as billing reads them. Every
 // method reads in the transaction ctx carries.
 type AddonSource interface {
@@ -68,6 +75,11 @@ type AddonSource interface {
 	// default ACTIVE FLAT_FEE price for billingPeriod; an add-on without one
 	// bills nothing and is left out.
 	BillableAddons(ctx context.Context, organizationID, instanceID uuid.UUID, billingPeriod string) ([]BillableAddon, error)
+	// InvalidHeldAddons reads the add-ons the instance already holds that a
+	// subscription in currency on billingPeriod could not bill (V31-13):
+	// DRAFT, or PAID without a default ACTIVE price for the period or with one
+	// in another currency. A held ARCHIVED add-on is never among them.
+	InvalidHeldAddons(ctx context.Context, organizationID, instanceID uuid.UUID, billingPeriod, currency string) ([]InvalidHeldAddon, error)
 	// BillableAttachments reads the instance's attachments active at any
 	// time in [from, to), removed ones included, each with its default ACTIVE
 	// FLAT_FEE price for billingPeriod and its ACTIVE metered prices: what an

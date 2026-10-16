@@ -264,3 +264,32 @@ func TestSubscriptionFreezesTheInstance(t *testing.T) {
 	resp = call(t, "PUT", path, put(other.ID, "Acme production"))
 	require.Less(t, resp.StatusCode, 300, "a canceled subscription freezes nothing")
 }
+
+// V31-13: the add-ons an instance already holds bill with the subscription,
+// so each must be billable in its period; refused one by one, by slug.
+func TestSubscribeRechecksTheAddonsAlreadyHeld(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	newEntitlement(t, "seats", 0)
+	s := newSold(t, flatFee("2900", "MONTHLY"))
+	addon := newAddon(t, map[string]any{"name": "Extra seats", "slug": "extra-seats"})
+	addonGrant(t, addon.Slug, "seats", 5, "ADD")
+	fits(t, addon.Slug, s.version.Slug)
+	annual := flatFee("9000", "ANNUAL")
+	annual["isDefault"] = true
+	addonPrice(t, addon.Slug, annual)
+	attach(t, s.instance.Slug, addon.Slug, 2)
+	path := "/api/instances/" + s.instance.Slug + "/billing"
+
+	refused := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t,
+		call(t, "POST", path, map[string]any{"basePriceId": s.monthly.ID}), fiber.StatusUnprocessableEntity)
+	require.Equal(t, "SubscribeInstance.AddonInvalid", refused.Code)
+	require.Len(t, refused.Errors, 1)
+	require.Equal(t, "addons.extra-seats", refused.Errors[0].Location)
+	require.Equal(t, "NO_PRICE_FOR_PERIOD", refused.Errors[0].Value.(map[string]any)["reason"])
+
+	monthly := flatFee("900", "MONTHLY")
+	monthly["isDefault"] = true
+	addonPrice(t, addon.Slug, monthly)
+	require.Equal(t, fiber.StatusCreated, call(t, "POST", path, map[string]any{"basePriceId": s.monthly.ID}).StatusCode,
+		"priced for the period, the held add-on bills with it")
+}
