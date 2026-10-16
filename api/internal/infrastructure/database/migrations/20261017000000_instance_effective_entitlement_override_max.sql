@@ -182,7 +182,7 @@ CROSS JOIN LATERAL (
 
 -- +goose Down
 -- +goose StatementBegin
--- Back to version 3.1 (20261015000000), verbatim.
+-- Back to version 3.1 (20261016150000), verbatim.
 CREATE OR REPLACE VIEW "instance_effective_entitlement" AS
 SELECT
   i."organization_id",
