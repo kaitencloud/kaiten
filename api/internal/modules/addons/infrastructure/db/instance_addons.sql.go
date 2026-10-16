@@ -443,6 +443,71 @@ func (q *Queries) ListBillableAttachments(ctx context.Context, arg ListBillableA
 	return items, nil
 }
 
+const listHeldAddonsInvalidForSubscription = `-- name: ListHeldAddonsInvalidForSubscription :many
+SELECT a.slug,
+       CASE
+         WHEN a.lifecycle_state = 'DRAFT' THEN 'DRAFT'
+         WHEN p.id IS NULL THEN 'NO_PRICE_FOR_PERIOD'
+         ELSE 'CURRENCY_MISMATCH'
+       END::text AS reason
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+LEFT JOIN addon_price p
+  ON p.addon_id = ia.addon_id
+ AND p.organization_id = ia.organization_id
+ AND p.billing_period = $1::billing_period
+ AND p.is_default
+ AND p.status = 'ACTIVE'
+WHERE ia.organization_id = $2
+  AND ia.instance_id = $3
+  AND ia.removed_at IS NULL
+  AND a.lifecycle_state <> 'ARCHIVED'
+  AND (a.lifecycle_state = 'DRAFT'
+    OR (a.pricing_type = 'PAID' AND (p.id IS NULL OR p.currency::text <> $4::text)))
+ORDER BY ia.created_at, ia.id
+`
+
+type ListHeldAddonsInvalidForSubscriptionParams struct {
+	BillingPeriod  BillingPeriod `json:"billing_period"`
+	OrganizationID uuid.UUID     `json:"organization_id"`
+	InstanceID     uuid.UUID     `json:"instance_id"`
+	Currency       string        `json:"currency"`
+}
+
+type ListHeldAddonsInvalidForSubscriptionRow struct {
+	Slug   string `json:"slug"`
+	Reason string `json:"reason"`
+}
+
+// The add-ons an instance already holds that a subscription in currency on
+// billing_period could not bill (V31-13): one still DRAFT, or a PAID one with
+// no default ACTIVE price for the period or with one in another currency. An
+// ARCHIVED add-on still held keeps being billed, so it is never refused here.
+func (q *Queries) ListHeldAddonsInvalidForSubscription(ctx context.Context, arg ListHeldAddonsInvalidForSubscriptionParams) ([]ListHeldAddonsInvalidForSubscriptionRow, error) {
+	rows, err := q.db.Query(ctx, listHeldAddonsInvalidForSubscription,
+		arg.BillingPeriod,
+		arg.OrganizationID,
+		arg.InstanceID,
+		arg.Currency,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListHeldAddonsInvalidForSubscriptionRow
+	for rows.Next() {
+		var i ListHeldAddonsInvalidForSubscriptionRow
+		if err := rows.Scan(&i.Slug, &i.Reason); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listInstanceAddons = `-- name: ListInstanceAddons :many
 SELECT ia.id, ia.addon_id, ia.quantity, ia.created_at, ia.removed_at, ia.updated_at,
        a.slug AS addon_slug, a.name AS addon_name, a.max_quantity, f.slug AS family_slug

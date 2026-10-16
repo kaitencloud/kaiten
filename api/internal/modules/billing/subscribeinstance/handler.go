@@ -200,6 +200,26 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		if cmd.DaysUntilDue != nil && (*cmd.DaysUntilDue < 0 || *cmd.DaysUntilDue > 365) {
 			return kaitenerrors.UnprocessableEntity(operation+".InvalidDaysUntilDue", "daysUntilDue is between 0 and 365")
 		}
+		// The add-ons the instance already holds bill with this subscription:
+		// each must be billable in its currency and period (V31-13). The ones
+		// in cmd.AddOns are checked by their own attach.
+		if u.deps.Addons != nil {
+			invalid, err := u.deps.Addons.InvalidHeldAddons(ctx, user.OrganizationID, instance.ID, *base.BillingPeriod, base.Currency)
+			if err != nil {
+				return err
+			}
+			if len(invalid) > 0 {
+				details := make([]*kaitenerrors.ErrorDetail, len(invalid))
+				for i, addon := range invalid {
+					details[i] = &kaitenerrors.ErrorDetail{
+						Message: "a held add-on this subscription cannot bill", Location: "addons." + addon.Slug,
+						Value: map[string]any{"reason": addon.Reason},
+					}
+				}
+				return kaitenerrors.UnprocessableEntityWithErrors(operation+".AddonInvalid",
+					"an add-on the instance holds cannot be billed by this subscription: publish it, price it for the period in the subscription's currency, or detach it", details...)
+			}
+		}
 
 		clock, err := q.BillingClock(ctx)
 		if err != nil {

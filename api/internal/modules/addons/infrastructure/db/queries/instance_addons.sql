@@ -166,6 +166,34 @@ WHERE ia.organization_id = sqlc.arg(organization_id)
 ORDER BY ia.created_at, ia.id;
 
 
+-- name: ListHeldAddonsInvalidForSubscription :many
+-- The add-ons an instance already holds that a subscription in currency on
+-- billing_period could not bill (V31-13): one still DRAFT, or a PAID one with
+-- no default ACTIVE price for the period or with one in another currency. An
+-- ARCHIVED add-on still held keeps being billed, so it is never refused here.
+SELECT a.slug,
+       CASE
+         WHEN a.lifecycle_state = 'DRAFT' THEN 'DRAFT'
+         WHEN p.id IS NULL THEN 'NO_PRICE_FOR_PERIOD'
+         ELSE 'CURRENCY_MISMATCH'
+       END::text AS reason
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+LEFT JOIN addon_price p
+  ON p.addon_id = ia.addon_id
+ AND p.organization_id = ia.organization_id
+ AND p.billing_period = sqlc.arg(billing_period)::billing_period
+ AND p.is_default
+ AND p.status = 'ACTIVE'
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = sqlc.arg(instance_id)
+  AND ia.removed_at IS NULL
+  AND a.lifecycle_state <> 'ARCHIVED'
+  AND (a.lifecycle_state = 'DRAFT'
+    OR (a.pricing_type = 'PAID' AND (p.id IS NULL OR p.currency::text <> sqlc.arg(currency)::text)))
+ORDER BY ia.created_at, ia.id;
+
+
 -- name: AddonsIncompatibleWith :many
 -- The add-ons an instance holds that a move to the licence version would
 -- strand: not compatible with its family, or (for a PAID add-on) without a
