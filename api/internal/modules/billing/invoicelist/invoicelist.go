@@ -76,6 +76,7 @@ func List(ctx context.Context, q *db.Queries, operation string, organizationID u
 	summaries := make([]invoices.InvoiceSummary, len(rows))
 	for i, row := range rows {
 		summaries[i] = invoices.Summary(row)
+		summaries[i].Overdue = invoices.IsOverdue(row, now, autoCollectionBefore)
 	}
 	byUpdate := !p.UpdatedSince.IsZero()
 	return pagination.BuildPage(summaries, limit, func(s invoices.InvoiceSummary) cursorKey {

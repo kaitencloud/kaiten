@@ -25,7 +25,22 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID uuid.UUID) (*invoices.I
 	if err != nil {
 		return nil, err
 	}
-	return Read(ctx, u.deps.Queries(ctx), user.OrganizationID, invoiceID, "GetInvoice.NotFound")
+	q := u.deps.Queries(ctx)
+	invoice, err := Read(ctx, q, user.OrganizationID, invoiceID, "GetInvoice.NotFound")
+	if err != nil {
+		return nil, err
+	}
+	clock, err := q.BillingClock(ctx)
+	if err != nil {
+		return nil, err
+	}
+	now := clock.Time.UTC()
+	row, err := q.GetInvoice(ctx, db.GetInvoiceParams{OrganizationID: user.OrganizationID, ID: invoiceID})
+	if err != nil {
+		return nil, err
+	}
+	invoice.Overdue = invoices.IsOverdue(row, now, u.deps.AutoCollectionBefore(now))
+	return invoice, nil
 }
 
 // Read reads one invoice of the organization with the invoice recomposed
