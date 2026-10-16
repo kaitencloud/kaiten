@@ -34,6 +34,8 @@ func (r iteratorForCreateOutboxEvents) Values() ([]interface{}, error) {
 		r.rows[0].EventType,
 		r.rows[0].Data,
 		r.rows[0].Headers,
+		r.rows[0].Traceparent,
+		r.rows[0].Tracestate,
 	}, nil
 }
 
@@ -46,5 +48,5 @@ func (r iteratorForCreateOutboxEvents) Err() error {
 // single transaction (e.g. the periodic-usage rollover, which
 // materializes one event per skipped window with no upper bound).
 func (q *Queries) CreateOutboxEvents(ctx context.Context, arg []CreateOutboxEventsParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"outbox_events"}, []string{"organization_id", "event_name", "event_type", "data", "headers"}, &iteratorForCreateOutboxEvents{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"outbox_events"}, []string{"organization_id", "event_name", "event_type", "data", "headers", "traceparent", "tracestate"}, &iteratorForCreateOutboxEvents{rows: arg})
 }

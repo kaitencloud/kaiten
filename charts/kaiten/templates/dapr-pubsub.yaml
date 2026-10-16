@@ -35,6 +35,12 @@ spec:
       value: "100"
     - name: exchangeKind
       value: "fanout"
+    # Hands the app the AMQP headers, as metadata.<key> request headers. One of
+    # them is the traceparent of the span that published the message to
+    # RabbitMQ, when the publisher's OpenTelemetry instrumentation writes one,
+    # and cdc.consume links that span (cdc.ContextWithPublisher in the api).
+    - name: publishMessagePropertiesToMetadata
+      value: "true"
 # This release's api, plus whatever dapr.extraScopes names.
 #
 # It was one scope and a comment saying "there is one subscriber". That stopped

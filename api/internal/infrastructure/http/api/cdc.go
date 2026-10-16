@@ -33,7 +33,8 @@ func registerCDC(daprGroup fiber.Router, app kaiten.Events) []subscribers.DaprHT
 	// including Drop, which is a deliberate discard and not an error the broker
 	// should second-guess.
 	daprGroup.Post(cdc.Route, func(c fiber.Ctx) error {
-		return c.JSON(fiber.Map{"status": string(app.Handle(c.Context(), c.Body()))})
+		ctx := cdc.ContextWithPublisher(c.Context(), func(name string) string { return c.Get(name) })
+		return c.JSON(fiber.Map{"status": string(app.Handle(ctx, c.Body()))})
 	})
 
 	daprGroup.Post(cdc.DeadLetterRoute, func(c fiber.Ctx) error {
