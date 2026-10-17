@@ -2462,7 +2462,7 @@ extend type Instance {
 }
 
 """
-An add-on version (§13.15): what a voucher names an add-on by, and the prices it
+An add-on version: what a voucher names an add-on by, and the prices it
 is sold at. The versions of one product share a name, so the version tells them
 apart.
 """
@@ -2492,7 +2492,7 @@ type Addon {
 }
 
 """
-A price of an add-on version (§13.15). It has the shape of a licence price.
+A price of an add-on version. It has the shape of a licence price.
 Amounts are in minor units of currency.
 """
 type AddonPrice {
@@ -3004,7 +3004,7 @@ type EntitlementUsage {
   limitCapExceededOveragePercent: Int
 
   """
-  What the licence, the add-ons and the boosts each contribute (§7.5), as the
+  What the licence, the add-ons and the boosts each contribute, as the
   REST gauge read returns it.
   """
   provenance: Map
@@ -3281,7 +3281,7 @@ extend type License {
 }
 `, BuiltIn: false},
 	{Name: "../../../../modules/licenses/schema/license_price.graphqls", Input: `"""
-A price of a licence version (§13.15). Amounts are in minor units of currency.
+A price of a licence version. Amounts are in minor units of currency.
 """
 type LicensePrice {
   id: UUID!
