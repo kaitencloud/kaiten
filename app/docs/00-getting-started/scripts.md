@@ -152,4 +152,4 @@ whole workspace. Run them from the repository root with `pnpm run <script>`.
 | `test:e2e:visual:update:linux` | Runs the script of the same name in `app/`. |
 
 `task --list` shows the Taskfile tasks (stack, code generation, backend tests). The
-root [README](../../../README.md#development-tasks) explains them.
+root [DEVELOPMENT.md](../../../DEVELOPMENT.md#development-tasks) explains them.
