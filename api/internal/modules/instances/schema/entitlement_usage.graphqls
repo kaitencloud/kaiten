@@ -46,7 +46,7 @@ type EntitlementUsage {
   limitCapExceededOveragePercent: Int
 
   """
-  What the licence, the add-ons and the boosts each contribute (§7.5), as the
+  What the licence, the add-ons and the boosts each contribute, as the
   REST gauge read returns it.
   """
   provenance: Map
