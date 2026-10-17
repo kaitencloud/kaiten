@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Page } from '@/functionals/page';
 import { RouteTabs } from '@/functionals/route-tabs';
+import { useInstancesBilling } from '@/domains/billing';
 import { useInstancesWithRelations } from '@/domains/customer-management';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { InstancesTable } from './instance-table';
@@ -12,6 +13,8 @@ import { InstancesTable } from './instance-table';
 export function InstancesPageContent({ children }: { children?: ReactNode }) {
   const { data } = useInstancesWithRelations();
   const instances = data?.instances?.items ?? [];
+  // The Billing column: asked for only when billing is on and the session may read it.
+  const billing = useInstancesBilling();
   const { t } = useTranslation();
   const InstanceIcon = dataModelIcons.instance;
   const tabs = [
@@ -64,7 +67,7 @@ export function InstancesPageContent({ children }: { children?: ReactNode }) {
         </Page.Header>
         <RouteTabs tabs={tabs} />
         <div className="flex-1 min-h-0">
-          <InstancesTable instances={instances} />
+          <InstancesTable billing={billing} instances={instances} />
         </div>
       </Page>
 

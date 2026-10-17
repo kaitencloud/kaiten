@@ -140,5 +140,5 @@ func LoadLicenseFamily(ctx context.Context, familyID uuid.UUID) (*schema.License
 		return nil, err
 	}
 
-	return &schema.LicenseFamily{ID: family.ID, Slug: family.Slug}, nil
+	return &schema.LicenseFamily{ID: family.ID, Slug: family.Slug, IsPublic: family.IsPublic}, nil
 }

@@ -47,6 +47,41 @@ export const Default: Story = {
   },
 };
 
+// A list is never wider than the space the page leaves it: an option longer than the screen
+// wraps, and the page does not scroll sideways because of it.
+const LONG_OPTION = Array.from(
+  { length: 6 },
+  () => 'A plan whose name and terms are written out in full, longer than any screen that shows it,',
+).join(' ');
+
+export const LongOptions: Story = {
+  render: () => (
+    <Select>
+      <SelectTrigger aria-label="Plan" className="w-[180px]">
+        <SelectValue placeholder="Select a plan" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="long">{LONG_OPTION}</SelectItem>
+        <SelectItem value="short">Short</SelectItem>
+      </SelectContent>
+    </Select>
+  ),
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole('combobox'));
+    await within(document.body).findByRole('option', { name: LONG_OPTION });
+    const popup = document.querySelector('[data-slot="select-content"]') as HTMLElement;
+    // Measured where it comes to rest: it zooms in as it opens.
+    await Promise.all(popup.getAnimations().map((animation) => animation.finished));
+
+    await expect(popup.getBoundingClientRect().right).toBeLessThanOrEqual(
+      document.documentElement.clientWidth,
+    );
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+      document.documentElement.clientWidth,
+    );
+  },
+};
+
 export const WithGroups: Story = {
   render: () => (
     <Select>

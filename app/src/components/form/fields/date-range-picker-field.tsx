@@ -28,7 +28,7 @@ const DateRangePickerField = ({
       description={description}
     >
       {(field) => (
-        <FormControl>
+        <FormControl announceRequired={false}>
           <DateRangePicker
             date={field.value}
             onSelect={field.handleChange}

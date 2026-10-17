@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	dataloaderLib "github.com/graph-gophers/dataloader/v7"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementsusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
@@ -61,10 +62,12 @@ func newEntitlementUsageBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uui
 		}
 
 		for i, instanceID := range keys {
+			done := effectivelookup.Time(ctx, effectivelookup.ReaderGraphQL)
 			rows, err := queries.GetEntitlementsUsageForInstanceWithFallback(ctx, db.GetEntitlementsUsageForInstanceWithFallbackParams{
 				OrganizationID: organizationID,
 				InstanceID:     instanceID,
 			})
+			done()
 			if err != nil {
 				results[i] = &dataloaderLib.Result[[]schema.EntitlementUsage]{Error: err}
 				continue

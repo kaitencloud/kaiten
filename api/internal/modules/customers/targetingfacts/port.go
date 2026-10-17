@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/infrastructure/db"
 )
 
@@ -67,6 +68,8 @@ func (p *port) GetOneCustomerBySlug(ctx context.Context, organizationID uuid.UUI
 }
 
 func (p *port) GetTargetingFactsByCustomerSlug(ctx context.Context, organizationID uuid.UUID, customerSlug string) ([]TargetingFact, error) {
+	done := effectivelookup.Time(ctx, effectivelookup.ReaderOFREP)
+	defer done()
 	rows, err := p.queries.GetTargetingFactsByCustomerSlug(ctx, db.GetTargetingFactsByCustomerSlugParams{
 		OrganizationID: organizationID,
 		CustomerSlug:   customerSlug,

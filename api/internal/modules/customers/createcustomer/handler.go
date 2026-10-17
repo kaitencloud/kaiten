@@ -58,6 +58,11 @@ func NewUseCase(deps Deps) *UseCase {
 // calling EnforceCreationLimit separately first, which would report usage
 // twice for one logical creation.
 func (h *UseCase) Execute(ctx context.Context, command *Command) (*schema.Customer, error) {
+	if email := command.BillingEmail; email != nil && *email != "" {
+		if err := schema.ValidateBillingEmail("CreateCustomer", *email); err != nil {
+			return nil, err
+		}
+	}
 	u, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return nil, err
@@ -157,7 +162,11 @@ func (h *UseCase) persistCustomer(ctx context.Context, orgID, userID uuid.UUID, 
 	var customer *schema.Customer
 
 	err := h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
-		createdCustomer, err := h.repo.CreateCustomer(ctx, command.Name, slug, command.ExternalCustomerID, command.Domain, orgID, userID)
+		var billingEmail []string
+		if command.BillingEmail != nil {
+			billingEmail = []string{*command.BillingEmail}
+		}
+		createdCustomer, err := h.repo.CreateCustomer(ctx, command.Name, slug, command.ExternalCustomerID, command.Domain, orgID, userID, billingEmail...)
 		if err != nil {
 			return err
 		}
@@ -174,7 +183,7 @@ func (h *UseCase) persistCustomer(ctx context.Context, orgID, userID uuid.UUID, 
 			orgID,
 			events.CustomerCreated.Name,
 			events.CustomerCreated.Type,
-			createdCustomer,
+			createdCustomer.WithoutPersonalData(),
 			nil,
 		)
 

@@ -13,7 +13,7 @@ The folder is the inventory. These pages group what it holds by use, so you can 
 | `dialog/` | Dialog shells: `FormDialog`, `DeleteConfirmationDialog`, `DialogFormSkeleton` | [Dialogs](#dialogs) |
 | `route/` | `RouteError`, `RoutePending` and `NotFound`, the router's default components, and `RestrictedAccess`, which `RouteError` renders for a refused read | [Route components](#route-components) |
 | `combobox.tsx`, `date-picker.tsx`, `date-range-picker.tsx` | Inputs that compose primitives, used by the form fields | [Form components](./form-components.md#pickers) |
-| `gradient-button.tsx`, `destructive-action-button.tsx`, `chart-empty-state.tsx`, `company-icons.tsx` | Small shared components | [UI components](./ui-components.md#shared-components-outside-ui) |
+| `gradient-button.tsx`, `destructive-action-button.tsx`, `choice-button.tsx`, `copyable-value-field.tsx`, `copy-value-button.tsx`, `chart-empty-state.tsx`, `company-icons.tsx` | Small shared components | [UI components](./ui-components.md#shared-components-outside-ui) |
 | `theme-provider.tsx`, `clerk-provider.tsx`, `dev-auth-switcher.tsx` | App wiring mounted from `app/src/main.tsx` (and `dev-auth-switcher.tsx` from `app/src/routes/__root.tsx`), not reusable UI | |
 
 The table components are not here: they live in the `table` functional, see [Table components](./table-components.md).
@@ -24,7 +24,7 @@ The table components are not here: they live in the `table` functional, see [Tab
 
 | Component | Use | Story |
 | --- | --- | --- |
-| `FormDialog` | The shell of a form in a dialog. A root with named parts: `FormDialog.Header`, `.Title`, `.Description`, `.Content` and `.Footer`. The header and footer stay fixed and only the content scrolls. `.Content` shows a `DialogFormSkeleton` while a lazy form loads. | [`form-dialog.stories.tsx`](../../src/components/dialog/stories/form-dialog.stories.tsx) |
+| `FormDialog` | The shell of a form in a dialog. A root with named parts: `FormDialog.Header`, `.Title`, `.Description`, `.Content` and `.Footer`. The header and footer stay fixed and only the content scrolls. `.Content` shows a `DialogFormSkeleton` while its content suspends. | [`form-dialog.stories.tsx`](../../src/components/dialog/stories/form-dialog.stories.tsx) |
 | `DeleteConfirmationDialog` | A confirmation dialog, built on `AlertDialog`, around any trigger you pass in. `TableDeleteDialog` and `DestructiveActionButton` are built on it. | [`delete-confirmation-dialog.stories.tsx`](../../src/components/dialog/stories/delete-confirmation-dialog.stories.tsx) |
 | `DialogFormSkeleton`, `DialogFormSkeletonCard` | Field-shaped and card-shaped placeholders for the time a dialog form loads. | [`dialog-form-skeleton.stories.tsx`](../../src/components/dialog/stories/dialog-form-skeleton.stories.tsx) |
 

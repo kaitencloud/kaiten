@@ -3,7 +3,6 @@ import type { Entitlement, LicenseEntitlement } from '@/api-client';
 import {
   formatEntitlementOveragePercent,
   formatEntitlementThreshold,
-  getEntitlementSlug,
   isNumericEntitlementType,
   parseOveragePercentInput,
   parseThresholdInput,
@@ -356,23 +355,6 @@ describe('license-entitlements utils', () => {
           threshold: null,
         }),
       ).toBe('-');
-    });
-  });
-
-  describe('getEntitlementSlug', () => {
-    it('uses API slug when present', () => {
-      const entitlement = {
-        ...entitlementCatalog[0],
-        slug: 'api-calls',
-      } as Entitlement;
-
-      expect(getEntitlementSlug(entitlement)).toBe('api-calls');
-    });
-
-    it('falls back to slugified name when slug is missing', () => {
-      expect(getEntitlementSlug(entitlementCatalog[1])).toBe(
-        'sso-integration',
-      );
     });
   });
 });

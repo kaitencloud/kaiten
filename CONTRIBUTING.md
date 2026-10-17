@@ -63,8 +63,14 @@ the pull request template and the `pr-check` skill point here.
     for the client types.
   - An HTTP operation: `task generate` (it runs `task generate:oas`, then
     `pnpm run generate` in `app/`), and commit what it regenerates:
-    `app/openapi.yaml`, `app/platform-openapi.yaml` and
-    `app/src/lib/api/scopes.gen.ts`.
+    `app/openapi.yaml`, `app/platform-openapi.yaml`,
+    `app/src/lib/api/scopes.gen.ts` and `app/src/lib/api/operation-scopes.gen.ts`.
+
+  A new migration is named with a timestamp **newer than the highest one on
+  `main` when you merge**, not when you branch: goose refuses a pending version
+  lower than an applied one, so a migration slotted below `main`'s newest breaks
+  `migrate up` on every long-lived database. Rebase and renumber if another
+  migration lands first. `scripts/check-migration-order.sh` is the CI guard.
 
   CI regenerates the sqlc and gqlgen output (`codegen` job of `go-ci.yml`) and fails
   when it differs from what you committed. If you changed Go dependencies, run

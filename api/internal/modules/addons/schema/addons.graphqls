@@ -1,0 +1,98 @@
+"""
+An add-on version an instance holds, and how many units.
+"""
+type InstanceAddon {
+  id: UUID!
+  addonId: UUID!
+  addonSlug: String!
+  familySlug: String!
+  name: String!
+  quantity: Int!
+  """The most one instance may hold; null when unbounded."""
+  maxQuantity: Int
+  attachedAt: Time!
+}
+
+extend type Instance {
+  """
+  The add-ons the instance holds now, oldest attachment first.
+  """
+  addons: [InstanceAddon!]!
+}
+
+"""
+An add-on version: what a voucher names an add-on by, and the prices it
+is sold at. The versions of one product share a name, so the version tells them
+apart.
+"""
+type Addon {
+  id: UUID!
+  slug: String!
+  """The family the version belongs to."""
+  familySlug: String!
+  name: String!
+  description: String!
+  """The version number in its family."""
+  version: Int!
+  versionName: String!
+  """The version the family resolves to. Only a PUBLISHED version."""
+  isDefault: Boolean!
+  """DRAFT, PUBLISHED or ARCHIVED."""
+  lifecycleState: String!
+  """FREE, PAID or CUSTOM: how this version is sold."""
+  pricingType: String!
+  """The most one instance may hold; null when unbounded."""
+  maxQuantity: Int
+  """
+  The version's prices in display order; status ACTIVE or DEPRECATED narrows
+  them.
+  """
+  prices(status: String): [AddonPrice!]!
+}
+
+"""
+A price of an add-on version. It has the shape of a licence price.
+Amounts are in minor units of currency.
+"""
+type AddonPrice {
+  id: UUID!
+  """FLAT_FEE, USAGE_BASED or OVERAGE."""
+  billingModel: String!
+  """ADVANCE or ARREARS."""
+  billingTiming: String!
+  """MONTHLY, QUARTERLY, SEMI_ANNUAL or ANNUAL; null on a metered price."""
+  billingPeriod: String
+  currency: String!
+  """The amount, when it is a whole number of minor units; null otherwise."""
+  unitAmount: Int
+  """The amount in minor units, up to 12 decimal places."""
+  unitAmountDecimal: String!
+  """The slug of the entitlement a metered price measures; null on a flat fee."""
+  meteredEntitlement: String
+  """Measured units in one sale unit of a metered price; null on a flat fee."""
+  saleUnitFactor: String
+  displayLabel: String
+  displayOrder: Int!
+  isDefault: Boolean!
+  """ACTIVE or DEPRECATED."""
+  status: String!
+  deprecatedAt: Time
+}
+
+"""
+A cursor-paginated page of add-on versions.
+"""
+type AddonPage {
+  items: [Addon!]!
+  """Opaque cursor for the next page. Null when hasMore is false."""
+  nextCursor: String
+  hasMore: Boolean!
+}
+
+extend type Query {
+  """
+  The organization's add-on versions, newest first, cursor-paginated. Like the
+  REST list, it needs billing to be enabled for the organization.
+  """
+  addons(limit: Int, cursor: String): AddonPage!
+}

@@ -20,7 +20,7 @@ func TestEntitlementGroupUsage_MarshalsValuesAsObjects(t *testing.T) {
 		EntitlementName: "AI Credits",
 		EntitlementType: db.EntitlementTypeNUMBER,
 		UsageValue:      []byte(`{"type":"number","value":7,"event_count":3}`),
-		LicenseValue:    []byte(`{"type":"number","value":10}`),
+		EffectiveValue:  []byte(`{"type":"number","value":10}`),
 	})
 	require.NoError(t, err)
 

@@ -68,7 +68,7 @@ so the bundle builds without it.
 | Job | What it runs |
 | --- | --- |
 | `e2e_storybook` | One Linux Playwright Docker job: install/generate once, build static Storybook once, then run all visual tests in Chromium |
-| `e2e_app` | Full Chromium application suite with MSW in 3 shards, including notifications |
+| `e2e_app` | Full Chromium application suite with MSW in 7 shards, including notifications |
 | `browser_smoke` | Focused Firefox/WebKit read, keyboard, navigation and dialog smoke |
 | `dev_mock_smoke` | Starts the actual `dev:mock` command and reads/reloads its seeded world, without a stack |
 | `publish_trace_preview` | When a pull request from this repository fails: builds a preview site from the failed shards' Playwright reports, publishes it to GitHub Pages when Pages is configured (otherwise it stays a run artifact), and comments on the pull request |

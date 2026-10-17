@@ -157,13 +157,21 @@ type EntitlementUsage struct {
 	// license entitlement. Null when the license grants no value; for a NUMBER
 	// entitlement a value of -1 means unlimited. BOOLEAN and CONFIG
 	// entitlements have no usage of their own, so Value repeats it.
-	Limit *EntitlementValue `json:"limit,omitempty" doc:"License grant this usage is measured against, discriminated by the 'type' field. Null when the license grants no value; -1 means unlimited for a NUMBER entitlement."`
+	Limit *EntitlementValue `json:"limit,omitempty" doc:"The effective value this usage is measured against (the licence's grant, with the instance's add-ons and boosts applied; source and provenance say which), discriminated by the 'type' field. Absent when nothing grants the entitlement a value; -1 means unlimited for a NUMBER entitlement."`
 	// CurrentPeriodStart/End are null for a lifetime entitlement (no configured
-	// reset period). For a periodic entitlement, these are always the bounds of
-	// the window containing "now" at read time, computed lazily -- they do not
-	// depend on whether the stored row still belongs to that window.
+	// reset period). For a periodic entitlement, these are the bounds of the
+	// window containing "now" at read time, computed lazily -- whether or not
+	// the stored row still belongs to it. The one exception is a stored window
+	// that is ahead of "now" (see period.ResolveCurrent): that window is the
+	// current one, for reads as for reports.
 	CurrentPeriodStart *time.Time `json:"currentPeriodStart,omitempty" doc:"Start of the current usage window (inclusive). Null for a lifetime entitlement (no configured reset period)." example:"2026-03-01T00:00:00Z"`
 	CurrentPeriodEnd   *time.Time `json:"currentPeriodEnd,omitempty" doc:"End of the current usage window (exclusive). Null for a lifetime entitlement (no configured reset period)." example:"2026-04-01T00:00:00Z"`
+	// LimitCapExceededOveragePercent, Source and Provenance are the effective
+	// entitlement's (§7.4, §7.5): add-ons and boosts change limit, and this is
+	// how a reader tells why.
+	LimitCapExceededOveragePercent *int16      `json:"limitCapExceededOveragePercent,omitempty" doc:"How far above limit usage is still accepted, in percent: -1 unlimited, 0 a hard limit. Absent for BOOLEAN and CONFIG."`
+	Source                         string      `json:"source" enum:"license,addon" doc:"license: the licence grants it (add-ons and boosts may change it); addon: only add-ons do"`
+	Provenance                     *Provenance `json:"provenance,omitempty" doc:"What the licence, the add-ons and the boosts each contribute"`
 }
 
 type AuditTrail struct {

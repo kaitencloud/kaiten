@@ -15,7 +15,9 @@ import (
 // stale row remains physically stored until the next report rolls it over.
 // Shared by every usage read path so this decision is made exactly once.
 // Callers must only call this when the entitlement has a configured reset
-// period -- lifetime entitlements have no window to resolve against.
+// period -- lifetime entitlements have no window to resolve against -- and
+// must resolve currentWindow with period.ResolveCurrent, so that a stored
+// window ahead of the clock reads as the report path writes it.
 func ResolveCurrentWindowUsage(stored *NumberUsageValue, storedPeriodStart *time.Time, currentWindow period.Window) *NumberUsageValue {
 	if stored != nil && storedPeriodStart != nil && storedPeriodStart.Equal(currentWindow.Start) {
 		return stored

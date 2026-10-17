@@ -85,6 +85,31 @@ func TestConfigAndGatedSlugsAreDisjoint(t *testing.T) {
 	}
 }
 
+// A boolean slug the catalogue never creates is a feature that reads as unlicensed
+// for everybody; one created as a NUMBER instead reads as unlicensed because the
+// value has the wrong shape. Both are silent, so both are pinned here.
+func TestBooleanSlugsAreCatalogueSlugs(t *testing.T) {
+	for _, slug := range dogfooding.BooleanEntitlementSlugs {
+		if !slices.Contains(dogfooding.EntitlementSlugs, slug) {
+			t.Errorf("boolean slug %q is not in EntitlementSlugs", slug)
+		}
+	}
+}
+
+// The lists say what TYPE an entitlement is created as, so a slug in two of them
+// would be a contradiction the catalogue could only resolve by picking one. A
+// gated slug carries a threshold, which neither a grant nor a setting has.
+func TestBooleanSlugsAreDisjointFromTheOtherTypes(t *testing.T) {
+	for _, slug := range dogfooding.BooleanEntitlementSlugs {
+		if slices.Contains(dogfooding.ConfigEntitlementSlugs, slug) {
+			t.Errorf("%q is listed as both a boolean and a config slug", slug)
+		}
+		if slices.Contains(dogfooding.GatedEntitlementSlugs, slug) {
+			t.Errorf("%q is listed as both a boolean and a gated slug", slug)
+		}
+	}
+}
+
 // declaredSlugConstants returns name -> value for every *EntitlementSlug
 // constant in this package, read out of the source rather than the binary.
 func declaredSlugConstants(t *testing.T) map[string]string {

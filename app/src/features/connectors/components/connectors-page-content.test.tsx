@@ -29,7 +29,11 @@ function expectAttioLogo() {
 describe('ConnectorsPageContent', () => {
   it('renders the connectors index when Attio is not connected', () => {
     renderWithProviders(
-      <ConnectorsPageContent attioSettings={null} onOpenDetail={() => {}} />,
+      <ConnectorsPageContent
+        attioSettings={null}
+        onOpenDetail={() => {}}
+        onOpenStripe={() => {}}
+      />,
     );
 
     expect(screen.getByRole('heading', { name: 'CRM' })).toBeInTheDocument();
@@ -40,7 +44,11 @@ describe('ConnectorsPageContent', () => {
   it('opens the setup wizard from the Attio connect button', async () => {
     const user = userEvent.setup();
     renderWithProviders(
-      <ConnectorsPageContent attioSettings={null} onOpenDetail={() => {}} />,
+      <ConnectorsPageContent
+        attioSettings={null}
+        onOpenDetail={() => {}}
+        onOpenStripe={() => {}}
+      />,
     );
 
     const connectButtons = screen.getAllByRole('button', { name: 'Connect' });

@@ -13,7 +13,7 @@ A service account is a non-human identity that holds API tokens, for automation 
 
 `app/src/routes/integrations/service-accounts/route.tsx` is the layout of the section. It loads the list (`serviceAccountsQueryOptions`) and renders the outlet. The new-token route ensures the account in `beforeLoad` (`serviceAccountQueryOptions(serviceAccountSlug)`), which also sets the breadcrumb to the account's name. The account dialog follows [dialog via route](../../../docs/03-patterns/dialog-via-route.md).
 
-Service accounts are the first entry of the Integrations group of the side navigation (`integrationsSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`). `webhooks` and `connectors` are the other entries, in their own features.
+Service accounts are the first entry of the Integrations group of the side navigation (`integrationsSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`). `webhooks`, `connectors` and `publishable-keys` are the other entries, in their own features.
 
 ## Structure
 
@@ -61,12 +61,12 @@ app/src/features/service-accounts/
 - **Account actions.** "Generate token" opens the new-token page of that account. The trash button of an account is not wired to the API: its handler (`handleDeleteServiceAccount`) only logs a warning, and the API has no operation to delete a service account.
 - **Create an account.** The dialog has one required field, the name. Submitting closes the dialog at once and returns to the list; the create runs in the background, and a failure shows a toast.
 - **Tokens of an account.** A toggle filters them All, Active or Revoked, with counts, and opens on Active. A token shows its name, a badge (revoked, expired, or the expiry date), its scopes as badges (write in the strong variant, read in the secondary one), who created it and who revoked it, with dates. "Revoke" asks for confirmation and disappears once the token is revoked or expired; those tokens are dimmed.
-- **New token.** Two cards. Details: a required name and an optional expiration date, sent as an ISO 8601 timestamp. Access: a table with one row per resource, grouped as Customers, Licensing, Feature Flags, Releases and Organization, each set to No access, Read or Read & write. Below it, a summary lists the scopes that will be sent, and "Clear" resets the table. On a short viewport the table opens in a dialog (`ScopeAccessDialog`) instead of sitting in the page. The form refuses an empty name and a table with no access. A note beside the create button says the value is shown once.
+- **New token.** Two cards. Details: a required name and an optional expiration date, sent as an ISO 8601 timestamp. Access: a table with one row per resource, grouped as Customers, Licensing, Feature Flags, Releases, Billing and Organization, each set to No access, Read or Read & write. Below it, a summary lists the scopes that will be sent, and "Clear" resets the table. On a short viewport the table opens in a dialog (`ScopeAccessDialog`) instead of sitting in the page. The form refuses an empty name and a table with no access. A note beside the create button says the value is shown once.
 - **Levels and scopes.** A level sends the scopes it names, sorted: Read & write is both `read:<resource>` and `write:<resource>`. The API would accept `write:` alone for both, but the table says "Read & write", so the summary, the request and the token's own scope list say the same (`accessLevelsToScopes`).
 - **Presets.** `TOKEN_PRESETS` are shortcuts over the table, not token types: the API knows scopes only. A preset reads as applied whenever the table covers it, and taking it out lowers only what the presets still applied do not need. What a preset grants is rendered from its data, never from a translation.
   - Data plane, for an SDK inside the product: read on feature flags, customers, licenses and entitlements, and read & write on instances (usage reports are written under an instance).
   - Control plane, for automation that runs the fleet: read & write on instances, licenses, customers, deployment zones, releases, components, organizations and tokens.
-- **Created token.** After the create, the same route shows `TokenCreatedView` from the mutation's result: the value in a read-only field with a copy button, the scopes and the expiry. "Done" returns to the list. Cancel on the form returns to the list too.
+- **Created token.** After the create, the same route shows `TokenCreatedView` from the mutation's result: the value in the shared `CopyableValueField` (a read-only field with a copy button), the scopes and the expiry. "Done" returns to the list. Cancel on the form returns to the list too.
 
 ## Where the scopes come from
 

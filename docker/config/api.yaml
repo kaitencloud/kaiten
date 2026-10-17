@@ -24,3 +24,10 @@ otel:
   # .env, and an environment variable always wins over this file.
   endpoint: jaeger:4318
   insecure: true
+
+billing:
+  # Off by default in the API itself: the licence price routes and the invoice
+  # preview answer 403 Billing.Disabled. On here so the console can be built
+  # against them. This stack has no licensing authority, so the organization's
+  # billing entitlement is never asked for.
+  enabled: true

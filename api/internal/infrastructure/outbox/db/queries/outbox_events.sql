@@ -1,18 +1,21 @@
 -- name: CreateOutboxEvent :exec
+-- occurred_at NULL means the column default, the writing transaction's now().
 INSERT INTO outbox_events (organization_id,
                            event_name,
                            event_type,
                            data,
                            headers,
                            traceparent,
-                           tracestate)
+                           tracestate,
+                           occurred_at)
 VALUES (sqlc.arg(organization_id),
     sqlc.arg(event_name),
     sqlc.arg(event_type),
     sqlc.arg(data),
     sqlc.narg(headers),
     sqlc.arg(traceparent),
-    sqlc.narg(tracestate));
+    sqlc.narg(tracestate),
+    COALESCE(sqlc.narg(occurred_at)::timestamptz, now()));
 
 
 -- name: CreateOutboxEvents :copyfrom
@@ -34,6 +37,28 @@ VALUES (sqlc.arg(organization_id),
     sqlc.arg(headers),
     sqlc.arg(traceparent),
     sqlc.arg(tracestate));
+
+
+-- name: CreateOutboxEventsAt :copyfrom
+-- CreateOutboxEvents for events that carry the instant they happened at,
+-- rather than the writing transaction's now(): COPY has no column default to
+-- fall back on per row, so the two shapes are two statements.
+INSERT INTO outbox_events (organization_id,
+                           event_name,
+                           event_type,
+                           data,
+                           headers,
+                           traceparent,
+                           tracestate,
+                           occurred_at)
+VALUES (sqlc.arg(organization_id),
+    sqlc.arg(event_name),
+    sqlc.arg(event_type),
+    sqlc.arg(data),
+    sqlc.arg(headers),
+    sqlc.arg(traceparent),
+    sqlc.arg(tracestate),
+    sqlc.arg(occurred_at));
 
 
 -- name: ListOutboxEvents :many

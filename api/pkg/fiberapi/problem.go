@@ -7,6 +7,7 @@ package fiberapi
 import (
 	"errors"
 	"log/slog"
+	"strconv"
 
 	"github.com/gofiber/fiber/v3"
 
@@ -22,6 +23,13 @@ func Problem(ctx fiber.Ctx, err error) error {
 	problem := fromError(err, ctx.Path())
 
 	logProblem(ctx, err, problem)
+
+	var appErr *apierrors.Error
+	if errors.As(err, &appErr) {
+		if seconds := appErr.RetryAfterSeconds(); seconds > 0 {
+			ctx.Set(fiber.HeaderRetryAfter, strconv.Itoa(seconds))
+		}
+	}
 
 	// The content type has to be passed to JSON: setting the header first
 	// does not survive, because JSON overwrites it with application/json.

@@ -83,3 +83,56 @@ func requireScope(scopes []string, required string) error {
 func errNoIdentity() error {
 	return kaitenerrors.Unauthorized(scope.ErrCodeNoIdentity, scope.ErrMsgNoIdentity)
 }
+
+// PublishableKeyCaller is a vendor's web page, identified by its publishable
+// key. It carries an organization and nothing to authorize with: no user, no
+// scopes. What bounds it is the route family -- only the public catalogue asks
+// for one -- so there is no Require method to forget to call.
+type PublishableKeyCaller struct {
+	organizationID uuid.UUID
+	keyID          uuid.UUID
+}
+
+// OrganizationID is the organization whose catalogue the key reads.
+func (c PublishableKeyCaller) OrganizationID() uuid.UUID { return c.organizationID }
+
+// KeyID is the publishable key that authenticated the request.
+func (c PublishableKeyCaller) KeyID() uuid.UUID { return c.keyID }
+
+// CustomerSessionCaller is a vendor's customer, acting through a customer
+// session the vendor's backend minted. Like PublishableKeyCaller it carries no
+// scopes: what bounds it is the customer it is bound to -- every query a
+// session route runs filters on it -- and, when bound, the instance.
+type CustomerSessionCaller struct {
+	organizationID uuid.UUID
+	sessionID      uuid.UUID
+	actorID        uuid.UUID
+	customerID     uuid.UUID
+	customerSlug   string
+	instanceID     *uuid.UUID
+	instanceSlug   *string
+	allowedOrigins []string
+}
+
+// OrganizationID is the vendor's organization.
+func (c CustomerSessionCaller) OrganizationID() uuid.UUID { return c.organizationID }
+
+// SessionID is the session that authenticated the request.
+func (c CustomerSessionCaller) SessionID() uuid.UUID { return c.sessionID }
+
+// ActorID is the vendor principal that minted the session, which the writes
+// the session makes are attributed to.
+func (c CustomerSessionCaller) ActorID() uuid.UUID { return c.actorID }
+
+// CustomerID and CustomerSlug are the customer the session acts for.
+func (c CustomerSessionCaller) CustomerID() uuid.UUID { return c.customerID }
+func (c CustomerSessionCaller) CustomerSlug() string  { return c.customerSlug }
+
+// InstanceID and InstanceSlug are the instance the session is bound to; nil
+// for a session that acts for the whole customer.
+func (c CustomerSessionCaller) InstanceID() *uuid.UUID { return c.instanceID }
+func (c CustomerSessionCaller) InstanceSlug() *string  { return c.instanceSlug }
+
+// AllowedOrigins are the browser origins the session may be used from, which
+// are also the only places a session route may send the browser back to.
+func (c CustomerSessionCaller) AllowedOrigins() []string { return slices.Clone(c.allowedOrigins) }

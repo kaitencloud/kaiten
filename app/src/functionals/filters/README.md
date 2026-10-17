@@ -95,6 +95,7 @@ value that contains a comma survives).
 | `pinnedFilterIds` | Fields shown as an always-visible search input |
 | `quickAccessFilterIds` | Extra quick-access fields, on top of the fields with `quickAccess: true` |
 | `defaultNormalFilterIds` | Filters that are active when the screen opens |
+| `initialNormalValues` | Values the normal filters hold when the screen opens, by filter id (`{ held: 'true' }`), for a link that opens a list already narrowed. A filter with a value is active, default or not, and the chips show from the start (the filters a screen opens with and leaves empty stay behind the Filter button). They are where the state starts and not what it goes back to: `resetAll` clears them, and a change of the prop does not touch filters already set |
 | `defaultAdvancedCombinator`, `defaultAdvancedRules` | Initial advanced rules and how they combine (`and` by default) |
 | `debounceMs` | Delay before a changed value reaches `filteredData`. Default 200 |
 | `resetOnDataChange` | Reset every filter when `data` changes identity. Default `false` |
@@ -110,6 +111,7 @@ actions of the normal filters (`normal`) and of the advanced rules (`advanced`),
 | `FilterToolbar` | Ready-made toolbar. `showAdvancedOption` defaults to `true` |
 | `FilterToolbarProvider` | Context for a custom toolbar. `showAdvancedOption` defaults to `false` |
 | `FilterSearchInput`, `FilterToolbarQuickAccessFilters`, `FilterToolbarFilterButton`, `FilterToolbarFiltersRow`, `FilterToolbarContent` | Building blocks, used inside the provider |
+| `FilterChip` | The pill of a chip and the button that takes it off, with the `data-slot="filter-chip"` the specs find chips by. The filters row draws its chips with it, and a page draws with it what it puts beside its search (the scope of a list), so that they read as one set |
 
 Compose the blocks when the layout is specific:
 
@@ -160,6 +162,10 @@ The chip already names the field and such a field has a single operator. `text`,
 - Chip label: "Label: value", or "Label: N selected" beyond two values
   (`Common.selectedCount`), without the operator. A quick-access chip truncates
   its label at 320 px and keeps the full text in its `title`.
+- Accessibility: the list is named after its field (`aria-label`), since nothing
+  else says what it holds. The check beside an `enum_list` option is a mark drawn
+  from the option's own `aria-checked`, not a checkbox: a control inside an
+  option nests one in another, which a screen reader cannot announce.
 
 ## Implementation notes
 

@@ -28,4 +28,11 @@ type Command struct {
 	IsDefault      bool                  `json:"isDefault"`
 	FamilyID       *uuid.UUID            `json:"familyId,omitempty"`
 	LifecycleState schema.LifecycleState `json:"lifecycleState,omitempty"`
+
+	// The commercial fields are keep-if-absent: nil (or "" for PricingType)
+	// leaves the stored value. TrialPeriodDays 0 and SelfServeCtaURL "" clear.
+	PricingType           schema.PricingType `json:"pricingType,omitempty"`
+	TrialPeriodDays       *int32             `json:"trialPeriodDays,omitempty"`
+	RequiresPaymentMethod *bool              `json:"requiresPaymentMethod,omitempty"`
+	SelfServeCtaURL       *string            `json:"selfServeCtaUrl,omitempty"`
 }

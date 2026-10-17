@@ -82,6 +82,9 @@ func TestEveryEntryIsGroupedAndLabelled(t *testing.T) {
 		catalogue.GroupCustomers:   true,
 		catalogue.GroupLicensing:   true,
 		catalogue.GroupSecurity:    true,
+		// The console's heading for it is a follow-up: until then the
+		// settings page files billing under "other".
+		catalogue.GroupBilling: true,
 	}
 
 	for _, entry := range catalogue.All() {

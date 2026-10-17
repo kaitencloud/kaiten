@@ -67,17 +67,17 @@ export function StatusBadge({ status }: { status: ConnectorStatus }) {
     );
   }
 
-  if (status === 'coming-h1') {
+  if (status === 'unavailable') {
     return (
       <Badge variant="outline">
-        {t('Pages.Integrations.Connectors.Status.comingH1')}
+        {t('Pages.Integrations.Connectors.Status.unavailable')}
       </Badge>
     );
   }
 
   return (
     <Badge variant="outline">
-      {t('Pages.Integrations.Connectors.Status.comingH2')}
+      {t('Pages.Integrations.Connectors.Status.comingSoon')}
     </Badge>
   );
 }

@@ -60,6 +60,7 @@ func (r *QueryRepository) ListFamilies(
 			ID:           row.ID,
 			Slug:         row.Slug,
 			VersionCount: row.VersionCount,
+			IsPublic:     row.IsPublic,
 			CreatedAt:    row.CreatedAt.Time,
 			UpdatedAt:    row.UpdatedAt.Time,
 		})

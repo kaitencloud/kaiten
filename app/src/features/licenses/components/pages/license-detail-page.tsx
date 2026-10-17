@@ -1,138 +1,88 @@
-import { useRouteContext } from '@tanstack/react-router';
-import { useCallback } from 'react';
+import { useRouterState } from '@tanstack/react-router';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from '@tanstack/react-router';
-import { toast } from 'sonner';
 import type { License } from '@/api-client';
+import { useBillingCapabilities } from '@/domains/billing';
+import { DetailEntityLayout } from '@/functionals/detail-entity-layout';
 import { Page } from '@/functionals/page';
-import {
-  buildAssociateLicenseEntitlementBody,
-  buildUpdateLicenseEntitlementBody,
-  toEditableEntitlementType,
-} from '../../utils';
-import {
-  type AddEntitlementPayload,
-  LicenseEntitlementsCard,
-} from '../entitlements/license-entitlements-card';
-import { LicenseDetailsCard } from './license-details-card';
-import {
-  useLicenseDetailData,
-  useLicenseDetailMutations,
-} from './use-license-detail-page';
+import { getActiveTabFromPathname } from '@/lib/detail';
 
 type LicenseDetailPageProps = {
+  /** The tab the route renders: its overview, or its prices. */
+  children: ReactNode;
+  /** The version whose prices were being copied to this one, when a copy stopped. */
+  copyFrom?: string;
   license: License;
   licenseSlug: string;
 };
 
+/**
+ * The page of one license version, around the tab its route renders. The
+ * Prices tab is billing's: it is offered only where billing is, and a link to it
+ * where it is not explains why instead (see the guard of its route).
+ */
 export function LicenseDetailPage({
+  children,
+  copyFrom,
   license,
   licenseSlug,
 }: LicenseDetailPageProps) {
   const { t } = useTranslation();
-  const router = useRouter();
-  const { queryClient } = useRouteContext({ from: '__root__' });
-  const { entitlements, entitlementSlugById, resolvedEntitlements } =
-    useLicenseDetailData(licenseSlug);
-  const {
-    addEntitlementMutation,
-    deleteEntitlementMutation,
-    updateEntitlementMutation,
-  } = useLicenseDetailMutations({
-    licenseSlug,
-    queryClient,
-    t,
+  const { isEnabled: hasBilling } = useBillingCapabilities();
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
   });
-
-  const handleAddEntitlement = useCallback(
-    (payload: AddEntitlementPayload) => {
-      const entitlementSlug = entitlementSlugById.get(payload.entitlementId);
-      if (!entitlementSlug) {
-        toast.error(t('Pages.Licenses.Detail.Toasts.addEntitlementError'));
-        return Promise.resolve();
-      }
-
-      const entitlementType =
-        typeof payload.threshold === 'number'
-          ? 'NUMBER'
-          : toEditableEntitlementType(payload.entitlementType);
-
-      return addEntitlementMutation.mutateAsync({
-        body: buildAssociateLicenseEntitlementBody(entitlementSlug, {
-          configValue: payload.configValue,
-          enabled: payload.enabled ?? null,
-          entitlementType,
-          limitCapExceededOveragePercent:
-            payload.limitCapExceededOveragePercent,
-          threshold: payload.threshold ?? null,
-        }),
-        path: { licenseSlug },
-      });
+  // A copy of prices that stopped is finished on the Prices tab, and the cause
+  // of its stopping may be fixed on the Overview (a grant the prices meter): the
+  // tabs carry it, so that coming back finds it.
+  const search = copyFrom ? { copyFrom } : undefined;
+  const activeTab = getActiveTabFromPathname({
+    defaultTab: 'overview',
+    matchers: [{ suffix: '/prices', value: 'prices' }],
+    pathname,
+  });
+  const params = { licenseSlug };
+  const tabs = [
+    {
+      label: t('Pages.Licenses.Detail.Tabs.overview'),
+      params,
+      search,
+      to: '/catalog/licenses/$licenseSlug',
+      value: 'overview',
     },
-    [addEntitlementMutation, entitlementSlugById, licenseSlug, t],
-  );
+    ...(hasBilling
+      ? [
+          {
+            label: t('Pages.Licenses.Prices.title'),
+            params,
+            search,
+            to: '/catalog/licenses/$licenseSlug/prices',
+            value: 'prices',
+          },
+        ]
+      : []),
+  ];
 
-  const handleUpdateEntitlementGrant = useCallback(
-    (
-      entitlementId: string,
-      threshold: number,
-      limitCapExceededOveragePercent: number,
-    ) => {
-      const resolvedEntitlementSlug =
-        entitlementSlugById.get(entitlementId) ?? entitlementId;
-
-      return updateEntitlementMutation.mutateAsync({
-        body: buildUpdateLicenseEntitlementBody(
-          threshold,
-          limitCapExceededOveragePercent,
-        ),
-        path: {
-          entitlementSlug: resolvedEntitlementSlug,
-          licenseSlug,
-        },
-      });
-    },
-    [entitlementSlugById, licenseSlug, updateEntitlementMutation],
-  );
-
-  const handleClickEntitlement = useCallback(
-    (entitlementSlug: string) => {
-      void router.navigate({ to: `/entitlements/${entitlementSlug}` });
-    },
-    [router],
-  );
-
-  const handleDeleteEntitlement = useCallback(
-    (entitlementId: string) =>
-      deleteEntitlementMutation.mutateAsync({
-        path: {
-          entitlementSlug:
-            entitlementSlugById.get(entitlementId) ?? entitlementId,
-          licenseSlug,
-        },
-      }),
-    [deleteEntitlementMutation, entitlementSlugById, licenseSlug],
-  );
+  // A version with nothing but its overview has no bar of one tab, as it had no
+  // bar before it had tabs: it keeps the space the page gave its content then.
+  const hasTabs = tabs.length > 1;
 
   return (
-    <Page className="space-y-6">
-      <Page.Header>
-        <Page.Title>{license.name}</Page.Title>
-      </Page.Header>
-      <LicenseDetailsCard
-        license={license}
-        onDraftDeleted={() => router.navigate({ to: '/licenses' })}
-        t={t}
-      />
-
-      <LicenseEntitlementsCard
-        entitlements={entitlements}
-        rows={resolvedEntitlements}
-        onAddEntitlement={handleAddEntitlement}
-        onClickEntitlement={handleClickEntitlement}
-        onUpdateEntitlementGrant={handleUpdateEntitlementGrant}
-        onDeleteEntitlement={handleDeleteEntitlement}
-      />
-    </Page>
+    <DetailEntityLayout>
+      <DetailEntityLayout.Top>
+        <Page.Header>
+          <Page.Title>{license.name}</Page.Title>
+        </Page.Header>
+      </DetailEntityLayout.Top>
+      <DetailEntityLayout.Body>
+        {hasTabs ? (
+          <DetailEntityLayout.Tabs activeTab={activeTab} items={tabs} />
+        ) : null}
+        {/* The page owns the space at the end of its tabs, whichever tab is open. */}
+        <DetailEntityLayout.Content className={hasTabs ? 'pb-6' : 'pt-1 pb-6'}>
+          {children}
+        </DetailEntityLayout.Content>
+      </DetailEntityLayout.Body>
+    </DetailEntityLayout>
   );
 }

@@ -13,6 +13,7 @@ import { EntitlementTypeDisplay } from '../display/entitlement-type-display';
 
 export function createEntitlementTableColumns(
   t: TFunction,
+  onDeleteRefused: (error: unknown, entitlementSlug?: string) => boolean,
 ): ColumnDef<Entitlement>[] {
   return [
     {
@@ -67,7 +68,10 @@ export function createEntitlementTableColumns(
       ),
     },
     createActionsColumn<Entitlement>((entitlement: Entitlement) => (
-      <EntitlementTableActions entitlement={entitlement} />
+      <EntitlementTableActions
+        entitlement={entitlement}
+        onDeleteRefused={onDeleteRefused}
+      />
     )),
   ];
 }

@@ -1,4 +1,4 @@
-import i18n from 'i18next';
+import { getAppLocale } from './app-locale';
 
 /**
  * Locale-aware formatting helpers. Always prefer these over the bare
@@ -8,7 +8,7 @@ import i18n from 'i18next';
 
 type DateInput = string | number | Date | null | undefined;
 
-const DEFAULT_FALLBACK = '—';
+export const DEFAULT_FALLBACK = '—';
 
 /**
  * The defaults every call site without options gets. A bare
@@ -25,10 +25,6 @@ export const DEFAULT_DATE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
   dateStyle: 'medium',
   timeStyle: 'short',
 };
-
-function appLocale(): string {
-  return i18n.language || 'en';
-}
 
 function toDate(value: Exclude<DateInput, null | undefined>): Date | null {
   const date = value instanceof Date ? value : new Date(value);
@@ -57,7 +53,7 @@ export function formatDate(
   options?: Intl.DateTimeFormatOptions,
   fallback: string = DEFAULT_FALLBACK,
 ): string {
-  return formatDateForLocale(value, appLocale(), options, fallback);
+  return formatDateForLocale(value, getAppLocale(), options, fallback);
 }
 
 export function formatDateTimeForLocale(
@@ -82,7 +78,7 @@ export function formatDateTime(
   options?: Intl.DateTimeFormatOptions,
   fallback: string = DEFAULT_FALLBACK,
 ): string {
-  return formatDateTimeForLocale(value, appLocale(), options, fallback);
+  return formatDateTimeForLocale(value, getAppLocale(), options, fallback);
 }
 
 /** Localized number (thousands separators follow the app language). */
@@ -90,5 +86,5 @@ export function formatNumber(
   value: number,
   options?: Intl.NumberFormatOptions,
 ): string {
-  return value.toLocaleString(appLocale(), options);
+  return value.toLocaleString(getAppLocale(), options);
 }

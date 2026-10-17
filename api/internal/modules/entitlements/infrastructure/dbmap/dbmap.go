@@ -140,7 +140,9 @@ func ToEntitlementGroupUsage(row *db.GetEntitlementGroupUsageRow) (*schema.Entit
 		return nil, err
 	}
 
-	licenseValue, err := instancesschema.ParseEntitlementValue(row.LicenseValue)
+	// The instance's effective entitlement: what its licence grants, plus any
+	// later layer the view adds. Nil for a member the instance is not granted.
+	licenseValue, err := instancesschema.ParseEntitlementValue(row.EffectiveValue)
 	if err != nil {
 		return nil, err
 	}

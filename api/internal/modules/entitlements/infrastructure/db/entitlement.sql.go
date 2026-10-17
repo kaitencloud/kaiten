@@ -12,6 +12,48 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countEntitlementReferences = `-- name: CountEntitlementReferences :one
+SELECT
+  (SELECT count(*) FROM license_entitlement le WHERE le.entitlement_id = e.id)::int AS license_grants,
+  (SELECT count(*) FROM license_price p WHERE p.meters_entitlement_id = e.id)::int AS license_prices,
+  (SELECT count(*) FROM addon_price ap WHERE ap.meters_entitlement_id = e.id)::int AS addon_prices,
+  (SELECT count(*) FROM addon_entitlement ae WHERE ae.entitlement_id = e.id)::int AS addon_grants,
+  (SELECT count(*) FROM voucher_entitlement_grant vg WHERE vg.entitlement_id = e.id)::int AS boost_grants
+FROM entitlement e
+WHERE e.organization_id = $1
+  AND e.slug = $2
+`
+
+type CountEntitlementReferencesParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+type CountEntitlementReferencesRow struct {
+	LicenseGrants int32 `json:"license_grants"`
+	LicensePrices int32 `json:"license_prices"`
+	AddonPrices   int32 `json:"addon_prices"`
+	AddonGrants   int32 `json:"addon_grants"`
+	BoostGrants   int32 `json:"boost_grants"`
+}
+
+// What still holds an entitlement a delete was refused for: every foreign key
+// onto entitlement that restricts the delete. Its usage is not among them:
+// entitlement_usage follows the entitlement out
+// (20261012000000_entitlement_usage_follows_its_entitlement.sql).
+func (q *Queries) CountEntitlementReferences(ctx context.Context, arg CountEntitlementReferencesParams) (CountEntitlementReferencesRow, error) {
+	row := q.db.QueryRow(ctx, countEntitlementReferences, arg.OrganizationID, arg.Slug)
+	var i CountEntitlementReferencesRow
+	err := row.Scan(
+		&i.LicenseGrants,
+		&i.LicensePrices,
+		&i.AddonPrices,
+		&i.AddonGrants,
+		&i.BoostGrants,
+	)
+	return i, err
+}
+
 const createEntitlement = `-- name: CreateEntitlement :one
 INSERT INTO entitlement (name, slug, description, type, aggregation_method, organization_id, icon,
                          unit_singular, unit_plural, sale_unit_singular, sale_unit_plural, sale_unit_factor, user_facing,

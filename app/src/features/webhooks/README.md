@@ -87,6 +87,8 @@ Scopes: the token picker offers `read:webhooks` and `write:webhooks` (`app/src/l
   },
   ```
 
+  The billing events (subscriptions, invoices, add-ons, vouchers) are listed in `utils/webhook-billing-events.ts`, which the catalogue spreads into its own map, so that neither file outgrows the size limit. Their entries are checked the same way, and the catalogue fails the type check while an event is in neither file.
+
 - An event's label is the audit trail's (`resolveEventLabel` from `@/domains/audit-trail`). Group titles are the `Pages.Integrations.Webhooks.EventGroups` keys of `en.ts` and `fr.ts`.
 - `group: null` keeps an event out of the create dialog. Two events have it, `FEATURE_FLAG_EVALUATED` and `ENTITLEMENT_VALUE_GET`. The API triggers them on every flag evaluation and on every read of an entitlement's usage value, so a subscription would receive one request each time.
 - A type this build does not know, an event newer than the console, shows as the type itself, under the group "Other events".

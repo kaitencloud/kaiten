@@ -82,3 +82,16 @@ func IsForeignKeyViolation(err error) bool {
 	}
 	return false
 }
+
+// IsMissingPartition returns true if err is PostgreSQL refusing a row that no
+// partition of the partitioned table accepts ("no partition of relation ...
+// found for row"). That error is a check_violation too, but it names no
+// constraint, only the table, which is what tells the two apart without
+// reading a message that a server locale could translate.
+func IsMissingPartition(err error, table string) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == pgCheckViolation && pgErr.ConstraintName == "" && pgErr.TableName == table
+	}
+	return false
+}

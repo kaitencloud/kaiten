@@ -40,3 +40,20 @@ if (typeof globalThis.ResizeObserver === 'undefined')
     unobserve() {}
     disconnect() {}
   };
+
+// jsdom has no Web Animations API. Base UI's ScrollArea asks its viewport which
+// animations run under it, to measure its thumb once they are over: with none, it
+// has nothing to wait for. Base UI also waits for the animations of an overlay to
+// end before it unmounts it, and only when `getAnimations` exists; with the stub
+// in place it would wait on a promise and a test that closes a dialog and looks at
+// once would still find it, so its own switch for tests keeps the unmounting
+// synchronous, as it is without the method.
+if (
+  typeof Element !== 'undefined' &&
+  typeof Element.prototype.getAnimations !== 'function'
+) {
+  Element.prototype.getAnimations = () => [];
+  (
+    globalThis as typeof globalThis & { BASE_UI_ANIMATIONS_DISABLED?: boolean }
+  ).BASE_UI_ANIMATIONS_DISABLED = true;
+}

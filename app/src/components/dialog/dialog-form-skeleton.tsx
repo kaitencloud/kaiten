@@ -9,9 +9,10 @@ interface DialogFormSkeletonProps {
 }
 
 /**
- * Field-shaped placeholder shown while a dialog's lazy-loaded form streams in.
- * Each row mimics a label + input so the skeleton matches the form about to
- * appear (sized via `fields` — see each step for stacked forms).
+ * Field-shaped placeholder shown while a dialog's content suspends, for example
+ * a form that reads a query. Each row mimics a label + input so the skeleton
+ * matches the form about to appear (sized via `fields` — see each step for
+ * stacked forms). The form fields themselves never suspend.
  */
 export function DialogFormSkeleton({
   fields = 3,

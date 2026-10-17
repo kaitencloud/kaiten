@@ -1,10 +1,13 @@
 import { devices } from '@playwright/test';
 import { expect, test } from '../_support/app-test';
+import { BillingNavDriver } from '../_support/drivers/billing-nav.driver';
 import { CustomersListDriver } from '../_support/drivers/customers-list.driver';
 import { FeatureFlagsListDriver } from '../_support/drivers/feature-flags-list.driver';
+import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installCustomerAppMocks } from '../_support/mocks/install-customer-app-mocks';
 import { installDashboardAppMocks } from '../_support/mocks/install-dashboard-app-mocks';
 import { installFeatureFlagAppMocks } from '../_support/mocks/install-feature-flag-app-mocks';
+import { createBillingOutageModel } from '../billing/billing.scenarios';
 import { createCustomersListModel } from '../customers/customers.scenarios';
 import { createDashboardReadModel } from '../dashboard/dashboard.scenarios';
 import { createFeatureFlagsListModel } from '../feature-flags/feature-flags.scenarios';
@@ -44,6 +47,26 @@ test.describe('mobile (Pixel 5) read smoke', () => {
 
     await list.expectCustomerVisible('Acme Corp');
     await list.expectCustomerVisible('Beta Industries');
+  });
+
+  test('the explanation of a billing link fits the narrowest phone, with no horizontal scroll', async ({
+    page,
+  }) => {
+    const nav = new BillingNavDriver(page);
+    // Narrower than the Pixel 5: the width billing is checked at.
+    await page.setViewportSize({ width: 375, height: 812 });
+    await installBillingAppMocks(
+      page,
+      createBillingOutageModel('missingScope'),
+    );
+
+    await page.goto('/invoices');
+
+    await nav.expectUnavailable('MISSING_SCOPE');
+    const scrollWidth = await page.evaluate(
+      () => document.scrollingElement?.scrollWidth ?? 0,
+    );
+    expect(scrollWidth).toBeLessThanOrEqual(375);
   });
 
   test('feature flags list renders rows on mobile', async ({ page }) => {

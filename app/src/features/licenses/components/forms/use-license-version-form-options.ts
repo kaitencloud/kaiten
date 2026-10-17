@@ -15,6 +15,8 @@ type UseLicenseVersionFormOptionsArgs = {
   availableLicenses: License[];
   baseLicense?: License;
   selectedLicenseSlug?: string;
+  /** Whether the new version is to start as a draft, which the form offers ticked. */
+  startAsDraft?: boolean;
 };
 
 // One selectable product: the family (what a version joins), the name it is
@@ -31,6 +33,7 @@ export function useLicenseVersionFormOptions({
   availableLicenses,
   baseLicense,
   selectedLicenseSlug,
+  startAsDraft = false,
 }: UseLicenseVersionFormOptionsArgs) {
   const licensesByFamily = useMemo(() => {
     return new Map(
@@ -92,7 +95,8 @@ export function useLicenseVersionFormOptions({
   const initialValues: LicenseVersionFormValues = {
     baseLicenseSlug: selectedLicenseSlug || (actualBaseLicense?.slug ?? ''),
     baseVersion: actualBaseLicense?.version ?? '',
-    createAsDraft: false,
+    copyPrices: true,
+    createAsDraft: startAsDraft,
     description: actualBaseLicense?.description ?? '',
     selectedFamilyId,
     versionName: suggestNextVersionName(

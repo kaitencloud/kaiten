@@ -14,15 +14,15 @@ import (
 
 const createCustomer = `-- name: CreateCustomer :one
 WITH inserted AS (
-  INSERT INTO customer (name, slug, external_customer_id, domain, created_by_id, updated_by_id, organization_id)
-  SELECT $1, $2, $3, $4, uo.user_id, uo.user_id, uo.organization_id
+  INSERT INTO customer (name, slug, external_customer_id, domain, billing_email, created_by_id, updated_by_id, organization_id)
+  SELECT $1, $2, $3, $4, $5, uo.user_id, uo.user_id, uo.organization_id
   FROM user_on_organization uo
-  WHERE uo.organization_id = $5
-         AND uo.user_id = $6
+  WHERE uo.organization_id = $6
+         AND uo.user_id = $7
          AND uo.deleted_at IS NULL
-  RETURNING id, name, slug, external_customer_id, created_by_id, created_at, updated_by_id, updated_at, organization_id, domain
+  RETURNING id, name, slug, external_customer_id, created_by_id, created_at, updated_by_id, updated_at, organization_id, domain, billing_email
 )
-SELECT inserted.id, inserted.name, inserted.slug, inserted.external_customer_id, inserted.created_by_id, inserted.created_at, inserted.updated_by_id, inserted.updated_at, inserted.organization_id, inserted.domain,
+SELECT inserted.id, inserted.name, inserted.slug, inserted.external_customer_id, inserted.created_by_id, inserted.created_at, inserted.updated_by_id, inserted.updated_at, inserted.organization_id, inserted.domain, inserted.billing_email,
        creator.name AS created_by_name,
        updater.name AS updated_by_name
 FROM inserted
@@ -35,6 +35,7 @@ type CreateCustomerParams struct {
 	Slug               string    `json:"slug"`
 	ExternalCustomerID *string   `json:"external_customer_id"`
 	Domain             *string   `json:"domain"`
+	BillingEmail       *string   `json:"billing_email"`
 	OrganizationID     uuid.UUID `json:"organization_id"`
 	UserID             uuid.UUID `json:"user_id"`
 }
@@ -50,6 +51,7 @@ type CreateCustomerRow struct {
 	UpdatedAt          pgtype.Timestamp `json:"updated_at"`
 	OrganizationID     uuid.UUID        `json:"organization_id"`
 	Domain             *string          `json:"domain"`
+	BillingEmail       *string          `json:"billing_email"`
 	CreatedByName      string           `json:"created_by_name"`
 	UpdatedByName      string           `json:"updated_by_name"`
 }
@@ -60,6 +62,7 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 		arg.Slug,
 		arg.ExternalCustomerID,
 		arg.Domain,
+		arg.BillingEmail,
 		arg.OrganizationID,
 		arg.UserID,
 	)
@@ -75,6 +78,7 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 		&i.UpdatedAt,
 		&i.OrganizationID,
 		&i.Domain,
+		&i.BillingEmail,
 		&i.CreatedByName,
 		&i.UpdatedByName,
 	)
@@ -87,9 +91,9 @@ WITH deleted AS (
   FROM customer c
   WHERE c.slug = $1
          AND c.organization_id = $2
-  RETURNING c.id, c.name, c.slug, c.external_customer_id, c.created_by_id, c.created_at, c.updated_by_id, c.updated_at, c.organization_id, c.domain
+  RETURNING c.id, c.name, c.slug, c.external_customer_id, c.created_by_id, c.created_at, c.updated_by_id, c.updated_at, c.organization_id, c.domain, c.billing_email
 )
-SELECT deleted.id, deleted.name, deleted.slug, deleted.external_customer_id, deleted.created_by_id, deleted.created_at, deleted.updated_by_id, deleted.updated_at, deleted.organization_id, deleted.domain,
+SELECT deleted.id, deleted.name, deleted.slug, deleted.external_customer_id, deleted.created_by_id, deleted.created_at, deleted.updated_by_id, deleted.updated_at, deleted.organization_id, deleted.domain, deleted.billing_email,
        creator.name AS created_by_name,
        updater.name AS updated_by_name
 FROM deleted
@@ -113,6 +117,7 @@ type DeleteCustomerRow struct {
 	UpdatedAt          pgtype.Timestamp `json:"updated_at"`
 	OrganizationID     uuid.UUID        `json:"organization_id"`
 	Domain             *string          `json:"domain"`
+	BillingEmail       *string          `json:"billing_email"`
 	CreatedByName      string           `json:"created_by_name"`
 	UpdatedByName      string           `json:"updated_by_name"`
 }
@@ -131,9 +136,44 @@ func (q *Queries) DeleteCustomer(ctx context.Context, arg DeleteCustomerParams) 
 		&i.UpdatedAt,
 		&i.OrganizationID,
 		&i.Domain,
+		&i.BillingEmail,
 		&i.CreatedByName,
 		&i.UpdatedByName,
 	)
+	return i, err
+}
+
+const getCustomerBillingBlock = `-- name: GetCustomerBillingBlock :one
+SELECT
+  EXISTS (SELECT 1 FROM instance_billing ib
+           WHERE ib.customer_id = c.id AND ib.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')) AS live,
+  coalesce(array(SELECT inv.id
+                   FROM instance_invoice inv
+                  WHERE inv.customer_id = c.id
+                    AND inv.status IN ('DRAFT', 'PUSHED', 'PUSH_FAILED', 'MANUAL', 'PAYMENT_FAILED')
+                  ORDER BY inv.boundary_at),
+           '{}')::uuid[] AS unpaid_invoice_ids
+FROM customer c
+WHERE c.organization_id = $1
+  AND c.slug = $2
+`
+
+type GetCustomerBillingBlockParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+type GetCustomerBillingBlockRow struct {
+	Live             bool        `json:"live"`
+	UnpaidInvoiceIds []uuid.UUID `json:"unpaid_invoice_ids"`
+}
+
+// What keeps a customer from being deleted: a live subscription of one of its
+// instances, or an invoice of its not settled yet.
+func (q *Queries) GetCustomerBillingBlock(ctx context.Context, arg GetCustomerBillingBlockParams) (GetCustomerBillingBlockRow, error) {
+	row := q.db.QueryRow(ctx, getCustomerBillingBlock, arg.OrganizationID, arg.Slug)
+	var i GetCustomerBillingBlockRow
+	err := row.Scan(&i.Live, &i.UnpaidInvoiceIds)
 	return i, err
 }
 
@@ -181,6 +221,7 @@ SELECT c.id,
        c.slug,
        external_customer_id,
   c.domain,
+  c.billing_email,
        c.created_by_id,
        creator.name AS created_by_name,
        c.created_at,
@@ -225,6 +266,7 @@ type GetCustomersRow struct {
 	Slug               string           `json:"slug"`
 	ExternalCustomerID *string          `json:"external_customer_id"`
 	Domain             *string          `json:"domain"`
+	BillingEmail       *string          `json:"billing_email"`
 	CreatedByID        uuid.UUID        `json:"created_by_id"`
 	CreatedByName      string           `json:"created_by_name"`
 	CreatedAt          pgtype.Timestamp `json:"created_at"`
@@ -263,6 +305,7 @@ func (q *Queries) GetCustomers(ctx context.Context, arg GetCustomersParams) ([]G
 			&i.Slug,
 			&i.ExternalCustomerID,
 			&i.Domain,
+			&i.BillingEmail,
 			&i.CreatedByID,
 			&i.CreatedByName,
 			&i.CreatedAt,
@@ -287,6 +330,7 @@ SELECT c.id,
        c.slug,
        external_customer_id,
   c.domain,
+  c.billing_email,
        c.created_by_id,
        creator.name AS created_by_name,
        c.created_at,
@@ -312,6 +356,7 @@ type GetCustomersByExternalIDRow struct {
 	Slug               string           `json:"slug"`
 	ExternalCustomerID *string          `json:"external_customer_id"`
 	Domain             *string          `json:"domain"`
+	BillingEmail       *string          `json:"billing_email"`
 	CreatedByID        uuid.UUID        `json:"created_by_id"`
 	CreatedByName      string           `json:"created_by_name"`
 	CreatedAt          pgtype.Timestamp `json:"created_at"`
@@ -339,6 +384,7 @@ func (q *Queries) GetCustomersByExternalID(ctx context.Context, arg GetCustomers
 			&i.Slug,
 			&i.ExternalCustomerID,
 			&i.Domain,
+			&i.BillingEmail,
 			&i.CreatedByID,
 			&i.CreatedByName,
 			&i.CreatedAt,
@@ -363,6 +409,7 @@ SELECT c.id,
        c.slug,
        external_customer_id,
   c.domain,
+  c.billing_email,
        c.created_by_id,
        creator.name AS created_by_name,
        c.created_at,
@@ -388,6 +435,7 @@ type GetCustomersByIDsRow struct {
 	Slug               string           `json:"slug"`
 	ExternalCustomerID *string          `json:"external_customer_id"`
 	Domain             *string          `json:"domain"`
+	BillingEmail       *string          `json:"billing_email"`
 	CreatedByID        uuid.UUID        `json:"created_by_id"`
 	CreatedByName      string           `json:"created_by_name"`
 	CreatedAt          pgtype.Timestamp `json:"created_at"`
@@ -412,6 +460,7 @@ func (q *Queries) GetCustomersByIDs(ctx context.Context, arg GetCustomersByIDsPa
 			&i.Slug,
 			&i.ExternalCustomerID,
 			&i.Domain,
+			&i.BillingEmail,
 			&i.CreatedByID,
 			&i.CreatedByName,
 			&i.CreatedAt,
@@ -436,6 +485,7 @@ SELECT c.id,
        c.slug,
        external_customer_id,
   c.domain,
+  c.billing_email,
        c.created_by_id,
        creator.name AS created_by_name,
        c.created_at,
@@ -461,6 +511,7 @@ type GetOneCustomerRow struct {
 	Slug               string           `json:"slug"`
 	ExternalCustomerID *string          `json:"external_customer_id"`
 	Domain             *string          `json:"domain"`
+	BillingEmail       *string          `json:"billing_email"`
 	CreatedByID        uuid.UUID        `json:"created_by_id"`
 	CreatedByName      string           `json:"created_by_name"`
 	CreatedAt          pgtype.Timestamp `json:"created_at"`
@@ -479,6 +530,7 @@ func (q *Queries) GetOneCustomer(ctx context.Context, arg GetOneCustomerParams) 
 		&i.Slug,
 		&i.ExternalCustomerID,
 		&i.Domain,
+		&i.BillingEmail,
 		&i.CreatedByID,
 		&i.CreatedByName,
 		&i.CreatedAt,
@@ -506,15 +558,17 @@ SELECT l.slug           AS license_slug,
        lf.slug          AS license_family_slug,
        l.type           AS license_type,
        e.slug           AS entitlement_slug,
-       le.value         AS limit_value,
+       iee.value        AS limit_value,
        eu.value         AS usage_value
 FROM primary_instance pi
        JOIN "license" l ON l.id = pi.license_id
        JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
-       LEFT JOIN license_entitlement le
-         ON le.license_id = l.id AND le.organization_id = $1
+       -- The instance's effective entitlements, as every reader of an
+       -- instance's entitlement value reads them.
+       LEFT JOIN instance_effective_entitlement iee
+         ON iee.instance_id = pi.id AND iee.organization_id = $1
        LEFT JOIN entitlement e
-         ON e.id = le.entitlement_id AND e.organization_id = $1
+         ON e.id = iee.entitlement_id AND e.organization_id = $1
        LEFT JOIN entitlement_usage eu
          ON eu.instance_id = pi.id
         AND eu.entitlement_id = e.id
@@ -591,6 +645,26 @@ func (q *Queries) GetTargetingFactsByCustomerSlug(ctx context.Context, arg GetTa
 	return items, nil
 }
 
+const lockCustomerForDelete = `-- name: LockCustomerForDelete :one
+SELECT c.id
+FROM customer c
+WHERE c.organization_id = $1
+  AND c.slug = $2
+FOR UPDATE
+`
+
+type LockCustomerForDeleteParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+func (q *Queries) LockCustomerForDelete(ctx context.Context, arg LockCustomerForDeleteParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockCustomerForDelete, arg.OrganizationID, arg.Slug)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const setCustomerExternalIDByID = `-- name: SetCustomerExternalIDByID :execrows
 UPDATE customer c
 SET external_customer_id = $1,
@@ -619,17 +693,22 @@ WITH updated AS (
   SET name          = $1,
       external_customer_id = $2,
     domain = $3,
+      -- Keep-if-absent: NULL keeps the stored address, the clear flag removes it.
+      billing_email = CASE
+        WHEN $4::bool THEN NULL
+        ELSE COALESCE($5::text, c.billing_email)
+      END,
       updated_by_id = uo.user_id,
       updated_at    = now()
   FROM user_on_organization uo
-  WHERE uo.organization_id = $4
-     AND uo.user_id = $5
+  WHERE uo.organization_id = $6
+     AND uo.user_id = $7
          AND uo.deleted_at IS NULL
          AND c.organization_id = uo.organization_id
-         AND c.slug = $6
-  RETURNING c.id, c.name, c.slug, c.external_customer_id, c.created_by_id, c.created_at, c.updated_by_id, c.updated_at, c.organization_id, c.domain
+         AND c.slug = $8
+  RETURNING c.id, c.name, c.slug, c.external_customer_id, c.created_by_id, c.created_at, c.updated_by_id, c.updated_at, c.organization_id, c.domain, c.billing_email
 )
-SELECT updated.id, updated.name, updated.slug, updated.external_customer_id, updated.created_by_id, updated.created_at, updated.updated_by_id, updated.updated_at, updated.organization_id, updated.domain,
+SELECT updated.id, updated.name, updated.slug, updated.external_customer_id, updated.created_by_id, updated.created_at, updated.updated_by_id, updated.updated_at, updated.organization_id, updated.domain, updated.billing_email,
        creator.name AS created_by_name,
        updater.name AS updated_by_name
 FROM updated
@@ -641,6 +720,8 @@ type UpdateCustomerParams struct {
 	Name               string    `json:"name"`
 	ExternalCustomerID *string   `json:"external_customer_id"`
 	Domain             *string   `json:"domain"`
+	BillingEmailClear  bool      `json:"billing_email_clear"`
+	BillingEmail       *string   `json:"billing_email"`
 	OrganizationID     uuid.UUID `json:"organization_id"`
 	UserID             uuid.UUID `json:"user_id"`
 	Slug               string    `json:"slug"`
@@ -657,6 +738,7 @@ type UpdateCustomerRow struct {
 	UpdatedAt          pgtype.Timestamp `json:"updated_at"`
 	OrganizationID     uuid.UUID        `json:"organization_id"`
 	Domain             *string          `json:"domain"`
+	BillingEmail       *string          `json:"billing_email"`
 	CreatedByName      string           `json:"created_by_name"`
 	UpdatedByName      string           `json:"updated_by_name"`
 }
@@ -666,6 +748,8 @@ func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) 
 		arg.Name,
 		arg.ExternalCustomerID,
 		arg.Domain,
+		arg.BillingEmailClear,
+		arg.BillingEmail,
 		arg.OrganizationID,
 		arg.UserID,
 		arg.Slug,
@@ -682,6 +766,7 @@ func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) 
 		&i.UpdatedAt,
 		&i.OrganizationID,
 		&i.Domain,
+		&i.BillingEmail,
 		&i.CreatedByName,
 		&i.UpdatedByName,
 	)

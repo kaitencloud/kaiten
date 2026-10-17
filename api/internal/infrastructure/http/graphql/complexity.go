@@ -52,6 +52,9 @@ func newComplexityRoot() generated.ComplexityRoot {
 	root.Query.Licenses = func(childComplexity int, limit *int, _ *string) int {
 		return fanOut(pageSize(limit), childComplexity)
 	}
+	root.Query.Addons = func(childComplexity int, limit *int, _ *string) int {
+		return fanOut(pageSize(limit), childComplexity)
+	}
 	root.Query.Releases = func(childComplexity int, limit *int, _ *string) int {
 		return fanOut(pageSize(limit), childComplexity)
 	}
@@ -110,6 +113,13 @@ func newComplexityRoot() generated.ComplexityRoot {
 	root.Release.Instances = unbounded
 	root.Release.Deployments = unbounded
 	root.Instance.EntitlementUsage = unbounded
+	root.Instance.Addons = unbounded
+	root.License.Prices = func(childComplexity int, _ *string) int {
+		return fanOut(assumedFanout, childComplexity)
+	}
+	root.Addon.Prices = func(childComplexity int, _ *string) int {
+		return fanOut(assumedFanout, childComplexity)
+	}
 	root.Entitlement.EntitlementGroups = unbounded
 
 	return root

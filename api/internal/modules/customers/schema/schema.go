@@ -1,11 +1,13 @@
 package schema
 
 import (
+	"regexp"
 	"time"
 
 	"github.com/google/uuid"
 
 	shared "github.com/kaitencloud/kaiten/api/internal/shared/user"
+	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 // CustomerCreationRejected is emitted when a customer creation attempt is blocked
@@ -52,13 +54,16 @@ type Customer struct {
 	// encoder drop the key entirely for a nil pointer, silently changing that
 	// read shape. required:"false" keeps it optional on write without
 	// touching read serialization.
-	ExternalCustomerID *string                        `json:"externalCustomerId" required:"false" doc:"Optional identifier for the customer in an external system" example:"external-customer-id-12345"`
-	Domain             *string                        `json:"domain,omitempty" doc:"Optional customer domain name" example:"example.tld" pattern:"^[a-z0-9_-]+(\\.[a-z0-9_-]+)+$"`
-	Integrations       map[string]CustomerIntegration `json:"integrations,omitempty" doc:"Integrations grouped by adapter name"`
-	CreatedBy          shared.User                    `json:"createdBy" readOnly:"true" doc:"User who created this customer"`
-	CreatedAt          time.Time                      `json:"createdAt" readOnly:"true" doc:"Timestamp when the customer was created" example:"2023-10-01T12:00:00Z"`
-	UpdatedBy          shared.User                    `json:"updatedBy" readOnly:"true" doc:"User who last updated this customer"`
-	UpdatedAt          time.Time                      `json:"updatedAt" readOnly:"true" doc:"Timestamp when the customer was last updated" example:"2023-10-01T12:00:00Z"`
+	ExternalCustomerID *string `json:"externalCustomerId" required:"false" doc:"Optional identifier for the customer in an external system" example:"external-customer-id-12345"`
+	Domain             *string `json:"domain,omitempty" doc:"Optional customer domain name" example:"example.tld" pattern:"^[a-z0-9_-]+(\\.[a-z0-9_-]+)+$"`
+	// BillingEmail is personal data: it is never part of an event payload
+	// (see WithoutPersonalData), only of authenticated reads.
+	BillingEmail *string                        `json:"billingEmail,omitempty" doc:"Where invoices sent to this customer are delivered, at most 254 characters (CreateCustomer.InvalidBillingEmail). Absent when there is none. On update, omit it to keep the stored value, or send an empty string to remove it. Personal data: never included in event payloads." example:"billing@example.tld"`
+	Integrations map[string]CustomerIntegration `json:"integrations,omitempty" doc:"Integrations grouped by adapter name"`
+	CreatedBy    shared.User                    `json:"createdBy" readOnly:"true" doc:"User who created this customer"`
+	CreatedAt    time.Time                      `json:"createdAt" readOnly:"true" doc:"Timestamp when the customer was created" example:"2023-10-01T12:00:00Z"`
+	UpdatedBy    shared.User                    `json:"updatedBy" readOnly:"true" doc:"User who last updated this customer"`
+	UpdatedAt    time.Time                      `json:"updatedAt" readOnly:"true" doc:"Timestamp when the customer was last updated" example:"2023-10-01T12:00:00Z"`
 }
 
 // CustomerPage is a cursor-paginated page of customers, returned by the
@@ -71,4 +76,45 @@ type CustomerPage struct {
 	Items      []Customer
 	NextCursor *string
 	HasMore    bool
+}
+
+// CustomerEvent is the customer as an event payload carries it, and as the
+// webhook contract publishes it: a Customer without its billing email, which
+// only authenticated reads return. It is declared as its own type so the
+// published contract cannot advertise a member the runtime never sends.
+type CustomerEvent struct {
+	ID                 uuid.UUID                      `json:"id" doc:"Unique identifier for the customer" example:"123e4567-e89b-12d3-a456-426614174000"`
+	Name               string                         `json:"name" doc:"Name of the customer" example:"Awesome Customer"`
+	Slug               string                         `json:"slug,omitempty" doc:"URL-friendly identifier, unique per organization" example:"awesome-customer"`
+	ExternalCustomerID *string                        `json:"externalCustomerId" doc:"Identifier for the customer in an external system, null when there is none" example:"external-customer-id-12345"`
+	Domain             *string                        `json:"domain,omitempty" doc:"Customer domain name" example:"example.tld"`
+	Integrations       map[string]CustomerIntegration `json:"integrations,omitempty" doc:"Integrations grouped by adapter name"`
+	CreatedBy          shared.User                    `json:"createdBy" doc:"User who created this customer"`
+	CreatedAt          time.Time                      `json:"createdAt" doc:"Timestamp when the customer was created" example:"2023-10-01T12:00:00Z"`
+	UpdatedBy          shared.User                    `json:"updatedBy" doc:"User who last updated this customer"`
+	UpdatedAt          time.Time                      `json:"updatedAt" doc:"Timestamp when the customer was last updated" example:"2023-10-01T12:00:00Z"`
+}
+
+// WithoutPersonalData is the customer as an event payload carries it.
+func (c Customer) WithoutPersonalData() CustomerEvent {
+	return CustomerEvent{
+		ID: c.ID, Name: c.Name, Slug: c.Slug, ExternalCustomerID: c.ExternalCustomerID, Domain: c.Domain,
+		Integrations: c.Integrations, CreatedBy: c.CreatedBy, CreatedAt: c.CreatedAt,
+		UpdatedBy: c.UpdatedBy, UpdatedAt: c.UpdatedAt,
+	}
+}
+
+// billingEmailPattern mirrors customer_billing_email_check.
+var billingEmailPattern = regexp.MustCompile(`^[^@\s]+@[^@\s]+$`)
+
+const maxBillingEmailLength = 254
+
+// ValidateBillingEmail refuses what customer_billing_email_check would, with
+// <operation>.InvalidBillingEmail.
+func ValidateBillingEmail(operation, email string) error {
+	if len(email) > maxBillingEmailLength || !billingEmailPattern.MatchString(email) {
+		return apierrors.UnprocessableEntity(operation+".InvalidBillingEmail",
+			"billingEmail must be an e-mail address of at most 254 characters")
+	}
+	return nil
 }

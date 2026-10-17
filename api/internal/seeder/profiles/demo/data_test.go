@@ -12,7 +12,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/featureflag"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
-	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
@@ -104,7 +103,7 @@ func TestUsageRowsFollowTheirEntitlementsResetPeriod(t *testing.T) {
 	periodic := 0
 	for _, cust := range customers {
 		for _, inst := range cust.Instances {
-			for slug, usage := range inst.UsageValues {
+			for slug := range inst.UsageValues {
 				require.Containsf(t, usageEntitlementOrder, slug,
 					"instance %q reports usage of %q, which seedUsageMetrics never reads", inst.Slug, slug)
 				ent, ok := entitlementBySlug(slug)
@@ -112,27 +111,17 @@ func TestUsageRowsFollowTheirEntitlementsResetPeriod(t *testing.T) {
 				require.Truef(t, entitlementschema.IsNumberFamily(ent.Type),
 					"instance %q reports usage of %q, a %s entitlement, which takes none", inst.Slug, slug, ent.Type)
 
-				start, err := usagePeriodStart(ent, now, now)
-				require.NoError(t, err)
-				require.Equalf(t, ent.ResetPeriod != nil, start.Valid,
-					"instance %q: the %q usage row is periodic (%t) and the entitlement resets (%t)",
-					inst.Slug, slug, start.Valid, ent.ResetPeriod != nil)
-				if !start.Valid {
+				if ent.ResetPeriod == nil {
 					continue
 				}
 				periodic++
 
-				// And the read path takes the row for the current window's
-				// usage rather than a past one's.
-				window, err := period.Current(now, *ent.ResetPeriod, *ent.ResetAnchor, now)
-				require.NoError(t, err)
-				stored := &entitlementvalue.NumberUsageValue{
-					Type:       entitlementvalue.TypeNumber,
-					Value:      float64(usage.Value),
-					EventCount: usage.EventCount,
-				}
-				require.Samef(t, stored, entitlementvalue.ResolveCurrentWindowUsage(stored, &start.Time, window),
-					"instance %q: its %q usage row is dated %s, outside the current window", inst.Slug, slug, start.Time)
+				// The seed writes the counter through
+				// reportentitlementusagemetric.WriteSnapshot, which dates it in the
+				// window that is current when it runs, so the read path takes it
+				// for the current window's usage. That window has to resolve.
+				_, err := period.Current(now, *ent.ResetPeriod, *ent.ResetAnchor, now)
+				require.NoErrorf(t, err, "instance %q: no current window for its %q usage", inst.Slug, slug)
 			}
 		}
 	}

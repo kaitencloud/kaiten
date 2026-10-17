@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import {
   sanitizeAdvancedRule,
   sanitizeDefaultNormalFilters,
+  sanitizeInitialValues,
   sanitizePinnedFilters,
   sanitizeQuickAccessFilters,
 } from '../logic/filter-builder-defaults';
@@ -12,6 +13,7 @@ export const useFilterBuilderConfig = <T>({
   fields,
   defaultAdvancedRules,
   defaultNormalFilterIds,
+  initialNormalValues,
   pinnedFilterIds,
   quickAccessFilterIds,
 }: Pick<
@@ -19,6 +21,7 @@ export const useFilterBuilderConfig = <T>({
   | 'fields'
   | 'defaultAdvancedRules'
   | 'defaultNormalFilterIds'
+  | 'initialNormalValues'
   | 'pinnedFilterIds'
   | 'quickAccessFilterIds'
 >) => {
@@ -74,13 +77,23 @@ export const useFilterBuilderConfig = <T>({
     () => resolveFieldIdSet(normalFilterableFields),
     [normalFilterableFields],
   );
+  const sanitizedInitialValues = useMemo(
+    () => sanitizeInitialValues(initialNormalValues, normalFieldIdSet),
+    [initialNormalValues, normalFieldIdSet],
+  );
+  const alwaysShownIds = useMemo(
+    () => [...sanitizedPinnedIds, ...sanitizedQuickAccessIds],
+    [sanitizedPinnedIds, sanitizedQuickAccessIds],
+  );
 
   return {
     advancedFilterableFields,
+    alwaysShownIds,
     defaultActiveFilterIds,
     normalFieldIdSet,
     normalFilterableFields,
     sanitizedDefaultAdvancedRules,
+    sanitizedInitialValues,
     sanitizedPinnedIds,
     sanitizedQuickAccessIds,
   };

@@ -34,6 +34,13 @@ func NewMiddleware(p provisioner) fiber.Handler {
 			return c.Next()
 		}
 
+		// A publishable key and a customer session name their organization by
+		// id -- and a session its actor -- so there is nothing to provision: the
+		// authenticator that built them has already resolved everything.
+		if identity.Kind == principal.KindPublishableKey || identity.Kind == principal.KindCustomerSession {
+			return c.Next()
+		}
+
 		if identity.UserID != uuid.Nil && identity.OrganizationID != uuid.Nil {
 			return c.Next()
 		}

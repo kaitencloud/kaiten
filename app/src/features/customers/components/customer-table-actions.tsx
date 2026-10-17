@@ -3,6 +3,7 @@ import { useRouteContext } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { deleteCustomerMutation } from '@/api-client/@tanstack/react-query.gen';
+import { useDeletionRefusal } from '@/domains/billing';
 import {
   TableActions,
   TableDeleteDialog,
@@ -20,6 +21,8 @@ export const CustomerTableActions = ({
 }: CustomerTableActionsProps) => {
   const { t } = useTranslation();
   const { queryClient } = useRouteContext({ from: '__root__' });
+  // A customer that bills cannot be deleted: the dialog says what to settle first.
+  const deletion = useDeletionRefusal(customer.slug);
 
   const deleteMutation = useMutation({
     ...deleteCustomerMutation(),
@@ -27,8 +30,10 @@ export const CustomerTableActions = ({
       toast.success(t('Pages.Customers.Mutation.deleteSuccess'));
       await forgetDeletedCustomerQueries(queryClient, customer.slug!);
     },
-    onError: () => {
-      toast.error(t('Common.deleteError', 'Error deleting customer'));
+    onError: (error) => {
+      if (!deletion.showRefusal(error)) {
+        toast.error(t('Common.deleteError', 'Error deleting customer'));
+      }
     },
   });
 
@@ -47,6 +52,7 @@ export const CustomerTableActions = ({
       ) : (
         <TableDeleteDialog name={customer.name} onConfirm={handleConfirm} />
       )}
+      {deletion.dialog}
     </TableActions>
   );
 };

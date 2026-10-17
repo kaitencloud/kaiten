@@ -22,10 +22,10 @@ test('creates a user-facing entitlement', async ({ page }) => {
   await form.userFacingToggle().click();
   await form.clickNext();
   await form.submitButton().click();
-  await expect(page).toHaveURL('/entitlements/public-feature');
+  await expect(page).toHaveURL('/catalog/entitlements/public-feature');
 
   // Round-trip: the configure wizard reflects the stored flag on its first step.
-  await page.goto('/entitlements/public-feature?mode=configure');
+  await page.goto('/catalog/entitlements/public-feature?mode=configure');
   await expect(form.userFacingToggle()).toBeChecked();
 });
 
@@ -36,15 +36,15 @@ test('defaults to not user facing and can be enabled on edit', async ({
   const form = new EntitlementFormDriver(page);
 
   await installEntitlementAppMocks(page, model);
-  await page.goto('/entitlements/priority-support?mode=configure');
+  await page.goto('/catalog/entitlements/priority-support?mode=configure');
 
   await expect(form.userFacingToggle()).not.toBeChecked();
   await form.userFacingToggle().click();
   // A BOOLEAN entitlement has no type step, so the update button lives on the
   // single identity step — no need to advance the wizard.
   await form.updateButton().click();
-  await expect(page).toHaveURL('/entitlements/priority-support');
+  await expect(page).toHaveURL('/catalog/entitlements/priority-support');
 
-  await page.goto('/entitlements/priority-support?mode=configure');
+  await page.goto('/catalog/entitlements/priority-support?mode=configure');
   await expect(form.userFacingToggle()).toBeChecked();
 });

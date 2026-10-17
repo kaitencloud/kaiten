@@ -1,9 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { expect, screen, userEvent, waitFor, within } from 'storybook/test';
 import { Button } from '@/components/ui/button';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
 import CheckboxField from '../checkbox-field';
 import ComboboxField from '../combobox-field';
 import DatePickerField from '../date-picker-field';
+import DateTimeField from '../date-time-field';
+import MoneyField from '../money-field';
 import NumberField from '../number-field';
 import SelectField from '../select-field';
 import TextField from '../text-field';
@@ -222,6 +225,89 @@ export const NumberFieldExample: Story = {
   },
 };
 
+// A price per sale unit has decimals a float cannot hold: the field keeps the
+// string that was typed.
+export const MoneyFieldExample: Story = {
+  render: function MoneyFieldExampleStory() {
+    const form = useAppForm({
+      defaultValues: {
+        unitPrice: '',
+      },
+      onSubmit: async ({ value }) => {
+        alert(JSON.stringify(value, null, 2));
+      },
+    });
+
+    return (
+      <div className="max-w-md">
+        <form onSubmit={createFormSubmitHandler(form.handleSubmit)}>
+          <form.AppField name="unitPrice">
+            {() => (
+              <MoneyField
+                currency="USD"
+                label="Unit price"
+                placeholder="0.00"
+                description="Per sale unit, in dollars"
+              />
+            )}
+          </form.AppField>
+          <Button type="submit" className="mt-4">
+            Submit
+          </Button>
+        </form>
+      </div>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const input = await canvas.findByLabelText('Unit price');
+
+    await userEvent.type(input, '0.0750000001');
+
+    await expect(input).toHaveValue('0.0750000001');
+    await expect(canvas.getByText('USD')).toBeVisible();
+  },
+};
+
+// A date and a time with the browser's own control. The field holds the text the
+// control holds, with no zone: the label says which zone it is read in.
+export const DateTimeFieldExample: Story = {
+  render: function DateTimeFieldExampleStory() {
+    const form = useAppForm({
+      defaultValues: {
+        paidAt: '',
+      },
+      onSubmit: async ({ value }) => {
+        alert(JSON.stringify(value, null, 2));
+      },
+    });
+
+    return (
+      <div className="max-w-md">
+        <form onSubmit={createFormSubmitHandler(form.handleSubmit)}>
+          <form.AppField name="paidAt">
+            {() => (
+              <DateTimeField
+                description="Now or earlier. Leave it empty for now."
+                label="Paid at (UTC)"
+              />
+            )}
+          </form.AppField>
+        </form>
+      </div>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const input = await canvas.findByLabelText('Paid at (UTC)');
+
+    await userEvent.type(input, '2027-03-03T10:00');
+
+    await expect(input).toHaveValue('2027-03-03T10:00');
+    await expect(input).toHaveAttribute('type', 'datetime-local');
+  },
+};
+
 export const CheckboxFieldExample: Story = {
   render: function CheckboxFieldExampleStory() {
     const form = useAppForm({
@@ -290,6 +376,28 @@ export const SelectFieldExample: Story = {
           </Button>
         </form>
       </div>
+    );
+  },
+};
+
+// The list a select opens is a listbox of its own, in a portal. It carries the name of the
+// field, and the story leaves it open so that the accessibility check reads it open.
+export const SelectFieldOpen: Story = {
+  ...SelectFieldExample,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('combobox', { name: 'Role' }));
+    const listbox = await screen.findByRole('listbox', { name: 'Role' });
+    // The list fades in and zooms in: the accessibility check reads it once it has come to
+    // rest, with its final opacity, and not part-way.
+    await waitFor(() =>
+      expect(
+        within(listbox).getByRole('option', { name: 'Guest' }),
+      ).toBeVisible(),
+    );
+    const popup = listbox.closest('[data-slot="select-content"]');
+    await Promise.all(
+      (popup?.getAnimations() ?? []).map((animation) => animation.finished),
     );
   },
 };

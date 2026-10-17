@@ -14,7 +14,8 @@ import type {
   NotificationObjectType,
   NotificationStatusFilter,
 } from '../types';
-import { NOTIFICATIONS_GRID, NotificationRow } from './notification-row';
+import { NotificationDayGroup } from './notification-day-group';
+import { NOTIFICATIONS_GRID } from './notification-row';
 
 interface NotificationsFeedListProps {
   status: NotificationStatusFilter;
@@ -133,33 +134,13 @@ export function NotificationsFeedList({
     void feedQuery.fetchNextPage();
   };
 
-  function renderRow(notification: Notification) {
-    return (
-      <NotificationRow
-        key={notification.id}
-        notification={notification}
-        onSelect={openNotification}
-      />
-    );
-  }
-
   function renderGroup(group: DayGroup<Notification>) {
     return (
-      <section key={group.key} className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 px-1 py-1">
-          <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            {group.heading}
-          </h3>
-          <span className="text-xs text-muted-foreground/50">
-            {t('Pages.Notifications.feed.eventsCount', {
-              count: group.entries.length,
-            })}
-          </span>
-        </div>
-        <div className="flex flex-col gap-1">
-          {group.entries.map(renderRow)}
-        </div>
-      </section>
+      <NotificationDayGroup
+        key={group.key}
+        group={group}
+        onSelect={openNotification}
+      />
     );
   }
 

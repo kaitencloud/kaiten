@@ -22,6 +22,7 @@ describe('licenseVersionFormValuesToLicenseInput', () => {
     const result = licenseVersionFormValuesToLicenseInput(
       {
         baseLicenseSlug: baseLicense.slug!,
+        copyPrices: true,
         createAsDraft: false,
         description: 'Updated description',
         selectedFamilyId: 'family-enterprise',
@@ -44,6 +45,7 @@ describe('licenseVersionFormValuesToLicenseInput', () => {
     const result = licenseVersionFormValuesToLicenseInput(
       {
         baseLicenseSlug: baseLicense.slug!,
+        copyPrices: true,
         createAsDraft: false,
         description: 'New version',
         selectedFamilyId: 'family-enterprise',
@@ -59,6 +61,7 @@ describe('licenseVersionFormValuesToLicenseInput', () => {
     const result = licenseVersionFormValuesToLicenseInput(
       {
         baseLicenseSlug: baseLicense.slug!,
+        copyPrices: true,
         createAsDraft: false,
         description: 'New version',
         selectedFamilyId: 'family-enterprise',
@@ -76,6 +79,7 @@ describe('licenseVersionFormValuesToLicenseInput', () => {
     const result = licenseVersionFormValuesToLicenseInput(
       {
         baseLicenseSlug: baseLicense.slug!,
+        copyPrices: true,
         createAsDraft: true,
         description: 'Next version',
         selectedFamilyId: 'family-enterprise',
@@ -94,6 +98,7 @@ describe('licenseVersionFormSchema', () => {
     const result = licenseVersionFormSchema.safeParse({
       baseLicenseSlug: 'enterprise-v2',
       baseVersion: '2.4',
+      copyPrices: true,
       createAsDraft: false,
       description: 'New version',
       selectedFamilyId: '',
@@ -117,6 +122,7 @@ describe('licenseVersionFormSchema', () => {
     const result = licenseVersionFormSchema.safeParse({
       baseLicenseSlug: 'enterprise-v2',
       baseVersion: '2.4',
+      copyPrices: true,
       createAsDraft: false,
       description: 'New version',
       selectedFamilyId: 'family-enterprise',

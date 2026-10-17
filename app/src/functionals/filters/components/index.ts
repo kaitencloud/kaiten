@@ -18,4 +18,8 @@ export {
   FilterToolbarQuickAccessFilters,
   useFilterToolbarContext,
 } from './toolbar';
-export { FILTER_MULTI_SELECT_SEPARATOR, FilterMultiSelect } from './shared';
+export {
+  FILTER_MULTI_SELECT_SEPARATOR,
+  FilterChip,
+  FilterMultiSelect,
+} from './shared';

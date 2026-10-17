@@ -37,7 +37,7 @@ Two scripts cover most days:
 | Script | What it does |
 | --- | --- |
 | `generate` | Runs `generate-api-sdk`, then `generate-graphql`. **This is the one to run.** |
-| `generate-api-sdk` | Generates the REST client (types, SDK, Zod schemas, TanStack Query options) from `app/openapi.yaml` into `src/api-client`, through the `@kaiten/api-codegen` workspace package. The same package then writes `src/lib/api/scopes.gen.ts`, the list of scopes a service account can hold. |
+| `generate-api-sdk` | Generates the REST client (types, SDK, Zod schemas, TanStack Query options) from `app/openapi.yaml` into `src/api-client`, through the `@kaiten/api-codegen` workspace package. The same package then writes `src/lib/api/scopes.gen.ts`, the list of scopes a service account can hold, and `src/lib/api/operation-scopes.gen.ts`, the scope each operation requires. |
 | `generate-graphql` | Generates the GraphQL client into `src/api-client/graphql` from the schemas under `api/internal`. |
 
 `generate-api-sdk` on its own deletes `src/api-client/graphql`: the REST generator

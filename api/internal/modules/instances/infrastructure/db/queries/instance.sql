@@ -408,3 +408,29 @@ FROM deployment d
 WHERE d.organization_id = sqlc.arg(organization_id)
   AND d.release_id = ANY (sqlc.arg(release_ids)::uuid[])
 ORDER BY d.release_id, i.id, d.created_at DESC;
+
+
+-- name: GetInstanceBillingBlock :one
+-- What keeps an instance from being deleted: its subscription's status, and
+-- its invoices not settled yet. No row when it was never subscribed.
+SELECT ib.status::text AS status,
+       coalesce(array(SELECT inv.id
+                        FROM instance_invoice inv
+                       WHERE inv.instance_billing_id = ib.id
+                         AND inv.status IN ('DRAFT', 'PUSHED', 'PUSH_FAILED', 'MANUAL', 'PAYMENT_FAILED')
+                       ORDER BY inv.boundary_at),
+                '{}')::uuid[] AS unpaid_invoice_ids
+FROM instance_billing ib
+JOIN instance i ON i.id = ib.instance_id
+WHERE i.organization_id = sqlc.arg(organization_id)
+  AND i.slug = sqlc.arg(slug);
+
+
+-- name: LockInstanceForDelete :one
+-- The instance a delete names, locked first: a subscribe that starts
+-- meanwhile waits, then finds it gone.
+SELECT i.id
+FROM instance i
+WHERE i.organization_id = sqlc.arg(organization_id)
+  AND i.slug = sqlc.arg(slug)
+FOR UPDATE;

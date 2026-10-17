@@ -50,3 +50,4 @@ export {
   expectPageHeading,
   expectToast,
 } from './assertions/toast';
+export { type RecordedWrite, recordWrites } from './assertions/requests';
