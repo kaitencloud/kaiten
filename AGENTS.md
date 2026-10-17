@@ -19,7 +19,7 @@ Codex; `CLAUDE.md` imports it for Claude Code. Human contributors: start with
 
 ## Install and run
 
-- Prerequisites are listed in `README.md`. Node 24 is pinned in `app/.nvmrc`;
+- Prerequisites are listed in `DEVELOPMENT.md`. Node 24 is pinned in `app/.nvmrc`;
   pnpm is pinned by the `packageManager` field of the root `package.json`.
 - Install the workspace once, from the repository root: `pnpm install`.
 - `cp .env.example .env`, then `task dev`: the whole backend stack in Docker,

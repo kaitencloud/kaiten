@@ -10,7 +10,7 @@ lives in PostgreSQL, accessed through sqlc. Code is organised as
 `internal/modules/<module>/<usecase>/`.
 
 Prerequisites, the local stack and the pull request checklist are in the
-[repository README](../README.md) and [CONTRIBUTING.md](../CONTRIBUTING.md).
+[DEVELOPMENT.md](../DEVELOPMENT.md) and [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Layout
 
