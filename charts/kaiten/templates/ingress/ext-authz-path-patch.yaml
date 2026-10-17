@@ -18,6 +18,16 @@
   for the compose stack: it routes the check through an internal listener
   that rewrites any path to the constant /api/tokens/validate.
 
+  NO LONGER REQUIRED
+  ------------------
+  From kaiten 26.10.6 the API answers the check under any suffix as well
+  (validatetoken.RegisterEndpoint), so an unpinned check validates the same
+  token the same way and this patch is not needed. It stays harmless where it
+  is enabled, and is kept until every installation runs an API that answers
+  under the prefix; then it can be disabled and removed. It addressed the
+  ext_authz filter by its index in a shared listener, which moves whenever a
+  SecurityPolicy on that listener is added or renamed.
+
   BEFORE YOU ENABLE THIS
   ----------------------
   Disabled by default, and deliberately so. EnvoyPatchPolicy patches

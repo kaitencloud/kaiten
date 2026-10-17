@@ -74,37 +74,47 @@ func TestRegisterEndpoint_AllowsEveryMethodWith200(t *testing.T) {
 	}
 }
 
-// TestRegisterEndpoint_ExposesExactlyOnePath is the regression guard for the
-// auth-bypassing surface this endpoint opens. isPublicAPIPath allowlists
-// "/api/tokens/validate" so Envoy's ext_authz can call it without recursing
-// through ext_authz itself; both proxies rewrite the check request's path to
-// that constant (see RegisterEndpoint). Nothing under the prefix may answer
-// — re-adding a wildcard route here would hand every path below it the same
-// middleware bypass.
-func TestRegisterEndpoint_ExposesExactlyOnePath(t *testing.T) {
-	app := fiber.New()
-	group := app.Group("/api")
-	RegisterEndpoint(group, &stubUseCase{resp: &ValidationResponse{Valid: true, JWTToken: "signed.jwt.token"}})
-
-	// "/api/tokens/validate/" is absent on purpose: Fiber is not in strict
-	// routing mode, so the trailing-slash form is the SAME route, not an
-	// extra one. isPublicAPIPath still matches the canonical path only, so
-	// that alias stays behind the auth middleware.
-	for _, path := range []string{
-		"/api/tokens/validate/mcp/some/tool",
+// TestRegisterEndpoint_AnswersTheSameUnderAnySuffix is the ext_authz contract
+// as the proxies actually call it: Envoy and Envoy Gateway only PREPEND the check
+// path, so the check for a ksh_ request to /api/customers arrives at
+// /api/tokens/validate/api/customers. Every such path must validate exactly as
+// the canonical one does -- the same 200 and identity JWT, or the same 401 --
+// and the suffix must change nothing.
+func TestRegisterEndpoint_AnswersTheSameUnderAnySuffix(t *testing.T) {
+	paths := []string{
+		"/api/tokens/validate",
+		"/api/tokens/validate/api/customers",
 		"/api/tokens/validate/api/instances/acme/entitlements/seats/usage",
-	} {
-		t.Run(path, func(t *testing.T) {
-			req := httptest.NewRequest("GET", path, nil)
-			req.Header.Set("Authorization", "Bearer ksh_test-token")
+		"/api/tokens/validate/mcp/some/tool",
+	}
 
+	t.Run("a valid token mints the identity JWT on every path", func(t *testing.T) {
+		app := fiber.New()
+		RegisterEndpoint(app.Group("/api"), &stubUseCase{resp: &ValidationResponse{Valid: true, JWTToken: "signed.jwt.token"}})
+		for _, path := range paths {
+			for _, method := range []string{"GET", "POST", "DELETE"} {
+				req := httptest.NewRequest(method, path, nil)
+				req.Header.Set("Authorization", "Bearer ksh_test-token")
+				resp, err := app.Test(req)
+				require.NoError(t, err)
+				require.Equal(t, 200, resp.StatusCode, "%s %s", method, path)
+				require.Equal(t, "Bearer signed.jwt.token", resp.Header.Get("Authorization"), "%s %s", method, path)
+			}
+		}
+	})
+
+	t.Run("an invalid token is refused on every path", func(t *testing.T) {
+		app := fiber.New(fiber.Config{ErrorHandler: fiberapi.SetErrorHandler()})
+		RegisterEndpoint(app.Group("/api"), &stubUseCase{resp: &ValidationResponse{Valid: false, Error: "invalid token"}})
+		for _, path := range paths {
+			req := httptest.NewRequest("GET", path, nil)
+			req.Header.Set("Authorization", "Bearer ksh_wrong")
 			resp, err := app.Test(req)
 			require.NoError(t, err)
-			require.Equal(t, 404, resp.StatusCode)
-			require.Empty(t, resp.Header.Get("Authorization"),
-				"a non-canonical path must never mint an identity JWT")
-		})
-	}
+			require.Equal(t, 401, resp.StatusCode, path)
+			require.Empty(t, resp.Header.Get("Authorization"), "a refused token never mints an identity JWT (%s)", path)
+		}
+	})
 }
 
 // One error shape for the whole service: a bespoke `{"error": "..."}` body is
