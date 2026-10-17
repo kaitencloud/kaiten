@@ -284,6 +284,19 @@ func TestCoreSurfacesStayOnTheCoreListener(t *testing.T) {
 		t.Error("the token-validation route is registered on the internal listener")
 	}
 
+	// Everything under /api/tokens/validate/ is public (IsPublicAPIPath), because
+	// ext_authz checks arrive with the request path appended. That is safe only
+	// while the validation handler is the ONLY route there: anything else
+	// registered under the prefix would answer without authentication.
+	for _, route := range core {
+		if _, path, _ := strings.Cut(route, " "); strings.HasPrefix(path, "/api/tokens/validate/") && path != "/api/tokens/validate/*" {
+			t.Errorf("%s is registered under /api/tokens/validate/, which is public: only the token-validation route may live there", route)
+		}
+	}
+	if !containsPath(core, "/api/tokens/validate/*") {
+		t.Errorf("the token-validation route does not answer under its prefix; got %#v", core)
+	}
+
 	// Dapr subscriber routes likewise: the sidecar delivers to the app port.
 	if !containsPrefix(core, "/dapr") {
 		t.Errorf("no /dapr route on the public listener; got %#v", core)

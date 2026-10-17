@@ -3,6 +3,7 @@ package identity_test
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -75,6 +76,22 @@ func TestValidateTokenOnServiceAccount(t *testing.T) {
 
 		token, _, err := jwt.NewParser().ParseUnverified(jwtToken, jwt.MapClaims{})
 		require.NoError(t, err, "JWT should be parseable")
+
+		// The gateway checks a ksh_ request with its path appended (Envoy's
+		// ext_authz only prepends a check path): through the whole server, auth
+		// middleware included, that path validates the same token the same way.
+		for _, suffixed := range []string{"/api/tokens/validate/api/customers", "/api/tokens/validate/api/webhooks"} {
+			for _, method := range []string{"GET", "POST"} {
+				req := commonfixture.NewJSONRequest(t, method, suffixed, nil, map[string]string{
+					"Authorization": fmt.Sprintf("Bearer %s", output.Value),
+				})
+				resp, err := testServer.App.Test(req, fiber.TestConfig{})
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, resp.StatusCode, "%s %s", method, suffixed)
+				require.True(t, strings.HasPrefix(resp.Header.Get("Authorization"), "Bearer "), "%s %s mints the identity JWT", method, suffixed)
+				commonfixture.MustCloseBody(t, resp.Body)
+			}
+		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		require.True(t, ok, "claims should be MapClaims")

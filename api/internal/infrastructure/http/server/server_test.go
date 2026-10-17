@@ -25,11 +25,13 @@ func TestIsPublicAPIPath(t *testing.T) {
 		expected bool
 	}{
 		{name: "token validate", path: "/api/tokens/validate", expected: true},
-		// The proxy rewrites every ext_authz check to the exact path above,
-		// so nothing under that prefix may bypass auth (see
-		// validatetoken.RegisterEndpoint).
-		{name: "token validate suffix is not public", path: "/api/tokens/validate/mcp/some/tool", expected: false},
-		{name: "token validate trailing slash is not public", path: "/api/tokens/validate/", expected: false},
+		// ext_authz checks arrive with the original path appended, and the
+		// validation handler is the only route under the prefix (see
+		// validatetoken.RegisterEndpoint and server_boundary_test).
+		{name: "token validate with the request path appended", path: "/api/tokens/validate/api/customers", expected: true},
+		{name: "token validate trailing slash", path: "/api/tokens/validate/", expected: true},
+		{name: "a look-alike prefix is not public", path: "/api/tokens/validatex", expected: false},
+		{name: "the tokens collection is not public", path: "/api/tokens", expected: false},
 		{name: "openapi", path: "/api/openapi", expected: true},
 		{name: "docs root", path: "/api/docs", expected: true},
 		{name: "docs asset", path: "/api/docs/swagger-ui.css", expected: true},
