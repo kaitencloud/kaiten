@@ -28,7 +28,7 @@ the `packageManager` field, so there is nothing else to pick:
 corepack enable
 ```
 
-The root [README](../../../README.md#prerequisites) has the Homebrew commands for
+The root [DEVELOPMENT.md](../../../DEVELOPMENT.md#prerequisites) has the Homebrew commands for
 macOS. [CONTRIBUTING.md](../../../CONTRIBUTING.md#setting-up) covers Linux and
 Windows (WSL 2), and what to run by hand if you manage Node without nvm.
 
@@ -78,7 +78,7 @@ task dev
    from `KAITEN_PORT`, so the console talks to this stack's own API.
 
 Open <http://localhost:3000>, choose an organization and a user in the dev account
-switcher, and the console loads. The root README lists the other tasks
+switcher, and the console loads. The root DEVELOPMENT.md lists the other tasks
 (`task up`, `task down`, `task reset`, `task test:app`) and how to run a second
 stack.
 
@@ -178,7 +178,7 @@ If something is off:
 | "No dev tokens found" | The stack is not running, or started after the dev server. Run `task up`, then restart the dev server. |
 | `@/api-client/...` imports do not resolve | The client is not generated. Run `pnpm run generate` in `app/`. |
 | Every request is blocked by CORS | The app origin differs from `KAITEN_APP_URL`. See [Ports](#ports). |
-| Every request fails with `ERR_UNSAFE_PORT` | `KAITEN_PORT` is on a port browsers refuse, such as 6000. The root README explains, and `.env.example` defaults to 6060. |
+| Every request fails with `ERR_UNSAFE_PORT` | `KAITEN_PORT` is on a port browsers refuse, such as 6000. The root DEVELOPMENT.md explains, and `.env.example` defaults to 6060. |
 
 ## Sign-in with Clerk
 
@@ -192,7 +192,7 @@ A production build contains no dev tokens (`virtual:dev-tokens` resolves to an
 empty list in `app/vite.config.ts`), so the dev switcher is a local-development
 tool only: do not set `VITE_LOCAL_AUTH` in a build you deploy. How the API side
 verifies the tokens of an identity provider is described under
-[Authentication](../../../README.md#authentication) in the root README.
+[Authentication](../../../DEVELOPMENT.md#authentication) in the root DEVELOPMENT.md.
 
 ## Next
 

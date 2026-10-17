@@ -124,5 +124,5 @@ development: the dev server runs on the host. See [Docker](./docs/07-deployment/
 
 [`docs/`](./docs/README.md) covers the architecture, conventions, patterns, testing
 and deployment of the console. The repository root has the
-[README](../README.md), [CONTRIBUTING.md](../CONTRIBUTING.md) and
+[README](../README.md), [DEVELOPMENT.md](../DEVELOPMENT.md), [CONTRIBUTING.md](../CONTRIBUTING.md) and
 [AGENTS.md](../AGENTS.md).
