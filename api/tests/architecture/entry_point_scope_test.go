@@ -592,9 +592,10 @@ var publicFiberRoutes = map[string]string{
 
 	// This route *is* the authentication step: ext_authz calls it to exchange a
 	// `ksh_` for the internal JWT every other route requires, so a scope here
-	// would be circular. One entry, not two -- the proxy rewrites every check
-	// request to this exact path.
-	"ALL /tokens/validate": "the token-exchange endpoint itself; requiring a scope would be circular",
+	// would be circular. Two entries, one handler: proxies append the original
+	// request path to the check path, so the check also arrives under the prefix.
+	"ALL /tokens/validate":   "the token-exchange endpoint itself; requiring a scope would be circular",
+	"ALL /tokens/validate/*": "the same token-exchange endpoint, reached with the request path appended by ext_authz",
 
 	// The /dapr group is created before any auth middleware, so sidecar traffic
 	// never enters the identity pipeline. One route for the whole CDC stream
