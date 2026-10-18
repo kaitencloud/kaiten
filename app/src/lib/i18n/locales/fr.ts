@@ -49,6 +49,10 @@ export default {
       dateDialog: 'Choisir une date',
       dateTimeDialog: 'Choisir une date et une heure',
       timeUtc: 'Heure (UTC)',
+      timeUtcWithLocal:
+        'Heure (UTC), votre heure locale est affichée ci-dessous',
+      localEquivalent: '= {{time}} à {{place}} ({{zone}})',
+      localEquivalentNoPlace: '= {{time}} ({{zone}})',
       timeInvalid: 'Utilisez le format HH:mm, par exemple 09:30.',
     },
     all: 'Tous',

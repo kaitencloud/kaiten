@@ -45,6 +45,11 @@ type DatePickerShellProps = DatePickerTriggerProps & {
    */
   value: string;
   placeholder: string;
+  /**
+   * A line under the button that adds to the value (the same moment in another
+   * zone). It is part of the description of the button, read after the value.
+   */
+  hint?: string;
   /** The name of the calendar once it is open. */
   dialogLabel: string;
   onClear: () => void;
@@ -57,12 +62,14 @@ type DatePickerShellProps = DatePickerTriggerProps & {
  * The button and the popover every date picker of the console shares: the value
  * (or a placeholder) on the button, the calendar in the popover, and a way to
  * clear the value. The value is the description of the button, read after the
- * name the label gives it, since a button announces its name and not its text.
+ * name the label gives it, since a button announces its name and not its text;
+ * so is the hint, when there is one.
  */
 export function DatePickerShell({
   text,
   value,
   placeholder,
+  hint,
   dialogLabel,
   onClear,
   onClose,
@@ -74,6 +81,7 @@ export function DatePickerShell({
 }: DatePickerShellProps) {
   const { t } = useTranslation();
   const textId = useId();
+  const hintId = useId();
   const popupRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
 
@@ -93,62 +101,75 @@ export function DatePickerShell({
   };
 
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="outline"
-            data-value={value}
-            {...triggerProps}
-            aria-describedby={
-              [describedBy, textId].filter(Boolean).join(' ') || undefined
-            }
-            // The popup takes the focus when it opens: a button left that way
-            // is not a field the person has finished with.
-            onBlur={open ? undefined : onBlur}
-            className={cn(
-              'w-full justify-start border text-left font-normal',
-              !text && 'text-muted-foreground',
-              className,
-            )}
-          >
-            <CalendarIcon aria-hidden="true" className="size-4" />
-            <span className="truncate" id={textId}>
-              {text ?? placeholder}
-            </span>
-          </Button>
-        }
-      />
-      <PopoverContent
-        align="start"
-        aria-label={dialogLabel}
-        className="w-auto p-0"
-        // Keyboard focus starts on a day of the calendar (the chosen one, else
-        // today) and not on the first button of the header, so the arrow keys
-        // work at once.
-        initialFocus={() =>
-          popupRef.current?.querySelector<HTMLElement>(
-            'button[data-day][tabindex="0"]',
-          ) ?? true
-        }
-        ref={popupRef}
-      >
-        {children({ close: () => handleOpenChange(false) })}
-        {/* Always there, so the popover keeps its height when a day is picked
+    <>
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger
+          render={
+            <Button
+              variant="outline"
+              data-value={value}
+              {...triggerProps}
+              aria-describedby={
+                [describedBy, textId, hint ? hintId : undefined]
+                  .filter(Boolean)
+                  .join(' ') || undefined
+              }
+              // The popup takes the focus when it opens: a button left that way
+              // is not a field the person has finished with.
+              onBlur={open ? undefined : onBlur}
+              className={cn(
+                'w-full justify-start border text-left font-normal',
+                !text && 'text-muted-foreground',
+                className,
+              )}
+            >
+              <CalendarIcon aria-hidden="true" className="size-4" />
+              <span className="truncate" id={textId}>
+                {text ?? placeholder}
+              </span>
+            </Button>
+          }
+        />
+        <PopoverContent
+          align="start"
+          aria-label={dialogLabel}
+          className="w-auto p-0"
+          // Keyboard focus starts on a day of the calendar (the chosen one, else
+          // today) and not on the first button of the header, so the arrow keys
+          // work at once.
+          initialFocus={() =>
+            popupRef.current?.querySelector<HTMLElement>(
+              'button[data-day][tabindex="0"]',
+            ) ?? true
+          }
+          ref={popupRef}
+        >
+          {children({ close: () => handleOpenChange(false) })}
+          {/* Always there, so the popover keeps its height when a day is picked
             and the controls above do not move under the pointer. */}
-        <div className="border-t p-2">
-          <Button
-            className="w-full"
-            disabled={!value}
-            onClick={clear}
-            size="sm"
-            variant="ghost"
-          >
-            {t('Common.clear')}
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
+          <div className="border-t p-2">
+            <Button
+              className="w-full"
+              disabled={!value}
+              onClick={clear}
+              size="sm"
+              variant="ghost"
+            >
+              {t('Common.clear')}
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+      {hint ? (
+        <p
+          className="text-muted-foreground -mt-1 text-[0.8rem]"
+          data-slot="date-picker-hint"
+          id={hintId}
+        >
+          {hint}
+        </p>
+      ) : null}
+    </>
   );
 }
 

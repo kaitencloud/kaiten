@@ -19,7 +19,16 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof DateTimePicker>;
 
-function DateTimePickerExample({ initial }: { initial: string }) {
+// The stories pin the zone of the clock, UTC unless one says otherwise: the local
+// time shown under the picker is the one of the browser, which differs from
+// machine to machine.
+function DateTimePickerExample({
+  initial,
+  localTimeZone = 'UTC',
+}: {
+  initial: string;
+  localTimeZone?: string;
+}) {
   const [value, setValue] = useState(initial);
 
   return (
@@ -27,7 +36,12 @@ function DateTimePickerExample({ initial }: { initial: string }) {
       <label className="text-sm font-medium" htmlFor="moment">
         Starts (UTC)
       </label>
-      <DateTimePicker id="moment" onChange={setValue} value={value} />
+      <DateTimePicker
+        id="moment"
+        localTimeZone={localTimeZone}
+        onChange={setValue}
+        value={value}
+      />
       <p className="text-muted-foreground text-xs">
         Holds: <code>{value || '(empty)'}</code>
       </p>
@@ -59,6 +73,54 @@ export const WithMoment: Story = {
     const trigger = await canvas.findByLabelText('Starts (UTC)');
 
     await expect(trigger).toHaveTextContent('Dec 31, 2027, 23:59');
+  },
+};
+
+// The browser's clock is not UTC (here Paris): the moment is also worded on it,
+// under the button and under the time field, as a person who types the hour on
+// their own clock reads it. The value stays the UTC text.
+export const WithLocalTime: Story = {
+  args: { onChange: () => {}, value: '' },
+  render: () => (
+    <DateTimePickerExample
+      initial="2027-03-03T10:00"
+      localTimeZone="Europe/Paris"
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = await canvas.findByLabelText('Starts (UTC)');
+
+    await expect(canvas.getByText('= 11:00 in Paris (CET)')).toBeVisible();
+    await expect(trigger).toHaveAccessibleDescription(
+      'Mar 3, 2027, 10:00 = 11:00 in Paris (CET)',
+    );
+    await expect(pickerValue(trigger)).toBe('2027-03-03T10:00');
+
+    await userEvent.click(trigger);
+    const time = await within(document.body).findByLabelText(
+      'Time (UTC), your local time is shown below',
+    );
+
+    await expect(time).toHaveAccessibleDescription('= 11:00 in Paris (CET)');
+  },
+};
+
+// When the day is not the UTC day on that clock, the hint says which one it is.
+export const WithLocalTimeOnAnotherDay: Story = {
+  args: { onChange: () => {}, value: '' },
+  render: () => (
+    <DateTimePickerExample
+      initial="2027-03-03T20:30"
+      localTimeZone="Asia/Tokyo"
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(
+      await canvas.findByText('= Mar 4, 05:30 in Tokyo (GMT+9)'),
+    ).toBeVisible();
   },
 };
 

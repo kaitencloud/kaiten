@@ -7,6 +7,7 @@ import {
 } from '@/components/date-picker-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { getAppLocale } from '@/lib/app-locale';
 import {
   dateTimeInputToInstant,
   isTimeOfDay,
@@ -16,6 +17,11 @@ import {
   splitDateTimeInput,
 } from '@/lib/date-time-input';
 import { formatDateTime } from '@/lib/format-date';
+import {
+  browserTimeZone,
+  isUtcZone,
+  localTimeHint,
+} from '@/lib/local-time-hint';
 
 const MIDNIGHT = '00:00';
 
@@ -24,6 +30,12 @@ type DateTimePickerProps = DatePickerTriggerProps & {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  /**
+   * The zone the local equivalent of the moment is shown in. It is the zone of
+   * the clock of the browser unless a story or a test sets one; nothing is
+   * shown in UTC.
+   */
+  localTimeZone?: string;
 };
 
 /**
@@ -38,11 +50,17 @@ type DateTimePickerProps = DatePickerTriggerProps & {
  * validation refuses, and the button shows it, marked invalid. The same goes for
  * a text a form hands in that is not a moment: it shows as it is, and stays until
  * the person picks one.
+ *
+ * The moment is UTC and the person's clock is not: next to it the picker says
+ * what it is on the clock of the browser (`= 18:21 in Paris (CEST)`), under the
+ * button and under the time field, and only when that clock is not UTC. It is
+ * words about the value, never part of it.
  */
 export function DateTimePicker({
   value,
   onChange,
   placeholder,
+  localTimeZone,
   ...props
 }: DateTimePickerProps) {
   const { t } = useTranslation();
@@ -59,6 +77,13 @@ export function DateTimePicker({
   );
   const draft = typed && typed.value === value ? typed.text : null;
   const time = draft ?? parts?.time ?? '';
+  const zone = localTimeZone ?? browserTimeZone();
+  const showsLocalTime = zone !== null && !isUtcZone(zone);
+  // The button says what the value holds; the popover what the time being typed
+  // makes of it, as soon as it is a time.
+  const typedTime = day ? parseTimeOfDay(time) : null;
+  const localHint = (utcInstant: string | null) =>
+    showsLocalTime ? describeLocalTime(t, utcInstant, zone) : undefined;
 
   const write = (next: string, text: string | null) => {
     if (next !== value) {
@@ -113,6 +138,7 @@ export function DateTimePicker({
         props['aria-invalid'] || (held !== '' && !parts) || undefined
       }
       dialogLabel={t('Common.datePicker.dateTimeDialog')}
+      hint={localHint(instant)}
       onClear={() => {
         setTyped(null);
         onChange('');
@@ -137,6 +163,11 @@ export function DateTimePicker({
         <>
           <UtcDayCalendar day={day} onDayChange={pickDay} />
           <TimeOfDayInput
+            localHint={localHint(
+              typedTime
+                ? dateTimeInputToInstant(joinDateTimeInput(day, typedTime))
+                : null,
+            )}
             onDone={() => {
               if (settleTime()) {
                 close();
@@ -144,6 +175,7 @@ export function DateTimePicker({
             }}
             onSettle={settleTime}
             onTimeChange={changeTime}
+            showsLocalTime={showsLocalTime}
             time={time}
           />
         </>
@@ -152,9 +184,32 @@ export function DateTimePicker({
   );
 }
 
+type Translate = ReturnType<typeof useTranslation>['t'];
+
+// `= 18:21 in Paris (CEST)`: the moment on the clock of the zone, in the
+// language of the app.
+function describeLocalTime(
+  t: Translate,
+  instant: string | null,
+  timeZone: string | null,
+): string | undefined {
+  const hint = localTimeHint(instant, { locale: getAppLocale(), timeZone });
+  if (!hint) {
+    return undefined;
+  }
+
+  return hint.place
+    ? t('Common.datePicker.localEquivalent', hint)
+    : t('Common.datePicker.localEquivalentNoPlace', hint);
+}
+
 type TimeOfDayInputProps = {
   /** What the field shows: the time of the value, or what was typed and is not one yet. */
   time: string;
+  /** Whether the zone of the browser is no UTC, so that the field says what its time is there. */
+  showsLocalTime: boolean;
+  /** What the time is on the clock of the browser, when it is a time. */
+  localHint: string | undefined;
   /** Called with the text of the field each time it changes. */
   onTimeChange: (time: string) => void;
   /** Called as the field is left, to turn what was typed into the time it stands for. */
@@ -165,6 +220,8 @@ type TimeOfDayInputProps = {
 
 function TimeOfDayInput({
   time,
+  showsLocalTime,
+  localHint,
   onTimeChange,
   onSettle,
   onDone,
@@ -172,15 +229,24 @@ function TimeOfDayInput({
   const { t } = useTranslation();
   const id = useId();
   const errorId = useId();
+  const localId = useId();
   // `9:15` and `930` are times the field takes: it only complains of a text that
   // no correction makes one.
   const invalid = time !== '' && parseTimeOfDay(time) === null;
 
   return (
     <div className="space-y-1.5 border-t p-3 pt-2">
-      <Label htmlFor={id}>{t('Common.datePicker.timeUtc')}</Label>
+      <Label htmlFor={id}>
+        {showsLocalTime
+          ? t('Common.datePicker.timeUtcWithLocal')
+          : t('Common.datePicker.timeUtc')}
+      </Label>
       <Input
-        aria-describedby={invalid ? errorId : undefined}
+        aria-describedby={
+          [showsLocalTime ? localId : undefined, invalid ? errorId : undefined]
+            .filter(Boolean)
+            .join(' ') || undefined
+        }
         aria-invalid={invalid}
         autoComplete="off"
         id={id}
@@ -200,6 +266,17 @@ function TimeOfDayInput({
         placeholder={MIDNIGHT}
         value={time}
       />
+      {showsLocalTime ? (
+        // There while the zone is not UTC, empty or not, so the popover keeps
+        // its height as a time is typed.
+        <p
+          className="text-muted-foreground min-h-4 text-xs"
+          data-slot="date-picker-local-time"
+          id={localId}
+        >
+          {invalid ? null : localHint}
+        </p>
+      ) : null}
       {invalid ? (
         <p className="text-xs text-destructive-subtle-foreground" id={errorId}>
           {t('Common.datePicker.timeInvalid')}

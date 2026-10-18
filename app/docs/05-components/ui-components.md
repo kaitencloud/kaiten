@@ -89,4 +89,4 @@ Small components that sit next to `ui/` in `app/src/components/`:
 | `ChartEmptyState` | The placeholder of a chart without data. | [chart-empty-state](../../src/components/stories/chart-empty-state.stories.tsx) |
 | `Atlassian`, `GitHub`, `Slack` and other company logos (`company-icons.tsx`) | SVG logos as components. | [company-icons](../../src/components/stories/company-icons.stories.tsx) |
 
-The pickers (`Combobox`, `DatePicker`, `DateRangePicker`, `DateInputPicker`, `DateTimePicker`) are in [form components](./form-components.md#pickers).
+The pickers (`Combobox`, `DatePicker`, `DateRangePicker`, `DateInputPicker`, `DateTimePicker`) are in [form components](./form-components.md#pickers). `DateTimePicker` says its UTC moment on the clock of the browser too (`= 18:21 in Paris (CEST)`, from `lib/local-time-hint.ts`) whenever that clock is not UTC; `DatePickerShell` carries the line under the button as its `hint`.

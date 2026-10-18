@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vite-plus/test';
 import { testI18n } from '@/__tests__/test-i18n';
 import en from '@/lib/i18n/locales/en';
+import fr from '@/lib/i18n/locales/fr';
 import {
   clearPicker,
   pickDateTime,
@@ -26,10 +27,12 @@ afterAll(() => {
 
 function Harness({
   initial = '',
+  localTimeZone,
   onBlur,
   onChange,
 }: {
   initial?: string;
+  localTimeZone?: string;
   onBlur?: () => void;
   onChange?: (value: string) => void;
 }) {
@@ -40,6 +43,7 @@ function Harness({
       <label htmlFor="starts">Starts (UTC)</label>
       <DateTimePicker
         id="starts"
+        localTimeZone={localTimeZone}
         onBlur={onBlur}
         onChange={(next) => {
           setValue(next);
@@ -55,6 +59,10 @@ const trigger = () => screen.getByLabelText('Starts (UTC)');
 const timeField = () => screen.getByLabelText('Time (UTC)');
 
 describe('DateTimePicker', () => {
+  // The wording below is that of a UTC clock, where no local time is shown: the
+  // zones that show one are the ones further down.
+  useTimeZone('UTC');
+
   it('is a button named by its label, with a placeholder while nothing is chosen', () => {
     render(<Harness />);
 
@@ -439,5 +447,208 @@ describe.each(TEST_ZONES)('DateTimePicker in $zone', ({ zone, utcMoment }) => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+const localHintUnderTrigger = () =>
+  document.querySelector<HTMLElement>('[data-slot="date-picker-hint"]');
+const localHintInPopover = () =>
+  document.querySelector<HTMLElement>('[data-slot="date-picker-local-time"]');
+const LOCAL_TIME_LABEL = 'Time (UTC), your local time is shown below';
+
+// The moment is UTC and the person's clock is not: the picker says what it is on
+// that clock, wherever the person looks, and never changes what it holds.
+describe.each([
+  {
+    zone: 'Europe/Paris',
+    // The voucher that was to start at 16:21 in Paris, written as 16:21 UTC.
+    utc: '2026-10-18T14:21',
+    local: '= 16:21 in Paris (CEST)',
+  },
+  {
+    zone: 'Pacific/Kiritimati',
+    utc: '2026-10-07T23:30',
+    local: '= Oct 8, 13:30 in Kiritimati (GMT+14)',
+  },
+  {
+    zone: 'America/Los_Angeles',
+    utc: '2026-10-07T03:30',
+    local: '= Oct 6, 20:30 in Los Angeles (PDT)',
+  },
+])('DateTimePicker local time in $zone', ({ zone, utc, local }) => {
+  useTimeZone(zone);
+
+  it('says the moment on the clock of the browser under the button, after the value', () => {
+    render(<Harness initial={utc} />);
+
+    expect(localHintUnderTrigger()).toHaveTextContent(local);
+    expect(trigger()).toHaveAccessibleDescription(
+      expect.stringContaining(local),
+    );
+    expect(trigger()).toHaveAccessibleDescription(
+      expect.stringMatching(/^\w{3} \d{1,2}, 2026, \d\d:\d\d = /),
+    );
+    // The button still says the moment in UTC, and holds it so.
+    expect(pickerValue(trigger())).toBe(utc);
+  });
+
+  it('says it again under the time field, which its label announces', async () => {
+    render(<Harness initial={utc} />);
+
+    await userEvent.setup().click(trigger());
+
+    expect(screen.getByLabelText(LOCAL_TIME_LABEL)).toBe(
+      document.querySelector('input'),
+    );
+    expect(localHintInPopover()).toHaveTextContent(local);
+    expect(screen.getByLabelText(LOCAL_TIME_LABEL)).toHaveAccessibleDescription(
+      local,
+    );
+    expect(screen.queryByLabelText('Time (UTC)')).toBeNull();
+  });
+
+  it('follows the time as it is typed, and gives back the UTC text', async () => {
+    const onChange = vi.fn();
+    render(<Harness initial={utc} onChange={onChange} />);
+    const user = userEvent.setup();
+    const [day] = utc.split('T');
+
+    await user.click(trigger());
+    await user.clear(screen.getByLabelText(LOCAL_TIME_LABEL));
+    await user.type(screen.getByLabelText(LOCAL_TIME_LABEL), '12:00');
+
+    expect(onChange).toHaveBeenLastCalledWith(`${day}T12:00`);
+    expect(localHintInPopover()?.textContent).toMatch(/^= .* in /);
+    expect(localHintInPopover()).not.toHaveTextContent(local);
+    expect(localHintUnderTrigger()).toHaveTextContent(/^= .* in /);
+    expect(pickerValue(trigger())).toBe(`${day}T12:00`);
+  });
+
+  it('empties the hint of the popover, not its place, while the time typed is no time', async () => {
+    render(<Harness initial={utc} />);
+    const user = userEvent.setup();
+
+    await user.click(trigger());
+    await user.clear(screen.getByLabelText(LOCAL_TIME_LABEL));
+    await user.type(screen.getByLabelText(LOCAL_TIME_LABEL), '25:99');
+
+    expect(localHintInPopover()).toBeEmptyDOMElement();
+    expect(screen.getByText(/Use the format HH:mm/)).toBeInTheDocument();
+  });
+
+  it('says nothing while no moment is chosen, but keeps the label that tells it will', async () => {
+    render(<Harness />);
+
+    await userEvent.setup().click(trigger());
+
+    expect(localHintUnderTrigger()).toBeNull();
+    expect(localHintInPopover()).toBeEmptyDOMElement();
+    expect(screen.getByLabelText(LOCAL_TIME_LABEL)).toBeInTheDocument();
+    expect(trigger()).toHaveAccessibleDescription('Pick a date and time');
+  });
+
+  it('says nothing of a text that is not a moment', () => {
+    render(<Harness initial="2027-13-45T10:00" />);
+
+    expect(localHintUnderTrigger()).toBeNull();
+  });
+
+  it('keeps the description a form gives it, ahead of the value and of the local time', () => {
+    render(
+      <>
+        <p id="hint">Dates are in UTC.</p>
+        <DateTimePicker
+          aria-describedby="hint"
+          aria-label="Ends"
+          onChange={vi.fn()}
+          value={utc}
+        />
+      </>,
+    );
+
+    const description = screen
+      .getByLabelText('Ends')
+      .getAttribute('aria-describedby')
+      ?.split(' ')
+      .map((id) => document.getElementById(id)?.textContent);
+
+    expect(description).toHaveLength(3);
+    expect(description?.[0]).toBe('Dates are in UTC.');
+    expect(description?.[2]).toBe(local);
+  });
+
+  it('does not touch what the pick gives back', async () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+
+    await pickDateTime(userEvent.setup(), trigger(), utc);
+
+    expect(onChange).toHaveBeenLastCalledWith(utc);
+  });
+});
+
+describe('DateTimePicker local time in UTC', () => {
+  useTimeZone('UTC');
+
+  it('shows nothing of a local time: the moment is already on that clock', async () => {
+    render(<Harness initial="2026-10-18T14:21" />);
+
+    expect(localHintUnderTrigger()).toBeNull();
+    expect(trigger()).toHaveAccessibleDescription('Oct 18, 2026, 14:21');
+
+    await userEvent.setup().click(trigger());
+
+    expect(localHintInPopover()).toBeNull();
+    expect(screen.getByLabelText('Time (UTC)')).toBeInTheDocument();
+    expect(screen.queryByLabelText(LOCAL_TIME_LABEL)).toBeNull();
+  });
+
+  it('shows the local time of a zone it is given, whatever the clock of the machine', () => {
+    render(
+      <Harness initial="2026-10-18T14:21" localTimeZone="Europe/Paris" />,
+    );
+
+    expect(localHintUnderTrigger()).toHaveTextContent(
+      '= 16:21 in Paris (CEST)',
+    );
+  });
+});
+
+describe('DateTimePicker local time in French', () => {
+  useTimeZone('Europe/Paris');
+
+  beforeAll(async () => {
+    testI18n.addResourceBundle('fr', 'translation', fr, true, true);
+    await testI18n.changeLanguage('fr');
+  });
+
+  afterAll(async () => {
+    await testI18n.changeLanguage('en');
+    testI18n.removeResourceBundle('fr', 'translation');
+  });
+
+  it('words the local time and the label of the field in French', async () => {
+    render(<Harness initial="2026-10-18T14:21" />);
+
+    expect(localHintUnderTrigger()).toHaveTextContent(
+      '= 16:21 à Paris (CEST)',
+    );
+
+    await userEvent.setup().click(trigger());
+
+    expect(
+      screen.getByLabelText(
+        'Heure (UTC), votre heure locale est affichée ci-dessous',
+      ),
+    ).toBeInTheDocument();
+    expect(localHintInPopover()).toHaveTextContent('= 16:21 à Paris (CEST)');
+  });
+
+  it('adds the day in French when it is not the UTC day', () => {
+    render(<Harness initial="2026-10-18T23:30" />);
+
+    expect(localHintUnderTrigger()).toHaveTextContent(
+      '= 19 oct., 01:30 à Paris (CEST)',
+    );
   });
 });
