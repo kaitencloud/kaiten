@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { expect, test } from '../_support/app-test';
 import { recordWrites } from '../_support/assertions/requests';
 import { expectErrorToast } from '../_support/assertions/toast';
+import { expectPickerValue } from '../_support/drivers/date-picker.driver';
 import { UsageHistoryDriver } from '../_support/drivers/usage-history.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installInstanceAppMocks } from '../_support/mocks/install-instance-app-mocks';
@@ -115,11 +116,11 @@ test.describe('the usage history of an entitlement', () => {
 
     await history.gotoEntitlements('acme-production');
     await history.open('API Calls');
-    await history.beforeField().fill('2026-09-20');
+    await history.setBefore('2026-09-20');
     await expect(history.rows()).toHaveCount(50);
     const before = reads.length;
 
-    await history.fromField().fill('2026-09-25');
+    await history.setFrom('2026-09-25');
 
     await expect(
       history.drawer().getByText('The period must end after it starts.'),
@@ -166,7 +167,7 @@ test.describe('the usage history of an entitlement', () => {
     await history.open('API Calls');
     await expect(history.exportButton()).toBeEnabled();
 
-    await history.fromField().fill('2025-06-01');
+    await history.setFrom('2025-06-01');
 
     await expect(history.exportButton()).toHaveAttribute(
       'aria-disabled',
@@ -181,7 +182,7 @@ test.describe('the usage history of an entitlement', () => {
     await history.exportButton().focus();
     await expect(history.exportButton()).toBeFocused();
 
-    await history.fromField().fill('2026-01-01');
+    await history.setFrom('2026-01-01');
 
     await expect(history.exportButton()).toBeEnabled();
   });
@@ -217,7 +218,7 @@ test.describe('the usage history of an entitlement', () => {
 
     await history.gotoEntitlements('acme-production');
     await history.open('API Calls');
-    await history.fromField().fill('2025-01-01');
+    await history.setFrom('2025-01-01');
 
     const notice = history.outsideRetention();
     await expect(notice).toContainText('Beyond your retention of 18 months');
@@ -227,7 +228,7 @@ test.describe('the usage history of an entitlement', () => {
     await notice.getByRole('button', { name: 'Show from Apr 8, 2025' }).click();
 
     await expect(history.outsideRetention()).toHaveCount(0);
-    await expect(history.fromField()).toHaveValue('2025-04-08');
+    await expectPickerValue(history.fromField(), '2025-04-08');
     await expect(history.rows()).toHaveCount(100);
   });
 
@@ -296,8 +297,8 @@ test.describe('the address of the usage history', () => {
     await expect(history.rows()).toHaveCount(24);
     expect(searchOf(reads[0]).get('from')).toBe('2026-09-20T00:00:00.000Z');
     expect(searchOf(reads[0]).get('to')).toBe('2026-09-25T00:00:00.000Z');
-    await expect(history.fromField()).toHaveValue('2026-09-20');
-    await expect(history.beforeField()).toHaveValue('2026-09-25');
+    await expectPickerValue(history.fromField(), '2026-09-20');
+    await expectPickerValue(history.beforeField(), '2026-09-25');
 
     // Another period is written to the address, without piling up history entries.
     await history.setPeriod('2026-09-10', '2026-09-15');
@@ -312,8 +313,8 @@ test.describe('the address of the usage history', () => {
     await page.reload();
 
     await expect(history.drawer()).toBeVisible();
-    await expect(history.fromField()).toHaveValue('2026-09-10');
-    await expect(history.beforeField()).toHaveValue('2026-09-15');
+    await expectPickerValue(history.fromField(), '2026-09-10');
+    await expectPickerValue(history.beforeField(), '2026-09-15');
 
     await history.close();
     await expect(page).toHaveURL(/\/entitlements$/);
@@ -361,7 +362,7 @@ test.describe('the usage history where billing is off', () => {
 
     await expect(history.rows()).toHaveCount(100);
 
-    await history.fromField().fill('2025-01-01');
+    await history.setFrom('2025-01-01');
 
     await expect(history.outsideRetention()).toContainText(
       'Beyond what your organization keeps',

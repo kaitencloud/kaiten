@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Input } from '@/components/ui/input';
+import { DateInputPicker } from '@/components/date-input-picker';
 import {
   dateInputToInstant,
   instantToDateInput,
@@ -65,13 +65,13 @@ export function PeriodFilter({ from, label, onChange, to }: PeriodFilterProps) {
           <label className="text-xs text-muted-foreground" htmlFor={fromId}>
             {t('Features.Billing.PeriodFilter.from')}
           </label>
-          <Input
+          <DateInputPicker
+            className="min-w-0"
             id={fromId}
-            onChange={(event) => {
-              setDraftFrom(event.target.value);
-              apply(event.target.value, draftTo);
+            onChange={(next) => {
+              setDraftFrom(next);
+              apply(next, draftTo);
             }}
-            type="date"
             value={draftFrom}
           />
         </div>
@@ -79,14 +79,14 @@ export function PeriodFilter({ from, label, onChange, to }: PeriodFilterProps) {
           <label className="text-xs text-muted-foreground" htmlFor={toId}>
             {t('Features.Billing.PeriodFilter.before')}
           </label>
-          <Input
+          <DateInputPicker
             aria-invalid={invalid}
+            className="min-w-0"
             id={toId}
-            onChange={(event) => {
-              setDraftTo(event.target.value);
-              apply(draftFrom, event.target.value);
+            onChange={(next) => {
+              setDraftTo(next);
+              apply(draftFrom, next);
             }}
-            type="date"
             value={draftTo}
           />
         </div>

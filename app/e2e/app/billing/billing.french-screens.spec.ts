@@ -4,7 +4,7 @@ import { CustomerDetailDriver } from '../_support/drivers/customer-detail.driver
 import { InstanceBillingDriver } from '../_support/drivers/instance-billing.driver';
 import { UsageHistoryDriver } from '../_support/drivers/usage-history.driver';
 import { startInLanguage } from '../_support/language';
-import { pickDateTime } from '../_support/drivers/date-picker.driver';
+import { pickDateTime, pickDay } from '../_support/drivers/date-picker.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installCustomerAppMocks } from '../_support/mocks/install-customer-app-mocks';
 import { installInstanceAppMocks } from '../_support/mocks/install-instance-app-mocks';
@@ -197,7 +197,7 @@ test.describe('the usage history, read in French', () => {
       .click();
     await expect(history.rows()).toHaveCount(130);
 
-    await drawer.getByLabel('Du', { exact: true }).fill('2025-01-01');
+    await pickDay(drawer.getByLabel('Du', { exact: true }), '2025-01-01');
 
     await expect(history.outsideRetention()).toContainText(
       'Au-delà de votre rétention de 18 mois',

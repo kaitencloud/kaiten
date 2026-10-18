@@ -140,7 +140,7 @@ test.describe('the usage history, on the narrowest phone', () => {
 
     await history.gotoEntitlements('acme-production');
     await history.open('API Calls');
-    await history.fromField().fill('2025-01-01');
+    await history.setFrom('2025-01-01');
 
     await expect(history.outsideRetention()).toBeVisible();
     await settle(page);

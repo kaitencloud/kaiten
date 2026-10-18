@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { BILLED_NOW } from '../../billing/billed-instances';
+import { pickDay } from './date-picker.driver';
 
 /**
  * The usage history of an entitlement of an instance: the link on its row, the
@@ -61,9 +62,19 @@ export class UsageHistoryDriver {
     return this.drawer().getByLabel('Before');
   }
 
+  /** Picks the first day of the period on the calendar of the field, as the text of a date input holds it (`2026-09-20`, UTC). */
+  async setFrom(day: string) {
+    await pickDay(this.fromField(), day);
+  }
+
+  /** Picks the day the period ends before, on the calendar of the field (`2026-09-25`, UTC). */
+  async setBefore(day: string) {
+    await pickDay(this.beforeField(), day);
+  }
+
   async setPeriod(from: string, before: string) {
-    await this.fromField().fill(from);
-    await this.beforeField().fill(before);
+    await this.setFrom(from);
+    await this.setBefore(before);
   }
 
   exportButton(): Locator {

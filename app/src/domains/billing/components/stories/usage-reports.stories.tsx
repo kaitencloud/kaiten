@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { expect, userEvent, within } from 'storybook/test';
 import type { UsageReport } from '@/api-client';
 import { DataTable } from '@/functionals/table';
+import { pickDay } from '@/test-fixtures/date-picker-test-support';
 import { buildUsageReport } from '@/test-fixtures/storybook-billing-fixtures';
 import { PeriodFilter, useUsageReportColumns } from '..';
 import { getLimitChangeSeqs } from '../../logic';
@@ -138,9 +139,9 @@ export const PeriodOfDays: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    await userEvent.type(await canvas.findByLabelText('From'), '2027-03-10');
+    await pickDay(userEvent, await canvas.findByLabelText('From'), '2027-03-10');
     await expect(canvas.getByTestId('applied')).toHaveTextContent('"from":"2027-03-10T00:00:00.000Z"');
-    await userEvent.type(canvas.getByLabelText('Before'), '2027-03-01');
+    await pickDay(userEvent, canvas.getByLabelText('Before'), '2027-03-01');
     await expect(canvas.getByText('The period must end after it starts.')).toBeVisible();
     // The invalid end was not applied.
     await expect(canvas.getByTestId('applied')).not.toHaveTextContent('"to"');

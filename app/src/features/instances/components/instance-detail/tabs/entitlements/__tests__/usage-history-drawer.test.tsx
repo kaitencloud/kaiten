@@ -19,6 +19,7 @@ import {
   renderWithClient,
   useBillingTexts,
 } from '@/test-fixtures/billing-test-support';
+import { pickDay, pickerValue } from '@/test-fixtures/date-picker-test-support';
 import type { UsageHistoryRange } from '../../../../../queries';
 import { UsageHistoryDrawer } from '../usage-history';
 
@@ -215,8 +216,8 @@ describe('the usage history of an entitlement', () => {
     renderDrawer();
     await screen.findByRole('table');
 
-    await userEvent.type(screen.getByLabelText('From'), '2027-03-01');
-    await userEvent.type(screen.getByLabelText('Before'), '2027-04-01');
+    await pickDay(userEvent.setup(), screen.getByLabelText('From'), '2027-03-01');
+    await pickDay(userEvent.setup(), screen.getByLabelText('Before'), '2027-04-01');
 
     await waitFor(() => expect(asked.length).toBeGreaterThan(1));
     const last = asked.at(-1);
@@ -238,8 +239,8 @@ describe('the usage history of an entitlement', () => {
 
     expect(asked[0].get('from')).toBe('2027-03-01T00:00:00.000Z');
     expect(asked[0].get('to')).toBe('2027-04-01T00:00:00.000Z');
-    expect(screen.getByLabelText('From')).toHaveValue('2027-03-01');
-    expect(screen.getByLabelText('Before')).toHaveValue('2027-04-01');
+    expect(pickerValue(screen.getByLabelText('From'))).toBe('2027-03-01');
+    expect(pickerValue(screen.getByLabelText('Before'))).toBe('2027-04-01');
   });
 
   it('writes the period typed for the URL to keep, and reads the reports of it', async () => {
@@ -248,7 +249,7 @@ describe('the usage history of an entitlement', () => {
     renderDrawer(vi.fn(), { onRangeChange });
     await screen.findByRole('table');
 
-    await userEvent.type(screen.getByLabelText('From'), '2027-03-01');
+    await pickDay(userEvent.setup(), screen.getByLabelText('From'), '2027-03-01');
 
     expect(onRangeChange).toHaveBeenLastCalledWith({
       from: '2027-03-01T00:00:00.000Z',
@@ -335,7 +336,7 @@ describe('a period that reaches before what the organization keeps', () => {
     renderDrawer();
     await screen.findByRole('table');
 
-    await userEvent.type(screen.getByLabelText('From'), '2020-01-01');
+    await pickDay(userEvent.setup(), screen.getByLabelText('From'), '2020-01-01');
 
     const notice = await screen.findByTestId('usage-history-outside-retention');
     // The capabilities the retention is read from are the app's, usually cached
@@ -351,7 +352,7 @@ describe('a period that reaches before what the organization keeps', () => {
 
     expect(await screen.findByRole('table')).toBeInTheDocument();
     expect(asked.at(-1)?.get('from')).toBe('2026-04-16T00:00:00.000Z');
-    expect(screen.getByLabelText('From')).toHaveValue('2026-04-16');
+    expect(pickerValue(screen.getByLabelText('From'))).toBe('2026-04-16');
   });
 
   it('is told with billing off, since the history is not billing\'s', async () => {
@@ -400,8 +401,8 @@ describe('the export of the usage history', () => {
     );
     renderDrawer();
     await screen.findByRole('table');
-    await userEvent.type(screen.getByLabelText('From'), '2027-03-01');
-    await userEvent.type(screen.getByLabelText('Before'), '2027-03-31');
+    await pickDay(userEvent.setup(), screen.getByLabelText('From'), '2027-03-01');
+    await pickDay(userEvent.setup(), screen.getByLabelText('Before'), '2027-03-31');
 
     await userEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
 
@@ -437,7 +438,7 @@ describe('the export of the usage history', () => {
     renderDrawer();
     await screen.findByRole('table');
 
-    await userEvent.type(screen.getByLabelText('From'), '2020-01-01');
+    await pickDay(userEvent.setup(), screen.getByLabelText('From'), '2020-01-01');
 
     const button = screen.getByRole('button', { name: 'Export CSV' });
     await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'));
