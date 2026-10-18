@@ -89,4 +89,4 @@ Small components that sit next to `ui/` in `app/src/components/`:
 | `ChartEmptyState` | The placeholder of a chart without data. | [chart-empty-state](../../src/components/stories/chart-empty-state.stories.tsx) |
 | `Atlassian`, `GitHub`, `Slack` and other company logos (`company-icons.tsx`) | SVG logos as components. | [company-icons](../../src/components/stories/company-icons.stories.tsx) |
 
-The pickers (`Combobox`, `DatePicker`, `DateRangePicker`) are in [form components](./form-components.md#pickers).
+The pickers (`Combobox`, `DatePicker`, `DateRangePicker`, `DateInputPicker`, `DateTimePicker`) are in [form components](./form-components.md#pickers).

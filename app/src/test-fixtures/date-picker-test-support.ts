@@ -21,7 +21,12 @@ type PickerUser = {
 const popup = () =>
   document.querySelector<HTMLElement>('[data-slot="popover-content"]');
 
-/** The value a picker holds, as the form that owns it sees it (`''` when none). */
+/**
+ * The value a picker holds, as the form that owns it sees it (`''` when none).
+ * It is read from `data-value` on the button of the picker, the attribute the
+ * unit, story and E2E helpers share (the visible text is localized): the pickers
+ * keep it for this reason.
+ */
 export function pickerValue(trigger: HTMLElement): string {
   return trigger.getAttribute('data-value') ?? '';
 }

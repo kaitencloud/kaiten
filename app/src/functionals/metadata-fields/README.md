@@ -71,7 +71,7 @@ object through `onChange`, so it works with any form state.
 | `string` | text `Input` |
 | `number` | number `Input` |
 | `boolean` | three-way `Select` (not set, yes, no), so an untouched optional field is not sent as `false` |
-| `date` | `DatePicker` |
+| `date` | `DateInputPicker` (a UTC day, stored as `YYYY-MM-DD`) |
 | `enum` | `Select` |
 | `enum_list` | `FilterMultiSelect`, reused from `filters` |
 | `unsupported` | read-only JSON |

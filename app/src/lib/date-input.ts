@@ -1,7 +1,8 @@
 /**
- * The day inputs of a form (`type="date"`, the text `2027-03-01`) and the instants
- * the API takes a period in. A day is read in UTC, as every billing period is: the
- * same text means the same instant for everybody.
+ * The days of the date pickers (`DateInputPicker`, the text a `type="date"` input
+ * held, `2027-03-01`) and the instants the API takes a period in. A day is read in
+ * UTC, as every billing period is: the same text means the same instant for
+ * everybody.
  */
 
 const DATE_INPUT = /^(\d{4})-(\d{2})-(\d{2})$/;
