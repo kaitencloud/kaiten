@@ -9,6 +9,11 @@ import {
   pickDateTime,
   pickerValue,
 } from '@/test-fixtures/date-picker-test-support';
+import {
+  TEST_ZONES,
+  TEST_ZONES_UTC_DAY,
+  useTimeZone,
+} from '@/test-fixtures/time-zone';
 import { DateTimePicker } from '../date-time-picker';
 
 beforeAll(() => {
@@ -56,13 +61,6 @@ describe('DateTimePicker', () => {
     expect(trigger().tagName).toBe('BUTTON');
     expect(trigger()).toHaveTextContent('Pick a date and time');
     expect(pickerValue(trigger())).toBe('');
-  });
-
-  it('shows the moment it holds in UTC, whatever the zone of the browser', () => {
-    render(<Harness initial="2027-03-03T23:30" />);
-
-    expect(trigger()).toHaveTextContent('Mar 3, 2027, 11:30 PM');
-    expect(pickerValue(trigger())).toBe('2027-03-03T23:30');
   });
 
   it('gives back the text it was given for a day and a time picked on it', async () => {
@@ -208,5 +206,46 @@ describe('DateTimePicker', () => {
     );
 
     expect(screen.getByRole('button')).toBeDisabled();
+  });
+});
+
+// Zone-sensitive: the moment is shown, picked and counted from in UTC, so a zone
+// that is not UTC is what tells the right code from one that uses local fields.
+describe.each(TEST_ZONES)('DateTimePicker in $zone', ({ zone, utcMoment }) => {
+  useTimeZone(zone, utcMoment);
+
+  it('shows the moment it holds in UTC', () => {
+    render(<Harness initial="2027-03-03T23:30" />);
+
+    expect(trigger()).toHaveTextContent('Mar 3, 2027, 11:30 PM');
+    expect(pickerValue(trigger())).toBe('2027-03-03T23:30');
+  });
+
+  it.each(['2027-12-31T23:59', '2026-03-29T01:30', '2027-01-01T00:00'])(
+    'gives back the moment %s it was asked to pick',
+    async (value) => {
+      const onChange = vi.fn();
+      render(<Harness onChange={onChange} />);
+
+      await pickDateTime(userEvent.setup(), trigger(), value);
+
+      expect(onChange).toHaveBeenLastCalledWith(value);
+      expect(pickerValue(trigger())).toBe(value);
+    },
+  );
+
+  it('marks the UTC day as today, not the day of the zone of the browser', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(utcMoment));
+    try {
+      render(<Harness />);
+
+      await userEvent.setup({ advanceTimers: () => {} }).click(trigger());
+
+      const today = document.querySelector('[data-today="true"] button');
+      expect(today).toHaveAttribute('data-day', TEST_ZONES_UTC_DAY);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

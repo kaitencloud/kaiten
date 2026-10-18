@@ -10,6 +10,11 @@ import {
   pickDay,
   pickerValue,
 } from '@/test-fixtures/date-picker-test-support';
+import {
+  TEST_ZONES,
+  TEST_ZONES_UTC_DAY,
+  useTimeZone,
+} from '@/test-fixtures/time-zone';
 import { DateInputPicker } from '../date-input-picker';
 
 beforeAll(() => {
@@ -58,13 +63,6 @@ describe('DateInputPicker', () => {
     expect(trigger().tagName).toBe('BUTTON');
     expect(trigger()).toHaveTextContent('Pick a date');
     expect(pickerValue(trigger())).toBe('');
-  });
-
-  it('shows the UTC day it holds, whatever the zone of the browser', () => {
-    render(<Harness initial="2027-03-01" />);
-
-    expect(trigger()).toHaveTextContent('Mar 1, 2027');
-    expect(pickerValue(trigger())).toBe('2027-03-01');
   });
 
   it.each(['2027-03-01', '2027-12-31', '2028-02-29', '2099-01-01', '2000-01-01'])(
@@ -138,23 +136,6 @@ describe('DateInputPicker', () => {
     expect(onChange).toHaveBeenLastCalledWith('2027-03-13');
   });
 
-  it('marks the UTC day as today, not the day of the zone of the browser', async () => {
-    // 23:30 UTC on the 7th is already the 8th in a zone east of Greenwich: the
-    // billing day is still the 7th.
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-10-07T23:30:00.000Z'));
-    try {
-      render(<Harness />);
-
-      await userEvent.setup({ advanceTimers: () => {} }).click(trigger());
-
-      const today = document.querySelector('[data-today="true"] button');
-      expect(today).toHaveAttribute('data-day', '2026-10-07');
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
   it('follows the language of the app', async () => {
     await testI18n.changeLanguage('fr');
     render(<Harness initial="2027-03-01" label="Du" />);
@@ -172,5 +153,48 @@ describe('DateInputPicker', () => {
     expect(screen.getByRole('button', { name: 'Effacer' })).toBeInTheDocument();
 
     await testI18n.changeLanguage('en');
+  });
+});
+
+// Zone-sensitive: a day written from the local fields of a Date, or read with
+// toISOString, only differs from the UTC day in a zone that is not UTC.
+describe.each(TEST_ZONES)('DateInputPicker in $zone', ({ zone, utcMoment }) => {
+  useTimeZone(zone, utcMoment);
+
+  it('shows the UTC day it holds', () => {
+    render(<Harness initial="2027-03-01" />);
+
+    expect(trigger()).toHaveTextContent('Mar 1, 2027');
+    expect(pickerValue(trigger())).toBe('2027-03-01');
+  });
+
+  it.each(['2027-03-01', '2027-12-31', '2026-03-29', '2026-10-25'])(
+    'gives back the day %s it was asked to pick',
+    async (day) => {
+      const onChange = vi.fn();
+      render(<Harness onChange={onChange} />);
+
+      await pickDay(userEvent.setup(), trigger(), day);
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledWith(day);
+    },
+  );
+
+  it('marks the UTC day as today, not the day of the zone of the browser', async () => {
+    // The moment is a day apart in the zone from the UTC day: the console
+    // counts its days in UTC.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(utcMoment));
+    try {
+      render(<Harness />);
+
+      await userEvent.setup({ advanceTimers: () => {} }).click(trigger());
+
+      const today = document.querySelector('[data-today="true"] button');
+      expect(today).toHaveAttribute('data-day', TEST_ZONES_UTC_DAY);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
