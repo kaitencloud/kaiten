@@ -44,4 +44,13 @@ describe('the calendar', () => {
       document.querySelector('button[data-day="2027-03-31"]'),
     ).not.toBeNull();
   });
+
+  it('keeps its days in the page when it renders again, so a click that made it render still lands', () => {
+    const { rerender } = render(<Calendar mode="single" month={MARCH_2027} />);
+    const day = document.querySelector('button[data-day="2027-03-05"]');
+
+    rerender(<Calendar mode="single" month={MARCH_2027} />);
+
+    expect(document.querySelector('button[data-day="2027-03-05"]')).toBe(day);
+  });
 });
