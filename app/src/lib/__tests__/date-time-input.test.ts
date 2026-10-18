@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
   dateTimeInputToInstant,
   instantToDateTimeInput,
+  isTimeOfDay,
+  joinDateTimeInput,
+  splitDateTimeInput,
 } from '../date-time-input';
 
 describe('dateTimeInputToInstant', () => {
@@ -39,6 +42,51 @@ describe('instantToDateTimeInput', () => {
     'is empty for %j, which is no instant',
     (value) => {
       expect(instantToDateTimeInput(value)).toBe('');
+    },
+  );
+});
+
+describe('the two halves of a date and time', () => {
+  it('splits the text of a datetime-local input into its day and its time', () => {
+    expect(splitDateTimeInput('2027-03-03T10:00')).toEqual({
+      day: '2027-03-03',
+      time: '10:00',
+    });
+    expect(splitDateTimeInput('2027-03-03T10:00:45')).toEqual({
+      day: '2027-03-03',
+      time: '10:00',
+    });
+  });
+
+  it.each(['', 'yesterday', '2027-03-03', '2027-13-45T10:00', '2027-02-31T10:00', '2027-03-03T25:00'])(
+    'splits %j into nothing',
+    (value) => {
+      expect(splitDateTimeInput(value)).toBeNull();
+    },
+  );
+
+  it.each(['2027-03-03T10:00', '2027-12-31T23:59', '2028-02-29T00:00'])(
+    'joins what it split in %s back into the same text, and the same instant',
+    (value) => {
+      const parts = splitDateTimeInput(value);
+
+      expect(parts).not.toBeNull();
+      const joined = joinDateTimeInput(parts!.day, parts!.time);
+
+      expect(joined).toBe(value);
+      expect(dateTimeInputToInstant(joined)).toBe(`${value}:00.000Z`);
+      expect(instantToDateTimeInput(dateTimeInputToInstant(joined) ?? '')).toBe(value);
+    },
+  );
+
+  it.each(['00:00', '09:30', '23:59'])('takes %s as a time of day', (value) => {
+    expect(isTimeOfDay(value)).toBe(true);
+  });
+
+  it.each(['', '9:30', '24:00', '10:60', '10:00:30', 'noon'])(
+    'takes %j for no time of day',
+    (value) => {
+      expect(isTimeOfDay(value)).toBe(false);
     },
   );
 });

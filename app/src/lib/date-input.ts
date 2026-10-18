@@ -39,3 +39,44 @@ export function isPeriodInvalid(
     from !== undefined && to !== undefined && Date.parse(from) >= Date.parse(to)
   );
 }
+
+/**
+ * The day a date input holds, as a calendar takes it: a `Date` on that calendar
+ * day at noon, in the zone of the browser. A calendar reads and reports days with
+ * the local fields of a `Date`, so the same day shows in every zone; noon keeps
+ * a zone whose clocks skip midnight from moving it. The zone says nothing about
+ * the day: the text is the UTC day and stays so. Nothing for an empty text, one
+ * that is not a date, or a day that does not exist (`2027-02-31`).
+ */
+export function dateInputToCalendarDate(value: string): Date | undefined {
+  const match = DATE_INPUT.exec(value.trim());
+  if (!match) {
+    return undefined;
+  }
+  const [year, month, day] = [
+    Number(match[1]),
+    Number(match[2]),
+    Number(match[3]),
+  ];
+  const date = new Date(year, month - 1, day, 12);
+  date.setFullYear(year);
+
+  return date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+    ? date
+    : undefined;
+}
+
+/**
+ * The text a date input holds for the day a calendar reports, read with the local
+ * fields of the `Date` as `dateInputToCalendarDate` writes them. Not `toISOString`,
+ * which would move the day east or west of UTC.
+ */
+export function calendarDateToDateInput(date: Date): string {
+  const year = String(date.getFullYear()).padStart(4, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
