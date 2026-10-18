@@ -1,4 +1,4 @@
-package reportentitlementusagemetric
+package usage
 
 import (
 	"testing"
@@ -86,7 +86,7 @@ func TestPlanRollover_SkippedWindows_MaterializesEmptyOnes(t *testing.T) {
 		t.Errorf("February ClosedPeriodEnd = %v, want 2026-03-01", feb.ClosedPeriodEnd)
 	}
 
-	for name, c := range map[string]rolloverClosure{"March": mar, "April": apr} {
+	for name, c := range map[string]Closure{"March": mar, "April": apr} {
 		if !c.IsSynthetic {
 			t.Errorf("%s closure must be synthetic (isSynthetic=true)", name)
 		}
@@ -209,5 +209,105 @@ func TestPlanRollover_HourGranularity_SkippedWindows(t *testing.T) {
 	}
 	if closures[len(closures)-1].NewPeriodStart != current.Start {
 		t.Errorf("final NewPeriodStart = %v, want %v", closures[len(closures)-1].NewPeriodStart, current.Start)
+	}
+}
+
+func TestResolve(t *testing.T) {
+	monthly := &Periodicity{ResetPeriod: period.Month, ResetAnchor: period.Calendar}
+	now := mustParse(t, "2026-08-15T00:00:00Z")
+	august := mustParse(t, "2026-08-01T00:00:00Z")
+	july := mustParse(t, "2026-07-01T00:00:00Z")
+	may := mustParse(t, "2026-05-01T00:00:00Z")
+	stored := Counter{Value: 42, EventCount: 3}
+
+	t.Run("lifetime, no row: zero, lifetime window, nothing to close", func(t *testing.T) {
+		res, err := Resolve(now, nil, Stored{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Window.Start != nil || res.Window.End != nil || res.Current != Zero() || res.Stale() {
+			t.Errorf("Resolve() = %+v", res)
+		}
+	})
+	t.Run("lifetime, a row: the row, never stale", func(t *testing.T) {
+		res, err := Resolve(now, nil, Stored{Present: true, Counter: stored})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Current != stored || res.Stale() {
+			t.Errorf("Resolve() = %+v", res)
+		}
+	})
+	t.Run("periodic, no row: zero in the open window, nothing to close", func(t *testing.T) {
+		res, err := Resolve(now, monthly, Stored{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !res.Window.Start.Equal(august) || res.Current != Zero() || res.Stale() {
+			t.Errorf("Resolve() = %+v", res)
+		}
+	})
+	t.Run("periodic, row in the open window: the row", func(t *testing.T) {
+		res, err := Resolve(now, monthly, Stored{Present: true, Counter: stored, PeriodStart: &august})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Current != stored || res.Stale() {
+			t.Errorf("Resolve() = %+v", res)
+		}
+	})
+	t.Run("periodic, one window stale: zero, one real closure", func(t *testing.T) {
+		res, err := Resolve(now, monthly, Stored{Present: true, Counter: stored, PeriodStart: &july})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Current != Zero() || len(res.Closures) != 1 || res.Closures[0].Value != 42 {
+			t.Errorf("Resolve() = %+v", res)
+		}
+	})
+	t.Run("periodic, three windows stale: one real and two synthetic closures", func(t *testing.T) {
+		res, err := Resolve(now, monthly, Stored{Present: true, Counter: stored, PeriodStart: &may})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(res.Closures) != 3 || res.Closures[0].IsSynthetic || !res.Closures[1].IsSynthetic || !res.Closures[2].IsSynthetic {
+			t.Errorf("Resolve() closures = %+v", res.Closures)
+		}
+		if !res.Closures[2].NewPeriodStart.Equal(august) {
+			t.Errorf("last closure opens %v, want %v", res.Closures[2].NewPeriodStart, august)
+		}
+	})
+	t.Run("periodic, a lifetime row adopted: one closure with no bounds", func(t *testing.T) {
+		res, err := Resolve(now, monthly, Stored{Present: true, Counter: stored})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(res.Closures) != 1 || res.Closures[0].ClosedPeriodStart != nil || res.Closures[0].ClosedPeriodEnd != nil {
+			t.Errorf("Resolve() closures = %+v", res.Closures)
+		}
+	})
+}
+
+func TestInWindow(t *testing.T) {
+	august := mustParse(t, "2026-08-01T00:00:00Z")
+	september := mustParse(t, "2026-09-01T00:00:00Z")
+	july := mustParse(t, "2026-07-01T00:00:00Z")
+	open := Window{Start: &august, End: &september}
+	stored := Counter{Value: 7, EventCount: 1}
+
+	if got := InWindow(Stored{Present: true, Counter: stored, PeriodStart: &august}, open); got != stored {
+		t.Errorf("row of the open window: %+v", got)
+	}
+	if got := InWindow(Stored{Present: true, Counter: stored, PeriodStart: &july}, open); got != Zero() {
+		t.Errorf("stale row reads zero: %+v", got)
+	}
+	if got := InWindow(Stored{Present: true, Counter: stored}, open); got != Zero() {
+		t.Errorf("lifetime row of a periodic entitlement reads zero: %+v", got)
+	}
+	if got := InWindow(Stored{Present: true, Counter: stored}, Window{}); got != stored {
+		t.Errorf("lifetime row, lifetime window: %+v", got)
+	}
+	if got := InWindow(Stored{}, open); got != Zero() {
+		t.Errorf("no row reads zero: %+v", got)
 	}
 }

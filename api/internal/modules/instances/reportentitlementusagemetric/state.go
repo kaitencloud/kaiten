@@ -1,0 +1,99 @@
+package reportentitlementusagemetric
+
+import (
+	"context"
+	"time"
+
+	"github.com/google/uuid"
+
+	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
+	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
+)
+
+// State is everything a report decides on, read once, under the pair's
+// advisory lock, at the start of the report's transaction. Nothing a kind
+// plans reads the database again.
+type State struct {
+	OrganizationID uuid.UUID
+	Pair           *UsageContext
+	// Now is the report's one clock read, taken after the lock: the instant
+	// every window decision of this report is made against.
+	Now               time.Time
+	Limit             usage.Limit
+	AggregationMethod string
+	Resolution        usage.Resolution
+}
+
+// load takes the pair's lock and reads its state. It refuses an entitlement
+// whose type no report kind handles before reading anything else.
+func (h *UseCase) load(ctx context.Context, organizationID uuid.UUID, instanceSlug, entitlementSlug string) (*State, error) {
+	pair, err := h.queryRepo.GetEntitlementUsageContext(ctx, instanceSlug, entitlementSlug, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	if pair.EntitlementType != db.EntitlementTypeNUMBER && pair.EntitlementType != db.EntitlementTypeNUMBERAICREDIT {
+		return nil, kaitenerrors.Validation(
+			"ReportEntitlementUsageMetric.UnsupportedEntitlementType",
+			"report usage is only supported for NUMBER and NUMBER_AI_CREDIT entitlements",
+		)
+	}
+
+	stored := usage.Stored{Present: pair.UsageValue != nil, PeriodStart: pair.PeriodStart}
+	if stored.Present {
+		value, err := entitlementvalue.ParseNumberUsageValue(pair.UsageValue)
+		if err != nil {
+			return nil, kaitenerrors.Validation("ReportEntitlementUsageMetric.InvalidStoredUsageValue", err.Error())
+		}
+		stored.Counter = usage.Counter{Value: value.Value, EventCount: value.EventCount}
+	}
+
+	threshold, err := entitlementvalue.ParseNumberThreshold(pair.LicenseEntitlementValue)
+	if err != nil {
+		return nil, kaitenerrors.Validation("ReportEntitlementUsageMetric.InvalidLicenseEntitlementValue", err.Error())
+	}
+
+	now, err := h.queryRepo.GetDatabaseNow(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	resolution, err := usage.Resolve(now, usage.PeriodicityOf(pair.ResetPeriod, pair.ResetAnchor, pair.LicenseStart), stored)
+	if err != nil {
+		return nil, err
+	}
+
+	aggregationMethod := usage.DefaultAggregationMethod
+	if pair.AggregationMethod != nil {
+		aggregationMethod = string(*pair.AggregationMethod)
+	}
+
+	return &State{
+		OrganizationID:    organizationID,
+		Pair:              pair,
+		Now:               now,
+		Limit:             usage.Limit{Threshold: threshold, OveragePercent: pair.LimitCapExceededOveragePercent},
+		AggregationMethod: aggregationMethod,
+		Resolution:        resolution,
+	}, nil
+}
+
+// gauge is the pair's usage at counter, in the window this report resolved.
+func (s *State) gauge(counter usage.Counter) usage.Gauge {
+	licenseSlug := ""
+	if s.Pair.LicenseSlug != nil {
+		licenseSlug = *s.Pair.LicenseSlug
+	}
+	return usage.Gauge{
+		EntitlementID:   s.Pair.EntitlementID,
+		EntitlementSlug: s.Pair.EntitlementSlug,
+		LicenseID:       s.Pair.LicenseID,
+		LicenseSlug:     licenseSlug,
+		NumberFamily:    true,
+		LicenseValue:    s.Pair.LicenseEntitlementValue,
+		Counter:         counter,
+		Window:          s.Resolution.Window,
+	}
+}

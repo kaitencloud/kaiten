@@ -1,4 +1,4 @@
-package reportentitlementusagemetric
+package usage
 
 import "testing"
 
