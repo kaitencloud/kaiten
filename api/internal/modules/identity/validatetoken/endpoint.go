@@ -9,26 +9,37 @@ import (
 	"github.com/kaitencloud/kaiten/api/pkg/fiberapi"
 )
 
-// RegisterEndpoint registers the Fiber route for token validation at exactly
-// one path, no wildcard suffix. The route is public by necessity -- the
-// endpoint Envoy's ext_authz calls cannot itself sit behind ext_authz -- so the
-// surface it opens is one path rather than a prefix, and anything else under
-// /api/tokens/validate/ is a plain 404.
+// RegisterEndpoint registers the Fiber route for token validation at
+// /api/tokens/validate AND under it, any suffix, both answered by the same
+// handler, which ignores the suffix. The route is public by necessity -- the
+// endpoint Envoy's ext_authz calls cannot itself sit behind ext_authz.
 //
-// Keeping it to one path takes work on the proxy side: neither raw Envoy's
-// ext_authz HttpService nor Envoy Gateway's SecurityPolicy.extAuth.http.path
-// can point a check at a fixed path, only path_prefix/path semantics that
-// PREPEND to the original request's path. Both proxies are configured to
-// rewrite the check path to this constant first -- compose through the
-// token_validate_internal listener, Kubernetes through an EnvoyPatchPolicy in
-// charts/kaiten/templates/ingress/ext-authz-path-patch.yaml.
+// Why the suffix: neither raw Envoy's ext_authz HttpService nor Envoy Gateway's
+// SecurityPolicy.extAuth.http.path can point a check at a fixed path. Both only
+// have path_prefix semantics, which PREPEND to the original request's path, so a
+// ksh_ request for /api/customers is checked at
+// /api/tokens/validate/api/customers. Rewriting that back to the constant took an
+// EnvoyPatchPolicy addressing the ext_authz filter by its INDEX in the shared
+// listener's filter list, one per SecurityPolicy, and that index moves every time
+// a policy on the listener is added, removed or renamed. Only the KbK's kaiten
+// filter was ever pinned: on 2026-10-17 every other ksh_ check -- the fleets'
+// kaiten APIs and every saas-api route, the KbK's included -- arrived suffixed
+// and was refused, which is how ksh_ tokens stopped working on app and demo.
+//
+// Answering under the prefix makes the check path irrelevant, with no proxy
+// patch at all. It widens nothing that matters: the handler reads only the
+// Authorization header and answers the same 200 + identity JWT, or the same 401,
+// whatever the suffix, and no other route may be registered under the prefix
+// (server_boundary_test holds the public listener to that).
 //
 // The route answers ANY method. Envoy forwards the check with the original
 // request's method, so a GET-only route answers 405 on every write made with a
 // ksh_ token, and ext_authz turns that into a denial. The handler reads only
 // the Authorization header, so the verb carries no meaning here.
 func RegisterEndpoint(router fiber.Router, handler UseCase) {
-	router.All("/tokens/validate", validateTokenHandler(handler))
+	validate := validateTokenHandler(handler)
+	router.All("/tokens/validate", validate)
+	router.All("/tokens/validate/*", validate)
 }
 
 // Failures render as RFC 9457 problem bodies through fiberapi.Problem, like
