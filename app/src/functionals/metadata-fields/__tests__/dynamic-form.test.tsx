@@ -1,5 +1,13 @@
 import { render } from '@testing-library/react';
-import { describe, expect, it } from 'vite-plus/test';
+import userEvent from '@testing-library/user-event';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vite-plus/test';
+import { testI18n } from '@/__tests__/test-i18n';
+import en from '@/lib/i18n/locales/en';
+import {
+  clearPicker,
+  pickDay,
+  pickerValue,
+} from '@/test-fixtures/date-picker-test-support';
 import { DynamicForm, validateDynamicForm } from '../dynamic-form';
 import type { MetadataFormField } from '../types';
 
@@ -25,6 +33,14 @@ const numberField: MetadataFormField = {
   label: 'Weight',
   uiType: 'number',
   jsonSchema: { type: 'number', minimum: 0 },
+};
+
+const dateField: MetadataFormField = {
+  id: 'id-renewal',
+  key: 'renewal',
+  label: 'Renewal',
+  uiType: 'date',
+  jsonSchema: { type: 'string', format: 'date' },
 };
 
 describe('validateDynamicForm', () => {
@@ -133,5 +149,44 @@ describe('validateDynamicForm — extras', () => {
       expect(errors.weight).toBeDefined();
       expect(errors.extra).toBeUndefined();
     });
+  });
+});
+
+describe('<DynamicForm> date field', () => {
+  beforeAll(() => {
+    testI18n.addResourceBundle('en', 'translation', en, true, true);
+  });
+
+  afterAll(() => {
+    testI18n.removeResourceBundle('en', 'translation');
+  });
+
+  it('stores the day that was picked, whatever the zone of the browser', async () => {
+    const onChange = vi.fn();
+    const { getByLabelText } = render(
+      <DynamicForm fields={[dateField]} value={{}} onChange={onChange} />,
+    );
+
+    await pickDay(userEvent.setup(), getByLabelText('Renewal'), '2026-03-01');
+
+    expect(onChange).toHaveBeenLastCalledWith({ renewal: '2026-03-01' });
+  });
+
+  it('shows the day it holds and drops the key when it is cleared', async () => {
+    const onChange = vi.fn();
+    const { getByLabelText } = render(
+      <DynamicForm
+        fields={[dateField]}
+        value={{ renewal: '2026-03-01' }}
+        onChange={onChange}
+      />,
+    );
+
+    expect(pickerValue(getByLabelText('Renewal'))).toBe('2026-03-01');
+
+    await clearPicker(userEvent.setup(), getByLabelText('Renewal'));
+
+    const next = onChange.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(next.renewal).toBeUndefined();
   });
 });

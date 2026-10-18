@@ -1,5 +1,5 @@
 import { Input } from '@/components/ui/input';
-import { DatePicker } from '@/components/date-picker';
+import { DateInputPicker } from '@/components/date-input-picker';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -96,13 +96,14 @@ function BooleanInput({ field, value, onChange }: FieldInputProps) {
   );
 }
 
-function DateInput({ value, onChange }: FieldInputProps) {
+// `format: "date"` is a day with no zone (`2026-03-01`): the picker holds that
+// text as it is, so the day chosen is the day stored in every zone of the browser.
+function DateInput({ field, value, onChange }: FieldInputProps) {
   return (
-    <DatePicker
-      date={value ? new Date(String(value)) : undefined}
-      onSelect={(date) =>
-        onChange(date ? date.toISOString().slice(0, 10) : undefined)
-      }
+    <DateInputPicker
+      id={field.id}
+      value={typeof value === 'string' ? value : ''}
+      onChange={(next) => onChange(next || undefined)}
     />
   );
 }
