@@ -9,9 +9,18 @@ import {
   getDefaultClassNames,
   type DayButton,
 } from "react-day-picker";
+import { enUS, fr } from "react-day-picker/locale";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
+
+// The calendar speaks the language of the app, not the one of the browser: month
+// names, weekday names, the first day of the week and the labels of the
+// navigation all come from the locale it is given.
+function calendarLocale(language: string) {
+  return language.startsWith("fr") ? fr : enUS;
+}
 
 function Calendar({
   className,
@@ -21,11 +30,13 @@ function Calendar({
   buttonVariant = "ghost",
   formatters,
   components,
+  locale,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"];
 }) {
   const defaultClassNames = getDefaultClassNames();
+  const { i18n } = useTranslation();
 
   return (
     <DayPicker
@@ -37,9 +48,10 @@ function Calendar({
         className,
       )}
       captionLayout={captionLayout}
+      locale={locale ?? calendarLocale(i18n.language)}
       formatters={{
-        formatMonthDropdown: (date) =>
-          date.toLocaleString("default", { month: "short" }),
+        formatMonthDropdown: (date, dateLib) =>
+          dateLib ? dateLib.format(date, "LLL") : date.toLocaleString(i18n.language, { month: "short" }),
         ...formatters,
       }}
       classNames={{
@@ -195,7 +207,7 @@ function CalendarDayButton({
       ref={ref}
       variant="ghost"
       size="icon"
-      data-day={day.date.toLocaleDateString()}
+      data-day={day.isoDate}
       data-selected-single={
         modifiers.selected &&
         !modifiers.range_start &&
