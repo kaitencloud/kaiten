@@ -18,7 +18,8 @@ export const TEST_ZONES_UTC_DAY = '2026-10-07';
 /**
  * Runs the tests of the enclosing `describe` with the clock of the machine in
  * `zone`, and puts the zone back after each one. Node reads `TZ` again each time
- * it is set, so no new process is needed.
+ * it is set, so no new process is needed. `'UTC'` is a zone too: it pins a test
+ * of a UTC picker to the same clock on every machine, where no local time shows.
  */
 export function useTimeZone(zone: string, utcMoment?: string) {
   let previous: string | undefined;
@@ -27,10 +28,14 @@ export function useTimeZone(zone: string, utcMoment?: string) {
     previous = process.env.TZ;
     process.env.TZ = zone;
     // Guard against a zone that did not apply (a runner that ignores `TZ`),
-    // where every test below would pass for the wrong reason.
-    expect(new Date('2027-01-15T12:00:00.000Z').getTimezoneOffset()).not.toBe(
-      0,
-    );
+    // where every test below would pass for the wrong reason. UTC is the one
+    // zone that has no offset to check.
+    if (zone !== 'UTC') {
+      expect(new Date('2027-01-15T12:00:00.000Z').getTimezoneOffset()).not.toBe(
+        0,
+      );
+    }
+    expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe(zone);
     if (utcMoment) {
       expect(new Date(utcMoment).getDate()).not.toBe(
         Number(TEST_ZONES_UTC_DAY.slice(-2)),
