@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { pickDay as pickCalendarDay } from './date-picker.driver';
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -53,12 +54,14 @@ export class FilterToolbarDriver {
       .click();
   }
 
-  /** Types a day into the date input of the editor a filter opened on. */
+  /** Picks a day on the calendar of the date filter of the editor a filter opened on (`2026-03-01`, UTC). */
   async pickDay(field: string, day: string) {
-    await this.page
-      .getByRole('dialog')
-      .getByLabel(`Filter by ${field}`, { exact: true })
-      .fill(day);
+    await pickCalendarDay(
+      this.page
+        .getByRole('dialog')
+        .getByLabel(`Filter by ${field}`, { exact: true }),
+      day,
+    );
   }
 
   async closeEditor() {
