@@ -42,6 +42,35 @@ export function isTimeOfDay(value: string): boolean {
 }
 
 /**
+ * A time of day typed by hand, as the time input reads it: `9:15`, `09:15`, `930`
+ * and `1430` all stand for a time to the minute (24-hour clock). The time as a
+ * time input holds it (`09:15`), or null for a text that is none.
+ */
+export function parseTimeOfDay(value: string): string | null {
+  const match = /^(\d{1,2}):?(\d{2})$/.exec(value.trim());
+  if (!match) {
+    return null;
+  }
+  const time = `${match[1].padStart(2, '0')}:${match[2]}`;
+
+  return isTimeOfDay(time) ? time : null;
+}
+
+const LEADING_DAY = /^(\d{4}-\d{2}-\d{2})T/;
+
+/**
+ * The real day a `datetime-local` text starts with, even when the rest is not a
+ * time of day (`2027-03-03T9:15`): what a picker keeps of a value it refuses,
+ * so a time that is corrected is put back on the day that was chosen. Empty when
+ * the text starts with no real day.
+ */
+export function leadingDayOfDateTimeInput(value: string): string {
+  const day = LEADING_DAY.exec(value.trim())?.[1] ?? '';
+
+  return dateInputToCalendarDate(day) ? day : '';
+}
+
+/**
  * The two halves of a `datetime-local` text, the day (`2027-03-03`) and the time
  * (`10:00`), for the two controls that set them. Seconds are dropped, as the
  * field holds none. Null for an empty text or one that is not a real day and a

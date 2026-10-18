@@ -4,6 +4,8 @@ import {
   instantToDateTimeInput,
   isTimeOfDay,
   joinDateTimeInput,
+  leadingDayOfDateTimeInput,
+  parseTimeOfDay,
   splitDateTimeInput,
 } from '../date-time-input';
 import { TEST_ZONES, useTimeZone } from '@/test-fixtures/time-zone';
@@ -93,5 +95,32 @@ describe.each(TEST_ZONES)('in $zone', ({ zone, utcMoment }) => {
         expect(isTimeOfDay(value)).toBe(false);
       },
     );
+  });
+
+  it.each([
+    ['09:30', '09:30'],
+    ['9:30', '09:30'],
+    ['930', '09:30'],
+    ['0930', '09:30'],
+    ['1430', '14:30'],
+    ['  7:05 ', '07:05'],
+    ['0:00', '00:00'],
+  ])('reads %j typed by hand as the time %s', (typed, time) => {
+    expect(parseTimeOfDay(typed)).toBe(time);
+  });
+
+  it.each(['', '9', '93', '9:5', '24:00', '10:60', '2:30 PM', '10:00:30', 'noon'])(
+    'reads %j as no time of day',
+    (typed) => {
+      expect(parseTimeOfDay(typed)).toBeNull();
+    },
+  );
+
+  it('keeps the real day a refused text starts with', () => {
+    expect(leadingDayOfDateTimeInput('2027-03-03T9:15')).toBe('2027-03-03');
+    expect(leadingDayOfDateTimeInput('2027-03-03T10:00')).toBe('2027-03-03');
+    expect(leadingDayOfDateTimeInput('2027-02-31T10:00')).toBe('');
+    expect(leadingDayOfDateTimeInput('2027-03-03')).toBe('');
+    expect(leadingDayOfDateTimeInput('')).toBe('');
   });
 });
