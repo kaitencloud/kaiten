@@ -755,11 +755,14 @@ func IsPublicAPIPath(path string) bool {
 		return true
 	}
 
-	// Note there is deliberately no "/api/tokens/validate/" PREFIX arm here.
-	// The exact match above is the whole allowlist for that endpoint: the
-	// proxy rewrites every ext_authz check to that one constant path (see
-	// validatetoken.RegisterEndpoint), so a prefix would widen the
-	// auth-bypassing surface with nothing calling into it.
+	// The ext_authz check arrives with the original request's path appended
+	// (/api/tokens/validate/api/customers): proxies only prepend a check path,
+	// they cannot replace it. The token-validation handler answers everything
+	// under the prefix and ignores the suffix (see validatetoken.RegisterEndpoint),
+	// and it is the only route there, which server_boundary_test enforces.
+	if strings.HasPrefix(path, "/api/tokens/validate/") {
+		return true
+	}
 
 	// There is deliberately no /api/platform-openapi arm any more either. That
 	// document moved to the Platform listener with the API it describes, so on this
