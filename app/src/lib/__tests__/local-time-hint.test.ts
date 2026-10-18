@@ -90,7 +90,43 @@ describe('localTimeHint', () => {
     ).toEqual({ time: '09:21', place: null, zone: 'GMT-5' });
   });
 
-  it.each(['UTC', 'Etc/UTC', 'Etc/GMT', 'GMT', null])(
+  it.each([
+    ['Asia/Kolkata', '2026-10-18T14:21:00.000Z', '19:51', 'Kolkata'],
+    ['Asia/Kathmandu', '2026-10-18T14:21:00.000Z', '20:06', 'Kathmandu'],
+    ['Asia/Kolkata', '2026-10-18T22:00:00.000Z', 'Oct 19, 03:30', 'Kolkata'],
+    ['Asia/Kathmandu', '2026-10-18T22:00:00.000Z', 'Oct 19, 03:45', 'Kathmandu'],
+  ])('keeps the half hours of %s', (timeZone, instant, time, place) => {
+    expect(localTimeHint(instant, { locale: 'en', timeZone })).toMatchObject({
+      time,
+      place,
+    });
+  });
+
+  it('names the current place of a zone the browsers report under its old id', () => {
+    expect(
+      localTimeHint('2026-10-18T14:21:00.000Z', {
+        locale: 'en',
+        timeZone: 'Asia/Calcutta',
+      })?.place,
+    ).toBe('Kolkata');
+    expect(
+      localTimeHint('2026-10-18T14:21:00.000Z', {
+        locale: 'en',
+        timeZone: 'Asia/Saigon',
+      })?.place,
+    ).toBe('Ho Chi Minh');
+  });
+
+  it('names no place for a region id such as US/Pacific', () => {
+    expect(
+      localTimeHint('2026-10-18T14:21:00.000Z', {
+        locale: 'en',
+        timeZone: 'US/Pacific',
+      })?.place,
+    ).toBeNull();
+  });
+
+  it.each(['UTC', 'Etc/UTC', 'Etc/GMT', 'GMT', 'Atlantic/Reykjavik', null])(
     'says nothing when the clock is %s',
     (timeZone) => {
       expect(
@@ -98,6 +134,22 @@ describe('localTimeHint', () => {
       ).toBeNull();
     },
   );
+
+  it('says nothing while a zone sits at offset zero, and speaks once it does not', () => {
+    // London is on UTC in winter, one hour ahead in summer.
+    expect(
+      localTimeHint('2027-01-15T14:21:00.000Z', {
+        locale: 'en',
+        timeZone: 'Europe/London',
+      }),
+    ).toBeNull();
+    expect(
+      localTimeHint('2026-10-10T14:21:00.000Z', {
+        locale: 'en',
+        timeZone: 'Europe/London',
+      }),
+    ).toEqual({ time: '15:21', place: 'London', zone: 'BST' });
+  });
 
   it.each([null, '', 'not-a-moment'])('says nothing of %j', (instant) => {
     expect(
@@ -119,6 +171,7 @@ describe('isUtcZone', () => {
   it('knows the names of UTC, and no other zone', () => {
     expect(isUtcZone('UTC')).toBe(true);
     expect(isUtcZone('Etc/UTC')).toBe(true);
+    expect(isUtcZone('Atlantic/Reykjavik')).toBe(true);
     expect(isUtcZone('Europe/London')).toBe(false);
     expect(isUtcZone('Europe/Paris')).toBe(false);
   });

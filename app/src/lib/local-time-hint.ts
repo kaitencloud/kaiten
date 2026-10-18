@@ -26,6 +26,48 @@ const UTC_ZONES = new Set([
   'GMT',
   'GMT0',
   'Greenwich',
+  // Zones that sit at offset zero all year under a name of their own.
+  'Africa/Abidjan',
+  'Africa/Accra',
+  'Africa/Bamako',
+  'Africa/Banjul',
+  'Africa/Bissau',
+  'Africa/Conakry',
+  'Africa/Dakar',
+  'Africa/Freetown',
+  'Africa/Lome',
+  'Africa/Monrovia',
+  'Africa/Nouakchott',
+  'Africa/Ouagadougou',
+  'Africa/Sao_Tome',
+  'America/Danmarkshavn',
+  'Atlantic/Reykjavik',
+  'Atlantic/St_Helena',
+  'Iceland',
+]);
+
+// Ids the browsers still report for places whose name has changed.
+const RENAMED_PLACES: Record<string, string> = {
+  Calcutta: 'Kolkata',
+  Katmandu: 'Kathmandu',
+  Saigon: 'Ho Chi Minh',
+  Rangoon: 'Yangon',
+  Kiev: 'Kyiv',
+};
+
+// The areas of the IANA ids that end in a place (`Europe/Paris`); `US/Pacific`,
+// `Canada/Eastern` and the like name a region, not a place.
+const PLACE_AREAS = new Set([
+  'Africa',
+  'America',
+  'Antarctica',
+  'Arctic',
+  'Asia',
+  'Atlantic',
+  'Australia',
+  'Europe',
+  'Indian',
+  'Pacific',
 ]);
 
 /** The zone of the clock of the browser (`Europe/Paris`), or null when it does not say. */
@@ -91,17 +133,19 @@ function zoneName(date: Date, locale: string, timeZone: string): string {
 
 function placeOf(timeZone: string): string | null {
   const [area, ...rest] = timeZone.split('/');
-  if (rest.length === 0 || area === 'Etc') {
+  if (rest.length === 0 || !PLACE_AREAS.has(area)) {
     return null;
   }
+  const place = (rest.at(-1) as string).replaceAll('_', ' ');
 
-  return (rest.at(-1) as string).replaceAll('_', ' ');
+  return RENAMED_PLACES[place] ?? place;
 }
 
 /**
  * What a UTC moment is in a zone, on the 24-hour clock of the pickers. The day
  * is part of it when it is not the UTC day, the year when that differs too.
- * Null for no moment, a zone that is UTC, or one the browser does not know.
+ * Null for no moment, a zone that is UTC or at offset zero at that moment, or
+ * one the browser does not know.
  */
 export function localTimeHint(
   instant: string | null,
@@ -135,8 +179,20 @@ export function localTimeHint(
           }),
     };
 
+    const time = new Intl.DateTimeFormat(locale, options).format(date);
+    // A zone that is at offset zero just now (London in winter) says what the
+    // UTC moment already says.
+    if (
+      time ===
+      new Intl.DateTimeFormat(locale, { ...options, timeZone: 'UTC' }).format(
+        date,
+      )
+    ) {
+      return null;
+    }
+
     return {
-      time: new Intl.DateTimeFormat(locale, options).format(date),
+      time,
       place: placeOf(timeZone),
       zone: zoneName(date, locale, timeZone),
     };
