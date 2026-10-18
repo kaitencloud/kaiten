@@ -228,6 +228,21 @@ describe('DateTimePicker', () => {
     expect(trigger()).toHaveTextContent('Pick a date and time');
   });
 
+  it('stays cleared when it is cleared with a time half typed', async () => {
+    const onChange = vi.fn();
+    render(<Harness initial="2027-03-03T10:00" onChange={onChange} />);
+    const user = userEvent.setup();
+
+    await user.click(trigger());
+    await user.clear(timeField());
+    await user.type(timeField(), '9:15');
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+
+    expect(onChange).toHaveBeenLastCalledWith('');
+    expect(pickerValue(trigger())).toBe('');
+    expect(trigger()).toHaveTextContent('Pick a date and time');
+  });
+
   it('keeps the clear button, disabled, while nothing is chosen, so the popover keeps its height', async () => {
     render(<Harness />);
 

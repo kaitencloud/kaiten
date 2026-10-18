@@ -85,9 +85,11 @@ export function DatePickerShell({
     }
   };
 
+  // Not `onClose`: what was half typed has no say once the value is cleared.
   const clear = () => {
     onClear();
-    handleOpenChange(false);
+    setOpen(false);
+    onBlur?.();
   };
 
   return (
