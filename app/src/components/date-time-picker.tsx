@@ -270,6 +270,7 @@ function TimeOfDayInput({
         // There while the zone is not UTC, empty or not, so the popover keeps
         // its height as a time is typed.
         <p
+          aria-live="polite"
           className="text-muted-foreground min-h-4 text-xs"
           data-slot="date-picker-local-time"
           id={localId}

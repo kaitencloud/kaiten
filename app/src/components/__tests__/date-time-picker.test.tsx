@@ -507,6 +507,14 @@ describe.each([
     expect(screen.queryByLabelText('Time (UTC)')).toBeNull();
   });
 
+  it('announces the hint of the time field as the time typed changes it', async () => {
+    render(<Harness initial={utc} />);
+
+    await userEvent.setup().click(trigger());
+
+    expect(localHintInPopover()).toHaveAttribute('aria-live', 'polite');
+  });
+
   it('follows the time as it is typed, and gives back the UTC text', async () => {
     const onChange = vi.fn();
     render(<Harness initial={utc} onChange={onChange} />);
