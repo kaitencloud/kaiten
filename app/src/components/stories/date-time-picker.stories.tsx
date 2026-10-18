@@ -58,7 +58,7 @@ export const WithMoment: Story = {
     const canvas = within(canvasElement);
     const trigger = await canvas.findByLabelText('Starts (UTC)');
 
-    await expect(trigger).toHaveTextContent('Dec 31, 2027, 11:59 PM');
+    await expect(trigger).toHaveTextContent('Dec 31, 2027, 23:59');
   },
 };
 

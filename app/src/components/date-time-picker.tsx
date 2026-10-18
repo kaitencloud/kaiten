@@ -11,6 +11,8 @@ import {
   dateTimeInputToInstant,
   isTimeOfDay,
   joinDateTimeInput,
+  leadingDayOfDateTimeInput,
+  parseTimeOfDay,
   splitDateTimeInput,
 } from '@/lib/date-time-input';
 import { formatDateTime } from '@/lib/format-date';
@@ -25,11 +27,17 @@ type DateTimePickerProps = DatePickerTriggerProps & {
 };
 
 /**
- * A UTC date and time: a day picked on a calendar and a time typed beside it.
- * It holds the text a `datetime-local` input held, `2027-03-03T10:00`, with no
- * zone and no seconds, and an empty text while no day is chosen, so a form that
- * read that text reads this the same. A text that is not a date and a time shows
- * as none and stays as it is until the person picks one.
+ * A UTC date and time: a day picked on a calendar and a time typed beside it. It
+ * holds the text a `datetime-local` input held, `2027-03-03T10:00`, with no zone
+ * and no seconds, and an empty text while no day is chosen, so a form that read
+ * that text reads this the same.
+ *
+ * The time is typed on the 24-hour clock the button shows: `9:15`, `930` and
+ * `09:15` are one time, written back as `09:15`. A text that is no time is never
+ * dropped: the form is given it with the day (`2027-03-03T25:99`), which its own
+ * validation refuses, and the button shows it, marked invalid. The same goes for
+ * a text a form hands in that is not a moment: it shows as it is, and stays until
+ * the person picks one.
  */
 export function DateTimePicker({
   value,
@@ -40,45 +48,103 @@ export function DateTimePicker({
   const { t } = useTranslation();
   const parts = splitDateTimeInput(value);
   const instant = parts ? dateTimeInputToInstant(value) : null;
-  // The time typed before any day is chosen: the day picked next takes it.
-  const [pendingTime, setPendingTime] = useState('');
+  const day = parts?.day ?? leadingDayOfDateTimeInput(value);
+  const held = value.trim();
+  // What is typed in the time field and is not (yet) the time the value holds.
+  // It belongs to the value it was typed against: the form changing the value
+  // from elsewhere (a reset) drops it. With no day chosen it is the time the day
+  // picked next takes, as typed.
+  const [typed, setTyped] = useState<{ text: string; value: string } | null>(
+    null,
+  );
+  const draft = typed && typed.value === value ? typed.text : null;
+  const time = draft ?? parts?.time ?? '';
 
-  const pickDay = (day: string) => {
-    const time =
-      parts?.time ?? (isTimeOfDay(pendingTime) ? pendingTime : MIDNIGHT);
+  const write = (next: string, text: string | null) => {
+    if (next !== value) {
+      onChange(next);
+    }
+    setTyped(text === null ? null : { text, value: next });
+  };
 
-    onChange(joinDateTimeInput(day, time));
-    setPendingTime('');
+  const pickDay = (picked: string) => {
+    write(
+      joinDateTimeInput(picked, draft || parts?.time || MIDNIGHT),
+      draft || null,
+    );
+  };
+
+  const changeTime = (text: string) => {
+    write(
+      day && isTimeOfDay(text) ? joinDateTimeInput(day, text) : value,
+      text,
+    );
+  };
+
+  // Called as the person leaves the time field or the calendar. Returns whether
+  // the time is a time (or nothing was typed): a text that is none is written to
+  // the value as it is, for the form to refuse, and stays in the field.
+  const settleTime = (): boolean => {
+    if (draft === null) {
+      return true;
+    }
+    if (draft === '') {
+      write(value, null);
+
+      return true;
+    }
+    const normal = parseTimeOfDay(draft);
+    if (normal) {
+      write(day ? joinDateTimeInput(day, normal) : value, day ? null : normal);
+
+      return true;
+    }
+    if (day) {
+      write(joinDateTimeInput(day, draft), draft);
+    }
+
+    return false;
   };
 
   return (
     <DatePickerShell
       {...props}
+      aria-invalid={
+        props['aria-invalid'] || (held !== '' && !parts) || undefined
+      }
       dialogLabel={t('Common.datePicker.dateTimeDialog')}
-      onClear={() => onChange('')}
+      onClear={() => {
+        setTyped(null);
+        onChange('');
+      }}
+      onClose={() => {
+        settleTime();
+      }}
       placeholder={placeholder ?? t('Common.pickDateTime')}
       text={
         instant
           ? formatDateTime(instant, {
               dateStyle: 'medium',
+              hourCycle: 'h23',
               timeStyle: 'short',
               timeZone: 'UTC',
             })
-          : undefined
+          : held || undefined
       }
-      value={parts ? joinDateTimeInput(parts.day, parts.time) : ''}
+      value={parts ? joinDateTimeInput(parts.day, parts.time) : held}
     >
       {({ close }) => (
         <>
-          <UtcDayCalendar day={parts?.day ?? ''} onDayChange={pickDay} />
+          <UtcDayCalendar day={day} onDayChange={pickDay} />
           <TimeOfDayInput
-            onDone={close}
-            onTimeChange={(time) =>
-              parts
-                ? onChange(joinDateTimeInput(parts.day, time))
-                : setPendingTime(time)
-            }
-            time={parts?.time ?? pendingTime}
+            onDone={() => {
+              if (settleTime()) {
+                close();
+              }
+            }}
+            onSettle={settleTime}
+            onTimeChange={changeTime}
+            time={time}
           />
         </>
       )}
@@ -87,22 +153,28 @@ export function DateTimePicker({
 }
 
 type TimeOfDayInputProps = {
+  /** What the field shows: the time of the value, or what was typed and is not one yet. */
   time: string;
-  /** Called with a time of day, `HH:mm`, each time the text typed becomes one. */
+  /** Called with the text of the field each time it changes. */
   onTimeChange: (time: string) => void;
-  /** Called when the person presses Enter: they are done with the time. */
+  /** Called as the field is left, to turn what was typed into the time it stands for. */
+  onSettle: () => void;
+  /** Called when the person presses Enter on a time: they are done with it. */
   onDone: () => void;
 };
 
-// What is typed stays here until it is a time of day: half a time ("10:0") is
-// no value, and the field must not take it for the one the person had.
-function TimeOfDayInput({ time, onTimeChange, onDone }: TimeOfDayInputProps) {
+function TimeOfDayInput({
+  time,
+  onTimeChange,
+  onSettle,
+  onDone,
+}: TimeOfDayInputProps) {
   const { t } = useTranslation();
   const id = useId();
   const errorId = useId();
-  const [draft, setDraft] = useState<string | null>(null);
-  const shown = draft ?? time;
-  const invalid = shown !== '' && !isTimeOfDay(shown);
+  // `9:15` and `930` are times the field takes: it only complains of a text that
+  // no correction makes one.
+  const invalid = time !== '' && parseTimeOfDay(time) === null;
 
   return (
     <div className="space-y-1.5 border-t p-3 pt-2">
@@ -114,17 +186,11 @@ function TimeOfDayInput({ time, onTimeChange, onDone }: TimeOfDayInputProps) {
         id={id}
         inputMode="numeric"
         maxLength={5}
-        onBlur={() => setDraft(null)}
-        onChange={(event) => {
-          const next = event.target.value;
-
-          setDraft(next);
-          if (isTimeOfDay(next)) {
-            onTimeChange(next);
-          }
-        }}
+        onBlur={onSettle}
+        onChange={(event) => onTimeChange(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {
+            // Enter ends the time, not the form the calendar sits in.
             event.preventDefault();
             if (!invalid) {
               onDone();
@@ -132,7 +198,7 @@ function TimeOfDayInput({ time, onTimeChange, onDone }: TimeOfDayInputProps) {
           }
         }}
         placeholder={MIDNIGHT}
-        value={shown}
+        value={time}
       />
       {invalid ? (
         <p className="text-xs text-destructive-subtle-foreground" id={errorId}>

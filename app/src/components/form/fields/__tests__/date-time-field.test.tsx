@@ -49,7 +49,9 @@ describe('DateTimeField', () => {
 
     expect(trigger.tagName).toBe('BUTTON');
     expect(pickerValue(trigger)).toBe('');
-    expect(trigger).toHaveAccessibleDescription('Read as UTC.');
+    expect(trigger).toHaveAccessibleDescription(
+      'Read as UTC. Pick a date and time',
+    );
   });
 
   it('holds the text a datetime-local input held: a date, a time, no zone', async () => {

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vite-plus/test';
@@ -134,6 +134,55 @@ describe('DateInputPicker', () => {
     await user.keyboard('{ArrowRight}{ArrowDown}{Enter}');
 
     expect(onChange).toHaveBeenLastCalledWith('2027-03-13');
+  });
+
+  it('reads its value after its name, so a screen reader announces both', () => {
+    render(<Harness initial="2027-03-01" />);
+
+    expect(trigger()).toHaveAccessibleName('From');
+    expect(trigger()).toHaveAccessibleDescription('Mar 1, 2027');
+  });
+
+  it('reads the placeholder too while no day is chosen', () => {
+    render(<Harness />);
+
+    expect(trigger()).toHaveAccessibleDescription('Pick a date');
+  });
+
+  it('opens with the focus on the chosen day, so the arrow keys work at once', async () => {
+    render(<Harness initial="2027-03-05" />);
+
+    await userEvent.setup().click(trigger());
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('button[data-day="2027-03-05"]'),
+      ).toHaveFocus(),
+    );
+  });
+
+  it('moves from the chosen day with the arrow keys from the first key press', async () => {
+    const onChange = vi.fn();
+    render(<Harness initial="2027-03-05" onChange={onChange} />);
+    const user = userEvent.setup();
+
+    await user.click(trigger());
+    await waitFor(() =>
+      expect(
+        document.querySelector('button[data-day="2027-03-05"]'),
+      ).toHaveFocus(),
+    );
+    await user.keyboard('{ArrowRight}{ArrowDown}{Enter}');
+
+    expect(onChange).toHaveBeenLastCalledWith('2027-03-13');
+  });
+
+  it('keeps the clear button, disabled, while no day is chosen, so the popover keeps its height', async () => {
+    render(<Harness />);
+
+    await userEvent.setup().click(trigger());
+
+    expect(screen.getByRole('button', { name: 'Clear' })).toBeDisabled();
   });
 
   it('follows the language of the app', async () => {

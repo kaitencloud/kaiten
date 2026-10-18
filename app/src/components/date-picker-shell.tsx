@@ -1,5 +1,11 @@
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { useState, type ComponentProps, type ReactNode } from 'react';
+import {
+  useId,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -31,19 +37,27 @@ export type DatePickerTriggerProps = Omit<
 type DatePickerShellProps = DatePickerTriggerProps & {
   /** The value in words, for the button; nothing while no value is chosen. */
   text: string | undefined;
-  /** The value as the form holds it, kept on the button (`data-value`) for tests to read. */
+  /**
+   * The value as the form holds it, kept on the button (`data-value`). That
+   * attribute is the contract the unit, story and E2E helpers share
+   * (`date-picker-test-support.ts`) to read a picker, as the text is localized:
+   * leave it be.
+   */
   value: string;
   placeholder: string;
   /** The name of the calendar once it is open. */
   dialogLabel: string;
   onClear: () => void;
+  /** Called as the popover closes, before the field is reported as left: the moment to settle what is half typed in it. */
+  onClose?: () => void;
   children: (controls: { close: () => void }) => ReactNode;
 };
 
 /**
  * The button and the popover every date picker of the console shares: the value
  * (or a placeholder) on the button, the calendar in the popover, and a way to
- * clear the value.
+ * clear the value. The value is the description of the button, read after the
+ * name the label gives it, since a button announces its name and not its text.
  */
 export function DatePickerShell({
   text,
@@ -51,17 +65,22 @@ export function DatePickerShell({
   placeholder,
   dialogLabel,
   onClear,
+  onClose,
   onBlur,
   className,
   children,
+  'aria-describedby': describedBy,
   ...triggerProps
 }: DatePickerShellProps) {
   const { t } = useTranslation();
+  const textId = useId();
+  const popupRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (!next) {
+      onClose?.();
       onBlur?.();
     }
   };
@@ -79,6 +98,9 @@ export function DatePickerShell({
             variant="outline"
             data-value={value}
             {...triggerProps}
+            aria-describedby={
+              [describedBy, textId].filter(Boolean).join(' ') || undefined
+            }
             // The popup takes the focus when it opens: a button left that way
             // is not a field the person has finished with.
             onBlur={open ? undefined : onBlur}
@@ -89,7 +111,9 @@ export function DatePickerShell({
             )}
           >
             <CalendarIcon aria-hidden="true" className="size-4" />
-            <span className="truncate">{text ?? placeholder}</span>
+            <span className="truncate" id={textId}>
+              {text ?? placeholder}
+            </span>
           </Button>
         }
       />
@@ -97,28 +121,38 @@ export function DatePickerShell({
         align="start"
         aria-label={dialogLabel}
         className="w-auto p-0"
+        // Keyboard focus starts on a day of the calendar (the chosen one, else
+        // today) and not on the first button of the header, so the arrow keys
+        // work at once.
+        initialFocus={() =>
+          popupRef.current?.querySelector<HTMLElement>(
+            'button[data-day][tabindex="0"]',
+          ) ?? true
+        }
+        ref={popupRef}
       >
         {children({ close: () => handleOpenChange(false) })}
-        {value ? (
-          <div className="border-t p-2">
-            <Button
-              className="w-full"
-              onClick={clear}
-              size="sm"
-              variant="ghost"
-            >
-              {t('Common.clear')}
-            </Button>
-          </div>
-        ) : null}
+        {/* Always there, so the popover keeps its height when a day is picked
+            and the controls above do not move under the pointer. */}
+        <div className="border-t p-2">
+          <Button
+            className="w-full"
+            disabled={!value}
+            onClick={clear}
+            size="sm"
+            variant="ghost"
+          >
+            {t('Common.clear')}
+          </Button>
+        </div>
       </PopoverContent>
     </Popover>
   );
 }
 
 // A native control took any year; a dropdown has to end somewhere. These bounds
-// are the years a console person plans billing in, and they grow to hold a
-// value outside them rather than hide it.
+// are the years a date is planned in, and they grow to hold a value outside
+// them rather than hide it.
 const FIRST_MONTH = new Date(2000, 0, 1);
 const LAST_MONTH = new Date(2100, 11, 1);
 
@@ -128,16 +162,16 @@ type UtcDayCalendarProps = {
   onDayChange: (day: string) => void;
 };
 
-// Today is the UTC day: the one every billing day of the console is counted from,
-// not the one of the zone of the browser, which differs for some hours of the day.
+// Today is the UTC day: a day of the console is a UTC day, not a day of the zone
+// of the browser, which differs from it for some hours of the day.
 function utcToday(): Date {
   return dateInputToCalendarDate(new Date().toISOString().slice(0, 10)) as Date;
 }
 
 /**
- * A calendar of UTC days. The console reads every billing day in UTC, so the
- * calendar marks the UTC day as today and hands back plain days (`2027-03-01`):
- * the same day is shown, and reported, in every zone of the browser.
+ * A calendar of UTC days. The console reads its days in UTC, so the calendar
+ * marks the UTC day as today and hands back plain days (`2027-03-01`): the same
+ * day is shown, and reported, in every zone of the browser.
  */
 export function UtcDayCalendar({ day, onDayChange }: UtcDayCalendarProps) {
   const selected = dateInputToCalendarDate(day);
