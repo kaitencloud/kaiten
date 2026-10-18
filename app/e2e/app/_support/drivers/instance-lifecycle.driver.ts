@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { pickDateTime } from './date-picker.driver';
 
 /**
  * The life of a subscription, on the Billing tab of its instance: what the tab says
@@ -158,6 +159,11 @@ export class InstanceLifecycleDriver {
 
   endDateField(): Locator {
     return this.dialog().getByLabel('License ends (UTC)');
+  }
+
+  /** Picks the end of the license on the calendar of the field, as the text of the field holds it (`2026-10-20T08:30`, UTC). */
+  async setEndDate(value: string) {
+    await pickDateTime(this.endDateField(), value);
   }
 
   /** What the dialog says once the cancellation was accepted. */

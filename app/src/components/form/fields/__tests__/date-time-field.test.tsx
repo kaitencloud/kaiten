@@ -1,16 +1,31 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vite-plus/test';
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test';
 import { z } from 'zod';
+import { testI18n } from '@/__tests__/test-i18n';
 import { useAppForm } from '@/hooks/form';
+import en from '@/lib/i18n/locales/en';
+import {
+  clearPicker,
+  pickDateTime,
+  pickerValue,
+} from '@/test-fixtures/date-picker-test-support';
 
 const schema = z.object({
   paidAt: z.string().refine((value) => value <= '2030-01-01T00:00', 'Tests.tooLate'),
 });
 
-function Harness() {
+beforeAll(() => {
+  testI18n.addResourceBundle('en', 'translation', en, true, true);
+});
+
+afterAll(() => {
+  testI18n.removeResourceBundle('en', 'translation');
+});
+
+function Harness({ initial = '' }: { initial?: string }) {
   const form = useAppForm({
-    defaultValues: { paidAt: '' },
+    defaultValues: { paidAt: initial },
     validators: { onChange: schema },
   });
 
@@ -27,33 +42,43 @@ function Harness() {
 }
 
 describe('DateTimeField', () => {
-  it('is a date and a time control with its label and its help text', async () => {
+  it('is a calendar button with its label and its help text', async () => {
     render(<Harness />);
 
-    const input = await screen.findByLabelText('Paid at (UTC)');
+    const trigger = await screen.findByLabelText('Paid at (UTC)');
 
-    expect(input).toHaveAttribute('type', 'datetime-local');
-    expect(input).toHaveValue('');
-    expect(input).toHaveAccessibleDescription('Read as UTC.');
+    expect(trigger.tagName).toBe('BUTTON');
+    expect(pickerValue(trigger)).toBe('');
+    expect(trigger).toHaveAccessibleDescription('Read as UTC.');
   });
 
-  it('holds the text the control holds: a date, a time, no zone', async () => {
+  it('holds the text a datetime-local input held: a date, a time, no zone', async () => {
     render(<Harness />);
 
-    const input = await screen.findByLabelText('Paid at (UTC)');
-    await userEvent.type(input, '2027-03-03T10:00');
+    const trigger = await screen.findByLabelText('Paid at (UTC)');
+    await pickDateTime(userEvent.setup(), trigger, '2027-03-03T10:00');
 
-    expect(input).toHaveValue('2027-03-03T10:00');
+    expect(pickerValue(trigger)).toBe('2027-03-03T10:00');
+  });
+
+  it('starts from the value the form gives it, and clears it', async () => {
+    render(<Harness initial="2027-03-03T10:00" />);
+
+    const trigger = await screen.findByLabelText('Paid at (UTC)');
+    expect(pickerValue(trigger)).toBe('2027-03-03T10:00');
+
+    await clearPicker(userEvent.setup(), trigger);
+
+    expect(pickerValue(trigger)).toBe('');
   });
 
   it('says what is wrong with the value, beside the control', async () => {
     render(<Harness />);
 
-    const input = await screen.findByLabelText('Paid at (UTC)');
-    await userEvent.type(input, '2031-01-01T00:00');
-    await userEvent.tab();
+    const trigger = await screen.findByLabelText('Paid at (UTC)');
+    await pickDateTime(userEvent.setup(), trigger, '2031-01-01T00:00');
 
     expect(await screen.findByText('Tests.tooLate')).toBeInTheDocument();
-    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(trigger).toHaveAttribute('aria-invalid', 'true');
   });
 });

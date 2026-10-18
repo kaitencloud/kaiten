@@ -4,6 +4,7 @@ import { CustomerDetailDriver } from '../_support/drivers/customer-detail.driver
 import { InstanceBillingDriver } from '../_support/drivers/instance-billing.driver';
 import { UsageHistoryDriver } from '../_support/drivers/usage-history.driver';
 import { startInLanguage } from '../_support/language';
+import { pickDateTime } from '../_support/drivers/date-picker.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installCustomerAppMocks } from '../_support/mocks/install-customer-app-mocks';
 import { installInstanceAppMocks } from '../_support/mocks/install-instance-app-mocks';
@@ -127,10 +128,10 @@ test.describe('the billing of an instance, read in French', () => {
       billing.billingEmailNotice().getByLabel('E-mail de facturation'),
     ).toBeVisible();
 
-    await dialog
-      .getByLabel('Début de la facturation (UTC)')
-      .fill('2099-01-01T00:00');
-    await dialog.getByLabel('Début de la facturation (UTC)').blur();
+    await pickDateTime(
+      dialog.getByLabel('Début de la facturation (UTC)'),
+      '2099-01-01T00:00',
+    );
     await expect(dialog).toContainText(
       'La facturation ne peut pas démarrer dans le futur',
     );

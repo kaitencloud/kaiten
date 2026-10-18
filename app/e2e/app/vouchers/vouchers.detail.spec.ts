@@ -1,5 +1,6 @@
 import { expect, expectToast, test } from '../_support/app-test';
 import { recordWrites } from '../_support/assertions/requests';
+import { expectPickerValue } from '../_support/drivers/date-picker.driver';
 import { VoucherDetailDriver } from '../_support/drivers/voucher-detail.driver';
 import { BILLED_NOW } from '../billing/billed-instances';
 import { installVouchersWorld } from './install-vouchers-world';
@@ -307,7 +308,7 @@ test.describe('changing a published voucher', () => {
       'Twenty percent off the base price for the first three invoices',
     );
     await expect(detail.maxRedemptionsField()).toHaveValue('100');
-    await expect(detail.expiresAtField()).toHaveValue('2027-06-30T23:59');
+    await expectPickerValue(detail.expiresAtField(), '2027-06-30T23:59');
     await expect(detail.saveButton()).toBeDisabled();
   });
 

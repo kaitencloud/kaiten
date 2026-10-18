@@ -13,7 +13,7 @@ const ERRORS = 'Pages.Vouchers.Edit.Errors';
 /**
  * What a voucher that is no longer a draft lets its owner change: its name, its
  * description, the end of its window and the most it can be redeemed. The window is
- * the text of a `datetime-local` control, read as UTC, and an empty number is `NaN`.
+ * the text of a `DateTimeField`, read as UTC, and an empty number is `NaN`.
  */
 export const voucherEditSchema = zVoucherDraft
   .pick({ description: true, name: true })

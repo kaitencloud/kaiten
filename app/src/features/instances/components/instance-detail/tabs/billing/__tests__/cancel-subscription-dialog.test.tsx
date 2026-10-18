@@ -25,6 +25,7 @@ import {
   useBillingTexts,
 } from '@/test-fixtures/billing-test-support';
 import { billingCapabilitiesProfiles } from '../../../../../../../../e2e/app/_support/model/billing-capabilities';
+import { pickerValue } from '@/test-fixtures/date-picker-test-support';
 import { CancelSubscriptionDialog } from '../cancel/cancel-subscription-dialog';
 import { addon, BUSINESS_V3_MONTHLY, INSTANCE, subscription } from './lifecycle-fixtures';
 
@@ -393,7 +394,7 @@ describe('the cancel dialog', () => {
       await userEvent.click(screen.getByRole('checkbox', { name: 'Also set the license end date' }));
       const date = await screen.findByLabelText('License ends (UTC)');
       // Proposed as the end of the period, since the cancellation waits for it.
-      expect(date).toHaveValue('2026-10-27T00:00');
+      expect(pickerValue(date)).toBe('2026-10-27T00:00');
       await userEvent.click(await confirm());
 
       const report = await screen.findByTestId('cancel-follow-ups');

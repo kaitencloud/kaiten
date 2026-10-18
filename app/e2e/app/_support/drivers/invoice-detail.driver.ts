@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { pickDateTime } from './date-picker.driver';
 
 /** What an action of the page opens, to tell which dialog the page showed. */
 export type InvoiceActionName =
@@ -262,6 +263,11 @@ export class InvoiceDetailDriver {
   /** The reason field of the dialog of an audited action. */
   reason(): Locator {
     return this.dialog().getByLabel(/^Reason/);
+  }
+
+  /** Picks the time of payment on the calendar of the mark-paid dialog, as the text of the field holds it (`2026-10-17T10:00`, UTC). */
+  async setPaidAt(value: string) {
+    await pickDateTime(this.dialog().getByLabel(/Paid at/), value);
   }
 
   /** The confirmation button of the dialog that is open. */

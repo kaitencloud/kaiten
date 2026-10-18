@@ -416,10 +416,7 @@ test.describe('marking an invoice paid', () => {
       'It also acknowledges the invoice in the handoff queue',
     );
     await invoice.dialog().getByLabel('External reference').fill('ERP-1001');
-    await invoice
-      .dialog()
-      .getByLabel(/Paid at/)
-      .fill(yesterdayAt10());
+    await invoice.setPaidAt(yesterdayAt10());
     await invoice.dialog().getByLabel('Note').fill('wire transfer');
     await invoice.confirm('Mark as paid').click();
 
@@ -466,19 +463,13 @@ test.describe('marking an invoice paid', () => {
     await invoice.goto('inv-m1');
     await invoice.action('Mark as paid').click();
 
-    await invoice
-      .dialog()
-      .getByLabel(/Paid at/)
-      .fill(tomorrowAt10());
+    await invoice.setPaidAt(tomorrowAt10());
     await expect(
       invoice.dialog().getByText('The payment cannot be in the future'),
     ).toBeVisible();
     await expect(invoice.confirm('Mark as paid')).toBeDisabled();
 
-    await invoice
-      .dialog()
-      .getByLabel(/Paid at/)
-      .fill(yesterdayAt10());
+    await invoice.setPaidAt(yesterdayAt10());
     await invoice
       .dialog()
       .getByLabel('External reference')

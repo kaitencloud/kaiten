@@ -1,7 +1,9 @@
 import { expect, test } from '../_support/app-test';
 import { recordWrites } from '../_support/assertions/requests';
 import { InstanceBillingDriver } from '../_support/drivers/instance-billing.driver';
+import { expectPickerValue } from '../_support/drivers/date-picker.driver';
 import { InstanceLifecycleDriver } from '../_support/drivers/instance-lifecycle.driver';
+
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installInstanceAppMocks } from '../_support/mocks/install-instance-app-mocks';
 import { BILLED_NOW } from '../billing/billed-instances';
@@ -263,8 +265,8 @@ test.describe('cancelling a subscription', () => {
     await lifecycle.removeAddonsCheckbox().check();
     await lifecycle.setEndDateCheckbox().check();
     // Proposed as the end of the period, since the cancellation waits for it.
-    await expect(lifecycle.endDateField()).toHaveValue('2026-10-15T00:00');
-    await lifecycle.endDateField().fill('2026-10-20T08:30');
+    await expectPickerValue(lifecycle.endDateField(), '2026-10-15T00:00');
+    await lifecycle.setEndDate('2026-10-20T08:30');
     await lifecycle.cancelConfirmButton().click();
 
     await expect(lifecycle.followUps()).toContainText(

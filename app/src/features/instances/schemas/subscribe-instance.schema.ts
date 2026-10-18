@@ -59,7 +59,7 @@ export const subscribeFormSchema = zNewSubscription
         (Number.isNaN(days) || isValidTrialDays(days)),
       { error: TRIAL_DAYS_ERROR_KEY },
     ),
-    // The text of a datetime-local input, read as UTC.
+    // The text of a DateTimeField, read as UTC.
     startAt: z
       .string()
       .refine(

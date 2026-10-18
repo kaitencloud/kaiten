@@ -22,6 +22,10 @@ import {
   sessionToken,
   useBillingTexts,
 } from '@/test-fixtures/billing-test-support';
+import {
+  pickDateTime,
+  pickerValue,
+} from '@/test-fixtures/date-picker-test-support';
 import { SubscribeInstanceDialog } from '../subscribe/subscribe-instance-dialog';
 
 const getAuthToken = vi.hoisted(() => vi.fn());
@@ -165,14 +169,14 @@ const renderDialog = (onClose = vi.fn()) => {
 const daysFromNow = (days: number) =>
   new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 16);
 
-// A time input takes the whole text at once: typing it key by key is no way to fill one.
-const setStart = (value: string) => {
-  const input = screen.getByLabelText('Billing starts (UTC)');
-
-  fireEvent.change(input, { target: { value } });
-  // A field says what is wrong with it once the person has left it.
-  fireEvent.blur(input);
-};
+// The start is picked on the calendar of the field and its time typed beside it,
+// as a person does; the calendar closes on Enter, which leaves the field.
+const setStart = (value: string) =>
+  pickDateTime(
+    userEvent.setup(),
+    screen.getByLabelText('Billing starts (UTC)'),
+    value,
+  );
 
 const subscribe = () => screen.findByRole('button', { name: 'Subscribe' });
 const baseField = () => screen.findByRole('combobox', { name: /Base price/ });
@@ -264,7 +268,7 @@ describe('the subscribe dialog', () => {
     const start = daysFromNow(-10);
 
     await userEvent.type(days, '45');
-    setStart(start);
+    await setStart(start);
     await userEvent.click(await subscribe());
 
     await waitFor(() => expect(bodies).toHaveLength(1));
@@ -355,14 +359,14 @@ describe('a refusal of the subscription', () => {
     renderDialog();
     const start = await screen.findByLabelText('Billing starts (UTC)');
     const typed = daysFromNow(-10);
-    setStart(typed);
+    await setStart(typed);
 
     await userEvent.click(await subscribe());
 
     expect(
       await screen.findByText('startAt must be on or after 2027-02-15T09:30:00Z'),
     ).toBeInTheDocument();
-    expect(start).toHaveValue(typed);
+    expect(pickerValue(start)).toBe(typed);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.queryByTestId('subscribed')).toBeNull();
   });
@@ -396,11 +400,11 @@ describe('a refusal of the subscription', () => {
     renderDialog();
     await screen.findByLabelText('Billing starts (UTC)');
 
-    setStart(daysFromNow(5));
+    await setStart(daysFromNow(5));
     expect(await screen.findByText('Billing cannot start in the future')).toBeInTheDocument();
 
     // The price chosen is monthly: a start of two months ago is before its period.
-    setStart(daysFromNow(-70));
+    await setStart(daysFromNow(-70));
     expect(
       await screen.findByText('Billing cannot start more than one billing period ago'),
     ).toBeInTheDocument();
@@ -428,7 +432,7 @@ describe('subscribing again after a cancellation', () => {
     await screen.findByLabelText('Billing starts (UTC)');
 
     // Within the period of the price, but before the instance was canceled.
-    setStart(daysFromNow(-20));
+    await setStart(daysFromNow(-20));
     expect(
       await screen.findByText(
         'Billing cannot start before the previous subscription was canceled',
@@ -438,7 +442,7 @@ describe('subscribing again after a cancellation', () => {
     expect(bodies).toHaveLength(0);
 
     // After it, the start goes through.
-    setStart(daysFromNow(-5));
+    await setStart(daysFromNow(-5));
     await waitFor(() =>
       expect(
         screen.queryByText(
@@ -455,7 +459,7 @@ describe('subscribing again after a cancellation', () => {
     renderDialog();
     await screen.findByLabelText('Billing starts (UTC)');
 
-    setStart(daysFromNow(-70));
+    await setStart(daysFromNow(-70));
 
     expect(
       await screen.findByText('Billing cannot start more than one billing period ago'),

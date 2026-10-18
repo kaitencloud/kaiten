@@ -1,5 +1,6 @@
 import { expect, expectToast, test } from '../_support/app-test';
 import { recordWrites } from '../_support/assertions/requests';
+import { expectPickerValue } from '../_support/drivers/date-picker.driver';
 import { InstanceBillingDriver } from '../_support/drivers/instance-billing.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installCustomerAppMocks } from '../_support/mocks/install-customer-app-mocks';
@@ -278,7 +279,7 @@ test.describe('subscribing an instance', () => {
     await expect(billing.dialog()).toContainText(
       'startAt must be on or after 2026-09-07T12:00:00Z',
     );
-    await expect(billing.startAtField()).toHaveValue('2026-09-20T09:30');
+    await expectPickerValue(billing.startAtField(), '2026-09-20T09:30');
     await expect(billing.started()).toHaveCount(0);
     // Nothing was started, so it can be sent again, and goes through.
     await billing.setStartAt('2026-09-25T09:30');

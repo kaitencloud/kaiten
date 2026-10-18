@@ -11,7 +11,7 @@ import { dateTimeInputToInstant } from '@/lib/date-time-input';
 type SubscribeSummaryProps = {
   /** The base price chosen. */
   price: Price | undefined;
-  /** The start typed, as the text of a datetime-local input; empty is now. */
+  /** The start typed, as the text of a DateTimeField; empty is now. */
   startAt: string;
   /** The days of trial the subscription starts with; none when it starts billing at once. */
   trialDays?: number;

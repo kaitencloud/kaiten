@@ -17,6 +17,7 @@ import {
   renderWithClient,
   useBillingTexts,
 } from '@/test-fixtures/billing-test-support';
+import { pickDateTime } from '@/test-fixtures/date-picker-test-support';
 
 const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
 
@@ -248,9 +249,11 @@ describe('marking an invoice paid', () => {
       'ERP-1042',
     );
     await userEvent.type(await screen.findByLabelText('Note'), 'wire transfer');
-    const paidAt = await screen.findByLabelText(/Paid at/);
-    await userEvent.clear(paidAt);
-    await userEvent.type(paidAt, '2020-03-03T10:00');
+    await pickDateTime(
+      userEvent.setup(),
+      await screen.findByLabelText(/Paid at/),
+      '2020-03-03T10:00',
+    );
     await userEvent.click(
       await screen.findByRole('button', { name: 'Mark as paid' }),
     );

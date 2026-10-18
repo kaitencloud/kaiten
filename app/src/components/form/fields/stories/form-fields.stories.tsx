@@ -2,6 +2,10 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { expect, screen, userEvent, waitFor, within } from 'storybook/test';
 import { Button } from '@/components/ui/button';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
+import {
+  pickDateTime,
+  pickerValue,
+} from '@/test-fixtures/date-picker-test-support';
 import CheckboxField from '../checkbox-field';
 import ComboboxField from '../combobox-field';
 import DatePickerField from '../date-picker-field';
@@ -269,8 +273,8 @@ export const MoneyFieldExample: Story = {
   },
 };
 
-// A date and a time with the browser's own control. The field holds the text the
-// control holds, with no zone: the label says which zone it is read in.
+// A date picked on a calendar and a time typed beside it. The field holds the text
+// a datetime-local input holds, with no zone: the label says which zone it is read in.
 export const DateTimeFieldExample: Story = {
   render: function DateTimeFieldExampleStory() {
     const form = useAppForm({
@@ -299,12 +303,11 @@ export const DateTimeFieldExample: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const input = await canvas.findByLabelText('Paid at (UTC)');
+    const trigger = await canvas.findByLabelText('Paid at (UTC)');
 
-    await userEvent.type(input, '2027-03-03T10:00');
+    await pickDateTime(userEvent, trigger, '2027-03-03T10:00');
 
-    await expect(input).toHaveValue('2027-03-03T10:00');
-    await expect(input).toHaveAttribute('type', 'datetime-local');
+    await expect(pickerValue(trigger)).toBe('2027-03-03T10:00');
   },
 };
 

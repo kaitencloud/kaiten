@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { BILLED_NOW } from '../../billing/billed-instances';
+import { pickDateTime } from './date-picker.driver';
 
 const escapeRegExp = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -144,10 +145,9 @@ export class InstanceBillingDriver {
     return this.dialog().getByLabel('Billing starts (UTC)');
   }
 
-  /** Sets the start as the text of the input holds it, and leaves the field so that it says what is wrong. */
+  /** Picks the start on the calendar of the field, as the text of the field holds it (`2026-09-30T09:30`, UTC), and closes it so that the field says what is wrong. */
   async setStartAt(value: string) {
-    await this.startAtField().fill(value);
-    await this.startAtField().blur();
+    await pickDateTime(this.startAtField(), value);
   }
 
   summary(): Locator {

@@ -1,6 +1,6 @@
+import { DateTimePicker } from '@/components/date-time-picker';
 import FormField from '@/components/form/fields/form-field';
 import FormControl from '@/components/form/form-control';
-import { Input } from '@/components/ui/input';
 
 type DateTimeFieldProps = {
   className?: string;
@@ -11,11 +11,12 @@ type DateTimeFieldProps = {
 };
 
 /**
- * A date and a time, typed or picked with the browser's own control. The value is
- * the text the control holds, `2027-03-03T10:00`, with no zone and no seconds, and
- * empty when nothing is chosen: which zone it is in is the screen's to say, in the
- * label or the description. A field that reads it as UTC converts it with the
- * helper of the form that owns it, as the one for an amount does.
+ * A date and a time, picked on a calendar with the time typed beside it. The
+ * value is the text a `datetime-local` input holds, `2027-03-03T10:00`, with no
+ * zone and no seconds, and empty when nothing is chosen: which zone it is in is
+ * the screen's to say, in the label or the description. A field that reads it as
+ * UTC converts it with the helper of the form that owns it, as the one for an
+ * amount does.
  */
 const DateTimeField = ({
   className,
@@ -33,11 +34,10 @@ const DateTimeField = ({
       disabled={disabled}
     >
       {(field) => (
-        <FormControl>
-          <Input
-            type="datetime-local"
+        <FormControl announceRequired={false}>
+          <DateTimePicker
             value={field.value ?? ''}
-            onChange={(event) => field.handleChange(event.target.value)}
+            onChange={field.handleChange}
             onBlur={field.handleBlur}
             disabled={disabled}
             aria-invalid={field.hasError}
