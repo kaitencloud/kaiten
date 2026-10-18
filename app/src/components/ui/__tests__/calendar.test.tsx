@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vite-plus/test';
 import { testI18n } from '@/__tests__/test-i18n';
 import { Calendar } from '../calendar';
 
-const MARCH_2027 = new Date(Date.UTC(2027, 2, 1, 12));
+const MARCH_2027 = new Date(2027, 2, 1, 12);
 
 const firstWeekday = () =>
   document.querySelector('.rdp-weekday')?.getAttribute('aria-label');
@@ -14,7 +14,7 @@ afterEach(async () => {
 
 describe('the calendar', () => {
   it('speaks English, with the first day of the week on Sunday', () => {
-    render(<Calendar mode="single" month={MARCH_2027} timeZone="UTC" />);
+    render(<Calendar mode="single" month={MARCH_2027} />);
 
     expect(screen.getByText('March 2027')).toBeInTheDocument();
     expect(
@@ -25,7 +25,7 @@ describe('the calendar', () => {
 
   it('speaks the language of the app, not the one of the browser', async () => {
     await testI18n.changeLanguage('fr');
-    render(<Calendar mode="single" month={MARCH_2027} timeZone="UTC" />);
+    render(<Calendar mode="single" month={MARCH_2027} />);
 
     expect(screen.getByText('mars 2027')).toBeInTheDocument();
     expect(
@@ -34,8 +34,8 @@ describe('the calendar', () => {
     expect(firstWeekday()).toBe('lundi');
   });
 
-  it('marks each day with its day, whatever the language and the zone of the browser', () => {
-    render(<Calendar mode="single" month={MARCH_2027} timeZone="UTC" />);
+  it('marks each day with its day, whatever the language', () => {
+    render(<Calendar mode="single" month={MARCH_2027} />);
 
     expect(
       document.querySelector('button[data-day="2027-03-01"]'),

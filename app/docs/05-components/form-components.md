@@ -42,13 +42,17 @@ A field that only one feature needs stays in that feature and is composed from t
 
 ## Pickers
 
-Three inputs sit at the top of `app/src/components/`, outside `ui/`: they compose several primitives. Each has a form field of its own (`ComboboxField`, `DatePickerField`, `DateRangePickerField`).
+Five inputs sit at the top of `app/src/components/`, outside `ui/`: they compose several primitives. `Combobox`, `DatePicker`, `DateRangePicker` and `DateTimePicker` have a form field of their own (`ComboboxField`, `DatePickerField`, `DateRangePickerField`, `DateTimeField`).
+
+There is no native date input in the console: `type="date"` and `type="datetime-local"` give each browser its own popup, language and keyboard, and nothing a test can drive the same way twice. A UTC day is picked with `DateInputPicker` and a UTC date and time with `DateTimePicker`. The local-time `DatePicker` is for a moment the person thinks of in their own zone.
 
 | Component | What it is | Story |
 | --- | --- | --- |
 | `Combobox` (`combobox.tsx`) | A searchable single choice on `Popover` and `ComboboxPanel`. `allowCustomValue` lets the user commit a typed value, `clearable` adds a clear action. | [combobox](../../src/components/stories/combobox.stories.tsx) |
 | `DatePicker` (`date-picker.tsx`) | A date chosen from a `Calendar` in a popover. | [date-picker](../../src/components/stories/date-picker.stories.tsx) |
 | `DateRangePicker` (`date-range-picker.tsx`) | A range of dates from a `Calendar`. | [date-range-picker](../../src/components/stories/date-range-picker.stories.tsx) |
+| `DateInputPicker` (`date-input-picker.tsx`) | A UTC day from a `Calendar` set to UTC, in a popover. It holds the text a `type="date"` input held (`2027-03-01`, `''` when none), shows the day in the language of the app, and clears with a button. The button takes the `id` and the `aria-*` props a field hands down, so a label names it. A text that is not a day shows as none and stays as it is until a day is picked. Where a form wants the instant, `dateInputToInstant` of `lib/date-input.ts` reads the text as midnight UTC. | [date-input-picker](../../src/components/stories/date-input-picker.stories.tsx) |
+| `DateTimePicker` (`date-time-picker.tsx`) | A UTC date and time: the same calendar and a `HH:mm` field in the popover. It holds the text a `datetime-local` input held (`2027-03-03T10:00`, no zone, no seconds, `''` when none). Picking a day keeps the time already set, or starts at `00:00`. The time is taken once it is a time of day. The calendar offers the years 2000 to 2100, and more when the value lies outside them. `onBlur` runs when the popover closes or the button loses the focus without opening it, which is when a form marks the field as touched. | [date-time-picker](../../src/components/stories/date-time-picker.stories.tsx) |
 
 ## Adding a field
 
