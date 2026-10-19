@@ -55,6 +55,11 @@ type Command struct {
 	// MoveToLicenseID pins the instance to that version first, in the same
 	// transaction, when it is on another one (§14.4 rule 2).
 	MoveToLicenseID *uuid.UUID
+	// ReplaceFree accepts an instance whose live subscription is free: it is
+	// canceled at once, with no invoice and no fallback move, and subscribed
+	// again on the same row (§9.10 rule 6, V31-68). Any other live
+	// subscription is still refused.
+	ReplaceFree bool
 	// AllowMissingPaymentMethod subscribes CHARGE_AUTOMATICALLY without an
 	// ACTIVE payment method: a checkout with nothing due today and no card
 	// required (§14.4 rule 4). The first charge then fails and the
@@ -149,7 +154,22 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			return err
 		}
 		if resubscribe && subscriptions.Live(existing.Status) {
-			return kaitenerrors.Conflict(operation+".AlreadySubscribed", "this instance already has a live subscription")
+			// A checkout replaces a free subscription with another price,
+			// never with the one it already has.
+			free := false
+			if cmd.ReplaceFree && cmd.BasePriceID != existing.BaseLicensePriceID {
+				if free, err = q.IsFreeSubscription(ctx, db.IsFreeSubscriptionParams{
+					OrganizationID: user.OrganizationID, LicenseID: instance.LicenseID, InstanceID: instance.ID,
+				}); err != nil {
+					return err
+				}
+			}
+			if !free {
+				return kaitenerrors.Conflict(operation+".AlreadySubscribed", "this instance already has a live subscription")
+			}
+			if existing, err = u.cancelFree(ctx, q, existing, user.ID); err != nil {
+				return err
+			}
 		}
 		moved := cmd.MoveToLicenseID != nil && *cmd.MoveToLicenseID != instance.LicenseID
 		if moved {

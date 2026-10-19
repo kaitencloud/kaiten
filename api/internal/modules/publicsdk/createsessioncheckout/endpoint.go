@@ -35,8 +35,9 @@ func RegisterEndpoint(api huma.API, app Checkouter) {
 			"When a payment method has to be saved first, answers 200 status=requires_payment_method with a setup page: send the customer there, " +
 			"then call again with its setupSessionId. Otherwise answers 201 status=subscribed: the invoice of the first period has been pushed and charged, " +
 			"and payment.status says how that went -- poll GET /public/session/invoices on processing or requires_action. " +
-			"Needs a session bound to an instance. " +
-			"409 .AlreadySubscribed, .SetupSessionIncomplete (no payment method was saved on the setup page); " +
+			"Needs a session bound to an instance. An instance whose live subscription is free (a FREE licence family, no add-on price above 0) " +
+			"is checked out too: that subscription is canceled at once, with no invoice, in the same transaction. " +
+			"409 .AlreadySubscribed (any other live subscription), .SetupSessionIncomplete (no payment method was saved on the setup page); " +
 			"422 .InstanceRequired, .NotSelfServe, .PriceNotPublic, .PriceNotFlatFee, .BillingEmailRequired, .InvalidReturnUrl, " +
 			".ProviderCannotCapturePayment, .VoucherInvalid, .AddonInvalid, .AddonNotPublic, .QuantityExceedsMax, .CurrencyMismatch, " +
 			".QuotaExceeded (the instance uses more than the plan allows: errors[0].value.entitlementSlugs, location body.licensePriceId); " +

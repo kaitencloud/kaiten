@@ -86,6 +86,7 @@ type Ports struct {
 	AddonQuantity   setsessionaddonquantity.QuantitySetter
 	AddonDetach     setsessionaddonquantity.Detacher
 	Subscription    getsessionportal.SubscriptionReader
+	Checkout        getsessionportal.CheckoutChecker
 	UpcomingInvoice getsessionportal.UpcomingInvoiceReader
 	Entitlements    getsessionportal.EntitlementReader
 	Redemptions     getsessionportal.VoucherReader
@@ -129,7 +130,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 			List: from.AddonList, Attach: from.AddonAttach, SetQuantity: from.AddonQuantity, Detach: from.AddonDetach,
 		}),
 		GetSessionPortal: getsessionportal.NewUseCase(getsessionportal.Deps{
-			Queries: sessionDeps.Queries, Catalog: catalog, Subscription: from.Subscription, UpcomingInvoice: from.UpcomingInvoice,
+			Queries: sessionDeps.Queries, Catalog: catalog, Subscription: from.Subscription, Checkout: from.Checkout, UpcomingInvoice: from.UpcomingInvoice,
 			Entitlements: from.Entitlements, AddOns: from.AddonList, Vouchers: from.Redemptions, CustomerBilling: from.CustomerBilling,
 		}),
 	}
