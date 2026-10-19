@@ -64,8 +64,9 @@ const entitlementFormValuesToBody = (
     // read as an attempted change.
     ...resolveResetFields(value, entitlement),
   };
-  if (body.type !== 'NUMBER') {
+  if (body.type !== 'NUMBER' && body.type !== 'NUMBER_AI_CREDIT') {
     body.aggregationMethod = undefined;
+ body.warningThresholdPercent = undefined;
   }
   conditionUnitFields(body);
 
