@@ -48,7 +48,12 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 		SELECT id FROM organization WHERE external_id = 'seed-kaiten-sushi-shop'
 	`).Scan(&orgID))
 
-	require.Equal(t, 6, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM entitlement WHERE organization_id = $1`, orgID))
+	require.Equal(t, 7, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM entitlement WHERE organization_id = $1`, orgID))
+	require.Equal(t, 1, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM model WHERE organization_id = $1`, orgID))
+	require.Equal(t, 18, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM ai_inference WHERE organization_id = $1 AND status='COMMITTED'`, orgID))
+	var invalidCharges int
+	require.NoError(t, testDB.DbPool.QueryRow(ctx, `SELECT count(*) FROM ai_inference WHERE organization_id=$1 AND abs((value_after-value_before)-credits_charged::float8)>0.0000005`, orgID).Scan(&invalidCharges))
+	require.Zero(t, invalidCharges)
 	require.Equal(t, 2, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM entitlement_group WHERE organization_id = $1`, orgID))
 	// Six license rows across three families: one product with a single
 	// version, one revised once, one with a full history. The families are what
@@ -64,9 +69,9 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 	require.Equal(t, 5, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM deployment d JOIN deployment_zone z ON z.id = d.deployment_zone_id WHERE z.organization_id = $1`, orgID))
 	// The seed writes no audit entries of its own: the trail is what the use
 	// cases publish, recorded by the event pipeline, which this test does not
-	// run. Ninety-seven events is the trail a running stack ends up with.
+	// run. The AI model/pool/grants/rules and eighteen reports add thirty events.
 	require.Zero(t, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM audit_trail WHERE organization_id = $1`, orgID))
-	require.Equal(t, 97, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM outbox_events WHERE organization_id = $1`, orgID))
+	require.Equal(t, 127, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM outbox_events WHERE organization_id = $1`, orgID))
 
 	// Members are the shared TMNT identities, not a bespoke set -- this is
 	// what makes the org reachable through the local dev token switcher.
@@ -102,13 +107,13 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 		SELECT COUNT(*)
 		FROM entitlement_usage eu
 		JOIN entitlement e ON e.id = eu.entitlement_id
-		WHERE eu.organization_id = $1 AND e.slug != 'monthly-orders' AND eu.period_start IS NOT NULL
+		WHERE eu.organization_id = $1 AND e.slug NOT IN ('monthly-orders','ai-credits') AND eu.period_start IS NOT NULL
 	`, orgID))
 	// The entitlement says so too. Its rows were once dated to the month while
 	// the entitlement itself was created without a reset period, which made
 	// "monthly" orders a lifetime counter: a row is dated to a window exactly
 	// when its entitlement has one.
-	require.Equal(t, []string{"monthly-orders MONTH CALENDAR"}, stringColumn(t, ctx, testDB, `
+	require.Equal(t, []string{"ai-credits MONTH CALENDAR", "monthly-orders MONTH CALENDAR"}, stringColumn(t, ctx, testDB, `
 		SELECT slug || ' ' || reset_period::text || ' ' || reset_anchor::text
 		FROM entitlement
 		WHERE organization_id = $1 AND reset_period IS NOT NULL
@@ -546,7 +551,8 @@ func resolveFamily(t *testing.T, ctx context.Context, testDB *tests.TestDatabase
 		ctx, licensesdb.GetCurrentLicenseVersionsByFamilyIDsParams{
 			OrganizationID: orgID,
 			FamilyIds:      []uuid.UUID{familyID},
-		})
+		},
+	)
 	require.NoError(t, err)
 	require.Lenf(t, resolved, 1, "family %q resolves to exactly one version", familySlug)
 	return resolved[0]
@@ -586,7 +592,8 @@ func instancesOffTheirFamilysVersion(t *testing.T, ctx context.Context, testDB *
 		ctx, licensesdb.GetCurrentLicenseVersionsByFamilyIDsParams{
 			OrganizationID: orgID,
 			FamilyIds:      familyIDs,
-		})
+		},
+	)
 	require.NoError(t, err)
 	served := make(map[uuid.UUID]uuid.UUID, len(current))
 	for _, version := range current {
