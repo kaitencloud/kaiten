@@ -6,7 +6,6 @@ import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
 import { copyConversionRules } from '../../hooks/copy-conversion-rules';
 import {
   type QueryClient,
-  useQuery,
   useSuspenseQuery,
 } from '@tanstack/react-query';
 import { useRouteContext, useRouter } from '@tanstack/react-router';
@@ -150,7 +149,6 @@ export function useLicenseVersionForm({
   selectedLicenseSlug,
 }: UseLicenseVersionFormOptions) {
   const { t } = useTranslation();
-  const { data: aiEnabled } = useQuery(aiCreditsFlagQueryOptions);
   const router = useRouter();
   const {
     addDraftEntitlement,
@@ -209,6 +207,9 @@ export function useLicenseVersionForm({
           );
         }
 
+        const aiEnabledForSubmission = await queryClient.ensureQueryData(
+          aiCreditsFlagQueryOptions,
+        );
         const { error, license } = await createLicenseWithGrants({
           body: licenseVersionFormValuesToLicenseInput(
             value,
@@ -216,7 +217,7 @@ export function useLicenseVersionForm({
           ),
           draftEntitlements,
           afterGrants:
-            aiEnabled && value.copyAiRules
+            aiEnabledForSubmission && value.copyAiRules
               ? async (licenseSlug) => {
                   const results = await copyConversionRules(
                     selectedBaseLicense.slug!,
