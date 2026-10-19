@@ -113,7 +113,7 @@ test.describe('the billing of an instance, read in French', () => {
       dialog.getByLabel('Délai de paiement (jours)'),
     ).toHaveAttribute('placeholder', 'Défaut de l’organisation : 30');
     await expect(
-      dialog.getByLabel('Début de la facturation (UTC)'),
+      dialog.getByRole('button', { name: 'Début de la facturation (UTC)' }),
     ).toBeVisible();
     await expect(dialog).toContainText('Fournisseur de paiement');
     await expect(dialog).toContainText('Prix de base');
@@ -129,7 +129,7 @@ test.describe('the billing of an instance, read in French', () => {
     ).toBeVisible();
 
     await pickDateTime(
-      dialog.getByLabel('Début de la facturation (UTC)'),
+      dialog.getByRole('button', { name: 'Début de la facturation (UTC)' }),
       '2099-01-01T00:00',
     );
     await expect(dialog).toContainText(

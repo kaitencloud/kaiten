@@ -174,7 +174,7 @@ const daysFromNow = (days: number) =>
 const setStart = (value: string) =>
   pickDateTime(
     userEvent.setup(),
-    screen.getByLabelText('Billing starts (UTC)'),
+    screen.getByRole('button', { name: 'Billing starts (UTC)' }),
     value,
   );
 
@@ -357,7 +357,7 @@ describe('a refusal of the subscription', () => {
       }),
     );
     renderDialog();
-    const start = await screen.findByLabelText('Billing starts (UTC)');
+    const start = await screen.findByRole('button', { name: 'Billing starts (UTC)' });
     const typed = daysFromNow(-10);
     await setStart(typed);
 
@@ -398,7 +398,7 @@ describe('a refusal of the subscription', () => {
   it('is told before it is asked when the start is in the future, or before the period of the price', async () => {
     const bodies = serveSubscribe();
     renderDialog();
-    await screen.findByLabelText('Billing starts (UTC)');
+    await screen.findByRole('button', { name: 'Billing starts (UTC)' });
 
     await setStart(daysFromNow(5));
     expect(await screen.findByText('Billing cannot start in the future')).toBeInTheDocument();
@@ -429,7 +429,7 @@ describe('subscribing again after a cancellation', () => {
     server.use(canceled(10));
     const bodies = serveSubscribe();
     renderDialog();
-    await screen.findByLabelText('Billing starts (UTC)');
+    await screen.findByRole('button', { name: 'Billing starts (UTC)' });
 
     // Within the period of the price, but before the instance was canceled.
     await setStart(daysFromNow(-20));
@@ -457,7 +457,7 @@ describe('subscribing again after a cancellation', () => {
   it('says a start more than a period back is too early, whatever the cancellation says', async () => {
     server.use(canceled(100));
     renderDialog();
-    await screen.findByLabelText('Billing starts (UTC)');
+    await screen.findByRole('button', { name: 'Billing starts (UTC)' });
 
     await setStart(daysFromNow(-70));
 

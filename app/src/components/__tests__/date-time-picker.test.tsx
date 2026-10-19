@@ -40,8 +40,11 @@ function Harness({
 
   return (
     <>
-      <label htmlFor="starts">Starts (UTC)</label>
+      <label htmlFor="starts" id="starts-label">
+        Starts (UTC)
+      </label>
       <DateTimePicker
+        groupLabelledBy="starts-label"
         id="starts"
         localTimeZone={localTimeZone}
         onBlur={onBlur}
@@ -51,24 +54,60 @@ function Harness({
         }}
         value={value}
       />
+      <button type="button">After</button>
     </>
   );
 }
 
-const trigger = () => screen.getByLabelText('Starts (UTC)');
-const timeField = () => screen.getByLabelText('Time (UTC)');
+const trigger = () => screen.getByRole('button', { name: 'Starts (UTC)' });
+const hours = () => screen.getByRole('spinbutton', { name: 'Hours' });
+const minutes = () => screen.getByRole('spinbutton', { name: 'Minutes' });
+const timeGroup = () => screen.getByRole('group', { name: /^Time \(UTC\)/ });
+const timeText = () => `${hoursText()}:${minutesText()}`;
+const hoursText = () => (hours() as HTMLInputElement).value;
+const minutesText = () => (minutes() as HTMLInputElement).value;
+const leave = (user: ReturnType<typeof userEvent.setup>) =>
+  user.click(screen.getByRole('button', { name: 'After' }));
+
+// Sets the time the way a person does: a click on the hours, then its digits.
+async function typeTime(
+  user: ReturnType<typeof userEvent.setup>,
+  time: string,
+) {
+  await user.click(hours());
+  await user.keyboard(time.replace(':', ''));
+}
 
 describe('DateTimePicker', () => {
   // The wording below is that of a UTC clock, where no local time is shown: the
   // zones that show one are the ones further down.
   useTimeZone('UTC');
 
-  it('is a button named by its label, with a placeholder while nothing is chosen', () => {
+  it('is a date button named by its label and a time field, with a placeholder while nothing is chosen', () => {
     render(<Harness />);
 
     expect(trigger().tagName).toBe('BUTTON');
-    expect(trigger()).toHaveTextContent('Pick a date and time');
+    expect(trigger()).toHaveTextContent('Pick a date');
     expect(pickerValue(trigger())).toBe('');
+    expect(hours()).toHaveValue('');
+    expect(minutes()).toHaveValue('');
+  });
+
+  it('wraps the pair in a group the label of the field names', () => {
+    render(<Harness />);
+
+    const group = screen.getByRole('group', { name: 'Starts (UTC)' });
+
+    expect(group).toContainElement(trigger());
+    expect(group).toContainElement(timeGroup());
+  });
+
+  it('is no group without a label to name it', () => {
+    render(<DateTimePicker aria-label="Ends" onChange={vi.fn()} value="" />);
+
+    expect(
+      screen.queryByRole('group', { name: 'Ends' }),
+    ).toBeNull();
   });
 
   it('gives back the text it was given for a day and a time picked on it', async () => {
@@ -79,7 +118,29 @@ describe('DateTimePicker', () => {
 
     expect(onChange).toHaveBeenLastCalledWith('2027-12-31T23:59');
     expect(pickerValue(trigger())).toBe('2027-12-31T23:59');
-    expect(trigger()).toHaveTextContent('Dec 31, 2027, 23:59');
+    expect(trigger()).toHaveTextContent('Dec 31, 2027');
+    expect(timeText()).toBe('23:59');
+  });
+
+  it('keeps the calendar to the calendar, and closes it with the day picked', async () => {
+    render(<Harness />);
+    const user = userEvent.setup();
+
+    await user.click(trigger());
+    const dialog = await screen.findByRole('dialog', { name: 'Choose a date' });
+
+    expect(within(dialog).getByRole('grid')).toBeInTheDocument();
+    expect(within(dialog).queryByRole('spinbutton')).toBeNull();
+    expect(within(dialog).queryByRole('textbox')).toBeNull();
+
+    await user.click(
+      document.querySelector(
+        'button[data-day]:not([data-outside])',
+      ) as HTMLElement,
+    );
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(trigger()).toHaveFocus();
   });
 
   it('starts a day it picks at midnight, and keeps the time of a moment it already holds', async () => {
@@ -101,10 +162,10 @@ describe('DateTimePicker', () => {
     );
 
     expect(onChange).toHaveBeenLastCalledWith('2027-03-03T00:00');
-    expect(timeField()).toHaveValue('00:00');
+    expect(timeText()).toBe('00:00');
 
-    await user.clear(timeField());
-    await user.type(timeField(), '09:15');
+    await typeTime(user, '09:15');
+    await user.click(trigger());
     await user.click(
       document.querySelector('button[data-day="2027-03-20"]') as HTMLElement,
     );
@@ -112,25 +173,97 @@ describe('DateTimePicker', () => {
     expect(onChange).toHaveBeenLastCalledWith('2027-03-20T09:15');
   });
 
-  it('takes a time only once it is a time of day, and says so while it is not', async () => {
+  it('takes a time as its two segments are filled, and the value keeps its format', async () => {
     const onChange = vi.fn();
     render(<Harness initial="2027-03-03T10:00" onChange={onChange} />);
     const user = userEvent.setup();
 
-    await user.click(trigger());
-    await user.clear(timeField());
-    await user.type(timeField(), '25:61');
-
-    expect(onChange).not.toHaveBeenCalled();
-    expect(timeField()).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByText(/Use the format HH:mm/)).toBeInTheDocument();
-    expect(pickerValue(trigger())).toBe('2027-03-03T10:00');
-
-    await user.clear(timeField());
-    await user.type(timeField(), '18:45');
+    await typeTime(user, '18:45');
 
     expect(onChange).toHaveBeenLastCalledWith('2027-03-03T18:45');
-    expect(timeField()).toHaveAttribute('aria-invalid', 'false');
+    expect(pickerValue(trigger())).toBe('2027-03-03T18:45');
+  });
+
+  it('steps the time with the arrow keys, wrapping, and gives each step back', async () => {
+    const onChange = vi.fn();
+    render(<Harness initial="2027-03-03T23:59" onChange={onChange} />);
+    const user = userEvent.setup();
+
+    await user.click(minutes());
+    await user.keyboard('{ArrowUp}');
+
+    expect(onChange).toHaveBeenLastCalledWith('2027-03-03T23:00');
+
+    await user.click(hours());
+    await user.keyboard('{ArrowUp}');
+
+    expect(onChange).toHaveBeenLastCalledWith('2027-03-03T00:00');
+  });
+
+  it('picks the time from the columns of the clock', async () => {
+    const onChange = vi.fn();
+    render(<Harness initial="2027-03-03T10:00" onChange={onChange} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: 'Choose a time' }));
+    await user.click(
+      within(await screen.findByRole('listbox', { name: 'Hours' })).getByRole(
+        'option',
+        { name: '16' },
+      ),
+    );
+
+    expect(onChange).toHaveBeenLastCalledWith('2027-03-03T16:00');
+    expect(pickerValue(trigger())).toBe('2027-03-03T16:00');
+  });
+
+  it('does not take a time while a segment is empty, and says so once the field is left', async () => {
+    const onChange = vi.fn();
+    render(<Harness initial="2027-03-03T10:00" onChange={onChange} />);
+    const user = userEvent.setup();
+
+    await user.click(minutes());
+    await user.keyboard('{Backspace}');
+
+    // Half filled, still in the field: nothing is written and nothing is said.
+    expect(onChange).not.toHaveBeenCalled();
+    expect(pickerValue(trigger())).toBe('2027-03-03T10:00');
+    expect(screen.queryByText(/Enter a complete time/)).toBeNull();
+    expect(hours()).not.toHaveAttribute('aria-invalid');
+
+    await leave(user);
+
+    // Left: the form is given what is there, to refuse it.
+    await waitFor(() =>
+      expect(onChange).toHaveBeenLastCalledWith('2027-03-03T10:--'),
+    );
+    expect(pickerValue(trigger())).toBe('2027-03-03T10:--');
+    expect(timeText()).toBe('10:');
+    expect(minutes()).toHaveValue('');
+    expect(hours()).toHaveAttribute('aria-invalid', 'true');
+    expect(minutes()).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText(/Enter a complete time/)).toBeInTheDocument();
+    expect(timeGroup()).toHaveAccessibleDescription(
+      /Enter a complete time/,
+    );
+    // The button still names the day.
+    expect(trigger()).toHaveTextContent('Mar 3, 2027');
+  });
+
+  it('takes the time again once it is completed', async () => {
+    const onChange = vi.fn();
+    render(<Harness initial="2027-03-03T10:--" onChange={onChange} />);
+    const user = userEvent.setup();
+
+    expect(minutes()).toHaveValue('');
+    expect(hours()).toHaveValue('10');
+
+    await user.click(minutes());
+    await user.keyboard('45');
+
+    expect(onChange).toHaveBeenLastCalledWith('2027-03-03T10:45');
+    expect(screen.queryByText(/Enter a complete time/)).toBeNull();
+    expect(hours()).not.toHaveAttribute('aria-invalid');
   });
 
   it('goes back to the time it holds when the field is emptied and left', async () => {
@@ -138,92 +271,56 @@ describe('DateTimePicker', () => {
     render(<Harness initial="2027-03-03T10:00" onChange={onChange} />);
     const user = userEvent.setup();
 
-    await user.click(trigger());
-    await user.clear(timeField());
-    await user.tab();
+    await user.click(hours());
+    await user.keyboard('{Backspace}');
+    await user.click(minutes());
+    await user.keyboard('{Backspace}');
 
-    expect(timeField()).toHaveValue('10:00');
+    expect(hours()).toHaveValue('');
+
+    await leave(user);
+
+    await waitFor(() => expect(timeText()).toBe('10:00'));
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ['9:15', '09:15'],
-    ['930', '09:30'],
-    ['1430', '14:30'],
-  ])('takes %s as the time %s once the field is left', async (typedTime, time) => {
-    const onChange = vi.fn();
-    render(<Harness initial="2027-03-03T10:00" onChange={onChange} />);
-    const user = userEvent.setup();
-
-    await user.click(trigger());
-    await user.clear(timeField());
-    await user.type(timeField(), typedTime);
-
-    expect(timeField()).toHaveAttribute('aria-invalid', 'false');
-
-    await user.tab();
-
-    expect(onChange).toHaveBeenLastCalledWith(`2027-03-03T${time}`);
-    expect(timeField()).toHaveValue(time);
-    expect(pickerValue(trigger())).toBe(`2027-03-03T${time}`);
-  });
-
-  it('takes a time typed by hand when the calendar is closed with it', async () => {
-    const onChange = vi.fn();
-    render(<Harness initial="2027-03-03T10:00" onChange={onChange} />);
-    const user = userEvent.setup();
-
-    await user.click(trigger());
-    await user.clear(timeField());
-    await user.type(timeField(), '9:15');
-    await user.keyboard('{Escape}');
-
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(onChange).toHaveBeenLastCalledWith('2027-03-03T09:15');
-    expect(trigger()).toHaveTextContent('Mar 3, 2027, 09:15');
-  });
-
-  it('does not drop a time that is none when the calendar closes: the form gets it to refuse', async () => {
-    const onChange = vi.fn();
-    render(<Harness initial="2027-03-03T10:00" onChange={onChange} />);
-    const user = userEvent.setup();
-
-    await user.click(trigger());
-    await user.clear(timeField());
-    await user.type(timeField(), '25:99');
-    await user.keyboard('{Escape}');
-
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(onChange).toHaveBeenLastCalledWith('2027-03-03T25:99');
-    expect(pickerValue(trigger())).toBe('2027-03-03T25:99');
-    expect(trigger()).toHaveTextContent('2027-03-03T25:99');
-    expect(trigger()).toHaveAttribute('aria-invalid', 'true');
-
-    await user.click(trigger());
-
-    expect(timeField()).toHaveValue('25:99');
-    expect(timeField()).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByText(/Use the format HH:mm/)).toBeInTheDocument();
-
-    await user.clear(timeField());
-    await user.type(timeField(), '18:45');
-
-    expect(onChange).toHaveBeenLastCalledWith('2027-03-03T18:45');
-    expect(trigger()).not.toHaveAttribute('aria-invalid', 'true');
-  });
-
-  it('puts a time typed before any day on the day picked next, wrong or not', async () => {
+  it('puts a time typed before any day on the day picked next', async () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     const user = userEvent.setup();
 
+    await typeTime(user, '09:15');
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(pickerValue(trigger())).toBe('');
+
     await user.click(trigger());
-    await user.type(timeField(), '9:15');
     await user.click(
-      document.querySelector('button[data-day]:not([data-outside])') as HTMLElement,
+      document.querySelector(
+        'button[data-day]:not([data-outside])',
+      ) as HTMLElement,
     );
 
-    expect(onChange.mock.calls.at(-1)?.[0]).toMatch(/T09:15$|T9:15$/);
+    expect(onChange.mock.calls.at(-1)?.[0]).toMatch(/T09:15$/);
+  });
+
+  it('puts a half-filled time typed before any day on the day picked next, as it is, for the form to refuse', async () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    const user = userEvent.setup();
+
+    await user.click(hours());
+    await user.keyboard('0');
+    await user.keyboard('9');
+    await leave(user);
+    await user.click(trigger());
+    await user.click(
+      document.querySelector(
+        'button[data-day]:not([data-outside])',
+      ) as HTMLElement,
+    );
+
+    expect(onChange.mock.calls.at(-1)?.[0]).toMatch(/T09:--$/);
   });
 
   it('clears the value', async () => {
@@ -233,7 +330,9 @@ describe('DateTimePicker', () => {
     await clearPicker(userEvent.setup(), trigger());
 
     expect(onChange).toHaveBeenLastCalledWith('');
-    expect(trigger()).toHaveTextContent('Pick a date and time');
+    expect(trigger()).toHaveTextContent('Pick a date');
+    expect(hours()).toHaveValue('');
+    expect(minutes()).toHaveValue('');
   });
 
   it('stays cleared when it is cleared with a time half typed', async () => {
@@ -241,17 +340,18 @@ describe('DateTimePicker', () => {
     render(<Harness initial="2027-03-03T10:00" onChange={onChange} />);
     const user = userEvent.setup();
 
+    await user.click(minutes());
+    await user.keyboard('{Backspace}');
     await user.click(trigger());
-    await user.clear(timeField());
-    await user.type(timeField(), '9:15');
     await user.click(screen.getByRole('button', { name: 'Clear' }));
 
     expect(onChange).toHaveBeenLastCalledWith('');
     expect(pickerValue(trigger())).toBe('');
-    expect(trigger()).toHaveTextContent('Pick a date and time');
+    expect(trigger()).toHaveTextContent('Pick a date');
+    expect(hours()).toHaveValue('');
   });
 
-  it('keeps the clear button, disabled, while nothing is chosen, so the popover keeps its height', async () => {
+  it('keeps the clear button, disabled, while nothing is chosen, so the calendar keeps its height', async () => {
     render(<Harness />);
 
     await userEvent.setup().click(trigger());
@@ -268,9 +368,26 @@ describe('DateTimePicker', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('opens and closes from the keyboard, and reports that it was left', async () => {
-    const onBlur = vi.fn();
-    render(<Harness onBlur={onBlur} />);
+  it('shows a time that is none as it is, next to the day it follows', async () => {
+    const onChange = vi.fn();
+    render(<Harness initial="2027-03-03T25:99" onChange={onChange} />);
+
+    expect(trigger()).toHaveTextContent('Mar 3, 2027');
+    expect(hours()).toHaveValue('25');
+    expect(minutes()).toHaveValue('99');
+    expect(hours()).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText(/Enter a complete time/)).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+
+    const user = userEvent.setup();
+    await typeTime(user, '18:45');
+
+    expect(onChange).toHaveBeenLastCalledWith('2027-03-03T18:45');
+    expect(hours()).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('opens and closes the calendar from the keyboard', async () => {
+    render(<Harness />);
     const user = userEvent.setup();
 
     await user.tab();
@@ -278,15 +395,88 @@ describe('DateTimePicker', () => {
     await user.keyboard('{Enter}');
 
     const dialog = await screen.findByRole('dialog', {
-      name: 'Choose a date and time',
+      name: 'Choose a date',
     });
     expect(within(dialog).getByRole('grid')).toBeInTheDocument();
-    expect(onBlur).not.toHaveBeenCalled();
 
     await user.keyboard('{Escape}');
 
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(onBlur).toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(trigger()).toHaveFocus();
+  });
+
+  it('reports that it was left once the focus is out of the pair, not as it moves inside it', async () => {
+    const onBlur = vi.fn();
+    render(<Harness initial="2027-03-03T10:00" onBlur={onBlur} />);
+    const user = userEvent.setup();
+
+    await user.tab();
+    expect(trigger()).toHaveFocus();
+    await user.tab();
+    expect(hours()).toHaveFocus();
+    await user.tab();
+    expect(minutes()).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Choose a time' })).toHaveFocus();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(onBlur).not.toHaveBeenCalled();
+
+    await user.tab();
+
+    await waitFor(() => expect(onBlur).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not report that it was left while its calendar or its columns hold the focus', async () => {
+    const onBlur = vi.fn();
+    render(<Harness initial="2027-03-03T10:00" onBlur={onBlur} />);
+    const user = userEvent.setup();
+
+    await user.click(trigger());
+    await screen.findByRole('dialog', { name: 'Choose a date' });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    await user.click(screen.getByRole('button', { name: 'Choose a time' }));
+    await screen.findByRole('dialog', { name: 'Choose a time' });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(onBlur).not.toHaveBeenCalled();
+  });
+
+  it('reports that it was left when the calendar is dismissed by a click elsewhere', async () => {
+    const onBlur = vi.fn();
+    render(<Harness onBlur={onBlur} />);
+    const user = userEvent.setup();
+
+    await user.click(trigger());
+    await screen.findByRole('dialog');
+    await user.click(screen.getByRole('button', { name: 'After' }));
+
+    await waitFor(() => expect(onBlur).toHaveBeenCalledTimes(1));
+  });
+
+  it('settles a half-filled time before it reports that it was left', async () => {
+    const order: string[] = [];
+    render(
+      <Harness
+        initial="2027-03-03T10:00"
+        onBlur={() => order.push('blur')}
+        onChange={(value) => order.push(value)}
+      />,
+    );
+    const user = userEvent.setup();
+
+    await user.click(minutes());
+    await user.keyboard('{Backspace}');
+    await leave(user);
+
+    await waitFor(() => expect(order).toContain('blur'));
+    expect(order).toEqual(['2027-03-03T10:--', 'blur']);
   });
 
   it('does not submit the form it sits in', async () => {
@@ -298,65 +488,52 @@ describe('DateTimePicker', () => {
         <Harness />
       </form>,
     );
+    const user = userEvent.setup();
 
-    await userEvent.setup().click(trigger());
+    await user.click(trigger());
+    await screen.findByRole('dialog');
+    await user.keyboard('{Escape}');
 
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('closes the calendar on Enter in the time field without submitting the form', async () => {
+  it('gives the form a half-filled time on Enter, and lets the form be sent with it', async () => {
     const onSubmit = vi.fn((event: { preventDefault: () => void }) =>
       event.preventDefault(),
     );
-    const onBlur = vi.fn();
+    const onChange = vi.fn();
     render(
       <form onSubmit={onSubmit}>
-        <Harness initial="2027-03-03T10:00" onBlur={onBlur} />
+        <Harness initial="2027-03-03T10:00" onChange={onChange} />
+        <button type="submit">Send</button>
       </form>,
     );
     const user = userEvent.setup();
 
-    await user.click(trigger());
-    await user.clear(timeField());
-    await user.type(timeField(), '18:45{Enter}');
+    await user.click(minutes());
+    await user.keyboard('{Backspace}{Enter}');
 
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(onSubmit).not.toHaveBeenCalled();
-    expect(onBlur).toHaveBeenCalled();
-    expect(pickerValue(trigger())).toBe('2027-03-03T18:45');
-  });
-
-  it('keeps the calendar open on Enter in a time field that holds no time', async () => {
-    const onSubmit = vi.fn((event: { preventDefault: () => void }) =>
-      event.preventDefault(),
-    );
-    render(
-      <form onSubmit={onSubmit}>
-        <Harness initial="2027-03-03T10:00" />
-      </form>,
-    );
-    const user = userEvent.setup();
-
-    await user.click(trigger());
-    await user.clear(timeField());
-    await user.type(timeField(), '25:99{Enter}');
-
-    expect(onSubmit).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(timeField()).toHaveAttribute('aria-invalid', 'true');
+    expect(onChange).toHaveBeenLastCalledWith('2027-03-03T10:--');
+    expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 
   it('reads its value after its name, so a screen reader announces both', async () => {
     render(<Harness initial="2027-03-03T10:00" />);
 
     expect(trigger()).toHaveAccessibleName('Starts (UTC)');
-    expect(trigger()).toHaveAccessibleDescription('Mar 3, 2027, 10:00');
+    expect(trigger()).toHaveAccessibleDescription('Mar 3, 2027');
   });
 
   it('reads the placeholder too while nothing is chosen', () => {
     render(<Harness />);
 
-    expect(trigger()).toHaveAccessibleDescription('Pick a date and time');
+    expect(trigger()).toHaveAccessibleDescription('Pick a date');
+  });
+
+  it('names the time field for what it holds', () => {
+    render(<Harness initial="2027-03-03T10:00" />);
+
+    expect(timeGroup()).toHaveAccessibleName('Time (UTC)');
   });
 
   it('keeps the description a form gives it, ahead of the value', () => {
@@ -373,7 +550,7 @@ describe('DateTimePicker', () => {
     );
 
     expect(screen.getByLabelText('Ends')).toHaveAccessibleDescription(
-      'Dates are in UTC. Mar 3, 2027, 10:00',
+      'Dates are in UTC. Mar 3, 2027',
     );
   });
 
@@ -400,12 +577,16 @@ describe('DateTimePicker', () => {
       ),
     );
   });
-  it('is not opened while it is disabled', async () => {
+
+  it('is not opened, and its time not edited, while it is disabled', () => {
     render(
       <DateTimePicker disabled onChange={vi.fn()} value="2027-03-03T10:00" />,
     );
 
-    expect(screen.getByRole('button')).toBeDisabled();
+    expect(screen.getAllByRole('button')[0]).toBeDisabled();
+    expect(hours()).toBeDisabled();
+    expect(minutes()).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Choose a time' })).toBeDisabled();
   });
 });
 
@@ -417,7 +598,8 @@ describe.each(TEST_ZONES)('DateTimePicker in $zone', ({ zone, utcMoment }) => {
   it('shows the moment it holds in UTC', () => {
     render(<Harness initial="2027-03-03T23:30" />);
 
-    expect(trigger()).toHaveTextContent('Mar 3, 2027, 23:30');
+    expect(trigger()).toHaveTextContent('Mar 3, 2027');
+    expect(timeText()).toBe('23:30');
     expect(pickerValue(trigger())).toBe('2027-03-03T23:30');
   });
 
@@ -450,14 +632,13 @@ describe.each(TEST_ZONES)('DateTimePicker in $zone', ({ zone, utcMoment }) => {
   });
 });
 
-const localHintUnderTrigger = () =>
-  document.querySelector<HTMLElement>('[data-slot="date-picker-hint"]');
-const localHintInPopover = () =>
+const localHint = () =>
   document.querySelector<HTMLElement>('[data-slot="date-picker-local-time"]');
 const LOCAL_TIME_LABEL = 'Time (UTC), your local time is shown below';
+const localTimeGroup = () => screen.getByRole('group', { name: LOCAL_TIME_LABEL });
 
 // The moment is UTC and the person's clock is not: the picker says what it is on
-// that clock, wherever the person looks, and never changes what it holds.
+// that clock, under the pair, and never changes what it holds.
 describe.each([
   {
     zone: 'Europe/Paris',
@@ -478,41 +659,39 @@ describe.each([
 ])('DateTimePicker local time in $zone', ({ zone, utc, local }) => {
   useTimeZone(zone);
 
-  it('says the moment on the clock of the browser under the button, after the value', () => {
+  it('says the moment on the clock of the browser under the pair', () => {
     render(<Harness initial={utc} />);
 
-    expect(localHintUnderTrigger()).toHaveTextContent(local);
-    expect(trigger()).toHaveAccessibleDescription(
-      expect.stringContaining(local),
-    );
-    expect(trigger()).toHaveAccessibleDescription(
-      expect.stringMatching(/^\w{3} \d{1,2}, 2026, \d\d:\d\d = /),
-    );
-    // The button still says the moment in UTC, and holds it so.
+    expect(localHint()).toHaveTextContent(local);
+    // Under the row that holds the button and the field, not inside it.
+    const pair = screen.getByRole('group', { name: 'Starts (UTC)' });
+    expect(pair).toContainElement(localHint());
+    expect(trigger().closest('div.flex')).not.toContainElement(localHint());
+    // The button still says the day in UTC, and the picker holds the UTC text.
+    expect(trigger()).toHaveTextContent(/^\w{3} \d{1,2}, 2026$/);
     expect(pickerValue(trigger())).toBe(utc);
   });
 
-  it('says it again under the time field, which its label announces', async () => {
+  it('puts the line in the description of the time field, which its label announces', () => {
     render(<Harness initial={utc} />);
 
-    await userEvent.setup().click(trigger());
-
-    expect(screen.getByLabelText(LOCAL_TIME_LABEL)).toBe(
-      document.querySelector('input'),
-    );
-    expect(localHintInPopover()).toHaveTextContent(local);
-    expect(screen.getByLabelText(LOCAL_TIME_LABEL)).toHaveAccessibleDescription(
-      local,
-    );
-    expect(screen.queryByLabelText('Time (UTC)')).toBeNull();
+    expect(localTimeGroup()).toBe(timeGroup());
+    expect(localTimeGroup()).toHaveAccessibleDescription(local);
+    expect(screen.queryByRole('group', { name: 'Time (UTC)' })).toBeNull();
   });
 
-  it('announces the hint of the time field as the time typed changes it', async () => {
+  it('does not put the line in the description of the date button', () => {
     render(<Harness initial={utc} />);
 
-    await userEvent.setup().click(trigger());
+    expect(trigger()).toHaveAccessibleDescription(
+      expect.not.stringContaining('= '),
+    );
+  });
 
-    expect(localHintInPopover()).toHaveAttribute('aria-live', 'polite');
+  it('announces the line politely, as the time changes it', () => {
+    render(<Harness initial={utc} />);
+
+    expect(localHint()).toHaveAttribute('aria-live', 'polite');
   });
 
   it('follows the time as it is typed, and gives back the UTC text', async () => {
@@ -521,47 +700,41 @@ describe.each([
     const user = userEvent.setup();
     const [day] = utc.split('T');
 
-    await user.click(trigger());
-    await user.clear(screen.getByLabelText(LOCAL_TIME_LABEL));
-    await user.type(screen.getByLabelText(LOCAL_TIME_LABEL), '12:00');
+    await typeTime(user, '12:00');
 
     expect(onChange).toHaveBeenLastCalledWith(`${day}T12:00`);
-    expect(localHintInPopover()?.textContent).toMatch(/^= .* in /);
-    expect(localHintInPopover()).not.toHaveTextContent(local);
-    expect(localHintUnderTrigger()).toHaveTextContent(/^= .* in /);
+    expect(localHint()?.textContent).toMatch(/^= .* in /);
+    expect(localHint()).not.toHaveTextContent(local);
     expect(pickerValue(trigger())).toBe(`${day}T12:00`);
   });
 
-  it('empties the hint of the popover, not its place, while the time typed is no time', async () => {
+  it('empties the line, not its place, while the time is half filled', async () => {
     render(<Harness initial={utc} />);
     const user = userEvent.setup();
 
-    await user.click(trigger());
-    await user.clear(screen.getByLabelText(LOCAL_TIME_LABEL));
-    await user.type(screen.getByLabelText(LOCAL_TIME_LABEL), '25:99');
+    await user.click(minutes());
+    await user.keyboard('{Backspace}');
+    await leave(user);
 
-    expect(localHintInPopover()).toBeEmptyDOMElement();
-    expect(screen.getByText(/Use the format HH:mm/)).toBeInTheDocument();
+    await waitFor(() => expect(localHint()).toBeEmptyDOMElement());
+    expect(screen.getByText(/Enter a complete time/)).toBeInTheDocument();
   });
 
-  it('says nothing while no moment is chosen, but keeps the label that tells it will', async () => {
+  it('says nothing while no moment is chosen, but keeps the label that tells it will', () => {
     render(<Harness />);
 
-    await userEvent.setup().click(trigger());
-
-    expect(localHintUnderTrigger()).toBeNull();
-    expect(localHintInPopover()).toBeEmptyDOMElement();
-    expect(screen.getByLabelText(LOCAL_TIME_LABEL)).toBeInTheDocument();
-    expect(trigger()).toHaveAccessibleDescription('Pick a date and time');
+    expect(localHint()).toBeEmptyDOMElement();
+    expect(localTimeGroup()).toBeInTheDocument();
+    expect(trigger()).toHaveAccessibleDescription('Pick a date');
   });
 
   it('says nothing of a text that is not a moment', () => {
     render(<Harness initial="2027-13-45T10:00" />);
 
-    expect(localHintUnderTrigger()).toBeNull();
+    expect(localHint()).toBeEmptyDOMElement();
   });
 
-  it('keeps the description a form gives it, ahead of the value and of the local time', () => {
+  it('keeps the description a form gives it, ahead of the value, and puts the line on the time field', () => {
     render(
       <>
         <p id="hint">Dates are in UTC.</p>
@@ -574,15 +747,12 @@ describe.each([
       </>,
     );
 
-    const description = screen
-      .getByLabelText('Ends')
-      .getAttribute('aria-describedby')
-      ?.split(' ')
-      .map((id) => document.getElementById(id)?.textContent);
-
-    expect(description).toHaveLength(3);
-    expect(description?.[0]).toBe('Dates are in UTC.');
-    expect(description?.[2]).toBe(local);
+    expect(screen.getByLabelText('Ends')).toHaveAccessibleDescription(
+      expect.stringMatching(/^Dates are in UTC\. \w{3} \d{1,2}, 2026$/),
+    );
+    expect(localTimeGroup().getAttribute('aria-describedby')).toBe(
+      localHint()?.id,
+    );
   });
 
   it('does not touch what the pick gives back', async () => {
@@ -598,17 +768,14 @@ describe.each([
 describe('DateTimePicker local time in UTC', () => {
   useTimeZone('UTC');
 
-  it('shows nothing of a local time: the moment is already on that clock', async () => {
+  it('shows nothing of a local time: the moment is already on that clock', () => {
     render(<Harness initial="2026-10-18T14:21" />);
 
-    expect(localHintUnderTrigger()).toBeNull();
-    expect(trigger()).toHaveAccessibleDescription('Oct 18, 2026, 14:21');
-
-    await userEvent.setup().click(trigger());
-
-    expect(localHintInPopover()).toBeNull();
-    expect(screen.getByLabelText('Time (UTC)')).toBeInTheDocument();
-    expect(screen.queryByLabelText(LOCAL_TIME_LABEL)).toBeNull();
+    expect(localHint()).toBeNull();
+    expect(trigger()).toHaveAccessibleDescription('Oct 18, 2026');
+    expect(timeGroup()).toHaveAccessibleName('Time (UTC)');
+    expect(timeGroup()).not.toHaveAttribute('aria-describedby');
+    expect(screen.queryByRole('group', { name: LOCAL_TIME_LABEL })).toBeNull();
   });
 
   it('shows the local time of a zone it is given, whatever the clock of the machine', () => {
@@ -616,9 +783,7 @@ describe('DateTimePicker local time in UTC', () => {
       <Harness initial="2026-10-18T14:21" localTimeZone="Europe/Paris" />,
     );
 
-    expect(localHintUnderTrigger()).toHaveTextContent(
-      '= 16:21 in Paris (CEST)',
-    );
+    expect(localHint()).toHaveTextContent('= 16:21 in Paris (CEST)');
   });
 });
 
@@ -635,28 +800,28 @@ describe('DateTimePicker local time in French', () => {
     testI18n.removeResourceBundle('fr', 'translation');
   });
 
-  it('words the local time and the label of the field in French', async () => {
+  it('words the local time and the label of the time field in French', () => {
     render(<Harness initial="2026-10-18T14:21" />);
 
-    expect(localHintUnderTrigger()).toHaveTextContent(
-      '= 16:21 à Paris (CEST)',
-    );
-
-    await userEvent.setup().click(trigger());
-
+    expect(localHint()).toHaveTextContent('= 16:21 à Paris (CEST)');
     expect(
-      screen.getByLabelText(
-        'Heure (UTC), votre heure locale est affichée ci-dessous',
-      ),
+      screen.getByRole('group', {
+        name: 'Heure (UTC), votre heure locale est affichée ci-dessous',
+      }),
     ).toBeInTheDocument();
-    expect(localHintInPopover()).toHaveTextContent('= 16:21 à Paris (CEST)');
   });
 
   it('adds the day in French when it is not the UTC day', () => {
     render(<Harness initial="2026-10-18T23:30" />);
 
-    expect(localHintUnderTrigger()).toHaveTextContent(
-      '= 19 oct., 01:30 à Paris (CEST)',
-    );
+    expect(localHint()).toHaveTextContent('= 19 oct., 01:30 à Paris (CEST)');
+  });
+
+  it('words the segments, the clock and the placeholder in French', () => {
+    render(<Harness />);
+
+    expect(screen.getByRole('spinbutton', { name: 'Heures' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Choisir une heure' })).toBeInTheDocument();
+    expect(trigger()).toHaveTextContent('Choisir une date');
   });
 });

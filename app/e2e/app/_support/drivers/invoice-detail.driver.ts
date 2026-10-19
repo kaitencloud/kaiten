@@ -265,9 +265,12 @@ export class InvoiceDetailDriver {
     return this.dialog().getByLabel(/^Reason/);
   }
 
-  /** Picks the time of payment on the calendar of the mark-paid dialog, as the text of the field holds it (`2026-10-17T10:00`, UTC). */
+  /** Picks the day on the calendar of the mark-paid dialog and sets the time in the field beside it, as the text of the field holds it (`2026-10-17T10:00`, UTC). */
   async setPaidAt(value: string) {
-    await pickDateTime(this.dialog().getByLabel(/Paid at/), value);
+    await pickDateTime(
+      this.dialog().getByRole('button', { name: /Paid at/ }),
+      value,
+    );
   }
 
   /** The confirmation button of the dialog that is open. */

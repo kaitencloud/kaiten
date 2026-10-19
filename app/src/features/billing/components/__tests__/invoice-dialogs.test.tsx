@@ -251,7 +251,7 @@ describe('marking an invoice paid', () => {
     await userEvent.type(await screen.findByLabelText('Note'), 'wire transfer');
     await pickDateTime(
       userEvent.setup(),
-      await screen.findByLabelText(/Paid at/),
+      await screen.findByRole('button', { name: /Paid at/ }),
       '2020-03-03T10:00',
     );
     await userEvent.click(

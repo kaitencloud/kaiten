@@ -146,7 +146,9 @@ export class VoucherDetailDriver {
   }
 
   expiresAtField(): Locator {
-    return this.dialog().getByLabel(/^Can be redeemed until/);
+    return this.dialog().getByRole('button', {
+      name: /^Can be redeemed until/,
+    });
   }
 
   maxRedemptionsField(): Locator {

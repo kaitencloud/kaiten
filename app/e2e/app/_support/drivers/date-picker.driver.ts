@@ -2,11 +2,16 @@ import { expect, type Locator } from '@playwright/test';
 
 /**
  * The date pickers of the console (`DateInputPicker`, `DateTimePicker`): a button
- * that opens a calendar in a popover. These helpers drive one the way a person
- * does, from the button the label of the field names: open the calendar, choose
- * the year and the month, click the day, type the time. Days and times are the
- * texts the pickers hold, `2027-03-01` and `2027-03-03T10:00`, in UTC; a day has
- * to fall in the years the calendar offers (2000 to 2100).
+ * that opens a calendar in a popover, and, for a date and time, a time field
+ * beside it. These helpers drive one the way a person does, from the button the
+ * label of the field names: open the calendar, choose the year and the month,
+ * click the day, type the time in the field. Days and times are the texts the
+ * pickers hold, `2027-03-01` and `2027-03-03T10:00`, in UTC; a day has to fall
+ * in the years the calendar offers (2000 to 2100).
+ *
+ * A date and time picker names the pair of controls as a group with the same
+ * label, so `getByLabel` finds two elements: locate the button by its role,
+ * `getByRole('button', { name })`, and pass it here.
  */
 
 // The calendar is a dialog of its own, named for what it picks, portaled to the
@@ -45,16 +50,22 @@ export async function pickDay(trigger: Locator, day: string) {
   await expect(calendar).toBeHidden();
 }
 
-/** Picks the day and types the time on the calendar of a date and time picker, then closes it so that the field says what is wrong. */
+/**
+ * Picks the day on the calendar of a date and time picker, then types the time
+ * in its field (the digits of `10:00`, which fill the hours and then the
+ * minutes) and leaves it, so that the field says what is wrong.
+ */
 export async function pickDateTime(trigger: Locator, value: string) {
   const [day, time] = value.split('T');
-  const calendar = await openCalendar(trigger);
+  const group = trigger.locator(
+    'xpath=ancestor::*[@data-slot="date-time-picker"]',
+  );
+  const hours = group.getByRole('spinbutton', { name: /^(Hours|Heures)$/ });
 
-  await chooseDay(calendar, day);
-  const timeField = calendar.getByRole('textbox');
-  await timeField.fill(time);
-  await timeField.press('Enter');
-  await expect(calendar).toBeHidden();
+  await pickDay(trigger, day);
+  await hours.click();
+  await hours.pressSequentially(time.replace(':', ''));
+  await group.getByRole('spinbutton', { name: 'Minutes' }).blur();
 }
 
 /** Clears a picker with the button of its calendar. */

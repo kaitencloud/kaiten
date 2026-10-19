@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test';
 import { z } from 'zod';
@@ -45,19 +45,30 @@ describe('DateTimeField', () => {
   it('is a calendar button with its label and its help text', async () => {
     render(<Harness />);
 
-    const trigger = await screen.findByLabelText('Paid at (UTC)');
+    const trigger = await screen.findByRole('button', { name: 'Paid at (UTC)' });
 
     expect(trigger.tagName).toBe('BUTTON');
     expect(pickerValue(trigger)).toBe('');
-    expect(trigger).toHaveAccessibleDescription(
-      'Read as UTC. Pick a date and time',
-    );
+    expect(trigger).toHaveAccessibleDescription('Read as UTC. Pick a date');
+  });
+
+  it('is a group the label names, with the date button and the time field in it', async () => {
+    render(<Harness />);
+
+    const group = await screen.findByRole('group', { name: 'Paid at (UTC)' });
+    const trigger = within(group).getByRole('button', { name: 'Paid at (UTC)' });
+
+    expect(trigger).toBeInTheDocument();
+    expect(
+      within(group).getByRole('group', { name: /^Time \(UTC\)/ }),
+    ).toBeInTheDocument();
+    expect(within(group).getByRole('spinbutton', { name: 'Hours' })).toBeInTheDocument();
   });
 
   it('holds the text a datetime-local input held: a date, a time, no zone', async () => {
     render(<Harness />);
 
-    const trigger = await screen.findByLabelText('Paid at (UTC)');
+    const trigger = await screen.findByRole('button', { name: 'Paid at (UTC)' });
     await pickDateTime(userEvent.setup(), trigger, '2027-03-03T10:00');
 
     expect(pickerValue(trigger)).toBe('2027-03-03T10:00');
@@ -66,7 +77,7 @@ describe('DateTimeField', () => {
   it('starts from the value the form gives it, and clears it', async () => {
     render(<Harness initial="2027-03-03T10:00" />);
 
-    const trigger = await screen.findByLabelText('Paid at (UTC)');
+    const trigger = await screen.findByRole('button', { name: 'Paid at (UTC)' });
     expect(pickerValue(trigger)).toBe('2027-03-03T10:00');
 
     await clearPicker(userEvent.setup(), trigger);
@@ -77,7 +88,7 @@ describe('DateTimeField', () => {
   it('says what is wrong with the value, beside the control', async () => {
     render(<Harness />);
 
-    const trigger = await screen.findByLabelText('Paid at (UTC)');
+    const trigger = await screen.findByRole('button', { name: 'Paid at (UTC)' });
     await pickDateTime(userEvent.setup(), trigger, '2031-01-01T00:00');
 
     expect(await screen.findByText('Tests.tooLate')).toBeInTheDocument();

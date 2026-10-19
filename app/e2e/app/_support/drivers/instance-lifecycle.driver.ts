@@ -158,10 +158,10 @@ export class InstanceLifecycleDriver {
   }
 
   endDateField(): Locator {
-    return this.dialog().getByLabel('License ends (UTC)');
+    return this.dialog().getByRole('button', { name: 'License ends (UTC)' });
   }
 
-  /** Picks the end of the license on the calendar of the field, as the text of the field holds it (`2026-10-20T08:30`, UTC). */
+  /** Picks the end day of the license on the calendar of the field and sets its time beside it, as the text of the field holds it (`2026-10-20T08:30`, UTC). */
   async setEndDate(value: string) {
     await pickDateTime(this.endDateField(), value);
   }

@@ -303,7 +303,7 @@ export const DateTimeFieldExample: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const trigger = await canvas.findByLabelText('Paid at (UTC)');
+    const trigger = await canvas.findByRole('button', { name: 'Paid at (UTC)' });
 
     await pickDateTime(userEvent, trigger, '2027-03-03T10:00');
 

@@ -142,10 +142,11 @@ export class InstanceBillingDriver {
   }
 
   startAtField(): Locator {
-    return this.dialog().getByLabel('Billing starts (UTC)');
+    // The label names the pair of controls as a group too: the date button is the one picked from.
+    return this.dialog().getByRole('button', { name: 'Billing starts (UTC)' });
   }
 
-  /** Picks the start on the calendar of the field, as the text of the field holds it (`2026-09-30T09:30`, UTC), and closes it so that the field says what is wrong. */
+  /** Picks the start day on the calendar of the field and sets its time beside it, as the text of the field holds it (`2026-09-30T09:30`, UTC), and closes it so that the field says what is wrong. */
   async setStartAt(value: string) {
     await pickDateTime(this.startAtField(), value);
   }

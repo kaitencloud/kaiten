@@ -3,7 +3,8 @@ import { waitFor, within } from '@testing-library/dom';
 /**
  * Helpers to drive the date pickers (`DateInputPicker`, `DateTimePicker`) the way
  * a person does, in unit tests and in the `play` function of a story: open the
- * calendar, choose the year and the month, click the day, type the time. They
+ * calendar, choose the year and the month, click the day, type the time in the
+ * field beside the button of a date and time picker. They
  * take the `userEvent` of the caller, so both Testing Library flavours work.
  *
  * Days and times are the texts the pickers hold: `2027-03-03`, `10:00`. A day
@@ -12,8 +13,6 @@ import { waitFor, within } from '@testing-library/dom';
 
 type PickerUser = {
   click: (element: Element) => Promise<unknown>;
-  clear: (element: Element) => Promise<unknown>;
-  type: (element: Element, text: string) => Promise<unknown>;
   selectOptions: (element: Element, values: string) => Promise<unknown>;
   keyboard: (keys: string) => Promise<unknown>;
 };
@@ -85,24 +84,45 @@ export async function pickDay(
   await waitForClosed();
 }
 
-/** Opens a date and time picker, picks the day, types the time and closes it. */
+/**
+ * Opens a date and time picker, picks the day on its calendar, types the time
+ * in its field (the digits of `10:00`, which fill the hours and then the
+ * minutes) and leaves the picker, as a person who is done with it does, so that
+ * the form marks the field as touched.
+ */
 export async function pickDateTime(
   user: PickerUser,
   trigger: HTMLElement,
   value: string,
 ) {
   const [day, time] = value.split('T');
-  const calendar = await openPicker(user, trigger);
 
-  await chooseDay(user, calendar, day);
-  const timeInput = calendar.querySelector('input');
-  if (!timeInput) {
-    throw new Error('No time field in the calendar.');
+  await pickDay(user, trigger, day);
+  const group = trigger.closest<HTMLElement>('[data-slot="date-time-picker"]');
+  const hours = group?.querySelector<HTMLElement>('[data-segment="hours"]');
+  if (!group || !hours) {
+    throw new Error('No time field beside the date button.');
   }
-  await user.clear(timeInput);
-  await user.type(timeInput, time);
-  await user.keyboard('{Escape}');
-  await waitForClosed();
+  await user.click(hours);
+  await user.keyboard(time.replace(':', ''));
+  await leave(user, group);
+}
+
+// Tab until the focus is out of the picker: its time field and its clock are
+// stops of their own.
+async function leave(user: PickerUser, group: HTMLElement) {
+  for (
+    let stop = 0;
+    stop < 4 && group.contains(document.activeElement);
+    stop++
+  ) {
+    await user.keyboard('{Tab}');
+  }
+  await waitFor(() => {
+    if (group.contains(document.activeElement)) {
+      throw new Error('The focus is still in the picker.');
+    }
+  });
 }
 
 /** Opens a picker and clears it with the button of the calendar. */

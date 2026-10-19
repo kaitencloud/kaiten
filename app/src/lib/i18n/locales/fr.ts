@@ -43,17 +43,15 @@ export default {
     clearRules: 'Effacer les règles',
     and: 'et',
     pickDate: 'Choisir une date',
-    pickDateTime: 'Choisir une date et une heure',
     clear: 'Effacer',
     datePicker: {
       dateDialog: 'Choisir une date',
-      dateTimeDialog: 'Choisir une date et une heure',
       timeUtc: 'Heure (UTC)',
       timeUtcWithLocal:
         'Heure (UTC), votre heure locale est affichée ci-dessous',
       localEquivalent: '= {{time}} à {{place}} ({{zone}})',
       localEquivalentNoPlace: '= {{time}} ({{zone}})',
-      timeInvalid: 'Utilisez le format HH:mm, par exemple 09:30.',
+      timeInvalid: 'Saisissez une heure complète, par exemple 09:30.',
       hours: 'Heures',
       minutes: 'Minutes',
       timeEmpty: 'Vide',

@@ -26,6 +26,7 @@ export function useFormFieldContext() {
   return {
     id,
     formItemId: `${id}-form-item`,
+    formLabelId: `${id}-form-item-label`,
     formDescriptionId: `${id}-form-item-description`,
     formMessageId: `${id}-form-item-message`,
     errors,

@@ -1,13 +1,14 @@
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   DatePickerShell,
   UtcDayCalendar,
   type DatePickerTriggerProps,
 } from '@/components/date-picker-shell';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { TimeField } from '@/components/time-field';
+import { useFocusLeave } from '@/hooks/use-focus-leave';
 import { getAppLocale } from '@/lib/app-locale';
+import { dateInputToInstant } from '@/lib/date-input';
 import {
   dateTimeInputToInstant,
   isTimeOfDay,
@@ -16,12 +17,13 @@ import {
   parseTimeOfDay,
   splitDateTimeInput,
 } from '@/lib/date-time-input';
-import { formatDateTime } from '@/lib/format-date';
+import { formatDate } from '@/lib/format-date';
 import {
   browserTimeZone,
   isUtcZone,
   localTimeHint,
 } from '@/lib/local-time-hint';
+import { cn } from '@/lib/utils';
 
 const MIDNIGHT = '00:00';
 
@@ -29,7 +31,14 @@ type DateTimePickerProps = DatePickerTriggerProps & {
   /** The moment, `2027-03-03T10:00` (UTC, no seconds), or an empty text for none. */
   value: string;
   onChange: (value: string) => void;
+  /** The text of the date button while no day is chosen. */
   placeholder?: string;
+  /**
+   * The id of the element that names the pair (the label of the form field):
+   * the date button and the time field sit in a group it labels. Without it the
+   * pair is no group, and the button is named as any button is.
+   */
+  groupLabelledBy?: string;
   /**
    * The zone the local equivalent of the moment is shown in. It is the zone of
    * the clock of the browser unless a story or a test sets one; nothing is
@@ -39,51 +48,78 @@ type DateTimePickerProps = DatePickerTriggerProps & {
 };
 
 /**
- * A UTC date and time: a day picked on a calendar and a time typed beside it. It
- * holds the text a `datetime-local` input held, `2027-03-03T10:00`, with no zone
- * and no seconds, and an empty text while no day is chosen, so a form that read
- * that text reads this the same.
+ * A UTC date and time: a button that opens a calendar, and a time field beside
+ * it (`TimeField`). It holds the text a `datetime-local` input held,
+ * `2027-03-03T10:00`, with no zone and no seconds, and an empty text while no
+ * day is chosen, so a form that read that text reads this the same. The calendar
+ * closes with the day picked; the time is set in the field, with the keyboard or
+ * from the columns of its clock.
  *
- * The time is typed on the 24-hour clock the button shows: `9:15`, `930` and
- * `09:15` are one time, written back as `09:15`. A text that is no time is never
- * dropped: the form is given it with the day (`2027-03-03T25:99`), which its own
- * validation refuses, and the button shows it, marked invalid. The same goes for
- * a text a form hands in that is not a moment: it shows as it is, and stays until
- * the person picks one.
+ * The time is on the 24-hour clock. A time is only taken once both of its
+ * segments are filled: while one is empty the value is left as it was, and when
+ * the field is left the form is given the half-filled time with the day
+ * (`2027-03-03T10:--`), which its own validation refuses; the field shows it,
+ * marked invalid, and nothing replaces it behind the person's back. The same
+ * goes for a text a form hands in that is not a moment: it shows as it is and
+ * stays until the person picks one.
  *
- * The moment is UTC and the person's clock is not: next to it the picker says
- * what it is on the clock of the browser (`= 18:21 in Paris (CEST)`), under the
- * button and under the time field, and only when that clock is not UTC. It is
- * words about the value, never part of it.
+ * The moment is UTC and the person's clock is not: under the pair the picker
+ * says what it is on the clock of the browser (`= 18:21 in Paris (CEST)`), and
+ * only when that clock is not UTC. It is words about the value, never part of it.
  */
 export function DateTimePicker({
   value,
   onChange,
   placeholder,
+  groupLabelledBy,
   localTimeZone,
+  className,
+  onBlur,
+  disabled,
   ...props
 }: DateTimePickerProps) {
   const { t } = useTranslation();
+  const localId = useId();
+  const errorId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
+  const columnsRef = useRef<HTMLDivElement>(null);
   const parts = splitDateTimeInput(value);
-  const instant = parts ? dateTimeInputToInstant(value) : null;
   const day = parts?.day ?? leadingDayOfDateTimeInput(value);
   const held = value.trim();
-  // What is typed in the time field and is not (yet) the time the value holds.
-  // It belongs to the value it was typed against: the form changing the value
-  // from elsewhere (a reset) drops it. With no day chosen it is the time the day
-  // picked next takes, as typed.
+  // What is in the time field and is not (yet) the time the value holds: a time
+  // half filled, or one the form refuses. It belongs to the value it was typed
+  // against: the form changing the value from elsewhere (a reset) drops it. With
+  // no day chosen it is the time the day picked next takes, as it is.
   const [typed, setTyped] = useState<{ text: string; value: string } | null>(
     null,
   );
   const draft = typed && typed.value === value ? typed.text : null;
-  const time = draft ?? parts?.time ?? '';
+  // A value the form refuses keeps its time: it is shown, not hidden.
+  const time = draft ?? parts?.time ?? (day ? held.slice(day.length + 1) : '');
+  const normalTime = parseTimeOfDay(time);
+  // The value holds a time that is none, which a time half filled does not
+  // until the field is left.
+  const timeProblem = !parts && day !== '' && time !== '' && !normalTime;
   const zone = localTimeZone ?? browserTimeZone();
   const showsLocalTime = zone !== null && !isUtcZone(zone);
-  // The button says what the value holds; the popover what the time being typed
-  // makes of it, as soon as it is a time.
-  const typedTime = day ? parseTimeOfDay(time) : null;
-  const localHint = (utcInstant: string | null) =>
-    showsLocalTime ? describeLocalTime(t, utcInstant, zone) : undefined;
+  const localHint =
+    showsLocalTime && day && normalTime
+      ? describeLocalTime(
+          t,
+          dateTimeInputToInstant(joinDateTimeInput(day, normalTime)),
+          zone,
+        )
+      : undefined;
+
+  const leave = useFocusLeave({
+    containers: () => [
+      rootRef.current,
+      calendarRef.current,
+      columnsRef.current,
+    ],
+    onLeave: () => onBlur?.(),
+  });
 
   const write = (next: string, text: string | null) => {
     if (next !== value) {
@@ -106,82 +142,121 @@ export function DateTimePicker({
     );
   };
 
-  // Called as the person leaves the time field or the calendar. Returns whether
-  // the time is a time (or nothing was typed): a text that is none is written to
-  // the value as it is, for the form to refuse, and stays in the field.
-  const settleTime = (): boolean => {
+  // Called as the time field is left, or Enter is pressed in it. A time that is
+  // no time is written to the value as it is, for the form to refuse, and stays
+  // in the field; one that was only emptied goes back to the time the value holds.
+  const settleTime = () => {
     if (draft === null) {
-      return true;
+      return;
     }
     if (draft === '') {
       write(value, null);
 
-      return true;
+      return;
     }
-    const normal = parseTimeOfDay(draft);
-    if (normal) {
-      write(day ? joinDateTimeInput(day, normal) : value, day ? null : normal);
+    if (normalTime) {
+      write(
+        day ? joinDateTimeInput(day, normalTime) : value,
+        day ? null : normalTime,
+      );
 
-      return true;
+      return;
     }
     if (day) {
       write(joinDateTimeInput(day, draft), draft);
     }
-
-    return false;
   };
 
   return (
-    <DatePickerShell
-      {...props}
-      aria-invalid={
-        props['aria-invalid'] || (held !== '' && !parts) || undefined
-      }
-      dialogLabel={t('Common.datePicker.dateTimeDialog')}
-      hint={localHint(instant)}
-      onClear={() => {
-        setTyped(null);
-        onChange('');
-      }}
-      onClose={() => {
-        settleTime();
-      }}
-      placeholder={placeholder ?? t('Common.pickDateTime')}
-      text={
-        instant
-          ? formatDateTime(instant, {
-              dateStyle: 'medium',
-              hourCycle: 'h23',
-              timeStyle: 'short',
-              timeZone: 'UTC',
-            })
-          : held || undefined
-      }
-      value={parts ? joinDateTimeInput(parts.day, parts.time) : held}
+    <div
+      aria-labelledby={groupLabelledBy}
+      className={cn('space-y-1.5', className)}
+      data-slot="date-time-picker"
+      onBlur={leave.onBlur}
+      onFocus={leave.onFocus}
+      ref={rootRef}
+      role={groupLabelledBy ? 'group' : undefined}
     >
-      {({ close }) => (
-        <>
-          <UtcDayCalendar day={day} onDayChange={pickDay} />
-          <TimeOfDayInput
-            localHint={localHint(
-              typedTime
-                ? dateTimeInputToInstant(joinDateTimeInput(day, typedTime))
-                : null,
-            )}
-            onDone={() => {
-              if (settleTime()) {
+      <div className="flex flex-wrap gap-2">
+        <DatePickerShell
+          {...props}
+          aria-invalid={
+            props['aria-invalid'] || (held !== '' && !day) || undefined
+          }
+          className="min-w-36 flex-1 basis-36 w-auto"
+          dialogLabel={t('Common.datePicker.dateDialog')}
+          disabled={disabled}
+          onBlur={leave.check}
+          onClear={() => {
+            setTyped(null);
+            onChange('');
+          }}
+          placeholder={placeholder ?? t('Common.pickDate')}
+          popupRef={calendarRef}
+          text={dayText(day) ?? (held || undefined)}
+          value={parts ? joinDateTimeInput(parts.day, parts.time) : held}
+        >
+          {({ close }) => (
+            <UtcDayCalendar
+              day={day}
+              onDayChange={(picked) => {
+                pickDay(picked);
                 close();
-              }
-            }}
-            onSettle={settleTime}
-            onTimeChange={changeTime}
-            showsLocalTime={showsLocalTime}
-            time={time}
-          />
-        </>
-      )}
-    </DatePickerShell>
+              }}
+            />
+          )}
+        </DatePickerShell>
+        <TimeField
+          aria-describedby={
+            [
+              showsLocalTime ? localId : undefined,
+              timeProblem ? errorId : undefined,
+            ]
+              .filter(Boolean)
+              .join(' ') || undefined
+          }
+          aria-invalid={timeProblem || undefined}
+          aria-label={
+            showsLocalTime
+              ? t('Common.datePicker.timeUtcWithLocal')
+              : t('Common.datePicker.timeUtc')
+          }
+          disabled={disabled}
+          onChange={changeTime}
+          onSettle={settleTime}
+          popupRef={columnsRef}
+          value={time}
+        />
+      </div>
+      {showsLocalTime ? (
+        // There while the zone is not UTC, empty or not, so the form keeps its
+        // height as the time is typed.
+        <p
+          aria-live="polite"
+          className="text-muted-foreground min-h-4 text-[0.8rem]"
+          data-slot="date-picker-local-time"
+          id={localId}
+        >
+          {localHint}
+        </p>
+      ) : null}
+      {timeProblem ? (
+        <p className="text-xs text-destructive-subtle-foreground" id={errorId}>
+          {t('Common.datePicker.timeInvalid')}
+        </p>
+      ) : null}
+    </div>
   );
+}
+
+// `Mar 3, 2027`, in the language of the app: the day on the button.
+function dayText(day: string): string | undefined {
+  return day
+    ? formatDate(dateInputToInstant(day), {
+        dateStyle: 'medium',
+        timeZone: 'UTC',
+      })
+    : undefined;
 }
 
 type Translate = ReturnType<typeof useTranslation>['t'];
@@ -201,88 +276,4 @@ function describeLocalTime(
   return hint.place
     ? t('Common.datePicker.localEquivalent', hint)
     : t('Common.datePicker.localEquivalentNoPlace', hint);
-}
-
-type TimeOfDayInputProps = {
-  /** What the field shows: the time of the value, or what was typed and is not one yet. */
-  time: string;
-  /** Whether the zone of the browser is no UTC, so that the field says what its time is there. */
-  showsLocalTime: boolean;
-  /** What the time is on the clock of the browser, when it is a time. */
-  localHint: string | undefined;
-  /** Called with the text of the field each time it changes. */
-  onTimeChange: (time: string) => void;
-  /** Called as the field is left, to turn what was typed into the time it stands for. */
-  onSettle: () => void;
-  /** Called when the person presses Enter on a time: they are done with it. */
-  onDone: () => void;
-};
-
-function TimeOfDayInput({
-  time,
-  showsLocalTime,
-  localHint,
-  onTimeChange,
-  onSettle,
-  onDone,
-}: TimeOfDayInputProps) {
-  const { t } = useTranslation();
-  const id = useId();
-  const errorId = useId();
-  const localId = useId();
-  // `9:15` and `930` are times the field takes: it only complains of a text that
-  // no correction makes one.
-  const invalid = time !== '' && parseTimeOfDay(time) === null;
-
-  return (
-    <div className="space-y-1.5 border-t p-3 pt-2">
-      <Label htmlFor={id}>
-        {showsLocalTime
-          ? t('Common.datePicker.timeUtcWithLocal')
-          : t('Common.datePicker.timeUtc')}
-      </Label>
-      <Input
-        aria-describedby={
-          [showsLocalTime ? localId : undefined, invalid ? errorId : undefined]
-            .filter(Boolean)
-            .join(' ') || undefined
-        }
-        aria-invalid={invalid}
-        autoComplete="off"
-        id={id}
-        inputMode="numeric"
-        maxLength={5}
-        onBlur={onSettle}
-        onChange={(event) => onTimeChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            // Enter ends the time, not the form the calendar sits in.
-            event.preventDefault();
-            if (!invalid) {
-              onDone();
-            }
-          }
-        }}
-        placeholder={MIDNIGHT}
-        value={time}
-      />
-      {showsLocalTime ? (
-        // There while the zone is not UTC, empty or not, so the popover keeps
-        // its height as a time is typed.
-        <p
-          aria-live="polite"
-          className="text-muted-foreground min-h-4 text-xs"
-          data-slot="date-picker-local-time"
-          id={localId}
-        >
-          {invalid ? null : localHint}
-        </p>
-      ) : null}
-      {invalid ? (
-        <p className="text-xs text-destructive-subtle-foreground" id={errorId}>
-          {t('Common.datePicker.timeInvalid')}
-        </p>
-      ) : null}
-    </div>
-  );
 }

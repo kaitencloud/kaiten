@@ -392,7 +392,7 @@ describe('the cancel dialog', () => {
 
       await userEvent.click(removeAddons);
       await userEvent.click(screen.getByRole('checkbox', { name: 'Also set the license end date' }));
-      const date = await screen.findByLabelText('License ends (UTC)');
+      const date = await screen.findByRole('button', { name: 'License ends (UTC)' });
       // Proposed as the end of the period, since the cancellation waits for it.
       expect(pickerValue(date)).toBe('2026-10-27T00:00');
       await userEvent.click(await confirm());
