@@ -15,6 +15,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstances"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaiinferences"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaireservations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
@@ -217,15 +219,15 @@ func (i Instances) ListAuditTrails(
 }
 
 func (i Instances) ListAIInferences(ctx context.Context, cl caller.OrganizationCaller, instance, pool string, filter aihistory.Filter) (instanceschema.AiInferencePage, error) {
-	if err := cl.Require(aihistory.RequiredScope); err != nil {
+	if err := cl.Require(listaiinferences.RequiredScope); err != nil {
 		return instanceschema.AiInferencePage{}, err
 	}
-	return i.uc.AIHistory.Inferences(bindOrganization(ctx, cl), instance, pool, filter)
+	return i.uc.AIInferences.Execute(bindOrganization(ctx, cl), instance, pool, filter)
 }
 
 func (i Instances) ListAIReservations(ctx context.Context, cl caller.OrganizationCaller, instance, pool string) (instanceschema.AiReservations, error) {
-	if err := cl.Require(aihistory.RequiredScope); err != nil {
+	if err := cl.Require(listaireservations.RequiredScope); err != nil {
 		return instanceschema.AiReservations{}, err
 	}
-	return i.uc.AIHistory.Reservations(bindOrganization(ctx, cl), instance, pool)
+	return i.uc.AIReservations.Execute(bindOrganization(ctx, cl), instance, pool)
 }
