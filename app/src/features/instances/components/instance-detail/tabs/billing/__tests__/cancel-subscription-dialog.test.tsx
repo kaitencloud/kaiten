@@ -339,6 +339,34 @@ describe('the cancel dialog', () => {
       expect(screen.queryByLabelText('License ends (UTC)')).toBeNull();
     });
 
+    it('opens the columns of the end time inside the dialog: Escape closes only them, and the focus returns to the time', async () => {
+      const { onClose } = renderDialog();
+      const removeAddons = await screen.findByRole('checkbox', { name: 'Also remove the add-ons' });
+      await waitFor(() => expect(removeAddons).toBeEnabled());
+      await userEvent.click(screen.getByRole('checkbox', { name: 'Also set the license end date' }));
+      const date = await screen.findByRole('button', { name: 'License ends (UTC)' });
+      const dialog = screen.getByRole('dialog', { name: 'Cancel the subscription of Globex Production' });
+
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Choose a time' }));
+      const hoursColumn = await screen.findByRole('listbox', { name: 'Hours' });
+      await userEvent.click(within(hoursColumn).getByRole('option', { name: '14' }));
+
+      expect(pickerValue(date)).toBe('2026-10-27T14:00');
+
+      await userEvent.keyboard('{Escape}');
+
+      await waitFor(() => expect(screen.queryByRole('listbox', { name: 'Hours' })).toBeNull());
+      expect(dialog).toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+      expect(within(dialog).getByRole('spinbutton', { name: 'Hours' })).toHaveFocus();
+      expect(pickerValue(date)).toBe('2026-10-27T14:00');
+
+      // The next Escape is the dialog's own.
+      await userEvent.keyboard('{Escape}');
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+    });
+
     it('does nothing about either when neither is checked', async () => {
       const detached = vi.fn();
       const updated = vi.fn();

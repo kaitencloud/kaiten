@@ -68,6 +68,41 @@ export async function pickDateTime(trigger: Locator, value: string) {
   await group.getByRole('spinbutton', { name: 'Minutes' }).blur();
 }
 
+/**
+ * Sets the time of a date and time picker from the columns of its clock, as a
+ * person who points does: opens the columns, clicks the hour and the minute,
+ * and closes them with Escape, which must leave whatever holds the picker (a
+ * dialog) open, with the focus back on the hours.
+ */
+export async function pickTimeFromColumns(trigger: Locator, time: string) {
+  const [hours, minutes] = time.split(':');
+  const group = trigger.locator(
+    'xpath=ancestor::*[@data-slot="date-time-picker"]',
+  );
+  const page = trigger.page();
+  const columns = page.getByRole('dialog', {
+    name: /^(Choose a time|Choisir une heure)/,
+  });
+
+  await group
+    .getByRole('button', { name: /^(Choose a time|Choisir une heure)$/ })
+    .click();
+  await expect(columns).toBeVisible();
+  await columns
+    .getByRole('listbox', { name: /^(Hours|Heures)$/ })
+    .getByRole('option', { exact: true, name: hours })
+    .click();
+  await columns
+    .getByRole('listbox', { name: 'Minutes' })
+    .getByRole('option', { exact: true, name: minutes })
+    .click();
+  await page.keyboard.press('Escape');
+  await expect(columns).toBeHidden();
+  await expect(
+    group.getByRole('spinbutton', { name: /^(Hours|Heures)$/ }),
+  ).toBeFocused();
+}
+
 /** Clears a picker with the button of its calendar. */
 export async function clearPicker(trigger: Locator) {
   const calendar = await openCalendar(trigger);

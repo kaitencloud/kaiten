@@ -288,6 +288,22 @@ test.describe('cancelling a subscription', () => {
     });
   });
 
+  test('sets the time of the license end from the columns of the clock, and Escape closes only them', async ({
+    page,
+  }) => {
+    const billing = new InstanceBillingDriver(page);
+    const lifecycle = new InstanceLifecycleDriver(page);
+    await installBillingAppMocks(page, createLifecycleBillingModel());
+    await billing.goto('initech-seats');
+    await lifecycle.openCancel('Initech Seats');
+
+    await lifecycle.setEndDateCheckbox().check();
+    await lifecycle.setEndTimeFromColumns('08:30');
+
+    await expectPickerValue(lifecycle.endDateField(), '2026-10-15T08:30');
+    await expect(lifecycle.dialog()).toBeVisible();
+  });
+
   test('keeps the cancellation when a follow-up fails, says which, and tries only that one again', async ({
     page,
   }) => {

@@ -214,7 +214,7 @@ export const CancelBesideTheCancellation: Story = {
     await waitFor(() => expect(removeAddons).toBeEnabled());
     await expect(removeAddons).not.toBeChecked();
     await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Also set the license end date' }));
-    await expect(await within(dialog).findByLabelText('License ends (UTC)')).toBeInTheDocument();
+    await expect(await within(dialog).findByRole('button', { name: 'License ends (UTC)' })).toBeInTheDocument();
   },
 };
 

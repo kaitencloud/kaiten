@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { pickDateTime } from './date-picker.driver';
+import { pickDateTime, pickTimeFromColumns } from './date-picker.driver';
 
 /**
  * The life of a subscription, on the Billing tab of its instance: what the tab says
@@ -164,6 +164,11 @@ export class InstanceLifecycleDriver {
   /** Picks the end day of the license on the calendar of the field and sets its time beside it, as the text of the field holds it (`2026-10-20T08:30`, UTC). */
   async setEndDate(value: string) {
     await pickDateTime(this.endDateField(), value);
+  }
+
+  /** Sets the time of the end of the license from the columns of its clock (`08:30`, UTC). */
+  async setEndTimeFromColumns(time: string) {
+    await pickTimeFromColumns(this.endDateField(), time);
   }
 
   /** What the dialog says once the cancellation was accepted. */

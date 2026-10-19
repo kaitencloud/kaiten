@@ -181,7 +181,9 @@ test.describe('the invoices, read in French', () => {
       dialog.getByRole('heading', { name: 'Marquer comme payée' }),
     ).toBeVisible();
     await expect(dialog.getByLabel('Référence externe')).toBeVisible();
-    await expect(dialog.getByLabel('Payée le (UTC)')).toBeVisible();
+    await expect(
+      dialog.getByRole('button', { name: 'Payée le (UTC)' }),
+    ).toBeVisible();
     await expect(dialog.getByLabel('Note')).toBeVisible();
     await expect(dialog).toContainText('Facultatif');
   });
