@@ -113,6 +113,18 @@ func ResolveWithLimit(ctx context.Context, maxClosures int, now time.Time, p *Pe
 	if stored.PeriodStart != nil && stored.PeriodStart.Equal(*w.Start) {
 		return res, nil
 	}
+	// A database clock can step back across a boundary. An aligned stored
+	// window ahead of now stays current: rolling forward from it can never
+	// reach the earlier window, and resetting it would lose accepted usage.
+	if stored.PeriodStart != nil && stored.PeriodStart.After(*w.Start) {
+		storedWindow, err := CurrentWindow(*stored.PeriodStart, p)
+		if err != nil {
+			return Resolution{}, err
+		}
+		if storedWindow.Start.Equal(*stored.PeriodStart) {
+			return Resolution{Window: storedWindow, Current: stored.Counter}, nil
+		}
+	}
 	closures, err := planRollover(
 		ctx, maxClosures,
 		stored.PeriodStart, stored.Counter.Value, stored.Counter.EventCount,
