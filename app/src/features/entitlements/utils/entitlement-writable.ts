@@ -86,6 +86,7 @@ export const entitlementToUpdateBody = (
 
   if (body.type !== 'NUMBER' && body.type !== 'NUMBER_AI_CREDIT') {
     body.aggregationMethod = undefined;
+    body.warningThresholdPercent = undefined;
   }
 
   conditionUnitFields(body);
