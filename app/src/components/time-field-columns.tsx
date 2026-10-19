@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
 import {
   SEGMENT_MAX,
   SEGMENT_PAGE,
@@ -255,16 +256,18 @@ function ChevronButton({
   children: ReactNode;
 }) {
   return (
-    <button
+    <Button
       aria-label={label}
-      className="text-muted-foreground hover:text-foreground flex h-5 w-full items-center justify-center rounded-sm outline-none"
+      className="text-muted-foreground h-5 w-full"
       onClick={onClick}
       onMouseDown={onMouseDown}
+      size="icon-xs"
       tabIndex={-1}
       type="button"
+      variant="ghost"
     >
       {children}
-    </button>
+    </Button>
   );
 }
 

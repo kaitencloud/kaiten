@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test';
 import { z } from 'zod';
@@ -13,6 +13,13 @@ import {
 
 const schema = z.object({
   paidAt: z.string().refine((value) => value <= '2030-01-01T00:00', 'Tests.tooLate'),
+});
+
+const requiredSchema = z.object({
+  paidAt: z
+    .string()
+    .min(1, 'Tests.required')
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Tests.invalid'),
 });
 
 beforeAll(() => {
@@ -38,6 +45,22 @@ function Harness({ initial = '' }: { initial?: string }) {
         />
       )}
     </form.AppField>
+  );
+}
+
+function RequiredHarness({ initial = '' }: { initial?: string }) {
+  const form = useAppForm({
+    defaultValues: { paidAt: initial },
+    validators: { onBlur: requiredSchema },
+  });
+
+  return (
+    <>
+      <form.AppField name="paidAt">
+        {(field) => <field.DateTimeField label="Paid at (UTC)" />}
+      </form.AppField>
+      <button type="button">After</button>
+    </>
   );
 }
 
@@ -93,5 +116,64 @@ describe('DateTimeField', () => {
 
     expect(await screen.findByText('Tests.tooLate')).toBeInTheDocument();
     expect(trigger).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('marks a required field as touched once the pair is left, and shows its error once', async () => {
+    render(<RequiredHarness />);
+    const user = userEvent.setup();
+
+    const trigger = await screen.findByRole('button', { name: 'Paid at (UTC)' });
+    await user.click(trigger);
+    await screen.findByRole('dialog');
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    // The calendar closed with the focus back on the button: still inside the
+    // pair, so the field is not touched yet.
+    expect(trigger).toHaveFocus();
+    expect(screen.queryByText('Tests.required')).toBeNull();
+
+    // Moving across the time field is still inside the pair.
+    await user.tab();
+    await user.tab();
+    expect(screen.queryByText('Tests.required')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'After' }));
+
+    expect(await screen.findByText('Tests.required')).toBeInTheDocument();
+    expect(screen.getAllByText('Tests.required')).toHaveLength(1);
+    expect(trigger).toHaveAttribute('aria-invalid', 'true');
+    // The time field is told of the error too, and described by it.
+    expect(screen.getByRole('spinbutton', { name: 'Hours' })).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    expect(
+      screen.getByRole('group', { name: /^Time \(UTC\)/ }),
+    ).toHaveAccessibleDescription(expect.stringContaining('Tests.required'));
+  });
+
+  it('shows one message, the form\'s, for a half-filled time that was left', async () => {
+    render(<RequiredHarness initial="2027-03-03T10:00" />);
+    const user = userEvent.setup();
+
+    await screen.findByRole('button', { name: 'Paid at (UTC)' });
+    await user.click(screen.getByRole('spinbutton', { name: 'Minutes' }));
+    await user.keyboard('{Backspace}');
+    await user.click(screen.getByRole('button', { name: 'After' }));
+
+    expect(await screen.findByText('Tests.invalid')).toBeInTheDocument();
+    // The picker leaves its own message to the form's: one message, not two.
+    expect(screen.queryByText(/Enter a complete time/)).toBeNull();
+    expect(screen.getByRole('spinbutton', { name: 'Hours' })).not.toHaveAttribute(
+      'aria-invalid',
+    );
+    expect(screen.getByRole('spinbutton', { name: 'Minutes' })).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    expect(
+      screen.getByRole('group', { name: /^Time \(UTC\)/ }),
+    ).toHaveAccessibleDescription(expect.stringContaining('Tests.invalid'));
   });
 });

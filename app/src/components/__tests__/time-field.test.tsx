@@ -208,15 +208,45 @@ describe('TimeField segments', () => {
     expect(minutes()).toHaveFocus();
   });
 
-  it('takes 2 then 5 as 02 and then 05, not as 25 hours', async () => {
-    render(<Harness />);
+  it('ignores a digit that cannot follow the first, as the 5 of 25 hours', async () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
     const user = userEvent.setup();
 
     await user.click(hours());
     await user.keyboard('25');
 
-    expect(hours()).toHaveValue('05');
+    expect(hours()).toHaveValue('02');
+    expect(hours()).toHaveFocus();
+    expect(onChange).toHaveBeenCalledTimes(1);
+
+    await user.keyboard('3');
+
+    expect(held()).toBe('23:--');
     expect(minutes()).toHaveFocus();
+  });
+
+  it('starts a new entry when one is complete, so 60 minutes is 06 and then 00', async () => {
+    render(<Harness initial="10:--" />);
+    const user = userEvent.setup();
+
+    await user.click(minutes());
+    await user.keyboard('60');
+
+    expect(held()).toBe('10:00');
+  });
+
+  it('calls onChange at each digit, with the time as the field shows it', async () => {
+    const onChange = vi.fn();
+    render(<Harness initial="09:30" onChange={onChange} />);
+    const user = userEvent.setup();
+
+    await user.click(hours());
+    await user.keyboard('16');
+
+    // After the 1 the field shows 01, which is a time: it is given at once, as
+    // the time input of a browser fires `input` at each digit.
+    expect(onChange.mock.calls).toEqual([['01:30'], ['16:30']]);
   });
 
   it('takes minutes from 0 to 59 and moves on after a 6 or more', async () => {
@@ -290,6 +320,16 @@ describe('TimeField segments', () => {
     expect(held()).toBe('');
   });
 
+  it('drops a pasted text, which is no digit typed', () => {
+    const onChange = vi.fn();
+    render(<Harness initial="09:30" onChange={onChange} />);
+
+    fireEvent.change(hours(), { target: { value: '0916:45' } });
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(held()).toBe('09:30');
+  });
+
   it('shows a segment that is out of range as it is, marked invalid, and steps it from the start', async () => {
     render(<Harness initial="25:30" />);
 
@@ -304,11 +344,46 @@ describe('TimeField segments', () => {
     expect(held()).toBe('00:30');
   });
 
-  it('marks both segments invalid when the caller says so', () => {
+  it('marks only the segments that are empty when the caller refuses a half-filled time', () => {
     render(<Harness initial="09:--" invalid />);
+
+    expect(hours()).not.toHaveAttribute('aria-invalid');
+    expect(minutes()).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('marks only the segment that is out of range', () => {
+    render(<Harness initial="25:30" invalid />);
+
+    expect(hours()).toHaveAttribute('aria-invalid', 'true');
+    expect(minutes()).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('marks both segments when the caller refuses a time that is whole', () => {
+    render(<Harness initial="09:30" invalid />);
 
     expect(hours()).toHaveAttribute('aria-invalid', 'true');
     expect(minutes()).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('marks both segments of an empty field the caller refuses', () => {
+    render(<Harness invalid />);
+
+    expect(hours()).toHaveAttribute('aria-invalid', 'true');
+    expect(minutes()).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('puts the focus on the nearest segment when the box is pressed outside them', () => {
+    render(<Harness initial="09:30" />);
+    const box = screen.getByRole('group', { name: 'Time (UTC)' });
+
+    // jsdom has no layout: the colon sits at 0, so the left of it is hours.
+    fireEvent.mouseDown(box, { clientX: -10 });
+
+    expect(hours()).toHaveFocus();
+
+    fireEvent.mouseDown(box, { clientX: 40 });
+
+    expect(minutes()).toHaveFocus();
   });
 
   it('is not editable while it is disabled', () => {
@@ -351,7 +426,7 @@ describe('TimeField settling', () => {
     expect(onSettle).not.toHaveBeenCalled();
   });
 
-  it('settles on Enter, and lets the form it sits in be sent', async () => {
+  it('settles on Enter, which ends the time and does not send the form', async () => {
     const onSettle = vi.fn();
     const onSubmit = vi.fn((event: { preventDefault: () => void }) =>
       event.preventDefault(),
@@ -368,7 +443,7 @@ describe('TimeField settling', () => {
     await user.keyboard('{Enter}');
 
     expect(onSettle).toHaveBeenCalledTimes(1);
-    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });
 

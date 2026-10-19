@@ -240,7 +240,8 @@ describe('DateTimePicker', () => {
     expect(pickerValue(trigger())).toBe('2027-03-03T10:--');
     expect(timeText()).toBe('10:');
     expect(minutes()).toHaveValue('');
-    expect(hours()).toHaveAttribute('aria-invalid', 'true');
+    // Only the segment that is empty is wrong: the hours, 10, are fine.
+    expect(hours()).not.toHaveAttribute('aria-invalid');
     expect(minutes()).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText(/Enter a complete time/)).toBeInTheDocument();
     expect(timeGroup()).toHaveAccessibleDescription(
@@ -386,6 +387,48 @@ describe('DateTimePicker', () => {
     expect(hours()).not.toHaveAttribute('aria-invalid');
   });
 
+  it('hands the state and the description of a form to the time field as well as to the date button', () => {
+    render(
+      <>
+        <p id="note">Must be in the future.</p>
+        <DateTimePicker
+          aria-describedby="note"
+          aria-invalid
+          aria-label="Ends"
+          onChange={vi.fn()}
+          localTimeZone="UTC"
+          value="2020-03-03T10:00"
+        />
+      </>,
+    );
+
+    expect(timeGroup()).toHaveAccessibleDescription('Must be in the future.');
+    expect(hours()).toHaveAttribute('aria-invalid', 'true');
+    expect(minutes()).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Ends')).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('leaves the message about a half-filled time to the form when the form shows its own', () => {
+    render(
+      <>
+        <p id="note">Enter a valid date and time</p>
+        <DateTimePicker
+          aria-describedby="note"
+          aria-invalid
+          aria-label="Ends"
+          onChange={vi.fn()}
+          localTimeZone="UTC"
+          value="2027-03-03T10:--"
+        />
+      </>,
+    );
+
+    expect(screen.queryByText(/Enter a complete time/)).toBeNull();
+    expect(timeGroup()).toHaveAccessibleDescription('Enter a valid date and time');
+    expect(hours()).not.toHaveAttribute('aria-invalid');
+    expect(minutes()).toHaveAttribute('aria-invalid', 'true');
+  });
+
   it('opens and closes the calendar from the keyboard', async () => {
     render(<Harness />);
     const user = userEvent.setup();
@@ -497,7 +540,7 @@ describe('DateTimePicker', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('gives the form a half-filled time on Enter, and lets the form be sent with it', async () => {
+  it('gives the form a half-filled time on Enter, and does not send the form', async () => {
     const onSubmit = vi.fn((event: { preventDefault: () => void }) =>
       event.preventDefault(),
     );
@@ -514,7 +557,7 @@ describe('DateTimePicker', () => {
     await user.keyboard('{Backspace}{Enter}');
 
     expect(onChange).toHaveBeenLastCalledWith('2027-03-03T10:--');
-    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it('reads its value after its name, so a screen reader announces both', async () => {
@@ -720,12 +763,27 @@ describe.each([
     expect(screen.getByText(/Enter a complete time/)).toBeInTheDocument();
   });
 
-  it('says nothing while no moment is chosen, but keeps the label that tells it will', () => {
+  it('says nothing while no moment is chosen, and does not promise a line that is not there', () => {
     render(<Harness />);
 
     expect(localHint()).toBeEmptyDOMElement();
-    expect(localTimeGroup()).toBeInTheDocument();
+    expect(timeGroup()).toHaveAccessibleName('Time (UTC)');
+    expect(screen.queryByRole('group', { name: LOCAL_TIME_LABEL })).toBeNull();
     expect(trigger()).toHaveAccessibleDescription('Pick a date');
+  });
+
+  it('names the time for what it holds once the line is empty because it is half filled', async () => {
+    render(<Harness initial={utc} />);
+    const user = userEvent.setup();
+
+    expect(timeGroup()).toHaveAccessibleName(LOCAL_TIME_LABEL);
+
+    await user.click(minutes());
+    await user.keyboard('{Backspace}');
+    await leave(user);
+
+    await waitFor(() => expect(localHint()).toBeEmptyDOMElement());
+    expect(timeGroup()).toHaveAccessibleName('Time (UTC)');
   });
 
   it('says nothing of a text that is not a moment', () => {
@@ -750,8 +808,9 @@ describe.each([
     expect(screen.getByLabelText('Ends')).toHaveAccessibleDescription(
       expect.stringMatching(/^Dates are in UTC\. \w{3} \d{1,2}, 2026$/),
     );
+    // The time field has the description of the form too, then the line.
     expect(localTimeGroup().getAttribute('aria-describedby')).toBe(
-      localHint()?.id,
+      `hint ${localHint()?.id}`,
     );
   });
 

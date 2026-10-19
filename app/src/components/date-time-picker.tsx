@@ -101,6 +101,11 @@ export function DateTimePicker({
   // The value holds a time that is none, which a time half filled does not
   // until the field is left.
   const timeProblem = !parts && day !== '' && time !== '' && !normalTime;
+  // The form shows its own message for a time it refuses (it is on the
+  // description of both controls): the picker says it itself only without one.
+  const formInvalid =
+    props['aria-invalid'] === true || props['aria-invalid'] === 'true';
+  const ownError = timeProblem && !formInvalid;
   const zone = localTimeZone ?? browserTimeZone();
   const showsLocalTime = zone !== null && !isUtcZone(zone);
   const localHint =
@@ -209,15 +214,16 @@ export function DateTimePicker({
         <TimeField
           aria-describedby={
             [
+              props['aria-describedby'],
               showsLocalTime ? localId : undefined,
-              timeProblem ? errorId : undefined,
+              ownError ? errorId : undefined,
             ]
               .filter(Boolean)
               .join(' ') || undefined
           }
-          aria-invalid={timeProblem || undefined}
+          aria-invalid={formInvalid || timeProblem || undefined}
           aria-label={
-            showsLocalTime
+            localHint
               ? t('Common.datePicker.timeUtcWithLocal')
               : t('Common.datePicker.timeUtc')
           }
@@ -240,7 +246,7 @@ export function DateTimePicker({
           {localHint}
         </p>
       ) : null}
-      {timeProblem ? (
+      {ownError ? (
         <p className="text-xs text-destructive-subtle-foreground" id={errorId}>
           {t('Common.datePicker.timeInvalid')}
         </p>

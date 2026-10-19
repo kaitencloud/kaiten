@@ -126,6 +126,8 @@ export type DigitResult = {
   pending: string | null;
   /** Whether nothing more can follow in this segment, so the focus moves on. */
   done: boolean;
+  /** Whether the digit was dropped: it could not follow the one awaiting it. */
+  ignored: boolean;
 };
 
 /**
@@ -133,7 +135,13 @@ export type DigitResult = {
  * (`3` to `9` in the hours, `6` to `9` in the minutes) fills the segment and is
  * done; a first digit that could (`1`, or `0` and `2` in the hours) fills it as
  * `01` and waits. The second digit completes the pair when the pair is in range
- * (`16`), and otherwise starts a new entry (`2` then `5` is `02`, then `05`).
+ * (`16`).
+ *
+ * A digit that cannot follow the one awaited (the `4` of `24` hours) is
+ * ignored: the segment keeps what it showed, still awaiting a digit, and the
+ * time is never one the person did not type. Once an entry is complete (`06`,
+ * or `16`) the next digit starts a new entry, as the time input of a browser
+ * does: `60` in the minutes is `06` and then `00`.
  */
 export function typeDigit(
   segments: TimeSegments,
@@ -145,13 +153,16 @@ export function typeDigit(
 
   if (pending !== null) {
     const pair = Number(`${pending}${digit}`);
-    if (pair <= max) {
-      return {
-        segments: setSegment(segments, segment, pair),
-        pending: null,
-        done: true,
-      };
+    if (pair > max) {
+      return { segments, pending, done: false, ignored: true };
     }
+
+    return {
+      segments: setSegment(segments, segment, pair),
+      pending: null,
+      done: true,
+      ignored: false,
+    };
   }
 
   const value = Number(digit);
@@ -162,6 +173,7 @@ export function typeDigit(
     segments: setSegment(segments, segment, value),
     pending: done ? null : digit,
     done,
+    ignored: false,
   };
 }
 

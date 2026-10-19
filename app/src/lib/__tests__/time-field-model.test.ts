@@ -137,15 +137,36 @@ describe('typeDigit', () => {
     expect(type('hours', '09').segments.hours).toBe('09');
   });
 
-  it('starts again when the pair would be out of range', () => {
-    // 2 then 5 is not 25 hours: it is 02, then 05.
+  it('ignores a second digit that would make the pair out of range', () => {
+    // 2 then 5 is not 25 hours, and the 5 is not taken for another entry: the
+    // hours stay 02, awaiting a digit that can follow.
     expect(type('hours', '25')).toEqual({
-      segments: at('05', ''),
-      pending: null,
-      done: true,
+      segments: at('02', ''),
+      pending: '2',
+      done: false,
     });
-    // 2 then 4 starts a new entry too: 04.
-    expect(type('hours', '24').segments.hours).toBe('04');
+    expect(type('hours', '24').segments.hours).toBe('02');
+    // A digit that can follow still completes the entry.
+    expect(type('hours', '253').segments.hours).toBe('23');
+  });
+
+  it('says a digit was ignored, and changes nothing', () => {
+    const typed = type('hours', '2').segments;
+
+    expect(typeDigit(typed, 'hours', '7', '2')).toEqual({
+      segments: typed,
+      pending: '2',
+      done: false,
+      ignored: true,
+    });
+    expect(typeDigit(typed, 'hours', '3', '2').ignored).toBe(false);
+  });
+
+  it('starts a new entry once an entry is complete', () => {
+    // 6 fills the minutes and is complete, so the 0 after it is a new entry:
+    // 60 is 06 and then 00, never 60.
+    expect(type('minutes', '60').segments.minutes).toBe('00');
+    expect(type('hours', '1623').segments.hours).toBe('23');
   });
 
   it('overwrites what the segment held', () => {

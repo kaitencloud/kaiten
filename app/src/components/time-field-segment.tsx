@@ -92,6 +92,7 @@ export function SegmentInput({
       autoComplete="off"
       className="placeholder:text-muted-foreground focus-visible:bg-primary focus-visible:text-primary-foreground focus-visible:placeholder:text-primary-foreground w-6 rounded-sm bg-transparent text-center tabular-nums caret-transparent outline-none selection:bg-transparent"
       data-segment={segment}
+      data-slot="input-group-control"
       disabled={disabled}
       inputMode="numeric"
       onBlur={onBlur}
