@@ -444,3 +444,26 @@ func TestTheFileKeyIsMetered(t *testing.T) {
 		require.ErrorContains(t, err, "dogfooding")
 	})
 }
+
+func TestAIUsageConfiguration(t *testing.T) {
+	t.Run("defaults", func(t *testing.T) {
+		minimum(t)
+		cfg, err := config.LoadConfig()
+		require.NoError(t, err)
+		require.Equal(t, 840*time.Hour, cfg.AIUsage.IdempotencyWindow)
+		require.Equal(t, 10*time.Minute, cfg.AIUsage.ReservationTTL)
+		require.Equal(t, time.Hour, cfg.AIUsage.ReservationMaxTTL)
+	})
+	for _, tc := range []struct{ name, variable, value string }{
+		{"short dedup", "KAITEN_USAGE_IDEMPOTENCY_WINDOW", "23h"},
+		{"zero ttl", "KAITEN_AI_RESERVATION_DEFAULT_TTL", "0s"},
+		{"ttl above max", "KAITEN_AI_RESERVATION_DEFAULT_TTL", "2h"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			minimum(t)
+			t.Setenv(tc.variable, tc.value)
+			_, err := config.LoadConfig()
+			require.Error(t, err)
+		})
+	}
+}
