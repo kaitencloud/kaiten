@@ -18,13 +18,13 @@ const (
 
 // ConversionRates are exact decimal strings. Nil is unpriced, not zero.
 type ConversionRates struct {
-	PerRequest          *string `json:"perRequest,omitempty" nullable:"true" pattern:"^[0-9]{1,8}(\\.[0-9]{1,10})?$"`
-	PerInputToken       *string `json:"perInputToken,omitempty" nullable:"true" pattern:"^[0-9]{1,8}(\\.[0-9]{1,10})?$"`
-	PerCachedInputToken *string `json:"perCachedInputToken,omitempty" nullable:"true" pattern:"^[0-9]{1,8}(\\.[0-9]{1,10})?$"`
-	PerCacheWriteToken  *string `json:"perCacheWriteToken,omitempty" nullable:"true" pattern:"^[0-9]{1,8}(\\.[0-9]{1,10})?$"`
-	PerOutputToken      *string `json:"perOutputToken,omitempty" nullable:"true" pattern:"^[0-9]{1,8}(\\.[0-9]{1,10})?$"`
-	PerUnit             *string `json:"perUnit,omitempty" nullable:"true" pattern:"^[0-9]{1,8}(\\.[0-9]{1,10})?$"`
-	PerSecond           *string `json:"perSecond,omitempty" nullable:"true" pattern:"^[0-9]{1,8}(\\.[0-9]{1,10})?$"`
+	PerRequest          *string `json:"perRequest,omitempty" nullable:"true" pattern:"^[0-9]{1,8}(\\.[0-9]{1,10})?$" example:"0.001"`
+	PerInputToken       *string `json:"perInputToken,omitempty" nullable:"true" pattern:"^[0-9]{1,8}(\\.[0-9]{1,10})?$" example:"0.001"`
+	PerCachedInputToken *string `json:"perCachedInputToken,omitempty" nullable:"true" pattern:"^[0-9]{1,8}(\\.[0-9]{1,10})?$" example:"0.001"`
+	PerCacheWriteToken  *string `json:"perCacheWriteToken,omitempty" nullable:"true" pattern:"^[0-9]{1,8}(\\.[0-9]{1,10})?$" example:"0.001"`
+	PerOutputToken      *string `json:"perOutputToken,omitempty" nullable:"true" pattern:"^[0-9]{1,8}(\\.[0-9]{1,10})?$" example:"0.001"`
+	PerUnit             *string `json:"perUnit,omitempty" nullable:"true" pattern:"^[0-9]{1,8}(\\.[0-9]{1,10})?$" example:"0.001"`
+	PerSecond           *string `json:"perSecond,omitempty" nullable:"true" pattern:"^[0-9]{1,8}(\\.[0-9]{1,10})?$" example:"0.001"`
 }
 
 type ConversionRule struct {
@@ -34,8 +34,8 @@ type ConversionRule struct {
 	ModelSlug                *string                `json:"modelSlug"`
 	RequestType              *aicredit.RequestType  `json:"requestType" enum:"COMPLETION,EMBEDDING,IMAGE_GENERATION,AUDIO,VIDEO"`
 	Rates                    ConversionRates        `json:"rates"`
-	MinimumCreditsPerRequest string                 `json:"minimumCreditsPerRequest" pattern:"^[0-9]{1,12}(\\.[0-9]{1,6})?$"`
-	MaximumCreditsPerRequest *string                `json:"maximumCreditsPerRequest" pattern:"^[0-9]{1,12}(\\.[0-9]{1,6})?$"`
+	MinimumCreditsPerRequest string                 `json:"minimumCreditsPerRequest" pattern:"^[0-9]{1,12}(\\.[0-9]{1,6})?$" example:"0.001"`
+	MaximumCreditsPerRequest *string                `json:"maximumCreditsPerRequest" pattern:"^[0-9]{1,12}(\\.[0-9]{1,6})?$" example:"0.001"`
 	ChargeOnError            aicredit.ChargeOnError `json:"chargeOnError" enum:"NEVER,ALWAYS,PROVIDER_ERROR_ONLY"`
 	Status                   ConversionRuleStatus   `json:"status" enum:"ACTIVE,ARCHIVED"`
 	GrantedByLicense         bool                   `json:"grantedByLicense"`

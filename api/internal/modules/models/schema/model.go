@@ -30,12 +30,12 @@ const (
 // VendorCosts are optional USD costs, not credit conversion rates. Decimal
 // strings preserve all twelve fractional digits of the catalogue's NUMERICs.
 type VendorCosts struct {
-	PerInputToken       *string `json:"perInputToken,omitempty" pattern:"^[0-9]{1,6}(\\.[0-9]{1,12})?$"`
-	PerCachedInputToken *string `json:"perCachedInputToken,omitempty" pattern:"^[0-9]{1,6}(\\.[0-9]{1,12})?$"`
-	PerCacheWriteToken  *string `json:"perCacheWriteToken,omitempty" pattern:"^[0-9]{1,6}(\\.[0-9]{1,12})?$"`
-	PerOutputToken      *string `json:"perOutputToken,omitempty" pattern:"^[0-9]{1,6}(\\.[0-9]{1,12})?$"`
-	PerRequest          *string `json:"perRequest,omitempty" pattern:"^[0-9]{1,6}(\\.[0-9]{1,12})?$"`
-	PerUnit             *string `json:"perUnit,omitempty" pattern:"^[0-9]{1,6}(\\.[0-9]{1,12})?$"`
+	PerInputToken       *string `json:"perInputToken,omitempty" pattern:"^[0-9]{1,6}(\\.[0-9]{1,12})?$" example:"0.001"`
+	PerCachedInputToken *string `json:"perCachedInputToken,omitempty" pattern:"^[0-9]{1,6}(\\.[0-9]{1,12})?$" example:"0.001"`
+	PerCacheWriteToken  *string `json:"perCacheWriteToken,omitempty" pattern:"^[0-9]{1,6}(\\.[0-9]{1,12})?$" example:"0.001"`
+	PerOutputToken      *string `json:"perOutputToken,omitempty" pattern:"^[0-9]{1,6}(\\.[0-9]{1,12})?$" example:"0.001"`
+	PerRequest          *string `json:"perRequest,omitempty" pattern:"^[0-9]{1,6}(\\.[0-9]{1,12})?$" example:"0.001"`
+	PerUnit             *string `json:"perUnit,omitempty" pattern:"^[0-9]{1,6}(\\.[0-9]{1,12})?$" example:"0.001"`
 	Currency            string  `json:"currency" enum:"USD" default:"USD"`
 }
 
@@ -45,7 +45,7 @@ type VendorCosts struct {
 type Model struct {
 	ID          uuid.UUID              `json:"id" readOnly:"true"`
 	Name        string                 `json:"name" minLength:"1" maxLength:"100"`
-	Slug        string                 `json:"slug" doc:"Immutable URL-friendly identifier, unique per organization" minLength:"2" maxLength:"100" pattern:"^[a-z0-9][a-z0-9-]*[a-z0-9]$"`
+	Slug        string                 `json:"slug" doc:"Immutable URL-friendly identifier, unique per organization" minLength:"2" maxLength:"100" pattern:"^[a-z0-9][a-z0-9-]*[a-z0-9]$" example:"sample-model"`
 	Description *string                `json:"description,omitempty"`
 	Vendor      string                 `json:"vendor" minLength:"1" maxLength:"100"`
 	Modality    Modality               `json:"modality" enum:"TEXT,IMAGE,AUDIO,VIDEO,EMBEDDING,MULTIMODAL"`
