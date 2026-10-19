@@ -18,7 +18,7 @@ import (
 )
 
 type (
-	Command = conversionrules.UpdateConversionRuleBody
+	Command = conversionrules.UpdateConversionRule
 	Deps    struct {
 		UserProvider currentuser.Provider
 		Uof          *uow.UnitOfWork

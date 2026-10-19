@@ -425,9 +425,16 @@ var transportWords = []string{
 // domainNamesUsingTransportWords is the escape hatch the baseline below is
 // not: a component whose name contains one of the words above because the
 // *domain* uses it — a pricing model, a line item — rather than because a
-// wrapper leaked. It is empty today. Adding to it is a claim about the
-// domain's vocabulary and should read like one in the diff.
-var domainNamesUsingTransportWords = map[string]bool{}
+// wrapper leaked. Adding to it is a claim about the domain's vocabulary
+// and should read like one in the diff.
+var domainNamesUsingTransportWords = map[string]bool{
+	// An AI model is a catalogued provider model, not a persistence or HTTP
+	// model. Its page and lifecycle events carry the same domain meaning.
+	"Model":                            true,
+	"PageModel":                        true,
+	"ModelUpdated":                     true,
+	"InstanceAIModelUsageUnauthorized": true,
+}
 
 // containsTransportWord reports whether name contains word as a whole
 // CamelCase word. `CustomerBody` and `EntitlementGroupRef` do; `Reference`

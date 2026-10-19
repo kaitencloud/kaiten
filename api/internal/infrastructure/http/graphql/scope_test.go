@@ -362,6 +362,7 @@ func TestClientDocumentsRequireTheseScopes(t *testing.T) {
 	maps.Copy(documents, legitimateQueries)
 
 	want := map[string][]string{
+		"console/AiMatrix":                  {scope.Read(scope.Models), readLicenses},
 		"console/GetInstancesWithRelations": {readInstances, readCustomers, readLicenses},
 		"console/GetCustomersWithInstances": {readCustomers, readInstances, readLicenses},
 		"console/GetInstancesBilling":       {readInstances, readBilling},
