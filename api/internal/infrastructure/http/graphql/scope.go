@@ -29,6 +29,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicensefamily"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenses"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/getmetadatafields"
+	"github.com/kaitencloud/kaiten/api/internal/modules/models/listmodels"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/getrelease"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/getreleases"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
@@ -64,6 +65,7 @@ import (
 // GET /releases returns a release's components under read:releases alone, and
 // Release.components requires read:components as well.
 var typeScopes = map[string]string{
+	"Model":          listmodels.RequiredScope,
 	"AuditTrail":     getaudittrails.RequiredScope,
 	"AuditTrailPage": getaudittrails.RequiredScope,
 	"Component":      getcomponent.RequiredScope,

@@ -16,12 +16,14 @@ import (
 	licensesdb "github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	metadatafieldsdb "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
 	releasesdb "github.com/kaitencloud/kaiten/api/internal/modules/releases/infrastructure/db"
+modelsdb "github.com/kaitencloud/kaiten/api/internal/modules/models/infrastructure/db"
 )
 
 // Resolver is the root resolver for GraphQL queries. It holds dependencies
 // needed by all resolvers -- each module's own typed db.Queries or public
 // port, never a shared/global sqlc client.
 type Resolver struct {
+ModelsQueries *modelsdb.Queries
 	InstancesQueries          *instancesdb.Queries
 	AuditTrailForInstancePort *listforinstance.UseCase
 	AuditTrailForOrgPort      *listfororganization.UseCase
@@ -37,6 +39,7 @@ type Resolver struct {
 // NewResolver creates a new Resolver with the given dependencies.
 func NewResolver(pool *pgxpool.Pool) *Resolver {
 	return &Resolver{
+ModelsQueries: modelsdb.New(pool),
 		InstancesQueries:          instancesdb.New(pool),
 		AuditTrailForInstancePort: listforinstance.NewUseCase(auditdb.New(pool)),
 		AuditTrailForOrgPort:      listfororganization.NewUseCase(auditdb.New(pool)),

@@ -2113,6 +2113,85 @@ components:
       required:
         - jsonSchema
       type: object
+    Model:
+      additionalProperties: false
+      properties:
+        createdAt:
+          format: date-time
+          readOnly: true
+          type: string
+        description:
+          type: string
+        externalIds:
+          description: Exact provider identifiers, unique per organization; cannot shadow another model's slug
+          items:
+            type: string
+          type: array
+          uniqueItems: true
+        id:
+          readOnly: true
+          type: string
+        metadata:
+          additionalProperties: {}
+          type: object
+        modality:
+          enum:
+            - TEXT
+            - IMAGE
+            - AUDIO
+            - VIDEO
+            - EMBEDDING
+            - MULTIMODAL
+          type: string
+        name:
+          maxLength: 100
+          minLength: 1
+          type: string
+        slug:
+          description: Immutable URL-friendly identifier, unique per organization
+          maxLength: 100
+          minLength: 2
+          pattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
+          type: string
+        status:
+          default: ACTIVE
+          description: ACTIVE authorizes usage; DEPRECATED keeps existing rules; ARCHIVED authorizes none. Reversible.
+          enum:
+            - ACTIVE
+            - DEPRECATED
+            - ARCHIVED
+          type: string
+        updatedAt:
+          format: date-time
+          readOnly: true
+          type: string
+        vendor:
+          maxLength: 100
+          minLength: 1
+          type: string
+        vendorCosts:
+          $ref: "#/components/schemas/VendorCosts"
+      required:
+        - id
+        - name
+        - slug
+        - vendor
+        - modality
+        - status
+        - createdAt
+        - updatedAt
+      type: object
+    ModelUpdated:
+      additionalProperties: false
+      properties:
+        after:
+          $ref: "#/components/schemas/Model"
+        before:
+          $ref: "#/components/schemas/Model"
+      required:
+        - before
+        - after
+      type: object
     Notification:
       additionalProperties: false
       properties:
@@ -2382,6 +2461,23 @@ components:
         items:
           items:
             $ref: "#/components/schemas/MetadataField"
+          type: array
+        nextCursor:
+          description: Opaque cursor for the next page. Absent when hasMore is false.
+          type: string
+      required:
+        - items
+        - hasMore
+      type: object
+    PageModel:
+      additionalProperties: false
+      properties:
+        hasMore:
+          description: Whether more rows exist beyond this page.
+          type: boolean
+        items:
+          items:
+            $ref: "#/components/schemas/Model"
           type: array
         nextCursor:
           description: Opaque cursor for the next page. Absent when hasMore is false.
@@ -3201,6 +3297,35 @@ components:
         - description
         - value
       type: object
+    VendorCosts:
+      additionalProperties: false
+      properties:
+        currency:
+          default: USD
+          enum:
+            - USD
+          type: string
+        perCacheWriteToken:
+          pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
+          type: string
+        perCachedInputToken:
+          pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
+          type: string
+        perInputToken:
+          pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
+          type: string
+        perOutputToken:
+          pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
+          type: string
+        perRequest:
+          pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
+          type: string
+        perUnit:
+          pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
+          type: string
+      required:
+        - currency
+      type: object
   securitySchemes:
     bearerAuth:
       bearerFormat: JWT
@@ -3216,6 +3341,7 @@ components:
         - read:instances
         - read:licenses
         - read:metadata_fields
+        - read:models
         - read:notifications
         - read:organizations
         - read:releases
@@ -3229,6 +3355,7 @@ components:
         - write:instances
         - write:licenses
         - write:metadata_fields
+        - write:models
         - write:notifications
         - write:organizations
         - write:releases
@@ -9062,6 +9189,313 @@ paths:
       summary: Unarchive a metadata field
       tags:
         - metadataFields
+  /models:
+    get:
+      operationId: listModels
+      parameters:
+        - explode: false
+          in: query
+          name: cursor
+          schema:
+            type: string
+        - description: Page size (default 50, max 200)
+          explode: false
+          in: query
+          name: limit
+          schema:
+            description: Page size (default 50, max 200)
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
+        - explode: false
+          in: query
+          name: status
+          schema:
+            enum:
+              - ACTIVE
+              - DEPRECATED
+              - ARCHIVED
+            type: string
+        - explode: false
+          in: query
+          name: vendor
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: modality
+          schema:
+            enum:
+              - TEXT
+              - IMAGE
+              - AUDIO
+              - VIDEO
+              - EMBEDDING
+              - MULTIMODAL
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageModel"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:models
+      summary: List models
+      tags:
+        - models
+    post:
+      operationId: createModel
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Model"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Model"
+          description: Created
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:models
+      summary: Create a model
+      tags:
+        - models
+  /models/{modelSlug}:
+    delete:
+      operationId: deleteModel
+      parameters:
+        - in: path
+          name: modelSlug
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:models
+      summary: Delete a model
+      tags:
+        - models
+    get:
+      operationId: getModel
+      parameters:
+        - in: path
+          name: modelSlug
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Model"
+          description: OK
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:models
+      summary: Get a model
+      tags:
+        - models
+    put:
+      operationId: updateModel
+      parameters:
+        - in: path
+          name: modelSlug
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Model"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Model"
+          description: OK
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:models
+      summary: Update a model
+      tags:
+        - models
   /ofrep/v1/evaluate/flags:
     post:
       description: |-
@@ -12386,6 +12820,129 @@ webhooks:
       tags:
         - webhooks
         - metadataFields
+  com.kaiten.model.v1.created:
+    post:
+      description: Triggered when a catalogue model is created.
+      operationId: onModelCreated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Model"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - MODEL_CREATED
+                  examples:
+                    - MODEL_CREATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.model.v1.created
+                  examples:
+                    - com.kaiten.model.v1.created
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Model Created Webhook
+      tags:
+        - webhooks
+        - models
+  com.kaiten.model.v1.deleted:
+    post:
+      description: Triggered when a catalogue model is deleted.
+      operationId: onModelDeleted
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Model"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - MODEL_DELETED
+                  examples:
+                    - MODEL_DELETED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.model.v1.deleted
+                  examples:
+                    - com.kaiten.model.v1.deleted
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Model Deleted Webhook
+      tags:
+        - webhooks
+        - models
+  com.kaiten.model.v1.updated:
+    post:
+      description: Triggered when a catalogue model is updated.
+      operationId: onModelUpdated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/ModelUpdated"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - MODEL_UPDATED
+                  examples:
+                    - MODEL_UPDATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.model.v1.updated
+                  examples:
+                    - com.kaiten.model.v1.updated
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Model Updated Webhook
+      tags:
+        - webhooks
+        - models
   com.kaiten.release.v1.created:
     post:
       description: Triggered when a new release is created.

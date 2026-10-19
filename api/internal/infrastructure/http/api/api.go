@@ -63,6 +63,7 @@ func Register(deps Deps) {
 	registerCustomers(deps.Core, deps.App.Customers())
 	registerDeploymentZones(deps.Core, deps.App.DeploymentZones())
 	registerMetadataFields(deps.Core, deps.App.MetadataFields())
+	registerModels(deps.Core, deps.App.Models())
 	registerReleases(deps.Core, deps.App.Releases())
 	registerEntitlements(deps.Core, deps.App.Entitlements())
 	registerLicenses(deps.Core, deps.App.Licenses())
