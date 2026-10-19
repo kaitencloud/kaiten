@@ -95,3 +95,11 @@ A lifecycle transition writes the version the API returns into the detail cache 
 `app/src/features/licenses/index.ts` exports `LicensesPageContent`, `LicenseDetailPage`, `LicenseForm`, `LicenseVersionForm` and the query options `licensesQueryOptions`, `licensesWithInstancesQueryOptions`, `licenseFamiliesQueryOptions`, `licenseQueryOptions`, `licenseEntitlementsQueryOptions` and `entitlementsQueryOptions`. Only the routes under `app/src/routes/licenses/` import them, as routes are the only importers of a feature (see [Import rules](../../../docs/AI_CONTEXT.md#import-rules)). The invalidation helpers and everything else are internal to the feature.
 
 The table and filter building blocks come from [`functionals/table`](../../functionals/table/README.md) and [`functionals/filters`](../../functionals/filters/README.md).
+
+## AI rule inheritance
+
+Behind `ai-credits`, the new-version form can copy the base version's active
+conversion rules. It creates the draft, attaches grants, copies rules with one
+result per item, and only then publishes. A failed rule copy leaves a draft for
+review; it does not expose a partially priced newest published version. Copying
+retains nullable model/request wildcards and invalidates the AI read identities.

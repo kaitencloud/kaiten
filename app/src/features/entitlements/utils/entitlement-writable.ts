@@ -29,7 +29,11 @@ export const conditionUnitFields = (body: UnitFieldsCarrier): void => {
     body.saleUnitFactor = undefined;
   }
 
-  if (body.type !== 'NUMBER' || !body.unitSingular || !body.unitPlural) {
+  if (
+    (body.type !== 'NUMBER' && body.type !== 'NUMBER_AI_CREDIT') ||
+    !body.unitSingular ||
+    !body.unitPlural
+  ) {
     body.unitSingular = undefined;
     body.unitPlural = undefined;
     body.saleUnitSingular = undefined;
@@ -69,6 +73,7 @@ export const entitlementToUpdateBody = (
     type: entitlement.type,
     userFacing: entitlement.userFacing ?? false,
     displayOrder: entitlement.displayOrder ?? 0,
+    warningThresholdPercent: entitlement.warningThresholdPercent,
     unitSingular: entitlement.unitSingular ?? undefined,
     unitPlural: entitlement.unitPlural ?? undefined,
     saleUnitSingular: entitlement.saleUnitSingular ?? undefined,
@@ -79,7 +84,7 @@ export const entitlementToUpdateBody = (
     ...overrides,
   };
 
-  if (body.type !== 'NUMBER') {
+  if (body.type !== 'NUMBER' && body.type !== 'NUMBER_AI_CREDIT') {
     body.aggregationMethod = undefined;
   }
 

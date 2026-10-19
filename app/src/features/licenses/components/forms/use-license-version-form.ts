@@ -1,4 +1,14 @@
-import { type QueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import {
+  aiMatrixQueryKey,
+  aiWildcardImpactQueryKey,
+} from '@/domains/ai-credits';
+import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
+import { copyConversionRules } from '../../hooks/copy-conversion-rules';
+import {
+  type QueryClient,
+  useQuery,
+  useSuspenseQuery,
+} from '@tanstack/react-query';
 import { useRouteContext, useRouter } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -140,6 +150,7 @@ export function useLicenseVersionForm({
   selectedLicenseSlug,
 }: UseLicenseVersionFormOptions) {
   const { t } = useTranslation();
+  const { data: aiEnabled } = useQuery(aiCreditsFlagQueryOptions);
   const router = useRouter();
   const {
     addDraftEntitlement,
@@ -204,8 +215,34 @@ export function useLicenseVersionForm({
             selectedBaseLicense,
           ),
           draftEntitlements,
+          afterGrants:
+            aiEnabled && value.copyAiRules
+              ? async (licenseSlug) => {
+                  const results = await copyConversionRules(
+                    selectedBaseLicense.slug!,
+                    licenseSlug,
+                  );
+                  for (const result of results) {
+                    const name = `${result.rule.entitlementSlug} / ${result.rule.modelSlug ?? t('AI.anyModel')} / ${result.rule.requestType ?? t('AI.any')}`;
+                    if (result.error)
+                      toast.error(
+                        t('AI.copyFailed', {
+                          name,
+                          reason: getApiErrorMessage(result.error),
+                        }),
+                      );
+                    else toast.success(t('AI.copySuccess', { name }));
+                  }
+                  if (results.some((result) => result.error))
+                    throw new Error(t('AI.copyPartial'));
+                }
+              : undefined,
         });
         await invalidateLicenseQueries(queryClient);
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: aiMatrixQueryKey }),
+          queryClient.invalidateQueries({ queryKey: aiWildcardImpactQueryKey }),
+        ]);
 
         // The version exists but stayed a draft: a grant or the publish
         // failed. Its own page is where the vendor finishes it.

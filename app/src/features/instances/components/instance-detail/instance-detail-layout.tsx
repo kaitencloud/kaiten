@@ -1,3 +1,5 @@
+import { useQuery } from '@tanstack/react-query';
+import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
 import { Button } from '@/components/ui/button';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { AlertTriangle, Calendar, Pencil } from 'lucide-react';
@@ -28,6 +30,7 @@ export const InstanceDetailLayout = ({
   children,
 }: InstanceDetailLayoutProps) => {
   const { i18n, t } = useTranslation();
+  const { data: aiEnabled } = useQuery(aiCreditsFlagQueryOptions);
   const navigate = useNavigate();
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
@@ -35,6 +38,7 @@ export const InstanceDetailLayout = ({
   const activeTab = getActiveTabFromPathname({
     defaultTab: 'overview',
     matchers: [
+      { suffix: '/ai-usage', value: 'ai-usage' },
       { suffix: '/entitlements', value: 'entitlements' },
       { suffix: '/audit-trail', value: 'audit-trail' },
     ],
@@ -275,6 +279,16 @@ export const InstanceDetailLayout = ({
         <DetailEntityLayout.Tabs
           activeTab={activeTab}
           items={[
+            ...(aiEnabled
+              ? [
+                  {
+                    label: t('AI.Usage.title'),
+                    params: { instanceSlug: instanceId },
+                    to: '/customers/instances/$instanceSlug/ai-usage' as const,
+                    value: 'ai-usage',
+                  },
+                ]
+              : []),
             {
               label: t('Pages.Customers.Instances.Detail.tabs.overview'),
               params: { instanceSlug: instanceId },

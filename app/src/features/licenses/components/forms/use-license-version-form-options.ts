@@ -93,6 +93,7 @@ export function useLicenseVersionFormOptions({
     baseLicenseSlug: selectedLicenseSlug || (actualBaseLicense?.slug ?? ''),
     baseVersion: actualBaseLicense?.version ?? '',
     createAsDraft: false,
+    copyAiRules: true,
     description: actualBaseLicense?.description ?? '',
     selectedFamilyId,
     versionName: suggestNextVersionName(

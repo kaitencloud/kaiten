@@ -375,3 +375,12 @@ describe('getEntitlementFormDefaults slug', () => {
     );
   });
 });
+
+it('keeps the complete AI credit payload for forms and inline edits and requires SUM', () => {
+  const pool: Entitlement = { ...numberEntitlementWithUnits, type: 'NUMBER_AI_CREDIT', warningThresholdPercent: 75, resetPeriod: 'MONTH', resetAnchor: 'CALENDAR' };
+  const body = entitlementToUpdateBody(pool, { name: 'Renamed AI pool' });
+  expect(body).toMatchObject({ aggregationMethod: 'SUM', unitSingular: 'seat', resetPeriod: 'MONTH', warningThresholdPercent: 75 });
+  const values = getEntitlementFormDefaults(pool);
+  expect(entitlementFormSchema.safeParse({ ...values, aggregationMethod: 'LATEST' }).success).toBe(false);
+  expect(entitlementFormSchema.safeParse(values).success).toBe(true);
+});

@@ -1,4 +1,133 @@
 export default {
+  AI: {
+    slugInvalid:
+      'Utilisez au moins deux lettres minuscules, chiffres ou tirets ; commencez et terminez par une lettre ou un chiffre.',
+    Errors: {
+      slugConflict: 'Ce slug de modèle est déjà utilisé.',
+      externalIdConflict:
+        'Un identifiant fournisseur est utilisé par un autre modèle ou son slug.',
+      immutableSlug: 'Le slug du modèle ne peut pas changer.',
+      immutableModality: 'La modalité du modèle ne peut pas changer.',
+      modelInUse:
+        'Une règle référence ce modèle. Archivez-le ou retirez ses règles avant suppression.',
+      modelNotFound: 'Ce modèle n’existe plus.',
+      ruleConflict:
+        'Une règle active tarife déjà cette version, ce pool, ce modèle et ce type.',
+      notCreditPool: 'Choisissez un pool de crédits IA avec agrégation SUM.',
+      modelDeprecated:
+        'Un modèle obsolète ne peut pas recevoir de nouvelle règle.',
+      modelArchived:
+        'Un modèle archivé n’autorise aucun usage et ne reçoit aucune nouvelle règle.',
+      ruleArchived:
+        'Une règle archivée ne peut pas être modifiée. Créez-en une nouvelle.',
+      immutableRule:
+        'L’identité est fixe. Archivez cette règle et créez-en une nouvelle pour la changer.',
+      ruleNotFound: 'Cette règle de conversion n’existe plus.',
+      invalidRange: 'La date de début doit précéder la date de fin.',
+      appendOnly:
+        'Les pools IA acceptent uniquement l’ajout de consommation ou de remboursements.',
+    },
+    nameRequired: 'Le nom est requis',
+    vendorRequired: 'Le fournisseur est requis',
+    title: 'Crédits IA',
+    credits: 'Crédits',
+    name: 'Nom',
+    slug: 'Slug',
+    vendor: 'Fournisseur',
+    modality: 'Modalité',
+    status: 'État',
+    description: 'Description',
+    model: 'Modèle',
+    pool: 'Pool de crédits',
+    requestType: 'Type de requête',
+    any: 'Tous les types de requête',
+    anyModel: 'Tout modèle',
+    saved: 'Enregistrement effectué',
+    sumRequired:
+      'Les pools IA additionnent toujours les consommations et remboursements. L’agrégation est fixée à SUM.',
+    warningThreshold: 'Seuil d’avertissement (%)',
+    wildcardWarning:
+      'Les règles génériques tarifent tous les modèles non archivés du catalogue, y compris ceux créés à l’avenir. Les versions et pools ci-dessous peuvent autoriser ce nouveau modèle immédiatement.',
+    noRate:
+      'Au moins un tarif positif ou nul est requis. Laisser un tarif vide exclut cette dimension.',
+    invalidMaximum: 'Le maximum doit être supérieur ou égal au minimum.',
+    copyRules: 'Copier les règles IA de la version de base',
+    copyDescription:
+      'Les règles sont copiées après les droits, avant publication. Chaque résultat est indiqué ; une copie partielle laisse la version en brouillon.',
+    copySuccess: 'Règle copiée : {{name}}',
+    copyFailed: 'Échec de copie de {{name}} : {{reason}}',
+    copyPartial:
+      'Certaines règles n’ont pas été copiées. Vérifiez le brouillon avant publication.',
+    rates: {
+      perRequest: 'Par requête',
+      perInputToken: 'Par token en entrée',
+      perCachedInputToken: 'Par token lu du cache',
+      perCacheWriteToken: 'Par token écrit en cache',
+      perOutputToken: 'Par token en sortie',
+      perUnit: 'Par unité',
+      perSecond: 'Par seconde',
+    },
+    Models: {
+      title: 'Modèles',
+      create: 'Créer un modèle',
+      edit: 'Modifier le modèle',
+      externalIds: 'Identifiants fournisseur (un par ligne)',
+      costs: 'Coûts fournisseur (USD)',
+      lifecycle:
+        'ACTIVE accepte de nouvelles règles. DEPRECATED conserve les règles existantes mais refuse les nouvelles. ARCHIVED n’autorise aucun usage, même générique. L’état est réversible ; le slug et la modalité sont immuables.',
+    },
+    Matrix: {
+      title: 'Matrice de conversion',
+      family: 'Famille de licence',
+      version: 'Version / cycle de vie',
+      create: 'Ajouter une règle',
+      edit: 'Modifier la règle',
+      archive: 'Archiver',
+      archiveWarning:
+        'Cette règle ne tarifera plus les nouveaux usages. Les inférences existantes restent inchangées.',
+      notGranted:
+        'Cette version n’accorde pas ce pool. La règle ne tarife rien tant que le pool n’est pas accordé.',
+      preview: 'Appel réussi typique',
+      typicalUsage:
+        'Exemple synthétique : 1 000 tokens en entrée + 200 lus du cache + 100 écrits en cache + 500 en sortie, une unité, une seconde.',
+      previewOnly:
+        'Illustration uniquement ; le serveur applique la politique, les limites et l’arrondi définitifs.',
+      costUnknown: 'Indisponible (choisir un modèle avec coûts fournisseur)',
+      preset: 'Préréglage des tarifs',
+      ladder:
+        'Priorité (modèle/type exacts → modèle exact → type exact → générique)',
+      cachedFallback:
+        'Sans tarif cache/écriture, le tarif d’entrée s’applique. Les préréglages remplissent les tarifs, sans type de conversion dans l’API.',
+      minimum: 'Minimum de crédits par requête',
+      maximum: 'Maximum de crédits par requête (vide = sans plafond)',
+      chargeOnError: 'Facturation en cas d’erreur',
+    },
+    Usage: {
+      title: 'Usage IA',
+      record: 'Enregistrement immuable',
+      time: 'Date du rapport',
+      requestStatus: 'État de la requête',
+      authorization: 'Autorisation',
+      unauthorized: 'Non autorisé',
+      authorized: 'Autorisé',
+      computed: 'Calculés',
+      charged: 'Facturés',
+      reserved: 'Réservés',
+      expires: 'Expiration',
+      consumed: 'Consommés',
+      limit: 'Limite',
+      maximum: 'Maximum autorisé',
+      unlimited: 'Illimité',
+      lifetime: 'Fenêtre à vie',
+      reservations: 'Réservations ouvertes non expirées',
+      feed: 'Flux des inférences',
+      transaction: 'ID de transaction',
+      from: 'Depuis',
+      to: 'Jusqu’à',
+      more: 'Charger les inférences précédentes',
+      noPools: 'Cette instance n’a aucun pool de crédits IA.',
+    },
+  },
   Common: {
     stepOf: 'Etape {{current}} sur {{total}}',
     requiredFieldsHint: 'Renseignez les champs obligatoires',
@@ -2517,6 +2646,10 @@ export default {
             },
           },
           Resources: {
+            models: {
+              label: 'Mod\u00e8les',
+              description: 'G\u00e9rer le catalogue des mod\u00e8les IA',
+            },
             components: {
               label: 'Composants',
               description:
@@ -2613,6 +2746,7 @@ export default {
           history: 'Historique',
         },
         EventGroups: {
+          model: 'Modèles',
           customer: 'Clients',
           instance: 'Instances',
           license: 'Licences',
@@ -3093,6 +3227,15 @@ export default {
   Features: {
     AuditTrail: {
       events: {
+        MODEL_CREATED: 'Modèle créé',
+        MODEL_UPDATED: 'Modèle modifié',
+        MODEL_DELETED: 'Modèle supprimé',
+        LICENSE_CONVERSION_RULE_CREATED: 'Règle de conversion créée',
+        LICENSE_CONVERSION_RULE_UPDATED: 'Règle de conversion modifiée',
+        LICENSE_CONVERSION_RULE_ARCHIVED: 'Règle de conversion archivée',
+        INSTANCE_ENTITLEMENT_MAXIMUM_EXCEEDED: 'Maximum autorisé dépassé',
+        INSTANCE_AI_MODEL_USAGE_UNAUTHORIZED: 'Usage de modèle IA non autorisé',
+
         COMPONENT_CREATED: 'Component ajouté',
         COMPONENT_DELETED: 'Component supprimé',
         COMPONENT_UPDATED: 'Component mis à jour',

@@ -151,3 +151,11 @@ The row action and the detail header both ask for confirmation, and the text war
 `app/src/features/instances/index.ts` exports `InstanceDetailAuditTrailTab`, `InstanceDetailEntitlementsTab`, `InstanceDetailLayout`, `InstanceDetailOverviewTab`, `InstanceDetailProvider`, `InstanceFormDialog`, `InstancesPageContent`, `ensureInstanceDetailData` and `instanceQueryOptions`. The routes under `app/src/routes/customers/` import all of them, and no other code does (see [import rules](../../../docs/AI_CONTEXT.md#import-rules)): the customers section opens the create dialog from its own routes.
 
 The feature imports no other feature. It shares code through `@/domains/customer-management` (the instance list, status, lifecycle and invalidation), `@/domains/release-management`, `@/domains/audit-trail`, `@/domains/entitlement-usage`, `@/domains/crm-sync` and `@/domains/metadata-fields`. It does not import the customers feature: `hooks/instance-detail/instance-detail-query-options.ts` defines its own `customerQueryOptions` over the generated `getCustomerOptions`.
+
+## AI usage
+
+The platform `ai-credits` flag gates the AI usage tab and its route. The read-only
+screen selects granted AI pools, shows consumed/reserved credits and the license
+maximum, reads open reservations, and paginates inference records with the API's
+status, date and transaction filters. Stored precision is kept in record details;
+summary figures use two decimals. It never calls a provider or writes usage.
