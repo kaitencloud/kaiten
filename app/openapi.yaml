@@ -317,6 +317,168 @@ components:
         - entitled
         - activated
       type: object
+    ConversionRates:
+      additionalProperties: false
+      properties:
+        perCacheWriteToken:
+          pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
+          type:
+            - string
+            - "null"
+        perCachedInputToken:
+          pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
+          type:
+            - string
+            - "null"
+        perInputToken:
+          pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
+          type:
+            - string
+            - "null"
+        perOutputToken:
+          pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
+          type:
+            - string
+            - "null"
+        perRequest:
+          pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
+          type:
+            - string
+            - "null"
+        perSecond:
+          pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
+          type:
+            - string
+            - "null"
+        perUnit:
+          pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
+          type:
+            - string
+            - "null"
+      type: object
+    ConversionRule:
+      additionalProperties: false
+      properties:
+        chargeOnError:
+          enum:
+            - NEVER
+            - ALWAYS
+            - PROVIDER_ERROR_ONLY
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        entitlementSlug:
+          type: string
+        grantedByLicense:
+          type: boolean
+        id:
+          format: uuid
+          type: string
+        licenseSlug:
+          type: string
+        maximumCreditsPerRequest:
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type:
+            - string
+            - "null"
+        minimumCreditsPerRequest:
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type: string
+        modelSlug:
+          type:
+            - string
+            - "null"
+        rates:
+          $ref: "#/components/schemas/ConversionRates"
+        requestType:
+          enum:
+            - COMPLETION
+            - EMBEDDING
+            - IMAGE_GENERATION
+            - AUDIO
+            - VIDEO
+            - null
+          type:
+            - string
+            - "null"
+        status:
+          enum:
+            - ACTIVE
+            - ARCHIVED
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - id
+        - licenseSlug
+        - entitlementSlug
+        - modelSlug
+        - requestType
+        - rates
+        - minimumCreditsPerRequest
+        - maximumCreditsPerRequest
+        - chargeOnError
+        - status
+        - grantedByLicense
+        - createdAt
+        - updatedAt
+      type: object
+    ConversionRuleUpdated:
+      additionalProperties: false
+      properties:
+        after:
+          $ref: "#/components/schemas/ConversionRule"
+        before:
+          $ref: "#/components/schemas/ConversionRule"
+      required:
+        - before
+        - after
+      type: object
+    CreateConversionRuleBody:
+      additionalProperties: false
+      properties:
+        chargeOnError:
+          default: NEVER
+          enum:
+            - NEVER
+            - ALWAYS
+            - PROVIDER_ERROR_ONLY
+          type: string
+        entitlementSlug:
+          minLength: 1
+          type: string
+        maximumCreditsPerRequest:
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type:
+            - string
+            - "null"
+        minimumCreditsPerRequest:
+          default: "0"
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type: string
+        modelSlug:
+          type:
+            - string
+            - "null"
+        rates:
+          $ref: "#/components/schemas/ConversionRates"
+        requestType:
+          enum:
+            - COMPLETION
+            - EMBEDDING
+            - IMAGE_GENERATION
+            - AUDIO
+            - VIDEO
+            - null
+          type:
+            - string
+            - "null"
+      required:
+        - entitlementSlug
+        - rates
+      type: object
     Customer:
       additionalProperties: false
       properties:
@@ -3267,6 +3429,42 @@ components:
         - scopes
         - createdAt
         - createdBy
+      type: object
+    UpdateConversionRuleBody:
+      additionalProperties: false
+      properties:
+        chargeOnError:
+          default: NEVER
+          enum:
+            - NEVER
+            - ALWAYS
+            - PROVIDER_ERROR_ONLY
+          type: string
+        entitlementSlug:
+          type:
+            - string
+            - "null"
+        maximumCreditsPerRequest:
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type:
+            - string
+            - "null"
+        minimumCreditsPerRequest:
+          default: "0"
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type: string
+        modelSlug:
+          type:
+            - string
+            - "null"
+        rates:
+          $ref: "#/components/schemas/ConversionRates"
+        requestType:
+          type:
+            - string
+            - "null"
+      required:
+        - rates
       type: object
     User:
       additionalProperties: false
@@ -8253,6 +8451,369 @@ paths:
       summary: Archive a license version
       tags:
         - licenses
+  /licenses/{licenseSlug}/conversion-rules:
+    get:
+      operationId: listConversionRules
+      parameters:
+        - in: path
+          name: licenseSlug
+          required: true
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: status
+          schema:
+            default: ACTIVE
+            enum:
+              - ACTIVE
+              - ARCHIVED
+            type: string
+        - explode: false
+          in: query
+          name: entitlementSlug
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: modelSlug
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/ConversionRule"
+                type:
+                  - array
+                  - "null"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:licenses
+      summary: List conversion rules
+      tags:
+        - licenses
+    post:
+      operationId: createConversionRule
+      parameters:
+        - in: path
+          name: licenseSlug
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateConversionRuleBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversionRule"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:licenses
+      summary: Create a conversion rule
+      tags:
+        - licenses
+  /licenses/{licenseSlug}/conversion-rules/{ruleId}:
+    delete:
+      operationId: archiveConversionRule
+      parameters:
+        - in: path
+          name: licenseSlug
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: ruleId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:licenses
+      summary: Archive a conversion rule
+      tags:
+        - licenses
+    get:
+      operationId: getConversionRule
+      parameters:
+        - in: path
+          name: licenseSlug
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: ruleId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversionRule"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:licenses
+      summary: Get a conversion rule
+      tags:
+        - licenses
+    put:
+      operationId: updateConversionRule
+      parameters:
+        - in: path
+          name: licenseSlug
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: ruleId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateConversionRuleBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversionRule"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:licenses
+      summary: Update a conversion rule
+      tags:
+        - licenses
   /licenses/{licenseSlug}/entitlements:
     get:
       description: Returns a cursor-paginated page of entitlements granted by a license, identified by its unique slug.
@@ -12123,6 +12684,129 @@ webhooks:
       tags:
         - webhooks
         - instances
+  com.kaiten.license.conversion_rule.v1.archived:
+    post:
+      description: Conversion rule change.
+      operationId: onArchiveConversionRule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/ConversionRule"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - LICENSE_CONVERSION_RULE_ARCHIVED
+                  examples:
+                    - LICENSE_CONVERSION_RULE_ARCHIVED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.license.conversion_rule.v1.archived
+                  examples:
+                    - com.kaiten.license.conversion_rule.v1.archived
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Archive a conversion rule webhook
+      tags:
+        - webhooks
+        - licenses
+  com.kaiten.license.conversion_rule.v1.created:
+    post:
+      description: Conversion rule change.
+      operationId: onCreateConversionRule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/ConversionRule"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - LICENSE_CONVERSION_RULE_CREATED
+                  examples:
+                    - LICENSE_CONVERSION_RULE_CREATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.license.conversion_rule.v1.created
+                  examples:
+                    - com.kaiten.license.conversion_rule.v1.created
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Create a conversion rule webhook
+      tags:
+        - webhooks
+        - licenses
+  com.kaiten.license.conversion_rule.v1.updated:
+    post:
+      description: Conversion rule change.
+      operationId: onUpdateConversionRule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/ConversionRuleUpdated"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - LICENSE_CONVERSION_RULE_UPDATED
+                  examples:
+                    - LICENSE_CONVERSION_RULE_UPDATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.license.conversion_rule.v1.updated
+                  examples:
+                    - com.kaiten.license.conversion_rule.v1.updated
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Update a conversion rule webhook
+      tags:
+        - webhooks
+        - licenses
   com.kaiten.license.entitlement.v1.assigned:
     post:
       description: Triggered when an entitlement is assigned to a license.

@@ -6,6 +6,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
 	instancesGraphql "github.com/kaitencloud/kaiten/api/internal/modules/instances/graphql"
+	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	metadatafieldsdb "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
 	modelschema "github.com/kaitencloud/kaiten/api/internal/modules/models/schema"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
@@ -107,6 +108,9 @@ func newComplexityRoot() generated.ComplexityRoot {
 	root.Customer.Instances = unbounded
 	root.License.Instances = unbounded
 	root.License.Entitlements = unbounded
+	root.License.ConversionRules = func(childComplexity int, _ *licenseschema.ConversionRuleStatus) int {
+		return unbounded(childComplexity)
+	}
 	// A family's version history: bounded in practice by how many times a
 	// vendor has published the product, which is not a bound the schema states.
 	root.LicenseFamilyView.Versions = unbounded

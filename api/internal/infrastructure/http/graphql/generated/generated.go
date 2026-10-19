@@ -16,15 +16,16 @@ import (
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/google/uuid"
 	schema6 "github.com/kaitencloud/kaiten/api/internal/modules/components/schema"
-	schema2 "github.com/kaitencloud/kaiten/api/internal/modules/customers/schema"
+	schema3 "github.com/kaitencloud/kaiten/api/internal/modules/customers/schema"
 	schema4 "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	schema5 "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
-	schema1 "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
-	schema3 "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	schema2 "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
 	schema7 "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/schema"
-	"github.com/kaitencloud/kaiten/api/internal/modules/models/schema"
+	schema1 "github.com/kaitencloud/kaiten/api/internal/modules/models/schema"
 	schema8 "github.com/kaitencloud/kaiten/api/internal/modules/releases/schema"
 	"github.com/kaitencloud/kaiten/api/internal/shared/user"
 	gqlparser "github.com/vektah/gqlparser/v2"
@@ -87,6 +88,32 @@ type ComplexityRoot struct {
 		HasMore    func(childComplexity int) int
 		Items      func(childComplexity int) int
 		NextCursor func(childComplexity int) int
+	}
+
+	ConversionRates struct {
+		PerCacheWriteToken  func(childComplexity int) int
+		PerCachedInputToken func(childComplexity int) int
+		PerInputToken       func(childComplexity int) int
+		PerOutputToken      func(childComplexity int) int
+		PerRequest          func(childComplexity int) int
+		PerSecond           func(childComplexity int) int
+		PerUnit             func(childComplexity int) int
+	}
+
+	ConversionRule struct {
+		ChargeOnError            func(childComplexity int) int
+		CreatedAt                func(childComplexity int) int
+		EntitlementSlug          func(childComplexity int) int
+		GrantedByLicense         func(childComplexity int) int
+		ID                       func(childComplexity int) int
+		LicenseSlug              func(childComplexity int) int
+		MaximumCreditsPerRequest func(childComplexity int) int
+		MinimumCreditsPerRequest func(childComplexity int) int
+		ModelSlug                func(childComplexity int) int
+		Rates                    func(childComplexity int) int
+		RequestType              func(childComplexity int) int
+		Status                   func(childComplexity int) int
+		UpdatedAt                func(childComplexity int) int
 	}
 
 	Customer struct {
@@ -215,18 +242,19 @@ type ComplexityRoot struct {
 	}
 
 	License struct {
-		Description    func(childComplexity int) int
-		Entitlements   func(childComplexity int) int
-		Family         func(childComplexity int) int
-		ID             func(childComplexity int) int
-		Instances      func(childComplexity int) int
-		IsDefault      func(childComplexity int) int
-		LifecycleState func(childComplexity int) int
-		Name           func(childComplexity int) int
-		Slug           func(childComplexity int) int
-		Type           func(childComplexity int) int
-		Version        func(childComplexity int) int
-		VersionName    func(childComplexity int) int
+		ConversionRules func(childComplexity int, status *schema.ConversionRuleStatus) int
+		Description     func(childComplexity int) int
+		Entitlements    func(childComplexity int) int
+		Family          func(childComplexity int) int
+		ID              func(childComplexity int) int
+		Instances       func(childComplexity int) int
+		IsDefault       func(childComplexity int) int
+		LifecycleState  func(childComplexity int) int
+		Name            func(childComplexity int) int
+		Slug            func(childComplexity int) int
+		Type            func(childComplexity int) int
+		Version         func(childComplexity int) int
+		VersionName     func(childComplexity int) int
 	}
 
 	LicenseEntitlement struct {
@@ -327,7 +355,7 @@ type ComplexityRoot struct {
 		LicenseFamily           func(childComplexity int, slug string) int
 		Licenses                func(childComplexity int, limit *int, cursor *string) int
 		MetadataFields          func(childComplexity int, resourceType db.MetadataFieldResourceType, includeArchived *bool, limit *int, cursor *string) int
-		Models                  func(childComplexity int, status *schema.Status) int
+		Models                  func(childComplexity int, status *schema1.Status) int
 		OrganizationAuditTrails func(childComplexity int, eventName *string, after *time.Time, before *time.Time, limit *int, cursor *string) int
 		Release                 func(childComplexity int, id *uuid.UUID, slug *string) int
 		Releases                func(childComplexity int, limit *int, cursor *string) int
@@ -363,65 +391,66 @@ type ComplexityRoot struct {
 // region    ************************** generated!.gotpl **************************
 
 type AuditTrailResolver interface {
-	Payload(ctx context.Context, obj *schema1.AuditTrail) (map[string]any, error)
+	Payload(ctx context.Context, obj *schema2.AuditTrail) (map[string]any, error)
 }
 type CustomerResolver interface {
-	Integrations(ctx context.Context, obj *schema2.Customer) (map[string]any, error)
+	Integrations(ctx context.Context, obj *schema3.Customer) (map[string]any, error)
 
-	Instances(ctx context.Context, obj *schema2.Customer) ([]schema1.Instance, error)
+	Instances(ctx context.Context, obj *schema3.Customer) ([]schema2.Instance, error)
 }
 type EntitlementUsageResolver interface {
-	Value(ctx context.Context, obj *schema1.EntitlementUsage) (map[string]any, error)
-	Limit(ctx context.Context, obj *schema1.EntitlementUsage) (map[string]any, error)
+	Value(ctx context.Context, obj *schema2.EntitlementUsage) (map[string]any, error)
+	Limit(ctx context.Context, obj *schema2.EntitlementUsage) (map[string]any, error)
 }
 type InstanceResolver interface {
-	Integrations(ctx context.Context, obj *schema1.Instance) (map[string]any, error)
+	Integrations(ctx context.Context, obj *schema2.Instance) (map[string]any, error)
 
-	Customer(ctx context.Context, obj *schema1.Instance) (*schema2.Customer, error)
-	License(ctx context.Context, obj *schema1.Instance) (*schema3.License, error)
-	DeploymentZone(ctx context.Context, obj *schema1.Instance) (*schema4.DeploymentZone, error)
-	AuditTrails(ctx context.Context, obj *schema1.Instance, eventName *string, after *time.Time, before *time.Time, limit *int, cursor *string) (*schema1.AuditTrailPage, error)
-	EntitlementUsage(ctx context.Context, obj *schema1.Instance) ([]schema1.EntitlementUsage, error)
+	Customer(ctx context.Context, obj *schema2.Instance) (*schema3.Customer, error)
+	License(ctx context.Context, obj *schema2.Instance) (*schema.License, error)
+	DeploymentZone(ctx context.Context, obj *schema2.Instance) (*schema4.DeploymentZone, error)
+	AuditTrails(ctx context.Context, obj *schema2.Instance, eventName *string, after *time.Time, before *time.Time, limit *int, cursor *string) (*schema2.AuditTrailPage, error)
+	EntitlementUsage(ctx context.Context, obj *schema2.Instance) ([]schema2.EntitlementUsage, error)
 }
 type LicenseResolver interface {
-	Family(ctx context.Context, obj *schema3.License) (*schema3.LicenseFamily, error)
-	Instances(ctx context.Context, obj *schema3.License) ([]schema1.Instance, error)
-	Entitlements(ctx context.Context, obj *schema3.License) ([]schema3.LicenseEntitlement, error)
+	Family(ctx context.Context, obj *schema.License) (*schema.LicenseFamily, error)
+	Instances(ctx context.Context, obj *schema.License) ([]schema2.Instance, error)
+	ConversionRules(ctx context.Context, obj *schema.License, status *schema.ConversionRuleStatus) ([]schema.ConversionRule, error)
+	Entitlements(ctx context.Context, obj *schema.License) ([]schema.LicenseEntitlement, error)
 }
 type LicenseEntitlementResolver interface {
-	Value(ctx context.Context, obj *schema3.LicenseEntitlement) (map[string]any, error)
-	Unlimited(ctx context.Context, obj *schema3.LicenseEntitlement) (bool, error)
+	Value(ctx context.Context, obj *schema.LicenseEntitlement) (map[string]any, error)
+	Unlimited(ctx context.Context, obj *schema.LicenseEntitlement) (bool, error)
 
-	Entitlement(ctx context.Context, obj *schema3.LicenseEntitlement) (*schema5.Entitlement, error)
+	Entitlement(ctx context.Context, obj *schema.LicenseEntitlement) (*schema5.Entitlement, error)
 }
 type LicenseFamilyViewResolver interface {
-	Versions(ctx context.Context, obj *schema3.LicenseFamilyView) ([]schema3.License, error)
+	Versions(ctx context.Context, obj *schema.LicenseFamilyView) ([]schema.License, error)
 }
 type QueryResolver interface {
 	Health(ctx context.Context) (string, error)
 	Components(ctx context.Context, limit *int, cursor *string) (*schema6.ComponentPage, error)
 	Component(ctx context.Context, id *uuid.UUID, slug *string) (*schema6.Component, error)
-	Customers(ctx context.Context, hasIntegration *string, limit *int, cursor *string) (*schema2.CustomerPage, error)
-	Customer(ctx context.Context, id *uuid.UUID, slug *string, externalCustomerID *string) (*schema2.Customer, error)
+	Customers(ctx context.Context, hasIntegration *string, limit *int, cursor *string) (*schema3.CustomerPage, error)
+	Customer(ctx context.Context, id *uuid.UUID, slug *string, externalCustomerID *string) (*schema3.Customer, error)
 	DeploymentZones(ctx context.Context, limit *int, cursor *string) (*schema4.DeploymentZonePage, error)
 	DeploymentZone(ctx context.Context, id *uuid.UUID, slug *string) (*schema4.DeploymentZone, error)
 	Entitlements(ctx context.Context, limit *int, cursor *string) (*schema5.EntitlementPage, error)
-	AuditTrails(ctx context.Context, instanceSlug string, eventName *string, after *time.Time, before *time.Time, limit *int, cursor *string) (*schema1.AuditTrailPage, error)
-	OrganizationAuditTrails(ctx context.Context, eventName *string, after *time.Time, before *time.Time, limit *int, cursor *string) (*schema1.OrganizationAuditTrailPage, error)
-	Instances(ctx context.Context, hasIntegration *string, limit *int, cursor *string) (*schema1.InstancePage, error)
-	Instance(ctx context.Context, id *uuid.UUID, slug *string) (*schema1.Instance, error)
-	Licenses(ctx context.Context, limit *int, cursor *string) (*schema3.LicensePage, error)
-	License(ctx context.Context, id *uuid.UUID, slug *string) (*schema3.License, error)
-	LicenseFamily(ctx context.Context, slug string) (*schema3.LicenseFamilyView, error)
+	AuditTrails(ctx context.Context, instanceSlug string, eventName *string, after *time.Time, before *time.Time, limit *int, cursor *string) (*schema2.AuditTrailPage, error)
+	OrganizationAuditTrails(ctx context.Context, eventName *string, after *time.Time, before *time.Time, limit *int, cursor *string) (*schema2.OrganizationAuditTrailPage, error)
+	Instances(ctx context.Context, hasIntegration *string, limit *int, cursor *string) (*schema2.InstancePage, error)
+	Instance(ctx context.Context, id *uuid.UUID, slug *string) (*schema2.Instance, error)
+	Licenses(ctx context.Context, limit *int, cursor *string) (*schema.LicensePage, error)
+	License(ctx context.Context, id *uuid.UUID, slug *string) (*schema.License, error)
+	LicenseFamily(ctx context.Context, slug string) (*schema.LicenseFamilyView, error)
 	MetadataFields(ctx context.Context, resourceType db.MetadataFieldResourceType, includeArchived *bool, limit *int, cursor *string) (*schema7.MetadataFieldPage, error)
-	Models(ctx context.Context, status *schema.Status) ([]schema.Model, error)
+	Models(ctx context.Context, status *schema1.Status) ([]schema1.Model, error)
 	Releases(ctx context.Context, limit *int, cursor *string) (*schema8.ReleasePage, error)
 	Release(ctx context.Context, id *uuid.UUID, slug *string) (*schema8.Release, error)
 }
 type ReleaseResolver interface {
 	Components(ctx context.Context, obj *schema8.Release) ([]schema6.Component, error)
 	DeploymentZones(ctx context.Context, obj *schema8.Release) ([]schema4.DeploymentZone, error)
-	Instances(ctx context.Context, obj *schema8.Release) ([]schema1.Instance, error)
+	Instances(ctx context.Context, obj *schema8.Release) ([]schema2.Instance, error)
 	Deployments(ctx context.Context, obj *schema8.Release) ([]schema4.Deployment, error)
 }
 
@@ -572,6 +601,128 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ComponentPage.NextCursor(childComplexity), true
+
+	case "ConversionRates.perCacheWriteToken":
+		if e.ComplexityRoot.ConversionRates.PerCacheWriteToken == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRates.PerCacheWriteToken(childComplexity), true
+	case "ConversionRates.perCachedInputToken":
+		if e.ComplexityRoot.ConversionRates.PerCachedInputToken == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRates.PerCachedInputToken(childComplexity), true
+	case "ConversionRates.perInputToken":
+		if e.ComplexityRoot.ConversionRates.PerInputToken == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRates.PerInputToken(childComplexity), true
+	case "ConversionRates.perOutputToken":
+		if e.ComplexityRoot.ConversionRates.PerOutputToken == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRates.PerOutputToken(childComplexity), true
+	case "ConversionRates.perRequest":
+		if e.ComplexityRoot.ConversionRates.PerRequest == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRates.PerRequest(childComplexity), true
+	case "ConversionRates.perSecond":
+		if e.ComplexityRoot.ConversionRates.PerSecond == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRates.PerSecond(childComplexity), true
+	case "ConversionRates.perUnit":
+		if e.ComplexityRoot.ConversionRates.PerUnit == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRates.PerUnit(childComplexity), true
+
+	case "ConversionRule.chargeOnError":
+		if e.ComplexityRoot.ConversionRule.ChargeOnError == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.ChargeOnError(childComplexity), true
+	case "ConversionRule.createdAt":
+		if e.ComplexityRoot.ConversionRule.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.CreatedAt(childComplexity), true
+	case "ConversionRule.entitlementSlug":
+		if e.ComplexityRoot.ConversionRule.EntitlementSlug == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.EntitlementSlug(childComplexity), true
+	case "ConversionRule.grantedByLicense":
+		if e.ComplexityRoot.ConversionRule.GrantedByLicense == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.GrantedByLicense(childComplexity), true
+	case "ConversionRule.id":
+		if e.ComplexityRoot.ConversionRule.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.ID(childComplexity), true
+	case "ConversionRule.licenseSlug":
+		if e.ComplexityRoot.ConversionRule.LicenseSlug == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.LicenseSlug(childComplexity), true
+	case "ConversionRule.maximumCreditsPerRequest":
+		if e.ComplexityRoot.ConversionRule.MaximumCreditsPerRequest == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.MaximumCreditsPerRequest(childComplexity), true
+	case "ConversionRule.minimumCreditsPerRequest":
+		if e.ComplexityRoot.ConversionRule.MinimumCreditsPerRequest == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.MinimumCreditsPerRequest(childComplexity), true
+	case "ConversionRule.modelSlug":
+		if e.ComplexityRoot.ConversionRule.ModelSlug == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.ModelSlug(childComplexity), true
+	case "ConversionRule.rates":
+		if e.ComplexityRoot.ConversionRule.Rates == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.Rates(childComplexity), true
+	case "ConversionRule.requestType":
+		if e.ComplexityRoot.ConversionRule.RequestType == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.RequestType(childComplexity), true
+	case "ConversionRule.status":
+		if e.ComplexityRoot.ConversionRule.Status == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.Status(childComplexity), true
+	case "ConversionRule.updatedAt":
+		if e.ComplexityRoot.ConversionRule.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.UpdatedAt(childComplexity), true
 
 	case "Customer.createdAt":
 		if e.ComplexityRoot.Customer.CreatedAt == nil {
@@ -1141,6 +1292,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.InstancePage.NextCursor(childComplexity), true
 
+	case "License.conversionRules":
+		if e.ComplexityRoot.License.ConversionRules == nil {
+			break
+		}
+
+		args, err := ec.field_License_conversionRules_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.License.ConversionRules(childComplexity, args["status"].(*schema.ConversionRuleStatus)), true
 	case "License.description":
 		if e.ComplexityRoot.License.Description == nil {
 			break
@@ -1724,7 +1886,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.Models(childComplexity, args["status"].(*schema.Status)), true
+		return e.ComplexityRoot.Query.Models(childComplexity, args["status"].(*schema1.Status)), true
 	case "Query.organizationAuditTrails":
 		if e.ComplexityRoot.Query.OrganizationAuditTrails == nil {
 			break
@@ -2458,6 +2620,52 @@ extend type Query {
   instance(id: UUID, slug: String): Instance
 }
 `, BuiltIn: false},
+	{Name: "../../../../modules/licenses/schema/conversion_rule.graphqls", Input: `enum ConversionRuleStatus {
+ ACTIVE
+ ARCHIVED
+}
+enum AiRequestType {
+ COMPLETION
+ EMBEDDING
+ IMAGE_GENERATION
+ AUDIO
+ VIDEO
+}
+enum ChargeOnErrorPolicy {
+ NEVER
+ ALWAYS
+ PROVIDER_ERROR_ONLY
+}
+type ConversionRates {
+ perRequest: String
+ perInputToken: String
+ perCachedInputToken: String
+ perCacheWriteToken: String
+ perOutputToken: String
+ perUnit: String
+ perSecond: String
+}
+"""An immutable license/pool/model/request identity with mutable exact pricing."""
+type ConversionRule {
+ id: UUID!
+ licenseSlug: String!
+ entitlementSlug: String!
+ modelSlug: String
+ requestType: AiRequestType
+ rates: ConversionRates!
+ minimumCreditsPerRequest: String!
+ maximumCreditsPerRequest: String
+ chargeOnError: ChargeOnErrorPolicy!
+ status: ConversionRuleStatus!
+ grantedByLicense: Boolean!
+ createdAt: Time!
+ updatedAt: Time!
+}
+extend type License {
+ """All rules when status is omitted; an explicit status filters that relation."""
+ conversionRules(status: ConversionRuleStatus): [ConversionRule!]!
+}
+`, BuiltIn: false},
 	{Name: "../../../../modules/licenses/schema/license.graphqls", Input: `"""
 License type enumeration
 """
@@ -2866,6 +3074,58 @@ func (ec *executionContext) childFields_ComponentPage(ctx context.Context, field
 	return nil, fmt.Errorf("no field named %q was found under type ComponentPage", field.Name)
 }
 
+func (ec *executionContext) childFields_ConversionRates(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "perRequest":
+		return ec.fieldContext_ConversionRates_perRequest(ctx, field)
+	case "perInputToken":
+		return ec.fieldContext_ConversionRates_perInputToken(ctx, field)
+	case "perCachedInputToken":
+		return ec.fieldContext_ConversionRates_perCachedInputToken(ctx, field)
+	case "perCacheWriteToken":
+		return ec.fieldContext_ConversionRates_perCacheWriteToken(ctx, field)
+	case "perOutputToken":
+		return ec.fieldContext_ConversionRates_perOutputToken(ctx, field)
+	case "perUnit":
+		return ec.fieldContext_ConversionRates_perUnit(ctx, field)
+	case "perSecond":
+		return ec.fieldContext_ConversionRates_perSecond(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type ConversionRates", field.Name)
+}
+
+func (ec *executionContext) childFields_ConversionRule(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_ConversionRule_id(ctx, field)
+	case "licenseSlug":
+		return ec.fieldContext_ConversionRule_licenseSlug(ctx, field)
+	case "entitlementSlug":
+		return ec.fieldContext_ConversionRule_entitlementSlug(ctx, field)
+	case "modelSlug":
+		return ec.fieldContext_ConversionRule_modelSlug(ctx, field)
+	case "requestType":
+		return ec.fieldContext_ConversionRule_requestType(ctx, field)
+	case "rates":
+		return ec.fieldContext_ConversionRule_rates(ctx, field)
+	case "minimumCreditsPerRequest":
+		return ec.fieldContext_ConversionRule_minimumCreditsPerRequest(ctx, field)
+	case "maximumCreditsPerRequest":
+		return ec.fieldContext_ConversionRule_maximumCreditsPerRequest(ctx, field)
+	case "chargeOnError":
+		return ec.fieldContext_ConversionRule_chargeOnError(ctx, field)
+	case "status":
+		return ec.fieldContext_ConversionRule_status(ctx, field)
+	case "grantedByLicense":
+		return ec.fieldContext_ConversionRule_grantedByLicense(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_ConversionRule_createdAt(ctx, field)
+	case "updatedAt":
+		return ec.fieldContext_ConversionRule_updatedAt(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type ConversionRule", field.Name)
+}
+
 func (ec *executionContext) childFields_Customer(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -3140,6 +3400,8 @@ func (ec *executionContext) childFields_License(ctx context.Context, field graph
 		return ec.fieldContext_License_family(ctx, field)
 	case "instances":
 		return ec.fieldContext_License_instances(ctx, field)
+	case "conversionRules":
+		return ec.fieldContext_License_conversionRules(ctx, field)
 	case "entitlements":
 		return ec.fieldContext_License_entitlements(ctx, field)
 	}
@@ -3517,6 +3779,20 @@ func (ec *executionContext) field_Instance_auditTrails_args(ctx context.Context,
 		return nil, err
 	}
 	args["cursor"] = arg4
+	return args, nil
+}
+
+func (ec *executionContext) field_License_conversionRules_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "status",
+		func(ctx context.Context, v any) (*schema.ConversionRuleStatus, error) {
+			return ec.unmarshalOConversionRuleStatus2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐConversionRuleStatus(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["status"] = arg0
 	return args, nil
 }
 
@@ -3910,7 +4186,7 @@ func (ec *executionContext) field_Query_models_args(ctx context.Context, rawArgs
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "status",
-		func(ctx context.Context, v any) (*schema.Status, error) {
+		func(ctx context.Context, v any) (*schema1.Status, error) {
 			return ec.unmarshalOModelStatus2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐStatus(ctx, v)
 		})
 	if err != nil {
@@ -4070,7 +4346,7 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 
 // region    **************************** field.gotpl *****************************
 
-func (ec *executionContext) _AuditTrail_id(ctx context.Context, field graphql.CollectedField, obj *schema1.AuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _AuditTrail_id(ctx context.Context, field graphql.CollectedField, obj *schema2.AuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4093,7 +4369,7 @@ func (ec *executionContext) fieldContext_AuditTrail_id(_ context.Context, field 
 	return graphql.NewScalarFieldContext("AuditTrail", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _AuditTrail_instanceId(ctx context.Context, field graphql.CollectedField, obj *schema1.AuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _AuditTrail_instanceId(ctx context.Context, field graphql.CollectedField, obj *schema2.AuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4116,7 +4392,7 @@ func (ec *executionContext) fieldContext_AuditTrail_instanceId(_ context.Context
 	return graphql.NewScalarFieldContext("AuditTrail", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _AuditTrail_instanceSlug(ctx context.Context, field graphql.CollectedField, obj *schema1.AuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _AuditTrail_instanceSlug(ctx context.Context, field graphql.CollectedField, obj *schema2.AuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4139,7 +4415,7 @@ func (ec *executionContext) fieldContext_AuditTrail_instanceSlug(_ context.Conte
 	return graphql.NewScalarFieldContext("AuditTrail", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _AuditTrail_eventName(ctx context.Context, field graphql.CollectedField, obj *schema1.AuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _AuditTrail_eventName(ctx context.Context, field graphql.CollectedField, obj *schema2.AuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4162,7 +4438,7 @@ func (ec *executionContext) fieldContext_AuditTrail_eventName(_ context.Context,
 	return graphql.NewScalarFieldContext("AuditTrail", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _AuditTrail_eventType(ctx context.Context, field graphql.CollectedField, obj *schema1.AuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _AuditTrail_eventType(ctx context.Context, field graphql.CollectedField, obj *schema2.AuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4185,7 +4461,7 @@ func (ec *executionContext) fieldContext_AuditTrail_eventType(_ context.Context,
 	return graphql.NewScalarFieldContext("AuditTrail", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _AuditTrail_timestamp(ctx context.Context, field graphql.CollectedField, obj *schema1.AuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _AuditTrail_timestamp(ctx context.Context, field graphql.CollectedField, obj *schema2.AuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4208,7 +4484,7 @@ func (ec *executionContext) fieldContext_AuditTrail_timestamp(_ context.Context,
 	return graphql.NewScalarFieldContext("AuditTrail", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
-func (ec *executionContext) _AuditTrail_payload(ctx context.Context, field graphql.CollectedField, obj *schema1.AuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _AuditTrail_payload(ctx context.Context, field graphql.CollectedField, obj *schema2.AuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4231,7 +4507,7 @@ func (ec *executionContext) fieldContext_AuditTrail_payload(_ context.Context, f
 	return graphql.NewScalarFieldContext("AuditTrail", field, true, true, errors.New("field of type Map does not have child fields"))
 }
 
-func (ec *executionContext) _AuditTrailPage_items(ctx context.Context, field graphql.CollectedField, obj *schema1.AuditTrailPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _AuditTrailPage_items(ctx context.Context, field graphql.CollectedField, obj *schema2.AuditTrailPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4243,7 +4519,7 @@ func (ec *executionContext) _AuditTrailPage_items(ctx context.Context, field gra
 			return obj.Items, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []schema1.AuditTrail) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v []schema2.AuditTrail) graphql.Marshaler {
 			return ec.marshalNAuditTrail2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐAuditTrailᚄ(ctx, selections, v)
 		},
 		true,
@@ -4263,7 +4539,7 @@ func (ec *executionContext) fieldContext_AuditTrailPage_items(_ context.Context,
 	return fc, nil
 }
 
-func (ec *executionContext) _AuditTrailPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *schema1.AuditTrailPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _AuditTrailPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *schema2.AuditTrailPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4286,7 +4562,7 @@ func (ec *executionContext) fieldContext_AuditTrailPage_nextCursor(_ context.Con
 	return graphql.NewScalarFieldContext("AuditTrailPage", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _AuditTrailPage_hasMore(ctx context.Context, field graphql.CollectedField, obj *schema1.AuditTrailPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _AuditTrailPage_hasMore(ctx context.Context, field graphql.CollectedField, obj *schema2.AuditTrailPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4580,7 +4856,476 @@ func (ec *executionContext) fieldContext_ComponentPage_hasMore(_ context.Context
 	return graphql.NewScalarFieldContext("ComponentPage", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
-func (ec *executionContext) _Customer_id(ctx context.Context, field graphql.CollectedField, obj *schema2.Customer) (ret graphql.Marshaler) {
+func (ec *executionContext) _ConversionRates_perRequest(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRates) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRates_perRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PerRequest, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRates_perRequest(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRates", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRates_perInputToken(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRates) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRates_perInputToken(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PerInputToken, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRates_perInputToken(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRates", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRates_perCachedInputToken(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRates) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRates_perCachedInputToken(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PerCachedInputToken, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRates_perCachedInputToken(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRates", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRates_perCacheWriteToken(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRates) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRates_perCacheWriteToken(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PerCacheWriteToken, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRates_perCacheWriteToken(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRates", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRates_perOutputToken(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRates) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRates_perOutputToken(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PerOutputToken, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRates_perOutputToken(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRates", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRates_perUnit(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRates) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRates_perUnit(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PerUnit, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRates_perUnit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRates", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRates_perSecond(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRates) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRates_perSecond(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PerSecond, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRates_perSecond(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRates", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRule_id(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRule_licenseSlug(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_licenseSlug(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LicenseSlug, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_licenseSlug(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRule_entitlementSlug(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_entitlementSlug(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.EntitlementSlug, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_entitlementSlug(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRule_modelSlug(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_modelSlug(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ModelSlug, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_modelSlug(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRule_requestType(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_requestType(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RequestType, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *aicredit.RequestType) graphql.Marshaler {
+			return ec.marshalOAiRequestType2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋusageᚋaicreditᚐRequestType(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_requestType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type AiRequestType does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRule_rates(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_rates(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Rates, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v schema.ConversionRates) graphql.Marshaler {
+			return ec.marshalNConversionRates2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐConversionRates(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_rates(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ConversionRule",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ConversionRates(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ConversionRule_minimumCreditsPerRequest(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_minimumCreditsPerRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MinimumCreditsPerRequest, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_minimumCreditsPerRequest(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRule_maximumCreditsPerRequest(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_maximumCreditsPerRequest(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MaximumCreditsPerRequest, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_maximumCreditsPerRequest(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRule_chargeOnError(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_chargeOnError(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ChargeOnError, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v aicredit.ChargeOnError) graphql.Marshaler {
+			return ec.marshalNChargeOnErrorPolicy2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋusageᚋaicreditᚐChargeOnError(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_chargeOnError(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type ChargeOnErrorPolicy does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRule_status(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_status(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Status, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v schema.ConversionRuleStatus) graphql.Marshaler {
+			return ec.marshalNConversionRuleStatus2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐConversionRuleStatus(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type ConversionRuleStatus does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRule_grantedByLicense(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_grantedByLicense(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.GrantedByLicense, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_grantedByLicense(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRule_createdAt(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type Time does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRule_updatedAt(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_updatedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type Time does not have child fields"))
+}
+
+func (ec *executionContext) _Customer_id(ctx context.Context, field graphql.CollectedField, obj *schema3.Customer) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4603,7 +5348,7 @@ func (ec *executionContext) fieldContext_Customer_id(_ context.Context, field gr
 	return graphql.NewScalarFieldContext("Customer", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _Customer_name(ctx context.Context, field graphql.CollectedField, obj *schema2.Customer) (ret graphql.Marshaler) {
+func (ec *executionContext) _Customer_name(ctx context.Context, field graphql.CollectedField, obj *schema3.Customer) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4626,7 +5371,7 @@ func (ec *executionContext) fieldContext_Customer_name(_ context.Context, field 
 	return graphql.NewScalarFieldContext("Customer", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Customer_slug(ctx context.Context, field graphql.CollectedField, obj *schema2.Customer) (ret graphql.Marshaler) {
+func (ec *executionContext) _Customer_slug(ctx context.Context, field graphql.CollectedField, obj *schema3.Customer) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4649,7 +5394,7 @@ func (ec *executionContext) fieldContext_Customer_slug(_ context.Context, field 
 	return graphql.NewScalarFieldContext("Customer", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Customer_externalCustomerId(ctx context.Context, field graphql.CollectedField, obj *schema2.Customer) (ret graphql.Marshaler) {
+func (ec *executionContext) _Customer_externalCustomerId(ctx context.Context, field graphql.CollectedField, obj *schema3.Customer) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4672,7 +5417,7 @@ func (ec *executionContext) fieldContext_Customer_externalCustomerId(_ context.C
 	return graphql.NewScalarFieldContext("Customer", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Customer_domain(ctx context.Context, field graphql.CollectedField, obj *schema2.Customer) (ret graphql.Marshaler) {
+func (ec *executionContext) _Customer_domain(ctx context.Context, field graphql.CollectedField, obj *schema3.Customer) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4695,7 +5440,7 @@ func (ec *executionContext) fieldContext_Customer_domain(_ context.Context, fiel
 	return graphql.NewScalarFieldContext("Customer", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Customer_integrations(ctx context.Context, field graphql.CollectedField, obj *schema2.Customer) (ret graphql.Marshaler) {
+func (ec *executionContext) _Customer_integrations(ctx context.Context, field graphql.CollectedField, obj *schema3.Customer) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4718,7 +5463,7 @@ func (ec *executionContext) fieldContext_Customer_integrations(_ context.Context
 	return graphql.NewScalarFieldContext("Customer", field, true, true, errors.New("field of type Map does not have child fields"))
 }
 
-func (ec *executionContext) _Customer_createdBy(ctx context.Context, field graphql.CollectedField, obj *schema2.Customer) (ret graphql.Marshaler) {
+func (ec *executionContext) _Customer_createdBy(ctx context.Context, field graphql.CollectedField, obj *schema3.Customer) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4750,7 +5495,7 @@ func (ec *executionContext) fieldContext_Customer_createdBy(_ context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _Customer_createdAt(ctx context.Context, field graphql.CollectedField, obj *schema2.Customer) (ret graphql.Marshaler) {
+func (ec *executionContext) _Customer_createdAt(ctx context.Context, field graphql.CollectedField, obj *schema3.Customer) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4773,7 +5518,7 @@ func (ec *executionContext) fieldContext_Customer_createdAt(_ context.Context, f
 	return graphql.NewScalarFieldContext("Customer", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
-func (ec *executionContext) _Customer_updatedBy(ctx context.Context, field graphql.CollectedField, obj *schema2.Customer) (ret graphql.Marshaler) {
+func (ec *executionContext) _Customer_updatedBy(ctx context.Context, field graphql.CollectedField, obj *schema3.Customer) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4805,7 +5550,7 @@ func (ec *executionContext) fieldContext_Customer_updatedBy(_ context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _Customer_updatedAt(ctx context.Context, field graphql.CollectedField, obj *schema2.Customer) (ret graphql.Marshaler) {
+func (ec *executionContext) _Customer_updatedAt(ctx context.Context, field graphql.CollectedField, obj *schema3.Customer) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4828,7 +5573,7 @@ func (ec *executionContext) fieldContext_Customer_updatedAt(_ context.Context, f
 	return graphql.NewScalarFieldContext("Customer", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
-func (ec *executionContext) _Customer_instances(ctx context.Context, field graphql.CollectedField, obj *schema2.Customer) (ret graphql.Marshaler) {
+func (ec *executionContext) _Customer_instances(ctx context.Context, field graphql.CollectedField, obj *schema3.Customer) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4840,7 +5585,7 @@ func (ec *executionContext) _Customer_instances(ctx context.Context, field graph
 			return ec.Resolvers.Customer().Instances(ctx, obj)
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []schema1.Instance) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v []schema2.Instance) graphql.Marshaler {
 			return ec.marshalNInstance2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstanceᚄ(ctx, selections, v)
 		},
 		true,
@@ -4860,7 +5605,7 @@ func (ec *executionContext) fieldContext_Customer_instances(_ context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _CustomerPage_items(ctx context.Context, field graphql.CollectedField, obj *schema2.CustomerPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _CustomerPage_items(ctx context.Context, field graphql.CollectedField, obj *schema3.CustomerPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4872,7 +5617,7 @@ func (ec *executionContext) _CustomerPage_items(ctx context.Context, field graph
 			return obj.Items, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []schema2.Customer) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v []schema3.Customer) graphql.Marshaler {
 			return ec.marshalNCustomer2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomerᚄ(ctx, selections, v)
 		},
 		true,
@@ -4892,7 +5637,7 @@ func (ec *executionContext) fieldContext_CustomerPage_items(_ context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _CustomerPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *schema2.CustomerPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _CustomerPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *schema3.CustomerPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4915,7 +5660,7 @@ func (ec *executionContext) fieldContext_CustomerPage_nextCursor(_ context.Conte
 	return graphql.NewScalarFieldContext("CustomerPage", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _CustomerPage_hasMore(ctx context.Context, field graphql.CollectedField, obj *schema2.CustomerPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _CustomerPage_hasMore(ctx context.Context, field graphql.CollectedField, obj *schema3.CustomerPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -5958,7 +6703,7 @@ func (ec *executionContext) fieldContext_EntitlementPage_hasMore(_ context.Conte
 	return graphql.NewScalarFieldContext("EntitlementPage", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
-func (ec *executionContext) _EntitlementUsage_entitlementId(ctx context.Context, field graphql.CollectedField, obj *schema1.EntitlementUsage) (ret graphql.Marshaler) {
+func (ec *executionContext) _EntitlementUsage_entitlementId(ctx context.Context, field graphql.CollectedField, obj *schema2.EntitlementUsage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -5981,7 +6726,7 @@ func (ec *executionContext) fieldContext_EntitlementUsage_entitlementId(_ contex
 	return graphql.NewScalarFieldContext("EntitlementUsage", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _EntitlementUsage_entitlementSlug(ctx context.Context, field graphql.CollectedField, obj *schema1.EntitlementUsage) (ret graphql.Marshaler) {
+func (ec *executionContext) _EntitlementUsage_entitlementSlug(ctx context.Context, field graphql.CollectedField, obj *schema2.EntitlementUsage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6004,7 +6749,7 @@ func (ec *executionContext) fieldContext_EntitlementUsage_entitlementSlug(_ cont
 	return graphql.NewScalarFieldContext("EntitlementUsage", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _EntitlementUsage_licenseId(ctx context.Context, field graphql.CollectedField, obj *schema1.EntitlementUsage) (ret graphql.Marshaler) {
+func (ec *executionContext) _EntitlementUsage_licenseId(ctx context.Context, field graphql.CollectedField, obj *schema2.EntitlementUsage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6027,7 +6772,7 @@ func (ec *executionContext) fieldContext_EntitlementUsage_licenseId(_ context.Co
 	return graphql.NewScalarFieldContext("EntitlementUsage", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _EntitlementUsage_licenseSlug(ctx context.Context, field graphql.CollectedField, obj *schema1.EntitlementUsage) (ret graphql.Marshaler) {
+func (ec *executionContext) _EntitlementUsage_licenseSlug(ctx context.Context, field graphql.CollectedField, obj *schema2.EntitlementUsage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6050,7 +6795,7 @@ func (ec *executionContext) fieldContext_EntitlementUsage_licenseSlug(_ context.
 	return graphql.NewScalarFieldContext("EntitlementUsage", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _EntitlementUsage_value(ctx context.Context, field graphql.CollectedField, obj *schema1.EntitlementUsage) (ret graphql.Marshaler) {
+func (ec *executionContext) _EntitlementUsage_value(ctx context.Context, field graphql.CollectedField, obj *schema2.EntitlementUsage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6073,7 +6818,7 @@ func (ec *executionContext) fieldContext_EntitlementUsage_value(_ context.Contex
 	return graphql.NewScalarFieldContext("EntitlementUsage", field, true, true, errors.New("field of type Map does not have child fields"))
 }
 
-func (ec *executionContext) _EntitlementUsage_limit(ctx context.Context, field graphql.CollectedField, obj *schema1.EntitlementUsage) (ret graphql.Marshaler) {
+func (ec *executionContext) _EntitlementUsage_limit(ctx context.Context, field graphql.CollectedField, obj *schema2.EntitlementUsage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6096,7 +6841,7 @@ func (ec *executionContext) fieldContext_EntitlementUsage_limit(_ context.Contex
 	return graphql.NewScalarFieldContext("EntitlementUsage", field, true, true, errors.New("field of type Map does not have child fields"))
 }
 
-func (ec *executionContext) _EntitlementUsage_currentPeriodStart(ctx context.Context, field graphql.CollectedField, obj *schema1.EntitlementUsage) (ret graphql.Marshaler) {
+func (ec *executionContext) _EntitlementUsage_currentPeriodStart(ctx context.Context, field graphql.CollectedField, obj *schema2.EntitlementUsage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6119,7 +6864,7 @@ func (ec *executionContext) fieldContext_EntitlementUsage_currentPeriodStart(_ c
 	return graphql.NewScalarFieldContext("EntitlementUsage", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
-func (ec *executionContext) _EntitlementUsage_currentPeriodEnd(ctx context.Context, field graphql.CollectedField, obj *schema1.EntitlementUsage) (ret graphql.Marshaler) {
+func (ec *executionContext) _EntitlementUsage_currentPeriodEnd(ctx context.Context, field graphql.CollectedField, obj *schema2.EntitlementUsage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6142,7 +6887,7 @@ func (ec *executionContext) fieldContext_EntitlementUsage_currentPeriodEnd(_ con
 	return graphql.NewScalarFieldContext("EntitlementUsage", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_id(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_id(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6165,7 +6910,7 @@ func (ec *executionContext) fieldContext_Instance_id(_ context.Context, field gr
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_name(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_name(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6188,7 +6933,7 @@ func (ec *executionContext) fieldContext_Instance_name(_ context.Context, field 
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_slug(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_slug(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6211,7 +6956,7 @@ func (ec *executionContext) fieldContext_Instance_slug(_ context.Context, field 
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_description(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_description(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6234,7 +6979,7 @@ func (ec *executionContext) fieldContext_Instance_description(_ context.Context,
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_status(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_status(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6246,7 +6991,7 @@ func (ec *executionContext) _Instance_status(ctx context.Context, field graphql.
 			return obj.Status, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v schema1.InstanceStatus) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v schema2.InstanceStatus) graphql.Marshaler {
 			return ec.marshalNInstanceStatus2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstanceStatus(ctx, selections, v)
 		},
 		true,
@@ -6257,7 +7002,7 @@ func (ec *executionContext) fieldContext_Instance_status(_ context.Context, fiel
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type InstanceStatus does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_lifecycleStage(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_lifecycleStage(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6280,7 +7025,7 @@ func (ec *executionContext) fieldContext_Instance_lifecycleStage(_ context.Conte
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_createdBy(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_createdBy(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6312,7 +7057,7 @@ func (ec *executionContext) fieldContext_Instance_createdBy(_ context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _Instance_createdAt(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_createdAt(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6335,7 +7080,7 @@ func (ec *executionContext) fieldContext_Instance_createdAt(_ context.Context, f
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_updatedBy(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_updatedBy(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6367,7 +7112,7 @@ func (ec *executionContext) fieldContext_Instance_updatedBy(_ context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _Instance_updatedAt(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_updatedAt(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6390,7 +7135,7 @@ func (ec *executionContext) fieldContext_Instance_updatedAt(_ context.Context, f
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_customerId(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_customerId(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6413,7 +7158,7 @@ func (ec *executionContext) fieldContext_Instance_customerId(_ context.Context, 
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_customerSlug(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_customerSlug(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6436,7 +7181,7 @@ func (ec *executionContext) fieldContext_Instance_customerSlug(_ context.Context
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_licenseId(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_licenseId(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6459,7 +7204,7 @@ func (ec *executionContext) fieldContext_Instance_licenseId(_ context.Context, f
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_licenseSlug(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_licenseSlug(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6482,7 +7227,7 @@ func (ec *executionContext) fieldContext_Instance_licenseSlug(_ context.Context,
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_startLicenseDate(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_startLicenseDate(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6505,7 +7250,7 @@ func (ec *executionContext) fieldContext_Instance_startLicenseDate(_ context.Con
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_endLicenseDate(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_endLicenseDate(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6528,7 +7273,7 @@ func (ec *executionContext) fieldContext_Instance_endLicenseDate(_ context.Conte
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_metadata(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_metadata(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6551,7 +7296,7 @@ func (ec *executionContext) fieldContext_Instance_metadata(_ context.Context, fi
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type Map does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_integrations(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_integrations(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6574,7 +7319,7 @@ func (ec *executionContext) fieldContext_Instance_integrations(_ context.Context
 	return graphql.NewScalarFieldContext("Instance", field, true, true, errors.New("field of type Map does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_deploymentZoneId(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_deploymentZoneId(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6597,7 +7342,7 @@ func (ec *executionContext) fieldContext_Instance_deploymentZoneId(_ context.Con
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_deploymentZoneSlug(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_deploymentZoneSlug(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6620,7 +7365,7 @@ func (ec *executionContext) fieldContext_Instance_deploymentZoneSlug(_ context.C
 	return graphql.NewScalarFieldContext("Instance", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Instance_customer(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_customer(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6632,7 +7377,7 @@ func (ec *executionContext) _Instance_customer(ctx context.Context, field graphq
 			return ec.Resolvers.Instance().Customer(ctx, obj)
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *schema2.Customer) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v *schema3.Customer) graphql.Marshaler {
 			return ec.marshalNCustomer2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomer(ctx, selections, v)
 		},
 		true,
@@ -6652,7 +7397,7 @@ func (ec *executionContext) fieldContext_Instance_customer(_ context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _Instance_license(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_license(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6664,7 +7409,7 @@ func (ec *executionContext) _Instance_license(ctx context.Context, field graphql
 			return ec.Resolvers.Instance().License(ctx, obj)
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *schema3.License) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v *schema.License) graphql.Marshaler {
 			return ec.marshalNLicense2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicense(ctx, selections, v)
 		},
 		true,
@@ -6684,7 +7429,7 @@ func (ec *executionContext) fieldContext_Instance_license(_ context.Context, fie
 	return fc, nil
 }
 
-func (ec *executionContext) _Instance_deploymentZone(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_deploymentZone(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6716,7 +7461,7 @@ func (ec *executionContext) fieldContext_Instance_deploymentZone(_ context.Conte
 	return fc, nil
 }
 
-func (ec *executionContext) _Instance_auditTrails(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_auditTrails(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6729,7 +7474,7 @@ func (ec *executionContext) _Instance_auditTrails(ctx context.Context, field gra
 			return ec.Resolvers.Instance().AuditTrails(ctx, obj, fc.Args["eventName"].(*string), fc.Args["after"].(*time.Time), fc.Args["before"].(*time.Time), fc.Args["limit"].(*int), fc.Args["cursor"].(*string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *schema1.AuditTrailPage) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v *schema2.AuditTrailPage) graphql.Marshaler {
 			return ec.marshalNAuditTrailPage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐAuditTrailPage(ctx, selections, v)
 		},
 		true,
@@ -6760,7 +7505,7 @@ func (ec *executionContext) fieldContext_Instance_auditTrails(ctx context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _Instance_entitlementUsage(ctx context.Context, field graphql.CollectedField, obj *schema1.Instance) (ret graphql.Marshaler) {
+func (ec *executionContext) _Instance_entitlementUsage(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6772,7 +7517,7 @@ func (ec *executionContext) _Instance_entitlementUsage(ctx context.Context, fiel
 			return ec.Resolvers.Instance().EntitlementUsage(ctx, obj)
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []schema1.EntitlementUsage) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v []schema2.EntitlementUsage) graphql.Marshaler {
 			return ec.marshalNEntitlementUsage2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐEntitlementUsageᚄ(ctx, selections, v)
 		},
 		true,
@@ -6792,7 +7537,7 @@ func (ec *executionContext) fieldContext_Instance_entitlementUsage(_ context.Con
 	return fc, nil
 }
 
-func (ec *executionContext) _InstancePage_items(ctx context.Context, field graphql.CollectedField, obj *schema1.InstancePage) (ret graphql.Marshaler) {
+func (ec *executionContext) _InstancePage_items(ctx context.Context, field graphql.CollectedField, obj *schema2.InstancePage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6804,7 +7549,7 @@ func (ec *executionContext) _InstancePage_items(ctx context.Context, field graph
 			return obj.Items, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []schema1.Instance) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v []schema2.Instance) graphql.Marshaler {
 			return ec.marshalNInstance2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstanceᚄ(ctx, selections, v)
 		},
 		true,
@@ -6824,7 +7569,7 @@ func (ec *executionContext) fieldContext_InstancePage_items(_ context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _InstancePage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *schema1.InstancePage) (ret graphql.Marshaler) {
+func (ec *executionContext) _InstancePage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *schema2.InstancePage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6847,7 +7592,7 @@ func (ec *executionContext) fieldContext_InstancePage_nextCursor(_ context.Conte
 	return graphql.NewScalarFieldContext("InstancePage", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _InstancePage_hasMore(ctx context.Context, field graphql.CollectedField, obj *schema1.InstancePage) (ret graphql.Marshaler) {
+func (ec *executionContext) _InstancePage_hasMore(ctx context.Context, field graphql.CollectedField, obj *schema2.InstancePage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6870,7 +7615,7 @@ func (ec *executionContext) fieldContext_InstancePage_hasMore(_ context.Context,
 	return graphql.NewScalarFieldContext("InstancePage", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
-func (ec *executionContext) _License_id(ctx context.Context, field graphql.CollectedField, obj *schema3.License) (ret graphql.Marshaler) {
+func (ec *executionContext) _License_id(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6893,7 +7638,7 @@ func (ec *executionContext) fieldContext_License_id(_ context.Context, field gra
 	return graphql.NewScalarFieldContext("License", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _License_name(ctx context.Context, field graphql.CollectedField, obj *schema3.License) (ret graphql.Marshaler) {
+func (ec *executionContext) _License_name(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6916,7 +7661,7 @@ func (ec *executionContext) fieldContext_License_name(_ context.Context, field g
 	return graphql.NewScalarFieldContext("License", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _License_slug(ctx context.Context, field graphql.CollectedField, obj *schema3.License) (ret graphql.Marshaler) {
+func (ec *executionContext) _License_slug(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6939,7 +7684,7 @@ func (ec *executionContext) fieldContext_License_slug(_ context.Context, field g
 	return graphql.NewScalarFieldContext("License", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _License_description(ctx context.Context, field graphql.CollectedField, obj *schema3.License) (ret graphql.Marshaler) {
+func (ec *executionContext) _License_description(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6962,7 +7707,7 @@ func (ec *executionContext) fieldContext_License_description(_ context.Context, 
 	return graphql.NewScalarFieldContext("License", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _License_type(ctx context.Context, field graphql.CollectedField, obj *schema3.License) (ret graphql.Marshaler) {
+func (ec *executionContext) _License_type(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -6974,7 +7719,7 @@ func (ec *executionContext) _License_type(ctx context.Context, field graphql.Col
 			return obj.Type, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v schema3.Type) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v schema.Type) graphql.Marshaler {
 			return ec.marshalNLicenseType2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐType(ctx, selections, v)
 		},
 		true,
@@ -6985,7 +7730,7 @@ func (ec *executionContext) fieldContext_License_type(_ context.Context, field g
 	return graphql.NewScalarFieldContext("License", field, false, false, errors.New("field of type LicenseType does not have child fields"))
 }
 
-func (ec *executionContext) _License_version(ctx context.Context, field graphql.CollectedField, obj *schema3.License) (ret graphql.Marshaler) {
+func (ec *executionContext) _License_version(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7008,7 +7753,7 @@ func (ec *executionContext) fieldContext_License_version(_ context.Context, fiel
 	return graphql.NewScalarFieldContext("License", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _License_versionName(ctx context.Context, field graphql.CollectedField, obj *schema3.License) (ret graphql.Marshaler) {
+func (ec *executionContext) _License_versionName(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7031,7 +7776,7 @@ func (ec *executionContext) fieldContext_License_versionName(_ context.Context, 
 	return graphql.NewScalarFieldContext("License", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _License_isDefault(ctx context.Context, field graphql.CollectedField, obj *schema3.License) (ret graphql.Marshaler) {
+func (ec *executionContext) _License_isDefault(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7054,7 +7799,7 @@ func (ec *executionContext) fieldContext_License_isDefault(_ context.Context, fi
 	return graphql.NewScalarFieldContext("License", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
-func (ec *executionContext) _License_lifecycleState(ctx context.Context, field graphql.CollectedField, obj *schema3.License) (ret graphql.Marshaler) {
+func (ec *executionContext) _License_lifecycleState(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7066,7 +7811,7 @@ func (ec *executionContext) _License_lifecycleState(ctx context.Context, field g
 			return obj.LifecycleState, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v schema3.LifecycleState) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v schema.LifecycleState) graphql.Marshaler {
 			return ec.marshalNLicenseLifecycleState2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLifecycleState(ctx, selections, v)
 		},
 		true,
@@ -7077,7 +7822,7 @@ func (ec *executionContext) fieldContext_License_lifecycleState(_ context.Contex
 	return graphql.NewScalarFieldContext("License", field, false, false, errors.New("field of type LicenseLifecycleState does not have child fields"))
 }
 
-func (ec *executionContext) _License_family(ctx context.Context, field graphql.CollectedField, obj *schema3.License) (ret graphql.Marshaler) {
+func (ec *executionContext) _License_family(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7089,7 +7834,7 @@ func (ec *executionContext) _License_family(ctx context.Context, field graphql.C
 			return ec.Resolvers.License().Family(ctx, obj)
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *schema3.LicenseFamily) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v *schema.LicenseFamily) graphql.Marshaler {
 			return ec.marshalNLicenseFamily2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseFamily(ctx, selections, v)
 		},
 		true,
@@ -7109,7 +7854,7 @@ func (ec *executionContext) fieldContext_License_family(_ context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _License_instances(ctx context.Context, field graphql.CollectedField, obj *schema3.License) (ret graphql.Marshaler) {
+func (ec *executionContext) _License_instances(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7121,7 +7866,7 @@ func (ec *executionContext) _License_instances(ctx context.Context, field graphq
 			return ec.Resolvers.License().Instances(ctx, obj)
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []schema1.Instance) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v []schema2.Instance) graphql.Marshaler {
 			return ec.marshalNInstance2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstanceᚄ(ctx, selections, v)
 		},
 		true,
@@ -7141,7 +7886,51 @@ func (ec *executionContext) fieldContext_License_instances(_ context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _License_entitlements(ctx context.Context, field graphql.CollectedField, obj *schema3.License) (ret graphql.Marshaler) {
+func (ec *executionContext) _License_conversionRules(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_License_conversionRules(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.License().ConversionRules(ctx, obj, fc.Args["status"].(*schema.ConversionRuleStatus))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []schema.ConversionRule) graphql.Marshaler {
+			return ec.marshalNConversionRule2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐConversionRuleᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_License_conversionRules(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "License",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_ConversionRule(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_License_conversionRules_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _License_entitlements(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7153,7 +7942,7 @@ func (ec *executionContext) _License_entitlements(ctx context.Context, field gra
 			return ec.Resolvers.License().Entitlements(ctx, obj)
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []schema3.LicenseEntitlement) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v []schema.LicenseEntitlement) graphql.Marshaler {
 			return ec.marshalNLicenseEntitlement2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseEntitlementᚄ(ctx, selections, v)
 		},
 		true,
@@ -7173,7 +7962,7 @@ func (ec *executionContext) fieldContext_License_entitlements(_ context.Context,
 	return fc, nil
 }
 
-func (ec *executionContext) _LicenseEntitlement_entitlementSlug(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseEntitlement) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseEntitlement_entitlementSlug(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseEntitlement) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7196,7 +7985,7 @@ func (ec *executionContext) fieldContext_LicenseEntitlement_entitlementSlug(_ co
 	return graphql.NewScalarFieldContext("LicenseEntitlement", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _LicenseEntitlement_entitlementName(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseEntitlement) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseEntitlement_entitlementName(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseEntitlement) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7219,7 +8008,7 @@ func (ec *executionContext) fieldContext_LicenseEntitlement_entitlementName(_ co
 	return graphql.NewScalarFieldContext("LicenseEntitlement", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _LicenseEntitlement_entitlementType(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseEntitlement) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseEntitlement_entitlementType(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseEntitlement) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7242,7 +8031,7 @@ func (ec *executionContext) fieldContext_LicenseEntitlement_entitlementType(_ co
 	return graphql.NewScalarFieldContext("LicenseEntitlement", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _LicenseEntitlement_licenseId(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseEntitlement) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseEntitlement_licenseId(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseEntitlement) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7265,7 +8054,7 @@ func (ec *executionContext) fieldContext_LicenseEntitlement_licenseId(_ context.
 	return graphql.NewScalarFieldContext("LicenseEntitlement", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _LicenseEntitlement_licenseSlug(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseEntitlement) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseEntitlement_licenseSlug(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseEntitlement) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7288,7 +8077,7 @@ func (ec *executionContext) fieldContext_LicenseEntitlement_licenseSlug(_ contex
 	return graphql.NewScalarFieldContext("LicenseEntitlement", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _LicenseEntitlement_value(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseEntitlement) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseEntitlement_value(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseEntitlement) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7311,7 +8100,7 @@ func (ec *executionContext) fieldContext_LicenseEntitlement_value(_ context.Cont
 	return graphql.NewScalarFieldContext("LicenseEntitlement", field, true, true, errors.New("field of type Map does not have child fields"))
 }
 
-func (ec *executionContext) _LicenseEntitlement_unlimited(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseEntitlement) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseEntitlement_unlimited(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseEntitlement) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7334,7 +8123,7 @@ func (ec *executionContext) fieldContext_LicenseEntitlement_unlimited(_ context.
 	return graphql.NewScalarFieldContext("LicenseEntitlement", field, true, true, errors.New("field of type Boolean does not have child fields"))
 }
 
-func (ec *executionContext) _LicenseEntitlement_limitCapExceededOveragePercent(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseEntitlement) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseEntitlement_limitCapExceededOveragePercent(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseEntitlement) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7357,7 +8146,7 @@ func (ec *executionContext) fieldContext_LicenseEntitlement_limitCapExceededOver
 	return graphql.NewScalarFieldContext("LicenseEntitlement", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
-func (ec *executionContext) _LicenseEntitlement_entitlement(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseEntitlement) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseEntitlement_entitlement(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseEntitlement) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7389,7 +8178,7 @@ func (ec *executionContext) fieldContext_LicenseEntitlement_entitlement(_ contex
 	return fc, nil
 }
 
-func (ec *executionContext) _LicenseFamily_id(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseFamily) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseFamily_id(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseFamily) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7412,7 +8201,7 @@ func (ec *executionContext) fieldContext_LicenseFamily_id(_ context.Context, fie
 	return graphql.NewScalarFieldContext("LicenseFamily", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _LicenseFamily_slug(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseFamily) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseFamily_slug(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseFamily) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7435,7 +8224,7 @@ func (ec *executionContext) fieldContext_LicenseFamily_slug(_ context.Context, f
 	return graphql.NewScalarFieldContext("LicenseFamily", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _LicenseFamilyView_id(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseFamilyView) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseFamilyView_id(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseFamilyView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7458,7 +8247,7 @@ func (ec *executionContext) fieldContext_LicenseFamilyView_id(_ context.Context,
 	return graphql.NewScalarFieldContext("LicenseFamilyView", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _LicenseFamilyView_slug(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseFamilyView) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseFamilyView_slug(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseFamilyView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7481,7 +8270,7 @@ func (ec *executionContext) fieldContext_LicenseFamilyView_slug(_ context.Contex
 	return graphql.NewScalarFieldContext("LicenseFamilyView", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _LicenseFamilyView_currentVersion(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseFamilyView) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseFamilyView_currentVersion(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseFamilyView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7493,7 +8282,7 @@ func (ec *executionContext) _LicenseFamilyView_currentVersion(ctx context.Contex
 			return obj.CurrentVersion, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *schema3.License) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v *schema.License) graphql.Marshaler {
 			return ec.marshalOLicense2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicense(ctx, selections, v)
 		},
 		true,
@@ -7513,7 +8302,7 @@ func (ec *executionContext) fieldContext_LicenseFamilyView_currentVersion(_ cont
 	return fc, nil
 }
 
-func (ec *executionContext) _LicenseFamilyView_versionCount(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseFamilyView) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseFamilyView_versionCount(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseFamilyView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7536,7 +8325,7 @@ func (ec *executionContext) fieldContext_LicenseFamilyView_versionCount(_ contex
 	return graphql.NewScalarFieldContext("LicenseFamilyView", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
-func (ec *executionContext) _LicenseFamilyView_versions(ctx context.Context, field graphql.CollectedField, obj *schema3.LicenseFamilyView) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicenseFamilyView_versions(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseFamilyView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7548,7 +8337,7 @@ func (ec *executionContext) _LicenseFamilyView_versions(ctx context.Context, fie
 			return ec.Resolvers.LicenseFamilyView().Versions(ctx, obj)
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []schema3.License) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v []schema.License) graphql.Marshaler {
 			return ec.marshalNLicense2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseᚄ(ctx, selections, v)
 		},
 		true,
@@ -7568,7 +8357,7 @@ func (ec *executionContext) fieldContext_LicenseFamilyView_versions(_ context.Co
 	return fc, nil
 }
 
-func (ec *executionContext) _LicensePage_items(ctx context.Context, field graphql.CollectedField, obj *schema3.LicensePage) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicensePage_items(ctx context.Context, field graphql.CollectedField, obj *schema.LicensePage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7580,7 +8369,7 @@ func (ec *executionContext) _LicensePage_items(ctx context.Context, field graphq
 			return obj.Items, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []schema3.License) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v []schema.License) graphql.Marshaler {
 			return ec.marshalNLicense2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseᚄ(ctx, selections, v)
 		},
 		true,
@@ -7600,7 +8389,7 @@ func (ec *executionContext) fieldContext_LicensePage_items(_ context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _LicensePage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *schema3.LicensePage) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicensePage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *schema.LicensePage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7623,7 +8412,7 @@ func (ec *executionContext) fieldContext_LicensePage_nextCursor(_ context.Contex
 	return graphql.NewScalarFieldContext("LicensePage", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _LicensePage_hasMore(ctx context.Context, field graphql.CollectedField, obj *schema3.LicensePage) (ret graphql.Marshaler) {
+func (ec *executionContext) _LicensePage_hasMore(ctx context.Context, field graphql.CollectedField, obj *schema.LicensePage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7995,7 +8784,7 @@ func (ec *executionContext) fieldContext_MetadataFieldPage_hasMore(_ context.Con
 	return graphql.NewScalarFieldContext("MetadataFieldPage", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
-func (ec *executionContext) _Model_id(ctx context.Context, field graphql.CollectedField, obj *schema.Model) (ret graphql.Marshaler) {
+func (ec *executionContext) _Model_id(ctx context.Context, field graphql.CollectedField, obj *schema1.Model) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8018,7 +8807,7 @@ func (ec *executionContext) fieldContext_Model_id(_ context.Context, field graph
 	return graphql.NewScalarFieldContext("Model", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _Model_name(ctx context.Context, field graphql.CollectedField, obj *schema.Model) (ret graphql.Marshaler) {
+func (ec *executionContext) _Model_name(ctx context.Context, field graphql.CollectedField, obj *schema1.Model) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8041,7 +8830,7 @@ func (ec *executionContext) fieldContext_Model_name(_ context.Context, field gra
 	return graphql.NewScalarFieldContext("Model", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Model_slug(ctx context.Context, field graphql.CollectedField, obj *schema.Model) (ret graphql.Marshaler) {
+func (ec *executionContext) _Model_slug(ctx context.Context, field graphql.CollectedField, obj *schema1.Model) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8064,7 +8853,7 @@ func (ec *executionContext) fieldContext_Model_slug(_ context.Context, field gra
 	return graphql.NewScalarFieldContext("Model", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Model_vendor(ctx context.Context, field graphql.CollectedField, obj *schema.Model) (ret graphql.Marshaler) {
+func (ec *executionContext) _Model_vendor(ctx context.Context, field graphql.CollectedField, obj *schema1.Model) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8087,7 +8876,7 @@ func (ec *executionContext) fieldContext_Model_vendor(_ context.Context, field g
 	return graphql.NewScalarFieldContext("Model", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Model_modality(ctx context.Context, field graphql.CollectedField, obj *schema.Model) (ret graphql.Marshaler) {
+func (ec *executionContext) _Model_modality(ctx context.Context, field graphql.CollectedField, obj *schema1.Model) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8099,7 +8888,7 @@ func (ec *executionContext) _Model_modality(ctx context.Context, field graphql.C
 			return obj.Modality, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v schema.Modality) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v schema1.Modality) graphql.Marshaler {
 			return ec.marshalNModelModality2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐModality(ctx, selections, v)
 		},
 		true,
@@ -8110,7 +8899,7 @@ func (ec *executionContext) fieldContext_Model_modality(_ context.Context, field
 	return graphql.NewScalarFieldContext("Model", field, false, false, errors.New("field of type ModelModality does not have child fields"))
 }
 
-func (ec *executionContext) _Model_status(ctx context.Context, field graphql.CollectedField, obj *schema.Model) (ret graphql.Marshaler) {
+func (ec *executionContext) _Model_status(ctx context.Context, field graphql.CollectedField, obj *schema1.Model) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8122,7 +8911,7 @@ func (ec *executionContext) _Model_status(ctx context.Context, field graphql.Col
 			return obj.Status, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v schema.Status) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v schema1.Status) graphql.Marshaler {
 			return ec.marshalNModelStatus2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐStatus(ctx, selections, v)
 		},
 		true,
@@ -8133,7 +8922,7 @@ func (ec *executionContext) fieldContext_Model_status(_ context.Context, field g
 	return graphql.NewScalarFieldContext("Model", field, false, false, errors.New("field of type ModelStatus does not have child fields"))
 }
 
-func (ec *executionContext) _Model_externalIds(ctx context.Context, field graphql.CollectedField, obj *schema.Model) (ret graphql.Marshaler) {
+func (ec *executionContext) _Model_externalIds(ctx context.Context, field graphql.CollectedField, obj *schema1.Model) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8156,7 +8945,7 @@ func (ec *executionContext) fieldContext_Model_externalIds(_ context.Context, fi
 	return graphql.NewScalarFieldContext("Model", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _Model_metadata(ctx context.Context, field graphql.CollectedField, obj *schema.Model) (ret graphql.Marshaler) {
+func (ec *executionContext) _Model_metadata(ctx context.Context, field graphql.CollectedField, obj *schema1.Model) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8179,7 +8968,7 @@ func (ec *executionContext) fieldContext_Model_metadata(_ context.Context, field
 	return graphql.NewScalarFieldContext("Model", field, false, false, errors.New("field of type Map does not have child fields"))
 }
 
-func (ec *executionContext) _OrganizationAuditTrail_id(ctx context.Context, field graphql.CollectedField, obj *schema1.OrganizationAuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrganizationAuditTrail_id(ctx context.Context, field graphql.CollectedField, obj *schema2.OrganizationAuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8202,7 +8991,7 @@ func (ec *executionContext) fieldContext_OrganizationAuditTrail_id(_ context.Con
 	return graphql.NewScalarFieldContext("OrganizationAuditTrail", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _OrganizationAuditTrail_instanceId(ctx context.Context, field graphql.CollectedField, obj *schema1.OrganizationAuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrganizationAuditTrail_instanceId(ctx context.Context, field graphql.CollectedField, obj *schema2.OrganizationAuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8225,7 +9014,7 @@ func (ec *executionContext) fieldContext_OrganizationAuditTrail_instanceId(_ con
 	return graphql.NewScalarFieldContext("OrganizationAuditTrail", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _OrganizationAuditTrail_instanceSlug(ctx context.Context, field graphql.CollectedField, obj *schema1.OrganizationAuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrganizationAuditTrail_instanceSlug(ctx context.Context, field graphql.CollectedField, obj *schema2.OrganizationAuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8248,7 +9037,7 @@ func (ec *executionContext) fieldContext_OrganizationAuditTrail_instanceSlug(_ c
 	return graphql.NewScalarFieldContext("OrganizationAuditTrail", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _OrganizationAuditTrail_instanceName(ctx context.Context, field graphql.CollectedField, obj *schema1.OrganizationAuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrganizationAuditTrail_instanceName(ctx context.Context, field graphql.CollectedField, obj *schema2.OrganizationAuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8271,7 +9060,7 @@ func (ec *executionContext) fieldContext_OrganizationAuditTrail_instanceName(_ c
 	return graphql.NewScalarFieldContext("OrganizationAuditTrail", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _OrganizationAuditTrail_customerId(ctx context.Context, field graphql.CollectedField, obj *schema1.OrganizationAuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrganizationAuditTrail_customerId(ctx context.Context, field graphql.CollectedField, obj *schema2.OrganizationAuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8294,7 +9083,7 @@ func (ec *executionContext) fieldContext_OrganizationAuditTrail_customerId(_ con
 	return graphql.NewScalarFieldContext("OrganizationAuditTrail", field, false, false, errors.New("field of type UUID does not have child fields"))
 }
 
-func (ec *executionContext) _OrganizationAuditTrail_customerSlug(ctx context.Context, field graphql.CollectedField, obj *schema1.OrganizationAuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrganizationAuditTrail_customerSlug(ctx context.Context, field graphql.CollectedField, obj *schema2.OrganizationAuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8317,7 +9106,7 @@ func (ec *executionContext) fieldContext_OrganizationAuditTrail_customerSlug(_ c
 	return graphql.NewScalarFieldContext("OrganizationAuditTrail", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _OrganizationAuditTrail_customerName(ctx context.Context, field graphql.CollectedField, obj *schema1.OrganizationAuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrganizationAuditTrail_customerName(ctx context.Context, field graphql.CollectedField, obj *schema2.OrganizationAuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8340,7 +9129,7 @@ func (ec *executionContext) fieldContext_OrganizationAuditTrail_customerName(_ c
 	return graphql.NewScalarFieldContext("OrganizationAuditTrail", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _OrganizationAuditTrail_eventName(ctx context.Context, field graphql.CollectedField, obj *schema1.OrganizationAuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrganizationAuditTrail_eventName(ctx context.Context, field graphql.CollectedField, obj *schema2.OrganizationAuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8363,7 +9152,7 @@ func (ec *executionContext) fieldContext_OrganizationAuditTrail_eventName(_ cont
 	return graphql.NewScalarFieldContext("OrganizationAuditTrail", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _OrganizationAuditTrail_eventType(ctx context.Context, field graphql.CollectedField, obj *schema1.OrganizationAuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrganizationAuditTrail_eventType(ctx context.Context, field graphql.CollectedField, obj *schema2.OrganizationAuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8386,7 +9175,7 @@ func (ec *executionContext) fieldContext_OrganizationAuditTrail_eventType(_ cont
 	return graphql.NewScalarFieldContext("OrganizationAuditTrail", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _OrganizationAuditTrail_timestamp(ctx context.Context, field graphql.CollectedField, obj *schema1.OrganizationAuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrganizationAuditTrail_timestamp(ctx context.Context, field graphql.CollectedField, obj *schema2.OrganizationAuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8409,7 +9198,7 @@ func (ec *executionContext) fieldContext_OrganizationAuditTrail_timestamp(_ cont
 	return graphql.NewScalarFieldContext("OrganizationAuditTrail", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
-func (ec *executionContext) _OrganizationAuditTrail_payload(ctx context.Context, field graphql.CollectedField, obj *schema1.OrganizationAuditTrail) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrganizationAuditTrail_payload(ctx context.Context, field graphql.CollectedField, obj *schema2.OrganizationAuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8432,7 +9221,7 @@ func (ec *executionContext) fieldContext_OrganizationAuditTrail_payload(_ contex
 	return graphql.NewScalarFieldContext("OrganizationAuditTrail", field, false, false, errors.New("field of type Map does not have child fields"))
 }
 
-func (ec *executionContext) _OrganizationAuditTrailPage_items(ctx context.Context, field graphql.CollectedField, obj *schema1.OrganizationAuditTrailPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrganizationAuditTrailPage_items(ctx context.Context, field graphql.CollectedField, obj *schema2.OrganizationAuditTrailPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8444,7 +9233,7 @@ func (ec *executionContext) _OrganizationAuditTrailPage_items(ctx context.Contex
 			return obj.Items, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []schema1.OrganizationAuditTrail) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v []schema2.OrganizationAuditTrail) graphql.Marshaler {
 			return ec.marshalNOrganizationAuditTrail2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐOrganizationAuditTrailᚄ(ctx, selections, v)
 		},
 		true,
@@ -8464,7 +9253,7 @@ func (ec *executionContext) fieldContext_OrganizationAuditTrailPage_items(_ cont
 	return fc, nil
 }
 
-func (ec *executionContext) _OrganizationAuditTrailPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *schema1.OrganizationAuditTrailPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrganizationAuditTrailPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *schema2.OrganizationAuditTrailPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8487,7 +9276,7 @@ func (ec *executionContext) fieldContext_OrganizationAuditTrailPage_nextCursor(_
 	return graphql.NewScalarFieldContext("OrganizationAuditTrailPage", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _OrganizationAuditTrailPage_hasMore(ctx context.Context, field graphql.CollectedField, obj *schema1.OrganizationAuditTrailPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrganizationAuditTrailPage_hasMore(ctx context.Context, field graphql.CollectedField, obj *schema2.OrganizationAuditTrailPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -8634,7 +9423,7 @@ func (ec *executionContext) _Query_customers(ctx context.Context, field graphql.
 			return ec.Resolvers.Query().Customers(ctx, fc.Args["hasIntegration"].(*string), fc.Args["limit"].(*int), fc.Args["cursor"].(*string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *schema2.CustomerPage) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v *schema3.CustomerPage) graphql.Marshaler {
 			return ec.marshalNCustomerPage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomerPage(ctx, selections, v)
 		},
 		true,
@@ -8678,7 +9467,7 @@ func (ec *executionContext) _Query_customer(ctx context.Context, field graphql.C
 			return ec.Resolvers.Query().Customer(ctx, fc.Args["id"].(*uuid.UUID), fc.Args["slug"].(*string), fc.Args["externalCustomerId"].(*string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *schema2.Customer) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v *schema3.Customer) graphql.Marshaler {
 			return ec.marshalOCustomer2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomer(ctx, selections, v)
 		},
 		true,
@@ -8854,7 +9643,7 @@ func (ec *executionContext) _Query_auditTrails(ctx context.Context, field graphq
 			return ec.Resolvers.Query().AuditTrails(ctx, fc.Args["instanceSlug"].(string), fc.Args["eventName"].(*string), fc.Args["after"].(*time.Time), fc.Args["before"].(*time.Time), fc.Args["limit"].(*int), fc.Args["cursor"].(*string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *schema1.AuditTrailPage) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v *schema2.AuditTrailPage) graphql.Marshaler {
 			return ec.marshalNAuditTrailPage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐAuditTrailPage(ctx, selections, v)
 		},
 		true,
@@ -8898,7 +9687,7 @@ func (ec *executionContext) _Query_organizationAuditTrails(ctx context.Context, 
 			return ec.Resolvers.Query().OrganizationAuditTrails(ctx, fc.Args["eventName"].(*string), fc.Args["after"].(*time.Time), fc.Args["before"].(*time.Time), fc.Args["limit"].(*int), fc.Args["cursor"].(*string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *schema1.OrganizationAuditTrailPage) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v *schema2.OrganizationAuditTrailPage) graphql.Marshaler {
 			return ec.marshalNOrganizationAuditTrailPage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐOrganizationAuditTrailPage(ctx, selections, v)
 		},
 		true,
@@ -8942,7 +9731,7 @@ func (ec *executionContext) _Query_instances(ctx context.Context, field graphql.
 			return ec.Resolvers.Query().Instances(ctx, fc.Args["hasIntegration"].(*string), fc.Args["limit"].(*int), fc.Args["cursor"].(*string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *schema1.InstancePage) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v *schema2.InstancePage) graphql.Marshaler {
 			return ec.marshalNInstancePage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstancePage(ctx, selections, v)
 		},
 		true,
@@ -8986,7 +9775,7 @@ func (ec *executionContext) _Query_instance(ctx context.Context, field graphql.C
 			return ec.Resolvers.Query().Instance(ctx, fc.Args["id"].(*uuid.UUID), fc.Args["slug"].(*string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *schema1.Instance) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v *schema2.Instance) graphql.Marshaler {
 			return ec.marshalOInstance2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstance(ctx, selections, v)
 		},
 		true,
@@ -9030,7 +9819,7 @@ func (ec *executionContext) _Query_licenses(ctx context.Context, field graphql.C
 			return ec.Resolvers.Query().Licenses(ctx, fc.Args["limit"].(*int), fc.Args["cursor"].(*string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *schema3.LicensePage) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v *schema.LicensePage) graphql.Marshaler {
 			return ec.marshalNLicensePage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicensePage(ctx, selections, v)
 		},
 		true,
@@ -9074,7 +9863,7 @@ func (ec *executionContext) _Query_license(ctx context.Context, field graphql.Co
 			return ec.Resolvers.Query().License(ctx, fc.Args["id"].(*uuid.UUID), fc.Args["slug"].(*string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *schema3.License) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v *schema.License) graphql.Marshaler {
 			return ec.marshalOLicense2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicense(ctx, selections, v)
 		},
 		true,
@@ -9118,7 +9907,7 @@ func (ec *executionContext) _Query_licenseFamily(ctx context.Context, field grap
 			return ec.Resolvers.Query().LicenseFamily(ctx, fc.Args["slug"].(string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *schema3.LicenseFamilyView) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v *schema.LicenseFamilyView) graphql.Marshaler {
 			return ec.marshalOLicenseFamilyView2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseFamilyView(ctx, selections, v)
 		},
 		true,
@@ -9203,10 +9992,10 @@ func (ec *executionContext) _Query_models(ctx context.Context, field graphql.Col
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().Models(ctx, fc.Args["status"].(*schema.Status))
+			return ec.Resolvers.Query().Models(ctx, fc.Args["status"].(*schema1.Status))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []schema.Model) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v []schema1.Model) graphql.Marshaler {
 			return ec.marshalNModel2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐModelᚄ(ctx, selections, v)
 		},
 		true,
@@ -9624,7 +10413,7 @@ func (ec *executionContext) _Release_instances(ctx context.Context, field graphq
 			return ec.Resolvers.Release().Instances(ctx, obj)
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []schema1.Instance) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v []schema2.Instance) graphql.Marshaler {
 			return ec.marshalNInstance2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstanceᚄ(ctx, selections, v)
 		},
 		true,
@@ -10869,7 +11658,7 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 var auditTrailImplementors = []string{"AuditTrail"}
 
-func (ec *executionContext) _AuditTrail(ctx context.Context, sel ast.SelectionSet, obj *schema1.AuditTrail) graphql.Marshaler {
+func (ec *executionContext) _AuditTrail(ctx context.Context, sel ast.SelectionSet, obj *schema2.AuditTrail) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, auditTrailImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -10970,7 +11759,7 @@ func (ec *executionContext) _AuditTrail(ctx context.Context, sel ast.SelectionSe
 
 var auditTrailPageImplementors = []string{"AuditTrailPage"}
 
-func (ec *executionContext) _AuditTrailPage(ctx context.Context, sel ast.SelectionSet, obj *schema1.AuditTrailPage) graphql.Marshaler {
+func (ec *executionContext) _AuditTrailPage(ctx context.Context, sel ast.SelectionSet, obj *schema2.AuditTrailPage) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, auditTrailPageImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -11137,9 +11926,175 @@ func (ec *executionContext) _ComponentPage(ctx context.Context, sel ast.Selectio
 	return out
 }
 
+var conversionRatesImplementors = []string{"ConversionRates"}
+
+func (ec *executionContext) _ConversionRates(ctx context.Context, sel ast.SelectionSet, obj *schema.ConversionRates) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, conversionRatesImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ConversionRates")
+		case "perRequest":
+			out.Values[i] = ec._ConversionRates_perRequest(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "perInputToken":
+			out.Values[i] = ec._ConversionRates_perInputToken(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "perCachedInputToken":
+			out.Values[i] = ec._ConversionRates_perCachedInputToken(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "perCacheWriteToken":
+			out.Values[i] = ec._ConversionRates_perCacheWriteToken(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "perOutputToken":
+			out.Values[i] = ec._ConversionRates_perOutputToken(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "perUnit":
+			out.Values[i] = ec._ConversionRates_perUnit(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "perSecond":
+			out.Values[i] = ec._ConversionRates_perSecond(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var conversionRuleImplementors = []string{"ConversionRule"}
+
+func (ec *executionContext) _ConversionRule(ctx context.Context, sel ast.SelectionSet, obj *schema.ConversionRule) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, conversionRuleImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ConversionRule")
+		case "id":
+			out.Values[i] = ec._ConversionRule_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "licenseSlug":
+			out.Values[i] = ec._ConversionRule_licenseSlug(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "entitlementSlug":
+			out.Values[i] = ec._ConversionRule_entitlementSlug(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "modelSlug":
+			out.Values[i] = ec._ConversionRule_modelSlug(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "requestType":
+			out.Values[i] = ec._ConversionRule_requestType(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "rates":
+			out.Values[i] = ec._ConversionRule_rates(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "minimumCreditsPerRequest":
+			out.Values[i] = ec._ConversionRule_minimumCreditsPerRequest(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "maximumCreditsPerRequest":
+			out.Values[i] = ec._ConversionRule_maximumCreditsPerRequest(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "chargeOnError":
+			out.Values[i] = ec._ConversionRule_chargeOnError(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "status":
+			out.Values[i] = ec._ConversionRule_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "grantedByLicense":
+			out.Values[i] = ec._ConversionRule_grantedByLicense(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createdAt":
+			out.Values[i] = ec._ConversionRule_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatedAt":
+			out.Values[i] = ec._ConversionRule_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var customerImplementors = []string{"Customer"}
 
-func (ec *executionContext) _Customer(ctx context.Context, sel ast.SelectionSet, obj *schema2.Customer) graphql.Marshaler {
+func (ec *executionContext) _Customer(ctx context.Context, sel ast.SelectionSet, obj *schema3.Customer) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, customerImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -11293,7 +12248,7 @@ func (ec *executionContext) _Customer(ctx context.Context, sel ast.SelectionSet,
 
 var customerPageImplementors = []string{"CustomerPage"}
 
-func (ec *executionContext) _CustomerPage(ctx context.Context, sel ast.SelectionSet, obj *schema2.CustomerPage) graphql.Marshaler {
+func (ec *executionContext) _CustomerPage(ctx context.Context, sel ast.SelectionSet, obj *schema3.CustomerPage) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, customerPageImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -11749,7 +12704,7 @@ func (ec *executionContext) _EntitlementPage(ctx context.Context, sel ast.Select
 
 var entitlementUsageImplementors = []string{"EntitlementUsage"}
 
-func (ec *executionContext) _EntitlementUsage(ctx context.Context, sel ast.SelectionSet, obj *schema1.EntitlementUsage) graphql.Marshaler {
+func (ec *executionContext) _EntitlementUsage(ctx context.Context, sel ast.SelectionSet, obj *schema2.EntitlementUsage) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, entitlementUsageImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -11888,7 +12843,7 @@ func (ec *executionContext) _EntitlementUsage(ctx context.Context, sel ast.Selec
 
 var instanceImplementors = []string{"Instance"}
 
-func (ec *executionContext) _Instance(ctx context.Context, sel ast.SelectionSet, obj *schema1.Instance) graphql.Marshaler {
+func (ec *executionContext) _Instance(ctx context.Context, sel ast.SelectionSet, obj *schema2.Instance) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, instanceImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -12244,7 +13199,7 @@ func (ec *executionContext) _Instance(ctx context.Context, sel ast.SelectionSet,
 
 var instancePageImplementors = []string{"InstancePage"}
 
-func (ec *executionContext) _InstancePage(ctx context.Context, sel ast.SelectionSet, obj *schema1.InstancePage) graphql.Marshaler {
+func (ec *executionContext) _InstancePage(ctx context.Context, sel ast.SelectionSet, obj *schema2.InstancePage) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, instancePageImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -12292,7 +13247,7 @@ func (ec *executionContext) _InstancePage(ctx context.Context, sel ast.Selection
 
 var licenseImplementors = []string{"License"}
 
-func (ec *executionContext) _License(ctx context.Context, sel ast.SelectionSet, obj *schema3.License) graphql.Marshaler {
+func (ec *executionContext) _License(ctx context.Context, sel ast.SelectionSet, obj *schema.License) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, licenseImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -12423,6 +13378,44 @@ func (ec *executionContext) _License(ctx context.Context, sel ast.SelectionSet, 
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "conversionRules":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._License_conversionRules(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "entitlements":
 			field := field
 
@@ -12484,7 +13477,7 @@ func (ec *executionContext) _License(ctx context.Context, sel ast.SelectionSet, 
 
 var licenseEntitlementImplementors = []string{"LicenseEntitlement"}
 
-func (ec *executionContext) _LicenseEntitlement(ctx context.Context, sel ast.SelectionSet, obj *schema3.LicenseEntitlement) graphql.Marshaler {
+func (ec *executionContext) _LicenseEntitlement(ctx context.Context, sel ast.SelectionSet, obj *schema.LicenseEntitlement) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, licenseEntitlementImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -12661,7 +13654,7 @@ func (ec *executionContext) _LicenseEntitlement(ctx context.Context, sel ast.Sel
 
 var licenseFamilyImplementors = []string{"LicenseFamily"}
 
-func (ec *executionContext) _LicenseFamily(ctx context.Context, sel ast.SelectionSet, obj *schema3.LicenseFamily) graphql.Marshaler {
+func (ec *executionContext) _LicenseFamily(ctx context.Context, sel ast.SelectionSet, obj *schema.LicenseFamily) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, licenseFamilyImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -12704,7 +13697,7 @@ func (ec *executionContext) _LicenseFamily(ctx context.Context, sel ast.Selectio
 
 var licenseFamilyViewImplementors = []string{"LicenseFamilyView"}
 
-func (ec *executionContext) _LicenseFamilyView(ctx context.Context, sel ast.SelectionSet, obj *schema3.LicenseFamilyView) graphql.Marshaler {
+func (ec *executionContext) _LicenseFamilyView(ctx context.Context, sel ast.SelectionSet, obj *schema.LicenseFamilyView) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, licenseFamilyViewImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -12795,7 +13788,7 @@ func (ec *executionContext) _LicenseFamilyView(ctx context.Context, sel ast.Sele
 
 var licensePageImplementors = []string{"LicensePage"}
 
-func (ec *executionContext) _LicensePage(ctx context.Context, sel ast.SelectionSet, obj *schema3.LicensePage) graphql.Marshaler {
+func (ec *executionContext) _LicensePage(ctx context.Context, sel ast.SelectionSet, obj *schema.LicensePage) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, licensePageImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -12979,7 +13972,7 @@ func (ec *executionContext) _MetadataFieldPage(ctx context.Context, sel ast.Sele
 
 var modelImplementors = []string{"Model"}
 
-func (ec *executionContext) _Model(ctx context.Context, sel ast.SelectionSet, obj *schema.Model) graphql.Marshaler {
+func (ec *executionContext) _Model(ctx context.Context, sel ast.SelectionSet, obj *schema1.Model) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, modelImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -13052,7 +14045,7 @@ func (ec *executionContext) _Model(ctx context.Context, sel ast.SelectionSet, ob
 
 var organizationAuditTrailImplementors = []string{"OrganizationAuditTrail"}
 
-func (ec *executionContext) _OrganizationAuditTrail(ctx context.Context, sel ast.SelectionSet, obj *schema1.OrganizationAuditTrail) graphql.Marshaler {
+func (ec *executionContext) _OrganizationAuditTrail(ctx context.Context, sel ast.SelectionSet, obj *schema2.OrganizationAuditTrail) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, organizationAuditTrailImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -13140,7 +14133,7 @@ func (ec *executionContext) _OrganizationAuditTrail(ctx context.Context, sel ast
 
 var organizationAuditTrailPageImplementors = []string{"OrganizationAuditTrailPage"}
 
-func (ec *executionContext) _OrganizationAuditTrailPage(ctx context.Context, sel ast.SelectionSet, obj *schema1.OrganizationAuditTrailPage) graphql.Marshaler {
+func (ec *executionContext) _OrganizationAuditTrailPage(ctx context.Context, sel ast.SelectionSet, obj *schema2.OrganizationAuditTrailPage) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, organizationAuditTrailPageImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -14357,11 +15350,11 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
-func (ec *executionContext) marshalNAuditTrail2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐAuditTrail(ctx context.Context, sel ast.SelectionSet, v schema1.AuditTrail) graphql.Marshaler {
+func (ec *executionContext) marshalNAuditTrail2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐAuditTrail(ctx context.Context, sel ast.SelectionSet, v schema2.AuditTrail) graphql.Marshaler {
 	return ec._AuditTrail(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNAuditTrail2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐAuditTrailᚄ(ctx context.Context, sel ast.SelectionSet, v []schema1.AuditTrail) graphql.Marshaler {
+func (ec *executionContext) marshalNAuditTrail2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐAuditTrailᚄ(ctx context.Context, sel ast.SelectionSet, v []schema2.AuditTrail) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
@@ -14377,11 +15370,11 @@ func (ec *executionContext) marshalNAuditTrail2ᚕgithubᚗcomᚋkaitencloudᚋk
 	return ret
 }
 
-func (ec *executionContext) marshalNAuditTrailPage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐAuditTrailPage(ctx context.Context, sel ast.SelectionSet, v schema1.AuditTrailPage) graphql.Marshaler {
+func (ec *executionContext) marshalNAuditTrailPage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐAuditTrailPage(ctx context.Context, sel ast.SelectionSet, v schema2.AuditTrailPage) graphql.Marshaler {
 	return ec._AuditTrailPage(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNAuditTrailPage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐAuditTrailPage(ctx context.Context, sel ast.SelectionSet, v *schema1.AuditTrailPage) graphql.Marshaler {
+func (ec *executionContext) marshalNAuditTrailPage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐAuditTrailPage(ctx context.Context, sel ast.SelectionSet, v *schema2.AuditTrailPage) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -14399,6 +15392,23 @@ func (ec *executionContext) unmarshalNBoolean2bool(ctx context.Context, v any) (
 func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.SelectionSet, v bool) graphql.Marshaler {
 	_ = sel
 	res := graphql.MarshalBoolean(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNChargeOnErrorPolicy2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋusageᚋaicreditᚐChargeOnError(ctx context.Context, v any) (aicredit.ChargeOnError, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := aicredit.ChargeOnError(tmp)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNChargeOnErrorPolicy2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋusageᚋaicreditᚐChargeOnError(ctx context.Context, sel ast.SelectionSet, v aicredit.ChargeOnError) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(string(v))
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -14441,11 +15451,52 @@ func (ec *executionContext) marshalNComponentPage2ᚖgithubᚗcomᚋkaitencloud�
 	return ec._ComponentPage(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCustomer2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomer(ctx context.Context, sel ast.SelectionSet, v schema2.Customer) graphql.Marshaler {
+func (ec *executionContext) marshalNConversionRates2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐConversionRates(ctx context.Context, sel ast.SelectionSet, v schema.ConversionRates) graphql.Marshaler {
+	return ec._ConversionRates(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNConversionRule2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐConversionRule(ctx context.Context, sel ast.SelectionSet, v schema.ConversionRule) graphql.Marshaler {
+	return ec._ConversionRule(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNConversionRule2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐConversionRuleᚄ(ctx context.Context, sel ast.SelectionSet, v []schema.ConversionRule) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNConversionRule2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐConversionRule(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNConversionRuleStatus2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐConversionRuleStatus(ctx context.Context, v any) (schema.ConversionRuleStatus, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := schema.ConversionRuleStatus(tmp)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNConversionRuleStatus2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐConversionRuleStatus(ctx context.Context, sel ast.SelectionSet, v schema.ConversionRuleStatus) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(string(v))
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) marshalNCustomer2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomer(ctx context.Context, sel ast.SelectionSet, v schema3.Customer) graphql.Marshaler {
 	return ec._Customer(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNCustomer2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomerᚄ(ctx context.Context, sel ast.SelectionSet, v []schema2.Customer) graphql.Marshaler {
+func (ec *executionContext) marshalNCustomer2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomerᚄ(ctx context.Context, sel ast.SelectionSet, v []schema3.Customer) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
@@ -14461,7 +15512,7 @@ func (ec *executionContext) marshalNCustomer2ᚕgithubᚗcomᚋkaitencloudᚋkai
 	return ret
 }
 
-func (ec *executionContext) marshalNCustomer2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomer(ctx context.Context, sel ast.SelectionSet, v *schema2.Customer) graphql.Marshaler {
+func (ec *executionContext) marshalNCustomer2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomer(ctx context.Context, sel ast.SelectionSet, v *schema3.Customer) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -14471,11 +15522,11 @@ func (ec *executionContext) marshalNCustomer2ᚖgithubᚗcomᚋkaitencloudᚋkai
 	return ec._Customer(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNCustomerPage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomerPage(ctx context.Context, sel ast.SelectionSet, v schema2.CustomerPage) graphql.Marshaler {
+func (ec *executionContext) marshalNCustomerPage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomerPage(ctx context.Context, sel ast.SelectionSet, v schema3.CustomerPage) graphql.Marshaler {
 	return ec._CustomerPage(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNCustomerPage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomerPage(ctx context.Context, sel ast.SelectionSet, v *schema2.CustomerPage) graphql.Marshaler {
+func (ec *executionContext) marshalNCustomerPage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomerPage(ctx context.Context, sel ast.SelectionSet, v *schema3.CustomerPage) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -14593,11 +15644,11 @@ func (ec *executionContext) marshalNEntitlementPage2ᚖgithubᚗcomᚋkaitenclou
 	return ec._EntitlementPage(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNEntitlementUsage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐEntitlementUsage(ctx context.Context, sel ast.SelectionSet, v schema1.EntitlementUsage) graphql.Marshaler {
+func (ec *executionContext) marshalNEntitlementUsage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐEntitlementUsage(ctx context.Context, sel ast.SelectionSet, v schema2.EntitlementUsage) graphql.Marshaler {
 	return ec._EntitlementUsage(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNEntitlementUsage2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐEntitlementUsageᚄ(ctx context.Context, sel ast.SelectionSet, v []schema1.EntitlementUsage) graphql.Marshaler {
+func (ec *executionContext) marshalNEntitlementUsage2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐEntitlementUsageᚄ(ctx context.Context, sel ast.SelectionSet, v []schema2.EntitlementUsage) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
@@ -14613,11 +15664,11 @@ func (ec *executionContext) marshalNEntitlementUsage2ᚕgithubᚗcomᚋkaitenclo
 	return ret
 }
 
-func (ec *executionContext) marshalNInstance2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstance(ctx context.Context, sel ast.SelectionSet, v schema1.Instance) graphql.Marshaler {
+func (ec *executionContext) marshalNInstance2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstance(ctx context.Context, sel ast.SelectionSet, v schema2.Instance) graphql.Marshaler {
 	return ec._Instance(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNInstance2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstanceᚄ(ctx context.Context, sel ast.SelectionSet, v []schema1.Instance) graphql.Marshaler {
+func (ec *executionContext) marshalNInstance2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstanceᚄ(ctx context.Context, sel ast.SelectionSet, v []schema2.Instance) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
@@ -14633,11 +15684,11 @@ func (ec *executionContext) marshalNInstance2ᚕgithubᚗcomᚋkaitencloudᚋkai
 	return ret
 }
 
-func (ec *executionContext) marshalNInstancePage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstancePage(ctx context.Context, sel ast.SelectionSet, v schema1.InstancePage) graphql.Marshaler {
+func (ec *executionContext) marshalNInstancePage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstancePage(ctx context.Context, sel ast.SelectionSet, v schema2.InstancePage) graphql.Marshaler {
 	return ec._InstancePage(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNInstancePage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstancePage(ctx context.Context, sel ast.SelectionSet, v *schema1.InstancePage) graphql.Marshaler {
+func (ec *executionContext) marshalNInstancePage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstancePage(ctx context.Context, sel ast.SelectionSet, v *schema2.InstancePage) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -14647,13 +15698,13 @@ func (ec *executionContext) marshalNInstancePage2ᚖgithubᚗcomᚋkaitencloud�
 	return ec._InstancePage(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNInstanceStatus2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstanceStatus(ctx context.Context, v any) (schema1.InstanceStatus, error) {
+func (ec *executionContext) unmarshalNInstanceStatus2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstanceStatus(ctx context.Context, v any) (schema2.InstanceStatus, error) {
 	tmp, err := graphql.UnmarshalString(v)
-	res := schema1.InstanceStatus(tmp)
+	res := schema2.InstanceStatus(tmp)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNInstanceStatus2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstanceStatus(ctx context.Context, sel ast.SelectionSet, v schema1.InstanceStatus) graphql.Marshaler {
+func (ec *executionContext) marshalNInstanceStatus2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstanceStatus(ctx context.Context, sel ast.SelectionSet, v schema2.InstanceStatus) graphql.Marshaler {
 	_ = sel
 	res := graphql.MarshalString(string(v))
 	if res == graphql.Null {
@@ -14680,11 +15731,11 @@ func (ec *executionContext) marshalNInt2int32(ctx context.Context, sel ast.Selec
 	return res
 }
 
-func (ec *executionContext) marshalNLicense2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicense(ctx context.Context, sel ast.SelectionSet, v schema3.License) graphql.Marshaler {
+func (ec *executionContext) marshalNLicense2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicense(ctx context.Context, sel ast.SelectionSet, v schema.License) graphql.Marshaler {
 	return ec._License(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNLicense2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseᚄ(ctx context.Context, sel ast.SelectionSet, v []schema3.License) graphql.Marshaler {
+func (ec *executionContext) marshalNLicense2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseᚄ(ctx context.Context, sel ast.SelectionSet, v []schema.License) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
@@ -14700,7 +15751,7 @@ func (ec *executionContext) marshalNLicense2ᚕgithubᚗcomᚋkaitencloudᚋkait
 	return ret
 }
 
-func (ec *executionContext) marshalNLicense2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicense(ctx context.Context, sel ast.SelectionSet, v *schema3.License) graphql.Marshaler {
+func (ec *executionContext) marshalNLicense2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicense(ctx context.Context, sel ast.SelectionSet, v *schema.License) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -14710,11 +15761,11 @@ func (ec *executionContext) marshalNLicense2ᚖgithubᚗcomᚋkaitencloudᚋkait
 	return ec._License(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNLicenseEntitlement2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseEntitlement(ctx context.Context, sel ast.SelectionSet, v schema3.LicenseEntitlement) graphql.Marshaler {
+func (ec *executionContext) marshalNLicenseEntitlement2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseEntitlement(ctx context.Context, sel ast.SelectionSet, v schema.LicenseEntitlement) graphql.Marshaler {
 	return ec._LicenseEntitlement(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNLicenseEntitlement2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseEntitlementᚄ(ctx context.Context, sel ast.SelectionSet, v []schema3.LicenseEntitlement) graphql.Marshaler {
+func (ec *executionContext) marshalNLicenseEntitlement2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseEntitlementᚄ(ctx context.Context, sel ast.SelectionSet, v []schema.LicenseEntitlement) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
@@ -14730,11 +15781,11 @@ func (ec *executionContext) marshalNLicenseEntitlement2ᚕgithubᚗcomᚋkaitenc
 	return ret
 }
 
-func (ec *executionContext) marshalNLicenseFamily2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseFamily(ctx context.Context, sel ast.SelectionSet, v schema3.LicenseFamily) graphql.Marshaler {
+func (ec *executionContext) marshalNLicenseFamily2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseFamily(ctx context.Context, sel ast.SelectionSet, v schema.LicenseFamily) graphql.Marshaler {
 	return ec._LicenseFamily(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNLicenseFamily2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseFamily(ctx context.Context, sel ast.SelectionSet, v *schema3.LicenseFamily) graphql.Marshaler {
+func (ec *executionContext) marshalNLicenseFamily2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseFamily(ctx context.Context, sel ast.SelectionSet, v *schema.LicenseFamily) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -14744,13 +15795,13 @@ func (ec *executionContext) marshalNLicenseFamily2ᚖgithubᚗcomᚋkaitencloud�
 	return ec._LicenseFamily(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNLicenseLifecycleState2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLifecycleState(ctx context.Context, v any) (schema3.LifecycleState, error) {
+func (ec *executionContext) unmarshalNLicenseLifecycleState2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLifecycleState(ctx context.Context, v any) (schema.LifecycleState, error) {
 	tmp, err := graphql.UnmarshalString(v)
-	res := schema3.LifecycleState(tmp)
+	res := schema.LifecycleState(tmp)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNLicenseLifecycleState2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLifecycleState(ctx context.Context, sel ast.SelectionSet, v schema3.LifecycleState) graphql.Marshaler {
+func (ec *executionContext) marshalNLicenseLifecycleState2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLifecycleState(ctx context.Context, sel ast.SelectionSet, v schema.LifecycleState) graphql.Marshaler {
 	_ = sel
 	res := graphql.MarshalString(string(v))
 	if res == graphql.Null {
@@ -14761,11 +15812,11 @@ func (ec *executionContext) marshalNLicenseLifecycleState2githubᚗcomᚋkaitenc
 	return res
 }
 
-func (ec *executionContext) marshalNLicensePage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicensePage(ctx context.Context, sel ast.SelectionSet, v schema3.LicensePage) graphql.Marshaler {
+func (ec *executionContext) marshalNLicensePage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicensePage(ctx context.Context, sel ast.SelectionSet, v schema.LicensePage) graphql.Marshaler {
 	return ec._LicensePage(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNLicensePage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicensePage(ctx context.Context, sel ast.SelectionSet, v *schema3.LicensePage) graphql.Marshaler {
+func (ec *executionContext) marshalNLicensePage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicensePage(ctx context.Context, sel ast.SelectionSet, v *schema.LicensePage) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -14775,13 +15826,13 @@ func (ec *executionContext) marshalNLicensePage2ᚖgithubᚗcomᚋkaitencloudᚋ
 	return ec._LicensePage(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNLicenseType2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐType(ctx context.Context, v any) (schema3.Type, error) {
+func (ec *executionContext) unmarshalNLicenseType2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐType(ctx context.Context, v any) (schema.Type, error) {
 	tmp, err := graphql.UnmarshalString(v)
-	res := schema3.Type(tmp)
+	res := schema.Type(tmp)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNLicenseType2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐType(ctx context.Context, sel ast.SelectionSet, v schema3.Type) graphql.Marshaler {
+func (ec *executionContext) marshalNLicenseType2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐType(ctx context.Context, sel ast.SelectionSet, v schema.Type) graphql.Marshaler {
 	_ = sel
 	res := graphql.MarshalString(string(v))
 	if res == graphql.Null {
@@ -14865,11 +15916,11 @@ func (ec *executionContext) marshalNMetadataFieldResourceType2githubᚗcomᚋkai
 	return res
 }
 
-func (ec *executionContext) marshalNModel2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐModel(ctx context.Context, sel ast.SelectionSet, v schema.Model) graphql.Marshaler {
+func (ec *executionContext) marshalNModel2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐModel(ctx context.Context, sel ast.SelectionSet, v schema1.Model) graphql.Marshaler {
 	return ec._Model(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNModel2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐModelᚄ(ctx context.Context, sel ast.SelectionSet, v []schema.Model) graphql.Marshaler {
+func (ec *executionContext) marshalNModel2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐModelᚄ(ctx context.Context, sel ast.SelectionSet, v []schema1.Model) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
@@ -14885,13 +15936,13 @@ func (ec *executionContext) marshalNModel2ᚕgithubᚗcomᚋkaitencloudᚋkaiten
 	return ret
 }
 
-func (ec *executionContext) unmarshalNModelModality2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐModality(ctx context.Context, v any) (schema.Modality, error) {
+func (ec *executionContext) unmarshalNModelModality2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐModality(ctx context.Context, v any) (schema1.Modality, error) {
 	tmp, err := graphql.UnmarshalString(v)
-	res := schema.Modality(tmp)
+	res := schema1.Modality(tmp)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNModelModality2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐModality(ctx context.Context, sel ast.SelectionSet, v schema.Modality) graphql.Marshaler {
+func (ec *executionContext) marshalNModelModality2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐModality(ctx context.Context, sel ast.SelectionSet, v schema1.Modality) graphql.Marshaler {
 	_ = sel
 	res := graphql.MarshalString(string(v))
 	if res == graphql.Null {
@@ -14902,13 +15953,13 @@ func (ec *executionContext) marshalNModelModality2githubᚗcomᚋkaitencloudᚋk
 	return res
 }
 
-func (ec *executionContext) unmarshalNModelStatus2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐStatus(ctx context.Context, v any) (schema.Status, error) {
+func (ec *executionContext) unmarshalNModelStatus2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐStatus(ctx context.Context, v any) (schema1.Status, error) {
 	tmp, err := graphql.UnmarshalString(v)
-	res := schema.Status(tmp)
+	res := schema1.Status(tmp)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalNModelStatus2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐStatus(ctx context.Context, sel ast.SelectionSet, v schema.Status) graphql.Marshaler {
+func (ec *executionContext) marshalNModelStatus2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐStatus(ctx context.Context, sel ast.SelectionSet, v schema1.Status) graphql.Marshaler {
 	_ = sel
 	res := graphql.MarshalString(string(v))
 	if res == graphql.Null {
@@ -14919,11 +15970,11 @@ func (ec *executionContext) marshalNModelStatus2githubᚗcomᚋkaitencloudᚋkai
 	return res
 }
 
-func (ec *executionContext) marshalNOrganizationAuditTrail2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐOrganizationAuditTrail(ctx context.Context, sel ast.SelectionSet, v schema1.OrganizationAuditTrail) graphql.Marshaler {
+func (ec *executionContext) marshalNOrganizationAuditTrail2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐOrganizationAuditTrail(ctx context.Context, sel ast.SelectionSet, v schema2.OrganizationAuditTrail) graphql.Marshaler {
 	return ec._OrganizationAuditTrail(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNOrganizationAuditTrail2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐOrganizationAuditTrailᚄ(ctx context.Context, sel ast.SelectionSet, v []schema1.OrganizationAuditTrail) graphql.Marshaler {
+func (ec *executionContext) marshalNOrganizationAuditTrail2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐOrganizationAuditTrailᚄ(ctx context.Context, sel ast.SelectionSet, v []schema2.OrganizationAuditTrail) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
@@ -14939,11 +15990,11 @@ func (ec *executionContext) marshalNOrganizationAuditTrail2ᚕgithubᚗcomᚋkai
 	return ret
 }
 
-func (ec *executionContext) marshalNOrganizationAuditTrailPage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐOrganizationAuditTrailPage(ctx context.Context, sel ast.SelectionSet, v schema1.OrganizationAuditTrailPage) graphql.Marshaler {
+func (ec *executionContext) marshalNOrganizationAuditTrailPage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐOrganizationAuditTrailPage(ctx context.Context, sel ast.SelectionSet, v schema2.OrganizationAuditTrailPage) graphql.Marshaler {
 	return ec._OrganizationAuditTrailPage(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNOrganizationAuditTrailPage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐOrganizationAuditTrailPage(ctx context.Context, sel ast.SelectionSet, v *schema1.OrganizationAuditTrailPage) graphql.Marshaler {
+func (ec *executionContext) marshalNOrganizationAuditTrailPage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐOrganizationAuditTrailPage(ctx context.Context, sel ast.SelectionSet, v *schema2.OrganizationAuditTrailPage) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -15208,6 +16259,25 @@ func (ec *executionContext) marshalN__TypeKind2string(ctx context.Context, sel a
 	return res
 }
 
+func (ec *executionContext) unmarshalOAiRequestType2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋusageᚋaicreditᚐRequestType(ctx context.Context, v any) (*aicredit.RequestType, error) {
+	if v == nil {
+		return nil, nil
+	}
+	tmp, err := graphql.UnmarshalString(v)
+	res := aicredit.RequestType(tmp)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOAiRequestType2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋusageᚋaicreditᚐRequestType(ctx context.Context, sel ast.SelectionSet, v *aicredit.RequestType) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(string(*v))
+	return res
+}
+
 func (ec *executionContext) unmarshalOBoolean2bool(ctx context.Context, v any) (bool, error) {
 	res, err := graphql.UnmarshalBoolean(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -15245,7 +16315,26 @@ func (ec *executionContext) marshalOComponent2ᚖgithubᚗcomᚋkaitencloudᚋka
 	return ec._Component(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOCustomer2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomer(ctx context.Context, sel ast.SelectionSet, v *schema2.Customer) graphql.Marshaler {
+func (ec *executionContext) unmarshalOConversionRuleStatus2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐConversionRuleStatus(ctx context.Context, v any) (*schema.ConversionRuleStatus, error) {
+	if v == nil {
+		return nil, nil
+	}
+	tmp, err := graphql.UnmarshalString(v)
+	res := schema.ConversionRuleStatus(tmp)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOConversionRuleStatus2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐConversionRuleStatus(ctx context.Context, sel ast.SelectionSet, v *schema.ConversionRuleStatus) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(string(*v))
+	return res
+}
+
+func (ec *executionContext) marshalOCustomer2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcustomersᚋschemaᚐCustomer(ctx context.Context, sel ast.SelectionSet, v *schema3.Customer) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -15352,7 +16441,7 @@ func (ec *executionContext) marshalOFloat2ᚖfloat64(ctx context.Context, sel as
 	return graphql.WrapContextMarshaler(ctx, res)
 }
 
-func (ec *executionContext) marshalOInstance2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstance(ctx context.Context, sel ast.SelectionSet, v *schema1.Instance) graphql.Marshaler {
+func (ec *executionContext) marshalOInstance2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstance(ctx context.Context, sel ast.SelectionSet, v *schema2.Instance) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -15395,14 +16484,14 @@ func (ec *executionContext) marshalOInt2ᚖint32(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) marshalOLicense2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicense(ctx context.Context, sel ast.SelectionSet, v *schema3.License) graphql.Marshaler {
+func (ec *executionContext) marshalOLicense2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicense(ctx context.Context, sel ast.SelectionSet, v *schema.License) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._License(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOLicenseFamilyView2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseFamilyView(ctx context.Context, sel ast.SelectionSet, v *schema3.LicenseFamilyView) graphql.Marshaler {
+func (ec *executionContext) marshalOLicenseFamilyView2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseFamilyView(ctx context.Context, sel ast.SelectionSet, v *schema.LicenseFamilyView) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
@@ -15427,16 +16516,16 @@ func (ec *executionContext) marshalOMap2map(ctx context.Context, sel ast.Selecti
 	return res
 }
 
-func (ec *executionContext) unmarshalOModelStatus2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐStatus(ctx context.Context, v any) (*schema.Status, error) {
+func (ec *executionContext) unmarshalOModelStatus2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐStatus(ctx context.Context, v any) (*schema1.Status, error) {
 	if v == nil {
 		return nil, nil
 	}
 	tmp, err := graphql.UnmarshalString(v)
-	res := schema.Status(tmp)
+	res := schema1.Status(tmp)
 	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
-func (ec *executionContext) marshalOModelStatus2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐStatus(ctx context.Context, sel ast.SelectionSet, v *schema.Status) graphql.Marshaler {
+func (ec *executionContext) marshalOModelStatus2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋmodelsᚋschemaᚐStatus(ctx context.Context, sel ast.SelectionSet, v *schema1.Status) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}

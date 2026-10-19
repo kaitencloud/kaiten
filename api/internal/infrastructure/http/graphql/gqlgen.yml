@@ -29,6 +29,16 @@ resolver:
 
 # Map GraphQL types and scalars to existing domain model types (reuse existing Go schemas)
 models:
+  ConversionRule:
+    model: github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.ConversionRule
+  ConversionRates:
+    model: github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.ConversionRates
+  ConversionRuleStatus:
+    model: github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.ConversionRuleStatus
+  AiRequestType:
+    model: github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit.RequestType
+  ChargeOnErrorPolicy:
+    model: github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit.ChargeOnError
   ID:
     model:
       - github.com/99designs/gqlgen/graphql.ID
@@ -106,6 +116,8 @@ models:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.License
     fields:
+      conversionRules:
+        resolver: true
       entitlements:
         resolver: true
       family:

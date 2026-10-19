@@ -343,11 +343,13 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 			organizationAuditTrails(limit: 5) { items { id payload } }
 		}`,
 		"licenses": `query ($license: String!) {
+ models { slug }
 			licenses(limit: 5) {
 				items {
 					slug
 					family { slug }
 					instances { slug }
+					conversionRules { id rates { perRequest } }
 					entitlements {
 						entitlementSlug value unlimited
 						entitlement { slug entitlementGroups { slug } }
