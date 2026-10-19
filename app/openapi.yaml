@@ -537,36 +537,50 @@ components:
       additionalProperties: false
       properties:
         perCacheWriteToken:
+          examples:
+            - "0.001"
           pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
           type:
             - string
             - "null"
         perCachedInputToken:
+          examples:
+            - "0.001"
           pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
           type:
             - string
             - "null"
         perInputToken:
+          examples:
+            - "0.001"
           pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
           type:
             - string
             - "null"
         perOutputToken:
+          examples:
+            - "0.001"
           pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
           type:
             - string
             - "null"
         perRequest:
+          examples:
+            - "0.001"
           pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
           type:
             - string
             - "null"
         perSecond:
+          examples:
+            - "0.001"
           pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
           type:
             - string
             - "null"
         perUnit:
+          examples:
+            - "0.001"
           pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
           type:
             - string
@@ -594,11 +608,15 @@ components:
         licenseSlug:
           type: string
         maximumCreditsPerRequest:
+          examples:
+            - "0.001"
           pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
           type:
             - string
             - "null"
         minimumCreditsPerRequest:
+          examples:
+            - "0.001"
           pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
           type: string
         modelSlug:
@@ -2550,6 +2568,8 @@ components:
           type: string
         slug:
           description: Immutable URL-friendly identifier, unique per organization
+          examples:
+            - sample-model
           maxLength: 100
           minLength: 2
           pattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
@@ -3741,21 +3761,33 @@ components:
             - USD
           type: string
         perCacheWriteToken:
+          examples:
+            - "0.001"
           pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
           type: string
         perCachedInputToken:
+          examples:
+            - "0.001"
           pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
           type: string
         perInputToken:
+          examples:
+            - "0.001"
           pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
           type: string
         perOutputToken:
+          examples:
+            - "0.001"
           pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
           type: string
         perRequest:
+          examples:
+            - "0.001"
           pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
           type: string
         perUnit:
+          examples:
+            - "0.001"
           pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
           type: string
       required:
