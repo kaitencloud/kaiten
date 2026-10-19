@@ -231,6 +231,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 			AddonQuantity:   addonModule.SetInstanceAddonQuantity,
 			AddonDetach:     addonModule.DetachInstanceAddon,
 			Subscription:    billingModule.GetInstanceBilling,
+			Checkout:        billingModule.SubscribeInstance,
 			UpcomingInvoice: billingModule.GetUpcomingInvoice,
 			Entitlements:    instanceModule.GetEntitlementsUsageMetrics,
 			Redemptions:     voucherModule.ListInstanceVouchers,

@@ -10,7 +10,8 @@
 //     public family's default version, the add-ons of public families that fit
 //     it (rule 1);
 //   - the instance is moved to that price's version in the subscribe's
-//     transaction (rule 2);
+//     transaction (rule 2); a free live subscription is canceled first, in
+//     the same transaction, with no invoice (V31-68);
 //   - a paid plan is charged automatically, so a payment method is captured
 //     first when the customer has none and something is due today, or the plan
 //     requires one (rule 3): the call answers a hosted setup page, and the
@@ -224,7 +225,7 @@ func (u *UseCase) Execute(ctx context.Context, session Session, request SessionC
 	base := subscribeinstance.Command{
 		BasePriceID: request.LicensePriceID, ProviderKind: "", CollectionMethod: nil, DaysUntilDue: nil, StartAt: nil,
 		TrialDays: nil, AddOns: request.AddOns, VoucherCode: request.VoucherCode,
-		MoveToLicenseID: &licenseID, AllowMissingPaymentMethod: false, DryRun: false,
+		MoveToLicenseID: &licenseID, ReplaceFree: true, AllowMissingPaymentMethod: false, DryRun: false,
 	}
 	if request.Trial != nil && !*request.Trial {
 		none := int32(0)
@@ -411,7 +412,7 @@ func translate(err error) error {
 	switch refusal.Code {
 	case "SubscribeInstance.AlreadySubscribed":
 		return kaitenerrors.Conflict(operation+".AlreadySubscribed",
-			"this instance already has a live subscription; a plan change is made by the vendor")
+			"this instance already has a live subscription that is not free; a plan change is made by the vendor")
 	case "SubscribeInstance.VoucherInvalid":
 		// Opaque on purpose (rule 7): why a code is refused is not the browser's
 		// to learn, one code at a time.

@@ -278,6 +278,43 @@ func (q *Queries) InsertInstanceBilling(ctx context.Context, arg InsertInstanceB
 	return i, err
 }
 
+const isFreeSubscription = `-- name: IsFreeSubscription :one
+SELECT (EXISTS (SELECT 1
+                FROM license l
+                WHERE l.organization_id = $1
+                  AND l.id = $2)
+    AND NOT EXISTS (SELECT 1
+                    FROM license l
+                    JOIN license v ON v.family_id = l.family_id AND v.organization_id = l.organization_id
+                    WHERE l.organization_id = $1
+                      AND l.id = $2
+                      AND v.pricing_type <> 'FREE')
+    AND NOT EXISTS (SELECT 1
+                    FROM instance_addon ia
+                    JOIN addon_price p ON p.addon_id = ia.addon_id AND p.organization_id = ia.organization_id
+                    WHERE ia.organization_id = $1
+                      AND ia.instance_id = $3
+                      AND ia.removed_at IS NULL
+                      AND p.unit_amount_decimal > 0))::boolean AS free
+`
+
+type IsFreeSubscriptionParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	LicenseID      uuid.UUID `json:"license_id"`
+	InstanceID     uuid.UUID `json:"instance_id"`
+}
+
+// Whether the subscription of an instance on that licence version is free
+// (§0 Conventions, V31-68): the version's family is FREE, every version of it
+// priced FREE, and no add-on version the instance holds has a price above 0.
+// Only a free subscription is replaced by a public checkout.
+func (q *Queries) IsFreeSubscription(ctx context.Context, arg IsFreeSubscriptionParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isFreeSubscription, arg.OrganizationID, arg.LicenseID, arg.InstanceID)
+	var free bool
+	err := row.Scan(&free)
+	return free, err
+}
+
 const listInstanceBillingSummaries = `-- name: ListInstanceBillingSummaries :many
 SELECT ib.instance_id::uuid AS instance_id, ib.status, ib.provider_kind, ib.current_period_end,
        ib.cancel_at_period_end, ib.past_due_since, ib.trial_ends_at

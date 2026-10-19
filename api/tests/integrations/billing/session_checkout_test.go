@@ -1,7 +1,9 @@
 package billing_test
 
 import (
+	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -55,6 +57,105 @@ func TestSessionCheckoutFreePlan(t *testing.T) {
 
 	require.Equal(t, "CreateSessionCheckout.AlreadySubscribed",
 		sessionProblem(t, sessionCall(t, testServer, "POST", checkoutPath, session.Token, storefront, order), fiber.StatusConflict))
+}
+
+// TestSessionCheckoutReplacesAFreePlan: a checkout accepts an instance whose
+// live subscription is free -- a FREE family, no add-on price above 0 -- and
+// in its transaction cancels it at once, with no invoice, then subscribes the
+// same row (§9.10 rule 6, V31-68). Any other live subscription is refused.
+func TestSessionCheckoutReplacesAFreePlan(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	community := newDefaultVersion(t, "Community", "FREE")
+	makePublic(t, community.FamilySlug)
+	communityFree := createPrice(t, community.Slug, defaultFlatFee("0", "MONTHLY"))
+	hobby := newDefaultVersion(t, "Hobby", "FREE")
+	makePublic(t, hobby.FamilySlug)
+	hobbyFree := createPrice(t, hobby.Slug, defaultFlatFee("0", "MONTHLY"))
+	pro := newDefaultVersion(t, "Pro", "PAID")
+	makePublic(t, pro.FamilySlug)
+	proMonthly := createPrice(t, pro.Slug, defaultFlatFee("2900", "MONTHLY"))
+	newPublishableKey(t, storefront)
+	customer := newCustomer(t, "acme")
+
+	instance := newInstance(t, "Acme prod", customer.ID, community.ID)
+	// Subscribed an hour ago: its ACTIVATION and the checkout's start at
+	// different instants.
+	before := subscribe(t, instance.Slug, map[string]any{"basePriceId": communityFree.ID, "startAt": time.Now().UTC().Add(-time.Hour)})
+	session := mintSession(t, testServer, customer.Slug, instance.Slug)
+	require.True(t, portalOf(t, session.Token).Capabilities.Checkout, "a free live subscription can be replaced")
+
+	require.Equal(t, "CreateSessionCheckout.AlreadySubscribed", sessionProblem(t, sessionCall(t, testServer, "POST", checkoutPath,
+		session.Token, storefront, map[string]any{"licensePriceId": communityFree.ID}), fiber.StatusConflict),
+		"a checkout replaces a free subscription with another price, not with the same one")
+
+	order := map[string]any{"licensePriceId": hobbyFree.ID}
+	preview := commonfixture.AssertJSONResponse[createsessioncheckout.SessionCheckout](t,
+		sessionCall(t, testServer, "POST", checkoutPath, session.Token, storefront, with(order, "dryRun", true)), fiber.StatusOK)
+	require.Equal(t, createsessioncheckout.StatusPreview, preview.Status)
+	still := commonfixture.AssertJSONResponse[subscriptions.InstanceBilling](t,
+		call(t, "GET", "/api/instances/"+instance.Slug+"/billing", nil), fiber.StatusOK)
+	require.Equal(t, "ACTIVE", still.Status, "a dry run cancels nothing")
+	require.Equal(t, communityFree.ID, still.BasePrice.ID)
+	require.Empty(t, outboxPayloads(t, "INSTANCE_BILLING_CANCELED"))
+
+	done := commonfixture.AssertJSONResponse[createsessioncheckout.SessionCheckout](t,
+		sessionCall(t, testServer, "POST", checkoutPath, session.Token, storefront, order), fiber.StatusCreated)
+	require.Equal(t, createsessioncheckout.StatusSubscribed, done.Status)
+	require.Equal(t, "ACTIVE", done.Subscription.Status)
+	after := commonfixture.AssertJSONResponse[subscriptions.InstanceBilling](t,
+		call(t, "GET", "/api/instances/"+instance.Slug+"/billing", nil), fiber.StatusOK)
+	require.Equal(t, before.ID, after.ID, "the same row, subscribed again")
+	require.Equal(t, hobbyFree.ID, after.BasePrice.ID)
+	moved := commonfixture.AssertJSONResponse[instanceschema.Instance](t, call(t, "GET", "/api/instances/"+instance.Slug, nil), fiber.StatusOK)
+	require.Equal(t, hobby.ID, moved.LicenseID)
+
+	var finals int
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(),
+		`SELECT count(*) FROM instance_invoice WHERE kind = 'FINAL'`).Scan(&finals))
+	require.Zero(t, finals, "the free subscription is canceled with no invoice")
+	canceled := outboxPayloads(t, "INSTANCE_BILLING_CANCELED")
+	require.Len(t, canceled, 1)
+	require.Equal(t, "IMMEDIATE", canceled[0]["mode"])
+	require.Nil(t, canceled[0]["finalInvoiceId"])
+	require.Equal(t, "CANCELED", canceled[0]["status"])
+	// Both in the checkout's transaction, the cancellation written first.
+	var canceledAt, resubscribedAt []time.Time
+	for _, event := range commonfixture.ListOutboxEvents(t, testServer.Dependencies.DB, testDb.DefaultData.OrganizationID) {
+		var payload map[string]any
+		require.NoError(t, json.Unmarshal(event.Data, &payload))
+		switch {
+		case event.EventName == "INSTANCE_BILLING_CANCELED":
+			canceledAt = append(canceledAt, event.OccurredAt.Time)
+		case event.EventName == "INSTANCE_BILLING_STARTED" && payload["resubscribed"] == true:
+			resubscribedAt = append(resubscribedAt, event.OccurredAt.Time)
+		}
+	}
+	require.Len(t, resubscribedAt, 1)
+	require.Equal(t, canceledAt, resubscribedAt, "one transaction")
+
+	// Not free: a PAID family...
+	paid := newInstance(t, "Acme paid", customer.ID, pro.ID)
+	subscribe(t, paid.Slug, map[string]any{"basePriceId": proMonthly.ID})
+	paidSession := mintSession(t, testServer, customer.Slug, paid.Slug)
+	require.False(t, portalOf(t, paidSession.Token).Capabilities.Checkout)
+	require.Equal(t, "CreateSessionCheckout.AlreadySubscribed", sessionProblem(t, sessionCall(t, testServer, "POST", checkoutPath,
+		paidSession.Token, storefront, map[string]any{"licensePriceId": communityFree.ID}), fiber.StatusConflict))
+
+	// ...or a FREE family holding an add-on priced above 0.
+	addon := newAddon(t, map[string]any{"name": "Extra seats", "slug": "extra-seats"})
+	fits(t, addon.Slug, community.FamilySlug)
+	addonPrice(t, addon.Slug, defaultFlatFee("900", "MONTHLY"))
+	withAddon := newInstance(t, "Acme add-on", customer.ID, community.ID)
+	subscribe(t, withAddon.Slug, map[string]any{"basePriceId": communityFree.ID, "startAt": time.Now().UTC().Add(-time.Hour)})
+	attach(t, withAddon.Slug, addon.Slug, 1)
+	addonSession := mintSession(t, testServer, customer.Slug, withAddon.Slug)
+	require.False(t, portalOf(t, addonSession.Token).Capabilities.Checkout)
+	require.Equal(t, "CreateSessionCheckout.AlreadySubscribed", sessionProblem(t, sessionCall(t, testServer, "POST", checkoutPath,
+		addonSession.Token, storefront, map[string]any{"licensePriceId": hobbyFree.ID}), fiber.StatusConflict))
+
+	// The vendor's subscribe never replaces one.
+	require.Equal(t, "SubscribeInstance.AlreadySubscribed", commonfixture.AssertJSONResponse[kaitenerrors.Problem](t,
+		call(t, "POST", "/api/instances/"+instance.Slug+"/billing", map[string]any{"basePriceId": hobbyFree.ID}), fiber.StatusConflict).Code)
 }
 
 // TestSessionCheckoutRefusals: what the public contract refuses, before
