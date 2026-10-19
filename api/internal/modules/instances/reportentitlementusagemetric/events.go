@@ -58,3 +58,10 @@ type InstanceEntitlementUsagePeriodRolledOver struct {
 	// and PERIOD_ENDED otherwise, synthetic closures included (§6.7 rule 6).
 	Reason string `json:"reason" enum:"PERIOD_ENDED,ANCHOR_CHANGED"`
 }
+
+type InstanceAIModelUsageUnauthorized struct {
+	EntitlementSlug string `json:"entitlement_slug"`
+	Model           string `json:"model"`
+	RequestType     string `json:"request_type"`
+	Reason          string `json:"reason"`
+}

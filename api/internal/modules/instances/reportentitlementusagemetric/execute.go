@@ -14,6 +14,11 @@ import (
 )
 
 func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSlug string, command *Command) (result *Result, resultErr error) {
+	if command.AI != nil {
+		if err := validateAI(command, h.deps.ReservationMaxTTL); err != nil {
+			return nil, err
+		}
+	}
 	user, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return nil, err
@@ -45,7 +50,16 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 		}
 		st.Properties = properties
 		st.TransactionID = command.TransactionID
-		if command.TransactionID != nil {
+		if err := h.loadAI(ctx, st, command, instanceSlug); err != nil {
+			return err
+		}
+		if st.Replay != nil {
+			outcome = "replayed"
+			h.idempotentReplays.Add(ctx, 1)
+			result = &Result{Usage: st.Replay, Replayed: true}
+			return nil
+		}
+		if command.AI == nil && command.TransactionID != nil {
 			original, err := h.queryRepo.FindReportByTransactionID(ctx, user.OrganizationID, st.Pair.InstanceID, st.Pair.EntitlementID, *command.TransactionID, command.Value, st.Now.Add(-h.idempotencyWindow), st.Now.Add(idempotencyLookahead))
 			if err != nil {
 				return err
@@ -62,8 +76,10 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 				return nil
 			}
 		}
-		if err := h.queryRepo.LoadLimits(ctx, st.Pair, instanceSlug, entitlementSlug, user.OrganizationID); err != nil {
-			return err
+		if command.AI == nil {
+			if err := h.queryRepo.LoadLimits(ctx, st.Pair, instanceSlug, entitlementSlug, user.OrganizationID); err != nil {
+				return err
+			}
 		}
 		if err := h.resolveState(ctx, st); err != nil {
 			if errors.Is(err, usage.ErrRolloverLimitExceeded) {

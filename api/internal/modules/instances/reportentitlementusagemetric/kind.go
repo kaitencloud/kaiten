@@ -10,6 +10,9 @@ type kind interface {
 
 // kindFor dispatches on the value the report carries, before anything kind
 // specific -- a deduplication included -- reads the request.
-func kindFor(*Command) kind {
+func kindFor(cmd *Command) kind {
+	if cmd.AI != nil {
+		return aiKind{}
+	}
 	return numberKind{}
 }

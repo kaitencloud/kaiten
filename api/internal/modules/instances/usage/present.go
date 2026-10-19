@@ -24,6 +24,7 @@ type Gauge struct {
 	LicenseValue []byte
 	Counter      Counter
 	Window       Window
+	Reserved     *string
 }
 
 // ErrMissingLicenseValue is returned by Present for a BOOLEAN or CONFIG
@@ -50,6 +51,7 @@ func Present(g Gauge) (*schema.EntitlementUsage, error) {
 		LicenseID:       g.LicenseID,
 		LicenseSlug:     g.LicenseSlug,
 		Limit:           limit,
+		Reserved:        g.Reserved,
 	}
 	if !g.NumberFamily {
 		if limit == nil {

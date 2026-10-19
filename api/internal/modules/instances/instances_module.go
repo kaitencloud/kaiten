@@ -8,6 +8,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	auditdb "github.com/kaitencloud/kaiten/api/internal/modules/audittrail/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/listforinstance"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/aihistory"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/billableusage"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createintegrations"
@@ -32,6 +33,7 @@ import (
 )
 
 type UseCases struct {
+	AIHistory                    aihistory.Reader
 	CreateIntegration            *createintegrations.UseCase
 	CreateInstance               *createinstance.UseCase
 	DeleteIntegration            *deleteintegrations.UseCase
@@ -60,6 +62,7 @@ type UseCases struct {
 }
 
 func NewUseCases(svc services.Container) *UseCases {
+	startAIMaintenance(svc)
 	queries := db.New(svc.Pool)
 	auditTrailPort := listforinstance.NewUseCase(auditdb.New(svc.Pool))
 	ledgerSettings := usageledger.Settings{
@@ -70,6 +73,7 @@ func NewUseCases(svc services.Container) *UseCases {
 	retention := usageledger.Retention{Reader: svc.EntitlementConfig, Settings: ledgerSettings}
 	useCases := &UseCases{
 		BillableUsage: billableusage.New(svc.Pool, svc.Uof, retention),
+		AIHistory:     aihistory.Reader{User: svc.UserProvider, Queries: queries},
 		CreateIntegration: createintegrations.NewUseCase(createintegrations.Deps{
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
@@ -120,6 +124,8 @@ func NewUseCases(svc services.Container) *UseCases {
 			Uof:                 svc.Uof,
 			MaxRolloverClosures: svc.Config.Usage.RolloverMaxClosures,
 			IdempotencyWindow:   svc.Config.Usage.IdempotencyWindow,
+			ReservationTTL:      svc.Config.AIUsage.ReservationTTL,
+			ReservationMaxTTL:   svc.Config.AIUsage.ReservationMaxTTL,
 		}),
 		GetEntitlementUsageMetrics: getentitlementusagemetrics.NewUseCase(getentitlementusagemetrics.Deps{
 			UserProvider:     svc.UserProvider,

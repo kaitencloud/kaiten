@@ -309,7 +309,8 @@ SELECT
   date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
   coalesce(ib.status::text, '')::text AS billing_status,
   ib.anchor_at      AS billing_anchor_at,
-  ib.live_ended_at
+  ib.live_ended_at,
+ (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved
 FROM (VALUES (true)) AS sentinel(ok)
 LEFT JOIN instance i
   ON i.slug            = $1
@@ -359,6 +360,7 @@ type GetEntitlementUsageForInstanceOrDefaultRow struct {
 	BillingStatus           string                  `json:"billing_status"`
 	BillingAnchorAt         pgtype.Timestamp        `json:"billing_anchor_at"`
 	LiveEndedAt             pgtype.Timestamp        `json:"live_ended_at"`
+	Reserved                pgtype.Numeric          `json:"reserved"`
 }
 
 // Returns one row always. Nullable fields are nil when the entity is not found;
@@ -393,6 +395,7 @@ func (q *Queries) GetEntitlementUsageForInstanceOrDefault(ctx context.Context, a
 		&i.BillingStatus,
 		&i.BillingAnchorAt,
 		&i.LiveEndedAt,
+		&i.Reserved,
 	)
 	return i, err
 }
@@ -417,7 +420,8 @@ SELECT
   date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
   coalesce(ib.status::text, '')::text AS billing_status,
   ib.anchor_at      AS billing_anchor_at,
-  ib.live_ended_at
+  ib.live_ended_at,
+ (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved
 FROM instance i
 JOIN instance_effective_entitlement iee
   ON iee.instance_id = i.id
@@ -462,6 +466,7 @@ type GetEntitlementsUsageForInstanceWithFallbackRow struct {
 	BillingStatus           string                  `json:"billing_status"`
 	BillingAnchorAt         pgtype.Timestamp        `json:"billing_anchor_at"`
 	LiveEndedAt             pgtype.Timestamp        `json:"live_ended_at"`
+	Reserved                pgtype.Numeric          `json:"reserved"`
 }
 
 // One row per entitlement the instance is granted, read through
@@ -499,6 +504,7 @@ func (q *Queries) GetEntitlementsUsageForInstanceWithFallback(ctx context.Contex
 			&i.BillingStatus,
 			&i.BillingAnchorAt,
 			&i.LiveEndedAt,
+			&i.Reserved,
 		); err != nil {
 			return nil, err
 		}

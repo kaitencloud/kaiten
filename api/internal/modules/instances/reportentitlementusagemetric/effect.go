@@ -3,6 +3,7 @@ package reportentitlementusagemetric
 import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/events"
 	instanceevents "github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
 )
@@ -11,6 +12,10 @@ import (
 // the counter to store (nil: leave it), the events to emit, and the answer.
 // apply executes it; nothing else writes.
 type Effect struct {
+	AIRow         *db.AiInference
+	AIUpdate      bool
+	AIPhase       string
+	Replayed      bool
 	Accepted      bool
 	ReportedValue float64
 	Behavior      Behavior

@@ -106,9 +106,9 @@ func TestAICreditsMigration_ChargedRowsNeedBothBalanceSnapshots(t *testing.T) {
 				_, err := tx.Exec(ctx, `INSERT INTO ai_inference (
 					organization_id, instance_id, entitlement_id, transaction_id,
 					status, reported_at, committed_at, model_ref, request_type,
-					request_status, authorized, credits_charged, value_before, value_after, request_hash
+					request_status, authorized, credits_charged, value_before, value_after, request_hash, commit_hash
 				) VALUES ($1, $2, $3, 'charge', 'COMMITTED', now(), now(), 'model',
-					'COMPLETION', 'SUCCESS', true, 1, $4, $5, '\x01')`,
+					'COMPLETION', 'SUCCESS', true, 1, $4, $5, decode(repeat('01',32),'hex'), decode(repeat('02',32),'hex'))`,
 					organizationID, uuid.New(), uuid.New(), snapshots.before, snapshots.after)
 				if snapshots.before != nil && snapshots.after != nil {
 					if err != nil {
