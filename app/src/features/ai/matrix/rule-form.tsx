@@ -7,12 +7,12 @@ import {
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import type { ConversionRule, CreateConversionRuleBody } from '@/api-client';
+import type { ConversionRule, CreateConversionRule } from '@/api-client';
 import {
   createConversionRuleMutation,
   updateConversionRuleMutation,
 } from '@/api-client/@tanstack/react-query.gen';
-import { zCreateConversionRuleBody } from '@/api-client/zod.gen';
+import { zCreateConversionRule } from '@/api-client/zod.gen';
 import { allEntitlementsOptions } from '@/lib/api/all-pages-query-options';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,13 +34,13 @@ import {
   maximumBelowMinimum,
 } from './pricing-preview';
 
-export const ruleFormSchema = zCreateConversionRuleBody
+export const ruleFormSchema = zCreateConversionRule
   .extend({
-    chargeOnError: zCreateConversionRuleBody.shape.chargeOnError
+    chargeOnError: zCreateConversionRule.shape.chargeOnError
       .removeDefault()
       .unwrap(),
     minimumCreditsPerRequest:
-      zCreateConversionRuleBody.shape.minimumCreditsPerRequest
+      zCreateConversionRule.shape.minimumCreditsPerRequest
         .removeDefault()
         .unwrap(),
     modelSlug: z.string(),
@@ -129,7 +129,7 @@ export function RuleForm({
     } as z.infer<typeof ruleFormSchema>,
     validators: { onChange: ruleFormSchema },
     onSubmit: async ({ value }) => {
-      const body: CreateConversionRuleBody = {
+      const body: CreateConversionRule = {
         ...value,
         maximumCreditsPerRequest: value.maximumCreditsPerRequest ?? null,
         rates: Object.fromEntries(
