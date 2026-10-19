@@ -1,4 +1,7 @@
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { aiMatrixQueryKey, aiWildcardImpactQueryKey } from '@/domains/ai-credits';
+import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
+import { copyConversionRules } from '../../hooks/copy-conversion-rules';
+import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useRouteContext, useRouter } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -108,6 +111,8 @@ function useSubmitLicenseVersion({
   const { t } = useTranslation();
   const router = useRouter();
   const createVersion = useCreateLicenseVersion(entitlements);
+ const queryClient = useQueryClient();
+ const aiFlag = useQuery(aiCreditsFlagQueryOptions);
 
   return async (value: LicenseVersionFormValues) => {
     try {
@@ -131,6 +136,21 @@ function useSubmitLicenseVersion({
             baseLicense,
             body,
             copyPrices: value.copyPrices,
+            afterGrants: value.copyAiRules ? async (created) => {
+  const aiEnabled = aiFlag.data ?? await queryClient.fetchQuery(aiCreditsFlagQueryOptions);
+  if (!aiEnabled) return;
+  try {
+   const results = await copyConversionRules(baseLicense.slug!, created.slug);
+   for (const result of results) {
+    const name = `${result.rule.entitlementSlug} / ${result.rule.modelSlug ?? t('AI.anyModel')} / ${result.rule.requestType ?? t('AI.any')}`;
+    if (result.error) toast.error(t('AI.copyFailed', {name, reason: getApiErrorMessage(result.error)}));
+    else toast.success(t('AI.copySuccess', {name}));
+   }
+   if (results.some((result) => result.error)) throw new Error(t('AI.copyPartial'));
+  } finally {
+   await Promise.all([queryClient.invalidateQueries({queryKey: aiMatrixQueryKey}), queryClient.invalidateQueries({queryKey: aiWildcardImpactQueryKey})]);
+  }
+ } : undefined,
             draftEntitlements,
           }),
         {

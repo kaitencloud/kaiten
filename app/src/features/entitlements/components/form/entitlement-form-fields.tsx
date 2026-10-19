@@ -1,3 +1,5 @@
+import { useQuery } from '@tanstack/react-query';
+import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
 import { IconPicker } from '@/components/ui/icon-picker';
 import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
@@ -254,6 +256,14 @@ export function EntitlementTypeFields({
   form,
 }: EntitlementTypeFieldsProps) {
   const { t } = useTranslation();
+  const { data: aiEnabled } = useQuery(aiCreditsFlagQueryOptions);
+  const typeOptions =
+    aiEnabled || entitlement?.type === 'NUMBER_AI_CREDIT'
+      ? [
+          ...entitlementTypeOptions,
+          { label: t('AI.credits'), value: 'NUMBER_AI_CREDIT' },
+        ]
+      : entitlementTypeOptions;
 
   return (
     <div className={cn(className)}>
@@ -268,7 +278,7 @@ export function EntitlementTypeFields({
             description={t(
               'Pages.Entitlements.Mutation.Form.Descriptions.type',
             )}
-            options={entitlementTypeOptions}
+            options={typeOptions}
             getOptionValue={getSelectOptionValue}
             getOptionLabel={(option: unknown) => t(getSelectOptionLabel(option))}
             disabled={Boolean(entitlement)}
@@ -277,7 +287,7 @@ export function EntitlementTypeFields({
       </form.AppField>
       <form.Subscribe selector={(state: any) => state.values.type}>
         {(type: string) =>
-          type === 'NUMBER' ? (
+          type === 'NUMBER' || type === 'NUMBER_AI_CREDIT' ? (
             <>
               <form.AppField name="aggregationMethod">
                 {(field: any) => (
@@ -289,13 +299,40 @@ export function EntitlementTypeFields({
                       'Pages.Entitlements.Mutation.Form.Placeholders.aggregationMethod',
                     )}
                     description={t(
-                      'Pages.Entitlements.Mutation.Form.Descriptions.aggregationMethod',
+                      type === 'NUMBER_AI_CREDIT'
+                        ? 'AI.sumRequired'
+                        : 'Pages.Entitlements.Mutation.Form.Descriptions.aggregationMethod',
                     )}
                     options={aggregationMethodOptions}
                     getOptionValue={getSelectOptionValue}
                     getOptionLabel={(option: unknown) => t(getSelectOptionLabel(option))}
-                    disabled={Boolean(entitlement)}
+                    disabled={
+                      Boolean(entitlement) || type === 'NUMBER_AI_CREDIT'
+                    }
                   />
+                )}
+              </form.AppField>
+              <form.AppField name="warningThresholdPercent">
+                {() => (
+                  <FormField<number | undefined>
+                    label={t('AI.warningThreshold')}
+                  >
+                    {(field) => (
+                      <FormControl>
+                        <NumberInput
+                          value={field.value ?? null}
+                          min={0}
+                          max={100}
+                          step={1}
+                          onValueChange={(value) =>
+                            field.handleChange(value ?? undefined)
+                          }
+                          onBlur={field.handleBlur}
+                          aria-invalid={field.hasError}
+                        />
+                      </FormControl>
+                    )}
+                  </FormField>
                 )}
               </form.AppField>
               <EntitlementResetPeriodFields

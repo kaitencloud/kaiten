@@ -1,4 +1,132 @@
 export default {
+  AI: {
+    slugInvalid:
+      'Use at least two lowercase letters, digits or hyphens; start and end with a letter or digit.',
+    Errors: {
+      slugConflict: 'This model slug is already used.',
+      externalIdConflict:
+        'A provider identifier conflicts with another model or its slug.',
+      immutableSlug: 'The model slug cannot change.',
+      immutableModality: 'The model modality cannot change.',
+      modelInUse:
+        'A conversion rule references this model. Archive it or remove its rules first.',
+      modelNotFound: 'This model no longer exists.',
+      ruleConflict:
+        'An active rule already prices this version, pool, model and request type.',
+      notCreditPool: 'Select an AI credit pool with SUM aggregation.',
+      modelDeprecated: 'Deprecated models cannot receive new rules.',
+      modelArchived:
+        'Archived models cannot authorize usage or receive new rules.',
+      ruleArchived: 'An archived rule cannot be edited. Create a new rule.',
+      immutableRule:
+        'Rule identity is fixed. Archive this rule and create a new one to change it.',
+      ruleNotFound: 'This conversion rule no longer exists.',
+      invalidRange: 'The start date must precede the end date.',
+      appendOnly:
+        'AI credit pools accept only appended consumption or refunds.',
+    },
+    nameRequired: 'Name is required',
+    vendorRequired: 'Vendor is required',
+    title: 'AI credits',
+    credits: 'Credits',
+    name: 'Name',
+    slug: 'Slug',
+    vendor: 'Vendor',
+    modality: 'Modality',
+    status: 'Status',
+    description: 'Description',
+    model: 'Model',
+    pool: 'Credit pool',
+    requestType: 'Request type',
+    any: 'All request types',
+    anyModel: 'Any model',
+    saved: 'Saved successfully',
+    sumRequired:
+      'AI credit pools always sum consumption and refunds. Aggregation is fixed to SUM.',
+    warningThreshold: 'Warning threshold (%)',
+    wildcardWarning:
+      'Wildcard rules price every non-archived catalogue model, including models created in the future. The versions and pools below may authorize this new model immediately.',
+    noRate:
+      'At least one non-negative rate is required. Leave a rate blank to leave that dimension unpriced.',
+    invalidMaximum:
+      'Maximum credits must be greater than or equal to the minimum.',
+    copyRules: 'Copy AI conversion rules from the base version',
+    copyDescription:
+      'Rules are copied after grants and before publication. Each result is reported; a partial copy leaves this version as a draft.',
+    copySuccess: 'Copied rule: {{name}}',
+    copyFailed: 'Could not copy {{name}}: {{reason}}',
+    copyPartial:
+      'Some conversion rules could not be copied. Review this draft before publishing.',
+    rates: {
+      perRequest: 'Per request',
+      perInputToken: 'Per input token',
+      perCachedInputToken: 'Per cached input token',
+      perCacheWriteToken: 'Per cache-write token',
+      perOutputToken: 'Per output token',
+      perUnit: 'Per unit',
+      perSecond: 'Per second',
+    },
+    Models: {
+      title: 'Models',
+      create: 'Create model',
+      edit: 'Edit model',
+      externalIds: 'Provider identifiers (one per line)',
+      costs: 'Vendor costs (USD)',
+      lifecycle:
+        'ACTIVE allows new rules. DEPRECATED keeps existing rules but rejects new ones. ARCHIVED authorizes no usage, including through wildcards. Status changes are reversible; slug and modality are immutable.',
+    },
+    Matrix: {
+      title: 'Conversion matrix',
+      family: 'License family',
+      version: 'Version / lifecycle',
+      create: 'Add rule',
+      edit: 'Edit rule',
+      archive: 'Archive',
+      archiveWarning:
+        'This rule will stop pricing new usage. Existing inference records are unchanged.',
+      notGranted:
+        'This version does not grant this pool. The rule prices nothing until the pool is granted.',
+      preview: 'Typical successful call',
+      typicalUsage:
+        'Synthetic example: 1,000 input + 200 cached + 100 cache-write + 500 output tokens, one unit, one second.',
+      previewOnly:
+        'Illustrative only; the server applies the final policy, limits and rounding.',
+      costUnknown: 'Not available (select a model with vendor costs)',
+      preset: 'Rate vector preset',
+      ladder:
+        'Resolution specificity (exact typed → exact all → any typed → any all)',
+      cachedFallback:
+        'Blank cached/cache-write rates fall back to the input-token rate. Presets only fill rates; they are not API conversion types.',
+      minimum: 'Minimum credits per request',
+      maximum: 'Maximum credits per request (blank = no cap)',
+      chargeOnError: 'Charge on error',
+    },
+    Usage: {
+      title: 'AI usage',
+      record: 'Immutable record',
+      time: 'Reported at',
+      requestStatus: 'Request status',
+      authorization: 'Authorization',
+      unauthorized: 'Unauthorized',
+      authorized: 'Authorized',
+      computed: 'Computed',
+      charged: 'Charged',
+      reserved: 'Reserved',
+      expires: 'Expires at',
+      consumed: 'Consumed',
+      limit: 'Limit',
+      maximum: 'Maximum allowed',
+      unlimited: 'Unlimited',
+      lifetime: 'Lifetime window',
+      reservations: 'Open, unexpired reservations',
+      feed: 'Inference feed',
+      transaction: 'Transaction ID',
+      from: 'From',
+      to: 'To',
+      more: 'Load older inferences',
+      noPools: 'This instance has no AI credit pools.',
+    },
+  },
   Common: {
     stepOf: 'Step {{current}} of {{total}}',
     viewList: 'View the list',
@@ -4141,6 +4269,10 @@ export default {
             },
           },
           Resources: {
+            models: {
+              label: 'Models',
+              description: 'Manage the AI model catalogue',
+            },
             components: {
               label: 'Components',
               description: 'Access to component versions shipped in releases',
@@ -4263,6 +4395,7 @@ export default {
           history: 'History',
         },
         EventGroups: {
+          model: 'Models',
           customer: 'Customers',
           instance: 'Instances',
           license: 'Licenses',
@@ -6924,6 +7057,15 @@ export default {
         CHECKOUT_SESSION_ABANDONED: 'Checkout abandoned',
         CHECKOUT_SESSION_COMPLETED: 'Checkout completed',
         CHECKOUT_SESSION_STARTED: 'Checkout started',
+        MODEL_CREATED: 'Model created',
+        MODEL_UPDATED: 'Model updated',
+        MODEL_DELETED: 'Model deleted',
+        LICENSE_CONVERSION_RULE_CREATED: 'Conversion rule created',
+        LICENSE_CONVERSION_RULE_UPDATED: 'Conversion rule updated',
+        LICENSE_CONVERSION_RULE_ARCHIVED: 'Conversion rule archived',
+        INSTANCE_ENTITLEMENT_MAXIMUM_EXCEEDED: 'Maximum allowed usage exceeded',
+        INSTANCE_AI_MODEL_USAGE_UNAUTHORIZED: 'AI model usage unauthorized',
+
         COMPONENT_CREATED: 'Component added',
         COMPONENT_DELETED: 'Component deleted',
         COMPONENT_UPDATED: 'Component updated',

@@ -351,6 +351,12 @@ describe('EntitlementForm', () => {
       expect(screen.queryByText('Common.next')).not.toBeInTheDocument();
     });
 
+    it('keeps the meter configuration step for an AI credit entitlement', () => {
+      const pool = { id: 'ai-pool', name: 'AI pool', slug: 'ai-pool', type: 'NUMBER_AI_CREDIT', aggregationMethod: 'SUM' } as Entitlement;
+      render(<EntitlementForm layout="dialog" entitlement={pool} />, { wrapper: createWrapper() });
+      expect(screen.getByTestId('field-type')).toBeInTheDocument();
+    });
+
     it('keeps the type step when editing a NUMBER entitlement', () => {
       const numberEntitlement: Entitlement = {
         id: '1',

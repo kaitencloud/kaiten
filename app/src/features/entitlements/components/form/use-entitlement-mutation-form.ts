@@ -123,10 +123,20 @@ export const useEntitlementMutationForm = (
     validators: {
       onChange: entitlementFormSchema,
     },
+    listeners: {
+      onChange: ({ formApi }) => {
+        if (
+          formApi.state.values.type === 'NUMBER_AI_CREDIT' &&
+          formApi.state.values.aggregationMethod !== 'SUM'
+        )
+          formApi.setFieldValue('aggregationMethod', 'SUM');
+      },
+    },
     onSubmit: async ({ formApi, value }) => {
       setRefusal(null);
       try {
         const body = entitlementFormValuesToBody(value, openedEntitlement);
+ if (body.type === "NUMBER_AI_CREDIT") body.aggregationMethod = "SUM";
 
         // An update may answer with no body; the entitlement being edited
         // then stands in, since only its slug is needed downstream.
